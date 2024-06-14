@@ -107,7 +107,6 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	// add top level commands
 	rootCmd.AddCommand(NewConnectCmd(globalFlags))
 	rootCmd.AddCommand(NewCreateCmd(globalFlags))
-	rootCmd.AddCommand(NewImportCmd(globalFlags))
 	rootCmd.AddCommand(NewListCmd(globalFlags))
 	rootCmd.AddCommand(NewDeleteCmd(globalFlags))
 	rootCmd.AddCommand(NewPauseCmd(globalFlags))

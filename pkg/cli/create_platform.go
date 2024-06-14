@@ -10,7 +10,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
-	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/log"
@@ -204,9 +203,9 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 				Description: options.Description,
 				DisplayName: options.DisplayName,
 				Template: &storagev1.VirtualClusterTemplateDefinition{
-					VirtualClusterCommonSpec: agentstoragev1.VirtualClusterCommonSpec{
-						HelmRelease: agentstoragev1.VirtualClusterHelmRelease{
-							Chart: agentstoragev1.VirtualClusterHelmChart{
+					VirtualClusterCommonSpec: storagev1.VirtualClusterCommonSpec{
+						HelmRelease: storagev1.VirtualClusterHelmRelease{
+							Chart: storagev1.VirtualClusterHelmChart{
 								Name:    options.ChartName,
 								Repo:    options.ChartRepo,
 								Version: options.ChartVersion,
@@ -214,7 +213,7 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 							Values: helmValues,
 						},
 						ForwardToken: true,
-						Pro: agentstoragev1.VirtualClusterProSpec{
+						Pro: storagev1.VirtualClusterProSpec{
 							Enabled: true,
 						},
 					},

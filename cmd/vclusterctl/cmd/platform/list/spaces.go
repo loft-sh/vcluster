@@ -77,32 +77,6 @@ func (cmd *NamespacesCmd) RunSpaces(ctx context.Context) error {
 			duration.HumanDuration(time.Since(space.SpaceInstance.CreationTimestamp.Time)),
 		})
 	}
-	if len(spaceInstances) == 0 {
-		spaces, err := platform.GetSpaces(ctx, platformClient, cmd.log)
-		if err != nil {
-			return err
-		}
-		for _, space := range spaces {
-			sleepModeConfig := space.Status.SleepModeConfig
-			sleeping := "false"
-			if sleepModeConfig.Status.SleepingSince != 0 {
-				sleeping = duration.HumanDuration(time.Since(time.Unix(sleepModeConfig.Status.SleepingSince, 0)))
-			}
-			spaceName := space.Name
-			if space.Annotations != nil && space.Annotations["loft.sh/display-name"] != "" {
-				spaceName = space.Annotations["loft.sh/display-name"] + " (" + spaceName + ")"
-			}
-
-			values = append(values, []string{
-				spaceName,
-				"",
-				space.Cluster,
-				sleeping,
-				string(space.Space.Status.Phase),
-				duration.HumanDuration(time.Since(space.Space.CreationTimestamp.Time)),
-			})
-		}
-	}
 
 	table.PrintTable(cmd.log, header, values)
 	return nil

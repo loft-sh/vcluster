@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
+	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -80,7 +80,7 @@ func (cmd *NamespaceCmd) Run(ctx context.Context, args []string) error {
 		spaceName = args[0]
 	}
 
-	cmd.Cluster, cmd.Project, spaceName, err = platform.SelectSpaceInstanceOrSpace(ctx, platformClient, spaceName, cmd.Project, cmd.Cluster, cmd.Log)
+	cmd.Cluster, cmd.Project, spaceName, err = platform.SelectSpaceInstance(ctx, platformClient, spaceName, cmd.Project, cmd.Log)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (cmd *NamespaceCmd) shareSpace(ctx context.Context, platformClient platform
 		return err
 	}
 
-	accessRule := agentstoragev1.InstanceAccessRule{
+	accessRule := storagev1.InstanceAccessRule{
 		ClusterRole: cmd.ClusterRole,
 	}
 	if cmd.User != "" {

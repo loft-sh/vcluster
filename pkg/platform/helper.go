@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -15,7 +14,7 @@ import (
 	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/api/v4/pkg/client/clientset_generated/clientset/scheme"
+	"github.com/loft-sh/api/v4/pkg/clientset/versioned/scheme"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
@@ -24,7 +23,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/util"
-	"github.com/mgutz/ansi"
 	perrors "github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -156,12 +154,7 @@ func SelectSpaceTemplate(ctx context.Context, client Client, projectName, templa
 	return nil, fmt.Errorf("answer not found")
 }
 
-func SelectVirtualClusterInstanceOrVirtualCluster(ctx context.Context, client Client, virtualClusterName, spaceName, projectName, clusterName string, log log.Logger) (string, string, string, string, error) {
-	if clusterName != "" || spaceName != "" {
-		virtualCluster, space, cluster, err := SelectVirtualClusterAndSpaceAndClusterName(ctx, client, virtualClusterName, spaceName, clusterName, log)
-		return cluster, "", space, virtualCluster, err
-	}
-
+func SelectVirtualClusterInstance(ctx context.Context, client Client, virtualClusterName, projectName string, log log.Logger) (string, string, string, string, error) {
 	managementClient, err := client.Management()
 	if err != nil {
 		return "", "", "", "", err
@@ -183,8 +176,7 @@ func SelectVirtualClusterInstanceOrVirtualCluster(ctx context.Context, client Cl
 	} else {
 		projectsList, err := managementClient.Loft().ManagementV1().Projects().List(ctx, metav1.ListOptions{})
 		if err != nil || len(projectsList.Items) == 0 {
-			virtualCluster, space, cluster, err := SelectVirtualClusterAndSpaceAndClusterName(ctx, client, virtualClusterName, spaceName, clusterName, log)
-			return cluster, "", space, virtualCluster, err
+			return "", "", "", "", fmt.Errorf("no projects found you have access to")
 		}
 
 		for _, p := range projectsList.Items {
@@ -248,12 +240,7 @@ func SelectVirtualClusterInstanceOrVirtualCluster(ctx context.Context, client Cl
 	return "", "", "", "", fmt.Errorf("couldn't find answer")
 }
 
-func SelectSpaceInstanceOrSpace(ctx context.Context, client Client, spaceName, projectName, clusterName string, log log.Logger) (string, string, string, error) {
-	if clusterName != "" {
-		space, cluster, err := SelectSpaceAndClusterName(ctx, client, spaceName, clusterName, log)
-		return cluster, "", space, err
-	}
-
+func SelectSpaceInstance(ctx context.Context, client Client, spaceName, projectName string, log log.Logger) (string, string, string, error) {
 	managementClient, err := client.Management()
 	if err != nil {
 		return "", "", "", err
@@ -275,8 +262,7 @@ func SelectSpaceInstanceOrSpace(ctx context.Context, client Client, spaceName, p
 	} else {
 		projectsList, err := managementClient.Loft().ManagementV1().Projects().List(ctx, metav1.ListOptions{})
 		if err != nil || len(projectsList.Items) == 0 {
-			space, cluster, err := SelectSpaceAndClusterName(ctx, client, spaceName, clusterName, log)
-			return cluster, "", space, err
+			return "", "", "", fmt.Errorf("no projects found you have access to")
 		}
 
 		for _, p := range projectsList.Items {
@@ -501,181 +487,6 @@ func SelectProjectCluster(ctx context.Context, client Client, project *managemen
 	return "", fmt.Errorf("answer not found")
 }
 
-// SelectUserOrTeam lets the user select an user or team in a cluster
-func SelectUserOrTeam(ctx context.Context, client Client, clusterName string, log log.Logger) (*clusterv1.EntityInfo, *clusterv1.EntityInfo, error) {
-	managementClient, err := client.Management()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	clusterAccess, err := managementClient.Loft().ManagementV1().Clusters().ListAccess(ctx, clusterName, metav1.GetOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var user *clusterv1.EntityInfo
-	if len(clusterAccess.Users) > 0 {
-		user = &clusterAccess.Users[0].Info
-	}
-
-	teams := []*clusterv1.EntityInfo{}
-	for _, team := range clusterAccess.Teams {
-		t := team
-		teams = append(teams, &t.Info)
-	}
-
-	if user == nil && len(teams) == 0 {
-		return nil, nil, fmt.Errorf("the user has no access to cluster %s", clusterName)
-	} else if user != nil && len(teams) == 0 {
-		return user, nil, nil
-	} else if user == nil && len(teams) == 1 {
-		return nil, teams[0], nil
-	}
-
-	names := []string{}
-	if user != nil {
-		names = append(names, "User "+clihelper.DisplayName(user))
-	}
-	for _, t := range teams {
-		names = append(names, "Team "+clihelper.DisplayName(t))
-	}
-
-	answer, err := log.Question(&survey.QuestionOptions{
-		Question:     "Please choose a user or team to use",
-		DefaultValue: names[0],
-		Options:      names,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if user != nil && "User "+clihelper.DisplayName(user) == answer {
-		return user, nil, nil
-	}
-	for _, t := range teams {
-		if "Team "+clihelper.DisplayName(t) == answer {
-			return nil, t, nil
-		}
-	}
-
-	return nil, nil, fmt.Errorf("answer not found")
-}
-
-type ClusterUserOrTeam struct {
-	Team          bool
-	ClusterMember managementv1.ClusterMember
-}
-
-func SelectClusterUserOrTeam(ctx context.Context, client Client, clusterName, userName, teamName string, log log.Logger) (*ClusterUserOrTeam, error) {
-	if userName != "" && teamName != "" {
-		return nil, fmt.Errorf("team and user specified, please only choose one")
-	}
-
-	managementClient, err := client.Management()
-	if err != nil {
-		return nil, err
-	}
-
-	members, err := managementClient.Loft().ManagementV1().Clusters().ListMembers(ctx, clusterName, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("retrieve cluster members: %w", err)
-	}
-
-	matchedMembers := []ClusterUserOrTeam{}
-	optionsUnformatted := [][]string{}
-	for _, user := range members.Users {
-		if teamName != "" {
-			continue
-		} else if userName != "" && user.Info.Name != userName {
-			continue
-		}
-
-		matchedMembers = append(matchedMembers, ClusterUserOrTeam{
-			ClusterMember: user,
-		})
-		displayName := user.Info.DisplayName
-		if displayName == "" {
-			displayName = user.Info.Name
-		}
-
-		optionsUnformatted = append(optionsUnformatted, []string{"User: " + displayName, "Kube User: " + user.Info.Name})
-	}
-	for _, team := range members.Teams {
-		if userName != "" {
-			continue
-		} else if teamName != "" && team.Info.Name != teamName {
-			continue
-		}
-
-		matchedMembers = append(matchedMembers, ClusterUserOrTeam{
-			Team:          true,
-			ClusterMember: team,
-		})
-		displayName := team.Info.DisplayName
-		if displayName == "" {
-			displayName = team.Info.Name
-		}
-
-		optionsUnformatted = append(optionsUnformatted, []string{"Team: " + displayName, "Kube Team: " + team.Info.Name})
-	}
-
-	questionOptions := formatOptions("%s | %s", optionsUnformatted)
-	if len(questionOptions) == 0 {
-		if userName == "" && teamName == "" {
-			return nil, fmt.Errorf("couldn't find any space")
-		} else if userName != "" {
-			return nil, fmt.Errorf("couldn't find user %s in cluster %s", ansi.Color(userName, "white+b"), ansi.Color(clusterName, "white+b"))
-		}
-
-		return nil, fmt.Errorf("couldn't find team %s in cluster %s", ansi.Color(teamName, "white+b"), ansi.Color(clusterName, "white+b"))
-	} else if len(questionOptions) == 1 {
-		return &matchedMembers[0], nil
-	}
-
-	selectedMember, err := log.Question(&survey.QuestionOptions{
-		Question:     "Please choose a user or team",
-		DefaultValue: questionOptions[0],
-		Options:      questionOptions,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	for idx, s := range questionOptions {
-		if s == selectedMember {
-			return &matchedMembers[idx], nil
-		}
-	}
-
-	return nil, fmt.Errorf("selected question option not found")
-}
-
-func GetVirtualClusterInstances(ctx context.Context, client Client) ([]*VirtualClusterInstanceProject, error) {
-	managementClient, err := client.Management()
-	if err != nil {
-		return nil, err
-	}
-
-	projectList, err := managementClient.Loft().ManagementV1().Projects().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	var retVClusters []*VirtualClusterInstanceProject
-	for _, project := range projectList.Items {
-		p := &project
-
-		virtualClusterInstances, err := getProjectVirtualClusterInstances(ctx, managementClient, p)
-		if err != nil {
-			return nil, err
-		}
-
-		retVClusters = append(retVClusters, virtualClusterInstances...)
-	}
-
-	return retVClusters, nil
-}
-
 func CanAccessProjectSecret(ctx context.Context, managementClient kube.Interface, namespace, name string) (bool, error) {
 	return CanAccessInstance(ctx, managementClient, namespace, name, "projectsecrets")
 }
@@ -782,174 +593,7 @@ func GetProjectSecrets(ctx context.Context, managementClient kube.Interface, pro
 	return retSecrets, nil
 }
 
-type ClusterSpace struct {
-	clusterv1.Space
-	Cluster string
-}
-
-// GetSpaces returns all spaces accessible by the user or team
-func GetSpaces(ctx context.Context, client Client, log log.Logger) ([]ClusterSpace, error) {
-	managementClient, err := client.Management()
-	if err != nil {
-		return nil, err
-	}
-
-	clusterList, err := managementClient.Loft().ManagementV1().Clusters().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	spaceList := []ClusterSpace{}
-	for _, cluster := range clusterList.Items {
-		clusterClient, err := client.Cluster(cluster.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		spaces, err := clusterClient.Agent().ClusterV1().Spaces().List(ctx, metav1.ListOptions{})
-		if err != nil {
-			if kerrors.IsForbidden(err) {
-				continue
-			}
-
-			log.Warnf("Error retrieving spaces from cluster %s: %v", clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName), err)
-			continue
-		}
-
-		for _, space := range spaces.Items {
-			spaceList = append(spaceList, ClusterSpace{
-				Space:   space,
-				Cluster: cluster.Name,
-			})
-		}
-	}
-	sort.Slice(spaceList, func(i, j int) bool {
-		return spaceList[i].Name < spaceList[j].Name
-	})
-
-	return spaceList, nil
-}
-
-type ClusterVirtualCluster struct {
-	clusterv1.VirtualCluster
-	Cluster string
-}
-
-// GetVirtualClusters returns all virtual clusters the user has access to
-func GetVirtualClusters(ctx context.Context, client Client, log log.Logger) ([]ClusterVirtualCluster, error) {
-	managementClient, err := client.Management()
-	if err != nil {
-		return nil, err
-	}
-
-	clusterList, err := managementClient.Loft().ManagementV1().Clusters().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	virtualClusterList := []ClusterVirtualCluster{}
-	for _, cluster := range clusterList.Items {
-		clusterClient, err := client.Cluster(cluster.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		virtualClusters, err := clusterClient.Agent().ClusterV1().VirtualClusters("").List(ctx, metav1.ListOptions{})
-		if err != nil {
-			if kerrors.IsForbidden(err) {
-				continue
-			}
-
-			log.Warnf("Error retrieving virtual clusters from cluster %s: %v", clihelper.GetDisplayName(cluster.Name, cluster.Spec.DisplayName), err)
-			continue
-		}
-
-		for _, virtualCluster := range virtualClusters.Items {
-			virtualClusterList = append(virtualClusterList, ClusterVirtualCluster{
-				VirtualCluster: virtualCluster,
-				Cluster:        cluster.Name,
-			})
-		}
-	}
-	sort.Slice(virtualClusterList, func(i, j int) bool {
-		return virtualClusterList[i].Name < virtualClusterList[j].Name
-	})
-
-	return virtualClusterList, nil
-}
-
-// SelectSpaceAndClusterName selects a space and cluster name
-func SelectSpaceAndClusterName(ctx context.Context, client Client, spaceName, clusterName string, log log.Logger) (string, string, error) {
-	spaces, err := GetSpaces(ctx, client, log)
-	if err != nil {
-		return "", "", err
-	}
-
-	currentContext, err := kubeconfig.CurrentContext()
-	if err != nil {
-		return "", "", fmt.Errorf("loading kubernetes config: %w", err)
-	}
-
-	isLoftContext, cluster, namespace, vCluster := kubeconfig.ParseContext(currentContext)
-	matchedSpaces := []ClusterSpace{}
-	questionOptionsUnformatted := [][]string{}
-	defaultIndex := 0
-	for _, space := range spaces {
-		if spaceName != "" && space.Space.Name != spaceName {
-			continue
-		} else if clusterName != "" && space.Cluster != clusterName {
-			continue
-		} else if len(matchedSpaces) > 20 {
-			break
-		}
-
-		if isLoftContext && vCluster == "" && cluster == space.Cluster && namespace == space.Space.Name {
-			defaultIndex = len(questionOptionsUnformatted)
-		}
-
-		matchedSpaces = append(matchedSpaces, space)
-		spaceName := space.Space.Name
-		if space.Space.Annotations != nil && space.Space.Annotations["loft.sh/display-name"] != "" {
-			spaceName = space.Space.Annotations["loft.sh/display-name"] + " (" + spaceName + ")"
-		}
-
-		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{spaceName, space.Cluster})
-	}
-
-	questionOptions := formatOptions("Space: %s | Cluster: %s", questionOptionsUnformatted)
-	if len(questionOptions) == 0 {
-		if spaceName == "" {
-			return "", "", fmt.Errorf("couldn't find any space")
-		} else if clusterName != "" {
-			return "", "", fmt.Errorf("couldn't find space %s in cluster %s", ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
-		}
-
-		return "", "", fmt.Errorf("couldn't find space %s", ansi.Color(spaceName, "white+b"))
-	} else if len(questionOptions) == 1 {
-		return matchedSpaces[0].Space.Name, matchedSpaces[0].Cluster, nil
-	}
-
-	selectedSpace, err := log.Question(&survey.QuestionOptions{
-		Question:     "Please choose a space",
-		DefaultValue: questionOptions[defaultIndex],
-		Options:      questionOptions,
-	})
-	if err != nil {
-		return "", "", err
-	}
-
-	for idx, s := range questionOptions {
-		if s == selectedSpace {
-			clusterName = matchedSpaces[idx].Cluster
-			spaceName = matchedSpaces[idx].Space.Name
-			break
-		}
-	}
-
-	return spaceName, clusterName, nil
-}
-
-func GetCurrentUser(ctx context.Context, managementClient kube.Interface) (*managementv1.UserInfo, *clusterv1.EntityInfo, error) {
+func GetCurrentUser(ctx context.Context, managementClient kube.Interface) (*managementv1.UserInfo, *storagev1.EntityInfo, error) {
 	self, err := managementClient.Loft().ManagementV1().Selves().Create(ctx, &managementv1.Self{}, metav1.CreateOptions{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("get self: %w", err)
@@ -958,79 +602,6 @@ func GetCurrentUser(ctx context.Context, managementClient kube.Interface) (*mana
 	}
 
 	return self.Status.User, self.Status.Team, nil
-}
-
-func SelectVirtualClusterAndSpaceAndClusterName(ctx context.Context, client Client, virtualClusterName, spaceName, clusterName string, log log.Logger) (string, string, string, error) {
-	virtualClusters, err := GetVirtualClusters(ctx, client, log)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	currentContext, err := kubeconfig.CurrentContext()
-	if err != nil {
-		return "", "", "", fmt.Errorf("loading kubernetes config: %w", err)
-	}
-
-	isLoftContext, cluster, namespace, vCluster := kubeconfig.ParseContext(currentContext)
-	matchedVClusters := []ClusterVirtualCluster{}
-	questionOptionsUnformatted := [][]string{}
-	defaultIndex := 0
-	for _, virtualCluster := range virtualClusters {
-		if virtualClusterName != "" && virtualCluster.VirtualCluster.Name != virtualClusterName {
-			continue
-		} else if spaceName != "" && virtualCluster.VirtualCluster.Namespace != spaceName {
-			continue
-		} else if clusterName != "" && virtualCluster.Cluster != clusterName {
-			continue
-		}
-
-		if isLoftContext && vCluster == virtualCluster.VirtualCluster.Name && cluster == virtualCluster.Cluster && namespace == virtualCluster.VirtualCluster.Namespace {
-			defaultIndex = len(questionOptionsUnformatted)
-		}
-
-		matchedVClusters = append(matchedVClusters, virtualCluster)
-		vClusterName := virtualCluster.VirtualCluster.Name
-		if virtualCluster.VirtualCluster.Annotations != nil && virtualCluster.VirtualCluster.Annotations["loft.sh/display-name"] != "" {
-			vClusterName = virtualCluster.VirtualCluster.Annotations["loft.sh/display-name"] + " (" + vClusterName + ")"
-		}
-
-		questionOptionsUnformatted = append(questionOptionsUnformatted, []string{vClusterName, virtualCluster.VirtualCluster.Namespace, virtualCluster.Cluster})
-	}
-
-	questionOptions := formatOptions("vCluster: %s | Space: %s | Cluster: %s", questionOptionsUnformatted)
-	if len(questionOptions) == 0 {
-		if virtualClusterName == "" {
-			return "", "", "", fmt.Errorf("couldn't find any virtual cluster")
-		} else if spaceName != "" {
-			return "", "", "", fmt.Errorf("couldn't find virtualcluster %s in space %s in cluster %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
-		} else if clusterName != "" {
-			return "", "", "", fmt.Errorf("couldn't find virtualcluster %s in space %s in cluster %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(spaceName, "white+b"), ansi.Color(clusterName, "white+b"))
-		}
-
-		return "", "", "", fmt.Errorf("couldn't find virtual cluster %s", ansi.Color(virtualClusterName, "white+b"))
-	} else if len(questionOptions) == 1 {
-		return matchedVClusters[0].VirtualCluster.Name, matchedVClusters[0].VirtualCluster.Namespace, matchedVClusters[0].Cluster, nil
-	}
-
-	selectedSpace, err := log.Question(&survey.QuestionOptions{
-		Question:     "Please choose a virtual cluster to use",
-		DefaultValue: questionOptions[defaultIndex],
-		Options:      questionOptions,
-	})
-	if err != nil {
-		return "", "", "", err
-	}
-
-	for idx, s := range questionOptions {
-		if s == selectedSpace {
-			clusterName = matchedVClusters[idx].Cluster
-			virtualClusterName = matchedVClusters[idx].VirtualCluster.Name
-			spaceName = matchedVClusters[idx].VirtualCluster.Namespace
-			break
-		}
-	}
-
-	return virtualClusterName, spaceName, clusterName, nil
 }
 
 func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, waitUntilReady bool, log log.Logger) (*managementv1.SpaceInstance, error) {

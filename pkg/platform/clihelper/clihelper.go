@@ -18,9 +18,8 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	loftclientset "github.com/loft-sh/api/v4/pkg/client/clientset_generated/clientset"
+	loftclientset "github.com/loft-sh/api/v4/pkg/clientset/versioned"
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
@@ -89,7 +88,7 @@ func GetTableDisplayName(name string, displayName string) string {
 	return name
 }
 
-func DisplayName(entityInfo *clusterv1.EntityInfo) string {
+func DisplayName(entityInfo *storagev1.EntityInfo) string {
 	if entityInfo == nil {
 		return ""
 	} else if entityInfo.DisplayName != "" {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
+	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -90,7 +90,7 @@ func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	accessRule := agentstoragev1.InstanceAccessRule{
+	accessRule := storagev1.InstanceAccessRule{
 		ClusterRole: cmd.ClusterRole,
 	}
 	if cmd.User != "" {
