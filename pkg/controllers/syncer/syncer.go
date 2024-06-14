@@ -393,7 +393,7 @@ func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
 		}).
 		Named(r.syncer.Name()).
 		Watches(r.syncer.Resource(), newEventHandler(r.enqueueVirtual)).
-		WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), r.syncer.Resource()), newEventHandler(r.enqueuePhysical))
+		WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), r.syncer.Resource(), newEventHandler(r.enqueuePhysical)))
 
 	// should add extra stuff?
 	modifier, isControllerModifier := r.syncer.(syncertypes.ControllerModifier)

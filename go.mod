@@ -28,8 +28,8 @@ require (
 	github.com/moby/locker v1.0.1
 	github.com/moby/term v0.5.0
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/ginkgo/v2 v2.15.0
-	github.com/onsi/gomega v1.31.1
+	github.com/onsi/ginkgo/v2 v2.17.1
+	github.com/onsi/gomega v1.32.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.46.0
@@ -49,21 +49,21 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
 	gotest.tools/v3 v3.5.1
-	k8s.io/api v0.29.1
-	k8s.io/apiextensions-apiserver v0.29.1
-	k8s.io/apimachinery v0.29.1
-	k8s.io/apiserver v0.29.1
-	k8s.io/cli-runtime v0.29.1
-	k8s.io/client-go v0.29.1
-	k8s.io/component-helpers v0.29.1
+	k8s.io/api v0.30.2
+	k8s.io/apiextensions-apiserver v0.30.2
+	k8s.io/apimachinery v0.30.2
+	k8s.io/apiserver v0.30.2
+	k8s.io/cli-runtime v0.30.2
+	k8s.io/client-go v0.30.2
+	k8s.io/component-helpers v0.30.2
 	k8s.io/klog/v2 v2.120.1
-	k8s.io/kube-aggregator v0.29.1
-	k8s.io/kubectl v0.29.1
-	k8s.io/kubelet v0.29.1
-	k8s.io/metrics v0.29.1
-	k8s.io/pod-security-admission v0.29.1
+	k8s.io/kube-aggregator v0.30.2
+	k8s.io/kubectl v0.30.2
+	k8s.io/kubelet v0.30.2
+	k8s.io/metrics v0.30.2
+	k8s.io/pod-security-admission v0.30.2
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
-	sigs.k8s.io/controller-runtime v0.17.2
+	sigs.k8s.io/controller-runtime v0.18.4
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -81,12 +81,12 @@ require (
 	github.com/docker/docker-credential-helpers v0.8.1 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20191028211022-135eb7262960 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.2 // indirect
-	github.com/evanphx/json-patch/v5 v5.8.1 // indirect
+	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/frankban/quicktest v1.14.5 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/google/cel-go v0.17.7 // indirect
+	github.com/google/cel-go v0.17.8 // indirect
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
@@ -107,7 +107,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.22.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240116215550-a9fa1716bcac // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240116215550-a9fa1716bcac // indirect
-	k8s.io/kms v0.29.1 // indirect
+	k8s.io/kms v0.30.2 // indirect
 	mvdan.cc/sh/v3 v3.6.0 // indirect
 )
 
@@ -139,7 +139,7 @@ require (
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
@@ -205,8 +205,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/component-base v0.29.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20240117194847-208609032b15 // indirect
+	k8s.io/component-base v0.30.2 // indirect
+	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.29.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3 // indirect

@@ -79,11 +79,11 @@ func (e *EndpointController) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 // SetupWithManager adds the controller to the manager
 func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 	// creating a predicate to receive reconcile requests for kubernetes endpoint only
-	pPredicates := predicate.NewPredicateFuncs(func(object client.Object) bool {
+	pPredicates := predicate.NewTypedPredicateFuncs(func(object client.Object) bool {
 		return object.GetNamespace() == e.ServiceNamespace && object.GetName() == e.ServiceName
 	})
 
-	vPredicates := predicate.NewPredicateFuncs(func(object client.Object) bool {
+	vPredicates := predicate.NewTypedPredicateFuncs(func(object client.Object) bool {
 		if object.GetNamespace() == specialservices.DefaultKubernetesSvcKey.Namespace && object.GetName() == specialservices.DefaultKubernetesSvcKey.Name {
 			return true
 		}
@@ -97,8 +97,8 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 			CacheSyncTimeout: constants.DefaultCacheSyncTimeout,
 		}).
 		For(&corev1.Endpoints{}, builder.WithPredicates(pPredicates)).
-		WatchesRawSource(source.Kind(e.VirtualManagerCache, &corev1.Endpoints{}), &handler.EnqueueRequestForObject{}, builder.WithPredicates(vPredicates)).
-		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject()), &handler.EnqueueRequestForObject{}, builder.WithPredicates(vPredicates)).
+		WatchesRawSource(source.Kind[client.Object](e.VirtualManagerCache, &corev1.Endpoints{}, &handler.TypedEnqueueRequestForObject[client.Object]{}, vPredicates)).
+		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject(), &handler.EnqueueRequestForObject{}, vPredicates)).
 		Complete(e)
 }
 

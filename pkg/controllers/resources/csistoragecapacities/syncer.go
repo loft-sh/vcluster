@@ -34,8 +34,10 @@ type csistoragecapacitySyncer struct {
 	physicalClient              client.Client
 }
 
-var _ syncertypes.ToVirtualSyncer = &csistoragecapacitySyncer{}
-var _ syncertypes.Syncer = &csistoragecapacitySyncer{}
+var (
+	_ syncertypes.ToVirtualSyncer = &csistoragecapacitySyncer{}
+	_ syncertypes.Syncer          = &csistoragecapacitySyncer{}
+)
 
 func (s *csistoragecapacitySyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	vObj, shouldSkip, err := s.translateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity))
@@ -84,7 +86,7 @@ func (s *csistoragecapacitySyncer) ModifyController(ctx *synccontext.RegisterCon
 	if err != nil {
 		return nil, fmt.Errorf("failed to add allNSCache to physical manager: %w", err)
 	}
-	return builder.WatchesRawSource(source.Kind(allNSCache, s.Resource()), &handler.Funcs{
+	return builder.WatchesRawSource(source.Kind(allNSCache, s.Resource(), &handler.Funcs{
 		CreateFunc: func(_ context.Context, ce event.CreateEvent, rli workqueue.RateLimitingInterface) {
 			obj := ce.Object
 			s.enqueuePhysical(ctx.Context, obj, rli)
@@ -101,7 +103,7 @@ func (s *csistoragecapacitySyncer) ModifyController(ctx *synccontext.RegisterCon
 			obj := ge.Object
 			s.enqueuePhysical(ctx.Context, obj, rli)
 		},
-	}), nil
+	})), nil
 }
 
 func (s *csistoragecapacitySyncer) enqueuePhysical(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface) {

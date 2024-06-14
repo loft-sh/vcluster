@@ -71,3 +71,7 @@ func (f *fakeManager) GetControllerOptions() config.Controller {
 func (f *fakeManager) GetHTTPClient() *http.Client {
 	return &http.Client{}
 }
+
+func (f *fakeManager) AddMetricsServerExtraHandler(_ string, _ http.Handler) error {
+	return nil
+}
