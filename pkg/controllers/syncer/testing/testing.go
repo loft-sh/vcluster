@@ -26,17 +26,14 @@ type Compare func(obj1 runtime.Object, obj2 runtime.Object) bool
 type NewContextFunc func(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext
 
 type SyncTest struct {
-	Name  string
-	Focus bool
-
-	InitialPhysicalState []runtime.Object
-	InitialVirtualState  []runtime.Object
-
 	ExpectedPhysicalState map[schema.GroupVersionKind][]runtime.Object
 	ExpectedVirtualState  map[schema.GroupVersionKind][]runtime.Object
-
-	Sync    func(ctx *synccontext.RegisterContext)
-	Compare Compare
+	Sync                  func(ctx *synccontext.RegisterContext)
+	Compare               Compare
+	Name                  string
+	InitialPhysicalState  []runtime.Object
+	InitialVirtualState   []runtime.Object
+	Focus                 bool
 }
 
 func RunTests(t *testing.T, tests []*SyncTest) {

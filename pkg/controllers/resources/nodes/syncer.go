@@ -136,21 +136,21 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 		// enqueues nodes based on pod phase changes if the scheduler is enabled
 		// the syncer is configured to update virtual node's .status.allocatable fields by summing the consumption of these pods
 		bld.WatchesRawSource(
-			source.Kind(podCache, &corev1.Pod{}),
-			handler.Funcs{
-				GenericFunc: func(_ context.Context, ev event.GenericEvent, q workqueue.RateLimitingInterface) {
-					enqueueNonVClusterPod(nil, ev.Object, q)
-				},
-				CreateFunc: func(_ context.Context, ev event.CreateEvent, q workqueue.RateLimitingInterface) {
-					enqueueNonVClusterPod(nil, ev.Object, q)
-				},
-				UpdateFunc: func(_ context.Context, ue event.UpdateEvent, q workqueue.RateLimitingInterface) {
-					enqueueNonVClusterPod(ue.ObjectOld, ue.ObjectNew, q)
-				},
-				DeleteFunc: func(_ context.Context, ev event.DeleteEvent, q workqueue.RateLimitingInterface) {
-					enqueueNonVClusterPod(nil, ev.Object, q)
-				},
-			},
+			source.Kind(podCache, &corev1.Pod{},
+				handler.TypedFuncs[*corev1.Pod]{
+					GenericFunc: func(_ context.Context, ev event.TypedGenericEvent[*corev1.Pod], q workqueue.RateLimitingInterface) {
+						enqueueNonVClusterPod(nil, ev.Object, q)
+					},
+					CreateFunc: func(_ context.Context, ev event.TypedCreateEvent[*corev1.Pod], q workqueue.RateLimitingInterface) {
+						enqueueNonVClusterPod(nil, ev.Object, q)
+					},
+					UpdateFunc: func(_ context.Context, ue event.TypedUpdateEvent[*corev1.Pod], q workqueue.RateLimitingInterface) {
+						enqueueNonVClusterPod(ue.ObjectOld, ue.ObjectNew, q)
+					},
+					DeleteFunc: func(_ context.Context, ev event.TypedDeleteEvent[*corev1.Pod], q workqueue.RateLimitingInterface) {
+						enqueueNonVClusterPod(nil, ev.Object, q)
+					},
+				}),
 		)
 	}
 	return modifyController(ctx, s.nodeServiceProvider, bld)
@@ -187,9 +187,8 @@ func modifyController(ctx *synccontext.RegisterContext, nodeServiceProvider node
 		nodeServiceProvider.Start(ctx.Context)
 	}()
 
-	bld = bld.WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), &corev1.Pod{}), handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
-		pod, ok := object.(*corev1.Pod)
-		if !ok || pod == nil || !translate.Default.IsManaged(pod) || pod.Spec.NodeName == "" {
+	bld = bld.WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), &corev1.Pod{}, handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, pod *corev1.Pod) []reconcile.Request {
+		if pod == nil || !translate.Default.IsManaged(pod) || pod.Spec.NodeName == "" {
 			return []reconcile.Request{}
 		}
 
@@ -200,7 +199,7 @@ func modifyController(ctx *synccontext.RegisterContext, nodeServiceProvider node
 				},
 			},
 		}
-	})).Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
+	}))).Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
 		pod, ok := object.(*corev1.Pod)
 		if !ok || pod == nil || pod.Spec.NodeName == "" {
 			return []reconcile.Request{}

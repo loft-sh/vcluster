@@ -14,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -50,7 +49,7 @@ func (e *ServiceSyncer) Register() error {
 		}).
 		Named("servicesync").
 		For(&corev1.Service{}).
-		WatchesRawSource(source.Kind(e.To.GetCache(), &corev1.Service{}), handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
+		WatchesRawSource(source.Kind(e.To.GetCache(), &corev1.Service{}, handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, object *corev1.Service) []reconcile.Request {
 			if object == nil {
 				return nil
 			}
@@ -61,8 +60,8 @@ func (e *ServiceSyncer) Register() error {
 			}
 
 			return []reconcile.Request{{NamespacedName: from}}
-		})).
-		WatchesRawSource(source.Kind(e.From.GetCache(), &corev1.Endpoints{}), handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
+		}))).
+		WatchesRawSource(source.Kind(e.From.GetCache(), &corev1.Endpoints{}, handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, object *corev1.Endpoints) []reconcile.Request {
 			if object == nil {
 				return nil
 			}
@@ -75,7 +74,7 @@ func (e *ServiceSyncer) Register() error {
 			return []reconcile.Request{{
 				NamespacedName: types.NamespacedName{Namespace: object.GetNamespace(), Name: object.GetName()},
 			}}
-		})).
+		}))).
 		Complete(e)
 }
 
