@@ -80,11 +80,6 @@ func (cmd *NamespaceCmd) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	err = platform.VerifyVersion(platformClient)
-	if err != nil {
-		return err
-	}
-
 	spaceName := ""
 	if len(args) > 0 {
 		spaceName = args[0]

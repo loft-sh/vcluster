@@ -9,12 +9,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/blang/semver"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/auth"
@@ -236,39 +234,6 @@ func verifyHost(host string) error {
 	return nil
 }
 
-// VerifyVersion checks if the Loft version is compatible with this CLI version
-func VerifyVersion(platformClient Client) error {
-	v, err := platformClient.Version()
-	if err != nil {
-		return err
-	} else if v.Version == "v0.0.0" {
-		return nil
-	}
-
-	backendMajor, err := strconv.Atoi(v.Major)
-	if err != nil {
-		return perrors.Wrap(err, "parse major version string")
-	}
-
-	cliVersionStr := upgrade.GetVersion()
-	if cliVersionStr == "" {
-		return nil
-	}
-
-	cliVersion, err := semver.Parse(cliVersionStr)
-	if err != nil {
-		return err
-	}
-
-	if int(cliVersion.Major) > backendMajor {
-		return fmt.Errorf("unsupported %[1]s version %[2]s. Please downgrade your CLI to below v%[3]d.0.0 to support this version, as %[1]s v%[3]d.0.0 and newer versions are incompatible with v%[4]d.x.x", product.DisplayName(), v.Version, cliVersion.Major, backendMajor)
-	} else if int(cliVersion.Major) < backendMajor {
-		return fmt.Errorf("unsupported %[1]s version %[2]s. Please upgrade your CLI to v%[3]d.0.0 or above to support this version, as %[1]s v%[3]d.0.0 and newer versions are incompatible with v%[4]d.x.x", product.DisplayName(), v.Version, backendMajor, cliVersion.Major)
-	}
-
-	return nil
-}
-
 func (c *client) Version() (*auth.Version, error) {
 	restConfig, err := c.restConfig("")
 	if err != nil {
@@ -364,12 +329,6 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 	platformConfig.Insecure = insecure
 	platformConfig.AccessKey = accessKey
 	c.Config().Platform = platformConfig
-
-	// verify version
-	err = VerifyVersion(c)
-	if err != nil {
-		return err
-	}
 
 	// verify the connection works
 	managementClient, err := c.Management()
