@@ -63,11 +63,6 @@ func (cmd *ClusterTokenCmd) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("new client from path: %w", err)
 	}
 
-	err = platform.VerifyVersion(platformClient)
-	if err != nil {
-		return fmt.Errorf("verify vCluster platform version: %w", err)
-	}
-
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return fmt.Errorf("create management client: %w", err)
