@@ -83,10 +83,11 @@ vcluster platform create namespace myspace --project myproject --team myteam
 ########################################################
 	`)
 	c := &cobra.Command{
-		Use:   "namespace" + util.NamespaceNameOnlyUseLine,
-		Short: "Creates a new vCluster platform namespace in the given cluster",
-		Long:  description,
-		Args:  util.NamespaceNameOnlyValidator,
+		Use:     "namespace" + util.NamespaceNameOnlyUseLine,
+		Short:   "Creates a new vCluster platform namespace in the given cluster",
+		Long:    description,
+		Args:    util.NamespaceNameOnlyValidator,
+		Aliases: []string{"space"},
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
