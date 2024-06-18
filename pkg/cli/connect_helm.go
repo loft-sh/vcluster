@@ -100,16 +100,6 @@ func (cmd *connectHelm) connect(ctx context.Context, vCluster *find.VCluster, co
 		return err
 	}
 
-	if len(command) == 0 && cmd.ServiceAccount == "" && cmd.Server == "" && cmd.BackgroundProxy && localkubernetes.IsDockerInstalledAndUpAndRunning() {
-		// start background container
-		server, err := localkubernetes.CreateBackgroundProxyContainer(ctx, vCluster.Name, cmd.Namespace, &cmd.rawConfig, kubeConfig, cmd.LocalPort, cmd.Log)
-		if err != nil {
-			cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
-			cmd.BackgroundProxy = false
-		}
-		cmd.Server = server
-	}
-
 	// check if we should execute command
 	if len(command) > 0 {
 		if !cmd.portForwarding {
@@ -326,6 +316,21 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 		err = cmd.setServerIfExposed(ctx, vclusterName, kubeConfig)
 		if err != nil {
 			return nil, err
+		}
+
+		// check if we should start a background proxy
+		if cmd.Server == "" && cmd.BackgroundProxy {
+			if localkubernetes.IsDockerInstalledAndUpAndRunning() {
+				// start background container
+				server, err := localkubernetes.CreateBackgroundProxyContainer(ctx, vclusterName, cmd.Namespace, cmd.kubeClientConfig, kubeConfig, cmd.LocalPort, cmd.Log)
+				if err != nil {
+					cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
+					cmd.BackgroundProxy = false
+				}
+				cmd.Server = server
+			} else {
+				cmd.Log.Debugf("Docker is not installed, so skip background proxy")
+			}
 		}
 	}
 

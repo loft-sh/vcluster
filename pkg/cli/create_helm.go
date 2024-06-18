@@ -59,6 +59,7 @@ type CreateOptions struct {
 
 	CreateNamespace bool
 	UpdateCurrent   bool
+	BackgroundProxy bool
 	CreateContext   bool
 	SwitchContext   bool
 	Expose          bool
@@ -145,6 +146,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		if isVClusterDeployed(release) {
 			if cmd.Connect {
 				return ConnectHelm(ctx, &ConnectOptions{
+					BackgroundProxy:       cmd.BackgroundProxy,
 					UpdateCurrent:         cmd.UpdateCurrent,
 					KubeConfigContextName: cmd.KubeConfigContextName,
 					KubeConfig:            "./kubeconfig.yaml",
@@ -291,6 +293,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if cmd.Connect || cmd.Print {
 		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s", vClusterName, cmd.Namespace)
 		return ConnectHelm(ctx, &ConnectOptions{
+			BackgroundProxy:       cmd.BackgroundProxy,
 			UpdateCurrent:         cmd.UpdateCurrent,
 			Print:                 cmd.Print,
 			KubeConfigContextName: cmd.KubeConfigContextName,

@@ -10,10 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/upgrade"
-
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -294,20 +293,23 @@ func createProxyContainer(ctx context.Context, vClusterName, vClusterNamespace s
 	return server, nil
 }
 
-func CreateBackgroundProxyContainer(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig, vRawConfig *clientcmdapi.Config, localPort int, log log.Logger) (string, error) {
-	// write kube config to buffer
-	physicalCluster, err := clientcmd.Write(*rawConfig)
+func CreateBackgroundProxyContainer(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig clientcmd.ClientConfig, vRawConfig *clientcmdapi.Config, localPort int, log log.Logger) (string, error) {
+	rawConfigObj, err := rawConfig.RawConfig()
 	if err != nil {
-		return "", nil
+		return "", err
 	}
+
+	// write kube config to buffer
+	physicalCluster, err := kubeconfig.ResolveKubeConfig(rawConfig)
+	if err != nil {
+		return "", fmt.Errorf("resolve kube config: %w", err)
+	}
+
 	// write a temporary kube file
 	tempFile, err := os.CreateTemp("", "")
 	if err != nil {
 		return "", errors.Wrap(err, "create temp file")
 	}
-	defer func(name string) {
-		_ = os.Remove(name)
-	}(tempFile.Name())
 	_, err = tempFile.Write(physicalCluster)
 	if err != nil {
 		return "", errors.Wrap(err, "write kube config to temp file")
@@ -319,33 +321,30 @@ func CreateBackgroundProxyContainer(ctx context.Context, vClusterName, vClusterN
 	kubeConfigPath := tempFile.Name()
 
 	// construct proxy name
-	proxyName := find.VClusterConnectBackgroundProxyName(vClusterName, vClusterNamespace, rawConfig.CurrentContext)
+	proxyName := find.VClusterConnectBackgroundProxyName(vClusterName, vClusterNamespace, rawConfigObj.CurrentContext)
 
 	// check if the background proxy container for this vcluster is running and then remove it.
 	_ = CleanupBackgroundProxy(proxyName, log)
 
-	// docker run -d --network=host -v /root/.kube/config:/root/.kube/config ghcr.io/loft-sh/vcluster-cli vcluster connect vcluster -n vcluster --local-port 13300
+	// build the command
 	cmd := exec.Command(
 		"docker",
 		"run",
 		"-d",
-		"-v",
-		fmt.Sprintf("%v:%v", kubeConfigPath, "/root/.kube/config"),
+		"-v", fmt.Sprintf("%v:%v", kubeConfigPath, "/kube-config"),
 		fmt.Sprintf("--name=%s", proxyName),
-		fmt.Sprintf("--network=%s", "host"),
-		"ghcr.io/loft-sh/vcluster-cli"+upgrade.GetVersion(),
-		"vcluster",
-		"connect",
-		vClusterName,
-		"--local-port",
-		strconv.Itoa(localPort),
-		"-n",
-		vClusterNamespace,
+		"--network=host",
+		"bitnami/kubectl:1.29",
+		"port-forward",
+		"svc/"+vClusterName,
+		strconv.Itoa(localPort)+":443",
+		"--kubeconfig", "/kube-config",
+		"-n", vClusterNamespace,
 	)
 	log.Infof("Starting background proxy container...")
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", errors.Errorf("error starting background proxy : %s %v", string(out), err)
+		return "", errors.Errorf("error starting background proxy: %s %v", string(out), err)
 	}
 	server := fmt.Sprintf("https://127.0.0.1:%v", localPort)
 	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, time.Second*60, true, func(ctx context.Context) (bool, error) {
@@ -358,6 +357,7 @@ func CreateBackgroundProxyContainer(ctx context.Context, vClusterName, vClusterN
 	if waitErr != nil {
 		return "", fmt.Errorf("test connection: %w %w", waitErr, err)
 	}
+
 	return server, nil
 }
 

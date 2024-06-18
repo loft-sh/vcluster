@@ -1,15 +1,22 @@
 package kubeconfig
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/apis/clientauthentication"
+	"k8s.io/client-go/pkg/apis/clientauthentication/install"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -173,4 +180,111 @@ func ConvertRestConfigToClientConfig(config *rest.Config) (clientcmd.ClientConfi
 	}
 
 	return clientcmd.NewDefaultClientConfig(*kubeConfig, &clientcmd.ConfigOverrides{}), nil
+}
+
+func ResolveKubeConfig(rawConfig clientcmd.ClientConfig) ([]byte, error) {
+	restConfig, err := rawConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// convert exec auth
+	if restConfig.ExecProvider != nil {
+		err = resolveExecCredentials(restConfig)
+		if err != nil {
+			return nil, fmt.Errorf("resolve exec credentials: %w", err)
+		}
+	}
+	if restConfig.AuthProvider != nil {
+		return nil, fmt.Errorf("auth provider is not supported")
+	}
+
+	retConfig, err := ConvertRestConfigToClientConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	retRawConfig, err := retConfig.RawConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return clientcmd.Write(retRawConfig)
+}
+
+func resolveExecCredentials(restConfig *rest.Config) error {
+	cred := &clientauthentication.ExecCredential{
+		Spec: clientauthentication.ExecCredentialSpec{
+			Interactive: false,
+		},
+	}
+
+	execProvider := restConfig.ExecProvider
+	if execProvider.ProvideClusterInfo {
+		var err error
+		cred.Spec.Cluster, err = rest.ConfigToExecCluster(restConfig)
+		if err != nil {
+			return err
+		}
+	}
+
+	env := os.Environ()
+	for _, e := range execProvider.Env {
+		env = append(env, e.Name+"="+e.Value)
+	}
+
+	groupVersion, err := schema.ParseGroupVersion(execProvider.APIVersion)
+	if err != nil {
+		return err
+	}
+
+	scheme := runtime.NewScheme()
+	codecs := serializer.NewCodecFactory(scheme)
+	install.Install(scheme)
+	data, err := runtime.Encode(codecs.LegacyCodec(groupVersion), cred)
+	if err != nil {
+		return fmt.Errorf("encode ExecCredentials: %w", err)
+	}
+	env = append(env, fmt.Sprintf("%s=%s", "KUBERNETES_EXEC_INFO", data))
+
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd := exec.Command(execProvider.Command, execProvider.Args...)
+	cmd.Env = env
+	cmd.Stderr = stderr
+	cmd.Stdout = stdout
+
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error executing exec provider: %s %s %w", stderr.String(), stdout.String(), err)
+	}
+
+	_, gvk, err := codecs.UniversalDecoder(groupVersion).Decode(stdout.Bytes(), nil, cred)
+	if err != nil {
+		return fmt.Errorf("decoding stdout: %w", err)
+	}
+	if gvk.Group != groupVersion.Group || gvk.Version != groupVersion.Version {
+		return fmt.Errorf("exec plugin is configured to use API version %s, plugin returned version %s",
+			groupVersion, schema.GroupVersion{Group: gvk.Group, Version: gvk.Version})
+	}
+
+	if cred.Status == nil {
+		return fmt.Errorf("exec plugin didn't return a status field")
+	}
+	if cred.Status.Token == "" && cred.Status.ClientCertificateData == "" && cred.Status.ClientKeyData == "" {
+		return fmt.Errorf("exec plugin didn't return a token or cert/key pair")
+	}
+	if (cred.Status.ClientCertificateData == "") != (cred.Status.ClientKeyData == "") {
+		return fmt.Errorf("exec plugin returned only certificate or key, not both")
+	}
+
+	if cred.Status.Token != "" {
+		restConfig.BearerToken = cred.Status.Token
+	} else if cred.Status.ClientKeyData != "" && cred.Status.ClientCertificateData != "" {
+		restConfig.KeyData = []byte(cred.Status.ClientKeyData)
+		restConfig.CertData = []byte(cred.Status.ClientCertificateData)
+	}
+
+	restConfig.ExecProvider = nil
+	return nil
 }

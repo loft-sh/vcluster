@@ -35,6 +35,7 @@ func AddHelmFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 	cmd.Flags().BoolVar(&options.CreateNamespace, "create-namespace", true, "If true the namespace will be created if it does not exist")
 	cmd.Flags().StringVar(&options.LocalChartDir, "local-chart-dir", "", "The virtual cluster local chart dir to use")
 	cmd.Flags().BoolVar(&options.ExposeLocal, "expose-local", true, "If true and a local Kubernetes distro is detected, will deploy vcluster with a NodePort service. Will be set to false and the passed value will be ignored if --expose is set to true.")
+	cmd.Flags().BoolVar(&options.BackgroundProxy, "background-proxy", true, "Try to use a background-proxy to access the vCluster. Only works if docker is installed and reachable")
 
 	_ = cmd.Flags().MarkHidden("local-chart-dir")
 	_ = cmd.Flags().MarkHidden("expose-local")
