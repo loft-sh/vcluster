@@ -12,17 +12,22 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type ImportOptions struct {
+type AddVClusterOptions struct {
 	Project    string
 	ImportName string
+	Restart    bool
+	Insecure   bool
+	AccessKey  string
+	Host       string
 }
 
-func ImportHelm(ctx context.Context, options *ImportOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.InitClientFromConfig(ctx, globalFlags.LoadedConfig(log))
-	if err != nil {
-		return err
-	}
-
+func AddVClusterHelm(
+	ctx context.Context,
+	options *AddVClusterOptions,
+	globalFlags *flags.GlobalFlags,
+	vClusterName string,
+	log log.Logger,
+) error {
 	// check if vCluster exists
 	vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
 	if err != nil {
@@ -40,15 +45,27 @@ func ImportHelm(ctx context.Context, options *ImportOptions, globalFlags *flags.
 	}
 
 	// apply platform secret
-	err = platform.ApplyPlatformSecret(ctx, platformClient, kubeClient, options.ImportName, vCluster.Namespace, options.Project)
+	err = platform.ApplyPlatformSecret(
+		ctx,
+		globalFlags.LoadedConfig(log),
+		kubeClient,
+		options.ImportName,
+		vCluster.Namespace,
+		options.Project,
+		options.AccessKey,
+		options.Host,
+		options.Insecure,
+	)
 	if err != nil {
 		return err
 	}
 
 	// restart vCluster
-	err = lifecycle.DeletePods(ctx, kubeClient, "app=vcluster,release="+vCluster.Name, vCluster.Namespace, log)
-	if err != nil {
-		return fmt.Errorf("delete vcluster workloads: %w", err)
+	if options.Restart {
+		err = lifecycle.DeletePods(ctx, kubeClient, "app=vcluster,release="+vCluster.Name, vCluster.Namespace, log)
+		if err != nil {
+			return fmt.Errorf("delete vcluster workloads: %w", err)
+		}
 	}
 
 	log.Donef("Successfully activated vCluster %s/%s", vCluster.Namespace, vCluster.Name)

@@ -69,10 +69,11 @@ func (cmd *DeleteCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("parse driver type: %w", err)
 	}
+
 	// check if there is a platform client or we skip the info message
 	_, err = platform.InitClientFromConfig(ctx, cfg)
 	if err == nil {
-		config.PrintDriverInfo("delete", cfg.Driver.Type, cmd.log)
+		config.PrintDriverInfo("delete", driverType, cmd.log)
 	}
 
 	if driverType == config.PlatformDriver {

@@ -74,6 +74,7 @@ func (cmd *PauseCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("parse driver type: %w", err)
 	}
+
 	// check if we should create a platform vCluster
 	if driverType == config.PlatformDriver {
 		return cli.PausePlatform(ctx, &cmd.PauseOptions, cfg, args[0], cmd.Log)

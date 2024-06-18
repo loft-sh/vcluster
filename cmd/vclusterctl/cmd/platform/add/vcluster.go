@@ -11,7 +11,7 @@ import (
 
 type VClusterCmd struct {
 	*flags.GlobalFlags
-	cli.ImportOptions
+	cli.AddVClusterOptions
 
 	Log log.Logger
 }
@@ -32,7 +32,7 @@ vcluster platform add vcluster my-vcluster --namespace vcluster-my-vcluster --pr
 ###############################################
 	`
 
-	importCmd := &cobra.Command{
+	addCmd := &cobra.Command{
 		Use:   "vcluster",
 		Short: "Adds an existing vCluster to the vCluster platform",
 		Long:  description,
@@ -42,13 +42,17 @@ vcluster platform add vcluster my-vcluster --namespace vcluster-my-vcluster --pr
 		},
 	}
 
-	importCmd.Flags().StringVar(&cmd.Project, "project", "", "The project to import the vCluster into")
-	importCmd.Flags().StringVar(&cmd.ImportName, "import-name", "", "The name of the vCluster under projects. If unspecified, will use the vcluster name")
+	addCmd.Flags().StringVar(&cmd.Project, "project", "", "The project to import the vCluster into")
+	addCmd.Flags().StringVar(&cmd.ImportName, "import-name", "", "The name of the vCluster under projects. If unspecified, will use the vcluster name")
+	addCmd.Flags().BoolVar(&cmd.Restart, "restart", true, "Restart the vCluster control-plane after creating the platform secret")
+	addCmd.Flags().StringVar(&cmd.AccessKey, "access-key", "", "The access key for the vCluster to connect to the platform. If empty, the CLI will generate one")
+	addCmd.Flags().StringVar(&cmd.Host, "host", "", "The host where to reach the platform")
+	addCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "If the platform host is insecure")
 
-	return importCmd
+	return addCmd
 }
 
 // Run executes the functionality
 func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
-	return cli.ImportHelm(ctx, &cmd.ImportOptions, cmd.GlobalFlags, args[0], cmd.Log)
+	return cli.AddVClusterHelm(ctx, &cmd.AddVClusterOptions, cmd.GlobalFlags, args[0], cmd.Log)
 }
