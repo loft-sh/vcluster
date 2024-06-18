@@ -74,8 +74,9 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	// check if there is a platform client or we skip the info message
 	_, err = platform.InitClientFromConfig(ctx, cfg)
 	if err == nil {
-		config.PrintDriverInfo("create", cfg.Driver.Type, cmd.log)
+		config.PrintDriverInfo("create", driver, cmd.log)
 	}
+
 	// check if we should create a platform vCluster
 	if driver == config.PlatformDriver {
 		return cli.CreatePlatform(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log)

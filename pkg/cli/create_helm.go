@@ -337,7 +337,7 @@ func (cmd *createHelm) activateVCluster(ctx context.Context, vClusterConfig *con
 		return nil
 	}
 
-	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
+	_, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		if vClusterConfig.IsProFeatureEnabled() {
 			return fmt.Errorf("you have vCluster pro features activated, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --activate=false", err)
@@ -347,7 +347,7 @@ func (cmd *createHelm) activateVCluster(ctx context.Context, vClusterConfig *con
 		return nil
 	}
 
-	err = platform.ApplyPlatformSecret(ctx, platformClient, cmd.kubeClient, "", cmd.Namespace, cmd.Project)
+	err = platform.ApplyPlatformSecret(ctx, cmd.LoadedConfig(cmd.log), cmd.kubeClient, "", cmd.Namespace, cmd.Project, "", "", false)
 	if err != nil {
 		return fmt.Errorf("apply platform secret: %w", err)
 	}
