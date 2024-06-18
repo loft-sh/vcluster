@@ -14,8 +14,9 @@ type EmbeddedEtcdValues struct {
 }
 
 type Storage struct {
-	Persistence bool   `json:"persistence,omitempty"`
-	Size        string `json:"size,omitempty"`
+	Persistence    bool                     `json:"persistence,omitempty"`
+	Size           string                   `json:"size,omitempty"`
+	BinariesVolume []map[string]interface{} `json:"binariesVolume,omitempty"`
 }
 
 type BaseHelm struct {
@@ -88,14 +89,14 @@ type SyncValues struct {
 	Endpoints              EnabledSwitch  `json:"endpoints,omitempty"`
 	Pods                   SyncPods       `json:"pods,omitempty"`
 	Events                 EnabledSwitch  `json:"events,omitempty"`
-	PersistentVolumeClaims EnabledSwitch  `json:"persistentVolumeClaims,omitempty"`
+	PersistentVolumeClaims EnabledSwitch  `json:"persistentvolumeclaims,omitempty"`
 	Ingresses              EnabledSwitch  `json:"ingresses,omitempty"`
 	Ingressclasses         EnabledSwitch  `json:"ingressclasses,omitempty"`
 	FakeNodes              EnabledSwitch  `json:"fake-nodes,omitempty"`
 	FakePersistentvolumes  EnabledSwitch  `json:"fake-persistentvolumes,omitempty"`
 	Nodes                  SyncNodes      `json:"nodes,omitempty"`
-	PersistentVolumes      EnabledSwitch  `json:"persistentVolumes,omitempty"`
-	StorageClasses         EnabledSwitch  `json:"storageClasses,omitempty"`
+	PersistentVolumes      EnabledSwitch  `json:"persistentvolumes,omitempty"`
+	StorageClasses         EnabledSwitch  `json:"storageclasses,omitempty"`
 	Hoststorageclasses     EnabledSwitch  `json:"hoststorageclasses,omitempty"`
 	Priorityclasses        EnabledSwitch  `json:"priorityclasses,omitempty"`
 	Networkpolicies        EnabledSwitch  `json:"networkpolicies,omitempty"`
@@ -188,7 +189,7 @@ type RBACClusterRoleValues struct {
 type RBACRoleValues struct {
 	Create               bool       `json:"create,omitempty"`
 	ExtraRules           []RBACRule `json:"extraRules,omitempty"`
-	ExcludedAPIResources []string   `json:"excludedAPIResources,omitempty"`
+	ExcludedAPIResources []string   `json:"excludedApiResources,omitempty"`
 }
 
 type RBACRule struct {
@@ -369,14 +370,14 @@ type TelemetryValues struct {
 
 type NoopSyncerValues struct {
 	Enabled        bool `json:"enabled,omitempty"`
-	Synck8sService bool `json:"synck8SService,omitempty"`
+	Synck8sService bool `json:"synck8sService,omitempty"`
 	Secret         struct {
 		ServerCaCert        string `json:"serverCaCert,omitempty"`
 		ServerCaKey         string `json:"serverCaKey,omitempty"`
 		ClientCaCert        string `json:"clientCaCert,omitempty"`
 		RequestHeaderCaCert string `json:"requestHeaderCaCert,omitempty"`
 		KubeConfig          string `json:"kubeConfig,omitempty"`
-	}
+	} `json:"secret,omitempty"`
 }
 
 type AdmissionValues struct {
