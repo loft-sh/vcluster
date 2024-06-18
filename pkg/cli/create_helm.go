@@ -262,6 +262,10 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		return err
 	}
 
+	if vClusterConfig.Experimental.IsolatedControlPlane.Headless {
+		cmd.Connect = false
+	}
+
 	if isVClusterDeployed(release) {
 		// While certain backing store changes are allowed we prohibit changes to another distro.
 		if err := config.ValidateChanges(currentVClusterConfig, vClusterConfig); err != nil {
