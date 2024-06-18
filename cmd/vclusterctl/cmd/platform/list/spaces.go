@@ -36,10 +36,11 @@ vcluster platform list namespaces
 ########################################################
 	`)
 	listCmd := &cobra.Command{
-		Use:   "namespaces",
-		Short: product.Replace("Lists the vCluster platform namespaces you have access to"),
-		Long:  description,
-		Args:  cobra.NoArgs,
+		Use:     "namespaces",
+		Short:   product.Replace("Lists the vCluster platform namespaces you have access to"),
+		Long:    description,
+		Args:    cobra.NoArgs,
+		Aliases: []string{"spaces"},
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			return cmd.RunSpaces(cobraCmd.Context())
 		},

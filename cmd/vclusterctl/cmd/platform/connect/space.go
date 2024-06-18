@@ -49,10 +49,11 @@ vcluster platform connect namespace myspace --project myproject
 	`)
 	useLine, validator := util.NamedPositionalArgsValidator(false, false, "SPACE_NAME")
 	c := &cobra.Command{
-		Use:   "namespace" + useLine,
-		Short: "Creates a kube context for the given vCluster platform namespace",
-		Long:  description,
-		Args:  validator,
+		Use:     "namespace" + useLine,
+		Short:   "Creates a kube context for the given vCluster platform namespace",
+		Long:    description,
+		Args:    validator,
+		Aliases: []string{"space"},
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			// Check for newer version
 			if !cmd.Print {
