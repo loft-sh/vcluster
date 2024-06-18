@@ -99,7 +99,7 @@ func PrintDriverInfo(verb string, driver DriverType, log log.Logger) {
 
 func ParseDriverType(driver string) (DriverType, error) {
 	switch driver {
-	case "helm":
+	case "", "helm":
 		return HelmDriver, nil
 	case "platform":
 		return PlatformDriver, nil
