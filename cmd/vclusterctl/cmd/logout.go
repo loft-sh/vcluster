@@ -10,7 +10,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
-	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 )
@@ -43,9 +42,6 @@ vcluster logout
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
-			// Check for newer version
-			upgrade.PrintNewerVersionWarning()
-
 			return cmd.Run(cobraCmd.Context())
 		},
 	}
@@ -56,15 +52,14 @@ vcluster logout
 func (cmd *LogoutCmd) Run(ctx context.Context) error {
 	platformClient := platform.NewClientFromConfig(cmd.LoadedConfig(cmd.Log))
 
-	cfg := platformClient.Config()
-
 	// delete old access key if were logged in before
+	cfg := platformClient.Config()
 	if cfg.Platform.AccessKey != "" {
 		if err := platformClient.Logout(ctx); err != nil {
-			return fmt.Errorf("failed to logout: %w", err)
+			cmd.Log.Errorf("failed to send logout request: %v", err)
 		}
-		configHost := cfg.Platform.Host
 
+		configHost := cfg.Platform.Host
 		cfg.Platform.Host = ""
 		cfg.Platform.AccessKey = ""
 		cfg.Platform.LastInstallContext = ""
