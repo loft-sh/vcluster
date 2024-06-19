@@ -90,6 +90,10 @@ func CheckForNewerVersion() (string, error) {
 
 // NewerVersionAvailable checks if there is a newer version of vcluster
 func NewerVersionAvailable() string {
+	if GetVersion() == DevelopmentVersion {
+		return ""
+	}
+
 	// Get version of current binary
 	version := GetVersion()
 	if version != "" {

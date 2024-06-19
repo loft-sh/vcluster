@@ -3,6 +3,7 @@ package find
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -256,8 +257,10 @@ func VClusterPlatformFromContext(originalContext string) (name string, project s
 	return originalContext, "", ""
 }
 
+var NonAllowedCharactersRegEx = regexp.MustCompile(`[^a-zA-Z0-9\-_]+`)
+
 func VClusterConnectBackgroundProxyName(vClusterName string, vClusterNamespace string, currentContext string) string {
-	return VClusterContextName(vClusterName, vClusterNamespace, currentContext) + "_background_proxy"
+	return NonAllowedCharactersRegEx.ReplaceAllString(VClusterContextName(vClusterName, vClusterNamespace, currentContext)+"_background_proxy", "")
 }
 
 func VClusterFromContext(originalContext string) (name string, namespace string, context string) {
