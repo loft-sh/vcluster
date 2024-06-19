@@ -320,6 +320,12 @@ func CreateBackgroundProxyContainer(ctx context.Context, vClusterName, vClusterN
 	}
 	kubeConfigPath := tempFile.Name()
 
+	// allow permissions for kube config path
+	err = os.Chmod(kubeConfigPath, 0666)
+	if err != nil {
+		return "", fmt.Errorf("chmod temp file: %w", err)
+	}
+
 	// construct proxy name
 	proxyName := find.VClusterConnectBackgroundProxyName(vClusterName, vClusterNamespace, rawConfigObj.CurrentContext)
 
