@@ -159,13 +159,10 @@ data:
             {{- if .Values.controlPlane.coredns.deployment.nodeSelector }}
 {{ toYaml .Values.controlPlane.coredns.deployment.nodeSelector | indent 12 }}
             {{- end }}
+            {{- if .Values.controlPlane.coredns.deployment.topologySpreadConstraints  }}
           topologySpreadConstraints:
-            - maxSkew: 1
-              topologyKey: kubernetes.io/hostname
-              whenUnsatisfiable: DoNotSchedule
-              labelSelector:
-                matchLabels:
-                  k8s-app: kube-dns
+{{ toYaml .Values.controlPlane.coredns.deployment.topologySpreadConstraints  | indent 12 }}
+          {{- end }}
           {{- if .Values.policies.podSecurityStandard }}
           securityContext:
             seccompProfile:

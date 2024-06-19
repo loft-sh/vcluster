@@ -558,6 +558,11 @@
           "type": "integer",
           "description": "Replicas is the amount of coredns pods to run."
         },
+        "topologySpreadConstraints": {
+          "items": true,
+          "type": "array",
+          "description": "TopologySpreadConstraints are the topology spread constraints for the pod."
+        },
         "nodeSelector": {
           "additionalProperties": {
             "type": "string"
