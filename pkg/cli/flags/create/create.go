@@ -36,6 +36,7 @@ func AddHelmFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 	cmd.Flags().StringVar(&options.LocalChartDir, "local-chart-dir", "", "The virtual cluster local chart dir to use")
 	cmd.Flags().BoolVar(&options.ExposeLocal, "expose-local", true, "If true and a local Kubernetes distro is detected, will deploy vcluster with a NodePort service. Will be set to false and the passed value will be ignored if --expose is set to true.")
 	cmd.Flags().BoolVar(&options.BackgroundProxy, "background-proxy", true, "Try to use a background-proxy to access the vCluster. Only works if docker is installed and reachable")
+	cmd.Flags().BoolVar(&options.Add, "add", true, "Adds the virtual cluster automatically to the current vCluster platform when using helm driver")
 
 	_ = cmd.Flags().MarkHidden("local-chart-dir")
 	_ = cmd.Flags().MarkHidden("expose-local")
@@ -44,7 +45,6 @@ func AddHelmFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 func AddPlatformFlags(cmd *cobra.Command, options *cli.CreateOptions, prefixes ...string) {
 	prefix := strings.Join(prefixes, "")
 
-	cmd.Flags().BoolVar(&options.Activate, "activate", true, fmt.Sprintf("%sActivate the vCluster automatically when using helm driver", prefix))
 	cmd.Flags().StringVar(&options.Project, "project", "", fmt.Sprintf("%sThe vCluster platform project to use", prefix))
 	cmd.Flags().StringSliceVarP(&options.Labels, "labels", "l", []string{}, fmt.Sprintf("%sComma separated labels to apply to the virtualclusterinstance", prefix))
 	cmd.Flags().StringSliceVar(&options.Annotations, "annotations", []string{}, fmt.Sprintf("%sComma separated annotations to apply to the virtualclusterinstance", prefix))

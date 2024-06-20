@@ -60,6 +60,7 @@ type CreateOptions struct {
 	CreateNamespace bool
 	UpdateCurrent   bool
 	BackgroundProxy bool
+	Add             bool
 	CreateContext   bool
 	SwitchContext   bool
 	Expose          bool
@@ -68,7 +69,6 @@ type CreateOptions struct {
 	Upgrade         bool
 
 	// Platform
-	Activate        bool
 	Project         string
 	Cluster         string
 	Template        string
@@ -276,8 +276,8 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	}
 
 	// create platform secret
-	if cmd.Activate {
-		err = cmd.activateVCluster(ctx, vClusterConfig)
+	if cmd.Add {
+		err = cmd.addVCluster(ctx, vClusterConfig)
 		if err != nil {
 			return err
 		}
@@ -339,7 +339,7 @@ func (cmd *createHelm) parseVClusterYAML(chartValues string) (*config.Config, er
 	return vClusterConfig, nil
 }
 
-func (cmd *createHelm) activateVCluster(ctx context.Context, vClusterConfig *config.Config) error {
+func (cmd *createHelm) addVCluster(ctx context.Context, vClusterConfig *config.Config) error {
 	if vClusterConfig.Platform.API.AccessKey != "" || vClusterConfig.Platform.API.SecretRef.Name != "" {
 		return nil
 	}
@@ -347,7 +347,7 @@ func (cmd *createHelm) activateVCluster(ctx context.Context, vClusterConfig *con
 	_, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		if vClusterConfig.IsProFeatureEnabled() {
-			return fmt.Errorf("you have vCluster pro features activated, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --activate=false", err)
+			return fmt.Errorf("you have vCluster pro features enabled, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --add=false", err)
 		}
 
 		cmd.log.Debugf("create platform client: %v", err)

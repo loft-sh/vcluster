@@ -68,6 +68,6 @@ func AddVClusterHelm(
 		}
 	}
 
-	log.Donef("Successfully activated vCluster %s/%s", vCluster.Namespace, vCluster.Name)
+	log.Donef("Successfully added vCluster %s/%s", vCluster.Namespace, vCluster.Name)
 	return nil
 }
