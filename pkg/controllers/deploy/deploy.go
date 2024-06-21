@@ -64,7 +64,7 @@ func (r *Deployer) Apply(ctx context.Context, vConfig *config.VirtualClusterConf
 	configMap := &corev1.ConfigMap{}
 	err = r.VirtualManager.GetClient().Get(ctx, types.NamespacedName{Name: VClusterDeployConfigMap, Namespace: VClusterDeployConfigMapNamespace}, configMap)
 	if kerrors.IsNotFound(err) {
-		if vConfig.Experimental.Deploy.Manifests == "" && vConfig.Experimental.Deploy.ManifestsTemplate == "" && len(vConfig.Experimental.Deploy.Helm) == 0 {
+		if vConfig.Experimental.Deploy.VCluster.Manifests == "" && vConfig.Experimental.Deploy.VCluster.ManifestsTemplate == "" && len(vConfig.Experimental.Deploy.VCluster.Helm) == 0 {
 			return ctrl.Result{}, nil
 		}
 
@@ -179,9 +179,9 @@ func (r *Deployer) UpdateConfigMap(ctx context.Context, lastError error, requeue
 
 func (r *Deployer) ProcessInitManifests(ctx context.Context, vConfig *config.VirtualClusterConfig, configMap *corev1.ConfigMap) (bool, error) {
 	var err error
-	manifests := vConfig.Experimental.Deploy.Manifests
-	if vConfig.Experimental.Deploy.ManifestsTemplate != "" {
-		templatedManifests, err := k0s.ExecTemplate(vConfig.Experimental.Deploy.ManifestsTemplate, vConfig.Name, vConfig.WorkloadTargetNamespace, &vConfig.Config)
+	manifests := vConfig.Experimental.Deploy.VCluster.Manifests
+	if vConfig.Experimental.Deploy.VCluster.ManifestsTemplate != "" {
+		templatedManifests, err := k0s.ExecTemplate(vConfig.Experimental.Deploy.VCluster.ManifestsTemplate, vConfig.Name, vConfig.WorkloadTargetNamespace, &vConfig.Config)
 		if err != nil {
 			return false, fmt.Errorf("exec manifests template: %w", err)
 		}
@@ -237,7 +237,7 @@ func (r *Deployer) ProcessHelmChart(ctx context.Context, vConfig *config.Virtual
 		return false, err
 	}
 
-	charts := vConfig.Experimental.Deploy.Helm
+	charts := vConfig.Experimental.Deploy.VCluster.Helm
 	for _, chart := range charts {
 		releaseName, releaseNamespace := r.getTargetRelease(chart)
 		r.Log.Debugf("processing helm chart for %s/%s", releaseNamespace, releaseName)

@@ -57,11 +57,11 @@ type Config struct {
 	// Define which vCluster plugins to load.
 	Plugins map[string]Plugins `json:"plugins,omitempty"`
 
-	// Platform holds options for connecting to vCluster Platform.
-	Platform Platform `json:"platform,omitempty"`
-
 	// Experimental features for vCluster. Configuration here might change, so be careful with this.
 	Experimental Experimental `json:"experimental,omitempty"`
+
+	// External holds configuration for tools that are external to the vCluster.
+	External map[string]ExternalConfig `json:"external,omitempty"`
 
 	// Configuration related to telemetry gathered about vCluster usage.
 	Telemetry Telemetry `json:"telemetry,omitempty"`
@@ -76,8 +76,50 @@ type Config struct {
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
 }
 
+// ExternalConfig holds external tool configuration
+type ExternalConfig map[string]interface{}
+
 func (c *Config) UnmarshalYAMLStrict(data []byte) error {
 	return UnmarshalYAMLStrict(data, c)
+}
+
+func (c *Config) GetPlatformConfig() (*PlatformConfig, error) {
+	if c.External == nil {
+		return &PlatformConfig{}, nil
+	}
+	if c.External["platform"] == nil {
+		return &PlatformConfig{}, nil
+	}
+
+	yamlBytes, err := yaml.Marshal(c.External["platform"])
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
+
+	retConfig := &PlatformConfig{}
+	if err := yaml.Unmarshal(yamlBytes, retConfig); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
+
+	return retConfig, nil
+}
+
+func (c *Config) SetPlatformConfig(platformConfig *PlatformConfig) error {
+	yamlBytes, err := yaml.Marshal(platformConfig)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
+
+	setConfig := ExternalConfig{}
+	if err := yaml.Unmarshal(yamlBytes, &setConfig); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
+
+	if c.External == nil {
+		c.External = map[string]ExternalConfig{}
+	}
+	c.External["platform"] = setConfig
+	return nil
 }
 
 // BackingStoreType returns the backing store type of the vCluster.
@@ -1627,6 +1669,22 @@ func (e ExperimentalSyncSettings) JSONSchemaExtend(base *jsonschema.Schema) {
 }
 
 type ExperimentalDeploy struct {
+	// Host defines what manifests to deploy into the host cluster
+	Host ExperimentalDeployHost `json:"host,omitempty"`
+
+	// VCluster defines what manifests and charts to deploy into the vCluster
+	VCluster ExperimentalDeployVCluster `json:"vcluster,omitempty"`
+}
+
+type ExperimentalDeployHost struct {
+	// Manifests are raw Kubernetes manifests that should get applied within the virtual cluster.
+	Manifests string `json:"manifests,omitempty"`
+
+	// ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster.
+	ManifestsTemplate string `json:"manifestsTemplate,omitempty"`
+}
+
+type ExperimentalDeployVCluster struct {
 	// Manifests are raw Kubernetes manifests that should get applied within the virtual cluster.
 	Manifests string `json:"manifests,omitempty"`
 
@@ -1671,50 +1729,19 @@ type ExperimentalDeployHelmChart struct {
 	Password string `json:"password,omitempty"`
 }
 
-type Platform struct {
-	// API defines how vCluster can contact the platform api.
-	API PlatformAPI `json:"api,omitempty"`
-
-	// Name is the name of the vCluster instance in the vCluster platform
-	Name string `json:"name,omitempty"`
-
-	// Owner is the desired owner of the vCluster instance within the vCluster platform. If empty will take the current user.
-	Owner PlatformOwner `json:"owner,omitempty"`
-
-	// Project is the project within the platform where the vCluster instance should connect.
-	Project string `json:"project,omitempty"`
-}
-
-type PlatformOwner struct {
-	// User is the user id within the platform. This is mutually exclusive with team.
-	User string `json:"user,omitempty"`
-
-	// Team is the team id within the platform. This is mutually exclusive with user.
-	Team string `json:"team,omitempty"`
-}
-
-type PlatformAPI struct {
-	// AccessKey specifies the access key as a regular text value.
-	AccessKey string `json:"accessKey,omitempty"`
-
-	// Host specifies the platform host to use.
-	Host string `json:"host,omitempty"`
-
-	// Insecure specifies if the host uses a self-signed certificate.
-	Insecure bool `json:"insecure,omitempty"`
-
-	// SecretRef defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:
+type PlatformConfig struct {
+	// APIKey defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:
 	// * platform.api.accessKey
 	// * environment variable called LICENSE
-	// * secret specified under platform.api.secretRef.name
+	// * secret specified under external.platform.apiKey.secretName
 	// * secret called "vcluster-platform-api-key" in the vCluster namespace
-	SecretRef PlatformAccessKeySecretReference `json:"secretRef,omitempty"`
+	APIKey PlatformAPIKey `json:"apiKey,omitempty"`
 }
 
-// PlatformAccessKeySecretReference defines where to find the platform access key. The secret key name doesn't matter as long as the secret only contains a single key.
-type PlatformAccessKeySecretReference struct {
-	// Name is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined.
-	Name string `json:"name,omitempty"`
+// PlatformAPIKey defines where to find the platform access key. The secret key name doesn't matter as long as the secret only contains a single key.
+type PlatformAPIKey struct {
+	// SecretName is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined.
+	SecretName string `json:"secretName,omitempty"`
 
 	// Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace
 	// where the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace.

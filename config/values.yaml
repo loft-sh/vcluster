@@ -495,6 +495,8 @@ exportKubeConfig:
     name: ""
     namespace: ""
 
+external: {}
+
 plugins: {}
 
 experimental:
@@ -512,24 +514,19 @@ experimental:
     headless: false
 
   deploy:
-    manifests: ""
-    manifestsTemplate: ''
-    helm: []
+    host:
+      manifests: ""
+      manifestsTemplate: ""
+    vcluster:
+      manifests: ""
+      manifestsTemplate: ""
+      helm: []
 
   genericSync:
     clusterRole:
       extraRules: []
     role:
       extraRules: []
-
-platform:
-  api:
-    accessKey: ""
-    host: ""
-    insecure: false
-    secretRef:
-      name: ""
-      namespace: ""
 
 telemetry:
   enabled: true

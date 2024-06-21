@@ -340,11 +340,14 @@ func (cmd *createHelm) parseVClusterYAML(chartValues string) (*config.Config, er
 }
 
 func (cmd *createHelm) addVCluster(ctx context.Context, vClusterConfig *config.Config) error {
-	if vClusterConfig.Platform.API.AccessKey != "" || vClusterConfig.Platform.API.SecretRef.Name != "" {
+	platformConfig, err := vClusterConfig.GetPlatformConfig()
+	if err != nil {
+		return fmt.Errorf("get platform config: %w", err)
+	} else if platformConfig.APIKey.SecretName != "" {
 		return nil
 	}
 
-	_, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
+	_, err = platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		if vClusterConfig.IsProFeatureEnabled() {
 			return fmt.Errorf("you have vCluster pro features enabled, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --add=false", err)

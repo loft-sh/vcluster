@@ -1135,20 +1135,13 @@
     },
     "ExperimentalDeploy": {
       "properties": {
-        "manifests": {
-          "type": "string",
-          "description": "Manifests are raw Kubernetes manifests that should get applied within the virtual cluster."
+        "host": {
+          "$ref": "#/$defs/ExperimentalDeployHost",
+          "description": "Host defines what manifests to deploy into the host cluster"
         },
-        "manifestsTemplate": {
-          "type": "string",
-          "description": "ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster."
-        },
-        "helm": {
-          "items": {
-            "$ref": "#/$defs/ExperimentalDeployHelm"
-          },
-          "type": "array",
-          "description": "Helm are Helm charts that should get deployed into the virtual cluster"
+        "vcluster": {
+          "$ref": "#/$defs/ExperimentalDeployVCluster",
+          "description": "VCluster defines what manifests and charts to deploy into the vCluster"
         }
       },
       "additionalProperties": false,
@@ -1213,6 +1206,41 @@
         "namespace": {
           "type": "string",
           "description": "Namespace of the release"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExperimentalDeployHost": {
+      "properties": {
+        "manifests": {
+          "type": "string",
+          "description": "Manifests are raw Kubernetes manifests that should get applied within the virtual cluster."
+        },
+        "manifestsTemplate": {
+          "type": "string",
+          "description": "ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExperimentalDeployVCluster": {
+      "properties": {
+        "manifests": {
+          "type": "string",
+          "description": "Manifests are raw Kubernetes manifests that should get applied within the virtual cluster."
+        },
+        "manifestsTemplate": {
+          "type": "string",
+          "description": "ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster."
+        },
+        "helm": {
+          "items": {
+            "$ref": "#/$defs/ExperimentalDeployHelm"
+          },
+          "type": "array",
+          "description": "Helm are Helm charts that should get deployed into the virtual cluster"
         }
       },
       "additionalProperties": false,
@@ -1416,6 +1444,10 @@
       "additionalProperties": false,
       "type": "object",
       "description": "Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig."
+    },
+    "ExternalConfig": {
+      "type": "object",
+      "description": "ExternalConfig holds external tool configuration"
     },
     "ExternalEtcdHighAvailability": {
       "properties": {
@@ -1994,79 +2026,6 @@
         },
         "configmap": {
           "type": "boolean"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Platform": {
-      "properties": {
-        "api": {
-          "$ref": "#/$defs/PlatformAPI",
-          "description": "API defines how vCluster can contact the platform api."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name is the name of the vCluster instance in the vCluster platform"
-        },
-        "owner": {
-          "$ref": "#/$defs/PlatformOwner",
-          "description": "Owner is the desired owner of the vCluster instance within the vCluster platform. If empty will take the current user."
-        },
-        "project": {
-          "type": "string",
-          "description": "Project is the project within the platform where the vCluster instance should connect."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "PlatformAPI": {
-      "properties": {
-        "accessKey": {
-          "type": "string",
-          "description": "AccessKey specifies the access key as a regular text value."
-        },
-        "host": {
-          "type": "string",
-          "description": "Host specifies the platform host to use."
-        },
-        "insecure": {
-          "type": "boolean",
-          "description": "Insecure specifies if the host uses a self-signed certificate."
-        },
-        "secretRef": {
-          "$ref": "#/$defs/PlatformAccessKeySecretReference",
-          "description": "SecretRef defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:\n* platform.api.accessKey\n* environment variable called LICENSE\n* secret specified under platform.api.secretRef.name\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "PlatformAccessKeySecretReference": {
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined."
-        },
-        "namespace": {
-          "type": "string",
-          "description": "Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace\nwhere the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "PlatformAccessKeySecretReference defines where to find the platform access key."
-    },
-    "PlatformOwner": {
-      "properties": {
-        "user": {
-          "type": "string",
-          "description": "User is the user id within the platform. This is mutually exclusive with team."
-        },
-        "team": {
-          "type": "string",
-          "description": "Team is the team id within the platform. This is mutually exclusive with user."
         }
       },
       "additionalProperties": false,
@@ -3113,13 +3072,16 @@
       },
       "description": "Define which vCluster plugins to load."
     },
-    "platform": {
-      "$ref": "#/$defs/Platform",
-      "description": "Platform holds options for connecting to vCluster Platform."
-    },
     "experimental": {
       "$ref": "#/$defs/Experimental",
       "description": "Experimental features for vCluster. Configuration here might change, so be careful with this."
+    },
+    "external": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ExternalConfig"
+      },
+      "type": "object",
+      "description": "External holds configuration for tools that are external to the vCluster."
     },
     "telemetry": {
       "$ref": "#/$defs/Telemetry",
