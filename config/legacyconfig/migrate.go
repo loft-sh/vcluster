@@ -238,10 +238,24 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 	newConfig.Pro = oldConfig.Pro
 	if strings.Contains(oldConfig.ProLicenseSecret, "/") {
 		splitted := strings.Split(oldConfig.ProLicenseSecret, "/")
-		newConfig.Platform.API.SecretRef.Namespace = splitted[0]
-		newConfig.Platform.API.SecretRef.Name = splitted[1]
+		err := newConfig.SetPlatformConfig(&config.PlatformConfig{
+			APIKey: config.PlatformAPIKey{
+				SecretName: splitted[1],
+				Namespace:  splitted[0],
+			},
+		})
+		if err != nil {
+			return err
+		}
 	} else {
-		newConfig.Platform.API.SecretRef.Name = oldConfig.ProLicenseSecret
+		err := newConfig.SetPlatformConfig(&config.PlatformConfig{
+			APIKey: config.PlatformAPIKey{
+				SecretName: oldConfig.ProLicenseSecret,
+			},
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	newConfig.Experimental.IsolatedControlPlane.Headless = oldConfig.Headless
@@ -366,9 +380,9 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 		newConfig.Experimental.SyncSettings.RewriteKubernetesService = oldConfig.NoopSyncer.Synck8sService
 	}
 
-	newConfig.Experimental.Deploy.Manifests = oldConfig.Init.Manifests
-	newConfig.Experimental.Deploy.ManifestsTemplate = oldConfig.Init.ManifestsTemplate
-	newConfig.Experimental.Deploy.Helm = oldConfig.Init.Helm
+	newConfig.Experimental.Deploy.VCluster.Manifests = oldConfig.Init.Manifests
+	newConfig.Experimental.Deploy.VCluster.ManifestsTemplate = oldConfig.Init.ManifestsTemplate
+	newConfig.Experimental.Deploy.VCluster.Helm = oldConfig.Init.Helm
 
 	if oldConfig.Isolation.Enabled {
 		if oldConfig.Isolation.NetworkPolicy.Enabled != nil {

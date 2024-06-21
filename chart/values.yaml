@@ -836,6 +836,9 @@ exportKubeConfig:
     # where you deployed vCluster, you need to make sure vCluster has access to this other namespace.
     namespace: ""
 
+# External holds configuration for tools that are external to the vCluster.
+external: {}
+
 # Define which vCluster plugins to load.
 plugins: {}
 
@@ -866,12 +869,20 @@ experimental:
   
   # Deploy allows you to configure manifests and Helm charts to deploy within the virtual cluster.
   deploy:
-    # Manifests are raw Kubernetes manifests that should get applied within the virtual cluster.
-    manifests: ""
-    # ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster.
-    manifestsTemplate: ''
-    # Helm are Helm charts that should get deployed into the virtual cluster
-    helm: []
+    # Host defines what manifests to deploy into the host cluster
+    host:
+      # Manifests are raw Kubernetes manifests that should get applied within the virtual cluster.
+      manifests: ""
+      # ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster.
+      manifestsTemplate: ""
+    # VCluster defines what manifests and charts to deploy into the vCluster
+    vcluster:
+      # Manifests are raw Kubernetes manifests that should get applied within the virtual cluster.
+      manifests: ""
+      # ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster.
+      manifestsTemplate: ""
+      # Helm are Helm charts that should get deployed into the virtual cluster
+      helm: []
   
   # GenericSync holds options to generically sync resources from virtual cluster to host.
   genericSync:
@@ -879,28 +890,6 @@ experimental:
       extraRules: []
     role:
       extraRules: []
-
-# Platform holds options for connecting to vCluster Platform.
-platform:
-  # API defines how vCluster can contact the platform api.
-  api:
-    # AccessKey specifies the access key as a regular text value.
-    accessKey: ""
-    # Host specifies the platform host to use.
-    host: ""
-    # Insecure specifies if the host uses a self-signed certificate.
-    insecure: false
-    # SecretRef defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:
-    # * platform.api.accessKey
-    # * environment variable called LICENSE
-    # * secret specified under platform.api.secretRef.name
-    # * secret called "vcluster-platform-api-key" in the vCluster namespace
-    secretRef:
-      # Name is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined.
-      name: ""
-      # Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace
-      # where the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace.
-      namespace: ""
 
 # Configuration related to telemetry gathered about vCluster usage.
 telemetry:
