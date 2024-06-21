@@ -991,6 +991,9 @@ type CoreDNSDeployment struct {
 	Pods LabelsAndAnnotations `json:"pods,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
+
+	// TopologySpreadConstraints are the topology spread constraints for the CoreDNS pod.
+	TopologySpreadConstraints []interface{} `json:"topologySpreadConstraints,omitempty"`
 }
 
 type ControlPlaneProxy struct {

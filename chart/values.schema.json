@@ -561,7 +561,7 @@
         "topologySpreadConstraints": {
           "items": true,
           "type": "array",
-          "description": "TopologySpreadConstraints are the topology spread constraints for the pod."
+          "description": "TopologySpreadConstraints are the topology spread constraints for the CoreDNS pod."
         },
         "nodeSelector": {
           "additionalProperties": {
