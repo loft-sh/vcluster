@@ -84,7 +84,7 @@ jobs:
             const response = await github.actions.createWorkflowDispatch({
               owner: 'loft-sh',
               repo: 'vcluster-docs',
-              workflow_id: 'test.yml',
+              workflow_id: 'e2e-examples.yml',
               ref: 'main',
               inputs: {
                 version: version
