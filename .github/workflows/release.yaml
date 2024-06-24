@@ -76,6 +76,22 @@ jobs:
           pattern: "release/*"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Trigger docs-runme workflow
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const version = '${{ steps.get_version.outputs.release_version }}';
+            const response = await github.actions.createWorkflowDispatch({
+              owner: 'loft-sh',
+              repo: 'vcluster-docs',
+              workflow_id: 'e2e-examples.yml',
+              ref: 'main',
+              inputs: {
+                version: version
+              }
+            });
+              console.log(response);
+
   publish-chart:
     if: startsWith(github.ref, 'refs/tags/v') == true
     needs: [publish]
