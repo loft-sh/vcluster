@@ -352,6 +352,9 @@ controlPlane:
       volumeClaimTemplates: []
       addVolumeMounts: []
       addVolumes: []
+      binariesVolume:
+      - name: binaries
+        emptyDir: {}
 
     enableServiceLinks: true
 

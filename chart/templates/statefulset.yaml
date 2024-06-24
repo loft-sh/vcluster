@@ -92,8 +92,7 @@ spec:
 {{- include "vcluster.plugins.volumes" . | indent 8 }}
         - name: helm-cache
           emptyDir: {}
-        - name: binaries
-          emptyDir: {}
+{{ toYaml .Values.controlPlane.statefulSet.persistence.binariesVolume | indent 8 }}
         - name: tmp
           emptyDir: {}
         - name: certs

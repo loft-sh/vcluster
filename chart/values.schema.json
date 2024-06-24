@@ -217,6 +217,13 @@
           "type": "array",
           "description": "VolumeClaimTemplates defines the volumeClaimTemplates for the statefulSet"
         },
+        "binariesVolume": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "BinariesVolume defines a binaries volume that is used to retrieve\ndistro specific executables to be run by the syncer controller.\nThis volume doesn't need to be persistent."
+        },
         "addVolumes": {
           "items": {
             "type": "object"

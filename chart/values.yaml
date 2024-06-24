@@ -604,6 +604,12 @@ controlPlane:
       addVolumeMounts: []
       # AddVolumes defines extra volumes for the pod
       addVolumes: []
+      # BinariesVolume defines a binaries volume that is used to retrieve
+      # distro specific executables to be run by the syncer controller.
+      # This volume doesn't need to be persistent.
+      binariesVolume:
+        - name: binaries
+          emptyDir: {}
     # EnableServiceLinks for the StatefulSet pod
     enableServiceLinks: true
     # Scheduling holds options related to scheduling.

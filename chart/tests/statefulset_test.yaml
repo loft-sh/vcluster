@@ -534,3 +534,28 @@ tests:
       - equal:
           path: metadata.labels["my-label"]
           value: "my-value"
+
+  - it: binariesVolume - should set to emptyDir by default
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: binaries
+            emptyDir: {}
+
+  - it: binariesVolume - should set the specified volume type correctly
+    set:
+      controlPlane:
+        statefulSet:
+          persistence:
+            binariesVolume:
+            - name: binaries
+              persistentVolumeClaim:
+                claimName: my-pvc
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: binaries
+            persistentVolumeClaim:
+                claimName: my-pvc
