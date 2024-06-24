@@ -321,7 +321,7 @@ controlPlane:
         ephemeral-storage: 8Gi
         memory: 2Gi
       requests:
-        ephemeral-storage: 200Mi
+        ephemeral-storage: 300Mi
         cpu: 200m
         memory: 256Mi
 
