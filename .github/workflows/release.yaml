@@ -78,6 +78,7 @@ jobs:
 
       - name: Trigger docs-runme workflow
         uses: actions/github-script@v6
+        continue-on-error: true
         with:
           script: |
             const version = '${{ steps.get_version.outputs.release_version }}';
