@@ -81,7 +81,7 @@ jobs:
         with:
           script: |
             const version = '${{ steps.get_version.outputs.release_version }}';
-            const response = await github.actions.createWorkflowDispatch({
+            const response = await github.rest.actions.createWorkflowDispatch({
               owner: 'loft-sh',
               repo: 'vcluster-docs',
               workflow_id: 'e2e-examples.yml',
