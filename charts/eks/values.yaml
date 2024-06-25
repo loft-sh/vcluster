@@ -166,7 +166,7 @@ syncer:
       ephemeral-storage: 8Gi
       memory: 2Gi
     requests:
-      ephemeral-storage: 200Mi
+      ephemeral-storage: 300Mi
       cpu: 10m
       memory: 256Mi
   # Extra volumes
@@ -196,14 +196,19 @@ syncer:
   serviceAnnotations: {}
   # Storage settings for the vcluster
   storage:
-   # If this is disabled, vcluster will use an emptyDir instead
-   # of a PersistentVolumeClaim
-   persistence: true
-   # Size of the persistent volume claim
-   size: 5Gi
-   # Optional StorageClass used for the pvc
-   # if empty default StorageClass defined in your host cluster will be used
-   #className:
+    # If this is disabled, vcluster will use an emptyDir instead
+    # of a PersistentVolumeClaim
+    persistence: true
+    # Size of the persistent volume claim
+    size: 5Gi
+    # The binariesVolume is used to retrieve distro specific executables to be run by the syncer
+    # This volume doesn't need to be persistent 
+    binariesVolume:
+      - name: binaries
+        emptyDir: {}
+    # Optional StorageClass used for the pvc
+    # if empty default StorageClass defined in your host cluster will be used
+    #className:
 
 # Etcd settings
 etcd:

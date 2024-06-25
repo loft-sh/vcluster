@@ -9,6 +9,9 @@ import (
 )
 
 func TestValues(t *testing.T) {
+	// In case of any new fields defined in the values yaml,
+	// ensure they are also added to the go-structs in
+	// the github.com/loft.sh/vcluster-values repository
 	testCases := map[string]string{
 		"k0s": "../../../charts/k0s/values.yaml",
 		"k3s": "../../../charts/k3s/values.yaml",
