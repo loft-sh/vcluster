@@ -392,6 +392,29 @@ syncer:
     scheduling:
       podManagementPolicy: OrderedReady`,
 		},
+		{
+			Name:   "binariesVolume",
+			Distro: "k3s",
+			In: `syncer: 
+  storage: 
+    binariesVolume: 
+    - name: binaries
+      persistentVolumeClaim:
+        claimName: my-pvc`,
+			Expected: `controlPlane:
+  distro:
+    k3s:
+      enabled: true
+  statefulSet:
+    persistence:
+      binariesVolume:
+      - name: binaries
+        persistentVolumeClaim:
+          claimName: my-pvc
+    scheduling:
+      podManagementPolicy: OrderedReady`,
+			ExpectedErr: "",
+		},
 	}
 
 	for _, testCase := range testCases {

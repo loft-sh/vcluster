@@ -1054,6 +1054,9 @@ func applyStorage(oldConfig Storage, newConfig *config.Config) {
 	if oldConfig.ClassName != "" {
 		newConfig.ControlPlane.StatefulSet.Persistence.VolumeClaim.StorageClass = oldConfig.ClassName
 	}
+	if oldConfig.BinariesVolume != nil {
+		newConfig.ControlPlane.StatefulSet.Persistence.BinariesVolume = oldConfig.BinariesVolume
+	}
 }
 
 func convertVClusterConfig(oldConfig VClusterValues, retDistroCommon *config.DistroCommon, retDistroContainer *config.DistroContainer, newConfig *config.Config) error {
