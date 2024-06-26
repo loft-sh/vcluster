@@ -80,6 +80,7 @@ jobs:
         uses: actions/github-script@v6
         continue-on-error: true
         with:
+          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
           script: |
             const version = '${{ steps.get_version.outputs.release_version }}';
             const response = await github.rest.actions.createWorkflowDispatch({
