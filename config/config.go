@@ -1159,6 +1159,11 @@ type ControlPlanePersistence struct {
 	// VolumeClaimTemplates defines the volumeClaimTemplates for the statefulSet
 	VolumeClaimTemplates []map[string]interface{} `json:"volumeClaimTemplates,omitempty"`
 
+	// BinariesVolume defines a binaries volume that is used to retrieve
+	// distro specific executables to be run by the syncer controller.
+	// This volume doesn't need to be persistent.
+	BinariesVolume []map[string]interface{} `json:"binariesVolume,omitempty"`
+
 	// AddVolumes defines extra volumes for the pod
 	AddVolumes []map[string]interface{} `json:"addVolumes,omitempty"`
 

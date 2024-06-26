@@ -557,7 +557,7 @@ controlPlane:
         memory: 2Gi
       # Requests are minimal resources that will be consumed by the container
       requests:
-        ephemeral-storage: 200Mi
+        ephemeral-storage: 300Mi
         cpu: 200m
         memory: 256Mi
     # Additional labels or annotations for the statefulSet pods.
@@ -604,6 +604,12 @@ controlPlane:
       addVolumeMounts: []
       # AddVolumes defines extra volumes for the pod
       addVolumes: []
+      # BinariesVolume defines a binaries volume that is used to retrieve
+      # distro specific executables to be run by the syncer controller.
+      # This volume doesn't need to be persistent.
+      binariesVolume:
+        - name: binaries
+          emptyDir: {}
     # EnableServiceLinks for the StatefulSet pod
     enableServiceLinks: true
     # Scheduling holds options related to scheduling.
