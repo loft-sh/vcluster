@@ -97,7 +97,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	// if the virtual cluster already exists and flag is not set, we terminate
 	if !options.Upgrade && !options.UseExisting && virtualClusterInstance != nil {
 		return fmt.Errorf("virtual cluster %s already exists in project %s", virtualClusterName, options.Project)
-	} else if virtualClusterInstance != nil && virtualClusterInstance.Spec.NetworkPeer {
+	} else if virtualClusterInstance != nil && virtualClusterInstance.Spec.External {
 		return fmt.Errorf("cannot upgrade a virtual cluster that was created via helm, please run 'vcluster use driver helm' or use the '--driver helm' flag")
 	}
 
@@ -298,8 +298,8 @@ func upgradeWithoutTemplate(ctx context.Context, platformClient platform.Client,
 		return nil, fmt.Errorf("cannot change chart name from '%s' to '%s', this operation is not allowed", virtualClusterInstance.Spec.Template.HelmRelease.Chart.Name, options.ChartName)
 	}
 
-	chartRepoChanged := virtualClusterInstance.Spec.Template.HelmRelease.Chart.Repo != options.ChartRepo
-	chartVersionChanged := virtualClusterInstance.Spec.Template.HelmRelease.Chart.Version != options.ChartVersion
+	chartRepoChanged := (options.ChartRepo != "" && virtualClusterInstance.Spec.Template.HelmRelease.Chart.Repo != options.ChartRepo)
+	chartVersionChanged := (options.ChartVersion != "" && virtualClusterInstance.Spec.Template.HelmRelease.Chart.Version != options.ChartVersion)
 	valuesChanged := virtualClusterInstance.Spec.Template.HelmRelease.Values != helmValues
 	descriptionChanged := (options.Description != "" && virtualClusterInstance.Spec.Description != options.Description)
 	displayNameChanged := (options.DisplayName != "" && virtualClusterInstance.Spec.DisplayName != options.DisplayName)
@@ -323,13 +323,25 @@ func upgradeWithoutTemplate(ctx context.Context, platformClient platform.Client,
 
 	// check if update is needed
 	if chartRepoChanged || chartVersionChanged || valuesChanged || descriptionChanged || displayNameChanged || teamChanged || userChanged || linksChanged || labelsChanged || annotationsChanged {
-		virtualClusterInstance.Spec.Template.HelmRelease.Chart.Repo = options.ChartRepo
-		virtualClusterInstance.Spec.Template.HelmRelease.Chart.Version = options.ChartVersion
 		virtualClusterInstance.Spec.Template.HelmRelease.Values = helmValues
-		virtualClusterInstance.Spec.Description = options.Description
-		virtualClusterInstance.Spec.DisplayName = options.DisplayName
-		virtualClusterInstance.Spec.Owner.Team = options.Team
-		virtualClusterInstance.Spec.Owner.User = options.Team
+		if chartRepoChanged {
+			virtualClusterInstance.Spec.Template.HelmRelease.Chart.Repo = options.ChartRepo
+		}
+		if chartVersionChanged {
+			virtualClusterInstance.Spec.Template.HelmRelease.Chart.Version = options.ChartVersion
+		}
+		if descriptionChanged {
+			virtualClusterInstance.Spec.Description = options.Description
+		}
+		if displayNameChanged {
+			virtualClusterInstance.Spec.DisplayName = options.DisplayName
+		}
+		if teamChanged {
+			virtualClusterInstance.Spec.Owner.Team = options.Team
+		}
+		if userChanged {
+			virtualClusterInstance.Spec.Owner.User = options.User
+		}
 
 		// get management client
 		managementClient, err := platformClient.Management()
