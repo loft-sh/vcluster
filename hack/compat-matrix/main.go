@@ -85,7 +85,7 @@ func main() {
 			os.Exit(1)
 		}
 		if !slices.Equal(currentFile, renderedBytes.Bytes()) {
-			os.Stderr.WriteString("compatibility matrix is not up to date, please update it by running `just validate-compat-matrix`")
+			os.Stderr.WriteString("compatibility matrix is not up to date, please update it by running `just generate-compatibility`")
 			os.Exit(1)
 		}
 	}

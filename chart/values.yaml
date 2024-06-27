@@ -141,7 +141,7 @@ controlPlane:
           # Repository is the repository of the container image, e.g. my-repo/my-image
           repository: kube-apiserver
           # Tag is the tag of the container image, e.g. latest
-          tag: "v1.29.0"
+          tag: "v1.30.2"
       # ControllerManager holds configuration specific to starting the controller manager.
       controllerManager:
         enabled: true
@@ -159,7 +159,7 @@ controlPlane:
           # Repository is the repository of the container image, e.g. my-repo/my-image
           repository: "kube-controller-manager"
           # Tag is the tag of the container image, e.g. latest
-          tag: "v1.29.0"
+          tag: "v1.30.2"
       # Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
       scheduler:
         # Command is the command to start the distro binary. This will override the existing command.
@@ -207,7 +207,7 @@ controlPlane:
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "rancher/k3s"
         # Tag is the tag of the container image, e.g. latest
-        tag: "v1.29.0-k3s1"
+        tag: "v1.30.2-k3s1"
       # Security options can be used for the distro init container
       securityContext: {}
       # Resources for the distro init container
@@ -238,7 +238,7 @@ controlPlane:
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "k0sproject/k0s"
         # Tag is the tag of the container image, e.g. latest
-        tag: "v1.29.1-k0s.0"
+        tag: "v1.30.2-k0s.0"
       # Security options can be used for the distro init container
       securityContext: {}
       # Resources for the distro init container
@@ -370,7 +370,7 @@ controlPlane:
             # Repository is the repository of the container image, e.g. my-repo/my-image
             repository: "etcd"
             # Tag is the tag of the container image, e.g. latest
-            tag: "3.5.10-0"
+            tag: "3.5.13-0"
           # ImagePullPolicy is the pull policy for the external etcd image
           imagePullPolicy: ""
           # ExtraArgs are appended to the etcd command.
@@ -557,7 +557,7 @@ controlPlane:
         memory: 2Gi
       # Requests are minimal resources that will be consumed by the container
       requests:
-        ephemeral-storage: 300Mi
+        ephemeral-storage: 400Mi
         cpu: 200m
         memory: 256Mi
     # Additional labels or annotations for the statefulSet pods.
