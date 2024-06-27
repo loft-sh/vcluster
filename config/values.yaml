@@ -81,7 +81,7 @@ controlPlane:
         image:
           registry: registry.k8s.io
           repository: kube-apiserver
-          tag: "v1.29.0"
+          tag: "v1.30.2"
       controllerManager:
         enabled: true
         command: []
@@ -90,7 +90,7 @@ controlPlane:
         image:
           registry: registry.k8s.io
           repository: "kube-controller-manager"
-          tag: "v1.29.0"
+          tag: "v1.30.2"
       scheduler:
         command: []
         extraArgs: []
@@ -117,7 +117,7 @@ controlPlane:
       image:
         registry: ""
         repository: "rancher/k3s"
-        tag: "v1.29.0-k3s1"
+        tag: "v1.30.2-k3s1"
       securityContext: {}
       resources:
         limits:
@@ -136,7 +136,7 @@ controlPlane:
       image:
         registry: ""
         repository: "k0sproject/k0s"
-        tag: "v1.29.1-k0s.0"
+        tag: "v1.30.2-k0s.0"
       securityContext: {}
       resources:
         limits:
@@ -208,7 +208,7 @@ controlPlane:
           image:
             registry: "registry.k8s.io"
             repository: "etcd"
-            tag: "3.5.10-0"
+            tag: "3.5.13-0"
           imagePullPolicy: ""
           extraArgs: []
           env: []
@@ -321,7 +321,7 @@ controlPlane:
         ephemeral-storage: 8Gi
         memory: 2Gi
       requests:
-        ephemeral-storage: 300Mi
+        ephemeral-storage: 400Mi
         cpu: 200m
         memory: 256Mi
 
