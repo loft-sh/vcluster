@@ -223,6 +223,10 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
+	if len(c.External["platform"]) > 0 {
+		return true
+	}
+
 	return false
 }
 
