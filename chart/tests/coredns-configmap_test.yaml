@@ -132,12 +132,12 @@ tests:
                   nodeSelector:
                     kubernetes.io/os: linux
                   topologySpreadConstraints:
-                    - maxSkew: 1
-                      topologyKey: kubernetes.io/hostname
-                      whenUnsatisfiable: DoNotSchedule
-                      labelSelector:
+                    - labelSelector:
                         matchLabels:
                           k8s-app: kube-dns
+                      maxSkew: 1
+                      topologyKey: kubernetes.io/hostname
+                      whenUnsatisfiable: DoNotSchedule
                   containers:
                     - name: coredns
                       image: {{.IMAGE}}

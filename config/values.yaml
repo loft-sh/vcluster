@@ -280,6 +280,13 @@ controlPlane:
         requests:
           cpu: 20m
           memory: 64Mi
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            k8s-app: kube-dns
 
   service:
     enabled: true

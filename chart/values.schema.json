@@ -593,6 +593,11 @@
           },
           "type": "object",
           "description": "Labels are extra labels for this resource."
+        },
+        "topologySpreadConstraints": {
+          "items": true,
+          "type": "array",
+          "description": "TopologySpreadConstraints are the topology spread constraints for the CoreDNS pod."
         }
       },
       "additionalProperties": false,
