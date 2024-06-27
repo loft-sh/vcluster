@@ -46,26 +46,11 @@ body:
         </details>
     validations:
       required: true
-  
-  - type: textarea
-    id: k8sDistro
-    attributes:
-      label: Host cluster Kubernetes distribution
-      value: |
-        <details>
-
-        ```
-        # Write here
-        ```
-
-        </details>
-    validations:
-      required: true
 
   - type: textarea
     id: vclusterVersion
     attributes:
-      label: vlcuster version
+      label: vcluster version
       value: |
         <details>
         
@@ -79,31 +64,17 @@ body:
       required: true
 
   - type: textarea
-    id: vclusterK8sDistro
+    id: vclusterConfig
     attributes:
-      label: Vcluster Kubernetes distribution(k3s(default)), k8s, k0s)
+      label: VCluster Config
       value: |
         <details>
 
         ```
-        # Write here
+        # My vcluster.yaml / values.yaml here
         ```
 
         </details>
     validations:
       required: true
   
-  - type: textarea
-    id: osVersion
-    attributes:
-      label: OS and Arch
-      value: |
-        <details>
-
-        ```
-        OS: 
-        Arch:
-        ```
-        </details>
-    validations:
-      required: true
