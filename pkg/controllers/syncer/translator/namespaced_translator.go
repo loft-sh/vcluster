@@ -83,9 +83,9 @@ func (n *namespacedTranslator) SyncToHostUpdate(ctx *context.SyncContext, vObj, 
 		ctx.Log.Infof("updating physical %s/%s, because virtual %s have changed", pObj.GetNamespace(), pObj.GetName(), n.name)
 		err := ctx.PhysicalClient.Update(ctx.Context, pObj)
 		if kerrors.IsConflict(err) {
+			ctx.Log.Debugf("conflict syncing physical %s %s/%s", n.name, pObj.GetNamespace(), pObj.GetName())
 			return ctrl.Result{Requeue: true}, nil
-		}
-		if err != nil {
+		} else if err != nil {
 			n.eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 			return ctrl.Result{}, err
 		}
