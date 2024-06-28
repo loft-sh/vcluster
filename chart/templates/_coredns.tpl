@@ -10,6 +10,9 @@ Corefile: |-
       errors
       health
       ready
+      {{- if and .Values.controlPlane.coredns.embedded .Values.networking.resolveDNS }}
+      vcluster
+      {{- end }}
       {{- if .Values.networking.advanced.proxyKubelets.byHostname }}
       rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
       {{- end }}
@@ -24,9 +27,6 @@ Corefile: |-
           fallthrough in-addr.arpa ip6.arpa
           {{- end }}
       }
-      {{- if and .Values.controlPlane.coredns.embedded .Values.networking.resolveDNS }}
-      vcluster
-      {{- end }}
       hosts /etc/NodeHosts {
           ttl 60
           reload 15s
