@@ -137,12 +137,12 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 				Labels: testSvcLabels,
 			},
 			Spec: corev1.ServiceSpec{
-				Type: "ClusterIP",
+				Type: "LoadBalancer",
 				Ports: []corev1.ServicePort{{
 					Name:       "http",
 					Protocol:   corev1.ProtocolTCP,
 					Port:       int32(80),
-					TargetPort: intstr.FromInt(80),
+					TargetPort: intstr.FromInt32(80),
 				}},
 			},
 		}

@@ -4,7 +4,8 @@ policies:
   resourceQuota:
     enabled: true
     quota:
-      services.nodeports: 3
+      services.loadbalancers: 3
+      services.nodeports: 6
 
   limitRange:
     enabled: true
