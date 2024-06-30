@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	servertypes "github.com/loft-sh/vcluster/pkg/server/types"
 	"k8s.io/apimachinery/pkg/version"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,10 +20,22 @@ type ControllerContext struct {
 
 	WorkloadNamespaceClient client.Client
 
-	AdditionalServerFilters []servertypes.Filter
-	Config                  *VirtualClusterConfig
-	StopChan                <-chan struct{}
+	Config   *VirtualClusterConfig
+	StopChan <-chan struct{}
 
-	// set of extra services that should handle the traffic or pass it along
-	ExtraHandlers []func(http.Handler) http.Handler
+	// PreHooks are extra filters to inject into the server before everything else
+	PreHooks []Filter
+
+	// PostHooks are extra filters to inject into the server after everything else
+	PostHooks []Filter
+}
+
+type Filter func(http.Handler, Clients) http.Handler
+
+type Clients struct {
+	UncachedVirtualClient client.Client
+	CachedVirtualClient   client.Client
+
+	UncachedHostClient client.Client
+	CachedHostClient   client.Client
 }
