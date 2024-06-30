@@ -200,6 +200,17 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 	}
 
 	h := handler.ImpersonatingHandler("", virtualConfig)
+
+	// pre hooks
+	for _, f := range ctx.PreHooks {
+		h = f(h, config.Clients{
+			UncachedVirtualClient: uncachedVirtualClient,
+			CachedVirtualClient:   cachedVirtualClient,
+			UncachedHostClient:    uncachedLocalClient,
+			CachedHostClient:      cachedLocalClient,
+		})
+	}
+
 	h = filters.WithServiceCreateRedirect(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig, ctx.Config.Experimental.SyncSettings.SyncLabels)
 	h = filters.WithRedirect(h, localConfig, uncachedLocalClient.Scheme(), uncachedVirtualClient, admissionHandler, s.redirectResources)
 	h = filters.WithMetricsProxy(h, localConfig, cachedVirtualClient)
@@ -227,12 +238,14 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 		h = filters.WithPprof(h)
 	}
 
-	for _, f := range ctx.AdditionalServerFilters {
-		h = f(h)
-	}
-
-	for _, handler := range ctx.ExtraHandlers {
-		h = handler(h)
+	// post hooks
+	for _, f := range ctx.PostHooks {
+		h = f(h, config.Clients{
+			UncachedVirtualClient: uncachedVirtualClient,
+			CachedVirtualClient:   cachedVirtualClient,
+			UncachedHostClient:    uncachedLocalClient,
+			CachedHostClient:      cachedLocalClient,
+		})
 	}
 
 	serverhelper.HandleRoute(s.handler, "/", h)
