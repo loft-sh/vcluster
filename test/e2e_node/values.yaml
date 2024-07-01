@@ -10,6 +10,11 @@ sync:
       # Either syncAllNodes or nodeSelector is required
       selector:
         all: true
+    storageClasses:
+      enabled: true
+  toHost:
+    persistentVolumes:
+      enabled: true
 
 experimental:
   deploy:

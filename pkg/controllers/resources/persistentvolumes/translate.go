@@ -113,6 +113,13 @@ func (s *persistentVolumeSyncer) translateUpdate(ctx context.Context, vPv *corev
 		updated.Spec.Capacity = vPv.Spec.Capacity
 	}
 
+	if !s.useFakePersistentVolumes && vPv.Spec.ClaimRef == nil {
+		// if the virtual claimref is removed, we should also remove it in the
+		// updated
+		updated = translator.NewIfNil(updated, pPv)
+		updated.Spec.ClaimRef = nil
+	}
+
 	if !equality.Semantic.DeepEqual(pPv.Spec.AccessModes, vPv.Spec.AccessModes) {
 		updated = translator.NewIfNil(updated, pPv)
 		updated.Spec.AccessModes = vPv.Spec.AccessModes
@@ -124,6 +131,10 @@ func (s *persistentVolumeSyncer) translateUpdate(ctx context.Context, vPv *corev
 	}
 
 	translatedStorageClassName := translateStorageClass(vPv.Spec.StorageClassName)
+	if !s.useFakePersistentVolumes {
+		translatedStorageClassName = vPv.Spec.StorageClassName
+	}
+
 	if !equality.Semantic.DeepEqual(pPv.Spec.StorageClassName, translatedStorageClassName) {
 		updated = translator.NewIfNil(updated, pPv)
 		updated.Spec.StorageClassName = translatedStorageClassName
