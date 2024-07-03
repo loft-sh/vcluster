@@ -25,7 +25,8 @@ release-snapshot: gen-license-report
 
 # Run golangci-lint for all packages
 lint *ARGS:
-  golangci-lint run {{ARGS}}
+  [ -f ./custom-gcl ] || golangci-lint custom
+  ./custom-gcl run {{ARGS}}
 
 # Check struct memory alignment and print potential improvements
 [no-exit-message]

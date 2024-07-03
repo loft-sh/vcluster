@@ -5,7 +5,6 @@ linters:
   disable-all: true
   enable:
     - asasalint
-    - tagalign
     - asciicheck
     - bidichk
     - decorder
@@ -28,10 +27,12 @@ linters:
     - makezero
     - misspell
     - nakedret
+    - nilaway
     - promlinter
     - revive
     - staticcheck
     - stylecheck
+    - tagalign
     - typecheck
     - unconvert
     - unused
@@ -85,6 +86,15 @@ linters-settings:
       - yaml
       - xml
       - form
+
+  custom:
+    nilaway:
+      type: "module"
+      description: Static analysis tool to detect potential nil panics in Go code.
+      settings:
+        # Settings must be a "map from string to string" to mimic command line flags: the keys are
+        # flag names and the values are the values to the particular flags.
+        include-pkgs: "github.com/loft-sh/vcluster"
 
 issues:
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
