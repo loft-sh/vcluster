@@ -18,7 +18,7 @@ func ResumePlatform(ctx context.Context, options *ResumeOptions, config *config.
 	vCluster, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, options.Project, log)
 	if err != nil {
 		return err
-	} else if vCluster.VirtualCluster != nil && vCluster.VirtualCluster.Spec.NetworkPeer {
+	} else if vCluster.VirtualCluster != nil && vCluster.VirtualCluster.Spec.External {
 		return fmt.Errorf("cannot resume a virtual cluster that was created via helm, please run 'vcluster use driver helm' or use the '--driver helm' flag")
 	}
 
