@@ -50,7 +50,7 @@ func NewClusterCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	c := &cobra.Command{
-		Use:   "cluster",
+		Use:   "cluster CLUSTER_NAME",
 		Short: "add current cluster to vCluster platform",
 		Long: `#######################################################
 ############ vcluster platform add cluster ############

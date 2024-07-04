@@ -33,7 +33,7 @@ vcluster platform add vcluster my-vcluster --namespace vcluster-my-vcluster --pr
 	`
 
 	addCmd := &cobra.Command{
-		Use:   "vcluster",
+		Use:   "vcluster VCLUSTER_NAME",
 		Short: "Adds an existing vCluster to the vCluster platform",
 		Long:  description,
 		Args:  cobra.ExactArgs(1),
