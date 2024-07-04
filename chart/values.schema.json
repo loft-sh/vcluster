@@ -1673,6 +1673,17 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Integrations": {
+      "properties": {
+        "metricsServer": {
+          "$ref": "#/$defs/MetricsServer",
+          "description": "MetricsServer reuses the metrics server from the host cluster within the vCluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Integrations holds config for vCluster integrations with other operators or tools running on the host cluster"
+    },
     "LabelsAndAnnotations": {
       "properties": {
         "annotations": {
@@ -1725,8 +1736,12 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "MetricsProxy": {
+    "MetricsServer": {
       "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled signals the metrics server integration should be enabled."
+        },
         "nodes": {
           "type": "boolean",
           "description": "Nodes defines if metrics-server nodes api should get proxied from host to virtual cluster."
@@ -1737,7 +1752,8 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "description": "MetricsServer reuses the metrics server from the host cluster within the vCluster."
     },
     "MutatingWebhook": {
       "properties": {
@@ -1924,26 +1940,6 @@
           },
           "type": "object",
           "description": "Annotations is an unstructured key value map stored with a resource that may be\nset by external tools to store and retrieve arbitrary metadata."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Observability": {
-      "properties": {
-        "metrics": {
-          "$ref": "#/$defs/ObservabilityMetrics",
-          "description": "Metrics allows to proxy metrics server apis from host to virtual cluster."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ObservabilityMetrics": {
-      "properties": {
-        "proxy": {
-          "$ref": "#/$defs/MetricsProxy",
-          "description": "Proxy holds the configuration what metrics-server apis should get proxied."
         }
       },
       "additionalProperties": false,
@@ -3042,6 +3038,10 @@
       "$ref": "#/$defs/Sync",
       "description": "Sync describes how to sync resources from the virtual cluster to host cluster and back."
     },
+    "integrations": {
+      "$ref": "#/$defs/Integrations",
+      "description": "Integrations holds config for vCluster integrations with other operators or tools running on the host cluster"
+    },
     "networking": {
       "$ref": "#/$defs/Networking",
       "description": "Networking options related to the virtual cluster."
@@ -3049,10 +3049,6 @@
     "policies": {
       "$ref": "#/$defs/Policies",
       "description": "Policies to enforce for the virtual cluster deployment as well as within the virtual cluster."
-    },
-    "observability": {
-      "$ref": "#/$defs/Observability",
-      "description": "Observability holds options to proxy metrics from the host cluster into the virtual cluster."
     },
     "controlPlane": {
       "$ref": "#/$defs/ControlPlane",

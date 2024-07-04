@@ -32,7 +32,7 @@
     (eq (toString .Values.sync.fromHost.csiDrivers.enabled) "true")
     (eq (toString .Values.sync.fromHost.csiStorageCapacities.enabled) "true")
     .Values.sync.fromHost.nodes.enabled
-    .Values.observability.metrics.proxy.nodes
+    (and .Values.integrations.metricsServer.enabled .Values.integrations.metricsServer.nodes)
     .Values.experimental.multiNamespaceMode.enabled -}}
 {{- true -}}
 {{- end -}}

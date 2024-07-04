@@ -1,0 +1,231 @@
+package apiservice
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/server/handler"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
+	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+)
+
+const proxyPort = 9000
+
+func checkExistingAPIService(ctx context.Context, client client.Client, groupVersion schema.GroupVersion) bool {
+	var exists bool
+	_ = applyOperation(ctx, func(ctx context.Context) (bool, error) {
+		err := client.Get(ctx, types.NamespacedName{Name: groupVersion.Version + "." + groupVersion.Group}, &apiregistrationv1.APIService{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return true, nil
+			}
+
+			return false, err
+		}
+
+		exists = true
+		return true, nil
+	})
+
+	return exists
+}
+
+func applyOperation(ctx context.Context, operationFunc wait.ConditionWithContextFunc) error {
+	return wait.ExponentialBackoffWithContext(ctx, wait.Backoff{
+		Duration: time.Second,
+		Factor:   1.5,
+		Cap:      time.Minute,
+		Steps:    math.MaxInt32,
+	}, operationFunc)
+}
+
+func deleteOperation(ctrlCtx *config.ControllerContext, groupVersion schema.GroupVersion) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
+		err := ctrlCtx.VirtualManager.GetClient().Delete(ctx, &apiregistrationv1.APIService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: groupVersion.Version + "." + groupVersion.Group,
+			},
+		})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return true, nil
+			}
+
+			klog.Errorf("error deleting api service %v", err)
+			return false, nil
+		}
+
+		return true, nil
+	}
+}
+
+func createOperation(ctrlCtx *config.ControllerContext, serviceName string, groupVersion schema.GroupVersion) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      serviceName,
+				Namespace: "kube-system",
+			},
+		}
+		_, err := controllerutil.CreateOrUpdate(ctx, ctrlCtx.VirtualManager.GetClient(), service, func() error {
+			service.Spec.Type = corev1.ServiceTypeExternalName
+			service.Spec.ExternalName = "localhost"
+			service.Spec.Ports = []corev1.ServicePort{
+				{
+					Port: int32(proxyPort),
+				},
+			}
+			return nil
+		})
+		if err != nil {
+			if kerrors.IsAlreadyExists(err) {
+				return true, nil
+			}
+
+			klog.Errorf("error creating api service %v", err)
+			return false, nil
+		}
+
+		apiServiceSpec := apiregistrationv1.APIServiceSpec{
+			Service: &apiregistrationv1.ServiceReference{
+				Name:      serviceName,
+				Namespace: "kube-system",
+				Port:      ptr.To(int32(proxyPort)),
+			},
+			InsecureSkipTLSVerify: true,
+			Group:                 groupVersion.Group,
+			GroupPriorityMinimum:  100,
+			Version:               groupVersion.Version,
+			VersionPriority:       100,
+		}
+		apiService := &apiregistrationv1.APIService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: groupVersion.Version + "." + groupVersion.Group,
+			},
+		}
+		_, err = controllerutil.CreateOrUpdate(ctx, ctrlCtx.VirtualManager.GetClient(), apiService, func() error {
+			apiService.Spec = apiServiceSpec
+			return nil
+		})
+		if err != nil {
+			if kerrors.IsAlreadyExists(err) {
+				return true, nil
+			}
+
+			klog.Errorf("error creating api service %v", err)
+			return false, nil
+		}
+
+		return true, nil
+	}
+}
+
+func StartAPIServiceProxy(ctx context.Context, hostConfig *rest.Config, tlsCertFile, tlsKeyFile string) error {
+	proxyHandler, err := handler.Handler("", hostConfig, nil)
+	if err != nil {
+		return fmt.Errorf("create host proxy handler: %w", err)
+	}
+
+	s := serializer.NewCodecFactory(scheme.Scheme)
+	server := &http.Server{
+		Addr: "localhost:" + strconv.Itoa(proxyPort),
+		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			// we only allow traffic to discovery paths
+			if !isAPIServiceProxyPathAllowed(request.Method, request.URL.Path) {
+				klog.FromContext(ctx).Info("Denied access to api service proxy at path", "path", request.URL.Path, "method", request.Method)
+				responsewriters.ErrorNegotiated(
+					kerrors.NewForbidden(metav1.SchemeGroupVersion.WithResource("proxy").GroupResource(), "proxy", fmt.Errorf("paths other than discovery paths are not allowed")),
+					s,
+					corev1.SchemeGroupVersion,
+					writer,
+					request,
+				)
+				return
+			}
+
+			proxyHandler.ServeHTTP(writer, request)
+		}),
+	}
+
+	go func() {
+		klog.Infof("Listening apiservice proxy on localhost:%d...", proxyPort)
+		err = server.ListenAndServeTLS(tlsCertFile, tlsKeyFile)
+		if err != nil {
+			klog.FromContext(ctx).Error(err, "error listening for apiservice proxy and serve tls")
+			os.Exit(1)
+		}
+	}()
+
+	return nil
+}
+
+func isAPIServiceProxyPathAllowed(method, path string) bool {
+	if strings.ToUpper(method) != http.MethodGet {
+		return false
+	}
+
+	path = strings.TrimPrefix(strings.TrimSuffix(path, "/"), "/")
+	if strings.HasPrefix(path, "openapi") {
+		return true
+	}
+
+	if path == "" {
+		return true
+	}
+	if path == "version" {
+		return true
+	}
+	if path == "api" || path == "apis" {
+		return true
+	}
+
+	splitPath := strings.Split(path, "/")
+	if splitPath[0] == "apis" && len(splitPath) <= 3 {
+		return true
+	} else if splitPath[0] == "api" && len(splitPath) <= 2 {
+		return true
+	} else if splitPath[0] == ".well-known" {
+		return true
+	} else if splitPath[0] == "readyz" {
+		return true
+	} else if splitPath[0] == "livez" {
+		return true
+	}
+
+	return false
+}
+
+func RegisterAPIService(ctx *config.ControllerContext, serviceName string, groupVersion schema.GroupVersion) error {
+	return applyOperation(ctx.Context, createOperation(ctx, serviceName, groupVersion))
+}
+
+func DeregisterAPIService(ctx *config.ControllerContext, groupVersion schema.GroupVersion) error {
+	// check if the api service should get created
+	exists := checkExistingAPIService(ctx.Context, ctx.VirtualManager.GetClient(), groupVersion)
+	if exists {
+		return applyOperation(ctx.Context, deleteOperation(ctx, groupVersion))
+	}
+
+	return nil
+}

@@ -6,15 +6,11 @@ import (
 	"os"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/config/legacyconfig"
 	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kblabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
@@ -87,12 +83,6 @@ func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterCo
 
 // EnsureBackingStoreChanges ensures that only a certain set of allowed changes to the backing store and distro occur.
 func EnsureBackingStoreChanges(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) error {
-	if ok, err := CheckUsingHelm(ctx, client, name, namespace, distro, backingStoreType); err != nil {
-		return err
-	} else if ok {
-		return nil
-	}
-
 	if ok, err := CheckUsingSecretAnnotation(ctx, client, name, namespace, distro, backingStoreType); err != nil {
 		return fmt.Errorf("using secret annotations: %w", err)
 	} else if ok {
@@ -114,109 +104,6 @@ func EnsureBackingStoreChanges(ctx context.Context, client kubernetes.Interface,
 	}
 
 	return nil
-}
-
-// CheckUsingHelm fetches the previous release revision and its computed values, and then reconstructs the distro and storage settings.
-func CheckUsingHelm(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) (bool, error) {
-	ls := kblabels.Set{}
-	ls["name"] = name
-	releases, err := helm.NewSecrets(client).ListUnfiltered(ctx, ls.AsSelector(), namespace)
-	if err != nil || len(releases) == 0 {
-		return false, nil
-	}
-
-	// (ThomasK33): if there is only one revision, we're dealing with an initial installation
-	// at which point we can just exit
-	if len(releases) == 1 {
-		return true, nil
-	}
-
-	// We need to check if we can deserialize the existing values into multiple kind of config structs (legacy and current ones)
-	previousRelease := releases[len(releases)-2]
-	if previousRelease.Config == nil {
-		return false, nil
-	}
-
-	// marshal previous release config
-	previousConfigRaw, err := yaml.Marshal(previousRelease.Config)
-	if err != nil {
-		return false, nil
-	}
-
-	// Try parsing as 0.20 values
-	if success, err := func() (bool, error) {
-		previousConfig := vclusterconfig.Config{}
-		if err := previousConfig.UnmarshalYAMLStrict(previousConfigRaw); err != nil {
-			return false, nil
-		}
-
-		if err := vclusterconfig.ValidateStoreAndDistroChanges(
-			backingStoreType,
-			previousConfig.BackingStoreType(),
-			distro,
-			previousConfig.Distro(),
-		); err != nil {
-			return false, err
-		}
-
-		return true, nil
-	}(); err != nil {
-		return false, err
-	} else if success {
-		return true, nil
-	}
-
-	// Try parsing as < 0.20 values
-	var previousStoreType vclusterconfig.StoreType
-	previousDistro := ""
-
-	switch previousRelease.Chart.Metadata.Name {
-	case "vcluster-k8s":
-		previousDistro = vclusterconfig.K8SDistro
-	case "vcluster-eks":
-		previousDistro = vclusterconfig.EKSDistro
-	case "vcluster-k0s":
-		previousDistro = vclusterconfig.K0SDistro
-	case "vcluster":
-		previousDistro = vclusterconfig.K3SDistro
-	default:
-		// unknown chart, we should exit here
-		return true, nil
-	}
-
-	switch previousDistro {
-	// handles k8s and eks values
-	case vclusterconfig.K8SDistro, vclusterconfig.EKSDistro:
-		previousConfig := legacyconfig.LegacyK8s{}
-		if err := yaml.Unmarshal(previousConfigRaw, &previousConfig); err != nil {
-			return false, err
-		}
-
-		if previousConfig.EmbeddedEtcd.Enabled {
-			previousStoreType = vclusterconfig.StoreTypeEmbeddedEtcd
-		} else {
-			previousStoreType = vclusterconfig.StoreTypeExternalEtcd
-		}
-
-	// handles k0s and k3s values
-	default:
-		previousConfig := legacyconfig.LegacyK0sAndK3s{}
-		if err := yaml.Unmarshal(previousConfigRaw, &previousConfig); err != nil {
-			return false, err
-		}
-
-		if previousConfig.EmbeddedEtcd.Enabled {
-			previousStoreType = vclusterconfig.StoreTypeEmbeddedEtcd
-		} else {
-			previousStoreType = vclusterconfig.StoreTypeEmbeddedDatabase
-		}
-	}
-
-	if err := vclusterconfig.ValidateStoreAndDistroChanges(backingStoreType, previousStoreType, distro, previousDistro); err != nil {
-		return false, err
-	}
-
-	return true, nil
 }
 
 // CheckUsingHeuristic checks for known file path indicating the existence of a previous distro.

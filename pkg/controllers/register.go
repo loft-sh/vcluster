@@ -33,6 +33,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshots"
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -45,17 +46,20 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
 	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
-type initFunction func(*synccontext.RegisterContext) (syncertypes.Object, error)
+// ExtraControllers that will be started as well
+var ExtraControllers []BuildController
 
-func getSyncers(ctx *config.ControllerContext) []initFunction {
-	return []initFunction{
+// BuildController is a function to build a new syncer
+type BuildController func(ctx *synccontext.RegisterContext) (syncertypes.Object, error)
+
+func getSyncers(ctx *config.ControllerContext) []BuildController {
+	return append([]BuildController{
 		isEnabled(ctx.Config.Sync.ToHost.Services.Enabled, services.New),
 		isEnabled(ctx.Config.Sync.ToHost.ConfigMaps.Enabled, configmaps.New),
 		isEnabled(ctx.Config.Sync.ToHost.Secrets.Enabled, secrets.New),
@@ -80,10 +84,10 @@ func getSyncers(ctx *config.ControllerContext) []initFunction {
 		isEnabled(ctx.Config.Experimental.MultiNamespaceMode.Enabled, namespaces.New),
 		persistentvolumes.New,
 		nodes.New,
-	}
+	}, ExtraControllers...)
 }
 
-func isEnabled(enabled bool, fn initFunction) initFunction {
+func isEnabled(enabled bool, fn BuildController) BuildController {
 	if enabled {
 		return fn
 	}
@@ -102,7 +106,7 @@ func Create(ctx *config.ControllerContext) ([]syncertypes.Object, error) {
 
 		createdController, err := newSyncer(registerContext)
 		if err != nil {
-			return nil, errors.Wrapf(err, "register %s controller", createdController.Name())
+			return nil, fmt.Errorf("register controller: %w", err)
 		}
 
 		loghelper.Infof("Start %s sync controller", createdController.Name())

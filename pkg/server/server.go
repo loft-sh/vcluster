@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/apiservice"
 	"github.com/loft-sh/vcluster/pkg/authentication/delegatingauthenticator"
 	"github.com/loft-sh/vcluster/pkg/authorization/allowall"
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
@@ -202,32 +204,29 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 	h := handler.ImpersonatingHandler("", virtualConfig)
 
 	// pre hooks
-	for _, f := range ctx.PreHooks {
-		h = f(h, config.Clients{
-			UncachedVirtualClient: uncachedVirtualClient,
-			CachedVirtualClient:   cachedVirtualClient,
-			UncachedHostClient:    uncachedLocalClient,
-			CachedHostClient:      cachedLocalClient,
-		})
+	clients := config.Clients{
+		UncachedVirtualClient: uncachedVirtualClient,
+		CachedVirtualClient:   cachedVirtualClient,
+		UncachedHostClient:    uncachedLocalClient,
+		CachedHostClient:      cachedLocalClient,
+		HostConfig:            localConfig,
+		VirtualConfig:         virtualConfig,
+	}
+	for _, f := range ctx.PreServerHooks {
+		h = f(h, clients)
 	}
 
 	h = filters.WithServiceCreateRedirect(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig, ctx.Config.Experimental.SyncSettings.SyncLabels)
 	h = filters.WithRedirect(h, localConfig, uncachedLocalClient.Scheme(), uncachedVirtualClient, admissionHandler, s.redirectResources)
 	h = filters.WithMetricsProxy(h, localConfig, cachedVirtualClient)
 
-	// is metrics proxy enabled?
-	if ctx.Config.Observability.Metrics.Proxy.Nodes || ctx.Config.Observability.Metrics.Proxy.Pods {
-		h = filters.WithMetricsServerProxy(
-			h,
-			ctx.Config.WorkloadTargetNamespace,
-			cachedLocalClient,
-			cachedVirtualClient,
-			localConfig,
-			virtualConfig,
-			ctx.Config.Experimental.MultiNamespaceMode.Enabled,
-		)
+	// inject apis
+	if ctx.StartAPIServiceProxy {
+		err = apiservice.StartAPIServiceProxy(ctx.Context, ctx.LocalManager.GetConfig(), ctx.Config.VirtualClusterKubeConfig().ServerCACert, ctx.Config.VirtualClusterKubeConfig().ServerCAKey)
+		if err != nil {
+			return nil, fmt.Errorf("start api service proxy: %w", err)
+		}
 	}
-
 	if ctx.Config.Sync.FromHost.Nodes.Enabled && ctx.Config.Sync.FromHost.Nodes.SyncBackChanges {
 		h = filters.WithNodeChanges(ctx.Context, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 	}
@@ -239,17 +238,11 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 	}
 
 	// post hooks
-	for _, f := range ctx.PostHooks {
-		h = f(h, config.Clients{
-			UncachedVirtualClient: uncachedVirtualClient,
-			CachedVirtualClient:   cachedVirtualClient,
-			UncachedHostClient:    uncachedLocalClient,
-			CachedHostClient:      cachedLocalClient,
-		})
+	for _, f := range ctx.PostServerHooks {
+		h = f(h, clients)
 	}
 
 	serverhelper.HandleRoute(s.handler, "/", h)
-
 	return s, nil
 }
 

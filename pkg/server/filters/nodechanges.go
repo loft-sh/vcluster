@@ -88,12 +88,12 @@ func patchNode(ctx context.Context, w http.ResponseWriter, req *http.Request, s 
 	q := req.URL.Query()
 	q.Add("dryRun", "All")
 	req.URL.RawQuery = q.Encode()
-	code, header, data, err := executeRequest(req, h)
+	code, header, data, err := ExecuteRequest(req, h)
 	if err != nil {
 		responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 		return
 	} else if code != http.StatusOK {
-		writeWithHeader(w, code, header, data)
+		WriteWithHeader(w, code, header, data)
 		return
 	}
 

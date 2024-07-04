@@ -79,9 +79,6 @@ func (cmd *connectPlatform) validateProFlags() error {
 	if cmd.Server != "" {
 		return fmt.Errorf("cannot use --server with a pro vCluster")
 	}
-	if cmd.BackgroundProxy {
-		return fmt.Errorf("cannot use --background-proxy with a pro vCluster")
-	}
 	if cmd.LocalPort != 0 {
 		return fmt.Errorf("cannot use --local-port with a pro vCluster")
 	}

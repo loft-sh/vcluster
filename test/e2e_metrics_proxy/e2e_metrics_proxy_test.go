@@ -54,5 +54,5 @@ func TestRunE2ETargetNamespaceTests(t *testing.T) {
 		}
 	})
 
-	ginkgo.RunSpecs(t, "Vcluster e2eProxyMetricsServer suite")
+	ginkgo.RunSpecs(t, "vcluster e2eProxyMetricsServer suite")
 }

@@ -116,6 +116,17 @@ sync:
         all: false
         labels: {}
 
+# Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
+integrations:
+  # MetricsServer reuses the metrics server from the host cluster within the vCluster.
+  metricsServer:
+    # Enabled signals the metrics server integration should be enabled.
+    enabled: false
+    # Nodes defines if metrics-server nodes api should get proxied from host to virtual cluster.
+    nodes: true
+    # Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
+    pods: true
+
 # Configure vCluster's control plane components and deployment.
 controlPlane:
   # Distro holds virtual cluster related distro options. A distro cannot be changed after vCluster is deployed.
@@ -708,17 +719,6 @@ rbac:
     overwriteRules: []
     # ExtraRules will add rules to the cluster role.
     extraRules: []
-
-# Observability holds options to proxy metrics from the host cluster into the virtual cluster.
-observability:
-  # Metrics allows to proxy metrics server apis from host to virtual cluster.
-  metrics:
-    # Proxy holds the configuration what metrics-server apis should get proxied.
-    proxy:
-      # Nodes defines if metrics-server nodes api should get proxied from host to virtual cluster.
-      nodes: false
-      # Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
-      pods: false
 
 # Networking options related to the virtual cluster.
 networking:

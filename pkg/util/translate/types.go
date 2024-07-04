@@ -15,12 +15,15 @@ var (
 
 var Default Translator = &singleNamespace{}
 
+// PhysicalNameFunc is a definition to translate a name
+type PhysicalNameFunc func(vName, vNamespace string) string
+
 type Translator interface {
 	// SingleNamespaceTarget signals if we sync all objects into a single namespace
 	SingleNamespaceTarget() bool
 
 	// IsManaged checks if the object is managed by vcluster
-	IsManaged(obj runtime.Object) bool
+	IsManaged(obj runtime.Object, physicalName PhysicalNameFunc) bool
 
 	// IsManagedCluster checks if the cluster scoped object is managed by vcluster
 	IsManagedCluster(obj runtime.Object) bool
@@ -34,6 +37,9 @@ type Translator interface {
 
 	// PhysicalName returns the physical name for a virtual cluster object
 	PhysicalName(vName, vNamespace string) string
+
+	// PhysicalNameShort returns the short physical name for a virtual cluster object
+	PhysicalNameShort(vName, vNamespace string) string
 
 	// PhysicalNamespace returns the physical namespace for a virtual cluster object
 	PhysicalNamespace(vNamespace string) string

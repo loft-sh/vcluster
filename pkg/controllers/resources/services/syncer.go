@@ -10,7 +10,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -113,7 +112,10 @@ func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Serv
 var _ syncertypes.ToVirtualSyncer = &serviceSyncer{}
 
 func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	if !translate.Default.IsManaged(pObj) {
+	isManaged, err := s.NamespacedTranslator.IsManaged(ctx.Context, pObj)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if !isManaged {
 		return ctrl.Result{}, nil
 	}
 

@@ -300,7 +300,6 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 	crdDefinition.Spec.Versions = newVersions
 
 	// apply the crd
-
 	log.NewWithoutName().Infof("Create crd %s in virtual cluster", groupVersionKind.String())
 	_, err = vClient.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crdDefinition, metav1.CreateOptions{})
 	if err != nil {

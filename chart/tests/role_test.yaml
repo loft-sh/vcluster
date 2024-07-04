@@ -155,10 +155,10 @@ tests:
 
   - it: metrics proxy
     set:
-      observability:
-        metrics:
-          proxy:
-            pods: true
+      integrations:
+        metricsServer:
+          enabled: true
+          pods: true
     release:
       name: my-release
       namespace: my-namespace

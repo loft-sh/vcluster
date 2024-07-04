@@ -34,6 +34,16 @@ func (s *singleNamespace) PhysicalName(name, namespace string) string {
 	return SingleNamespacePhysicalName(name, namespace, VClusterName)
 }
 
+// PhysicalNameShort returns the short physical name of the name / namespace resource
+func (s *singleNamespace) PhysicalNameShort(name, namespace string) string {
+	if name == "" {
+		return ""
+	}
+
+	digest := sha256.Sum256([]byte(strings.Join([]string{name, "x", namespace, "x", VClusterName}, "-")))
+	return hex.EncodeToString(digest[0:])[0:8]
+}
+
 func SingleNamespacePhysicalName(name, namespace, suffix string) string {
 	if name == "" {
 		return ""
@@ -61,7 +71,7 @@ func (s *singleNamespace) PhysicalNameClusterScoped(name string) string {
 	return SafeConcatName("vcluster", name, "x", s.targetNamespace, "x", VClusterName)
 }
 
-func (s *singleNamespace) IsManaged(obj runtime.Object) bool {
+func (s *singleNamespace) IsManaged(obj runtime.Object, physicalName PhysicalNameFunc) bool {
 	metaAccessor, err := meta.Accessor(obj)
 	if err != nil {
 		return false
@@ -74,7 +84,9 @@ func (s *singleNamespace) IsManaged(obj runtime.Object) bool {
 	// vcluster has not synced the object IF:
 	// If object-name annotation is not set OR
 	// If object-name annotation is different from actual name
-	if metaAccessor.GetAnnotations() == nil || metaAccessor.GetAnnotations()[NameAnnotation] == "" || metaAccessor.GetName() != s.PhysicalName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation]) {
+	if metaAccessor.GetAnnotations() == nil ||
+		metaAccessor.GetAnnotations()[NameAnnotation] == "" ||
+		metaAccessor.GetName() != physicalName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation]) {
 		return false
 	}
 
