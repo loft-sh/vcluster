@@ -213,9 +213,8 @@ func (l *LoftStarter) printVClusterProGettingStarted(url string) {
 
 	if l.isLoggedIn(url) {
 		l.Log.Donef("You are successfully logged into vCluster Platform!")
-		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster create` to create a new pro vCluster\n")
-		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster create --disable-pro` to create a new oss vCluster\n")
-		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster import` to import and upgrade an existing oss vCluster\n")
+		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster create` to create a new virtual cluster\n")
+		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster platform add vcluster` to add an existing virtual cluster to a vCluster platform instance\n")
 	} else {
 		l.Log.Warnf("You are not logged into vCluster Platform yet, please run the below command to log into the vCluster Platform instance")
 		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster login "+url+"` to log into the vCluster Platform instance\n")
@@ -224,9 +223,9 @@ func (l *LoftStarter) printVClusterProGettingStarted(url string) {
 
 func (l *LoftStarter) waitForLoft(ctx context.Context) (*corev1.Pod, error) {
 	// wait for loft pod to start
-	l.Log.Info(product.Replace("Waiting for Loft pod to be running..."))
+	l.Log.Info(product.Replace("Waiting for vCluster platform pod to be running..."))
 	loftPod, err := clihelper.WaitForReadyLoftPod(ctx, l.KubeClient, l.Namespace, l.Log)
-	l.Log.Donef(product.Replace("Loft pod successfully started"))
+	l.Log.Donef(product.Replace("vCluster platform pod successfully started"))
 	if err != nil {
 		return nil, err
 	}
