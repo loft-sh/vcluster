@@ -268,6 +268,14 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		cmd.Connect = false
 	}
 
+	if isSleepModeConfigured(vClusterConfig) {
+		if agentDeployed, err := cmd.isLoftAgentDeployed(ctx); err != nil {
+			return fmt.Errorf("is agent deployed: %w", err)
+		} else if !agentDeployed {
+			return fmt.Errorf("sleep mode is configured but requires an agent to be installed on the host cluster. To install the agent using the vCluster CLI, run: vcluster platform add cluster")
+		}
+	}
+
 	if isVClusterDeployed(release) {
 		// While certain backing store changes are allowed we prohibit changes to another distro.
 		if err := config.ValidateChanges(currentVClusterConfig, vClusterConfig); err != nil {
@@ -363,6 +371,24 @@ func (cmd *createHelm) addVCluster(ctx context.Context, vClusterConfig *config.C
 	}
 
 	return nil
+}
+
+func (cmd *createHelm) isLoftAgentDeployed(ctx context.Context) (bool, error) {
+	podList, err := cmd.kubeClient.CoreV1().Pods("").List(ctx, metav1.ListOptions{
+		LabelSelector: "app=loft",
+	})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return false, err
+	}
+
+	return len(podList.Items) > 0, nil
+}
+
+func isSleepModeConfigured(vClusterConfig *config.Config) bool {
+	if vClusterConfig == nil || vClusterConfig.External == nil || vClusterConfig.External["platform"] == nil {
+		return false
+	}
+	return vClusterConfig.External["platform"]["autoSleep"] != nil || vClusterConfig.External["platform"]["autoDelete"] != nil
 }
 
 func isVClusterDeployed(release *helm.Release) bool {
