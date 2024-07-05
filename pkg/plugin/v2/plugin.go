@@ -108,7 +108,6 @@ func (m *Manager) Start(
 	for _, vClusterPlugin := range m.Plugins {
 		// build the start request
 		initRequest, err := m.buildInitRequest(filepath.Dir(vClusterPlugin.Path), syncerConfig, vConfig, port)
-
 		if err != nil {
 			return fmt.Errorf("build start request: %w", err)
 		}
@@ -570,6 +569,9 @@ func (m *Manager) registerNonResourceURL(port int, interceptorsInfos Interceptor
 		// ignore empty resources
 		if nonResourceURL == "" {
 			continue
+		}
+		if m.NonResourceInterceptorsPorts[nonResourceURL] == nil {
+			m.NonResourceInterceptorsPorts[nonResourceURL] = make(map[string]portHandlerName, 0)
 		}
 		for _, v := range interceptorsInfos.Verbs {
 			if _, ok := m.NonResourceInterceptorsPorts[nonResourceURL][v]; ok {

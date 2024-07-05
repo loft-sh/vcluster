@@ -9,10 +9,11 @@
 package pluginv2
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -350,9 +351,9 @@ type Mutate_Request struct {
 	unknownFields protoimpl.UnknownFields
 
 	ApiVersion string `protobuf:"bytes,1,opt,name=apiVersion,proto3" json:"apiVersion,omitempty"`
-	Kind       string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
-	Object     string `protobuf:"bytes,3,opt,name=object,proto3" json:"object,omitempty"`
-	Type       string `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
+	Kind       string `protobuf:"bytes,2,opt,name=kind,proto3"       json:"kind,omitempty"`
+	Object     string `protobuf:"bytes,3,opt,name=object,proto3"     json:"object,omitempty"`
+	Type       string `protobuf:"bytes,4,opt,name=type,proto3"       json:"type,omitempty"`
 }
 
 func (x *Mutate_Request) Reset() {
@@ -420,7 +421,7 @@ type Mutate_Response struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Object  string `protobuf:"bytes,1,opt,name=object,proto3" json:"object,omitempty"`
+	Object  string `protobuf:"bytes,1,opt,name=object,proto3"   json:"object,omitempty"`
 	Mutated bool   `protobuf:"varint,2,opt,name=mutated,proto3" json:"mutated,omitempty"`
 }
 

@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -67,9 +68,13 @@ func ApplyPlatformSecret(
 		}
 
 		return nil
-	} else if reflect.DeepEqual(keySecret.Data, payload) {
+	} else if keySecret != nil && reflect.DeepEqual(keySecret.Data, payload) {
 		// no update needed, just return
 		return nil
+	}
+
+	if keySecret == nil {
+		return errors.New("nil keySecret")
 	}
 
 	// create the patch

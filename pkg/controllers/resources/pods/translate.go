@@ -2,6 +2,7 @@ package pods
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
@@ -55,7 +56,7 @@ func (s *podSyncer) getK8sIPDNSIPServiceList(ctx *synccontext.SyncContext, vPod 
 
 func (s *podSyncer) translateUpdate(ctx context.Context, pClient client.Client, pObj, vObj *corev1.Pod) (*corev1.Pod, error) {
 	secret, err := podtranslate.GetSecretIfExists(ctx, pClient, vObj.Name, vObj.Namespace)
-	if err != nil {
+	if err := podtranslate.IgnoreAcceptableErrors(err); err != nil {
 		return nil, err
 	} else if secret != nil {
 		// check if owner is vcluster service, if so, modify to pod as owner
@@ -82,6 +83,10 @@ func (s *podSyncer) findKubernetesIP(ctx *synccontext.SyncContext) (string, erro
 }
 
 func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, error) {
+	if specialservices.Default == nil {
+		return "", errors.New("specialservices default not initialized")
+	}
+
 	pClient, namespace := specialservices.Default.DNSNamespace(ctx)
 
 	// first try to find the actual synced service, then fallback to a different if we have a suffix (only in the case of integrated coredns)

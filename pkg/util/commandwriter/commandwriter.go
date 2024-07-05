@@ -92,7 +92,9 @@ func (c *commandWriter) Writer() io.Writer {
 }
 
 func (c *commandWriter) Close() {
-	_ = c.writer.Close()
+	if c.writer != nil {
+		_ = c.writer.Close()
+	}
 }
 
 func (c *commandWriter) CloseAndWait(_ context.Context, _ error) {

@@ -16,9 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	SyncerVersion = "dev"
-)
+var SyncerVersion = "dev"
 
 // getVClusterID provides instance ID based on the UID of the service
 func getVClusterID(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace, vClusterService string) (string, error) {
@@ -89,7 +87,7 @@ func toKubernetesVersion(vi *version.Info) *KubernetesVersion {
 
 // GetPlatformUserID returns the loft instance id
 func GetPlatformUserID(cliConfig *config.CLI, self *managementv1.Self) string {
-	if cliConfig.TelemetryDisabled || self == nil {
+	if cliConfig == nil || cliConfig.TelemetryDisabled || self == nil {
 		return ""
 	}
 	platformID := self.Status.Subject
@@ -101,7 +99,7 @@ func GetPlatformUserID(cliConfig *config.CLI, self *managementv1.Self) string {
 
 // GetPlatformInstanceID returns the loft instance id
 func GetPlatformInstanceID(cliConfig *config.CLI, self *managementv1.Self) string {
-	if cliConfig.TelemetryDisabled || self == nil {
+	if cliConfig == nil || cliConfig.TelemetryDisabled || self == nil {
 		return ""
 	}
 
@@ -111,7 +109,7 @@ func GetPlatformInstanceID(cliConfig *config.CLI, self *managementv1.Self) strin
 // GetMachineID retrieves machine ID and encodes it together with users $HOME path and
 // extra key to protect privacy. Returns a hex-encoded string.
 func GetMachineID(cliConfig *config.CLI) string {
-	if cliConfig.TelemetryDisabled {
+	if cliConfig == nil || cliConfig.TelemetryDisabled {
 		return ""
 	}
 

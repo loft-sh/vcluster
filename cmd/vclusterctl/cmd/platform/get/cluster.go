@@ -20,9 +20,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-var (
-	ErrNotLoftContext = errors.New("current context is not a loft context, but predefined var LOFT_CLUSTER is used")
-)
+var ErrNotLoftContext = errors.New("current context is not a loft context, but predefined var LOFT_CLUSTER is used")
 
 type clusterCmd struct {
 	*flags.GlobalFlags
@@ -92,7 +90,10 @@ func (c *clusterCmd) Run(ctx context.Context, _ []string) error {
 				return err
 			}
 
-			_, err = os.Stdout.Write([]byte(spaceInstance.Spec.ClusterRef.Cluster))
+			if spaceInstance != nil {
+				_, err = os.Stdout.Write([]byte(spaceInstance.Spec.ClusterRef.Cluster))
+			}
+
 			return err
 		}
 
@@ -117,7 +118,10 @@ func (c *clusterCmd) Run(ctx context.Context, _ []string) error {
 				return err
 			}
 
-			_, err = os.Stdout.Write([]byte(virtualClusterInstance.Spec.ClusterRef.Cluster))
+			if virtualClusterInstance != nil {
+				_, err = os.Stdout.Write([]byte(virtualClusterInstance.Spec.ClusterRef.Cluster))
+			}
+
 			return err
 		}
 

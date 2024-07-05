@@ -208,6 +208,12 @@ func SelectVirtualClusterInstance(ctx context.Context, client Client, virtualClu
 	// get unformatted options
 	var optionsUnformatted [][]string
 	for _, virtualCluster := range virtualClusters {
+		if virtualCluster == nil ||
+			virtualCluster.VirtualCluster == nil ||
+			virtualCluster.Project == nil {
+			continue
+		}
+
 		optionsUnformatted = append(optionsUnformatted, []string{"vcluster: " + clihelper.GetDisplayName(virtualCluster.VirtualCluster.Name, virtualCluster.VirtualCluster.Spec.DisplayName), "Project: " + clihelper.GetDisplayName(virtualCluster.Project.Name, virtualCluster.Project.Spec.DisplayName)})
 	}
 
@@ -218,7 +224,12 @@ func SelectVirtualClusterInstance(ctx context.Context, client Client, virtualClu
 		}
 		return "", "", "", "", fmt.Errorf("couldn't find a virtual cluster you have access to")
 	} else if len(virtualClusters) == 1 {
-		return "", virtualClusters[0].Project.Name, "", virtualClusters[0].VirtualCluster.Name, nil
+		vc := virtualClusters[0]
+		if vc.Project == nil || vc.VirtualCluster == nil {
+			return "", "", "", "", errors.New("virtual cluster instance object is missing project or virtual cluster infos")
+		}
+
+		return "", vc.Project.Name, "", vc.VirtualCluster.Name, nil
 	}
 
 	questionOptions := formatOptions("%s | %s", optionsUnformatted)
@@ -233,11 +244,18 @@ func SelectVirtualClusterInstance(ctx context.Context, client Client, virtualClu
 
 	for idx, s := range questionOptions {
 		if s == selectedOption {
-			return "", virtualClusters[idx].Project.Name, "", virtualClusters[idx].VirtualCluster.Name, nil
+			vc := virtualClusters[idx]
+			if vc.Project == nil {
+				return "", "", "", "", errors.New("nil project")
+			}
+			if vc.VirtualCluster == nil {
+				return "", "", "", "", errors.New("nil virtual cluster")
+			}
+			return "", vc.Project.Name, "", vc.VirtualCluster.Name, nil
 		}
 	}
 
-	return "", "", "", "", fmt.Errorf("couldn't find answer")
+	return "", "", "", "", errors.New("couldn't find answer")
 }
 
 func SelectSpaceInstance(ctx context.Context, client Client, spaceName, projectName string, log log.Logger) (string, string, string, error) {
@@ -541,8 +559,8 @@ func GetSpaceInstances(ctx context.Context, client Client) ([]*SpaceInstanceProj
 }
 
 type ProjectProjectSecret struct {
-	ProjectSecret managementv1.ProjectSecret
 	Project       string
+	ProjectSecret managementv1.ProjectSecret
 }
 
 func GetProjectSecrets(ctx context.Context, managementClient kube.Interface, projectNames ...string) ([]*ProjectProjectSecret, error) {
@@ -675,7 +693,12 @@ func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, con
 
 		// get server
 		for _, val := range kubeConfig.Clusters {
-			contextOptions.Server = val.Server
+			if val != nil {
+				contextOptions.Server = val.Server
+			}
+		}
+		if contextOptions.Server == "" {
+			return kubeconfig.ContextOptions{}, errors.New("could not determine server url")
 		}
 
 		contextOptions.InsecureSkipTLSVerify = true
@@ -1233,13 +1256,18 @@ func getCertificateAndKeyDataFromKubeConfig(config string) (string, string, erro
 		return "", "", err
 	}
 
-	return string(apiCfg.AuthInfos["vcluster"].ClientCertificateData), string(apiCfg.AuthInfos["vcluster"].ClientKeyData), nil
+	authInfo, ok := apiCfg.AuthInfos["vcluster"]
+	if !ok || authInfo == nil {
+		return "", "", errors.New("couldn't find vcluster auth infos")
+	}
+
+	return string(authInfo.ClientCertificateData), string(authInfo.ClientKeyData), nil
 }
 
-func getVirtualClusterInstanceAccessConfig(ctx context.Context, client Client, virtualClusterInstance *managementv1.VirtualClusterInstance) (*clientcmdapi.Config, error) {
+func getVirtualClusterInstanceAccessConfig(ctx context.Context, client Client, virtualClusterInstance *managementv1.VirtualClusterInstance) (clientcmdapi.Config, error) {
 	managementClient, err := client.Management()
 	if err != nil {
-		return nil, err
+		return clientcmdapi.Config{}, err
 	}
 
 	kubeConfig, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).GetKubeConfig(
@@ -1251,21 +1279,21 @@ func getVirtualClusterInstanceAccessConfig(ctx context.Context, client Client, v
 		metav1.CreateOptions{},
 	)
 	if err != nil {
-		return nil, err
+		return clientcmdapi.Config{}, err
 	}
 
 	// parse kube config string
 	clientCfg, err := clientcmd.NewClientConfigFromBytes([]byte(kubeConfig.Status.KubeConfig))
 	if err != nil {
-		return nil, err
+		return clientcmdapi.Config{}, err
 	}
 
 	apiCfg, err := clientCfg.RawConfig()
 	if err != nil {
-		return nil, err
+		return clientcmdapi.Config{}, err
 	}
 
-	return &apiCfg, nil
+	return apiCfg, nil
 }
 
 func findProjectCluster(ctx context.Context, client Client, projectName, clusterName string) (*managementv1.Cluster, error) {

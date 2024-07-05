@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/loft-sh/log"
@@ -32,6 +33,9 @@ func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *
 	if err != nil {
 		return fmt.Errorf("get platform vcluster %s: %w", vClusterName, err)
 	}
+	if vCluster == nil {
+		return errors.New("empty vCluster")
+	}
 
 	// create connect platform command
 	cmd := connectPlatform{
@@ -53,9 +57,17 @@ func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *
 	}
 
 	// wait for vCluster to become ready
-	vCluster.VirtualCluster, err = platform.WaitForVirtualClusterInstance(ctx, managementClient, vCluster.VirtualCluster.Namespace, vCluster.VirtualCluster.Name, true, log)
+	if vCluster.VirtualCluster == nil {
+		return errors.New("nil virtual cluster object")
+	}
+
+	vc, err := platform.WaitForVirtualClusterInstance(ctx, managementClient, vCluster.VirtualCluster.Namespace, vCluster.VirtualCluster.Name, true, log)
 	if err != nil {
 		return err
+	}
+	vCluster.VirtualCluster = vc
+	if vCluster.VirtualCluster == nil {
+		return errors.New("platform returned empty virtual cluster")
 	}
 
 	// retrieve vCluster kube config
@@ -90,6 +102,10 @@ func (cmd *connectPlatform) validateProFlags() error {
 }
 
 func (cmd *connectPlatform) getVClusterKubeConfig(ctx context.Context, platformClient platform.Client, vCluster *platform.VirtualClusterInstanceProject) (*clientcmdapi.Config, error) {
+	if vCluster == nil || vCluster.Project == nil || vCluster.VirtualCluster == nil {
+		return nil, errors.New("invalid vcluster VirtualClusterInstanceProject object")
+	}
+
 	contextOptions, err := platform.CreateVirtualClusterInstanceOptions(ctx, platformClient, "", vCluster.Project.Name, vCluster.VirtualCluster, false)
 	if err != nil {
 		return nil, fmt.Errorf("prepare vCluster kube config: %w", err)

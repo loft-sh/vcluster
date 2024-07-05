@@ -168,7 +168,12 @@ func (f *exporter) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) 
 	pObj, err := f.patcher.ApplyPatches(ctx.Context, vObj, nil, f)
 	if kerrors.IsConflict(err) {
 		return ctrl.Result{Requeue: true}, nil
-	} else if err != nil {
+	}
+	if err != nil {
+		if err := IgnoreAcceptableErrors(err); err != nil {
+			return ctrl.Result{}, nil
+		}
+
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	} else if pObj == nil {
@@ -253,6 +258,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 
 	// apply patches
 	pObj, err = f.patcher.ApplyPatches(ctx.Context, vObj, pObj, f)
+	err = IgnoreAcceptableErrors(err)
 	if err != nil {
 		// when invalid, auto delete and recreate to recover
 		if kerrors.IsInvalid(err) && f.replaceWhenInvalid {
@@ -301,6 +307,10 @@ func (f *exporter) Name() string {
 // TranslateMetadata converts the virtual object into a physical object
 func (f *exporter) TranslateMetadata(ctx context.Context, vObj client.Object) client.Object {
 	pObj := f.NamespacedTranslator.TranslateMetadata(ctx, vObj)
+	if pObj == nil {
+		return nil
+	}
+
 	if pObj.GetAnnotations() == nil {
 		pObj.SetAnnotations(map[string]string{translate.ControllerLabel: f.Name()})
 	} else {

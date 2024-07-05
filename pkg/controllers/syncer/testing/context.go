@@ -33,6 +33,9 @@ const (
 func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func(ctx *synccontext.RegisterContext) (syncer.Object, error)) (*synccontext.SyncContext, syncer.Object) {
 	object, err := create(ctx)
 	assert.NilError(t, err)
+	if object == nil {
+		t.Fatal("object is nil")
+	}
 
 	// run register indices
 	registerer, ok := object.(syncer.IndicesRegisterer)

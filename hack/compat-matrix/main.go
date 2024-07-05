@@ -120,6 +120,9 @@ func updateTableWithDistro(distroName string, versionMap map[string]string, know
 
 	for hostVersion, issueList := range issues {
 		for vclusterAPI, issueDesc := range issueList {
+			if issues[hostVersion] == nil {
+				issues[hostVersion] = make(map[string]string, 0)
+			}
 			issues[hostVersion][removeRegistry(vclusterAPI)] = issueDesc
 			if removeRegistry(vclusterAPI) != vclusterAPI {
 				// avoids removing valid entries

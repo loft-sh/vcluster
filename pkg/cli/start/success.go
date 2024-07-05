@@ -3,6 +3,7 @@ package start
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -100,6 +101,13 @@ func (l *LoftStarter) success(ctx context.Context) error {
 }
 
 func (l *LoftStarter) pingLoftRouter(ctx context.Context, loftPod *corev1.Pod) (string, error) {
+	if l == nil {
+		return "", errors.New("nil LoftStarter")
+	}
+	if l.KubeClient == nil {
+		return "", errors.New("nil KubeClient")
+	}
+
 	loftRouterSecret, err := l.KubeClient.CoreV1().Secrets(loftPod.Namespace).Get(ctx, clihelper.LoftRouterDomainSecret, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {

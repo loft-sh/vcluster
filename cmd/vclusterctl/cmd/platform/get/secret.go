@@ -203,9 +203,14 @@ func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 				keyNames = append(keyNames, k)
 			}
 
+			defaultValue := ""
+			if len(keyNames) > 0 {
+				defaultValue = keyNames[0]
+			}
+
 			keyName, err = cmd.log.Question(&survey.QuestionOptions{
 				Question:     "Please select a secret key to read",
-				DefaultValue: keyNames[0],
+				DefaultValue: defaultValue,
 				Options:      keyNames,
 			})
 			if err != nil {

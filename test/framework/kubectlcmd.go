@@ -67,7 +67,7 @@ func (tk *TestKubeconfig) KubectlCmd(args ...string) *exec.Cmd {
 	kubectlArgs := append(defaultArgs, args...)
 
 	// We allow users to specify path to kubectl, so you can test either "kubectl" or "cluster/kubectl.sh"
-	//and so on.
+	// and so on.
 	cmd := exec.Command(tk.KubectlPath, kubectlArgs...)
 
 	// caller will invoke this and wait on it.
@@ -167,7 +167,7 @@ func (b KubectlBuilder) ExecWithFullOutput() (string, string, error) {
 	select {
 	case err := <-errCh:
 		if err != nil {
-			var rc = 127
+			rc := 127
 			if ee, ok := lo.ErrorsAs[*exec.ExitError](err); ok {
 				rc = ee.Sys().(syscall.WaitStatus).ExitStatus()
 				log.GetInstance().Infof("rc: %d", rc)

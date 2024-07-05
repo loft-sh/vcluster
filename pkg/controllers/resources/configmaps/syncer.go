@@ -107,7 +107,11 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !used {
-		pConfigMap, _ := meta.Accessor(pObj)
+		pConfigMap, err := meta.Accessor(pObj)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
 		ctx.Log.Infof("delete physical config map %s/%s, because it is not used anymore", pConfigMap.GetNamespace(), pConfigMap.GetName())
 		err = ctx.PhysicalClient.Delete(ctx.Context, pObj)
 		if err != nil {

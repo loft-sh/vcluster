@@ -253,7 +253,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 				return false, err
 			}
 
-			return clusterInstance.Status.Phase == storagev1.ClusterStatusPhaseInitialized, nil
+			return clusterInstance != nil && clusterInstance.Status.Phase == storagev1.ClusterStatusPhaseInitialized, nil
 		})
 		if waitErr != nil {
 			return fmt.Errorf("get cluster: %w", waitErr)

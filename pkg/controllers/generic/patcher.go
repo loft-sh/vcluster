@@ -24,6 +24,14 @@ type ObjectPatcherAndMetadataTranslator interface {
 
 var ErrNoUpdateNeeded = errors.New("no update needed")
 
+func IgnoreAcceptableErrors(err error) error {
+	if errors.Is(err, ErrNoUpdateNeeded) {
+		return nil
+	}
+
+	return err
+}
+
 // ObjectPatcher is the heart of the export and import syncers. The following functions are executed based on the lifecycle:
 // During Creation:
 // * ServerSideApply with nil existingOtherObj
@@ -88,10 +96,6 @@ func (s *Patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object
 	// apply patches on from object
 	err = modifier.ServerSideApply(ctx, fromObj, toObjCopied, toObj)
 	if err != nil {
-		if errors.Is(err, ErrNoUpdateNeeded) {
-			return nil, nil
-		}
-
 		return nil, fmt.Errorf("error applying patches: %w", err)
 	}
 
@@ -190,6 +194,10 @@ func (s *Patcher) ApplyReversePatches(ctx context.Context, fromObj, otherObj cli
 }
 
 func toUnstructured(obj client.Object) (*unstructured.Unstructured, error) {
+	if obj == nil {
+		return nil, errors.New("nil obj")
+	}
+
 	fromCopied, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj.DeepCopyObject())
 	if err != nil {
 		return nil, err

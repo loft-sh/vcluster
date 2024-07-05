@@ -22,13 +22,12 @@ import (
 
 type PasswordCmd struct {
 	*flags.GlobalFlags
+	Log log.Logger
 
 	User     string
 	Password string
 	Create   bool
 	Force    bool
-
-	Log log.Logger
 }
 
 func NewResetCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
@@ -127,6 +126,9 @@ func (cmd *PasswordCmd) Run() error {
 			return err
 		}
 	}
+	if user == nil {
+		return errors.New("could not obtain user")
+	}
 
 	// check if user had a password before
 	if user.Spec.PasswordRef == nil || user.Spec.PasswordRef.SecretName == "" || user.Spec.PasswordRef.SecretNamespace == "" || user.Spec.PasswordRef.Key == "" {
@@ -184,6 +186,9 @@ func (cmd *PasswordCmd) Run() error {
 			return errors.Wrap(err, "create password secret")
 		}
 	} else {
+		if passwordSecret == nil {
+			passwordSecret = &corev1.Secret{}
+		}
 		if passwordSecret.Data == nil {
 			passwordSecret.Data = map[string][]byte{}
 		}

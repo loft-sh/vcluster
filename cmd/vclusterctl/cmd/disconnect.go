@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/loft-sh/log"
@@ -52,9 +53,14 @@ vcluster disconnect
 
 // Run executes the functionality
 func (cmd *DisconnectCmd) Run() error {
-	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: cmd.Context,
-	}).RawConfig()
+	})
+	if clientConfig == nil {
+		return errors.New("nil clientConfig")
+	}
+
+	rawConfig, err := clientConfig.RawConfig()
 	if err != nil {
 		return err
 	}
@@ -102,6 +108,10 @@ func (cmd *DisconnectCmd) Run() error {
 }
 
 func (cmd *DisconnectCmd) selectContext(kubeConfig *clientcmdapi.Config, currentContext string) (string, error) {
+	if kubeConfig == nil {
+		return "", errors.New("nil kubeConfig")
+	}
+
 	availableContexts := []string{}
 	for context := range kubeConfig.Contexts {
 		if context != currentContext {

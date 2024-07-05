@@ -45,6 +45,10 @@ func NewPluginClient(virtual bool, delegate client.NewClientFunc) client.NewClie
 }
 
 func wrapClient(virtual bool, innerClient client.Client) client.Client {
+	if innerClient == nil {
+		panic("nil innerClient")
+	}
+
 	suffix := "Physical"
 	if virtual {
 		suffix = "Virtual"

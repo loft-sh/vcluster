@@ -44,7 +44,7 @@ func AddEphemeralContainer(ctx *synccontext.SyncContext, physicalClusterClient k
 		if err != nil {
 			// The apiserver will return a 404 when the EphemeralContainers feature is disabled because the `/ephemeralcontainers` subresource
 			// is missing. Unlike the 404 returned by a missing physicalPod, the status details will be empty.
-			if serr, ok := lo.ErrorsAs[*kerrors.StatusError](err); ok && serr.Status().Reason == metav1.StatusReasonNotFound && serr.ErrStatus.Details.Name == "" {
+			if serr, ok := lo.ErrorsAs[*kerrors.StatusError](err); ok && serr != nil && serr.Status().Reason == metav1.StatusReasonNotFound && serr.ErrStatus.Details.Name == "" {
 				return fmt.Errorf("ephemeral containers are disabled for this cluster (error from server: %w)", err)
 			}
 			// The Kind used for the /ephemeralcontainers subresource changed in 1.22. When presented with an unexpected

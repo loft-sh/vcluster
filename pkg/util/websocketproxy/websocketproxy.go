@@ -191,7 +191,7 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			msgType, msg, err := src.ReadMessage()
 			if err != nil {
 				m := websocket.FormatCloseMessage(websocket.CloseNormalClosure, fmt.Sprintf("%v", err))
-				if e, ok := lo.ErrorsAs[*websocket.CloseError](err); ok {
+				if e, ok := lo.ErrorsAs[*websocket.CloseError](err); ok && e != nil {
 					if e.Code != websocket.CloseNoStatusReceived {
 						m = websocket.FormatCloseMessage(e.Code, e.Text)
 					}
@@ -234,7 +234,9 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	case err = <-errBackend:
 		message = "websocketproxy: Error when copying from client to backend: %v"
 	}
-	if e, ok := lo.ErrorsAs[*websocket.CloseError](err); !ok || e.Code == websocket.CloseAbnormalClosure {
+
+	var closeError *websocket.CloseError
+	if ok := errors.As(err, &closeError); !ok || (closeError != nil && closeError.Code == websocket.CloseAbnormalClosure) {
 		log.Printf(message, err)
 	}
 }

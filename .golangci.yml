@@ -28,8 +28,10 @@ linters:
     - misspell
     - nakedret
     - nilaway
+    - nilnil
     - promlinter
     - revive
+    - sloglint
     - staticcheck
     - stylecheck
     - tagalign
@@ -41,7 +43,6 @@ linters:
 
     # next linters to be enabled:
     # - prealloc
-    # - nilnil
     # - errchkjson
     # - gocritic
 
@@ -82,6 +83,7 @@ linters-settings:
 
   tagalign:
     order:
+      - protobuf
       - json
       - yaml
       - xml
@@ -95,6 +97,9 @@ linters-settings:
         # Settings must be a "map from string to string" to mimic command line flags: the keys are
         # flag names and the values are the values to the particular flags.
         include-pkgs: "github.com/loft-sh/vcluster"
+        exclude-pkgs: "github.com/loft-sh/vcluster/test"
+        experimental-anonymous-function: "true"
+        # experimental-struct-init: "true"
 
 issues:
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.

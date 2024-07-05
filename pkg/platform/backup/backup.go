@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -331,10 +332,14 @@ func clusters(ctx context.Context, client clientpkg.Client) ([]runtime.Object, e
 		if u.Spec.Config.SecretName != "" {
 			secret, err := getSecret(ctx, client, u.Spec.Config.SecretNamespace, u.Spec.Config.SecretName)
 			if err != nil {
-				return nil, errors.Wrap(err, "get cluster secret")
-			} else if secret != nil {
-				retList = append(retList, secret)
+				if !errors.Is(err, ErrMissingName) {
+					return nil, fmt.Errorf("get cluster secret: %w", err)
+				}
+
+				continue
 			}
+
+			retList = append(retList, secret)
 		}
 	}
 
@@ -583,7 +588,9 @@ func users(ctx context.Context, client clientpkg.Client) ([]runtime.Object, erro
 		if u.Spec.PasswordRef != nil {
 			secret, err := getSecret(ctx, client, u.Spec.PasswordRef.SecretNamespace, u.Spec.PasswordRef.SecretName)
 			if err != nil {
-				return nil, errors.Wrap(err, "get user secret")
+				if !errors.Is(err, ErrMissingName) {
+					return nil, fmt.Errorf("get user secret: %w", err)
+				}
 			} else if secret != nil {
 				retList = append(retList, secret)
 			}
@@ -591,7 +598,9 @@ func users(ctx context.Context, client clientpkg.Client) ([]runtime.Object, erro
 		if u.Spec.CodesRef != nil {
 			secret, err := getSecret(ctx, client, u.Spec.CodesRef.SecretNamespace, u.Spec.CodesRef.SecretName)
 			if err != nil {
-				return nil, errors.Wrap(err, "get user secret")
+				if !errors.Is(err, ErrMissingName) {
+					return nil, fmt.Errorf("get user secret: %w", err)
+				}
 			} else if secret != nil {
 				retList = append(retList, secret)
 			}
@@ -611,9 +620,11 @@ func isProjectSecret(secret corev1.Secret) bool {
 	return false
 }
 
+var ErrMissingName = errors.New("backup: missing namespace or name")
+
 func getSecret(ctx context.Context, client clientpkg.Client, namespace, name string) (*corev1.Secret, error) {
 	if namespace == "" || name == "" {
-		return nil, nil
+		return nil, ErrMissingName
 	}
 
 	secret := &corev1.Secret{}
@@ -627,7 +638,7 @@ func getSecret(ctx context.Context, client clientpkg.Client, namespace, name str
 
 	err = resetMetadata(client.Scheme(), secret)
 	if err != nil {
-		return nil, errors.Wrap(err, "reset metadata secret")
+		return nil, fmt.Errorf("reset metadata secret: %w", err)
 	}
 
 	return secret, nil

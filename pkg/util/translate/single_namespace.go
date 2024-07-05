@@ -229,6 +229,9 @@ func (s *singleNamespace) ApplyLabels(src client.Object, dest client.Object, syn
 	if dest != nil {
 		pObjLabels := dest.GetLabels()
 		if pObjLabels != nil && pObjLabels[ControllerLabel] != "" {
+			if newLabels == nil {
+				newLabels = make(map[string]string)
+			}
 			newLabels[ControllerLabel] = pObjLabels[ControllerLabel]
 		}
 	}

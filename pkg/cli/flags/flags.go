@@ -9,12 +9,12 @@ import (
 
 // GlobalFlags is the flags that contains the global flags
 type GlobalFlags struct {
-	Silent    bool
-	Debug     bool
 	Config    string
 	Context   string
 	Namespace string
 	LogOutput string
+	Silent    bool
+	Debug     bool
 }
 
 func (g *GlobalFlags) LoadedConfig(log log.Logger) *config.CLI {

@@ -2,6 +2,7 @@ package servicecidr
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -27,6 +28,10 @@ func GetServiceCIDR(ctx context.Context, client kubernetes.Interface, namespace 
 	}
 	if ipv6Err != nil {
 		return ipv4CIDR, fmt.Sprintf("failed to find IPv6 service CIDR, will use IPv4 service CIDR. Error details: %v", ipv6Err)
+	}
+
+	if client == nil {
+		panic("client is nil")
 	}
 
 	// Both IPv4 and IPv6 are configured, we need to find out which one is the default
@@ -72,6 +77,9 @@ func getServiceCIDR(ctx context.Context, client kubernetes.Interface, namespace 
 	if ipv6 {
 		// https://www.ietf.org/rfc/rfc3849.txt
 		clusterIP = "2001:DB8::1"
+	}
+	if client == nil {
+		return "", errors.New("nil client")
 	}
 	_, err := client.CoreV1().Services(namespace).Create(ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
