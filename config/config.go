@@ -39,14 +39,14 @@ type Config struct {
 	// Sync describes how to sync resources from the virtual cluster to host cluster and back.
 	Sync Sync `json:"sync,omitempty"`
 
+	// Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
+	Integrations Integrations `json:"integrations,omitempty"`
+
 	// Networking options related to the virtual cluster.
 	Networking Networking `json:"networking,omitempty"`
 
 	// Policies to enforce for the virtual cluster deployment as well as within the virtual cluster.
 	Policies Policies `json:"policies,omitempty"`
-
-	// Observability holds options to proxy metrics from the host cluster into the virtual cluster.
-	Observability Observability `json:"observability,omitempty"`
 
 	// Configure vCluster's control plane components and deployment.
 	ControlPlane ControlPlane `json:"controlPlane,omitempty"`
@@ -74,6 +74,24 @@ type Config struct {
 
 	// Plugin specifies which vCluster plugins to enable. Use "plugins" instead. Do not use this option anymore.
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
+}
+
+// Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
+type Integrations struct {
+	// MetricsServer reuses the metrics server from the host cluster within the vCluster.
+	MetricsServer MetricsServer `json:"metricsServer,omitempty"`
+}
+
+// MetricsServer reuses the metrics server from the host cluster within the vCluster.
+type MetricsServer struct {
+	// Enabled signals the metrics server integration should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Nodes defines if metrics-server nodes api should get proxied from host to virtual cluster.
+	Nodes bool `json:"nodes,omitempty"`
+
+	// Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
+	Pods bool `json:"pods,omitempty"`
 }
 
 // ExternalConfig holds external tool configuration
@@ -415,11 +433,6 @@ type SyncNodeSelector struct {
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
-type Observability struct {
-	// Metrics allows to proxy metrics server apis from host to virtual cluster.
-	Metrics ObservabilityMetrics `json:"metrics,omitempty"`
-}
-
 type ServiceMonitor struct {
 	// Enabled configures if Helm should create the service monitor.
 	Enabled bool `json:"enabled,omitempty"`
@@ -429,19 +442,6 @@ type ServiceMonitor struct {
 
 	// Annotations are the extra annotations to add to the service monitor.
 	Annotations map[string]string `json:"annotations,omitempty"`
-}
-
-type ObservabilityMetrics struct {
-	// Proxy holds the configuration what metrics-server apis should get proxied.
-	Proxy MetricsProxy `json:"proxy,omitempty"`
-}
-
-type MetricsProxy struct {
-	// Nodes defines if metrics-server nodes api should get proxied from host to virtual cluster.
-	Nodes bool `json:"nodes,omitempty"`
-
-	// Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
-	Pods bool `json:"pods,omitempty"`
 }
 
 type Networking struct {

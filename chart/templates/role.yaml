@@ -47,7 +47,7 @@ rules:
     resources: ["leases"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
-  {{- if .Values.observability.metrics.proxy.pods }}
+  {{- if (and .Values.integrations.metricsServer.enabled .Values.integrations.metricsServer.pods) }}
   - apiGroups: ["metrics.k8s.io"]
     resources: ["pods"]
     verbs: ["get", "list"]

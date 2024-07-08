@@ -282,10 +282,12 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 	newConfig.Networking.ReplicateServices.ToHost = oldConfig.MapServices.FromVirtual
 
 	if oldConfig.Proxy.MetricsServer.Pods.Enabled != nil {
-		newConfig.Observability.Metrics.Proxy.Pods = *oldConfig.Proxy.MetricsServer.Pods.Enabled
+		newConfig.Integrations.MetricsServer.Enabled = true
+		newConfig.Integrations.MetricsServer.Pods = *oldConfig.Proxy.MetricsServer.Pods.Enabled
 	}
 	if oldConfig.Proxy.MetricsServer.Nodes.Enabled != nil {
-		newConfig.Observability.Metrics.Proxy.Nodes = *oldConfig.Proxy.MetricsServer.Nodes.Enabled
+		newConfig.Integrations.MetricsServer.Enabled = true
+		newConfig.Integrations.MetricsServer.Nodes = *oldConfig.Proxy.MetricsServer.Nodes.Enabled
 	}
 
 	if len(oldConfig.Volumes) > 0 {
@@ -1026,8 +1028,9 @@ func migrateFlag(key, value string, newConfig *config.Config) error {
 		}
 	case "proxy-metrics-server":
 		if value == "" || value == "true" {
-			newConfig.Observability.Metrics.Proxy.Pods = true
-			newConfig.Observability.Metrics.Proxy.Nodes = true
+			newConfig.Integrations.MetricsServer.Enabled = true
+			newConfig.Integrations.MetricsServer.Pods = true
+			newConfig.Integrations.MetricsServer.Nodes = true
 		}
 	case "service-account-token-secrets":
 		if value == "" || value == "true" {

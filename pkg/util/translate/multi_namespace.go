@@ -36,6 +36,11 @@ func (s *multiNamespace) PhysicalName(name, _ string) string {
 	return name
 }
 
+// PhysicalNameShort returns the short physical name of the name / namespace resource
+func (s *multiNamespace) PhysicalNameShort(name, _ string) string {
+	return name
+}
+
 func (s *multiNamespace) objectPhysicalName(obj runtime.Object) string {
 	if obj == nil {
 		return ""
@@ -56,7 +61,7 @@ func (s *multiNamespace) PhysicalNameClusterScoped(name string) string {
 	return SafeConcatName("vcluster", name, "x", s.currentNamespace, "x", VClusterName)
 }
 
-func (s *multiNamespace) IsManaged(obj runtime.Object) bool {
+func (s *multiNamespace) IsManaged(obj runtime.Object, _ PhysicalNameFunc) bool {
 	metaAccessor, err := meta.Accessor(obj)
 	if err != nil {
 		return false

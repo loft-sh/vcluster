@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/rest"
 
@@ -74,8 +75,14 @@ func GetByIndex(ctx context.Context, c client.Client, obj runtime.Object, index,
 
 	list, err := c.Scheme().New(gvk.GroupVersion().WithKind(gvk.Kind + "List"))
 	if err != nil {
-		// TODO: handle runtime.IsNotRegisteredError(err)
-		return err
+		if !runtime.IsNotRegisteredError(err) {
+			return err
+		}
+
+		unstructuredList := &unstructured.UnstructuredList{}
+		unstructuredList.SetKind(gvk.Kind + "List")
+		unstructuredList.SetAPIVersion(gvk.GroupVersion().String())
+		list = unstructuredList
 	}
 
 	err = c.List(ctx, list.(client.ObjectList), client.MatchingFields{index: value})

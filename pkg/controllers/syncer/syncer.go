@@ -120,7 +120,7 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 	// check what function we should call
 	if vObj != nil && pObj == nil {
 		return r.syncer.SyncToHost(syncContext, vObj)
-	} else if vObj != nil && pObj != nil {
+	} else if vObj != nil {
 		// make sure the object uid matches
 		pAnnotations := pObj.GetAnnotations()
 		if !r.options.DisableUIDDeletion && pAnnotations != nil && pAnnotations[translate.UIDAnnotation] != "" && pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {
@@ -134,7 +134,7 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 		}
 
 		return r.syncer.Sync(syncContext, pObj, vObj)
-	} else if vObj == nil && pObj != nil {
+	} else if pObj != nil {
 		if pObj.GetAnnotations() != nil {
 			if shouldSkip, ok := pObj.GetAnnotations()[translate.SkipBackSyncInMultiNamespaceMode]; ok && shouldSkip == "true" {
 				// do not delete
@@ -262,11 +262,12 @@ func (r *SyncController) getPhysicalObject(ctx context.Context, req types.Namesp
 }
 
 func (r *SyncController) excludePhysical(ctx context.Context, pObj, vObj client.Object) (bool, error) {
+	excluder, excluderOk := r.syncer.(syncertypes.ObjectExcluder)
 	isManaged, err := r.syncer.IsManaged(ctx, pObj)
 	if err != nil {
 		return false, fmt.Errorf("failed to check if physical object is managed: %w", err)
 	} else if !isManaged {
-		if vObj != nil {
+		if !excluderOk && vObj != nil {
 			msg := fmt.Sprintf("conflict: cannot sync virtual object %s/%s as unmanaged physical object %s/%s exists with desired name", vObj.GetNamespace(), vObj.GetName(), pObj.GetNamespace(), pObj.GetName())
 			r.vEventRecorder.Eventf(vObj, "Warning", "SyncError", msg)
 			return false, fmt.Errorf(msg)
@@ -275,8 +276,7 @@ func (r *SyncController) excludePhysical(ctx context.Context, pObj, vObj client.
 		return true, nil
 	}
 
-	excluder, ok := r.syncer.(syncertypes.ObjectExcluder)
-	if ok {
+	if excluderOk {
 		return excluder.ExcludePhysical(pObj), nil
 	}
 

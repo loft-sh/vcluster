@@ -11,7 +11,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/coredns"
-	"github.com/loft-sh/vcluster/pkg/metricsapiservice"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
@@ -134,6 +133,14 @@ func StartControllers(controllerContext *config.ControllerContext) error {
 		return fmt.Errorf("register pro controllers: %w", err)
 	}
 
+	// run leader hooks
+	for _, hook := range controllerContext.AcquiredLeaderHooks {
+		err = hook(controllerContext)
+		if err != nil {
+			return fmt.Errorf("execute controller hook: %w", err)
+		}
+	}
+
 	// write the kube config to secret
 	go func() {
 		wait.Until(func() {
@@ -233,17 +240,7 @@ func StartManagers(controllerContext *config.ControllerContext, syncers []syncer
 	controllerContext.VirtualManager.GetCache().WaitForCacheSync(controllerContext.Context)
 	klog.Infof("Successfully started local & virtual manager")
 
-	// register APIService
-	go RegisterOrDeregisterAPIService(controllerContext)
-
 	return nil
-}
-
-func RegisterOrDeregisterAPIService(ctx *config.ControllerContext) {
-	err := metricsapiservice.RegisterOrDeregisterAPIService(ctx)
-	if err != nil {
-		klog.Errorf("Error registering metrics apiservice: %v", err)
-	}
 }
 
 func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, currentNamespaceClient client.Client, options *config.VirtualClusterConfig, syncerConfig *clientcmdapi.Config) error {

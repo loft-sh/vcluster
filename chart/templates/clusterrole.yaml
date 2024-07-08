@@ -102,7 +102,7 @@ rules:
     resources: ["namespaces", "serviceaccounts"]
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
   {{- end }}
-  {{- if .Values.observability.metrics.proxy.nodes }}
+  {{- if (and .Values.integrations.metricsServer.enabled .Values.integrations.metricsServer.nodes) }}
   - apiGroups: ["metrics.k8s.io"]
     resources: ["nodes"]
     verbs: ["get", "list"]

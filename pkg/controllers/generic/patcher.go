@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/log"
-	"github.com/loft-sh/vcluster/pkg/patches"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -18,19 +17,68 @@ import (
 
 var fieldManager = "vcluster-syncer"
 
-type patcher struct {
+type ObjectPatcherAndMetadataTranslator interface {
+	translator.MetadataTranslator
+	ObjectPatcher
+}
+
+var ErrNoUpdateNeeded = errors.New("no update needed")
+
+// ObjectPatcher is the heart of the export and import syncers. The following functions are executed based on the lifecycle:
+// During Creation:
+// * ServerSideApply with nil existingOtherObj
+// During Update:
+// * ReverseUpdate
+// * ServerSideApply
+type ObjectPatcher interface {
+	// ServerSideApply applies the translated object into the target cluster (either host or virtual), which
+	// was built from originalObj. There might be also an existingOtherObj which was server side applied before, which
+	// is not guaranteed to exist as this function is called during creation as well.
+	//
+	// For export syncers:
+	// * originalObj is the virtual object
+	// * translatedObj is the translated virtual object to host (rewritten metadata)
+	// * existingOtherObj is the existing host object (can be nil if there is none yet)
+	//
+	// For import syncers:
+	// * originalObj is the host object
+	// * translatedObj is the translated host object to virtual (rewritten metadata)
+	// * existingOtherObj is the existing virtual object (can be nil if there is none yet)
+	ServerSideApply(ctx context.Context, originalObj, translatedObj, existingOtherObj client.Object) error
+
+	// ReverseUpdate updates the destObj before running ServerSideApply. This can be useful to sync back
+	// certain fields. Be careful that everything synced through this function **needs** to be excluded in
+	// the ServerSideApply function. Both objects are guaranteed to exist for this function. Users can use
+	// ErrNoUpdateNeeded to skip reverse update.
+	//
+	// For export syncers:
+	// * destObj is the virtual object
+	// * sourceObj is the host object
+	//
+	// For import syncers:
+	// * destObj is the host object
+	// * sourceObj is the virtual object
+	ReverseUpdate(ctx context.Context, destObj, sourceObj client.Object) error
+}
+
+func NewPatcher(fromClient, toClient client.Client, statusIsSubresource bool, log log.Logger) *Patcher {
+	return &Patcher{
+		fromClient:          fromClient,
+		toClient:            toClient,
+		log:                 log,
+		statusIsSubresource: statusIsSubresource,
+	}
+}
+
+type Patcher struct {
 	fromClient          client.Client
 	toClient            client.Client
 	log                 log.Logger
 	statusIsSubresource bool
 }
 
-func (s *patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object, patchesConfig, reversePatchesConfig []*config.Patch, translateMetadata func(vObj client.Object) (client.Object, error), nameResolver patches.NameResolver) (client.Object, error) {
-	translatedObject, err := translateMetadata(fromObj)
-	if err != nil {
-		return nil, errors.Wrap(err, "translate object")
-	}
-
+func (s *Patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object, modifier ObjectPatcherAndMetadataTranslator) (client.Object, error) {
+	translatedObject := modifier.TranslateMetadata(ctx, fromObj)
 	toObjBase, err := toUnstructured(translatedObject)
 	if err != nil {
 		return nil, err
@@ -38,8 +86,12 @@ func (s *patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object
 	toObjCopied := toObjBase.DeepCopy()
 
 	// apply patches on from object
-	err = patches.ApplyPatches(toObjCopied, toObj, patchesConfig, reversePatchesConfig, nameResolver)
+	err = modifier.ServerSideApply(ctx, fromObj, toObjCopied, toObj)
 	if err != nil {
+		if toObj != nil && errors.Is(err, ErrNoUpdateNeeded) {
+			return nil, nil
+		}
+
 		return nil, fmt.Errorf("error applying patches: %w", err)
 	}
 
@@ -52,7 +104,7 @@ func (s *patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object
 
 		// always apply status if it's there
 		if hasAfterStatus {
-			s.log.Infof("Apply status of %s during patching", toObjCopied.GetName())
+			s.log.Infof("Server side apply status of %s", toObjCopied.GetName())
 			o := &client.SubResourcePatchOptions{PatchOptions: client.PatchOptions{FieldManager: fieldManager, Force: ptr.To(true)}}
 			err = s.toClient.Status().Patch(ctx, toObjCopied.DeepCopy(), client.Apply, o)
 			if err != nil {
@@ -66,7 +118,7 @@ func (s *patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object
 	}
 
 	// always apply object
-	s.log.Infof("Apply %s during patching", toObjCopied.GetName())
+	s.log.Infof("Server side apply %s", toObjCopied.GetName())
 	outObject := toObjCopied.DeepCopy()
 	err = s.toClient.Patch(ctx, outObject, client.Apply, client.ForceOwnership, client.FieldOwner(fieldManager))
 	if err != nil {
@@ -76,7 +128,7 @@ func (s *patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object
 	return outObject, nil
 }
 
-func (s *patcher) ApplyReversePatches(ctx context.Context, fromObj, otherObj client.Object, reversePatchConfig []*config.Patch, nameResolver patches.NameResolver) (controllerutil.OperationResult, error) {
+func (s *Patcher) ApplyReversePatches(ctx context.Context, fromObj, otherObj client.Object, modifier ObjectPatcherAndMetadataTranslator) (controllerutil.OperationResult, error) {
 	originalUnstructured, err := toUnstructured(fromObj)
 	if err != nil {
 		return controllerutil.OperationResultNone, err
@@ -84,8 +136,12 @@ func (s *patcher) ApplyReversePatches(ctx context.Context, fromObj, otherObj cli
 	fromCopied := originalUnstructured.DeepCopy()
 
 	// apply patches on from object
-	err = patches.ApplyPatches(fromCopied, otherObj, reversePatchConfig, nil, nameResolver)
+	err = modifier.ReverseUpdate(ctx, fromCopied, otherObj)
 	if err != nil {
+		if errors.Is(err, ErrNoUpdateNeeded) {
+			return controllerutil.OperationResultNone, nil
+		}
+
 		return controllerutil.OperationResultNone, fmt.Errorf("error applying reverse patches: %w", err)
 	}
 
@@ -102,7 +158,7 @@ func (s *patcher) ApplyReversePatches(ctx context.Context, fromObj, otherObj cli
 
 		// update status
 		if (hasBeforeStatus || hasAfterStatus) && !equality.Semantic.DeepEqual(beforeStatus, afterStatus) {
-			s.log.Infof("Update status of %s during reverse patching", fromCopied.GetName())
+			s.log.Infof("Reverse update status of %s", fromCopied.GetName())
 			err = s.fromClient.Status().Update(ctx, fromCopied)
 			if err != nil {
 				return controllerutil.OperationResultNone, errors.Wrap(err, "update reverse status")
@@ -121,7 +177,7 @@ func (s *patcher) ApplyReversePatches(ctx context.Context, fromObj, otherObj cli
 
 	// compare rest of the object
 	if !equality.Semantic.DeepEqual(originalUnstructured, fromCopied) {
-		s.log.Infof("Update %s during reverse patching", fromCopied.GetName())
+		s.log.Infof("Reverse update %s", fromCopied.GetName())
 		err = s.fromClient.Update(ctx, fromCopied)
 		if err != nil {
 			return controllerutil.OperationResultNone, errors.Wrap(err, "update reverse")

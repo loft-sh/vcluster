@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/integrations"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -96,6 +97,12 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	controllerCtx, err := setup.NewControllerContext(ctx, vConfig)
 	if err != nil {
 		return fmt.Errorf("create controller context: %w", err)
+	}
+
+	// start integrations
+	err = integrations.StartIntegrations(controllerCtx)
+	if err != nil {
+		return fmt.Errorf("start integrations: %w", err)
 	}
 
 	// start proxy

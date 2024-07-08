@@ -182,7 +182,7 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 		MultiNamespaceMode:          v.Experimental.MultiNamespaceMode.Enabled,
 		SyncAllSecrets:              v.Sync.ToHost.Secrets.All,
 		SyncAllConfigMaps:           v.Sync.ToHost.ConfigMaps.All,
-		ProxyMetricsServer:          v.Observability.Metrics.Proxy.Nodes || v.Observability.Metrics.Proxy.Pods,
+		ProxyMetricsServer:          v.Integrations.MetricsServer.Enabled,
 
 		DeprecatedSyncNodeChanges: v.Sync.FromHost.Nodes.SyncBackChanges,
 	}, nil

@@ -1,5 +1,3 @@
-observability:
-  metrics:
-    proxy:
-      nodes: true
-      pods: true
+integrations:
+  metricsServer:
+    enabled: true

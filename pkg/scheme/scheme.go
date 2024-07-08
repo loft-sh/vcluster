@@ -6,6 +6,7 @@ import (
 	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/vcluster/pkg/apis"
+	apidiscoveryv2 "k8s.io/api/apidiscovery/v2"
 	apidiscoveryv2beta1 "k8s.io/api/apidiscovery/v2beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -25,6 +26,7 @@ func init() {
 	_ = apiextensionsv1.AddToScheme(Scheme)
 	_ = apiregistrationv1.AddToScheme(Scheme)
 	_ = apidiscoveryv2beta1.AddToScheme(Scheme)
+	_ = apidiscoveryv2.AddToScheme(Scheme)
 	_ = metricsv1beta1.AddToScheme(Scheme)
 
 	// Register the fake conversions

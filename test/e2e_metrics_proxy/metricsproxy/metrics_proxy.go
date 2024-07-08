@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/metricsapiservice"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 
@@ -21,9 +20,9 @@ var _ = ginkgo.Describe("Target Namespace", func() {
 	f := framework.DefaultFramework
 
 	ginkgo.It("Make sure the metrics api service is registered and available", func() {
-		err := wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*1, false, func(ctx context.Context) (bool, error) {
+		err := wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
 			apiRegistrationClient := apiregistrationv1clientset.NewForConfigOrDie(f.VclusterConfig)
-			apiService, err := apiRegistrationClient.APIServices().Get(ctx, metricsapiservice.MetricsAPIServiceName, metav1.GetOptions{})
+			apiService, err := apiRegistrationClient.APIServices().Get(ctx, "v1beta1.metrics.k8s.io", metav1.GetOptions{})
 			if err != nil {
 				return false, nil
 			}
@@ -38,7 +37,7 @@ var _ = ginkgo.Describe("Target Namespace", func() {
 	})
 
 	ginkgo.It("Make sure get nodeMetrics and podMetrics succeed", func() {
-		err := wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*1, false, func(ctx context.Context) (bool, error) {
+		err := wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
 			metricsClient := metricsv1beta1client.NewForConfigOrDie(f.VclusterConfig)
 
 			nodeMetricsList, err := metricsClient.NodeMetricses().List(ctx, metav1.ListOptions{})

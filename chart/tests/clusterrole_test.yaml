@@ -280,10 +280,10 @@ tests:
 
   - it: metrics proxy
     set:
-      observability:
-        metrics:
-          proxy:
-            nodes: true
+      integrations:
+        metricsServer:
+          enabled: true
+          nodes: true
     release:
       name: my-release
       namespace: my-namespace
