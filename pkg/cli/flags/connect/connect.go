@@ -21,7 +21,7 @@ func AddCommonFlags(cmd *cobra.Command, options *cli.ConnectOptions) {
 	cmd.Flags().StringVar(&options.ServiceAccountClusterRole, "cluster-role", "", "If specified, vCluster will create the service account if it does not exist and also add a cluster role binding for the given cluster role to it. Requires --service-account to be set")
 	cmd.Flags().IntVar(&options.ServiceAccountExpiration, "token-expiration", 0, "If specified, vCluster will create the service account token for the given duration in seconds. Defaults to eternal")
 	cmd.Flags().BoolVar(&options.Insecure, "insecure", false, "If specified, vCluster will create the kube config with insecure-skip-tls-verify")
-	cmd.Flags().BoolVar(&options.BackgroundProxy, "background-proxy", true, "Try to use a background-proxy to access the vCluster. Only works if docker is installed and reachable")
+	cmd.Flags().BoolVar(&options.BackgroundProxy, "background-proxy", false, "Try to use a background-proxy to access the vCluster. Only works if docker is installed and reachable")
 
 	// deprecated
 	_ = cmd.Flags().MarkDeprecated("kube-config", fmt.Sprintf("please use %q to write the kubeconfig of the virtual cluster to stdout.", "vcluster connect --print"))
