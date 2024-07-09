@@ -1678,11 +1678,61 @@
         "metricsServer": {
           "$ref": "#/$defs/MetricsServer",
           "description": "MetricsServer reuses the metrics server from the host cluster within the vCluster."
+        },
+        "kubeVirt": {
+          "$ref": "#/$defs/KubeVirt",
+          "description": "KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "Integrations holds config for vCluster integrations with other operators or tools running on the host cluster"
+    },
+    "KubeVirt": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled signals if the integration should be enabled"
+        },
+        "webhook": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "Webhook holds configuration for enabling the webhook within the vCluster"
+        },
+        "sync": {
+          "$ref": "#/$defs/KubeVirtSync",
+          "description": "Sync holds configuration on what resources to sync"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster"
+    },
+    "KubeVirtSync": {
+      "properties": {
+        "dataVolumes": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "If DataVolumes should get synced"
+        },
+        "virtualMachineInstanceMigrations": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "If VirtualMachineInstanceMigrations should get synced"
+        },
+        "virtualMachineInstances": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "If VirtualMachineInstances should get synced"
+        },
+        "virtualMachines": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "If VirtualMachines should get synced"
+        },
+        "virtualMachineClones": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "If VirtualMachineClones should get synced"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "KubeVirtSync are the crds that are supported by this integration"
     },
     "LabelsAndAnnotations": {
       "properties": {

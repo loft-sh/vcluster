@@ -296,3 +296,30 @@ tests:
             apiGroups: [ "metrics.k8s.io" ]
             resources: [ "nodes" ]
             verbs: [ "get", "list" ]
+
+  - it: kubeVirt
+    set:
+      integrations:
+        kubeVirt:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 2
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["apiextensions.k8s.io"]
+            resources: ["customresourcedefinitions"]
+            verbs: ["get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["admissionregistration.k8s.io"]
+            resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+            verbs: ["get", "list", "watch"]

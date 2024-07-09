@@ -88,7 +88,7 @@ func (s *Patcher) ApplyPatches(ctx context.Context, fromObj, toObj client.Object
 	// apply patches on from object
 	err = modifier.ServerSideApply(ctx, fromObj, toObjCopied, toObj)
 	if err != nil {
-		if toObj != nil && errors.Is(err, ErrNoUpdateNeeded) {
+		if errors.Is(err, ErrNoUpdateNeeded) {
 			return nil, nil
 		}
 

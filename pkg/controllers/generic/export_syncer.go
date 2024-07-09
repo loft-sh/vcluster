@@ -168,10 +168,11 @@ func (f *exporter) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) 
 	pObj, err := f.patcher.ApplyPatches(ctx.Context, vObj, nil, f)
 	if kerrors.IsConflict(err) {
 		return ctrl.Result{Requeue: true}, nil
-	}
-	if err != nil {
+	} else if err != nil {
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
+	} else if pObj == nil {
+		return ctrl.Result{}, nil
 	}
 
 	// wait here for vObj to be created
@@ -251,7 +252,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	}
 
 	// apply patches
-	_, err = f.patcher.ApplyPatches(ctx.Context, vObj, pObj, f)
+	pObj, err = f.patcher.ApplyPatches(ctx.Context, vObj, pObj, f)
 	if err != nil {
 		// when invalid, auto delete and recreate to recover
 		if kerrors.IsInvalid(err) && f.replaceWhenInvalid {
@@ -272,6 +273,8 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 
 		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
+	} else if pObj == nil {
+		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{}, nil

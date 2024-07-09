@@ -210,8 +210,6 @@ func RegisterControllers(ctx *config.ControllerContext, syncers []syncertypes.Ob
 				if err != nil {
 					return errors.Wrapf(err, "start %s syncer", v.Name())
 				}
-			} else {
-				return fmt.Errorf("syncer %s does not implement fake syncer or syncer interface", v.Name())
 			}
 		}
 	}

@@ -32,6 +32,7 @@
     (eq (toString .Values.sync.fromHost.csiDrivers.enabled) "true")
     (eq (toString .Values.sync.fromHost.csiStorageCapacities.enabled) "true")
     .Values.sync.fromHost.nodes.enabled
+    .Values.integrations.kubeVirt.enabled
     (and .Values.integrations.metricsServer.enabled .Values.integrations.metricsServer.nodes)
     .Values.experimental.multiNamespaceMode.enabled -}}
 {{- true -}}

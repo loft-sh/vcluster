@@ -174,3 +174,24 @@ tests:
             apiGroups: [ "metrics.k8s.io" ]
             resources: [ "pods" ]
             verbs: [ "get", "list" ]
+
+  - it: kubeVirt test
+    set:
+      integrations:
+        kubeVirt:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["kubevirt.io", "subresources.kubevirt.io", "cdi.kubevirt.io", "clone.kubevirt.io"]
+            resources: ["*"]
+            verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
