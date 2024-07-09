@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,13 +28,17 @@ import (
 )
 
 // NewRootCmd returns a new root command
-func NewRootCmd(log log.Logger, globalFlags *flags.GlobalFlags) *cobra.Command {
+func NewRootCmd(log log.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:           "vcluster",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Short:         "Welcome to vcluster!",
-		PersistentPreRun: func(_ *cobra.Command, _ []string) {
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			if globalFlags == nil {
+				return errors.New("nil globalFlags")
+			}
+
 			if globalFlags.Config == "" {
 				var err error
 				globalFlags.Config, err = config.DefaultFilePath()
@@ -52,6 +57,8 @@ func NewRootCmd(log log.Logger, globalFlags *flags.GlobalFlags) *cobra.Command {
 			} else {
 				log.SetLevel(logrus.InfoLevel)
 			}
+
+			return nil
 		},
 		Long: `vcluster root command`,
 	}
@@ -84,10 +91,11 @@ func Execute() {
 	}
 }
 
+var globalFlags *flags.GlobalFlags
+
 // BuildRoot creates a new root command from the
 func BuildRoot(log log.Logger) (*cobra.Command, *flags.GlobalFlags, error) {
-	var globalFlags *flags.GlobalFlags
-	rootCmd := NewRootCmd(log, globalFlags)
+	rootCmd := NewRootCmd(log)
 	persistentFlags := rootCmd.PersistentFlags()
 	globalFlags = flags.SetGlobalFlags(persistentFlags, log)
 
