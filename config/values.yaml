@@ -425,11 +425,13 @@ integrations:
     sync:
       dataVolumes:
         enabled: false
-      virtualMachineClones:
-        enabled: true
       virtualMachines:
         enabled: true
       virtualMachineInstances:
+        enabled: true
+      virtualMachinePools:
+        enabled: true
+      virtualMachineClones:
         enabled: true
       virtualMachineInstanceMigrations:
         enabled: true

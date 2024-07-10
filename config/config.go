@@ -107,6 +107,8 @@ type KubeVirtSync struct {
 	VirtualMachines EnableSwitch `json:"virtualMachines,omitempty"`
 	// If VirtualMachineClones should get synced
 	VirtualMachineClones EnableSwitch `json:"virtualMachineClones,omitempty"`
+	// If VirtualMachinePools should get synced
+	VirtualMachinePools EnableSwitch `json:"virtualMachinePools,omitempty"`
 }
 
 // MetricsServer reuses the metrics server from the host cluster within the vCluster.
