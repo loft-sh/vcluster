@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/util/base36"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,8 +41,9 @@ func (s *singleNamespace) PhysicalNameShort(name, namespace string) string {
 		return ""
 	}
 
+	// we use base36 to avoid as much conflicts as possible
 	digest := sha256.Sum256([]byte(strings.Join([]string{name, "x", namespace, "x", VClusterName}, "-")))
-	return hex.EncodeToString(digest[0:])[0:8]
+	return base36.EncodeBytes(digest[:])[0:10]
 }
 
 func SingleNamespacePhysicalName(name, namespace, suffix string) string {
