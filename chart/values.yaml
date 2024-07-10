@@ -116,17 +116,6 @@ sync:
         all: false
         labels: {}
 
-# Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
-integrations:
-  # MetricsServer reuses the metrics server from the host cluster within the vCluster.
-  metricsServer:
-    # Enabled signals the metrics server integration should be enabled.
-    enabled: false
-    # Nodes defines if metrics-server nodes api should get proxied from host to virtual cluster.
-    nodes: true
-    # Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
-    pods: true
-
 # Configure vCluster's control plane components and deployment.
 controlPlane:
   # Distro holds virtual cluster related distro options. A distro cannot be changed after vCluster is deployed.
@@ -699,6 +688,42 @@ controlPlane:
     # GlobalMetadata is metadata that will be added to all resources deployed by Helm.
     globalMetadata:
       annotations: {}
+
+# Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
+integrations:
+  # MetricsServer reuses the metrics server from the host cluster within the vCluster.
+  metricsServer:
+    # Enabled signals the metrics server integration should be enabled.
+    enabled: false
+    # Nodes defines if metrics-server nodes api should get proxied from host to virtual cluster.
+    nodes: true
+    # Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
+    pods: true
+  
+  # KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
+  kubeVirt:
+    # Enabled signals if the integration should be enabled
+    enabled: false
+    # Webhook holds configuration for enabling the webhook within the vCluster
+    webhook:
+      enabled: true
+    # Sync holds configuration on what resources to sync
+    sync:
+      # If DataVolumes should get synced
+      dataVolumes:
+        enabled: false
+      # If VirtualMachineClones should get synced
+      virtualMachineClones:
+        enabled: true
+      # If VirtualMachines should get synced
+      virtualMachines:
+        enabled: true
+      # If VirtualMachineInstances should get synced
+      virtualMachineInstances:
+        enabled: true
+      # If VirtualMachineInstanceMigrations should get synced
+      virtualMachineInstanceMigrations:
+        enabled: true
 
 # RBAC options for the virtual cluster.
 rbac:

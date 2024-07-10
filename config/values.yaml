@@ -69,12 +69,6 @@ sync:
         all: false
         labels: {}
 
-integrations:
-  metricsServer:
-    enabled: false
-    nodes: true
-    pods: true
-
 controlPlane:
   distro:
     k8s:
@@ -418,6 +412,27 @@ controlPlane:
 
     globalMetadata:
       annotations: {}
+
+integrations:
+  metricsServer:
+    enabled: false
+    nodes: true
+    pods: true
+  kubeVirt:
+    enabled: false
+    webhook:
+      enabled: true
+    sync:
+      dataVolumes:
+        enabled: false
+      virtualMachineClones:
+        enabled: true
+      virtualMachines:
+        enabled: true
+      virtualMachineInstances:
+        enabled: true
+      virtualMachineInstanceMigrations:
+        enabled: true
 
 rbac:
   role:

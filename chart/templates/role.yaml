@@ -77,6 +77,11 @@ rules:
     resources: ["poddisruptionbudgets"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
+  {{- if .Values.integrations.kubeVirt.enabled }}
+  - apiGroups: ["kubevirt.io", "subresources.kubevirt.io", "cdi.kubevirt.io", "clone.kubevirt.io"]
+    resources: ["*"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.generic.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.rbac.roleExtraRules" . | indent 2 }}

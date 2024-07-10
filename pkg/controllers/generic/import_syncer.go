@@ -118,7 +118,8 @@ func BuildCustomImporter(
 		registerCtx.Context,
 		registerCtx.PhysicalManager.GetConfig(),
 		registerCtx.VirtualManager.GetConfig(),
-		gvk)
+		gvk,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating %s(%s) syncer: %w", gvk.Kind, gvk.GroupVersion().String(), err)
 	}
@@ -199,6 +200,8 @@ func (s *importer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Objec
 		// TODO: add eventRecorder?
 		// s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
+	} else if vObj == nil {
+		return ctrl.Result{}, nil
 	}
 
 	// add annotation to physical resource to mark it as controlled by this syncer
@@ -306,7 +309,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	}
 
 	// apply patches
-	_, err = s.patcher.ApplyPatches(ctx.Context, pObj, vObj, s)
+	vObj, err = s.patcher.ApplyPatches(ctx.Context, pObj, vObj, s)
 	if err != nil {
 		// when invalid, auto delete and recreate to recover
 		if kerrors.IsInvalid(err) && s.replaceWhenInvalid {
@@ -326,6 +329,8 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 		}
 
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
+	} else if vObj == nil {
+		return ctrl.Result{}, nil
 	}
 
 	// ensure that annotation on physical resource to mark it as controlled by this syncer is present

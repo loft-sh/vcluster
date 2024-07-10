@@ -80,6 +80,33 @@ type Config struct {
 type Integrations struct {
 	// MetricsServer reuses the metrics server from the host cluster within the vCluster.
 	MetricsServer MetricsServer `json:"metricsServer,omitempty"`
+
+	// KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
+	KubeVirt KubeVirt `json:"kubeVirt,omitempty"`
+}
+
+// KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
+type KubeVirt struct {
+	// Enabled signals if the integration should be enabled
+	Enabled bool `json:"enabled,omitempty"`
+	// Webhook holds configuration for enabling the webhook within the vCluster
+	Webhook EnableSwitch `json:"webhook,omitempty"`
+	// Sync holds configuration on what resources to sync
+	Sync KubeVirtSync `json:"sync,omitempty"`
+}
+
+// KubeVirtSync are the crds that are supported by this integration
+type KubeVirtSync struct {
+	// If DataVolumes should get synced
+	DataVolumes EnableSwitch `json:"dataVolumes,omitempty"`
+	// If VirtualMachineInstanceMigrations should get synced
+	VirtualMachineInstanceMigrations EnableSwitch `json:"virtualMachineInstanceMigrations,omitempty"`
+	// If VirtualMachineInstances should get synced
+	VirtualMachineInstances EnableSwitch `json:"virtualMachineInstances,omitempty"`
+	// If VirtualMachines should get synced
+	VirtualMachines EnableSwitch `json:"virtualMachines,omitempty"`
+	// If VirtualMachineClones should get synced
+	VirtualMachineClones EnableSwitch `json:"virtualMachineClones,omitempty"`
 }
 
 // MetricsServer reuses the metrics server from the host cluster within the vCluster.
