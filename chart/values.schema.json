@@ -1728,6 +1728,10 @@
         "virtualMachineClones": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "If VirtualMachineClones should get synced"
+        },
+        "virtualMachinePools": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "If VirtualMachinePools should get synced"
         }
       },
       "additionalProperties": false,

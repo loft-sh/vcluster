@@ -192,6 +192,24 @@ tests:
       - contains:
           path: rules
           content:
-            apiGroups: ["kubevirt.io", "subresources.kubevirt.io", "cdi.kubevirt.io", "clone.kubevirt.io"]
-            resources: ["*"]
+            apiGroups: ["kubevirt.io"]
+            resources: ["virtualmachines", "virtualmachines/status", "virtualmachineinstances", "virtualmachineinstances/status", "virtualmachineinstancemigrations", "virtualmachineinstancemigrations/status"]
             verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "cdi.kubevirt.io" ]
+            resources: [ "datavolumes", "datavolumes/status" ]
+            verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "clone.kubevirt.io" ]
+            resources: [ "virtualmachineclones", "virtualmachineclones/status" ]
+            verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "pool.kubevirt.io" ]
+            resources: [ "virtualmachinepools", "virtualmachinepools/status" ]
+            verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]

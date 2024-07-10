@@ -78,8 +78,20 @@ rules:
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
   {{- if .Values.integrations.kubeVirt.enabled }}
-  - apiGroups: ["kubevirt.io", "subresources.kubevirt.io", "cdi.kubevirt.io", "clone.kubevirt.io"]
+  - apiGroups: ["subresources.kubevirt.io"]
     resources: ["*"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["pool.kubevirt.io"]
+    resources: ["virtualmachinepools", "virtualmachinepools/status"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["clone.kubevirt.io"]
+    resources: ["virtualmachineclones", "virtualmachineclones/status"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["cdi.kubevirt.io"]
+    resources: ["datavolumes", "datavolumes/status"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["kubevirt.io"]
+    resources: ["virtualmachines", "virtualmachines/status", "virtualmachineinstances", "virtualmachineinstances/status", "virtualmachineinstancemigrations", "virtualmachineinstancemigrations/status"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
