@@ -281,6 +281,10 @@ func UpdateSecretWithK0sCerts(
 	currentNamespaceClient kubernetes.Interface,
 	currentNamespace, vClusterName string,
 ) error {
+	if currentNamespaceClient == nil {
+		return errors.New("nil currentNamespaceClient")
+	}
+
 	// wait for k0s to generate the secrets for us
 	files, err := waitForK0sFiles(ctx, "/data/k0s/pki")
 	if err != nil {

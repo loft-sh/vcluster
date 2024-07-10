@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -63,9 +64,9 @@ func (s *eventSyncer) VirtualToHost(context.Context, types.NamespacedName, clien
 func (s *eventSyncer) HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
 	involvedObject, err := s.getInvolvedObject(ctx, pObj)
 	if err != nil {
-		klog.Infof("Error retrieving involved object for %s/%s: %v", req.Namespace, req.Name, err)
-		return types.NamespacedName{}
-	} else if involvedObject == nil {
+		if err := IgnoreAcceptableErrors(err); err != nil {
+			klog.Infof("Error retrieving involved object for %s/%s: %v", req.Namespace, req.Name, err)
+		}
 		return types.NamespacedName{}
 	}
 
@@ -96,9 +97,7 @@ func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vOb
 	vOldEvent := vEvent.DeepCopy()
 	vEvent, err := s.buildVirtualEvent(ctx.Context, pEvent)
 	if err != nil {
-		return ctrl.Result{}, err
-	} else if vEvent == nil {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, IgnoreAcceptableErrors(err)
 	}
 
 	// reset metadata
@@ -127,9 +126,7 @@ func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Ob
 	// build the virtual event
 	vObj, err := s.buildVirtualEvent(ctx.Context, pObj.(*corev1.Event))
 	if err != nil {
-		return ctrl.Result{}, err
-	} else if vObj == nil {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, IgnoreAcceptableErrors(err)
 	}
 
 	// make sure namespace is not being deleted
@@ -161,8 +158,6 @@ func (s *eventSyncer) buildVirtualEvent(ctx context.Context, pEvent *corev1.Even
 	involvedObject, err := s.getInvolvedObject(ctx, pEvent)
 	if err != nil {
 		return nil, err
-	} else if involvedObject == nil {
-		return nil, nil
 	}
 
 	// copy physical object
@@ -194,20 +189,38 @@ func hostEventNameToVirtual(hostName string, hostInvolvedObjectName, virtualInvo
 	return hostName
 }
 
+var (
+	ErrNilPhysicalObject = errors.New("events: nil pObject")
+	ErrKindNotAccepted   = errors.New("events: kind not accpted")
+	ErrNotFound          = errors.New("events: not found")
+)
+
+func IgnoreAcceptableErrors(err error) error {
+	if errors.Is(err, ErrNilPhysicalObject) ||
+		errors.Is(err, ErrKindNotAccepted) ||
+		errors.Is(err, ErrNotFound) {
+		return nil
+	}
+
+	return err
+}
+
+// getInvolvedObject returns the related object from the vCLuster.
+// Alternatively returns a ErrNilPhysicalObject, ErrKindNotAccepted or ErrNotFound.
 func (s *eventSyncer) getInvolvedObject(ctx context.Context, pObj client.Object) (metav1.Object, error) {
 	if pObj == nil {
-		return nil, nil
+		return nil, ErrNilPhysicalObject
 	}
 
 	pEvent, ok := pObj.(*corev1.Event)
 	if !ok {
-		return nil, fmt.Errorf("object is not of type event")
+		return nil, errors.New("object is not of type event")
 	}
 
 	// check if the involved object is accepted
 	gvk := pEvent.InvolvedObject.GroupVersionKind()
 	if !AcceptedKinds[gvk] {
-		return nil, nil
+		return nil, ErrKindNotAccepted
 	}
 
 	// create new virtual object
@@ -223,7 +236,7 @@ func (s *eventSyncer) getInvolvedObject(ctx context.Context, pObj client.Object)
 			return nil, err
 		}
 
-		return nil, nil
+		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
 	}
 
 	// we found the related object

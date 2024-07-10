@@ -12,17 +12,20 @@ import (
 
 func (s *networkPolicySyncer) translate(ctx context.Context, vNetworkPolicy *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
 	newNetworkPolicy := s.TranslateMetadata(ctx, vNetworkPolicy).(*networkingv1.NetworkPolicy)
-	newNetworkPolicy.Spec = *translateSpec(&vNetworkPolicy.Spec, vNetworkPolicy.GetNamespace())
+	if spec := translateSpec(&vNetworkPolicy.Spec, vNetworkPolicy.GetNamespace()); spec != nil {
+		newNetworkPolicy.Spec = *spec
+	}
 	return newNetworkPolicy
 }
 
 func (s *networkPolicySyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
 	var updated *networkingv1.NetworkPolicy
 
-	translatedSpec := *translateSpec(&vObj.Spec, vObj.GetNamespace())
-	if !equality.Semantic.DeepEqual(translatedSpec, pObj.Spec) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec = translatedSpec
+	if translatedSpec := translateSpec(&vObj.Spec, vObj.GetNamespace()); translatedSpec != nil {
+		if !equality.Semantic.DeepEqual(translatedSpec, pObj.Spec) {
+			updated = translator.NewIfNil(updated, pObj)
+			updated.Spec = *translatedSpec
+		}
 	}
 
 	changed, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
@@ -65,14 +68,16 @@ func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *netw
 		panic("Multi-Namespace Mode not supported for network policies yet!")
 	}
 
-	outSpec.PodSelector = *translate.Default.TranslateLabelSelector(&spec.PodSelector)
-	if outSpec.PodSelector.MatchLabels == nil {
-		outSpec.PodSelector.MatchLabels = map[string]string{}
+	if translatedLabelSelector := translate.Default.TranslateLabelSelector(&spec.PodSelector); translatedLabelSelector != nil {
+		outSpec.PodSelector = *translatedLabelSelector
+		if outSpec.PodSelector.MatchLabels == nil {
+			outSpec.PodSelector.MatchLabels = map[string]string{}
+		}
+		// add selector for namespace as NetworkPolicy podSelector applies to pods within it's namespace
+		outSpec.PodSelector.MatchLabels[translate.NamespaceLabel] = namespace
+		// add selector for the marker label to select only from pods belonging this vcluster instance
+		outSpec.PodSelector.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 	}
-	// add selector for namespace as NetworkPolicy podSelector applies to pods within it's namespace
-	outSpec.PodSelector.MatchLabels[translate.NamespaceLabel] = namespace
-	// add selector for the marker label to select only from pods belonging this vcluster instance
-	outSpec.PodSelector.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 
 	outSpec.PolicyTypes = spec.PolicyTypes
 	return outSpec

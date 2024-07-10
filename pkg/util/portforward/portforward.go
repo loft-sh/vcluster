@@ -196,7 +196,9 @@ func (pf *PortForwarder) raiseError(err error) {
 		}
 	}()
 
-	_ = pf.streamConn.Close()
+	if pf.streamConn != nil {
+		_ = pf.streamConn.Close()
+	}
 }
 
 func (pf *PortForwarder) NumConnections() int64 {
@@ -246,10 +248,15 @@ func (pf *PortForwarder) forward(ctx context.Context) error {
 		close(pf.Ready)
 	}
 
+	var streamConnCloseChan <-chan bool
+	if pf.streamConn != nil {
+		streamConnCloseChan = pf.streamConn.CloseChan()
+	}
+
 	// wait for interrupt or conn closure
 	select {
 	case <-pf.stopChan:
-	case <-pf.streamConn.CloseChan():
+	case <-streamConnCloseChan:
 		pf.raiseError(errors.New("lost connection to pod"))
 	}
 
@@ -318,8 +325,13 @@ func (pf *PortForwarder) getListener(protocol string, hostname string, port *For
 // the background.
 func (pf *PortForwarder) waitForConnection(ctx context.Context, listener net.Listener, port ForwardedPort) {
 	for {
+		var closeChan <-chan bool
+		if pf.streamConn != nil {
+			closeChan = pf.streamConn.CloseChan()
+		}
+
 		select {
-		case <-pf.streamConn.CloseChan():
+		case <-closeChan:
 			return
 		default:
 			conn, err := listener.Accept()
@@ -362,63 +374,74 @@ func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, po
 	headers.Set(corev1.StreamType, corev1.StreamTypeError)
 	headers.Set(corev1.PortHeader, fmt.Sprintf("%d", port.Remote))
 	headers.Set(corev1.PortForwardRequestIDHeader, strconv.Itoa(requestID))
-	errorStream, err := pf.streamConn.CreateStream(headers)
-	if err != nil {
-		pf.raiseError(fmt.Errorf("error creating error stream for port %d -> %d: %w", port.Local, port.Remote, err))
-		return
-	}
-	// we're not writing to this stream
-	errorStream.Close()
 
 	errorChan := make(chan error)
-	go func() {
-		message, err := io.ReadAll(errorStream)
-		switch {
-		case err != nil:
-			errorChan <- fmt.Errorf("error reading from error stream for port %d -> %d: %w", port.Local, port.Remote, err)
-		case len(message) > 0:
-			errorChan <- fmt.Errorf("an error occurred forwarding %d -> %d: %v", port.Local, port.Remote, string(message))
+	if pf.streamConn != nil {
+		errorStream, err := pf.streamConn.CreateStream(headers)
+		if err != nil {
+			pf.raiseError(fmt.Errorf("error creating error stream for port %d -> %d: %w", port.Local, port.Remote, err))
+			return
 		}
-		close(errorChan)
-	}()
+		// we're not writing to this stream
+		errorStream.Close()
 
-	// create data stream
-	headers.Set(corev1.StreamType, corev1.StreamTypeData)
-	dataStream, err := pf.streamConn.CreateStream(headers)
-	if err != nil {
-		pf.raiseError(fmt.Errorf("error creating forwarding stream for port %d -> %d: %w", port.Local, port.Remote, err))
-		return
+		go func() {
+			message, err := io.ReadAll(errorStream)
+			switch {
+			case err != nil:
+				errorChan <- fmt.Errorf("error reading from error stream for port %d -> %d: %w", port.Local, port.Remote, err)
+			case len(message) > 0:
+				errorChan <- fmt.Errorf("an error occurred forwarding %d -> %d: %v", port.Local, port.Remote, string(message))
+			}
+			close(errorChan)
+		}()
+	} else {
+		go func() {
+			errorChan <- errors.New("no streamConn available")
+			close(errorChan)
+		}()
 	}
 
+	// create data stream
 	localError := make(chan struct{})
 	remoteDone := make(chan struct{})
-
-	go func() {
-		// Copy from the remote side to the local port.
-		if _, err := io.Copy(conn, dataStream); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			if logger := klog.FromContext(ctx).V(4); logger.Enabled() {
-				logger.Error(err, "error copying from remote stream to local connection", "debug", true)
-			}
+	if pf.streamConn != nil {
+		headers.Set(corev1.StreamType, corev1.StreamTypeData)
+		dataStream, err := pf.streamConn.CreateStream(headers)
+		if err != nil {
+			pf.raiseError(fmt.Errorf("error creating forwarding stream for port %d -> %d: %w", port.Local, port.Remote, err))
+			return
 		}
 
-		// inform the select below that the remote copy is done
-		close(remoteDone)
-	}()
-
-	go func() {
-		// inform server we're not sending any more data after copy unblocks
-		defer dataStream.Close()
-
-		// Copy from the local port to the remote side.
-		if _, err := io.Copy(dataStream, conn); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			if logger := klog.FromContext(ctx).V(4); logger.Enabled() {
-				logger.Error(err, "error copying from local connection to remote stream", "debug", true)
+		go func() {
+			// Copy from the remote side to the local port.
+			if _, err := io.Copy(conn, dataStream); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
+				if logger := klog.FromContext(ctx).V(4); logger.Enabled() {
+					logger.Error(err, "error copying from remote stream to local connection", "debug", true)
+				}
 			}
 
-			// break out of the select below without waiting for the other copy to finish
-			close(localError)
-		}
-	}()
+			// inform the select below that the remote copy is done
+			close(remoteDone)
+		}()
+
+		go func() {
+			// inform server we're not sending any more data after copy unblocks
+			defer dataStream.Close()
+
+			// Copy from the local port to the remote side.
+			if _, err := io.Copy(dataStream, conn); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
+				if logger := klog.FromContext(ctx).V(4); logger.Enabled() {
+					logger.Error(err, "error copying from local connection to remote stream", "debug", true)
+				}
+
+				// break out of the select below without waiting for the other copy to finish
+				close(localError)
+			}
+		}()
+	} else {
+		close(localError)
+	}
 
 	// wait for either a local->remote error or for copying from remote->local to finish
 	select {
@@ -427,8 +450,7 @@ func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, po
 	}
 
 	// always expect something on errorChan (it may be nil)
-	err = <-errorChan
-	if err != nil {
+	if err := <-errorChan; err != nil {
 		// Fail for errors like container not running or No such container
 		if strings.Contains(err.Error(), "container") {
 			pf.raiseError(err)

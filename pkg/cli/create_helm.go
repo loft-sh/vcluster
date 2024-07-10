@@ -164,7 +164,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			return err
 		}
 		// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
-		if isLegacyVCluster(release.Chart.Metadata.Version) {
+		if release != nil && release.Chart != nil && release.Chart.Metadata != nil && isLegacyVCluster(release.Chart.Metadata.Version) {
 			// If we have a < v0.20 virtual cluster running we have to infer the distro from the current chart name.
 			currentDistro := strings.TrimPrefix(release.Chart.Metadata.Name, "vcluster-")
 			// If we are upgrading a vCluster < v0.20 the old k3s chart is the one without a prefix.
@@ -379,6 +379,8 @@ func (cmd *createHelm) isLoftAgentDeployed(ctx context.Context) (bool, error) {
 	})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return false, err
+	} else if podList == nil {
+		return false, errors.New("nil podList")
 	}
 
 	return len(podList.Items) > 0, nil
@@ -427,7 +429,7 @@ func isLegacyConfig(values []byte) bool {
 // helmValuesYAML returns the extraValues from the helm release in yaml format.
 // If the extra values in the chart are nil it returns an empty string.
 func helmExtraValuesYAML(release *helm.Release) (string, error) {
-	if release.Config == nil {
+	if release == nil || release.Config == nil {
 		return "", nil
 	}
 	extraValues, err := yaml.Marshal(release.Config)

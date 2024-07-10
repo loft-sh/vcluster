@@ -9,10 +9,11 @@
 package remote
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -27,9 +28,9 @@ type RegisterPluginRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Version     string        `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
-	Name        string        `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Address     string        `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	Version     string        `protobuf:"bytes,1,opt,name=version,proto3"     json:"version,omitempty"`
+	Name        string        `protobuf:"bytes,2,opt,name=name,proto3"        json:"name,omitempty"`
+	Address     string        `protobuf:"bytes,3,opt,name=address,proto3"     json:"address,omitempty"`
 	ClientHooks []*ClientHook `protobuf:"bytes,4,rep,name=clientHooks,proto3" json:"clientHooks,omitempty"`
 }
 
@@ -184,9 +185,9 @@ type MutateRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	ApiVersion string `protobuf:"bytes,1,opt,name=apiVersion,proto3" json:"apiVersion,omitempty"`
-	Kind       string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
-	Object     string `protobuf:"bytes,3,opt,name=object,proto3" json:"object,omitempty"`
-	Type       string `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
+	Kind       string `protobuf:"bytes,2,opt,name=kind,proto3"       json:"kind,omitempty"`
+	Object     string `protobuf:"bytes,3,opt,name=object,proto3"     json:"object,omitempty"`
+	Type       string `protobuf:"bytes,4,opt,name=type,proto3"       json:"type,omitempty"`
 }
 
 func (x *MutateRequest) Reset() {
@@ -254,7 +255,7 @@ type MutateResult struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Object  string `protobuf:"bytes,1,opt,name=object,proto3" json:"object,omitempty"`
+	Object  string `protobuf:"bytes,1,opt,name=object,proto3"   json:"object,omitempty"`
 	Mutated bool   `protobuf:"varint,2,opt,name=mutated,proto3" json:"mutated,omitempty"`
 }
 
@@ -310,7 +311,7 @@ type LeaderInfo struct {
 	unknownFields protoimpl.UnknownFields
 
 	Leader bool   `protobuf:"varint,1,opt,name=leader,proto3" json:"leader,omitempty"`
-	RunID  string `protobuf:"bytes,2,opt,name=runID,proto3" json:"runID,omitempty"`
+	RunID  string `protobuf:"bytes,2,opt,name=runID,proto3"   json:"runID,omitempty"`
 }
 
 func (x *LeaderInfo) Reset() {
@@ -365,8 +366,8 @@ type ClientHook struct {
 	unknownFields protoimpl.UnknownFields
 
 	ApiVersion string   `protobuf:"bytes,1,opt,name=apiVersion,proto3" json:"apiVersion,omitempty"`
-	Kind       string   `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
-	Types      []string `protobuf:"bytes,3,rep,name=types,proto3" json:"types,omitempty"`
+	Kind       string   `protobuf:"bytes,2,opt,name=kind,proto3"       json:"kind,omitempty"`
+	Types      []string `protobuf:"bytes,3,rep,name=types,proto3"      json:"types,omitempty"`
 }
 
 func (x *ClientHook) Reset() {
@@ -427,12 +428,12 @@ type Context struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	VirtualClusterConfig  string `protobuf:"bytes,1,opt,name=virtualClusterConfig,proto3" json:"virtualClusterConfig,omitempty"`
+	VirtualClusterConfig  string `protobuf:"bytes,1,opt,name=virtualClusterConfig,proto3"  json:"virtualClusterConfig,omitempty"`
 	PhysicalClusterConfig string `protobuf:"bytes,2,opt,name=physicalClusterConfig,proto3" json:"physicalClusterConfig,omitempty"`
-	SyncerConfig          string `protobuf:"bytes,3,opt,name=syncerConfig,proto3" json:"syncerConfig,omitempty"`
-	TargetNamespace       string `protobuf:"bytes,4,opt,name=targetNamespace,proto3" json:"targetNamespace,omitempty"`
-	CurrentNamespace      string `protobuf:"bytes,5,opt,name=currentNamespace,proto3" json:"currentNamespace,omitempty"`
-	Options               string `protobuf:"bytes,6,opt,name=options,proto3" json:"options,omitempty"`
+	SyncerConfig          string `protobuf:"bytes,3,opt,name=syncerConfig,proto3"          json:"syncerConfig,omitempty"`
+	TargetNamespace       string `protobuf:"bytes,4,opt,name=targetNamespace,proto3"       json:"targetNamespace,omitempty"`
+	CurrentNamespace      string `protobuf:"bytes,5,opt,name=currentNamespace,proto3"      json:"currentNamespace,omitempty"`
+	Options               string `protobuf:"bytes,6,opt,name=options,proto3"               json:"options,omitempty"`
 }
 
 func (x *Context) Reset() {

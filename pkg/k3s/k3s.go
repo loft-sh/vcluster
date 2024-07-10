@@ -2,6 +2,7 @@ package k3s
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -110,6 +111,13 @@ func StartK3S(ctx context.Context, vConfig *config.VirtualClusterConfig, service
 }
 
 func EnsureK3SToken(ctx context.Context, currentNamespaceClient kubernetes.Interface, currentNamespace, vClusterName string, options *config.VirtualClusterConfig) (string, error) {
+	if currentNamespaceClient == nil {
+		return "", errors.New("nil currentNamespaceClient")
+	}
+	if options == nil {
+		return "", errors.New("nil options")
+	}
+
 	// check if token is set externally
 	if options.ControlPlane.Distro.K3S.Token != "" {
 		return options.ControlPlane.Distro.K3S.Token, nil

@@ -1228,31 +1228,31 @@ type VolumeClaim struct {
 // VolumeMount describes a mounting of a Volume within a container.
 type VolumeMount struct {
 	// This must match the Name of a Volume.
-	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name"`
 
 	// Mounted read-only if true, read-write otherwise (false or unspecified).
 	// Defaults to false.
-	ReadOnly bool `json:"readOnly,omitempty" protobuf:"varint,2,opt,name=readOnly"`
+	ReadOnly bool `protobuf:"varint,2,opt,name=readOnly" json:"readOnly,omitempty"`
 
 	// Path within the container at which the volume should be mounted.  Must
 	// not contain ':'.
-	MountPath string `json:"mountPath" protobuf:"bytes,3,opt,name=mountPath"`
+	MountPath string `protobuf:"bytes,3,opt,name=mountPath" json:"mountPath"`
 
 	// Path within the volume from which the container's volume should be mounted.
 	// Defaults to "" (volume's root).
-	SubPath string `json:"subPath,omitempty" protobuf:"bytes,4,opt,name=subPath"`
+	SubPath string `protobuf:"bytes,4,opt,name=subPath" json:"subPath,omitempty"`
 
 	// mountPropagation determines how mounts are propagated from the host
 	// to container and the other way around.
 	// When not set, MountPropagationNone is used.
 	// This field is beta in 1.10.
-	MountPropagation *string `json:"mountPropagation,omitempty" protobuf:"bytes,5,opt,name=mountPropagation,casttype=MountPropagationMode"`
+	MountPropagation *string `protobuf:"bytes,5,opt,name=mountPropagation,casttype=MountPropagationMode" json:"mountPropagation,omitempty"`
 
 	// Expanded path within the volume from which the container's volume should be mounted.
 	// Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment.
 	// Defaults to "" (volume's root).
 	// SubPathExpr and SubPath are mutually exclusive.
-	SubPathExpr string `json:"subPathExpr,omitempty" protobuf:"bytes,6,opt,name=subPathExpr"`
+	SubPathExpr string `protobuf:"bytes,6,opt,name=subPathExpr" json:"subPathExpr,omitempty"`
 }
 
 type ControlPlaneScheduling struct {
@@ -1463,7 +1463,7 @@ type MutatingWebhookConfiguration struct {
 type MutatingWebhook struct {
 	// reinvocationPolicy indicates whether this webhook should be called multiple times as part of a single admission evaluation.
 	// Allowed values are "Never" and "IfNeeded".
-	ReinvocationPolicy *string `json:"reinvocationPolicy,omitempty" protobuf:"bytes,10,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType"`
+	ReinvocationPolicy *string `protobuf:"bytes,10,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType" json:"reinvocationPolicy,omitempty"`
 
 	ValidatingWebhook `json:",inline"`
 }
@@ -1965,16 +1965,16 @@ type DenyRule struct {
 
 type RuleWithVerbs struct {
 	// APIGroups is the API groups the resources belong to. '*' is all groups.
-	APIGroups []string `json:"apiGroups,omitempty" protobuf:"bytes,1,rep,name=apiGroups"`
+	APIGroups []string `protobuf:"bytes,1,rep,name=apiGroups" json:"apiGroups,omitempty"`
 
 	// APIVersions is the API versions the resources belong to. '*' is all versions.
-	APIVersions []string `json:"apiVersions,omitempty" protobuf:"bytes,2,rep,name=apiVersions"`
+	APIVersions []string `protobuf:"bytes,2,rep,name=apiVersions" json:"apiVersions,omitempty"`
 
 	// Resources is a list of resources this rule applies to.
-	Resources []string `json:"resources,omitempty" protobuf:"bytes,3,rep,name=resources"`
+	Resources []string `protobuf:"bytes,3,rep,name=resources" json:"resources,omitempty"`
 
 	// Scope specifies the scope of this rule.
-	Scope *string `json:"scope,omitempty" protobuf:"bytes,4,rep,name=scope"`
+	Scope *string `protobuf:"bytes,4,rep,name=scope" json:"scope,omitempty"`
 
 	// Verb is the kube verb associated with the request for API requests, not the http verb. This includes things like list and watch.
 	// For non-resource requests, this is the lowercase http verb.

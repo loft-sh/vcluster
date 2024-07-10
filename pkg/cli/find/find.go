@@ -27,14 +27,13 @@ import (
 const VirtualClusterSelector = "app=vcluster"
 
 type VCluster struct {
-	Name      string
-	Namespace string
-
-	Status        Status
+	ClientFactory clientcmd.ClientConfig `json:"-"`
 	Created       metav1.Time
+	Name          string
+	Namespace     string
+	Status        Status
 	Context       string
 	Version       string
-	ClientFactory clientcmd.ClientConfig `json:"-"`
 }
 
 type Status string
@@ -54,6 +53,10 @@ func (e *VClusterNotFoundError) Error() string {
 }
 
 func SwitchContext(kubeConfig *clientcmdapi.Config, otherContext string) error {
+	if kubeConfig == nil {
+		return errors.New("nil kubeconfig")
+	}
+
 	kubeConfig.CurrentContext = otherContext
 	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), *kubeConfig, false)
 }

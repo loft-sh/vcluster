@@ -141,6 +141,9 @@ func loadVirtualConfig(ctx context.Context, options *config.VirtualClusterConfig
 	if err != nil {
 		return nil, nil, err
 	}
+	if clientConfig == nil {
+		return nil, nil, errors.New("nil clientConfig")
+	}
 
 	virtualClusterConfig, err := clientConfig.ClientConfig()
 	if err != nil {
@@ -216,45 +219,53 @@ func CreateVClusterKubeConfig(config *clientcmdapi.Config, options *config.Virtu
 	config = config.DeepCopy()
 
 	// exchange kube config server & resolve certificate
-	for i := range config.Clusters {
+	for _, cluster := range config.Clusters {
+		if cluster == nil {
+			continue
+		}
+
 		// fill in data
-		if config.Clusters[i].CertificateAuthorityData == nil && config.Clusters[i].CertificateAuthority != "" {
-			o, err := os.ReadFile(config.Clusters[i].CertificateAuthority)
+		if cluster.CertificateAuthorityData == nil && cluster.CertificateAuthority != "" {
+			o, err := os.ReadFile(cluster.CertificateAuthority)
 			if err != nil {
 				return nil, err
 			}
 
-			config.Clusters[i].CertificateAuthority = ""
-			config.Clusters[i].CertificateAuthorityData = o
+			cluster.CertificateAuthority = ""
+			cluster.CertificateAuthorityData = o
 		}
 
 		if options.ExportKubeConfig.Server != "" {
-			config.Clusters[i].Server = options.ExportKubeConfig.Server
+			cluster.Server = options.ExportKubeConfig.Server
 		} else {
-			config.Clusters[i].Server = fmt.Sprintf("https://localhost:%d", options.ControlPlane.Proxy.Port)
+			cluster.Server = fmt.Sprintf("https://localhost:%d", options.ControlPlane.Proxy.Port)
 		}
 	}
 
 	// resolve auth info cert & key
-	for i := range config.AuthInfos {
-		// fill in data
-		if config.AuthInfos[i].ClientCertificateData == nil && config.AuthInfos[i].ClientCertificate != "" {
-			o, err := os.ReadFile(config.AuthInfos[i].ClientCertificate)
-			if err != nil {
-				return nil, err
-			}
-
-			config.AuthInfos[i].ClientCertificate = ""
-			config.AuthInfos[i].ClientCertificateData = o
+	for _, authInfo := range config.AuthInfos {
+		if authInfo == nil {
+			continue
 		}
-		if config.AuthInfos[i].ClientKeyData == nil && config.AuthInfos[i].ClientKey != "" {
-			o, err := os.ReadFile(config.AuthInfos[i].ClientKey)
+
+		// fill in data
+		if authInfo.ClientCertificateData == nil && authInfo.ClientCertificate != "" {
+			o, err := os.ReadFile(authInfo.ClientCertificate)
 			if err != nil {
 				return nil, err
 			}
 
-			config.AuthInfos[i].ClientKey = ""
-			config.AuthInfos[i].ClientKeyData = o
+			authInfo.ClientCertificate = ""
+			authInfo.ClientCertificateData = o
+		}
+		if authInfo.ClientKeyData == nil && authInfo.ClientKey != "" {
+			o, err := os.ReadFile(authInfo.ClientKey)
+			if err != nil {
+				return nil, err
+			}
+
+			authInfo.ClientKey = ""
+			authInfo.ClientKeyData = o
 		}
 	}
 
@@ -268,6 +279,13 @@ func initControllerContext(
 	virtualRawConfig *clientcmdapi.Config,
 	vClusterOptions *config.VirtualClusterConfig,
 ) (*config.ControllerContext, error) {
+	if localManager == nil {
+		return nil, errors.New("nil localManager")
+	}
+	if virtualManager == nil {
+		return nil, errors.New("nil virtualManager")
+	}
+
 	stopChan := make(<-chan struct{})
 
 	// get virtual cluster version
@@ -313,6 +331,13 @@ func initControllerContext(
 }
 
 func newCurrentNamespaceClient(ctx context.Context, localManager ctrl.Manager, options *config.VirtualClusterConfig) (client.Client, error) {
+	if localManager == nil {
+		return nil, errors.New("nil localManager")
+	}
+	if options == nil {
+		return nil, errors.New("nil options")
+	}
+
 	var err error
 
 	// currentNamespaceCache is needed for tasks such as finding out fake kubelet ips

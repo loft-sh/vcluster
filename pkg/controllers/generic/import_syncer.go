@@ -197,6 +197,10 @@ func (s *importer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Objec
 	ctx.Log.Infof("Create virtual %s, since it is missing, but physical object %s/%s exists", s.gvk.Kind, pObj.GetNamespace(), pObj.GetName())
 	vObj, err := s.patcher.ApplyPatches(ctx.Context, pObj, nil, s)
 	if err != nil {
+		if err := IgnoreAcceptableErrors(err); err != nil {
+			return ctrl.Result{}, nil
+		}
+
 		// TODO: add eventRecorder?
 		// s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
@@ -310,6 +314,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 
 	// apply patches
 	vObj, err = s.patcher.ApplyPatches(ctx.Context, pObj, vObj, s)
+	err = IgnoreAcceptableErrors(err)
 	if err != nil {
 		// when invalid, auto delete and recreate to recover
 		if kerrors.IsInvalid(err) && s.replaceWhenInvalid {

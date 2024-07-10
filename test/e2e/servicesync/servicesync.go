@@ -16,9 +16,7 @@ import (
 )
 
 var _ = ginkgo.Describe("map services from host to virtual cluster and vice versa", func() {
-	var (
-		f *framework.Framework
-	)
+	var f *framework.Framework
 
 	ginkgo.JustBeforeEach(func() {
 		// use default framework

@@ -59,7 +59,7 @@ func CreatePKIAssets(cfg *InitConfiguration) error {
 	klog.Infof("Valid certificates and keys now exist in %q", cfg.CertificatesDir)
 
 	// Service accounts are not x509 certs, so handled separately
-	return CreateServiceAccountKeyAndPublicKeyFiles(cfg.CertificatesDir, cfg.ClusterConfiguration.PublicKeyAlgorithm())
+	return CreateServiceAccountKeyAndPublicKeyFiles(cfg.CertificatesDir, cfg.PublicKeyAlgorithm())
 }
 
 // CreateServiceAccountKeyAndPublicKeyFiles creates new public/private key files for signing service account users.
@@ -81,6 +81,9 @@ func CreateServiceAccountKeyAndPublicKeyFiles(certsDir string, keyType x509.Publ
 	key, err := NewPrivateKey(keyType)
 	if err != nil {
 		return err
+	}
+	if key == nil {
+		return errors.New("no private key generated")
 	}
 
 	// Write .key and .pub files to disk

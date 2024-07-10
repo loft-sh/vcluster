@@ -340,7 +340,7 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 	_, err = managementClient.Loft().ManagementV1().Selves().Create(context.TODO(), &managementv1.Self{}, metav1.CreateOptions{})
 	if err != nil {
 		var urlError *url.Error
-		if errors.As(err, &urlError) {
+		if errors.As(err, &urlError) && urlError != nil {
 			var err x509.UnknownAuthorityError
 			if errors.As(urlError.Err, &err) {
 				return fmt.Errorf("unsafe login endpoint '%s', if you wish to login into an insecure loft endpoint run with the '--insecure' flag", c.config.Platform.Host)

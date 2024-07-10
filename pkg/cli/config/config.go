@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/loft-sh/log"
 	homedir "github.com/mitchellh/go-homedir"
@@ -21,10 +20,7 @@ const (
 	PlatformDriver DriverType = "platform"
 )
 
-var (
-	singleConfig     *CLI
-	singleConfigOnce sync.Once
-)
+var singleConfig *CLI
 
 // New creates a new default config
 func New() *CLI {
@@ -44,22 +40,35 @@ func New() *CLI {
 }
 
 func (c *CLI) Save() error {
-	return Write(c.path, c)
+	path := ""
+	if c != nil {
+		path = c.path
+	} else {
+		var err error
+		path, err = DefaultFilePath()
+		if err != nil {
+			return err
+		}
+	}
+
+	return Write(path, c)
 }
 
 // Read returns the current config by trying to read it from the given config path.
 // It returns a new default config if there have been any errors during the read.
 func Read(path string, log log.Logger) *CLI {
-	singleConfigOnce.Do(func() {
-		if singleConfig == nil {
-			cfg, err := readOrNewConfig(path)
-			if err != nil {
-				log.Debugf("Failed to load local configuration file: %v", err)
-			}
-			cfg.path = path
-			singleConfig = cfg
+	if singleConfig == nil {
+		var err error
+		singleConfig, err = readOrNewConfig(path)
+		if err != nil {
+			log.Debugf("Failed to load local configuration file: %v", err)
 		}
-	})
+	}
+	if singleConfig == nil {
+		singleConfig = New()
+	}
+
+	singleConfig.path = path
 
 	return singleConfig
 }

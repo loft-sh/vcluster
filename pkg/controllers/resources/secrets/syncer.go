@@ -116,11 +116,10 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !used {
-		pSecret, _ := meta.Accessor(pObj)
-		ctx.Log.Infof("delete physical secret %s/%s, because it is not used anymore", pSecret.GetNamespace(), pSecret.GetName())
+		ctx.Log.Infof("delete physical secret %s/%s, because it is not used anymore", pObj.GetNamespace(), pObj.GetName())
 		err = ctx.PhysicalClient.Delete(ctx.Context, pObj)
 		if err != nil {
-			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", pSecret.GetNamespace(), pSecret.GetName(), err)
+			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", pObj.GetNamespace(), pObj.GetName(), err)
 			return ctrl.Result{}, err
 		}
 

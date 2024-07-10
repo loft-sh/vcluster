@@ -275,10 +275,10 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 	}
 
-	updatedVNode, err := s.translateUpdateStatus(ctx, pNode, vNode)
+	updatedVNode, statusChanged, err := s.translateUpdateStatus(ctx, pNode, vNode)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "update node status")
-	} else if updatedVNode != nil {
+	} else if statusChanged {
 		ctx.Log.Infof("update virtual node %s, because status has changed", pNode.Name)
 		translator.PrintChanges(vNode, updatedVNode, ctx.Log)
 		err := ctx.VirtualClient.Status().Update(ctx.Context, updatedVNode)

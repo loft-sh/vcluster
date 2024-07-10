@@ -32,6 +32,10 @@ func EnsureCerts(
 	etcdSans []string,
 	options *config.VirtualClusterConfig,
 ) error {
+	if currentNamespaceClient == nil {
+		return errors.New("nil currentNamespaceClient")
+	}
+
 	// we create a certificate for up to 20 etcd replicas, this should be sufficient for most use cases. Eventually we probably
 	// want to update this to the actual etcd number, but for now this is the easiest way to allow up and downscaling without
 	// regenerating certificates.
@@ -110,8 +114,8 @@ func EnsureCerts(
 			return fmt.Errorf("get vcluster service: %w", err)
 		}
 		// client doesn't populate typemeta
-		controlPlaneService.TypeMeta.APIVersion = "v1"
-		controlPlaneService.TypeMeta.Kind = "Service"
+		controlPlaneService.APIVersion = "v1"
+		controlPlaneService.Kind = "Service"
 
 		ownerRef = append(ownerRef, metav1.OwnerReference{
 			APIVersion: "v1",
@@ -291,7 +295,15 @@ func updateKubeconfigToLocalhost(config *clientcmdapi.Config) bool {
 	// not sure what that would do in case of multiple clusters,
 	// but this is not expected AFAIU
 	for k, v := range config.Clusters {
+		if v == nil {
+			continue
+		}
+
 		if v.Server != "https://127.0.0.1:6443" {
+			if config.Clusters[k] == nil {
+				config.Clusters[k] = &clientcmdapi.Cluster{}
+			}
+
 			config.Clusters[k].Server = "https://127.0.0.1:6443"
 			updated = true
 		}

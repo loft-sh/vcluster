@@ -14,13 +14,15 @@ import (
 	"github.com/spf13/cobra/doc"
 )
 
-const cliDocsDir = "./docs/pages/cli"
-const headerTemplate = `---
+const (
+	cliDocsDir     = "./docs/pages/cli"
+	headerTemplate = `---
 title: "%s --help"
 sidebar_label: %s
 ---
 
 `
+)
 
 const proHeaderTemplate = `---
 title: "%[1]s --help"
@@ -70,7 +72,7 @@ func main() {
 		return strings.ToLower(base) + ".md"
 	}
 
-	rootCmd, err := cmd.BuildRoot(logger)
+	rootCmd, _, err := cmd.BuildRoot(logger)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -81,7 +83,15 @@ func main() {
 	}
 
 	err = filepath.Walk(cliDocsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		stat, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+
 		if stat.IsDir() {
 			return nil
 		}

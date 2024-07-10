@@ -60,8 +60,9 @@ func CopyFromObject(obj1, obj2 *yaml.Node, patch *config.Patch) error {
 				},
 			})
 		} else {
-			parent := Find(obj1, ContainsChild(m))
-			removeChild(parent, m)
+			if parent := Find(obj1, ContainsChild(m)); parent != nil {
+				removeChild(parent, m)
+			}
 		}
 	}
 
@@ -71,18 +72,22 @@ func CopyFromObject(obj1, obj2 *yaml.Node, patch *config.Patch) error {
 func Remove(obj1 *yaml.Node, patch *config.Patch) error {
 	matches, err := FindMatches(obj1, patch.Path)
 	if err != nil {
-		return errors.Wrap(err, "find matches")
+		return fmt.Errorf("find matches: %w", err)
 	}
 
 	for _, m := range matches {
 		validated, err := ValidateAllConditions(obj1, m, patch.Conditions)
 		if err != nil {
-			return errors.Wrap(err, "validate conditions")
+			return fmt.Errorf("validate conditions: %w", err)
 		} else if !validated {
 			continue
 		}
 
 		parent := Find(obj1, ContainsChild(m))
+		if parent == nil {
+			continue
+		}
+
 		switch parent.Kind {
 		case yaml.MappingNode:
 			parent.Content = removeProperty(parent, m)
@@ -172,7 +177,6 @@ func RewriteName(obj1 *yaml.Node, patch *config.Patch, resolver NameResolver) er
 		case yaml.SequenceNode:
 			for _, subNode := range m.Content {
 				err = ProcessRewrite(subNode, patch, resolver)
-
 				if err != nil {
 					return err
 				}
@@ -196,7 +200,6 @@ func ProcessRewrite(obj *yaml.Node, patch *config.Patch, resolver NameResolver) 
 
 	if patch.NamespacePath != "" {
 		namespace, err = GetNamespace(obj, patch)
-
 		if err != nil {
 			return err
 		}
@@ -212,7 +215,6 @@ func ProcessRewrite(obj *yaml.Node, patch *config.Patch, resolver NameResolver) 
 			continue
 		}
 		err = ValidateAndTranslateName(obj, nameMatch, patch, resolver, namespace)
-
 		if err != nil {
 			return err
 		}
@@ -230,7 +232,6 @@ func ProcessRewrite(obj *yaml.Node, patch *config.Patch, resolver NameResolver) 
 				continue
 			}
 			err = ValidateAndTranslateNamespace(obj, namespaceMatch, patch, resolver)
-
 			if err != nil {
 				return err
 			}
@@ -473,10 +474,11 @@ func createPath(obj1 *yaml.Node, path string, value *yaml.Node) error {
 
 	// check if we expect an array or map as parent
 	for _, match := range matches {
-		parent := Find(obj1, ContainsChild(match))
 		switch match.Kind {
 		case yaml.ScalarNode:
-			parent.Content = AddChildAtIndex(parent, match, value)
+			if parent := Find(obj1, ContainsChild(match)); parent != nil {
+				parent.Content = AddChildAtIndex(parent, match, value)
+			}
 		case yaml.MappingNode:
 			match.Content = append(match.Content, &yaml.Node{
 				Kind:  yaml.ScalarNode,
@@ -545,10 +547,11 @@ func createMappingNode(path string, child *yaml.Node) *yaml.Node {
 }
 
 func AddNode(obj1 *yaml.Node, match *yaml.Node, value *yaml.Node) {
-	parent := Find(obj1, ContainsChild(match))
 	switch match.Kind {
 	case yaml.ScalarNode:
-		parent.Content = AddChildAtIndex(parent, match, value)
+		if parent := Find(obj1, ContainsChild(match)); parent != nil {
+			parent.Content = AddChildAtIndex(parent, match, value)
+		}
 	case yaml.MappingNode:
 		match.Content = append(match.Content, value.Content[0].Content...)
 	case yaml.SequenceNode:

@@ -12,6 +12,10 @@ import (
 func (s *namespaceSyncer) translate(ctx context.Context, vObj client.Object) *corev1.Namespace {
 	newNamespace := s.TranslateMetadata(ctx, vObj).(*corev1.Namespace)
 
+	if newNamespace.Labels == nil {
+		newNamespace.Labels = map[string]string{}
+	}
+
 	// add user defined namespace labels
 	for k, v := range s.namespaceLabels {
 		newNamespace.Labels[k] = v
@@ -24,6 +28,9 @@ func (s *namespaceSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev
 	var updated *corev1.Namespace
 
 	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
+	if updatedLabels == nil {
+		updatedLabels = map[string]string{}
+	}
 	// add user defined namespace labels
 	for k, v := range s.namespaceLabels {
 		updatedLabels[k] = v

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -158,6 +159,10 @@ var _ syncertypes.Starter = &serviceSyncer{}
 
 func (s *serviceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	// don't do anything for the kubernetes service
+	if specialservices.Default == nil {
+		return false, errors.New("specialservices default not initialized yet")
+	}
+
 	specialServices := specialservices.Default.SpecialServicesToSync()
 	if svc, ok := specialServices[req.NamespacedName]; ok {
 		return true, svc(ctx, ctx.CurrentNamespace, s.serviceName, req.NamespacedName, TranslateServicePorts)

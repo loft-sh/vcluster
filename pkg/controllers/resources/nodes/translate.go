@@ -2,12 +2,12 @@ package nodes
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -18,9 +18,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var (
-	TaintsAnnotation = "vcluster.loft.sh/original-taints"
-)
+var TaintsAnnotation = "vcluster.loft.sh/original-taints"
 
 func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.Node) *corev1.Node {
 	var updated *corev1.Node
@@ -129,7 +127,9 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	return updated
 }
 
-func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
+// translateUpdateStatus translates the node's status.
+// Returns a Node object, a boolean indicating whether it changed or an error.
+func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, bool, error) {
 	// translate node status first
 	translatedStatus := pNode.Status.DeepCopy()
 	if s.useFakeKubelets {
@@ -153,7 +153,7 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 			// create new service for this node
 			nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx.Context, vNode.Name)
 			if err != nil {
-				return nil, errors.Wrap(err, "get vNode IP")
+				return nil, false, fmt.Errorf("get vNode IP: %w", err)
 			}
 
 			newAddresses = append(newAddresses, corev1.NodeAddress{
@@ -256,14 +256,10 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		translatedStatus.Images = make([]corev1.ContainerImage, 0)
 	}
 
-	// check if the status has changed
-	if !equality.Semantic.DeepEqual(vNode.Status, *translatedStatus) {
-		newNode := vNode.DeepCopy()
-		newNode.Status = *translatedStatus
-		return newNode, nil
-	}
+	newNode := vNode.DeepCopy()
+	newNode.Status = *translatedStatus
 
-	return nil, nil
+	return newNode, !equality.Semantic.DeepEqual(vNode.Status, *translatedStatus), nil
 }
 
 func mergeStrings(physical []string, virtual []string, oldPhysical []string) []string {

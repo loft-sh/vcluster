@@ -530,5 +530,6 @@ func setGlobalDefaults(config *rest.Config) *rest.Config {
 type emptyConfigProvider struct{}
 
 func (e *emptyConfigProvider) ConfigFor(_ string) (io.Reader, error) {
+	//nolint:nilnil
 	return nil, nil
 }

@@ -105,11 +105,17 @@ func Create(ctx *config.ControllerContext) ([]syncertypes.Object, error) {
 		}
 
 		createdController, err := newSyncer(registerContext)
-		if err != nil {
-			return nil, fmt.Errorf("register controller: %w", err)
+
+		name := ""
+		if createdController != nil {
+			name = createdController.Name()
 		}
 
-		loghelper.Infof("Start %s sync controller", createdController.Name())
+		if err != nil {
+			return nil, fmt.Errorf("register %s controller: %w", name, err)
+		}
+
+		loghelper.Infof("Start %s sync controller", name)
 		syncers = append(syncers, createdController)
 	}
 
@@ -256,6 +262,9 @@ func RegisterServiceSyncControllers(ctx *config.ControllerContext) error {
 		})
 		if err != nil {
 			return err
+		}
+		if globalLocalManager == nil {
+			return errors.New("nil globalLocalManager")
 		}
 
 		// start the manager

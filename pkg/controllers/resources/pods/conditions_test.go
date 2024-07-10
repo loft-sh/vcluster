@@ -242,6 +242,9 @@ func TestUpdateConditions(t *testing.T) {
 			VirtualClient:  vClient,
 		}, testCase.pPod, testCase.vPod)
 		assert.NilError(t, err, "unexpected error in testCase %s", testCase.name)
+		if updated == nil {
+			t.Fatal("updated is empty")
+		}
 		assert.DeepEqual(t, updated.Status.Conditions, testCase.expectedVirtualConditions)
 
 		// check physical conditions

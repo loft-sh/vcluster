@@ -121,62 +121,66 @@ func ConvertRestConfigToClientConfig(config *rest.Config) (clientcmd.ClientConfi
 			AuthInfo: contextName,
 		},
 	}
+
+	cluster := &clientcmdapi.Cluster{
+		Server:                   config.Host,
+		InsecureSkipTLSVerify:    config.Insecure,
+		CertificateAuthorityData: config.CAData,
+		CertificateAuthority:     config.CAFile,
+	}
 	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
-		contextName: {
-			Server:                   config.Host,
-			InsecureSkipTLSVerify:    config.Insecure,
-			CertificateAuthorityData: config.CAData,
-			CertificateAuthority:     config.CAFile,
-		},
+		contextName: cluster,
+	}
+
+	authInfo := &clientcmdapi.AuthInfo{
+		Token:                 config.BearerToken,
+		TokenFile:             config.BearerTokenFile,
+		Impersonate:           config.Impersonate.UserName,
+		ImpersonateGroups:     config.Impersonate.Groups,
+		ImpersonateUserExtra:  config.Impersonate.Extra,
+		ClientCertificate:     config.CertFile,
+		ClientCertificateData: config.CertData,
+		ClientKey:             config.KeyFile,
+		ClientKeyData:         config.KeyData,
+		Username:              config.Username,
+		Password:              config.Password,
+		AuthProvider:          config.AuthProvider,
+		Exec:                  config.ExecProvider,
 	}
 	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
-		contextName: {
-			Token:                 config.BearerToken,
-			TokenFile:             config.BearerTokenFile,
-			Impersonate:           config.Impersonate.UserName,
-			ImpersonateGroups:     config.Impersonate.Groups,
-			ImpersonateUserExtra:  config.Impersonate.Extra,
-			ClientCertificate:     config.CertFile,
-			ClientCertificateData: config.CertData,
-			ClientKey:             config.KeyFile,
-			ClientKeyData:         config.KeyData,
-			Username:              config.Username,
-			Password:              config.Password,
-			AuthProvider:          config.AuthProvider,
-			Exec:                  config.ExecProvider,
-		},
+		contextName: authInfo,
 	}
 	kubeConfig.CurrentContext = contextName
 
 	// resolve certificate
-	if kubeConfig.Clusters[contextName].CertificateAuthorityData == nil && kubeConfig.Clusters[contextName].CertificateAuthority != "" {
-		o, err := os.ReadFile(kubeConfig.Clusters[contextName].CertificateAuthority)
+	if cluster.CertificateAuthorityData == nil && cluster.CertificateAuthority != "" {
+		o, err := os.ReadFile(cluster.CertificateAuthority)
 		if err != nil {
 			return nil, err
 		}
 
-		kubeConfig.Clusters[contextName].CertificateAuthority = ""
-		kubeConfig.Clusters[contextName].CertificateAuthorityData = o
+		cluster.CertificateAuthority = ""
+		cluster.CertificateAuthorityData = o
 	}
 
 	// fill in data
-	if kubeConfig.AuthInfos[contextName].ClientCertificateData == nil && kubeConfig.AuthInfos[contextName].ClientCertificate != "" {
-		o, err := os.ReadFile(kubeConfig.AuthInfos[contextName].ClientCertificate)
+	if authInfo.ClientCertificateData == nil && authInfo.ClientCertificate != "" {
+		o, err := os.ReadFile(authInfo.ClientCertificate)
 		if err != nil {
 			return nil, err
 		}
 
-		kubeConfig.AuthInfos[contextName].ClientCertificate = ""
-		kubeConfig.AuthInfos[contextName].ClientCertificateData = o
+		authInfo.ClientCertificate = ""
+		authInfo.ClientCertificateData = o
 	}
-	if kubeConfig.AuthInfos[contextName].ClientKeyData == nil && kubeConfig.AuthInfos[contextName].ClientKey != "" {
-		o, err := os.ReadFile(kubeConfig.AuthInfos[contextName].ClientKey)
+	if authInfo.ClientKeyData == nil && authInfo.ClientKey != "" {
+		o, err := os.ReadFile(authInfo.ClientKey)
 		if err != nil {
 			return nil, err
 		}
 
-		kubeConfig.AuthInfos[contextName].ClientKey = ""
-		kubeConfig.AuthInfos[contextName].ClientKeyData = o
+		authInfo.ClientKey = ""
+		authInfo.ClientKeyData = o
 	}
 
 	return clientcmd.NewDefaultClientConfig(*kubeConfig, &clientcmd.ConfigOverrides{}), nil
@@ -220,6 +224,9 @@ func resolveExecCredentials(restConfig *rest.Config) error {
 	}
 
 	execProvider := restConfig.ExecProvider
+	if execProvider == nil {
+		return errors.New("exec provider is missing")
+	}
 	if execProvider.ProvideClusterInfo {
 		var err error
 		cred.Spec.Cluster, err = rest.ConfigToExecCluster(restConfig)

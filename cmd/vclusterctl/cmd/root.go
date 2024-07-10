@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,7 +34,11 @@ func NewRootCmd(log log.Logger) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Short:         "Welcome to vcluster!",
-		PersistentPreRun: func(_ *cobra.Command, _ []string) {
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			if globalFlags == nil {
+				return errors.New("nil globalFlags")
+			}
+
 			if globalFlags.Config == "" {
 				var err error
 				globalFlags.Config, err = config.DefaultFilePath()
@@ -52,12 +57,12 @@ func NewRootCmd(log log.Logger) *cobra.Command {
 			} else {
 				log.SetLevel(logrus.InfoLevel)
 			}
+
+			return nil
 		},
 		Long: `vcluster root command`,
 	}
 }
-
-var globalFlags *flags.GlobalFlags
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
@@ -69,16 +74,16 @@ func Execute() {
 
 	// start command
 	log := log.GetInstance()
-	rootCmd, err := BuildRoot(log)
+	rootCmd, globalFlags, err := BuildRoot(log)
 	if err != nil {
 		log.Fatalf("error building root: %+v\n", err)
 	}
 
 	// Execute command
 	err = rootCmd.ExecuteContext(context.Background())
-	recordAndFlush(err, log)
+	recordAndFlush(err, log, globalFlags)
 	if err != nil {
-		if globalFlags.Debug {
+		if globalFlags != nil && globalFlags.Debug {
 			log.Fatalf("%+v", err)
 		}
 
@@ -86,19 +91,22 @@ func Execute() {
 	}
 }
 
+var globalFlags *flags.GlobalFlags
+
 // BuildRoot creates a new root command from the
-func BuildRoot(log log.Logger) (*cobra.Command, error) {
+func BuildRoot(log log.Logger) (*cobra.Command, *flags.GlobalFlags, error) {
 	rootCmd := NewRootCmd(log)
 	persistentFlags := rootCmd.PersistentFlags()
 	globalFlags = flags.SetGlobalFlags(persistentFlags, log)
+
 	home, err := homedir.Dir()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defaults, err := defaults.NewFromPath(filepath.Join(home, defaults.ConfigFolder), defaults.ConfigFile)
 	if err != nil {
 		log.Debugf("Error loading defaults: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Set version for --version flag
@@ -123,25 +131,25 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	// add platform commands
 	platformCmd, err := cmdplatform.NewPlatformCmd(globalFlags)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create platform command: %w", err)
+		return nil, nil, fmt.Errorf("failed to create platform command: %w", err)
 	}
 	rootCmd.AddCommand(platformCmd)
 
 	loginCmd, err := NewLoginCmd(globalFlags)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create login command: %w", err)
+		return nil, nil, fmt.Errorf("failed to create login command: %w", err)
 	}
 	rootCmd.AddCommand(loginCmd)
 
 	logoutCmd, err := NewLogoutCmd(globalFlags)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create logout command: %w", err)
+		return nil, nil, fmt.Errorf("failed to create logout command: %w", err)
 	}
 	rootCmd.AddCommand(logoutCmd)
 
 	uiCmd, err := NewUICmd(globalFlags)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create ui command: %w", err)
+		return nil, nil, fmt.Errorf("failed to create ui command: %w", err)
 	}
 	rootCmd.AddCommand(uiCmd)
 	rootCmd.AddCommand(credits.NewCreditsCmd())
@@ -149,13 +157,17 @@ func BuildRoot(log log.Logger) (*cobra.Command, error) {
 	// add completion command
 	err = rootCmd.RegisterFlagCompletionFunc("namespace", completion.NewNamespaceCompletionFunc(rootCmd.Context()))
 	if err != nil {
-		return rootCmd, fmt.Errorf("failed to register completion for namespace: %w", err)
+		return nil, nil, fmt.Errorf("failed to register completion for namespace: %w", err)
 	}
 
-	return rootCmd, nil
+	return rootCmd, globalFlags, nil
 }
 
-func recordAndFlush(err error, log log.Logger) {
+func recordAndFlush(err error, log log.Logger, globalFlags *flags.GlobalFlags) {
+	if globalFlags == nil {
+		panic("empty global flags")
+	}
+
 	telemetry.CollectorCLI.RecordCLI(globalFlags.LoadedConfig(log), platform.Self, err)
 	telemetry.CollectorCLI.Flush()
 }

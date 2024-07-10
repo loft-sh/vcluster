@@ -33,6 +33,10 @@ func (s *persistentVolumeSyncer) translateBackwards(pPv *corev1.PersistentVolume
 	vObj.UID = ""
 	vObj.ManagedFields = nil
 	if vPvc != nil {
+		if vObj.Spec.ClaimRef == nil {
+			vObj.Spec.ClaimRef = &corev1.ObjectReference{}
+		}
+
 		vObj.Spec.ClaimRef.ResourceVersion = vPvc.ResourceVersion
 		vObj.Spec.ClaimRef.UID = vPvc.UID
 		vObj.Spec.ClaimRef.Name = vPvc.Name
@@ -55,6 +59,10 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(vPv *corev1.Persistent
 	translatedSpec := *pPv.Spec.DeepCopy()
 	isStorageClassCreatedOnVirtual, isClaimRefCreatedOnVirtual := false, false
 	if vPvc != nil {
+		if translatedSpec.ClaimRef == nil {
+			translatedSpec.ClaimRef = &corev1.ObjectReference{}
+		}
+
 		translatedSpec.ClaimRef.ResourceVersion = vPvc.ResourceVersion
 		translatedSpec.ClaimRef.UID = vPvc.UID
 		translatedSpec.ClaimRef.Name = vPvc.Name

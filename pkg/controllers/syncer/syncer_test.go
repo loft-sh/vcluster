@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"testing"
 
@@ -39,6 +40,7 @@ func (s *mockSyncer) naiveTranslateCreate(ctx *synccontext.SyncContext, vObj cli
 	pObj := s.TranslateMetadata(ctx.Context, vObj)
 	return pObj
 }
+
 func (s *mockSyncer) naiveTranslateUpdate(ctx *synccontext.SyncContext, vObj client.Object, pObj client.Object) client.Object {
 	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx.Context, vObj, pObj)
 	newPObj := pObj.DeepCopyObject().(client.Object)
@@ -49,7 +51,12 @@ func (s *mockSyncer) naiveTranslateUpdate(ctx *synccontext.SyncContext, vObj cli
 
 // SyncToHost is called when a virtual object was created and needs to be synced down to the physical cluster
 func (s *mockSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncToHostCreate(ctx, vObj, s.naiveTranslateCreate(ctx, vObj))
+	pObj := s.naiveTranslateCreate(ctx, vObj)
+	if pObj == nil {
+		return ctrl.Result{}, errors.New("naive translate create failed")
+	}
+
+	return s.SyncToHostCreate(ctx, vObj, pObj)
 }
 
 // Sync is called to sync a virtual object with a physical object
