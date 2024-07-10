@@ -1531,6 +1531,17 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ExternalSecrets": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled signals if the integration should be enabled"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ExternalSecrets reuses a host's external secret operator and makes some of its CRDs available inside the virtual cluster"
+    },
     "Hook": {
       "properties": {
         "apiVersion": {
@@ -1682,6 +1693,10 @@
         "kubeVirt": {
           "$ref": "#/$defs/KubeVirt",
           "description": "KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster"
+        },
+        "externalSecrets": {
+          "$ref": "#/$defs/ExternalSecrets",
+          "description": "ExternalSecrets reuses a host's external secret operator and makes some of its CRDs available inside the virtual cluster"
         }
       },
       "additionalProperties": false,
