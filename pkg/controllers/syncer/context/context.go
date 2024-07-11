@@ -9,6 +9,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type EventSource string
+
+const (
+	EventSourceHost    EventSource = "Host"
+	EventSourceVirtual EventSource = "Virtual"
+)
+
 type SyncContext struct {
 	Context context.Context
 	Log     loghelper.Logger
@@ -18,6 +25,26 @@ type SyncContext struct {
 
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
+
+	EventSource EventSource
+}
+
+// Cast returns the given objects as types as well as
+func Cast[T any](ctx *SyncContext, vObj, pObj client.Object) (T, T, T, T) {
+	if ctx.EventFromHost() {
+		// vObj, pObj, sourceObj (Host), targetObj
+		return vObj.(T), pObj.(T), pObj.(T), vObj.(T)
+	}
+	// vObj, pObj, sourceObj (Virtual), targetObj
+	return vObj.(T), pObj.(T), vObj.(T), pObj.(T)
+}
+
+func (s *SyncContext) EventFromHost() bool {
+	return s.EventSource == EventSourceHost
+}
+
+func (s *SyncContext) EventFromVirtual() bool {
+	return s.EventSource == EventSourceVirtual
 }
 
 type RegisterContext struct {

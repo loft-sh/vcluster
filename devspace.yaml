@@ -85,7 +85,7 @@ deployments:
       values:
         controlPlane:
           distro:
-            k3s:
+            k0s:
               enabled: true
           statefulSet:
             image:
