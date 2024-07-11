@@ -24,37 +24,10 @@ type Certificates struct {
 	ServerKey  string
 }
 
-func EndpointsAndCertificatesFromFlags(flags []string) ([]string, *Certificates, error) {
-	certificates := &Certificates{}
-	endpoints := []string{}
-
-	// parse flags
-	for _, arg := range flags {
-		if strings.HasPrefix(arg, "--etcd-servers=") {
-			endpoints = strings.Split(strings.TrimPrefix(arg, "--etcd-servers="), ",")
-		} else if strings.HasPrefix(arg, "--etcd-cafile=") {
-			certificates.CaCert = strings.TrimPrefix(arg, "--etcd-cafile=")
-		} else if strings.HasPrefix(arg, "--etcd-certfile=") {
-			certificates.ServerCert = strings.TrimPrefix(arg, "--etcd-certfile=")
-		} else if strings.HasPrefix(arg, "--etcd-keyfile=") {
-			certificates.ServerKey = strings.TrimPrefix(arg, "--etcd-keyfile=")
-		}
-	}
-
-	// fail if etcd servers is not found
-	if len(endpoints) == 0 {
-		return nil, nil, fmt.Errorf("couldn't find flag --etcd-servers within api-server flags")
-	} else if certificates.CaCert == "" || certificates.ServerCert == "" || certificates.ServerKey == "" {
-		return endpoints, nil, nil
-	}
-	return endpoints, certificates, nil
-}
-
-func WaitForEtcdClient(parentCtx context.Context, certificates *Certificates, endpoints ...string) (*clientv3.Client, error) {
-	var etcdClient *clientv3.Client
+func WaitForEtcd(parentCtx context.Context, certificates *Certificates, endpoints ...string) error {
 	var err error
 	waitErr := wait.PollUntilContextTimeout(parentCtx, time.Second, waitForClientTimeout, true, func(ctx context.Context) (bool, error) {
-		etcdClient, err = GetEtcdClient(parentCtx, certificates, endpoints...)
+		etcdClient, err := GetEtcdClient(parentCtx, certificates, endpoints...)
 		if err == nil {
 			defer func() {
 				_ = etcdClient.Close()
@@ -70,10 +43,10 @@ func WaitForEtcdClient(parentCtx context.Context, certificates *Certificates, en
 		return false, nil
 	})
 	if waitErr != nil {
-		return nil, fmt.Errorf("error waiting for etcdclient: %w", err)
+		return fmt.Errorf("error waiting for etcd: %w", err)
 	}
 
-	return etcdClient, nil
+	return nil
 }
 
 // GetEtcdClient returns an etcd client connected to the specified endpoints.

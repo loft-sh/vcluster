@@ -96,7 +96,7 @@ func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.Vi
 
 	// wait until etcd is up and running
 	if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled {
-		_, err := etcd.WaitForEtcdClient(ctx, &etcd.Certificates{
+		err := etcd.WaitForEtcd(ctx, &etcd.Certificates{
 			CaCert:     "/data/k0s/pki/etcd/ca.crt",
 			ServerCert: "/data/k0s/pki/apiserver-etcd-client.crt",
 			ServerKey:  "/data/k0s/pki/apiserver-etcd-client.key",

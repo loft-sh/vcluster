@@ -12,14 +12,13 @@ import (
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 )
-
-const KineEndpoint = "unix:///data/kine.sock"
 
 func StartK8S(
 	ctx context.Context,
@@ -51,7 +50,7 @@ func StartK8S(
 			args = append(args, "--key-file="+vConfig.ControlPlane.BackingStore.Database.External.KeyFile)
 			args = append(args, "--cert-file="+vConfig.ControlPlane.BackingStore.Database.External.CertFile)
 			args = append(args, "--metrics-bind-address=0")
-			args = append(args, "--listen-address="+KineEndpoint)
+			args = append(args, "--listen-address="+constants.K8sKineEndpoint)
 
 			// now start kine
 			err := RunCommand(ctx, args, "kine")
@@ -60,7 +59,7 @@ func StartK8S(
 			}
 		}()
 
-		etcdEndpoints = KineEndpoint
+		etcdEndpoints = constants.K8sKineEndpoint
 	} else if vConfig.ControlPlane.BackingStore.Database.External.Enabled {
 		// call out to the pro code
 		var err error
@@ -126,7 +125,7 @@ func StartK8S(
 			args = append(args, apiServer.ExtraArgs...)
 
 			// wait until etcd is up and running
-			_, err := etcd.WaitForEtcdClient(ctx, etcdCertificates, etcdEndpoints)
+			err := etcd.WaitForEtcd(ctx, etcdCertificates, etcdEndpoints)
 			if err != nil {
 				return err
 			}
