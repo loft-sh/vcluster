@@ -22,10 +22,8 @@ import (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-	t := translator.NewNamespacedTranslator(ctx, "configmap", &corev1.ConfigMap{})
-
 	return &configMapSyncer{
-		NamespacedTranslator: t,
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "configmap", &corev1.ConfigMap{}),
 
 		syncAllConfigMaps:  ctx.Config.Sync.ToHost.ConfigMaps.All,
 		multiNamespaceMode: ctx.Config.Experimental.MultiNamespaceMode.Enabled,

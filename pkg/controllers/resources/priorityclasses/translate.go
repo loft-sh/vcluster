@@ -3,7 +3,6 @@ package priorityclasses
 import (
 	"context"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,27 +18,22 @@ func (s *priorityClassSyncer) translate(ctx context.Context, vObj client.Object)
 	return priorityClass
 }
 
-func (s *priorityClassSyncer) translateUpdate(ctx context.Context, pObj, vObj *schedulingv1.PriorityClass) *schedulingv1.PriorityClass {
-	var updated *schedulingv1.PriorityClass
-
+func (s *priorityClassSyncer) translateUpdate(ctx context.Context, pObj, vObj, sourceObject, targetObject *schedulingv1.PriorityClass) {
 	// check subsets
 	if !equality.Semantic.DeepEqual(vObj.PreemptionPolicy, pObj.PreemptionPolicy) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.PreemptionPolicy = vObj.PreemptionPolicy
+		targetObject.PreemptionPolicy = sourceObject.PreemptionPolicy
+	}
+
+	// check description
+	if vObj.Description != pObj.Description {
+		targetObject.Description = sourceObject.Description
 	}
 
 	// check annotations
 	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	if changed {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Annotations = updatedAnnotations
-		updated.Labels = updatedLabels
-	}
-
-	// check description
-	if vObj.Description != pObj.Description {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Description = vObj.Description
+		pObj.Annotations = updatedAnnotations
+		pObj.Labels = updatedLabels
 	}
 
 	// check value
@@ -48,9 +42,6 @@ func (s *priorityClassSyncer) translateUpdate(ctx context.Context, pObj, vObj *s
 		translatedValue = 1000000000
 	}
 	if translatedValue != pObj.Value {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Value = translatedValue
+		pObj.Value = translatedValue
 	}
-
-	return updated
 }

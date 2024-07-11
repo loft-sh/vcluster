@@ -6,6 +6,9 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/patcher"
+	"k8s.io/apimachinery/pkg/api/equality"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
@@ -108,10 +111,10 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Obje
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.Secret)))
+	return s.SyncToHostCreate(ctx, vObj, s.create(ctx.Context, vObj.(*corev1.Secret)))
 }
 
-func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	used, err := s.isSecretUsed(ctx, vObj)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -127,12 +130,39 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 		return ctrl.Result{}, nil
 	}
 
-	newSecret := s.translateUpdate(ctx.Context, pObj.(*corev1.Secret), vObj.(*corev1.Secret))
-	if newSecret != nil {
-		translator.PrintChanges(pObj, newSecret, ctx.Log)
+	// patch objects
+	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+			s.NamespacedTranslator.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", err)
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
+	// cast objects
+	pSecret, vSecret, sourceSecret, targetSecret := synccontext.Cast[*corev1.Secret](ctx, pObj, vObj)
+
+	// check data
+	if !equality.Semantic.DeepEqual(vSecret.Data, pSecret.Data) {
+		targetSecret.Data = sourceSecret.Data
 	}
 
-	return s.SyncToHostUpdate(ctx, vObj, newSecret)
+	// check secret type
+	if vSecret.Type != pSecret.Type && vSecret.Type != corev1.SecretTypeServiceAccountToken {
+		targetSecret.Type = sourceSecret.Type
+	}
+
+	// check annotations
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx.Context, vObj, pObj)
+	if changed {
+		pSecret.Annotations = updatedAnnotations
+		pSecret.Labels = updatedLabels
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.Object) (bool, error) {

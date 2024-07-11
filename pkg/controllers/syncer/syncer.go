@@ -90,6 +90,12 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 		_ = r.locker.Unlock(vReq.String())
 	}()
 
+	// determine event source
+	eventSource := synccontext.EventSourceVirtual
+	if isHostRequest(origReq) {
+		eventSource = synccontext.EventSourceHost
+	}
+
 	// create sync context
 	log := loghelper.NewFromExisting(r.log.Base(), vReq.Name)
 	syncContext := &synccontext.SyncContext{
@@ -99,6 +105,7 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 		CurrentNamespace:       r.currentNamespace,
 		CurrentNamespaceClient: r.currentNamespaceClient,
 		VirtualClient:          r.virtualClient,
+		EventSource:            eventSource,
 	}
 
 	// check if we should skip reconcile
