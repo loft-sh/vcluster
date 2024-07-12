@@ -1,13 +1,17 @@
 package namespaces
 
 import (
+	"fmt"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -68,18 +72,24 @@ func (s *namespaceSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.O
 	return ctrl.Result{}, s.EnsureWorkloadServiceAccount(ctx, newNamespace.Name)
 }
 
-func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	updated := s.translateUpdate(ctx.Context, pObj.(*corev1.Namespace), vObj.(*corev1.Namespace))
-	if updated != nil {
-		ctx.Log.Infof("updating physical namespace %s, because virtual namespace has changed", updated.Name)
-		translator.PrintChanges(pObj, updated, ctx.Log)
-		err := ctx.PhysicalClient.Update(ctx.Context, updated)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 
-	return ctrl.Result{}, s.EnsureWorkloadServiceAccount(ctx, pObj.GetName())
+	defer func() {
+		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
+	// cast objects
+	pNamespace, vNamespace, _, _ := synccontext.Cast[*corev1.Namespace](ctx, pObj, vObj)
+
+	s.translateUpdate(ctx.Context, pNamespace, vNamespace)
+
+	return ctrl.Result{}, s.EnsureWorkloadServiceAccount(ctx, pNamespace.Name)
 }
 
 func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncContext, pNamespace string) error {

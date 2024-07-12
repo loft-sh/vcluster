@@ -2,10 +2,9 @@ package namespaces
 
 import (
 	"context"
+	"maps"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -24,9 +23,7 @@ func (s *namespaceSyncer) translate(ctx context.Context, vObj client.Object) *co
 	return newNamespace
 }
 
-func (s *namespaceSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Namespace) *corev1.Namespace {
-	var updated *corev1.Namespace
-
+func (s *namespaceSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Namespace) {
 	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	if updatedLabels == nil {
 		updatedLabels = map[string]string{}
@@ -38,11 +35,8 @@ func (s *namespaceSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev
 	// set the kubernetes.io/metadata.name label
 	updatedLabels[corev1.LabelMetadataName] = pObj.Name
 	// check if any labels or annotations changed
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, pObj.GetLabels()) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Annotations = updatedAnnotations
-		updated.Labels = updatedLabels
+	if !maps.Equal(updatedAnnotations, pObj.GetAnnotations()) || !maps.Equal(updatedLabels, pObj.GetLabels()) {
+		pObj.Annotations = updatedAnnotations
+		pObj.Labels = updatedLabels
 	}
-
-	return updated
 }
