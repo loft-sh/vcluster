@@ -24,8 +24,6 @@ func (s *namespaceSyncer) translate(ctx context.Context, vObj client.Object) *co
 }
 
 func (s *namespaceSyncer) translateUpdate(ctx context.Context, pObj, vObj, sourceObject, targetObject *corev1.Namespace) {
-	targetObject.Spec = sourceObject.Spec
-
 	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	if updatedLabels == nil {
 		updatedLabels = map[string]string{}
