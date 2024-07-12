@@ -2,6 +2,36 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vcluster.com/schemas/config",
   "$defs": {
+    "APIService": {
+      "properties": {
+        "service": {
+          "$ref": "#/$defs/APIServiceService",
+          "description": "Service is a reference to the service for the API server."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "APIService holds configuration related to the api server"
+    },
+    "APIServiceService": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name is the name of the host service of the apiservice."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace is the name of the host service of the apiservice."
+        },
+        "port": {
+          "type": "integer",
+          "description": "Port is the target port on the host service to connect to."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "APIServiceService holds the service name and namespace of the host apiservice."
+    },
     "BackingStore": {
       "properties": {
         "etcd": {
@@ -216,13 +246,6 @@
           },
           "type": "array",
           "description": "VolumeClaimTemplates defines the volumeClaimTemplates for the statefulSet"
-        },
-        "dataVolume": {
-          "items": {
-            "type": "object"
-          },
-          "type": "array",
-          "description": "Allows you to override the dataVolume. Only works correctly if volumeClaim.enabled=false."
         },
         "binariesVolume": {
           "items": {
@@ -718,6 +741,10 @@
         "k0s": {
           "$ref": "#/$defs/DistroK0s",
           "description": "K0S holds k0s relevant configuration."
+        },
+        "eks": {
+          "$ref": "#/$defs/DistroK8s",
+          "description": "EKS holds eks relevant configuration."
         }
       },
       "additionalProperties": false,
@@ -1681,11 +1708,69 @@
         "metricsServer": {
           "$ref": "#/$defs/MetricsServer",
           "description": "MetricsServer reuses the metrics server from the host cluster within the vCluster."
+        },
+        "kubeVirt": {
+          "$ref": "#/$defs/KubeVirt",
+          "description": "KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "Integrations holds config for vCluster integrations with other operators or tools running on the host cluster"
+    },
+    "KubeVirt": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled signals if the integration should be enabled"
+        },
+        "apiService": {
+          "$ref": "#/$defs/APIService",
+          "description": "APIService holds information about where to find the virt-api service. Defaults to virt-api/kubevirt."
+        },
+        "webhook": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "Webhook holds configuration for enabling the webhook within the vCluster"
+        },
+        "sync": {
+          "$ref": "#/$defs/KubeVirtSync",
+          "description": "Sync holds configuration on what resources to sync"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster"
+    },
+    "KubeVirtSync": {
+      "properties": {
+        "dataVolumes": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "If DataVolumes should get synced"
+        },
+        "virtualMachineInstanceMigrations": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "If VirtualMachineInstanceMigrations should get synced"
+        },
+        "virtualMachineInstances": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "If VirtualMachineInstances should get synced"
+        },
+        "virtualMachines": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "If VirtualMachines should get synced"
+        },
+        "virtualMachineClones": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "If VirtualMachineClones should get synced"
+        },
+        "virtualMachinePools": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "If VirtualMachinePools should get synced"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "KubeVirtSync are the crds that are supported by this integration"
     },
     "LabelsAndAnnotations": {
       "properties": {
@@ -1744,6 +1829,10 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled signals the metrics server integration should be enabled."
+        },
+        "apiService": {
+          "$ref": "#/$defs/APIService",
+          "description": "APIService holds information about where to find the metrics-server service. Defaults to metrics-server/kube-system."
         },
         "nodes": {
           "type": "boolean",
@@ -1953,10 +2042,6 @@
         "ipBlock": {
           "$ref": "#/$defs/IPBlock",
           "description": "IPBlock describes a particular CIDR (Ex. \"192.168.1.0/24\",\"2001:db8::/64\") that is allowed\nto the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs\nthat should not be included within this rule."
-        },
-        "platform": {
-          "type": "boolean",
-          "description": "Platform enables egress access towards loft platform"
         }
       },
       "additionalProperties": false,

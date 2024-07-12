@@ -80,6 +80,37 @@ type Config struct {
 type Integrations struct {
 	// MetricsServer reuses the metrics server from the host cluster within the vCluster.
 	MetricsServer MetricsServer `json:"metricsServer,omitempty"`
+
+	// KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
+	KubeVirt KubeVirt `json:"kubeVirt,omitempty"`
+}
+
+// KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
+type KubeVirt struct {
+	// Enabled signals if the integration should be enabled
+	Enabled bool `json:"enabled,omitempty"`
+	// APIService holds information about where to find the virt-api service. Defaults to virt-api/kubevirt.
+	APIService APIService `json:"apiService,omitempty"`
+	// Webhook holds configuration for enabling the webhook within the vCluster
+	Webhook EnableSwitch `json:"webhook,omitempty"`
+	// Sync holds configuration on what resources to sync
+	Sync KubeVirtSync `json:"sync,omitempty"`
+}
+
+// KubeVirtSync are the crds that are supported by this integration
+type KubeVirtSync struct {
+	// If DataVolumes should get synced
+	DataVolumes EnableSwitch `json:"dataVolumes,omitempty"`
+	// If VirtualMachineInstanceMigrations should get synced
+	VirtualMachineInstanceMigrations EnableSwitch `json:"virtualMachineInstanceMigrations,omitempty"`
+	// If VirtualMachineInstances should get synced
+	VirtualMachineInstances EnableSwitch `json:"virtualMachineInstances,omitempty"`
+	// If VirtualMachines should get synced
+	VirtualMachines EnableSwitch `json:"virtualMachines,omitempty"`
+	// If VirtualMachineClones should get synced
+	VirtualMachineClones EnableSwitch `json:"virtualMachineClones,omitempty"`
+	// If VirtualMachinePools should get synced
+	VirtualMachinePools EnableSwitch `json:"virtualMachinePools,omitempty"`
 }
 
 // MetricsServer reuses the metrics server from the host cluster within the vCluster.
@@ -87,11 +118,32 @@ type MetricsServer struct {
 	// Enabled signals the metrics server integration should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
+	// APIService holds information about where to find the metrics-server service. Defaults to metrics-server/kube-system.
+	APIService APIService `json:"apiService,omitempty"`
+
 	// Nodes defines if metrics-server nodes api should get proxied from host to virtual cluster.
 	Nodes bool `json:"nodes,omitempty"`
 
 	// Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
 	Pods bool `json:"pods,omitempty"`
+}
+
+// APIService holds configuration related to the api server
+type APIService struct {
+	// Service is a reference to the service for the API server.
+	Service APIServiceService `json:"service,omitempty"`
+}
+
+// APIServiceService holds the service name and namespace of the host apiservice.
+type APIServiceService struct {
+	// Name is the name of the host service of the apiservice.
+	Name string `json:"name,omitempty"`
+
+	// Namespace is the name of the host service of the apiservice.
+	Namespace string `json:"namespace,omitempty"`
+
+	// Port is the target port on the host service to connect to.
+	Port int `json:"port,omitempty"`
 }
 
 // ExternalConfig holds external tool configuration
@@ -157,10 +209,6 @@ func (c *Config) BackingStoreType() StoreType {
 	}
 }
 
-func (c *Config) EmbeddedDatabase() bool {
-	return !c.ControlPlane.BackingStore.Database.External.Enabled && !c.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !c.ControlPlane.BackingStore.Etcd.Deploy.Enabled
-}
-
 func (c *Config) Distro() string {
 	if c.ControlPlane.Distro.K3S.Enabled {
 		return K3SDistro
@@ -168,17 +216,11 @@ func (c *Config) Distro() string {
 		return K0SDistro
 	} else if c.ControlPlane.Distro.K8S.Enabled {
 		return K8SDistro
+	} else if c.ControlPlane.Distro.EKS.Enabled {
+		return EKSDistro
 	}
 
 	return K8SDistro
-}
-
-func (c *Config) IsConfiguredForSleepMode() bool {
-	if c != nil && c.External != nil && c.External["platform"] == nil {
-		return false
-	}
-
-	return c.External["platform"]["autoSleep"] != nil || c.External["platform"]["autoDelete"] != nil
 }
 
 // ValidateChanges checks for disallowed config changes.
@@ -192,7 +234,7 @@ func ValidateChanges(oldCfg, newCfg *Config) error {
 
 // ValidateStoreAndDistroChanges checks whether migrating from one store to the other is allowed.
 func ValidateStoreAndDistroChanges(currentStoreType, previousStoreType StoreType, currentDistro, previousDistro string) error {
-	if currentDistro != previousDistro && !(previousDistro == "eks" && currentDistro == K8SDistro) {
+	if currentDistro != previousDistro {
 		return fmt.Errorf("seems like you were using %s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", previousDistro, currentDistro)
 	}
 
@@ -217,7 +259,7 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
-	if c.Distro() == K8SDistro {
+	if c.Distro() == K8SDistro || c.Distro() == EKSDistro {
 		if c.ControlPlane.BackingStore.Database.External.Enabled {
 			return true
 		}
@@ -712,6 +754,9 @@ type Distro struct {
 
 	// K0S holds k0s relevant configuration.
 	K0S DistroK0s `json:"k0s,omitempty"`
+
+	// EKS holds eks relevant configuration.
+	EKS DistroK8s `json:"eks,omitempty"`
 }
 
 type DistroK3s struct {
@@ -1173,9 +1218,6 @@ type ControlPlanePersistence struct {
 	// VolumeClaimTemplates defines the volumeClaimTemplates for the statefulSet
 	VolumeClaimTemplates []map[string]interface{} `json:"volumeClaimTemplates,omitempty"`
 
-	// Allows you to override the dataVolume. Only works correctly if volumeClaim.enabled=false.
-	DataVolume []map[string]interface{} `json:"dataVolume,omitempty"`
-
 	// BinariesVolume defines a binaries volume that is used to retrieve
 	// distro specific executables to be run by the syncer controller.
 	// This volume doesn't need to be persistent.
@@ -1209,31 +1251,31 @@ type VolumeClaim struct {
 // VolumeMount describes a mounting of a Volume within a container.
 type VolumeMount struct {
 	// This must match the Name of a Volume.
-	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name"`
 
 	// Mounted read-only if true, read-write otherwise (false or unspecified).
 	// Defaults to false.
-	ReadOnly bool `json:"readOnly,omitempty" protobuf:"varint,2,opt,name=readOnly"`
+	ReadOnly bool `protobuf:"varint,2,opt,name=readOnly" json:"readOnly,omitempty"`
 
 	// Path within the container at which the volume should be mounted.  Must
 	// not contain ':'.
-	MountPath string `json:"mountPath" protobuf:"bytes,3,opt,name=mountPath"`
+	MountPath string `protobuf:"bytes,3,opt,name=mountPath" json:"mountPath"`
 
 	// Path within the volume from which the container's volume should be mounted.
 	// Defaults to "" (volume's root).
-	SubPath string `json:"subPath,omitempty" protobuf:"bytes,4,opt,name=subPath"`
+	SubPath string `protobuf:"bytes,4,opt,name=subPath" json:"subPath,omitempty"`
 
 	// mountPropagation determines how mounts are propagated from the host
 	// to container and the other way around.
 	// When not set, MountPropagationNone is used.
 	// This field is beta in 1.10.
-	MountPropagation *string `json:"mountPropagation,omitempty" protobuf:"bytes,5,opt,name=mountPropagation,casttype=MountPropagationMode"`
+	MountPropagation *string `protobuf:"bytes,5,opt,name=mountPropagation,casttype=MountPropagationMode" json:"mountPropagation,omitempty"`
 
 	// Expanded path within the volume from which the container's volume should be mounted.
 	// Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment.
 	// Defaults to "" (volume's root).
 	// SubPathExpr and SubPath are mutually exclusive.
-	SubPathExpr string `json:"subPathExpr,omitempty" protobuf:"bytes,6,opt,name=subPathExpr"`
+	SubPathExpr string `protobuf:"bytes,6,opt,name=subPathExpr" json:"subPathExpr,omitempty"`
 }
 
 type ControlPlaneScheduling struct {
@@ -1402,9 +1444,6 @@ type OutgoingConnections struct {
 	// to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
 	// that should not be included within this rule.
 	IPBlock IPBlock `json:"ipBlock,omitempty"`
-
-	// Platform enables egress access towards loft platform
-	Platform bool `json:"platform,omitempty"`
 }
 
 type IPBlock struct {
@@ -1447,7 +1486,7 @@ type MutatingWebhookConfiguration struct {
 type MutatingWebhook struct {
 	// reinvocationPolicy indicates whether this webhook should be called multiple times as part of a single admission evaluation.
 	// Allowed values are "Never" and "IfNeeded".
-	ReinvocationPolicy *string `json:"reinvocationPolicy,omitempty" protobuf:"bytes,10,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType"`
+	ReinvocationPolicy *string `protobuf:"bytes,10,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType" json:"reinvocationPolicy,omitempty"`
 
 	ValidatingWebhook `json:",inline"`
 }
@@ -1949,16 +1988,16 @@ type DenyRule struct {
 
 type RuleWithVerbs struct {
 	// APIGroups is the API groups the resources belong to. '*' is all groups.
-	APIGroups []string `json:"apiGroups,omitempty" protobuf:"bytes,1,rep,name=apiGroups"`
+	APIGroups []string `protobuf:"bytes,1,rep,name=apiGroups" json:"apiGroups,omitempty"`
 
 	// APIVersions is the API versions the resources belong to. '*' is all versions.
-	APIVersions []string `json:"apiVersions,omitempty" protobuf:"bytes,2,rep,name=apiVersions"`
+	APIVersions []string `protobuf:"bytes,2,rep,name=apiVersions" json:"apiVersions,omitempty"`
 
 	// Resources is a list of resources this rule applies to.
-	Resources []string `json:"resources,omitempty" protobuf:"bytes,3,rep,name=resources"`
+	Resources []string `protobuf:"bytes,3,rep,name=resources" json:"resources,omitempty"`
 
 	// Scope specifies the scope of this rule.
-	Scope *string `json:"scope,omitempty" protobuf:"bytes,4,rep,name=scope"`
+	Scope *string `protobuf:"bytes,4,rep,name=scope" json:"scope,omitempty"`
 
 	// Verb is the kube verb associated with the request for API requests, not the http verb. This includes things like list and watch.
 	// For non-resource requests, this is the lowercase http verb.

@@ -30,8 +30,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-const proxyPort = 9000
-
 func checkExistingAPIService(ctx context.Context, client client.Client, groupVersion schema.GroupVersion) bool {
 	var exists bool
 	_ = applyOperation(ctx, func(ctx context.Context) (bool, error) {
@@ -80,7 +78,7 @@ func deleteOperation(ctrlCtx *config.ControllerContext, groupVersion schema.Grou
 	}
 }
 
-func createOperation(ctrlCtx *config.ControllerContext, serviceName string, groupVersion schema.GroupVersion) wait.ConditionWithContextFunc {
+func createOperation(ctrlCtx *config.ControllerContext, serviceName string, hostPort int, groupVersion schema.GroupVersion) wait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -93,7 +91,7 @@ func createOperation(ctrlCtx *config.ControllerContext, serviceName string, grou
 			service.Spec.ExternalName = "localhost"
 			service.Spec.Ports = []corev1.ServicePort{
 				{
-					Port: int32(proxyPort),
+					Port: int32(hostPort),
 				},
 			}
 			return nil
@@ -111,7 +109,7 @@ func createOperation(ctrlCtx *config.ControllerContext, serviceName string, grou
 			Service: &apiregistrationv1.ServiceReference{
 				Name:      serviceName,
 				Namespace: "kube-system",
-				Port:      ptr.To(int32(proxyPort)),
+				Port:      ptr.To(int32(hostPort)),
 			},
 			InsecureSkipTLSVerify: true,
 			Group:                 groupVersion.Group,
@@ -141,7 +139,24 @@ func createOperation(ctrlCtx *config.ControllerContext, serviceName string, grou
 	}
 }
 
-func StartAPIServiceProxy(ctx context.Context, hostConfig *rest.Config, tlsCertFile, tlsKeyFile string) error {
+func StartAPIServiceProxy(ctx *config.ControllerContext, targetServiceName, targetServiceNamespace string, targetPort, hostPort int) error {
+	tlsCertFile := ctx.Config.VirtualClusterKubeConfig().ServerCACert
+	tlsKeyFile := ctx.Config.VirtualClusterKubeConfig().ServerCAKey
+
+	hostConfig := rest.CopyConfig(ctx.LocalManager.GetConfig())
+	hostConfig.Host = "https://" + targetServiceName + "." + targetServiceNamespace
+	if targetPort > 0 {
+		hostConfig.Host = hostConfig.Host + ":" + strconv.Itoa(targetPort)
+	}
+	hostConfig.APIPath = ""
+	hostConfig.CAFile = ""
+	hostConfig.CAData = nil
+	hostConfig.KeyFile = ""
+	hostConfig.KeyData = nil
+	hostConfig.CertFile = ""
+	hostConfig.CertData = nil
+	hostConfig.Insecure = true
+
 	proxyHandler, err := handler.Handler("", hostConfig, nil)
 	if err != nil {
 		return fmt.Errorf("create host proxy handler: %w", err)
@@ -149,11 +164,11 @@ func StartAPIServiceProxy(ctx context.Context, hostConfig *rest.Config, tlsCertF
 
 	s := serializer.NewCodecFactory(scheme.Scheme)
 	server := &http.Server{
-		Addr: "localhost:" + strconv.Itoa(proxyPort),
+		Addr: "localhost:" + strconv.Itoa(hostPort),
 		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			// we only allow traffic to discovery paths
 			if !isAPIServiceProxyPathAllowed(request.Method, request.URL.Path) {
-				klog.FromContext(ctx).Info("Denied access to api service proxy at path", "path", request.URL.Path, "method", request.Method)
+				klog.FromContext(ctx.Context).Info("Denied access to api service proxy at path", "path", request.URL.Path, "method", request.Method)
 				responsewriters.ErrorNegotiated(
 					kerrors.NewForbidden(metav1.SchemeGroupVersion.WithResource("proxy").GroupResource(), "proxy", fmt.Errorf("paths other than discovery paths are not allowed")),
 					s,
@@ -169,10 +184,10 @@ func StartAPIServiceProxy(ctx context.Context, hostConfig *rest.Config, tlsCertF
 	}
 
 	go func() {
-		klog.Infof("Listening apiservice proxy on localhost:%d...", proxyPort)
+		klog.Infof("Listening apiservice proxy on localhost:%d...", hostPort)
 		err = server.ListenAndServeTLS(tlsCertFile, tlsKeyFile)
 		if err != nil {
-			klog.FromContext(ctx).Error(err, "error listening for apiservice proxy and serve tls")
+			klog.FromContext(ctx.Context).Error(err, "error listening for apiservice proxy and serve tls")
 			os.Exit(1)
 		}
 	}()
@@ -216,8 +231,8 @@ func isAPIServiceProxyPathAllowed(method, path string) bool {
 	return false
 }
 
-func RegisterAPIService(ctx *config.ControllerContext, serviceName string, groupVersion schema.GroupVersion) error {
-	return applyOperation(ctx.Context, createOperation(ctx, serviceName, groupVersion))
+func RegisterAPIService(ctx *config.ControllerContext, serviceName string, hostPort int, groupVersion schema.GroupVersion) error {
+	return applyOperation(ctx.Context, createOperation(ctx, serviceName, hostPort, groupVersion))
 }
 
 func DeregisterAPIService(ctx *config.ControllerContext, groupVersion schema.GroupVersion) error {

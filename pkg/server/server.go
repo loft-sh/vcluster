@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -10,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/apiservice"
 	"github.com/loft-sh/vcluster/pkg/authentication/delegatingauthenticator"
 	"github.com/loft-sh/vcluster/pkg/authorization/allowall"
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
@@ -221,12 +219,6 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 	h = filters.WithMetricsProxy(h, localConfig, cachedVirtualClient)
 
 	// inject apis
-	if ctx.StartAPIServiceProxy {
-		err = apiservice.StartAPIServiceProxy(ctx.Context, ctx.LocalManager.GetConfig(), ctx.Config.VirtualClusterKubeConfig().ServerCACert, ctx.Config.VirtualClusterKubeConfig().ServerCAKey)
-		if err != nil {
-			return nil, fmt.Errorf("start api service proxy: %w", err)
-		}
-	}
 	if ctx.Config.Sync.FromHost.Nodes.Enabled && ctx.Config.Sync.FromHost.Nodes.SyncBackChanges {
 		h = filters.WithNodeChanges(ctx.Context, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 	}
