@@ -27,7 +27,6 @@ linters:
     - makezero
     - misspell
     - nakedret
-    - nilaway
     - nilnil
     - promlinter
     - revive
