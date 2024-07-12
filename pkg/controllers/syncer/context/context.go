@@ -31,12 +31,26 @@ type SyncContext struct {
 
 // Cast returns the given objects as types as well as
 func Cast[T any](ctx *SyncContext, pObj, vObj client.Object) (T, T, T, T) {
+	if pObj == nil || vObj == nil {
+		panic("pObj or vObj is nil")
+	}
+
+	castedPhysical, ok := pObj.(T)
+	if !ok {
+		panic("Cannot cast physical object")
+	}
+
+	castedVirtual, ok := vObj.(T)
+	if !ok {
+		panic("Cannot cast virtual object")
+	}
+
 	if ctx.EventFromHost() {
 		// vObj, pObj, sourceObj (Host), targetObj
-		return pObj.(T), vObj.(T), pObj.(T), vObj.(T)
+		return castedPhysical, castedVirtual, castedPhysical, castedVirtual
 	}
 	// vObj, pObj, sourceObj (Virtual), targetObj
-	return pObj.(T), vObj.(T), vObj.(T), pObj.(T)
+	return castedPhysical, castedVirtual, castedVirtual, castedPhysical
 }
 
 func (s *SyncContext) EventFromHost() bool {
