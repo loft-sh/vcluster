@@ -7,6 +7,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/kube"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -117,7 +118,7 @@ func scaleDownDeployment(ctx context.Context, kubeClient kubernetes.Interface, l
 
 	zero := int32(0)
 	for _, item := range list.Items {
-		if item.Annotations != nil && item.Annotations[constants.PausedAnnotation] == "true" {
+		if IsPaused(&item) {
 			log.Infof("vcluster %s/%s is already paused", namespace, item.Name)
 			return true, nil
 		} else if item.Spec.Replicas != nil && *item.Spec.Replicas == 0 {
@@ -179,7 +180,7 @@ func scaleDownStatefulSet(ctx context.Context, kubeClient kubernetes.Interface, 
 
 	zero := int32(0)
 	for _, item := range list.Items {
-		if item.Annotations != nil && item.Annotations[constants.PausedAnnotation] == "true" {
+		if IsPaused(&item) {
 			log.Infof("vcluster %s/%s is already paused", namespace, item.Name)
 			return true, nil
 		} else if item.Spec.Replicas != nil && *item.Spec.Replicas == 0 {
@@ -277,7 +278,7 @@ func scaleUpDeployment(ctx context.Context, kubeClient kubernetes.Interface, lab
 	}
 
 	for _, item := range list.Items {
-		if item.Annotations == nil || item.Annotations[constants.PausedAnnotation] != "true" {
+		if !IsPaused(&item) {
 			return false, nil
 		}
 
@@ -323,7 +324,7 @@ func scaleUpStatefulSet(ctx context.Context, kubeClient kubernetes.Interface, la
 	}
 
 	for _, item := range list.Items {
-		if item.Annotations == nil || item.Annotations[constants.PausedAnnotation] != "true" {
+		if !IsPaused(&item) {
 			return false, nil
 		}
 
@@ -358,4 +359,8 @@ func scaleUpStatefulSet(ctx context.Context, kubeClient kubernetes.Interface, la
 	}
 
 	return true, nil
+}
+
+func IsPaused(annotated kube.Annotated) bool {
+	return annotated != nil && annotated.GetAnnotations()[constants.PausedAnnotation] == "true"
 }

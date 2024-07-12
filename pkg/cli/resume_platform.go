@@ -18,8 +18,14 @@ func ResumePlatform(ctx context.Context, options *ResumeOptions, config *config.
 	vCluster, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, options.Project, log)
 	if err != nil {
 		return err
-	} else if vCluster.VirtualCluster != nil && vCluster.VirtualCluster.Spec.External {
-		return fmt.Errorf("cannot resume a virtual cluster that was created via helm, please run 'vcluster use driver helm' or use the '--driver helm' flag")
+	}
+
+	if !vCluster.IsInstanceSleeping() {
+		return fmt.Errorf(
+			"couldn't find a paused vcluster %s in namespace %s. Make sure the vcluster exists and was paused previously",
+			vCluster.VirtualCluster.Spec.ClusterRef.VirtualCluster,
+			vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
+		)
 	}
 
 	managementClient, err := platformClient.Management()
