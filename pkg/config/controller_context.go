@@ -32,9 +32,6 @@ type ControllerContext struct {
 
 	// AcquiredLeaderHooks are hooks to start after vCluster acquired leader
 	AcquiredLeaderHooks []Hook
-
-	// StartAPIServiceProxy will start the api service proxy if needed
-	StartAPIServiceProxy bool
 }
 
 type Filter func(http.Handler, Clients) http.Handler

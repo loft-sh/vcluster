@@ -1,6 +1,7 @@
 package metricsserver
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/http"
@@ -28,6 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const hostPort = 9001
+
 const (
 	RequestVerbList = "list"
 	RequestVerbGet  = "get"
@@ -45,7 +48,14 @@ var GroupVersion = schema.GroupVersion{
 func Register(ctx *config.ControllerContext) error {
 	ctx.AcquiredLeaderHooks = append(ctx.AcquiredLeaderHooks, RegisterOrDeregisterAPIService)
 	if ctx.Config.Integrations.MetricsServer.Enabled {
-		ctx.StartAPIServiceProxy = true
+		targetService := cmp.Or(ctx.Config.Integrations.MetricsServer.APIService.Service.Name, "metrics-server")
+		targetServiceNamespace := cmp.Or(ctx.Config.Integrations.MetricsServer.APIService.Service.Namespace, "kube-system")
+		targetServicePort := cmp.Or(ctx.Config.Integrations.MetricsServer.APIService.Service.Port, 443)
+		err := apiservice.StartAPIServiceProxy(ctx, targetService, targetServiceNamespace, targetServicePort, hostPort)
+		if err != nil {
+			return fmt.Errorf("start api service proxy: %w", err)
+		}
+
 		ctx.PostServerHooks = append(ctx.PostServerHooks, func(h http.Handler, clients config.Clients) http.Handler {
 			return WithMetricsServerProxy(
 				h,
@@ -63,7 +73,7 @@ func Register(ctx *config.ControllerContext) error {
 
 func RegisterOrDeregisterAPIService(ctx *config.ControllerContext) error {
 	if ctx.Config.Integrations.MetricsServer.Enabled {
-		return apiservice.RegisterAPIService(ctx, "metrics-server", GroupVersion)
+		return apiservice.RegisterAPIService(ctx, "metrics-server", hostPort, GroupVersion)
 	}
 
 	return apiservice.DeregisterAPIService(ctx, GroupVersion)

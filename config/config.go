@@ -89,6 +89,8 @@ type Integrations struct {
 type KubeVirt struct {
 	// Enabled signals if the integration should be enabled
 	Enabled bool `json:"enabled,omitempty"`
+	// APIService holds information about where to find the virt-api service. Defaults to virt-api/kubevirt.
+	APIService APIService `json:"apiService,omitempty"`
 	// Webhook holds configuration for enabling the webhook within the vCluster
 	Webhook EnableSwitch `json:"webhook,omitempty"`
 	// Sync holds configuration on what resources to sync
@@ -116,11 +118,32 @@ type MetricsServer struct {
 	// Enabled signals the metrics server integration should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
+	// APIService holds information about where to find the metrics-server service. Defaults to metrics-server/kube-system.
+	APIService APIService `json:"apiService,omitempty"`
+
 	// Nodes defines if metrics-server nodes api should get proxied from host to virtual cluster.
 	Nodes bool `json:"nodes,omitempty"`
 
 	// Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
 	Pods bool `json:"pods,omitempty"`
+}
+
+// APIService holds configuration related to the api server
+type APIService struct {
+	// Service is a reference to the service for the API server.
+	Service APIServiceService `json:"service,omitempty"`
+}
+
+// APIServiceService holds the service name and namespace of the host apiservice.
+type APIServiceService struct {
+	// Name is the name of the host service of the apiservice.
+	Name string `json:"name,omitempty"`
+
+	// Namespace is the name of the host service of the apiservice.
+	Namespace string `json:"namespace,omitempty"`
+
+	// Port is the target port on the host service to connect to.
+	Port int `json:"port,omitempty"`
 }
 
 // ExternalConfig holds external tool configuration

@@ -2,6 +2,36 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vcluster.com/schemas/config",
   "$defs": {
+    "APIService": {
+      "properties": {
+        "service": {
+          "$ref": "#/$defs/APIServiceService",
+          "description": "Service is a reference to the service for the API server."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "APIService holds configuration related to the api server"
+    },
+    "APIServiceService": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name is the name of the host service of the apiservice."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace is the name of the host service of the apiservice."
+        },
+        "port": {
+          "type": "integer",
+          "description": "Port is the target port on the host service to connect to."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "APIServiceService holds the service name and namespace of the host apiservice."
+    },
     "BackingStore": {
       "properties": {
         "etcd": {
@@ -1694,6 +1724,10 @@
           "type": "boolean",
           "description": "Enabled signals if the integration should be enabled"
         },
+        "apiService": {
+          "$ref": "#/$defs/APIService",
+          "description": "APIService holds information about where to find the virt-api service. Defaults to virt-api/kubevirt."
+        },
         "webhook": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "Webhook holds configuration for enabling the webhook within the vCluster"
@@ -1795,6 +1829,10 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled signals the metrics server integration should be enabled."
+        },
+        "apiService": {
+          "$ref": "#/$defs/APIService",
+          "description": "APIService holds information about where to find the metrics-server service. Defaults to metrics-server/kube-system."
         },
         "nodes": {
           "type": "boolean",
