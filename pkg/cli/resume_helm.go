@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
+	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -21,6 +22,10 @@ func ResumeHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterNam
 	vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
 	if err != nil {
 		return err
+	}
+
+	if sleepmode.IsSleeping(vCluster.Labels) {
+		return fmt.Errorf("cannot resume a virtual cluster that is paused by the platform, please run 'vcluster use driver platform' or use the '--driver platform' flag")
 	}
 
 	kubeClient, err := prepareResume(vCluster, globalFlags)

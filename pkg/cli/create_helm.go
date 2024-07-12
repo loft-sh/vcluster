@@ -25,6 +25,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/embed"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
@@ -268,7 +269,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		cmd.Connect = false
 	}
 
-	if isSleepModeConfigured(vClusterConfig) {
+	if sleepmode.IsConfigured(vClusterConfig) {
 		if agentDeployed, err := cmd.isLoftAgentDeployed(ctx); err != nil {
 			return fmt.Errorf("is agent deployed: %w", err)
 		} else if !agentDeployed {
@@ -384,13 +385,6 @@ func (cmd *createHelm) isLoftAgentDeployed(ctx context.Context) (bool, error) {
 	}
 
 	return len(podList.Items) > 0, nil
-}
-
-func isSleepModeConfigured(vClusterConfig *config.Config) bool {
-	if vClusterConfig == nil || vClusterConfig.External == nil || vClusterConfig.External["platform"] == nil {
-		return false
-	}
-	return vClusterConfig.External["platform"]["autoSleep"] != nil || vClusterConfig.External["platform"]["autoDelete"] != nil
 }
 
 func isVClusterDeployed(release *helm.Release) bool {

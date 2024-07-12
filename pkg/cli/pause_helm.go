@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
+	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -28,6 +29,11 @@ func PauseHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName
 	kubeClient, err := preparePause(vCluster, globalFlags)
 	if err != nil {
 		return err
+	}
+
+	if sleepmode.IsSleeping(vCluster.Labels) {
+		log.Infof("vcluster %s/%s is already paused using the platform driver", globalFlags.Namespace, vClusterName)
+		return nil
 	}
 
 	err = lifecycle.PauseVCluster(ctx, kubeClient, vClusterName, globalFlags.Namespace, log)

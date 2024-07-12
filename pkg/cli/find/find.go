@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -31,6 +32,8 @@ type VCluster struct {
 	Created       metav1.Time
 	Name          string
 	Namespace     string
+	Annotations   map[string]string
+	Labels        map[string]string
 	Status        Status
 	Context       string
 	Version       string
@@ -312,12 +315,7 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 				continue
 			}
 
-			var paused string
-
-			if p.Annotations != nil {
-				paused = p.Annotations[constants.PausedAnnotation]
-			}
-			if p.Spec.Replicas != nil && *p.Spec.Replicas == 0 && paused != "true" {
+			if p.Spec.Replicas != nil && *p.Spec.Replicas == 0 && !isPaused(&p) {
 				// if the stateful set has been scaled down we'll ignore it -- this happens when
 				// using devspace to do vcluster plugin dev for example, devspace scales down the
 				// vcluster stateful set and re-creates a deployment for "dev mode" so we end up
@@ -413,6 +411,8 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 	return VCluster{
 		Name:          release,
 		Namespace:     namespace,
+		Annotations:   object.GetAnnotations(),
+		Labels:        object.GetLabels(),
 		Status:        Status(status),
 		Created:       created,
 		Context:       context,
@@ -560,4 +560,18 @@ func GetPodStatus(pod *corev1.Pod) string {
 		reason = "Terminating"
 	}
 	return reason
+}
+
+func isPaused(v client.Object) bool {
+	annotations := v.GetAnnotations()
+	if annotations != nil && annotations[constants.PausedAnnotation] == "true" {
+		return true
+	}
+
+	labels := v.GetLabels()
+	if labels != nil && labels[sleepmode.SleepModeLabel] == "true" {
+		return true
+	}
+
+	return false
 }

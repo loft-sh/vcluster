@@ -120,7 +120,7 @@ func scaleDownDeployment(ctx context.Context, kubeClient kubernetes.Interface, l
 
 	zero := int32(0)
 	for _, item := range list.Items {
-		if item.Annotations != nil && item.Annotations[constants.PausedAnnotation] == "true" {
+		if IsPaused(item.Annotations) {
 			log.Infof("vcluster %s/%s is already paused", namespace, item.Name)
 			return true, nil
 		} else if item.Spec.Replicas != nil && *item.Spec.Replicas == 0 {
@@ -182,7 +182,7 @@ func scaleDownStatefulSet(ctx context.Context, kubeClient kubernetes.Interface, 
 
 	zero := int32(0)
 	for _, item := range list.Items {
-		if item.Annotations != nil && item.Annotations[constants.PausedAnnotation] == "true" {
+		if IsPaused(item.Annotations) {
 			log.Infof("vcluster %s/%s is already paused", namespace, item.Name)
 			return true, nil
 		} else if item.Spec.Replicas != nil && *item.Spec.Replicas == 0 {
@@ -280,7 +280,7 @@ func scaleUpDeployment(ctx context.Context, kubeClient kubernetes.Interface, lab
 	}
 
 	for _, item := range list.Items {
-		if item.Annotations == nil || item.Annotations[constants.PausedAnnotation] != "true" {
+		if !IsPaused(item.Annotations) {
 			return false, nil
 		}
 
@@ -326,7 +326,7 @@ func scaleUpStatefulSet(ctx context.Context, kubeClient kubernetes.Interface, la
 	}
 
 	for _, item := range list.Items {
-		if item.Annotations == nil || item.Annotations[constants.PausedAnnotation] != "true" {
+		if !IsPaused(item.Annotations) {
 			return false, nil
 		}
 
@@ -361,4 +361,8 @@ func scaleUpStatefulSet(ctx context.Context, kubeClient kubernetes.Interface, la
 	}
 
 	return true, nil
+}
+
+func IsPaused(annotations map[string]string) bool {
+	return annotations != nil && annotations[constants.PausedAnnotation] == "true"
 }

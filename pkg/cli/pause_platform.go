@@ -11,8 +11,10 @@ import (
 	"github.com/loft-sh/log"
 	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -22,11 +24,32 @@ func PausePlatform(ctx context.Context, options *PauseOptions, cfg *cliconfig.CL
 	if err != nil {
 		return err
 	}
+
 	vCluster, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, options.Project, log)
 	if err != nil {
 		return err
-	} else if vCluster.VirtualCluster != nil && vCluster.VirtualCluster.Spec.External {
-		return fmt.Errorf("cannot pause a virtual cluster that was created via helm, please run 'vcluster use driver helm' or use the '--driver helm' flag")
+	}
+
+	if vCluster.VirtualCluster != nil && vCluster.VirtualCluster.Spec.External {
+		externalVCluster, err := find.GetVCluster(
+			ctx,
+			"",
+			vCluster.VirtualCluster.Spec.ClusterRef.VirtualCluster,
+			vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
+			log)
+		if err != nil {
+			return err
+		}
+
+		if lifecycle.IsPaused(externalVCluster.Annotations) {
+			log.Infof("vcluster %s/%s is already paused using the helm driver", vCluster.VirtualCluster.Spec.ClusterRef.Namespace, vClusterName)
+			return nil
+		}
+	}
+
+	if sleepmode.IsInstanceSleeping(vCluster.VirtualCluster) {
+		log.Infof("vcluster %s/%s is already paused", vCluster.VirtualCluster.Namespace, vClusterName)
+		return nil
 	}
 
 	managementClient, err := platformClient.Management()
