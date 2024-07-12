@@ -77,9 +77,9 @@ func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	// cast objects
-	pNamespace, vNamespace, sourceObject, targetObject := synccontext.Cast[*corev1.Namespace](ctx, pObj, vObj)
+	pNamespace, vNamespace, _, _ := synccontext.Cast[*corev1.Namespace](ctx, pObj, vObj)
 
-	s.translateUpdate(ctx.Context, pNamespace, vNamespace, sourceObject, targetObject)
+	s.translateUpdate(ctx.Context, pNamespace, vNamespace)
 
 	err = s.EnsureWorkloadServiceAccount(ctx, pNamespace.Name)
 	if err != nil {

@@ -23,7 +23,7 @@ func (s *namespaceSyncer) translate(ctx context.Context, vObj client.Object) *co
 	return newNamespace
 }
 
-func (s *namespaceSyncer) translateUpdate(ctx context.Context, pObj, vObj, sourceObject, targetObject *corev1.Namespace) {
+func (s *namespaceSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Namespace) {
 	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	if updatedLabels == nil {
 		updatedLabels = map[string]string{}
