@@ -61,9 +61,10 @@ func TestNodeDeletion(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				_, nodesSyncer := newFakeSyncer(t, ctx)
-				syncController := syncer.NewSyncController(ctx, nodesSyncer)
+				syncController, err := syncer.NewSyncController(ctx, nodesSyncer)
+				assert.NilError(t, err)
 
-				_, err := syncController.Reconcile(ctx.Context, controllerruntime.Request{NamespacedName: baseName})
+				_, err = syncController.Reconcile(ctx.Context, controllerruntime.Request{NamespacedName: baseName})
 				assert.NilError(t, err)
 			},
 		},

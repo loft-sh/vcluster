@@ -7,8 +7,8 @@ import (
 
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -87,14 +87,13 @@ func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, e
 		return "", errors.New("specialservices default not initialized")
 	}
 
-	pClient, namespace := specialservices.Default.DNSNamespace(ctx)
-
 	// first try to find the actual synced service, then fallback to a different if we have a suffix (only in the case of integrated coredns)
+	pClient, namespace := specialservices.Default.DNSNamespace(ctx)
 	ip := s.translateAndFindService(
 		ctx,
 		pClient,
 		namespace,
-		translate.Default.PhysicalName(specialservices.DefaultKubeDNSServiceName, specialservices.DefaultKubeDNSServiceNamespace),
+		mappings.VirtualToHostName(specialservices.DefaultKubeDNSServiceName, specialservices.DefaultKubeDNSServiceNamespace, mappings.Services()),
 	)
 	if ip == "" {
 		return "", fmt.Errorf("waiting for DNS service IP")

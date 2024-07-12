@@ -5,19 +5,17 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util"
+	"k8s.io/apimachinery/pkg/types"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -29,7 +27,7 @@ const (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotContentSyncer{
-		Translator: translator.NewClusterTranslator(ctx, "volume-snapshot-content", &volumesnapshotv1.VolumeSnapshotContent{}, NewVolumeSnapshotContentTranslator()),
+		Translator: translator.NewClusterTranslator(ctx, "volume-snapshot-content", &volumesnapshotv1.VolumeSnapshotContent{}),
 
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}, nil
@@ -45,24 +43,6 @@ var _ syncer.Initializer = &volumeSnapshotContentSyncer{}
 
 func (s *volumeSnapshotContentSyncer) Init(registerContext *synccontext.RegisterContext) error {
 	return util.EnsureCRD(registerContext.Context, registerContext.VirtualManager.GetConfig(), []byte(volumeSnapshotContentsCRD), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"))
-}
-
-func NewVolumeSnapshotContentTranslator() translate.PhysicalNameTranslator {
-	return func(vName string, vObj client.Object) string {
-		return translateVolumeSnapshotContentName(vName, vObj)
-	}
-}
-
-var _ syncer.IndicesRegisterer = &volumeSnapshotContentSyncer{}
-
-func (s *volumeSnapshotContentSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, newIndexByVSCPhysicalName())
-}
-
-func newIndexByVSCPhysicalName() client.IndexerFunc {
-	return func(rawObj client.Object) []string {
-		return []string{translateVolumeSnapshotContentName(rawObj.GetName(), rawObj)}
-	}
 }
 
 var _ syncer.ToVirtualSyncer = &volumeSnapshotContentSyncer{}
@@ -213,8 +193,13 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 }
 
 func (s *volumeSnapshotContentSyncer) shouldSync(ctx context.Context, pObj *volumesnapshotv1.VolumeSnapshotContent) (bool, *volumesnapshotv1.VolumeSnapshot, error) {
+	vName := mappings.VolumeSnapshots().HostToVirtual(ctx, types.NamespacedName{Name: pObj.Spec.VolumeSnapshotRef.Name, Namespace: pObj.Spec.VolumeSnapshotRef.Namespace}, nil)
+	if vName.Name == "" {
+		return false, nil, nil
+	}
+
 	vVS := &volumesnapshotv1.VolumeSnapshot{}
-	err := clienthelper.GetByIndex(ctx, s.virtualClient, vVS, constants.IndexByPhysicalName, pObj.Spec.VolumeSnapshotRef.Namespace+"/"+pObj.Spec.VolumeSnapshotRef.Name)
+	err := s.virtualClient.Get(ctx, vName, vVS)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return false, nil, err
@@ -239,44 +224,4 @@ func (s *volumeSnapshotContentSyncer) IsManaged(ctx context.Context, pObj client
 	}
 
 	return sync, nil
-}
-
-func (s *volumeSnapshotContentSyncer) VirtualToHost(_ context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
-	return types.NamespacedName{Name: translateVolumeSnapshotContentName(req.Name, vObj)}
-}
-
-func (s *volumeSnapshotContentSyncer) HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
-	if pObj != nil {
-		pAnnotations := pObj.GetAnnotations()
-		if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
-			return types.NamespacedName{
-				Name: pAnnotations[translate.NameAnnotation],
-			}
-		}
-	}
-
-	vObj := &volumesnapshotv1.VolumeSnapshotContent{}
-	err := clienthelper.GetByIndex(ctx, s.virtualClient, vObj, constants.IndexByPhysicalName, req.Name)
-	if err != nil {
-		if !kerrors.IsNotFound(err) {
-			return types.NamespacedName{}
-		}
-
-		return types.NamespacedName{Name: req.Name}
-	}
-
-	return types.NamespacedName{Name: vObj.GetName()}
-}
-
-func translateVolumeSnapshotContentName(name string, vObj runtime.Object) string {
-	if vObj == nil {
-		return name
-	}
-
-	vVSC, ok := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
-	if !ok || vVSC.Annotations == nil || vVSC.Annotations[HostClusterVSCAnnotation] == "" {
-		return translate.Default.PhysicalNameClusterScoped(name)
-	}
-
-	return vVSC.Annotations[HostClusterVSCAnnotation]
 }

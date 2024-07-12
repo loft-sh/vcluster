@@ -9,6 +9,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/apiservice"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
@@ -169,13 +170,12 @@ func handleMetricsServerProxyRequest(
 
 	// request is for get particular pod
 	if info.Resource == PodResource && info.Verb == RequestVerbGet {
-		namespace := translate.Default.PhysicalNamespace(info.Namespace)
-		name := translate.Default.PhysicalName(info.Name, info.Namespace)
+		nameNamespace := mappings.VirtualToHost(info.Name, info.Namespace, mappings.Pods())
 		metricsServerProxy.resourceType = PodResource
 
 		// replace the translated name and namespace
-		splitted[5] = namespace
-		splitted[7] = name
+		splitted[5] = nameNamespace.Namespace
+		splitted[7] = nameNamespace.Name
 
 		req.URL.Path = strings.Join(splitted, "/")
 	}
@@ -390,12 +390,7 @@ func (p *serverProxy) rewritePodMetricsTableData(data []byte) {
 
 	filteredTableRows := []metav1.TableRow{}
 	for _, vPod := range p.podsInNamespace {
-		key := types.NamespacedName{
-			Name:      translate.Default.PhysicalName(vPod.Name, vPod.Namespace),
-			Namespace: translate.Default.PhysicalNamespace(vPod.Namespace),
-		}
-
-		rowData, found := hostPodMap[key]
+		rowData, found := hostPodMap[mappings.VirtualToHost(vPod.Name, vPod.Namespace, mappings.Pods())]
 		if found {
 			// translate the data for the given index
 			rowData.Cells[0] = vPod.Name
@@ -449,12 +444,7 @@ func (p *serverProxy) rewritePodMetricsListData(data []byte) {
 	}
 
 	for _, vPod := range p.podsInNamespace {
-		key := types.NamespacedName{
-			Name:      translate.Default.PhysicalName(vPod.Name, vPod.Namespace),
-			Namespace: translate.Default.PhysicalNamespace(vPod.Namespace),
-		}
-
-		podMetric, found := hostPodMap[key]
+		podMetric, found := hostPodMap[mappings.VirtualToHost(vPod.Name, vPod.Namespace, mappings.Pods())]
 		if found {
 			// translate back pod metric
 			podMetric.Name = vPod.Name

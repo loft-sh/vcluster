@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -157,7 +157,11 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 	}
 
 	// convert to core object
-	pPod := translate.Default.ApplyMetadata(vPod, t.syncedLabels).(*corev1.Pod)
+	pPod := translate.Default.ApplyMetadata(
+		vPod,
+		mappings.Pods().VirtualToHost(ctx, mappings.NamespacedName(vPod), vPod),
+		t.syncedLabels,
+	).(*corev1.Pod)
 
 	// override pod fields
 	pPod.Status = corev1.PodStatus{}
@@ -169,7 +173,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 			vPodServiceAccountName = vPod.Spec.ServiceAccountName
 		}
 		if vPodServiceAccountName != "" {
-			pPod.Spec.ServiceAccountName = translate.Default.PhysicalName(vPodServiceAccountName, vPod.Namespace)
+			pPod.Spec.ServiceAccountName = mappings.VirtualToHostName(vPodServiceAccountName, vPod.Namespace, mappings.ServiceAccounts())
 		}
 	}
 
@@ -181,7 +185,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 		pPod.Spec.PriorityClassName = ""
 		pPod.Spec.Priority = nil
 	} else if pPod.Spec.PriorityClassName != "" {
-		pPod.Spec.PriorityClassName = priorityclasses.NewPriorityClassTranslator()(pPod.Spec.PriorityClassName, nil)
+		pPod.Spec.PriorityClassName = mappings.VirtualToHostName(pPod.Spec.PriorityClassName, "", mappings.PriorityClasses())
 		if pPod.Spec.Priority != nil && *pPod.Spec.Priority > maxPriority {
 			pPod.Spec.Priority = &maxPriority
 		}
@@ -315,7 +319,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 
 	// translate image pull secrets
 	for i := range pPod.Spec.ImagePullSecrets {
-		pPod.Spec.ImagePullSecrets[i].Name = translate.Default.PhysicalName(pPod.Spec.ImagePullSecrets[i].Name, vPod.Namespace)
+		pPod.Spec.ImagePullSecrets[i].Name = mappings.VirtualToHostName(pPod.Spec.ImagePullSecrets[i].Name, vPod.Namespace, mappings.Secrets())
 	}
 
 	// translate volumes
@@ -375,17 +379,13 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 
 	for i := range pPod.Spec.Volumes {
 		if pPod.Spec.Volumes[i].ConfigMap != nil {
-			if t.multiNamespaceMode && pPod.Spec.Volumes[i].ConfigMap.Name == "kube-root-ca.crt" {
-				pPod.Spec.Volumes[i].ConfigMap.Name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)
-			} else {
-				pPod.Spec.Volumes[i].ConfigMap.Name = translate.Default.PhysicalName(pPod.Spec.Volumes[i].ConfigMap.Name, vPod.Namespace)
-			}
+			pPod.Spec.Volumes[i].ConfigMap.Name = mappings.VirtualToHostName(pPod.Spec.Volumes[i].ConfigMap.Name, vPod.Namespace, mappings.ConfigMaps())
 		}
 		if pPod.Spec.Volumes[i].Secret != nil {
-			pPod.Spec.Volumes[i].Secret.SecretName = translate.Default.PhysicalName(pPod.Spec.Volumes[i].Secret.SecretName, vPod.Namespace)
+			pPod.Spec.Volumes[i].Secret.SecretName = mappings.VirtualToHostName(pPod.Spec.Volumes[i].Secret.SecretName, vPod.Namespace, mappings.Secrets())
 		}
 		if pPod.Spec.Volumes[i].PersistentVolumeClaim != nil {
-			pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName = translate.Default.PhysicalName(pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName, vPod.Namespace)
+			pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName = mappings.VirtualToHostName(pPod.Spec.Volumes[i].PersistentVolumeClaim.ClaimName, vPod.Namespace, mappings.PersistentVolumeClaims())
 		}
 		if pPod.Spec.Volumes[i].Ephemeral != nil {
 			// An ephemeral volume is created as a PVC by the "ephemeral_volume" K8s controller.
@@ -396,7 +396,7 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 			// the Pod, and that remains unchanged and thus the PVC will be removed by the kube
 			// controllers of the vcluster, and syncer will then remove the PVC from the host.
 			pPod.Spec.Volumes[i].PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: translate.Default.PhysicalName(ephemeral.VolumeClaimName(vPod, &vPod.Spec.Volumes[i]), vPod.Namespace),
+				ClaimName: mappings.VirtualToHostName(ephemeral.VolumeClaimName(vPod, &vPod.Spec.Volumes[i]), vPod.Namespace, mappings.PersistentVolumeClaims()),
 			}
 			pPod.Spec.Volumes[i].Ephemeral = nil
 		}
@@ -412,34 +412,34 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 			}
 		}
 		if pPod.Spec.Volumes[i].ISCSI != nil && pPod.Spec.Volumes[i].ISCSI.SecretRef != nil {
-			pPod.Spec.Volumes[i].ISCSI.SecretRef.Name = translate.Default.PhysicalName(pPod.Spec.Volumes[i].ISCSI.SecretRef.Name, vPod.Namespace)
+			pPod.Spec.Volumes[i].ISCSI.SecretRef.Name = mappings.VirtualToHostName(pPod.Spec.Volumes[i].ISCSI.SecretRef.Name, vPod.Namespace, mappings.Secrets())
 		}
 		if pPod.Spec.Volumes[i].RBD != nil && pPod.Spec.Volumes[i].RBD.SecretRef != nil {
-			pPod.Spec.Volumes[i].RBD.SecretRef.Name = translate.Default.PhysicalName(pPod.Spec.Volumes[i].RBD.SecretRef.Name, vPod.Namespace)
+			pPod.Spec.Volumes[i].RBD.SecretRef.Name = mappings.VirtualToHostName(pPod.Spec.Volumes[i].RBD.SecretRef.Name, vPod.Namespace, mappings.Secrets())
 		}
 		if pPod.Spec.Volumes[i].FlexVolume != nil && pPod.Spec.Volumes[i].FlexVolume.SecretRef != nil {
-			pPod.Spec.Volumes[i].FlexVolume.SecretRef.Name = translate.Default.PhysicalName(pPod.Spec.Volumes[i].FlexVolume.SecretRef.Name, vPod.Namespace)
+			pPod.Spec.Volumes[i].FlexVolume.SecretRef.Name = mappings.VirtualToHostName(pPod.Spec.Volumes[i].FlexVolume.SecretRef.Name, vPod.Namespace, mappings.Secrets())
 		}
 		if pPod.Spec.Volumes[i].Cinder != nil && pPod.Spec.Volumes[i].Cinder.SecretRef != nil {
-			pPod.Spec.Volumes[i].Cinder.SecretRef.Name = translate.Default.PhysicalName(pPod.Spec.Volumes[i].Cinder.SecretRef.Name, vPod.Namespace)
+			pPod.Spec.Volumes[i].Cinder.SecretRef.Name = mappings.VirtualToHostName(pPod.Spec.Volumes[i].Cinder.SecretRef.Name, vPod.Namespace, mappings.Secrets())
 		}
 		if pPod.Spec.Volumes[i].CephFS != nil && pPod.Spec.Volumes[i].CephFS.SecretRef != nil {
-			pPod.Spec.Volumes[i].CephFS.SecretRef.Name = translate.Default.PhysicalName(pPod.Spec.Volumes[i].CephFS.SecretRef.Name, vPod.Namespace)
+			pPod.Spec.Volumes[i].CephFS.SecretRef.Name = mappings.VirtualToHostName(pPod.Spec.Volumes[i].CephFS.SecretRef.Name, vPod.Namespace, mappings.Secrets())
 		}
 		if pPod.Spec.Volumes[i].AzureFile != nil && pPod.Spec.Volumes[i].AzureFile.SecretName != "" {
-			pPod.Spec.Volumes[i].AzureFile.SecretName = translate.Default.PhysicalName(pPod.Spec.Volumes[i].AzureFile.SecretName, vPod.Namespace)
+			pPod.Spec.Volumes[i].AzureFile.SecretName = mappings.VirtualToHostName(pPod.Spec.Volumes[i].AzureFile.SecretName, vPod.Namespace, mappings.Secrets())
 		}
 		if pPod.Spec.Volumes[i].ScaleIO != nil && pPod.Spec.Volumes[i].ScaleIO.SecretRef != nil {
-			pPod.Spec.Volumes[i].ScaleIO.SecretRef.Name = translate.Default.PhysicalName(pPod.Spec.Volumes[i].ScaleIO.SecretRef.Name, vPod.Namespace)
+			pPod.Spec.Volumes[i].ScaleIO.SecretRef.Name = mappings.VirtualToHostName(pPod.Spec.Volumes[i].ScaleIO.SecretRef.Name, vPod.Namespace, mappings.Secrets())
 		}
 		if pPod.Spec.Volumes[i].StorageOS != nil && pPod.Spec.Volumes[i].StorageOS.SecretRef != nil {
-			pPod.Spec.Volumes[i].StorageOS.SecretRef.Name = translate.Default.PhysicalName(pPod.Spec.Volumes[i].StorageOS.SecretRef.Name, vPod.Namespace)
+			pPod.Spec.Volumes[i].StorageOS.SecretRef.Name = mappings.VirtualToHostName(pPod.Spec.Volumes[i].StorageOS.SecretRef.Name, vPod.Namespace, mappings.Secrets())
 		}
 		if pPod.Spec.Volumes[i].CSI != nil && pPod.Spec.Volumes[i].CSI.NodePublishSecretRef != nil {
-			pPod.Spec.Volumes[i].CSI.NodePublishSecretRef.Name = translate.Default.PhysicalName(pPod.Spec.Volumes[i].CSI.NodePublishSecretRef.Name, vPod.Namespace)
+			pPod.Spec.Volumes[i].CSI.NodePublishSecretRef.Name = mappings.VirtualToHostName(pPod.Spec.Volumes[i].CSI.NodePublishSecretRef.Name, vPod.Namespace, mappings.Secrets())
 		}
 		if pPod.Spec.Volumes[i].Glusterfs != nil && pPod.Spec.Volumes[i].Glusterfs.EndpointsName != "" {
-			pPod.Spec.Volumes[i].Glusterfs.EndpointsName = translate.Default.PhysicalName(pPod.Spec.Volumes[i].Glusterfs.EndpointsName, vPod.Namespace)
+			pPod.Spec.Volumes[i].Glusterfs.EndpointsName = mappings.VirtualToHostName(pPod.Spec.Volumes[i].Glusterfs.EndpointsName, vPod.Namespace, mappings.Endpoints())
 		}
 	}
 
@@ -467,13 +467,10 @@ func (t *translator) translateProjectedVolume(
 ) error {
 	for i := range projectedVolume.Sources {
 		if projectedVolume.Sources[i].Secret != nil {
-			projectedVolume.Sources[i].Secret.Name = translate.Default.PhysicalName(projectedVolume.Sources[i].Secret.Name, vPod.Namespace)
+			projectedVolume.Sources[i].Secret.Name = mappings.VirtualToHostName(projectedVolume.Sources[i].Secret.Name, vPod.Namespace, mappings.Secrets())
 		}
 		if projectedVolume.Sources[i].ConfigMap != nil {
-			projectedVolume.Sources[i].ConfigMap.Name = translate.Default.PhysicalName(projectedVolume.Sources[i].ConfigMap.Name, vPod.Namespace)
-			if projectedVolume.Sources[i].ConfigMap.Name == "kube-root-ca.crt" {
-				projectedVolume.Sources[i].ConfigMap.Name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)
-			}
+			projectedVolume.Sources[i].ConfigMap.Name = mappings.VirtualToHostName(projectedVolume.Sources[i].ConfigMap.Name, vPod.Namespace, mappings.ConfigMaps())
 		}
 		if projectedVolume.Sources[i].DownwardAPI != nil {
 			for j := range projectedVolume.Sources[i].DownwardAPI.Items {
@@ -607,24 +604,20 @@ func (t *translator) TranslateContainerEnv(envVar []corev1.EnvVar, envFrom []cor
 	for j, env := range envVar {
 		translateDownwardAPI(&envVar[j])
 		if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil && env.ValueFrom.ConfigMapKeyRef.Name != "" {
-			envVar[j].ValueFrom.ConfigMapKeyRef.Name = translate.Default.PhysicalName(envVar[j].ValueFrom.ConfigMapKeyRef.Name, vPod.Namespace)
+			envVar[j].ValueFrom.ConfigMapKeyRef.Name = mappings.VirtualToHostName(envVar[j].ValueFrom.ConfigMapKeyRef.Name, vPod.Namespace, mappings.ConfigMaps())
 		}
 		if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name != "" {
-			envVar[j].ValueFrom.SecretKeyRef.Name = translate.Default.PhysicalName(envVar[j].ValueFrom.SecretKeyRef.Name, vPod.Namespace)
+			envVar[j].ValueFrom.SecretKeyRef.Name = mappings.VirtualToHostName(envVar[j].ValueFrom.SecretKeyRef.Name, vPod.Namespace, mappings.Secrets())
 		}
 
 		envNameMap[env.Name] = struct{}{}
 	}
 	for j, from := range envFrom {
 		if from.ConfigMapRef != nil && from.ConfigMapRef.Name != "" {
-			if t.multiNamespaceMode && envFrom[j].ConfigMapRef.Name == "kube-root-ca.crt" {
-				envFrom[j].ConfigMapRef.Name = translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)
-			} else {
-				envFrom[j].ConfigMapRef.Name = translate.Default.PhysicalName(from.ConfigMapRef.Name, vPod.Namespace)
-			}
+			envFrom[j].ConfigMapRef.Name = mappings.VirtualToHostName(from.ConfigMapRef.Name, vPod.Namespace, mappings.ConfigMaps())
 		}
 		if from.SecretRef != nil && from.SecretRef.Name != "" {
-			envFrom[j].SecretRef.Name = translate.Default.PhysicalName(from.SecretRef.Name, vPod.Namespace)
+			envFrom[j].SecretRef.Name = mappings.VirtualToHostName(from.SecretRef.Name, vPod.Namespace, mappings.Secrets())
 		}
 	}
 

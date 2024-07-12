@@ -19,12 +19,15 @@ var Default Translator = &singleNamespace{}
 // PhysicalNameFunc is a definition to translate a name
 type PhysicalNameFunc func(vName, vNamespace string) string
 
+// PhysicalNameClusterFunc is a definition to translate a cluster name
+type PhysicalNameClusterFunc func(vName string, vObj client.Object) string
+
 type Translator interface {
 	// SingleNamespaceTarget signals if we sync all objects into a single namespace
 	SingleNamespaceTarget() bool
 
 	// IsManaged checks if the object is managed by vcluster
-	IsManaged(obj runtime.Object, physicalName PhysicalNameFunc) bool
+	IsManaged(obj runtime.Object) bool
 
 	// IsManagedCluster checks if the cluster scoped object is managed by vcluster
 	IsManagedCluster(obj runtime.Object) bool
@@ -52,7 +55,7 @@ type Translator interface {
 	TranslateLabelSelectorCluster(labelSelector *metav1.LabelSelector) *metav1.LabelSelector
 
 	// ApplyMetadata translates the metadata including labels and annotations initially from virtual to physical
-	ApplyMetadata(vObj client.Object, syncedLabels []string, excludedAnnotations ...string) client.Object
+	ApplyMetadata(vObj client.Object, name types.NamespacedName, syncedLabels []string, excludedAnnotations ...string) client.Object
 
 	// ApplyMetadataUpdate updates the physical objects metadata and signals if there were any changes
 	ApplyMetadataUpdate(vObj client.Object, pObj client.Object, syncedLabels []string, excludedAnnotations ...string) (bool, map[string]string, map[string]string)
@@ -70,7 +73,7 @@ type Translator interface {
 	TranslateLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector
 
 	// SetupMetadataWithName is similar to ApplyMetadata with a custom name translator and doesn't apply annotations and labels
-	SetupMetadataWithName(vObj client.Object, translator PhysicalNameTranslator) (client.Object, error)
+	SetupMetadataWithName(vObj client.Object, name types.NamespacedName) (client.Object, error)
 
 	// LegacyGetTargetNamespace returns in the case of a single namespace the target namespace, but fails
 	// if vcluster is syncing to multiple namespaces.
@@ -78,9 +81,6 @@ type Translator interface {
 
 	ConvertLabelKey(string) string
 }
-
-// PhysicalNameTranslator transforms a virtual cluster name to a physical name
-type PhysicalNameTranslator func(vName string, vObj client.Object) string
 
 // PhysicalNamespacedNameTranslator transforms a virtual cluster name to a physical name
 type PhysicalNamespacedNameTranslator func(vNN types.NamespacedName, vObj client.Object) string

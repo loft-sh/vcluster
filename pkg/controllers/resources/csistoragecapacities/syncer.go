@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	storagev1 "k8s.io/api/storage/v1"
@@ -97,6 +99,7 @@ func (s *csistoragecapacitySyncer) ModifyController(ctx *synccontext.RegisterCon
 	if err != nil {
 		return nil, fmt.Errorf("failed to add allNSCache to physical manager: %w", err)
 	}
+
 	return builder.WatchesRawSource(source.Kind(allNSCache, s.Resource(), &handler.Funcs{
 		CreateFunc: func(_ context.Context, ce event.CreateEvent, rli workqueue.RateLimitingInterface) {
 			obj := ce.Object
@@ -122,7 +125,7 @@ func (s *csistoragecapacitySyncer) enqueuePhysical(ctx context.Context, obj clie
 		return
 	}
 
-	name := s.HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+	name := mappings.Default.ByGVK(storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity")).HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 	if name.Name != "" && name.Namespace != "" {
 		q.Add(reconcile.Request{NamespacedName: name})
 	}

@@ -5,7 +5,7 @@ import (
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -13,9 +13,10 @@ import (
 
 func (s *volumeSnapshotContentSyncer) translate(ctx context.Context, vVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
 	pVSC := s.TranslateMetadata(ctx, vVSC).(*volumesnapshotv1.VolumeSnapshotContent)
+	pVolumeSnapshot := mappings.VirtualToHost(vVSC.Spec.VolumeSnapshotRef.Name, vVSC.Spec.VolumeSnapshotRef.Namespace, mappings.VolumeSnapshots())
 	pVSC.Spec.VolumeSnapshotRef = corev1.ObjectReference{
-		Namespace: translate.Default.PhysicalNamespace(vVSC.Spec.VolumeSnapshotRef.Namespace),
-		Name:      translate.Default.PhysicalName(vVSC.Spec.VolumeSnapshotRef.Name, vVSC.Spec.VolumeSnapshotRef.Namespace),
+		Namespace: pVolumeSnapshot.Namespace,
+		Name:      pVolumeSnapshot.Name,
 	}
 	return pVSC
 }

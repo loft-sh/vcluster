@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,8 +54,9 @@ func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime
 				}
 
 				// exchange namespace & name
-				splitted[4] = translate.Default.PhysicalNamespace(info.Namespace)
-				splitted[6] = translate.Default.PhysicalName(splitted[6], info.Namespace)
+				pName := mappings.VirtualToHost(splitted[6], info.Namespace, mappings.Pods())
+				splitted[4] = pName.Namespace
+				splitted[6] = pName.Name
 				req.URL.Path = strings.Join(splitted, "/")
 
 				// we have to add a trailing slash here, because otherwise the

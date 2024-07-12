@@ -1,17 +1,21 @@
 package translate
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"regexp"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/util/base36"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -75,31 +79,38 @@ func (s *singleNamespace) PhysicalNameClusterScoped(name string) string {
 	return SafeConcatName("vcluster", name, "x", s.targetNamespace, "x", VClusterName)
 }
 
-func (s *singleNamespace) IsManaged(obj runtime.Object, physicalName PhysicalNameFunc) bool {
+func (s *singleNamespace) IsManaged(obj runtime.Object) bool {
 	metaAccessor, err := meta.Accessor(obj)
 	if err != nil {
 		return false
 	} else if metaAccessor.GetNamespace() != "" && !s.IsTargetedNamespace(metaAccessor.GetNamespace()) {
+		return false
+	} else if metaAccessor.GetLabels()[MarkerLabel] != VClusterName {
 		return false
 	}
 
 	// vcluster has not synced the object IF:
 	// If object-name annotation is not set OR
 	// If object-name annotation is different from actual name
-	if metaAccessor.GetAnnotations()[NameAnnotation] == "" ||
-		metaAccessor.GetName() != physicalName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation]) {
-		return false
+	gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
+	if err == nil && mappings.Has(gvk) {
+		if metaAccessor.GetAnnotations()[NameAnnotation] == "" || metaAccessor.GetName() != mappings.VirtualToHostName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk)) {
+			klog.FromContext(context.TODO()).V(1).Info("Host object doesn't match, because name annotations is wrong",
+				"object", metaAccessor.GetName(),
+				"existingName", metaAccessor.GetName(),
+				"expectedName", mappings.VirtualToHostName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk)))
+			return false
+		}
 	}
 
 	// if kind doesn't match vCluster has probably not synced the object
 	if metaAccessor.GetAnnotations()[KindAnnotation] != "" {
-		gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
 		if err == nil && gvk.String() != metaAccessor.GetAnnotations()[KindAnnotation] {
 			return false
 		}
 	}
 
-	return metaAccessor.GetLabels()[MarkerLabel] == VClusterName
+	return true
 }
 
 func (s *singleNamespace) IsManagedCluster(obj runtime.Object) bool {
@@ -191,10 +202,8 @@ func (s *singleNamespace) LegacyGetTargetNamespace() (string, error) {
 	return s.targetNamespace, nil
 }
 
-func (s *singleNamespace) ApplyMetadata(vObj client.Object, syncedLabels []string, excludedAnnotations ...string) client.Object {
-	pObj, err := s.SetupMetadataWithName(vObj, func(_ string, vObj client.Object) string {
-		return s.objectPhysicalName(vObj)
-	})
+func (s *singleNamespace) ApplyMetadata(vObj client.Object, name types.NamespacedName, syncedLabels []string, excludedAnnotations ...string) client.Object {
+	pObj, err := s.SetupMetadataWithName(vObj, name)
 	if err != nil {
 		return nil
 	}
@@ -288,7 +297,7 @@ func (s *singleNamespace) TranslateLabels(fromLabels map[string]string, vNamespa
 	return newLabels
 }
 
-func (s *singleNamespace) SetupMetadataWithName(vObj client.Object, translator PhysicalNameTranslator) (client.Object, error) {
+func (s *singleNamespace) SetupMetadataWithName(vObj client.Object, name types.NamespacedName) (client.Object, error) {
 	target := vObj.DeepCopyObject().(client.Object)
 	m, err := meta.Accessor(target)
 	if err != nil {
@@ -297,9 +306,9 @@ func (s *singleNamespace) SetupMetadataWithName(vObj client.Object, translator P
 
 	// reset metadata & translate name and namespace
 	ResetObjectMetadata(m)
-	m.SetName(translator(m.GetName(), vObj))
+	m.SetName(name.Name)
 	if vObj.GetNamespace() != "" {
-		m.SetNamespace(s.PhysicalNamespace(vObj.GetNamespace()))
+		m.SetNamespace(name.Namespace)
 
 		// set owning stateful set if defined
 		if Owner != nil {

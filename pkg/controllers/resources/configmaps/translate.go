@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
@@ -12,7 +13,7 @@ import (
 
 func (s *configMapSyncer) translate(ctx context.Context, vObj client.Object) *corev1.ConfigMap {
 	pObj := s.TranslateMetadata(ctx, vObj).(*corev1.ConfigMap)
-	pObj.SetName(s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj).Name)
+	pObj.SetName(mappings.ConfigMaps().VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj).Name)
 	return pObj
 }
 

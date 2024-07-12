@@ -2,16 +2,16 @@ package persistentvolumeclaims
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -180,14 +180,13 @@ func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.Sy
 	if pObj.Spec.VolumeName != "" && vObj.Spec.VolumeName != pObj.Spec.VolumeName {
 		newVolumeName := pObj.Spec.VolumeName
 		if !s.useFakePersistentVolumes {
-			vObj := &corev1.PersistentVolume{}
-			err = clienthelper.GetByIndex(ctx.Context, ctx.VirtualClient, vObj, constants.IndexByPhysicalName, pObj.Spec.VolumeName)
-			if err != nil {
-				log.Infof("error retrieving virtual persistent volume %s: %v", pObj.Spec.VolumeName, err)
-				return false, err
+			vName := mappings.PersistentVolumes().HostToVirtual(ctx.Context, types.NamespacedName{Name: pObj.Spec.VolumeName}, nil)
+			if vName.Name == "" {
+				log.Infof("error retrieving virtual persistent volume %s: not found", pObj.Spec.VolumeName)
+				return false, fmt.Errorf("error retrieving virtual persistent volume %s: not found", pObj.Spec.VolumeName)
 			}
 
-			newVolumeName = vObj.Name
+			newVolumeName = vName.Name
 		}
 
 		if newVolumeName != vObj.Spec.VolumeName {

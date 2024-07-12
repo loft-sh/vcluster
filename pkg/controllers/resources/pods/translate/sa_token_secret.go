@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,10 +23,10 @@ const (
 var PodServiceAccountTokenSecretName string
 
 func SecretNameFromPodName(podName, namespace string) string {
-	return translate.Default.PhysicalName(fmt.Sprintf("%s-sa-token", podName), namespace)
+	return mappings.VirtualToHostName(fmt.Sprintf("%s-sa-token", podName), namespace, mappings.Secrets())
 }
 
-var ErrNotFound = errors.New("tanslate: not found")
+var ErrNotFound = errors.New("translate: not found")
 
 func IgnoreAcceptableErrors(err error) error {
 	if errors.Is(err, ErrNotFound) {

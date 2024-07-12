@@ -5,6 +5,7 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
@@ -74,7 +75,7 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 	} else if svc.Spec.Selector != nil {
 		// check if it was a managed endpoints object before and delete it
 		endpoints := &corev1.Endpoints{}
-		err := ctx.PhysicalClient.Get(ctx.Context, s.NamespacedTranslator.VirtualToHost(ctx.Context, req.NamespacedName, nil), endpoints)
+		err := ctx.PhysicalClient.Get(ctx.Context, mappings.Endpoints().VirtualToHost(ctx.Context, req.NamespacedName, nil), endpoints)
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
 				klog.Infof("Error retrieving endpoints: %v", err)
@@ -103,7 +104,7 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 
 	// check if it was a Kubernetes managed endpoints object before and delete it
 	endpoints := &corev1.Endpoints{}
-	err = ctx.PhysicalClient.Get(ctx.Context, s.NamespacedTranslator.VirtualToHost(ctx.Context, req.NamespacedName, nil), endpoints)
+	err = ctx.PhysicalClient.Get(ctx.Context, mappings.Endpoints().VirtualToHost(ctx.Context, req.NamespacedName, nil), endpoints)
 	if err == nil && (endpoints.Annotations == nil || endpoints.Annotations[translate.NameAnnotation] == "") {
 		klog.Infof("Refresh endpoints in physical cluster because they should be managed by vCluster now")
 		err = ctx.PhysicalClient.Delete(ctx.Context, endpoints)

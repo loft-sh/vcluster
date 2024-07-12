@@ -25,7 +25,7 @@ type Exporter interface {
 
 type Syncer interface {
 	Object
-	translator.NameTranslator
+	translator.ObjectManager
 
 	// SyncToHost is called when a virtual object was created and needs to be synced down to the physical cluster
 	SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error)

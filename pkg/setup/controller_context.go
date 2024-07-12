@@ -8,11 +8,13 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/mappings/registermappings"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -96,6 +98,12 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 	err = pro.InitProControllerContext(controllerContext)
 	if err != nil {
 		return nil, err
+	}
+
+	// register resource mappings
+	err = registermappings.RegisterMappings(util.ToRegisterContext(controllerContext))
+	if err != nil {
+		return nil, fmt.Errorf("register resource mappings: %w", err)
 	}
 
 	return controllerContext, nil

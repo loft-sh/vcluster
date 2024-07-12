@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -45,12 +44,4 @@ func (n *mirrorPhysicalTranslator) TranslateMetadataUpdate(_ context.Context, vO
 
 func (n *mirrorPhysicalTranslator) IsManaged(context.Context, client.Object) (bool, error) {
 	return true, nil
-}
-
-func (n *mirrorPhysicalTranslator) VirtualToHost(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
-	return req
-}
-
-func (n *mirrorPhysicalTranslator) HostToVirtual(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
-	return req
 }

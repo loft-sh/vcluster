@@ -108,12 +108,6 @@ type podSyncer struct {
 	podSecurityStandard string
 }
 
-var _ syncer.IndicesRegisterer = &podSyncer{}
-
-func (s *podSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	return s.NamespacedTranslator.RegisterIndices(ctx)
-}
-
 var _ syncer.ControllerModifier = &podSyncer{}
 
 func (s *podSyncer) ModifyController(registerContext *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {

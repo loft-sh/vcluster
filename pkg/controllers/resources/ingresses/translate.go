@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/util"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/klog/v2"
@@ -53,7 +56,7 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *ne
 	retSpec := vIngressSpec.DeepCopy()
 	if retSpec.DefaultBackend != nil {
 		if retSpec.DefaultBackend.Service != nil && retSpec.DefaultBackend.Service.Name != "" {
-			retSpec.DefaultBackend.Service.Name = translate.Default.PhysicalName(retSpec.DefaultBackend.Service.Name, namespace)
+			retSpec.DefaultBackend.Service.Name = mappings.VirtualToHostName(retSpec.DefaultBackend.Service.Name, namespace, mappings.Services())
 		}
 		if retSpec.DefaultBackend.Resource != nil {
 			retSpec.DefaultBackend.Resource.Name = translate.Default.PhysicalName(retSpec.DefaultBackend.Resource.Name, namespace)
@@ -64,7 +67,7 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *ne
 		if rule.HTTP != nil {
 			for j, path := range rule.HTTP.Paths {
 				if path.Backend.Service != nil && path.Backend.Service.Name != "" {
-					retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name = translate.Default.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name, namespace)
+					retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name = mappings.VirtualToHostName(retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name, namespace, mappings.Services())
 				}
 				if path.Backend.Resource != nil {
 					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.Default.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
@@ -75,7 +78,7 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *ne
 
 	for i, tls := range retSpec.TLS {
 		if tls.SecretName != "" {
-			retSpec.TLS[i].SecretName = translate.Default.PhysicalName(retSpec.TLS[i].SecretName, namespace)
+			retSpec.TLS[i].SecretName = mappings.VirtualToHostName(retSpec.TLS[i].SecretName, namespace, mappings.Secrets())
 		}
 	}
 

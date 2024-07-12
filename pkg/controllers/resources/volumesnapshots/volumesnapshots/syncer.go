@@ -1,14 +1,11 @@
 package volumesnapshots
 
 import (
-	"github.com/loft-sh/vcluster/pkg/util/translate"
-
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,14 +22,12 @@ var (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotSyncer{
-		NamespacedTranslator:                translator.NewNamespacedTranslator(ctx, "volume-snapshot", &volumesnapshotv1.VolumeSnapshot{}),
-		volumeSnapshotContentNameTranslator: volumesnapshotcontents.NewVolumeSnapshotContentTranslator(),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "volume-snapshot", &volumesnapshotv1.VolumeSnapshot{}),
 	}, nil
 }
 
 type volumeSnapshotSyncer struct {
 	translator.NamespacedTranslator
-	volumeSnapshotContentNameTranslator translate.PhysicalNameTranslator
 }
 
 var _ syncer.Initializer = &volumeSnapshotSyncer{}

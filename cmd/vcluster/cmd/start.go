@@ -126,11 +126,8 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		}
 	}
 
-	if err := pro.ConnectToPlatform(
-		ctx,
-		vConfig,
-		controllerCtx.VirtualManager,
-	); err != nil {
+	// connect to vCluster platform if configured
+	if err := pro.ConnectToPlatform(ctx, vConfig, controllerCtx.VirtualManager); err != nil {
 		return fmt.Errorf("connect to platform: %w", err)
 	}
 

@@ -3,12 +3,10 @@ package priorityclasses
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -17,20 +15,12 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &priorityClassSyncer{
-		Translator: translator.NewClusterTranslator(ctx, "priorityclass", &schedulingv1.PriorityClass{}, NewPriorityClassTranslator()),
+		Translator: translator.NewClusterTranslator(ctx, "priorityclass", &schedulingv1.PriorityClass{}),
 	}, nil
 }
 
 type priorityClassSyncer struct {
 	translator.Translator
-}
-
-var _ syncer.IndicesRegisterer = &priorityClassSyncer{}
-
-func (s *priorityClassSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &schedulingv1.PriorityClass{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translatePriorityClassName(rawObj.GetName())}
-	})
 }
 
 var _ syncer.Syncer = &priorityClassSyncer{}
@@ -65,15 +55,4 @@ func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Obj
 	// did the priority class change?
 	s.translateUpdate(ctx.Context, pPriorityClass, vPriorityClass, sourceObject, targetObject)
 	return ctrl.Result{}, nil
-}
-
-func NewPriorityClassTranslator() translate.PhysicalNameTranslator {
-	return func(vName string, _ client.Object) string {
-		return translatePriorityClassName(vName)
-	}
-}
-
-func translatePriorityClassName(name string) string {
-	// we have to prefix with vcluster as system is reserved
-	return translate.Default.PhysicalNameClusterScoped(name)
 }

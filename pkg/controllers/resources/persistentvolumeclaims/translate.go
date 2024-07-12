@@ -6,6 +6,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -27,11 +28,24 @@ func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vP
 
 	if vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
 		if newPvc.Spec.DataSource != nil {
-			newPvc.Spec.DataSource.Name = translate.Default.PhysicalName(newPvc.Spec.DataSource.Name, vPvc.Namespace)
+			if newPvc.Spec.DataSource.Kind == "VolumeSnapshot" {
+				newPvc.Spec.DataSource.Name = mappings.VirtualToHostName(newPvc.Spec.DataSource.Name, vPvc.Namespace, mappings.VolumeSnapshots())
+			} else if newPvc.Spec.DataSource.Kind == "PersistentVolumeClaim" {
+				newPvc.Spec.DataSource.Name = mappings.VirtualToHostName(newPvc.Spec.DataSource.Name, vPvc.Namespace, mappings.PersistentVolumeClaims())
+			}
 		}
 
 		if newPvc.Spec.DataSourceRef != nil {
-			newPvc.Spec.DataSourceRef.Name = translate.Default.PhysicalName(newPvc.Spec.DataSourceRef.Name, vPvc.Namespace)
+			namespace := vPvc.Namespace
+			if newPvc.Spec.DataSourceRef.Namespace != nil {
+				namespace = *newPvc.Spec.DataSourceRef.Namespace
+			}
+
+			if newPvc.Spec.DataSourceRef.Kind == "VolumeSnapshot" {
+				newPvc.Spec.DataSourceRef.Name = mappings.VirtualToHostName(newPvc.Spec.DataSourceRef.Name, namespace, mappings.VolumeSnapshots())
+			} else if newPvc.Spec.DataSourceRef.Kind == "PersistentVolumeClaim" {
+				newPvc.Spec.DataSourceRef.Name = mappings.VirtualToHostName(newPvc.Spec.DataSourceRef.Name, namespace, mappings.PersistentVolumeClaims())
+			}
 		}
 	}
 

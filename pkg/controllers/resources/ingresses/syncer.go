@@ -6,6 +6,7 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -84,12 +85,13 @@ func translateIngressAnnotations(annotations map[string]string, ingressNamespace
 		if len(splitted) == 1 { // If value is only "secret"
 			secret := splitted[0]
 			foundSecrets = append(foundSecrets, ingressNamespace+"/"+secret)
-			newAnnotations[k] = translate.Default.PhysicalName(secret, ingressNamespace)
+			newAnnotations[k] = mappings.VirtualToHostName(secret, ingressNamespace, mappings.Secrets())
 		} else if len(splitted) == 2 { // If value is "namespace/secret"
 			namespace := splitted[0]
 			secret := splitted[1]
 			foundSecrets = append(foundSecrets, namespace+"/"+secret)
-			newAnnotations[k] = translate.Default.PhysicalNamespace(namespace) + "/" + translate.Default.PhysicalName(secret, namespace)
+			pName := mappings.VirtualToHost(secret, namespace, mappings.Secrets())
+			newAnnotations[k] = pName.Namespace + "/" + pName.Name
 		} else {
 			newAnnotations[k] = v
 		}

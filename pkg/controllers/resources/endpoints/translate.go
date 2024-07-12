@@ -3,6 +3,8 @@ package endpoints
 import (
 	"context"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -27,8 +29,9 @@ func (s *endpointsSyncer) translateSpec(endpoints *corev1.Endpoints) {
 	for i, subset := range endpoints.Subsets {
 		for j, addr := range subset.Addresses {
 			if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
-				endpoints.Subsets[i].Addresses[j].TargetRef.Name = translate.Default.PhysicalName(addr.TargetRef.Name, addr.TargetRef.Namespace)
-				endpoints.Subsets[i].Addresses[j].TargetRef.Namespace = translate.Default.PhysicalNamespace(endpoints.Namespace)
+				nameNamespace := mappings.VirtualToHost(addr.TargetRef.Name, addr.TargetRef.Namespace, mappings.Pods())
+				endpoints.Subsets[i].Addresses[j].TargetRef.Name = nameNamespace.Name
+				endpoints.Subsets[i].Addresses[j].TargetRef.Namespace = nameNamespace.Namespace
 
 				// TODO: set the actual values here
 				endpoints.Subsets[i].Addresses[j].TargetRef.UID = ""
@@ -37,8 +40,9 @@ func (s *endpointsSyncer) translateSpec(endpoints *corev1.Endpoints) {
 		}
 		for j, addr := range subset.NotReadyAddresses {
 			if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
-				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Name = translate.Default.PhysicalName(addr.TargetRef.Name, addr.TargetRef.Namespace)
-				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Namespace = translate.Default.PhysicalNamespace(endpoints.Namespace)
+				nameNamespace := mappings.VirtualToHost(addr.TargetRef.Name, addr.TargetRef.Namespace, mappings.Pods())
+				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Name = nameNamespace.Name
+				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Namespace = nameNamespace.Namespace
 
 				// TODO: set the actual values here
 				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.UID = ""

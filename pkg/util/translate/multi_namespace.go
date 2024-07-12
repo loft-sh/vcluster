@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -63,7 +64,7 @@ func (s *multiNamespace) PhysicalNameClusterScoped(name string) string {
 	return SafeConcatName("vcluster", name, "x", s.currentNamespace, "x", VClusterName)
 }
 
-func (s *multiNamespace) IsManaged(obj runtime.Object, _ PhysicalNameFunc) bool {
+func (s *multiNamespace) IsManaged(obj runtime.Object) bool {
 	metaAccessor, err := meta.Accessor(obj)
 	if err != nil {
 		return false
@@ -193,10 +194,8 @@ func (s *multiNamespace) LegacyGetTargetNamespace() (string, error) {
 	return "", fmt.Errorf("unsupported feature in multi-namespace mode")
 }
 
-func (s *multiNamespace) ApplyMetadata(vObj client.Object, syncedLabels []string, excludedAnnotations ...string) client.Object {
-	pObj, err := s.SetupMetadataWithName(vObj, func(_ string, vObj client.Object) string {
-		return s.objectPhysicalName(vObj)
-	})
+func (s *multiNamespace) ApplyMetadata(vObj client.Object, name types.NamespacedName, syncedLabels []string, excludedAnnotations ...string) client.Object {
+	pObj, err := s.SetupMetadataWithName(vObj, name)
 	if err != nil {
 		return nil
 	}
@@ -247,7 +246,7 @@ func (s *multiNamespace) TranslateLabels(fromLabels map[string]string, _ string,
 	return fromLabels
 }
 
-func (s *multiNamespace) SetupMetadataWithName(vObj client.Object, translator PhysicalNameTranslator) (client.Object, error) {
+func (s *multiNamespace) SetupMetadataWithName(vObj client.Object, name types.NamespacedName) (client.Object, error) {
 	target := vObj.DeepCopyObject().(client.Object)
 	m, err := meta.Accessor(target)
 	if err != nil {
@@ -256,9 +255,9 @@ func (s *multiNamespace) SetupMetadataWithName(vObj client.Object, translator Ph
 
 	// reset metadata & translate name and namespace
 	ResetObjectMetadata(m)
-	m.SetName(translator(m.GetName(), vObj))
+	m.SetName(name.Name)
 	if vObj.GetNamespace() != "" {
-		m.SetNamespace(s.PhysicalNamespace(vObj.GetNamespace()))
+		m.SetNamespace(name.Namespace)
 	}
 
 	return target, nil

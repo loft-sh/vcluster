@@ -110,9 +110,10 @@ func TestExistingEndpoints(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				_, fakeSyncer := newFakeSyncer(t, ctx)
-				syncController := syncer.NewSyncController(ctx, fakeSyncer)
+				syncController, err := syncer.NewSyncController(ctx, fakeSyncer)
+				assert.NilError(t, err)
 
-				_, err := syncController.Reconcile(ctx.Context, ctrl.Request{NamespacedName: types.NamespacedName{
+				_, err = syncController.Reconcile(ctx.Context, ctrl.Request{NamespacedName: types.NamespacedName{
 					Namespace: vEndpoints.Namespace,
 					Name:      vEndpoints.Name,
 				}})

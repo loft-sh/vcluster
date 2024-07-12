@@ -9,7 +9,6 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,43 +38,7 @@ type configMapSyncer struct {
 
 var _ syncer.IndicesRegisterer = &configMapSyncer{}
 
-func (s *configMapSyncer) VirtualToHost(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
-	if s.multiNamespaceMode && req.Name == "kube-root-ca.crt" {
-		return types.NamespacedName{
-			Name:      translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName),
-			Namespace: s.NamespacedTranslator.VirtualToHost(ctx, req, vObj).Namespace,
-		}
-	}
-
-	return s.NamespacedTranslator.VirtualToHost(ctx, req, vObj)
-}
-
-func (s *configMapSyncer) HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
-	if s.multiNamespaceMode && req.Name == translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName) {
-		return types.NamespacedName{
-			Name:      "kube-root-ca.crt",
-			Namespace: s.NamespacedTranslator.HostToVirtual(ctx, req, pObj).Namespace,
-		}
-	} else if s.multiNamespaceMode && req.Name == "kube-root-ca.crt" {
-		// ignore kube-root-ca.crt from host
-		return types.NamespacedName{}
-	}
-
-	return s.NamespacedTranslator.HostToVirtual(ctx, req, pObj)
-}
-
 func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.ConfigMap{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		if s.multiNamespaceMode && rawObj.GetName() == "kube-root-ca.crt" {
-			return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)}
-		}
-
-		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
-	})
-	if err != nil {
-		return err
-	}
-
 	// index pods by their used config maps
 	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByConfigMap, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)

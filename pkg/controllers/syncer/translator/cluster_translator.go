@@ -2,32 +2,42 @@ package translator
 
 import (
 	context2 "context"
+	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
+	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.Object, nameTranslator translate.PhysicalNameTranslator, excludedAnnotations ...string) Translator {
+func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.Object, excludedAnnotations ...string) Translator {
+	gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
+	if err != nil {
+		panic(fmt.Sprintf("Retrieve GVK for object failed: %v", err))
+	}
+
 	return &clusterTranslator{
-		name:                name,
+		name: name,
+		gvk:  gvk,
+
 		excludedAnnotations: excludedAnnotations,
 		virtualClient:       ctx.VirtualManager.GetClient(),
 		obj:                 obj,
-		nameTranslator:      nameTranslator,
 		syncedLabels:        ctx.Config.Experimental.SyncSettings.SyncLabels,
 	}
 }
 
 type clusterTranslator struct {
-	name                string
+	name string
+	gvk  schema.GroupVersionKind
+
 	virtualClient       client.Client
 	obj                 client.Object
-	nameTranslator      translate.PhysicalNameTranslator
 	excludedAnnotations []string
 	syncedLabels        []string
 }
@@ -44,37 +54,8 @@ func (n *clusterTranslator) IsManaged(_ context2.Context, pObj client.Object) (b
 	return translate.Default.IsManagedCluster(pObj), nil
 }
 
-func (n *clusterTranslator) VirtualToHost(_ context2.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
-	return types.NamespacedName{
-		Name: n.nameTranslator(req.Name, vObj),
-	}
-}
-
-func (n *clusterTranslator) HostToVirtual(ctx context2.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
-	if pObj != nil {
-		pAnnotations := pObj.GetAnnotations()
-		if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
-			return types.NamespacedName{
-				Namespace: pAnnotations[translate.NamespaceAnnotation],
-				Name:      pAnnotations[translate.NameAnnotation],
-			}
-		}
-	}
-
-	vObj := n.obj.DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(ctx, n.virtualClient, vObj, constants.IndexByPhysicalName, req.Name)
-	if err != nil {
-		return types.NamespacedName{}
-	}
-
-	return types.NamespacedName{
-		Namespace: vObj.GetNamespace(),
-		Name:      vObj.GetName(),
-	}
-}
-
-func (n *clusterTranslator) TranslateMetadata(_ context2.Context, vObj client.Object) client.Object {
-	pObj, err := translate.Default.SetupMetadataWithName(vObj, n.nameTranslator)
+func (n *clusterTranslator) TranslateMetadata(ctx context2.Context, vObj client.Object) client.Object {
+	pObj, err := translate.Default.SetupMetadataWithName(vObj, mappings.Default.ByGVK(n.gvk).VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 	if err != nil {
 		return nil
 	}

@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(*synccontext.RegisterContext) (syncer.Object, error) {
+func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 	return &ingressClassSyncer{
 		Translator: translator.NewMirrorPhysicalTranslator("ingressclass", &networkingv1.IngressClass{}),
 	}, nil

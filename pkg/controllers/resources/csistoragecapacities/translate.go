@@ -3,28 +3,30 @@ package csistoragecapacities
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // returns virtual scname, shouldSync
 func (s *csistoragecapacitySyncer) fetchVirtualStorageClass(ctx *synccontext.SyncContext, physName string) (string, bool, error) {
 	if s.storageClassSyncEnabled {
-		sc := &storagev1.StorageClass{}
 		// the csistorage capacity being synced to the virtual cluster needs the name of the virtual storage cluster
-		err := clienthelper.GetByIndex(ctx.Context, ctx.VirtualClient, sc, constants.IndexByPhysicalName, physName)
-		if kerrors.IsNotFound(err) {
+		vName := mappings.StorageClasses().HostToVirtual(ctx.Context, types.NamespacedName{Name: physName}, nil)
+		if vName.Name == "" {
 			return "", true, nil
 		}
-		return sc.Name, false, nil
+
+		return vName.Name, false, nil
 	}
+
 	return physName, false, nil
 }
 

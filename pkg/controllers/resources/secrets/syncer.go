@@ -68,7 +68,8 @@ func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	if err != nil {
 		return err
 	}
-	return s.NamespacedTranslator.RegisterIndices(ctx)
+
+	return nil
 }
 
 var _ syncer.ControllerModifier = &secretSyncer{}
@@ -114,8 +115,11 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 	}
 	defer func() {
 		if err := patch.Patch(ctx, pObj, vObj); err != nil {
-			s.NamespacedTranslator.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", err)
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+
+		if retErr != nil {
+			s.NamespacedTranslator.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
 		}
 	}()
 
