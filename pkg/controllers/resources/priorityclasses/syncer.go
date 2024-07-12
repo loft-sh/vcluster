@@ -1,12 +1,16 @@
 package priorityclasses
 
 import (
+	"fmt"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	schedulingv1 "k8s.io/api/scheduling/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -43,18 +47,23 @@ func (s *priorityClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj clie
 	return ctrl.Result{}, nil
 }
 
-func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	// did the priority class change?
-	updated := s.translateUpdate(ctx.Context, pObj.(*schedulingv1.PriorityClass), vObj.(*schedulingv1.PriorityClass))
-	if updated != nil {
-		ctx.Log.Infof("updating physical priority class %s, because virtual priority class has changed", updated.Name)
-		translator.PrintChanges(pObj, updated, ctx.Log)
-		err := ctx.PhysicalClient.Update(ctx.Context, updated)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
+	// patch objects
+	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
+	defer func() {
+		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
 
+	// cast objects
+	pPriorityClass, vPriorityClass, sourceObject, targetObject := synccontext.Cast[*schedulingv1.PriorityClass](ctx, pObj, vObj)
+
+	// did the priority class change?
+	s.translateUpdate(ctx.Context, pPriorityClass, vPriorityClass, sourceObject, targetObject)
 	return ctrl.Result{}, nil
 }
 
