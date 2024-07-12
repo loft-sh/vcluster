@@ -86,10 +86,7 @@ func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		return ctrl.Result{}, err
 	}
 
-	if err := patch.Patch(ctx, pObj, vObj); err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, patch.Patch(ctx, pObj, vObj)
 }
 
 func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncContext, pNamespace string) error {
