@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -71,22 +72,24 @@ func (s *namespaceSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.O
 	return ctrl.Result{}, s.EnsureWorkloadServiceAccount(ctx, newNamespace.Name)
 }
 
-func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
+
+	defer func() {
+		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
 	// cast objects
 	pNamespace, vNamespace, _, _ := synccontext.Cast[*corev1.Namespace](ctx, pObj, vObj)
 
 	s.translateUpdate(ctx.Context, pNamespace, vNamespace)
 
-	err = s.EnsureWorkloadServiceAccount(ctx, pNamespace.Name)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, patch.Patch(ctx, pObj, vObj)
+	return ctrl.Result{}, s.EnsureWorkloadServiceAccount(ctx, pNamespace.Name)
 }
 
 func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncContext, pNamespace string) error {
