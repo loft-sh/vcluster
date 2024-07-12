@@ -30,6 +30,11 @@ func PauseHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName
 		return err
 	}
 
+	if vCluster.IsSleeping() {
+		log.Infof("vcluster %s/%s is already sleeping", globalFlags.Namespace, vClusterName)
+		return nil
+	}
+
 	err = lifecycle.PauseVCluster(ctx, kubeClient, vClusterName, globalFlags.Namespace, log)
 	if err != nil {
 		return err
