@@ -175,7 +175,8 @@ func (h *Patcher) patchWholeObject(ctx context.Context, obj client.Object) error
 	if err != nil {
 		return err
 	}
-	klog.FromContext(ctx).Info("Apply patch", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "object", obj.GetName())
+
+	logPatch(ctx, "Apply patch", obj, beforeObject, afterObject)
 	return h.client.Patch(ctx, afterObject, client.MergeFrom(beforeObject))
 }
 
@@ -188,7 +189,8 @@ func (h *Patcher) patch(ctx context.Context, obj client.Object) error {
 	if err != nil {
 		return err
 	}
-	klog.FromContext(ctx).Info("Apply patch", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "object", obj.GetName())
+
+	logPatch(ctx, "Apply patch", obj, beforeObject, afterObject)
 	return h.client.Patch(ctx, afterObject, client.MergeFrom(beforeObject))
 }
 
@@ -201,8 +203,19 @@ func (h *Patcher) patchStatus(ctx context.Context, obj client.Object) error {
 	if err != nil {
 		return err
 	}
-	klog.FromContext(ctx).Info("Apply status patch", "kind", obj.GetObjectKind().GroupVersionKind().Kind, "object", obj.GetName())
+
+	logPatch(ctx, "Apply status patch", obj, beforeObject, afterObject)
 	return h.client.Status().Patch(ctx, afterObject, client.MergeFrom(beforeObject))
+}
+
+func logPatch(ctx context.Context, patchMessage string, obj, beforeObject, afterObject client.Object) {
+	// log patch
+	if klog.FromContext(ctx).V(1).Enabled() {
+		patchBytes, _ := client.MergeFrom(beforeObject).Data(afterObject)
+		klog.FromContext(ctx).V(1).Info(patchMessage, "kind", obj.GetObjectKind().GroupVersionKind().Kind, "object", obj.GetName(), "patch", string(patchBytes))
+	} else {
+		klog.FromContext(ctx).Info(patchMessage, "kind", obj.GetObjectKind().GroupVersionKind().Kind, "object", obj.GetName())
+	}
 }
 
 // calculatePatch returns the before/after objects to be given in a controller-runtime patch, scoped down to the absolute necessary.
