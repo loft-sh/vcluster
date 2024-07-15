@@ -2,7 +2,10 @@ package util
 
 import (
 	"encoding/json"
+	"maps"
 	"strings"
+
+	networkingv1 "k8s.io/api/networking/v1"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/klog/v2"
@@ -80,12 +83,13 @@ func ProcessAlbAnnotations(namespace string, k string, v string) (string, string
 }
 
 func UpdateAnnotations(vObj client.Object) client.Object {
-	annotations := vObj.GetAnnotations()
-	for k, v := range annotations {
-		delete(annotations, k)
+	// we need to do that otherwise the original object will be modified
+	ingress := *vObj.(*networkingv1.Ingress)
+	ingress.Annotations = maps.Clone(ingress.Annotations)
+	for k, v := range ingress.Annotations {
+		delete(ingress.Annotations, k)
 		k, v = ProcessAlbAnnotations(vObj.GetNamespace(), k, v)
-		annotations[k] = v
+		ingress.Annotations[k] = v
 	}
-	vObj.SetAnnotations(annotations)
-	return vObj
+	return &ingress
 }

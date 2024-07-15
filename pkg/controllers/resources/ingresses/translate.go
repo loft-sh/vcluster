@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/util"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -26,35 +25,18 @@ func (s *ingressSyncer) TranslateMetadataUpdate(ctx context.Context, vObj client
 	return s.NamespacedTranslator.TranslateMetadataUpdate(ctx, util.UpdateAnnotations(vObj), pObj)
 }
 
-func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) *networkingv1.Ingress {
-	var updated *networkingv1.Ingress
-
+func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) {
 	translatedSpec := *translateSpec(vObj.Namespace, &vObj.Spec)
 	if !equality.Semantic.DeepEqual(translatedSpec, pObj.Spec) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec = translatedSpec
+		pObj.Spec = translatedSpec
 	}
 
 	_, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	translatedAnnotations, _ = translateIngressAnnotations(translatedAnnotations, vObj.Namespace)
 	if !equality.Semantic.DeepEqual(translatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(translatedLabels, pObj.GetLabels()) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Annotations = translatedAnnotations
-		updated.Labels = translatedLabels
+		pObj.Annotations = translatedAnnotations
+		pObj.Labels = translatedLabels
 	}
-
-	return updated
-}
-
-func (s *ingressSyncer) translateUpdateBackwards(pObj, vObj *networkingv1.Ingress) *networkingv1.Ingress {
-	var updated *networkingv1.Ingress
-
-	if vObj.Spec.IngressClassName == nil && pObj.Spec.IngressClassName != nil {
-		updated = translator.NewIfNil(updated, vObj)
-		updated.Spec.IngressClassName = pObj.Spec.IngressClassName
-	}
-
-	return updated
 }
 
 func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *networkingv1.IngressSpec {
