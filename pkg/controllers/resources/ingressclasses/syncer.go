@@ -47,13 +47,7 @@ func (i *ingressClassSyncer) Sync(ctx *synccontext.SyncContext, pObj, vObj clien
 	// cast objects
 	pIngressClass, vIngressClass, _, _ := synccontext.Cast[*networkingv1.IngressClass](ctx, pObj, vObj)
 
-	updated := i.updateVirtual(ctx.Context, pIngressClass, vIngressClass)
-	if updated != nil {
-		ctx.Log.Infof("update ingress class %s", vObj.GetName())
-		translator.PrintChanges(pObj, updated, ctx.Log)
-		vObj = updated
-		return ctrl.Result{}, nil
-	}
+	i.updateVirtual(ctx.Context, pIngressClass, vIngressClass)
 	return ctrl.Result{}, nil
 }
 
