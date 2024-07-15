@@ -30,6 +30,7 @@ const VirtualClusterServiceUIDLabel = "vcluster.loft.sh/service-uid"
 type DeleteOptions struct {
 	Driver string
 
+	Project             string
 	Wait                bool
 	KeepPVC             bool
 	DeleteNamespace     bool
@@ -37,8 +38,6 @@ type DeleteOptions struct {
 	DeleteConfigMap     bool
 	AutoDeleteNamespace bool
 	IgnoreNotFound      bool
-
-	Project string
 }
 
 type deleteHelm struct {
@@ -300,6 +299,10 @@ func (cmd *deleteHelm) prepare(vCluster *find.VCluster) error {
 }
 
 func deleteContext(kubeConfig *clientcmdapi.Config, kubeContext string, otherContext string) error {
+	if kubeConfig == nil || kubeConfig.Contexts == nil {
+		return nil
+	}
+
 	// Get context
 	contextRaw, ok := kubeConfig.Contexts[kubeContext]
 	if !ok {
@@ -314,6 +317,10 @@ func deleteContext(kubeConfig *clientcmdapi.Config, kubeContext string, otherCon
 
 	// Check if AuthInfo or Cluster is used by any other context
 	for name, ctx := range kubeConfig.Contexts {
+		if ctx == nil {
+			continue
+		}
+
 		if name != kubeContext && ctx.AuthInfo == contextRaw.AuthInfo {
 			removeAuthInfo = false
 		}

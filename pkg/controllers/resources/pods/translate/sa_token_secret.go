@@ -2,6 +2,7 @@ package translate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -24,6 +25,16 @@ func SecretNameFromPodName(podName, namespace string) string {
 	return translate.Default.PhysicalName(fmt.Sprintf("%s-sa-token", podName), namespace)
 }
 
+var ErrNotFound = errors.New("tanslate: not found")
+
+func IgnoreAcceptableErrors(err error) error {
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+
+	return err
+}
+
 func GetSecretIfExists(ctx context.Context, pClient client.Client, vPodName, vNamespace string) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
 	err := pClient.Get(ctx, types.NamespacedName{
@@ -32,7 +43,7 @@ func GetSecretIfExists(ctx context.Context, pClient client.Client, vPodName, vNa
 	}, secret)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return nil, nil
+			return nil, ErrNotFound
 		}
 
 		return nil, err
@@ -43,7 +54,7 @@ func GetSecretIfExists(ctx context.Context, pClient client.Client, vPodName, vNa
 
 func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod, tokens map[string]string) error {
 	existingSecret, err := GetSecretIfExists(ctx, pClient, vPod.Name, vPod.Namespace)
-	if err != nil {
+	if err := IgnoreAcceptableErrors(err); err != nil {
 		return err
 	}
 
@@ -96,19 +107,18 @@ func SetPodAsOwner(ctx context.Context, pPod *corev1.Pod, pClient client.Client,
 		UID:        pPod.GetUID(),
 	}
 
-	owners := secret.GetOwnerReferences()
 	if translate.Owner != nil {
 		// check if the current owner is the vcluster service
-		for i, owner := range owners {
+		for i, owner := range secret.OwnerReferences {
 			if owner.UID == translate.Owner.GetUID() {
 				// path this with current pod as owner instead
-				secret.ObjectMeta.OwnerReferences[i] = podOwnerReference
+				secret.OwnerReferences[i] = podOwnerReference
 				break
 			}
 		}
 	} else {
 		// check if pod is already correctly set as one of the owners
-		for _, owner := range owners {
+		for _, owner := range secret.OwnerReferences {
 			if equality.Semantic.DeepEqual(owner, podOwnerReference) {
 				// no update needed
 				return nil
@@ -116,7 +126,7 @@ func SetPodAsOwner(ctx context.Context, pPod *corev1.Pod, pClient client.Client,
 		}
 
 		// pod not set as owner update accordingly
-		secret.ObjectMeta.OwnerReferences = append(secret.ObjectMeta.OwnerReferences, podOwnerReference)
+		secret.OwnerReferences = append(secret.OwnerReferences, podOwnerReference)
 	}
 
 	return pClient.Update(ctx, secret)

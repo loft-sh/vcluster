@@ -390,7 +390,7 @@ func (e *Error) Error() string {
 	}
 
 	var exitError *exec.ExitError
-	if errors.As(e.err, &exitError) && len(exitError.Stderr) > 0 {
+	if errors.As(e.err, &exitError) && exitError != nil && len(exitError.Stderr) > 0 {
 		message += string(exitError.Stderr) + "\n"
 	}
 

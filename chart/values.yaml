@@ -712,14 +712,17 @@ integrations:
       # If DataVolumes should get synced
       dataVolumes:
         enabled: false
-      # If VirtualMachineClones should get synced
-      virtualMachineClones:
-        enabled: true
       # If VirtualMachines should get synced
       virtualMachines:
         enabled: true
       # If VirtualMachineInstances should get synced
       virtualMachineInstances:
+        enabled: true
+      # If VirtualMachinePools should get synced
+      virtualMachinePools:
+        enabled: true
+      # If VirtualMachineClones should get synced
+      virtualMachineClones:
         enabled: true
       # If VirtualMachineInstanceMigrations should get synced
       virtualMachineInstanceMigrations:

@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -65,7 +66,6 @@ func DeletePods(ctx context.Context, kubeClient *kubernetes.Clientset, labelSele
 		log.Infof("Delete %d vcluster pods", len(list.Items))
 		for _, item := range list.Items {
 			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, item.Name, metav1.DeleteOptions{})
-
 			if err != nil {
 				if kerrors.IsNotFound(err) {
 					continue
@@ -86,7 +86,10 @@ func DeleteMultiNamespaceVClusterWorkloads(ctx context.Context, client *kubernet
 		}),
 	})
 	if err != nil && !kerrors.IsForbidden(err) {
-		return errors.Wrap(err, "list namespaces")
+		return fmt.Errorf("list namespaces: %w", err)
+	}
+	if namespaces == nil {
+		return errors.New("list namespaces: nil result")
 	}
 
 	// delete all pods inside the above returned namespaces

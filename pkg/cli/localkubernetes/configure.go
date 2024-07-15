@@ -55,6 +55,10 @@ func ExposeLocal(ctx context.Context, vClusterName, vClusterNamespace string, ra
 }
 
 func CleanupLocal(vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, log log.Logger) error {
+	if rawConfig == nil {
+		return errors.New("nil rawConfig")
+	}
+
 	clusterType := DetectClusterType(rawConfig)
 	switch clusterType {
 	case ClusterTypeMinikube:
@@ -74,6 +78,9 @@ func CleanupLocal(vClusterName, vClusterNamespace string, rawConfig *clientcmdap
 }
 
 func k3dProxy(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
+	if service == nil {
+		return "", errors.New("service is nil")
+	}
 	if len(service.Spec.Ports) == 0 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
@@ -91,6 +98,9 @@ func k3dProxy(ctx context.Context, vClusterName, vClusterNamespace string, rawCo
 }
 
 func minikubeProxy(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
+	if service == nil {
+		return "", errors.New("nil service")
+	}
 	if len(service.Spec.Ports) == 0 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
@@ -124,9 +134,13 @@ func minikubeProxy(ctx context.Context, vClusterName, vClusterNamespace string, 
 				// workaround for the fact that vcluster certificate is not made valid for the node IPs
 				// but avoid modifying the passed config before the connection is tested
 				testvConfig := vRawConfig.DeepCopy()
-				for k := range testvConfig.Clusters {
-					testvConfig.Clusters[k].CertificateAuthorityData = nil
-					testvConfig.Clusters[k].InsecureSkipTLSVerify = true
+				for _, cluster := range testvConfig.Clusters {
+					if cluster == nil {
+						continue
+					}
+
+					cluster.CertificateAuthorityData = nil
+					cluster.InsecureSkipTLSVerify = true
 				}
 
 				// test local connection
@@ -143,9 +157,13 @@ func minikubeProxy(ctx context.Context, vClusterName, vClusterNamespace string, 
 				}
 
 				// now it's safe to modify the vRawConfig struct that was passed in as a pointer
-				for k := range vRawConfig.Clusters {
-					vRawConfig.Clusters[k].CertificateAuthorityData = nil
-					vRawConfig.Clusters[k].InsecureSkipTLSVerify = true
+				for _, cluster := range vRawConfig.Clusters {
+					if cluster == nil {
+						continue
+					}
+
+					cluster.CertificateAuthorityData = nil
+					cluster.InsecureSkipTLSVerify = true
 				}
 
 				return server, nil
@@ -189,6 +207,9 @@ func cleanupProxy(vClusterName, vClusterNamespace string, rawConfig *clientcmdap
 }
 
 func kindProxy(ctx context.Context, vClusterName, vClusterNamespace string, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service, localPort int, timeout time.Duration, log log.Logger) (string, error) {
+	if service == nil {
+		return "", errors.New("nil service")
+	}
 	if len(service.Spec.Ports) == 0 {
 		return "", fmt.Errorf("service has %d ports (expected 1 port)", len(service.Spec.Ports))
 	}
@@ -378,8 +399,12 @@ func IsDockerInstalledAndUpAndRunning() bool {
 
 func testConnectionWithServer(ctx context.Context, vRawConfig *clientcmdapi.Config, server string) error {
 	vRawConfig = vRawConfig.DeepCopy()
-	for k := range vRawConfig.Clusters {
-		vRawConfig.Clusters[k].Server = server
+	for _, cluster := range vRawConfig.Clusters {
+		if cluster == nil {
+			continue
+		}
+
+		cluster.Server = server
 	}
 
 	restConfig, err := clientcmd.NewDefaultClientConfig(*vRawConfig, &clientcmd.ConfigOverrides{}).ClientConfig()

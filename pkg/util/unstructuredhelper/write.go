@@ -9,12 +9,22 @@ import (
 )
 
 func ValueFrom[T any](path string, from ReadMap) (T, bool) {
+	if from == nil {
+		var ret T
+		return ret, false
+	}
+
 	pathSplitted := strings.Split(path, ".")
 
 	// traverse to target
 	targetMap := from
 	for i := 0; i < len(pathSplitted)-1; i++ {
 		targetMap = targetMap.Map(pathSplitted[i])
+
+		if targetMap == nil {
+			var ret T
+			return ret, false
+		}
 	}
 
 	// check if map has latest path
@@ -37,6 +47,10 @@ func ValueFrom[T any](path string, from ReadMap) (T, bool) {
 type TranslateFn[T any] func(in T) T
 
 func Set[T any](path string, from ReadMap, to WriteMap, translate TranslateFn[T]) {
+	if from == nil || to == nil {
+		return
+	}
+
 	pathSplitted := strings.Split(path, ".")
 
 	// traverse to target
@@ -45,6 +59,10 @@ func Set[T any](path string, from ReadMap, to WriteMap, translate TranslateFn[T]
 	for i := 0; i < len(pathSplitted)-1; i++ {
 		targetMap = targetMap.Map(pathSplitted[i])
 		toMap = toMap.Map(pathSplitted[i])
+
+		if targetMap == nil || toMap == nil {
+			return
+		}
 	}
 
 	// check if map has latest path
@@ -68,8 +86,16 @@ func TranslateArray[T any](path string, from ReadMap, to WriteMap, translate Tra
 
 	// traverse to target
 	targetMap := from
+	if targetMap == nil {
+		return
+	}
+
 	for i := 0; i < len(pathSplitted)-1; i++ {
 		targetMap = targetMap.Map(pathSplitted[i])
+
+		if targetMap == nil {
+			return
+		}
 	}
 
 	// check if map has latest path
@@ -81,6 +107,10 @@ func TranslateArray[T any](path string, from ReadMap, to WriteMap, translate Tra
 	// to map
 	toMap := to
 	for i := 0; i < len(pathSplitted)-1; i++ {
+		if toMap == nil {
+			return
+		}
+
 		toMap = toMap.Map(pathSplitted[i])
 	}
 
@@ -96,12 +126,20 @@ func TranslateArray[T any](path string, from ReadMap, to WriteMap, translate Tra
 }
 
 func Translate[T any](path string, from ReadMap, to WriteMap, translate TranslateFn[T]) {
+	if from == nil || to == nil {
+		return
+	}
+
 	pathSplitted := strings.Split(path, ".")
 
 	// traverse to target
 	targetMap := from
 	for i := 0; i < len(pathSplitted)-1; i++ {
 		targetMap = targetMap.Map(pathSplitted[i])
+
+		if targetMap == nil {
+			return
+		}
 	}
 
 	// check if map has latest path
@@ -114,6 +152,10 @@ func Translate[T any](path string, from ReadMap, to WriteMap, translate Translat
 	toMap := to
 	for i := 0; i < len(pathSplitted)-1; i++ {
 		toMap = toMap.Map(pathSplitted[i])
+
+		if toMap == nil {
+			return
+		}
 	}
 
 	// try to convert target value

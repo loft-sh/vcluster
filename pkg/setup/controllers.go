@@ -252,8 +252,12 @@ func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, curre
 	if options.ExportKubeConfig.Context != "" {
 		syncerConfig.CurrentContext = options.ExportKubeConfig.Context
 		// update authInfo
-		for k := range syncerConfig.AuthInfos {
-			syncerConfig.AuthInfos[syncerConfig.CurrentContext] = syncerConfig.AuthInfos[k]
+		for k, authInfo := range syncerConfig.AuthInfos {
+			if authInfo == nil {
+				continue
+			}
+
+			syncerConfig.AuthInfos[syncerConfig.CurrentContext] = authInfo
 			if k != syncerConfig.CurrentContext {
 				delete(syncerConfig.AuthInfos, k)
 			}
@@ -261,8 +265,12 @@ func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, curre
 		}
 
 		// update cluster
-		for k := range syncerConfig.Clusters {
-			syncerConfig.Clusters[syncerConfig.CurrentContext] = syncerConfig.Clusters[k]
+		for k, cluster := range syncerConfig.Clusters {
+			if cluster == nil {
+				continue
+			}
+
+			syncerConfig.Clusters[syncerConfig.CurrentContext] = cluster
 			if k != syncerConfig.CurrentContext {
 				delete(syncerConfig.Clusters, k)
 			}
@@ -270,8 +278,12 @@ func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, curre
 		}
 
 		// update context
-		for k := range syncerConfig.Contexts {
-			tmpCtx := syncerConfig.Contexts[k]
+		for k, context := range syncerConfig.Contexts {
+			if context == nil {
+				continue
+			}
+
+			tmpCtx := context
 			tmpCtx.Cluster = syncerConfig.CurrentContext
 			tmpCtx.AuthInfo = syncerConfig.CurrentContext
 			syncerConfig.Contexts[syncerConfig.CurrentContext] = tmpCtx

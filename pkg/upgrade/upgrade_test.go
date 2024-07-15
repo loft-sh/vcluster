@@ -59,7 +59,9 @@ func TestUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating temporary log file: %v", err)
 	}
-	*(os.Stderr) = *logFile
+	if logFile != nil {
+		*(os.Stderr) = *logFile
+	}
 
 	latest, found, err := selfupdate.DetectLatest(githubSlug)
 	if err != nil {

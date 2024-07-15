@@ -182,6 +182,13 @@ func newClientCertConfigFromKubeConfigSpec(spec *kubeConfigSpec, notAfter *time.
 
 // validateKubeConfig check if the kubeconfig file exist and has the expected CA and server URL
 func validateKubeConfig(outDir, filename string, config *clientcmdapi.Config) error {
+	if config == nil {
+		return errors.New("nil config")
+	}
+	if config.Contexts == nil || config.Clusters == nil {
+		return errors.New("config contains unexpected nil fields")
+	}
+
 	kubeConfigFilePath := filepath.Join(outDir, filename)
 
 	if _, err := os.Stat(kubeConfigFilePath); err != nil {
@@ -211,8 +218,18 @@ func validateKubeConfig(outDir, filename string, config *clientcmdapi.Config) er
 	// Make sure the compared CAs are whitespace-trimmed. The function clientcmd.LoadFromFile() just decodes
 	// the base64 CA and places it raw in the v1.Config object. In case the user has extra whitespace
 	// in the CA they used to create a kubeconfig this comparison to a generated v1.Config will otherwise fail.
-	caCurrent := bytes.TrimSpace(currentConfig.Clusters[currentCluster].CertificateAuthorityData)
-	caExpected := bytes.TrimSpace(config.Clusters[expectedCluster].CertificateAuthorityData)
+	currentConfigCurrentCluster, ok := currentConfig.Clusters[currentCluster]
+	if !ok {
+		return errors.New("current cluster not found in current configs")
+	}
+
+	configExpectedCluster, ok := config.Clusters[expectedCluster]
+	if !ok {
+		return errors.New("expected cluster not found")
+	}
+
+	caCurrent := bytes.TrimSpace(currentConfigCurrentCluster.CertificateAuthorityData)
+	caExpected := bytes.TrimSpace(configExpectedCluster.CertificateAuthorityData)
 
 	// If the current CA cert on disk doesn't match the expected CA cert, error out because we have a file, but it's stale
 	if !bytes.Equal(caCurrent, caExpected) {

@@ -310,7 +310,7 @@ func parseAPIEndpoint(localEndpoint *APIEndpoint) (net.IP, string, error) {
 	}
 
 	// parse the AdvertiseAddress
-	var ip = net.ParseIP(localEndpoint.AdvertiseAddress)
+	ip := net.ParseIP(localEndpoint.AdvertiseAddress)
 	if ip == nil {
 		return nil, "", errors.Errorf("invalid value `%s` given for api.advertiseAddress", localEndpoint.AdvertiseAddress)
 	}
@@ -555,6 +555,10 @@ func GeneratePrivateKey(keyType x509.PublicKeyAlgorithm) (crypto.Signer, error) 
 
 // NewSignedCert creates a signed certificate using the given CA certificate and key
 func NewSignedCert(cfg *CertConfig, key crypto.Signer, caCert *x509.Certificate, caKey crypto.Signer, isCA bool) (*x509.Certificate, error) {
+	if key == nil {
+		return nil, errors.New("missing private key")
+	}
+
 	serial, err := cryptorand.Int(cryptorand.Reader, new(big.Int).SetInt64(math.MaxInt64))
 	if err != nil {
 		return nil, err

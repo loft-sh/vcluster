@@ -104,11 +104,16 @@ func getClientConfig(ctx context.Context, certificates *Certificates, endpoints 
 		PermitWithoutStream:  true,
 	}
 
-	var err error
-	if strings.HasPrefix(endpoints[0], "https://") && certificates != nil {
-		config.TLS, err = toTLSConfig(certificates)
+	if len(endpoints) > 0 {
+		if strings.HasPrefix(endpoints[0], "https://") && certificates != nil {
+			var err error
+			if config.TLS, err = toTLSConfig(certificates); err != nil {
+				return nil, err
+			}
+		}
 	}
-	return config, err
+
+	return config, nil
 }
 
 func toTLSConfig(certificates *Certificates) (*tls.Config, error) {

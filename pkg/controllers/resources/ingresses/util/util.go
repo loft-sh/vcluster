@@ -9,10 +9,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const AlbConditionAnnotation = "alb.ingress.kubernetes.io/conditions"
-const AlbActionsAnnotation = "alb.ingress.kubernetes.io/actions"
-const ConditionSuffix = "/conditions."
-const ActionsSuffix = "/actions."
+const (
+	AlbConditionAnnotation = "alb.ingress.kubernetes.io/conditions"
+	AlbActionsAnnotation   = "alb.ingress.kubernetes.io/actions"
+	ConditionSuffix        = "/conditions."
+	ActionsSuffix          = "/actions."
+)
 
 func getActionOrConditionValue(annotation, actionOrCondition string) string {
 	i := strings.Index(annotation, actionOrCondition)
@@ -24,14 +26,14 @@ func getActionOrConditionValue(annotation, actionOrCondition string) string {
 
 // ref https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/pkg/ingress/config_types.go
 type actionPayload struct {
-	Type                string                 `json:"type,omitempty"`
 	TargetGroupARN      *string                `json:"targetGroupARN,omitempty"`
 	FixedResponseConfig map[string]interface{} `json:"fixedResponseConfig,omitempty"`
+	RedirectConfig      map[string]interface{} `json:"redirectConfig,omitempty"`
+	Type                string                 `json:"type,omitempty"`
 	ForwardConfig       struct {
-		TargetGroups                []map[string]interface{} `json:"targetGroups,omitempty"`
 		TargetGroupStickinessConfig map[string]interface{}   `json:"targetGroupStickinessConfig,omitempty"`
+		TargetGroups                []map[string]interface{} `json:"targetGroups,omitempty"`
 	} `json:"forwardConfig,omitempty"`
-	RedirectConfig map[string]interface{} `json:"redirectConfig,omitempty"`
 }
 
 func ProcessAlbAnnotations(namespace string, k string, v string) (string, string) {
@@ -46,7 +48,7 @@ func ProcessAlbAnnotations(namespace string, k string, v string) (string, string
 		err := json.Unmarshal([]byte(v), &payload)
 		if err != nil {
 			klog.Errorf("Could not unmarshal payload: %v", err)
-		} else {
+		} else if payload != nil {
 			for _, targetGroup := range payload.ForwardConfig.TargetGroups {
 				if targetGroup["serviceName"] != nil {
 					switch svcName := targetGroup["serviceName"].(type) {

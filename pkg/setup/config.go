@@ -192,6 +192,10 @@ func updateSecretAnnotations(ctx context.Context, client kubernetes.Interface, n
 // SetGlobalOwner fetches the owning service and populates in translate.Owner if: the vcluster is configured to setOwner is,
 // and if the currentNamespace == targetNamespace (because cross namespace owner refs don't work).
 func SetGlobalOwner(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
+	if vConfig == nil {
+		return errors.New("nil vConfig")
+	}
+
 	if !vConfig.Experimental.SyncSettings.SetOwner {
 		return nil
 	}
@@ -205,6 +209,10 @@ func SetGlobalOwner(ctx context.Context, vConfig *config.VirtualClusterConfig) e
 		klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", vConfig.WorkloadNamespace, vConfig.WorkloadTargetNamespace)
 
 		return nil
+	}
+
+	if vConfig.WorkloadClient == nil {
+		return errors.New("nil WorkloadClient")
 	}
 
 	service, err := vConfig.WorkloadClient.CoreV1().Services(vConfig.WorkloadNamespace).Get(ctx, vConfig.WorkloadService, metav1.GetOptions{})

@@ -454,9 +454,11 @@ func (f *fakeNameResolver) TranslateLabelKey(key string) (string, error) {
 	return key, nil
 }
 
+var ErrNilSelector = errors.New("fake: nil selector")
+
 func (f *fakeNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
 	if selector == nil {
-		return nil, nil
+		return nil, ErrNilSelector
 	}
 
 	if selector.MatchLabels == nil {
@@ -468,7 +470,7 @@ func (f *fakeNameResolver) TranslateLabelExpressionsSelector(selector *metav1.La
 
 func (f *fakeNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
 	if selector == nil {
-		return nil, nil
+		return nil, ErrNilSelector
 	}
 	selector["test"] = "test"
 	return selector, nil
@@ -507,7 +509,7 @@ func (r *fakeVirtualToHostNameResolver) TranslateLabelKey(key string) (string, e
 
 func (r *fakeVirtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
 	if selector == nil {
-		return nil, nil
+		return nil, ErrNilSelector
 	}
 
 	if selector.MatchLabels == nil {
@@ -519,7 +521,7 @@ func (r *fakeVirtualToHostNameResolver) TranslateLabelExpressionsSelector(select
 
 func (r *fakeVirtualToHostNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
 	if selector == nil {
-		return nil, nil
+		return nil, ErrNilSelector
 	}
 	selector["test"] = "test"
 	return selector, nil

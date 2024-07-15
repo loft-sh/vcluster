@@ -90,6 +90,12 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 		_ = r.locker.Unlock(vReq.String())
 	}()
 
+	// determine event source
+	eventSource := synccontext.EventSourceVirtual
+	if isHostRequest(origReq) {
+		eventSource = synccontext.EventSourceHost
+	}
+
 	// create sync context
 	log := loghelper.NewFromExisting(r.log.Base(), vReq.Name)
 	syncContext := &synccontext.SyncContext{
@@ -99,6 +105,7 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 		CurrentNamespace:       r.currentNamespace,
 		CurrentNamespaceClient: r.currentNamespaceClient,
 		VirtualClient:          r.virtualClient,
+		EventSource:            eventSource,
 	}
 
 	// check if we should skip reconcile
@@ -120,7 +127,7 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 	// check what function we should call
 	if vObj != nil && pObj == nil {
 		return r.syncer.SyncToHost(syncContext, vObj)
-	} else if vObj != nil {
+	} else if vObj != nil && pObj != nil {
 		// make sure the object uid matches
 		pAnnotations := pObj.GetAnnotations()
 		if !r.options.DisableUIDDeletion && pAnnotations != nil && pAnnotations[translate.UIDAnnotation] != "" && pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {

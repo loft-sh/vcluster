@@ -27,7 +27,9 @@ func (s *volumeSnapshotContentSyncer) translateBackwards(pVSC *volumesnapshotv1.
 	vObj.UID = ""
 	vObj.ManagedFields = nil
 
-	vObj.Spec.VolumeSnapshotRef = translateVolumeSnapshotRefBackwards(&vObj.Spec.VolumeSnapshotRef, vVS)
+	if vVS != nil {
+		vObj.Spec.VolumeSnapshotRef = translateVolumeSnapshotRefBackwards(&vObj.Spec.VolumeSnapshotRef, vVS)
+	}
 
 	if vObj.Annotations == nil {
 		vObj.Annotations = map[string]string{}
@@ -52,7 +54,7 @@ func (s *volumeSnapshotContentSyncer) translateUpdateBackwards(pVSC, vVSC *volum
 		updated.Finalizers = pCopy.Finalizers
 	}
 
-	//TODO: consider syncing certain annotations, e.g.:
+	// TODO: consider syncing certain annotations, e.g.:
 	// "snapshot.storage.kubernetes.io/volumesnapshot-being-deleted" or
 	// "snapshot.storage.kubernetes.io/volumesnapshot-being-created"
 

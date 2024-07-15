@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -137,6 +138,10 @@ func (cmd *connectHelm) connect(ctx context.Context, vCluster *find.VCluster, co
 }
 
 func writeKubeConfig(kubeConfig *clientcmdapi.Config, vClusterName string, options *ConnectOptions, globalFlags *flags.GlobalFlags, portForwarding bool, log log.Logger) error {
+	if kubeConfig == nil {
+		return errors.New("nil kubeconfig")
+	}
+
 	// write kube config to buffer
 	out, err := clientcmd.Write(*kubeConfig)
 	if err != nil {
@@ -154,10 +159,16 @@ func writeKubeConfig(kubeConfig *clientcmdapi.Config, vClusterName string, optio
 		for _, c := range kubeConfig.Clusters {
 			clusterConfig = c
 		}
+		if clusterConfig == nil {
+			return errors.New("nil clusterConfig")
+		}
 
 		var authConfig *clientcmdapi.AuthInfo
 		for _, a := range kubeConfig.AuthInfos {
 			authConfig = a
+		}
+		if authConfig == nil {
+			return errors.New("nil authConfig")
 		}
 
 		err = clihelper.UpdateKubeConfig(options.KubeConfigContextName, clusterConfig, authConfig, true)
@@ -336,10 +347,14 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 
 	// find out vcluster server port
 	port := "8443"
-	for k := range kubeConfig.Clusters {
+	for _, cluster := range kubeConfig.Clusters {
+		if cluster == nil {
+			continue
+		}
+
 		if cmd.Insecure {
-			kubeConfig.Clusters[k].CertificateAuthorityData = nil
-			kubeConfig.Clusters[k].InsecureSkipTLSVerify = true
+			cluster.CertificateAuthorityData = nil
+			cluster.InsecureSkipTLSVerify = true
 		}
 
 		if cmd.Server != "" {
@@ -347,16 +362,16 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 				cmd.Server = "https://" + cmd.Server
 			}
 
-			kubeConfig.Clusters[k].Server = cmd.Server
+			cluster.Server = cmd.Server
 		} else {
-			splitted := strings.Split(kubeConfig.Clusters[k].Server, ":")
+			splitted := strings.Split(cluster.Server, ":")
 			if len(splitted) != 3 {
-				return nil, fmt.Errorf("unexpected server in kubeconfig: %s", kubeConfig.Clusters[k].Server)
+				return nil, fmt.Errorf("unexpected server in kubeconfig: %s", cluster.Server)
 			}
 
 			port = splitted[2]
 			splitted[2] = strconv.Itoa(cmd.LocalPort)
-			kubeConfig.Clusters[k].Server = strings.Join(splitted, ":")
+			cluster.Server = strings.Join(splitted, ":")
 		}
 	}
 
@@ -420,6 +435,9 @@ func (cmd *connectHelm) setServerIfExposed(ctx context.Context, vClusterName str
 				return false, err
 			}
 		}
+		if service == nil {
+			return false, errors.New("nil service")
+		}
 
 		// not a load balancer? Then don't wait
 		if service.Spec.Type == corev1.ServiceTypeNodePort {
@@ -467,6 +485,16 @@ func (cmd *connectHelm) setServerIfExposed(ctx context.Context, vClusterName str
 // the context name specified by the user. It cannot correctly handle kubeconfigs with multiple entries
 // for clusters, authInfos, contexts, but ideally this is pointed at a secret created by us.
 func (cmd *connectHelm) exchangeContextName(kubeConfig *clientcmdapi.Config, vclusterName string) error {
+	if cmd == nil {
+		return errors.New("nil connectHelm cmd")
+	}
+	if kubeConfig == nil {
+		return errors.New("nil kubeConfig")
+	}
+	if kubeConfig.Clusters == nil || kubeConfig.Contexts == nil || kubeConfig.AuthInfos == nil {
+		return errors.New("passed kubeconfig is missing required fields")
+	}
+
 	if cmd.KubeConfigContextName == "" {
 		if vclusterName != "" {
 			cmd.KubeConfigContextName = find.VClusterContextName(vclusterName, cmd.Namespace, cmd.rawConfig.CurrentContext)
@@ -476,8 +504,8 @@ func (cmd *connectHelm) exchangeContextName(kubeConfig *clientcmdapi.Config, vcl
 	}
 
 	// pick the last specified cluster (there should ideally be exactly one)
-	for k := range kubeConfig.Clusters {
-		kubeConfig.Clusters[cmd.KubeConfigContextName] = kubeConfig.Clusters[k]
+	for k, cluster := range kubeConfig.Clusters {
+		kubeConfig.Clusters[cmd.KubeConfigContextName] = cluster
 		// delete the rest
 		if k != cmd.KubeConfigContextName {
 			delete(kubeConfig.Clusters, k)
@@ -486,8 +514,11 @@ func (cmd *connectHelm) exchangeContextName(kubeConfig *clientcmdapi.Config, vcl
 	}
 
 	// pick the last specified context (there should ideally be exactly one)
-	for k := range kubeConfig.Contexts {
-		ctx := kubeConfig.Contexts[k]
+	for k, ctx := range kubeConfig.Contexts {
+		if ctx == nil {
+			continue
+		}
+
 		ctx.Cluster = cmd.KubeConfigContextName
 		ctx.AuthInfo = cmd.KubeConfigContextName
 		kubeConfig.Contexts[cmd.KubeConfigContextName] = ctx
@@ -499,8 +530,12 @@ func (cmd *connectHelm) exchangeContextName(kubeConfig *clientcmdapi.Config, vcl
 	}
 
 	// pick the last specified authinfo (there should ideally be exactly one)
-	for k := range kubeConfig.AuthInfos {
-		kubeConfig.AuthInfos[cmd.KubeConfigContextName] = kubeConfig.AuthInfos[k]
+	for k, authInfo := range kubeConfig.AuthInfos {
+		if authInfo == nil {
+			continue
+		}
+
+		kubeConfig.AuthInfos[cmd.KubeConfigContextName] = authInfo
 		// delete the rest
 		if k != cmd.KubeConfigContextName {
 			delete(kubeConfig.AuthInfos, k)
@@ -581,8 +616,11 @@ func getLocalVClusterConfig(vKubeConfig clientcmdapi.Config, options *ConnectOpt
 
 	// update vCluster server address in case of OSS vClusters only
 	if options.LocalPort != 0 {
-		for k := range vKubeConfig.Clusters {
-			vKubeConfig.Clusters[k].Server = "https://localhost:" + strconv.Itoa(options.LocalPort)
+		for _, cluster := range vKubeConfig.Clusters {
+			if cluster == nil {
+				continue
+			}
+			cluster.Server = "https://localhost:" + strconv.Itoa(options.LocalPort)
 		}
 	}
 
