@@ -418,6 +418,10 @@ integrations:
     enabled: false
     nodes: true
     pods: true
+  # ExternalSecrets reuses a host's external secret operator and makes some of its CRDs available inside the virtual cluster
+  externalSecrets:
+    # Enabled signals if the integration should be enabled
+    enabled: false
   kubeVirt:
     enabled: false
     webhook:
