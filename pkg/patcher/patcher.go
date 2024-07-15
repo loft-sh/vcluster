@@ -17,15 +17,31 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-func NewSyncerPatcher(ctx *synccontext.SyncContext, pObj, vObj client.Object) (*SyncerPatcher, error) {
+type Option interface {
+	Apply(p *Patcher)
+}
+
+type optionFn func(p *Patcher)
+
+func (o optionFn) Apply(p *Patcher) {
+	o(p)
+}
+
+func NoStatusSubResource() Option {
+	return optionFn(func(p *Patcher) {
+		p.NoStatusSubResource = true
+	})
+}
+
+func NewSyncerPatcher(ctx *synccontext.SyncContext, pObj, vObj client.Object, options ...Option) (*SyncerPatcher, error) {
 	// virtual cluster patcher
-	vPatcher, err := NewPatcher(vObj, ctx.VirtualClient)
+	vPatcher, err := NewPatcher(vObj, ctx.VirtualClient, options...)
 	if err != nil {
 		return nil, fmt.Errorf("create virtual patcher: %w", err)
 	}
 
 	// host cluster patcher
-	pPatcher, err := NewPatcher(pObj, ctx.PhysicalClient)
+	pPatcher, err := NewPatcher(pObj, ctx.PhysicalClient, options...)
 	if err != nil {
 		return nil, fmt.Errorf("create virtual patcher: %w", err)
 	}
@@ -69,7 +85,7 @@ type Patcher struct {
 }
 
 // NewPatcher returns an initialized Patcher.
-func NewPatcher(obj client.Object, crClient client.Client) (*Patcher, error) {
+func NewPatcher(obj client.Object, crClient client.Client, options ...Option) (*Patcher, error) {
 	// Return early if the object is nil.
 	if err := checkNilObject(obj); err != nil {
 		return nil, err
@@ -88,12 +104,18 @@ func NewPatcher(obj client.Object, crClient client.Client) (*Patcher, error) {
 		return nil, err
 	}
 
-	return &Patcher{
+	patcher := &Patcher{
 		client:       crClient,
 		gvk:          gvk,
 		before:       unstructuredObj,
 		beforeObject: obj.DeepCopyObject().(client.Object),
-	}, nil
+	}
+
+	for _, option := range options {
+		option.Apply(patcher)
+	}
+
+	return patcher, nil
 }
 
 // Patch will attempt to patch the given object, including its status.
