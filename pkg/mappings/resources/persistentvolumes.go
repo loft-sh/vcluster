@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
@@ -16,17 +15,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RegisterPersistentVolumesMapper(ctx *synccontext.RegisterContext) error {
+func CreatePersistentVolumesMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
 	mapper, err := generic.NewClusterMapper(ctx, &corev1.PersistentVolume{}, translatePersistentVolumeName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return mappings.Default.AddMapper(&persistentVolumeMapper{
+	return &persistentVolumeMapper{
 		Mapper: mapper,
 
 		virtualClient: ctx.VirtualManager.GetClient(),
-	})
+	}, nil
 }
 
 type persistentVolumeMapper struct {
@@ -68,9 +67,9 @@ func translatePersistentVolumeName(name string, vObj client.Object) string {
 	}
 
 	vPv, ok := vObj.(*corev1.PersistentVolume)
-	if !ok || vPv.Annotations == nil || vPv.Annotations[persistentvolumes.HostClusterPersistentVolumeAnnotation] == "" {
+	if !ok || vPv.Annotations == nil || vPv.Annotations[constants.HostClusterPersistentVolumeAnnotation] == "" {
 		return translate.Default.PhysicalNameClusterScoped(name)
 	}
 
-	return vPv.Annotations[persistentvolumes.HostClusterPersistentVolumeAnnotation]
+	return vPv.Annotations[constants.HostClusterPersistentVolumeAnnotation]
 }

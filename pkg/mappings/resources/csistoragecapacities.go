@@ -14,12 +14,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var gvk = storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity")
-
-func RegisterCSIStorageCapacitiesMapper(ctx *synccontext.RegisterContext) error {
-	return mappings.Default.AddMapper(&csiStorageCapacitiesMapper{
+func CreateCSIStorageCapacitiesMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
+	s := &csiStorageCapacitiesMapper{
 		physicalClient: ctx.PhysicalManager.GetClient(),
+	}
+
+	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx.Context, &storagev1.CSIStorageCapacity{}, constants.IndexByVirtualName, func(rawObj client.Object) []string {
+		return []string{s.HostToVirtual(ctx.Context, types.NamespacedName{Name: rawObj.GetName(), Namespace: rawObj.GetNamespace()}, rawObj).Name}
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
 
 type csiStorageCapacitiesMapper struct {
@@ -27,13 +34,7 @@ type csiStorageCapacitiesMapper struct {
 }
 
 func (s *csiStorageCapacitiesMapper) GroupVersionKind() schema.GroupVersionKind {
-	return gvk
-}
-
-func (s *csiStorageCapacitiesMapper) Init(ctx *synccontext.RegisterContext) error {
-	return ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx.Context, &storagev1.CSIStorageCapacity{}, constants.IndexByVirtualName, func(rawObj client.Object) []string {
-		return []string{s.HostToVirtual(ctx.Context, types.NamespacedName{Name: rawObj.GetName(), Namespace: rawObj.GetNamespace()}, rawObj).Name}
-	})
+	return storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity")
 }
 
 func (s *csiStorageCapacitiesMapper) HostToVirtual(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {

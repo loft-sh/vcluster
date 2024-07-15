@@ -3,6 +3,7 @@ package poddisruptionbudgets
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	policyv1 "k8s.io/api/policy/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -11,7 +12,7 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &pdbSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "podDisruptionBudget", &policyv1.PodDisruptionBudget{}),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "podDisruptionBudget", &policyv1.PodDisruptionBudget{}, mappings.PodDisruptionBudgets()),
 	}, nil
 }
 

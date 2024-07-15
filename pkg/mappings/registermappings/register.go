@@ -4,48 +4,60 @@ import (
 	"fmt"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 )
 
-type registerMapping func(ctx *synccontext.RegisterContext) error
+type CreateMapper func(ctx *synccontext.RegisterContext) (mappings.Mapper, error)
 
-var mappings = []registerMapping{
-	resources.RegisterSecretsMapper,
-	resources.RegisterConfigMapsMapper,
-	resources.RegisterCSIDriversMapper,
-	resources.RegisterCSINodesMapper,
-	resources.RegisterCSIStorageCapacitiesMapper,
-	resources.RegisterEndpointsMapper,
-	resources.RegisterEventsMapper,
-	resources.RegisterIngressClassesMapper,
-	resources.RegisterIngressesMapper,
-	resources.RegisterIngressesLegacyMapper,
-	resources.RegisterNamespacesMapper,
-	resources.RegisterNetworkPoliciesMapper,
-	resources.RegisterNodesMapper,
-	resources.RegisterPersistentVolumeClaimsMapper,
-	resources.RegisterServiceAccountsMapper,
-	resources.RegisterServiceMapper,
-	resources.RegisterPriorityClassesMapper,
-	resources.RegisterPodDisruptionBudgetsMapper,
-	resources.RegisterPersistentVolumesMapper,
-	resources.RegisterPodsMapper,
-	resources.RegisterStorageClassesMapper,
-	resources.RegisterVolumeSnapshotClassesMapper,
-	resources.RegisterVolumeSnapshotContentsMapper,
-	resources.RegisterVolumeSnapshotsMapper,
-	resources.RegisterGenericExporterMappers,
+var DefaultResourceMappings = []CreateMapper{
+	resources.CreateSecretsMapper,
+	resources.CreateConfigMapsMapper,
+	resources.CreateCSIDriversMapper,
+	resources.CreateCSINodesMapper,
+	resources.CreateCSIStorageCapacitiesMapper,
+	resources.CreateEndpointsMapper,
+	resources.CreateEventsMapper,
+	resources.CreateIngressClassesMapper,
+	resources.CreateIngressesMapper,
+	resources.CreateNamespacesMapper,
+	resources.CreateNetworkPoliciesMapper,
+	resources.CreateNodesMapper,
+	resources.CreatePersistentVolumeClaimsMapper,
+	resources.CreateServiceAccountsMapper,
+	resources.CreateServiceMapper,
+	resources.CreatePriorityClassesMapper,
+	resources.CreatePodDisruptionBudgetsMapper,
+	resources.CreatePersistentVolumesMapper,
+	resources.CreatePodsMapper,
+	resources.CreateStorageClassesMapper,
+	resources.CreateVolumeSnapshotClassesMapper,
+	resources.CreateVolumeSnapshotContentsMapper,
+	resources.CreateVolumeSnapshotsMapper,
+}
+
+func MustRegisterMappings(ctx *synccontext.RegisterContext) {
+	err := RegisterMappings(ctx)
+	if err != nil {
+		panic(err.Error())
+	}
 }
 
 func RegisterMappings(ctx *synccontext.RegisterContext) error {
-	for _, register := range mappings {
-		if register == nil {
+	// create mappers
+	for _, createFunc := range DefaultResourceMappings {
+		if createFunc == nil {
 			continue
 		}
 
-		err := register(ctx)
+		mapper, err := createFunc(ctx)
 		if err != nil {
-			return fmt.Errorf("register mapping: %w", err)
+			return fmt.Errorf("create mapper: %w", err)
+		}
+
+		err = mappings.Default.AddMapper(mapper)
+		if err != nil {
+			return fmt.Errorf("add mapper %s: %w", mapper.GroupVersionKind().String(), err)
 		}
 	}
 

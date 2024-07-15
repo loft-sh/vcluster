@@ -3,6 +3,7 @@ package storageclasses
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	storagev1 "k8s.io/api/storage/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -13,7 +14,7 @@ var DefaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &storageClassSyncer{
-		Translator: translator.NewClusterTranslator(ctx, "storageclass", &storagev1.StorageClass{}, DefaultStorageClassAnnotation),
+		Translator: translator.NewClusterTranslator(ctx, "storageclass", &storagev1.StorageClass{}, mappings.StorageClasses(), DefaultStorageClassAnnotation),
 	}, nil
 }
 

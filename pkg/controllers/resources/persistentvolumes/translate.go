@@ -3,6 +3,7 @@ package persistentvolumes
 import (
 	"context"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -11,14 +12,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (s *persistentVolumeSyncer) translate(ctx context.Context, vPv *corev1.PersistentVolume) *corev1.PersistentVolume {
+func (s *persistentVolumeSyncer) translate(ctx context.Context, vPv *corev1.PersistentVolume) (*corev1.PersistentVolume, error) {
 	// translate the persistent volume
 	pPV := s.TranslateMetadata(ctx, vPv).(*corev1.PersistentVolume)
 	pPV.Spec.ClaimRef = nil
-	pPV.Spec.StorageClassName = mappings.VirtualToHostName(vPv.Spec.StorageClassName, "", mappings.StorageClasses())
 
 	// TODO: translate the storage secrets
-	return pPV
+	pPV.Spec.StorageClassName = mappings.VirtualToHostName(vPv.Spec.StorageClassName, "", mappings.StorageClasses())
+	return pPV, nil
 }
 
 func (s *persistentVolumeSyncer) translateBackwards(pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolume {
@@ -43,11 +44,11 @@ func (s *persistentVolumeSyncer) translateBackwards(pPv *corev1.PersistentVolume
 	if vObj.Annotations == nil {
 		vObj.Annotations = map[string]string{}
 	}
-	vObj.Annotations[HostClusterPersistentVolumeAnnotation] = pPv.Name
+	vObj.Annotations[constants.HostClusterPersistentVolumeAnnotation] = pPv.Name
 	return vObj
 }
 
-func (s *persistentVolumeSyncer) translateUpdateBackwards(vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolume {
+func (s *persistentVolumeSyncer) translateUpdateBackwards(vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolume, error) {
 	var updated *corev1.PersistentVolume
 
 	// build virtual persistent volume
@@ -68,8 +69,7 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(vPv *corev1.Persistent
 		// when the PVC gets deleted
 	} else {
 		// check if SC was created on virtual
-		storageClassPhysicalName := mappings.VirtualToHostName(vPv.Spec.StorageClassName, "", mappings.StorageClasses())
-		isStorageClassCreatedOnVirtual = equality.Semantic.DeepEqual(storageClassPhysicalName, translatedSpec.StorageClassName)
+		isStorageClassCreatedOnVirtual = vPv.Spec.StorageClassName != mappings.VirtualToHostName(vPv.Spec.StorageClassName, "", mappings.StorageClasses())
 
 		// check if claim was created on virtual
 		if vPv.Spec.ClaimRef != nil && translatedSpec.ClaimRef != nil {
@@ -99,15 +99,15 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(vPv *corev1.Persistent
 	}
 
 	// check pv size
-	if vPv.Annotations != nil && vPv.Annotations[HostClusterPersistentVolumeAnnotation] != "" && !equality.Semantic.DeepEqual(pPv.Spec.Capacity, vPv.Spec.Capacity) {
+	if vPv.Annotations != nil && vPv.Annotations[constants.HostClusterPersistentVolumeAnnotation] != "" && !equality.Semantic.DeepEqual(pPv.Spec.Capacity, vPv.Spec.Capacity) {
 		updated = translator.NewIfNil(updated, vPv)
 		updated.Spec.Capacity = translatedSpec.Capacity
 	}
 
-	return updated
+	return updated, nil
 }
 
-func (s *persistentVolumeSyncer) translateUpdate(ctx context.Context, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume) *corev1.PersistentVolume {
+func (s *persistentVolumeSyncer) translateUpdate(ctx context.Context, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume) (*corev1.PersistentVolume, error) {
 	var updated *corev1.PersistentVolume
 
 	// TODO: translate the storage secrets
@@ -160,5 +160,5 @@ func (s *persistentVolumeSyncer) translateUpdate(ctx context.Context, vPv *corev
 		updated.Labels = updatedLabels
 	}
 
-	return updated
+	return updated, nil
 }

@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewFakeSyncer(*synccontext.RegisterContext) (syncer.Object, error) {
+func NewFakeSyncer(_ *synccontext.RegisterContext) (syncer.Object, error) {
 	return &fakePersistentVolumeSyncer{}, nil
 }
 

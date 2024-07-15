@@ -5,6 +5,7 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -15,7 +16,7 @@ import (
 
 func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 	return &ingressClassSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("ingressclass", &networkingv1.IngressClass{}),
+		Translator: translator.NewMirrorPhysicalTranslator("ingressclass", &networkingv1.IngressClass{}, mappings.IngressClasses()),
 	}, nil
 }
 

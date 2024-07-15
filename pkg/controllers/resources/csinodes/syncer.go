@@ -5,6 +5,7 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	corev1 "k8s.io/api/core/v1"
@@ -18,7 +19,7 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &csinodeSyncer{
-		Translator:    translator.NewMirrorPhysicalTranslator("csinode", &storagev1.CSINode{}),
+		Translator:    translator.NewMirrorPhysicalTranslator("csinode", &storagev1.CSINode{}, mappings.CSINodes()),
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}, nil
 }

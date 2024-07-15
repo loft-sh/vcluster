@@ -8,11 +8,6 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 )
 
-func RegisterIngressesMapper(ctx *synccontext.RegisterContext) error {
-	mapper, err := generic.NewNamespacedMapper(ctx, &networkingv1.Ingress{}, translate.Default.PhysicalName)
-	if err != nil {
-		return err
-	}
-
-	return mappings.Default.AddMapper(mapper)
+func CreateIngressesMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
+	return generic.NewNamespacedMapper(ctx, &networkingv1.Ingress{}, translate.Default.PhysicalName)
 }

@@ -5,7 +5,6 @@ import (
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
@@ -16,26 +15,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RegisterVolumeSnapshotContentsMapper(ctx *synccontext.RegisterContext) error {
+func CreateVolumeSnapshotContentsMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
 	if !ctx.Config.Sync.ToHost.VolumeSnapshots.Enabled {
-		mapper, err := generic.NewMirrorPhysicalMapper(&volumesnapshotv1.VolumeSnapshotContent{})
-		if err != nil {
-			return err
-		}
-
-		return mappings.Default.AddMapper(mapper)
+		return generic.NewMirrorPhysicalMapper(&volumesnapshotv1.VolumeSnapshotContent{})
 	}
 
 	mapper, err := generic.NewClusterMapper(ctx, &volumesnapshotv1.VolumeSnapshotContent{}, translateVolumeSnapshotContentName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return mappings.Default.AddMapper(&volumeSnapshotContentMapper{
+	return &volumeSnapshotContentMapper{
 		Mapper: mapper,
 
 		virtualClient: ctx.VirtualManager.GetClient(),
-	})
+	}, nil
 }
 
 type volumeSnapshotContentMapper struct {
@@ -77,9 +71,9 @@ func translateVolumeSnapshotContentName(name string, vObj client.Object) string 
 	}
 
 	vVSC, ok := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
-	if !ok || vVSC.Annotations == nil || vVSC.Annotations[volumesnapshotcontents.HostClusterVSCAnnotation] == "" {
+	if !ok || vVSC.Annotations == nil || vVSC.Annotations[constants.HostClusterVSCAnnotation] == "" {
 		return translate.Default.PhysicalNameClusterScoped(name)
 	}
 
-	return vVSC.Annotations[volumesnapshotcontents.HostClusterVSCAnnotation]
+	return vVSC.Annotations[constants.HostClusterVSCAnnotation]
 }

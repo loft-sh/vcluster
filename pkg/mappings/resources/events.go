@@ -26,10 +26,10 @@ var AcceptedKinds = map[schema.GroupVersionKind]bool{
 	corev1.SchemeGroupVersion.WithKind("ConfigMap"): true,
 }
 
-func RegisterEventsMapper(ctx *synccontext.RegisterContext) error {
-	return mappings.Default.AddMapper(&eventMapper{
+func CreateEventsMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
+	return &eventMapper{
 		virtualClient: ctx.VirtualManager.GetClient(),
-	})
+	}, nil
 }
 
 type eventMapper struct {
@@ -38,10 +38,6 @@ type eventMapper struct {
 
 func (s *eventMapper) GroupVersionKind() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("Event")
-}
-
-func (s *eventMapper) Init(_ *synccontext.RegisterContext) error {
-	return nil
 }
 
 func (s *eventMapper) VirtualToHost(_ context.Context, _ types.NamespacedName, _ client.Object) types.NamespacedName {

@@ -20,12 +20,16 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &eventSyncer{
+		Mapper: mappings.Events(),
+
 		virtualClient: ctx.VirtualManager.GetClient(),
 		hostClient:    ctx.PhysicalManager.GetClient(),
 	}, nil
 }
 
 type eventSyncer struct {
+	mappings.Mapper
+
 	virtualClient client.Client
 	hostClient    client.Client
 }

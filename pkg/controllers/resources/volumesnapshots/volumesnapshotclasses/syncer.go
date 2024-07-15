@@ -2,6 +2,7 @@ package volumesnapshotclasses
 
 import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util"
 
@@ -13,7 +14,7 @@ import (
 
 func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotClassSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("volumesnapshotclass", &volumesnapshotv1.VolumeSnapshotClass{}),
+		Translator: translator.NewMirrorPhysicalTranslator("volumesnapshotclass", &volumesnapshotv1.VolumeSnapshotClass{}, mappings.VolumeSnapshotClasses()),
 	}, nil
 }
 

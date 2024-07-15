@@ -2,6 +2,7 @@ package serviceaccounts
 
 import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
@@ -12,7 +13,7 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &serviceAccountSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "serviceaccount", &corev1.ServiceAccount{}),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "serviceaccount", &corev1.ServiceAccount{}, mappings.ServiceAccounts()),
 	}, nil
 }
 

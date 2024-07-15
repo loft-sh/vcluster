@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
@@ -21,13 +22,12 @@ import (
 )
 
 const (
-	HostClusterVSCAnnotation              = "vcluster.loft.sh/host-volumesnapshotcontent"
 	PhysicalVSCGarbageCollectionFinalizer = "vcluster.loft.sh/physical-volumesnapshotcontent-gc"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotContentSyncer{
-		Translator: translator.NewClusterTranslator(ctx, "volume-snapshot-content", &volumesnapshotv1.VolumeSnapshotContent{}),
+		Translator: translator.NewClusterTranslator(ctx, "volume-snapshot-content", &volumesnapshotv1.VolumeSnapshotContent{}, mappings.VolumeSnapshotContents()),
 
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}, nil
@@ -67,7 +67,7 @@ var _ syncer.Syncer = &volumeSnapshotContentSyncer{}
 
 func (s *volumeSnapshotContentSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vVSC := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
-	if vVSC.DeletionTimestamp != nil || (vVSC.Annotations != nil && vVSC.Annotations[HostClusterVSCAnnotation] != "") {
+	if vVSC.DeletionTimestamp != nil || (vVSC.Annotations != nil && vVSC.Annotations[constants.HostClusterVSCAnnotation] != "") {
 		if len(vVSC.Finalizers) > 0 {
 			// delete the finalizer here so that the object can be deleted
 			vVSC.Finalizers = []string{}
@@ -161,7 +161,7 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	}
 
 	// update the physical VolumeSnapshotContent if the virtual has changed
-	if vVSC.Annotations == nil || vVSC.Annotations[HostClusterVSCAnnotation] == "" {
+	if vVSC.Annotations == nil || vVSC.Annotations[constants.HostClusterVSCAnnotation] == "" {
 		if vVSC.DeletionTimestamp != nil {
 			if pVSC.DeletionTimestamp != nil {
 				return ctrl.Result{}, nil

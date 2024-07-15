@@ -7,11 +7,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 )
 
-func RegisterVolumeSnapshotClassesMapper(_ *synccontext.RegisterContext) error {
-	mapper, err := generic.NewMirrorPhysicalMapper(&volumesnapshotv1.VolumeSnapshotClass{})
-	if err != nil {
-		return err
-	}
-
-	return mappings.Default.AddMapper(mapper)
+func CreateVolumeSnapshotClassesMapper(_ *synccontext.RegisterContext) (mappings.Mapper, error) {
+	return generic.NewMirrorPhysicalMapper(&volumesnapshotv1.VolumeSnapshotClass{})
 }

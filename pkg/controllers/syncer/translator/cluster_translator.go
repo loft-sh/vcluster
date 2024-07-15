@@ -2,28 +2,20 @@ package translator
 
 import (
 	context2 "context"
-	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.Object, excludedAnnotations ...string) Translator {
-	gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
-	if err != nil {
-		panic(fmt.Sprintf("Retrieve GVK for object failed: %v", err))
-	}
-
+func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.Object, mapper mappings.Mapper, excludedAnnotations ...string) Translator {
 	return &clusterTranslator{
+		Mapper: mapper,
+
 		name: name,
-		gvk:  gvk,
 
 		excludedAnnotations: excludedAnnotations,
 		virtualClient:       ctx.VirtualManager.GetClient(),
@@ -33,8 +25,9 @@ func NewClusterTranslator(ctx *context.RegisterContext, name string, obj client.
 }
 
 type clusterTranslator struct {
+	mappings.Mapper
+
 	name string
-	gvk  schema.GroupVersionKind
 
 	virtualClient       client.Client
 	obj                 client.Object
@@ -55,7 +48,12 @@ func (n *clusterTranslator) IsManaged(_ context2.Context, pObj client.Object) (b
 }
 
 func (n *clusterTranslator) TranslateMetadata(ctx context2.Context, vObj client.Object) client.Object {
-	pObj, err := translate.Default.SetupMetadataWithName(vObj, mappings.Default.ByGVK(n.gvk).VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
+	nameNamespace, err := n.Mapper.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj)
+	if err != nil {
+		return nil
+	}
+
+	pObj, err := translate.Default.SetupMetadataWithName(vObj, nameNamespace)
 	if err != nil {
 		return nil
 	}

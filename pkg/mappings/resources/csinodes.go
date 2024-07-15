@@ -7,11 +7,6 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 )
 
-func RegisterCSINodesMapper(_ *synccontext.RegisterContext) error {
-	mapper, err := generic.NewMirrorPhysicalMapper(&storagev1.CSIDriver{})
-	if err != nil {
-		return err
-	}
-
-	return mappings.Default.AddMapper(mapper)
+func CreateCSINodesMapper(_ *synccontext.RegisterContext) (mappings.Mapper, error) {
+	return generic.NewMirrorPhysicalMapper(&storagev1.CSIDriver{})
 }

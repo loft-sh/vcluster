@@ -5,6 +5,7 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	storagev1 "k8s.io/api/storage/v1"
@@ -15,7 +16,7 @@ import (
 
 func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 	return &csidriverSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("csidriver", &storagev1.CSIDriver{}),
+		Translator: translator.NewMirrorPhysicalTranslator("csidriver", &storagev1.CSIDriver{}, mappings.CSIDrivers()),
 	}, nil
 }
 

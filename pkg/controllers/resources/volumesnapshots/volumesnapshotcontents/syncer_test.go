@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"gotest.tools/assert"
 	"k8s.io/utils/ptr"
 
@@ -23,11 +23,6 @@ const (
 )
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *volumeSnapshotContentSyncer) {
-	err := resources.RegisterVolumeSnapshotContentsMapper(ctx)
-	assert.NilError(t, err)
-	err = resources.RegisterVolumeSnapshotsMapper(ctx)
-	assert.NilError(t, err)
-
 	syncContext, object := generictesting.FakeStartSyncer(t, ctx, New)
 	return syncContext, object.(*volumeSnapshotContentSyncer)
 }
@@ -110,7 +105,7 @@ func TestSync(t *testing.T) {
 	if vDynamic.Annotations == nil {
 		vDynamic.Annotations = map[string]string{}
 	}
-	vDynamic.Annotations[HostClusterVSCAnnotation] = pDynamic.Name
+	vDynamic.Annotations[constants.HostClusterVSCAnnotation] = pDynamic.Name
 	vDynamic.Spec.VolumeSnapshotRef = corev1.ObjectReference{
 		Name:            vVolumeSnapshot.Name,
 		Namespace:       vVolumeSnapshot.Namespace,

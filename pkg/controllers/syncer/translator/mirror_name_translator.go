@@ -3,18 +3,23 @@ package translator
 import (
 	"context"
 
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewMirrorPhysicalTranslator(name string, obj client.Object) Translator {
+func NewMirrorPhysicalTranslator(name string, obj client.Object, mapper mappings.Mapper) Translator {
 	return &mirrorPhysicalTranslator{
+		Mapper: mapper,
+
 		name: name,
 		obj:  obj,
 	}
 }
 
 type mirrorPhysicalTranslator struct {
+	mappings.Mapper
+
 	name string
 	obj  client.Object
 }

@@ -9,21 +9,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RegisterStorageClassesMapper(ctx *synccontext.RegisterContext) error {
-	var (
-		mapper mappings.Mapper
-		err    error
-	)
-	if !ctx.Config.Sync.ToHost.PriorityClasses.Enabled {
-		mapper, err = generic.NewMirrorPhysicalMapper(&storagev1.StorageClass{})
-	} else {
-		mapper, err = generic.NewClusterMapper(ctx, &storagev1.StorageClass{}, func(name string, _ client.Object) string {
-			return translate.Default.PhysicalNameClusterScoped(name)
-		})
-	}
-	if err != nil {
-		return err
+func CreateStorageClassesMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
+	if !ctx.Config.Sync.ToHost.StorageClasses.Enabled {
+		return generic.NewMirrorPhysicalMapper(&storagev1.StorageClass{})
 	}
 
-	return mappings.Default.AddMapper(mapper)
+	return generic.NewClusterMapper(ctx, &storagev1.StorageClass{}, func(name string, _ client.Object) string {
+		return translate.Default.PhysicalNameClusterScoped(name)
+	})
 }

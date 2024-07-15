@@ -29,15 +29,15 @@ func (s *csistoragecapacitySyncer) IsManaged(context.Context, client.Object) (bo
 
 // TranslateMetadata translates the object's metadata
 func (s *csistoragecapacitySyncer) TranslateMetadata(ctx context.Context, pObj client.Object) (client.Object, error) {
-	name := mappings.CSIStorageCapacities().HostToVirtual(ctx, types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, pObj)
+	pName := mappings.CSIStorageCapacities().HostToVirtual(ctx, types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, pObj)
 	pObjCopy := pObj.DeepCopyObject()
 	vObj, ok := pObjCopy.(client.Object)
 	if !ok {
 		return nil, fmt.Errorf("%q not a metadata object: %+v", pObj.GetName(), pObjCopy)
 	}
 	translate.ResetObjectMetadata(vObj)
-	vObj.SetName(name.Name)
-	vObj.SetNamespace(name.Namespace)
+	vObj.SetName(pName.Name)
+	vObj.SetNamespace(pName.Namespace)
 	vObj.SetAnnotations(translate.Default.ApplyAnnotations(pObj, nil, []string{}))
 	vObj.SetLabels(translate.Default.ApplyLabels(pObj, nil, []string{}))
 	return vObj, nil

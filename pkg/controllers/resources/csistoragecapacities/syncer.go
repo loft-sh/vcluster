@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
@@ -25,6 +24,8 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &csistoragecapacitySyncer{
+		Mapper: mappings.CSIStorageCapacities(),
+
 		storageClassSyncEnabled:     ctx.Config.Sync.ToHost.StorageClasses.Enabled,
 		hostStorageClassSyncEnabled: ctx.Config.Sync.FromHost.StorageClasses.Enabled == "true",
 		physicalClient:              ctx.PhysicalManager.GetClient(),
@@ -32,6 +33,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 }
 
 type csistoragecapacitySyncer struct {
+	mappings.Mapper
+
 	storageClassSyncEnabled     bool
 	hostStorageClassSyncEnabled bool
 	physicalClient              client.Client
@@ -125,7 +128,7 @@ func (s *csistoragecapacitySyncer) enqueuePhysical(ctx context.Context, obj clie
 		return
 	}
 
-	name := mappings.Default.ByGVK(storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity")).HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+	name := s.Mapper.HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 	if name.Name != "" && name.Namespace != "" {
 		q.Add(reconcile.Request{NamespacedName: name})
 	}

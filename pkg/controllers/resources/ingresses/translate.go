@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/util"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -21,11 +19,16 @@ const (
 	ActionsSuffix          = "/actions."
 )
 
-func (s *ingressSyncer) translate(ctx context.Context, vIngress *networkingv1.Ingress) *networkingv1.Ingress {
+func (s *ingressSyncer) translate(ctx context.Context, vIngress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
 	newIngress := s.TranslateMetadata(ctx, vIngress).(*networkingv1.Ingress)
-	newIngress.Spec = *translateSpec(vIngress.Namespace, &vIngress.Spec)
+	pSpec, err := translateSpec(vIngress.Namespace, &vIngress.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	newIngress.Spec = *pSpec
 	newIngress.Annotations, _ = translateIngressAnnotations(newIngress.Annotations, vIngress.Namespace)
-	return newIngress
+	return newIngress, nil
 }
 
 func (s *ingressSyncer) TranslateMetadata(ctx context.Context, vObj client.Object) client.Object {
@@ -42,17 +45,21 @@ func (s *ingressSyncer) TranslateMetadataUpdate(ctx context.Context, vObj client
 	return s.NamespacedTranslator.TranslateMetadataUpdate(ctx, vIngress, pObj)
 }
 
-func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) {
-	pObj.Spec = *translateSpec(vObj.Namespace, &vObj.Spec)
+func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) error {
+	pSpec, err := translateSpec(vObj.Namespace, &vObj.Spec)
+	if err != nil {
+		return err
+	}
 
+	pObj.Spec = *pSpec
 	_, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	translatedAnnotations, _ = translateIngressAnnotations(translatedAnnotations, vObj.Namespace)
-
 	pObj.Annotations = translatedAnnotations
 	pObj.Labels = translatedLabels
+	return nil
 }
 
-func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *networkingv1.IngressSpec {
+func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) (*networkingv1.IngressSpec, error) {
 	retSpec := vIngressSpec.DeepCopy()
 	if retSpec.DefaultBackend != nil {
 		if retSpec.DefaultBackend.Service != nil && retSpec.DefaultBackend.Service.Name != "" {
@@ -82,7 +89,7 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *ne
 		}
 	}
 
-	return retSpec
+	return retSpec, nil
 }
 
 func getActionOrConditionValue(annotation, actionOrCondition string) string {

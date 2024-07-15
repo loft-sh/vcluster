@@ -8,12 +8,10 @@ import (
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/loft-sh/vcluster/pkg/constants"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"k8s.io/apimachinery/pkg/types"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,11 +20,6 @@ import (
 )
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *persistentVolumeSyncer) {
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolumeClaim{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
-	})
-	assert.NilError(t, err)
-
 	syncContext, object := generictesting.FakeStartSyncer(t, ctx, NewSyncer)
 	return syncContext, object.(*persistentVolumeSyncer)
 }
@@ -51,7 +44,7 @@ func TestSync(t *testing.T) {
 	basePvObjectMeta := metav1.ObjectMeta{
 		Name: "testpv",
 		Annotations: map[string]string{
-			HostClusterPersistentVolumeAnnotation: "testpv",
+			constants.HostClusterPersistentVolumeAnnotation: "testpv",
 		},
 	}
 	basePvWithDelTSObjectMeta := metav1.ObjectMeta{
@@ -108,20 +101,6 @@ func TestSync(t *testing.T) {
 		},
 		Status: corev1.PersistentVolumeStatus{
 			Message: "someMessage",
-		},
-	}
-	backwardRetainPPv := &corev1.PersistentVolume{
-		ObjectMeta: basePvObjectMeta,
-		Spec: corev1.PersistentVolumeSpec{
-			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
-			ClaimRef: &corev1.ObjectReference{
-				Name:      "retainPVC-x-test-x-suffix",
-				Namespace: "test",
-			},
-			StorageClassName: "vcluster-retainSC-x-test-x-suffix",
-		},
-		Status: corev1.PersistentVolumeStatus{
-			Phase: corev1.VolumeReleased,
 		},
 	}
 	backwardRetainInitialVPv := &corev1.PersistentVolume{
@@ -192,6 +171,20 @@ func TestSync(t *testing.T) {
 		ObjectMeta: basePvWithDelTSObjectMeta,
 		Spec: corev1.PersistentVolumeSpec{
 			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+		},
+	}
+	backwardRetainPPv := &corev1.PersistentVolume{
+		ObjectMeta: basePvObjectMeta,
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Name:      "retainPVC-x-test-x-suffix",
+				Namespace: "test",
+			},
+			StorageClassName: "retainSC",
+		},
+		Status: corev1.PersistentVolumeStatus{
+			Phase: corev1.VolumeReleased,
 		},
 	}
 

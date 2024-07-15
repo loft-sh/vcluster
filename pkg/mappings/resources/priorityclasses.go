@@ -9,22 +9,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RegisterPriorityClassesMapper(ctx *synccontext.RegisterContext) error {
-	var (
-		mapper mappings.Mapper
-		err    error
-	)
+func CreatePriorityClassesMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
 	if !ctx.Config.Sync.ToHost.PriorityClasses.Enabled {
-		mapper, err = generic.NewMirrorPhysicalMapper(&schedulingv1.PriorityClass{})
-	} else {
-		mapper, err = generic.NewClusterMapper(ctx, &schedulingv1.PriorityClass{}, func(vName string, _ client.Object) string {
-			// we have to prefix with vCluster as system is reserved
-			return translate.Default.PhysicalNameClusterScoped(vName)
-		})
-	}
-	if err != nil {
-		return err
+		return generic.NewMirrorPhysicalMapper(&schedulingv1.PriorityClass{})
 	}
 
-	return mappings.Default.AddMapper(mapper)
+	return generic.NewClusterMapper(ctx, &schedulingv1.PriorityClass{}, func(vName string, _ client.Object) string {
+		// we have to prefix with vCluster as system is reserved
+		return translate.Default.PhysicalNameClusterScoped(vName)
+	})
 }

@@ -7,11 +7,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func RegisterNodesMapper(_ *synccontext.RegisterContext) error {
-	mapper, err := generic.NewMirrorPhysicalMapper(&corev1.Node{})
-	if err != nil {
-		return err
-	}
-
-	return mappings.Default.AddMapper(mapper)
+func CreateNodesMapper(_ *synccontext.RegisterContext) (mappings.Mapper, error) {
+	return generic.NewMirrorPhysicalMapper(&corev1.Node{})
 }

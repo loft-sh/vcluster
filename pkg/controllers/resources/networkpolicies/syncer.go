@@ -3,6 +3,7 @@ package networkpolicies
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -12,7 +13,7 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &networkPolicySyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "networkpolicy", &networkingv1.NetworkPolicy{}),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "networkpolicy", &networkingv1.NetworkPolicy{}, mappings.NetworkPolicies()),
 	}, nil
 }
 

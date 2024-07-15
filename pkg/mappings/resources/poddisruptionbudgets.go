@@ -8,11 +8,6 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 )
 
-func RegisterPodDisruptionBudgetsMapper(ctx *synccontext.RegisterContext) error {
-	mapper, err := generic.NewNamespacedMapper(ctx, &policyv1.PodDisruptionBudget{}, translate.Default.PhysicalName)
-	if err != nil {
-		return err
-	}
-
-	return mappings.Default.AddMapper(mapper)
+func CreatePodDisruptionBudgetsMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
+	return generic.NewNamespacedMapper(ctx, &policyv1.PodDisruptionBudget{}, translate.Default.PhysicalName)
 }

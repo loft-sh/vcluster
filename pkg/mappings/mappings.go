@@ -4,8 +4,9 @@ import (
 	"context"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -23,9 +24,6 @@ type Mapper interface {
 	// GroupVersionKind retrieves the group version kind
 	GroupVersionKind() schema.GroupVersionKind
 
-	// Init initializes the mapper
-	Init(ctx *synccontext.RegisterContext) error
-
 	// VirtualToHost translates a virtual name to a physical name
 	VirtualToHost(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName
 
@@ -41,6 +39,14 @@ func ByGVK(gvk schema.GroupVersionKind) Mapper {
 	return Default.ByGVK(gvk)
 }
 
+func CSIDrivers() Mapper {
+	return Default.ByGVK(storagev1.SchemeGroupVersion.WithKind("CSIDriver"))
+}
+
+func CSINodes() Mapper {
+	return Default.ByGVK(storagev1.SchemeGroupVersion.WithKind("CSINode"))
+}
+
 func CSIStorageCapacities() Mapper {
 	return Default.ByGVK(storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity"))
 }
@@ -49,8 +55,23 @@ func VolumeSnapshotContents() Mapper {
 	return Default.ByGVK(volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"))
 }
 
+func NetworkPolicies() Mapper {
+	return Default.ByGVK(networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"))
+}
+
+func Nodes() Mapper {
+	return Default.ByGVK(corev1.SchemeGroupVersion.WithKind("Node"))
+}
+
+func PodDisruptionBudgets() Mapper {
+	return Default.ByGVK(policyv1.SchemeGroupVersion.WithKind("PodDisruptionBudget"))
+}
+
 func VolumeSnapshots() Mapper {
 	return Default.ByGVK(volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshot"))
+}
+func VolumeSnapshotClasses() Mapper {
+	return Default.ByGVK(volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotClass"))
 }
 
 func Events() Mapper {
@@ -89,16 +110,24 @@ func StorageClasses() Mapper {
 	return Default.ByGVK(storagev1.SchemeGroupVersion.WithKind("StorageClass"))
 }
 
+func IngressClasses() Mapper {
+	return Default.ByGVK(networkingv1.SchemeGroupVersion.WithKind("IngressClass"))
+}
+
+func Namespaces() Mapper {
+	return Default.ByGVK(corev1.SchemeGroupVersion.WithKind("Namespace"))
+}
+
+func Ingresses() Mapper {
+	return Default.ByGVK(networkingv1.SchemeGroupVersion.WithKind("Ingress"))
+}
+
 func PersistentVolumeClaims() Mapper {
 	return Default.ByGVK(corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"))
 }
 
 func PriorityClasses() Mapper {
 	return Default.ByGVK(schedulingv1.SchemeGroupVersion.WithKind("PriorityClass"))
-}
-
-func NamespacedName(obj client.Object) types.NamespacedName {
-	return types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}
 }
 
 func VirtualToHostName(vName, vNamespace string, mapper Mapper) string {

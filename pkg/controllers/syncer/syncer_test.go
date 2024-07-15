@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/mappings/registermappings"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -81,7 +82,7 @@ func TestReconcile(t *testing.T) {
 
 		Syncer func(ctx *synccontext.RegisterContext) (syncertypes.Object, error)
 
-		EnqueObjs []types.NamespacedName
+		EnqueueObjs []types.NamespacedName
 
 		InitialPhysicalState []runtime.Object
 		InitialVirtualState  []runtime.Object
@@ -100,7 +101,7 @@ func TestReconcile(t *testing.T) {
 			Name:   "should sync down",
 			Syncer: NewMockSyncer,
 
-			EnqueObjs: []types.NamespacedName{
+			EnqueueObjs: []types.NamespacedName{
 				{Name: "a", Namespace: namespaceInVclusterA},
 			},
 
@@ -157,7 +158,6 @@ func TestReconcile(t *testing.T) {
 								translate.NameAnnotation:      "a",
 								translate.NamespaceAnnotation: namespaceInVclusterA,
 								translate.UIDAnnotation:       "123",
-								translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Secret").String(),
 							},
 							Labels: map[string]string{
 								translate.NamespaceLabel: namespaceInVclusterA,
@@ -173,7 +173,7 @@ func TestReconcile(t *testing.T) {
 			Name:   "should fail to sync down when object of desired name already exists",
 			Syncer: NewMockSyncer,
 
-			EnqueObjs: []types.NamespacedName{
+			EnqueueObjs: []types.NamespacedName{
 				{Name: "a", Namespace: namespaceInVclusterA},
 			},
 
@@ -271,6 +271,7 @@ func TestReconcile(t *testing.T) {
 		vClient := testingutil.NewFakeClient(scheme.Scheme, tc.InitialVirtualState...)
 
 		fakeContext := generictesting.NewFakeRegisterContext(generictesting.NewFakeConfig(), pClient, vClient)
+		registermappings.MustRegisterMappings(fakeContext)
 
 		syncerImpl, err := tc.Syncer(fakeContext)
 		assert.NilError(t, err)
@@ -282,6 +283,8 @@ func TestReconcile(t *testing.T) {
 			vEventRecorder: &testingutil.FakeEventRecorder{},
 			physicalClient: pClient,
 
+			gvk: corev1.SchemeGroupVersion.WithKind("Secret"),
+
 			currentNamespace:       fakeContext.CurrentNamespace,
 			currentNamespaceClient: fakeContext.CurrentNamespaceClient,
 
@@ -292,7 +295,7 @@ func TestReconcile(t *testing.T) {
 		}
 
 		// execute
-		for _, req := range tc.EnqueObjs {
+		for _, req := range tc.EnqueueObjs {
 			_, err = controller.Reconcile(ctx, ctrl.Request{NamespacedName: req})
 		}
 		if tc.shouldErr {

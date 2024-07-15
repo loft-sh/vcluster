@@ -17,7 +17,11 @@ func StartProxy(ctx *config.ControllerContext) error {
 	}
 
 	// start the proxy
-	proxyServer, err := server.NewServer(ctx, ctx.Config.VirtualClusterKubeConfig().RequestHeaderCACert, ctx.Config.VirtualClusterKubeConfig().ClientCACert)
+	proxyServer, err := server.NewServer(
+		ctx,
+		ctx.Config.VirtualClusterKubeConfig().RequestHeaderCACert,
+		ctx.Config.VirtualClusterKubeConfig().ClientCACert,
+	)
 	if err != nil {
 		return err
 	}

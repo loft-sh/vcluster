@@ -2,9 +2,11 @@ package pods
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -67,7 +69,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	}
 
 	// create new namespaced translator
-	namespacedTranslator := translator.NewNamespacedTranslator(ctx, "pod", &corev1.Pod{})
+	namespacedTranslator := translator.NewNamespacedTranslator(ctx, "pod", &corev1.Pod{}, mappings.Pods())
 
 	// create pod translator
 	podTranslator, err := translatepods.NewTranslator(ctx, namespacedTranslator.EventRecorder())
@@ -307,7 +309,10 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		// translate services to environment variables
 		serviceEnv := translatepods.ServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, ptrServiceList, kubeIP)
 		for i := range vPod.Spec.EphemeralContainers {
-			envVar, envFrom := s.podTranslator.TranslateContainerEnv(vPod.Spec.EphemeralContainers[i].Env, vPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
+			envVar, envFrom, err := s.podTranslator.TranslateContainerEnv(vPod.Spec.EphemeralContainers[i].Env, vPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("translate container env: %w", err)
+			}
 			vPod.Spec.EphemeralContainers[i].Env = envVar
 			vPod.Spec.EphemeralContainers[i].EnvFrom = envFrom
 		}

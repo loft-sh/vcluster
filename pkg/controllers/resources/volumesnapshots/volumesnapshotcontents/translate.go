@@ -4,6 +4,7 @@ import (
 	"context"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	corev1 "k8s.io/api/core/v1"
@@ -35,7 +36,7 @@ func (s *volumeSnapshotContentSyncer) translateBackwards(pVSC *volumesnapshotv1.
 	if vObj.Annotations == nil {
 		vObj.Annotations = map[string]string{}
 	}
-	vObj.Annotations[HostClusterVSCAnnotation] = pVSC.Name
+	vObj.Annotations[constants.HostClusterVSCAnnotation] = pVSC.Name
 
 	return vObj
 }

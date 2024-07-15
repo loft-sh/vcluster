@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"k8s.io/apimachinery/pkg/api/equality"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -34,7 +35,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 
 func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &secretSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "secret", &corev1.Secret{}),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "secret", &corev1.Secret{}, mappings.Secrets()),
 
 		includeIngresses: ctx.Config.Sync.ToHost.Ingresses.Enabled,
 
@@ -165,7 +166,6 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 	// check if we also sync ingresses
 	if s.includeIngresses {
 		ingressesList := &networkingv1.IngressList{}
-
 		err := ctx.VirtualClient.List(ctx.Context, ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
 		if err != nil {
 			return false, err

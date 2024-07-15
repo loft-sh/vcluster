@@ -38,7 +38,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	storageClassesEnabled := ctx.Config.Sync.ToHost.StorageClasses.Enabled
 	excludedAnnotations := []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation}
 	return &persistentVolumeClaimSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, excludedAnnotations...),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mappings.PersistentVolumeClaims(), excludedAnnotations...),
 
 		storageClassesEnabled:    storageClassesEnabled,
 		schedulerEnabled:         ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,

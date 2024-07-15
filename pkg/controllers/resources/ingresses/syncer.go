@@ -16,9 +16,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	return NewSyncer(ctx)
+}
+
 func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &ingressSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "ingress", &networkingv1.Ingress{}),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "ingress", &networkingv1.Ingress{}, mappings.Ingresses()),
 	}, nil
 }
 
@@ -29,7 +33,12 @@ type ingressSyncer struct {
 var _ syncertypes.Syncer = &ingressSyncer{}
 
 func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*networkingv1.Ingress)))
+	pObj, err := s.translate(ctx.Context, vObj.(*networkingv1.Ingress))
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return s.SyncToHostCreate(ctx, vObj, pObj)
 }
 
 func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
@@ -45,12 +54,13 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	}()
 
 	pIngress, vIngress, source, target := synccontext.Cast[*networkingv1.Ingress](ctx, pObj, vObj)
-
 	target.Spec.IngressClassName = source.Spec.IngressClassName
-
 	vIngress.Status = pIngress.Status
+	err = s.translateUpdate(ctx.Context, pIngress, vIngress)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
-	s.translateUpdate(ctx.Context, pIngress, vIngress)
 	return ctrl.Result{}, nil
 }
 
@@ -85,13 +95,18 @@ func translateIngressAnnotations(annotations map[string]string, ingressNamespace
 		if len(splitted) == 1 { // If value is only "secret"
 			secret := splitted[0]
 			foundSecrets = append(foundSecrets, ingressNamespace+"/"+secret)
-			newAnnotations[k] = mappings.VirtualToHostName(secret, ingressNamespace, mappings.Secrets())
+			pName, err := mappings.VirtualToHostName(secret, ingressNamespace, mappings.Secrets())
+			if err == nil {
+				newAnnotations[k] = pName
+			}
 		} else if len(splitted) == 2 { // If value is "namespace/secret"
 			namespace := splitted[0]
 			secret := splitted[1]
 			foundSecrets = append(foundSecrets, namespace+"/"+secret)
-			pName := mappings.VirtualToHost(secret, namespace, mappings.Secrets())
-			newAnnotations[k] = pName.Namespace + "/" + pName.Name
+			pName, err := mappings.VirtualToHost(secret, namespace, mappings.Secrets())
+			if err == nil {
+				newAnnotations[k] = pName.Namespace + "/" + pName.Name
+			}
 		} else {
 			newAnnotations[k] = v
 		}

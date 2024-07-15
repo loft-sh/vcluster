@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
@@ -24,13 +25,12 @@ import (
 )
 
 const (
-	HostClusterPersistentVolumeAnnotation = "vcluster.loft.sh/host-pv"
-	LockPersistentVolume                  = "vcluster.loft.sh/lock"
+	LockPersistentVolume = "vcluster.loft.sh/lock"
 )
 
 func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &persistentVolumeSyncer{
-		Translator: translator.NewClusterTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, HostClusterPersistentVolumeAnnotation),
+		Translator: translator.NewClusterTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, mappings.PersistentVolumes(), constants.HostClusterPersistentVolumeAnnotation),
 
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}, nil
@@ -71,7 +71,7 @@ var _ syncertypes.Syncer = &persistentVolumeSyncer{}
 
 func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vPv := vObj.(*corev1.PersistentVolume)
-	if vPv.DeletionTimestamp != nil || (vPv.Annotations != nil && vPv.Annotations[HostClusterPersistentVolumeAnnotation] != "") {
+	if vPv.DeletionTimestamp != nil || (vPv.Annotations != nil && vPv.Annotations[constants.HostClusterPersistentVolumeAnnotation] != "") {
 		if len(vPv.Finalizers) > 0 {
 			// delete the finalizer here so that the object can be deleted
 			vPv.Finalizers = []string{}
@@ -83,9 +83,13 @@ func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj c
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vPv)
 	}
 
-	pPv := s.translate(ctx.Context, vPv)
+	pPv, err := s.translate(ctx.Context, vPv)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	ctx.Log.Infof("create physical persistent volume %s, because there is a virtual persistent volume", pPv.Name)
-	err := ctx.PhysicalClient.Create(ctx.Context, pPv)
+	err = ctx.PhysicalClient.Create(ctx.Context, pPv)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -135,8 +139,10 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	}
 
 	// check if there is a corresponding virtual pvc
-	updatedObj := s.translateUpdateBackwards(vPersistentVolume, pPersistentVolume, vPvc)
-	if updatedObj != nil {
+	updatedObj, err := s.translateUpdateBackwards(vPersistentVolume, pPersistentVolume, vPvc)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if updatedObj != nil {
 		ctx.Log.Infof("update virtual persistent volume %s, because spec has changed", vPersistentVolume.Name)
 		translator.PrintChanges(vPersistentVolume, updatedObj, ctx.Log)
 		err = ctx.VirtualClient.Update(ctx.Context, updatedObj)
@@ -164,7 +170,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	}
 
 	// update the physical persistent volume if the virtual has changed
-	if vPersistentVolume.Annotations == nil || vPersistentVolume.Annotations[HostClusterPersistentVolumeAnnotation] == "" {
+	if vPersistentVolume.Annotations == nil || vPersistentVolume.Annotations[constants.HostClusterPersistentVolumeAnnotation] == "" {
 		if vPersistentVolume.DeletionTimestamp != nil {
 			if pPersistentVolume.DeletionTimestamp != nil {
 				return ctrl.Result{}, nil
@@ -181,8 +187,10 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 			return ctrl.Result{}, err
 		}
 
-		updatedPv := s.translateUpdate(ctx.Context, vPersistentVolume, pPersistentVolume)
-		if updatedPv != nil {
+		updatedPv, err := s.translateUpdate(ctx.Context, vPersistentVolume, pPersistentVolume)
+		if err != nil {
+			return ctrl.Result{}, err
+		} else if updatedPv != nil {
 			ctx.Log.Infof("update physical persistent volume %s, because spec or annotations have changed", updatedPv.Name)
 			translator.PrintChanges(pPersistentVolume, updatedPv, ctx.Log)
 			err := ctx.PhysicalClient.Update(ctx.Context, updatedPv)

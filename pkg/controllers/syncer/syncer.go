@@ -7,15 +7,11 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/mappings"
-	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/moby/locker"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	controller2 "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -39,14 +35,8 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 		options = optionsProvider.WithOptions()
 	}
 
-	gvk, err := apiutil.GVKForObject(syncer.Resource(), scheme.Scheme)
-	if err != nil {
-		return nil, err
-	}
-
 	return &SyncController{
 		syncer: syncer,
-		gvk:    gvk,
 
 		log:            loghelper.New(syncer.Name()),
 		vEventRecorder: ctx.VirtualManager.GetEventRecorderFor(syncer.Name() + "-syncer"),
@@ -73,7 +63,6 @@ func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer)
 
 type SyncController struct {
 	syncer syncertypes.Syncer
-	gvk    schema.GroupVersionKind
 
 	log            loghelper.Logger
 	vEventRecorder record.EventRecorder
@@ -198,7 +187,7 @@ func (r *SyncController) getObjectsFromPhysical(ctx *synccontext.SyncContext, re
 	}
 
 	// get virtual object
-	exclude, vObj, err = r.getVirtualObject(ctx.Context, mappings.Default.ByGVK(r.gvk).HostToVirtual(ctx.Context, req.NamespacedName, pObj))
+	exclude, vObj, err = r.getVirtualObject(ctx.Context, r.syncer.HostToVirtual(ctx.Context, req.NamespacedName, pObj))
 	if err != nil {
 		return nil, nil, err
 	} else if exclude {
@@ -218,7 +207,7 @@ func (r *SyncController) getObjectsFromVirtual(ctx *synccontext.SyncContext, req
 	}
 
 	// get physical object
-	exclude, pObj, err = r.getPhysicalObject(ctx.Context, mappings.Default.ByGVK(r.gvk).VirtualToHost(ctx.Context, req.NamespacedName, vObj), vObj)
+	exclude, pObj, err = r.getPhysicalObject(ctx.Context, r.syncer.VirtualToHost(ctx.Context, req.NamespacedName, vObj), vObj)
 	if err != nil {
 		return nil, nil, err
 	} else if exclude {
@@ -345,7 +334,7 @@ func (r *SyncController) extractRequest(ctx context.Context, req ctrl.Request) (
 		}
 
 		// try to get virtual name from physical
-		req.NamespacedName = mappings.Default.ByGVK(r.gvk).HostToVirtual(ctx, pReq.NamespacedName, pObj)
+		req.NamespacedName = r.syncer.HostToVirtual(ctx, pReq.NamespacedName, pObj)
 	}
 
 	return req, pReq, nil
@@ -358,7 +347,7 @@ func (r *SyncController) enqueueVirtual(ctx context.Context, obj client.Object, 
 
 	// add a new request for the host object as otherwise this information might be lost after a delete event
 	if isDelete {
-		name := mappings.Default.ByGVK(r.gvk).VirtualToHost(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+		name := r.syncer.VirtualToHost(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if name.Name != "" {
 			q.Add(toHostRequest(reconcile.Request{
 				NamespacedName: name,
@@ -391,7 +380,7 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 
 	// add a new request for the virtual object as otherwise this information might be lost after a delete event
 	if isDelete {
-		name := mappings.Default.ByGVK(r.gvk).HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+		name := r.syncer.HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if name.Name != "" {
 			q.Add(reconcile.Request{
 				NamespacedName: name,

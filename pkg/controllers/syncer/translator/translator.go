@@ -4,6 +4,7 @@ import (
 	"context"
 
 	syncercontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,6 +20,8 @@ type Translator interface {
 
 // ObjectManager is used to convert virtual to physical names and vice versa
 type ObjectManager interface {
+	mappings.Mapper
+
 	// IsManaged determines if a physical object is managed by the vcluster
 	IsManaged(context.Context, client.Object) (bool, error)
 }

@@ -8,19 +8,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 )
 
-func RegisterVolumeSnapshotsMapper(ctx *synccontext.RegisterContext) error {
-	var (
-		mapper mappings.Mapper
-		err    error
-	)
+func CreateVolumeSnapshotsMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
 	if !ctx.Config.Sync.ToHost.VolumeSnapshots.Enabled {
-		mapper, err = generic.NewMirrorPhysicalMapper(&volumesnapshotv1.VolumeSnapshot{})
-	} else {
-		mapper, err = generic.NewNamespacedMapper(ctx, &volumesnapshotv1.VolumeSnapshot{}, translate.Default.PhysicalName)
-	}
-	if err != nil {
-		return err
+		return generic.NewMirrorPhysicalMapper(&volumesnapshotv1.VolumeSnapshot{})
 	}
 
-	return mappings.Default.AddMapper(mapper)
+	return generic.NewNamespacedMapper(ctx, &volumesnapshotv1.VolumeSnapshot{}, translate.Default.PhysicalName)
 }

@@ -94,7 +94,7 @@ func isEnabled(enabled bool, fn BuildController) BuildController {
 	return nil
 }
 
-func Create(ctx *config.ControllerContext) ([]syncertypes.Object, error) {
+func CreateSyncers(ctx *config.ControllerContext) ([]syncertypes.Object, error) {
 	registerContext := util.ToRegisterContext(ctx)
 
 	// register controllers for resource synchronization
@@ -159,6 +159,7 @@ func RegisterIndices(ctx *config.ControllerContext, syncers []syncertypes.Object
 func RegisterControllers(ctx *config.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(ctx)
 
+	// start default endpoint controller
 	err := k8sdefaultendpoint.Register(ctx)
 	if err != nil {
 		return err
@@ -190,6 +191,7 @@ func RegisterControllers(ctx *config.ControllerContext, syncers []syncertypes.Ob
 		return err
 	}
 
+	// register generic sync controllers
 	err = RegisterGenericSyncController(ctx)
 	if err != nil {
 		return err
@@ -204,14 +206,23 @@ func RegisterControllers(ctx *config.ControllerContext, syncers []syncertypes.Ob
 			if err != nil {
 				return errors.Wrapf(err, "start %s syncer", v.Name())
 			}
-		} else {
-			// real syncer?
-			realSyncer, ok := v.(syncertypes.Syncer)
-			if ok {
-				err = syncer.RegisterSyncer(registerContext, realSyncer)
-				if err != nil {
-					return errors.Wrapf(err, "start %s syncer", v.Name())
-				}
+		}
+
+		// real syncer?
+		realSyncer, ok := v.(syncertypes.Syncer)
+		if ok {
+			err = syncer.RegisterSyncer(registerContext, realSyncer)
+			if err != nil {
+				return errors.Wrapf(err, "start %s syncer", v.Name())
+			}
+		}
+
+		// custom syncer?
+		customSyncer, ok := v.(syncertypes.ControllerStarter)
+		if ok {
+			err = customSyncer.Register(registerContext)
+			if err != nil {
+				return errors.Wrapf(err, "start %s syncer", v.Name())
 			}
 		}
 	}

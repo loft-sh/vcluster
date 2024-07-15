@@ -8,11 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func RegisterServiceMapper(ctx *synccontext.RegisterContext) error {
-	mapper, err := generic.NewNamespacedMapper(ctx, &corev1.Service{}, translate.Default.PhysicalName)
-	if err != nil {
-		return err
-	}
-
-	return mappings.Default.AddMapper(mapper)
+func CreateServiceMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
+	return generic.NewNamespacedMapper(ctx, &corev1.Service{}, translate.Default.PhysicalName)
 }

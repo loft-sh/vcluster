@@ -13,29 +13,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RegisterConfigMapsMapper(ctx *synccontext.RegisterContext) error {
-	mapper, err := generic.NewNamespacedMapper(ctx, &corev1.ConfigMap{}, translate.Default.PhysicalName)
+func CreateConfigMapsMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
+	mapper, err := generic.NewNamespacedMapper(ctx, &corev1.ConfigMap{}, translate.Default.PhysicalName, generic.SkipIndex())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return mappings.Default.AddMapper(&configMapsMapper{
-		Mapper: mapper,
-	})
-}
-
-type configMapsMapper struct {
-	mappings.Mapper
-}
-
-func (s *configMapsMapper) Init(ctx *synccontext.RegisterContext) error {
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.ConfigMap{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+	err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.ConfigMap{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 		if !translate.Default.SingleNamespaceTarget() && rawObj.GetName() == "kube-root-ca.crt" {
 			return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)}
 		}
 
 		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &configMapsMapper{
+		Mapper: mapper,
+	}, nil
+}
+
+type configMapsMapper struct {
+	mappings.Mapper
 }
 
 func (s *configMapsMapper) VirtualToHost(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {

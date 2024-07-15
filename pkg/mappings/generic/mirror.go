@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,10 +25,6 @@ func NewMirrorPhysicalMapper(obj client.Object) (mappings.Mapper, error) {
 
 type mirrorPhysicalMapper struct {
 	gvk schema.GroupVersionKind
-}
-
-func (n *mirrorPhysicalMapper) Init(_ *synccontext.RegisterContext) error {
-	return nil
 }
 
 func (n *mirrorPhysicalMapper) GroupVersionKind() schema.GroupVersionKind {

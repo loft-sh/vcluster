@@ -7,11 +7,6 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 )
 
-func RegisterIngressClassesMapper(_ *synccontext.RegisterContext) error {
-	mapper, err := generic.NewMirrorPhysicalMapper(&networkingv1.IngressClass{})
-	if err != nil {
-		return err
-	}
-
-	return mappings.Default.AddMapper(mapper)
+func CreateIngressClassesMapper(_ *synccontext.RegisterContext) (mappings.Mapper, error) {
+	return generic.NewMirrorPhysicalMapper(&networkingv1.IngressClass{})
 }

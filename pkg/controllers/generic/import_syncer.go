@@ -241,6 +241,10 @@ func (s *importer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Objec
 
 var _ syncertypes.Syncer = &importer{}
 
+func (s *importer) GroupVersionKind() schema.GroupVersionKind {
+	return s.gvk
+}
+
 func (s *importer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	// ignore all virtual resources that were not created by this controller
 	if !s.isVirtualManaged(vObj) {

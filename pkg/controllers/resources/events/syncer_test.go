@@ -5,7 +5,6 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -15,10 +14,6 @@ import (
 )
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *eventSyncer) {
-	// we need that index here as well otherwise we wouldn't find the related pod
-	err := resources.RegisterPodsMapper(ctx)
-	assert.NilError(t, err)
-
 	syncContext, object := generictesting.FakeStartSyncer(t, ctx, New)
 	return syncContext, object.(*eventSyncer)
 }

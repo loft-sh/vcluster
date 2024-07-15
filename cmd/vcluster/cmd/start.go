@@ -105,6 +105,12 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		return fmt.Errorf("start integrations: %w", err)
 	}
 
+	// start managers
+	syncers, err := setup.StartManagers(controllerCtx)
+	if err != nil {
+		return fmt.Errorf("start managers: %w", err)
+	}
+
 	// start proxy
 	err = setup.StartProxy(controllerCtx)
 	if err != nil {
@@ -133,7 +139,7 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 
 	// start leader election + controllers
 	err = StartLeaderElection(controllerCtx, func() error {
-		return setup.StartControllers(controllerCtx)
+		return setup.StartControllers(controllerCtx, syncers)
 	})
 	if err != nil {
 		return fmt.Errorf("start controllers: %w", err)

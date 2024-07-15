@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -50,6 +51,8 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 	}
 
 	return &nodeSyncer{
+		Mapper: mappings.Nodes(),
+
 		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 
 		enforceNodeSelector:  true,
@@ -67,6 +70,8 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 }
 
 type nodeSyncer struct {
+	mappings.Mapper
+
 	nodeSelector         labels.Selector
 	physicalClient       client.Client
 	virtualClient        client.Client

@@ -10,16 +10,27 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-func NewClusterMapper(ctx *synccontext.RegisterContext, obj client.Object, nameTranslator translate.PhysicalNameClusterFunc) (mappings.Mapper, error) {
+func NewClusterMapper(ctx *synccontext.RegisterContext, obj client.Object, nameTranslator translate.PhysicalNameClusterFunc, options ...MapperOption) (mappings.Mapper, error) {
 	gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
 	if err != nil {
 		return nil, fmt.Errorf("retrieve GVK for object failed: %w", err)
+	}
+
+	mapperOptions := getOptions(options...)
+	if !mapperOptions.SkipIndex {
+		err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, obj.DeepCopyObject().(client.Object), constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+			return []string{nameTranslator(rawObj.GetName(), rawObj)}
+		})
+		if err != nil {
+			return nil, fmt.Errorf("index field: %w", err)
+		}
 	}
 
 	return &clusterMapper{
@@ -39,12 +50,6 @@ type clusterMapper struct {
 
 func (n *clusterMapper) GroupVersionKind() schema.GroupVersionKind {
 	return n.gvk
-}
-
-func (n *clusterMapper) Init(ctx *synccontext.RegisterContext) error {
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, n.obj.DeepCopyObject().(client.Object), constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{n.nameTranslator(rawObj.GetName(), rawObj)}
-	})
 }
 
 func (n *clusterMapper) VirtualToHost(_ context2.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
@@ -67,6 +72,10 @@ func (n *clusterMapper) HostToVirtual(ctx context2.Context, req types.Namespaced
 	vObj := n.obj.DeepCopyObject().(client.Object)
 	err := clienthelper.GetByIndex(ctx, n.virtualClient, vObj, constants.IndexByPhysicalName, req.Name)
 	if err != nil {
+		if !kerrors.IsNotFound(err) && !kerrors.IsConflict(err) {
+			panic(err.Error())
+		}
+
 		return types.NamespacedName{}
 	}
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
@@ -98,12 +99,18 @@ func createExporterFromConfig(ctx *synccontext.RegisterContext, config *vcluster
 
 	gvk := schema.FromAPIVersionAndKind(config.APIVersion, config.Kind)
 	controllerID := fmt.Sprintf("%s/%s/GenericExport", strings.ToLower(gvk.Kind), strings.ToLower(gvk.Group))
+
+	mapper, err := generic.NewNamespacedMapper(ctx, obj, translate.Default.PhysicalName)
+	if err != nil {
+		return nil, err
+	}
+
 	return &exporter{
 		ObjectPatcher: &exportPatcher{
 			config: config,
 			gvk:    gvk,
 		},
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, controllerID, obj),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, controllerID, obj, mapper),
 
 		patcher:  NewPatcher(ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), hasStatusSubresource, log.New(controllerID)),
 		gvk:      gvk,

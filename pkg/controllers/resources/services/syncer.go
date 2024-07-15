@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 
@@ -26,7 +27,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		// exclude "field.cattle.io/publicEndpoints" annotation used by Rancher,
 		// because if it is also installed in the host cluster, it will be
 		// overriding it, which would cause endless updates back and forth.
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}, "field.cattle.io/publicEndpoints"),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}, mappings.Services(), "field.cattle.io/publicEndpoints"),
 
 		serviceName: ctx.Config.WorkloadService,
 	}, nil

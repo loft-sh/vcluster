@@ -2,32 +2,24 @@ package translator
 
 import (
 	context2 "context"
-	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj client.Object, excludedAnnotations ...string) NamespacedTranslator {
-	gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
-	if err != nil {
-		panic(fmt.Sprintf("Retrieve GVK for object failed: %v", err))
-	}
-
+func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj client.Object, mapper mappings.Mapper, excludedAnnotations ...string) NamespacedTranslator {
 	return &namespacedTranslator{
+		Mapper: mapper,
+
 		name: name,
-		gvk:  gvk,
 
 		syncedLabels:        ctx.Config.Experimental.SyncSettings.SyncLabels,
 		excludedAnnotations: excludedAnnotations,
@@ -40,8 +32,9 @@ func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj clie
 }
 
 type namespacedTranslator struct {
+	mappings.Mapper
+
 	name string
-	gvk  schema.GroupVersionKind
 
 	excludedAnnotations []string
 	syncedLabels        []string
@@ -102,7 +95,12 @@ func (n *namespacedTranslator) IsManaged(_ context2.Context, pObj client.Object)
 }
 
 func (n *namespacedTranslator) TranslateMetadata(ctx context2.Context, vObj client.Object) client.Object {
-	pObj, err := translate.Default.SetupMetadataWithName(vObj, mappings.Default.ByGVK(n.gvk).VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
+	nameNamespace, err := n.Mapper.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj)
+	if err != nil {
+		return nil
+	}
+
+	pObj, err := translate.Default.SetupMetadataWithName(vObj, nameNamespace)
 	if err != nil {
 		return nil
 	}
