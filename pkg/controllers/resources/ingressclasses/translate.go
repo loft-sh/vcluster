@@ -8,11 +8,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (i *ingressClassSyncer) translateBackwards(ctx context.Context, pIngressClass *networkingv1.IngressClass) *networkingv1.IngressClass {
+func (i *ingressClassSyncer) createVirtual(ctx context.Context, pIngressClass *networkingv1.IngressClass) *networkingv1.IngressClass {
 	return i.TranslateMetadata(ctx, pIngressClass).(*networkingv1.IngressClass)
 }
 
-func (i *ingressClassSyncer) translateUpdateBackwards(ctx context.Context, pObj, vObj *networkingv1.IngressClass) *networkingv1.IngressClass {
+func (i *ingressClassSyncer) updateVirtual(ctx context.Context, pObj, vObj *networkingv1.IngressClass) *networkingv1.IngressClass {
 	var updated *networkingv1.IngressClass
 
 	changed, updatedAnnotations, updatedLabels := i.TranslateMetadataUpdate(ctx, vObj, pObj)
