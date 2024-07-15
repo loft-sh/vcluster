@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -49,7 +50,6 @@ import (
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 )
 
 // ExtraControllers that will be started as well
@@ -125,24 +125,20 @@ func Create(ctx *config.ControllerContext) ([]syncertypes.Object, error) {
 func ExecuteInitializers(controllerCtx *config.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := util.ToRegisterContext(controllerCtx)
 
-	// execute in parallel because each one might be time-consuming
-	errorGroup, ctx := errgroup.WithContext(controllerCtx.Context)
-	registerContext.Context = ctx
+	// execute the syncer init functions
 	for _, s := range syncers {
 		name := s.Name()
 		initializer, ok := s.(syncertypes.Initializer)
 		if ok {
-			errorGroup.Go(func() error {
-				err := initializer.Init(registerContext)
-				if err != nil {
-					return errors.Wrapf(err, "ensure prerequisites for %s syncer", name)
-				}
-				return nil
-			})
+			klog.FromContext(controllerCtx.Context).V(1).Info("Execute syncer init", "syncer", name)
+			err := initializer.Init(registerContext)
+			if err != nil {
+				return errors.Wrapf(err, "ensure prerequisites for %s syncer", name)
+			}
 		}
 	}
 
-	return errorGroup.Wait()
+	return nil
 }
 
 func RegisterIndices(ctx *config.ControllerContext, syncers []syncertypes.Object) error {

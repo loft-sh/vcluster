@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/log"
 	"github.com/pkg/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -236,7 +235,7 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 
 		crdDefinition, err := vClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
 		if err != nil {
-			log.NewWithoutName().Infof("Error getting CRD %s in the virtual cluster: %v", crdName, err)
+			klog.FromContext(ctx).Error(err, "Error getting CRD in the virtual cluster", "crd", crdName)
 			return isClusterScoped, hasStatusSubresource, nil
 		}
 
@@ -300,24 +299,28 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 	crdDefinition.Spec.Versions = newVersions
 
 	// apply the crd
-	log.NewWithoutName().Infof("Create crd %s in virtual cluster", groupVersionKind.String())
+	klog.FromContext(ctx).Info("Create crd in virtual cluster", "crd", groupVersionKind.String())
 	_, err = vClient.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crdDefinition, metav1.CreateOptions{})
-	if err != nil {
+	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return isClusterScoped, hasStatusSubresource, errors.Wrap(err, "create crd in virtual cluster")
 	}
 
 	// wait for crd to become ready
-	log.NewWithoutName().Infof("Wait for crd %s to become ready in virtual cluster", groupVersionKind.String())
+	klog.FromContext(ctx).Info("Wait for crd to become ready in virtual cluster", "crd", groupVersionKind.String())
 	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
 		crdDefinition, err := vClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, groupVersionResource.GroupResource().String(), metav1.GetOptions{})
 		if err != nil {
 			return false, errors.Wrap(err, "retrieve crd in virtual cluster")
 		}
+		message := ""
 		for _, cond := range crdDefinition.Status.Conditions {
 			if cond.Type == apiextensionsv1.Established && cond.Status == apiextensionsv1.ConditionTrue {
 				return true, nil
+			} else if cond.Type == apiextensionsv1.Established {
+				message = cond.String()
 			}
 		}
+		klog.FromContext(ctx).Info("CRD is not ready yet", "crd", groupVersionKind.String(), "message", message)
 		return false, nil
 	})
 	if err != nil {
