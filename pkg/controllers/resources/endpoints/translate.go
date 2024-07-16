@@ -3,7 +3,6 @@ package endpoints
 import (
 	"context"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -49,25 +48,19 @@ func (s *endpointsSyncer) translateSpec(endpoints *corev1.Endpoints) {
 	}
 }
 
-func (s *endpointsSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Endpoints) *corev1.Endpoints {
-	var updated *corev1.Endpoints
-
+func (s *endpointsSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Endpoints) {
 	// check subsets
 	translated := vObj.DeepCopy()
 	s.translateSpec(translated)
 	if !equality.Semantic.DeepEqual(translated.Subsets, pObj.Subsets) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Subsets = translated.Subsets
+		pObj.Subsets = translated.Subsets
 	}
 
 	// check annotations & labels
 	_, annotations, labels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	delete(annotations, "control-plane.alpha.kubernetes.io/leader")
 	if !equality.Semantic.DeepEqual(annotations, pObj.Annotations) || !equality.Semantic.DeepEqual(labels, pObj.Labels) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Annotations = annotations
-		updated.Labels = labels
+		pObj.Annotations = annotations
+		pObj.Labels = labels
 	}
-
-	return updated
 }

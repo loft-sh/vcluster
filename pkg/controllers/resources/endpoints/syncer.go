@@ -1,8 +1,11 @@
 package endpoints
 
 import (
+	"fmt"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -29,12 +32,14 @@ func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.O
 }
 
 func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	newEndpoints := s.translateUpdate(ctx.Context, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
-	if newEndpoints != nil {
-		translator.PrintChanges(pObj, newEndpoints, ctx.Log)
+	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 
-	return s.SyncToHostUpdate(ctx, vObj, newEndpoints)
+	s.translateUpdate(ctx.Context, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
+
+	return ctrl.Result{}, patch.Patch(ctx, pObj, vObj)
 }
 
 var _ syncer.Starter = &endpointsSyncer{}
