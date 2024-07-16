@@ -18,7 +18,7 @@ Corefile: |-
           {{- end }}
           {{- end }}
           pods insecure
-          {{- if or (.Values.fallbackHostDns) (and .Values.coredns.integrated .Values.coredns.plugin.enabled) }}
+          {{- if .Values.fallbackHostDns }}
           fallthrough cluster.local in-addr.arpa ip6.arpa
           {{- else }}
           fallthrough in-addr.arpa ip6.arpa
