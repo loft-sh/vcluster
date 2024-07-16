@@ -2,7 +2,6 @@ package util
 
 import (
 	"encoding/json"
-	"maps"
 	"strings"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -84,12 +83,11 @@ func ProcessAlbAnnotations(namespace string, k string, v string) (string, string
 
 func UpdateAnnotations(vObj client.Object) client.Object {
 	// we need to do that otherwise the original object will be modified
-	ingress := *vObj.(*networkingv1.Ingress)
-	ingress.Annotations = maps.Clone(ingress.Annotations)
+	ingress := vObj.(*networkingv1.Ingress).DeepCopy()
 	for k, v := range ingress.Annotations {
 		delete(ingress.Annotations, k)
 		k, v = ProcessAlbAnnotations(vObj.GetNamespace(), k, v)
 		ingress.Annotations[k] = v
 	}
-	return &ingress
+	return ingress
 }
