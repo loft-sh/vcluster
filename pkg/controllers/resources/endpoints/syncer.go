@@ -1,8 +1,11 @@
 package endpoints
 
 import (
+	"fmt"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -28,13 +31,21 @@ func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.O
 	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj))
 }
 
-func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	newEndpoints := s.translateUpdate(ctx.Context, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
-	if newEndpoints != nil {
-		translator.PrintChanges(pObj, newEndpoints, ctx.Log)
+func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
+	defer func() {
+		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+			s.NamespacedTranslator.EventRecorder().Eventf(pObj, "Warning", "SyncError", "Error syncing: %v", err)
+			retErr = err
+		}
+	}()
 
-	return s.SyncToHostUpdate(ctx, vObj, newEndpoints)
+	s.translateUpdate(ctx.Context, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
+
+	return ctrl.Result{}, nil
 }
 
 var _ syncer.Starter = &endpointsSyncer{}
