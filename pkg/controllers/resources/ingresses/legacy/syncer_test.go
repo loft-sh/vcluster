@@ -101,6 +101,7 @@ func TestSync(t *testing.T) {
 			translate.NameAnnotation:      vObjectMeta.Name,
 			translate.NamespaceAnnotation: vObjectMeta.Namespace,
 			translate.UIDAnnotation:       "",
+			translate.KindAnnotation:      networkingv1beta1.SchemeGroupVersion.WithKind("Ingress").String(),
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.VClusterName,
@@ -329,6 +330,7 @@ func TestSync(t *testing.T) {
 								"vcluster.loft.sh/object-name":                                  baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":                             baseIngress.Namespace,
 								translate.UIDAnnotation:                                         "",
+								translate.KindAnnotation:                                        networkingv1beta1.SchemeGroupVersion.WithKind("Ingress").String(),
 								"alb.ingress.kubernetes.io/actions.testservice-x-test-x-suffix": "{\"forwardConfig\":{\"targetGroups\":[{\"serviceName\":\"nginx-service-x-test-x-suffix\",\"servicePort\":\"80\",\"weight\":100}]}}",
 							},
 						},

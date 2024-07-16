@@ -31,6 +31,7 @@ func TestSync(t *testing.T) {
 			translate.NameAnnotation:      vObjectMeta.Name,
 			translate.NamespaceAnnotation: vObjectMeta.Namespace,
 			translate.UIDAnnotation:       "",
+			translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim").String(),
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.VClusterName,
@@ -78,6 +79,7 @@ func TestSync(t *testing.T) {
 				translate.NameAnnotation:               vObjectMeta.Name,
 				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
 				translate.UIDAnnotation:                "",
+				translate.KindAnnotation:               corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim").String(),
 				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
 				"otherAnnotationKey":                   "update this",
 			},
@@ -95,6 +97,7 @@ func TestSync(t *testing.T) {
 				translate.NameAnnotation:               vObjectMeta.Name,
 				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
 				translate.UIDAnnotation:                "",
+				translate.KindAnnotation:               corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim").String(),
 				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
 				bindCompletedAnnotation:                "testannotation",
 				boundByControllerAnnotation:            "testannotation2",

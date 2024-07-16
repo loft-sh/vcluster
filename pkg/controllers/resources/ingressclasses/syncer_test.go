@@ -20,6 +20,7 @@ func TestSync(t *testing.T) {
 		Annotations: map[string]string{
 			translate.NameAnnotation: "test-ingc",
 			translate.UIDAnnotation:  "",
+			translate.KindAnnotation: networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
 		},
 	}
 
@@ -39,6 +40,7 @@ func TestSync(t *testing.T) {
 			Annotations: map[string]string{
 				translate.NameAnnotation: "test-ingc",
 				translate.UIDAnnotation:  "",
+				translate.KindAnnotation: networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
 			},
 		},
 		Spec: networkingv1.IngressClassSpec{
@@ -67,6 +69,7 @@ func TestSync(t *testing.T) {
 			Annotations: map[string]string{
 				translate.NameAnnotation: "test-ingc",
 				translate.UIDAnnotation:  "",
+				translate.KindAnnotation: networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
 			},
 		},
 		Spec: networkingv1.IngressClassSpec{

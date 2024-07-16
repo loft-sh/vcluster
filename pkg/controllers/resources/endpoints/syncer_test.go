@@ -60,6 +60,7 @@ func TestExistingEndpoints(t *testing.T) {
 				translate.NameAnnotation:      vEndpoints.Name,
 				translate.NamespaceAnnotation: vEndpoints.Namespace,
 				translate.UIDAnnotation:       "",
+				translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Service").String(),
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: vEndpoints.Namespace,
@@ -74,6 +75,7 @@ func TestExistingEndpoints(t *testing.T) {
 				translate.NameAnnotation:      vEndpoints.Name,
 				translate.NamespaceAnnotation: vEndpoints.Namespace,
 				translate.UIDAnnotation:       "",
+				translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Endpoints").String(),
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: vEndpoints.Namespace,
@@ -151,6 +153,7 @@ func TestSync(t *testing.T) {
 				translate.NameAnnotation:      baseEndpoints.Name,
 				translate.NamespaceAnnotation: baseEndpoints.Namespace,
 				translate.UIDAnnotation:       "",
+				translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Endpoints").String(),
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: baseEndpoints.Namespace,

@@ -109,6 +109,7 @@ func TestSync(t *testing.T) {
 			translate.NameAnnotation:      vObjectMeta.Name,
 			translate.NamespaceAnnotation: vObjectMeta.Namespace,
 			translate.UIDAnnotation:       "",
+			translate.KindAnnotation:      networkingv1.SchemeGroupVersion.WithKind("Ingress").String(),
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.VClusterName,
@@ -338,6 +339,7 @@ func TestSync(t *testing.T) {
 								"vcluster.loft.sh/object-name":                baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":           baseIngress.Namespace,
 								translate.UIDAnnotation:                       "",
+								translate.KindAnnotation:                      networkingv1.SchemeGroupVersion.WithKind("Ingress").String(),
 							},
 						},
 					},
@@ -412,6 +414,7 @@ func TestSync(t *testing.T) {
 								"vcluster.loft.sh/object-name":                                   baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":                              baseIngress.Namespace,
 								translate.UIDAnnotation:                                          "",
+								translate.KindAnnotation:                                         networkingv1.SchemeGroupVersion.WithKind("Ingress").String(),
 								"alb.ingress.kubernetes.io/actions.testservice-x-test-x-suffix":  `{"forwardConfig":{"targetGroups":[{"serviceName":"nginx-service-x-test-x-suffix","servicePort":"80","weight":100}]}}`,
 								"alb.ingress.kubernetes.io/actions.ssl-redirect-x-test-x-suffix": `{"redirectConfig":{"Port":"443","Protocol":"HTTPS","StatusCode":"HTTP_301"},"type":"redirect","forwardConfig":{}}`,
 							},

@@ -6,12 +6,14 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/util/base36"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 var _ Translator = &singleNamespace{}
@@ -77,8 +79,6 @@ func (s *singleNamespace) IsManaged(obj runtime.Object, physicalName PhysicalNam
 	metaAccessor, err := meta.Accessor(obj)
 	if err != nil {
 		return false
-	} else if metaAccessor.GetLabels() == nil {
-		return false
 	} else if metaAccessor.GetNamespace() != "" && !s.IsTargetedNamespace(metaAccessor.GetNamespace()) {
 		return false
 	}
@@ -86,10 +86,17 @@ func (s *singleNamespace) IsManaged(obj runtime.Object, physicalName PhysicalNam
 	// vcluster has not synced the object IF:
 	// If object-name annotation is not set OR
 	// If object-name annotation is different from actual name
-	if metaAccessor.GetAnnotations() == nil ||
-		metaAccessor.GetAnnotations()[NameAnnotation] == "" ||
+	if metaAccessor.GetAnnotations()[NameAnnotation] == "" ||
 		metaAccessor.GetName() != physicalName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation]) {
 		return false
+	}
+
+	// if kind doesn't match vCluster has probably not synced the object
+	if metaAccessor.GetAnnotations()[KindAnnotation] != "" {
+		gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
+		if err == nil && gvk.String() != metaAccessor.GetAnnotations()[KindAnnotation] {
+			return false
+		}
 	}
 
 	return metaAccessor.GetLabels()[MarkerLabel] == VClusterName
@@ -203,7 +210,7 @@ func (s *singleNamespace) ApplyMetadataUpdate(vObj client.Object, pObj client.Ob
 }
 
 func (s *singleNamespace) ApplyAnnotations(src client.Object, to client.Object, excluded []string) map[string]string {
-	excluded = append(excluded, NameAnnotation, UIDAnnotation, NamespaceAnnotation)
+	excluded = append(excluded, NameAnnotation, UIDAnnotation, KindAnnotation, NamespaceAnnotation)
 	toAnnotations := map[string]string{}
 	if to != nil {
 		toAnnotations = to.GetAnnotations()
@@ -216,6 +223,11 @@ func (s *singleNamespace) ApplyAnnotations(src client.Object, to client.Object, 
 		delete(retMap, NamespaceAnnotation)
 	} else {
 		retMap[NamespaceAnnotation] = src.GetNamespace()
+	}
+
+	gvk, err := apiutil.GVKForObject(src, scheme.Scheme)
+	if err == nil {
+		retMap[KindAnnotation] = gvk.String()
 	}
 
 	return retMap

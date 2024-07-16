@@ -33,6 +33,7 @@ func TestSyncHostStorageClass(t *testing.T) {
 			translate.NameAnnotation:      "test-csistoragecapacity",
 			translate.NamespaceAnnotation: "test",
 			translate.UIDAnnotation:       "",
+			translate.KindAnnotation:      storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity").String(),
 		},
 		Labels: map[string]string{
 			"vcluster.loft.sh/namespace": "test",
@@ -156,6 +157,7 @@ func TestSyncStorageClass(t *testing.T) {
 			translate.NameAnnotation:      "test-csistoragecapacity",
 			translate.NamespaceAnnotation: "test",
 			translate.UIDAnnotation:       "",
+			translate.KindAnnotation:      storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity").String(),
 		},
 		Labels: map[string]string{
 			"vcluster.loft.sh/namespace": "test",

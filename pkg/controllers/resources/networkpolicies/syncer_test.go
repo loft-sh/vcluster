@@ -70,6 +70,7 @@ func TestSync(t *testing.T) {
 			translate.NameAnnotation:      vObjectMeta.Name,
 			translate.NamespaceAnnotation: vObjectMeta.Namespace,
 			translate.UIDAnnotation:       "",
+			translate.KindAnnotation:      networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy").String(),
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.VClusterName,

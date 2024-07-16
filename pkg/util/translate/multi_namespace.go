@@ -7,12 +7,14 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 var _ Translator = &multiNamespace{}
@@ -87,8 +89,13 @@ func (s *multiNamespace) IsManagedCluster(obj runtime.Object) bool {
 	metaAccessor, err := meta.Accessor(obj)
 	if err != nil {
 		return false
-	} else if metaAccessor.GetLabels() == nil {
-		return false
+	}
+
+	if metaAccessor.GetAnnotations()[KindAnnotation] != "" {
+		gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
+		if err == nil && gvk.String() != metaAccessor.GetAnnotations()[KindAnnotation] {
+			return false
+		}
 	}
 
 	return metaAccessor.GetLabels()[MarkerLabel] == SafeConcatName(s.currentNamespace, "x", VClusterName)
@@ -205,7 +212,7 @@ func (s *multiNamespace) ApplyMetadataUpdate(vObj client.Object, pObj client.Obj
 }
 
 func (s *multiNamespace) ApplyAnnotations(src client.Object, to client.Object, excluded []string) map[string]string {
-	excluded = append(excluded, NameAnnotation, NamespaceAnnotation)
+	excluded = append(excluded, NameAnnotation, NamespaceAnnotation, UIDAnnotation, KindAnnotation)
 	toAnnotations := map[string]string{}
 	if to != nil {
 		toAnnotations = to.GetAnnotations()
@@ -219,6 +226,12 @@ func (s *multiNamespace) ApplyAnnotations(src client.Object, to client.Object, e
 	} else {
 		retMap[NamespaceAnnotation] = src.GetNamespace()
 	}
+
+	gvk, err := apiutil.GVKForObject(src, scheme.Scheme)
+	if err == nil {
+		retMap[KindAnnotation] = gvk.String()
+	}
+
 	return retMap
 }
 

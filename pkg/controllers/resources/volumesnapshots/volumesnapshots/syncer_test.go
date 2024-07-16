@@ -61,6 +61,7 @@ func TestSync(t *testing.T) {
 			translate.NameAnnotation:      vObjectMeta.Name,
 			translate.NamespaceAnnotation: vObjectMeta.Namespace,
 			translate.UIDAnnotation:       "",
+			translate.KindAnnotation:      volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshot").String(),
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.VClusterName,

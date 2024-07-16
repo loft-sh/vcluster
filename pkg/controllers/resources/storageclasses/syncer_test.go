@@ -33,6 +33,7 @@ func TestSync(t *testing.T) {
 			Annotations: map[string]string{
 				translate.NameAnnotation: "testsc",
 				translate.UIDAnnotation:  "",
+				translate.KindAnnotation: storagev1.SchemeGroupVersion.WithKind("StorageClass").String(),
 			},
 		},
 		Provisioner: "my-provisioner",
@@ -53,6 +54,7 @@ func TestSync(t *testing.T) {
 			Annotations: map[string]string{
 				translate.NameAnnotation: "testsc",
 				translate.UIDAnnotation:  "",
+				translate.KindAnnotation: storagev1.SchemeGroupVersion.WithKind("StorageClass").String(),
 			},
 		},
 		Provisioner: "my-provisioner",

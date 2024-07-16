@@ -31,6 +31,7 @@ func TestSync(t *testing.T) {
 			translate.NameAnnotation:      vObjectMeta.Name,
 			translate.NamespaceAnnotation: vObjectMeta.Namespace,
 			translate.UIDAnnotation:       "",
+			translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Service").String(),
 		},
 		Labels: map[string]string{
 			translate.NamespaceLabel: vObjectMeta.Namespace,
@@ -86,6 +87,7 @@ func TestSync(t *testing.T) {
 				translate.NameAnnotation:               vObjectMeta.Name,
 				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
 				translate.UIDAnnotation:                "",
+				translate.KindAnnotation:               corev1.SchemeGroupVersion.WithKind("Service").String(),
 				translate.ManagedAnnotationsAnnotation: "a",
 				"a":                                    "b",
 			},
