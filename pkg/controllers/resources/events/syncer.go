@@ -2,18 +2,19 @@ package events
 
 import (
 	"context"
-	"strings"
+	"errors"
+	"fmt"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -53,35 +54,27 @@ func (s *eventSyncer) SyncToHost(_ *synccontext.SyncContext, _ client.Object) (c
 	panic("unimplemented")
 }
 
-func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	// convert current events
 	pEvent := pObj.(*corev1.Event)
 	vEvent := vObj.(*corev1.Event)
 
+	patch, err := patcher.NewSyncerPatcher(ctx, pEvent, vEvent)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+
+	defer func() {
+		if err := patch.Patch(ctx, pEvent, vEvent); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
 	// update event
-	vOldEvent := vEvent.DeepCopy()
-	vEvent, err := s.buildVirtualEvent(ctx, pEvent)
+	err = s.translateEvent(ctx.Context, pEvent, vEvent)
 	if err != nil {
 		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
 	}
-
-	// reset metadata
-	vEvent.TypeMeta = vOldEvent.TypeMeta
-	vEvent.ObjectMeta = vOldEvent.ObjectMeta
-
-	// update existing event only if changed
-	if equality.Semantic.DeepEqual(vEvent, vOldEvent) {
-		return ctrl.Result{}, nil
-	}
-
-	// check if updated
-	ctx.Log.Infof("update virtual event %s/%s", vEvent.Namespace, vEvent.Name)
-	translator.PrintChanges(vOldEvent, vEvent, ctx.Log)
-	err = ctx.VirtualClient.Update(ctx, vEvent)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -89,7 +82,9 @@ var _ syncer.ToVirtualSyncer = &eventSyncer{}
 
 func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	// build the virtual event
-	vObj, err := s.buildVirtualEvent(ctx, pObj.(*corev1.Event))
+	vObj := pObj.DeepCopyObject().(*corev1.Event)
+	translate.ResetObjectMetadata(vObj)
+	err := s.translateEvent(ctx.Context, pObj.(*corev1.Event), vObj)
 	if err != nil {
 		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
 	}
@@ -118,29 +113,18 @@ func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Ob
 	return ctrl.Result{}, nil
 }
 
-func (s *eventSyncer) buildVirtualEvent(ctx context.Context, pEvent *corev1.Event) (*corev1.Event, error) {
-	// retrieve involved object
-	involvedObject, err := resources.GetInvolvedObject(ctx, s.virtualClient, pEvent)
-	if err != nil {
-		return nil, err
+var (
+	ErrNilPhysicalObject = errors.New("events: nil pObject")
+	ErrKindNotAccepted   = errors.New("events: kind not accpted")
+	ErrNotFound          = errors.New("events: not found")
+)
+
+func IgnoreAcceptableErrors(err error) error {
+	if errors.Is(err, ErrNilPhysicalObject) ||
+		errors.Is(err, ErrKindNotAccepted) ||
+		errors.Is(err, ErrNotFound) {
+		return nil
 	}
 
-	// copy physical object
-	vObj := pEvent.DeepCopy()
-	translate.ResetObjectMetadata(vObj)
-
-	// set the correct involved object meta
-	vObj.Namespace = involvedObject.GetNamespace()
-	vObj.InvolvedObject.Namespace = involvedObject.GetNamespace()
-	vObj.InvolvedObject.Name = involvedObject.GetName()
-	vObj.InvolvedObject.UID = involvedObject.GetUID()
-	vObj.InvolvedObject.ResourceVersion = involvedObject.GetResourceVersion()
-
-	// rewrite name
-	vObj.Name = resources.HostEventNameToVirtual(vObj.Name, pEvent.InvolvedObject.Name, vObj.InvolvedObject.Name)
-
-	// we replace namespace/name & name in messages so that it seems correct
-	vObj.Message = strings.ReplaceAll(vObj.Message, pEvent.InvolvedObject.Namespace+"/"+pEvent.InvolvedObject.Name, vObj.InvolvedObject.Namespace+"/"+vObj.InvolvedObject.Name)
-	vObj.Message = strings.ReplaceAll(vObj.Message, pEvent.InvolvedObject.Name, vObj.InvolvedObject.Name)
-	return vObj, nil
+	return err
 }
