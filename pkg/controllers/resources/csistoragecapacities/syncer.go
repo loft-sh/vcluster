@@ -5,10 +5,11 @@ import (
 	"fmt"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -49,21 +50,31 @@ func (s *csistoragecapacitySyncer) SyncToVirtual(ctx *synccontext.SyncContext, p
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
 }
 
-func (s *csistoragecapacitySyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *csistoragecapacitySyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	shouldSkip := false
+
+	defer func() {
+		if shouldSkip {
+			// the virtual object was deleted so we don't patch
+			return
+		}
+		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
 	// check if there is a change
-	updated, shouldSkip, err := s.translateUpdateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity), vObj.(*storagev1.CSIStorageCapacity))
+	shouldSkip, err = s.translateUpdateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity), vObj.(*storagev1.CSIStorageCapacity))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if shouldSkip {
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
-	}
-
-	if updated != nil {
-		ctx.Log.Infof("update CSIStorageCapacity %s", vObj.GetName())
-		translator.PrintChanges(pObj, updated, ctx.Log)
-		return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, updated)
 	}
 
 	return ctrl.Result{}, nil

@@ -5,7 +5,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -71,46 +70,38 @@ func (s *csistoragecapacitySyncer) translateBackwards(ctx *synccontext.SyncConte
 	return vObj, false, nil
 }
 
-func (s *csistoragecapacitySyncer) translateUpdateBackwards(ctx *synccontext.SyncContext, pObj, vObj *storagev1.CSIStorageCapacity) (*storagev1.CSIStorageCapacity, bool, error) {
-	var updated *storagev1.CSIStorageCapacity
-	var err error
-
+func (s *csistoragecapacitySyncer) translateUpdateBackwards(ctx *synccontext.SyncContext, pObj, vObj *storagev1.CSIStorageCapacity) (bool, error) {
 	scName, shouldSkip, err := s.fetchVirtualStorageClass(ctx, pObj.StorageClassName)
 	if shouldSkip || err != nil {
-		return nil, shouldSkip, err
+		return shouldSkip, err
 	}
 
 	shouldSkip, err = s.hasMatchingVirtualNodes(ctx, pObj.NodeTopology)
 	if shouldSkip || err != nil {
-		return nil, shouldSkip, err
+		return shouldSkip, err
 	}
 
 	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
 	if changed {
-		updated = translator.NewIfNil(updated, vObj)
-		updated.Labels = updatedLabels
-		updated.Annotations = updatedAnnotations
+		vObj.Labels = updatedLabels
+		vObj.Annotations = updatedAnnotations
 	}
 
 	if scName != vObj.StorageClassName {
-		updated = translator.NewIfNil(updated, vObj)
-		updated.StorageClassName = scName
+		vObj.StorageClassName = scName
 	}
 
 	if !equality.Semantic.DeepEqual(vObj.NodeTopology, pObj.NodeTopology) {
-		updated = translator.NewIfNil(updated, vObj)
-		updated.NodeTopology = pObj.NodeTopology
+		vObj.NodeTopology = pObj.NodeTopology
 	}
 
 	if !equality.Semantic.DeepEqual(vObj.Capacity, pObj.Capacity) {
-		updated = translator.NewIfNil(updated, vObj)
-		updated.Capacity = pObj.Capacity
+		vObj.Capacity = pObj.Capacity
 	}
 
 	if !equality.Semantic.DeepEqual(vObj.MaximumVolumeSize, pObj.MaximumVolumeSize) {
-		updated = translator.NewIfNil(updated, vObj)
-		updated.MaximumVolumeSize = pObj.MaximumVolumeSize
+		vObj.MaximumVolumeSize = pObj.MaximumVolumeSize
 	}
 
-	return updated, false, nil
+	return false, nil
 }
