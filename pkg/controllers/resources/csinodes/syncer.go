@@ -49,7 +49,7 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	// look up matching node name, delete csinode if not found
 	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("error while creating patcher %w", err)
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
 		if err := patch.Patch(ctx, pObj, vObj); err != nil {
