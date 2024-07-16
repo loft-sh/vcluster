@@ -1,10 +1,14 @@
 package csidrivers
 
 import (
+	"fmt"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	storagev1 "k8s.io/api/storage/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -28,14 +32,18 @@ func (s *csidriverSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj clien
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
 }
 
-func (s *csidriverSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	// check if there is a change
-	updated := s.translateUpdateBackwards(ctx.Context, pObj.(*storagev1.CSIDriver), vObj.(*storagev1.CSIDriver))
-	if updated != nil {
-		ctx.Log.Infof("update CSIDriver %s", vObj.GetName())
-		translator.PrintChanges(pObj, updated, ctx.Log)
-		return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, updated)
+func (s *csidriverSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error while creating the patcher %w", err)
 	}
+	defer func() {
+		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+	// check if there is a change
+	s.translateUpdateBackwards(ctx.Context, pObj.(*storagev1.CSIDriver), vObj.(*storagev1.CSIDriver))
 
 	return ctrl.Result{}, nil
 }
