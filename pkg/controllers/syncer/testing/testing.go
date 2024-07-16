@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"gotest.tools/assert"
-
 	"github.com/ghodss/yaml"
+	"github.com/loft-sh/vcluster/pkg/config"
+	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
+	"gotest.tools/assert"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,7 +25,7 @@ const (
 
 type Compare func(obj1 runtime.Object, obj2 runtime.Object) bool
 
-type NewContextFunc func(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext
+type NewContextFunc func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext
 
 type SyncTest struct {
 	ExpectedPhysicalState map[schema.GroupVersionKind][]runtime.Object
@@ -33,6 +35,7 @@ type SyncTest struct {
 	Name                  string
 	InitialPhysicalState  []runtime.Object
 	InitialVirtualState   []runtime.Object
+	AdjustConfig          func(vConfig *config.VirtualClusterConfig)
 	Focus                 bool
 }
 
@@ -41,14 +44,14 @@ func RunTests(t *testing.T, tests []*SyncTest) {
 	hasFocus := false
 	for _, test := range tests {
 		if test.Focus {
-			test.Run(t, NewFakeRegisterContext)
+			test.Run(t, test, NewFakeRegisterContext)
 			hasFocus = true
 		}
 	}
 
 	if !hasFocus {
 		for _, test := range tests {
-			test.Run(t, NewFakeRegisterContext)
+			test.Run(t, test, NewFakeRegisterContext)
 		}
 	} else {
 		// Fail test set so that we do not accidentally use focused tests in
@@ -59,23 +62,26 @@ func RunTests(t *testing.T, tests []*SyncTest) {
 
 func RunTestsWithContext(t *testing.T, createContext NewContextFunc, tests []*SyncTest) {
 	for _, test := range tests {
-		test.Run(t, createContext)
+		test.Run(t, test, createContext)
 	}
 }
 
-func (s *SyncTest) Run(t *testing.T, createContext NewContextFunc) {
-	scheme := testingutil.NewScheme()
+func (s *SyncTest) Run(t *testing.T, test *SyncTest, createContext NewContextFunc) {
 	ctx := context.Background()
-	pClient := testingutil.NewFakeClient(scheme, s.InitialPhysicalState...)
-	vClient := testingutil.NewFakeClient(scheme, s.InitialVirtualState...)
+	pClient := testingutil.NewFakeClient(scheme.Scheme, s.InitialPhysicalState...)
+	vClient := testingutil.NewFakeClient(scheme.Scheme, s.InitialVirtualState...)
+	vConfig := NewFakeConfig()
+	if test.AdjustConfig != nil {
+		test.AdjustConfig(vConfig)
+	}
 
 	// do the sync
-	s.Sync(createContext(pClient, vClient))
+	s.Sync(createContext(vConfig, pClient, vClient))
 
 	// Compare states
 	if s.ExpectedPhysicalState != nil {
 		for gvk, objs := range s.ExpectedPhysicalState {
-			err := CompareObjs(ctx, t, s.Name+" physical state", pClient, gvk, scheme, objs, s.Compare)
+			err := CompareObjs(ctx, t, s.Name+" physical state", pClient, gvk, scheme.Scheme, objs, s.Compare)
 			if err != nil {
 				t.Fatalf("%s - Physical State mismatch: %v", s.Name, err)
 			}
@@ -83,7 +89,7 @@ func (s *SyncTest) Run(t *testing.T, createContext NewContextFunc) {
 	}
 	if s.ExpectedVirtualState != nil {
 		for gvk, objs := range s.ExpectedVirtualState {
-			err := CompareObjs(ctx, t, s.Name+" virtual state", vClient, gvk, scheme, objs, s.Compare)
+			err := CompareObjs(ctx, t, s.Name+" virtual state", vClient, gvk, scheme.Scheme, objs, s.Compare)
 			if err != nil {
 				t.Fatalf("%s - Virtual State mismatch: %v", s.Name, err)
 			}
@@ -95,17 +101,27 @@ func CompareObjs(ctx context.Context, t *testing.T, state string, c client.Clien
 	listGvk := gvk.GroupVersion().WithKind(gvk.Kind + "List")
 	list, err := scheme.New(listGvk)
 	if err != nil {
-		return err
+		if !runtime.IsNotRegisteredError(err) {
+			return err
+		}
+
+		list = &unstructured.UnstructuredList{}
+	}
+
+	uList, ok := list.(*unstructured.UnstructuredList)
+	if ok {
+		uList.SetKind(listGvk.Kind)
+		uList.SetAPIVersion(listGvk.GroupVersion().String())
 	}
 
 	err = c.List(ctx, list.(client.ObjectList))
 	if err != nil {
-		return err
+		return fmt.Errorf("list objects: %w", err)
 	}
 
 	existingObjs, err := meta.ExtractList(list)
 	if err != nil {
-		return err
+		return fmt.Errorf("extract list: %w", err)
 	}
 
 	if len(objs) != len(existingObjs) {
@@ -132,6 +148,12 @@ func CompareObjs(ctx context.Context, t *testing.T, state string, c client.Clien
 
 		found := false
 		for _, existingObjRaw := range existingObjs {
+			clientObj, ok := existingObjRaw.(*unstructured.Unstructured)
+			if ok {
+				clientObj.SetKind(gvk.Kind)
+				clientObj.SetAPIVersion(gvk.GroupVersion().String())
+			}
+
 			existingAccessor, err := meta.Accessor(existingObjRaw)
 			if err != nil {
 				return err
@@ -206,12 +228,16 @@ func stripObject(obj runtime.Object) runtime.Object {
 		accessor.SetLabels(nil)
 	}
 
-	typeAccessor, err := meta.TypeAccessor(newObj)
-	if err != nil {
-		panic(err)
+	_, ok := newObj.(*unstructured.Unstructured)
+	if !ok {
+		typeAccessor, err := meta.TypeAccessor(newObj)
+		if err != nil {
+			panic(err)
+		}
+
+		typeAccessor.SetAPIVersion("")
+		typeAccessor.SetKind("")
 	}
 
-	typeAccessor.SetAPIVersion("")
-	typeAccessor.SetKind("")
 	return newObj
 }

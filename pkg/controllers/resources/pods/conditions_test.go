@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
@@ -230,10 +231,9 @@ func TestUpdateConditions(t *testing.T) {
 
 	for _, testCase := range testCases {
 		fmt.Println(testCase.name)
-		scheme := testingutil.NewScheme()
 		ctx := context.Background()
-		pClient := testingutil.NewFakeClient(scheme, testCase.pPod.DeepCopy())
-		vClient := testingutil.NewFakeClient(scheme, testCase.vPod.DeepCopy())
+		pClient := testingutil.NewFakeClient(scheme.Scheme, testCase.pPod.DeepCopy())
+		vClient := testingutil.NewFakeClient(scheme.Scheme, testCase.vPod.DeepCopy())
 
 		updated, err := UpdateConditions(&synccontext.SyncContext{
 			Context:        ctx,

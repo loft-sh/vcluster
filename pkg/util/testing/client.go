@@ -6,30 +6,14 @@ import (
 	"strings"
 	"sync"
 
-	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
-
-// NewScheme creates a new scheme
-func NewScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
-	err := clientgoscheme.AddToScheme(scheme)
-	if err != nil {
-		panic(err)
-	}
-
-	err = volumesnapshotv1.AddToScheme(scheme)
-	if err != nil {
-		panic(err)
-	}
-	return scheme
-}
 
 // NewFakeClient creates a new fake client for the standard schema
 func NewFakeClient(scheme *runtime.Scheme, objs ...runtime.Object) *FakeIndexClient {
@@ -79,7 +63,17 @@ func (fc *FakeIndexClient) updateIndices(ctx context.Context, obj runtime.Object
 
 	list, err := fc.scheme.New(listGvk)
 	if err != nil {
-		return err
+		if !runtime.IsNotRegisteredError(err) {
+			return err
+		}
+
+		list = &unstructured.UnstructuredList{}
+	}
+
+	uList, ok := list.(*unstructured.UnstructuredList)
+	if ok {
+		uList.SetKind(listGvk.Kind)
+		uList.SetAPIVersion(listGvk.GroupVersion().String())
 	}
 
 	err = fc.Client.List(ctx, list.(client.ObjectList))
@@ -94,6 +88,12 @@ func (fc *FakeIndexClient) updateIndices(ctx context.Context, obj runtime.Object
 	}
 
 	for _, obj := range objs {
+		clientObj, ok := obj.(*unstructured.Unstructured)
+		if ok {
+			clientObj.SetKind(gvk.Kind)
+			clientObj.SetAPIVersion(gvk.GroupVersion().String())
+		}
+
 		for key, fn := range fc.indexFuncs[gvk] {
 			values := fn(obj.(client.Object))
 			for _, value := range values {
@@ -204,7 +204,7 @@ func (fc *FakeIndexClient) List(ctx context.Context, list client.ObjectList, opt
 
 	gvk, err := apiutil.GVKForObject(list, fc.scheme)
 	if err != nil {
-		return err
+		return fmt.Errorf("retrieve gvk for input list: %w", err)
 	}
 
 	if !strings.HasSuffix(gvk.Kind, "List") {

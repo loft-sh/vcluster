@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
@@ -133,8 +134,8 @@ func TestSync(t *testing.T) {
 		Status:     backwardUpdateStatusPvc.Status,
 	}
 
-	generictesting.RunTestsWithContext(t, func(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
-		ctx := generictesting.NewFakeRegisterContext(pClient, vClient)
+	generictesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		ctx := generictesting.NewFakeRegisterContext(vConfig, pClient, vClient)
 		ctx.Config.Sync.ToHost.StorageClasses.Enabled = false
 		return ctx
 	}, []*generictesting.SyncTest{

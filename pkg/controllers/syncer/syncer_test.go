@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/moby/locker"
@@ -265,12 +266,11 @@ func TestReconcile(t *testing.T) {
 
 		// setup mocks
 		options := &syncertypes.Options{}
-		scheme := testingutil.NewScheme()
 		ctx := context.Background()
-		pClient := testingutil.NewFakeClient(scheme, tc.InitialPhysicalState...)
-		vClient := testingutil.NewFakeClient(scheme, tc.InitialVirtualState...)
+		pClient := testingutil.NewFakeClient(scheme.Scheme, tc.InitialPhysicalState...)
+		vClient := testingutil.NewFakeClient(scheme.Scheme, tc.InitialVirtualState...)
 
-		fakeContext := generictesting.NewFakeRegisterContext(pClient, vClient)
+		fakeContext := generictesting.NewFakeRegisterContext(generictesting.NewFakeConfig(), pClient, vClient)
 
 		syncerImpl, err := tc.Syncer(fakeContext)
 		assert.NilError(t, err)
@@ -305,7 +305,7 @@ func TestReconcile(t *testing.T) {
 		// Compare states
 		if tc.ExpectedPhysicalState != nil {
 			for gvk, objs := range tc.ExpectedPhysicalState {
-				err := generictesting.CompareObjs(ctx, t, tc.Name+" physical state", fakeContext.PhysicalManager.GetClient(), gvk, scheme, objs, tc.Compare)
+				err := generictesting.CompareObjs(ctx, t, tc.Name+" physical state", fakeContext.PhysicalManager.GetClient(), gvk, scheme.Scheme, objs, tc.Compare)
 				if err != nil {
 					t.Fatalf("%s - Physical State mismatch: %v", tc.Name, err)
 				}
@@ -313,7 +313,7 @@ func TestReconcile(t *testing.T) {
 		}
 		if tc.ExpectedVirtualState != nil {
 			for gvk, objs := range tc.ExpectedVirtualState {
-				err := generictesting.CompareObjs(ctx, t, tc.Name+" virtual state", fakeContext.VirtualManager.GetClient(), gvk, scheme, objs, tc.Compare)
+				err := generictesting.CompareObjs(ctx, t, tc.Name+" virtual state", fakeContext.VirtualManager.GetClient(), gvk, scheme.Scheme, objs, tc.Compare)
 				if err != nil {
 					t.Fatalf("%s - Virtual State mismatch: %v", tc.Name, err)
 				}

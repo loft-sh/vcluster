@@ -454,7 +454,7 @@ func TestSync(t *testing.T) {
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Pod"): {
-					pPodWithNodeSelector,
+					pPodWithNodeSelector.DeepCopy(),
 				},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
