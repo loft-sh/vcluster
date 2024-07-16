@@ -31,15 +31,18 @@ func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.O
 	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj))
 }
 
-func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
+	defer func() {
+		retErr = patch.Patch(ctx, pObj, vObj)
+	}()
 
 	s.translateUpdate(ctx.Context, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
 
-	return ctrl.Result{}, patch.Patch(ctx, pObj, vObj)
+	return ctrl.Result{}, nil
 }
 
 var _ syncer.Starter = &endpointsSyncer{}
