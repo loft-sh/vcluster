@@ -51,7 +51,11 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
+	shouldPatch := true
 	defer func() {
+		if !shouldPatch {
+			return
+		}
 		if err := patch.Patch(ctx, pObj, vObj); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
@@ -61,6 +65,7 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	err = s.virtualClient.Get(ctx.Context, types.NamespacedName{Name: pObj.GetName()}, node)
 	if kerrors.IsNotFound(err) {
 		ctx.Log.Infof("delete virtual CSINode %s, because corresponding node object is missing", vObj.GetName())
+		shouldPatch = false
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
 	} else if err != nil {
 		return ctrl.Result{}, err
