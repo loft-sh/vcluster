@@ -156,6 +156,7 @@ func TestReconcile(t *testing.T) {
 								translate.NameAnnotation:      "a",
 								translate.NamespaceAnnotation: namespaceInVclusterA,
 								translate.UIDAnnotation:       "123",
+								translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Secret").String(),
 							},
 							Labels: map[string]string{
 								translate.NamespaceLabel: namespaceInVclusterA,

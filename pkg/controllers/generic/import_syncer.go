@@ -8,8 +8,10 @@ import (
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -467,6 +469,7 @@ func (s *importer) updateVirtualAnnotations(a map[string]string) map[string]stri
 	delete(a, translate.NameAnnotation)
 	delete(a, translate.NamespaceAnnotation)
 	delete(a, translate.UIDAnnotation)
+	delete(a, translate.KindAnnotation)
 	delete(a, corev1.LastAppliedConfigAnnotation)
 	return a
 }
@@ -485,6 +488,10 @@ func (s *importer) addAnnotationsToPhysicalObject(ctx *synccontext.SyncContext, 
 	annotations[translate.NameAnnotation] = vObj.GetName()
 	annotations[translate.NamespaceAnnotation] = vObj.GetNamespace()
 	annotations[translate.UIDAnnotation] = string(vObj.GetUID())
+	gvk, err := apiutil.GVKForObject(vObj, scheme.Scheme)
+	if err == nil {
+		annotations[translate.KindAnnotation] = gvk.String()
+	}
 	annotations[translate.ControllerLabel] = s.Name()
 	pObj.SetAnnotations(annotations)
 

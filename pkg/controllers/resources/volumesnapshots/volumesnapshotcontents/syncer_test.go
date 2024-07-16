@@ -77,6 +77,7 @@ func TestSync(t *testing.T) {
 		Annotations: map[string]string{
 			translate.NameAnnotation: vObjectMeta.Name,
 			translate.UIDAnnotation:  "",
+			translate.KindAnnotation: volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent").String(),
 		},
 	}
 	pPreProvisioned := &volumesnapshotv1.VolumeSnapshotContent{

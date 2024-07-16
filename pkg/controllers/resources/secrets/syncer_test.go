@@ -49,6 +49,7 @@ func TestSync(t *testing.T) {
 				translate.NameAnnotation:      baseSecret.Name,
 				translate.NamespaceAnnotation: baseSecret.Namespace,
 				translate.UIDAnnotation:       "",
+				translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Secret").String(),
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: baseSecret.Namespace,

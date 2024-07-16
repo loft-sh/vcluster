@@ -35,6 +35,7 @@ func TestSync(t *testing.T) {
 				translate.NameAnnotation:      baseConfigMap.Name,
 				translate.NamespaceAnnotation: baseConfigMap.Namespace,
 				translate.UIDAnnotation:       "",
+				translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("ConfigMap").String(),
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: baseConfigMap.Namespace,

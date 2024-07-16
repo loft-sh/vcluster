@@ -11,6 +11,7 @@ var (
 	NamespaceAnnotation = "vcluster.loft.sh/object-namespace"
 	NameAnnotation      = "vcluster.loft.sh/object-name"
 	UIDAnnotation       = "vcluster.loft.sh/object-uid"
+	KindAnnotation      = "vcluster.loft.sh/object-kind"
 )
 
 var Default Translator = &singleNamespace{}
