@@ -1,6 +1,8 @@
 package csinodes
 
 import (
+	"fmt"
+
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -46,6 +48,9 @@ func (s *csinodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.
 func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	// look up matching node name, delete csinode if not found
 	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error while creating patcher %w", err)
+	}
 	defer func() {
 		if err := patch.Patch(ctx, pObj, vObj); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
