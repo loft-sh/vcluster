@@ -142,3 +142,36 @@
 {{- end }}
 {{- end }}
 {{- end -}}
+
+{{/*
+  Whether to create a role and role binding to access the platform API key secret
+*/}}
+{{- define "vcluster.rbac.createPlatformSecretRole" -}}
+{{- $createRBAC := dig "platform" "apiKey" "createRBAC" true .Values.external -}}
+{{- if and $createRBAC (ne (include "vcluster.rbac.platformSecretNamespace" .) .Release.Namespace) }}
+{{- true -}}
+{{- end }}
+{{- end -}}
+
+{{/*
+  Namespace containing the vCluster platform secret
+*/}}
+{{- define "vcluster.rbac.platformSecretNamespace" -}}
+{{- dig "platform" "apiKey" "namespace" .Release.Namespace .Values.external | default .Release.Namespace -}}
+{{- end -}}
+
+{{/*
+  Name specifies the secret name containing the vCluster platform licenses and tokens
+*/}}
+{{- define "vcluster.rbac.platformSecretName" -}}
+{{- dig "platform" "apiKey" "secretName" "vcluster-platform-api-key" .Values.external | quote -}}
+{{- end -}}
+
+{{- define "vcluster.rbac.platformRoleName" -}}
+{{- printf "vc-%s-v-%s-platform-role" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+
+{{- define "vcluster.rbac.platformRoleBindingName" -}}
+{{- printf "vc-%s-v-%s-platform-role-binding" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
