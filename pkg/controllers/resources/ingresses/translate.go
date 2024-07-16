@@ -2,13 +2,20 @@ package ingresses
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/util"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	AlbConditionAnnotation = "alb.ingress.kubernetes.io/conditions"
+	AlbActionsAnnotation   = "alb.ingress.kubernetes.io/actions"
+	ConditionSuffix        = "/conditions."
+	ActionsSuffix          = "/actions."
 )
 
 func (s *ingressSyncer) translate(ctx context.Context, vIngress *networkingv1.Ingress) *networkingv1.Ingress {
@@ -19,42 +26,27 @@ func (s *ingressSyncer) translate(ctx context.Context, vIngress *networkingv1.In
 }
 
 func (s *ingressSyncer) TranslateMetadata(ctx context.Context, vObj client.Object) client.Object {
-	return s.NamespacedTranslator.TranslateMetadata(ctx, util.UpdateAnnotations(vObj))
+	ingress := vObj.(*networkingv1.Ingress).DeepCopy()
+	updateAnnotations(ingress)
+
+	return s.NamespacedTranslator.TranslateMetadata(ctx, ingress)
 }
 
 func (s *ingressSyncer) TranslateMetadataUpdate(ctx context.Context, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
-	return s.NamespacedTranslator.TranslateMetadataUpdate(ctx, util.UpdateAnnotations(vObj), pObj)
+	vIngress := vObj.(*networkingv1.Ingress).DeepCopy()
+	updateAnnotations(vIngress)
+
+	return s.NamespacedTranslator.TranslateMetadataUpdate(ctx, vIngress, pObj)
 }
 
-func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) *networkingv1.Ingress {
-	var updated *networkingv1.Ingress
-
-	translatedSpec := *translateSpec(vObj.Namespace, &vObj.Spec)
-	if !equality.Semantic.DeepEqual(translatedSpec, pObj.Spec) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec = translatedSpec
-	}
+func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) {
+	pObj.Spec = *translateSpec(vObj.Namespace, &vObj.Spec)
 
 	_, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	translatedAnnotations, _ = translateIngressAnnotations(translatedAnnotations, vObj.Namespace)
-	if !equality.Semantic.DeepEqual(translatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(translatedLabels, pObj.GetLabels()) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Annotations = translatedAnnotations
-		updated.Labels = translatedLabels
-	}
 
-	return updated
-}
-
-func (s *ingressSyncer) translateUpdateBackwards(pObj, vObj *networkingv1.Ingress) *networkingv1.Ingress {
-	var updated *networkingv1.Ingress
-
-	if vObj.Spec.IngressClassName == nil && pObj.Spec.IngressClassName != nil {
-		updated = translator.NewIfNil(updated, vObj)
-		updated.Spec.IngressClassName = pObj.Spec.IngressClassName
-	}
-
-	return updated
+	pObj.Annotations = translatedAnnotations
+	pObj.Labels = translatedLabels
 }
 
 func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *networkingv1.IngressSpec {
@@ -88,4 +80,75 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *ne
 	}
 
 	return retSpec
+}
+
+func getActionOrConditionValue(annotation, actionOrCondition string) string {
+	i := strings.Index(annotation, actionOrCondition)
+	if i > -1 {
+		return annotation[i+len(actionOrCondition):]
+	}
+	return ""
+}
+
+// ref https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/pkg/ingress/config_types.go
+type actionPayload struct {
+	TargetGroupARN      *string                `json:"targetGroupARN,omitempty"`
+	FixedResponseConfig map[string]interface{} `json:"fixedResponseConfig,omitempty"`
+	RedirectConfig      map[string]interface{} `json:"redirectConfig,omitempty"`
+	Type                string                 `json:"type,omitempty"`
+	ForwardConfig       struct {
+		TargetGroupStickinessConfig map[string]interface{}   `json:"targetGroupStickinessConfig,omitempty"`
+		TargetGroups                []map[string]interface{} `json:"targetGroups,omitempty"`
+	} `json:"forwardConfig,omitempty"`
+}
+
+func processAlbAnnotations(namespace string, k string, v string) (string, string) {
+	if strings.HasPrefix(k, AlbActionsAnnotation) {
+		// change k
+		action := getActionOrConditionValue(k, ActionsSuffix)
+		if !strings.Contains(k, "x-"+namespace+"-x") {
+			k = strings.Replace(k, action, translate.Default.PhysicalName(action, namespace), 1)
+		}
+		// change v
+		var payload *actionPayload
+		err := json.Unmarshal([]byte(v), &payload)
+		if err != nil {
+			klog.Errorf("Could not unmarshal payload: %v", err)
+		} else if payload != nil {
+			for _, targetGroup := range payload.ForwardConfig.TargetGroups {
+				if targetGroup["serviceName"] != nil {
+					switch svcName := targetGroup["serviceName"].(type) {
+					case string:
+						if svcName != "" {
+							if !strings.Contains(svcName, "x-"+namespace+"-x") {
+								targetGroup["serviceName"] = translate.Default.PhysicalName(svcName, namespace)
+							} else {
+								targetGroup["serviceName"] = svcName
+							}
+						}
+					}
+				}
+			}
+			marshalledPayload, err := json.Marshal(payload)
+			if err != nil {
+				klog.Errorf("Could not marshal payload: %v", err)
+			}
+			v = string(marshalledPayload)
+		}
+	}
+	if strings.HasPrefix(k, AlbConditionAnnotation) {
+		condition := getActionOrConditionValue(k, ConditionSuffix)
+		if !strings.Contains(k, "x-"+namespace+"-x") {
+			k = strings.Replace(k, condition, translate.Default.PhysicalName(condition, namespace), 1)
+		}
+	}
+	return k, v
+}
+
+func updateAnnotations(ingress *networkingv1.Ingress) {
+	for k, v := range ingress.Annotations {
+		delete(ingress.Annotations, k)
+		k, v = processAlbAnnotations(ingress.Namespace, k, v)
+		ingress.Annotations[k] = v
+	}
 }

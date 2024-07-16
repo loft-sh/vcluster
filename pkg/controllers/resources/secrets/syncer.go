@@ -14,14 +14,12 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/legacy"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,19 +29,13 @@ import (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-	useLegacy, err := ingresses.ShouldUseLegacy(ctx.PhysicalManager.GetConfig())
-	if err != nil {
-		return nil, err
-	}
-
-	return NewSyncer(ctx, useLegacy)
+	return NewSyncer(ctx)
 }
 
-func NewSyncer(ctx *synccontext.RegisterContext, useLegacy bool) (syncer.Object, error) {
+func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &secretSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "secret", &corev1.Secret{}),
 
-		useLegacyIngress: useLegacy,
 		includeIngresses: ctx.Config.Sync.ToHost.Ingresses.Enabled,
 
 		syncAllSecrets: ctx.Config.Sync.ToHost.Secrets.All,
@@ -53,7 +45,6 @@ func NewSyncer(ctx *synccontext.RegisterContext, useLegacy bool) (syncer.Object,
 type secretSyncer struct {
 	translator.NamespacedTranslator
 
-	useLegacyIngress bool
 	includeIngresses bool
 
 	syncAllSecrets bool
@@ -63,20 +54,11 @@ var _ syncer.IndicesRegisterer = &secretSyncer{}
 
 func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	if ctx.Config.Sync.ToHost.Ingresses.Enabled {
-		if s.useLegacyIngress {
-			err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &networkingv1beta1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
-				return legacy.SecretNamesFromIngress(rawObj.(*networkingv1beta1.Ingress))
-			})
-			if err != nil {
-				return err
-			}
-		} else {
-			err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &networkingv1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
-				return ingresses.SecretNamesFromIngress(rawObj.(*networkingv1.Ingress))
-			})
-			if err != nil {
-				return err
-			}
+		err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &networkingv1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
+			return ingresses.SecretNamesFromIngress(rawObj.(*networkingv1.Ingress))
+		})
+		if err != nil {
+			return err
 		}
 	}
 
@@ -93,11 +75,7 @@ var _ syncer.ControllerModifier = &secretSyncer{}
 
 func (s *secretSyncer) ModifyController(_ *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	if s.includeIngresses {
-		if s.useLegacyIngress {
-			builder = builder.Watches(&networkingv1beta1.Ingress{}, handler.EnqueueRequestsFromMapFunc(mapIngressesLegacy))
-		} else {
-			builder = builder.Watches(&networkingv1.Ingress{}, handler.EnqueueRequestsFromMapFunc(mapIngresses))
-		}
+		builder = builder.Watches(&networkingv1.Ingress{}, handler.EnqueueRequestsFromMapFunc(mapIngresses))
 	}
 
 	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
@@ -182,12 +160,7 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 
 	// check if we also sync ingresses
 	if s.includeIngresses {
-		var ingressesList client.ObjectList
-		if s.useLegacyIngress {
-			ingressesList = &networkingv1beta1.IngressList{}
-		} else {
-			ingressesList = &networkingv1.IngressList{}
-		}
+		ingressesList := &networkingv1.IngressList{}
 
 		err := ctx.VirtualClient.List(ctx.Context, ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
 		if err != nil {
@@ -215,29 +188,6 @@ func mapIngresses(_ context.Context, obj client.Object) []reconcile.Request {
 
 	requests := []reconcile.Request{}
 	names := ingresses.SecretNamesFromIngress(ingress)
-	for _, name := range names {
-		splitted := strings.Split(name, "/")
-		if len(splitted) == 2 {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: splitted[0],
-					Name:      splitted[1],
-				},
-			})
-		}
-	}
-
-	return requests
-}
-
-func mapIngressesLegacy(_ context.Context, obj client.Object) []reconcile.Request {
-	ingress, ok := obj.(*networkingv1beta1.Ingress)
-	if !ok {
-		return nil
-	}
-
-	requests := []reconcile.Request{}
-	names := legacy.SecretNamesFromIngress(ingress)
 	for _, name := range names {
 		splitted := strings.Split(name, "/")
 		if len(splitted) == 2 {

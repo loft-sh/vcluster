@@ -1,14 +1,16 @@
 package ingresses
 
 import (
+	"fmt"
 	"strings"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -29,43 +31,26 @@ func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Obj
 	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*networkingv1.Ingress)))
 }
 
-func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	vIngress := vObj.(*networkingv1.Ingress)
-	pIngress := pObj.(*networkingv1.Ingress)
+func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
 
-	updated := s.translateUpdateBackwards(pObj.(*networkingv1.Ingress), vObj.(*networkingv1.Ingress))
-	if updated != nil {
-		ctx.Log.Infof("update virtual ingress %s/%s, because ingress class name is out of sync", vIngress.Namespace, vIngress.Name)
-		translator.PrintChanges(vIngress, updated, ctx.Log)
-		err := ctx.VirtualClient.Update(ctx.Context, updated)
-		if err != nil {
-			return ctrl.Result{}, err
+	defer func() {
+		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
+	}()
 
-		// we will requeue anyways
-		return ctrl.Result{}, nil
-	}
+	pIngress, vIngress, source, target := synccontext.Cast[*networkingv1.Ingress](ctx, pObj, vObj)
 
-	if !equality.Semantic.DeepEqual(vIngress.Status, pIngress.Status) {
-		newIngress := vIngress.DeepCopy()
-		newIngress.Status = pIngress.Status
-		ctx.Log.Infof("update virtual ingress %s/%s, because status is out of sync", vIngress.Namespace, vIngress.Name)
-		translator.PrintChanges(vIngress, newIngress, ctx.Log)
-		err := ctx.VirtualClient.Status().Update(ctx.Context, newIngress)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	target.Spec.IngressClassName = source.Spec.IngressClassName
 
-		// we will requeue anyways
-		return ctrl.Result{}, nil
-	}
+	vIngress.Status = pIngress.Status
 
-	newIngress := s.translateUpdate(ctx.Context, pIngress, vIngress)
-	if newIngress != nil {
-		translator.PrintChanges(pObj, newIngress, ctx.Log)
-	}
-
-	return s.SyncToHostUpdate(ctx, vObj, newIngress)
+	s.translateUpdate(ctx.Context, pIngress, vIngress)
+	return ctrl.Result{}, nil
 }
 
 func SecretNamesFromIngress(ingress *networkingv1.Ingress) []string {

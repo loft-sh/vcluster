@@ -19,7 +19,7 @@ import (
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, syncer.Object) {
 	return generictesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-		return NewSyncer(ctx, false)
+		return NewSyncer(ctx)
 	})
 }
 

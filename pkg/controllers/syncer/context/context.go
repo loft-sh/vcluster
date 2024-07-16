@@ -30,7 +30,7 @@ type SyncContext struct {
 }
 
 // Cast returns the given objects as types as well as
-func Cast[T any](ctx *SyncContext, pObj, vObj client.Object) (T, T, T, T) {
+func Cast[T any](ctx *SyncContext, pObj, vObj client.Object) (physical T, virtual T, source T, target T) {
 	if pObj == nil || vObj == nil {
 		panic("pObj or vObj is nil")
 	}
