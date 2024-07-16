@@ -2,10 +2,9 @@ package testing
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
@@ -49,11 +48,11 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 	return syncCtx, object
 }
 
-func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 	translate.Default = translate.NewSingleNamespaceTranslator(DefaultTestTargetNamespace)
 	return &synccontext.RegisterContext{
 		Context:                context.Background(),
-		Config:                 NewFakeConfig(),
+		Config:                 vConfig,
 		CurrentNamespace:       DefaultTestCurrentNamespace,
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),
@@ -62,36 +61,27 @@ func NewFakeRegisterContext(pClient *testingutil.FakeIndexClient, vClient *testi
 }
 
 func NewFakeConfig() *config.VirtualClusterConfig {
-	// find vCluster config
-	workDir, err := os.Getwd()
+	// default config
+	defaultConfig, err := vclusterconfig.NewDefaultConfig()
 	if err != nil {
-		panic("current workDir: " + err.Error())
-	}
-
-	// find base dir
-	configPath := ""
-	for {
-		configPath = filepath.Join(workDir, "chart", "values.yaml")
-		_, err = os.Stat(configPath)
-		if err == nil {
-			break
-		} else if workDir == "/" {
-			panic("couldn't find chart/values.yaml")
-		}
-
-		workDir = filepath.Dir(workDir)
+		panic(err.Error())
 	}
 
 	// parse config
-	vConfig, err := config.ParseConfig(configPath, DefaultTestVClusterName, nil)
-	if err != nil {
-		panic("load test config: " + workDir + " - " + err.Error())
+	vConfig := &config.VirtualClusterConfig{
+		Config:                  *defaultConfig,
+		Name:                    DefaultTestVClusterName,
+		ControlPlaneService:     DefaultTestVClusterName,
+		WorkloadService:         DefaultTestVClusterServiceName,
+		WorkloadNamespace:       DefaultTestTargetNamespace,
+		WorkloadTargetNamespace: DefaultTestTargetNamespace,
 	}
 
-	vConfig.Name = DefaultTestVClusterName
-	vConfig.WorkloadService = DefaultTestVClusterServiceName
-	vConfig.WorkloadNamespace = DefaultTestTargetNamespace
-	vConfig.WorkloadTargetNamespace = DefaultTestTargetNamespace
+	err = config.ValidateConfigAndSetDefaults(vConfig)
+	if err != nil {
+		panic(err.Error())
+	}
+
 	return vConfig
 }
 

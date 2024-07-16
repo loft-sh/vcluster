@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -13,9 +14,8 @@ import (
 
 func TestCreateOrPatch(t *testing.T) {
 	ctx := context.Background()
-	scheme := testingutil.NewScheme()
 	InitialVirtualState := []runtime.Object{}
-	virtualClient := testingutil.NewFakeClient(scheme, InitialVirtualState...)
+	virtualClient := testingutil.NewFakeClient(scheme.Scheme, InitialVirtualState...)
 	endpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "test",

@@ -42,9 +42,6 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 		Name:                name,
 		ControlPlaneService: name,
 	}
-	if name == "" {
-		return nil, fmt.Errorf("environment variable VCLUSTER_NAME is not defined")
-	}
 
 	// validate config
 	err = ValidateConfigAndSetDefaults(retConfig)

@@ -12,28 +12,12 @@ import (
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var (
-	DefaultScheme = runtime.NewScheme()
-)
-
-func init() {
-	_ = clientgoscheme.AddToScheme(DefaultScheme)
-	// API extensions are not in the above scheme set,
-	// and must thus be added separately.
-	_ = authenticationv1.AddToScheme(DefaultScheme)
-	_ = apiextensionsv1.AddToScheme(DefaultScheme)
-	_ = apiregistrationv1.AddToScheme(DefaultScheme)
-}
 
 func CurrentNamespace() (string, error) {
 	namespaceEnv := os.Getenv("NAMESPACE")
