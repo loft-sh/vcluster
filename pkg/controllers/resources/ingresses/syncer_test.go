@@ -245,6 +245,7 @@ func TestSync(t *testing.T) {
 				vIngress := baseIngress.DeepCopy()
 				vIngress.ResourceVersion = "999"
 
+				syncCtx.EventSource = synccontext.EventSourceHost
 				_, err := syncer.(*ingressSyncer).Sync(syncCtx, backwardUpdateIngress, vIngress)
 				assert.NilError(t, err)
 

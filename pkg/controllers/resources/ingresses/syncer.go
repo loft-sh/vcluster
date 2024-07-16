@@ -43,9 +43,9 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		}
 	}()
 
-	pIngress, vIngress, _, _ := synccontext.Cast[*networkingv1.Ingress](ctx, pObj, vObj)
+	pIngress, vIngress, source, target := synccontext.Cast[*networkingv1.Ingress](ctx, pObj, vObj)
 
-	vIngress.Spec.IngressClassName = pIngress.Spec.IngressClassName
+	target.Spec.IngressClassName = source.Spec.IngressClassName
 
 	vIngress.Status = pIngress.Status
 
