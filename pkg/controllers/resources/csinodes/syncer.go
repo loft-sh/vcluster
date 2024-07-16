@@ -3,11 +3,13 @@ package csinodes
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,10 +43,17 @@ func (s *csinodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
 }
 
-func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	// look up matching node name, delete csinode if not found
+	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	defer func() {
+		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
 	node := &corev1.Node{}
-	err := s.virtualClient.Get(ctx.Context, types.NamespacedName{Name: pObj.GetName()}, node)
+	err = s.virtualClient.Get(ctx.Context, types.NamespacedName{Name: pObj.GetName()}, node)
 	if kerrors.IsNotFound(err) {
 		ctx.Log.Infof("delete virtual CSINode %s, because corresponding node object is missing", vObj.GetName())
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
@@ -52,12 +61,7 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		return ctrl.Result{}, err
 	}
 	// check if there is a change
-	updated := s.translateUpdateBackwards(ctx.Context, pObj.(*storagev1.CSINode), vObj.(*storagev1.CSINode))
-	if updated != nil {
-		ctx.Log.Infof("update CSINode %s", vObj.GetName())
-		translator.PrintChanges(pObj, updated, ctx.Log)
-		return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, updated)
-	}
+	s.translateUpdateBackwards(ctx.Context, pObj.(*storagev1.CSINode), vObj.(*storagev1.CSINode))
 
 	return ctrl.Result{}, nil
 }
