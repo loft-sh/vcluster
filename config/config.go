@@ -1795,7 +1795,6 @@ type ExperimentalDeployHelmChart struct {
 
 type PlatformConfig struct {
 	// APIKey defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:
-	// * platform.api.accessKey
 	// * environment variable called LICENSE
 	// * secret specified under external.platform.apiKey.secretName
 	// * secret called "vcluster-platform-api-key" in the vCluster namespace
@@ -1810,6 +1809,11 @@ type PlatformAPIKey struct {
 	// Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace
 	// where the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace.
 	Namespace string `json:"namespace,omitempty"`
+
+	// CreateRBAC will automatically create the necessary RBAC roles and role bindings to allow vCluster to read the secret specified
+	// in the above namespace, if specified.
+	// This defaults to true.
+	CreateRBAC *bool `json:"createRBAC,omitempty"`
 }
 
 type ExperimentalGenericSync struct {

@@ -74,6 +74,7 @@ generate-vcluster-images version="0.0.0":
 generate-cli-docs:
   go run -mod vendor -tags pro ./hack/docs/main.go
 
+# Generate the vcluster.yaml config schema
 generate-config-schema:
   go run -mod vendor ./hack/schema/main.go
 
