@@ -6,7 +6,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses/util"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -26,17 +25,13 @@ func (s *ingressSyncer) TranslateMetadataUpdate(ctx context.Context, vObj client
 }
 
 func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) {
-	translatedSpec := *translateSpec(vObj.Namespace, &vObj.Spec)
-	if !equality.Semantic.DeepEqual(translatedSpec, pObj.Spec) {
-		pObj.Spec = translatedSpec
-	}
+	pObj.Spec = *translateSpec(vObj.Namespace, &vObj.Spec)
 
 	_, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	translatedAnnotations, _ = translateIngressAnnotations(translatedAnnotations, vObj.Namespace)
-	if !equality.Semantic.DeepEqual(translatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(translatedLabels, pObj.GetLabels()) {
-		pObj.Annotations = translatedAnnotations
-		pObj.Labels = translatedLabels
-	}
+
+	pObj.Annotations = translatedAnnotations
+	pObj.Labels = translatedLabels
 }
 
 func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *networkingv1.IngressSpec {
