@@ -37,7 +37,10 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		retErr = patch.Patch(ctx, pObj, vObj)
+		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+			s.NamespacedTranslator.EventRecorder().Eventf(pObj, "Warning", "SyncError", "Error syncing: %v", err)
+			retErr = err
+		}
 	}()
 
 	s.translateUpdate(ctx.Context, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
