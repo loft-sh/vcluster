@@ -6,7 +6,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/mappings/registermappings"
+	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -34,7 +35,7 @@ type mockSyncer struct {
 
 func NewMockSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &mockSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "secrets", &corev1.Secret{}),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "secrets", &corev1.Secret{}, mappings.Secrets()),
 	}, nil
 }
 
@@ -158,6 +159,7 @@ func TestReconcile(t *testing.T) {
 								translate.NameAnnotation:      "a",
 								translate.NamespaceAnnotation: namespaceInVclusterA,
 								translate.UIDAnnotation:       "123",
+								translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Secret").String(),
 							},
 							Labels: map[string]string{
 								translate.NamespaceLabel: namespaceInVclusterA,
@@ -271,7 +273,7 @@ func TestReconcile(t *testing.T) {
 		vClient := testingutil.NewFakeClient(scheme.Scheme, tc.InitialVirtualState...)
 
 		fakeContext := generictesting.NewFakeRegisterContext(generictesting.NewFakeConfig(), pClient, vClient)
-		registermappings.MustRegisterMappings(fakeContext)
+		resources.MustRegisterMappings(fakeContext)
 
 		syncerImpl, err := tc.Syncer(fakeContext)
 		assert.NilError(t, err)
@@ -282,8 +284,6 @@ func TestReconcile(t *testing.T) {
 			log:            loghelper.New(syncer.Name()),
 			vEventRecorder: &testingutil.FakeEventRecorder{},
 			physicalClient: pClient,
-
-			gvk: corev1.SchemeGroupVersion.WithKind("Secret"),
 
 			currentNamespace:       fakeContext.CurrentNamespace,
 			currentNamespaceClient: fakeContext.CurrentNamespaceClient,

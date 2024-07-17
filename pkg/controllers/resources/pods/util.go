@@ -41,10 +41,7 @@ func SecretNamesFromVolumes(pod *corev1.Pod) []string {
 				// check if projected volume source is a serviceaccount and in such a case
 				// we re-write it as a secret too, handle accordingly
 				if pod.Spec.Volumes[i].Projected.Sources[j].ServiceAccountToken != nil {
-					pSecret, err := podtranslate.SecretNameFromPodName(pod.Name, pod.Namespace)
-					if err == nil {
-						secrets = append(secrets, pod.Namespace+"/"+pSecret)
-					}
+					secrets = append(secrets, pod.Namespace+"/"+podtranslate.SecretNameFromPodName(pod.Name, pod.Namespace))
 				}
 			}
 		}

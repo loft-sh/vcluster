@@ -38,7 +38,7 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 
 	ginkgo.It("Test if configmap for both charts gets applied", func() {
 		err := wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, framework.PollTimeout*2, true, func(ctx context.Context) (bool, error) {
-			cm, err := f.VclusterClient.CoreV1().ConfigMaps(deploy.VClusterDeployConfigMapNamespace).
+			cm, err := f.VClusterClient.CoreV1().ConfigMaps(deploy.VClusterDeployConfigMapNamespace).
 				Get(ctx, deploy.VClusterDeployConfigMap, metav1.GetOptions{})
 			if err != nil {
 				if kerrors.IsNotFound(err) {
@@ -64,7 +64,7 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 
 	ginkgo.It("Test nginx release secret existence in vcluster (regular chart)", func() {
 		err := wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
-			secList, err := f.VclusterClient.CoreV1().Secrets(ChartNamespace).List(ctx, metav1.ListOptions{
+			secList, err := f.VClusterClient.CoreV1().Secrets(ChartNamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: labels.SelectorFromSet(HelmSecretLabels).String(),
 			})
 			if err != nil {
@@ -89,7 +89,7 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 
 	ginkgo.It("Test fluent-bit release deployment existence in vcluster (OCI chart)", func() {
 		err := wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
-			deployList, err := f.VclusterClient.AppsV1().Deployments(ChartOCINamespace).List(ctx, metav1.ListOptions{
+			deployList, err := f.VClusterClient.AppsV1().Deployments(ChartOCINamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: labels.SelectorFromSet(HelmOCIDeploymentLabels).String(),
 			})
 			if err != nil {

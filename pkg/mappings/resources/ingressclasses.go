@@ -8,5 +8,5 @@ import (
 )
 
 func CreateIngressClassesMapper(_ *synccontext.RegisterContext) (mappings.Mapper, error) {
-	return generic.NewMirrorPhysicalMapper(&networkingv1.IngressClass{})
+	return generic.NewMirrorMapper(&networkingv1.IngressClass{})
 }

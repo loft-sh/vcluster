@@ -4,8 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	"k8s.io/utils/ptr"
 
@@ -158,7 +160,10 @@ func TestSync(t *testing.T) {
 	vDeletingWithStatus := vDeletingWithOneFinalizer.DeepCopy()
 	vDeletingWithStatus.Status = pDeletingWithStatus.Status
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	generictesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.ToHost.VolumeSnapshots.Enabled = true
+		return generictesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*generictesting.SyncTest{
 		{
 			Name:                 "Create dynamic VolumeSnapshotContent from host",
 			InitialVirtualState:  []runtime.Object{vVolumeSnapshot.DeepCopy()},

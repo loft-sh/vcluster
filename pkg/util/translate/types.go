@@ -16,12 +16,6 @@ var (
 
 var Default Translator = &singleNamespace{}
 
-// PhysicalNameFunc is a definition to translate a name
-type PhysicalNameFunc func(vName, vNamespace string) string
-
-// PhysicalNameClusterFunc is a definition to translate a cluster name
-type PhysicalNameClusterFunc func(vName string, vObj client.Object) string
-
 type Translator interface {
 	// SingleNamespaceTarget signals if we sync all objects into a single namespace
 	SingleNamespaceTarget() bool
@@ -81,6 +75,3 @@ type Translator interface {
 
 	ConvertLabelKey(string) string
 }
-
-// PhysicalNamespacedNameTranslator transforms a virtual cluster name to a physical name
-type PhysicalNamespacedNameTranslator func(vNN types.NamespacedName, vObj client.Object) string

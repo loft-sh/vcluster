@@ -95,12 +95,7 @@ func (n *namespacedTranslator) IsManaged(_ context2.Context, pObj client.Object)
 }
 
 func (n *namespacedTranslator) TranslateMetadata(ctx context2.Context, vObj client.Object) client.Object {
-	nameNamespace, err := n.Mapper.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj)
-	if err != nil {
-		return nil
-	}
-
-	pObj, err := translate.Default.SetupMetadataWithName(vObj, nameNamespace)
+	pObj, err := translate.Default.SetupMetadataWithName(vObj, n.Mapper.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 	if err != nil {
 		return nil
 	}

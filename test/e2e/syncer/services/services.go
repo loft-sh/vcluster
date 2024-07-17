@@ -38,7 +38,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		ns = fmt.Sprintf("e2e-syncer-services-%d-%s", iteration, random.String(5))
 
 		// create test namespace
-		_, err := f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	})
 
@@ -66,7 +66,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 			},
 		}
 
-		vService, err := f.VclusterClient.CoreV1().Services(ns).Create(f.Context, service, metav1.CreateOptions{})
+		vService, err := f.VClusterClient.CoreV1().Services(ns).Create(f.Context, service, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 		err = f.WaitForService(vService.Name, vService.Namespace)
 		framework.ExpectNoError(err)
@@ -99,13 +99,13 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		body, err := json.Marshal(service)
 		framework.ExpectNoError(err)
 
-		_, err = f.VclusterClient.RESTClient().Post().AbsPath("/api/v1/namespaces/" + ns + "/services").Body(body).DoRaw(f.Context)
+		_, err = f.VClusterClient.RESTClient().Post().AbsPath("/api/v1/namespaces/" + ns + "/services").Body(body).DoRaw(f.Context)
 		framework.ExpectNoError(err)
 
 		err = f.WaitForService(service.Name, service.Namespace)
 		framework.ExpectNoError(err)
 
-		_, err = f.VclusterClient.CoreV1().Services(ns).Get(f.Context, service.Name, metav1.GetOptions{})
+		_, err = f.VClusterClient.CoreV1().Services(ns).Get(f.Context, service.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		_, err = f.HostClient.CoreV1().Services(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(service.Name, service.Namespace), metav1.GetOptions{})
@@ -114,19 +114,19 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 
 	ginkgo.It("Services should complete a service status lifecycle", func() {
 		svcResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
-		svcClient := f.VclusterClient.CoreV1().Services(ns)
+		svcClient := f.VClusterClient.CoreV1().Services(ns)
 		testSvcName := "test-service-" + utilrand.String(5)
 		testSvcLabels := map[string]string{"test-service-static": "true"}
 		testSvcLabelsFlat := "test-service-static=true"
 		ctx := f.Context
 
-		svcList, err := f.VclusterClient.CoreV1().Services("").List(f.Context, metav1.ListOptions{LabelSelector: testSvcLabelsFlat})
+		svcList, err := f.VClusterClient.CoreV1().Services("").List(f.Context, metav1.ListOptions{LabelSelector: testSvcLabelsFlat})
 		framework.ExpectNoError(err, "failed to list Services")
 
 		w := &cache.ListWatch{
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.LabelSelector = testSvcLabelsFlat
-				return f.VclusterClient.CoreV1().Services(ns).Watch(f.Context, options)
+				return f.VClusterClient.CoreV1().Services(ns).Watch(f.Context, options)
 			},
 		}
 
@@ -147,7 +147,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 			},
 		}
 
-		_, err = f.VclusterClient.CoreV1().Services(ns).Create(f.Context, testService, metav1.CreateOptions{})
+		_, err = f.VClusterClient.CoreV1().Services(ns).Create(f.Context, testService, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		ginkgo.By("watching for the Service to be added")
@@ -172,7 +172,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		f.Log.Infof("Service %s created", testSvcName)
 
 		ginkgo.By("Getting /status")
-		DynamicClient, err := dynamic.NewForConfig(f.VclusterConfig)
+		DynamicClient, err := dynamic.NewForConfig(f.VClusterConfig)
 		framework.ExpectNoError(err, "Failed to initialize the client", err)
 		svcStatusUnstructured, err := DynamicClient.Resource(svcResource).Namespace(ns).Get(ctx, testSvcName, metav1.GetOptions{}, "status")
 		framework.ExpectNoError(err, "Failed to fetch ServiceStatus of Service %s in namespace %s", testSvcName, ns)
@@ -298,7 +298,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		f.Log.Infof("Service %s patched", testSvcName)
 
 		// Delete service
-		err = f.VclusterClient.CoreV1().Services(ns).Delete(f.Context, testSvcName, metav1.DeleteOptions{})
+		err = f.VClusterClient.CoreV1().Services(ns).Delete(f.Context, testSvcName, metav1.DeleteOptions{})
 		framework.ExpectNoError(err, "failed to delete the Service. %v", err)
 
 		ctx, cancel = context.WithTimeout(ctx, 1*time.Minute)

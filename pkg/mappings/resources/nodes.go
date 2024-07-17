@@ -8,5 +8,5 @@ import (
 )
 
 func CreateNodesMapper(_ *synccontext.RegisterContext) (mappings.Mapper, error) {
-	return generic.NewMirrorPhysicalMapper(&corev1.Node{})
+	return generic.NewMirrorMapper(&corev1.Node{})
 }

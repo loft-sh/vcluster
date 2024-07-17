@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/apiservice"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
@@ -57,13 +58,12 @@ func Register(ctx *config.ControllerContext) error {
 			return fmt.Errorf("start api service proxy: %w", err)
 		}
 
-		ctx.PostServerHooks = append(ctx.PostServerHooks, func(h http.Handler, clients config.Clients) http.Handler {
+		ctx.PostServerHooks = append(ctx.PostServerHooks, func(h http.Handler, ctx *config.ControllerContext) http.Handler {
 			return WithMetricsServerProxy(
 				h,
 				ctx.Config.WorkloadTargetNamespace,
-				clients.CachedHostClient,
-				clients.CachedVirtualClient,
-				clients.HostConfig,
+				ctx.VirtualManager.GetClient(),
+				ctx.LocalManager.GetConfig(),
 				ctx.Config.Experimental.MultiNamespaceMode.Enabled,
 			)
 		})
@@ -83,7 +83,6 @@ func RegisterOrDeregisterAPIService(ctx *config.ControllerContext) error {
 func WithMetricsServerProxy(
 	h http.Handler,
 	targetNamespace string,
-	cachedHostClient,
 	cachedVirtualClient client.Client,
 	hostConfig *rest.Config,
 	multiNamespaceMode bool,
@@ -102,7 +101,6 @@ func WithMetricsServerProxy(
 				w,
 				req,
 				targetNamespace,
-				cachedHostClient,
 				cachedVirtualClient,
 				info,
 				hostConfig,
@@ -136,15 +134,12 @@ type serverProxy struct {
 	verb                 string
 	tableFormatRequested bool
 	nodesInVCluster      []corev1.Node
-
-	client client.Client
 }
 
 func handleMetricsServerProxyRequest(
 	w http.ResponseWriter,
 	req *http.Request,
 	targetNamespace string,
-	cachedHostClient,
 	cachedVirtualClient client.Client,
 	info *request.RequestInfo,
 	hostConfig *rest.Config,
@@ -164,8 +159,6 @@ func handleMetricsServerProxyRequest(
 		responseWriter: w,
 		resourceType:   NodeResource,
 		verb:           info.Verb,
-
-		client: cachedHostClient,
 	}
 
 	// request is for get particular pod
@@ -250,7 +243,7 @@ func (p *serverProxy) HandleRequest() {
 	// execute request in host cluster
 	code, header, data, err := filters.ExecuteRequest(p.request, p.handler)
 	if err != nil {
-		responsewriters.ErrorNegotiated(err, serializer.NewCodecFactory(p.client.Scheme()), corev1.SchemeGroupVersion, p.responseWriter, p.request)
+		responsewriters.ErrorNegotiated(err, serializer.NewCodecFactory(scheme.Scheme), corev1.SchemeGroupVersion, p.responseWriter, p.request)
 		return
 	} else if code != http.StatusOK {
 		filters.WriteWithHeader(p.responseWriter, code, header, data)
@@ -284,7 +277,7 @@ func (p *serverProxy) rewriteNodeMetricsList(data []byte) {
 		virtualNodeMap[node.Name] = node
 	}
 
-	codecFactory := serializer.NewCodecFactory(p.client.Scheme())
+	codecFactory := serializer.NewCodecFactory(scheme.Scheme)
 	if p.verb == RequestVerbList {
 		nodeMetricsList := &metricsv1beta1.NodeMetricsList{}
 		_, _, err := codecFactory.UniversalDeserializer().Decode(data, nil, nodeMetricsList)
@@ -308,7 +301,7 @@ func (p *serverProxy) rewriteNodeMetricsList(data []byte) {
 			p.responseWriter,
 			p.request,
 			nodeMetricsList,
-			p.client.Scheme(),
+			scheme.Scheme,
 		)
 	} else if p.verb == RequestVerbGet {
 		// decode metrics
@@ -334,13 +327,13 @@ func (p *serverProxy) rewriteNodeMetricsList(data []byte) {
 			p.responseWriter,
 			p.request,
 			nodeMetric,
-			p.client.Scheme(),
+			scheme.Scheme,
 		)
 	}
 }
 
 func (p *serverProxy) rewritePodMetricsGetData(data []byte) {
-	codecFactory := serializer.NewCodecFactory(p.client.Scheme())
+	codecFactory := serializer.NewCodecFactory(scheme.Scheme)
 	podMetrics := &metricsv1beta1.PodMetrics{}
 	_, _, err := codecFactory.UniversalDeserializer().Decode(data, nil, podMetrics)
 	if err != nil {
@@ -356,12 +349,12 @@ func (p *serverProxy) rewritePodMetricsGetData(data []byte) {
 		p.responseWriter,
 		p.request,
 		podMetrics,
-		p.client.Scheme(),
+		scheme.Scheme,
 	)
 }
 
 func (p *serverProxy) rewritePodMetricsTableData(data []byte) {
-	codecFactory := serializer.NewCodecFactory(p.client.Scheme())
+	codecFactory := serializer.NewCodecFactory(scheme.Scheme)
 	table := &metav1.Table{}
 	_, _, err := codecFactory.UniversalDeserializer().Decode(data, nil, table)
 	if err != nil {
@@ -416,12 +409,12 @@ func (p *serverProxy) rewritePodMetricsTableData(data []byte) {
 		p.responseWriter,
 		p.request,
 		table,
-		p.client.Scheme(),
+		scheme.Scheme,
 	)
 }
 
 func (p *serverProxy) rewritePodMetricsListData(data []byte) {
-	codecFactory := serializer.NewCodecFactory(p.client.Scheme())
+	codecFactory := serializer.NewCodecFactory(scheme.Scheme)
 	podMetricsList := &metricsv1beta1.PodMetricsList{}
 	_, _, err := codecFactory.UniversalDeserializer().Decode(data, nil, podMetricsList)
 	if err != nil {
@@ -463,7 +456,7 @@ func (p *serverProxy) rewritePodMetricsListData(data []byte) {
 		p.responseWriter,
 		p.request,
 		filteredBackTranslatedList,
-		p.client.Scheme(),
+		scheme.Scheme,
 	)
 }
 

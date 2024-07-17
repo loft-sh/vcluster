@@ -9,5 +9,5 @@ import (
 )
 
 func CreateIngressesMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
-	return generic.NewNamespacedMapper(ctx, &networkingv1.Ingress{}, translate.Default.PhysicalName)
+	return generic.NewMapper(ctx, &networkingv1.Ingress{}, translate.Default.PhysicalName)
 }

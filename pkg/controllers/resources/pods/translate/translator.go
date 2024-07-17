@@ -159,7 +159,7 @@ func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services [
 	// convert to core object
 	pPod := translate.Default.ApplyMetadata(
 		vPod,
-		mappings.Pods().VirtualToHost(ctx, mappings.NamespacedName(vPod), vPod),
+		mappings.VirtualToHost(vPod.Name, vPod.Namespace, mappings.Pods()),
 		t.syncedLabels,
 	).(*corev1.Pod)
 
@@ -427,7 +427,6 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 			pPod.Spec.Volumes[i].RBD.SecretRef.Name = mappings.VirtualToHostName(pPod.Spec.Volumes[i].RBD.SecretRef.Name, vPod.Namespace, mappings.Secrets())
 		}
 		if pPod.Spec.Volumes[i].FlexVolume != nil && pPod.Spec.Volumes[i].FlexVolume.SecretRef != nil {
-
 			pPod.Spec.Volumes[i].FlexVolume.SecretRef.Name = mappings.VirtualToHostName(pPod.Spec.Volumes[i].FlexVolume.SecretRef.Name, vPod.Namespace, mappings.Secrets())
 		}
 		if pPod.Spec.Volumes[i].Cinder != nil && pPod.Spec.Volumes[i].Cinder.SecretRef != nil {

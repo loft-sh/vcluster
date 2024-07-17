@@ -20,13 +20,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	servertypes "github.com/loft-sh/vcluster/pkg/server/types"
-	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
@@ -51,7 +48,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -93,7 +89,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 	uncachedVirtualClient = pluginhookclient.WrapVirtualClient(uncachedVirtualClient)
 	uncachedLocalClient = pluginhookclient.WrapPhysicalClient(uncachedLocalClient)
 
-	certSyncer, err := cert.NewSyncer(ctx.Context, ctx.Config.WorkloadNamespace, ctx.LocalManager.GetClient(), ctx.Config)
+	certSyncer, err := cert.NewSyncer(ctx.Context, ctx.Config.WorkloadNamespace, ctx.WorkloadNamespaceClient, ctx.Config)
 	if err != nil {
 		return nil, errors.Wrap(err, "create cert syncer")
 	}
@@ -107,7 +103,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 		fakeKubeletIPs: ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 
 		currentNamespace:       ctx.Config.WorkloadNamespace,
-		currentNamespaceClient: ctx.LocalManager.GetClient(),
+		currentNamespaceClient: ctx.WorkloadNamespaceClient,
 
 		requestHeaderCaFile: requestHeaderCaFile,
 		clientCaFile:        clientCaFile,
@@ -149,16 +145,8 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 	h := handler.ImpersonatingHandler("", virtualConfig)
 
 	// pre hooks
-	clients := config.Clients{
-		UncachedVirtualClient: uncachedVirtualClient,
-		CachedVirtualClient:   ctx.VirtualManager.GetClient(),
-		UncachedHostClient:    uncachedLocalClient,
-		CachedHostClient:      ctx.LocalManager.GetClient(),
-		HostConfig:            localConfig,
-		VirtualConfig:         virtualConfig,
-	}
 	for _, f := range ctx.PreServerHooks {
-		h = f(h, clients)
+		h = f(h, ctx)
 	}
 
 	h = filters.WithServiceCreateRedirect(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig, ctx.Config.Experimental.SyncSettings.SyncLabels)
@@ -178,7 +166,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 
 	// post hooks
 	for _, f := range ctx.PostServerHooks {
-		h = f(h, clients)
+		h = f(h, ctx)
 	}
 
 	serverhelper.HandleRoute(s.handler, "/", h)
@@ -245,54 +233,6 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 
 	<-stopped
 	return nil
-}
-
-func createCachedClient(ctx context.Context, config *rest.Config, namespace string, restMapper meta.RESTMapper, scheme *runtime.Scheme, registerIndices func(cache cache.Cache) error) (client.Client, error) {
-	// create cache options
-	cacheOptions := cache.Options{
-		Scheme: scheme,
-		Mapper: restMapper,
-	}
-	if namespace != "" {
-		cacheOptions.DefaultNamespaces = map[string]cache.Config{namespace: {}}
-	}
-
-	// create the new cache
-	clientCache, err := cache.New(config, cacheOptions)
-	if err != nil {
-		return nil, err
-	}
-
-	// register indices
-	if registerIndices != nil {
-		err = registerIndices(clientCache)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// start cache
-	go func() {
-		err := clientCache.Start(ctx)
-		if err != nil {
-			panic(err)
-		}
-	}()
-	clientCache.WaitForCacheSync(ctx)
-
-	// create a client from cache
-	cachedVirtualClient, err := blockingcacheclient.NewCacheClient(config, client.Options{
-		Scheme: scheme,
-		Mapper: restMapper,
-		Cache: &client.CacheOptions{
-			Reader: clientCache,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return cachedVirtualClient, nil
 }
 
 func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {

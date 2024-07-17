@@ -25,16 +25,14 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &configMapSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "configmap", &corev1.ConfigMap{}, mappings.ConfigMaps()),
 
-		syncAllConfigMaps:  ctx.Config.Sync.ToHost.ConfigMaps.All,
-		multiNamespaceMode: ctx.Config.Experimental.MultiNamespaceMode.Enabled,
+		syncAllConfigMaps: ctx.Config.Sync.ToHost.ConfigMaps.All,
 	}, nil
 }
 
 type configMapSyncer struct {
 	translator.NamespacedTranslator
 
-	syncAllConfigMaps  bool
-	multiNamespaceMode bool
+	syncAllConfigMaps bool
 }
 
 var _ syncer.IndicesRegisterer = &configMapSyncer{}

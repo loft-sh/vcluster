@@ -65,8 +65,6 @@ func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod,
 		if err != nil && !kerrors.IsNotFound(err) {
 			return err
 		}
-
-		existingSecret = nil
 	}
 
 	// create to secret with the given token

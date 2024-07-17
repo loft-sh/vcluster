@@ -59,19 +59,6 @@ func SingleNamespacePhysicalName(name, namespace, suffix string) string {
 	return SafeConcatName(name, "x", namespace, "x", suffix)
 }
 
-func (s *singleNamespace) objectPhysicalName(obj runtime.Object) string {
-	if obj == nil {
-		return ""
-	}
-
-	metaAccessor, err := meta.Accessor(obj)
-	if err != nil {
-		return ""
-	}
-
-	return s.PhysicalName(metaAccessor.GetName(), metaAccessor.GetNamespace())
-}
-
 func (s *singleNamespace) PhysicalNameClusterScoped(name string) string {
 	if name == "" {
 		return ""
@@ -93,19 +80,19 @@ func (s *singleNamespace) IsManaged(obj runtime.Object) bool {
 	// If object-name annotation is not set OR
 	// If object-name annotation is different from actual name
 	gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
-	if err == nil && mappings.Has(gvk) {
-		if metaAccessor.GetAnnotations()[NameAnnotation] == "" || metaAccessor.GetName() != mappings.VirtualToHostName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk)) {
+	if err == nil {
+		// check if the name annotation is correct
+		if metaAccessor.GetAnnotations()[NameAnnotation] == "" ||
+			(mappings.Has(gvk) && metaAccessor.GetName() != mappings.VirtualToHostName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk))) {
 			klog.FromContext(context.TODO()).V(1).Info("Host object doesn't match, because name annotations is wrong",
 				"object", metaAccessor.GetName(),
 				"existingName", metaAccessor.GetName(),
 				"expectedName", mappings.VirtualToHostName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk)))
 			return false
 		}
-	}
 
-	// if kind doesn't match vCluster has probably not synced the object
-	if metaAccessor.GetAnnotations()[KindAnnotation] != "" {
-		if err == nil && gvk.String() != metaAccessor.GetAnnotations()[KindAnnotation] {
+		// if kind doesn't match vCluster has probably not synced the object
+		if metaAccessor.GetAnnotations()[KindAnnotation] != "" && gvk.String() != metaAccessor.GetAnnotations()[KindAnnotation] {
 			return false
 		}
 	}

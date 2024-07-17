@@ -24,7 +24,7 @@ var _ = ginkgo.Describe("plugin", func() {
 	ginkgo.It("test legacy vCluster plugin", func() {
 		// check if deployment is there
 		gomega.Eventually(func() bool {
-			_, err := f.VclusterClient.AppsV1().Deployments("default").Get(f.Context, "mydeployment", metav1.GetOptions{})
+			_, err := f.VClusterClient.AppsV1().Deployments("default").Get(f.Context, "mydeployment", metav1.GetOptions{})
 			return err == nil
 		}).
 			WithPolling(pollingInterval).
@@ -51,7 +51,7 @@ var _ = ginkgo.Describe("plugin", func() {
 		}
 
 		// create service
-		err := f.VclusterCRClient.Create(f.Context, service)
+		err := f.VClusterCRClient.Create(f.Context, service)
 		framework.ExpectNoError(err)
 
 		// wait for service to become synced
@@ -92,7 +92,7 @@ var _ = ginkgo.Describe("plugin", func() {
 		// wait for secret to become synced
 		vSecret := &corev1.Secret{}
 		gomega.Eventually(func() bool {
-			err := f.VclusterCRClient.Get(f.Context, types.NamespacedName{Name: "test", Namespace: "test"}, vSecret)
+			err := f.VClusterCRClient.Get(f.Context, types.NamespacedName{Name: "test", Namespace: "test"}, vSecret)
 			return err == nil
 		}).
 			WithPolling(pollingInterval).
@@ -110,7 +110,7 @@ var _ = ginkgo.Describe("plugin", func() {
 
 		// wait for update
 		gomega.Eventually(func() bool {
-			err := f.VclusterCRClient.Get(f.Context, types.NamespacedName{Name: "test", Namespace: "test"}, vSecret)
+			err := f.VClusterCRClient.Get(f.Context, types.NamespacedName{Name: "test", Namespace: "test"}, vSecret)
 			return err == nil && string(vSecret.Data["test"]) == "newtest"
 		}).
 			WithPolling(pollingInterval).
@@ -123,7 +123,7 @@ var _ = ginkgo.Describe("plugin", func() {
 
 		// wait for delete within vCluster
 		gomega.Eventually(func() bool {
-			err := f.VclusterCRClient.Get(f.Context, types.NamespacedName{Name: "test", Namespace: "test"}, vSecret)
+			err := f.VClusterCRClient.Get(f.Context, types.NamespacedName{Name: "test", Namespace: "test"}, vSecret)
 			return kerrors.IsNotFound(err)
 		}).
 			WithPolling(pollingInterval).

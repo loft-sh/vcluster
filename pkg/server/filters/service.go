@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -208,7 +209,7 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 		vService.Name = vService.GenerateName + random.String(5)
 	}
 
-	newService := translate.Default.ApplyMetadata(vService, mappings.Services().VirtualToHost(req.Context(), mappings.NamespacedName(vService), vService), syncedLabels).(*corev1.Service)
+	newService := translate.Default.ApplyMetadata(vService, mappings.Services().VirtualToHost(req.Context(), types.NamespacedName{Name: vService.Name, Namespace: vService.Namespace}, vService), syncedLabels).(*corev1.Service)
 	if newService.Annotations == nil {
 		newService.Annotations = map[string]string{}
 	}

@@ -17,27 +17,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-type MapperOption func(options *MapperOptions)
+// PhysicalNameWithObjectFunc is a definition to translate a name that also optionally expects a vObj
+type PhysicalNameWithObjectFunc func(vName, vNamespace string, vObj client.Object) string
 
-func SkipIndex() MapperOption {
-	return func(options *MapperOptions) {
-		options.SkipIndex = true
-	}
+// PhysicalNameFunc is a definition to translate a name
+type PhysicalNameFunc func(vName, vNamespace string) string
+
+// NewMapper creates a new mapper with a custom physical name func
+func NewMapper(ctx *synccontext.RegisterContext, obj client.Object, translateName PhysicalNameFunc, options ...MapperOption) (mappings.Mapper, error) {
+	return NewMapperWithObject(ctx, obj, func(vName, vNamespace string, _ client.Object) string {
+		return translateName(vName, vNamespace)
+	}, options...)
 }
 
-type MapperOptions struct {
-	SkipIndex bool
-}
-
-func getOptions(options ...MapperOption) *MapperOptions {
-	newOptions := &MapperOptions{}
-	for _, option := range options {
-		option(newOptions)
-	}
-	return newOptions
-}
-
-func NewNamespacedMapper(ctx *synccontext.RegisterContext, obj client.Object, translateName translate.PhysicalNameFunc, options ...MapperOption) (mappings.Mapper, error) {
+// NewMapperWithObject creates a new mapper with a custom physical name func
+func NewMapperWithObject(ctx *synccontext.RegisterContext, obj client.Object, translateName PhysicalNameWithObjectFunc, options ...MapperOption) (mappings.Mapper, error) {
 	gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
 	if err != nil {
 		return nil, fmt.Errorf("retrieve GVK for object failed: %w", err)
@@ -46,14 +40,18 @@ func NewNamespacedMapper(ctx *synccontext.RegisterContext, obj client.Object, tr
 	mapperOptions := getOptions(options...)
 	if !mapperOptions.SkipIndex {
 		err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, obj.DeepCopyObject().(client.Object), constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-			return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translateName(rawObj.GetName(), rawObj.GetNamespace())}
+			if rawObj.GetNamespace() != "" {
+				return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translateName(rawObj.GetName(), rawObj.GetNamespace(), rawObj)}
+			}
+
+			return []string{translateName(rawObj.GetName(), rawObj.GetNamespace(), rawObj)}
 		})
 		if err != nil {
 			return nil, fmt.Errorf("index field: %w", err)
 		}
 	}
 
-	return &namespacedMapper{
+	return &mapper{
 		translateName: translateName,
 		virtualClient: ctx.VirtualManager.GetClient(),
 		obj:           obj,
@@ -61,25 +59,26 @@ func NewNamespacedMapper(ctx *synccontext.RegisterContext, obj client.Object, tr
 	}, nil
 }
 
-type namespacedMapper struct {
-	translateName translate.PhysicalNameFunc
+type mapper struct {
+	translateName PhysicalNameWithObjectFunc
 	virtualClient client.Client
-	obj           client.Object
-	gvk           schema.GroupVersionKind
+
+	obj client.Object
+	gvk schema.GroupVersionKind
 }
 
-func (n *namespacedMapper) GroupVersionKind() schema.GroupVersionKind {
+func (n *mapper) GroupVersionKind() schema.GroupVersionKind {
 	return n.gvk
 }
 
-func (n *namespacedMapper) VirtualToHost(_ context2.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
+func (n *mapper) VirtualToHost(_ context2.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: translate.Default.PhysicalNamespace(req.Namespace),
-		Name:      n.translateName(req.Name, req.Namespace),
+		Name:      n.translateName(req.Name, req.Namespace, vObj),
 	}
 }
 
-func (n *namespacedMapper) HostToVirtual(ctx context2.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+func (n *mapper) HostToVirtual(ctx context2.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
 	if pObj != nil {
 		pAnnotations := pObj.GetAnnotations()
 		if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
@@ -90,8 +89,13 @@ func (n *namespacedMapper) HostToVirtual(ctx context2.Context, req types.Namespa
 		}
 	}
 
+	key := req.Name
+	if req.Namespace != "" {
+		key = req.Namespace + "/" + req.Name
+	}
+
 	vObj := n.obj.DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(ctx, n.virtualClient, vObj, constants.IndexByPhysicalName, req.Namespace+"/"+req.Name)
+	err := clienthelper.GetByIndex(ctx, n.virtualClient, vObj, constants.IndexByPhysicalName, key)
 	if err != nil {
 		if !kerrors.IsNotFound(err) && !kerrors.IsConflict(err) {
 			panic(err.Error())

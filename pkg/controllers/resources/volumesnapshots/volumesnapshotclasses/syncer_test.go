@@ -3,7 +3,9 @@ package volumesnapshotclasses
 import (
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 
@@ -31,7 +33,10 @@ func TestSync(t *testing.T) {
 	vMoreParamsVSC := vBaseVSC.DeepCopy()
 	vMoreParamsVSC.Parameters["additional"] = "param"
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	generictesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.ToHost.VolumeSnapshots.Enabled = true
+		return generictesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*generictesting.SyncTest{
 		{
 			Name:                 "Create backward",
 			InitialVirtualState:  []runtime.Object{},

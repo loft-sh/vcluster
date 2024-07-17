@@ -58,22 +58,22 @@ type Framework struct {
 	// host kubernetes cluster were we are testing in
 	HostCRClient client.Client
 
-	// VclusterConfig is the kubernetes rest config of the current
+	// VClusterConfig is the kubernetes rest config of the current
 	// vcluster instance which we are testing
-	VclusterConfig *rest.Config
+	VClusterConfig *rest.Config
 
-	// VclusterClient is the kubernetes client of the current
+	// VClusterClient is the kubernetes client of the current
 	// vcluster instance which we are testing
-	VclusterClient *kubernetes.Clientset
+	VClusterClient *kubernetes.Clientset
 
-	// VclusterCRClient is the controller runtime client of the current
+	// VClusterCRClient is the controller runtime client of the current
 	// vcluster instance which we are testing
-	VclusterCRClient client.Client
+	VClusterCRClient client.Client
 
-	// VclusterKubeconfigFile is a file containing kube config
+	// VClusterKubeConfigFile is a file containing kube config
 	// of the current vcluster instance which we are testing.
 	// This file shall be deleted in the end of the test suite execution.
-	VclusterKubeconfigFile *os.File
+	VClusterKubeConfigFile *os.File
 
 	// Scheme is the global scheme to use
 	Scheme *runtime.Scheme
@@ -215,10 +215,10 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		HostConfig:             hostConfig,
 		HostClient:             hostClient,
 		HostCRClient:           hostCRClient,
-		VclusterConfig:         vclusterConfig,
-		VclusterClient:         vclusterClient,
-		VclusterCRClient:       vclusterCRClient,
-		VclusterKubeconfigFile: vKubeconfigFile,
+		VClusterConfig:         vclusterConfig,
+		VClusterClient:         vclusterClient,
+		VClusterCRClient:       vclusterCRClient,
+		VClusterKubeConfigFile: vKubeconfigFile,
 		Scheme:                 scheme,
 		Log:                    l,
 		ClientTimeout:          timeout,
@@ -230,5 +230,5 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 }
 
 func (f *Framework) Cleanup() error {
-	return os.Remove(f.VclusterKubeconfigFile.Name())
+	return os.Remove(f.VClusterKubeConfigFile.Name())
 }

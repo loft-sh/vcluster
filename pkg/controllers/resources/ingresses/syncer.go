@@ -51,6 +51,9 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		if err := patch.Patch(ctx, pObj, vObj); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
+		if retErr != nil {
+			s.NamespacedTranslator.EventRecorder().Eventf(pObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+		}
 	}()
 
 	pIngress, vIngress, source, target := synccontext.Cast[*networkingv1.Ingress](ctx, pObj, vObj)
@@ -95,18 +98,13 @@ func translateIngressAnnotations(annotations map[string]string, ingressNamespace
 		if len(splitted) == 1 { // If value is only "secret"
 			secret := splitted[0]
 			foundSecrets = append(foundSecrets, ingressNamespace+"/"+secret)
-			pName, err := mappings.VirtualToHostName(secret, ingressNamespace, mappings.Secrets())
-			if err == nil {
-				newAnnotations[k] = pName
-			}
+			newAnnotations[k] = mappings.VirtualToHostName(secret, ingressNamespace, mappings.Secrets())
 		} else if len(splitted) == 2 { // If value is "namespace/secret"
 			namespace := splitted[0]
 			secret := splitted[1]
 			foundSecrets = append(foundSecrets, namespace+"/"+secret)
-			pName, err := mappings.VirtualToHost(secret, namespace, mappings.Secrets())
-			if err == nil {
-				newAnnotations[k] = pName.Namespace + "/" + pName.Name
-			}
+			pName := mappings.VirtualToHost(secret, namespace, mappings.Secrets())
+			newAnnotations[k] = pName.Namespace + "/" + pName.Name
 		} else {
 			newAnnotations[k] = v
 		}

@@ -22,7 +22,7 @@ func (s *endpointsSyncer) translate(ctx context.Context, vObj client.Object) *co
 	return endpoints
 }
 
-func (s *endpointsSyncer) translateSpec(endpoints *corev1.Endpoints) error {
+func (s *endpointsSyncer) translateSpec(endpoints *corev1.Endpoints) {
 	// translate the addresses
 	for i, subset := range endpoints.Subsets {
 		for j, addr := range subset.Addresses {
@@ -48,17 +48,12 @@ func (s *endpointsSyncer) translateSpec(endpoints *corev1.Endpoints) error {
 			}
 		}
 	}
-
-	return nil
 }
 
 func (s *endpointsSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Endpoints) error {
 	// check subsets
 	translated := vObj.DeepCopy()
-	err := s.translateSpec(translated)
-	if err != nil {
-		return err
-	}
+	s.translateSpec(translated)
 	if !equality.Semantic.DeepEqual(translated.Subsets, pObj.Subsets) {
 		pObj.Subsets = translated.Subsets
 	}

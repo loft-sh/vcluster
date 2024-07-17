@@ -70,6 +70,7 @@ func PodDisruptionBudgets() Mapper {
 func VolumeSnapshots() Mapper {
 	return Default.ByGVK(volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshot"))
 }
+
 func VolumeSnapshotClasses() Mapper {
 	return Default.ByGVK(volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotClass"))
 }

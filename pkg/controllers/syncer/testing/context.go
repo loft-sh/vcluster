@@ -6,7 +6,7 @@ import (
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/mappings/registermappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/util/log"
@@ -60,7 +60,7 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 		PhysicalManager:        newFakeManager(pClient),
 	}
 
-	registermappings.MustRegisterMappings(registerCtx)
+	resources.MustRegisterMappings(registerCtx)
 	return registerCtx
 }
 

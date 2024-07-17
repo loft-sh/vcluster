@@ -60,7 +60,7 @@ var _ = ginkgo.Describe("AdmissionWebhook", func() {
 		ns = fmt.Sprintf("e2e-webhook-%d-%s", iteration, random.String(5))
 
 		// create test namespace
-		_, err := f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{uniqueName: "true"}}}, metav1.CreateOptions{})
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{uniqueName: "true"}}}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		createWebhookConfigurationReadyNamespace(f, ns)
@@ -108,7 +108,7 @@ var _ = ginkgo.Describe("AdmissionWebhook", func() {
 // prevent cross-talk with webhook configurations being tested.
 func createWebhookConfigurationReadyNamespace(f *framework.Framework, namespace string) {
 	ctx := f.Context
-	_, err := f.VclusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+	_, err := f.VClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   namespace + "-markers",
 			Labels: map[string]string{uniqueName + "-markers": "true"},
@@ -118,7 +118,7 @@ func createWebhookConfigurationReadyNamespace(f *framework.Framework, namespace 
 }
 
 func registerWebhook(f *framework.Framework, configName string, certCtx *certContext, servicePort int32, namespace string) func() {
-	client := f.VclusterClient
+	client := f.VClusterClient
 	ctx := f.Context
 	ginkgo.By("Registering the webhook via the AdmissionRegistration API")
 
@@ -201,7 +201,7 @@ func createValidatingWebhookConfiguration(f *framework.Framework, config *admiss
 		}
 		f.Log.Fatalf(`webhook %s in config %s has no namespace or object selector with %s="true", and can interfere with other tests`, webhook.Name, config.Name, uniqueName)
 	}
-	return f.VclusterClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, config, metav1.CreateOptions{})
+	return f.VClusterClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, config, metav1.CreateOptions{})
 }
 
 func newDenyPodWebhookFixture(certCtx *certContext, servicePort int32, namespace string) admissionregistrationv1.ValidatingWebhook {
@@ -314,7 +314,7 @@ func newValidatingIsReadyWebhookFixture(certCtx *certContext, servicePort int32,
 // A webhook created with newValidatingIsReadyWebhookFixture or newMutatingIsReadyWebhookFixture should first be added to
 // the webhook configuration.
 func waitWebhookConfigurationReady(f *framework.Framework, namespace string) error {
-	cmClient := f.VclusterClient.CoreV1().ConfigMaps(namespace + "-markers")
+	cmClient := f.VClusterClient.CoreV1().ConfigMaps(namespace + "-markers")
 	return wait.PollUntilContextTimeout(f.Context, 100*time.Millisecond, 30*time.Second, true, func(ctx context.Context) (bool, error) {
 		marker := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -341,7 +341,7 @@ func waitWebhookConfigurationReady(f *framework.Framework, namespace string) err
 
 func testWebhook(f *framework.Framework, namespace string) {
 	ginkgo.By("create a pod that should be denied by the webhook")
-	client := f.VclusterClient
+	client := f.VClusterClient
 	ctx := f.Context
 	// Creating the pod, the request should be rejected
 	pod := nonCompliantPod()
@@ -357,7 +357,7 @@ func testWebhook(f *framework.Framework, namespace string) {
 	}
 
 	ginkgo.By("create a pod that causes the webhook to hang")
-	client = f.VclusterClient
+	client = f.VClusterClient
 	// Creating the pod, the request should be rejected
 	pod = hangingPod()
 	_, err = client.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
@@ -440,7 +440,7 @@ func testWebhook(f *framework.Framework, namespace string) {
 
 func createNamespace(f *framework.Framework, ns *corev1.Namespace) error {
 	return wait.PollUntilContextTimeout(f.Context, 100*time.Millisecond, 30*time.Second, true, func(ctx context.Context) (bool, error) {
-		_, err := f.VclusterClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 		if err != nil {
 			if strings.HasPrefix(err.Error(), "object is being deleted:") {
 				return false, nil
@@ -532,7 +532,7 @@ func updateConfigMap(ctx context.Context, c *kubernetes.Clientset, ns, name stri
 
 func cleanWebhookTest(f *framework.Framework, namespace string) {
 	ctx := f.Context
-	client := f.VclusterClient
+	client := f.VClusterClient
 	_ = client.CoreV1().Services(namespace).Delete(ctx, serviceName, metav1.DeleteOptions{})
 	_ = client.AppsV1().Deployments(namespace).Delete(ctx, deploymentName, metav1.DeleteOptions{})
 	_ = client.CoreV1().Secrets(namespace).Delete(ctx, secretName, metav1.DeleteOptions{})
@@ -547,7 +547,7 @@ func cleanWebhookTest(f *framework.Framework, namespace string) {
 
 func createAuthReaderRoleBinding(f *framework.Framework, namespace string) {
 	ginkgo.By("Create role binding to let webhook read extension-apiserver-authentication")
-	client := f.VclusterClient
+	client := f.VClusterClient
 	ctx := f.Context
 	// Create the role binding to allow the webhook read the extension-apiserver-authentication configmap
 	_, err := client.RbacV1().RoleBindings("kube-system").Create(ctx, &rbacv1.RoleBinding{
@@ -580,7 +580,7 @@ func createAuthReaderRoleBinding(f *framework.Framework, namespace string) {
 
 func deployWebhookAndService(f *framework.Framework, image string, certCtx *certContext, servicePort int32, containerPort int32, namespace string) {
 	ginkgo.By("Deploying the webhook pod")
-	client := f.VclusterClient
+	client := f.VClusterClient
 	ctx := f.Context
 
 	// Creating the secret that contains the webhook's cert.
@@ -716,7 +716,7 @@ func newDeployment(deploymentName string, replicas int32, podLabels map[string]s
 }
 
 func registerWebhookForAttachingPod(f *framework.Framework, configName string, certCtx *certContext, servicePort int32, ns string) func() {
-	client := f.VclusterClient
+	client := f.VClusterClient
 	ctx := f.Context
 	ginkgo.By("Registering the webhook via the AdmissionRegistration API")
 
@@ -786,7 +786,7 @@ func toBeAttachedPod() *corev1.Pod {
 
 func testAttachingPodWebhook(f *framework.Framework, ns string) {
 	ginkgo.By("create a pod")
-	client := f.VclusterClient
+	client := f.VClusterClient
 	ctx := f.Context
 	pod := toBeAttachedPod()
 	_, err := client.CoreV1().Pods(ns).Create(ctx, pod, metav1.CreateOptions{})
@@ -797,7 +797,7 @@ func testAttachingPodWebhook(f *framework.Framework, ns string) {
 	ginkgo.By("'kubectl attach' the pod, should be denied by the webhook")
 	timer := time.NewTimer(30 * time.Second)
 	defer timer.Stop()
-	_, err = framework.NewKubectlCommand(f.VclusterKubeconfigFile.Name(), ns, "attach", fmt.Sprintf("--namespace=%v", ns), pod.Name, "-i", "-c=container1").WithTimeout(timer.C).Exec()
+	_, err = framework.NewKubectlCommand(f.VClusterKubeConfigFile.Name(), ns, "attach", fmt.Sprintf("--namespace=%v", ns), pod.Name, "-i", "-c=container1").WithTimeout(timer.C).Exec()
 	framework.ExpectError(err, "'kubectl attach' the pod, should be denied by the webhook")
 	if e, a := "attaching to pod 'to-be-attached-pod' is not allowed", err.Error(); !strings.Contains(a, e) {
 		framework.Failf("unexpected 'kubectl attach' error message. expected to contain %q, got %q", e, a)

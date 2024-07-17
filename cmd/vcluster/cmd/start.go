@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
+	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -106,7 +107,7 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	}
 
 	// start managers
-	syncers, err := setup.StartManagers(controllerCtx)
+	syncers, err := setup.StartManagers(util.ToRegisterContext(controllerCtx))
 	if err != nil {
 		return fmt.Errorf("start managers: %w", err)
 	}

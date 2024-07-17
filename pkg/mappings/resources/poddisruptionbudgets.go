@@ -9,5 +9,5 @@ import (
 )
 
 func CreatePodDisruptionBudgetsMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
-	return generic.NewNamespacedMapper(ctx, &policyv1.PodDisruptionBudget{}, translate.Default.PhysicalName)
+	return generic.NewMapper(ctx, &policyv1.PodDisruptionBudget{}, translate.Default.PhysicalName)
 }

@@ -88,10 +88,7 @@ func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, e
 	}
 
 	// translate service name
-	pService, err := mappings.VirtualToHostName(specialservices.DefaultKubeDNSServiceName, specialservices.DefaultKubeDNSServiceNamespace, mappings.Services())
-	if err != nil {
-		return "", err
-	}
+	pService := mappings.VirtualToHostName(specialservices.DefaultKubeDNSServiceName, specialservices.DefaultKubeDNSServiceNamespace, mappings.Services())
 
 	// first try to find the actual synced service, then fallback to a different if we have a suffix (only in the case of integrated coredns)
 	pClient, namespace := specialservices.Default.DNSNamespace(ctx)

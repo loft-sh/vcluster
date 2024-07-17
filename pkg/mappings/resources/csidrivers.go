@@ -8,5 +8,5 @@ import (
 )
 
 func CreateCSIDriversMapper(_ *synccontext.RegisterContext) (mappings.Mapper, error) {
-	return generic.NewMirrorPhysicalMapper(&storagev1.CSINode{})
+	return generic.NewMirrorMapper(&storagev1.CSIDriver{})
 }

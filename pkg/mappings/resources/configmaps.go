@@ -14,7 +14,7 @@ import (
 )
 
 func CreateConfigMapsMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
-	mapper, err := generic.NewNamespacedMapper(ctx, &corev1.ConfigMap{}, translate.Default.PhysicalName, generic.SkipIndex())
+	mapper, err := generic.NewMapper(ctx, &corev1.ConfigMap{}, translate.Default.PhysicalName, generic.SkipIndex())
 	if err != nil {
 		return nil, err
 	}

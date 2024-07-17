@@ -99,8 +99,7 @@ func createExporterFromConfig(ctx *synccontext.RegisterContext, config *vcluster
 
 	gvk := schema.FromAPIVersionAndKind(config.APIVersion, config.Kind)
 	controllerID := fmt.Sprintf("%s/%s/GenericExport", strings.ToLower(gvk.Kind), strings.ToLower(gvk.Group))
-
-	mapper, err := generic.NewNamespacedMapper(ctx, obj, translate.Default.PhysicalName)
+	mapper, err := generic.NewMapper(ctx, obj, translate.Default.PhysicalName)
 	if err != nil {
 		return nil, err
 	}

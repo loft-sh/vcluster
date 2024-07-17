@@ -29,7 +29,7 @@ func (f *Framework) WaitForPodRunning(podName string, ns string) error {
 		if pod.Status.Phase != corev1.PodRunning {
 			return false, nil
 		}
-		vpod, err := f.VclusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+		vpod, err := f.VClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -97,7 +97,7 @@ func (f *Framework) WaitForPersistentVolumeClaimBound(pvcName, ns string) error 
 			return false, nil
 		}
 
-		vpvc, err := f.VclusterClient.CoreV1().PersistentVolumeClaims(ns).Get(ctx, pvcName, metav1.GetOptions{})
+		vpvc, err := f.VClusterClient.CoreV1().PersistentVolumeClaims(ns).Get(ctx, pvcName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -116,7 +116,7 @@ func (f *Framework) WaitForPersistentVolumeClaimBound(pvcName, ns string) error 
 
 func (f *Framework) WaitForInitManifestConfigMapCreation(configMapName, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err := f.VclusterClient.CoreV1().ConfigMaps(ns).Get(ctx, configMapName, metav1.GetOptions{})
+		_, err := f.VClusterClient.CoreV1().ConfigMaps(ns).Get(ctx, configMapName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -130,7 +130,7 @@ func (f *Framework) WaitForInitManifestConfigMapCreation(configMapName, ns strin
 
 func (f *Framework) WaitForServiceAccount(saName string, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err := f.VclusterClient.CoreV1().ServiceAccounts(ns).Get(ctx, saName, metav1.GetOptions{})
+		_, err := f.VClusterClient.CoreV1().ServiceAccounts(ns).Get(ctx, saName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -162,7 +162,7 @@ func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) e
 	annotationKey := "e2e-test-bump"
 	updated := false
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		vService, err := f.VclusterClient.CoreV1().Services(ns).Get(ctx, serviceName, metav1.GetOptions{})
+		vService, err := f.VClusterClient.CoreV1().Services(ns).Get(ctx, serviceName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -175,7 +175,7 @@ func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) e
 				vService.Annotations = map[string]string{}
 			}
 			vService.Annotations[annotationKey] = "arbitrary"
-			_, err = f.VclusterClient.CoreV1().Services(ns).Update(ctx, vService, metav1.UpdateOptions{})
+			_, err = f.VClusterClient.CoreV1().Services(ns).Update(ctx, vService, metav1.UpdateOptions{})
 			if err != nil {
 				if kerrors.IsConflict(err) || kerrors.IsNotFound(err) {
 					return false, nil
@@ -199,7 +199,7 @@ func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) e
 }
 
 func (f *Framework) DeleteTestNamespace(ns string, waitUntilDeleted bool) error {
-	err := f.VclusterClient.CoreV1().Namespaces().Delete(f.Context, ns, metav1.DeleteOptions{})
+	err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, ns, metav1.DeleteOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil
@@ -210,7 +210,7 @@ func (f *Framework) DeleteTestNamespace(ns string, waitUntilDeleted bool) error 
 		return nil
 	}
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err = f.VclusterClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
+		_, err = f.VClusterClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			return true, nil
 		}
@@ -225,7 +225,7 @@ func (f *Framework) GetDefaultSecurityContext() *corev1.SecurityContext {
 }
 
 func (f *Framework) CreateCurlPod(ns string) (*corev1.Pod, error) {
-	return f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+	return f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "curl"},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -247,7 +247,7 @@ func (f *Framework) CreateNginxPodAndService(ns string) (*corev1.Pod, *corev1.Se
 	serviceName := "nginx"
 	labels := map[string]string{"app": "nginx"}
 
-	pod, err := f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+	pod, err := f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   podName,
 			Labels: labels,
@@ -267,7 +267,7 @@ func (f *Framework) CreateNginxPodAndService(ns string) (*corev1.Pod, *corev1.Se
 		return nil, nil, err
 	}
 
-	service, err := f.VclusterClient.CoreV1().Services(ns).Create(f.Context, &corev1.Service{
+	service, err := f.VClusterClient.CoreV1().Services(ns).Create(f.Context, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: ns,
@@ -312,12 +312,12 @@ func (f *Framework) TestServiceIsEventuallyUnreachable(curlPod *corev1.Pod, serv
 func (f *Framework) curlService(_ context.Context, curlPod *corev1.Pod, service *corev1.Service) ([]byte, []byte, error) {
 	url := fmt.Sprintf("http://%s.%s.svc:%d/", service.GetName(), service.GetNamespace(), service.Spec.Ports[0].Port)
 	cmd := []string{"curl", "-s", "--show-error", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "2", url}
-	return podhelper.ExecBuffered(f.Context, f.VclusterConfig, curlPod.GetNamespace(), curlPod.GetName(), curlPod.Spec.Containers[0].Name, cmd, nil)
+	return podhelper.ExecBuffered(f.Context, f.VClusterConfig, curlPod.GetNamespace(), curlPod.GetName(), curlPod.Spec.Containers[0].Name, cmd, nil)
 }
 
 func (f *Framework) CreateEgressNetworkPolicyForDNS(ctx context.Context, ns string) (*networkingv1.NetworkPolicy, error) {
 	UDPProtocol := corev1.ProtocolUDP
-	return f.VclusterClient.NetworkingV1().NetworkPolicies(ns).Create(ctx, &networkingv1.NetworkPolicy{
+	return f.VClusterClient.NetworkingV1().NetworkPolicies(ns).Create(ctx, &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "allow-coredns-egress"},
 		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{},

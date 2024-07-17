@@ -9,5 +9,5 @@ import (
 )
 
 func CreateNetworkPoliciesMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
-	return generic.NewNamespacedMapper(ctx, &networkingv1.NetworkPolicy{}, translate.Default.PhysicalName)
+	return generic.NewMapper(ctx, &networkingv1.NetworkPolicy{}, translate.Default.PhysicalName)
 }

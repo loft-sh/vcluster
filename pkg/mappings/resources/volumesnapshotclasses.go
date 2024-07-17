@@ -8,5 +8,5 @@ import (
 )
 
 func CreateVolumeSnapshotClassesMapper(_ *synccontext.RegisterContext) (mappings.Mapper, error) {
-	return generic.NewMirrorPhysicalMapper(&volumesnapshotv1.VolumeSnapshotClass{})
+	return generic.NewMirrorMapper(&volumesnapshotv1.VolumeSnapshotClass{})
 }

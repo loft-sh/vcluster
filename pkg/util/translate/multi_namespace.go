@@ -44,19 +44,6 @@ func (s *multiNamespace) PhysicalNameShort(name, _ string) string {
 	return name
 }
 
-func (s *multiNamespace) objectPhysicalName(obj runtime.Object) string {
-	if obj == nil {
-		return ""
-	}
-
-	metaAccessor, err := meta.Accessor(obj)
-	if err != nil {
-		return ""
-	}
-
-	return s.PhysicalName(metaAccessor.GetName(), metaAccessor.GetNamespace())
-}
-
 func (s *multiNamespace) PhysicalNameClusterScoped(name string) string {
 	if name == "" {
 		return ""

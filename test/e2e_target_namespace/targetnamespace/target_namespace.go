@@ -37,11 +37,11 @@ var _ = ginkgo.Describe("Target Namespace", func() {
 			},
 		}
 
-		_, err := f.VclusterClient.CoreV1().Pods("default").Create(f.Context, pod, metav1.CreateOptions{})
+		_, err := f.VClusterClient.CoreV1().Pods("default").Create(f.Context, pod, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
-			p, _ := f.VclusterClient.CoreV1().Pods("default").Get(ctx, "nginx", metav1.GetOptions{})
+			p, _ := f.VClusterClient.CoreV1().Pods("default").Get(ctx, "nginx", metav1.GetOptions{})
 			if p.Status.Phase == corev1.PodRunning {
 				return true, nil
 			}
