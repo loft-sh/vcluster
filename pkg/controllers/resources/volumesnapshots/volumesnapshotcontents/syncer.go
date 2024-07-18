@@ -6,8 +6,8 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -27,14 +27,14 @@ const (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotContentSyncer{
-		Translator: translator.NewClusterTranslator(ctx, "volume-snapshot-content", &volumesnapshotv1.VolumeSnapshotContent{}, mappings.VolumeSnapshotContents()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "volume-snapshot-content", &volumesnapshotv1.VolumeSnapshotContent{}, mappings.VolumeSnapshotContents()),
 
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}, nil
 }
 
 type volumeSnapshotContentSyncer struct {
-	translator.Translator
+	syncer.GenericTranslator
 
 	virtualClient client.Client
 }
@@ -67,7 +67,7 @@ var _ syncer.Syncer = &volumeSnapshotContentSyncer{}
 
 func (s *volumeSnapshotContentSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vVSC := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
-	if vVSC.DeletionTimestamp != nil || (vVSC.Annotations != nil && vVSC.Annotations[constants.HostClusterVSCAnnotation] != "") {
+	if ctx.IsDelete || vVSC.DeletionTimestamp != nil || (vVSC.Annotations != nil && vVSC.Annotations[constants.HostClusterVSCAnnotation] != "") {
 		if len(vVSC.Finalizers) > 0 {
 			// delete the finalizer here so that the object can be deleted
 			vVSC.Finalizers = []string{}

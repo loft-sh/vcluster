@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -17,7 +19,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -29,13 +30,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return NewSyncer(ctx)
 }
 
-func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &secretSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "secret", &corev1.Secret{}, mappings.Secrets()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "secret", &corev1.Secret{}, mappings.Secrets()),
 
 		includeIngresses: ctx.Config.Sync.ToHost.Ingresses.Enabled,
 
@@ -44,14 +45,14 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 }
 
 type secretSyncer struct {
-	translator.NamespacedTranslator
+	syncertypes.GenericTranslator
 
 	includeIngresses bool
 
 	syncAllSecrets bool
 }
 
-var _ syncer.IndicesRegisterer = &secretSyncer{}
+var _ syncertypes.IndicesRegisterer = &secretSyncer{}
 
 func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	if ctx.Config.Sync.ToHost.Ingresses.Enabled {
@@ -73,7 +74,7 @@ func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	return nil
 }
 
-var _ syncer.ControllerModifier = &secretSyncer{}
+var _ syncertypes.ControllerModifier = &secretSyncer{}
 
 func (s *secretSyncer) ModifyController(_ *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	if s.includeIngresses {
@@ -89,6 +90,11 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Obje
 		return ctrl.Result{}, err
 	} else if !createNeeded {
 		return ctrl.Result{}, nil
+	}
+
+	// delete if the host object was deleted
+	if ctx.IsDelete {
+		return syncer.DeleteVirtualObject(ctx, vObj, "host object was delete")
 	}
 
 	return s.SyncToHostCreate(ctx, vObj, s.create(ctx, vObj.(*corev1.Secret)))
@@ -120,7 +126,7 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 		}
 
 		if retErr != nil {
-			s.NamespacedTranslator.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
 		}
 	}()
 

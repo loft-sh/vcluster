@@ -2,7 +2,7 @@ package persistentvolumes
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncer "github.com/loft-sh/vcluster/pkg/types"
+	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {

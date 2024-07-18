@@ -7,11 +7,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 
-	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -38,7 +38,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	storageClassesEnabled := ctx.Config.Sync.ToHost.StorageClasses.Enabled
 	excludedAnnotations := []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation}
 	return &persistentVolumeClaimSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mappings.PersistentVolumeClaims(), excludedAnnotations...),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mappings.PersistentVolumeClaims(), excludedAnnotations...),
 
 		storageClassesEnabled:    storageClassesEnabled,
 		schedulerEnabled:         ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
@@ -47,7 +47,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 }
 
 type persistentVolumeClaimSyncer struct {
-	translator.NamespacedTranslator
+	syncer.GenericTranslator
 
 	storageClassesEnabled    bool
 	schedulerEnabled         bool
@@ -56,15 +56,17 @@ type persistentVolumeClaimSyncer struct {
 
 var _ syncer.OptionsProvider = &persistentVolumeClaimSyncer{}
 
-func (s *persistentVolumeClaimSyncer) WithOptions() *syncer.Options {
-	return &syncer.Options{DisableUIDDeletion: true}
+func (s *persistentVolumeClaimSyncer) Options() *syncer.Options {
+	return &syncer.Options{
+		DisableUIDDeletion: true,
+	}
 }
 
 var _ syncer.Syncer = &persistentVolumeClaimSyncer{}
 
 func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vPvc := vObj.(*corev1.PersistentVolumeClaim)
-	if vPvc.DeletionTimestamp != nil {
+	if ctx.IsDelete || vPvc.DeletionTimestamp != nil {
 		// delete pvc immediately
 		ctx.Log.Infof("delete virtual persistent volume claim %s/%s immediately, because it is being deleted & there is no physical persistent volume claim", vPvc.Namespace, vPvc.Name)
 		err := ctx.VirtualClient.Delete(ctx, vPvc, &client.DeleteOptions{

@@ -6,16 +6,15 @@ import (
 	"reflect"
 	"time"
 
+	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncer "github.com/loft-sh/vcluster/pkg/types"
-
-	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -69,16 +68,16 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	}
 
 	// create new namespaced translator
-	namespacedTranslator := translator.NewNamespacedTranslator(ctx, "pod", &corev1.Pod{}, mappings.Pods())
+	genericTranslator := translator.NewGenericTranslator(ctx, "pod", &corev1.Pod{}, mappings.Pods())
 
 	// create pod translator
-	podTranslator, err := translatepods.NewTranslator(ctx, namespacedTranslator.EventRecorder())
+	podTranslator, err := translatepods.NewTranslator(ctx, genericTranslator.EventRecorder())
 	if err != nil {
 		return nil, errors.Wrap(err, "create pod translator")
 	}
 
 	return &podSyncer{
-		NamespacedTranslator: namespacedTranslator,
+		GenericTranslator: genericTranslator,
 
 		serviceName:     ctx.Config.WorkloadService,
 		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
@@ -95,7 +94,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 }
 
 type podSyncer struct {
-	translator.NamespacedTranslator
+	syncer.GenericTranslator
 
 	serviceName     string
 	enableScheduler bool
@@ -147,7 +146,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object)
 	// in some scenarios it is possible that the pod was already started and the physical pod
 	// was deleted without vcluster's knowledge. In this case we are deleting the virtual pod
 	// as well, to avoid conflicts with nodes if we would resync the same pod to the host cluster again.
-	if vPod.DeletionTimestamp != nil || vPod.Status.StartTime != nil {
+	if ctx.IsDelete || vPod.DeletionTimestamp != nil || vPod.Status.StartTime != nil {
 		// delete pod immediately
 		ctx.Log.Infof("delete pod %s/%s immediately, because it is being deleted & there is no physical pod", vPod.Namespace, vPod.Name)
 		err := ctx.VirtualClient.Delete(ctx, vPod, &client.DeleteOptions{

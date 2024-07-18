@@ -35,14 +35,14 @@ func (s *ingressSyncer) TranslateMetadata(ctx context.Context, vObj client.Objec
 	ingress := vObj.(*networkingv1.Ingress).DeepCopy()
 	updateAnnotations(ingress)
 
-	return s.NamespacedTranslator.TranslateMetadata(ctx, ingress)
+	return s.GenericTranslator.TranslateMetadata(ctx, ingress)
 }
 
 func (s *ingressSyncer) TranslateMetadataUpdate(ctx context.Context, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
 	vIngress := vObj.(*networkingv1.Ingress).DeepCopy()
 	updateAnnotations(vIngress)
 
-	return s.NamespacedTranslator.TranslateMetadataUpdate(ctx, vIngress, pObj)
+	return s.GenericTranslator.TranslateMetadataUpdate(ctx, vIngress, pObj)
 }
 
 func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) error {

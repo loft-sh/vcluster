@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
-	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -23,17 +24,21 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &ingressSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "ingress", &networkingv1.Ingress{}, mappings.Ingresses()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "ingress", &networkingv1.Ingress{}, mappings.Ingresses()),
 	}, nil
 }
 
 type ingressSyncer struct {
-	translator.NamespacedTranslator
+	syncertypes.GenericTranslator
 }
 
 var _ syncertypes.Syncer = &ingressSyncer{}
 
 func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+	if ctx.IsDelete {
+		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
+	}
+
 	pObj, err := s.translate(ctx, vObj.(*networkingv1.Ingress))
 	if err != nil {
 		return ctrl.Result{}, err
@@ -53,7 +58,7 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 		if retErr != nil {
-			s.NamespacedTranslator.EventRecorder().Eventf(pObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
 		}
 	}()
 

@@ -2,8 +2,8 @@ package volumesnapshotclasses
 
 import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -19,7 +19,7 @@ func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 }
 
 type volumeSnapshotClassSyncer struct {
-	translator.Translator
+	syncer.Translator
 }
 
 var _ syncer.Initializer = &volumeSnapshotClassSyncer{}

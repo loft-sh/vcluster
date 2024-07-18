@@ -85,6 +85,7 @@ func ConnectHelm(ctx context.Context, options *ConnectOptions, globalFlags *flag
 		return err
 	}
 
+	log.Debugf("Found vCluster %s/%s", vCluster.Namespace, vCluster.Name)
 	return cmd.connect(ctx, vCluster, command)
 }
 
@@ -285,6 +286,7 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 				return false, err
 			} else if len(pods.Items) == 0 {
 				err = fmt.Errorf("can't find a running vcluster pod in namespace %s", cmd.Namespace)
+				cmd.Log.Debugf("can't find a running vcluster pod in namespace %s", cmd.Namespace)
 				return false, nil
 			}
 
@@ -294,6 +296,7 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 			})
 			if pods.Items[0].DeletionTimestamp != nil {
 				err = fmt.Errorf("can't find a running vcluster pod in namespace %s", cmd.Namespace)
+				cmd.Log.Debugf("can't find a running vcluster pod in namespace %s", cmd.Namespace)
 				return false, nil
 			}
 
@@ -304,12 +307,14 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 			return nil, fmt.Errorf("finding vcluster pod: %w - %w", waitErr, err)
 		}
 	}
+	cmd.Log.Debugf("Successfully found vCluster pod for connecting %s", podName)
 
 	// get the kube config from the Secret
 	kubeConfig, err := clihelper.GetKubeConfig(ctx, cmd.kubeClient, vclusterName, cmd.Namespace, cmd.Log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse kube config: %w", err)
 	}
+	cmd.Log.Debug("Successfully retrieved vCluster kube config")
 
 	// find out port we should listen to locally
 	if len(kubeConfig.Clusters) != 1 {

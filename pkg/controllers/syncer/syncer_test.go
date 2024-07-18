@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/scheme"
@@ -16,7 +17,6 @@ import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"gotest.tools/v3/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -30,12 +30,12 @@ import (
 
 // named mock instead of fake because there's a real "fake" syncer that syncs fake objects
 type mockSyncer struct {
-	translator.NamespacedTranslator
+	syncertypes.GenericTranslator
 }
 
 func NewMockSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &mockSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "secrets", &corev1.Secret{}, mappings.Secrets()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "secrets", &corev1.Secret{}, mappings.Secrets()),
 	}, nil
 }
 

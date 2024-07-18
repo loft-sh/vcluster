@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -17,7 +18,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -105,11 +105,11 @@ func createExporterFromConfig(ctx *synccontext.RegisterContext, config *vcluster
 	}
 
 	return &exporter{
+		GenericTranslator: translator.NewGenericTranslator(ctx, controllerID, obj, mapper),
 		ObjectPatcher: &exportPatcher{
 			config: config,
 			gvk:    gvk,
 		},
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, controllerID, obj, mapper),
 
 		patcher:  NewPatcher(ctx.VirtualManager.GetClient(), ctx.PhysicalManager.GetClient(), hasStatusSubresource, log.New(controllerID)),
 		gvk:      gvk,
@@ -125,7 +125,7 @@ func BuildCustomExporter(
 	controllerID string,
 	objectPatcher ObjectPatcher,
 	gvk schema.GroupVersionKind,
-	namespacedTranslator translator.NamespacedTranslator,
+	genericTranslator syncertypes.GenericTranslator,
 	replaceWhenInvalid bool,
 ) (syncertypes.Object, error) {
 	_, hasStatusSubresource, err := translate.EnsureCRDFromPhysicalCluster(
@@ -138,8 +138,8 @@ func BuildCustomExporter(
 	}
 
 	return &exporter{
-		ObjectPatcher:        objectPatcher,
-		NamespacedTranslator: namespacedTranslator,
+		ObjectPatcher:     objectPatcher,
+		GenericTranslator: genericTranslator,
 
 		patcher: NewPatcher(registerCtx.VirtualManager.GetClient(), registerCtx.PhysicalManager.GetClient(), hasStatusSubresource, log.New(controllerID)),
 		gvk:     gvk,
@@ -152,7 +152,7 @@ func BuildCustomExporter(
 var _ syncertypes.Syncer = &exporter{}
 
 type exporter struct {
-	translator.NamespacedTranslator
+	syncertypes.GenericTranslator
 	ObjectPatcher
 
 	patcher            *Patcher
@@ -167,6 +167,11 @@ func (f *exporter) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) 
 	// check if selector matches
 	if !f.objectMatches(vObj) {
 		return ctrl.Result{}, nil
+	}
+
+	// delete object if host was deleted
+	if ctx.IsDelete {
+		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
 	}
 
 	// apply object to physical cluster
@@ -295,7 +300,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 var _ syncertypes.ToVirtualSyncer = &exporter{}
 
 func (f *exporter) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	isManaged, err := f.NamespacedTranslator.IsManaged(ctx, pObj)
+	isManaged, err := f.GenericTranslator.IsManaged(ctx, pObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !isManaged {
@@ -303,7 +308,7 @@ func (f *exporter) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Objec
 	}
 
 	// delete physical object because virtual one is missing
-	return syncer.DeleteObject(ctx, pObj, fmt.Sprintf("delete physical %s because virtual is missing", pObj.GetName()))
+	return syncer.DeleteHostObject(ctx, pObj, fmt.Sprintf("delete physical %s because virtual is missing", pObj.GetName()))
 }
 
 func (f *exporter) Name() string {
@@ -312,7 +317,7 @@ func (f *exporter) Name() string {
 
 // TranslateMetadata converts the virtual object into a physical object
 func (f *exporter) TranslateMetadata(ctx context.Context, vObj client.Object) client.Object {
-	pObj := f.NamespacedTranslator.TranslateMetadata(ctx, vObj)
+	pObj := f.GenericTranslator.TranslateMetadata(ctx, vObj)
 	if pObj == nil {
 		return nil
 	}

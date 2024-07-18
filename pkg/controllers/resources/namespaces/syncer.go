@@ -5,9 +5,9 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
-	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -37,14 +37,14 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	namespaceLabels[VClusterNamespaceAnnotation] = ctx.CurrentNamespace
 
 	return &namespaceSyncer{
-		Translator:                 translator.NewClusterTranslator(ctx, "namespace", &corev1.Namespace{}, mappings.Namespaces(), excludedAnnotations...),
+		GenericTranslator:          translator.NewGenericTranslator(ctx, "namespace", &corev1.Namespace{}, mappings.Namespaces(), excludedAnnotations...),
 		workloadServiceAccountName: ctx.Config.ControlPlane.Advanced.WorkloadServiceAccount.Name,
 		namespaceLabels:            namespaceLabels,
 	}, nil
 }
 
 type namespaceSyncer struct {
-	translator.Translator
+	syncertypes.GenericTranslator
 	workloadServiceAccountName string
 	namespaceLabels            map[string]string
 }

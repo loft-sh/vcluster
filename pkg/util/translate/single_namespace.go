@@ -86,13 +86,21 @@ func (s *singleNamespace) IsManaged(obj runtime.Object) bool {
 			(mappings.Has(gvk) && metaAccessor.GetName() != mappings.VirtualToHostName(context.TODO(), metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk))) {
 			klog.FromContext(context.TODO()).V(1).Info("Host object doesn't match, because name annotations is wrong",
 				"object", metaAccessor.GetName(),
+				"kind", gvk.String(),
 				"existingName", metaAccessor.GetName(),
-				"expectedName", mappings.VirtualToHostName(context.TODO(), metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk)))
+				"expectedName", mappings.VirtualToHostName(context.TODO(), metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk)),
+				"nameAnnotation", metaAccessor.GetAnnotations()[NamespaceAnnotation]+"/"+metaAccessor.GetAnnotations()[NameAnnotation],
+			)
 			return false
 		}
 
 		// if kind doesn't match vCluster has probably not synced the object
 		if metaAccessor.GetAnnotations()[KindAnnotation] != "" && gvk.String() != metaAccessor.GetAnnotations()[KindAnnotation] {
+			klog.FromContext(context.TODO()).V(1).Info("Host object doesn't match, because kind annotations is wrong",
+				"object", metaAccessor.GetName(),
+				"existingKind", gvk.String(),
+				"expectedKind", metaAccessor.GetAnnotations()[KindAnnotation],
+			)
 			return false
 		}
 	}
@@ -103,8 +111,6 @@ func (s *singleNamespace) IsManaged(obj runtime.Object) bool {
 func (s *singleNamespace) IsManagedCluster(obj runtime.Object) bool {
 	metaAccessor, err := meta.Accessor(obj)
 	if err != nil {
-		return false
-	} else if metaAccessor.GetLabels() == nil {
 		return false
 	}
 
