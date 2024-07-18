@@ -269,28 +269,22 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 	}
 
-	withoutLabels := pNode.DeepCopy()
-
-	patch, err := patcher.NewSyncerPatcher(ctx, withoutLabels, vNode)
+	patch, err := patcher.NewSyncerPatcher(ctx, pNode, vNode)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		fmt.Println("vnode : ", vNode.Labels)
-		fmt.Println("pnode : ", pNode.Labels)
 		if err := patch.Patch(ctx, pNode, vNode); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 	}()
 
-	updatedVNode, _, err := s.translateUpdateStatus(ctx, pNode, vNode)
+	err = s.translateUpdateStatus(ctx, pNode, vNode)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("update node status: %w", err)
 	}
-	vNode.Status = updatedVNode.Status
 
 	s.translateUpdateBackwards(pNode, vNode)
-
 	return ctrl.Result{}, nil
 }
 

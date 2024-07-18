@@ -13,7 +13,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/klog/v2"
 )
 
@@ -100,22 +99,21 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		translatedSpec.Taints = s.filterOutTaintsMatchingTolerations(translatedSpec.Taints)
 	}
 
-	vNode.Spec = *translatedSpec
-
 	// add annotation to prevent scale down of node by cluster-autoscaler
 	// the env var NODE_NAME is set when only one replica of vcluster is running
 	if nodeName, set := os.LookupEnv("NODE_NAME"); set && nodeName == pNode.Name {
 		annotations["cluster-autoscaler.kubernetes.io/scale-down-disabled"] = "true"
 	}
 
+	// set annotations, spec & labels
+	vNode.Spec = *translatedSpec
 	vNode.Annotations = annotations
-
 	vNode.Labels = labels
 }
 
 // translateUpdateStatus translates the node's status.
 // Returns a Node object, a boolean indicating whether it changed or an error.
-func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, bool, error) {
+func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *corev1.Node, vNode *corev1.Node) error {
 	// translate node status first
 	translatedStatus := pNode.Status.DeepCopy()
 	if s.useFakeKubelets {
@@ -139,7 +137,7 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 			// create new service for this node
 			nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx, vNode.Name)
 			if err != nil {
-				return nil, false, fmt.Errorf("get vNode IP: %w", err)
+				return fmt.Errorf("get vNode IP: %w", err)
 			}
 
 			newAddresses = append(newAddresses, corev1.NodeAddress{
@@ -242,10 +240,8 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		translatedStatus.Images = make([]corev1.ContainerImage, 0)
 	}
 
-	newNode := vNode.DeepCopy()
-	newNode.Status = *translatedStatus
-
-	return newNode, !equality.Semantic.DeepEqual(vNode.Status, *translatedStatus), nil
+	vNode.Status = *translatedStatus
+	return nil
 }
 
 func mergeStrings(physical []string, virtual []string, oldPhysical []string) []string {
