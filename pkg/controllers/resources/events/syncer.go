@@ -2,7 +2,6 @@ package events
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -111,20 +110,4 @@ func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Ob
 	}
 
 	return ctrl.Result{}, nil
-}
-
-var (
-	ErrNilPhysicalObject = errors.New("events: nil pObject")
-	ErrKindNotAccepted   = errors.New("events: kind not accpted")
-	ErrNotFound          = errors.New("events: not found")
-)
-
-func IgnoreAcceptableErrors(err error) error {
-	if errors.Is(err, ErrNilPhysicalObject) ||
-		errors.Is(err, ErrKindNotAccepted) ||
-		errors.Is(err, ErrNotFound) {
-		return nil
-	}
-
-	return err
 }
