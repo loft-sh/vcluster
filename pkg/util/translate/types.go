@@ -1,8 +1,9 @@
 package translate
 
 import (
+	"context"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -20,11 +21,8 @@ type Translator interface {
 	// SingleNamespaceTarget signals if we sync all objects into a single namespace
 	SingleNamespaceTarget() bool
 
-	// IsManaged checks if the object is managed by vcluster
-	IsManaged(obj runtime.Object) bool
-
-	// IsManagedCluster checks if the cluster scoped object is managed by vcluster
-	IsManagedCluster(obj runtime.Object) bool
+	// IsManaged checks if the host object is managed by vCluster
+	IsManaged(ctx context.Context, pObj client.Object) bool
 
 	// IsTargetedNamespace checks if the provided namespace is a sync target for vcluster
 	IsTargetedNamespace(ns string) bool
@@ -68,10 +66,6 @@ type Translator interface {
 
 	// SetupMetadataWithName is similar to ApplyMetadata with a custom name translator and doesn't apply annotations and labels
 	SetupMetadataWithName(vObj client.Object, name types.NamespacedName) (client.Object, error)
-
-	// LegacyGetTargetNamespace returns in the case of a single namespace the target namespace, but fails
-	// if vcluster is syncing to multiple namespaces.
-	LegacyGetTargetNamespace() (string, error)
 
 	ConvertLabelKey(string) string
 }

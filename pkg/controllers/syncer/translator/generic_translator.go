@@ -92,12 +92,8 @@ func (n *genericTranslator) SyncToHostUpdate(ctx *context.SyncContext, vObj, pOb
 	return ctrl.Result{}, nil
 }
 
-func (n *genericTranslator) IsManaged(_ context2.Context, pObj client.Object) (bool, error) {
-	if pObj.GetNamespace() == "" {
-		return translate.Default.IsManagedCluster(pObj), nil
-	}
-
-	return translate.Default.IsManaged(pObj), nil
+func (n *genericTranslator) IsManaged(ctx context2.Context, pObj client.Object) (bool, error) {
+	return translate.Default.IsManaged(ctx, pObj), nil
 }
 
 func (n *genericTranslator) TranslateMetadata(ctx context2.Context, vObj client.Object) client.Object {
