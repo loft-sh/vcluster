@@ -22,8 +22,8 @@ const (
 
 var PodServiceAccountTokenSecretName string
 
-func SecretNameFromPodName(podName, namespace string) string {
-	return mappings.VirtualToHostName(fmt.Sprintf("%s-sa-token", podName), namespace, mappings.Secrets())
+func SecretNameFromPodName(ctx context.Context, podName, namespace string) string {
+	return mappings.VirtualToHostName(ctx, fmt.Sprintf("%s-sa-token", podName), namespace, mappings.Secrets())
 }
 
 var ErrNotFound = errors.New("translate: not found")
@@ -39,7 +39,7 @@ func IgnoreAcceptableErrors(err error) error {
 func GetSecretIfExists(ctx context.Context, pClient client.Client, vPodName, vNamespace string) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
 	err := pClient.Get(ctx, types.NamespacedName{
-		Name:      SecretNameFromPodName(vPodName, vNamespace),
+		Name:      SecretNameFromPodName(ctx, vPodName, vNamespace),
 		Namespace: translate.Default.PhysicalNamespace(vNamespace),
 	}, secret)
 	if err != nil {
@@ -70,7 +70,7 @@ func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod,
 	// create to secret with the given token
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      SecretNameFromPodName(vPod.Name, vPod.Namespace),
+			Name:      SecretNameFromPodName(ctx, vPod.Name, vPod.Namespace),
 			Namespace: translate.Default.PhysicalNamespace(vPod.Namespace),
 
 			Annotations: map[string]string{

@@ -20,7 +20,7 @@ var (
 )
 
 func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
-	newPvc := s.TranslateMetadata(ctx.Context, vPvc).(*corev1.PersistentVolumeClaim)
+	newPvc := s.TranslateMetadata(ctx, vPvc).(*corev1.PersistentVolumeClaim)
 	newPvc, err := s.translateSelector(ctx, newPvc)
 	if err != nil {
 		return nil, err
@@ -29,9 +29,9 @@ func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vP
 	if vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
 		if newPvc.Spec.DataSource != nil {
 			if newPvc.Spec.DataSource.Kind == "VolumeSnapshot" {
-				newPvc.Spec.DataSource.Name = mappings.VirtualToHostName(newPvc.Spec.DataSource.Name, vPvc.Namespace, mappings.VolumeSnapshots())
+				newPvc.Spec.DataSource.Name = mappings.VirtualToHostName(ctx, newPvc.Spec.DataSource.Name, vPvc.Namespace, mappings.VolumeSnapshots())
 			} else if newPvc.Spec.DataSource.Kind == "PersistentVolumeClaim" {
-				newPvc.Spec.DataSource.Name = mappings.VirtualToHostName(newPvc.Spec.DataSource.Name, vPvc.Namespace, mappings.PersistentVolumeClaims())
+				newPvc.Spec.DataSource.Name = mappings.VirtualToHostName(ctx, newPvc.Spec.DataSource.Name, vPvc.Namespace, mappings.PersistentVolumeClaims())
 			}
 		}
 
@@ -42,9 +42,9 @@ func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vP
 			}
 
 			if newPvc.Spec.DataSourceRef.Kind == "VolumeSnapshot" {
-				newPvc.Spec.DataSourceRef.Name = mappings.VirtualToHostName(newPvc.Spec.DataSourceRef.Name, namespace, mappings.VolumeSnapshots())
+				newPvc.Spec.DataSourceRef.Name = mappings.VirtualToHostName(ctx, newPvc.Spec.DataSourceRef.Name, namespace, mappings.VolumeSnapshots())
 			} else if newPvc.Spec.DataSourceRef.Kind == "PersistentVolumeClaim" {
-				newPvc.Spec.DataSourceRef.Name = mappings.VirtualToHostName(newPvc.Spec.DataSourceRef.Name, namespace, mappings.PersistentVolumeClaims())
+				newPvc.Spec.DataSourceRef.Name = mappings.VirtualToHostName(ctx, newPvc.Spec.DataSourceRef.Name, namespace, mappings.PersistentVolumeClaims())
 			}
 		}
 	}
@@ -82,7 +82,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 			if !s.storageClassesEnabled && storageClassName != "" {
 				// Should the PVC be dynamically provisioned or not?
 				if vPvc.Spec.Selector == nil && vPvc.Spec.VolumeName == "" {
-					err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: storageClassName}, &storagev1.StorageClass{})
+					err := ctx.PhysicalClient.Get(ctx, types.NamespacedName{Name: storageClassName}, &storagev1.StorageClass{})
 					if err != nil && kerrors.IsNotFound(err) {
 						translated := translate.Default.PhysicalNameClusterScoped(storageClassName)
 						delete(vPvc.Annotations, deprecatedStorageClassAnnotation)

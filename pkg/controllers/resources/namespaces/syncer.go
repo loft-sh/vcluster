@@ -52,9 +52,9 @@ type namespaceSyncer struct {
 var _ syncertypes.Syncer = &namespaceSyncer{}
 
 func (s *namespaceSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	newNamespace := s.translate(ctx.Context, vObj.(*corev1.Namespace))
+	newNamespace := s.translate(ctx, vObj.(*corev1.Namespace))
 	ctx.Log.Infof("create physical namespace %s", newNamespace.Name)
-	err := ctx.PhysicalClient.Create(ctx.Context, newNamespace)
+	err := ctx.PhysicalClient.Create(ctx, newNamespace)
 	if err != nil {
 		ctx.Log.Infof("error syncing %s to physical cluster: %v", vObj.GetName(), err)
 		return ctrl.Result{}, err
@@ -78,7 +78,7 @@ func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 	// cast objects
 	pNamespace, vNamespace, _, _ := synccontext.Cast[*corev1.Namespace](ctx, pObj, vObj)
 
-	s.translateUpdate(ctx.Context, pNamespace, vNamespace)
+	s.translateUpdate(ctx, pNamespace, vNamespace)
 
 	return ctrl.Result{}, s.EnsureWorkloadServiceAccount(ctx, pNamespace.Name)
 }
@@ -94,6 +94,6 @@ func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncCont
 			Name:      s.workloadServiceAccountName,
 		},
 	}
-	_, err := controllerutil.CreateOrPatch(ctx.Context, ctx.PhysicalClient, svc, func() error { return nil })
+	_, err := controllerutil.CreateOrPatch(ctx, ctx.PhysicalClient, svc, func() error { return nil })
 	return err
 }

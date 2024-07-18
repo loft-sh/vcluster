@@ -1,6 +1,7 @@
 package ingresses
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -33,7 +34,7 @@ type ingressSyncer struct {
 var _ syncertypes.Syncer = &ingressSyncer{}
 
 func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	pObj, err := s.translate(ctx.Context, vObj.(*networkingv1.Ingress))
+	pObj, err := s.translate(ctx, vObj.(*networkingv1.Ingress))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -59,7 +60,7 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	pIngress, vIngress, source, target := synccontext.Cast[*networkingv1.Ingress](ctx, pObj, vObj)
 	target.Spec.IngressClassName = source.Spec.IngressClassName
 	vIngress.Status = pIngress.Status
-	err = s.translateUpdate(ctx.Context, pIngress, vIngress)
+	err = s.translateUpdate(ctx, pIngress, vIngress)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -67,9 +68,9 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	return ctrl.Result{}, nil
 }
 
-func SecretNamesFromIngress(ingress *networkingv1.Ingress) []string {
+func SecretNamesFromIngress(ctx context.Context, ingress *networkingv1.Ingress) []string {
 	secrets := []string{}
-	_, extraSecrets := translateIngressAnnotations(ingress.Annotations, ingress.Namespace)
+	_, extraSecrets := translateIngressAnnotations(ctx, ingress.Annotations, ingress.Namespace)
 	secrets = append(secrets, extraSecrets...)
 	for _, tls := range ingress.Spec.TLS {
 		if tls.SecretName != "" {
@@ -85,7 +86,7 @@ var TranslateAnnotations = map[string]bool{
 	"nginx.ingress.kubernetes.io/proxy-ssl-secret": true,
 }
 
-func translateIngressAnnotations(annotations map[string]string, ingressNamespace string) (map[string]string, []string) {
+func translateIngressAnnotations(ctx context.Context, annotations map[string]string, ingressNamespace string) (map[string]string, []string) {
 	foundSecrets := []string{}
 	newAnnotations := map[string]string{}
 	for k, v := range annotations {
@@ -98,12 +99,12 @@ func translateIngressAnnotations(annotations map[string]string, ingressNamespace
 		if len(splitted) == 1 { // If value is only "secret"
 			secret := splitted[0]
 			foundSecrets = append(foundSecrets, ingressNamespace+"/"+secret)
-			newAnnotations[k] = mappings.VirtualToHostName(secret, ingressNamespace, mappings.Secrets())
+			newAnnotations[k] = mappings.VirtualToHostName(ctx, secret, ingressNamespace, mappings.Secrets())
 		} else if len(splitted) == 2 { // If value is "namespace/secret"
 			namespace := splitted[0]
 			secret := splitted[1]
 			foundSecrets = append(foundSecrets, namespace+"/"+secret)
-			pName := mappings.VirtualToHost(secret, namespace, mappings.Secrets())
+			pName := mappings.VirtualToHost(ctx, secret, namespace, mappings.Secrets())
 			newAnnotations[k] = pName.Namespace + "/" + pName.Name
 		} else {
 			newAnnotations[k] = v

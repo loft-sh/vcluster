@@ -60,7 +60,7 @@ func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vOb
 
 	// update event
 	vOldEvent := vEvent.DeepCopy()
-	vEvent, err := s.buildVirtualEvent(ctx.Context, pEvent)
+	vEvent, err := s.buildVirtualEvent(ctx, pEvent)
 	if err != nil {
 		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
 	}
@@ -77,7 +77,7 @@ func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vOb
 	// check if updated
 	ctx.Log.Infof("update virtual event %s/%s", vEvent.Namespace, vEvent.Name)
 	translator.PrintChanges(vOldEvent, vEvent, ctx.Log)
-	err = ctx.VirtualClient.Update(ctx.Context, vEvent)
+	err = ctx.VirtualClient.Update(ctx, vEvent)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -89,14 +89,14 @@ var _ syncer.ToVirtualSyncer = &eventSyncer{}
 
 func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	// build the virtual event
-	vObj, err := s.buildVirtualEvent(ctx.Context, pObj.(*corev1.Event))
+	vObj, err := s.buildVirtualEvent(ctx, pObj.(*corev1.Event))
 	if err != nil {
 		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
 	}
 
 	// make sure namespace is not being deleted
 	namespace := &corev1.Namespace{}
-	err = ctx.VirtualClient.Get(ctx.Context, client.ObjectKey{Name: vObj.Namespace}, namespace)
+	err = ctx.VirtualClient.Get(ctx, client.ObjectKey{Name: vObj.Namespace}, namespace)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -110,7 +110,7 @@ func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Ob
 
 	// try to create virtual event
 	ctx.Log.Infof("create virtual event %s/%s", vObj.Namespace, vObj.Name)
-	err = ctx.VirtualClient.Create(ctx.Context, vObj)
+	err = ctx.VirtualClient.Create(ctx, vObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

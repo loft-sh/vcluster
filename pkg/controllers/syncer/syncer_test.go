@@ -40,12 +40,12 @@ func NewMockSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error)
 }
 
 func (s *mockSyncer) naiveTranslateCreate(ctx *synccontext.SyncContext, vObj client.Object) client.Object {
-	pObj := s.TranslateMetadata(ctx.Context, vObj)
+	pObj := s.TranslateMetadata(ctx, vObj)
 	return pObj
 }
 
 func (s *mockSyncer) naiveTranslateUpdate(ctx *synccontext.SyncContext, vObj client.Object, pObj client.Object) client.Object {
-	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx.Context, vObj, pObj)
+	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	newPObj := pObj.DeepCopyObject().(client.Object)
 	newPObj.SetAnnotations(updatedAnnotations)
 	newPObj.SetLabels(updatedLabels)

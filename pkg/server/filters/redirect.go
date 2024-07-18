@@ -54,7 +54,7 @@ func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime
 				}
 
 				// exchange namespace & name
-				pName := mappings.VirtualToHost(splitted[6], info.Namespace, mappings.Pods())
+				pName := mappings.VirtualToHost(req.Context(), splitted[6], info.Namespace, mappings.Pods())
 				splitted[4] = pName.Namespace
 				splitted[6] = pName.Name
 				req.URL.Path = strings.Join(splitted, "/")

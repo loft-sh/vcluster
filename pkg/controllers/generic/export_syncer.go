@@ -40,7 +40,7 @@ func CreateExporters(ctx *config.ControllerContext) error {
 
 	for _, exportConfig := range exporterConfig.Exports {
 		_, hasStatusSubresource, err := translate.EnsureCRDFromPhysicalCluster(
-			registerCtx.Context,
+			registerCtx,
 			registerCtx.PhysicalManager.GetConfig(),
 			registerCtx.VirtualManager.GetConfig(),
 			schema.FromAPIVersionAndKind(exportConfig.APIVersion, exportConfig.Kind))
@@ -129,7 +129,7 @@ func BuildCustomExporter(
 	replaceWhenInvalid bool,
 ) (syncertypes.Object, error) {
 	_, hasStatusSubresource, err := translate.EnsureCRDFromPhysicalCluster(
-		registerCtx.Context,
+		registerCtx,
 		registerCtx.PhysicalManager.GetConfig(),
 		registerCtx.VirtualManager.GetConfig(),
 		gvk)
@@ -171,7 +171,7 @@ func (f *exporter) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) 
 
 	// apply object to physical cluster
 	ctx.Log.Infof("Create physical %s %s/%s, since it is missing, but virtual object exists", f.gvk.Kind, vObj.GetNamespace(), vObj.GetName())
-	pObj, err := f.patcher.ApplyPatches(ctx.Context, vObj, nil, f)
+	pObj, err := f.patcher.ApplyPatches(ctx, vObj, nil, f)
 	if kerrors.IsConflict(err) {
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -187,7 +187,7 @@ func (f *exporter) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) 
 	}
 
 	// wait here for vObj to be created
-	err = wait.PollUntilContextTimeout(ctx.Context, time.Millisecond*10, time.Second, true, func(pollContext context.Context) (done bool, err error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second, true, func(pollContext context.Context) (done bool, err error) {
 		err = ctx.PhysicalClient.Get(pollContext, types.NamespacedName{
 			Namespace: pObj.GetNamespace(),
 			Name:      pObj.GetName(),
@@ -213,7 +213,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	// check if virtual object is not matching anymore
 	if !f.objectMatches(vObj) {
 		ctx.Log.Infof("delete physical %s %s/%s, because it is not used anymore", f.gvk.Kind, pObj.GetNamespace(), pObj.GetName())
-		err := ctx.PhysicalClient.Delete(ctx.Context, pObj, &client.DeleteOptions{
+		err := ctx.PhysicalClient.Delete(ctx, pObj, &client.DeleteOptions{
 			GracePeriodSeconds: &[]int64{0}[0],
 		})
 		if err != nil {
@@ -228,12 +228,12 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	if vObj.GetDeletionTimestamp() != nil || pObj.GetDeletionTimestamp() != nil {
 		if pObj.GetDeletionTimestamp() == nil {
 			ctx.Log.Infof("delete physical object %s/%s, because the virtual object is being deleted", pObj.GetNamespace(), pObj.GetName())
-			if err := ctx.PhysicalClient.Delete(ctx.Context, pObj); err != nil {
+			if err := ctx.PhysicalClient.Delete(ctx, pObj); err != nil {
 				return ctrl.Result{}, err
 			}
 		} else if vObj.GetDeletionTimestamp() == nil {
 			ctx.Log.Infof("delete virtual object %s/%s, because physical object %s/%s is being deleted", vObj.GetNamespace(), vObj.GetName(), pObj.GetNamespace(), pObj.GetName())
-			if err := ctx.VirtualClient.Delete(ctx.Context, vObj); err != nil {
+			if err := ctx.VirtualClient.Delete(ctx, vObj); err != nil {
 				return ctrl.Result{}, nil
 			}
 		}
@@ -242,7 +242,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	}
 
 	// apply reverse patches
-	result, err := f.patcher.ApplyReversePatches(ctx.Context, vObj, pObj, f)
+	result, err := f.patcher.ApplyReversePatches(ctx, vObj, pObj, f)
 	if err != nil {
 		if kerrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
@@ -263,14 +263,14 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	}
 
 	// apply patches
-	pObj, err = f.patcher.ApplyPatches(ctx.Context, vObj, pObj, f)
+	pObj, err = f.patcher.ApplyPatches(ctx, vObj, pObj, f)
 	err = IgnoreAcceptableErrors(err)
 	if err != nil {
 		// when invalid, auto delete and recreate to recover
 		if kerrors.IsInvalid(err) && f.replaceWhenInvalid {
 			// Replace the object
 			ctx.Log.Infof("Replace physical object, because apply failed: %v", err)
-			err = ctx.PhysicalClient.Delete(ctx.Context, pObj, &client.DeleteOptions{
+			err = ctx.PhysicalClient.Delete(ctx, pObj, &client.DeleteOptions{
 				GracePeriodSeconds: &[]int64{0}[0],
 			})
 			if err != nil {
@@ -295,7 +295,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 var _ syncertypes.ToVirtualSyncer = &exporter{}
 
 func (f *exporter) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	isManaged, err := f.NamespacedTranslator.IsManaged(ctx.Context, pObj)
+	isManaged, err := f.NamespacedTranslator.IsManaged(ctx, pObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !isManaged {

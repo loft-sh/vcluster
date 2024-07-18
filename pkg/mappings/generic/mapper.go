@@ -39,7 +39,7 @@ func NewMapperWithObject(ctx *synccontext.RegisterContext, obj client.Object, tr
 
 	mapperOptions := getOptions(options...)
 	if !mapperOptions.SkipIndex {
-		err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, obj.DeepCopyObject().(client.Object), constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+		err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, obj.DeepCopyObject().(client.Object), constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 			if rawObj.GetNamespace() != "" {
 				return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translateName(rawObj.GetName(), rawObj.GetNamespace(), rawObj)}
 			}

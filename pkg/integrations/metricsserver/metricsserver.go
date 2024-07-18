@@ -163,7 +163,7 @@ func handleMetricsServerProxyRequest(
 
 	// request is for get particular pod
 	if info.Resource == PodResource && info.Verb == RequestVerbGet {
-		nameNamespace := mappings.VirtualToHost(info.Name, info.Namespace, mappings.Pods())
+		nameNamespace := mappings.VirtualToHost(req.Context(), info.Name, info.Namespace, mappings.Pods())
 		metricsServerProxy.resourceType = PodResource
 
 		// replace the translated name and namespace
@@ -383,7 +383,7 @@ func (p *serverProxy) rewritePodMetricsTableData(data []byte) {
 
 	filteredTableRows := []metav1.TableRow{}
 	for _, vPod := range p.podsInNamespace {
-		rowData, found := hostPodMap[mappings.VirtualToHost(vPod.Name, vPod.Namespace, mappings.Pods())]
+		rowData, found := hostPodMap[mappings.VirtualToHost(p.request.Context(), vPod.Name, vPod.Namespace, mappings.Pods())]
 		if found {
 			// translate the data for the given index
 			rowData.Cells[0] = vPod.Name
@@ -437,7 +437,7 @@ func (p *serverProxy) rewritePodMetricsListData(data []byte) {
 	}
 
 	for _, vPod := range p.podsInNamespace {
-		podMetric, found := hostPodMap[mappings.VirtualToHost(vPod.Name, vPod.Namespace, mappings.Pods())]
+		podMetric, found := hostPodMap[mappings.VirtualToHost(p.request.Context(), vPod.Name, vPod.Namespace, mappings.Pods())]
 		if found {
 			// translate back pod metric
 			podMetric.Name = vPod.Name

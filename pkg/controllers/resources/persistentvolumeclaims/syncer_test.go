@@ -294,14 +294,14 @@ func TestSync(t *testing.T) {
 				syncer.(*persistentVolumeClaimSyncer).useFakePersistentVolumes = true
 
 				vPVC := &corev1.PersistentVolumeClaim{}
-				err := syncCtx.VirtualClient.Get(syncCtx.Context, types.NamespacedName{
+				err := syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{
 					Namespace: basePvc.Namespace,
 					Name:      basePvc.Name,
 				}, vPVC)
 				assert.NilError(t, err)
 
 				pPVC := &corev1.PersistentVolumeClaim{}
-				err = syncCtx.PhysicalClient.Get(syncCtx.Context, types.NamespacedName{
+				err = syncCtx.PhysicalClient.Get(syncCtx, types.NamespacedName{
 					Namespace: pObjectMeta.Namespace,
 					Name:      pObjectMeta.Name,
 				}, pPVC)

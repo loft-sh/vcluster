@@ -17,7 +17,7 @@ import (
 func (s *csistoragecapacitySyncer) fetchVirtualStorageClass(ctx *synccontext.SyncContext, physName string) (string, bool, error) {
 	if s.storageClassSyncEnabled {
 		// the csistorage capacity being synced to the virtual cluster needs the name of the virtual storage cluster
-		vName := mappings.StorageClasses().HostToVirtual(ctx.Context, types.NamespacedName{Name: physName}, nil)
+		vName := mappings.StorageClasses().HostToVirtual(ctx, types.NamespacedName{Name: physName}, nil)
 		if vName.Name == "" {
 			return "", true, nil
 		}
@@ -36,7 +36,7 @@ func (s *csistoragecapacitySyncer) hasMatchingVirtualNodes(ctx *synccontext.Sync
 		if err != nil {
 			return false, err
 		}
-		err = ctx.VirtualClient.List(ctx.Context, nodeList, client.MatchingLabelsSelector{Selector: selector})
+		err = ctx.VirtualClient.List(ctx, nodeList, client.MatchingLabelsSelector{Selector: selector})
 		if err != nil {
 			return false, err
 		}
@@ -56,7 +56,7 @@ func (s *csistoragecapacitySyncer) translateBackwards(ctx *synccontext.SyncConte
 		return nil, shouldSkip, err
 	}
 
-	translated, err := s.TranslateMetadata(ctx.Context, pObj.DeepCopy())
+	translated, err := s.TranslateMetadata(ctx, pObj.DeepCopy())
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to translate metatdata backwards: %w", err)
 	}

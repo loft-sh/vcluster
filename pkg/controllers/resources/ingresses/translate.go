@@ -21,13 +21,13 @@ const (
 
 func (s *ingressSyncer) translate(ctx context.Context, vIngress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
 	newIngress := s.TranslateMetadata(ctx, vIngress).(*networkingv1.Ingress)
-	pSpec, err := translateSpec(vIngress.Namespace, &vIngress.Spec)
+	pSpec, err := translateSpec(ctx, vIngress.Namespace, &vIngress.Spec)
 	if err != nil {
 		return nil, err
 	}
 
 	newIngress.Spec = *pSpec
-	newIngress.Annotations, _ = translateIngressAnnotations(newIngress.Annotations, vIngress.Namespace)
+	newIngress.Annotations, _ = translateIngressAnnotations(ctx, newIngress.Annotations, vIngress.Namespace)
 	return newIngress, nil
 }
 
@@ -46,24 +46,24 @@ func (s *ingressSyncer) TranslateMetadataUpdate(ctx context.Context, vObj client
 }
 
 func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) error {
-	pSpec, err := translateSpec(vObj.Namespace, &vObj.Spec)
+	pSpec, err := translateSpec(ctx, vObj.Namespace, &vObj.Spec)
 	if err != nil {
 		return err
 	}
 
 	pObj.Spec = *pSpec
 	_, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
-	translatedAnnotations, _ = translateIngressAnnotations(translatedAnnotations, vObj.Namespace)
+	translatedAnnotations, _ = translateIngressAnnotations(ctx, translatedAnnotations, vObj.Namespace)
 	pObj.Annotations = translatedAnnotations
 	pObj.Labels = translatedLabels
 	return nil
 }
 
-func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) (*networkingv1.IngressSpec, error) {
+func translateSpec(ctx context.Context, namespace string, vIngressSpec *networkingv1.IngressSpec) (*networkingv1.IngressSpec, error) {
 	retSpec := vIngressSpec.DeepCopy()
 	if retSpec.DefaultBackend != nil {
 		if retSpec.DefaultBackend.Service != nil && retSpec.DefaultBackend.Service.Name != "" {
-			retSpec.DefaultBackend.Service.Name = mappings.VirtualToHostName(retSpec.DefaultBackend.Service.Name, namespace, mappings.Services())
+			retSpec.DefaultBackend.Service.Name = mappings.VirtualToHostName(ctx, retSpec.DefaultBackend.Service.Name, namespace, mappings.Services())
 		}
 		if retSpec.DefaultBackend.Resource != nil {
 			retSpec.DefaultBackend.Resource.Name = translate.Default.PhysicalName(retSpec.DefaultBackend.Resource.Name, namespace)
@@ -74,7 +74,7 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) (*n
 		if rule.HTTP != nil {
 			for j, path := range rule.HTTP.Paths {
 				if path.Backend.Service != nil && path.Backend.Service.Name != "" {
-					retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name = mappings.VirtualToHostName(retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name, namespace, mappings.Services())
+					retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name = mappings.VirtualToHostName(ctx, retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name, namespace, mappings.Services())
 				}
 				if path.Backend.Resource != nil {
 					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.Default.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
@@ -85,7 +85,7 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) (*n
 
 	for i, tls := range retSpec.TLS {
 		if tls.SecretName != "" {
-			retSpec.TLS[i].SecretName = mappings.VirtualToHostName(retSpec.TLS[i].SecretName, namespace, mappings.Secrets())
+			retSpec.TLS[i].SecretName = mappings.VirtualToHostName(ctx, retSpec.TLS[i].SecretName, namespace, mappings.Secrets())
 		}
 	}
 

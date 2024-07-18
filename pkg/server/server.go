@@ -89,7 +89,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 	uncachedVirtualClient = pluginhookclient.WrapVirtualClient(uncachedVirtualClient)
 	uncachedLocalClient = pluginhookclient.WrapPhysicalClient(uncachedLocalClient)
 
-	certSyncer, err := cert.NewSyncer(ctx.Context, ctx.Config.WorkloadNamespace, ctx.WorkloadNamespaceClient, ctx.Config)
+	certSyncer, err := cert.NewSyncer(ctx, ctx.Config.WorkloadNamespace, ctx.WorkloadNamespaceClient, ctx.Config)
 	if err != nil {
 		return nil, errors.Wrap(err, "create cert syncer")
 	}
@@ -137,7 +137,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 	}
 
 	// init plugins
-	admissionHandler, err := initAdmission(ctx.Context, virtualConfig)
+	admissionHandler, err := initAdmission(ctx, virtualConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "init admission")
 	}
@@ -155,7 +155,7 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 
 	// inject apis
 	if ctx.Config.Sync.FromHost.Nodes.Enabled && ctx.Config.Sync.FromHost.Nodes.SyncBackChanges {
-		h = filters.WithNodeChanges(ctx.Context, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
+		h = filters.WithNodeChanges(ctx, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 	}
 	h = filters.WithFakeKubelet(h, localConfig, ctx.VirtualManager.GetClient())
 	h = filters.WithK3sConnect(h)

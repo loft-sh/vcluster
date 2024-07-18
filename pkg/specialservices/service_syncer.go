@@ -34,7 +34,7 @@ func SyncKubernetesService(
 ) error {
 	// get physical service
 	pObj := &corev1.Service{}
-	err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{
+	err := ctx.CurrentNamespaceClient.Get(ctx, types.NamespacedName{
 		Namespace: svcNamespace,
 		Name:      svcName,
 	}, pObj)
@@ -47,7 +47,7 @@ func SyncKubernetesService(
 
 	// get virtual service
 	vObj := &corev1.Service{}
-	err = ctx.VirtualClient.Get(ctx.Context, vSvcToSync, vObj)
+	err = ctx.VirtualClient.Get(ctx, vSvcToSync, vObj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil
@@ -68,7 +68,7 @@ func SyncKubernetesService(
 		newService.Spec.Ports = translatedPorts
 		if clusterIPsChanged {
 			// delete & create with correct ClusterIP
-			err = ctx.VirtualClient.Delete(ctx.Context, vObj)
+			err = ctx.VirtualClient.Delete(ctx, vObj)
 			if err != nil {
 				return err
 			}
@@ -77,13 +77,13 @@ func SyncKubernetesService(
 			newService.ResourceVersion = ""
 
 			// create the new service with the correct cluster ip
-			err = ctx.VirtualClient.Create(ctx.Context, newService)
+			err = ctx.VirtualClient.Create(ctx, newService)
 			if err != nil {
 				return err
 			}
 		} else {
 			// delete & create with correct ClusterIP
-			err = ctx.VirtualClient.Update(ctx.Context, newService)
+			err = ctx.VirtualClient.Update(ctx, newService)
 			if err != nil {
 				return err
 			}

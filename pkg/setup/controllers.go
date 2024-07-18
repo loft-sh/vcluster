@@ -166,7 +166,7 @@ func ApplyCoreDNS(controllerContext *config.ControllerContext) {
 func SyncKubernetesService(ctx *config.ControllerContext) error {
 	err := specialservices.SyncKubernetesService(
 		&synccontext.SyncContext{
-			Context:                ctx.Context,
+			Context:                ctx,
 			Log:                    loghelper.New("sync-kubernetes-service"),
 			PhysicalClient:         ctx.LocalManager.GetClient(),
 			VirtualClient:          ctx.VirtualManager.GetClient(),

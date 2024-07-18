@@ -11,7 +11,7 @@ import (
 )
 
 type ControllerContext struct {
-	Context context.Context
+	context.Context
 
 	LocalManager          ctrl.Manager
 	VirtualManager        ctrl.Manager

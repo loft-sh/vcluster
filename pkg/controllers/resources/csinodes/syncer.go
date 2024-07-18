@@ -35,15 +35,15 @@ var _ syncertypes.Syncer = &csinodeSyncer{}
 func (s *csinodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	// look up matching node name, don't sync if not found
 	node := &corev1.Node{}
-	err := s.virtualClient.Get(ctx.Context, types.NamespacedName{Name: pObj.GetName()}, node)
+	err := s.virtualClient.Get(ctx, types.NamespacedName{Name: pObj.GetName()}, node)
 	if kerrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
-	vObj := s.translateBackwards(ctx.Context, pObj.(*storagev1.CSINode))
+	vObj := s.translateBackwards(ctx, pObj.(*storagev1.CSINode))
 	ctx.Log.Infof("create CSINode %s, because it does not exist in virtual cluster", vObj.Name)
-	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
+	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
 func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
@@ -63,21 +63,21 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	}()
 
 	node := &corev1.Node{}
-	err = s.virtualClient.Get(ctx.Context, types.NamespacedName{Name: pObj.GetName()}, node)
+	err = s.virtualClient.Get(ctx, types.NamespacedName{Name: pObj.GetName()}, node)
 	if kerrors.IsNotFound(err) {
 		ctx.Log.Infof("delete virtual CSINode %s, because corresponding node object is missing", vObj.GetName())
 		shouldPatch = false
-		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
 	// check if there is a change
-	s.translateUpdateBackwards(ctx.Context, pObj.(*storagev1.CSINode), vObj.(*storagev1.CSINode))
+	s.translateUpdateBackwards(ctx, pObj.(*storagev1.CSINode), vObj.(*storagev1.CSINode))
 
 	return ctrl.Result{}, nil
 }
 
 func (s *csinodeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("delete virtual CSINode %s, because physical object is missing", vObj.GetName())
-	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 }

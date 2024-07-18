@@ -258,10 +258,10 @@ func TestSync(t *testing.T) {
 				_, err := syncer.Sync(syncContext, backwardUpdatePPv, baseVPv)
 				assert.NilError(t, err)
 
-				err = syncContext.VirtualClient.Get(ctx.Context, types.NamespacedName{Name: baseVPv.Name}, baseVPv)
+				err = syncContext.VirtualClient.Get(ctx, types.NamespacedName{Name: baseVPv.Name}, baseVPv)
 				assert.NilError(t, err)
 
-				err = syncContext.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: backwardUpdatePPv.Name}, backwardUpdatePPv)
+				err = syncContext.PhysicalClient.Get(ctx, types.NamespacedName{Name: backwardUpdatePPv.Name}, backwardUpdatePPv)
 				assert.NilError(t, err)
 
 				_, err = syncer.Sync(syncContext, backwardUpdatePPv, baseVPv)
@@ -364,11 +364,11 @@ func TestSync(t *testing.T) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
 
 				vPv := &corev1.PersistentVolume{}
-				err := syncContext.VirtualClient.Get(ctx.Context, types.NamespacedName{Name: baseVPv.Name}, vPv)
+				err := syncContext.VirtualClient.Get(ctx, types.NamespacedName{Name: baseVPv.Name}, vPv)
 				assert.NilError(t, err)
 
 				pPv := &corev1.PersistentVolume{}
-				err = syncContext.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: basePPv.Name}, pPv)
+				err = syncContext.PhysicalClient.Get(ctx, types.NamespacedName{Name: basePPv.Name}, pPv)
 				assert.NilError(t, err)
 
 				_, err = syncer.Sync(syncContext, pPv, vPv)

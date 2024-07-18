@@ -1,6 +1,8 @@
 package pods
 
 import (
+	"context"
+
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
@@ -8,7 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func SecretNamesFromPod(pod *corev1.Pod) []string {
+func SecretNamesFromPod(ctx context.Context, pod *corev1.Pod) []string {
 	secrets := []string{}
 	for _, c := range pod.Spec.Containers {
 		secrets = append(secrets, SecretNamesFromContainer(pod.Namespace, &c)...)
@@ -22,11 +24,11 @@ func SecretNamesFromPod(pod *corev1.Pod) []string {
 	for i := range pod.Spec.ImagePullSecrets {
 		secrets = append(secrets, pod.Namespace+"/"+pod.Spec.ImagePullSecrets[i].Name)
 	}
-	secrets = append(secrets, SecretNamesFromVolumes(pod)...)
+	secrets = append(secrets, SecretNamesFromVolumes(ctx, pod)...)
 	return translate.UniqueSlice(secrets)
 }
 
-func SecretNamesFromVolumes(pod *corev1.Pod) []string {
+func SecretNamesFromVolumes(ctx context.Context, pod *corev1.Pod) []string {
 	secrets := []string{}
 	for i := range pod.Spec.Volumes {
 		if pod.Spec.Volumes[i].Secret != nil {
@@ -41,7 +43,7 @@ func SecretNamesFromVolumes(pod *corev1.Pod) []string {
 				// check if projected volume source is a serviceaccount and in such a case
 				// we re-write it as a secret too, handle accordingly
 				if pod.Spec.Volumes[i].Projected.Sources[j].ServiceAccountToken != nil {
-					secrets = append(secrets, pod.Namespace+"/"+podtranslate.SecretNameFromPodName(pod.Name, pod.Namespace))
+					secrets = append(secrets, pod.Namespace+"/"+podtranslate.SecretNameFromPodName(ctx, pod.Name, pod.Namespace))
 				}
 			}
 		}

@@ -39,7 +39,7 @@ var _ syncer.IndicesRegisterer = &configMapSyncer{}
 
 func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	// index pods by their used config maps
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByConfigMap, func(rawObj client.Object) []string {
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByConfigMap, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
 		return configNamesFromPod(pod)
 	})
@@ -59,7 +59,7 @@ func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.O
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.ConfigMap)))
+	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj.(*corev1.ConfigMap)))
 }
 
 func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -73,7 +73,7 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		}
 
 		ctx.Log.Infof("delete physical config map %s/%s, because it is not used anymore", pConfigMap.GetNamespace(), pConfigMap.GetName())
-		err = ctx.PhysicalClient.Delete(ctx.Context, pObj)
+		err = ctx.PhysicalClient.Delete(ctx, pObj)
 		if err != nil {
 			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", pConfigMap.GetNamespace(), pConfigMap.GetName(), err)
 			return ctrl.Result{}, err
@@ -82,7 +82,7 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		return ctrl.Result{}, nil
 	}
 
-	newConfigMap := s.translateUpdate(ctx.Context, pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap))
+	newConfigMap := s.translateUpdate(ctx, pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap))
 	if newConfigMap != nil {
 		translator.PrintChanges(pObj, newConfigMap, ctx.Log)
 	}
@@ -102,7 +102,7 @@ func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj run
 	}
 
 	podList := &corev1.PodList{}
-	err := ctx.VirtualClient.List(ctx.Context, podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
+	err := ctx.VirtualClient.List(ctx, podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
 	if err != nil {
 		return false, err
 	}

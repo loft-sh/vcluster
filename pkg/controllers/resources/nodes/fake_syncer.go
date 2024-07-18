@@ -76,7 +76,7 @@ func (r *fakeNodeSyncer) FakeSyncToVirtual(ctx *synccontext.SyncContext, name ty
 	}
 
 	ctx.Log.Infof("Create fake node %s", name.Name)
-	return ctrl.Result{}, createFakeNode(ctx.Context, r.fakeKubeletIPs, r.fakeKubeletHostnames, r.nodeServiceProvider, ctx.VirtualClient, name.Name)
+	return ctrl.Result{}, createFakeNode(ctx, r.fakeKubeletIPs, r.fakeKubeletHostnames, r.nodeServiceProvider, ctx.VirtualClient, name.Name)
 }
 
 func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -90,14 +90,14 @@ func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Obje
 		return ctrl.Result{}, err
 	} else if !needed {
 		ctx.Log.Infof("Delete fake node %s as it is not needed anymore", vObj.GetName())
-		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 	}
 
 	// check if we need to update node ips
 	updated := r.updateIfNeeded(ctx, node, node.Name)
 	if updated != nil {
 		ctx.Log.Infof("Update fake node %s", node.Name)
-		err := ctx.VirtualClient.Status().Update(ctx.Context, updated)
+		err := ctx.VirtualClient.Status().Update(ctx, updated)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrap(err, "update node")
 		}
@@ -117,7 +117,7 @@ func (r *fakeNodeSyncer) updateIfNeeded(ctx *synccontext.SyncContext, node *core
 	}
 
 	if r.fakeKubeletIPs {
-		nodeIP, err := r.nodeServiceProvider.GetNodeIP(ctx.Context, name)
+		nodeIP, err := r.nodeServiceProvider.GetNodeIP(ctx, name)
 		if err != nil {
 			ctx.Log.Errorf("error getting fake node ip: %v", err)
 		}
@@ -137,7 +137,7 @@ func (r *fakeNodeSyncer) updateIfNeeded(ctx *synccontext.SyncContext, node *core
 }
 
 func (r *fakeNodeSyncer) nodeNeeded(ctx *synccontext.SyncContext, nodeName string) (bool, error) {
-	return isNodeNeededByPod(ctx.Context, ctx.VirtualClient, ctx.PhysicalClient, nodeName)
+	return isNodeNeededByPod(ctx, ctx.VirtualClient, ctx.PhysicalClient, nodeName)
 }
 
 // this is not a real guid, but it doesn't really matter because it should just look right and not be an actual guid

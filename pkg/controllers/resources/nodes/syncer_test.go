@@ -22,7 +22,7 @@ import (
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *nodeSyncer) {
 	// we need that index here as well otherwise we wouldn't find the related pod
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
 		return []string{pod.Spec.NodeName}
 	})
@@ -64,7 +64,7 @@ func TestNodeDeletion(t *testing.T) {
 				syncController, err := syncer.NewSyncController(ctx, nodesSyncer)
 				assert.NilError(t, err)
 
-				_, err = syncController.Reconcile(ctx.Context, controllerruntime.Request{NamespacedName: baseName})
+				_, err = syncController.Reconcile(ctx, controllerruntime.Request{NamespacedName: baseName})
 				assert.NilError(t, err)
 			},
 		},
@@ -183,7 +183,7 @@ func TestSync(t *testing.T) {
 				_, err := syncer.Sync(syncCtx, editedNode, baseNode)
 				assert.NilError(t, err)
 
-				err = ctx.VirtualManager.GetClient().Get(ctx.Context, types.NamespacedName{Name: baseNode.Name}, baseNode)
+				err = ctx.VirtualManager.GetClient().Get(ctx, types.NamespacedName{Name: baseNode.Name}, baseNode)
 				assert.NilError(t, err)
 
 				_, err = syncer.Sync(syncCtx, editedNode, baseNode)

@@ -76,20 +76,20 @@ func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj c
 			// delete the finalizer here so that the object can be deleted
 			vPv.Finalizers = []string{}
 			ctx.Log.Infof("remove virtual persistent volume %s finalizers, because object should get deleted", vPv.Name)
-			return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, vPv)
+			return ctrl.Result{}, ctx.VirtualClient.Update(ctx, vPv)
 		}
 
 		ctx.Log.Infof("remove virtual persistent volume %s, because object should get deleted", vPv.Name)
-		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vPv)
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vPv)
 	}
 
-	pPv, err := s.translate(ctx.Context, vPv)
+	pPv, err := s.translate(ctx, vPv)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	ctx.Log.Infof("create physical persistent volume %s, because there is a virtual persistent volume", pPv.Name)
-	err = ctx.PhysicalClient.Create(ctx.Context, pPv)
+	err = ctx.PhysicalClient.Create(ctx, pPv)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -119,7 +119,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 			// check if the PV is dynamically provisioned and the reclaim policy is Delete
 			if !(vPersistentVolume.Spec.ClaimRef != nil && vPersistentVolume.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimDelete) {
 				ctx.Log.Infof("delete physical persistent volume %s, because virtual persistent volume is deleted", pObj.GetName())
-				err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
+				err := ctx.PhysicalClient.Delete(ctx, pObj)
 				if err != nil {
 					return ctrl.Result{}, err
 				}
@@ -130,22 +130,22 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	}
 
 	// check if the persistent volume should get synced
-	sync, vPvc, err := s.shouldSync(ctx.Context, pPersistentVolume)
+	sync, vPvc, err := s.shouldSync(ctx, pPersistentVolume)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !sync {
 		ctx.Log.Infof("delete virtual persistent volume %s, because there is no virtual persistent volume claim with that volume", vPersistentVolume.Name)
-		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 	}
 
 	// check if there is a corresponding virtual pvc
-	updatedObj, err := s.translateUpdateBackwards(vPersistentVolume, pPersistentVolume, vPvc)
+	updatedObj, err := s.translateUpdateBackwards(ctx, vPersistentVolume, pPersistentVolume, vPvc)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if updatedObj != nil {
 		ctx.Log.Infof("update virtual persistent volume %s, because spec has changed", vPersistentVolume.Name)
 		translator.PrintChanges(vPersistentVolume, updatedObj, ctx.Log)
-		err = ctx.VirtualClient.Update(ctx.Context, updatedObj)
+		err = ctx.VirtualClient.Update(ctx, updatedObj)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -160,7 +160,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 		updatedObj.Status = *pPersistentVolume.Status.DeepCopy()
 		ctx.Log.Infof("update virtual persistent volume %s, because status has changed", vPersistentVolume.Name)
 		translator.PrintChanges(vPersistentVolume, updatedObj, ctx.Log)
-		err = ctx.VirtualClient.Status().Update(ctx.Context, updatedObj)
+		err = ctx.VirtualClient.Status().Update(ctx, updatedObj)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -177,7 +177,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 			}
 
 			ctx.Log.Infof("delete physical persistent volume %s, because virtual persistent volume is being deleted", pPersistentVolume.Name)
-			err := ctx.PhysicalClient.Delete(ctx.Context, pPersistentVolume, &client.DeleteOptions{
+			err := ctx.PhysicalClient.Delete(ctx, pPersistentVolume, &client.DeleteOptions{
 				GracePeriodSeconds: vPersistentVolume.DeletionGracePeriodSeconds,
 				Preconditions:      metav1.NewUIDPreconditions(string(pPersistentVolume.UID)),
 			})
@@ -187,13 +187,11 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 			return ctrl.Result{}, err
 		}
 
-		updatedPv, err := s.translateUpdate(ctx.Context, vPersistentVolume, pPersistentVolume)
-		if err != nil {
-			return ctrl.Result{}, err
-		} else if updatedPv != nil {
+		updatedPv := s.translateUpdate(ctx, vPersistentVolume, pPersistentVolume)
+		if updatedPv != nil {
 			ctx.Log.Infof("update physical persistent volume %s, because spec or annotations have changed", updatedPv.Name)
 			translator.PrintChanges(pPersistentVolume, updatedPv, ctx.Log)
-			err := ctx.PhysicalClient.Update(ctx.Context, updatedPv)
+			err := ctx.PhysicalClient.Update(ctx, updatedPv)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -213,7 +211,7 @@ var _ syncertypes.ToVirtualSyncer = &persistentVolumeSyncer{}
 
 func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pPersistentVolume := pObj.(*corev1.PersistentVolume)
-	sync, vPvc, err := s.shouldSync(ctx.Context, pPersistentVolume)
+	sync, vPvc, err := s.shouldSync(ctx, pPersistentVolume)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if translate.Default.IsManagedCluster(pObj) {
@@ -226,7 +224,7 @@ func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pOb
 			ctx.Log.Infof("create persistent volume %s, because it belongs to virtual pvc %s/%s and does not exist in virtual cluster", vObj.Name, vPvc.Namespace, vPvc.Name)
 		}
 
-		return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
+		return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 	}
 
 	return ctrl.Result{}, nil

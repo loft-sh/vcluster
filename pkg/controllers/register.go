@@ -147,14 +147,14 @@ func registerServiceSyncControllers(ctx *config.ControllerContext) error {
 
 		// start the manager
 		go func() {
-			err := globalLocalManager.Start(ctx.Context)
+			err := globalLocalManager.Start(ctx)
 			if err != nil {
 				panic(err)
 			}
 		}()
 
 		// Wait for caches to be synced
-		globalLocalManager.GetCache().WaitForCacheSync(ctx.Context)
+		globalLocalManager.GetCache().WaitForCacheSync(ctx)
 
 		// register controller
 		controller := &servicesync.ServiceSyncer{

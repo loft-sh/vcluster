@@ -46,7 +46,7 @@ func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj cli
 		if len(vObj.GetFinalizers()) > 0 || (vObj.GetDeletionGracePeriodSeconds() != nil && *vObj.GetDeletionGracePeriodSeconds() > 0) {
 			vObj.SetFinalizers([]string{})
 			vObj.SetDeletionGracePeriodSeconds(&zero)
-			return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, vObj)
+			return ctrl.Result{}, ctx.VirtualClient.Update(ctx, vObj)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -66,13 +66,13 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 	if pVS.DeletionTimestamp != nil {
 		if vVS.DeletionTimestamp == nil {
 			ctx.Log.Infof("delete virtual volume snapshot %s/%s, because the physical volume snapshot is being deleted", vVS.Namespace, vVS.Name)
-			err := ctx.VirtualClient.Delete(ctx.Context, vVS, &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
+			err := ctx.VirtualClient.Delete(ctx, vVS, &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 		} else if *vVS.DeletionGracePeriodSeconds != *pVS.DeletionGracePeriodSeconds {
 			ctx.Log.Infof("delete virtual volume snapshot %s/%s with grace period seconds %v", vVS.Namespace, vVS.Name, *pVS.DeletionGracePeriodSeconds)
-			err := ctx.VirtualClient.Delete(ctx.Context, vVS, &client.DeleteOptions{GracePeriodSeconds: pVS.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(vVS.UID))})
+			err := ctx.VirtualClient.Delete(ctx, vVS, &client.DeleteOptions{GracePeriodSeconds: pVS.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(vVS.UID))})
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -87,7 +87,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 			updated.Finalizers = pVS.Finalizers
 			ctx.Log.Infof("update finalizers of the virtual VolumeSnapshot %s, because finalizers on the physical resource changed", vVS.Name)
 			translator.PrintChanges(vObj, updated, ctx.Log)
-			err := ctx.VirtualClient.Update(ctx.Context, updated)
+			err := ctx.VirtualClient.Update(ctx, updated)
 			if kerrors.IsNotFound(err) {
 				return ctrl.Result{}, nil
 			}
@@ -100,7 +100,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 			updated.Status = pVS.Status.DeepCopy()
 			ctx.Log.Infof("update virtual VolumeSnapshot %s, because status has changed", vVS.Name)
 			translator.PrintChanges(vObj, updated, ctx.Log)
-			err := ctx.VirtualClient.Status().Update(ctx.Context, updated)
+			err := ctx.VirtualClient.Status().Update(ctx, updated)
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
@@ -109,7 +109,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 	} else if vVS.DeletionTimestamp != nil {
 		if pVS.DeletionTimestamp == nil {
 			ctx.Log.Infof("delete physical volume snapshot %s/%s, because virtual volume snapshot is being deleted", pVS.Namespace, pVS.Name)
-			return ctrl.Result{}, ctx.PhysicalClient.Delete(ctx.Context, pVS, &client.DeleteOptions{
+			return ctrl.Result{}, ctx.PhysicalClient.Delete(ctx, pVS, &client.DeleteOptions{
 				GracePeriodSeconds: vVS.DeletionGracePeriodSeconds,
 				Preconditions:      metav1.NewUIDPreconditions(string(pVS.UID)),
 			})
@@ -122,7 +122,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 	if updated != nil {
 		ctx.Log.Infof("update virtual volume snapshot %s/%s, because the spec has changed", vVS.Namespace, vVS.Name)
 		translator.PrintChanges(vObj, updated, ctx.Log)
-		err := ctx.VirtualClient.Update(ctx.Context, updated)
+		err := ctx.VirtualClient.Update(ctx, updated)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -136,7 +136,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 		updated.Status = pVS.Status.DeepCopy()
 		ctx.Log.Infof("update virtual volume snapshot %s/%s, because the status has changed", vVS.Namespace, vVS.Name)
 		translator.PrintChanges(vObj, updated, ctx.Log)
-		err := ctx.VirtualClient.Status().Update(ctx.Context, updated)
+		err := ctx.VirtualClient.Status().Update(ctx, updated)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -144,7 +144,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 	}
 
 	// forward update
-	updated = s.translateUpdate(ctx.Context, pVS, vVS)
+	updated = s.translateUpdate(ctx, pVS, vVS)
 	if updated != nil {
 		translator.PrintChanges(pVS, updated, ctx.Log)
 	}

@@ -26,11 +26,11 @@ var _ syncer.Syncer = &storageClassSyncer{}
 
 func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// did the storage class change?
-	updated := s.translateUpdate(ctx.Context, pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
+	updated := s.translateUpdate(ctx, pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
 	if updated != nil {
 		ctx.Log.Infof("updating physical storage class %s, because virtual storage class has changed", updated.Name)
 		translator.PrintChanges(pObj, updated, ctx.Log)
-		err := ctx.PhysicalClient.Update(ctx.Context, updated)
+		err := ctx.PhysicalClient.Update(ctx, updated)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -40,9 +40,9 @@ func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Obje
 }
 
 func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	newStorageClass := s.translate(ctx.Context, vObj.(*storagev1.StorageClass))
+	newStorageClass := s.translate(ctx, vObj.(*storagev1.StorageClass))
 	ctx.Log.Infof("create physical storage class %s", newStorageClass.Name)
-	err := ctx.PhysicalClient.Create(ctx.Context, newStorageClass)
+	err := ctx.PhysicalClient.Create(ctx, newStorageClass)
 	if err != nil {
 		ctx.Log.Infof("error syncing %s to physical cluster: %v", vObj.GetName(), err)
 		return ctrl.Result{}, err

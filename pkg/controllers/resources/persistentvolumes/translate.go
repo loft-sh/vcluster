@@ -18,7 +18,7 @@ func (s *persistentVolumeSyncer) translate(ctx context.Context, vPv *corev1.Pers
 	pPV.Spec.ClaimRef = nil
 
 	// TODO: translate the storage secrets
-	pPV.Spec.StorageClassName = mappings.VirtualToHostName(vPv.Spec.StorageClassName, "", mappings.StorageClasses())
+	pPV.Spec.StorageClassName = mappings.VirtualToHostName(ctx, vPv.Spec.StorageClassName, "", mappings.StorageClasses())
 	return pPV, nil
 }
 
@@ -48,7 +48,7 @@ func (s *persistentVolumeSyncer) translateBackwards(pPv *corev1.PersistentVolume
 	return vObj
 }
 
-func (s *persistentVolumeSyncer) translateUpdateBackwards(vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolume, error) {
+func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx context.Context, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolume, error) {
 	var updated *corev1.PersistentVolume
 
 	// build virtual persistent volume
@@ -69,15 +69,15 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(vPv *corev1.Persistent
 		// when the PVC gets deleted
 	} else {
 		// check if SC was created on virtual
-		isStorageClassCreatedOnVirtual = vPv.Spec.StorageClassName != mappings.VirtualToHostName(vPv.Spec.StorageClassName, "", mappings.StorageClasses())
+		isStorageClassCreatedOnVirtual = vPv.Spec.StorageClassName != mappings.VirtualToHostName(ctx, vPv.Spec.StorageClassName, "", mappings.StorageClasses())
 
 		// check if claim was created on virtual
 		if vPv.Spec.ClaimRef != nil && translatedSpec.ClaimRef != nil {
 			var claimRef types.NamespacedName
 			if vPv.Spec.ClaimRef.Kind == "PersistentVolume" {
-				claimRef = mappings.VirtualToHost(vPv.Spec.ClaimRef.Name, vPv.Spec.ClaimRef.Namespace, mappings.PersistentVolumes())
+				claimRef = mappings.VirtualToHost(ctx, vPv.Spec.ClaimRef.Name, vPv.Spec.ClaimRef.Namespace, mappings.PersistentVolumes())
 			} else {
-				claimRef = mappings.VirtualToHost(vPv.Spec.ClaimRef.Name, vPv.Spec.ClaimRef.Namespace, mappings.PersistentVolumeClaims())
+				claimRef = mappings.VirtualToHost(ctx, vPv.Spec.ClaimRef.Name, vPv.Spec.ClaimRef.Namespace, mappings.PersistentVolumeClaims())
 			}
 
 			isClaimRefCreatedOnVirtual = claimRef.Name == translatedSpec.ClaimRef.Name && claimRef.Namespace == translatedSpec.ClaimRef.Namespace
@@ -107,7 +107,7 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(vPv *corev1.Persistent
 	return updated, nil
 }
 
-func (s *persistentVolumeSyncer) translateUpdate(ctx context.Context, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume) (*corev1.PersistentVolume, error) {
+func (s *persistentVolumeSyncer) translateUpdate(ctx context.Context, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume) *corev1.PersistentVolume {
 	var updated *corev1.PersistentVolume
 
 	// TODO: translate the storage secrets
@@ -131,7 +131,7 @@ func (s *persistentVolumeSyncer) translateUpdate(ctx context.Context, vPv *corev
 		updated.Spec.PersistentVolumeReclaimPolicy = vPv.Spec.PersistentVolumeReclaimPolicy
 	}
 
-	translatedStorageClassName := mappings.VirtualToHostName(vPv.Spec.StorageClassName, "", mappings.StorageClasses())
+	translatedStorageClassName := mappings.VirtualToHostName(ctx, vPv.Spec.StorageClassName, "", mappings.StorageClasses())
 	if !equality.Semantic.DeepEqual(pPv.Spec.StorageClassName, translatedStorageClassName) {
 		updated = translator.NewIfNil(updated, pPv)
 		updated.Spec.StorageClassName = translatedStorageClassName
@@ -160,5 +160,5 @@ func (s *persistentVolumeSyncer) translateUpdate(ctx context.Context, vPv *corev
 		updated.Labels = updatedLabels
 	}
 
-	return updated, nil
+	return updated
 }

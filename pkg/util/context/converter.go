@@ -7,7 +7,7 @@ import (
 
 func ToRegisterContext(ctx *config.ControllerContext) *synccontext.RegisterContext {
 	return &synccontext.RegisterContext{
-		Context: ctx.Context,
+		Context: ctx,
 
 		Config: ctx.Config,
 

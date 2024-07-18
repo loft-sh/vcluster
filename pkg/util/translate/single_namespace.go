@@ -83,11 +83,11 @@ func (s *singleNamespace) IsManaged(obj runtime.Object) bool {
 	if err == nil {
 		// check if the name annotation is correct
 		if metaAccessor.GetAnnotations()[NameAnnotation] == "" ||
-			(mappings.Has(gvk) && metaAccessor.GetName() != mappings.VirtualToHostName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk))) {
+			(mappings.Has(gvk) && metaAccessor.GetName() != mappings.VirtualToHostName(context.TODO(), metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk))) {
 			klog.FromContext(context.TODO()).V(1).Info("Host object doesn't match, because name annotations is wrong",
 				"object", metaAccessor.GetName(),
 				"existingName", metaAccessor.GetName(),
-				"expectedName", mappings.VirtualToHostName(metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk)))
+				"expectedName", mappings.VirtualToHostName(context.TODO(), metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk)))
 			return false
 		}
 

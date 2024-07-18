@@ -168,7 +168,7 @@ func StartAPIServiceProxy(ctx *config.ControllerContext, targetServiceName, targ
 		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			// we only allow traffic to discovery paths
 			if !isAPIServiceProxyPathAllowed(request.Method, request.URL.Path) {
-				klog.FromContext(ctx.Context).Info("Denied access to api service proxy at path", "path", request.URL.Path, "method", request.Method)
+				klog.FromContext(ctx).Info("Denied access to api service proxy at path", "path", request.URL.Path, "method", request.Method)
 				responsewriters.ErrorNegotiated(
 					kerrors.NewForbidden(metav1.SchemeGroupVersion.WithResource("proxy").GroupResource(), "proxy", fmt.Errorf("paths other than discovery paths are not allowed")),
 					s,
@@ -187,7 +187,7 @@ func StartAPIServiceProxy(ctx *config.ControllerContext, targetServiceName, targ
 		klog.Infof("Listening apiservice proxy on localhost:%d...", hostPort)
 		err = server.ListenAndServeTLS(tlsCertFile, tlsKeyFile)
 		if err != nil {
-			klog.FromContext(ctx.Context).Error(err, "error listening for apiservice proxy and serve tls")
+			klog.FromContext(ctx).Error(err, "error listening for apiservice proxy and serve tls")
 			os.Exit(1)
 		}
 	}()
@@ -232,14 +232,14 @@ func isAPIServiceProxyPathAllowed(method, path string) bool {
 }
 
 func RegisterAPIService(ctx *config.ControllerContext, serviceName string, hostPort int, groupVersion schema.GroupVersion) error {
-	return applyOperation(ctx.Context, createOperation(ctx, serviceName, hostPort, groupVersion))
+	return applyOperation(ctx, createOperation(ctx, serviceName, hostPort, groupVersion))
 }
 
 func DeregisterAPIService(ctx *config.ControllerContext, groupVersion schema.GroupVersion) error {
 	// check if the api service should get created
-	exists := checkExistingAPIService(ctx.Context, ctx.VirtualManager.GetClient(), groupVersion)
+	exists := checkExistingAPIService(ctx, ctx.VirtualManager.GetClient(), groupVersion)
 	if exists {
-		return applyOperation(ctx.Context, deleteOperation(ctx, groupVersion))
+		return applyOperation(ctx, deleteOperation(ctx, groupVersion))
 	}
 
 	return nil

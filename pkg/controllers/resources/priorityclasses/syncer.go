@@ -27,9 +27,9 @@ type priorityClassSyncer struct {
 var _ syncer.Syncer = &priorityClassSyncer{}
 
 func (s *priorityClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	newPriorityClass := s.translate(ctx.Context, vObj.(*schedulingv1.PriorityClass))
+	newPriorityClass := s.translate(ctx, vObj.(*schedulingv1.PriorityClass))
 	ctx.Log.Infof("create physical priority class %s", newPriorityClass.Name)
-	err := ctx.PhysicalClient.Create(ctx.Context, newPriorityClass)
+	err := ctx.PhysicalClient.Create(ctx, newPriorityClass)
 	if err != nil {
 		ctx.Log.Infof("error syncing %s to physical cluster: %v", vObj.GetName(), err)
 		return ctrl.Result{}, err
@@ -54,6 +54,6 @@ func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Obj
 	pPriorityClass, vPriorityClass, sourceObject, targetObject := synccontext.Cast[*schedulingv1.PriorityClass](ctx, pObj, vObj)
 
 	// did the priority class change?
-	s.translateUpdate(ctx.Context, pPriorityClass, vPriorityClass, sourceObject, targetObject)
+	s.translateUpdate(ctx, pPriorityClass, vPriorityClass, sourceObject, targetObject)
 	return ctrl.Result{}, nil
 }

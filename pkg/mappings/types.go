@@ -131,10 +131,10 @@ func PriorityClasses() Mapper {
 	return Default.ByGVK(schedulingv1.SchemeGroupVersion.WithKind("PriorityClass"))
 }
 
-func VirtualToHostName(vName, vNamespace string, mapper Mapper) string {
-	return mapper.VirtualToHost(context.TODO(), types.NamespacedName{Name: vName, Namespace: vNamespace}, nil).Name
+func VirtualToHostName(ctx context.Context, vName, vNamespace string, mapper Mapper) string {
+	return mapper.VirtualToHost(ctx, types.NamespacedName{Name: vName, Namespace: vNamespace}, nil).Name
 }
 
-func VirtualToHost(vName, vNamespace string, mapper Mapper) types.NamespacedName {
-	return mapper.VirtualToHost(context.TODO(), types.NamespacedName{Name: vName, Namespace: vNamespace}, nil)
+func VirtualToHost(ctx context.Context, vName, vNamespace string, mapper Mapper) types.NamespacedName {
+	return mapper.VirtualToHost(ctx, types.NamespacedName{Name: vName, Namespace: vNamespace}, nil)
 }

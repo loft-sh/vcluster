@@ -55,16 +55,16 @@ var _ syncer.IndicesRegisterer = &secretSyncer{}
 
 func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	if ctx.Config.Sync.ToHost.Ingresses.Enabled {
-		err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &networkingv1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
-			return ingresses.SecretNamesFromIngress(rawObj.(*networkingv1.Ingress))
+		err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &networkingv1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
+			return ingresses.SecretNamesFromIngress(ctx, rawObj.(*networkingv1.Ingress))
 		})
 		if err != nil {
 			return err
 		}
 	}
 
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByPodSecret, func(rawObj client.Object) []string {
-		return pods.SecretNamesFromPod(rawObj.(*corev1.Pod))
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByPodSecret, func(rawObj client.Object) []string {
+		return pods.SecretNamesFromPod(ctx, rawObj.(*corev1.Pod))
 	})
 	if err != nil {
 		return err
@@ -91,7 +91,7 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Obje
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, s.create(ctx.Context, vObj.(*corev1.Secret)))
+	return s.SyncToHostCreate(ctx, vObj, s.create(ctx, vObj.(*corev1.Secret)))
 }
 
 func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
@@ -100,7 +100,7 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 		return ctrl.Result{}, err
 	} else if !used {
 		ctx.Log.Infof("delete physical secret %s/%s, because it is not used anymore", pObj.GetNamespace(), pObj.GetName())
-		err = ctx.PhysicalClient.Delete(ctx.Context, pObj)
+		err = ctx.PhysicalClient.Delete(ctx, pObj)
 		if err != nil {
 			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", pObj.GetNamespace(), pObj.GetName(), err)
 			return ctrl.Result{}, err
@@ -138,7 +138,7 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 	}
 
 	// check annotations
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx.Context, vObj, pObj)
+	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	if changed {
 		pSecret.Annotations = updatedAnnotations
 		pSecret.Labels = updatedLabels
@@ -155,7 +155,7 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 		return true, nil
 	}
 
-	isUsed, err := isSecretUsedByPods(ctx.Context, ctx.VirtualClient, secret.Namespace+"/"+secret.Name)
+	isUsed, err := isSecretUsedByPods(ctx, ctx.VirtualClient, secret.Namespace+"/"+secret.Name)
 	if err != nil {
 		return false, errors.Wrap(err, "is secret used by pods")
 	}
@@ -166,7 +166,7 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 	// check if we also sync ingresses
 	if s.includeIngresses {
 		ingressesList := &networkingv1.IngressList{}
-		err := ctx.VirtualClient.List(ctx.Context, ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
+		err := ctx.VirtualClient.List(ctx, ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
 		if err != nil {
 			return false, err
 		}
@@ -184,14 +184,14 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 	return false, nil
 }
 
-func mapIngresses(_ context.Context, obj client.Object) []reconcile.Request {
+func mapIngresses(ctx context.Context, obj client.Object) []reconcile.Request {
 	ingress, ok := obj.(*networkingv1.Ingress)
 	if !ok {
 		return nil
 	}
 
 	requests := []reconcile.Request{}
-	names := ingresses.SecretNamesFromIngress(ingress)
+	names := ingresses.SecretNamesFromIngress(ctx, ingress)
 	for _, name := range names {
 		splitted := strings.Split(name, "/")
 		if len(splitted) == 2 {
@@ -207,14 +207,14 @@ func mapIngresses(_ context.Context, obj client.Object) []reconcile.Request {
 	return requests
 }
 
-func mapPods(_ context.Context, obj client.Object) []reconcile.Request {
+func mapPods(ctx context.Context, obj client.Object) []reconcile.Request {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return nil
 	}
 
 	requests := []reconcile.Request{}
-	names := pods.SecretNamesFromPod(pod)
+	names := pods.SecretNamesFromPod(ctx, pod)
 	for _, name := range names {
 		splitted := strings.Split(name, "/")
 		if len(splitted) == 2 {

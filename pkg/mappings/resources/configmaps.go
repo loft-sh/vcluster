@@ -19,7 +19,7 @@ func CreateConfigMapsMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, 
 		return nil, err
 	}
 
-	err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.ConfigMap{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
+	err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.ConfigMap{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 		if !translate.Default.SingleNamespaceTarget() && rawObj.GetName() == "kube-root-ca.crt" {
 			return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)}
 		}

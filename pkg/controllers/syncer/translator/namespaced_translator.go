@@ -59,7 +59,7 @@ func (n *namespacedTranslator) Resource() client.Object {
 
 func (n *namespacedTranslator) SyncToHostCreate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("create physical %s %s/%s", n.name, pObj.GetNamespace(), pObj.GetName())
-	err := ctx.PhysicalClient.Create(ctx.Context, pObj)
+	err := ctx.PhysicalClient.Create(ctx, pObj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			ctx.Log.Debugf("error syncing %s %s/%s to physical cluster: %v", n.name, vObj.GetNamespace(), vObj.GetName(), err)
@@ -77,7 +77,7 @@ func (n *namespacedTranslator) SyncToHostUpdate(ctx *context.SyncContext, vObj, 
 	// this is needed because of interface nil check
 	if !(pObj == nil || (reflect.ValueOf(pObj).Kind() == reflect.Ptr && reflect.ValueOf(pObj).IsNil())) {
 		ctx.Log.Infof("updating physical %s/%s, because virtual %s have changed", pObj.GetNamespace(), pObj.GetName(), n.name)
-		err := ctx.PhysicalClient.Update(ctx.Context, pObj)
+		err := ctx.PhysicalClient.Update(ctx, pObj)
 		if kerrors.IsConflict(err) {
 			ctx.Log.Debugf("conflict syncing physical %s %s/%s", n.name, pObj.GetNamespace(), pObj.GetName())
 			return ctrl.Result{Requeue: true}, nil

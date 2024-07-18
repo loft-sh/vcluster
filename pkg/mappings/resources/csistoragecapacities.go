@@ -18,8 +18,8 @@ func CreateCSIStorageCapacitiesMapper(ctx *synccontext.RegisterContext) (mapping
 	s := &csiStorageCapacitiesMapper{
 		physicalClient: ctx.PhysicalManager.GetClient(),
 	}
-	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx.Context, &storagev1.CSIStorageCapacity{}, constants.IndexByVirtualName, func(rawObj client.Object) []string {
-		return []string{s.HostToVirtual(ctx.Context, types.NamespacedName{Name: rawObj.GetName(), Namespace: rawObj.GetNamespace()}, rawObj).Name}
+	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx, &storagev1.CSIStorageCapacity{}, constants.IndexByVirtualName, func(rawObj client.Object) []string {
+		return []string{s.HostToVirtual(ctx, types.NamespacedName{Name: rawObj.GetName(), Namespace: rawObj.GetNamespace()}, rawObj).Name}
 	})
 	if err != nil {
 		return nil, err

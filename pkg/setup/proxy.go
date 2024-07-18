@@ -10,7 +10,7 @@ import (
 func StartProxy(ctx *config.ControllerContext) error {
 	// add remote node port sans
 	if ctx.Config.Experimental.IsolatedControlPlane.Enabled {
-		err := pro.AddRemoteNodePortSANs(ctx.Context, ctx.Config.ControlPlaneNamespace, ctx.Config.ControlPlaneService, ctx.Config.ControlPlaneClient)
+		err := pro.AddRemoteNodePortSANs(ctx, ctx.Config.ControlPlaneNamespace, ctx.Config.ControlPlaneService, ctx.Config.ControlPlaneClient)
 		if err != nil {
 			return err
 		}

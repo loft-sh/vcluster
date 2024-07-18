@@ -94,7 +94,7 @@ func BuildSyncers(ctx *synccontext.RegisterContext) ([]syncertypes.Object, error
 		// execute initializer
 		initializer, ok := syncer.(syncertypes.Initializer)
 		if ok {
-			klog.FromContext(ctx.Context).V(1).Info("Execute syncer init", "syncer", name)
+			klog.FromContext(ctx).V(1).Info("Execute syncer init", "syncer", name)
 			err := initializer.Init(ctx)
 			if err != nil {
 				return nil, errors.Wrapf(err, "ensure prerequisites for %s syncer", name)

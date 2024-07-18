@@ -21,13 +21,13 @@ type pdbSyncer struct {
 }
 
 func (pdb *pdbSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return pdb.SyncToHostCreate(ctx, vObj, pdb.translate(ctx.Context, vObj.(*policyv1.PodDisruptionBudget)))
+	return pdb.SyncToHostCreate(ctx, vObj, pdb.translate(ctx, vObj.(*policyv1.PodDisruptionBudget)))
 }
 
 func (pdb *pdbSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	vPDB := vObj.(*policyv1.PodDisruptionBudget)
 	pPDB := pObj.(*policyv1.PodDisruptionBudget)
-	newPDB := pdb.translateUpdate(ctx.Context, pPDB, vPDB)
+	newPDB := pdb.translateUpdate(ctx, pPDB, vPDB)
 	if newPDB != nil {
 		translator.PrintChanges(pObj, newPDB, ctx.Log)
 	}

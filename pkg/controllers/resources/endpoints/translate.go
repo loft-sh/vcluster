@@ -11,7 +11,7 @@ import (
 
 func (s *endpointsSyncer) translate(ctx context.Context, vObj client.Object) *corev1.Endpoints {
 	endpoints := s.TranslateMetadata(ctx, vObj).(*corev1.Endpoints)
-	s.translateSpec(endpoints)
+	s.translateSpec(ctx, endpoints)
 
 	// make sure we delete the control-plane.alpha.kubernetes.io/leader annotation
 	// that will disable endpoint slice mirroring otherwise
@@ -22,12 +22,12 @@ func (s *endpointsSyncer) translate(ctx context.Context, vObj client.Object) *co
 	return endpoints
 }
 
-func (s *endpointsSyncer) translateSpec(endpoints *corev1.Endpoints) {
+func (s *endpointsSyncer) translateSpec(ctx context.Context, endpoints *corev1.Endpoints) {
 	// translate the addresses
 	for i, subset := range endpoints.Subsets {
 		for j, addr := range subset.Addresses {
 			if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
-				nameNamespace := mappings.VirtualToHost(addr.TargetRef.Name, addr.TargetRef.Namespace, mappings.Pods())
+				nameNamespace := mappings.VirtualToHost(ctx, addr.TargetRef.Name, addr.TargetRef.Namespace, mappings.Pods())
 				endpoints.Subsets[i].Addresses[j].TargetRef.Name = nameNamespace.Name
 				endpoints.Subsets[i].Addresses[j].TargetRef.Namespace = nameNamespace.Namespace
 
@@ -38,7 +38,7 @@ func (s *endpointsSyncer) translateSpec(endpoints *corev1.Endpoints) {
 		}
 		for j, addr := range subset.NotReadyAddresses {
 			if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
-				nameNamespace := mappings.VirtualToHost(addr.TargetRef.Name, addr.TargetRef.Namespace, mappings.Pods())
+				nameNamespace := mappings.VirtualToHost(ctx, addr.TargetRef.Name, addr.TargetRef.Namespace, mappings.Pods())
 				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Name = nameNamespace.Name
 				endpoints.Subsets[i].NotReadyAddresses[j].TargetRef.Namespace = nameNamespace.Namespace
 
@@ -53,7 +53,7 @@ func (s *endpointsSyncer) translateSpec(endpoints *corev1.Endpoints) {
 func (s *endpointsSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Endpoints) error {
 	// check subsets
 	translated := vObj.DeepCopy()
-	s.translateSpec(translated)
+	s.translateSpec(ctx, translated)
 	if !equality.Semantic.DeepEqual(translated.Subsets, pObj.Subsets) {
 		pObj.Subsets = translated.Subsets
 	}

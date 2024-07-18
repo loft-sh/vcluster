@@ -141,7 +141,7 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 
 	// okay now we have to change the physical service
 	pService := &corev1.Service{}
-	pServiceName := mappings.VirtualToHost(oldVService.Name, oldVService.Namespace, mappings.Services())
+	pServiceName := mappings.VirtualToHost(req.Context(), oldVService.Name, oldVService.Namespace, mappings.Services())
 	err = localClient.Get(ctx, client.ObjectKey{Namespace: pServiceName.Namespace, Name: pServiceName.Name}, pService)
 	if err != nil {
 		if kerrors.IsNotFound(err) {

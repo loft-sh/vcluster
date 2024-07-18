@@ -113,7 +113,7 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 			return nil, errors.Wrap(err, "create cache")
 		}
 		// add index for pod by node
-		err = podCache.IndexField(ctx.Context, &corev1.Pod{}, constants.IndexRunningNonVClusterPodsByNode, func(object client.Object) []string {
+		err = podCache.IndexField(ctx, &corev1.Pod{}, constants.IndexRunningNonVClusterPodsByNode, func(object client.Object) []string {
 			pPod := object.(*corev1.Pod)
 			// we ignore all non-running pods and the ones that are part of the current vcluster
 			// to later calculate the status.allocatable part of the nodes correctly
@@ -129,13 +129,13 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 			return nil, errors.Wrap(err, "index pod by node")
 		}
 		go func() {
-			err := podCache.Start(ctx.Context)
+			err := podCache.Start(ctx)
 			if err != nil {
 				klog.Fatalf("error starting pod cache: %v", err)
 			}
 		}()
 
-		podCache.WaitForCacheSync(ctx.Context)
+		podCache.WaitForCacheSync(ctx)
 		s.unmanagedPodCache = podCache
 
 		// enqueues nodes based on pod phase changes if the scheduler is enabled
@@ -189,7 +189,7 @@ func enqueueNonVClusterPod(old, new client.Object, q workqueue.RateLimitingInter
 // this is split out because it is shared with the fake syncer
 func modifyController(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice.Provider, bld *builder.Builder) (*builder.Builder, error) {
 	go func() {
-		nodeServiceProvider.Start(ctx.Context)
+		nodeServiceProvider.Start(ctx)
 	}()
 
 	bld = bld.WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), &corev1.Pod{}, handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, pod *corev1.Pod) []reconcile.Request {
@@ -229,7 +229,7 @@ func (s *nodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 }
 
 func registerIndices(ctx *synccontext.RegisterContext) error {
-	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
+	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
 		if !translate.Default.IsManaged(pod) || pod.Spec.NodeName == "" {
 			return nil
@@ -240,7 +240,7 @@ func registerIndices(ctx *synccontext.RegisterContext) error {
 		return err
 	}
 
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
 		if pod.Spec.NodeName == "" {
 			return nil
@@ -258,18 +258,18 @@ var _ syncertypes.Syncer = &nodeSyncer{}
 func (s *nodeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vNode := vObj.(*corev1.Node)
 	ctx.Log.Infof("delete virtual node %s, because it is not needed anymore", vNode.Name)
-	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 }
 
 func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	pNode := pObj.(*corev1.Node)
 	vNode := vObj.(*corev1.Node)
-	shouldSync, err := s.shouldSync(ctx.Context, pNode)
+	shouldSync, err := s.shouldSync(ctx, pNode)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !shouldSync {
 		ctx.Log.Infof("delete virtual node %s, because there is no virtual pod with that node", pNode.Name)
-		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 	}
 
 	updatedVNode, statusChanged, err := s.translateUpdateStatus(ctx, pNode, vNode)
@@ -278,7 +278,7 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 	} else if statusChanged {
 		ctx.Log.Infof("update virtual node %s, because status has changed", pNode.Name)
 		translator.PrintChanges(vNode, updatedVNode, ctx.Log)
-		err := ctx.VirtualClient.Status().Update(ctx.Context, updatedVNode)
+		err := ctx.VirtualClient.Status().Update(ctx, updatedVNode)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -290,7 +290,7 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 	if updated != nil {
 		ctx.Log.Infof("update virtual node %s, because spec has changed", pNode.Name)
 		translator.PrintChanges(vNode, updated, ctx.Log)
-		err = ctx.VirtualClient.Update(ctx.Context, updated)
+		err = ctx.VirtualClient.Update(ctx, updated)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -303,7 +303,7 @@ var _ syncertypes.ToVirtualSyncer = &nodeSyncer{}
 
 func (s *nodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pNode := pObj.(*corev1.Node)
-	shouldSync, err := s.shouldSync(ctx.Context, pNode)
+	shouldSync, err := s.shouldSync(ctx, pNode)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !shouldSync {
@@ -311,7 +311,7 @@ func (s *nodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Obj
 	}
 
 	ctx.Log.Infof("create virtual node %s, because there is a virtual pod with that node", pNode.Name)
-	err = ctx.VirtualClient.Create(ctx.Context, &corev1.Node{
+	err = ctx.VirtualClient.Create(ctx, &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pNode.Name,
 			Labels:      pNode.Labels,
