@@ -8,7 +8,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
@@ -99,7 +98,7 @@ func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Obje
 		ctx.Log.Infof("Update fake node %s", node.Name)
 		err := ctx.VirtualClient.Status().Update(ctx, updated)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "update node")
+			return ctrl.Result{}, fmt.Errorf("update node: %w", err)
 		}
 	}
 
@@ -262,7 +261,7 @@ func createFakeNode(
 	if fakeKubeletIPs {
 		nodeIP, err := nodeServiceProvider.GetNodeIP(ctx, name)
 		if err != nil {
-			return errors.Wrap(err, "create fake node ip")
+			return fmt.Errorf("create fake node ip: %w", err)
 		}
 
 		node.Status.Addresses = append(node.Status.Addresses, corev1.NodeAddress{

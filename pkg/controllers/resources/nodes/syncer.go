@@ -17,7 +17,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -110,7 +109,7 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 			DefaultLabelSelector: labels.NewSelector().Add(*notManagedSelector),
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "create cache")
+			return nil, fmt.Errorf("create cache : %w", err)
 		}
 		// add index for pod by node
 		err = podCache.IndexField(ctx, &corev1.Pod{}, constants.IndexRunningNonVClusterPodsByNode, func(object client.Object) []string {
@@ -126,7 +125,7 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 			return []string{pPod.Spec.NodeName}
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "index pod by node")
+			return nil, fmt.Errorf("index pod by node: %w", err)
 		}
 		go func() {
 			err := podCache.Start(ctx)
@@ -270,7 +269,7 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 
 	updatedVNode, statusChanged, err := s.translateUpdateStatus(ctx, pNode, vNode)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "update node status")
+		return ctrl.Result{}, fmt.Errorf("update node status: %w", err)
 	} else if statusChanged {
 		ctx.Log.Infof("update virtual node %s, because status has changed", pNode.Name)
 		translator.PrintChanges(vNode, updatedVNode, ctx.Log)
