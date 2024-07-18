@@ -101,6 +101,7 @@ checksum:
   name_template: "checksums.txt"
   extra_files:
     - glob: ./release/*
+    - glob: ./chart/values.schema.json
 
 signs:
   - cmd: cosign
@@ -129,6 +130,9 @@ changelog:
 release:
   prerelease: auto
   make_latest: false
+
+  extra_files:
+    - glob: ./chart/values.schema.json
 
 brews:
   - name: vcluster
