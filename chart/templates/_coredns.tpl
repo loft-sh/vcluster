@@ -21,7 +21,7 @@ Corefile: |-
           kubeconfig /data/vcluster/admin.conf
           {{- end }}
           pods insecure
-          {{- if or .Values.networking.advanced.fallbackHostCluster (and .Values.controlPlane.coredns.embedded .Values.networking.resolveDNS) }}
+          {{- if .Values.networking.advanced.fallbackHostCluster }}
           fallthrough cluster.local in-addr.arpa ip6.arpa
           {{- else }}
           fallthrough in-addr.arpa ip6.arpa
