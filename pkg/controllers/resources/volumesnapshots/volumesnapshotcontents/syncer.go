@@ -203,7 +203,7 @@ func (s *volumeSnapshotContentSyncer) shouldSync(ctx context.Context, pObj *volu
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return false, nil, err
-		} else if translate.Default.IsManagedCluster(pObj) {
+		} else if translate.Default.IsManaged(ctx, pObj) {
 			return true, vVS, nil
 		}
 		return false, nil, nil

@@ -12,18 +12,9 @@ import (
 
 // Translator is used to translate names as well as metadata between virtual and physical objects
 type Translator interface {
-	Resource() client.Object
-	Name() string
-	ObjectManager
-	MetadataTranslator
-}
-
-// ObjectManager is used to convert virtual to physical names and vice versa
-type ObjectManager interface {
+	Object
 	mappings.Mapper
-
-	// IsManaged determines if a physical object is managed by the vcluster
-	IsManaged(context.Context, client.Object) (bool, error)
+	MetadataTranslator
 }
 
 // MetadataTranslator is used to convert metadata between virtual and physical objects and vice versa

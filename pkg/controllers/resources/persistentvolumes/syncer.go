@@ -214,7 +214,7 @@ func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pOb
 	sync, vPvc, err := s.shouldSync(ctx, pPersistentVolume)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else if translate.Default.IsManagedCluster(pObj) {
+	} else if translate.Default.IsManaged(ctx, pObj) {
 		ctx.Log.Infof("delete physical persistent volume %s, because it is not needed anymore", pPersistentVolume.Name)
 		return syncer.DeleteHostObject(ctx, pObj, "it is not needed anymore")
 	} else if sync {
@@ -233,7 +233,7 @@ func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pOb
 func (s *persistentVolumeSyncer) shouldSync(ctx context.Context, pObj *corev1.PersistentVolume) (bool, *corev1.PersistentVolumeClaim, error) {
 	// is there an assigned PVC?
 	if pObj.Spec.ClaimRef == nil {
-		if translate.Default.IsManagedCluster(pObj) {
+		if translate.Default.IsManaged(ctx, pObj) {
 			return true, nil, nil
 		}
 
@@ -242,15 +242,11 @@ func (s *persistentVolumeSyncer) shouldSync(ctx context.Context, pObj *corev1.Pe
 
 	vName := mappings.PersistentVolumeClaims().HostToVirtual(ctx, types.NamespacedName{Name: pObj.Spec.ClaimRef.Name, Namespace: pObj.Spec.ClaimRef.Namespace}, nil)
 	if vName.Name == "" {
-		if translate.Default.IsManagedCluster(pObj) {
+		if translate.Default.IsManaged(ctx, pObj) {
 			return true, nil, nil
 		}
 
-		namespace, err := translate.Default.LegacyGetTargetNamespace()
-		if err != nil {
-			return false, nil, nil
-		}
-		return pObj.Spec.ClaimRef.Namespace == namespace && pObj.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimRetain, nil, nil
+		return translate.Default.IsTargetedNamespace(pObj.Spec.ClaimRef.Namespace) && pObj.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimRetain, nil, nil
 	}
 
 	vPvc := &corev1.PersistentVolumeClaim{}
@@ -258,15 +254,11 @@ func (s *persistentVolumeSyncer) shouldSync(ctx context.Context, pObj *corev1.Pe
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return false, nil, err
-		} else if translate.Default.IsManagedCluster(pObj) {
+		} else if translate.Default.IsManaged(ctx, pObj) {
 			return true, nil, nil
 		}
 
-		namespace, err := translate.Default.LegacyGetTargetNamespace()
-		if err != nil {
-			return false, nil, nil
-		}
-		return pObj.Spec.ClaimRef.Namespace == namespace && pObj.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimRetain, nil, nil
+		return translate.Default.IsTargetedNamespace(pObj.Spec.ClaimRef.Namespace) && pObj.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimRetain, nil, nil
 	}
 
 	return true, vPvc, nil

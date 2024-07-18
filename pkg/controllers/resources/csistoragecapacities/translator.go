@@ -23,10 +23,6 @@ func (s *csistoragecapacitySyncer) Resource() client.Object {
 	return &storagev1.CSIStorageCapacity{}
 }
 
-func (s *csistoragecapacitySyncer) IsManaged(context.Context, client.Object) (bool, error) {
-	return true, nil
-}
-
 // TranslateMetadata translates the object's metadata
 func (s *csistoragecapacitySyncer) TranslateMetadata(ctx context.Context, pObj client.Object) (client.Object, error) {
 	pName := mappings.CSIStorageCapacities().HostToVirtual(ctx, types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, pObj)

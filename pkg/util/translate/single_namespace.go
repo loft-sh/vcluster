@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -66,55 +65,49 @@ func (s *singleNamespace) PhysicalNameClusterScoped(name string) string {
 	return SafeConcatName("vcluster", name, "x", s.targetNamespace, "x", VClusterName)
 }
 
-func (s *singleNamespace) IsManaged(obj runtime.Object) bool {
-	metaAccessor, err := meta.Accessor(obj)
-	if err != nil {
+func (s *singleNamespace) IsManaged(ctx context.Context, pObj client.Object) bool {
+	// check if cluster scoped object
+	if pObj.GetNamespace() == "" {
+		return pObj.GetLabels()[MarkerLabel] == SafeConcatName(s.targetNamespace, "x", VClusterName)
+	}
+
+	// is object not in our target namespace?
+	if !s.IsTargetedNamespace(pObj.GetNamespace()) {
 		return false
-	} else if metaAccessor.GetNamespace() != "" && !s.IsTargetedNamespace(metaAccessor.GetNamespace()) {
-		return false
-	} else if metaAccessor.GetLabels()[MarkerLabel] != VClusterName {
+	} else if pObj.GetLabels()[MarkerLabel] != VClusterName {
 		return false
 	}
 
 	// vcluster has not synced the object IF:
 	// If object-name annotation is not set OR
 	// If object-name annotation is different from actual name
-	gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
+	gvk, err := apiutil.GVKForObject(pObj, scheme.Scheme)
 	if err == nil {
 		// check if the name annotation is correct
-		if metaAccessor.GetAnnotations()[NameAnnotation] == "" ||
-			(mappings.Has(gvk) && metaAccessor.GetName() != mappings.VirtualToHostName(context.TODO(), metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk))) {
-			klog.FromContext(context.TODO()).V(1).Info("Host object doesn't match, because name annotations is wrong",
-				"object", metaAccessor.GetName(),
+		if pObj.GetAnnotations()[NameAnnotation] == "" ||
+			(mappings.Has(gvk) && pObj.GetName() != mappings.VirtualToHostName(ctx, pObj.GetAnnotations()[NameAnnotation], pObj.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk))) {
+			klog.FromContext(ctx).V(1).Info("Host object doesn't match, because name annotations is wrong",
+				"object", pObj.GetName(),
 				"kind", gvk.String(),
-				"existingName", metaAccessor.GetName(),
-				"expectedName", mappings.VirtualToHostName(context.TODO(), metaAccessor.GetAnnotations()[NameAnnotation], metaAccessor.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk)),
-				"nameAnnotation", metaAccessor.GetAnnotations()[NamespaceAnnotation]+"/"+metaAccessor.GetAnnotations()[NameAnnotation],
+				"existingName", pObj.GetName(),
+				"expectedName", mappings.VirtualToHostName(ctx, pObj.GetAnnotations()[NameAnnotation], pObj.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk)),
+				"nameAnnotation", pObj.GetAnnotations()[NamespaceAnnotation]+"/"+pObj.GetAnnotations()[NameAnnotation],
 			)
 			return false
 		}
 
 		// if kind doesn't match vCluster has probably not synced the object
-		if metaAccessor.GetAnnotations()[KindAnnotation] != "" && gvk.String() != metaAccessor.GetAnnotations()[KindAnnotation] {
-			klog.FromContext(context.TODO()).V(1).Info("Host object doesn't match, because kind annotations is wrong",
-				"object", metaAccessor.GetName(),
+		if pObj.GetAnnotations()[KindAnnotation] != "" && gvk.String() != pObj.GetAnnotations()[KindAnnotation] {
+			klog.FromContext(ctx).V(1).Info("Host object doesn't match, because kind annotations is wrong",
+				"object", pObj.GetName(),
 				"existingKind", gvk.String(),
-				"expectedKind", metaAccessor.GetAnnotations()[KindAnnotation],
+				"expectedKind", pObj.GetAnnotations()[KindAnnotation],
 			)
 			return false
 		}
 	}
 
 	return true
-}
-
-func (s *singleNamespace) IsManagedCluster(obj runtime.Object) bool {
-	metaAccessor, err := meta.Accessor(obj)
-	if err != nil {
-		return false
-	}
-
-	return metaAccessor.GetLabels()[MarkerLabel] == SafeConcatName(s.targetNamespace, "x", VClusterName)
 }
 
 func (s *singleNamespace) IsTargetedNamespace(ns string) bool {
@@ -189,10 +182,6 @@ func (s *singleNamespace) TranslateLabelSelectorCluster(labelSelector *metav1.La
 	}
 
 	return newLabelSelector
-}
-
-func (s *singleNamespace) LegacyGetTargetNamespace() (string, error) {
-	return s.targetNamespace, nil
 }
 
 func (s *singleNamespace) ApplyMetadata(vObj client.Object, name types.NamespacedName, syncedLabels []string, excludedAnnotations ...string) client.Object {

@@ -29,6 +29,9 @@ type Mapper interface {
 
 	// HostToVirtual translates a physical name to a virtual name
 	HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName
+
+	// IsManaged determines if a physical object is managed by the vCluster
+	IsManaged(context.Context, client.Object) (bool, error)
 }
 
 func Has(gvk schema.GroupVersionKind) bool {

@@ -69,6 +69,10 @@ func (s *eventMapper) HostToVirtual(ctx context.Context, req types.NamespacedNam
 	}
 }
 
+func (s *eventMapper) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
+	return s.HostToVirtual(ctx, types.NamespacedName{Namespace: pObj.GetNamespace(), Name: pObj.GetName()}, pObj).Name != "", nil
+}
+
 func HostEventNameToVirtual(hostName string, hostInvolvedObjectName, virtualInvolvedObjectName string) string {
 	// replace name of object
 	if strings.HasPrefix(hostName, hostInvolvedObjectName) {

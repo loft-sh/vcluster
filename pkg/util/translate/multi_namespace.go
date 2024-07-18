@@ -1,6 +1,7 @@
 package translate
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -8,11 +9,9 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -51,42 +50,26 @@ func (s *multiNamespace) PhysicalNameClusterScoped(name string) string {
 	return SafeConcatName("vcluster", name, "x", s.currentNamespace, "x", VClusterName)
 }
 
-func (s *multiNamespace) IsManaged(obj runtime.Object) bool {
-	metaAccessor, err := meta.Accessor(obj)
-	if err != nil {
-		return false
+func (s *multiNamespace) IsManaged(_ context.Context, pObj client.Object) bool {
+	// check if cluster scoped object
+	if pObj.GetNamespace() == "" {
+		return pObj.GetLabels()[MarkerLabel] == SafeConcatName(s.currentNamespace, "x", VClusterName)
 	}
 
 	// vcluster has not synced the object IF:
 	// If obj is not in the synced namespace OR
 	// If object-name annotation is not set OR
 	// If object-name annotation is different from actual name
-	if !s.IsTargetedNamespace(metaAccessor.GetNamespace()) || metaAccessor.GetAnnotations() == nil || metaAccessor.GetAnnotations()[NameAnnotation] == "" {
+	if !s.IsTargetedNamespace(pObj.GetNamespace()) || pObj.GetAnnotations()[NameAnnotation] == "" {
 		return false
-	}
-
-	_, isCM := obj.(*corev1.ConfigMap)
-	if isCM && metaAccessor.GetName() == "kube-root-ca.crt" {
-		return false
-	}
-
-	return true
-}
-
-func (s *multiNamespace) IsManagedCluster(obj runtime.Object) bool {
-	metaAccessor, err := meta.Accessor(obj)
-	if err != nil {
-		return false
-	}
-
-	if metaAccessor.GetAnnotations()[KindAnnotation] != "" {
-		gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
-		if err == nil && gvk.String() != metaAccessor.GetAnnotations()[KindAnnotation] {
+	} else if pObj.GetAnnotations()[KindAnnotation] != "" {
+		gvk, err := apiutil.GVKForObject(pObj, scheme.Scheme)
+		if err == nil && gvk.String() != pObj.GetAnnotations()[KindAnnotation] {
 			return false
 		}
 	}
 
-	return metaAccessor.GetLabels()[MarkerLabel] == SafeConcatName(s.currentNamespace, "x", VClusterName)
+	return true
 }
 
 func (s *multiNamespace) IsTargetedNamespace(ns string) bool {
@@ -175,10 +158,6 @@ func (s *multiNamespace) TranslateLabelSelectorCluster(labelSelector *metav1.Lab
 	}
 
 	return newLabelSelector
-}
-
-func (s *multiNamespace) LegacyGetTargetNamespace() (string, error) {
-	return "", fmt.Errorf("unsupported feature in multi-namespace mode")
 }
 
 func (s *multiNamespace) ApplyMetadata(vObj client.Object, name types.NamespacedName, syncedLabels []string, excludedAnnotations ...string) client.Object {

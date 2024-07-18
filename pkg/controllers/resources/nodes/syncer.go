@@ -193,7 +193,7 @@ func modifyController(ctx *synccontext.RegisterContext, nodeServiceProvider node
 	}()
 
 	bld = bld.WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), &corev1.Pod{}, handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, pod *corev1.Pod) []reconcile.Request {
-		if pod == nil || !translate.Default.IsManaged(pod) || pod.Spec.NodeName == "" {
+		if pod == nil || !translate.Default.IsManaged(ctx, pod) || pod.Spec.NodeName == "" {
 			return []reconcile.Request{}
 		}
 
@@ -231,7 +231,7 @@ func (s *nodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 func registerIndices(ctx *synccontext.RegisterContext) error {
 	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
-		if !translate.Default.IsManaged(pod) || pod.Spec.NodeName == "" {
+		if !translate.Default.IsManaged(ctx, pod) || pod.Spec.NodeName == "" {
 			return nil
 		}
 		return []string{pod.Spec.NodeName}
@@ -247,10 +247,6 @@ func registerIndices(ctx *synccontext.RegisterContext) error {
 		}
 		return []string{pod.Spec.NodeName}
 	})
-}
-
-func (s *nodeSyncer) IsManaged(_ context.Context, _ client.Object) (bool, error) {
-	return true, nil
 }
 
 var _ syncertypes.Syncer = &nodeSyncer{}

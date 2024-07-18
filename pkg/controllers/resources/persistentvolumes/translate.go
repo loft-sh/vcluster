@@ -85,7 +85,7 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx context.Context, v
 	}
 
 	// check storage class. Do not copy the name, if it was created on virtual.
-	if !translate.Default.IsManagedCluster(pPv) {
+	if !translate.Default.IsManaged(ctx, pPv) {
 		if !equality.Semantic.DeepEqual(vPv.Spec.StorageClassName, translatedSpec.StorageClassName) && !isStorageClassCreatedOnVirtual {
 			updated = translator.NewIfNil(updated, vPv)
 			updated.Spec.StorageClassName = translatedSpec.StorageClassName
