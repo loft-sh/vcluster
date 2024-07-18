@@ -103,12 +103,12 @@ var _ = ginkgo.Describe("Schedule a Statefulset with WaitForFirstConsumer PVCs",
 
 		// ceate
 		workload.Spec.VolumeClaimTemplates[0].Spec.StorageClassName = &scToUse.Name
-		err = f.VclusterCRClient.Create(f.Context, workload)
+		err = f.VClusterCRClient.Create(f.Context, workload)
 		framework.ExpectNoError(err)
 		// wait for it to start running
 		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
 			ss := &appsv1.StatefulSet{}
-			err := f.VclusterCRClient.Get(ctx, types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}, ss)
+			err := f.VClusterCRClient.Get(ctx, types.NamespacedName{Name: workload.Name, Namespace: workload.Namespace}, ss)
 			if err != nil {
 				fmt.Fprintf(ginkgo.GinkgoWriter, "failed to fetch statefulset %q with err err: %v\n", workload.Name, err)
 				return false, nil

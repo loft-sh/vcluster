@@ -4,7 +4,7 @@ import (
 	"context"
 
 	syncercontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"k8s.io/apimachinery/pkg/types"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -14,20 +14,16 @@ import (
 type Translator interface {
 	Resource() client.Object
 	Name() string
-	NameTranslator
+	ObjectManager
 	MetadataTranslator
 }
 
-// NameTranslator is used to convert virtual to physical names and vice versa
-type NameTranslator interface {
+// ObjectManager is used to convert virtual to physical names and vice versa
+type ObjectManager interface {
+	mappings.Mapper
+
 	// IsManaged determines if a physical object is managed by the vcluster
 	IsManaged(context.Context, client.Object) (bool, error)
-
-	// VirtualToHost translates a virtual name to a physical name
-	VirtualToHost(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName
-
-	// HostToVirtual translates a physical name to a virtual name
-	HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName
 }
 
 // MetadataTranslator is used to convert metadata between virtual and physical objects and vice versa
@@ -46,9 +42,6 @@ type NamespacedTranslator interface {
 
 	// EventRecorder returns
 	EventRecorder() record.EventRecorder
-
-	// RegisterIndices registers the default indices for the syncer
-	RegisterIndices(ctx *syncercontext.RegisterContext) error
 
 	// SyncToHostCreate creates the given pObj in the target namespace
 	SyncToHostCreate(ctx *syncercontext.SyncContext, vObj, pObj client.Object) (ctrl.Result, error)

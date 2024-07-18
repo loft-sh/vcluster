@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 
@@ -26,7 +27,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		// exclude "field.cattle.io/publicEndpoints" annotation used by Rancher,
 		// because if it is also installed in the host cluster, it will be
 		// overriding it, which would cause endless updates back and forth.
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}, "field.cattle.io/publicEndpoints"),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}, mappings.Services(), "field.cattle.io/publicEndpoints"),
 
 		serviceName: ctx.Config.WorkloadService,
 	}, nil
@@ -45,7 +46,7 @@ func (s *serviceSyncer) WithOptions() *syncertypes.Options {
 }
 
 func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.Service)))
+	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj.(*corev1.Service)))
 }
 
 func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -65,7 +66,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 			ctx.Log.Infof("recreating virtual service %s/%s, because cluster ip differs %s != %s", vService.Namespace, vService.Name, pService.Spec.ClusterIP, vService.Spec.ClusterIP)
 
 			// recreate the new service with the correct cluster ip
-			_, err := recreateService(ctx.Context, ctx.VirtualClient, newService)
+			_, err := recreateService(ctx, ctx.VirtualClient, newService)
 			if err != nil {
 				ctx.Log.Errorf("error creating virtual service: %s/%s", vService.Namespace, vService.Name)
 				return ctrl.Result{}, err
@@ -73,7 +74,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		} else {
 			// update with correct ports
 			ctx.Log.Infof("update virtual service %s/%s, because spec is out of sync", vService.Namespace, vService.Name)
-			err := ctx.VirtualClient.Update(ctx.Context, newService)
+			err := ctx.VirtualClient.Update(ctx, newService)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -89,7 +90,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		newService.Status = pService.Status
 		ctx.Log.Infof("update virtual service %s/%s, because status is out of sync", vService.Namespace, vService.Name)
 		translator.PrintChanges(vService, newService, ctx.Log)
-		err := ctx.VirtualClient.Status().Update(ctx.Context, newService)
+		err := ctx.VirtualClient.Status().Update(ctx, newService)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -98,7 +99,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	}
 
 	// forward update
-	newService = s.translateUpdate(ctx.Context, pService, vService)
+	newService = s.translateUpdate(ctx, pService, vService)
 	if newService != nil {
 		translator.PrintChanges(pService, newService, ctx.Log)
 	}
@@ -113,7 +114,7 @@ func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Serv
 var _ syncertypes.ToVirtualSyncer = &serviceSyncer{}
 
 func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	isManaged, err := s.NamespacedTranslator.IsManaged(ctx.Context, pObj)
+	isManaged, err := s.NamespacedTranslator.IsManaged(ctx, pObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !isManaged {

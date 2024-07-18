@@ -2,6 +2,7 @@ package volumesnapshotclasses
 
 import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util"
 
@@ -13,7 +14,7 @@ import (
 
 func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotClassSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("volumesnapshotclass", &volumesnapshotv1.VolumeSnapshotClass{}),
+		Translator: translator.NewMirrorPhysicalTranslator("volumesnapshotclass", &volumesnapshotv1.VolumeSnapshotClass{}, mappings.VolumeSnapshotClasses()),
 	}, nil
 }
 
@@ -31,9 +32,9 @@ var _ syncer.ToVirtualSyncer = &volumeSnapshotClassSyncer{}
 
 func (s *volumeSnapshotClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pVolumeSnapshotClass := pObj.(*volumesnapshotv1.VolumeSnapshotClass)
-	vObj := s.translateBackwards(ctx.Context, pVolumeSnapshotClass)
+	vObj := s.translateBackwards(ctx, pVolumeSnapshotClass)
 	ctx.Log.Infof("create VolumeSnapshotClass %s, because it does not exist in the virtual cluster", vObj.Name)
-	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
+	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
 var _ syncer.Syncer = &volumeSnapshotClassSyncer{}
@@ -43,7 +44,7 @@ func (s *volumeSnapshotClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vOb
 	// if this method is called it means that VolumeSnapshotClass was deleted in host or
 	// a new VolumeSnapshotClass was created in vcluster, and it should be deleted to avoid confusion
 	ctx.Log.Infof("delete VolumeSnapshotClass %s, because it does not exist in the host cluster", vObj.GetName())
-	err := ctx.VirtualClient.Delete(ctx.Context, vObj)
+	err := ctx.VirtualClient.Delete(ctx, vObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -51,11 +52,11 @@ func (s *volumeSnapshotClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vOb
 }
 
 func (s *volumeSnapshotClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	updated := s.translateUpdateBackwards(ctx.Context, pObj.(*volumesnapshotv1.VolumeSnapshotClass), vObj.(*volumesnapshotv1.VolumeSnapshotClass))
+	updated := s.translateUpdateBackwards(ctx, pObj.(*volumesnapshotv1.VolumeSnapshotClass), vObj.(*volumesnapshotv1.VolumeSnapshotClass))
 	if updated != nil {
 		ctx.Log.Infof("updating virtual VolumeSnapshotClass %s, because it differs from the physical one", updated.Name)
 		translator.PrintChanges(vObj, updated, ctx.Log)
-		err := ctx.VirtualClient.Update(ctx.Context, updated)
+		err := ctx.VirtualClient.Update(ctx, updated)
 		if err != nil {
 			return ctrl.Result{}, err
 		}

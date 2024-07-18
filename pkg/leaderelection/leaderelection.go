@@ -63,7 +63,7 @@ func StartLeaderElection(ctx *config.ControllerContext, scheme *runtime.Scheme, 
 	}
 
 	// try and become the leader and start controller manager loops
-	leaderelection.RunOrDie(ctx.Context, leaderelection.LeaderElectionConfig{
+	leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
 		Lock:          rl,
 		LeaseDuration: time.Duration(ctx.Config.ControlPlane.StatefulSet.HighAvailability.LeaseDuration) * time.Second,
 		RenewDeadline: time.Duration(ctx.Config.ControlPlane.StatefulSet.HighAvailability.RenewDeadline) * time.Second,
@@ -82,7 +82,7 @@ func StartLeaderElection(ctx *config.ControllerContext, scheme *runtime.Scheme, 
 				klog.Info("leader election lost")
 
 				// vcluster_error
-				telemetry.CollectorControlPlane.RecordError(ctx.Context, ctx.Config, telemetry.WarningSeverity, fmt.Errorf("leader election lost"))
+				telemetry.CollectorControlPlane.RecordError(ctx, ctx.Config, telemetry.WarningSeverity, fmt.Errorf("leader election lost"))
 				telemetry.CollectorControlPlane.Flush()
 
 				os.Exit(1)

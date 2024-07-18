@@ -3,6 +3,8 @@ package csistoragecapacities
 import (
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/config"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
@@ -92,7 +94,10 @@ func TestSyncHostStorageClass(t *testing.T) {
 		MaximumVolumeSize: resource.NewQuantity(202, resource.BinarySI),
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	generictesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.FromHost.CSIStorageCapacities.Enabled = "true"
+		return generictesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*generictesting.SyncTest{
 		{
 			Name:                 "Sync Up",
 			InitialVirtualState:  []runtime.Object{},
@@ -232,7 +237,10 @@ func TestSyncStorageClass(t *testing.T) {
 		MaximumVolumeSize: resource.NewQuantity(202, resource.BinarySI),
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	generictesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.FromHost.CSIStorageCapacities.Enabled = "true"
+		return generictesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*generictesting.SyncTest{
 		{
 			Name:                 "Sync Up",
 			InitialVirtualState:  []runtime.Object{vSCa, vSCb, labelledNode},
@@ -243,9 +251,11 @@ func TestSyncStorageClass(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.FromHost.StorageClasses.Enabled = "false"
+				vConfig.Sync.ToHost.StorageClasses.Enabled = true
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
-				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
@@ -268,9 +278,11 @@ func TestSyncStorageClass(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.FromHost.StorageClasses.Enabled = "false"
+				vConfig.Sync.ToHost.StorageClasses.Enabled = true
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
-				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
@@ -293,9 +305,11 @@ func TestSyncStorageClass(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.FromHost.StorageClasses.Enabled = "false"
+				vConfig.Sync.ToHost.StorageClasses.Enabled = true
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
-				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
@@ -313,9 +327,11 @@ func TestSyncStorageClass(t *testing.T) {
 			InitialVirtualState:   []runtime.Object{vObj, vSCa, vSCb, labelledNode},
 			ExpectedVirtualState:  map[schema.GroupVersionKind][]runtime.Object{},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.FromHost.StorageClasses.Enabled = "false"
+				vConfig.Sync.ToHost.StorageClasses.Enabled = true
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
-				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
@@ -338,9 +354,11 @@ func TestSyncStorageClass(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObjUpdated},
 			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.FromHost.StorageClasses.Enabled = "false"
+				vConfig.Sync.ToHost.StorageClasses.Enabled = true
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
-				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
@@ -363,9 +381,11 @@ func TestSyncStorageClass(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.FromHost.StorageClasses.Enabled = "false"
+				vConfig.Sync.ToHost.StorageClasses.Enabled = true
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
-				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
@@ -388,9 +408,11 @@ func TestSyncStorageClass(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.FromHost.StorageClasses.Enabled = "false"
+				vConfig.Sync.ToHost.StorageClasses.Enabled = true
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "false"
-				ctx.Config.Sync.ToHost.StorageClasses.Enabled = true
 				var err error
 				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)

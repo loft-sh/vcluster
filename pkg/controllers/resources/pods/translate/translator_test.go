@@ -4,14 +4,17 @@ import (
 	"context"
 	"testing"
 
+	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
+	"github.com/loft-sh/vcluster/pkg/mappings/resources"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestPodAffinityTermsTranslation(t *testing.T) {
@@ -210,10 +213,13 @@ func TestVolumeTranslation(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			fakeRecorder := record.NewFakeRecorder(10)
+			pClient := testingutil.NewFakeClient(scheme.Scheme)
+			vClient := testingutil.NewFakeClient(scheme.Scheme)
+			resources.MustRegisterMappings(generictesting.NewFakeRegisterContext(generictesting.NewFakeConfig(), pClient, vClient))
 			tr := &translator{
 				eventRecorder: fakeRecorder,
 				log:           loghelper.New("pods-syncer-translator-test"),
-				pClient:       fake.NewClientBuilder().Build(),
+				pClient:       pClient,
 			}
 
 			pPod := testCase.vPod.DeepCopy()

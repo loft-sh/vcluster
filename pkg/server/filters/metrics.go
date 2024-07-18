@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
@@ -89,13 +90,13 @@ func WithMetricsProxy(h http.Handler, localConfig *rest.Config, cachedVirtualCli
 	})
 }
 
-func rewritePrometheusMetrics(req *http.Request, data []byte, vClient client.Client) ([]byte, error) {
+func rewritePrometheusMetrics(req *http.Request, data []byte) ([]byte, error) {
 	metricsFamilies, err := MetricsDecode(data)
 	if err != nil {
 		return nil, err
 	}
 
-	metricsFamilies, err = MetricsRewrite(req.Context(), metricsFamilies, vClient)
+	metricsFamilies, err = MetricsRewrite(req.Context(), metricsFamilies)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +123,7 @@ func handleNodeRequest(localConfig *rest.Config, vClient client.Client, w http.R
 	// now rewrite the metrics
 	newData := data
 	if IsKubeletMetrics(req.URL.Path) {
-		newData, err = rewritePrometheusMetrics(req, data, vClient)
+		newData, err = rewritePrometheusMetrics(req, data)
 		if err != nil {
 			return false, err
 		}
@@ -150,18 +151,22 @@ func rewriteStats(ctx context.Context, data []byte, vClient client.Client) ([]by
 	newPods := []statsv1alpha1.PodStats{}
 	for _, pod := range stats.Pods {
 		// search if we can find the pod by name in the virtual cluster
-		podList := &corev1.PodList{}
-		err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByPhysicalName: pod.PodRef.Namespace + "/" + pod.PodRef.Name})
-		if err != nil {
-			return nil, err
-		}
-
-		// skip the metric if the pod couldn't be found in the virtual cluster
-		if len(podList.Items) == 0 {
+		name := mappings.Pods().HostToVirtual(ctx, types.NamespacedName{Name: pod.PodRef.Name, Namespace: pod.PodRef.Namespace}, nil)
+		if name.Name == "" {
 			continue
 		}
 
-		vPod := podList.Items[0]
+		// query the pod from the virtual cluster
+		vPod := &corev1.Pod{}
+		err := vClient.Get(ctx, name, vPod)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				continue
+			}
+
+			return nil, err
+		}
+
 		pod.PodRef.Name = vPod.Name
 		pod.PodRef.Namespace = vPod.Namespace
 		pod.PodRef.UID = string(vPod.UID)
@@ -169,11 +174,11 @@ func rewriteStats(ctx context.Context, data []byte, vClient client.Client) ([]by
 		newVolumes := []statsv1alpha1.VolumeStats{}
 		for _, volume := range pod.VolumeStats {
 			if volume.PVCRef != nil {
-				vPVC := &corev1.PersistentVolumeClaim{}
-				err = clienthelper.GetByIndex(ctx, vClient, vPVC, constants.IndexByPhysicalName, volume.PVCRef.Namespace+"/"+volume.PVCRef.Name)
-				if err != nil {
-					return nil, err
+				vPVC := mappings.PersistentVolumeClaims().HostToVirtual(ctx, types.NamespacedName{Name: volume.PVCRef.Name, Namespace: volume.PVCRef.Namespace}, nil)
+				if vPVC.Name == "" {
+					continue
 				}
+
 				volume.PVCRef.Name = vPVC.Name
 				volume.PVCRef.Namespace = vPVC.Namespace
 			}
@@ -251,7 +256,7 @@ func MetricsEncode(metricsFamilies []*dto.MetricFamily, format expfmt.Format) ([
 	return buffer.Bytes(), nil
 }
 
-func MetricsRewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, vClient client.Client) ([]*dto.MetricFamily, error) {
+func MetricsRewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily) ([]*dto.MetricFamily, error) {
 	resultMetricsFamily := []*dto.MetricFamily{}
 
 	// rewrite metrics
@@ -260,7 +265,7 @@ func MetricsRewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, vC
 		for _, m := range fam.Metric {
 			var (
 				pod                   string
-				persistentvolumeclaim string
+				persistentColumeClaim string
 				namespace             string
 			)
 			for _, l := range m.Label {
@@ -269,12 +274,12 @@ func MetricsRewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, vC
 				} else if l.GetName() == "namespace" {
 					namespace = l.GetValue()
 				} else if l.GetName() == "persistentvolumeclaim" {
-					persistentvolumeclaim = l.GetValue()
+					persistentColumeClaim = l.GetValue()
 				}
 			}
 
 			// Add metrics that are pod and namespace independent
-			if persistentvolumeclaim == "" && pod == "" {
+			if persistentColumeClaim == "" && pod == "" {
 				newMetrics = append(newMetrics, m)
 				continue
 			}
@@ -282,37 +287,25 @@ func MetricsRewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, vC
 			// rewrite pod
 			if pod != "" {
 				// search if we can find the pod by name in the virtual cluster
-				podList := &corev1.PodList{}
-				err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByPhysicalName: namespace + "/" + pod})
-				if err != nil {
-					return nil, err
-				}
-
-				// skip the metric if the pod couldn't be found in the virtual cluster
-				if len(podList.Items) == 0 {
+				name := mappings.Pods().HostToVirtual(ctx, types.NamespacedName{Name: pod, Namespace: namespace}, nil)
+				if name.Name == "" {
 					continue
 				}
 
-				pod = podList.Items[0].Name
-				namespace = podList.Items[0].Namespace
+				pod = name.Name
+				namespace = name.Namespace
 			}
 
 			// rewrite persistentvolumeclaim
-			if persistentvolumeclaim != "" {
+			if persistentColumeClaim != "" {
 				// search if we can find the pvc by name in the virtual cluster
-				pvcList := &corev1.PersistentVolumeClaimList{}
-				err := vClient.List(ctx, pvcList, client.MatchingFields{constants.IndexByPhysicalName: namespace + "/" + persistentvolumeclaim})
-				if err != nil {
-					return nil, err
-				}
-
-				// skip the metric if the pvc couldn't be found in the virtual cluster
-				if len(pvcList.Items) == 0 {
+				pvcName := mappings.PersistentVolumeClaims().HostToVirtual(ctx, types.NamespacedName{Name: persistentColumeClaim, Namespace: namespace}, nil)
+				if pvcName.Name == "" {
 					continue
 				}
 
-				persistentvolumeclaim = pvcList.Items[0].Name
-				namespace = pvcList.Items[0].Namespace
+				persistentColumeClaim = pvcName.Name
+				namespace = pvcName.Namespace
 			}
 
 			// exchange label values
@@ -324,7 +317,7 @@ func MetricsRewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily, vC
 					l.Value = &namespace
 				}
 				if l.GetName() == "persistentvolumeclaim" {
-					l.Value = &persistentvolumeclaim
+					l.Value = &persistentColumeClaim
 				}
 			}
 

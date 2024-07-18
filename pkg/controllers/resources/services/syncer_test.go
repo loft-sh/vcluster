@@ -401,10 +401,10 @@ func TestSync(t *testing.T) {
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecService, baseService)
 				assert.NilError(t, err)
 
-				err = ctx.VirtualManager.GetClient().Get(ctx.Context, types.NamespacedName{Namespace: baseService.Namespace, Name: baseService.Name}, baseService)
+				err = ctx.VirtualManager.GetClient().Get(ctx, types.NamespacedName{Namespace: baseService.Namespace, Name: baseService.Name}, baseService)
 				assert.NilError(t, err)
 
-				err = ctx.PhysicalManager.GetClient().Get(ctx.Context, types.NamespacedName{Namespace: updateBackwardSpecService.Namespace, Name: updateBackwardSpecService.Name}, updateBackwardSpecService)
+				err = ctx.PhysicalManager.GetClient().Get(ctx, types.NamespacedName{Namespace: updateBackwardSpecService.Namespace, Name: updateBackwardSpecService.Name}, updateBackwardSpecService)
 				assert.NilError(t, err)
 
 				baseService.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName
@@ -429,10 +429,10 @@ func TestSync(t *testing.T) {
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecRecreateService, baseService)
 				assert.NilError(t, err)
 
-				err = ctx.VirtualManager.GetClient().Get(ctx.Context, types.NamespacedName{Namespace: baseService.Namespace, Name: baseService.Name}, baseService)
+				err = ctx.VirtualManager.GetClient().Get(ctx, types.NamespacedName{Namespace: baseService.Namespace, Name: baseService.Name}, baseService)
 				assert.NilError(t, err)
 
-				err = ctx.PhysicalManager.GetClient().Get(ctx.Context, types.NamespacedName{Namespace: updateBackwardSpecRecreateService.Namespace, Name: updateBackwardSpecRecreateService.Name}, updateBackwardSpecRecreateService)
+				err = ctx.PhysicalManager.GetClient().Get(ctx, types.NamespacedName{Namespace: updateBackwardSpecRecreateService.Namespace, Name: updateBackwardSpecRecreateService.Name}, updateBackwardSpecRecreateService)
 				assert.NilError(t, err)
 
 				baseService.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName

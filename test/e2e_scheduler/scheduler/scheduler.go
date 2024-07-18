@@ -16,7 +16,7 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 	f := framework.DefaultFramework
 	ginkgo.It("Use taints and toleration to assign virtual node to pod", func() {
 		ginkgo.By("Add taints to virtual nodes only")
-		virtualNodes, err := f.VclusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
+		virtualNodes, err := f.VClusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 
 		for _, vnode := range virtualNodes.Items {
@@ -25,7 +25,7 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 				Value:  "value1",
 				Effect: corev1.TaintEffectNoSchedule,
 			})
-			_, err = f.VclusterClient.CoreV1().Nodes().Update(f.Context, &vnode, metav1.UpdateOptions{})
+			_, err = f.VClusterClient.CoreV1().Nodes().Update(f.Context, &vnode, metav1.UpdateOptions{})
 			framework.ExpectNoError(err)
 		}
 
@@ -37,7 +37,7 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 			hostNodesTaints[hnode.Name] = hnode.Spec.Taints
 		}
 
-		virtualNodes, err = f.VclusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
+		virtualNodes, err = f.VClusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 
 		virtualNodesTaints := make(map[string][]corev1.Taint)
@@ -75,11 +75,11 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 			},
 		}
 
-		_, err = f.VclusterClient.CoreV1().Pods(nsName).Create(f.Context, pod, metav1.CreateOptions{})
+		_, err = f.VClusterClient.CoreV1().Pods(nsName).Create(f.Context, pod, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
-			p, _ := f.VclusterClient.CoreV1().Pods(nsName).Get(ctx, podName, metav1.GetOptions{})
+			p, _ := f.VClusterClient.CoreV1().Pods(nsName).Get(ctx, podName, metav1.GetOptions{})
 			if p.Status.Phase == corev1.PodRunning {
 				return true, nil
 			}
@@ -107,11 +107,11 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 			},
 		}
 
-		_, err = f.VclusterClient.CoreV1().Pods(nsName).Create(f.Context, pod1, metav1.CreateOptions{})
+		_, err = f.VClusterClient.CoreV1().Pods(nsName).Create(f.Context, pod1, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
-			p, _ := f.VclusterClient.CoreV1().Pods(nsName).Get(ctx, pod1Name, metav1.GetOptions{})
+			p, _ := f.VClusterClient.CoreV1().Pods(nsName).Get(ctx, pod1Name, metav1.GetOptions{})
 			if p.Status.Phase == corev1.PodRunning {
 				return true, nil
 			}
@@ -120,16 +120,16 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 		framework.ExpectError(err)
 
 		ginkgo.By("remove taints from virtual node and delete namespace from vcluster")
-		vNodes, err := f.VclusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
+		vNodes, err := f.VClusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 
 		for _, vnode := range vNodes.Items {
 			vnode.Spec.Taints = vnode.Spec.Taints[:len(vnode.Spec.Taints)-1]
-			_, err = f.VclusterClient.CoreV1().Nodes().Update(f.Context, &vnode, metav1.UpdateOptions{})
+			_, err = f.VClusterClient.CoreV1().Nodes().Update(f.Context, &vnode, metav1.UpdateOptions{})
 			framework.ExpectNoError(err)
 		}
 
-		virtualNodes, err = f.VclusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
+		virtualNodes, err = f.VClusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 
 		virtualNodesTaints = make(map[string][]corev1.Taint)
@@ -139,10 +139,10 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 		framework.ExpectEqual(true, reflect.DeepEqual(hostNodesTaints, virtualNodesTaints))
 
 		ginkgo.By("delete pods from vcluster")
-		err = f.VclusterClient.CoreV1().Pods(nsName).Delete(f.Context, podName, metav1.DeleteOptions{})
+		err = f.VClusterClient.CoreV1().Pods(nsName).Delete(f.Context, podName, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 
-		err = f.VclusterClient.CoreV1().Pods(nsName).Delete(f.Context, pod1Name, metav1.DeleteOptions{})
+		err = f.VClusterClient.CoreV1().Pods(nsName).Delete(f.Context, pod1Name, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 	})
 })

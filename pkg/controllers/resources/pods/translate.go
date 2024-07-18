@@ -7,8 +7,8 @@ import (
 
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,7 +20,7 @@ func (s *podSyncer) translate(ctx *synccontext.SyncContext, vPod *corev1.Pod) (*
 		return nil, err
 	}
 
-	pPod, err := s.podTranslator.Translate(ctx.Context, vPod, ptrServiceList, dnsIP, kubeIP)
+	pPod, err := s.podTranslator.Translate(ctx, vPod, ptrServiceList, dnsIP, kubeIP)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (s *podSyncer) getK8sIPDNSIPServiceList(ctx *synccontext.SyncContext, vPod 
 
 	// get services for pod
 	serviceList := &corev1.ServiceList{}
-	err = ctx.VirtualClient.List(ctx.Context, serviceList, client.InNamespace(vPod.Namespace))
+	err = ctx.VirtualClient.List(ctx, serviceList, client.InNamespace(vPod.Namespace))
 	if err != nil {
 		return "", "", nil, err
 	}
@@ -71,7 +71,7 @@ func (s *podSyncer) translateUpdate(ctx context.Context, pClient client.Client, 
 
 func (s *podSyncer) findKubernetesIP(ctx *synccontext.SyncContext) (string, error) {
 	pService := &corev1.Service{}
-	err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{
+	err := ctx.CurrentNamespaceClient.Get(ctx, types.NamespacedName{
 		Name:      s.serviceName,
 		Namespace: ctx.CurrentNamespace,
 	}, pService)
@@ -87,14 +87,16 @@ func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, e
 		return "", errors.New("specialservices default not initialized")
 	}
 
-	pClient, namespace := specialservices.Default.DNSNamespace(ctx)
+	// translate service name
+	pService := mappings.VirtualToHostName(ctx, specialservices.DefaultKubeDNSServiceName, specialservices.DefaultKubeDNSServiceNamespace, mappings.Services())
 
 	// first try to find the actual synced service, then fallback to a different if we have a suffix (only in the case of integrated coredns)
+	pClient, namespace := specialservices.Default.DNSNamespace(ctx)
 	ip := s.translateAndFindService(
 		ctx,
 		pClient,
 		namespace,
-		translate.Default.PhysicalName(specialservices.DefaultKubeDNSServiceName, specialservices.DefaultKubeDNSServiceNamespace),
+		pService,
 	)
 	if ip == "" {
 		return "", fmt.Errorf("waiting for DNS service IP")
@@ -105,7 +107,7 @@ func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, e
 
 func (s *podSyncer) translateAndFindService(ctx *synccontext.SyncContext, kubeClient client.Client, namespace, name string) string {
 	pService := &corev1.Service{}
-	err := kubeClient.Get(ctx.Context, types.NamespacedName{
+	err := kubeClient.Get(ctx, types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
 	}, pService)

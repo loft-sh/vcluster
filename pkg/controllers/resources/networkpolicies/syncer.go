@@ -3,6 +3,7 @@ package networkpolicies
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -12,7 +13,7 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &networkPolicySyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "networkpolicy", &networkingv1.NetworkPolicy{}),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "networkpolicy", &networkingv1.NetworkPolicy{}, mappings.NetworkPolicies()),
 	}, nil
 }
 
@@ -23,11 +24,11 @@ type networkPolicySyncer struct {
 var _ syncertypes.Syncer = &networkPolicySyncer{}
 
 func (s *networkPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*networkingv1.NetworkPolicy)))
+	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj.(*networkingv1.NetworkPolicy)))
 }
 
 func (s *networkPolicySyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	newNetworkPolicy := s.translateUpdate(ctx.Context, pObj.(*networkingv1.NetworkPolicy), vObj.(*networkingv1.NetworkPolicy))
+	newNetworkPolicy := s.translateUpdate(ctx, pObj.(*networkingv1.NetworkPolicy), vObj.(*networkingv1.NetworkPolicy))
 	if newNetworkPolicy != nil {
 		translator.PrintChanges(pObj, newNetworkPolicy, ctx.Log)
 	}

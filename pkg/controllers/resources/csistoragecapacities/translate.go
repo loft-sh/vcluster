@@ -3,28 +3,28 @@ package csistoragecapacities
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // returns virtual scname, shouldSync
 func (s *csistoragecapacitySyncer) fetchVirtualStorageClass(ctx *synccontext.SyncContext, physName string) (string, bool, error) {
 	if s.storageClassSyncEnabled {
-		sc := &storagev1.StorageClass{}
 		// the csistorage capacity being synced to the virtual cluster needs the name of the virtual storage cluster
-		err := clienthelper.GetByIndex(ctx.Context, ctx.VirtualClient, sc, constants.IndexByPhysicalName, physName)
-		if kerrors.IsNotFound(err) {
+		vName := mappings.StorageClasses().HostToVirtual(ctx, types.NamespacedName{Name: physName}, nil)
+		if vName.Name == "" {
 			return "", true, nil
 		}
-		return sc.Name, false, nil
+
+		return vName.Name, false, nil
 	}
+
 	return physName, false, nil
 }
 
@@ -36,7 +36,7 @@ func (s *csistoragecapacitySyncer) hasMatchingVirtualNodes(ctx *synccontext.Sync
 		if err != nil {
 			return false, err
 		}
-		err = ctx.VirtualClient.List(ctx.Context, nodeList, client.MatchingLabelsSelector{Selector: selector})
+		err = ctx.VirtualClient.List(ctx, nodeList, client.MatchingLabelsSelector{Selector: selector})
 		if err != nil {
 			return false, err
 		}
@@ -56,7 +56,7 @@ func (s *csistoragecapacitySyncer) translateBackwards(ctx *synccontext.SyncConte
 		return nil, shouldSkip, err
 	}
 
-	translated, err := s.TranslateMetadata(ctx.Context, pObj.DeepCopy())
+	translated, err := s.TranslateMetadata(ctx, pObj.DeepCopy())
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to translate metatdata backwards: %w", err)
 	}

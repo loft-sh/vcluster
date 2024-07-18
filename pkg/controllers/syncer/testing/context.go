@@ -6,6 +6,7 @@ import (
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/util/log"
@@ -50,7 +51,7 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 
 func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 	translate.Default = translate.NewSingleNamespaceTranslator(DefaultTestTargetNamespace)
-	return &synccontext.RegisterContext{
+	registerCtx := &synccontext.RegisterContext{
 		Context:                context.Background(),
 		Config:                 vConfig,
 		CurrentNamespace:       DefaultTestCurrentNamespace,
@@ -58,6 +59,9 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 		VirtualManager:         newFakeManager(vClient),
 		PhysicalManager:        newFakeManager(pClient),
 	}
+
+	resources.MustRegisterMappings(registerCtx)
+	return registerCtx
 }
 
 func NewFakeConfig() *config.VirtualClusterConfig {

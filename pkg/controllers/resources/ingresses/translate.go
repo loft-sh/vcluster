@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/klog/v2"
@@ -18,11 +19,16 @@ const (
 	ActionsSuffix          = "/actions."
 )
 
-func (s *ingressSyncer) translate(ctx context.Context, vIngress *networkingv1.Ingress) *networkingv1.Ingress {
+func (s *ingressSyncer) translate(ctx context.Context, vIngress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
 	newIngress := s.TranslateMetadata(ctx, vIngress).(*networkingv1.Ingress)
-	newIngress.Spec = *translateSpec(vIngress.Namespace, &vIngress.Spec)
-	newIngress.Annotations, _ = translateIngressAnnotations(newIngress.Annotations, vIngress.Namespace)
-	return newIngress
+	pSpec, err := translateSpec(ctx, vIngress.Namespace, &vIngress.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	newIngress.Spec = *pSpec
+	newIngress.Annotations, _ = translateIngressAnnotations(ctx, newIngress.Annotations, vIngress.Namespace)
+	return newIngress, nil
 }
 
 func (s *ingressSyncer) TranslateMetadata(ctx context.Context, vObj client.Object) client.Object {
@@ -39,21 +45,25 @@ func (s *ingressSyncer) TranslateMetadataUpdate(ctx context.Context, vObj client
 	return s.NamespacedTranslator.TranslateMetadataUpdate(ctx, vIngress, pObj)
 }
 
-func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) {
-	pObj.Spec = *translateSpec(vObj.Namespace, &vObj.Spec)
+func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) error {
+	pSpec, err := translateSpec(ctx, vObj.Namespace, &vObj.Spec)
+	if err != nil {
+		return err
+	}
 
+	pObj.Spec = *pSpec
 	_, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
-	translatedAnnotations, _ = translateIngressAnnotations(translatedAnnotations, vObj.Namespace)
-
+	translatedAnnotations, _ = translateIngressAnnotations(ctx, translatedAnnotations, vObj.Namespace)
 	pObj.Annotations = translatedAnnotations
 	pObj.Labels = translatedLabels
+	return nil
 }
 
-func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *networkingv1.IngressSpec {
+func translateSpec(ctx context.Context, namespace string, vIngressSpec *networkingv1.IngressSpec) (*networkingv1.IngressSpec, error) {
 	retSpec := vIngressSpec.DeepCopy()
 	if retSpec.DefaultBackend != nil {
 		if retSpec.DefaultBackend.Service != nil && retSpec.DefaultBackend.Service.Name != "" {
-			retSpec.DefaultBackend.Service.Name = translate.Default.PhysicalName(retSpec.DefaultBackend.Service.Name, namespace)
+			retSpec.DefaultBackend.Service.Name = mappings.VirtualToHostName(ctx, retSpec.DefaultBackend.Service.Name, namespace, mappings.Services())
 		}
 		if retSpec.DefaultBackend.Resource != nil {
 			retSpec.DefaultBackend.Resource.Name = translate.Default.PhysicalName(retSpec.DefaultBackend.Resource.Name, namespace)
@@ -64,7 +74,7 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *ne
 		if rule.HTTP != nil {
 			for j, path := range rule.HTTP.Paths {
 				if path.Backend.Service != nil && path.Backend.Service.Name != "" {
-					retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name = translate.Default.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name, namespace)
+					retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name = mappings.VirtualToHostName(ctx, retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name, namespace, mappings.Services())
 				}
 				if path.Backend.Resource != nil {
 					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.Default.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
@@ -75,11 +85,11 @@ func translateSpec(namespace string, vIngressSpec *networkingv1.IngressSpec) *ne
 
 	for i, tls := range retSpec.TLS {
 		if tls.SecretName != "" {
-			retSpec.TLS[i].SecretName = translate.Default.PhysicalName(retSpec.TLS[i].SecretName, namespace)
+			retSpec.TLS[i].SecretName = mappings.VirtualToHostName(ctx, retSpec.TLS[i].SecretName, namespace, mappings.Secrets())
 		}
 	}
 
-	return retSpec
+	return retSpec, nil
 }
 
 func getActionOrConditionValue(annotation, actionOrCondition string) string {

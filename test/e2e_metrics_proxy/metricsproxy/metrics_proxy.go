@@ -21,7 +21,7 @@ var _ = ginkgo.Describe("Target Namespace", func() {
 
 	ginkgo.It("Make sure the metrics api service is registered and available", func() {
 		err := wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
-			apiRegistrationClient := apiregistrationv1clientset.NewForConfigOrDie(f.VclusterConfig)
+			apiRegistrationClient := apiregistrationv1clientset.NewForConfigOrDie(f.VClusterConfig)
 			apiService, err := apiRegistrationClient.APIServices().Get(ctx, "v1beta1.metrics.k8s.io", metav1.GetOptions{})
 			if err != nil {
 				return false, nil
@@ -38,7 +38,7 @@ var _ = ginkgo.Describe("Target Namespace", func() {
 
 	ginkgo.It("Make sure get nodeMetrics and podMetrics succeed", func() {
 		err := wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (bool, error) {
-			metricsClient := metricsv1beta1client.NewForConfigOrDie(f.VclusterConfig)
+			metricsClient := metricsv1beta1client.NewForConfigOrDie(f.VClusterConfig)
 
 			nodeMetricsList, err := metricsClient.NodeMetricses().List(ctx, metav1.ListOptions{})
 			if err != nil {

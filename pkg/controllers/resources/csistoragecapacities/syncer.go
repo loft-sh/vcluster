@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	storagev1 "k8s.io/api/storage/v1"
@@ -23,6 +24,8 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &csistoragecapacitySyncer{
+		Mapper: mappings.CSIStorageCapacities(),
+
 		storageClassSyncEnabled:     ctx.Config.Sync.ToHost.StorageClasses.Enabled,
 		hostStorageClassSyncEnabled: ctx.Config.Sync.FromHost.StorageClasses.Enabled == "true",
 		physicalClient:              ctx.PhysicalManager.GetClient(),
@@ -30,6 +33,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 }
 
 type csistoragecapacitySyncer struct {
+	mappings.Mapper
+
 	storageClassSyncEnabled     bool
 	hostStorageClassSyncEnabled bool
 	physicalClient              client.Client
@@ -47,7 +52,7 @@ func (s *csistoragecapacitySyncer) SyncToVirtual(ctx *synccontext.SyncContext, p
 	}
 
 	ctx.Log.Infof("create CSIStorageCapacity %s, because it does not exist in virtual cluster", vObj.Name)
-	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
+	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
 func (s *csistoragecapacitySyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
@@ -74,7 +79,7 @@ func (s *csistoragecapacitySyncer) Sync(ctx *synccontext.SyncContext, pObj clien
 	}
 
 	if shouldSkip {
-		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 	}
 
 	return ctrl.Result{}, nil
@@ -82,7 +87,7 @@ func (s *csistoragecapacitySyncer) Sync(ctx *synccontext.SyncContext, pObj clien
 
 func (s *csistoragecapacitySyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("delete virtual CSIStorageCapacity %s, because physical object is missing", vObj.GetName())
-	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 }
 
 func (s *csistoragecapacitySyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
@@ -97,22 +102,23 @@ func (s *csistoragecapacitySyncer) ModifyController(ctx *synccontext.RegisterCon
 	if err != nil {
 		return nil, fmt.Errorf("failed to add allNSCache to physical manager: %w", err)
 	}
+
 	return builder.WatchesRawSource(source.Kind(allNSCache, s.Resource(), &handler.Funcs{
 		CreateFunc: func(_ context.Context, ce event.CreateEvent, rli workqueue.RateLimitingInterface) {
 			obj := ce.Object
-			s.enqueuePhysical(ctx.Context, obj, rli)
+			s.enqueuePhysical(ctx, obj, rli)
 		},
 		UpdateFunc: func(_ context.Context, ue event.UpdateEvent, rli workqueue.RateLimitingInterface) {
 			obj := ue.ObjectNew
-			s.enqueuePhysical(ctx.Context, obj, rli)
+			s.enqueuePhysical(ctx, obj, rli)
 		},
 		DeleteFunc: func(_ context.Context, de event.DeleteEvent, rli workqueue.RateLimitingInterface) {
 			obj := de.Object
-			s.enqueuePhysical(ctx.Context, obj, rli)
+			s.enqueuePhysical(ctx, obj, rli)
 		},
 		GenericFunc: func(_ context.Context, ge event.GenericEvent, rli workqueue.RateLimitingInterface) {
 			obj := ge.Object
-			s.enqueuePhysical(ctx.Context, obj, rli)
+			s.enqueuePhysical(ctx, obj, rli)
 		},
 	})), nil
 }
@@ -122,7 +128,7 @@ func (s *csistoragecapacitySyncer) enqueuePhysical(ctx context.Context, obj clie
 		return
 	}
 
-	name := s.HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+	name := s.Mapper.HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 	if name.Name != "" && name.Namespace != "" {
 		q.Add(reconcile.Request{NamespacedName: name})
 	}

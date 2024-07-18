@@ -33,25 +33,25 @@ var _ = ginkgo.Describe("map services from host to virtual cluster and vice vers
 		framework.ExpectError(err)
 
 		// make sure virtual service doesn't exist initially
-		_, err = f.VclusterClient.CoreV1().Services("default").Get(ctx, "test", metav1.GetOptions{})
+		_, err = f.VClusterClient.CoreV1().Services("default").Get(ctx, "test", metav1.GetOptions{})
 		framework.ExpectError(err)
-		_, err = f.VclusterClient.CoreV1().Services("test").Get(ctx, "test", metav1.GetOptions{})
+		_, err = f.VClusterClient.CoreV1().Services("test").Get(ctx, "test", metav1.GetOptions{})
 		framework.ExpectError(err)
 
 		// physical -> virtual
-		testMapping(ctx, f.HostClient, "test", "test", f.VclusterClient, "default", "test", true)
+		testMapping(ctx, f.HostClient, "test", "test", f.VClusterClient, "default", "test", true)
 
 		// virtual -> physical
-		testMapping(ctx, f.VclusterClient, "test", "test", f.HostClient, f.VclusterNamespace, "test", f.MultiNamespaceMode)
+		testMapping(ctx, f.VClusterClient, "test", "test", f.HostClient, f.VclusterNamespace, "test", f.MultiNamespaceMode)
 	})
 
 	ginkgo.Context("Should sync endpoint updates for a headless service", func() {
 		ginkgo.It("in host -> vcluster service mapping", func() {
-			checkEndpointsSync(f.Context, f.HostClient, "test", "nginx", f.VclusterClient, "default", "nginx")
+			checkEndpointsSync(f.Context, f.HostClient, "test", "nginx", f.VClusterClient, "default", "nginx")
 		})
 
 		ginkgo.It("in vcluster -> host service mapping", func() {
-			checkEndpointsSync(f.Context, f.VclusterClient, "test", "nginx", f.HostClient, f.VclusterNamespace, "nginx")
+			checkEndpointsSync(f.Context, f.VClusterClient, "test", "nginx", f.HostClient, f.VclusterNamespace, "nginx")
 		})
 	})
 })

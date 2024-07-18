@@ -8,8 +8,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,61 +23,23 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &configMapSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "configmap", &corev1.ConfigMap{}),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "configmap", &corev1.ConfigMap{}, mappings.ConfigMaps()),
 
-		syncAllConfigMaps:  ctx.Config.Sync.ToHost.ConfigMaps.All,
-		multiNamespaceMode: ctx.Config.Experimental.MultiNamespaceMode.Enabled,
+		syncAllConfigMaps: ctx.Config.Sync.ToHost.ConfigMaps.All,
 	}, nil
 }
 
 type configMapSyncer struct {
 	translator.NamespacedTranslator
 
-	syncAllConfigMaps  bool
-	multiNamespaceMode bool
+	syncAllConfigMaps bool
 }
 
 var _ syncer.IndicesRegisterer = &configMapSyncer{}
 
-func (s *configMapSyncer) VirtualToHost(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
-	if s.multiNamespaceMode && req.Name == "kube-root-ca.crt" {
-		return types.NamespacedName{
-			Name:      translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName),
-			Namespace: s.NamespacedTranslator.VirtualToHost(ctx, req, vObj).Namespace,
-		}
-	}
-
-	return s.NamespacedTranslator.VirtualToHost(ctx, req, vObj)
-}
-
-func (s *configMapSyncer) HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
-	if s.multiNamespaceMode && req.Name == translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName) {
-		return types.NamespacedName{
-			Name:      "kube-root-ca.crt",
-			Namespace: s.NamespacedTranslator.HostToVirtual(ctx, req, pObj).Namespace,
-		}
-	} else if s.multiNamespaceMode && req.Name == "kube-root-ca.crt" {
-		// ignore kube-root-ca.crt from host
-		return types.NamespacedName{}
-	}
-
-	return s.NamespacedTranslator.HostToVirtual(ctx, req, pObj)
-}
-
 func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.ConfigMap{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		if s.multiNamespaceMode && rawObj.GetName() == "kube-root-ca.crt" {
-			return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)}
-		}
-
-		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
-	})
-	if err != nil {
-		return err
-	}
-
 	// index pods by their used config maps
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByConfigMap, func(rawObj client.Object) []string {
+	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByConfigMap, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
 		return configNamesFromPod(pod)
 	})
@@ -97,7 +59,7 @@ func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.O
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj.(*corev1.ConfigMap)))
+	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj.(*corev1.ConfigMap)))
 }
 
 func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
@@ -111,7 +73,7 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		}
 
 		ctx.Log.Infof("delete physical config map %s/%s, because it is not used anymore", pConfigMap.GetNamespace(), pConfigMap.GetName())
-		err = ctx.PhysicalClient.Delete(ctx.Context, pObj)
+		err = ctx.PhysicalClient.Delete(ctx, pObj)
 		if err != nil {
 			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", pConfigMap.GetNamespace(), pConfigMap.GetName(), err)
 			return ctrl.Result{}, err
@@ -120,7 +82,7 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		return ctrl.Result{}, nil
 	}
 
-	newConfigMap := s.translateUpdate(ctx.Context, pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap))
+	newConfigMap := s.translateUpdate(ctx, pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap))
 	if newConfigMap != nil {
 		translator.PrintChanges(pObj, newConfigMap, ctx.Log)
 	}
@@ -140,7 +102,7 @@ func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj run
 	}
 
 	podList := &corev1.PodList{}
-	err := ctx.VirtualClient.List(ctx.Context, podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
+	err := ctx.VirtualClient.List(ctx, podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
 	if err != nil {
 		return false, err
 	}

@@ -5,6 +5,7 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -13,9 +14,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(*synccontext.RegisterContext) (syncer.Object, error) {
+func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 	return &ingressClassSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("ingressclass", &networkingv1.IngressClass{}),
+		Translator: translator.NewMirrorPhysicalTranslator("ingressclass", &networkingv1.IngressClass{}, mappings.IngressClasses()),
 	}, nil
 }
 
@@ -27,9 +28,9 @@ var _ syncer.ToVirtualSyncer = &ingressClassSyncer{}
 var _ syncer.Syncer = &ingressClassSyncer{}
 
 func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj := i.createVirtual(ctx.Context, pObj.(*networkingv1.IngressClass))
+	vObj := i.createVirtual(ctx, pObj.(*networkingv1.IngressClass))
 	ctx.Log.Infof("create ingress class %s, because it does not exist in virtual cluster", vObj.Name)
-	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
+	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
 func (i *ingressClassSyncer) Sync(ctx *synccontext.SyncContext, pObj, vObj client.Object) (_ ctrl.Result, retErr error) {
@@ -47,11 +48,11 @@ func (i *ingressClassSyncer) Sync(ctx *synccontext.SyncContext, pObj, vObj clien
 	// cast objects
 	pIngressClass, vIngressClass, _, _ := synccontext.Cast[*networkingv1.IngressClass](ctx, pObj, vObj)
 
-	i.updateVirtual(ctx.Context, pIngressClass, vIngressClass)
+	i.updateVirtual(ctx, pIngressClass, vIngressClass)
 	return ctrl.Result{}, nil
 }
 
 func (i *ingressClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("delete virtual ingress class %s, because physical object is missing", vObj.GetName())
-	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 }

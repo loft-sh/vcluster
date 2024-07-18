@@ -59,12 +59,12 @@ type SyncerPatcher struct {
 
 // Patch will attempt to patch the given object, including its status.
 func (h *SyncerPatcher) Patch(ctx *synccontext.SyncContext, pObj, vObj client.Object) error {
-	err := h.vPatcher.Patch(ctx.Context, vObj)
+	err := h.vPatcher.Patch(ctx, vObj)
 	if err != nil {
 		return fmt.Errorf("patch virtual object: %w", err)
 	}
 
-	err = h.pPatcher.Patch(ctx.Context, pObj)
+	err = h.pPatcher.Patch(ctx, pObj)
 	if err != nil {
 		return fmt.Errorf("patch host object: %w", err)
 	}

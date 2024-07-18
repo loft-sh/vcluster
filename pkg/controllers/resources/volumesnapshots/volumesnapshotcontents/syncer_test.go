@@ -4,19 +4,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	"k8s.io/utils/ptr"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -24,13 +25,6 @@ const (
 )
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *volumeSnapshotContentSyncer) {
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshotContent{}, constants.IndexByPhysicalName, newIndexByVSCPhysicalName())
-	assert.NilError(t, err)
-	err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &volumesnapshotv1.VolumeSnapshot{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
-	})
-	assert.NilError(t, err)
-
 	syncContext, object := generictesting.FakeStartSyncer(t, ctx, New)
 	return syncContext, object.(*volumeSnapshotContentSyncer)
 }
@@ -113,7 +107,7 @@ func TestSync(t *testing.T) {
 	if vDynamic.Annotations == nil {
 		vDynamic.Annotations = map[string]string{}
 	}
-	vDynamic.Annotations[HostClusterVSCAnnotation] = pDynamic.Name
+	vDynamic.Annotations[constants.HostClusterVSCAnnotation] = pDynamic.Name
 	vDynamic.Spec.VolumeSnapshotRef = corev1.ObjectReference{
 		Name:            vVolumeSnapshot.Name,
 		Namespace:       vVolumeSnapshot.Namespace,
@@ -166,7 +160,10 @@ func TestSync(t *testing.T) {
 	vDeletingWithStatus := vDeletingWithOneFinalizer.DeepCopy()
 	vDeletingWithStatus.Status = pDeletingWithStatus.Status
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	generictesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.ToHost.VolumeSnapshots.Enabled = true
+		return generictesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*generictesting.SyncTest{
 		{
 			Name:                 "Create dynamic VolumeSnapshotContent from host",
 			InitialVirtualState:  []runtime.Object{vVolumeSnapshot.DeepCopy()},

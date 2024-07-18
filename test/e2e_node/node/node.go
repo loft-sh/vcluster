@@ -15,7 +15,7 @@ var _ = ginkgo.Describe("Node sync", func() {
 		hostNodes, err := f.HostClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 
-		virtualNodes, err := f.VclusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
+		virtualNodes, err := f.VClusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(len(hostNodes.Items), len(virtualNodes.Items))
 
@@ -33,7 +33,7 @@ var _ = ginkgo.Describe("Node sync", func() {
 	})
 
 	ginkgo.It("fake nodes have fake kubelet service IPs", func() {
-		virtualNodes, err := f.VclusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
+		virtualNodes, err := f.VClusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 
 		for _, nodes := range virtualNodes.Items {

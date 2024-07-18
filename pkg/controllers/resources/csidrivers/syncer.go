@@ -5,6 +5,7 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
 	storagev1 "k8s.io/api/storage/v1"
@@ -15,7 +16,7 @@ import (
 
 func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 	return &csidriverSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("csidriver", &storagev1.CSIDriver{}),
+		Translator: translator.NewMirrorPhysicalTranslator("csidriver", &storagev1.CSIDriver{}, mappings.CSIDrivers()),
 	}, nil
 }
 
@@ -27,9 +28,9 @@ var _ syncer.ToVirtualSyncer = &csidriverSyncer{}
 var _ syncer.Syncer = &csidriverSyncer{}
 
 func (s *csidriverSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj := s.translateBackwards(ctx.Context, pObj.(*storagev1.CSIDriver))
+	vObj := s.translateBackwards(ctx, pObj.(*storagev1.CSIDriver))
 	ctx.Log.Infof("create CSIDriver %s, because it does not exist in virtual cluster", vObj.Name)
-	return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vObj)
+	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
 func (s *csidriverSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
@@ -43,12 +44,12 @@ func (s *csidriverSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		}
 	}()
 	// check if there is a change
-	s.translateUpdateBackwards(ctx.Context, pObj.(*storagev1.CSIDriver), vObj.(*storagev1.CSIDriver))
+	s.translateUpdateBackwards(ctx, pObj.(*storagev1.CSIDriver), vObj.(*storagev1.CSIDriver))
 
 	return ctrl.Result{}, nil
 }
 
 func (s *csidriverSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("delete virtual CSIDriver %s, because physical object is missing", vObj.GetName())
-	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 }

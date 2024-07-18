@@ -53,7 +53,7 @@ func CreateImporters(ctx *config.ControllerContext) error {
 		// don't skip even if scheme.Recognizes(gvk) to ensure scope for builtin
 		// cluster scoped resources is registered and set properly
 		isClusterScoped, hasStatusSubresource, err := translate.EnsureCRDFromPhysicalCluster(
-			registerCtx.Context,
+			registerCtx,
 			registerCtx.PhysicalManager.GetConfig(),
 			registerCtx.VirtualManager.GetConfig(),
 			gvk)
@@ -117,7 +117,7 @@ func BuildCustomImporter(
 	replaceWhenInvalid bool,
 ) (syncertypes.Object, error) {
 	isClusterScoped, hasStatusSubresource, err := translate.EnsureCRDFromPhysicalCluster(
-		registerCtx.Context,
+		registerCtx,
 		registerCtx.PhysicalManager.GetConfig(),
 		registerCtx.VirtualManager.GetConfig(),
 		gvk,
@@ -187,7 +187,7 @@ func (s *importer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Objec
 	pAnnotations := pObj.GetAnnotations()
 	if pAnnotations != nil && pAnnotations[translate.ControllerLabel] == s.Name() && !s.syncerOptions.IsClusterScopedCRD { // only delete pObj if its not cluster scoped
 		ctx.Log.Infof("Delete physical %s %s/%s, since virtual is missing, but physical object was already synced", s.gvk.Kind, pObj.GetNamespace(), pObj.GetName())
-		err := ctx.PhysicalClient.Delete(ctx.Context, pObj)
+		err := ctx.PhysicalClient.Delete(ctx, pObj)
 		if err != nil && !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
@@ -197,7 +197,7 @@ func (s *importer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Objec
 
 	// apply object to virtual cluster
 	ctx.Log.Infof("Create virtual %s, since it is missing, but physical object %s/%s exists", s.gvk.Kind, pObj.GetNamespace(), pObj.GetName())
-	vObj, err := s.patcher.ApplyPatches(ctx.Context, pObj, nil, s)
+	vObj, err := s.patcher.ApplyPatches(ctx, pObj, nil, s)
 	if err != nil {
 		if err := IgnoreAcceptableErrors(err); err != nil {
 			return ctrl.Result{}, nil
@@ -217,7 +217,7 @@ func (s *importer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Objec
 	}
 
 	// wait here for vObj to be created
-	err = wait.PollUntilContextTimeout(ctx.Context, time.Millisecond*10, time.Second, true, func(syncContext context.Context) (done bool, err error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second, true, func(syncContext context.Context) (done bool, err error) {
 		err = ctx.VirtualClient.Get(syncContext, types.NamespacedName{
 			Namespace: vObj.GetNamespace(),
 			Name:      vObj.GetName(),
@@ -241,6 +241,10 @@ func (s *importer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Objec
 
 var _ syncertypes.Syncer = &importer{}
 
+func (s *importer) GroupVersionKind() schema.GroupVersionKind {
+	return s.gvk
+}
+
 func (s *importer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	// ignore all virtual resources that were not created by this controller
 	if !s.isVirtualManaged(vObj) {
@@ -250,7 +254,7 @@ func (s *importer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) 
 	// should we delete the object?
 	if vObj.GetDeletionTimestamp() == nil {
 		ctx.Log.Infof("remove virtual %s %s/%s, because object should get deleted", s.gvk.Kind, vObj.GetNamespace(), vObj.GetName())
-		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx.Context, vObj)
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 	}
 
 	// remove finalizers if there are any
@@ -258,11 +262,11 @@ func (s *importer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) 
 		// delete the finalizer here so that the object can be deleted
 		vObj.SetFinalizers([]string{})
 		ctx.Log.Infof("remove virtual %s %s/%s finalizers, because object should get deleted", s.gvk.Kind, vObj.GetNamespace(), vObj.GetName())
-		return ctrl.Result{}, ctx.VirtualClient.Update(ctx.Context, vObj)
+		return ctrl.Result{}, ctx.VirtualClient.Update(ctx, vObj)
 	}
 
 	// force deletion
-	err := ctx.VirtualClient.Delete(ctx.Context, vObj, &client.DeleteOptions{
+	err := ctx.VirtualClient.Delete(ctx, vObj, &client.DeleteOptions{
 		GracePeriodSeconds: &[]int64{0}[0],
 	})
 	if kerrors.IsNotFound(err) {
@@ -273,7 +277,7 @@ func (s *importer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) 
 
 func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
 	// check if physical object is managed by this import controller
-	managed, err := s.IsManaged(ctx.Context, pObj)
+	managed, err := s.IsManaged(ctx, pObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !managed {
@@ -284,12 +288,12 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	if vObj.GetDeletionTimestamp() != nil || pObj.GetDeletionTimestamp() != nil {
 		if pObj.GetDeletionTimestamp() == nil && !s.syncerOptions.IsClusterScopedCRD {
 			ctx.Log.Infof("delete physical object %s/%s, because the virtual object is being deleted", pObj.GetNamespace(), pObj.GetName())
-			if err := ctx.PhysicalClient.Delete(ctx.Context, pObj); err != nil {
+			if err := ctx.PhysicalClient.Delete(ctx, pObj); err != nil {
 				return ctrl.Result{}, err
 			}
 		} else if vObj.GetDeletionTimestamp() == nil {
 			ctx.Log.Infof("delete virtual object %s/%s, because physical object is being deleted", vObj.GetNamespace(), vObj.GetName())
-			if err := ctx.VirtualClient.Delete(ctx.Context, vObj); err != nil {
+			if err := ctx.VirtualClient.Delete(ctx, vObj); err != nil {
 				return ctrl.Result{}, nil
 			}
 		}
@@ -298,7 +302,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	}
 
 	// execute reverse patches
-	result, err := s.patcher.ApplyReversePatches(ctx.Context, pObj, vObj, s)
+	result, err := s.patcher.ApplyReversePatches(ctx, pObj, vObj, s)
 	if err != nil {
 		if kerrors.IsInvalid(err) {
 			ctx.Log.Infof("Warning: this message could indicate a timing issue with no significant impact, or a bug. Please report this if your resource never reaches the expected state. Error message: failed to patch virtual %s %s/%s: %v", s.gvk.Kind, vObj.GetNamespace(), vObj.GetName(), err)
@@ -315,14 +319,14 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	}
 
 	// apply patches
-	vObj, err = s.patcher.ApplyPatches(ctx.Context, pObj, vObj, s)
+	vObj, err = s.patcher.ApplyPatches(ctx, pObj, vObj, s)
 	err = IgnoreAcceptableErrors(err)
 	if err != nil {
 		// when invalid, auto delete and recreate to recover
 		if kerrors.IsInvalid(err) && s.replaceWhenInvalid {
 			// Replace the object
 			ctx.Log.Infof("Replace virtual object, because of apply failed: %v", err)
-			err = ctx.VirtualClient.Delete(ctx.Context, vObj, &client.DeleteOptions{
+			err = ctx.VirtualClient.Delete(ctx, vObj, &client.DeleteOptions{
 				GracePeriodSeconds: &[]int64{0}[0],
 			})
 			if err != nil {
@@ -504,5 +508,5 @@ func (s *importer) addAnnotationsToPhysicalObject(ctx *synccontext.SyncContext, 
 	}
 
 	ctx.Log.Infof("Patch controlled-by annotation on %s %s/%s", s.gvk.Kind, pObj.GetNamespace(), pObj.GetName())
-	return ctx.PhysicalClient.Patch(ctx.Context, pObj, patch)
+	return ctx.PhysicalClient.Patch(ctx, pObj, patch)
 }

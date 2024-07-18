@@ -45,7 +45,7 @@ func UpdateConditions(ctx *synccontext.SyncContext, physicalPod *corev1.Pod, vir
 	// update physical pod
 	if updated {
 		ctx.Log.Infof("update physical pod %s/%s, because custom pod conditions have changed", physicalPod.Namespace, physicalPod.Name)
-		err := ctx.PhysicalClient.Status().Update(ctx.Context, physicalPod)
+		err := ctx.PhysicalClient.Status().Update(ctx, physicalPod)
 		if err != nil {
 			return nil, err
 		}

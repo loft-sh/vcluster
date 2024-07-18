@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func StartControllers(controllerContext *config.ControllerContext) error {
+func StartControllers(controllerContext *config.ControllerContext, syncers []syncertypes.Object) error {
 	// exchange control plane client
 	controlPlaneClient, err := pro.ExchangeControlPlaneClient(controllerContext)
 	if err != nil {
@@ -37,7 +37,6 @@ func StartControllers(controllerContext *config.ControllerContext) error {
 	}
 
 	// start coredns & create syncers
-	var syncers []syncertypes.Object
 	if !controllerContext.Config.Experimental.SyncSettings.DisableSync {
 		// setup CoreDNS according to the manifest file
 		// skip this if both integrated and dedicated coredns
@@ -59,18 +58,6 @@ func StartControllers(controllerContext *config.ControllerContext) error {
 				}
 			}
 		}()
-
-		// init syncers
-		syncers, err = controllers.Create(controllerContext)
-		if err != nil {
-			return errors.Wrap(err, "instantiate controllers")
-		}
-	}
-
-	// start managers
-	err = StartManagers(controllerContext, syncers)
-	if err != nil {
-		return err
 	}
 
 	// sync remote Endpoints
@@ -179,7 +166,7 @@ func ApplyCoreDNS(controllerContext *config.ControllerContext) {
 func SyncKubernetesService(ctx *config.ControllerContext) error {
 	err := specialservices.SyncKubernetesService(
 		&synccontext.SyncContext{
-			Context:                ctx.Context,
+			Context:                ctx,
 			Log:                    loghelper.New("sync-kubernetes-service"),
 			PhysicalClient:         ctx.LocalManager.GetClient(),
 			VirtualClient:          ctx.VirtualManager.GetClient(),
@@ -202,44 +189,6 @@ func SyncKubernetesService(ctx *config.ControllerContext) error {
 
 		return errors.Wrap(err, "sync kubernetes service")
 	}
-	return nil
-}
-
-func StartManagers(controllerContext *config.ControllerContext, syncers []syncertypes.Object) error {
-	// execute controller initializers to setup prereqs, etc.
-	err := controllers.ExecuteInitializers(controllerContext, syncers)
-	if err != nil {
-		return errors.Wrap(err, "execute initializers")
-	}
-
-	// register indices
-	err = controllers.RegisterIndices(controllerContext, syncers)
-	if err != nil {
-		return err
-	}
-
-	// start the local manager
-	go func() {
-		err := controllerContext.LocalManager.Start(controllerContext.Context)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	// start the virtual cluster manager
-	go func() {
-		err := controllerContext.VirtualManager.Start(controllerContext.Context)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	// Wait for caches to be synced
-	klog.Infof("Starting local & virtual managers...")
-	controllerContext.LocalManager.GetCache().WaitForCacheSync(controllerContext.Context)
-	controllerContext.VirtualManager.GetCache().WaitForCacheSync(controllerContext.Context)
-	klog.Infof("Successfully started local & virtual manager")
-
 	return nil
 }
 

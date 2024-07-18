@@ -28,7 +28,7 @@ import (
 
 const hostObjectRequestPrefix = "host#"
 
-func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) *SyncController {
+func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) (*SyncController, error) {
 	options := &syncertypes.Options{}
 	optionsProvider, ok := syncer.(syncertypes.OptionsProvider)
 	if ok {
@@ -36,7 +36,8 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 	}
 
 	return &SyncController{
-		syncer:         syncer,
+		syncer: syncer,
+
 		log:            loghelper.New(syncer.Name()),
 		vEventRecorder: ctx.VirtualManager.GetEventRecorderFor(syncer.Name() + "-syncer"),
 		physicalClient: ctx.PhysicalManager.GetClient(),
@@ -48,11 +49,16 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 		options:       options,
 
 		locker: locker.New(),
-	}
+	}, nil
 }
 
 func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) error {
-	return NewSyncController(ctx, syncer).Register(ctx)
+	controller, err := NewSyncController(ctx, syncer)
+	if err != nil {
+		return err
+	}
+
+	return controller.Register(ctx)
 }
 
 type SyncController struct {
@@ -173,7 +179,7 @@ func (r *SyncController) getObjects(ctx *synccontext.SyncContext, vReq, pReq ctr
 
 func (r *SyncController) getObjectsFromPhysical(ctx *synccontext.SyncContext, req ctrl.Request) (vObj, pObj client.Object, err error) {
 	// get physical object
-	exclude, pObj, err := r.getPhysicalObject(ctx.Context, req.NamespacedName, nil)
+	exclude, pObj, err := r.getPhysicalObject(ctx, req.NamespacedName, nil)
 	if err != nil {
 		return nil, nil, err
 	} else if exclude {
@@ -181,7 +187,7 @@ func (r *SyncController) getObjectsFromPhysical(ctx *synccontext.SyncContext, re
 	}
 
 	// get virtual object
-	exclude, vObj, err = r.getVirtualObject(ctx.Context, r.syncer.HostToVirtual(ctx.Context, req.NamespacedName, pObj))
+	exclude, vObj, err = r.getVirtualObject(ctx, r.syncer.HostToVirtual(ctx, req.NamespacedName, pObj))
 	if err != nil {
 		return nil, nil, err
 	} else if exclude {
@@ -193,7 +199,7 @@ func (r *SyncController) getObjectsFromPhysical(ctx *synccontext.SyncContext, re
 
 func (r *SyncController) getObjectsFromVirtual(ctx *synccontext.SyncContext, req ctrl.Request) (vObj, pObj client.Object, err error) {
 	// get virtual object
-	exclude, vObj, err := r.getVirtualObject(ctx.Context, req.NamespacedName)
+	exclude, vObj, err := r.getVirtualObject(ctx, req.NamespacedName)
 	if err != nil {
 		return nil, nil, err
 	} else if exclude {
@@ -201,7 +207,7 @@ func (r *SyncController) getObjectsFromVirtual(ctx *synccontext.SyncContext, req
 	}
 
 	// get physical object
-	exclude, pObj, err = r.getPhysicalObject(ctx.Context, r.syncer.VirtualToHost(ctx.Context, req.NamespacedName, vObj), vObj)
+	exclude, pObj, err = r.getPhysicalObject(ctx, r.syncer.VirtualToHost(ctx, req.NamespacedName, vObj), vObj)
 	if err != nil {
 		return nil, nil, err
 	} else if exclude {
@@ -426,7 +432,7 @@ func DeleteObject(ctx *synccontext.SyncContext, pObj client.Object, reason strin
 	} else {
 		ctx.Log.Infof("delete physical %s, because %s", accessor.GetName(), reason)
 	}
-	err = ctx.PhysicalClient.Delete(ctx.Context, pObj)
+	err = ctx.PhysicalClient.Delete(ctx, pObj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{}, nil

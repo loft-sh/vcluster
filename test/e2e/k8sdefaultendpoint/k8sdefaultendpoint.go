@@ -32,7 +32,7 @@ var _ = ginkgo.Describe("map default/kubernetes endpoint to physical vcluster en
 				return false, err
 			}
 
-			vclusterEndpoint, err := f.VclusterClient.CoreV1().Endpoints("default").Get(ctx, "kubernetes", v1.GetOptions{})
+			vclusterEndpoint, err := f.VClusterClient.CoreV1().Endpoints("default").Get(ctx, "kubernetes", v1.GetOptions{})
 			if err != nil {
 				return false, err
 			}

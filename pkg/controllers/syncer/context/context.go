@@ -17,8 +17,9 @@ const (
 )
 
 type SyncContext struct {
-	Context context.Context
-	Log     loghelper.Logger
+	context.Context
+
+	Log loghelper.Logger
 
 	PhysicalClient client.Client
 	VirtualClient  client.Client
@@ -62,7 +63,7 @@ func (s *SyncContext) EventFromVirtual() bool {
 }
 
 type RegisterContext struct {
-	Context context.Context
+	context.Context
 
 	Config *config.VirtualClusterConfig
 

@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/encoding"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -18,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -139,7 +141,8 @@ func updateService(req *http.Request, decoder encoding.Decoder, localClient clie
 
 	// okay now we have to change the physical service
 	pService := &corev1.Service{}
-	err = localClient.Get(ctx, client.ObjectKey{Namespace: translate.Default.PhysicalNamespace(oldVService.Namespace), Name: translate.Default.PhysicalName(oldVService.Name, oldVService.Namespace)}, pService)
+	pServiceName := mappings.VirtualToHost(req.Context(), oldVService.Name, oldVService.Namespace, mappings.Services())
+	err = localClient.Get(ctx, client.ObjectKey{Namespace: pServiceName.Namespace, Name: pServiceName.Name}, pService)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil, kerrors.NewNotFound(corev1.Resource("services"), oldVService.Name)
@@ -206,7 +209,7 @@ func createService(req *http.Request, decoder encoding.Decoder, localClient clie
 		vService.Name = vService.GenerateName + random.String(5)
 	}
 
-	newService := translate.Default.ApplyMetadata(vService, syncedLabels).(*corev1.Service)
+	newService := translate.Default.ApplyMetadata(vService, mappings.Services().VirtualToHost(req.Context(), types.NamespacedName{Name: vService.Name, Namespace: vService.Namespace}, vService), syncedLabels).(*corev1.Service)
 	if newService.Annotations == nil {
 		newService.Annotations = map[string]string{}
 	}

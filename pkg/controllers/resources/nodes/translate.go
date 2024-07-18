@@ -151,7 +151,7 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 
 		if s.fakeKubeletIPs {
 			// create new service for this node
-			nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx.Context, vNode.Name)
+			nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx, vNode.Name)
 			if err != nil {
 				return nil, false, fmt.Errorf("get vNode IP: %w", err)
 			}
@@ -183,12 +183,12 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 
 			var nonVClusterPods int64
 			podList := &corev1.PodList{}
-			err := s.unmanagedPodCache.List(ctx.Context, podList, client.MatchingFields{constants.IndexRunningNonVClusterPodsByNode: pNode.Name})
+			err := s.unmanagedPodCache.List(ctx, podList, client.MatchingFields{constants.IndexRunningNonVClusterPodsByNode: pNode.Name})
 			if err != nil {
 				klog.Errorf("Error listing pods: %v", err)
 			} else {
 				for _, pod := range podList.Items {
-					if !translate.Default.IsManaged(&pod, translate.Default.PhysicalName) {
+					if !translate.Default.IsManaged(&pod) {
 						// count pods that are not synced by this vcluster
 						nonVClusterPods++
 					}

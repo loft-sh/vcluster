@@ -94,11 +94,11 @@ The `SyncDown` function mentioned above is called by the vCluster SDK when a giv
 
 ```
 func (s *carSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncToHostCreate(ctx, vObj, s.TranslateMetadata(ctx.Context, vObj).(*examplev1.Car))
+	return s.SyncToHostCreate(ctx, vObj, s.TranslateMetadata(ctx, vObj).(*examplev1.Car))
 }
 
 func (s *carSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncToHostUpdate(ctx, vObj, s.translateUpdate(ctx.Context, pObj.(*examplev1.Car), vObj.(*examplev1.Car)))
+	return s.SyncToHostUpdate(ctx, vObj, s.translateUpdate(ctx, pObj.(*examplev1.Car), vObj.(*examplev1.Car)))
 }
 ```
 The `TranslateMetadata` function used above produces a Car object that will be created in the host cluster. It is a deep copy of the Car from vCluster, but with certain metadata modifications - the name and labels are transformed, some vCluster labels and annotations are added, many metadata fields are stripped (uid, resourceVersion, etc.).
@@ -109,7 +109,7 @@ Next, we need to implement code that will handle the updates of the Car. When a 
 ```
 
 func (s *carSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncToHostUpdate(ctx, vObj, s.translateUpdate(ctx.Context, pObj.(*examplev1.Car), vObj.(*examplev1.Car)))
+	return s.SyncToHostUpdate(ctx, vObj, s.translateUpdate(ctx, pObj.(*examplev1.Car), vObj.(*examplev1.Car)))
 }
 
 func (s *carSyncer) translateUpdate(ctx context.Context, pObj, vObj *examplev1.Car) *examplev1.Car {

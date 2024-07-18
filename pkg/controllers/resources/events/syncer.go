@@ -2,44 +2,34 @@ package events
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var AcceptedKinds = map[schema.GroupVersionKind]bool{
-	corev1.SchemeGroupVersion.WithKind("Pod"):       true,
-	corev1.SchemeGroupVersion.WithKind("Service"):   true,
-	corev1.SchemeGroupVersion.WithKind("Endpoint"):  true,
-	corev1.SchemeGroupVersion.WithKind("Secret"):    true,
-	corev1.SchemeGroupVersion.WithKind("ConfigMap"): true,
-}
-
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &eventSyncer{
+		Mapper: mappings.Events(),
+
 		virtualClient: ctx.VirtualManager.GetClient(),
 		hostClient:    ctx.PhysicalManager.GetClient(),
 	}, nil
 }
 
 type eventSyncer struct {
+	mappings.Mapper
+
 	virtualClient client.Client
 	hostClient    client.Client
 }
@@ -53,32 +43,7 @@ func (s *eventSyncer) Name() string {
 }
 
 func (s *eventSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
-	return s.HostToVirtual(ctx, types.NamespacedName{Namespace: pObj.GetNamespace(), Name: pObj.GetName()}, pObj).Name != "", nil
-}
-
-func (s *eventSyncer) VirtualToHost(context.Context, types.NamespacedName, client.Object) types.NamespacedName {
-	// we ignore virtual events here, we only react on host events and sync them to the virtual cluster
-	return types.NamespacedName{}
-}
-
-func (s *eventSyncer) HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
-	involvedObject, err := s.getInvolvedObject(ctx, pObj)
-	if err != nil {
-		if err := IgnoreAcceptableErrors(err); err != nil {
-			klog.Infof("Error retrieving involved object for %s/%s: %v", req.Namespace, req.Name, err)
-		}
-		return types.NamespacedName{}
-	}
-
-	pEvent, ok := pObj.(*corev1.Event)
-	if !ok {
-		return types.NamespacedName{}
-	}
-
-	return types.NamespacedName{
-		Namespace: involvedObject.GetNamespace(),
-		Name:      hostEventNameToVirtual(pEvent.GetName(), pEvent.InvolvedObject.Name, involvedObject.GetName()),
-	}
+	return mappings.Events().HostToVirtual(ctx, types.NamespacedName{Namespace: pObj.GetNamespace(), Name: pObj.GetName()}, pObj).Name != "", nil
 }
 
 var _ syncer.Syncer = &eventSyncer{}
@@ -95,9 +60,9 @@ func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vOb
 
 	// update event
 	vOldEvent := vEvent.DeepCopy()
-	vEvent, err := s.buildVirtualEvent(ctx.Context, pEvent)
+	vEvent, err := s.buildVirtualEvent(ctx, pEvent)
 	if err != nil {
-		return ctrl.Result{}, IgnoreAcceptableErrors(err)
+		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
 	}
 
 	// reset metadata
@@ -112,7 +77,7 @@ func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vOb
 	// check if updated
 	ctx.Log.Infof("update virtual event %s/%s", vEvent.Namespace, vEvent.Name)
 	translator.PrintChanges(vOldEvent, vEvent, ctx.Log)
-	err = ctx.VirtualClient.Update(ctx.Context, vEvent)
+	err = ctx.VirtualClient.Update(ctx, vEvent)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -124,14 +89,14 @@ var _ syncer.ToVirtualSyncer = &eventSyncer{}
 
 func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	// build the virtual event
-	vObj, err := s.buildVirtualEvent(ctx.Context, pObj.(*corev1.Event))
+	vObj, err := s.buildVirtualEvent(ctx, pObj.(*corev1.Event))
 	if err != nil {
-		return ctrl.Result{}, IgnoreAcceptableErrors(err)
+		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
 	}
 
 	// make sure namespace is not being deleted
 	namespace := &corev1.Namespace{}
-	err = ctx.VirtualClient.Get(ctx.Context, client.ObjectKey{Name: vObj.Namespace}, namespace)
+	err = ctx.VirtualClient.Get(ctx, client.ObjectKey{Name: vObj.Namespace}, namespace)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -145,7 +110,7 @@ func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Ob
 
 	// try to create virtual event
 	ctx.Log.Infof("create virtual event %s/%s", vObj.Namespace, vObj.Name)
-	err = ctx.VirtualClient.Create(ctx.Context, vObj)
+	err = ctx.VirtualClient.Create(ctx, vObj)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -155,7 +120,7 @@ func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Ob
 
 func (s *eventSyncer) buildVirtualEvent(ctx context.Context, pEvent *corev1.Event) (*corev1.Event, error) {
 	// retrieve involved object
-	involvedObject, err := s.getInvolvedObject(ctx, pEvent)
+	involvedObject, err := resources.GetInvolvedObject(ctx, s.virtualClient, pEvent)
 	if err != nil {
 		return nil, err
 	}
@@ -172,78 +137,10 @@ func (s *eventSyncer) buildVirtualEvent(ctx context.Context, pEvent *corev1.Even
 	vObj.InvolvedObject.ResourceVersion = involvedObject.GetResourceVersion()
 
 	// rewrite name
-	vObj.Name = hostEventNameToVirtual(vObj.Name, pEvent.InvolvedObject.Name, vObj.InvolvedObject.Name)
+	vObj.Name = resources.HostEventNameToVirtual(vObj.Name, pEvent.InvolvedObject.Name, vObj.InvolvedObject.Name)
 
 	// we replace namespace/name & name in messages so that it seems correct
 	vObj.Message = strings.ReplaceAll(vObj.Message, pEvent.InvolvedObject.Namespace+"/"+pEvent.InvolvedObject.Name, vObj.InvolvedObject.Namespace+"/"+vObj.InvolvedObject.Name)
 	vObj.Message = strings.ReplaceAll(vObj.Message, pEvent.InvolvedObject.Name, vObj.InvolvedObject.Name)
 	return vObj, nil
-}
-
-func hostEventNameToVirtual(hostName string, hostInvolvedObjectName, virtualInvolvedObjectName string) string {
-	// replace name of object
-	if strings.HasPrefix(hostName, hostInvolvedObjectName) {
-		hostName = strings.Replace(hostName, hostInvolvedObjectName, virtualInvolvedObjectName, 1)
-	}
-
-	return hostName
-}
-
-var (
-	ErrNilPhysicalObject = errors.New("events: nil pObject")
-	ErrKindNotAccepted   = errors.New("events: kind not accpted")
-	ErrNotFound          = errors.New("events: not found")
-)
-
-func IgnoreAcceptableErrors(err error) error {
-	if errors.Is(err, ErrNilPhysicalObject) ||
-		errors.Is(err, ErrKindNotAccepted) ||
-		errors.Is(err, ErrNotFound) {
-		return nil
-	}
-
-	return err
-}
-
-// getInvolvedObject returns the related object from the vCLuster.
-// Alternatively returns a ErrNilPhysicalObject, ErrKindNotAccepted or ErrNotFound.
-func (s *eventSyncer) getInvolvedObject(ctx context.Context, pObj client.Object) (metav1.Object, error) {
-	if pObj == nil {
-		return nil, ErrNilPhysicalObject
-	}
-
-	pEvent, ok := pObj.(*corev1.Event)
-	if !ok {
-		return nil, errors.New("object is not of type event")
-	}
-
-	// check if the involved object is accepted
-	gvk := pEvent.InvolvedObject.GroupVersionKind()
-	if !AcceptedKinds[gvk] {
-		return nil, ErrKindNotAccepted
-	}
-
-	// create new virtual object
-	vInvolvedObj, err := s.virtualClient.Scheme().New(gvk)
-	if err != nil {
-		return nil, err
-	}
-
-	// get involved object
-	err = clienthelper.GetByIndex(ctx, s.virtualClient, vInvolvedObj, constants.IndexByPhysicalName, pEvent.Namespace+"/"+pEvent.InvolvedObject.Name)
-	if err != nil {
-		if !kerrors.IsNotFound(err) {
-			return nil, err
-		}
-
-		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
-	}
-
-	// we found the related object
-	m, err := meta.Accessor(vInvolvedObj)
-	if err != nil {
-		return nil, err
-	}
-
-	return m, nil
 }

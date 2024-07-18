@@ -14,7 +14,7 @@ var _ = ginkgo.Describe("Node sync", func() {
 		hostNodes, err := f.HostClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 
-		virtualNodes, err := f.VclusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
+		virtualNodes, err := f.VClusterClient.CoreV1().Nodes().List(f.Context, metav1.ListOptions{})
 		framework.ExpectNoError(err)
 
 		hostname := "kind-control-plane"

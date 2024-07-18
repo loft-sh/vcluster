@@ -52,7 +52,7 @@ func StartK3S(ctx context.Context, vConfig *config.VirtualClusterConfig, service
 		}
 		if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled {
 			// wait until etcd is up and running
-			_, err := etcd.WaitForEtcdClient(ctx, &etcd.Certificates{
+			err := etcd.WaitForEtcd(ctx, &etcd.Certificates{
 				CaCert:     "/data/pki/etcd/ca.crt",
 				ServerCert: "/data/pki/apiserver-etcd-client.crt",
 				ServerKey:  "/data/pki/apiserver-etcd-client.key",

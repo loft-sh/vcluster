@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,11 +22,11 @@ const (
 
 var PodServiceAccountTokenSecretName string
 
-func SecretNameFromPodName(podName, namespace string) string {
-	return translate.Default.PhysicalName(fmt.Sprintf("%s-sa-token", podName), namespace)
+func SecretNameFromPodName(ctx context.Context, podName, namespace string) string {
+	return mappings.VirtualToHostName(ctx, fmt.Sprintf("%s-sa-token", podName), namespace, mappings.Secrets())
 }
 
-var ErrNotFound = errors.New("tanslate: not found")
+var ErrNotFound = errors.New("translate: not found")
 
 func IgnoreAcceptableErrors(err error) error {
 	if errors.Is(err, ErrNotFound) {
@@ -38,7 +39,7 @@ func IgnoreAcceptableErrors(err error) error {
 func GetSecretIfExists(ctx context.Context, pClient client.Client, vPodName, vNamespace string) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
 	err := pClient.Get(ctx, types.NamespacedName{
-		Name:      SecretNameFromPodName(vPodName, vNamespace),
+		Name:      SecretNameFromPodName(ctx, vPodName, vNamespace),
 		Namespace: translate.Default.PhysicalNamespace(vNamespace),
 	}, secret)
 	if err != nil {
@@ -64,36 +65,29 @@ func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod,
 		if err != nil && !kerrors.IsNotFound(err) {
 			return err
 		}
-
-		existingSecret = nil
 	}
 
-	// secret does not exist we need to create it
-	if existingSecret == nil {
-		// create to secret with the given token
-		secret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      SecretNameFromPodName(vPod.Name, vPod.Namespace),
-				Namespace: translate.Default.PhysicalNamespace(vPod.Namespace),
+	// create to secret with the given token
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      SecretNameFromPodName(ctx, vPod.Name, vPod.Namespace),
+			Namespace: translate.Default.PhysicalNamespace(vPod.Namespace),
 
-				Annotations: map[string]string{
-					translate.SkipBackSyncInMultiNamespaceMode: "true",
-				},
+			Annotations: map[string]string{
+				translate.SkipBackSyncInMultiNamespaceMode: "true",
 			},
-			Type:       corev1.SecretTypeOpaque,
-			StringData: tokens,
-		}
-		if translate.Owner != nil {
-			secret.SetOwnerReferences(translate.GetOwnerReference(nil))
-		}
+		},
+		Type:       corev1.SecretTypeOpaque,
+		StringData: tokens,
+	}
+	if translate.Owner != nil {
+		secret.SetOwnerReferences(translate.GetOwnerReference(nil))
+	}
 
-		// create the service account secret
-		err = pClient.Create(ctx, secret)
-		if err != nil {
-			return err
-		}
-
-		return nil
+	// create the service account secret
+	err = pClient.Create(ctx, secret)
+	if err != nil {
+		return err
 	}
 
 	return nil

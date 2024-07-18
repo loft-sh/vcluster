@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
+	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -105,6 +106,12 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		return fmt.Errorf("start integrations: %w", err)
 	}
 
+	// start managers
+	syncers, err := setup.StartManagers(util.ToRegisterContext(controllerCtx))
+	if err != nil {
+		return fmt.Errorf("start managers: %w", err)
+	}
+
 	// start proxy
 	err = setup.StartProxy(controllerCtx)
 	if err != nil {
@@ -126,17 +133,14 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		}
 	}
 
-	if err := pro.ConnectToPlatform(
-		ctx,
-		vConfig,
-		controllerCtx.VirtualManager,
-	); err != nil {
+	// connect to vCluster platform if configured
+	if err := pro.ConnectToPlatform(ctx, vConfig, controllerCtx.VirtualManager); err != nil {
 		return fmt.Errorf("connect to platform: %w", err)
 	}
 
 	// start leader election + controllers
 	err = StartLeaderElection(controllerCtx, func() error {
-		return setup.StartControllers(controllerCtx)
+		return setup.StartControllers(controllerCtx, syncers)
 	})
 	if err != nil {
 		return fmt.Errorf("start controllers: %w", err)

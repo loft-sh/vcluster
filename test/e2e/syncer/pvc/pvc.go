@@ -31,7 +31,7 @@ var _ = ginkgo.Describe("Persistent volume synced from host cluster", func() {
 
 		ns = fmt.Sprintf("e2e-syncer-pvc-%d-%s", iteration, random.String(5))
 
-		_, err := f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
 			Name:   ns,
 			Labels: map[string]string{initialNsLabelKey: initialNsLabelValue},
 		}}, metav1.CreateOptions{})
@@ -51,7 +51,7 @@ var _ = ginkgo.Describe("Persistent volume synced from host cluster", func() {
 		q, err := resource.ParseQuantity("3Gi")
 		framework.ExpectNoError(err)
 
-		_, err = f.VclusterClient.CoreV1().PersistentVolumeClaims(ns).Create(f.Context, &corev1.PersistentVolumeClaim{
+		_, err = f.VClusterClient.CoreV1().PersistentVolumeClaims(ns).Create(f.Context, &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: pvcName,
 			},
@@ -71,7 +71,7 @@ var _ = ginkgo.Describe("Persistent volume synced from host cluster", func() {
 
 		// add a pod bound to the volume as by default storage class on kind is configured with
 		// volume binding mode as WaitForFirstConsumer
-		_, err = f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+		_, err = f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: podName,
 			},
@@ -102,7 +102,7 @@ var _ = ginkgo.Describe("Persistent volume synced from host cluster", func() {
 
 		// get current status
 
-		vpvc, err := f.VclusterClient.CoreV1().PersistentVolumeClaims(ns).Get(f.Context, pvcName, metav1.GetOptions{})
+		vpvc, err := f.VClusterClient.CoreV1().PersistentVolumeClaims(ns).Get(f.Context, pvcName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(pvcName, ns), metav1.GetOptions{})

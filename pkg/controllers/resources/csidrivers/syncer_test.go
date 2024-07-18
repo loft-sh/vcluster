@@ -3,7 +3,9 @@ package csidrivers
 import (
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -91,7 +93,10 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	generictesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.FromHost.CSIDrivers.Enabled = "true"
+		return generictesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*generictesting.SyncTest{
 		{
 			Name:                 "Sync Up",
 			InitialVirtualState:  []runtime.Object{},

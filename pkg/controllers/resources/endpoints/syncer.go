@@ -1,10 +1,12 @@
 package endpoints
 
 import (
+	"errors"
 	"fmt"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	syncer "github.com/loft-sh/vcluster/pkg/types"
@@ -19,7 +21,7 @@ import (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &endpointsSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "endpoints", &corev1.Endpoints{}),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "endpoints", &corev1.Endpoints{}, mappings.Endpoints()),
 	}, nil
 }
 
@@ -28,7 +30,7 @@ type endpointsSyncer struct {
 }
 
 func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx.Context, vObj))
+	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj))
 }
 
 func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
@@ -38,12 +40,18 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 	}
 	defer func() {
 		if err := patch.Patch(ctx, pObj, vObj); err != nil {
-			s.NamespacedTranslator.EventRecorder().Eventf(pObj, "Warning", "SyncError", "Error syncing: %v", err)
-			retErr = err
+			retErr = errors.Join(retErr, err)
+		}
+
+		if retErr != nil {
+			s.NamespacedTranslator.EventRecorder().Eventf(pObj, "Warning", "SyncError", "Error syncing: %v", retErr)
 		}
 	}()
 
-	s.translateUpdate(ctx.Context, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
+	err = s.translateUpdate(ctx, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -61,7 +69,7 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 	}
 
 	svc := &corev1.Service{}
-	err := ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{
+	err := ctx.VirtualClient.Get(ctx, types.NamespacedName{
 		Namespace: req.Namespace,
 		Name:      req.Name,
 	}, svc)
@@ -74,7 +82,7 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 	} else if svc.Spec.Selector != nil {
 		// check if it was a managed endpoints object before and delete it
 		endpoints := &corev1.Endpoints{}
-		err := ctx.PhysicalClient.Get(ctx.Context, s.NamespacedTranslator.VirtualToHost(ctx.Context, req.NamespacedName, nil), endpoints)
+		err = ctx.PhysicalClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpoints)
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
 				klog.Infof("Error retrieving endpoints: %v", err)
@@ -91,7 +99,7 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 			// to the same endpoints resulting in wrong DNS and cluster networking. Hence, deleting the previously
 			// managed endpoints signals the Kubernetes controller to recreate the endpoints from the selector.
 			klog.Infof("Refresh endpoints in physical cluster because they shouldn't be managed by vcluster anymore")
-			err = ctx.PhysicalClient.Delete(ctx.Context, endpoints)
+			err = ctx.PhysicalClient.Delete(ctx, endpoints)
 			if err != nil {
 				klog.Infof("Error deleting endpoints %s/%s: %v", endpoints.Namespace, endpoints.Name, err)
 				return true, err
@@ -103,10 +111,10 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 
 	// check if it was a Kubernetes managed endpoints object before and delete it
 	endpoints := &corev1.Endpoints{}
-	err = ctx.PhysicalClient.Get(ctx.Context, s.NamespacedTranslator.VirtualToHost(ctx.Context, req.NamespacedName, nil), endpoints)
+	err = ctx.PhysicalClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpoints)
 	if err == nil && (endpoints.Annotations == nil || endpoints.Annotations[translate.NameAnnotation] == "") {
 		klog.Infof("Refresh endpoints in physical cluster because they should be managed by vCluster now")
-		err = ctx.PhysicalClient.Delete(ctx.Context, endpoints)
+		err = ctx.PhysicalClient.Delete(ctx, endpoints)
 		if err != nil {
 			klog.Infof("Error deleting endpoints %s/%s: %v", endpoints.Namespace, endpoints.Name, err)
 			return true, err

@@ -34,7 +34,7 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 		framework.ExpectNoError(err)
 
 		ginkgo.By("Check if isolated mode applies baseline PodSecurityStandards to namespaces in vcluster")
-		ns, err := f.VclusterClient.CoreV1().Namespaces().Get(f.Context, "default", metav1.GetOptions{})
+		ns, err := f.VClusterClient.CoreV1().Namespaces().Get(f.Context, "default", metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		if ns.Labels["pod-security.kubernetes.io/enforce"] != "baseline" {
 			framework.Failf("baseline PodSecurityStandards is not applied")
@@ -46,10 +46,10 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 				Name: "my-new-namespace",
 			},
 		}
-		_, err = f.VclusterClient.CoreV1().Namespaces().Create(f.Context, nsName, metav1.CreateOptions{})
+		_, err = f.VClusterClient.CoreV1().Namespaces().Create(f.Context, nsName, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute, false, func(ctx context.Context) (done bool, err error) {
-			ns, _ := f.VclusterClient.CoreV1().Namespaces().Get(ctx, nsName.Name, metav1.GetOptions{})
+			ns, _ := f.VClusterClient.CoreV1().Namespaces().Get(ctx, nsName.Name, metav1.GetOptions{})
 			if ns.Status.Phase == corev1.NamespaceActive {
 				return true, nil
 			}
@@ -60,7 +60,7 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 			framework.Failf("baseline PodSecurityStandards is not applied for new namespace")
 		}
 
-		err = f.VclusterClient.CoreV1().Namespaces().Delete(f.Context, nsName.Name, metav1.DeleteOptions{})
+		err = f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, nsName.Name, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 	})
 
@@ -88,16 +88,16 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 			},
 		}
 
-		_, err := f.VclusterClient.CoreV1().Pods("default").Create(f.Context, pod, metav1.CreateOptions{})
+		_, err := f.VClusterClient.CoreV1().Pods("default").Create(f.Context, pod, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		err = wait.PollUntilContextTimeout(f.Context, time.Second*2, time.Minute*1, false, func(ctx context.Context) (bool, error) {
-			p, _ := f.VclusterClient.CoreV1().Pods("default").Get(ctx, "nginx", metav1.GetOptions{})
+			p, _ := f.VClusterClient.CoreV1().Pods("default").Get(ctx, "nginx", metav1.GetOptions{})
 			if p.Status.Phase == corev1.PodRunning {
 				return true, nil
 			}
 
-			e, _ := f.VclusterClient.CoreV1().Events("default").List(ctx, metav1.ListOptions{TypeMeta: p.TypeMeta})
+			e, _ := f.VClusterClient.CoreV1().Events("default").List(ctx, metav1.ListOptions{TypeMeta: p.TypeMeta})
 			if len(e.Items) > 0 {
 				if strings.Contains(e.Items[0].Message, `Invalid value: "2": must be less than or equal to cpu limit`) {
 					return true, fmt.Errorf(`invalid value: "2": must be less than or equal to cpu limit`)
@@ -107,7 +107,7 @@ var _ = ginkgo.Describe("Isolated mode", func() {
 		})
 		framework.ExpectError(err)
 
-		err = f.VclusterClient.CoreV1().Pods("default").Delete(f.Context, pod.Name, metav1.DeleteOptions{})
+		err = f.VClusterClient.CoreV1().Pods("default").Delete(f.Context, pod.Name, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 	})
 })

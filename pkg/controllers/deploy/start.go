@@ -23,7 +23,7 @@ func RegisterInitManifestsController(controllerCtx *config.ControllerContext) er
 		return err
 	}
 
-	helmBinaryPath, err := helmdownloader.GetHelmBinaryPath(controllerCtx.Context, log.GetInstance())
+	helmBinaryPath, err := helmdownloader.GetHelmBinaryPath(controllerCtx, log.GetInstance())
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func RegisterInitManifestsController(controllerCtx *config.ControllerContext) er
 
 	go func() {
 		for {
-			result, err := controller.Apply(controllerCtx.Context, controllerCtx.Config)
+			result, err := controller.Apply(controllerCtx, controllerCtx.Config)
 			if err != nil {
 				klog.Errorf("Error deploying manifests: %v", err)
 				time.Sleep(time.Second * 10)
