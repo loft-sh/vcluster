@@ -187,7 +187,7 @@ controlPlane:
           # Repository is the repository of the container image, e.g. my-repo/my-image
           repository: "kube-scheduler"
           # Tag is the tag of the container image, e.g. latest
-          tag: "v1.29.0"
+          tag: "v1.30.2"
       # Env are extra environment variables to use for the main container and NOT the init container.
       env: []
       # Security options can be used for the distro init container
