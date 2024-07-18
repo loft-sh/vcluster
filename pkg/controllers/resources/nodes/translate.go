@@ -7,7 +7,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -20,9 +19,7 @@ import (
 
 var TaintsAnnotation = "vcluster.loft.sh/original-taints"
 
-func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.Node) *corev1.Node {
-	var updated *corev1.Node
-
+func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.Node) {
 	// merge labels & taints
 	translatedSpec := pNode.Spec.DeepCopy()
 	labels, annotations := translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels, TaintsAnnotation)
@@ -103,10 +100,7 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		translatedSpec.Taints = s.filterOutTaintsMatchingTolerations(translatedSpec.Taints)
 	}
 
-	if !equality.Semantic.DeepEqual(vNode.Spec, *translatedSpec) {
-		updated = translator.NewIfNil(updated, vNode)
-		updated.Spec = *translatedSpec
-	}
+	vNode.Spec = *translatedSpec
 
 	// add annotation to prevent scale down of node by cluster-autoscaler
 	// the env var NODE_NAME is set when only one replica of vcluster is running
@@ -114,17 +108,9 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		annotations["cluster-autoscaler.kubernetes.io/scale-down-disabled"] = "true"
 	}
 
-	if !equality.Semantic.DeepEqual(vNode.Annotations, annotations) {
-		updated = translator.NewIfNil(updated, vNode)
-		updated.Annotations = annotations
-	}
+	vNode.Annotations = annotations
 
-	if !equality.Semantic.DeepEqual(vNode.Labels, labels) {
-		updated = translator.NewIfNil(updated, vNode)
-		updated.Labels = labels
-	}
-
-	return updated
+	vNode.Labels = labels
 }
 
 // translateUpdateStatus translates the node's status.

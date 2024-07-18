@@ -6,6 +6,8 @@ import (
 
 	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -14,7 +16,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -256,9 +257,10 @@ func (s *nodeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 }
 
-func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	pNode := pObj.(*corev1.Node)
 	vNode := vObj.(*corev1.Node)
+
 	shouldSync, err := s.shouldSync(ctx, pNode)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -267,29 +269,27 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 	}
 
-	updatedVNode, statusChanged, err := s.translateUpdateStatus(ctx, pNode, vNode)
+	withoutLabels := pNode.DeepCopy()
+
+	patch, err := patcher.NewSyncerPatcher(ctx, withoutLabels, vNode)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		fmt.Println("vnode : ", vNode.Labels)
+		fmt.Println("pnode : ", pNode.Labels)
+		if err := patch.Patch(ctx, pNode, vNode); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
+	updatedVNode, _, err := s.translateUpdateStatus(ctx, pNode, vNode)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("update node status: %w", err)
-	} else if statusChanged {
-		ctx.Log.Infof("update virtual node %s, because status has changed", pNode.Name)
-		translator.PrintChanges(vNode, updatedVNode, ctx.Log)
-		err := ctx.VirtualClient.Status().Update(ctx, updatedVNode)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		vNode = updatedVNode
 	}
+	vNode.Status = updatedVNode.Status
 
-	updated := s.translateUpdateBackwards(pNode, vNode)
-	if updated != nil {
-		ctx.Log.Infof("update virtual node %s, because spec has changed", pNode.Name)
-		translator.PrintChanges(vNode, updated, ctx.Log)
-		err = ctx.VirtualClient.Update(ctx, updated)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
+	s.translateUpdateBackwards(pNode, vNode)
 
 	return ctrl.Result{}, nil
 }
