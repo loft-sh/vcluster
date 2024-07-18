@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/moby/locker"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -26,13 +26,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const hostObjectRequestPrefix = "host#"
+const (
+	hostObjectRequestPrefix   = "host#"
+	deleteObjectRequestPrefix = "delete#"
+)
 
 func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) (*SyncController, error) {
 	options := &syncertypes.Options{}
 	optionsProvider, ok := syncer.(syncertypes.OptionsProvider)
 	if ok {
-		options = optionsProvider.WithOptions()
+		options = optionsProvider.Options()
 	}
 
 	return &SyncController{
@@ -79,6 +82,9 @@ type SyncController struct {
 }
 
 func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_ ctrl.Result, err error) {
+	// extract if this was a delete request
+	origReq, isDelete := fromDeleteRequest(origReq)
+
 	// if host request we need to find the virtual object
 	vReq, pReq, err := r.extractRequest(ctx, origReq)
 	if err != nil {
@@ -112,6 +118,7 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 		CurrentNamespaceClient: r.currentNamespaceClient,
 		VirtualClient:          r.virtualClient,
 		EventSource:            eventSource,
+		IsDelete:               isDelete,
 	}
 
 	// check if we should skip reconcile
@@ -131,9 +138,7 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 	}
 
 	// check what function we should call
-	if vObj != nil && pObj == nil {
-		return r.syncer.SyncToHost(syncContext, vObj)
-	} else if vObj != nil && pObj != nil {
+	if vObj != nil && pObj != nil {
 		// make sure the object uid matches
 		pAnnotations := pObj.GetAnnotations()
 		if !r.options.DisableUIDDeletion && pAnnotations != nil && pAnnotations[translate.UIDAnnotation] != "" && pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {
@@ -143,10 +148,12 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 			}
 
 			// delete physical object
-			return DeleteObject(syncContext, pObj, "virtual object uid is different")
+			return DeleteHostObject(syncContext, pObj, "virtual object uid is different")
 		}
 
 		return r.syncer.Sync(syncContext, pObj, vObj)
+	} else if vObj != nil {
+		return r.syncer.SyncToHost(syncContext, vObj)
 	} else if pObj != nil {
 		if pObj.GetAnnotations() != nil {
 			if shouldSkip, ok := pObj.GetAnnotations()[translate.SkipBackSyncInMultiNamespaceMode]; ok && shouldSkip == "true" {
@@ -161,7 +168,7 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 			return toVirtual.SyncToVirtual(syncContext, pObj)
 		}
 
-		return DeleteObject(syncContext, pObj, "virtual object was deleted")
+		return DeleteHostObject(syncContext, pObj, "virtual object was deleted")
 	}
 
 	return ctrl.Result{}, nil
@@ -347,12 +354,22 @@ func (r *SyncController) enqueueVirtual(ctx context.Context, obj client.Object, 
 
 	// add a new request for the host object as otherwise this information might be lost after a delete event
 	if isDelete {
+		// add a new request for the host object
 		name := r.syncer.VirtualToHost(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if name.Name != "" {
-			q.Add(toHostRequest(reconcile.Request{
+			q.Add(toDeleteRequest(toHostRequest(reconcile.Request{
 				NamespacedName: name,
-			}))
+			})))
 		}
+
+		// add a new request for the virtual object
+		q.Add(toDeleteRequest(reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: obj.GetNamespace(),
+				Name:      obj.GetName(),
+			},
+		}))
+		return
 	}
 
 	// add a new request for the virtual object
@@ -380,12 +397,22 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 
 	// add a new request for the virtual object as otherwise this information might be lost after a delete event
 	if isDelete {
+		// add a new request for the virtual object
 		name := r.syncer.HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if name.Name != "" {
-			q.Add(reconcile.Request{
+			q.Add(toDeleteRequest(reconcile.Request{
 				NamespacedName: name,
-			})
+			}))
 		}
+
+		// add a new request for the host object
+		q.Add(toDeleteRequest(toHostRequest(reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: obj.GetNamespace(),
+				Name:      obj.GetName(),
+			},
+		})))
+		return
 	}
 
 	// add a new request for the host object
@@ -421,32 +448,56 @@ func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
 	return controller.Complete(r)
 }
 
-func DeleteObject(ctx *synccontext.SyncContext, pObj client.Object, reason string) (ctrl.Result, error) {
-	accessor, err := meta.Accessor(pObj)
+func DeleteHostObject(ctx *synccontext.SyncContext, obj client.Object, reason string) (ctrl.Result, error) {
+	return deleteObject(ctx, obj, reason, false)
+}
+
+func DeleteVirtualObject(ctx *synccontext.SyncContext, obj client.Object, reason string) (ctrl.Result, error) {
+	return deleteObject(ctx, obj, reason, true)
+}
+
+func deleteObject(ctx *synccontext.SyncContext, obj client.Object, reason string, isVirtual bool) (ctrl.Result, error) {
+	side := "host"
+	deleteClient := ctx.PhysicalClient
+	if isVirtual {
+		side = "virtual"
+		deleteClient = ctx.VirtualClient
+	}
+
+	accessor, err := meta.Accessor(obj)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if pObj.GetNamespace() != "" {
-		ctx.Log.Infof("delete physical %s/%s, because %s", accessor.GetNamespace(), accessor.GetName(), reason)
+	if obj.GetNamespace() != "" {
+		ctx.Log.Infof("delete %s %s/%s, because %s", side, accessor.GetNamespace(), accessor.GetName(), reason)
 	} else {
-		ctx.Log.Infof("delete physical %s, because %s", accessor.GetName(), reason)
+		ctx.Log.Infof("delete %s %s, because %s", side, accessor.GetName(), reason)
 	}
-	err = ctx.PhysicalClient.Delete(ctx, pObj)
+	err = deleteClient.Delete(ctx, obj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 
-		if pObj.GetNamespace() != "" {
-			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", accessor.GetNamespace(), accessor.GetName(), err)
+		if obj.GetNamespace() != "" {
+			ctx.Log.Infof("error deleting %s object %s/%s in %s cluster: %v", side, accessor.GetNamespace(), accessor.GetName(), side, err)
 		} else {
-			ctx.Log.Infof("error deleting physical object %s in physical cluster: %v", accessor.GetName(), err)
+			ctx.Log.Infof("error deleting %s object %s in %s cluster: %v", side, accessor.GetName(), side, err)
 		}
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func toDeleteRequest(name reconcile.Request) reconcile.Request {
+	return reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: deleteObjectRequestPrefix + name.Namespace,
+			Name:      name.Name,
+		},
+	}
 }
 
 func toHostRequest(name reconcile.Request) reconcile.Request {
@@ -460,6 +511,19 @@ func toHostRequest(name reconcile.Request) reconcile.Request {
 
 func isHostRequest(name reconcile.Request) bool {
 	return strings.HasPrefix(name.Namespace, hostObjectRequestPrefix)
+}
+
+func fromDeleteRequest(req reconcile.Request) (reconcile.Request, bool) {
+	if !strings.HasPrefix(req.Namespace, deleteObjectRequestPrefix) {
+		return req, false
+	}
+
+	return reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: strings.TrimPrefix(req.Namespace, deleteObjectRequestPrefix),
+			Name:      req.Name,
+		},
+	}, true
 }
 
 func fromHostRequest(req reconcile.Request) reconcile.Request {

@@ -5,9 +5,9 @@ import (
 
 	syncerresources "github.com/loft-sh/vcluster/pkg/controllers/resources"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	mapperresources "github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/server"
-	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"k8s.io/klog/v2"
 )
 

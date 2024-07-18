@@ -2,8 +2,8 @@ package volumesnapshots
 
 import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -23,12 +23,12 @@ var (
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &volumeSnapshotSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "volume-snapshot", &volumesnapshotv1.VolumeSnapshot{}, mappings.VolumeSnapshots()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "volume-snapshot", &volumesnapshotv1.VolumeSnapshot{}, mappings.VolumeSnapshots()),
 	}, nil
 }
 
 type volumeSnapshotSyncer struct {
-	translator.NamespacedTranslator
+	syncer.GenericTranslator
 }
 
 var _ syncer.Initializer = &volumeSnapshotSyncer{}
@@ -41,7 +41,7 @@ var _ syncer.Syncer = &volumeSnapshotSyncer{}
 
 func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vVS := vObj.(*volumesnapshotv1.VolumeSnapshot)
-	if vVS.DeletionTimestamp != nil {
+	if ctx.IsDelete || vVS.DeletionTimestamp != nil {
 		// delete volume snapshot immediately
 		if len(vObj.GetFinalizers()) > 0 || (vObj.GetDeletionGracePeriodSeconds() != nil && *vObj.GetDeletionGracePeriodSeconds() > 0) {
 			vObj.SetFinalizers([]string{})

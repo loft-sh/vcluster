@@ -2,7 +2,6 @@ package types
 
 import (
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -25,7 +24,7 @@ type Exporter interface {
 
 type Syncer interface {
 	Object
-	translator.ObjectManager
+	ObjectManager
 
 	// SyncToHost is called when a virtual object was created and needs to be synced down to the physical cluster
 	SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error)
@@ -81,7 +80,7 @@ type Options struct {
 }
 
 type OptionsProvider interface {
-	WithOptions() *Options
+	Options() *Options
 }
 
 // ObjectExcluder can be used to add custom object exclude logic to the syncer

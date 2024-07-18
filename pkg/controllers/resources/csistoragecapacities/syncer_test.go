@@ -4,12 +4,12 @@ import (
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"

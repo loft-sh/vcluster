@@ -1,4 +1,4 @@
-package translator
+package types
 
 import (
 	"context"
@@ -36,8 +36,8 @@ type MetadataTranslator interface {
 	TranslateMetadataUpdate(ctx context.Context, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string)
 }
 
-// NamespacedTranslator provides some helper functions to ease sync down translation
-type NamespacedTranslator interface {
+// GenericTranslator provides some helper functions to ease sync down translation
+type GenericTranslator interface {
 	Translator
 
 	// EventRecorder returns

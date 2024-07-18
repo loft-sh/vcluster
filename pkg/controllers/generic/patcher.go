@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/log"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -18,7 +18,7 @@ import (
 var fieldManager = "vcluster-syncer"
 
 type ObjectPatcherAndMetadataTranslator interface {
-	translator.MetadataTranslator
+	types.MetadataTranslator
 	ObjectPatcher
 }
 

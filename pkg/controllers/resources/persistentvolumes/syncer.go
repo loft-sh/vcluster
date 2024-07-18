@@ -8,8 +8,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
@@ -30,7 +30,7 @@ const (
 
 func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &persistentVolumeSyncer{
-		Translator: translator.NewClusterTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, mappings.PersistentVolumes(), constants.HostClusterPersistentVolumeAnnotation),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, mappings.PersistentVolumes(), constants.HostClusterPersistentVolumeAnnotation),
 
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}, nil
@@ -56,7 +56,7 @@ func mapPVCs(_ context.Context, obj client.Object) []reconcile.Request {
 }
 
 type persistentVolumeSyncer struct {
-	translator.Translator
+	syncertypes.GenericTranslator
 
 	virtualClient client.Client
 }
@@ -67,11 +67,17 @@ func (s *persistentVolumeSyncer) ModifyController(_ *synccontext.RegisterContext
 	return builder.Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(mapPVCs)), nil
 }
 
+var _ syncertypes.OptionsProvider = &persistentVolumeSyncer{}
+
+func (s *persistentVolumeSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{DisableUIDDeletion: true}
+}
+
 var _ syncertypes.Syncer = &persistentVolumeSyncer{}
 
 func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vPv := vObj.(*corev1.PersistentVolume)
-	if vPv.DeletionTimestamp != nil || (vPv.Annotations != nil && vPv.Annotations[constants.HostClusterPersistentVolumeAnnotation] != "") {
+	if ctx.IsDelete || vPv.DeletionTimestamp != nil || (vPv.Annotations != nil && vPv.Annotations[constants.HostClusterPersistentVolumeAnnotation] != "") {
 		if len(vPv.Finalizers) > 0 {
 			// delete the finalizer here so that the object can be deleted
 			vPv.Finalizers = []string{}
@@ -201,12 +207,6 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	return ctrl.Result{}, nil
 }
 
-var _ syncertypes.OptionsProvider = &persistentVolumeSyncer{}
-
-func (s *persistentVolumeSyncer) WithOptions() *syncertypes.Options {
-	return &syncertypes.Options{DisableUIDDeletion: true}
-}
-
 var _ syncertypes.ToVirtualSyncer = &persistentVolumeSyncer{}
 
 func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
@@ -216,7 +216,7 @@ func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pOb
 		return ctrl.Result{}, err
 	} else if translate.Default.IsManagedCluster(pObj) {
 		ctx.Log.Infof("delete physical persistent volume %s, because it is not needed anymore", pPersistentVolume.Name)
-		return syncer.DeleteObject(ctx, pObj, "it is not needed anymore")
+		return syncer.DeleteHostObject(ctx, pObj, "it is not needed anymore")
 	} else if sync {
 		// create the persistent volume
 		vObj := s.translateBackwards(pPersistentVolume, vPvc)

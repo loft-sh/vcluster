@@ -1,26 +1,31 @@
 package poddisruptionbudgets
 
 import (
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	syncer "github.com/loft-sh/vcluster/pkg/types"
 	policyv1 "k8s.io/api/policy/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &pdbSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "podDisruptionBudget", &policyv1.PodDisruptionBudget{}, mappings.PodDisruptionBudgets()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "podDisruptionBudget", &policyv1.PodDisruptionBudget{}, mappings.PodDisruptionBudgets()),
 	}, nil
 }
 
 type pdbSyncer struct {
-	translator.NamespacedTranslator
+	syncertypes.GenericTranslator
 }
 
 func (pdb *pdbSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+	if ctx.IsDelete {
+		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
+	}
+
 	return pdb.SyncToHostCreate(ctx, vObj, pdb.translate(ctx, vObj.(*policyv1.PodDisruptionBudget)))
 }
 

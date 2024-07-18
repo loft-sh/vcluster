@@ -3,12 +3,13 @@ package translator
 import (
 	"context"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewMirrorPhysicalTranslator(name string, obj client.Object, mapper mappings.Mapper) Translator {
+func NewMirrorPhysicalTranslator(name string, obj client.Object, mapper mappings.Mapper) types.Translator {
 	return &mirrorPhysicalTranslator{
 		Mapper: mapper,
 

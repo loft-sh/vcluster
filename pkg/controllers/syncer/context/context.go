@@ -28,6 +28,7 @@ type SyncContext struct {
 	CurrentNamespaceClient client.Client
 
 	EventSource EventSource
+	IsDelete    bool
 }
 
 // Cast returns the given objects as types as well as

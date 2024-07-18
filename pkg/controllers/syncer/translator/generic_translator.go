@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -15,8 +17,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj client.Object, mapper mappings.Mapper, excludedAnnotations ...string) NamespacedTranslator {
-	return &namespacedTranslator{
+func NewGenericTranslator(ctx *context.RegisterContext, name string, obj client.Object, mapper mappings.Mapper, excludedAnnotations ...string) syncertypes.GenericTranslator {
+	return &genericTranslator{
 		Mapper: mapper,
 
 		name: name,
@@ -31,7 +33,7 @@ func NewNamespacedTranslator(ctx *context.RegisterContext, name string, obj clie
 	}
 }
 
-type namespacedTranslator struct {
+type genericTranslator struct {
 	mappings.Mapper
 
 	name string
@@ -45,19 +47,19 @@ type namespacedTranslator struct {
 	eventRecorder record.EventRecorder
 }
 
-func (n *namespacedTranslator) EventRecorder() record.EventRecorder {
+func (n *genericTranslator) EventRecorder() record.EventRecorder {
 	return n.eventRecorder
 }
 
-func (n *namespacedTranslator) Name() string {
+func (n *genericTranslator) Name() string {
 	return n.name
 }
 
-func (n *namespacedTranslator) Resource() client.Object {
+func (n *genericTranslator) Resource() client.Object {
 	return n.obj.DeepCopyObject().(client.Object)
 }
 
-func (n *namespacedTranslator) SyncToHostCreate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
+func (n *genericTranslator) SyncToHostCreate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("create physical %s %s/%s", n.name, pObj.GetNamespace(), pObj.GetName())
 	err := ctx.PhysicalClient.Create(ctx, pObj)
 	if err != nil {
@@ -73,7 +75,7 @@ func (n *namespacedTranslator) SyncToHostCreate(ctx *context.SyncContext, vObj, 
 	return ctrl.Result{}, nil
 }
 
-func (n *namespacedTranslator) SyncToHostUpdate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
+func (n *genericTranslator) SyncToHostUpdate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
 	// this is needed because of interface nil check
 	if !(pObj == nil || (reflect.ValueOf(pObj).Kind() == reflect.Ptr && reflect.ValueOf(pObj).IsNil())) {
 		ctx.Log.Infof("updating physical %s/%s, because virtual %s have changed", pObj.GetNamespace(), pObj.GetName(), n.name)
@@ -90,21 +92,36 @@ func (n *namespacedTranslator) SyncToHostUpdate(ctx *context.SyncContext, vObj, 
 	return ctrl.Result{}, nil
 }
 
-func (n *namespacedTranslator) IsManaged(_ context2.Context, pObj client.Object) (bool, error) {
+func (n *genericTranslator) IsManaged(_ context2.Context, pObj client.Object) (bool, error) {
+	if pObj.GetNamespace() == "" {
+		return translate.Default.IsManagedCluster(pObj), nil
+	}
+
 	return translate.Default.IsManaged(pObj), nil
 }
 
-func (n *namespacedTranslator) TranslateMetadata(ctx context2.Context, vObj client.Object) client.Object {
+func (n *genericTranslator) TranslateMetadata(ctx context2.Context, vObj client.Object) client.Object {
 	pObj, err := translate.Default.SetupMetadataWithName(vObj, n.Mapper.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 	if err != nil {
 		return nil
 	}
 
 	pObj.SetAnnotations(translate.Default.ApplyAnnotations(vObj, nil, n.excludedAnnotations))
-	pObj.SetLabels(translate.Default.ApplyLabels(vObj, nil, n.syncedLabels))
+	if vObj.GetNamespace() == "" {
+		pObj.SetLabels(translate.Default.TranslateLabelsCluster(vObj, nil, n.syncedLabels))
+	} else {
+		pObj.SetLabels(translate.Default.ApplyLabels(vObj, nil, n.syncedLabels))
+	}
+
 	return pObj
 }
 
-func (n *namespacedTranslator) TranslateMetadataUpdate(_ context2.Context, vObj client.Object, pObj client.Object) (bool, map[string]string, map[string]string) {
+func (n *genericTranslator) TranslateMetadataUpdate(_ context2.Context, vObj client.Object, pObj client.Object) (bool, map[string]string, map[string]string) {
+	if vObj.GetNamespace() == "" {
+		updatedAnnotations := translate.Default.ApplyAnnotations(vObj, pObj, n.excludedAnnotations)
+		updatedLabels := translate.Default.TranslateLabelsCluster(vObj, pObj, n.syncedLabels)
+		return !equality.Semantic.DeepEqual(updatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, pObj.GetLabels()), updatedAnnotations, updatedLabels
+	}
+
 	return translate.Default.ApplyMetadataUpdate(vObj, pObj, n.syncedLabels, n.excludedAnnotations...)
 }

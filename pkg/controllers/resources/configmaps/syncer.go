@@ -6,10 +6,11 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	syncer "github.com/loft-sh/vcluster/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,21 +22,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &configMapSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "configmap", &corev1.ConfigMap{}, mappings.ConfigMaps()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "configmap", &corev1.ConfigMap{}, mappings.ConfigMaps()),
 
 		syncAllConfigMaps: ctx.Config.Sync.ToHost.ConfigMaps.All,
 	}, nil
 }
 
 type configMapSyncer struct {
-	translator.NamespacedTranslator
+	syncertypes.GenericTranslator
 
 	syncAllConfigMaps bool
 }
 
-var _ syncer.IndicesRegisterer = &configMapSyncer{}
+var _ syncertypes.IndicesRegisterer = &configMapSyncer{}
 
 func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	// index pods by their used config maps
@@ -45,7 +46,7 @@ func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) erro
 	})
 }
 
-var _ syncer.ControllerModifier = &configMapSyncer{}
+var _ syncertypes.ControllerModifier = &configMapSyncer{}
 
 func (s *configMapSyncer) ModifyController(_ *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
@@ -57,6 +58,10 @@ func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.O
 		return ctrl.Result{}, err
 	} else if !createNeeded {
 		return ctrl.Result{}, nil
+	}
+
+	if ctx.IsDelete {
+		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
 	}
 
 	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj.(*corev1.ConfigMap)))

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -14,7 +15,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"

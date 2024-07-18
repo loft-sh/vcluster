@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
-	syncer "github.com/loft-sh/vcluster/pkg/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,17 +20,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &endpointsSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "endpoints", &corev1.Endpoints{}, mappings.Endpoints()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "endpoints", &corev1.Endpoints{}, mappings.Endpoints()),
 	}, nil
 }
 
 type endpointsSyncer struct {
-	translator.NamespacedTranslator
+	syncertypes.GenericTranslator
 }
 
 func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+	if ctx.IsDelete {
+		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
+	}
+
 	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj))
 }
 
@@ -44,7 +49,7 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		}
 
 		if retErr != nil {
-			s.NamespacedTranslator.EventRecorder().Eventf(pObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
 		}
 	}()
 
@@ -56,7 +61,7 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 	return ctrl.Result{}, nil
 }
 
-var _ syncer.Starter = &endpointsSyncer{}
+var _ syncertypes.Starter = &endpointsSyncer{}
 
 func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	if req.NamespacedName == specialservices.DefaultKubernetesSvcKey {

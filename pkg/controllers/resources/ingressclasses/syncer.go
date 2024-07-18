@@ -5,9 +5,9 @@ import (
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
-	syncer "github.com/loft-sh/vcluster/pkg/types"
 	networkingv1 "k8s.io/api/networking/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,7 +21,7 @@ func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
 }
 
 type ingressClassSyncer struct {
-	translator.Translator
+	syncer.Translator
 }
 
 var _ syncer.ToVirtualSyncer = &ingressClassSyncer{}
