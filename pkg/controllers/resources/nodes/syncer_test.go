@@ -146,14 +146,14 @@ func TestSync(t *testing.T) {
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                "Create backward",
-			InitialVirtualState: []runtime.Object{basePod},
+			InitialVirtualState: []runtime.Object{basePod.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode.DeepCopy()},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncToVirtual(syncCtx, baseNode)
+				_, err := syncer.SyncToVirtual(syncCtx, baseNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -166,54 +166,54 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncToVirtual(syncCtx, baseNode)
+				_, err := syncer.SyncToVirtual(syncCtx, baseNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
 		{
 			Name:                "Update backward",
-			InitialVirtualState: []runtime.Object{basePod, baseNode},
+			InitialVirtualState: []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode.DeepCopy()},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, editedNode, baseNode)
+				_, err := syncer.Sync(syncCtx, editedNode.DeepCopy(), baseNode.DeepCopy())
 				assert.NilError(t, err)
 
-				err = ctx.VirtualManager.GetClient().Get(ctx, types.NamespacedName{Name: baseNode.Name}, baseNode)
+				err = ctx.VirtualManager.GetClient().Get(ctx, types.NamespacedName{Name: baseNode.Name}, baseNode.DeepCopy())
 				assert.NilError(t, err)
 
-				_, err = syncer.Sync(syncCtx, editedNode, baseNode)
+				_, err = syncer.Sync(syncCtx, editedNode.DeepCopy(), baseNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
 		{
 			Name:                "Update backward no change",
-			InitialVirtualState: []runtime.Object{basePod, baseNode},
+			InitialVirtualState: []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode.DeepCopy()},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, baseNode, baseVNode)
+				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseVNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
 		{
 			Name:                "Delete backward",
-			InitialVirtualState: []runtime.Object{baseNode},
+			InitialVirtualState: []runtime.Object{baseNode.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Node"): {},
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -284,49 +284,49 @@ func TestSync(t *testing.T) {
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                 "Taint matching Enforced Toleration",
-			InitialPhysicalState: []runtime.Object{basePod, baseNode},
-			InitialVirtualState:  []runtime.Object{basePod, baseNode},
+			InitialPhysicalState: []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
+			InitialVirtualState:  []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode.DeepCopy()},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Sync.ToHost.Pods.EnforceTolerations = []string{"key1=value1:NoSchedule"}
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
 		{
 			Name:                 "Taint not matching Enforced Toleration",
-			InitialPhysicalState: []runtime.Object{basePod, baseNode},
-			InitialVirtualState:  []runtime.Object{basePod, baseNode},
+			InitialPhysicalState: []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
+			InitialVirtualState:  []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode.DeepCopy()},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Sync.ToHost.Pods.EnforceTolerations = []string{"key2=value2:NoSchedule"}
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
 		{
 			Name:                 "Taint matching Enforced Toleration - special case of empty key with Exists operator",
-			InitialPhysicalState: []runtime.Object{basePod, baseNode},
-			InitialVirtualState:  []runtime.Object{basePod, baseNode},
+			InitialPhysicalState: []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
+			InitialVirtualState:  []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode.DeepCopy()},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Sync.ToHost.Pods.EnforceTolerations = []string{":NoSchedule op=Exists"}
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -377,6 +377,9 @@ func TestSync(t *testing.T) {
 					Port: constants.KubeletPort,
 				},
 			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
 		},
 	}
 	editedNode = &corev1.Node{
@@ -410,10 +413,10 @@ func TestSync(t *testing.T) {
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                 "Label Matched and enforceNodeSelector false - expect node to be synced from NodeSelector",
-			InitialPhysicalState: []runtime.Object{baseNode},
-			InitialVirtualState:  []runtime.Object{baseVNode},
+			InitialPhysicalState: []runtime.Object{baseNode.DeepCopy()},
+			InitialVirtualState:  []runtime.Object{baseVNode.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
@@ -421,17 +424,17 @@ func TestSync(t *testing.T) {
 					"test": "true",
 				}
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseVNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
 		{
 			Name:                 "Label Not Matched and enforceNodeSelector false - expect node to be synced from pod needs",
-			InitialPhysicalState: []runtime.Object{basePod, baseNode},
-			InitialVirtualState:  []runtime.Object{basePod, baseVNode},
+			InitialPhysicalState: []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
+			InitialVirtualState:  []runtime.Object{basePod.DeepCopy(), baseVNode.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode.DeepCopy()},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
@@ -439,29 +442,29 @@ func TestSync(t *testing.T) {
 					"test": "true",
 				}
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseVNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
 		{
 			Name:                 "No NodeSelector LabelSet and enforceNodeSelector false - expect node to be synced from pod needs",
-			InitialPhysicalState: []runtime.Object{basePod, baseNode},
-			InitialVirtualState:  []runtime.Object{basePod, baseVNode},
+			InitialPhysicalState: []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
+			InitialVirtualState:  []runtime.Object{basePod.DeepCopy(), baseVNode.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode.DeepCopy()},
+				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseVNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
 		{
 			Name:                 "Label Not Matched and enforceNodeSelector true - expect node not to be synced",
-			InitialPhysicalState: []runtime.Object{basePod, baseNode},
-			InitialVirtualState:  []runtime.Object{baseVNode},
+			InitialPhysicalState: []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
+			InitialVirtualState:  []runtime.Object{baseVNode.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
@@ -469,7 +472,7 @@ func TestSync(t *testing.T) {
 					"test": "true",
 				}
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, baseNode, baseNode)
+				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseVNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -518,6 +521,9 @@ func TestSync(t *testing.T) {
 					Port: constants.KubeletPort,
 				},
 			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
 		},
 	}
 	editedNode = &corev1.Node{
@@ -552,17 +558,17 @@ func TestSync(t *testing.T) {
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                 "Clear Node Images Enabled -- Synced Node Should have no images in status.images",
-			InitialPhysicalState: []runtime.Object{baseNode},
-			InitialVirtualState:  []runtime.Object{baseVNode},
+			InitialPhysicalState: []runtime.Object{baseNode.DeepCopy()},
+			InitialVirtualState:  []runtime.Object{baseVNode.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				ctx.Config.Sync.FromHost.Nodes.Selector.All = true
 				ctx.Config.Sync.FromHost.Nodes.ClearImageStatus = true
 				syncCtx, syncerSvc := newFakeSyncer(t, ctx)
-				_, err := syncerSvc.Sync(syncCtx, baseNode, baseNode)
+				_, err := syncerSvc.Sync(syncCtx, baseNode.DeepCopy(), baseVNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -604,16 +610,16 @@ func TestSync(t *testing.T) {
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                 "Clear Node Images Disabled -- Synced Node Should have images in status.images",
-			InitialPhysicalState: []runtime.Object{baseNode},
-			InitialVirtualState:  []runtime.Object{baseVNode},
+			InitialPhysicalState: []runtime.Object{baseNode.DeepCopy()},
+			InitialVirtualState:  []runtime.Object{baseVNode.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode},
+				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				ctx.Config.Sync.FromHost.Nodes.Selector.All = true
 				syncCtx, syncerSvc := newFakeSyncer(t, ctx)
-				_, err := syncerSvc.Sync(syncCtx, baseNode, baseNode)
+				_, err := syncerSvc.Sync(syncCtx, baseNode.DeepCopy(), baseVNode.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},

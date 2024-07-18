@@ -96,6 +96,7 @@ func TestTranslateBackwards(t *testing.T) {
 				},
 			},
 
+			expectedLabels: map[string]string{},
 			expectedAnnotations: map[string]string{
 				TaintsAnnotation: mustMarshal([]string{
 					mustMarshal(
@@ -148,6 +149,7 @@ func TestTranslateBackwards(t *testing.T) {
 			},
 
 			expectedAnnotations: map[string]string{},
+			expectedLabels:      map[string]string{},
 			expectedTaints:      []corev1.Taint{},
 		},
 		{
@@ -169,6 +171,8 @@ func TestTranslateBackwards(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{},
 				Spec:       corev1.NodeSpec{},
 			},
+			expectedAnnotations: map[string]string{},
+			expectedLabels:      map[string]string{},
 
 			expectedTaints: []corev1.Taint{},
 		},
@@ -212,6 +216,7 @@ func TestTranslateBackwards(t *testing.T) {
 					Effect: corev1.TaintEffectNoExecute,
 				},
 			},
+			expectedLabels: map[string]string{},
 		},
 		{
 			name: "custom-taint-2",
@@ -248,6 +253,7 @@ func TestTranslateBackwards(t *testing.T) {
 			},
 
 			expectedAnnotations: map[string]string{},
+			expectedLabels:      map[string]string{},
 			expectedTaints:      []corev1.Taint{},
 		},
 		{
@@ -272,6 +278,8 @@ func TestTranslateBackwards(t *testing.T) {
 				},
 			},
 
+			expectedAnnotations: map[string]string{},
+			expectedLabels:      map[string]string{},
 			expectedTaints: []corev1.Taint{
 				{
 					Key:    "custom-taint",
@@ -286,7 +294,8 @@ func TestTranslateBackwards(t *testing.T) {
 	s := &nodeSyncer{}
 	for _, testCase := range testCases {
 		fmt.Println(testCase.name)
-		result := s.translateUpdateBackwards(testCase.pNode, testCase.vNode)
+		result := testCase.vNode.DeepCopy()
+		s.translateUpdateBackwards(testCase.pNode, result)
 		if result == nil {
 			result = testCase.vNode
 		}

@@ -2,13 +2,13 @@ package nodeservice
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,7 +77,7 @@ func (n *nodeServiceProvider) cleanupNodeServices(ctx context.Context) error {
 		ServiceClusterLabel: translate.VClusterName,
 	})
 	if err != nil {
-		return errors.Wrap(err, "list services")
+		return fmt.Errorf("list services: %w", err)
 	}
 
 	errors := []error{}
@@ -128,12 +128,12 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 	service := &corev1.Service{}
 	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: n.currentNamespace}, service)
 	if err != nil && !kerrors.IsNotFound(err) {
-		return "", errors.Wrap(err, "list services")
+		return "", fmt.Errorf("list services: %w", err)
 	} else if err == nil {
 		if service.Spec.Selector == nil {
 			err = n.updateNodeServiceEndpoints(ctx, serviceName)
 			if err != nil {
-				return "", errors.Wrap(err, "update node service endpoints")
+				return "", fmt.Errorf("update node service endpoinds: %w", err)
 			}
 		}
 
@@ -144,7 +144,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 	vclusterService := &corev1.Service{}
 	err = n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: n.serviceName, Namespace: n.currentNamespace}, vclusterService)
 	if err != nil {
-		return "", errors.Wrap(err, "get vcluster service")
+		return "", fmt.Errorf("get vcluster service: %w", err)
 	}
 
 	// create the new service
@@ -182,14 +182,14 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 	klog.Infof("Generating kubelet service for node %s", name)
 	err = n.currentNamespaceClient.Create(ctx, nodeService)
 	if err != nil {
-		return "", errors.Wrap(err, "create node service")
+		return "", fmt.Errorf("create node service: %w", err)
 	}
 
 	// create endpoints if selector is empty
 	if vclusterService.Spec.Selector == nil {
 		err = n.updateNodeServiceEndpoints(ctx, serviceName)
 		if err != nil {
-			return "", errors.Wrap(err, "update node service endpoints")
+			return "", fmt.Errorf("update node service endpoints: %w", err)
 		}
 	}
 
@@ -200,7 +200,7 @@ func (n *nodeServiceProvider) updateNodeServiceEndpoints(ctx context.Context, no
 	vClusterServiceEndpoints := &corev1.Endpoints{}
 	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: n.serviceName, Namespace: n.currentNamespace}, vClusterServiceEndpoints)
 	if err != nil {
-		return errors.Wrap(err, "get vcluster service endpoints")
+		return fmt.Errorf("get vcluster service endpoints: %w", err)
 	}
 
 	// filter subsets

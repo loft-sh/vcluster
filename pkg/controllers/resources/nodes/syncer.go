@@ -6,6 +6,8 @@ import (
 
 	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -14,10 +16,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -110,7 +110,7 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 			DefaultLabelSelector: labels.NewSelector().Add(*notManagedSelector),
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "create cache")
+			return nil, fmt.Errorf("create cache : %w", err)
 		}
 		// add index for pod by node
 		err = podCache.IndexField(ctx, &corev1.Pod{}, constants.IndexRunningNonVClusterPodsByNode, func(object client.Object) []string {
@@ -126,7 +126,7 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 			return []string{pPod.Spec.NodeName}
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "index pod by node")
+			return nil, fmt.Errorf("index pod by node: %w", err)
 		}
 		go func() {
 			err := podCache.Start(ctx)
@@ -257,9 +257,10 @@ func (s *nodeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 }
 
-func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	pNode := pObj.(*corev1.Node)
 	vNode := vObj.(*corev1.Node)
+
 	shouldSync, err := s.shouldSync(ctx, pNode)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -268,30 +269,22 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 	}
 
-	updatedVNode, statusChanged, err := s.translateUpdateStatus(ctx, pNode, vNode)
+	patch, err := patcher.NewSyncerPatcher(ctx, pNode, vNode)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "update node status")
-	} else if statusChanged {
-		ctx.Log.Infof("update virtual node %s, because status has changed", pNode.Name)
-		translator.PrintChanges(vNode, updatedVNode, ctx.Log)
-		err := ctx.VirtualClient.Status().Update(ctx, updatedVNode)
-		if err != nil {
-			return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		if err := patch.Patch(ctx, pNode, vNode); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
+	}()
 
-		vNode = updatedVNode
+	err = s.translateUpdateStatus(ctx, pNode, vNode)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("update node status: %w", err)
 	}
 
-	updated := s.translateUpdateBackwards(pNode, vNode)
-	if updated != nil {
-		ctx.Log.Infof("update virtual node %s, because spec has changed", pNode.Name)
-		translator.PrintChanges(vNode, updated, ctx.Log)
-		err = ctx.VirtualClient.Update(ctx, updated)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
+	s.translateUpdateBackwards(pNode, vNode)
 	return ctrl.Result{}, nil
 }
 
