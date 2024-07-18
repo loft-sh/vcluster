@@ -1,7 +1,6 @@
 package events
 
 import (
-	"context"
 	"fmt"
 
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -12,7 +11,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,10 +38,6 @@ func (s *eventSyncer) Resource() client.Object {
 
 func (s *eventSyncer) Name() string {
 	return "event"
-}
-
-func (s *eventSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
-	return mappings.Events().HostToVirtual(ctx, types.NamespacedName{Namespace: pObj.GetNamespace(), Name: pObj.GetName()}, pObj).Name != "", nil
 }
 
 var _ syncer.Syncer = &eventSyncer{}

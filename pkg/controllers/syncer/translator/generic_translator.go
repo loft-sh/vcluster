@@ -92,10 +92,6 @@ func (n *genericTranslator) SyncToHostUpdate(ctx *context.SyncContext, vObj, pOb
 	return ctrl.Result{}, nil
 }
 
-func (n *genericTranslator) IsManaged(ctx context2.Context, pObj client.Object) (bool, error) {
-	return translate.Default.IsManaged(ctx, pObj), nil
-}
-
 func (n *genericTranslator) TranslateMetadata(ctx context2.Context, vObj client.Object) client.Object {
 	pObj, err := translate.Default.SetupMetadataWithName(vObj, n.Mapper.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 	if err != nil {

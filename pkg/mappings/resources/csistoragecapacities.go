@@ -64,3 +64,7 @@ func (s *csiStorageCapacitiesMapper) VirtualToHost(ctx context.Context, req type
 		Name:      pObj.GetName(),
 	}
 }
+
+func (s *csiStorageCapacitiesMapper) IsManaged(context.Context, client.Object) (bool, error) {
+	return true, nil
+}

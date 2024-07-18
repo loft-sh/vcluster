@@ -64,3 +64,7 @@ func (n *mirrorMapper) HostToVirtual(_ context.Context, req types.NamespacedName
 		Name: req.Name,
 	}
 }
+
+func (n *mirrorMapper) IsManaged(context.Context, client.Object) (bool, error) {
+	return true, nil
+}

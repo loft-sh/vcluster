@@ -249,10 +249,6 @@ func registerIndices(ctx *synccontext.RegisterContext) error {
 	})
 }
 
-func (s *nodeSyncer) IsManaged(_ context.Context, _ client.Object) (bool, error) {
-	return true, nil
-}
-
 var _ syncertypes.Syncer = &nodeSyncer{}
 
 func (s *nodeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {

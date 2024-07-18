@@ -47,7 +47,3 @@ func (n *mirrorPhysicalTranslator) TranslateMetadataUpdate(_ context.Context, vO
 	updatedLabels := pObj.GetLabels()
 	return !equality.Semantic.DeepEqual(updatedAnnotations, vObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, vObj.GetLabels()), updatedAnnotations, updatedLabels
 }
-
-func (n *mirrorPhysicalTranslator) IsManaged(context.Context, client.Object) (bool, error) {
-	return true, nil
-}

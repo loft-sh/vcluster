@@ -109,3 +109,7 @@ func (n *mapper) HostToVirtual(ctx context2.Context, req types.NamespacedName, p
 		Name:      vObj.GetName(),
 	}
 }
+
+func (n *mapper) IsManaged(ctx context2.Context, pObj client.Object) (bool, error) {
+	return translate.Default.IsManaged(ctx, pObj), nil
+}
