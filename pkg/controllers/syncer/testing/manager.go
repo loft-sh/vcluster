@@ -30,7 +30,7 @@ type fakeManager struct {
 
 func (f *fakeManager) SetFields(interface{}) error { return nil }
 
-func (f *fakeManager) GetConfig() *rest.Config { return &rest.Config{Host: "127.0.0.1"} }
+func (f *fakeManager) GetConfig() *rest.Config { return &rest.Config{Host: "unit-test-client"} }
 
 func (f *fakeManager) GetScheme() *runtime.Scheme { return f.client.Scheme() }
 

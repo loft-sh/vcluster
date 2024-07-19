@@ -7,7 +7,6 @@ import (
 	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
-	"github.com/loft-sh/vcluster/pkg/util"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -33,12 +32,6 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 
 type volumeSnapshotSyncer struct {
 	syncer.GenericTranslator
-}
-
-var _ syncer.Initializer = &volumeSnapshotSyncer{}
-
-func (s *volumeSnapshotSyncer) Init(registerContext *synccontext.RegisterContext) error {
-	return util.EnsureCRD(registerContext.Context, registerContext.VirtualManager.GetConfig(), []byte(volumeSnapshotCRD), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshot"))
 }
 
 var _ syncer.Syncer = &volumeSnapshotSyncer{}

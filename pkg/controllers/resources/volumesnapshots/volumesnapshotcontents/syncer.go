@@ -10,7 +10,6 @@ import (
 	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
-	"github.com/loft-sh/vcluster/pkg/util"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
@@ -40,12 +39,6 @@ type volumeSnapshotContentSyncer struct {
 	syncer.GenericTranslator
 
 	virtualClient client.Client
-}
-
-var _ syncer.Initializer = &volumeSnapshotContentSyncer{}
-
-func (s *volumeSnapshotContentSyncer) Init(registerContext *synccontext.RegisterContext) error {
-	return util.EnsureCRD(registerContext.Context, registerContext.VirtualManager.GetConfig(), []byte(volumeSnapshotContentsCRD), volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"))
 }
 
 var _ syncer.ToVirtualSyncer = &volumeSnapshotContentSyncer{}

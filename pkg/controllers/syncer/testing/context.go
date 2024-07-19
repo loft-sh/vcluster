@@ -8,7 +8,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
+	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
 
 	"github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -58,6 +61,11 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),
 		PhysicalManager:        newFakeManager(pClient),
+	}
+
+	// make sure we do not ensure any CRDs
+	util.EnsureCRD = func(_ context.Context, _ *rest.Config, _ []byte, _ schema.GroupVersionKind) error {
+		return nil
 	}
 
 	resources.MustRegisterMappings(registerCtx)
