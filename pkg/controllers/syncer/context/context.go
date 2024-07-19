@@ -31,6 +31,15 @@ type SyncContext struct {
 	IsDelete    bool
 }
 
+func SyncSourceTarget[T any](ctx *SyncContext, pObj, vObj T) (source T, target T) {
+	if ctx.EventFromHost() {
+		// sourceObj (Host), targetObj
+		return pObj, vObj
+	}
+	// sourceObj (Virtual), targetObj
+	return vObj, pObj
+}
+
 // Cast returns the given objects as types as well as
 func Cast[T any](ctx *SyncContext, pObj, vObj client.Object) (physical T, virtual T, source T, target T) {
 	if pObj == nil || vObj == nil {

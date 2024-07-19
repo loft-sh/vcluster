@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -10,10 +11,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,7 +57,7 @@ func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Obj
 	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj.(*corev1.Service)))
 }
 
-func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	vService := vObj.(*corev1.Service)
 	pService := pObj.(*corev1.Service)
 
@@ -63,53 +66,69 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 		return ctrl.Result{RequeueAfter: time.Second * 3}, nil
 	}
 
-	// check if backwards update is necessary
-	newService := s.translateUpdateBackwards(pService, vService)
-	if newService != nil {
-		if vService.Spec.ClusterIP != pService.Spec.ClusterIP {
-			newService.Spec.ClusterIPs = nil
-			ctx.Log.Infof("recreating virtual service %s/%s, because cluster ip differs %s != %s", vService.Namespace, vService.Name, pService.Spec.ClusterIP, vService.Spec.ClusterIP)
+	// check if recreating service is necessary
+	if vService.Spec.ClusterIP != pService.Spec.ClusterIP {
+		vService.Spec.ClusterIPs = nil
+		vService.Spec.ClusterIP = pService.Spec.ClusterIP
+		ctx.Log.Infof("recreating virtual service %s/%s, because cluster ip differs %s != %s", vService.Namespace, vService.Name, pService.Spec.ClusterIP, vService.Spec.ClusterIP)
 
-			// recreate the new service with the correct cluster ip
-			_, err := recreateService(ctx, ctx.VirtualClient, newService)
-			if err != nil {
-				ctx.Log.Errorf("error creating virtual service: %s/%s", vService.Namespace, vService.Name)
-				return ctrl.Result{}, err
-			}
-		} else {
-			// update with correct ports
-			ctx.Log.Infof("update virtual service %s/%s, because spec is out of sync", vService.Namespace, vService.Name)
-			err := ctx.VirtualClient.Update(ctx, newService)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-
-		// we will requeue anyways
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	// check if backwards status update is necessary
-	if !equality.Semantic.DeepEqual(vService.Status, pService.Status) {
-		newService := vService.DeepCopy()
-		newService.Status = pService.Status
-		ctx.Log.Infof("update virtual service %s/%s, because status is out of sync", vService.Namespace, vService.Name)
-		translator.PrintChanges(vService, newService, ctx.Log)
-		err := ctx.VirtualClient.Status().Update(ctx, newService)
+		// recreate the new service with the correct cluster ip
+		err := recreateService(ctx, ctx.VirtualClient, vService)
 		if err != nil {
+			ctx.Log.Errorf("error creating virtual service: %s/%s", vService.Namespace, vService.Name)
 			return ctrl.Result{}, err
 		}
 
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}, err
 	}
 
-	// forward update
-	newService = s.translateUpdate(ctx, pService, vService)
-	if newService != nil {
-		translator.PrintChanges(pService, newService, ctx.Log)
+	// patch the service
+	patch, err := patcher.NewSyncerPatcher(ctx, pService, vService)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		if err := patch.Patch(ctx, pService, vService); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+		if retErr != nil {
+			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+		}
+	}()
+
+	// check
+	sourceService, targetService := synccontext.SyncSourceTarget(ctx, pService, vService)
+
+	// update spec bidirectionally
+	targetService.Spec.ExternalIPs = sourceService.Spec.ExternalIPs
+	targetService.Spec.LoadBalancerIP = sourceService.Spec.LoadBalancerIP
+	targetService.Spec.Ports = sourceService.Spec.Ports
+	targetService.Spec.PublishNotReadyAddresses = sourceService.Spec.PublishNotReadyAddresses
+	targetService.Spec.Type = sourceService.Spec.Type
+	targetService.Spec.ExternalName = sourceService.Spec.ExternalName
+	targetService.Spec.ExternalTrafficPolicy = sourceService.Spec.ExternalTrafficPolicy
+	targetService.Spec.SessionAffinity = sourceService.Spec.SessionAffinity
+	targetService.Spec.SessionAffinityConfig = sourceService.Spec.SessionAffinityConfig
+	targetService.Spec.LoadBalancerSourceRanges = sourceService.Spec.LoadBalancerSourceRanges
+	targetService.Spec.HealthCheckNodePort = sourceService.Spec.HealthCheckNodePort
+
+	// update status
+	vService.Status = pService.Status
+
+	// check annotations
+	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
+
+	// remove the ServiceBlockDeletion annotation if it's not needed
+	if vService.Spec.ClusterIP == pService.Spec.ClusterIP {
+		delete(updatedAnnotations, ServiceBlockDeletion)
 	}
 
-	return s.SyncToHostUpdate(ctx, vObj, newService)
+	pService.Annotations = updatedAnnotations
+	pService.Labels = updatedLabels
+
+	// translate selector
+	pService.Spec.Selector = translate.Default.TranslateLabels(vService.Spec.Selector, vService.Namespace, nil)
+	return ctrl.Result{}, nil
 }
 
 func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Service) bool {
@@ -137,11 +156,11 @@ func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.
 	return syncer.DeleteHostObject(ctx, pObj, "virtual object was deleted")
 }
 
-func recreateService(ctx context.Context, virtualClient client.Client, vService *corev1.Service) (*corev1.Service, error) {
+func recreateService(ctx context.Context, virtualClient client.Client, vService *corev1.Service) error {
 	// delete & create with correct ClusterIP
 	err := virtualClient.Delete(ctx, vService)
 	if err != nil && !kerrors.IsNotFound(err) {
-		return nil, err
+		return err
 	}
 
 	// make sure we don't set the resource version during create
@@ -155,10 +174,10 @@ func recreateService(ctx context.Context, virtualClient client.Client, vService 
 	err = virtualClient.Create(ctx, vService)
 	if err != nil {
 		klog.Errorf("error recreating virtual service: %s/%s: %v", vService.Namespace, vService.Name, err)
-		return nil, err
+		return err
 	}
 
-	return vService, nil
+	return nil
 }
 
 var _ syncertypes.Starter = &serviceSyncer{}
