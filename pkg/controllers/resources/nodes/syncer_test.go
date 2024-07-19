@@ -20,6 +20,51 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+var (
+	baseName types.NamespacedName = types.NamespacedName{
+		Name: "mynode",
+	}
+	basePod corev1.Pod = corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mypod",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: baseName.Name,
+		},
+	}
+
+	baseNode corev1.Node = corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Status: corev1.NodeStatus{
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: 0,
+				},
+			},
+		},
+	}
+	baseVNode corev1.Node = corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: GetNodeHost(baseName.Name),
+					Type:    corev1.NodeHostName,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: constants.KubeletPort,
+				},
+			},
+		},
+	}
+)
+
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *nodeSyncer) {
 	// we need that index here as well otherwise we wouldn't find the related pod
 	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
@@ -70,51 +115,6 @@ func TestNodeDeletion(t *testing.T) {
 		},
 	})
 }
-
-var (
-	baseName types.NamespacedName = types.NamespacedName{
-		Name: "mynode",
-	}
-	basePod corev1.Pod = corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "mypod",
-		},
-		Spec: corev1.PodSpec{
-			NodeName: baseName.Name,
-		},
-	}
-
-	baseNode corev1.Node = corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: baseName.Name,
-		},
-		Status: corev1.NodeStatus{
-			DaemonEndpoints: corev1.NodeDaemonEndpoints{
-				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: 0,
-				},
-			},
-		},
-	}
-	baseVNode corev1.Node = corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: baseName.Name,
-		},
-		Status: corev1.NodeStatus{
-			Addresses: []corev1.NodeAddress{
-				{
-					Address: GetNodeHost(baseName.Name),
-					Type:    corev1.NodeHostName,
-				},
-			},
-			DaemonEndpoints: corev1.NodeDaemonEndpoints{
-				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: constants.KubeletPort,
-				},
-			},
-		},
-	}
-)
 
 func TestSync(t *testing.T) {
 	editedNode := &corev1.Node{
