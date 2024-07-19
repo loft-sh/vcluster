@@ -16,7 +16,8 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func EnsureCRD(ctx context.Context, config *rest.Config, manifest []byte, groupVersionKind schema.GroupVersionKind) error {
+// EnsureCRD should be replaceable by unit tests
+var EnsureCRD = func(ctx context.Context, config *rest.Config, manifest []byte, groupVersionKind schema.GroupVersionKind) error {
 	exists, err := KindExists(config, groupVersionKind)
 	if err != nil {
 		return err
@@ -36,14 +37,14 @@ func EnsureCRD(ctx context.Context, config *rest.Config, manifest []byte, groupV
 		return fmt.Errorf("failed to apply CRD %s: %w", groupVersionKind.String(), err)
 	}
 
-	var lastErr error
+	var errKindExists error
 	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(_ context.Context) (bool, error) {
 		var found bool
-		found, lastErr = KindExists(config, groupVersionKind)
+		found, errKindExists = KindExists(config, groupVersionKind)
 		return found, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to find CRD %s: %w: %w", groupVersionKind.String(), err, lastErr)
+		return fmt.Errorf("failed to find CRD %s: %w: %w", groupVersionKind.String(), err, errKindExists)
 	}
 
 	return nil

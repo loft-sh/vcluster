@@ -66,11 +66,6 @@ type ControllerStarter interface {
 	Register(ctx *synccontext.RegisterContext) error
 }
 
-// Initializer is used to create and update the prerequisites of the syncer before the controller is started
-type Initializer interface {
-	Init(registerContext *synccontext.RegisterContext) error
-}
-
 type Options struct {
 	// DisableUIDDeletion disables automatic deletion of physical objects if the uid between physical
 	// and virtual doesn't match anymore.

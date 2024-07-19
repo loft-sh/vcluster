@@ -27,6 +27,12 @@ func (o optionFn) Apply(p *Patcher) {
 	o(p)
 }
 
+func Direction(direction string) Option {
+	return optionFn(func(p *Patcher) {
+		p.direction = direction
+	})
+}
+
 func NoStatusSubResource() Option {
 	return optionFn(func(p *Patcher) {
 		p.NoStatusSubResource = true
@@ -35,13 +41,13 @@ func NoStatusSubResource() Option {
 
 func NewSyncerPatcher(ctx *synccontext.SyncContext, pObj, vObj client.Object, options ...Option) (*SyncerPatcher, error) {
 	// virtual cluster patcher
-	vPatcher, err := NewPatcher(vObj, ctx.VirtualClient, options...)
+	vPatcher, err := NewPatcher(vObj, ctx.VirtualClient, append([]Option{Direction("virtual")}, options...)...)
 	if err != nil {
 		return nil, fmt.Errorf("create virtual patcher: %w", err)
 	}
 
 	// host cluster patcher
-	pPatcher, err := NewPatcher(pObj, ctx.PhysicalClient, options...)
+	pPatcher, err := NewPatcher(pObj, ctx.PhysicalClient, append([]Option{Direction("host")}, options...)...)
 	if err != nil {
 		return nil, fmt.Errorf("create virtual patcher: %w", err)
 	}
@@ -80,6 +86,8 @@ type Patcher struct {
 	before       *unstructured.Unstructured
 	after        *unstructured.Unstructured
 	changes      map[string]bool
+
+	direction string
 
 	NoStatusSubResource bool
 }
@@ -176,7 +184,7 @@ func (h *Patcher) patchWholeObject(ctx context.Context, obj client.Object) error
 		return err
 	}
 
-	logPatch(ctx, "Apply patch", obj, beforeObject, afterObject)
+	logPatch(ctx, fmt.Sprintf("Apply %s patch", h.direction), obj, beforeObject, afterObject)
 	return h.client.Patch(ctx, afterObject, client.MergeFrom(beforeObject))
 }
 
@@ -190,7 +198,7 @@ func (h *Patcher) patch(ctx context.Context, obj client.Object) error {
 		return err
 	}
 
-	logPatch(ctx, "Apply patch", obj, beforeObject, afterObject)
+	logPatch(ctx, fmt.Sprintf("Apply %s patch", h.direction), obj, beforeObject, afterObject)
 	return h.client.Patch(ctx, afterObject, client.MergeFrom(beforeObject))
 }
 
@@ -204,18 +212,14 @@ func (h *Patcher) patchStatus(ctx context.Context, obj client.Object) error {
 		return err
 	}
 
-	logPatch(ctx, "Apply status patch", obj, beforeObject, afterObject)
+	logPatch(ctx, fmt.Sprintf("Apply %s status patch", h.direction), obj, beforeObject, afterObject)
 	return h.client.Status().Patch(ctx, afterObject, client.MergeFrom(beforeObject))
 }
 
 func logPatch(ctx context.Context, patchMessage string, obj, beforeObject, afterObject client.Object) {
 	// log patch
-	if klog.FromContext(ctx).V(1).Enabled() {
-		patchBytes, _ := client.MergeFrom(beforeObject).Data(afterObject)
-		klog.FromContext(ctx).V(1).Info(patchMessage, "kind", obj.GetObjectKind().GroupVersionKind().Kind, "object", obj.GetName(), "patch", string(patchBytes))
-	} else {
-		klog.FromContext(ctx).Info(patchMessage, "kind", obj.GetObjectKind().GroupVersionKind().Kind, "object", obj.GetName())
-	}
+	patchBytes, _ := client.MergeFrom(beforeObject).Data(afterObject)
+	klog.FromContext(ctx).Info(patchMessage, "kind", obj.GetObjectKind().GroupVersionKind().Kind, "object", obj.GetNamespace()+"/"+obj.GetName(), "patch", string(patchBytes))
 }
 
 // calculatePatch returns the before/after objects to be given in a controller-runtime patch, scoped down to the absolute necessary.

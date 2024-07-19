@@ -30,7 +30,6 @@ import (
 	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
-	"k8s.io/klog/v2"
 )
 
 // ExtraControllers that will be started as well
@@ -90,16 +89,6 @@ func BuildSyncers(ctx *synccontext.RegisterContext) ([]syncertypes.Object, error
 		}
 
 		loghelper.Infof("Created %s syncer", name)
-
-		// execute initializer
-		initializer, ok := syncer.(syncertypes.Initializer)
-		if ok {
-			klog.FromContext(ctx).V(1).Info("Execute syncer init", "syncer", name)
-			err := initializer.Init(ctx)
-			if err != nil {
-				return nil, errors.Wrapf(err, "ensure prerequisites for %s syncer", name)
-			}
-		}
 
 		// execute register indices
 		indexRegisterer, ok := syncer.(syncertypes.IndicesRegisterer)
