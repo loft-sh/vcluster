@@ -36,7 +36,6 @@ type SyncTest struct {
 	InitialPhysicalState  []runtime.Object
 	InitialVirtualState   []runtime.Object
 	AdjustConfig          func(vConfig *config.VirtualClusterConfig)
-	Focus                 bool
 }
 
 func RunTests(t *testing.T, tests []*SyncTest) {

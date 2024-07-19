@@ -11,10 +11,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -67,7 +69,7 @@ func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.O
 	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj.(*corev1.ConfigMap)))
 }
 
-func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	used, err := s.isConfigMapUsed(ctx, vObj)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -86,14 +88,26 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 
 		return ctrl.Result{}, nil
 	}
+	pConfigMap, vConfigMap := pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap)
 
-	newConfigMap := s.translateUpdate(ctx, pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap))
-	if newConfigMap != nil {
-		translator.PrintChanges(pObj, newConfigMap, ctx.Log)
+	patch, err := patcher.NewSyncerPatcher(ctx, pConfigMap, vConfigMap)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 
+	defer func() {
+		if err := patch.Patch(ctx, pConfigMap, vConfigMap); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+		if retErr != nil {
+			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+		}
+	}()
+
+	s.translateUpdate(ctx, pConfigMap, vConfigMap)
+
 	// did the configmap change?
-	return s.SyncToHostUpdate(ctx, vObj, newConfigMap)
+	return ctrl.Result{}, nil
 }
 
 func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj runtime.Object) (bool, error) {
