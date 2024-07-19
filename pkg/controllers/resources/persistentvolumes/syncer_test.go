@@ -371,6 +371,7 @@ func TestSync(t *testing.T) {
 				err = syncContext.PhysicalClient.Get(ctx, types.NamespacedName{Name: basePPv.Name}, pPv)
 				assert.NilError(t, err)
 
+				syncContext.EventSource = synccontext.EventSourceHost
 				_, err = syncer.Sync(syncContext, pPv, vPv)
 				assert.NilError(t, err)
 			},

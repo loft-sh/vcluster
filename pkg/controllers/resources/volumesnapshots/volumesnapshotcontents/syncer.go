@@ -2,14 +2,17 @@ package volumesnapshotcontents
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/util"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -89,7 +92,7 @@ func (s *volumeSnapshotContentSyncer) SyncToHost(ctx *synccontext.SyncContext, v
 	return ctrl.Result{}, nil
 }
 
-func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	pVSC := pObj.(*volumesnapshotv1.VolumeSnapshotContent)
 	vVSC := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
 
@@ -135,7 +138,7 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	}
 
 	// check if the VolumeSnapshotContent should get synced
-	sync, vVS, err := s.shouldSync(ctx, pVSC)
+	sync, _, err := s.shouldSync(ctx, pVSC)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !sync {
@@ -144,49 +147,45 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 		return ctrl.Result{}, nil
 	}
 
-	updatedObj := s.translateUpdateBackwards(pVSC, vVSC, vVS)
-	if updatedObj != nil {
-		ctx.Log.Infof("update virtual VolumeSnapshotContent %s, because spec or metadata(annotations or labels) have changed", vVSC.Name)
-		translator.PrintChanges(vObj, updatedObj, ctx.Log)
-		return ctrl.Result{}, s.virtualClient.Update(ctx, updatedObj)
-	}
-
-	// update virtual status if it differs
-	if !equality.Semantic.DeepEqual(vVSC.Status, pVSC.Status) {
-		newVSC := vVSC.DeepCopy()
-		newVSC.Status = pVSC.Status.DeepCopy()
-		translator.PrintChanges(vObj, newVSC, ctx.Log)
-		ctx.Log.Infof("update virtual VolumeSnapshotContent %s, because status has changed", vVSC.Name)
-		return ctrl.Result{}, s.virtualClient.Status().Update(ctx, newVSC)
-	}
-
 	// update the physical VolumeSnapshotContent if the virtual has changed
-	if vVSC.Annotations == nil || vVSC.Annotations[constants.HostClusterVSCAnnotation] == "" {
-		if vVSC.DeletionTimestamp != nil {
-			if pVSC.DeletionTimestamp != nil {
-				return ctrl.Result{}, nil
-			}
-
-			ctx.Log.Infof("delete physical VolumeSnapshotContent %s, because virtual VolumeSnapshotContent is being deleted", pVSC.Name)
-			err := ctx.PhysicalClient.Delete(ctx, pVSC, &client.DeleteOptions{
-				GracePeriodSeconds: vVSC.DeletionGracePeriodSeconds,
-				Preconditions:      metav1.NewUIDPreconditions(string(pVSC.UID)),
-			})
-			if kerrors.IsNotFound(err) {
-				return ctrl.Result{}, nil
-			}
-			return ctrl.Result{}, err
+	if vVSC.Annotations[constants.HostClusterVSCAnnotation] == "" && vVSC.DeletionTimestamp != nil {
+		if pVSC.DeletionTimestamp != nil {
+			return ctrl.Result{}, nil
 		}
 
-		updatedPv := s.translateUpdate(ctx, vVSC, pVSC)
-		if updatedPv != nil {
-			ctx.Log.Infof("update physical VolumeSnapshotContent %s, because spec or annotations have changed", updatedPv.Name)
-			translator.PrintChanges(pVSC, updatedPv, ctx.Log)
-			err := ctx.PhysicalClient.Update(ctx, updatedPv)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
+		ctx.Log.Infof("delete physical VolumeSnapshotContent %s, because virtual VolumeSnapshotContent is being deleted", pVSC.Name)
+		err := ctx.PhysicalClient.Delete(ctx, pVSC, &client.DeleteOptions{
+			GracePeriodSeconds: vVSC.DeletionGracePeriodSeconds,
+			Preconditions:      metav1.NewUIDPreconditions(string(pVSC.UID)),
+		})
+		if kerrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
 		}
+		return ctrl.Result{}, err
+	}
+
+	// patch objects
+	patch, err := patcher.NewSyncerPatcher(ctx, pVSC, vVSC)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		if err := patch.Patch(ctx, pVSC, vVSC); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
+	// update virtual object
+	s.translateUpdateBackwards(pVSC, vVSC)
+
+	// update virtual status
+	vVSC.Status = pVSC.Status.DeepCopy()
+
+	// update host object
+	if vVSC.Annotations[constants.HostClusterVSCAnnotation] == "" {
+		pVSC.Spec.DeletionPolicy = vVSC.Spec.DeletionPolicy
+		pVSC.Spec.VolumeSnapshotClassName = vVSC.Spec.VolumeSnapshotClassName
+		_, pVSC.Annotations, pVSC.Labels = s.TranslateMetadataUpdate(ctx, vVSC, pVSC)
 	}
 
 	return ctrl.Result{}, nil

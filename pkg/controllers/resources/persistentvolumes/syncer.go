@@ -2,6 +2,7 @@ package persistentvolumes
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -10,12 +11,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -103,7 +105,7 @@ func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj c
 	return ctrl.Result{}, nil
 }
 
-func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	pPersistentVolume := pObj.(*corev1.PersistentVolume)
 	vPersistentVolume := vObj.(*corev1.PersistentVolume)
 
@@ -144,64 +146,58 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
 	}
 
-	// check if there is a corresponding virtual pvc
-	updatedObj, err := s.translateUpdateBackwards(ctx, vPersistentVolume, pPersistentVolume, vPvc)
+	// update the physical persistent volume if the virtual has changed
+	if vPersistentVolume.Annotations[constants.HostClusterPersistentVolumeAnnotation] == "" && vPersistentVolume.DeletionTimestamp != nil {
+		if pPersistentVolume.DeletionTimestamp != nil {
+			return ctrl.Result{}, nil
+		}
+
+		ctx.Log.Infof("delete physical persistent volume %s, because virtual persistent volume is being deleted", pPersistentVolume.Name)
+		err := ctx.PhysicalClient.Delete(ctx, pPersistentVolume, &client.DeleteOptions{
+			GracePeriodSeconds: vPersistentVolume.DeletionGracePeriodSeconds,
+			Preconditions:      metav1.NewUIDPreconditions(string(pPersistentVolume.UID)),
+		})
+		if kerrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	// patch objects
+	patch, err := patcher.NewSyncerPatcher(ctx, pPersistentVolume, vPersistentVolume)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		if err := patch.Patch(ctx, pPersistentVolume, vPersistentVolume); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
+	// bidirectional update
+	sourceObject, targetObject := synccontext.SyncSourceTarget(ctx, pPersistentVolume, vPersistentVolume)
+	targetObject.Spec.PersistentVolumeSource = sourceObject.Spec.PersistentVolumeSource
+	targetObject.Spec.Capacity = sourceObject.Spec.Capacity
+	targetObject.Spec.AccessModes = sourceObject.Spec.AccessModes
+	targetObject.Spec.PersistentVolumeReclaimPolicy = sourceObject.Spec.PersistentVolumeReclaimPolicy
+	targetObject.Spec.NodeAffinity = sourceObject.Spec.NodeAffinity
+	targetObject.Spec.VolumeMode = sourceObject.Spec.VolumeMode
+	targetObject.Spec.MountOptions = sourceObject.Spec.MountOptions
+
+	// update virtual object
+	err = s.translateUpdateBackwards(ctx, vPersistentVolume, pPersistentVolume, vPvc)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else if updatedObj != nil {
-		ctx.Log.Infof("update virtual persistent volume %s, because spec has changed", vPersistentVolume.Name)
-		translator.PrintChanges(vPersistentVolume, updatedObj, ctx.Log)
-		err = ctx.VirtualClient.Update(ctx, updatedObj)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		// we will reconcile anyways
-		return ctrl.Result{}, nil
 	}
 
-	// check status
-	if !equality.Semantic.DeepEqual(vPersistentVolume.Status, pPersistentVolume.Status) {
-		updatedObj := vPersistentVolume.DeepCopy()
-		updatedObj.Status = *pPersistentVolume.Status.DeepCopy()
-		ctx.Log.Infof("update virtual persistent volume %s, because status has changed", vPersistentVolume.Name)
-		translator.PrintChanges(vPersistentVolume, updatedObj, ctx.Log)
-		err = ctx.VirtualClient.Status().Update(ctx, updatedObj)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	// update virtual status
+	vPersistentVolume.Status = pPersistentVolume.Status
 
-		// we will reconcile anyways
-		return ctrl.Result{}, nil
-	}
-
-	// update the physical persistent volume if the virtual has changed
-	if vPersistentVolume.Annotations == nil || vPersistentVolume.Annotations[constants.HostClusterPersistentVolumeAnnotation] == "" {
-		if vPersistentVolume.DeletionTimestamp != nil {
-			if pPersistentVolume.DeletionTimestamp != nil {
-				return ctrl.Result{}, nil
-			}
-
-			ctx.Log.Infof("delete physical persistent volume %s, because virtual persistent volume is being deleted", pPersistentVolume.Name)
-			err := ctx.PhysicalClient.Delete(ctx, pPersistentVolume, &client.DeleteOptions{
-				GracePeriodSeconds: vPersistentVolume.DeletionGracePeriodSeconds,
-				Preconditions:      metav1.NewUIDPreconditions(string(pPersistentVolume.UID)),
-			})
-			if kerrors.IsNotFound(err) {
-				return ctrl.Result{}, nil
-			}
-			return ctrl.Result{}, err
-		}
-
-		updatedPv := s.translateUpdate(ctx, vPersistentVolume, pPersistentVolume)
-		if updatedPv != nil {
-			ctx.Log.Infof("update physical persistent volume %s, because spec or annotations have changed", updatedPv.Name)
-			translator.PrintChanges(pPersistentVolume, updatedPv, ctx.Log)
-			err := ctx.PhysicalClient.Update(ctx, updatedPv)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-		}
+	// update host object
+	if vPersistentVolume.Annotations[constants.HostClusterPersistentVolumeAnnotation] == "" {
+		// TODO: translate the storage secrets
+		pPersistentVolume.Spec.StorageClassName = mappings.VirtualToHostName(ctx, vPersistentVolume.Spec.StorageClassName, "", mappings.StorageClasses())
+		_, pPersistentVolume.Annotations, pPersistentVolume.Labels = s.TranslateMetadataUpdate(ctx, vPersistentVolume, pPersistentVolume)
 	}
 
 	return ctrl.Result{}, nil

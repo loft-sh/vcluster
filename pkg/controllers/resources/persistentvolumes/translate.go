@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -48,9 +47,7 @@ func (s *persistentVolumeSyncer) translateBackwards(pPv *corev1.PersistentVolume
 	return vObj
 }
 
-func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx context.Context, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolume, error) {
-	var updated *corev1.PersistentVolume
-
+func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx context.Context, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) error {
 	// build virtual persistent volume
 	translatedSpec := *pPv.Spec.DeepCopy()
 	isStorageClassCreatedOnVirtual, isClaimRefCreatedOnVirtual := false, false
@@ -87,78 +84,14 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx context.Context, v
 	// check storage class. Do not copy the name, if it was created on virtual.
 	if !translate.Default.IsManaged(ctx, pPv) {
 		if !equality.Semantic.DeepEqual(vPv.Spec.StorageClassName, translatedSpec.StorageClassName) && !isStorageClassCreatedOnVirtual {
-			updated = translator.NewIfNil(updated, vPv)
-			updated.Spec.StorageClassName = translatedSpec.StorageClassName
+			vPv.Spec.StorageClassName = translatedSpec.StorageClassName
 		}
 	}
 
 	// check claim ref. Do not copy, if it was created on virtual.
 	if !equality.Semantic.DeepEqual(vPv.Spec.ClaimRef, translatedSpec.ClaimRef) && !isClaimRefCreatedOnVirtual {
-		updated = translator.NewIfNil(updated, vPv)
-		updated.Spec.ClaimRef = translatedSpec.ClaimRef
+		vPv.Spec.ClaimRef = translatedSpec.ClaimRef
 	}
 
-	// check pv size
-	if vPv.Annotations != nil && vPv.Annotations[constants.HostClusterPersistentVolumeAnnotation] != "" && !equality.Semantic.DeepEqual(pPv.Spec.Capacity, vPv.Spec.Capacity) {
-		updated = translator.NewIfNil(updated, vPv)
-		updated.Spec.Capacity = translatedSpec.Capacity
-	}
-
-	return updated, nil
-}
-
-func (s *persistentVolumeSyncer) translateUpdate(ctx context.Context, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume) *corev1.PersistentVolume {
-	var updated *corev1.PersistentVolume
-
-	// TODO: translate the storage secrets
-	if !equality.Semantic.DeepEqual(pPv.Spec.PersistentVolumeSource, vPv.Spec.PersistentVolumeSource) {
-		updated = translator.NewIfNil(updated, pPv)
-		updated.Spec.PersistentVolumeSource = vPv.Spec.PersistentVolumeSource
-	}
-
-	if !equality.Semantic.DeepEqual(pPv.Spec.Capacity, vPv.Spec.Capacity) {
-		updated = translator.NewIfNil(updated, pPv)
-		updated.Spec.Capacity = vPv.Spec.Capacity
-	}
-
-	if !equality.Semantic.DeepEqual(pPv.Spec.AccessModes, vPv.Spec.AccessModes) {
-		updated = translator.NewIfNil(updated, pPv)
-		updated.Spec.AccessModes = vPv.Spec.AccessModes
-	}
-
-	if !equality.Semantic.DeepEqual(pPv.Spec.PersistentVolumeReclaimPolicy, vPv.Spec.PersistentVolumeReclaimPolicy) {
-		updated = translator.NewIfNil(updated, pPv)
-		updated.Spec.PersistentVolumeReclaimPolicy = vPv.Spec.PersistentVolumeReclaimPolicy
-	}
-
-	translatedStorageClassName := mappings.VirtualToHostName(ctx, vPv.Spec.StorageClassName, "", mappings.StorageClasses())
-	if !equality.Semantic.DeepEqual(pPv.Spec.StorageClassName, translatedStorageClassName) {
-		updated = translator.NewIfNil(updated, pPv)
-		updated.Spec.StorageClassName = translatedStorageClassName
-	}
-
-	if !equality.Semantic.DeepEqual(pPv.Spec.NodeAffinity, vPv.Spec.NodeAffinity) {
-		updated = translator.NewIfNil(updated, pPv)
-		updated.Spec.NodeAffinity = vPv.Spec.NodeAffinity
-	}
-
-	if !equality.Semantic.DeepEqual(pPv.Spec.VolumeMode, vPv.Spec.VolumeMode) {
-		updated = translator.NewIfNil(updated, pPv)
-		updated.Spec.VolumeMode = vPv.Spec.VolumeMode
-	}
-
-	if !equality.Semantic.DeepEqual(pPv.Spec.MountOptions, vPv.Spec.MountOptions) {
-		updated = translator.NewIfNil(updated, pPv)
-		updated.Spec.MountOptions = vPv.Spec.MountOptions
-	}
-
-	// check labels & annotations
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vPv, pPv)
-	if changed {
-		updated = translator.NewIfNil(updated, pPv)
-		updated.Annotations = updatedAnnotations
-		updated.Labels = updatedLabels
-	}
-
-	return updated
+	return nil
 }
