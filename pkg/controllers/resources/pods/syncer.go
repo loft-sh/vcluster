@@ -326,7 +326,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		}
 
 		if retErr != nil {
-			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(vPod, "Warning", "SyncError", "Error syncing: %v", retErr)
 		}
 	}()
 

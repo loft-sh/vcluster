@@ -9,12 +9,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/pkg/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -87,7 +88,7 @@ func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, v
 	return s.SyncToHostCreate(ctx, vObj, newPvc)
 }
 
-func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	vPvc := vObj.(*corev1.PersistentVolumeClaim)
 	pPvc := pObj.(*corev1.PersistentVolumeClaim)
 
@@ -128,44 +129,31 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 		}
 	}
 
+	// patch objects
+	patch, err := patcher.NewSyncerPatcher(ctx, pPvc, vPvc)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		if err := patch.Patch(ctx, pPvc, vPvc); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+
+		if retErr != nil {
+			s.EventRecorder().Eventf(vPvc, "Warning", "SyncError", "Error syncing: %v", retErr)
+		}
+	}()
+
 	// check backwards update
-	updated := s.translateUpdateBackwards(pPvc, vPvc)
-	if updated != nil {
-		ctx.Log.Infof("update virtual persistent volume claim %s/%s, because the spec has changed", vPvc.Namespace, vPvc.Name)
-		translator.PrintChanges(vPvc, updated, ctx.Log)
-		err := ctx.VirtualClient.Update(ctx, updated)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	s.translateUpdateBackwards(pPvc, vPvc)
 
-		// we will requeue anyways
-		return ctrl.Result{}, nil
-	}
-
-	// check backwards status
-	if !equality.Semantic.DeepEqual(vPvc.Status, pPvc.Status) {
-		newPvc := vPvc.DeepCopy()
-		newPvc.Status = *pPvc.Status.DeepCopy()
-		ctx.Log.Infof("update virtual persistent volume claim %s/%s, because the status has changed", vPvc.Namespace, vPvc.Name)
-		translator.PrintChanges(vPvc, newPvc, ctx.Log)
-		err := ctx.VirtualClient.Status().Update(ctx, newPvc)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		// we will requeue anyways
-		return ctrl.Result{}, nil
-	}
+	// copy host status
+	vPvc.Status = *pPvc.Status.DeepCopy()
 
 	// forward update
-	newPvc, err := s.translateUpdate(ctx, pPvc, vPvc)
-	if err != nil {
-		return ctrl.Result{}, err
-	} else if newPvc != nil {
-		translator.PrintChanges(pPvc, newPvc, ctx.Log)
-	}
+	s.translateUpdate(ctx, pPvc, vPvc)
 
-	return s.SyncToHostUpdate(ctx, vPvc, newPvc)
+	return ctrl.Result{}, nil
 }
 
 func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.SyncContext, pObj *corev1.PersistentVolumeClaim, vObj *corev1.PersistentVolumeClaim, log loghelper.Logger) (bool, error) {

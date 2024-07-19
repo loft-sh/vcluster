@@ -5,7 +5,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -99,61 +98,38 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 	return vPvc, nil
 }
 
-func (s *persistentVolumeClaimSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
-	var updated *corev1.PersistentVolumeClaim
-
+func (s *persistentVolumeClaimSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.PersistentVolumeClaim) {
 	// allow storage size to be increased
 	if pObj.Spec.Resources.Requests["storage"] != vObj.Spec.Resources.Requests["storage"] {
-		updated = translator.NewIfNil(updated, pObj)
-		if updated.Spec.Resources.Requests == nil {
-			updated.Spec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
+		if pObj.Spec.Resources.Requests == nil {
+			pObj.Spec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
 		}
-		updated.Spec.Resources.Requests["storage"] = vObj.Spec.Resources.Requests["storage"]
+		pObj.Spec.Resources.Requests["storage"] = vObj.Spec.Resources.Requests["storage"]
 	}
 
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
-	if changed {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Annotations = updatedAnnotations
-		updated.Labels = updatedLabels
-	}
-
-	return updated, nil
+	// change annotations / labels
+	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
+	pObj.Annotations = updatedAnnotations
+	pObj.Labels = updatedLabels
 }
 
-func (s *persistentVolumeClaimSyncer) translateUpdateBackwards(pObj, vObj *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
-	var updated *corev1.PersistentVolumeClaim
-
-	// check for metadata annotations
-	if translateUpdateNeeded(pObj.Annotations, vObj.Annotations) {
-		updated = translator.NewIfNil(updated, vObj)
-		if updated.Annotations == nil {
-			updated.Annotations = map[string]string{}
+func (s *persistentVolumeClaimSyncer) translateUpdateBackwards(pObj, vObj *corev1.PersistentVolumeClaim) {
+	if vObj.Annotations[bindCompletedAnnotation] != pObj.Annotations[bindCompletedAnnotation] {
+		if vObj.Annotations == nil {
+			vObj.Annotations = map[string]string{}
 		}
-
-		if updated.Annotations[bindCompletedAnnotation] != pObj.Annotations[bindCompletedAnnotation] {
-			updated.Annotations[bindCompletedAnnotation] = pObj.Annotations[bindCompletedAnnotation]
-		}
-		if updated.Annotations[boundByControllerAnnotation] != pObj.Annotations[boundByControllerAnnotation] {
-			updated.Annotations[boundByControllerAnnotation] = pObj.Annotations[boundByControllerAnnotation]
-		}
-		if updated.Annotations[storageProvisionerAnnotation] != pObj.Annotations[storageProvisionerAnnotation] {
-			updated.Annotations[storageProvisionerAnnotation] = pObj.Annotations[storageProvisionerAnnotation]
-		}
+		vObj.Annotations[bindCompletedAnnotation] = pObj.Annotations[bindCompletedAnnotation]
 	}
-
-	return updated
-}
-
-func translateUpdateNeeded(pAnnotations, vAnnotations map[string]string) bool {
-	if pAnnotations == nil {
-		pAnnotations = map[string]string{}
+	if vObj.Annotations[boundByControllerAnnotation] != pObj.Annotations[boundByControllerAnnotation] {
+		if vObj.Annotations == nil {
+			vObj.Annotations = map[string]string{}
+		}
+		vObj.Annotations[boundByControllerAnnotation] = pObj.Annotations[boundByControllerAnnotation]
 	}
-	if vAnnotations == nil {
-		vAnnotations = map[string]string{}
+	if vObj.Annotations[storageProvisionerAnnotation] != pObj.Annotations[storageProvisionerAnnotation] {
+		if vObj.Annotations == nil {
+			vObj.Annotations = map[string]string{}
+		}
+		vObj.Annotations[storageProvisionerAnnotation] = pObj.Annotations[storageProvisionerAnnotation]
 	}
-
-	return vAnnotations[bindCompletedAnnotation] != pAnnotations[bindCompletedAnnotation] ||
-		vAnnotations[boundByControllerAnnotation] != pAnnotations[boundByControllerAnnotation] ||
-		vAnnotations[storageProvisionerAnnotation] != pAnnotations[storageProvisionerAnnotation]
 }
