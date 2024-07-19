@@ -332,7 +332,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServicePorts1, vServicePorts1)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServicePorts1.DeepCopy(), vServicePorts1.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -348,7 +348,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServicePorts2, vServicePorts1)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServicePorts2.DeepCopy(), vServicePorts1.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -364,7 +364,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*serviceSyncer).Sync(syncCtx, createdByServerService, updateForwardService)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, createdByServerService.DeepCopy(), updateForwardService.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -380,7 +380,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*serviceSyncer).Sync(syncCtx, createdService, baseService)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, createdService.DeepCopy(), baseService.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -408,7 +408,7 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 
 				baseService.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName
-				_, err = syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecService, baseService)
+				_, err = syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecService.DeepCopy(), baseService.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -436,7 +436,7 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 
 				baseService.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName
-				_, err = syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecRecreateService, baseService)
+				_, err = syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecRecreateService.DeepCopy(), baseService.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -452,7 +452,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardStatusService, baseService)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardStatusService.DeepCopy(), baseService.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -468,7 +468,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*serviceSyncer).Sync(syncCtx, createdService, baseService)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, createdService.DeepCopy(), baseService.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -556,7 +556,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServiceExternal, vServiceClusterIPFromExternal)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServiceExternal.DeepCopy(), vServiceClusterIPFromExternal.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
@@ -572,7 +572,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServiceExternal, vServiceNodePortFromExternal)
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServiceExternal.DeepCopy(), vServiceNodePortFromExternal.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},

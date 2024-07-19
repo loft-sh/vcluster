@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
@@ -10,10 +11,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,7 +56,7 @@ func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Obj
 	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj.(*corev1.Service)))
 }
 
-func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	vService := vObj.(*corev1.Service)
 	pService := pObj.(*corev1.Service)
 
@@ -62,6 +64,25 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	if isSwitchingFromExternalName(pService, vService) {
 		return ctrl.Result{RequeueAfter: time.Second * 3}, nil
 	}
+
+	shouldPatch := false
+	patch, err := patcher.NewSyncerPatcher(ctx, pService, vService)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+
+	defer func() {
+		if !shouldPatch {
+			return
+		}
+
+		if err := patch.Patch(ctx, pService, vService); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+		if retErr != nil {
+			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+		}
+	}()
 
 	// check if backwards update is necessary
 	newService := s.translateUpdateBackwards(pService, vService)
@@ -71,45 +92,22 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 			ctx.Log.Infof("recreating virtual service %s/%s, because cluster ip differs %s != %s", vService.Namespace, vService.Name, pService.Spec.ClusterIP, vService.Spec.ClusterIP)
 
 			// recreate the new service with the correct cluster ip
-			_, err := recreateService(ctx, ctx.VirtualClient, newService)
+			vService, err = recreateService(ctx, ctx.VirtualClient, newService)
 			if err != nil {
 				ctx.Log.Errorf("error creating virtual service: %s/%s", vService.Namespace, vService.Name)
-				return ctrl.Result{}, err
 			}
 		} else {
-			// update with correct ports
-			ctx.Log.Infof("update virtual service %s/%s, because spec is out of sync", vService.Namespace, vService.Name)
-			err := ctx.VirtualClient.Update(ctx, newService)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
+			newService.DeepCopyInto(vService)
+			shouldPatch = true
 		}
-
-		// we will requeue anyways
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}, err
 	}
-
-	// check if backwards status update is necessary
-	if !equality.Semantic.DeepEqual(vService.Status, pService.Status) {
-		newService := vService.DeepCopy()
-		newService.Status = pService.Status
-		ctx.Log.Infof("update virtual service %s/%s, because status is out of sync", vService.Namespace, vService.Name)
-		translator.PrintChanges(vService, newService, ctx.Log)
-		err := ctx.VirtualClient.Status().Update(ctx, newService)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{Requeue: true}, nil
-	}
-
+	shouldPatch = true
+	vService.Status = pService.Status
 	// forward update
-	newService = s.translateUpdate(ctx, pService, vService)
-	if newService != nil {
-		translator.PrintChanges(pService, newService, ctx.Log)
-	}
+	s.translateUpdate(ctx, pService, vService)
 
-	return s.SyncToHostUpdate(ctx, vObj, newService)
+	return ctrl.Result{}, nil
 }
 
 func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Service) bool {

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"slices"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -76,85 +77,37 @@ func (s *serviceSyncer) translateUpdateBackwards(pObj, vObj *corev1.Service) *co
 	return updated
 }
 
-func (s *serviceSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Service) *corev1.Service {
-	var updated *corev1.Service
-
+func (s *serviceSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Service) {
 	// check annotations
 	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	// remove the ServiceBlockDeletion annotation if it's not needed
 	if vObj.Spec.ClusterIP == pObj.Spec.ClusterIP {
 		delete(updatedAnnotations, ServiceBlockDeletion)
 	}
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pObj.Annotations) || !equality.Semantic.DeepEqual(updatedLabels, pObj.Labels) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Annotations = updatedAnnotations
-		updated.Labels = updatedLabels
-	}
+	pObj.Annotations = updatedAnnotations
+	pObj.Labels = updatedLabels
 
-	// check ports
-	if !equality.Semantic.DeepEqual(vObj.Spec.Ports, pObj.Spec.Ports) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec.Ports = vObj.Spec.Ports
+	pObj.Spec.Ports = slices.Clone(vObj.Spec.Ports)
 
-		// make sure node ports will be reset here
-		StripNodePorts(updated)
-	}
+	// make sure node ports will be reset here
+	StripNodePorts(pObj)
 
-	// publish not ready addresses
-	if vObj.Spec.PublishNotReadyAddresses != pObj.Spec.PublishNotReadyAddresses {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec.PublishNotReadyAddresses = vObj.Spec.PublishNotReadyAddresses
-	}
+	pObj.Spec.PublishNotReadyAddresses = vObj.Spec.PublishNotReadyAddresses
 
-	// type
-	if vObj.Spec.Type != pObj.Spec.Type {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec.Type = vObj.Spec.Type
-	}
+	pObj.Spec.Type = vObj.Spec.Type
 
-	// external name
-	if vObj.Spec.ExternalName != pObj.Spec.ExternalName {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec.ExternalName = vObj.Spec.ExternalName
-	}
+	pObj.Spec.ExternalName = vObj.Spec.ExternalName
 
-	// externalTrafficPolicy
-	if vObj.Spec.ExternalTrafficPolicy != pObj.Spec.ExternalTrafficPolicy {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec.ExternalTrafficPolicy = vObj.Spec.ExternalTrafficPolicy
-	}
+	pObj.Spec.ExternalTrafficPolicy = vObj.Spec.ExternalTrafficPolicy
 
-	// session affinity
-	if vObj.Spec.SessionAffinity != pObj.Spec.SessionAffinity {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec.SessionAffinity = vObj.Spec.SessionAffinity
-	}
+	pObj.Spec.SessionAffinity = vObj.Spec.SessionAffinity
 
-	// sessionAffinityConfig
-	if !equality.Semantic.DeepEqual(vObj.Spec.SessionAffinityConfig, pObj.Spec.SessionAffinityConfig) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec.SessionAffinityConfig = vObj.Spec.SessionAffinityConfig
-	}
+	pObj.Spec.SessionAffinityConfig = vObj.Spec.SessionAffinityConfig
 
-	// load balancer source ranges
-	if !equality.Semantic.DeepEqual(vObj.Spec.LoadBalancerSourceRanges, pObj.Spec.LoadBalancerSourceRanges) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec.LoadBalancerSourceRanges = vObj.Spec.LoadBalancerSourceRanges
-	}
+	pObj.Spec.LoadBalancerSourceRanges = vObj.Spec.LoadBalancerSourceRanges
 
-	// healthCheckNodePort
-	if vObj.Spec.HealthCheckNodePort != pObj.Spec.HealthCheckNodePort {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec.HealthCheckNodePort = vObj.Spec.HealthCheckNodePort
-	}
+	pObj.Spec.HealthCheckNodePort = vObj.Spec.HealthCheckNodePort
 
 	// translate selector
-	translated := pObj.DeepCopy()
-	translated.Spec.Selector = translate.Default.TranslateLabels(vObj.Spec.Selector, vObj.Namespace, nil)
-	if !equality.Semantic.DeepEqual(translated.Spec.Selector, pObj.Spec.Selector) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Spec.Selector = translated.Spec.Selector
-	}
-
-	return updated
+	pObj.Spec.Selector = translate.Default.TranslateLabels(vObj.Spec.Selector, vObj.Namespace, nil)
 }
