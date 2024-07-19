@@ -8,7 +8,8 @@ import (
 
 	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	"k8s.io/apimachinery/pkg/api/equality"
+	"github.com/loft-sh/vcluster/pkg/patcher"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
@@ -213,7 +214,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object)
 	return s.SyncToHostCreate(ctx, vPod, pPod)
 }
 
-func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	vPod := vObj.(*corev1.Pod)
 	pPod := pObj.(*corev1.Pod)
 
@@ -271,35 +272,18 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		return ctrl.Result{}, nil
 	}
 
-	// has status changed?
-	strippedPod := stripHostRewriteContainer(pPod)
-	strippedPod = stripInjectedSidecarContainers(vPod, pPod, strippedPod)
-
-	// update readiness gates & sync status virtual -> physical
-	strippedPod, err := UpdateConditions(ctx, strippedPod, vPod)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// update status physical -> virtual
-	if !equality.Semantic.DeepEqual(vPod.Status, strippedPod.Status) {
-		newPod := vPod.DeepCopy()
-		newPod.Status = strippedPod.Status
-		ctx.Log.Infof("update virtual pod %s/%s, because status has changed", vPod.Namespace, vPod.Name)
-		translator.PrintChanges(vPod, newPod, ctx.Log)
-		err := ctx.VirtualClient.Status().Update(ctx, newPod)
-		if kerrors.IsConflict(err) {
-			ctx.Log.Debugf("conflict updating virtual pod %s %s/%s", vPod.GetNamespace(), vPod.GetName())
-			return ctrl.Result{Requeue: true}, nil
-		} else if err != nil {
-			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error updating pod: %v", err)
+	// validate virtual pod before syncing it to the host cluster
+	if s.podSecurityStandard != "" {
+		valid, err := s.isPodSecurityStandardsValid(ctx, vPod, ctx.Log)
+		if err != nil {
 			return ctrl.Result{}, err
+		} else if !valid {
+			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, nil
 	}
 
 	// sync ephemeral containers
-	if syncEphemeralContainers(vPod, strippedPod) {
+	if syncEphemeralContainers(vPod, pPod) {
 		kubeIP, _, ptrServiceList, err := s.getK8sIPDNSIPServiceList(ctx, vPod)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -321,27 +305,53 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+
+		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// validate virtual pod before syncing it to the host cluster
-	if s.podSecurityStandard != "" {
-		valid, err := s.isPodSecurityStandardsValid(ctx, vPod, ctx.Log)
+	// set pod owner as sa token
+	err := setSATokenSecretAsOwner(ctx, ctx.PhysicalClient, vPod, pPod)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// patch objects
+	patch, err := patcher.NewSyncerPatcher(ctx, pPod, vPod)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		if err := patch.Patch(ctx, pPod, vPod); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+
+		if retErr != nil {
+			s.EventRecorder().Eventf(vPod, "Warning", "SyncError", "Error syncing: %v", retErr)
+		}
+	}()
+
+	// update the virtual pod if the spec has changed
+	err = s.podTranslator.Diff(ctx, vPod, pPod)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func setSATokenSecretAsOwner(ctx context.Context, pClient client.Client, vObj, pObj *corev1.Pod) error {
+	secret, err := translatepods.GetSecretIfExists(ctx, pClient, vObj.Name, vObj.Namespace)
+	if err := translatepods.IgnoreAcceptableErrors(err); err != nil {
+		return err
+	} else if secret != nil {
+		// check if owner is vCluster service, if so, modify to pod as owner
+		err := translatepods.SetPodAsOwner(ctx, pObj, pClient, secret)
 		if err != nil {
-			return ctrl.Result{}, err
-		} else if !valid {
-			return ctrl.Result{}, nil
+			return err
 		}
 	}
 
-	// update the virtual pod if the spec has changed
-	updatedPod, err := s.translateUpdate(ctx, ctx.PhysicalClient, pPod, vPod)
-	if err != nil {
-		return ctrl.Result{}, err
-	} else if updatedPod != nil {
-		translator.PrintChanges(pPod, updatedPod, ctx.Log)
-	}
-
-	return s.SyncToHostUpdate(ctx, vPod, updatedPod)
+	return nil
 }
 
 func syncEphemeralContainers(vPod *corev1.Pod, pPod *corev1.Pod) bool {
@@ -434,55 +444,4 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 		return vPod.Spec.NodeName != "", nil
 	})
 	return err
-}
-
-func stripHostRewriteContainer(pPod *corev1.Pod) *corev1.Pod {
-	if pPod.Annotations == nil || pPod.Annotations[translatepods.HostsRewrittenAnnotation] != "true" {
-		return pPod
-	}
-
-	newPod := pPod.DeepCopy()
-	newInitContainerStatuses := []corev1.ContainerStatus{}
-	if len(newPod.Status.InitContainerStatuses) > 0 {
-		for _, v := range newPod.Status.InitContainerStatuses {
-			if v.Name == translatepods.HostsRewriteContainerName {
-				continue
-			}
-			newInitContainerStatuses = append(newInitContainerStatuses, v)
-		}
-		newPod.Status.InitContainerStatuses = newInitContainerStatuses
-	}
-	return newPod
-}
-
-func stripInjectedSidecarContainers(vPod, pPod, strippedPod *corev1.Pod) *corev1.Pod {
-	vInitContainersMap := make(map[string]bool)
-	vContainersMap := make(map[string]bool)
-
-	for _, vInitContainer := range vPod.Spec.InitContainers {
-		vInitContainersMap[vInitContainer.Name] = true
-	}
-
-	for _, vContainer := range vPod.Spec.Containers {
-		vContainersMap[vContainer.Name] = true
-	}
-
-	newInitContainerStatuses := []corev1.ContainerStatus{}
-	for _, initContainerStatus := range pPod.Status.InitContainerStatuses {
-		if _, ok := vInitContainersMap[initContainerStatus.Name]; ok {
-			newInitContainerStatuses = append(newInitContainerStatuses, initContainerStatus)
-		}
-	}
-
-	newContainerStatuses := []corev1.ContainerStatus{}
-	for _, containerStatus := range pPod.Status.ContainerStatuses {
-		if _, ok := vContainersMap[containerStatus.Name]; ok {
-			newContainerStatuses = append(newContainerStatuses, containerStatus)
-		}
-	}
-
-	strippedPod.Status.InitContainerStatuses = newInitContainerStatuses
-	strippedPod.Status.ContainerStatuses = newContainerStatuses
-
-	return strippedPod
 }

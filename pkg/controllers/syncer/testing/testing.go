@@ -55,6 +55,14 @@ func RunTestsWithContext(t *testing.T, createContext NewContextFunc, tests []*Sy
 
 func (s *SyncTest) Run(t *testing.T, test *SyncTest, createContext NewContextFunc) {
 	ctx := context.Background()
+
+	for i := range s.InitialPhysicalState {
+		s.InitialPhysicalState[i] = s.InitialPhysicalState[i].DeepCopyObject()
+	}
+	for i := range s.InitialVirtualState {
+		s.InitialVirtualState[i] = s.InitialVirtualState[i].DeepCopyObject()
+	}
+
 	pClient := testingutil.NewFakeClient(scheme.Scheme, s.InitialPhysicalState...)
 	vClient := testingutil.NewFakeClient(scheme.Scheme, s.InitialVirtualState...)
 	vConfig := NewFakeConfig()
@@ -66,20 +74,16 @@ func (s *SyncTest) Run(t *testing.T, test *SyncTest, createContext NewContextFun
 	s.Sync(createContext(vConfig, pClient, vClient))
 
 	// Compare states
-	if s.ExpectedPhysicalState != nil {
-		for gvk, objs := range s.ExpectedPhysicalState {
-			err := CompareObjs(ctx, t, s.Name+" physical state", pClient, gvk, scheme.Scheme, objs, s.Compare)
-			if err != nil {
-				t.Fatalf("%s - Physical State mismatch: %v", s.Name, err)
-			}
+	for gvk, objs := range s.ExpectedPhysicalState {
+		err := CompareObjs(ctx, t, s.Name+" physical state", pClient, gvk, scheme.Scheme, objs, s.Compare)
+		if err != nil {
+			t.Fatalf("%s - Physical State mismatch: %v", s.Name, err)
 		}
 	}
-	if s.ExpectedVirtualState != nil {
-		for gvk, objs := range s.ExpectedVirtualState {
-			err := CompareObjs(ctx, t, s.Name+" virtual state", vClient, gvk, scheme.Scheme, objs, s.Compare)
-			if err != nil {
-				t.Fatalf("%s - Virtual State mismatch: %v", s.Name, err)
-			}
+	for gvk, objs := range s.ExpectedVirtualState {
+		err := CompareObjs(ctx, t, s.Name+" virtual state", vClient, gvk, scheme.Scheme, objs, s.Compare)
+		if err != nil {
+			t.Fatalf("%s - Virtual State mismatch: %v", s.Name, err)
 		}
 	}
 }

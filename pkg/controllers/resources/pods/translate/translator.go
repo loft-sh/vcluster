@@ -53,7 +53,7 @@ var (
 
 type Translator interface {
 	Translate(ctx context.Context, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
-	Diff(ctx context.Context, vPod, pPod *corev1.Pod) (*corev1.Pod, error)
+	Diff(ctx context.Context, vPod, pPod *corev1.Pod) error
 
 	TranslateContainerEnv(ctx context.Context, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error)
 }

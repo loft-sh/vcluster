@@ -1,18 +1,12 @@
-package pods
+package translate
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/scheme"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 type conditionsTestCase struct {
@@ -231,26 +225,9 @@ func TestUpdateConditions(t *testing.T) {
 
 	for _, testCase := range testCases {
 		fmt.Println(testCase.name)
-		ctx := context.Background()
-		pClient := testingutil.NewFakeClient(scheme.Scheme, testCase.pPod.DeepCopy())
-		vClient := testingutil.NewFakeClient(scheme.Scheme, testCase.vPod.DeepCopy())
 
-		updated, err := UpdateConditions(&synccontext.SyncContext{
-			Context:        ctx,
-			Log:            loghelper.New(testCase.name),
-			PhysicalClient: pClient,
-			VirtualClient:  vClient,
-		}, testCase.pPod, testCase.vPod)
-		assert.NilError(t, err, "unexpected error in testCase %s", testCase.name)
-		if updated == nil {
-			t.Fatal("updated is empty")
-		}
-		assert.DeepEqual(t, updated.Status.Conditions, testCase.expectedVirtualConditions)
-
-		// check physical conditions
-		newPod := &corev1.Pod{}
-		err = pClient.Get(ctx, types.NamespacedName{Name: testCase.pPod.Name, Namespace: testCase.pPod.Namespace}, newPod)
-		assert.NilError(t, err, "unexpected error while getting pPod in testCase %s", testCase.name)
-		assert.DeepEqual(t, newPod.Status.Conditions, testCase.expectedPhysicalConditions)
+		updateConditions(testCase.pPod, testCase.vPod, testCase.vPod.Status.DeepCopy())
+		assert.DeepEqual(t, testCase.vPod.Status.Conditions, testCase.expectedVirtualConditions)
+		assert.DeepEqual(t, testCase.pPod.Status.Conditions, testCase.expectedPhysicalConditions)
 	}
 }

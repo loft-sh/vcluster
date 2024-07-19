@@ -1,7 +1,6 @@
-package pods
+package translate
 
 import (
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
@@ -14,49 +13,34 @@ var coreConditions = map[string]bool{
 	"PodReadyToStartContainers":    true,
 }
 
-// UpdateConditions adds/updates new/old conditions in the physical Pod
-func UpdateConditions(ctx *synccontext.SyncContext, physicalPod *corev1.Pod, virtualPod *corev1.Pod) (*corev1.Pod, error) {
-	// check if the readinessGates are added to vPod
-	physicalPod = physicalPod.DeepCopy()
-	updated := false
-
+// updateConditions adds/updates new/old conditions in the physical Pod
+func updateConditions(pPod, vPod *corev1.Pod, oldVPodStatus *corev1.PodStatus) {
 	// check if newConditions need to be added.
-	for _, vCondition := range virtualPod.Status.Conditions {
+	for _, vCondition := range oldVPodStatus.Conditions {
 		if isCustomCondition(vCondition) {
 			found := false
-			for index, pCondition := range physicalPod.Status.Conditions {
+			for index, pCondition := range pPod.Status.Conditions {
 				// found condition in pPod with same type, updating foundCondition
 				if vCondition.Type == pCondition.Type {
 					found = true
 					if !equality.Semantic.DeepEqual(pCondition, vCondition) {
-						updated = true
-						physicalPod.Status.Conditions[index] = vCondition
+						pPod.Status.Conditions[index] = vCondition
 					}
 					break
 				}
 			}
 			if !found {
-				physicalPod.Status.Conditions = append(physicalPod.Status.Conditions, vCondition)
-				updated = true
+				pPod.Status.Conditions = append(pPod.Status.Conditions, vCondition)
 			}
-		}
-	}
-
-	// update physical pod
-	if updated {
-		ctx.Log.Infof("update physical pod %s/%s, because custom pod conditions have changed", physicalPod.Namespace, physicalPod.Name)
-		err := ctx.PhysicalClient.Status().Update(ctx, physicalPod)
-		if err != nil {
-			return nil, err
 		}
 	}
 
 	// don't sync custom conditions up
 	newConditions := []corev1.PodCondition{}
-	for _, pCondition := range physicalPod.Status.Conditions {
+	for _, pCondition := range pPod.Status.Conditions {
 		if isCustomCondition(pCondition) {
 			found := false
-			for _, vCondition := range virtualPod.Status.Conditions {
+			for _, vCondition := range oldVPodStatus.Conditions {
 				if pCondition.Type == vCondition.Type {
 					found = true
 					break
@@ -70,8 +54,8 @@ func UpdateConditions(ctx *synccontext.SyncContext, physicalPod *corev1.Pod, vir
 
 		newConditions = append(newConditions, pCondition)
 	}
-	physicalPod.Status.Conditions = newConditions
-	return physicalPod, nil
+
+	vPod.Status.Conditions = newConditions
 }
 
 // Check for custom condition

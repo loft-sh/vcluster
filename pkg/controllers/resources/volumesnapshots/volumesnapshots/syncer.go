@@ -1,10 +1,14 @@
 package volumesnapshots
 
 import (
+	"fmt"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/util"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -59,7 +63,7 @@ func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj cli
 	return s.SyncToHostCreate(ctx, vObj, pObj)
 }
 
-func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	vVS := vObj.(*volumesnapshotv1.VolumeSnapshot)
 	pVS := pObj.(*volumesnapshotv1.VolumeSnapshot)
 
@@ -117,37 +121,32 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 		return ctrl.Result{}, nil
 	}
 
-	// check backwards update
-	updated := s.translateUpdateBackwards(pVS, vVS)
-	if updated != nil {
-		ctx.Log.Infof("update virtual volume snapshot %s/%s, because the spec has changed", vVS.Namespace, vVS.Name)
-		translator.PrintChanges(vObj, updated, ctx.Log)
-		err := ctx.VirtualClient.Update(ctx, updated)
-		if err != nil {
-			return ctrl.Result{}, err
+	// patch objects
+	patch, err := patcher.NewSyncerPatcher(ctx, pVS, vVS)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		if err := patch.Patch(ctx, pVS, vVS); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 
-		return ctrl.Result{}, nil
-	}
+		if retErr != nil {
+			s.EventRecorder().Eventf(vVS, "Warning", "SyncError", "Error syncing: %v", retErr)
+		}
+	}()
+
+	// check backwards update
+	vVS.Finalizers = pVS.Finalizers
 
 	// check backwards status
-	if !equality.Semantic.DeepEqual(vVS.Status, pVS.Status) {
-		updated := vVS.DeepCopy()
-		updated.Status = pVS.Status.DeepCopy()
-		ctx.Log.Infof("update virtual volume snapshot %s/%s, because the status has changed", vVS.Namespace, vVS.Name)
-		translator.PrintChanges(vObj, updated, ctx.Log)
-		err := ctx.VirtualClient.Status().Update(ctx, updated)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
-	}
+	vVS.Status = pVS.Status.DeepCopy()
 
 	// forward update
-	updated = s.translateUpdate(ctx, pVS, vVS)
-	if updated != nil {
-		translator.PrintChanges(pVS, updated, ctx.Log)
-	}
+	pVS.Spec.VolumeSnapshotClassName = vVS.Spec.VolumeSnapshotClassName
 
-	return s.SyncToHostUpdate(ctx, vVS, updated)
+	// check if metadata changed
+	_, pVS.Annotations, pVS.Labels = s.TranslateMetadataUpdate(ctx, vVS, pVS)
+
+	return ctrl.Result{}, nil
 }

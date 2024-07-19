@@ -20,7 +20,8 @@ func TestSync(t *testing.T) {
 	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
 
 	vObjectMeta := metav1.ObjectMeta{
-		Name: "testsc",
+		Name:            "testsc",
+		ResourceVersion: generictesting.FakeClientResourceVersion,
 	}
 	vObject := &storagev1.StorageClass{
 		ObjectMeta:  vObjectMeta,
@@ -28,7 +29,8 @@ func TestSync(t *testing.T) {
 	}
 	pObject := &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
+			Name:            translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
+			ResourceVersion: generictesting.FakeClientResourceVersion,
 			Labels: map[string]string{
 				translate.MarkerLabel: translate.VClusterName,
 			},
@@ -80,23 +82,23 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*storageClassSyncer).SyncToHost(syncCtx, vObject)
+				_, err := syncer.(*storageClassSyncer).SyncToHost(syncCtx, vObject.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
 		{
 			Name:                 "Sync",
-			InitialVirtualState:  []runtime.Object{vObjectUpdated},
-			InitialPhysicalState: []runtime.Object{pObject},
+			InitialVirtualState:  []runtime.Object{vObjectUpdated.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pObject.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				storagev1.SchemeGroupVersion.WithKind("StorageClass"): {vObjectUpdated},
+				storagev1.SchemeGroupVersion.WithKind("StorageClass"): {vObjectUpdated.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				storagev1.SchemeGroupVersion.WithKind("StorageClass"): {pObjectUpdated},
+				storagev1.SchemeGroupVersion.WithKind("StorageClass"): {pObjectUpdated.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*storageClassSyncer).Sync(syncCtx, pObject, vObjectUpdated)
+				_, err := syncer.(*storageClassSyncer).Sync(syncCtx, pObject.DeepCopy(), vObjectUpdated.DeepCopy())
 				assert.NilError(t, err)
 			},
 		},
