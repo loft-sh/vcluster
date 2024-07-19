@@ -71,11 +71,11 @@ func TestNodeDeletion(t *testing.T) {
 	})
 }
 
-func TestSync(t *testing.T) {
-	baseName := types.NamespacedName{
+var (
+	baseName types.NamespacedName = types.NamespacedName{
 		Name: "mynode",
 	}
-	basePod := &corev1.Pod{
+	basePod corev1.Pod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "mypod",
 		},
@@ -83,7 +83,8 @@ func TestSync(t *testing.T) {
 			NodeName: baseName.Name,
 		},
 	}
-	baseNode := &corev1.Node{
+
+	baseNode corev1.Node = corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 		},
@@ -95,7 +96,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
-	baseVNode := &corev1.Node{
+	baseVNode corev1.Node = corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 		},
@@ -113,6 +114,9 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
+)
+
+func TestSync(t *testing.T) {
 	editedNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
@@ -218,8 +222,10 @@ func TestSync(t *testing.T) {
 			},
 		},
 	})
+}
 
-	baseNode = &corev1.Node{
+func TestTaints(t *testing.T) {
+	baseNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Annotations: map[string]string{
@@ -253,7 +259,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	editedNode = &corev1.Node{
+	editedNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Annotations: map[string]string{
@@ -331,11 +337,13 @@ func TestSync(t *testing.T) {
 			},
 		},
 	})
+}
 
+func TestLabelSelector(t *testing.T) {
 	baseName = types.NamespacedName{
 		Name: "mynode",
 	}
-	basePod = &corev1.Pod{
+	basePod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "mypod",
 		},
@@ -343,7 +351,7 @@ func TestSync(t *testing.T) {
 			NodeName: baseName.Name,
 		},
 	}
-	baseNode = &corev1.Node{
+	baseNode = corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Labels: map[string]string{
@@ -361,7 +369,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
-	baseVNode = &corev1.Node{
+	baseVNode = corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 		},
@@ -382,7 +390,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
-	editedNode = &corev1.Node{
+	editedNode := corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Annotations: map[string]string{
@@ -477,12 +485,10 @@ func TestSync(t *testing.T) {
 			},
 		},
 	})
+}
 
-	baseName = types.NamespacedName{
-		Name: "mynode",
-	}
-
-	baseNode = &corev1.Node{
+func TestClearNode(t *testing.T) {
+	baseNode = corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Labels: map[string]string{
@@ -505,7 +511,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
-	baseVNode = &corev1.Node{
+	baseVNode = corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 		},
@@ -526,7 +532,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
-	editedNode = &corev1.Node{
+	editedNode := corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Annotations: map[string]string{
@@ -573,8 +579,10 @@ func TestSync(t *testing.T) {
 			},
 		},
 	})
+}
 
-	editedNode = &corev1.Node{
+func TestClearNodeImageDisabled(t *testing.T) {
+	editedNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Annotations: map[string]string{

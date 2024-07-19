@@ -2,7 +2,6 @@ package nodes
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -293,15 +292,16 @@ func TestTranslateBackwards(t *testing.T) {
 	// test cases
 	s := &nodeSyncer{}
 	for _, testCase := range testCases {
-		fmt.Println(testCase.name)
-		result := testCase.vNode.DeepCopy()
-		s.translateUpdateBackwards(testCase.pNode, result)
-		if result == nil {
-			result = testCase.vNode
-		}
-		assert.DeepEqual(t, result.Annotations, testCase.expectedAnnotations)
-		assert.DeepEqual(t, result.Labels, testCase.expectedLabels)
-		assert.DeepEqual(t, result.Spec.Taints, testCase.expectedTaints)
+		t.Run(testCase.name, func(t *testing.T) {
+			result := testCase.vNode.DeepCopy()
+			s.translateUpdateBackwards(testCase.pNode, result)
+			if result == nil {
+				result = testCase.vNode
+			}
+			assert.DeepEqual(t, result.Annotations, testCase.expectedAnnotations)
+			assert.DeepEqual(t, result.Labels, testCase.expectedLabels)
+			assert.DeepEqual(t, result.Spec.Taints, testCase.expectedTaints)
+		})
 	}
 }
 
