@@ -55,8 +55,18 @@ func RunTestsWithContext(t *testing.T, createContext NewContextFunc, tests []*Sy
 
 func (s *SyncTest) Run(t *testing.T, test *SyncTest, createContext NewContextFunc) {
 	ctx := context.Background()
-	pClient := testingutil.NewFakeClient(scheme.Scheme, s.InitialPhysicalState...)
-	vClient := testingutil.NewFakeClient(scheme.Scheme, s.InitialVirtualState...)
+
+	physicalState := []runtime.Object{}
+	for _, o := range s.InitialPhysicalState {
+		physicalState = append(physicalState, o.DeepCopyObject())
+	}
+	virtualState := []runtime.Object{}
+	for _, o := range s.InitialVirtualState {
+		virtualState = append(virtualState, o.DeepCopyObject())
+	}
+
+	pClient := testingutil.NewFakeClient(scheme.Scheme, physicalState...)
+	vClient := testingutil.NewFakeClient(scheme.Scheme, virtualState...)
 	vConfig := NewFakeConfig()
 	if test.AdjustConfig != nil {
 		test.AdjustConfig(vConfig)
@@ -66,20 +76,16 @@ func (s *SyncTest) Run(t *testing.T, test *SyncTest, createContext NewContextFun
 	s.Sync(createContext(vConfig, pClient, vClient))
 
 	// Compare states
-	if s.ExpectedPhysicalState != nil {
-		for gvk, objs := range s.ExpectedPhysicalState {
-			err := CompareObjs(ctx, t, s.Name+" physical state", pClient, gvk, scheme.Scheme, objs, s.Compare)
-			if err != nil {
-				t.Fatalf("%s - Physical State mismatch: %v", s.Name, err)
-			}
+	for gvk, objs := range s.ExpectedPhysicalState {
+		err := CompareObjs(ctx, t, s.Name+" physical state", pClient, gvk, scheme.Scheme, objs, s.Compare)
+		if err != nil {
+			t.Fatalf("%s - Physical State mismatch: %v", s.Name, err)
 		}
 	}
-	if s.ExpectedVirtualState != nil {
-		for gvk, objs := range s.ExpectedVirtualState {
-			err := CompareObjs(ctx, t, s.Name+" virtual state", vClient, gvk, scheme.Scheme, objs, s.Compare)
-			if err != nil {
-				t.Fatalf("%s - Virtual State mismatch: %v", s.Name, err)
-			}
+	for gvk, objs := range s.ExpectedVirtualState {
+		err := CompareObjs(ctx, t, s.Name+" virtual state", vClient, gvk, scheme.Scheme, objs, s.Compare)
+		if err != nil {
+			t.Fatalf("%s - Virtual State mismatch: %v", s.Name, err)
 		}
 	}
 }

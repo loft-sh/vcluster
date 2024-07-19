@@ -39,8 +39,7 @@ func AddEphemeralContainer(ctx *synccontext.SyncContext, physicalClusterClient k
 		}
 		ctx.Log.Debugf("generated strategic merge patch for debug container: %s", patch)
 
-		pods := physicalClusterClient.CoreV1().Pods(physicalPod.Namespace)
-		_, err = pods.Patch(ctx, physicalPod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}, "ephemeralcontainers")
+		_, err = physicalClusterClient.CoreV1().Pods(physicalPod.Namespace).Patch(ctx, physicalPod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}, "ephemeralcontainers")
 		if err != nil {
 			// The apiserver will return a 404 when the EphemeralContainers feature is disabled because the `/ephemeralcontainers` subresource
 			// is missing. Unlike the 404 returned by a missing physicalPod, the status details will be empty.

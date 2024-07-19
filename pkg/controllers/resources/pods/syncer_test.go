@@ -533,10 +533,10 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                 "Check injected sidecars",
-			InitialVirtualState:  []runtime.Object{vNotInjectedPod, vInjectedPodNamespace},
+			InitialVirtualState:  []runtime.Object{vNotInjectedPod.DeepCopy(), vInjectedPodNamespace.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pInjectedPod.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {vNotInjectedPod},
+				corev1.SchemeGroupVersion.WithKind("Pod"): {vNotInjectedPod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
