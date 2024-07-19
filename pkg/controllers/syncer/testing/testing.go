@@ -41,22 +41,10 @@ type SyncTest struct {
 
 func RunTests(t *testing.T, tests []*SyncTest) {
 	// run focus first
-	hasFocus := false
 	for _, test := range tests {
-		if test.Focus {
+		t.Run(test.Name, func(t *testing.T) {
 			test.Run(t, test, NewFakeRegisterContext)
-			hasFocus = true
-		}
-	}
-
-	if !hasFocus {
-		for _, test := range tests {
-			test.Run(t, test, NewFakeRegisterContext)
-		}
-	} else {
-		// Fail test set so that we do not accidentally use focused tests in
-		// the pipeline
-		t.Error("Focused test")
+		})
 	}
 }
 
