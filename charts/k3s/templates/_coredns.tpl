@@ -10,6 +10,9 @@ Corefile: |-
       errors
       health
       ready
+      {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
+      vcluster {{ toYaml .Values.coredns.plugin.config | b64enc }}
+      {{- end }}
       rewrite name regex .*\.nodes\.vcluster\.com kubernetes.default.svc.cluster.local
       kubernetes cluster.local in-addr.arpa ip6.arpa {
           {{- if .Values.pro }}
@@ -18,15 +21,12 @@ Corefile: |-
           {{- end }}
           {{- end }}
           pods insecure
-          {{- if or (.Values.fallbackHostDns) (and .Values.coredns.integrated .Values.coredns.plugin.enabled) }}
+          {{- if .Values.fallbackHostDns }}
           fallthrough cluster.local in-addr.arpa ip6.arpa
           {{- else }}
           fallthrough in-addr.arpa ip6.arpa
           {{- end }}
       }
-      {{- if and .Values.coredns.integrated .Values.coredns.plugin.enabled }}
-      vcluster {{ toYaml .Values.coredns.plugin.config | b64enc }}
-      {{- end }}
       hosts /etc/NodeHosts {
           ttl 60
           reload 15s
