@@ -63,7 +63,7 @@ func (cmd *ListCmd) Run(cobraCmd *cobra.Command) error {
 		return fmt.Errorf("parse driver type: %w", err)
 	}
 	if driverType == config.PlatformDriver {
-		return cli.ListPlatform(cobraCmd.Context(), &cmd.ListOptions, cmd.GlobalFlags, cmd.log)
+		return cli.ListPlatform(cobraCmd.Context(), &cmd.ListOptions, cmd.GlobalFlags, cmd.log, "")
 	}
 
 	return cli.ListHelm(cobraCmd.Context(), &cmd.ListOptions, cmd.GlobalFlags, cmd.log)
