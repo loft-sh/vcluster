@@ -1,12 +1,16 @@
 package storageclasses
 
 import (
+	"fmt"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	storagev1 "k8s.io/api/storage/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,17 +45,19 @@ func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj clien
 	return ctrl.Result{}, nil
 }
 
-func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	// did the storage class change?
-	updated := s.translateUpdate(ctx, pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
-	if updated != nil {
-		ctx.Log.Infof("updating physical storage class %s, because virtual storage class has changed", updated.Name)
-		translator.PrintChanges(pObj, updated, ctx.Log)
-		err := ctx.PhysicalClient.Update(ctx, updated)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
+
+	defer func() {
+		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
+	s.translateUpdate(ctx, pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
 
 	return ctrl.Result{}, nil
 }
