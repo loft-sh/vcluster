@@ -4,10 +4,8 @@ import (
 	"context"
 
 	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 func (s *networkPolicySyncer) translate(ctx context.Context, vNetworkPolicy *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
@@ -19,23 +17,15 @@ func (s *networkPolicySyncer) translate(ctx context.Context, vNetworkPolicy *net
 }
 
 func (s *networkPolicySyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
-	var updated *networkingv1.NetworkPolicy
-
 	if translatedSpec := translateSpec(&vObj.Spec, vObj.GetNamespace()); translatedSpec != nil {
-		if !equality.Semantic.DeepEqual(translatedSpec, pObj.Spec) {
-			updated = translator.NewIfNil(updated, pObj)
-			updated.Spec = *translatedSpec
-		}
+		pObj.Spec = *translatedSpec
 	}
 
-	changed, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
-	if changed {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Labels = translatedLabels
-		updated.Annotations = translatedAnnotations
-	}
+	_, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
+	pObj.Labels = translatedLabels
+	pObj.Annotations = translatedAnnotations
 
-	return updated
+	return pObj
 }
 
 func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *networkingv1.NetworkPolicySpec {
