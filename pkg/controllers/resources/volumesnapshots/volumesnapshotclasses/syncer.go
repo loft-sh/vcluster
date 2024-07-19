@@ -1,10 +1,14 @@
 package volumesnapshotclasses
 
 import (
+	"fmt"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/util"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
@@ -51,16 +55,19 @@ func (s *volumeSnapshotClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vOb
 	return ctrl.Result{}, nil
 }
 
-func (s *volumeSnapshotClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	updated := s.translateUpdateBackwards(ctx, pObj.(*volumesnapshotv1.VolumeSnapshotClass), vObj.(*volumesnapshotv1.VolumeSnapshotClass))
-	if updated != nil {
-		ctx.Log.Infof("updating virtual VolumeSnapshotClass %s, because it differs from the physical one", updated.Name)
-		translator.PrintChanges(vObj, updated, ctx.Log)
-		err := ctx.VirtualClient.Update(ctx, updated)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+func (s *volumeSnapshotClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
+
+	defer func() {
+		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
+	s.translateUpdateBackwards(ctx, pObj.(*volumesnapshotv1.VolumeSnapshotClass), vObj.(*volumesnapshotv1.VolumeSnapshotClass))
 
 	return ctrl.Result{}, nil
 }
