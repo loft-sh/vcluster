@@ -125,6 +125,7 @@ func TestSync(t *testing.T) {
 			Namespace: vObjectMeta.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
+			ExternalName:   "backwardExternal",
 			ExternalIPs:    []string{"123:221:123:221"},
 			LoadBalancerIP: "123:213:123:213",
 		},
@@ -244,6 +245,7 @@ func TestSync(t *testing.T) {
 				{
 					Name:       "test",
 					Port:       123,
+					NodePort:   567,
 					TargetPort: intstr.FromInt(10),
 				},
 			},
@@ -332,6 +334,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx.EventSource = synccontext.EventSourceHost
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServicePorts1.DeepCopy(), vServicePorts1.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -398,6 +401,7 @@ func TestSync(t *testing.T) {
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				baseService := baseService.DeepCopy()
 				updateBackwardSpecService := updateBackwardSpecService.DeepCopy()
+				syncCtx.EventSource = synccontext.EventSourceHost
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecService, baseService)
 				assert.NilError(t, err)
 
@@ -435,6 +439,7 @@ func TestSync(t *testing.T) {
 				err = ctx.PhysicalManager.GetClient().Get(ctx, types.NamespacedName{Namespace: updateBackwardSpecRecreateService.Namespace, Name: updateBackwardSpecRecreateService.Name}, updateBackwardSpecRecreateService)
 				assert.NilError(t, err)
 
+				syncCtx.EventSource = synccontext.EventSourceHost
 				baseService.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName
 				_, err = syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecRecreateService.DeepCopy(), baseService.DeepCopy())
 				assert.NilError(t, err)
