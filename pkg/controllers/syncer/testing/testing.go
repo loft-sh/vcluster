@@ -56,17 +56,15 @@ func RunTestsWithContext(t *testing.T, createContext NewContextFunc, tests []*Sy
 func (s *SyncTest) Run(t *testing.T, test *SyncTest, createContext NewContextFunc) {
 	ctx := context.Background()
 
-	physicalState := []runtime.Object{}
-	for _, o := range s.InitialPhysicalState {
-		physicalState = append(physicalState, o.DeepCopyObject())
+	for i := range s.InitialPhysicalState {
+		s.InitialPhysicalState[i] = s.InitialPhysicalState[i].DeepCopyObject()
 	}
-	virtualState := []runtime.Object{}
-	for _, o := range s.InitialVirtualState {
-		virtualState = append(virtualState, o.DeepCopyObject())
+	for i := range s.InitialVirtualState {
+		s.InitialVirtualState[i] = s.InitialVirtualState[i].DeepCopyObject()
 	}
 
-	pClient := testingutil.NewFakeClient(scheme.Scheme, physicalState...)
-	vClient := testingutil.NewFakeClient(scheme.Scheme, virtualState...)
+	pClient := testingutil.NewFakeClient(scheme.Scheme, s.InitialPhysicalState...)
+	vClient := testingutil.NewFakeClient(scheme.Scheme, s.InitialVirtualState...)
 	vConfig := NewFakeConfig()
 	if test.AdjustConfig != nil {
 		test.AdjustConfig(vConfig)

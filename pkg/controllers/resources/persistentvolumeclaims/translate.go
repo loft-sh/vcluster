@@ -10,7 +10,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -100,17 +99,10 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 
 func (s *persistentVolumeClaimSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.PersistentVolumeClaim) {
 	// allow storage size to be increased
-	if pObj.Spec.Resources.Requests["storage"] != vObj.Spec.Resources.Requests["storage"] {
-		if pObj.Spec.Resources.Requests == nil {
-			pObj.Spec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
-		}
-		pObj.Spec.Resources.Requests["storage"] = vObj.Spec.Resources.Requests["storage"]
-	}
+	pObj.Spec.Resources.Requests = vObj.Spec.Resources.Requests
 
 	// change annotations / labels
-	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
-	pObj.Annotations = updatedAnnotations
-	pObj.Labels = updatedLabels
+	_, pObj.Annotations, pObj.Labels = s.TranslateMetadataUpdate(ctx, vObj, pObj)
 }
 
 func (s *persistentVolumeClaimSyncer) translateUpdateBackwards(pObj, vObj *corev1.PersistentVolumeClaim) {

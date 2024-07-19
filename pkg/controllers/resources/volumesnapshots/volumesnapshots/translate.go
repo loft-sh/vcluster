@@ -1,15 +1,12 @@
 package volumesnapshots
 
 import (
-	"context"
 	"fmt"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -36,35 +33,4 @@ func (s *volumeSnapshotSyncer) translate(ctx *synccontext.SyncContext, vVS *volu
 
 	pVS.Spec.VolumeSnapshotClassName = vVS.Spec.VolumeSnapshotClassName
 	return pVS, nil
-}
-
-func (s *volumeSnapshotSyncer) translateUpdate(ctx context.Context, pVS, vVS *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshot {
-	var updated *volumesnapshotv1.VolumeSnapshot
-
-	// snapshot class can be updated
-	if !equality.Semantic.DeepEqual(pVS.Spec.VolumeSnapshotClassName, vVS.Spec.VolumeSnapshotClassName) {
-		updated = translator.NewIfNil(updated, pVS)
-		updated.Spec.VolumeSnapshotClassName = vVS.Spec.VolumeSnapshotClassName
-	}
-
-	// check if metadata changed
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vVS, pVS)
-	if changed {
-		updated = translator.NewIfNil(updated, pVS)
-		updated.Annotations = updatedAnnotations
-		updated.Labels = updatedLabels
-	}
-
-	return updated
-}
-
-func (s *volumeSnapshotSyncer) translateUpdateBackwards(pObj, vObj *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshot {
-	var updated *volumesnapshotv1.VolumeSnapshot
-
-	// sync back the finalizers
-	if !equality.Semantic.DeepEqual(vObj.Finalizers, pObj.Finalizers) {
-		updated = translator.NewIfNil(updated, vObj)
-		updated.Finalizers = pObj.Finalizers
-	}
-	return updated
 }
