@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,27 +24,32 @@ import (
 
 var ServiceBlockDeletion = "vcluster.loft.sh/block-deletion"
 
-func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.Services())
+	if err != nil {
+		return nil, err
+	}
+
 	return &serviceSyncer{
 		// exclude "field.cattle.io/publicEndpoints" annotation used by Rancher,
 		// because if it is also installed in the host cluster, it will be
 		// overriding it, which would cause endless updates back and forth.
-		GenericTranslator: translator.NewGenericTranslator(ctx, "service", &corev1.Service{}, mappings.Services(), "field.cattle.io/publicEndpoints"),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "service", &corev1.Service{}, mapper, "field.cattle.io/publicEndpoints"),
 
 		serviceName: ctx.Config.WorkloadService,
 	}, nil
 }
 
 type serviceSyncer struct {
-	syncertypes.GenericTranslator
+	types.GenericTranslator
 
 	serviceName string
 }
 
-var _ syncertypes.OptionsProvider = &serviceSyncer{}
+var _ types.OptionsProvider = &serviceSyncer{}
 
-func (s *serviceSyncer) Options() *syncertypes.Options {
-	return &syncertypes.Options{
+func (s *serviceSyncer) Options() *types.Options {
+	return &types.Options{
 		DisableUIDDeletion: true,
 	}
 }
@@ -135,7 +140,7 @@ func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Serv
 	return vService.Spec.Type == corev1.ServiceTypeExternalName && pService.Spec.Type != vService.Spec.Type && pService.Spec.ClusterIP != ""
 }
 
-var _ syncertypes.ToVirtualSyncer = &serviceSyncer{}
+var _ types.ToVirtualSyncer = &serviceSyncer{}
 
 func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	isManaged, err := s.IsManaged(ctx, pObj)
@@ -180,7 +185,7 @@ func recreateService(ctx context.Context, virtualClient client.Client, vService 
 	return nil
 }
 
-var _ syncertypes.Starter = &serviceSyncer{}
+var _ types.Starter = &serviceSyncer{}
 
 func (s *serviceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	// don't do anything for the kubernetes service

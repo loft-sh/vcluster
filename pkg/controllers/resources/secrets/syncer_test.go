@@ -1,11 +1,13 @@
 package secrets
 
 import (
-	"context"
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	generictesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -13,8 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 )
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, syncer.Object) {
@@ -175,7 +175,10 @@ func TestMapping(t *testing.T) {
 	}
 
 	// test ingress mapping
-	requests := mapIngresses(context.Background(), ingress)
+	pClient := testingutil.NewFakeClient(scheme.Scheme)
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+	registerCtx := generictesting.NewFakeRegisterContext(generictesting.NewFakeConfig(), pClient, vClient)
+	requests := mapIngresses(registerCtx.ToSyncContext("ingresses"), ingress)
 	if len(requests) != 2 || requests[0].Name != "a" || requests[0].Namespace != "test" || requests[1].Name != "b" || requests[1].Namespace != "test" {
 		t.Fatalf("Wrong secret requests returned: %#+v", requests)
 	}
@@ -216,7 +219,7 @@ func TestMapping(t *testing.T) {
 			},
 		},
 	}
-	requests = mapPods(context.Background(), pod)
+	requests = mapPods(registerCtx.ToSyncContext("pods"), pod)
 	if len(requests) != 2 || requests[0].Name != "a" || requests[0].Namespace != "test" || requests[1].Name != "b" || requests[1].Namespace != "test" {
 		t.Fatalf("Wrong pod requests returned: %#+v", requests)
 	}

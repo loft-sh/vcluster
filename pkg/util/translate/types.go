@@ -1,8 +1,7 @@
 package translate
 
 import (
-	"context"
-
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,7 +21,7 @@ type Translator interface {
 	SingleNamespaceTarget() bool
 
 	// IsManaged checks if the host object is managed by vCluster
-	IsManaged(ctx context.Context, pObj client.Object) bool
+	IsManaged(ctx *synccontext.SyncContext, pObj client.Object) bool
 
 	// IsTargetedNamespace checks if the provided namespace is a sync target for vcluster
 	IsTargetedNamespace(ns string) bool

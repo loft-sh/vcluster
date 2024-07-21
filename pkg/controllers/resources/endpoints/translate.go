@@ -1,15 +1,14 @@
 package endpoints
 
 import (
-	"context"
-
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *endpointsSyncer) translate(ctx context.Context, vObj client.Object) *corev1.Endpoints {
+func (s *endpointsSyncer) translate(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Endpoints {
 	endpoints := s.TranslateMetadata(ctx, vObj).(*corev1.Endpoints)
 	s.translateSpec(ctx, endpoints)
 
@@ -22,7 +21,7 @@ func (s *endpointsSyncer) translate(ctx context.Context, vObj client.Object) *co
 	return endpoints
 }
 
-func (s *endpointsSyncer) translateSpec(ctx context.Context, endpoints *corev1.Endpoints) {
+func (s *endpointsSyncer) translateSpec(ctx *synccontext.SyncContext, endpoints *corev1.Endpoints) {
 	// translate the addresses
 	for i, subset := range endpoints.Subsets {
 		for j, addr := range subset.Addresses {
@@ -50,7 +49,7 @@ func (s *endpointsSyncer) translateSpec(ctx context.Context, endpoints *corev1.E
 	}
 }
 
-func (s *endpointsSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Endpoints) error {
+func (s *endpointsSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *corev1.Endpoints) error {
 	// check subsets
 	translated := vObj.DeepCopy()
 	s.translateSpec(ctx, translated)

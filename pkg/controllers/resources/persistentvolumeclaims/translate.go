@@ -1,11 +1,9 @@
 package persistentvolumeclaims
 
 import (
-	"context"
-
 	"github.com/loft-sh/vcluster/pkg/constants"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -97,7 +95,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 	return vPvc, nil
 }
 
-func (s *persistentVolumeClaimSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.PersistentVolumeClaim) {
+func (s *persistentVolumeClaimSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *corev1.PersistentVolumeClaim) {
 	// allow storage size to be increased
 	pObj.Spec.Resources.Requests = vObj.Spec.Resources.Requests
 

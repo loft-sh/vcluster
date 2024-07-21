@@ -3,28 +3,33 @@ package storageclasses
 import (
 	"fmt"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/types"
 	storagev1 "k8s.io/api/storage/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewHostStorageClassSyncer(_ *synccontext.RegisterContext) (syncer.Object, error) {
+func NewHostStorageClassSyncer(ctx *synccontext.RegisterContext) (types.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.StorageClasses())
+	if err != nil {
+		return nil, err
+	}
+
 	return &hostStorageClassSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("host-storageclass", &storagev1.StorageClass{}, mappings.StorageClasses()),
+		Translator: translator.NewMirrorPhysicalTranslator("host-storageclass", &storagev1.StorageClass{}, mapper),
 	}, nil
 }
 
 type hostStorageClassSyncer struct {
-	syncer.Translator
+	types.Translator
 }
 
-var _ syncer.ToVirtualSyncer = &hostStorageClassSyncer{}
+var _ types.ToVirtualSyncer = &hostStorageClassSyncer{}
 
 func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	vObj := s.translateBackwards(ctx, pObj.(*storagev1.StorageClass))
@@ -32,7 +37,7 @@ func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pOb
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
-var _ syncer.Syncer = &hostStorageClassSyncer{}
+var _ types.Syncer = &hostStorageClassSyncer{}
 
 func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)

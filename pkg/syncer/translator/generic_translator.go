@@ -1,13 +1,11 @@
 package translator
 
 import (
-	context2 "context"
 	"reflect"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
-	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewGenericTranslator(ctx *context.RegisterContext, name string, obj client.Object, mapper mappings.Mapper, excludedAnnotations ...string) syncertypes.GenericTranslator {
+func NewGenericTranslator(ctx *synccontext.RegisterContext, name string, obj client.Object, mapper synccontext.Mapper, excludedAnnotations ...string) syncertypes.GenericTranslator {
 	return &genericTranslator{
 		Mapper: mapper,
 
@@ -34,7 +32,7 @@ func NewGenericTranslator(ctx *context.RegisterContext, name string, obj client.
 }
 
 type genericTranslator struct {
-	mappings.Mapper
+	synccontext.Mapper
 
 	name string
 
@@ -59,7 +57,7 @@ func (n *genericTranslator) Resource() client.Object {
 	return n.obj.DeepCopyObject().(client.Object)
 }
 
-func (n *genericTranslator) SyncToHostCreate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
+func (n *genericTranslator) SyncToHostCreate(ctx *synccontext.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
 	ctx.Log.Infof("create physical %s %s/%s", n.name, pObj.GetNamespace(), pObj.GetName())
 	err := ctx.PhysicalClient.Create(ctx, pObj)
 	if err != nil {
@@ -75,7 +73,7 @@ func (n *genericTranslator) SyncToHostCreate(ctx *context.SyncContext, vObj, pOb
 	return ctrl.Result{}, nil
 }
 
-func (n *genericTranslator) SyncToHostUpdate(ctx *context.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
+func (n *genericTranslator) SyncToHostUpdate(ctx *synccontext.SyncContext, vObj, pObj client.Object) (ctrl.Result, error) {
 	// this is needed because of interface nil check
 	if !(pObj == nil || (reflect.ValueOf(pObj).Kind() == reflect.Ptr && reflect.ValueOf(pObj).IsNil())) {
 		ctx.Log.Infof("updating physical %s/%s, because virtual %s have changed", pObj.GetNamespace(), pObj.GetName(), n.name)
@@ -92,7 +90,7 @@ func (n *genericTranslator) SyncToHostUpdate(ctx *context.SyncContext, vObj, pOb
 	return ctrl.Result{}, nil
 }
 
-func (n *genericTranslator) TranslateMetadata(ctx context2.Context, vObj client.Object) client.Object {
+func (n *genericTranslator) TranslateMetadata(ctx *synccontext.SyncContext, vObj client.Object) client.Object {
 	pObj, err := translate.Default.SetupMetadataWithName(vObj, n.Mapper.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 	if err != nil {
 		return nil
@@ -108,7 +106,7 @@ func (n *genericTranslator) TranslateMetadata(ctx context2.Context, vObj client.
 	return pObj
 }
 
-func (n *genericTranslator) TranslateMetadataUpdate(_ context2.Context, vObj client.Object, pObj client.Object) (bool, map[string]string, map[string]string) {
+func (n *genericTranslator) TranslateMetadataUpdate(_ *synccontext.SyncContext, vObj client.Object, pObj client.Object) (bool, map[string]string, map[string]string) {
 	if vObj.GetNamespace() == "" {
 		updatedAnnotations := translate.Default.ApplyAnnotations(vObj, pObj, n.excludedAnnotations)
 		updatedLabels := translate.Default.TranslateLabelsCluster(vObj, pObj, n.syncedLabels)

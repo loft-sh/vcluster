@@ -3,29 +3,34 @@ package networkpolicies
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/types"
 	networkingv1 "k8s.io/api/networking/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.NetworkPolicies())
+	if err != nil {
+		return nil, err
+	}
+
 	return &networkPolicySyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "networkpolicy", &networkingv1.NetworkPolicy{}, mappings.NetworkPolicies()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "networkpolicy", &networkingv1.NetworkPolicy{}, mapper),
 	}, nil
 }
 
 type networkPolicySyncer struct {
-	syncertypes.GenericTranslator
+	types.GenericTranslator
 }
 
-var _ syncertypes.Syncer = &networkPolicySyncer{}
+var _ types.Syncer = &networkPolicySyncer{}
 
 func (s *networkPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	if ctx.IsDelete {

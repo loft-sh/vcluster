@@ -14,12 +14,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/impersonationauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/kubeletauthorizer"
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/server/cert"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	servertypes "github.com/loft-sh/vcluster/pkg/server/types"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
 	"github.com/pkg/errors"
@@ -67,7 +67,8 @@ type Server struct {
 
 // NewServer creates and installs a new Server.
 // 'filter', if non-nil, protects requests to the api only.
-func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
+func NewServer(ctx *synccontext.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
+	registerCtx := ctx.ToRegisterContext()
 	localConfig := ctx.LocalManager.GetConfig()
 	virtualConfig := ctx.VirtualManager.GetConfig()
 	uncachedLocalClient, err := client.New(localConfig, client.Options{
@@ -149,15 +150,15 @@ func NewServer(ctx *config.ControllerContext, requestHeaderCaFile, clientCaFile 
 		h = f(h, ctx)
 	}
 
-	h = filters.WithServiceCreateRedirect(h, uncachedLocalClient, uncachedVirtualClient, virtualConfig, ctx.Config.Experimental.SyncSettings.SyncLabels)
-	h = filters.WithRedirect(h, localConfig, uncachedLocalClient.Scheme(), uncachedVirtualClient, admissionHandler, s.redirectResources)
-	h = filters.WithMetricsProxy(h, localConfig, ctx.VirtualManager.GetClient())
+	h = filters.WithServiceCreateRedirect(h, registerCtx, uncachedLocalClient, uncachedVirtualClient, ctx.Config.Experimental.SyncSettings.SyncLabels)
+	h = filters.WithRedirect(h, registerCtx, uncachedVirtualClient, admissionHandler, s.redirectResources)
+	h = filters.WithMetricsProxy(h, registerCtx)
 
 	// inject apis
 	if ctx.Config.Sync.FromHost.Nodes.Enabled && ctx.Config.Sync.FromHost.Nodes.SyncBackChanges {
 		h = filters.WithNodeChanges(ctx, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 	}
-	h = filters.WithFakeKubelet(h, localConfig, ctx.VirtualManager.GetClient())
+	h = filters.WithFakeKubelet(h, ctx.ToRegisterContext())
 	h = filters.WithK3sConnect(h)
 
 	if os.Getenv("DEBUG") == "true" {

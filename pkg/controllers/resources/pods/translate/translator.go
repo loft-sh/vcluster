@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -52,10 +52,10 @@ var (
 )
 
 type Translator interface {
-	Translate(ctx context.Context, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
+	Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
 	Diff(ctx context.Context, vPod, pPod *corev1.Pod) error
 
-	TranslateContainerEnv(ctx context.Context, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error)
+	TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error)
 }
 
 func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventRecorder) (Translator, error) {
@@ -148,7 +148,7 @@ type translator struct {
 	virtualKubeletPodPath string
 }
 
-func (t *translator) Translate(ctx context.Context, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
+func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
 	// get Namespace resource in order to have access to its labels
 	vNamespace := &corev1.Namespace{}
 	err := t.vClient.Get(ctx, client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
@@ -383,7 +383,7 @@ func LabelsAnnotation(obj client.Object) string {
 	return strings.Join(labelsString, "\n")
 }
 
-func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPod *corev1.Pod) error {
+func (t *translator) translateVolumes(ctx *synccontext.SyncContext, pPod *corev1.Pod, vPod *corev1.Pod) error {
 	tokenSecrets := map[string]string{}
 
 	for i := range pPod.Spec.Volumes {
@@ -467,7 +467,7 @@ func (t *translator) translateVolumes(ctx context.Context, pPod *corev1.Pod, vPo
 }
 
 func (t *translator) translateProjectedVolume(
-	ctx context.Context,
+	ctx *synccontext.SyncContext,
 	projectedVolume *corev1.ProjectedVolumeSource,
 	volumeName string,
 	pPod *corev1.Pod,
@@ -608,7 +608,7 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
 	}
 }
 
-func (t *translator) TranslateContainerEnv(ctx context.Context, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
+func (t *translator) TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 	envNameMap := make(map[string]struct{})
 	for j, env := range envVar {
 		translateDownwardAPI(&envVar[j])

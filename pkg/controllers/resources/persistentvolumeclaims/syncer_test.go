@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/types"
 
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	corev1 "k8s.io/api/core/v1"
@@ -132,11 +132,11 @@ func TestSync(t *testing.T) {
 		Status:     backwardUpdateStatusPvc.Status,
 	}
 
-	generictesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
-		ctx := generictesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		ctx := syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
 		ctx.Config.Sync.ToHost.StorageClasses.Enabled = false
 		return ctx
-	}, []*generictesting.SyncTest{
+	}, []*syncertesting.SyncTest{
 		{
 			Name:                "Create forward",
 			InitialVirtualState: []runtime.Object{basePvc},
@@ -147,7 +147,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {createdPvc},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*persistentVolumeClaimSyncer).SyncToHost(syncCtx, basePvc.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -163,7 +163,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {createdPvc},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*persistentVolumeClaimSyncer).SyncToHost(syncCtx, deletePvc.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -179,7 +179,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {updatedPvc},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, createdPvc.DeepCopy(), updatePvc.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -195,7 +195,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {createdPvc},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, createdPvc.DeepCopy(), basePvc.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -211,7 +211,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, createdPvc.DeepCopy(), deletePvc.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -227,7 +227,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {backwardUpdateAnnotationsPvc},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, backwardUpdateAnnotationsPvc.DeepCopy(), basePvc.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -243,7 +243,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {backwardUpdateStatusPvc.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				syncer.(*persistentVolumeClaimSyncer).useFakePersistentVolumes = true
 				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, backwardUpdateStatusPvc.DeepCopy(), basePvc.DeepCopy())
 				assert.NilError(t, err)
@@ -288,7 +288,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				syncer.(*persistentVolumeClaimSyncer).useFakePersistentVolumes = true
 
 				vPVC := &corev1.PersistentVolumeClaim{}

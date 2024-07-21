@@ -3,29 +3,34 @@ package volumesnapshotclasses
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.VolumeSnapshotClasses())
+	if err != nil {
+		return nil, err
+	}
+
 	return &volumeSnapshotClassSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("volumesnapshotclass", &volumesnapshotv1.VolumeSnapshotClass{}, mappings.VolumeSnapshotClasses()),
+		Translator: translator.NewMirrorPhysicalTranslator("volumesnapshotclass", &volumesnapshotv1.VolumeSnapshotClass{}, mapper),
 	}, nil
 }
 
 type volumeSnapshotClassSyncer struct {
-	syncer.Translator
+	types.Translator
 }
 
-var _ syncer.ToVirtualSyncer = &volumeSnapshotClassSyncer{}
+var _ types.ToVirtualSyncer = &volumeSnapshotClassSyncer{}
 
 func (s *volumeSnapshotClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	pVolumeSnapshotClass := pObj.(*volumesnapshotv1.VolumeSnapshotClass)
@@ -34,7 +39,7 @@ func (s *volumeSnapshotClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, 
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
-var _ syncer.Syncer = &volumeSnapshotClassSyncer{}
+var _ types.Syncer = &volumeSnapshotClassSyncer{}
 
 func (s *volumeSnapshotClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	// We are not doing any syncing Forward for the VolumeSnapshotClasses

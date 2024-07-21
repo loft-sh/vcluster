@@ -3,11 +3,11 @@ package namespaces
 import (
 	"fmt"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -28,7 +28,12 @@ const (
 	VClusterNamespaceAnnotation = "vcluster.loft.sh/vcluster-namespace"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.Namespaces())
+	if err != nil {
+		return nil, err
+	}
+
 	namespaceLabels := map[string]string{}
 	for k, v := range ctx.Config.Experimental.MultiNamespaceMode.NamespaceLabels {
 		namespaceLabels[k] = v
@@ -37,19 +42,19 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	namespaceLabels[VClusterNamespaceAnnotation] = ctx.CurrentNamespace
 
 	return &namespaceSyncer{
-		GenericTranslator:          translator.NewGenericTranslator(ctx, "namespace", &corev1.Namespace{}, mappings.Namespaces(), excludedAnnotations...),
+		GenericTranslator:          translator.NewGenericTranslator(ctx, "namespace", &corev1.Namespace{}, mapper, excludedAnnotations...),
 		workloadServiceAccountName: ctx.Config.ControlPlane.Advanced.WorkloadServiceAccount.Name,
 		namespaceLabels:            namespaceLabels,
 	}, nil
 }
 
 type namespaceSyncer struct {
-	syncertypes.GenericTranslator
+	types.GenericTranslator
 	workloadServiceAccountName string
 	namespaceLabels            map[string]string
 }
 
-var _ syncertypes.Syncer = &namespaceSyncer{}
+var _ types.Syncer = &namespaceSyncer{}
 
 func (s *namespaceSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	newNamespace := s.translate(ctx, vObj.(*corev1.Namespace))

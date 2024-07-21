@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

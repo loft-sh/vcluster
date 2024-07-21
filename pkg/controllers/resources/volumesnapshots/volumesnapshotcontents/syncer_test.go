@@ -6,13 +6,13 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	"k8s.io/utils/ptr"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +25,7 @@ const (
 )
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *volumeSnapshotContentSyncer) {
-	syncContext, object := generictesting.FakeStartSyncer(t, ctx, New)
+	syncContext, object := syncertesting.FakeStartSyncer(t, ctx, New)
 	return syncContext, object.(*volumeSnapshotContentSyncer)
 }
 
@@ -160,10 +160,10 @@ func TestSync(t *testing.T) {
 	vDeletingWithStatus := vDeletingWithOneFinalizer.DeepCopy()
 	vDeletingWithStatus.Status = pDeletingWithStatus.Status
 
-	generictesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 		vConfig.Sync.ToHost.VolumeSnapshots.Enabled = true
-		return generictesting.NewFakeRegisterContext(vConfig, pClient, vClient)
-	}, []*generictesting.SyncTest{
+		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*syncertesting.SyncTest{
 		{
 			Name:                 "Create dynamic VolumeSnapshotContent from host",
 			InitialVirtualState:  []runtime.Object{vVolumeSnapshot.DeepCopy()},

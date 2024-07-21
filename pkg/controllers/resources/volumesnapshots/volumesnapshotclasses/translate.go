@@ -1,17 +1,16 @@
 package volumesnapshotclasses
 
 import (
-	"context"
-
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"k8s.io/apimachinery/pkg/api/equality"
 )
 
-func (s *volumeSnapshotClassSyncer) translateBackwards(ctx context.Context, pVSC *volumesnapshotv1.VolumeSnapshotClass) *volumesnapshotv1.VolumeSnapshotClass {
+func (s *volumeSnapshotClassSyncer) translateBackwards(ctx *synccontext.SyncContext, pVSC *volumesnapshotv1.VolumeSnapshotClass) *volumesnapshotv1.VolumeSnapshotClass {
 	return s.TranslateMetadata(ctx, pVSC).(*volumesnapshotv1.VolumeSnapshotClass)
 }
 
-func (s *volumeSnapshotClassSyncer) translateUpdateBackwards(ctx context.Context, pVSC *volumesnapshotv1.VolumeSnapshotClass, vVSC *volumesnapshotv1.VolumeSnapshotClass) {
+func (s *volumeSnapshotClassSyncer) translateUpdateBackwards(ctx *synccontext.SyncContext, pVSC *volumesnapshotv1.VolumeSnapshotClass, vVSC *volumesnapshotv1.VolumeSnapshotClass) {
 	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vVSC, pVSC)
 	if changed {
 		vVSC.Labels = updatedLabels

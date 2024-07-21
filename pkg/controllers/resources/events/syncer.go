@@ -3,11 +3,11 @@ package events
 import (
 	"fmt"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,19 +17,22 @@ import (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-	return &eventSyncer{
-		Mapper: mappings.Events(),
+	mapper, err := ctx.Mappings.ByGVK(mappings.Events())
+	if err != nil {
+		return nil, err
+	}
 
-		virtualClient: ctx.VirtualManager.GetClient(),
-		hostClient:    ctx.PhysicalManager.GetClient(),
+	return &eventSyncer{
+		Mapper: mapper,
+
+		hostClient: ctx.PhysicalManager.GetClient(),
 	}, nil
 }
 
 type eventSyncer struct {
-	mappings.Mapper
+	synccontext.Mapper
 
-	virtualClient client.Client
-	hostClient    client.Client
+	hostClient client.Client
 }
 
 func (s *eventSyncer) Resource() client.Object {
@@ -64,7 +67,7 @@ func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vOb
 	}()
 
 	// update event
-	err = s.translateEvent(ctx.Context, pEvent, vEvent)
+	err = s.translateEvent(ctx, pEvent, vEvent)
 	if err != nil {
 		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
 	}
@@ -77,7 +80,7 @@ func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Ob
 	// build the virtual event
 	vObj := pObj.DeepCopyObject().(*corev1.Event)
 	translate.ResetObjectMetadata(vObj)
-	err := s.translateEvent(ctx.Context, pObj.(*corev1.Event), vObj)
+	err := s.translateEvent(ctx, pObj.(*corev1.Event), vObj)
 	if err != nil {
 		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
 	}

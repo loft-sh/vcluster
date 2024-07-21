@@ -3,12 +3,12 @@ package storageclasses
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/types"
 	storagev1 "k8s.io/api/storage/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -17,17 +17,22 @@ import (
 
 var DefaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
 
-func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.StorageClasses())
+	if err != nil {
+		return nil, err
+	}
+
 	return &storageClassSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "storageclass", &storagev1.StorageClass{}, mappings.StorageClasses(), DefaultStorageClassAnnotation),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "storageclass", &storagev1.StorageClass{}, mapper, DefaultStorageClassAnnotation),
 	}, nil
 }
 
 type storageClassSyncer struct {
-	syncertypes.GenericTranslator
+	types.GenericTranslator
 }
 
-var _ syncertypes.Syncer = &storageClassSyncer{}
+var _ types.Syncer = &storageClassSyncer{}
 
 func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	if ctx.IsDelete {

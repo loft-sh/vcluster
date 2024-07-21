@@ -26,8 +26,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshots"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 )

@@ -1,8 +1,7 @@
 package types
 
 import (
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -25,7 +24,7 @@ type Exporter interface {
 
 type Syncer interface {
 	Object
-	mappings.Mapper
+	synccontext.Mapper
 
 	// SyncToHost is called when a virtual object was created and needs to be synced down to the physical cluster
 	SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error)

@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -50,8 +50,13 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 		}
 	}
 
+	nodesMapper, err := ctx.Mappings.ByGVK(mappings.Nodes())
+	if err != nil {
+		return nil, err
+	}
+
 	return &nodeSyncer{
-		Mapper: mappings.Nodes(),
+		Mapper: nodesMapper,
 
 		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 
@@ -70,7 +75,7 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 }
 
 type nodeSyncer struct {
-	mappings.Mapper
+	synccontext.Mapper
 
 	nodeSelector         labels.Selector
 	physicalClient       client.Client
@@ -193,7 +198,7 @@ func modifyController(ctx *synccontext.RegisterContext, nodeServiceProvider node
 	}()
 
 	bld = bld.WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), &corev1.Pod{}, handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, pod *corev1.Pod) []reconcile.Request {
-		if pod == nil || !translate.Default.IsManaged(ctx, pod) || pod.Spec.NodeName == "" {
+		if pod == nil || !translate.Default.IsManaged(ctx.ToSyncContext("nodes-mapper"), pod) || pod.Spec.NodeName == "" {
 			return []reconcile.Request{}
 		}
 
@@ -231,7 +236,7 @@ func (s *nodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 func registerIndices(ctx *synccontext.RegisterContext) error {
 	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
-		if !translate.Default.IsManaged(ctx, pod) || pod.Spec.NodeName == "" {
+		if !translate.Default.IsManaged(ctx.ToSyncContext("nodes-syncer"), pod) || pod.Spec.NodeName == "" {
 			return nil
 		}
 		return []string{pod.Spec.NodeName}

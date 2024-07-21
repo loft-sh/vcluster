@@ -1,14 +1,14 @@
 package namespaces
 
 import (
-	"context"
 	"maps"
 
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *namespaceSyncer) translate(ctx context.Context, vObj client.Object) *corev1.Namespace {
+func (s *namespaceSyncer) translate(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Namespace {
 	newNamespace := s.TranslateMetadata(ctx, vObj).(*corev1.Namespace)
 
 	if newNamespace.Labels == nil {
@@ -23,7 +23,7 @@ func (s *namespaceSyncer) translate(ctx context.Context, vObj client.Object) *co
 	return newNamespace
 }
 
-func (s *namespaceSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Namespace) {
+func (s *namespaceSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *corev1.Namespace) {
 	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	if updatedLabels == nil {
 		updatedLabels = map[string]string{}

@@ -7,8 +7,8 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/pkg/config"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"

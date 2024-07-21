@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/pkg/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
@@ -35,11 +35,16 @@ const (
 	storageProvisionerAnnotation = "volume.beta.kubernetes.io/storage-provisioner"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.PersistentVolumeClaims())
+	if err != nil {
+		return nil, err
+	}
+
 	storageClassesEnabled := ctx.Config.Sync.ToHost.StorageClasses.Enabled
 	excludedAnnotations := []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation}
 	return &persistentVolumeClaimSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mappings.PersistentVolumeClaims(), excludedAnnotations...),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mapper, excludedAnnotations...),
 
 		storageClassesEnabled:    storageClassesEnabled,
 		schedulerEnabled:         ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
@@ -48,22 +53,22 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 }
 
 type persistentVolumeClaimSyncer struct {
-	syncer.GenericTranslator
+	syncertypes.GenericTranslator
 
 	storageClassesEnabled    bool
 	schedulerEnabled         bool
 	useFakePersistentVolumes bool
 }
 
-var _ syncer.OptionsProvider = &persistentVolumeClaimSyncer{}
+var _ syncertypes.OptionsProvider = &persistentVolumeClaimSyncer{}
 
-func (s *persistentVolumeClaimSyncer) Options() *syncer.Options {
-	return &syncer.Options{
+func (s *persistentVolumeClaimSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
 		DisableUIDDeletion: true,
 	}
 }
 
-var _ syncer.Syncer = &persistentVolumeClaimSyncer{}
+var _ syncertypes.Syncer = &persistentVolumeClaimSyncer{}
 
 func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vPvc := vObj.(*corev1.PersistentVolumeClaim)
@@ -170,7 +175,7 @@ func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.Sy
 	if pObj.Spec.VolumeName != "" && vObj.Spec.VolumeName != pObj.Spec.VolumeName {
 		newVolumeName := pObj.Spec.VolumeName
 		if !s.useFakePersistentVolumes {
-			vName := mappings.PersistentVolumes().HostToVirtual(ctx, types.NamespacedName{Name: pObj.Spec.VolumeName}, nil)
+			vName := mappings.HostToVirtual(ctx, pObj.Spec.VolumeName, "", nil, mappings.PersistentVolumes())
 			if vName.Name == "" {
 				log.Infof("error retrieving virtual persistent volume %s: not found", pObj.Spec.VolumeName)
 				return false, fmt.Errorf("error retrieving virtual persistent volume %s: not found", pObj.Spec.VolumeName)

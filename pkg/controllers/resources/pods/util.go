@@ -1,8 +1,7 @@
 package pods
 
 import (
-	"context"
-
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
@@ -10,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func SecretNamesFromPod(ctx context.Context, pod *corev1.Pod) []string {
+func SecretNamesFromPod(ctx *synccontext.SyncContext, pod *corev1.Pod) []string {
 	secrets := []string{}
 	for _, c := range pod.Spec.Containers {
 		secrets = append(secrets, SecretNamesFromContainer(pod.Namespace, &c)...)
@@ -28,7 +27,7 @@ func SecretNamesFromPod(ctx context.Context, pod *corev1.Pod) []string {
 	return translate.UniqueSlice(secrets)
 }
 
-func SecretNamesFromVolumes(ctx context.Context, pod *corev1.Pod) []string {
+func SecretNamesFromVolumes(ctx *synccontext.SyncContext, pod *corev1.Pod) []string {
 	secrets := []string{}
 	for i := range pod.Spec.Volumes {
 		if pod.Spec.Volumes[i].Secret != nil {

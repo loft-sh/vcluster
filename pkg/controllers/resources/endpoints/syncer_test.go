@@ -3,10 +3,10 @@ package endpoints
 import (
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -20,7 +20,7 @@ import (
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *endpointsSyncer) {
 	specialservices.Default = specialservices.NewDefaultServiceSyncer()
 
-	syncCtx, fakeSyncer := generictesting.FakeStartSyncer(t, ctx, New)
+	syncCtx, fakeSyncer := syncertesting.FakeStartSyncer(t, ctx, New)
 	return syncCtx, fakeSyncer.(*endpointsSyncer)
 }
 
@@ -92,7 +92,7 @@ func TestExistingEndpoints(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name: "Override endpoints even if they are not managed",
 			InitialVirtualState: []runtime.Object{
@@ -173,7 +173,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name: "Forward create",
 			InitialVirtualState: []runtime.Object{
@@ -185,7 +185,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*endpointsSyncer).SyncToHost(syncCtx, baseEndpoints)
 				assert.NilError(t, err)
 			},
@@ -204,7 +204,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*endpointsSyncer).Sync(syncCtx, syncedEndpoints, updatedEndpoints)
 				assert.NilError(t, err)
 			},
@@ -212,7 +212,7 @@ func TestSync(t *testing.T) {
 		{
 			Name: "Don't sync default/kubernetes endpoint",
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				ok, _ := syncer.(*endpointsSyncer).ReconcileStart(syncCtx, request)
 				assert.Equal(t, ok, true)
 			},

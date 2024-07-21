@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -20,7 +20,7 @@ import (
 )
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *persistentVolumeSyncer) {
-	syncContext, object := generictesting.FakeStartSyncer(t, ctx, NewSyncer)
+	syncContext, object := syncertesting.FakeStartSyncer(t, ctx, NewSyncer)
 	return syncContext, object.(*persistentVolumeSyncer)
 }
 
@@ -34,12 +34,12 @@ func TestSync(t *testing.T) {
 	basePPvcReference := &corev1.ObjectReference{
 		Name:            translate.Default.PhysicalName("testpvc", "test"),
 		Namespace:       "test",
-		ResourceVersion: generictesting.FakeClientResourceVersion,
+		ResourceVersion: syncertesting.FakeClientResourceVersion,
 	}
 	baseVPvcReference := &corev1.ObjectReference{
 		Name:            "testpvc",
 		Namespace:       "test",
-		ResourceVersion: generictesting.FakeClientResourceVersion,
+		ResourceVersion: syncertesting.FakeClientResourceVersion,
 	}
 	basePvObjectMeta := metav1.ObjectMeta{
 		Name: "testpv",
@@ -70,7 +70,7 @@ func TestSync(t *testing.T) {
 			ClaimRef: &corev1.ObjectReference{
 				Name:            "testpvc",
 				Namespace:       "wrong",
-				ResourceVersion: generictesting.FakeClientResourceVersion,
+				ResourceVersion: syncertesting.FakeClientResourceVersion,
 			},
 		},
 	}
@@ -188,7 +188,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                 "Create Backward",
 			InitialVirtualState:  []runtime.Object{basePvc},

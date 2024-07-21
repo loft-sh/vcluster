@@ -9,14 +9,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/coredns"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -29,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func StartControllers(controllerContext *config.ControllerContext, syncers []syncertypes.Object) error {
+func StartControllers(controllerContext *synccontext.ControllerContext, syncers []syncertypes.Object) error {
 	// exchange control plane client
 	controlPlaneClient, err := pro.ExchangeControlPlaneClient(controllerContext)
 	if err != nil {
@@ -148,7 +147,7 @@ func StartControllers(controllerContext *config.ControllerContext, syncers []syn
 	return nil
 }
 
-func ApplyCoreDNS(controllerContext *config.ControllerContext) {
+func ApplyCoreDNS(controllerContext *synccontext.ControllerContext) {
 	_ = wait.ExponentialBackoffWithContext(controllerContext.Context, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
 		err := coredns.ApplyManifest(ctx, controllerContext.Config.ControlPlane.Advanced.DefaultImageRegistry, controllerContext.VirtualManager.GetConfig(), controllerContext.VirtualClusterVersion)
 		if err != nil {
@@ -164,16 +163,9 @@ func ApplyCoreDNS(controllerContext *config.ControllerContext) {
 	})
 }
 
-func SyncKubernetesService(ctx *config.ControllerContext) error {
+func SyncKubernetesService(ctx *synccontext.ControllerContext) error {
 	err := specialservices.SyncKubernetesService(
-		&synccontext.SyncContext{
-			Context:                ctx,
-			Log:                    loghelper.New("sync-kubernetes-service"),
-			PhysicalClient:         ctx.LocalManager.GetClient(),
-			VirtualClient:          ctx.VirtualManager.GetClient(),
-			CurrentNamespace:       ctx.Config.WorkloadNamespace,
-			CurrentNamespaceClient: ctx.WorkloadNamespaceClient,
-		},
+		ctx.ToRegisterContext().ToSyncContext("sync-kubernetes-service"),
 		ctx.Config.WorkloadNamespace,
 		ctx.Config.WorkloadService,
 		types.NamespacedName{

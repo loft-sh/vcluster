@@ -3,8 +3,8 @@ package events
 import (
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -14,12 +14,12 @@ import (
 )
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *eventSyncer) {
-	syncContext, object := generictesting.FakeStartSyncer(t, ctx, New)
+	syncContext, object := syncertesting.FakeStartSyncer(t, ctx, New)
 	return syncContext, object.(*eventSyncer)
 }
 
 func TestSync(t *testing.T) {
-	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
+	translate.Default = translate.NewSingleNamespaceTranslator(syncertesting.DefaultTestTargetNamespace)
 
 	vNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -35,20 +35,20 @@ func TestSync(t *testing.T) {
 	pPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      translate.Default.PhysicalName(vPod.Name, vPod.Namespace),
-			Namespace: generictesting.DefaultTestTargetNamespace,
+			Namespace: syncertesting.DefaultTestTargetNamespace,
 		},
 	}
 	pEvent := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-event",
-			Namespace: generictesting.DefaultTestTargetNamespace,
+			Namespace: syncertesting.DefaultTestTargetNamespace,
 		},
 		InvolvedObject: corev1.ObjectReference{
 			APIVersion:      corev1.SchemeGroupVersion.String(),
 			Kind:            "Pod",
 			Name:            pPod.Name,
 			Namespace:       pPod.Namespace,
-			ResourceVersion: generictesting.FakeClientResourceVersion,
+			ResourceVersion: syncertesting.FakeClientResourceVersion,
 		},
 	}
 	vEvent := &corev1.Event{
@@ -61,7 +61,7 @@ func TestSync(t *testing.T) {
 			Kind:            "Pod",
 			Name:            vPod.Name,
 			Namespace:       vPod.Namespace,
-			ResourceVersion: generictesting.FakeClientResourceVersion,
+			ResourceVersion: syncertesting.FakeClientResourceVersion,
 		},
 	}
 	pEventUpdated := &corev1.Event{
@@ -75,7 +75,7 @@ func TestSync(t *testing.T) {
 		InvolvedObject: vEvent.InvolvedObject,
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name: "Create new event",
 			InitialVirtualState: []runtime.Object{

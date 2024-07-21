@@ -1,13 +1,12 @@
 package services
 
 import (
-	"context"
-
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func (s *serviceSyncer) translate(ctx context.Context, vObj *corev1.Service) *corev1.Service {
+func (s *serviceSyncer) translate(ctx *synccontext.SyncContext, vObj *corev1.Service) *corev1.Service {
 	newService := s.TranslateMetadata(ctx, vObj).(*corev1.Service)
 	newService.Spec.Selector = translate.Default.TranslateLabels(vObj.Spec.Selector, vObj.Namespace, nil)
 	if newService.Spec.ClusterIP != "None" {

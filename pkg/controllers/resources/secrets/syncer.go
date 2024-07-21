@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"k8s.io/apimachinery/pkg/api/equality"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -18,7 +19,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -35,8 +35,13 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 }
 
 func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.Secrets())
+	if err != nil {
+		return nil, err
+	}
+
 	return &secretSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "secret", &corev1.Secret{}, mappings.Secrets()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "secret", &corev1.Secret{}, mapper),
 
 		includeIngresses: ctx.Config.Sync.ToHost.Ingresses.Enabled,
 
@@ -57,7 +62,7 @@ var _ syncertypes.IndicesRegisterer = &secretSyncer{}
 func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	if ctx.Config.Sync.ToHost.Ingresses.Enabled {
 		err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &networkingv1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
-			return ingresses.SecretNamesFromIngress(ctx, rawObj.(*networkingv1.Ingress))
+			return ingresses.SecretNamesFromIngress(ctx.ToSyncContext("secret-indexer"), rawObj.(*networkingv1.Ingress))
 		})
 		if err != nil {
 			return err
@@ -65,7 +70,7 @@ func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 	}
 
 	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByPodSecret, func(rawObj client.Object) []string {
-		return pods.SecretNamesFromPod(ctx, rawObj.(*corev1.Pod))
+		return pods.SecretNamesFromPod(ctx.ToSyncContext("secret-indexer"), rawObj.(*corev1.Pod))
 	})
 	if err != nil {
 		return err
@@ -76,12 +81,16 @@ func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 
 var _ syncertypes.ControllerModifier = &secretSyncer{}
 
-func (s *secretSyncer) ModifyController(_ *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (s *secretSyncer) ModifyController(registerCtx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	if s.includeIngresses {
-		builder = builder.Watches(&networkingv1.Ingress{}, handler.EnqueueRequestsFromMapFunc(mapIngresses))
+		builder = builder.Watches(&networkingv1.Ingress{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
+			return mapIngresses(registerCtx.ToSyncContext("secret-syncer"), object)
+		}))
 	}
 
-	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
+	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
+		return mapPods(registerCtx.ToSyncContext("secret-syncer"), object)
+	})), nil
 }
 
 func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -190,7 +199,7 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 	return false, nil
 }
 
-func mapIngresses(ctx context.Context, obj client.Object) []reconcile.Request {
+func mapIngresses(ctx *synccontext.SyncContext, obj client.Object) []reconcile.Request {
 	ingress, ok := obj.(*networkingv1.Ingress)
 	if !ok {
 		return nil
@@ -213,7 +222,7 @@ func mapIngresses(ctx context.Context, obj client.Object) []reconcile.Request {
 	return requests
 }
 
-func mapPods(ctx context.Context, obj client.Object) []reconcile.Request {
+func mapPods(ctx *synccontext.SyncContext, obj client.Object) []reconcile.Request {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return nil

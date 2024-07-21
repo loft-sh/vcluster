@@ -6,17 +6,16 @@ import (
 	"sort"
 	"testing"
 
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/moby/locker"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"gotest.tools/v3/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -34,8 +33,13 @@ type mockSyncer struct {
 }
 
 func NewMockSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.Secrets())
+	if err != nil {
+		return nil, err
+	}
+
 	return &mockSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "secrets", &corev1.Secret{}, mappings.Secrets()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "secrets", &corev1.Secret{}, mapper),
 	}, nil
 }
 
@@ -91,7 +95,7 @@ func TestReconcile(t *testing.T) {
 		ExpectedPhysicalState map[schema.GroupVersionKind][]runtime.Object
 		ExpectedVirtualState  map[schema.GroupVersionKind][]runtime.Object
 
-		Compare generictesting.Compare
+		Compare syncertesting.Compare
 
 		shouldErr bool
 		errMsg    string
@@ -272,9 +276,7 @@ func TestReconcile(t *testing.T) {
 		pClient := testingutil.NewFakeClient(scheme.Scheme, tc.InitialPhysicalState...)
 		vClient := testingutil.NewFakeClient(scheme.Scheme, tc.InitialVirtualState...)
 
-		fakeContext := generictesting.NewFakeRegisterContext(generictesting.NewFakeConfig(), pClient, vClient)
-		resources.MustRegisterMappings(fakeContext)
-
+		fakeContext := syncertesting.NewFakeRegisterContext(syncertesting.NewFakeConfig(), pClient, vClient)
 		syncerImpl, err := tc.Syncer(fakeContext)
 		assert.NilError(t, err)
 		syncer := syncerImpl.(syncertypes.Syncer)
@@ -287,6 +289,8 @@ func TestReconcile(t *testing.T) {
 
 			currentNamespace:       fakeContext.CurrentNamespace,
 			currentNamespaceClient: fakeContext.CurrentNamespaceClient,
+
+			mappings: fakeContext.Mappings,
 
 			virtualClient: vClient,
 			options:       options,
@@ -308,7 +312,7 @@ func TestReconcile(t *testing.T) {
 		// Compare states
 		if tc.ExpectedPhysicalState != nil {
 			for gvk, objs := range tc.ExpectedPhysicalState {
-				err := generictesting.CompareObjs(ctx, t, tc.Name+" physical state", fakeContext.PhysicalManager.GetClient(), gvk, scheme.Scheme, objs, tc.Compare)
+				err := syncertesting.CompareObjs(ctx, t, tc.Name+" physical state", fakeContext.PhysicalManager.GetClient(), gvk, scheme.Scheme, objs, tc.Compare)
 				if err != nil {
 					t.Fatalf("%s - Physical State mismatch: %v", tc.Name, err)
 				}
@@ -316,7 +320,7 @@ func TestReconcile(t *testing.T) {
 		}
 		if tc.ExpectedVirtualState != nil {
 			for gvk, objs := range tc.ExpectedVirtualState {
-				err := generictesting.CompareObjs(ctx, t, tc.Name+" virtual state", fakeContext.VirtualManager.GetClient(), gvk, scheme.Scheme, objs, tc.Compare)
+				err := syncertesting.CompareObjs(ctx, t, tc.Name+" virtual state", fakeContext.VirtualManager.GetClient(), gvk, scheme.Scheme, objs, tc.Compare)
 				if err != nil {
 					t.Fatalf("%s - Virtual State mismatch: %v", tc.Name, err)
 				}

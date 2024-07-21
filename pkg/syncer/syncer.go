@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/moby/locker"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,7 +17,6 @@ import (
 	controller2 "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -40,6 +40,8 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 
 	return &SyncController{
 		syncer: syncer,
+
+		mappings: ctx.Mappings,
 
 		log:            loghelper.New(syncer.Name()),
 		vEventRecorder: ctx.VirtualManager.GetEventRecorderFor(syncer.Name() + "-syncer"),
@@ -67,6 +69,8 @@ func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer)
 type SyncController struct {
 	syncer syncertypes.Syncer
 
+	mappings synccontext.MappingsRegistry
+
 	log            loghelper.Logger
 	vEventRecorder record.EventRecorder
 
@@ -81,12 +85,35 @@ type SyncController struct {
 	locker *locker.Locker
 }
 
+func (r *SyncController) newSyncContext(ctx context.Context, logName string, eventSource synccontext.EventSource, isDelete bool) *synccontext.SyncContext {
+	return &synccontext.SyncContext{
+		Context:                ctx,
+		Log:                    loghelper.NewFromExisting(r.log.Base(), logName),
+		PhysicalClient:         r.physicalClient,
+		CurrentNamespace:       r.currentNamespace,
+		CurrentNamespaceClient: r.currentNamespaceClient,
+		VirtualClient:          r.virtualClient,
+		EventSource:            eventSource,
+		Mappings:               r.mappings,
+		IsDelete:               isDelete,
+	}
+}
+
 func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_ ctrl.Result, err error) {
 	// extract if this was a delete request
 	origReq, isDelete := fromDeleteRequest(origReq)
 
+	// determine event source
+	eventSource := synccontext.EventSourceVirtual
+	if isHostRequest(origReq) {
+		eventSource = synccontext.EventSourceHost
+	}
+
+	// create sync context
+	syncContext := r.newSyncContext(ctx, origReq.Name, eventSource, isDelete)
+
 	// if host request we need to find the virtual object
-	vReq, pReq, err := r.extractRequest(ctx, origReq)
+	vReq, pReq, err := r.extractRequest(syncContext, origReq)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if vReq.Name == "" {
@@ -101,25 +128,6 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 	defer func() {
 		_ = r.locker.Unlock(vReq.String())
 	}()
-
-	// determine event source
-	eventSource := synccontext.EventSourceVirtual
-	if isHostRequest(origReq) {
-		eventSource = synccontext.EventSourceHost
-	}
-
-	// create sync context
-	log := loghelper.NewFromExisting(r.log.Base(), vReq.Name)
-	syncContext := &synccontext.SyncContext{
-		Context:                ctx,
-		Log:                    log,
-		PhysicalClient:         r.physicalClient,
-		CurrentNamespace:       r.currentNamespace,
-		CurrentNamespaceClient: r.currentNamespaceClient,
-		VirtualClient:          r.virtualClient,
-		EventSource:            eventSource,
-		IsDelete:               isDelete,
-	}
 
 	// check if we should skip reconcile
 	lifecycle, ok := r.syncer.(syncertypes.Starter)
@@ -250,7 +258,7 @@ func (r *SyncController) getVirtualObject(ctx context.Context, req types.Namespa
 	return false, vObj, nil
 }
 
-func (r *SyncController) getPhysicalObject(ctx context.Context, req types.NamespacedName, vObj client.Object) (bool, client.Object, error) {
+func (r *SyncController) getPhysicalObject(ctx *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) (bool, client.Object, error) {
 	// we don't have an object to retrieve
 	if req.Name == "" {
 		return true, nil, nil
@@ -281,7 +289,7 @@ func (r *SyncController) getPhysicalObject(ctx context.Context, req types.Namesp
 	return false, pObj, nil
 }
 
-func (r *SyncController) excludePhysical(ctx context.Context, pObj, vObj client.Object) (bool, error) {
+func (r *SyncController) excludePhysical(ctx *synccontext.SyncContext, pObj, vObj client.Object) (bool, error) {
 	excluder, excluderOk := r.syncer.(syncertypes.ObjectExcluder)
 	isManaged, err := r.syncer.IsManaged(ctx, pObj)
 	if err != nil {
@@ -326,7 +334,7 @@ func (r *SyncController) excludeVirtual(vObj client.Object) bool {
 	return false
 }
 
-func (r *SyncController) extractRequest(ctx context.Context, req ctrl.Request) (vReq, pReq ctrl.Request, err error) {
+func (r *SyncController) extractRequest(ctx *synccontext.SyncContext, req ctrl.Request) (vReq, pReq ctrl.Request, err error) {
 	// check if request is a host request
 	pReq = ctrl.Request{}
 	if isHostRequest(req) {
@@ -355,7 +363,7 @@ func (r *SyncController) enqueueVirtual(ctx context.Context, obj client.Object, 
 	// add a new request for the host object as otherwise this information might be lost after a delete event
 	if isDelete {
 		// add a new request for the host object
-		name := r.syncer.VirtualToHost(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+		name := r.syncer.VirtualToHost(r.newSyncContext(ctx, obj.GetName(), synccontext.EventSourceVirtual, isDelete), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if name.Name != "" {
 			q.Add(toDeleteRequest(toHostRequest(reconcile.Request{
 				NamespacedName: name,
@@ -386,8 +394,11 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 		return
 	}
 
+	// sync context
+	syncContext := r.newSyncContext(ctx, obj.GetName(), synccontext.EventSourceHost, isDelete)
+
 	// we have a physical object here
-	managed, err := r.syncer.IsManaged(ctx, obj)
+	managed, err := r.syncer.IsManaged(syncContext, obj)
 	if err != nil {
 		klog.Errorf("error checking object %v if managed: %v", obj, err)
 		return
@@ -398,7 +409,7 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 	// add a new request for the virtual object as otherwise this information might be lost after a delete event
 	if isDelete {
 		// add a new request for the virtual object
-		name := r.syncer.HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+		name := r.syncer.HostToVirtual(syncContext, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if name.Name != "" {
 			q.Add(toDeleteRequest(reconcile.Request{
 				NamespacedName: name,

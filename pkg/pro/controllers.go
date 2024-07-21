@@ -1,7 +1,9 @@
 package pro
 
-import "github.com/loft-sh/vcluster/pkg/config"
+import (
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+)
 
-var RegisterProControllers = func(*config.ControllerContext) error {
+var RegisterProControllers = func(*synccontext.ControllerContext) error {
 	return nil
 }

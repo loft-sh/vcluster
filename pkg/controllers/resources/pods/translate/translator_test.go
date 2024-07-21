@@ -1,12 +1,10 @@
 package translate
 
 import (
-	"context"
 	"testing"
 
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	generictesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -215,7 +213,7 @@ func TestVolumeTranslation(t *testing.T) {
 			fakeRecorder := record.NewFakeRecorder(10)
 			pClient := testingutil.NewFakeClient(scheme.Scheme)
 			vClient := testingutil.NewFakeClient(scheme.Scheme)
-			resources.MustRegisterMappings(generictesting.NewFakeRegisterContext(generictesting.NewFakeConfig(), pClient, vClient))
+			registerCtx := generictesting.NewFakeRegisterContext(generictesting.NewFakeConfig(), pClient, vClient)
 			tr := &translator{
 				eventRecorder: fakeRecorder,
 				log:           loghelper.New("pods-syncer-translator-test"),
@@ -223,7 +221,7 @@ func TestVolumeTranslation(t *testing.T) {
 			}
 
 			pPod := testCase.vPod.DeepCopy()
-			err := tr.translateVolumes(context.Background(), pPod, &testCase.vPod)
+			err := tr.translateVolumes(registerCtx.ToSyncContext("pods-syncer-translator-test"), pPod, &testCase.vPod)
 			assert.NilError(t, err)
 			assert.Assert(t, cmp.DeepEqual(pPod.Spec.Volumes, testCase.expectedVolumes), "Unexpected translation of the Volumes in the '%s' test case", testCase.name)
 		})

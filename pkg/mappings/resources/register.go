@@ -3,15 +3,14 @@ package resources
 import (
 	"fmt"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 )
 
 // ExtraMappers that will be started as well
 var ExtraMappers []BuildMapper
 
 // BuildMapper is a function to build a new mapper
-type BuildMapper func(ctx *synccontext.RegisterContext) (mappings.Mapper, error)
+type BuildMapper func(ctx *synccontext.RegisterContext) (synccontext.Mapper, error)
 
 func getMappers(ctx *synccontext.RegisterContext) []BuildMapper {
 	return append([]BuildMapper{
@@ -62,7 +61,7 @@ func RegisterMappings(ctx *synccontext.RegisterContext) error {
 			continue
 		}
 
-		err = mappings.Default.AddMapper(mapper)
+		err = ctx.Mappings.AddMapper(mapper)
 		if err != nil {
 			return fmt.Errorf("add mapper %s: %w", mapper.GroupVersionKind().String(), err)
 		}

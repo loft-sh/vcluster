@@ -1,13 +1,11 @@
 package generic
 
 import (
-	context2 "context"
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,14 +22,14 @@ type PhysicalNameWithObjectFunc func(vName, vNamespace string, vObj client.Objec
 type PhysicalNameFunc func(vName, vNamespace string) string
 
 // NewMapper creates a new mapper with a custom physical name func
-func NewMapper(ctx *synccontext.RegisterContext, obj client.Object, translateName PhysicalNameFunc, options ...MapperOption) (mappings.Mapper, error) {
+func NewMapper(ctx *synccontext.RegisterContext, obj client.Object, translateName PhysicalNameFunc, options ...MapperOption) (synccontext.Mapper, error) {
 	return NewMapperWithObject(ctx, obj, func(vName, vNamespace string, _ client.Object) string {
 		return translateName(vName, vNamespace)
 	}, options...)
 }
 
 // NewMapperWithObject creates a new mapper with a custom physical name func
-func NewMapperWithObject(ctx *synccontext.RegisterContext, obj client.Object, translateName PhysicalNameWithObjectFunc, options ...MapperOption) (mappings.Mapper, error) {
+func NewMapperWithObject(ctx *synccontext.RegisterContext, obj client.Object, translateName PhysicalNameWithObjectFunc, options ...MapperOption) (synccontext.Mapper, error) {
 	gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
 	if err != nil {
 		return nil, fmt.Errorf("retrieve GVK for object failed: %w", err)
@@ -71,14 +69,14 @@ func (n *mapper) GroupVersionKind() schema.GroupVersionKind {
 	return n.gvk
 }
 
-func (n *mapper) VirtualToHost(_ context2.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (n *mapper) VirtualToHost(_ *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: translate.Default.PhysicalNamespace(req.Namespace),
 		Name:      n.translateName(req.Name, req.Namespace, vObj),
 	}
 }
 
-func (n *mapper) HostToVirtual(ctx context2.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+func (n *mapper) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {
 	if pObj != nil {
 		pAnnotations := pObj.GetAnnotations()
 		if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
@@ -110,6 +108,6 @@ func (n *mapper) HostToVirtual(ctx context2.Context, req types.NamespacedName, p
 	}
 }
 
-func (n *mapper) IsManaged(ctx context2.Context, pObj client.Object) (bool, error) {
+func (n *mapper) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
 	return translate.Default.IsManaged(ctx, pObj), nil
 }

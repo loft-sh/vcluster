@@ -2,8 +2,8 @@ package nodes
 
 import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -4,15 +4,15 @@ import (
 	"time"
 
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/helm"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"k8s.io/klog/v2"
 )
 
-func RegisterInitManifestsController(controllerCtx *config.ControllerContext) error {
+func RegisterInitManifestsController(controllerCtx *synccontext.ControllerContext) error {
 	vConfig, err := kubeconfig.ConvertRestConfigToClientConfig(controllerCtx.VirtualManager.GetConfig())
 	if err != nil {
 		return err

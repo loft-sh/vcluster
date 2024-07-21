@@ -3,10 +3,10 @@ package poddisruptionbudgets
 import (
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"gotest.tools/assert"
 
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	policyv1 "k8s.io/api/policy/v1"
@@ -17,11 +17,11 @@ import (
 )
 
 func TestSync(t *testing.T) {
-	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
+	translate.Default = translate.NewSingleNamespaceTranslator(syncertesting.DefaultTestTargetNamespace)
 	vObjectMeta := metav1.ObjectMeta{
 		Name:            "testPDB",
 		Namespace:       "default",
-		ResourceVersion: generictesting.FakeClientResourceVersion,
+		ResourceVersion: syncertesting.FakeClientResourceVersion,
 	}
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      translate.Default.PhysicalName("testPDB", vObjectMeta.Namespace),
@@ -36,7 +36,7 @@ func TestSync(t *testing.T) {
 			translate.NamespaceLabel: vObjectMeta.Namespace,
 			translate.MarkerLabel:    translate.VClusterName,
 		},
-		ResourceVersion: generictesting.FakeClientResourceVersion,
+		ResourceVersion: syncertesting.FakeClientResourceVersion,
 	}
 
 	vclusterPDB := &policyv1.PodDisruptionBudget{
@@ -79,7 +79,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name: "Create Host Cluster PodDisruptionBudget",
 			InitialVirtualState: []runtime.Object{
@@ -92,7 +92,7 @@ func TestSync(t *testing.T) {
 				policyv1.SchemeGroupVersion.WithKind("PodDisruptionBudget"): {hostClusterSyncedPDB.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, vclusterPDB.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -112,7 +112,7 @@ func TestSync(t *testing.T) {
 				policyv1.SchemeGroupVersion.WithKind("PodDisruptionBudget"): {hostClusterSyncedUpdatedPDB.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*pdbSyncer).Sync(syncCtx, hostClusterSyncedPDB.DeepCopy(), vclusterUpdatedPDB.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -132,7 +132,7 @@ func TestSync(t *testing.T) {
 				policyv1.SchemeGroupVersion.WithKind("PodDisruptionBudget"): {hostClusterSyncedUpdatedSelectorPDB.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*pdbSyncer).Sync(syncCtx, hostClusterSyncedPDB.DeepCopy(), vclusterUpdatedSelectorPDB.DeepCopy())
 				assert.NilError(t, err)
 			},

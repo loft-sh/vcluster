@@ -13,8 +13,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/setup"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
-	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -107,7 +107,7 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	}
 
 	// start managers
-	syncers, err := setup.StartManagers(util.ToRegisterContext(controllerCtx))
+	syncers, err := setup.StartManagers(controllerCtx.ToRegisterContext())
 	if err != nil {
 		return fmt.Errorf("start managers: %w", err)
 	}
@@ -150,7 +150,7 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	return nil
 }
 
-func StartLeaderElection(ctx *config.ControllerContext, startLeading func() error) error {
+func StartLeaderElection(ctx *synccontext.ControllerContext, startLeading func() error) error {
 	var err error
 	if ctx.Config.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 {
 		err = leaderelection.StartLeaderElection(ctx, scheme.Scheme, func() error {

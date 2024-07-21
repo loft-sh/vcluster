@@ -8,9 +8,11 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/pkg/errors"
@@ -35,7 +37,7 @@ var NewLocalManager = ctrl.NewManager
 var NewVirtualManager = ctrl.NewManager
 
 // NewControllerContext builds the controller context we can use to start the syncer
-func NewControllerContext(ctx context.Context, options *config.VirtualClusterConfig) (*config.ControllerContext, error) {
+func NewControllerContext(ctx context.Context, options *config.VirtualClusterConfig) (*synccontext.ControllerContext, error) {
 	// load virtual config
 	virtualConfig, virtualRawConfig, err := loadVirtualConfig(ctx, options)
 	if err != nil {
@@ -278,7 +280,7 @@ func initControllerContext(
 	virtualManager ctrl.Manager,
 	virtualRawConfig *clientcmdapi.Config,
 	vClusterOptions *config.VirtualClusterConfig,
-) (*config.ControllerContext, error) {
+) (*synccontext.ControllerContext, error) {
 	if localManager == nil {
 		return nil, errors.New("nil localManager")
 	}
@@ -316,7 +318,7 @@ func initControllerContext(
 		return nil, err
 	}
 
-	return &config.ControllerContext{
+	return &synccontext.ControllerContext{
 		Context:               ctx,
 		LocalManager:          localManager,
 		VirtualManager:        virtualManager,
@@ -324,6 +326,8 @@ func initControllerContext(
 		VirtualClusterVersion: virtualClusterVersion,
 
 		WorkloadNamespaceClient: currentNamespaceClient,
+
+		Mappings: mappings.NewMappingsRegistry(),
 
 		StopChan: stopChan,
 		Config:   vClusterOptions,

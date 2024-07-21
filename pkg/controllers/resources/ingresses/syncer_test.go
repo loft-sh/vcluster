@@ -3,11 +3,11 @@ package ingresses
 import (
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/types"
 
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	corev1 "k8s.io/api/core/v1"
@@ -157,7 +157,7 @@ func TestSync(t *testing.T) {
 		Status: changedIngressStatus,
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                "Create forward",
 			InitialVirtualState: []runtime.Object{baseIngress.DeepCopy()},
@@ -168,7 +168,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, registerContext, NewSyncer)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
 				_, err := syncer.(*ingressSyncer).SyncToHost(syncCtx, baseIngress.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -196,7 +196,7 @@ func TestSync(t *testing.T) {
 				}},
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, registerContext, NewSyncer)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
 				pIngress := &networkingv1.Ingress{
 					ObjectMeta: pObjectMeta,
 					Spec:       networkingv1.IngressSpec{},
@@ -221,7 +221,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, registerContext, NewSyncer)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
 				vIngress := noUpdateIngress.DeepCopy()
 				vIngress.ResourceVersion = "999"
 
@@ -240,7 +240,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {pBackwardUpdatedIngress.DeepCopy()},
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, registerContext, NewSyncer)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
 				backwardUpdateIngress := backwardUpdateIngress.DeepCopy()
 				vIngress := baseIngress.DeepCopy()
 				vIngress.ResourceVersion = "999"
@@ -282,7 +282,7 @@ func TestSync(t *testing.T) {
 				pIngress := backwardNoUpdateIngress.DeepCopy()
 				pIngress.ResourceVersion = "999"
 
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, registerContext, NewSyncer)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
 				_, err := syncer.(*ingressSyncer).Sync(syncCtx, pIngress, baseIngress.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -347,7 +347,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, registerContext, NewSyncer)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
 
 				vIngress := &networkingv1.Ingress{}
 				err := syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{Name: baseIngress.Name, Namespace: baseIngress.Namespace}, vIngress)
@@ -424,7 +424,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, registerContext, NewSyncer)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
 
 				vIngress := &networkingv1.Ingress{}
 				err := syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{Name: baseIngress.Name, Namespace: baseIngress.Namespace}, vIngress)

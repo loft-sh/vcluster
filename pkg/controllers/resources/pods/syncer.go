@@ -6,16 +6,16 @@ import (
 	"reflect"
 	"time"
 
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -39,7 +39,7 @@ var (
 	zero                              = int64(0)
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	virtualClusterClient, err := kubernetes.NewForConfig(ctx.VirtualManager.GetConfig())
 	if err != nil {
 		return nil, err
@@ -68,8 +68,14 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		}
 	}
 
+	// get pods mapper
+	podsMapper, err := ctx.Mappings.ByGVK(mappings.Pods())
+	if err != nil {
+		return nil, err
+	}
+
 	// create new namespaced translator
-	genericTranslator := translator.NewGenericTranslator(ctx, "pod", &corev1.Pod{}, mappings.Pods())
+	genericTranslator := translator.NewGenericTranslator(ctx, "pod", &corev1.Pod{}, podsMapper)
 
 	// create pod translator
 	podTranslator, err := translatepods.NewTranslator(ctx, genericTranslator.EventRecorder())
@@ -95,7 +101,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 }
 
 type podSyncer struct {
-	syncer.GenericTranslator
+	syncertypes.GenericTranslator
 
 	serviceName     string
 	enableScheduler bool
@@ -110,7 +116,7 @@ type podSyncer struct {
 	podSecurityStandard string
 }
 
-var _ syncer.ControllerModifier = &podSyncer{}
+var _ syncertypes.ControllerModifier = &podSyncer{}
 
 func (s *podSyncer) ModifyController(registerContext *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	eventHandler := handler.Funcs{
@@ -139,7 +145,7 @@ func (s *podSyncer) ModifyController(registerContext *synccontext.RegisterContex
 	return builder.Watches(&corev1.Namespace{}, eventHandler), nil
 }
 
-var _ syncer.Syncer = &podSyncer{}
+var _ syncertypes.Syncer = &podSyncer{}
 
 func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vPod := vObj.(*corev1.Pod)
@@ -339,7 +345,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	return ctrl.Result{}, nil
 }
 
-func setSATokenSecretAsOwner(ctx context.Context, pClient client.Client, vObj, pObj *corev1.Pod) error {
+func setSATokenSecretAsOwner(ctx *synccontext.SyncContext, pClient client.Client, vObj, pObj *corev1.Pod) error {
 	secret, err := translatepods.GetSecretIfExists(ctx, pClient, vObj.Name, vObj.Namespace)
 	if err := translatepods.IgnoreAcceptableErrors(err); err != nil {
 		return err

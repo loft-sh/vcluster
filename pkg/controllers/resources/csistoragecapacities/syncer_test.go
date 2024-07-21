@@ -4,12 +4,13 @@ import (
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/config"
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -17,8 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 )
 
 const kind = "CSIStorageCapacity"
@@ -94,10 +93,10 @@ func TestSyncHostStorageClass(t *testing.T) {
 		MaximumVolumeSize: resource.NewQuantity(202, resource.BinarySI),
 	}
 
-	generictesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 		vConfig.Sync.FromHost.CSIStorageCapacities.Enabled = "true"
-		return generictesting.NewFakeRegisterContext(vConfig, pClient, vClient)
-	}, []*generictesting.SyncTest{
+		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*syncertesting.SyncTest{
 		{
 			Name:                 "Sync Up",
 			InitialVirtualState:  []runtime.Object{},
@@ -111,7 +110,7 @@ func TestSyncHostStorageClass(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "true"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = false
-				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, pObj)
 				assert.NilError(t, err)
 			},
@@ -124,7 +123,7 @@ func TestSyncHostStorageClass(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "true"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = false
-				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := sync.(*csistoragecapacitySyncer).SyncToHost(syncCtx, vObj)
 				assert.NilError(t, err)
 			},
@@ -142,7 +141,7 @@ func TestSyncHostStorageClass(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "true"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = false
-				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := sync.(*csistoragecapacitySyncer).Sync(syncCtx, pObjUpdated, vObj)
 				assert.NilError(t, err)
 			},
@@ -237,10 +236,10 @@ func TestSyncStorageClass(t *testing.T) {
 		MaximumVolumeSize: resource.NewQuantity(202, resource.BinarySI),
 	}
 
-	generictesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 		vConfig.Sync.FromHost.CSIStorageCapacities.Enabled = "true"
-		return generictesting.NewFakeRegisterContext(vConfig, pClient, vClient)
-	}, []*generictesting.SyncTest{
+		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*syncertesting.SyncTest{
 		{
 			Name:                 "Sync Up",
 			InitialVirtualState:  []runtime.Object{vSCa, vSCb, labelledNode},
@@ -257,13 +256,13 @@ func TestSyncStorageClass(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
-				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
+				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
 				assert.NilError(t, err)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
 				assert.NilError(t, err)
 
-				syncCtx, sync = generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err = sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, pObj)
 				assert.NilError(t, err)
 			},
@@ -284,13 +283,13 @@ func TestSyncStorageClass(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
-				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
+				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
 				assert.NilError(t, err)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
 				assert.NilError(t, err)
 
-				syncCtx, sync = generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err = sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, pObj)
 				assert.NilError(t, err)
 			},
@@ -311,13 +310,13 @@ func TestSyncStorageClass(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
-				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
+				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
 				assert.NilError(t, err)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
 				assert.NilError(t, err)
 
-				syncCtx, sync = generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err = sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, pObj)
 				assert.NilError(t, err)
 			},
@@ -333,13 +332,13 @@ func TestSyncStorageClass(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
-				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
+				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
 				assert.NilError(t, err)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
 				assert.NilError(t, err)
 
-				syncCtx, sync = generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err = sync.(*csistoragecapacitySyncer).SyncToHost(syncCtx, vObj)
 				assert.NilError(t, err)
 			},
@@ -360,13 +359,13 @@ func TestSyncStorageClass(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
-				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
+				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
 				assert.NilError(t, err)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
 				assert.NilError(t, err)
 
-				syncCtx, sync = generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err = sync.(*csistoragecapacitySyncer).Sync(syncCtx, pObjUpdated, vObj)
 				assert.NilError(t, err)
 			},
@@ -387,13 +386,13 @@ func TestSyncStorageClass(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
-				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
+				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
 				assert.NilError(t, err)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
 				assert.NilError(t, err)
 
-				syncCtx, sync = generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err = sync.(*csistoragecapacitySyncer).Sync(syncCtx, pObj, vObj)
 				assert.NilError(t, err)
 			},
@@ -414,13 +413,13 @@ func TestSyncStorageClass(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
-				syncCtx, sync := generictesting.FakeStartSyncer(t, ctx, storageclasses.New)
+				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
 				assert.NilError(t, err)
 				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
 				assert.NilError(t, err)
 
-				syncCtx, sync = generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err = sync.(*csistoragecapacitySyncer).Sync(syncCtx, pObj, vObj)
 				assert.NilError(t, err)
 			},

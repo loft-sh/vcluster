@@ -1,14 +1,13 @@
 package priorityclasses
 
 import (
-	"context"
-
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *priorityClassSyncer) translate(ctx context.Context, vObj client.Object) *schedulingv1.PriorityClass {
+func (s *priorityClassSyncer) translate(ctx *synccontext.SyncContext, vObj client.Object) *schedulingv1.PriorityClass {
 	// translate the priority class
 	priorityClass := s.TranslateMetadata(ctx, vObj).(*schedulingv1.PriorityClass)
 	priorityClass.GlobalDefault = false
@@ -18,7 +17,7 @@ func (s *priorityClassSyncer) translate(ctx context.Context, vObj client.Object)
 	return priorityClass
 }
 
-func (s *priorityClassSyncer) translateUpdate(ctx context.Context, pObj, vObj, sourceObject, targetObject *schedulingv1.PriorityClass) {
+func (s *priorityClassSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj, sourceObject, targetObject *schedulingv1.PriorityClass) {
 	// check subsets
 	if !equality.Semantic.DeepEqual(vObj.PreemptionPolicy, pObj.PreemptionPolicy) {
 		targetObject.PreemptionPolicy = sourceObject.PreemptionPolicy

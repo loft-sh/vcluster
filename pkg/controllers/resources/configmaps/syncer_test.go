@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -67,7 +67,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name: "Unused config map",
 			InitialVirtualState: []runtime.Object{
@@ -77,7 +77,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("ConfigMap"): {},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*configMapSyncer).SyncToHost(syncCtx, baseConfigMap)
 				assert.NilError(t, err)
 			},
@@ -94,7 +94,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*configMapSyncer).SyncToHost(syncCtx, baseConfigMap)
 				assert.NilError(t, err)
 			},
@@ -114,7 +114,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*configMapSyncer).Sync(syncCtx, syncedConfigMap, updatedConfigMap)
 				assert.NilError(t, err)
 			},
@@ -131,7 +131,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("ConfigMap"): {},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*configMapSyncer).Sync(syncCtx, syncedConfigMap, updatedConfigMap)
 				assert.NilError(t, err)
 			},

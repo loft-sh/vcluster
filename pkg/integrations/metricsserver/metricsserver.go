@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/apiservice"
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
@@ -47,7 +46,7 @@ var GroupVersion = schema.GroupVersion{
 	Version: "v1beta1",
 }
 
-func Register(ctx *config.ControllerContext) error {
+func Register(ctx *synccontext.ControllerContext) error {
 	ctx.AcquiredLeaderHooks = append(ctx.AcquiredLeaderHooks, RegisterOrDeregisterAPIService)
 	if ctx.Config.Integrations.MetricsServer.Enabled {
 		targetService := cmp.Or(ctx.Config.Integrations.MetricsServer.APIService.Service.Name, "metrics-server")
@@ -58,21 +57,15 @@ func Register(ctx *config.ControllerContext) error {
 			return fmt.Errorf("start api service proxy: %w", err)
 		}
 
-		ctx.PostServerHooks = append(ctx.PostServerHooks, func(h http.Handler, ctx *config.ControllerContext) http.Handler {
-			return WithMetricsServerProxy(
-				h,
-				ctx.Config.WorkloadTargetNamespace,
-				ctx.VirtualManager.GetClient(),
-				ctx.LocalManager.GetConfig(),
-				ctx.Config.Experimental.MultiNamespaceMode.Enabled,
-			)
+		ctx.PostServerHooks = append(ctx.PostServerHooks, func(h http.Handler, ctx *synccontext.ControllerContext) http.Handler {
+			return WithMetricsServerProxy(h, ctx.ToRegisterContext())
 		})
 	}
 
 	return nil
 }
 
-func RegisterOrDeregisterAPIService(ctx *config.ControllerContext) error {
+func RegisterOrDeregisterAPIService(ctx *synccontext.ControllerContext) error {
 	if ctx.Config.Integrations.MetricsServer.Enabled {
 		return apiservice.RegisterAPIService(ctx, "metrics-server", hostPort, GroupVersion)
 	}
@@ -82,10 +75,7 @@ func RegisterOrDeregisterAPIService(ctx *config.ControllerContext) error {
 
 func WithMetricsServerProxy(
 	h http.Handler,
-	targetNamespace string,
-	cachedVirtualClient client.Client,
-	hostConfig *rest.Config,
-	multiNamespaceMode bool,
+	registerCtx *synccontext.RegisterContext,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// first get request info
@@ -98,13 +88,10 @@ func WithMetricsServerProxy(
 		// is regular metrics request?
 		if isMetricsServerProxyRequest(info) {
 			handleMetricsServerProxyRequest(
+				registerCtx,
 				w,
 				req,
-				targetNamespace,
-				cachedVirtualClient,
 				info,
-				hostConfig,
-				multiNamespaceMode,
 			)
 			return
 		}
@@ -124,6 +111,8 @@ func isMetricsServerProxyRequest(r *request.RequestInfo) bool {
 }
 
 type serverProxy struct {
+	syncContext *synccontext.SyncContext
+
 	handler        http.Handler
 	request        *http.Request
 	requestInfo    *request.RequestInfo
@@ -137,13 +126,10 @@ type serverProxy struct {
 }
 
 func handleMetricsServerProxyRequest(
+	ctx *synccontext.RegisterContext,
 	w http.ResponseWriter,
 	req *http.Request,
-	targetNamespace string,
-	cachedVirtualClient client.Client,
 	info *request.RequestInfo,
-	hostConfig *rest.Config,
-	multiNamespaceMode bool,
 ) {
 	splitted := strings.Split(req.URL.Path, "/")
 	err := translateLabelSelectors(req)
@@ -153,7 +139,10 @@ func handleMetricsServerProxyRequest(
 		return
 	}
 
+	syncContext := ctx.ToSyncContext("metrics-proxy")
 	metricsServerProxy := &serverProxy{
+		syncContext: syncContext,
+
 		request:        req,
 		requestInfo:    info,
 		responseWriter: w,
@@ -163,7 +152,7 @@ func handleMetricsServerProxyRequest(
 
 	// request is for get particular pod
 	if info.Resource == PodResource && info.Verb == RequestVerbGet {
-		nameNamespace := mappings.VirtualToHost(req.Context(), info.Name, info.Namespace, mappings.Pods())
+		nameNamespace := mappings.VirtualToHost(syncContext, info.Name, info.Namespace, mappings.Pods())
 		metricsServerProxy.resourceType = PodResource
 
 		// replace the translated name and namespace
@@ -178,13 +167,13 @@ func handleMetricsServerProxyRequest(
 		// check if its a list request across all namespaces
 		if info.Namespace != "" {
 			splitted[5] = translate.Default.PhysicalNamespace(info.Namespace)
-		} else if !multiNamespaceMode {
+		} else if translate.Default.SingleNamespaceTarget() {
 			// limit to current namespace in host cluster
-			splitted = append(splitted[:4], append([]string{"namespaces", targetNamespace}, splitted[4:]...)...)
+			splitted = append(splitted[:4], append([]string{"namespaces", ctx.Config.WorkloadTargetNamespace}, splitted[4:]...)...)
 		}
 
 		metricsServerProxy.resourceType = PodResource
-		vPodList, err := getVirtualPodObjectsInNamespace(req.Context(), cachedVirtualClient, info.Namespace)
+		vPodList, err := getVirtualPodObjectsInNamespace(req.Context(), syncContext.VirtualClient, info.Namespace)
 		if err != nil {
 			klog.Infof("error getting vpods in namespace %v", err)
 			requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
@@ -205,7 +194,7 @@ func handleMetricsServerProxyRequest(
 		}
 
 		// fetch and fill vcluster synced nodes
-		nodeList, err := getVirtualNodes(req.Context(), cachedVirtualClient)
+		nodeList, err := getVirtualNodes(req.Context(), syncContext.VirtualClient)
 		if err != nil {
 			requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
 			return
@@ -214,7 +203,7 @@ func handleMetricsServerProxyRequest(
 		metricsServerProxy.nodesInVCluster = nodeList
 	}
 
-	proxyHandler, err := handler.Handler("", hostConfig, nil)
+	proxyHandler, err := handler.Handler("", ctx.PhysicalManager.GetConfig(), nil)
 	if err != nil {
 		requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
 		return
@@ -383,7 +372,7 @@ func (p *serverProxy) rewritePodMetricsTableData(data []byte) {
 
 	filteredTableRows := []metav1.TableRow{}
 	for _, vPod := range p.podsInNamespace {
-		rowData, found := hostPodMap[mappings.VirtualToHost(p.request.Context(), vPod.Name, vPod.Namespace, mappings.Pods())]
+		rowData, found := hostPodMap[mappings.VirtualToHost(p.syncContext, vPod.Name, vPod.Namespace, mappings.Pods())]
 		if found {
 			// translate the data for the given index
 			rowData.Cells[0] = vPod.Name
@@ -437,7 +426,7 @@ func (p *serverProxy) rewritePodMetricsListData(data []byte) {
 	}
 
 	for _, vPod := range p.podsInNamespace {
-		podMetric, found := hostPodMap[mappings.VirtualToHost(p.request.Context(), vPod.Name, vPod.Namespace, mappings.Pods())]
+		podMetric, found := hostPodMap[mappings.VirtualToHost(p.syncContext, vPod.Name, vPod.Namespace, mappings.Pods())]
 		if found {
 			// translate back pod metric
 			podMetric.Name = vPod.Name

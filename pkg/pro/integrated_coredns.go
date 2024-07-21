@@ -3,9 +3,10 @@ package pro
 import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 )
 
-var StartIntegratedCoreDNS = func(_ *config.ControllerContext) error {
+var StartIntegratedCoreDNS = func(_ *synccontext.ControllerContext) error {
 	return NewFeatureError("integrated core dns")
 }
 

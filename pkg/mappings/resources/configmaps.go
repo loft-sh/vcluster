@@ -1,19 +1,16 @@
 package resources
 
 import (
-	"context"
-
 	"github.com/loft-sh/vcluster/pkg/constants"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateConfigMapsMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
+func CreateConfigMapsMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
 	mapper, err := generic.NewMapper(ctx, &corev1.ConfigMap{}, translate.Default.PhysicalName, generic.SkipIndex())
 	if err != nil {
 		return nil, err
@@ -36,10 +33,10 @@ func CreateConfigMapsMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, 
 }
 
 type configMapsMapper struct {
-	mappings.Mapper
+	synccontext.Mapper
 }
 
-func (s *configMapsMapper) VirtualToHost(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *configMapsMapper) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	if !translate.Default.SingleNamespaceTarget() && req.Name == "kube-root-ca.crt" {
 		return types.NamespacedName{
 			Name:      translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName),
@@ -50,7 +47,7 @@ func (s *configMapsMapper) VirtualToHost(ctx context.Context, req types.Namespac
 	return s.Mapper.VirtualToHost(ctx, req, vObj)
 }
 
-func (s *configMapsMapper) HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+func (s *configMapsMapper) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {
 	if !translate.Default.SingleNamespaceTarget() && req.Name == translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName) {
 		return types.NamespacedName{
 			Name:      "kube-root-ca.crt",

@@ -1,16 +1,15 @@
 package volumesnapshotcontents
 
 import (
-	"context"
-
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (s *volumeSnapshotContentSyncer) translate(ctx context.Context, vVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
+func (s *volumeSnapshotContentSyncer) translate(ctx *synccontext.SyncContext, vVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
 	pVSC := s.TranslateMetadata(ctx, vVSC).(*volumesnapshotv1.VolumeSnapshotContent)
 	pVolumeSnapshot := mappings.VirtualToHost(ctx, vVSC.Spec.VolumeSnapshotRef.Name, vVSC.Spec.VolumeSnapshotRef.Namespace, mappings.VolumeSnapshots())
 	pVSC.Spec.VolumeSnapshotRef = corev1.ObjectReference{

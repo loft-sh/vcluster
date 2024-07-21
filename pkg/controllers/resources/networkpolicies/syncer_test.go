@@ -3,12 +3,12 @@ package networkpolicies
 import (
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"gotest.tools/assert"
 	"k8s.io/utils/ptr"
 
 	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -216,7 +216,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                "Create forward",
 			InitialVirtualState: []runtime.Object{vBaseNetworkPolicy.DeepCopy()},
@@ -227,7 +227,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pBaseNetworkPolicy.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vBaseNetworkPolicy.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -242,7 +242,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyNoPodSelector.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyNoPodSelector.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -267,7 +267,7 @@ func TestSync(t *testing.T) {
 				}},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				pNetworkPolicy := &networkingv1.NetworkPolicy{
 					ObjectMeta: pObjectMeta,
 					Spec:       networkingv1.NetworkPolicySpec{},
@@ -292,7 +292,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pBaseNetworkPolicy.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				vNetworkPolicy := vBaseNetworkPolicy.DeepCopy()
 				vNetworkPolicy.ResourceVersion = "999"
 
@@ -310,7 +310,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyWithIPBlock},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyWithIPBlock.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -325,7 +325,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyWithLabelSelectorNoNs},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyWithPodSelectorNoNs.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -340,7 +340,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyWithLabelSelectorEmptyNs},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyWithPodSelectorEmptyNs.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -355,7 +355,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyWithLabelSelectorNsSelector},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyWithPodSelectorNsSelector.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -370,7 +370,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyWithMatchExpressions},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyWithMatchExpressions.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -385,7 +385,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy"): {pnetworkPolicyEgressWithLabelSelectorNoNs},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*networkPolicySyncer).SyncToHost(syncCtx, vnetworkPolicyEgressWithPodSelectorNoNs.DeepCopy())
 				assert.NilError(t, err)
 			},

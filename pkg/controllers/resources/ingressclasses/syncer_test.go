@@ -3,15 +3,14 @@ package ingressclasses
 import (
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 )
 
 func TestSync(t *testing.T) {
@@ -82,7 +81,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                 "Sync Up",
 			InitialVirtualState:  []runtime.Object{},
@@ -94,7 +93,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("IngressClass"): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*ingressClassSyncer).SyncToVirtual(syncCtx, pObj)
 				assert.NilError(t, err)
 			},
@@ -105,7 +104,7 @@ func TestSync(t *testing.T) {
 			ExpectedVirtualState:  map[schema.GroupVersionKind][]runtime.Object{},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*ingressClassSyncer).SyncToHost(syncCtx, vObj)
 				assert.NilError(t, err)
 			},
@@ -121,7 +120,7 @@ func TestSync(t *testing.T) {
 				networkingv1.SchemeGroupVersion.WithKind("IngressClass"): {pObjUpdated},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*ingressClassSyncer).Sync(syncCtx, pObjUpdated, vObj)
 				assert.NilError(t, err)
 			},

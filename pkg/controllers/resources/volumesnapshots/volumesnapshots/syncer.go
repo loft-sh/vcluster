@@ -3,14 +3,14 @@ package volumesnapshots
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	translator2 "github.com/loft-sh/vcluster/pkg/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,17 +24,22 @@ var (
 	zero                              = int64(0)
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.VolumeSnapshots())
+	if err != nil {
+		return nil, err
+	}
+
 	return &volumeSnapshotSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "volume-snapshot", &volumesnapshotv1.VolumeSnapshot{}, mappings.VolumeSnapshots()),
+		GenericTranslator: translator2.NewGenericTranslator(ctx, "volume-snapshot", &volumesnapshotv1.VolumeSnapshot{}, mapper),
 	}, nil
 }
 
 type volumeSnapshotSyncer struct {
-	syncer.GenericTranslator
+	types.GenericTranslator
 }
 
-var _ syncer.Syncer = &volumeSnapshotSyncer{}
+var _ types.Syncer = &volumeSnapshotSyncer{}
 
 func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	vVS := vObj.(*volumesnapshotv1.VolumeSnapshot)
@@ -83,7 +88,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 			updated := vVS.DeepCopy()
 			updated.Finalizers = pVS.Finalizers
 			ctx.Log.Infof("update finalizers of the virtual VolumeSnapshot %s, because finalizers on the physical resource changed", vVS.Name)
-			translator.PrintChanges(vObj, updated, ctx.Log)
+			translator2.PrintChanges(vObj, updated, ctx.Log)
 			err := ctx.VirtualClient.Update(ctx, updated)
 			if kerrors.IsNotFound(err) {
 				return ctrl.Result{}, nil
@@ -96,7 +101,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 			updated := vVS.DeepCopy()
 			updated.Status = pVS.Status.DeepCopy()
 			ctx.Log.Infof("update virtual VolumeSnapshot %s, because status has changed", vVS.Name)
-			translator.PrintChanges(vObj, updated, ctx.Log)
+			translator2.PrintChanges(vObj, updated, ctx.Log)
 			err := ctx.VirtualClient.Status().Update(ctx, updated)
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
