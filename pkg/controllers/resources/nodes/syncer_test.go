@@ -96,7 +96,6 @@ func TestSyncToVirtual(t *testing.T) {
 				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Node")] = []runtime.Object{baseNode.DeepCopy()}
 			}
 
-			// add more logic as needed
 			test := syncertesting.SyncTest{
 				Name:                 tC.name,
 				InitialVirtualState:  initialObjects,
@@ -195,7 +194,6 @@ func TestSyncBothExist(t *testing.T) {
 				physical = editedNode.DeepCopy()
 			}
 
-			// add more logic as needed
 			test := syncertesting.SyncTest{
 				Name:                 tC.name,
 				InitialVirtualState:  initialObjects,
