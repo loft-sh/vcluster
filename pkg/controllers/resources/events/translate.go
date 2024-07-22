@@ -6,7 +6,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -19,25 +18,27 @@ func (s *eventSyncer) translateEvent(ctx *synccontext.SyncContext, pEvent, vEven
 	tempEvent := pEvent.DeepCopy()
 
 	// set the correct involved object meta
-	tempEvent.Namespace = involvedObject.GetNamespace()
 	tempEvent.InvolvedObject.Namespace = involvedObject.GetNamespace()
 	tempEvent.InvolvedObject.Name = involvedObject.GetName()
 	tempEvent.InvolvedObject.UID = involvedObject.GetUID()
 	tempEvent.InvolvedObject.ResourceVersion = involvedObject.GetResourceVersion()
 
 	// rewrite name
-	tempEvent.Name = hostEventNameToVirtual(vEvent.Name, pEvent.InvolvedObject.Name, vEvent.InvolvedObject.Name)
+	namespace := involvedObject.GetNamespace()
+	name := hostEventNameToVirtual(vEvent.Name, pEvent.InvolvedObject.Name, vEvent.InvolvedObject.Name)
 
 	// we replace namespace/name & name in messages so that it seems correct
 	tempEvent.Message = strings.ReplaceAll(tempEvent.Message, pEvent.InvolvedObject.Namespace+"/"+pEvent.InvolvedObject.Name, tempEvent.InvolvedObject.Namespace+"/"+tempEvent.InvolvedObject.Name)
 	tempEvent.Message = strings.ReplaceAll(tempEvent.Message, pEvent.InvolvedObject.Name, tempEvent.InvolvedObject.Name)
 
-	translate.ResetObjectMetadata(tempEvent)
 	// keep the metadata from the virtual object
+	translate.ResetObjectMetadata(tempEvent)
 	tempEvent.ObjectMeta = vEvent.ObjectMeta
 	tempEvent.TypeMeta = vEvent.TypeMeta
 
 	tempEvent.DeepCopyInto(vEvent)
+	vEvent.Namespace = namespace
+	vEvent.Name = name
 	return nil
 }
 
