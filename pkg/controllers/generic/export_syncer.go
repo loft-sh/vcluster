@@ -6,19 +6,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/config"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	"github.com/loft-sh/vcluster/pkg/log"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,13 +29,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func CreateExporters(ctx *config.ControllerContext) error {
+func CreateExporters(ctx *synccontext.ControllerContext) error {
 	exporterConfig := ctx.Config.Experimental.GenericSync
 	if len(exporterConfig.Exports) == 0 {
 		return nil
 	}
-	registerCtx := util.ToRegisterContext(ctx)
 
+	registerCtx := ctx.ToRegisterContext()
 	for _, exportConfig := range exporterConfig.Exports {
 		_, hasStatusSubresource, err := translate.EnsureCRDFromPhysicalCluster(
 			registerCtx,
@@ -117,35 +115,6 @@ func createExporterFromConfig(ctx *synccontext.RegisterContext, config *vcluster
 		name:     controllerID,
 
 		replaceWhenInvalid: config.ReplaceWhenInvalid,
-	}, nil
-}
-
-func BuildCustomExporter(
-	registerCtx *synccontext.RegisterContext,
-	controllerID string,
-	objectPatcher ObjectPatcher,
-	gvk schema.GroupVersionKind,
-	genericTranslator syncertypes.GenericTranslator,
-	replaceWhenInvalid bool,
-) (syncertypes.Object, error) {
-	_, hasStatusSubresource, err := translate.EnsureCRDFromPhysicalCluster(
-		registerCtx,
-		registerCtx.PhysicalManager.GetConfig(),
-		registerCtx.VirtualManager.GetConfig(),
-		gvk)
-	if err != nil {
-		return nil, fmt.Errorf("error creating %s(%s) syncer: %w", gvk.Kind, gvk.GroupVersion().String(), err)
-	}
-
-	return &exporter{
-		ObjectPatcher:     objectPatcher,
-		GenericTranslator: genericTranslator,
-
-		patcher: NewPatcher(registerCtx.VirtualManager.GetClient(), registerCtx.PhysicalManager.GetClient(), hasStatusSubresource, log.New(controllerID)),
-		gvk:     gvk,
-		name:    controllerID,
-
-		replaceWhenInvalid: replaceWhenInvalid,
 	}, nil
 }
 
@@ -316,7 +285,7 @@ func (f *exporter) Name() string {
 }
 
 // TranslateMetadata converts the virtual object into a physical object
-func (f *exporter) TranslateMetadata(ctx context.Context, vObj client.Object) client.Object {
+func (f *exporter) TranslateMetadata(ctx *synccontext.SyncContext, vObj client.Object) client.Object {
 	pObj := f.GenericTranslator.TranslateMetadata(ctx, vObj)
 	if pObj == nil {
 		return nil

@@ -3,8 +3,8 @@ package serviceaccounts
 import (
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -52,7 +52,7 @@ func TestSync(t *testing.T) {
 		AutomountServiceAccountToken: &f,
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name: "ServiceAccount sync",
 			InitialVirtualState: []runtime.Object{
@@ -62,7 +62,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("ServiceAccount"): {pSA},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*serviceAccountSyncer).SyncToHost(syncCtx, vSA)
 				assert.NilError(t, err)
 			},

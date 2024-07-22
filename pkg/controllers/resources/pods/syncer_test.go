@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/maps"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
@@ -20,7 +20,7 @@ import (
 )
 
 func TestSync(t *testing.T) {
-	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
+	translate.Default = translate.NewSingleNamespaceTranslator(syncertesting.DefaultTestTargetNamespace)
 	specialservices.Default = specialservices.NewDefaultServiceSyncer()
 
 	PodLogsVolumeName := "pod-logs"
@@ -62,18 +62,18 @@ func TestSync(t *testing.T) {
 
 	pVclusterService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generictesting.DefaultTestVClusterServiceName,
-			Namespace: generictesting.DefaultTestCurrentNamespace,
+			Name:      syncertesting.DefaultTestVClusterServiceName,
+			Namespace: syncertesting.DefaultTestCurrentNamespace,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "1.2.3.4",
 		},
 	}
-	translate.VClusterName = generictesting.DefaultTestVClusterName
+	translate.VClusterName = syncertesting.DefaultTestVClusterName
 	pDNSService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      translate.Default.PhysicalName("kube-dns", "kube-system"),
-			Namespace: generictesting.DefaultTestTargetNamespace,
+			Namespace: syncertesting.DefaultTestTargetNamespace,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "2.2.2.2",
@@ -173,14 +173,14 @@ func TestSync(t *testing.T) {
 
 	vHostpathNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: generictesting.DefaultTestCurrentNamespace,
+			Name: syncertesting.DefaultTestCurrentNamespace,
 		},
 	}
 
 	vHostPathPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      HostpathPodName,
-			Namespace: generictesting.DefaultTestCurrentNamespace,
+			Namespace: syncertesting.DefaultTestCurrentNamespace,
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -232,13 +232,13 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	vHostPath := fmt.Sprintf(podtranslate.VirtualPathTemplate, generictesting.DefaultTestCurrentNamespace, generictesting.DefaultTestVClusterName)
+	vHostPath := fmt.Sprintf(podtranslate.VirtualPathTemplate, syncertesting.DefaultTestCurrentNamespace, syncertesting.DefaultTestVClusterName)
 
 	hostToContainer := corev1.MountPropagationHostToContainer
 	pHostPathPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.PhysicalName(vHostPathPod.Name, generictesting.DefaultTestCurrentNamespace),
-			Namespace: generictesting.DefaultTestTargetNamespace,
+			Name:      translate.Default.PhysicalName(vHostPathPod.Name, syncertesting.DefaultTestCurrentNamespace),
+			Namespace: syncertesting.DefaultTestTargetNamespace,
 
 			Annotations: map[string]string{
 				podtranslate.ClusterAutoScalerAnnotation:  "false",
@@ -362,7 +362,7 @@ func TestSync(t *testing.T) {
 	vNotInjectedPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      NotInjectedPodName,
-			Namespace: generictesting.DefaultTestCurrentNamespace,
+			Namespace: syncertesting.DefaultTestCurrentNamespace,
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -383,8 +383,8 @@ func TestSync(t *testing.T) {
 
 	pInjectedPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.PhysicalName(NotInjectedPodName, generictesting.DefaultTestCurrentNamespace),
-			Namespace: generictesting.DefaultTestTargetNamespace,
+			Name:      translate.Default.PhysicalName(NotInjectedPodName, syncertesting.DefaultTestCurrentNamespace),
+			Namespace: syncertesting.DefaultTestTargetNamespace,
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -426,7 +426,7 @@ func TestSync(t *testing.T) {
 	maps.Copy(pPodWithLabels.Labels, convertLabelKeyWithPrefix(testLabels))
 	pPodWithLabels.Annotations[podtranslate.VClusterLabelsAnnotation] = podtranslate.LabelsAnnotation(vPodWithLabels)
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                 "Delete virtual pod",
 			InitialVirtualState:  []runtime.Object{vPodWithNodeName.DeepCopy()},
@@ -440,7 +440,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).Sync(syncCtx, pPodWithNodeName.DeepCopy(), vPodWithNodeName)
 				assert.NilError(t, err)
 			},
@@ -459,7 +459,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Sync.FromHost.Nodes.Selector.Labels = nodeSelectorOption
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodWithNodeSelector.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -475,7 +475,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodPss.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodPSS.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -492,7 +492,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Policies.PodSecurityStandard = string(api.LevelPrivileged)
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodPSS.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -509,7 +509,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Policies.PodSecurityStandard = string(api.LevelRestricted)
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodPSSR.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -526,7 +526,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.ControlPlane.HostPathMapper.Enabled = true
-				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				synccontext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncToHost(synccontext, vHostPathPod.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -539,7 +539,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"): {vNotInjectedPod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				synccontext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).Sync(synccontext, pInjectedPod.DeepCopy(), vNotInjectedPod.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -558,7 +558,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Experimental.SyncSettings.SyncLabels = []string{syncLabelsWildcard}
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodWithLabels.DeepCopy())
 				assert.NilError(t, err)
 			},

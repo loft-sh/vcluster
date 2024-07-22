@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -31,8 +31,13 @@ const (
 )
 
 func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.PersistentVolumes())
+	if err != nil {
+		return nil, err
+	}
+
 	return &persistentVolumeSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, mappings.PersistentVolumes(), constants.HostClusterPersistentVolumeAnnotation),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, mapper, constants.HostClusterPersistentVolumeAnnotation),
 
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}, nil
@@ -226,7 +231,7 @@ func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pOb
 	return ctrl.Result{}, nil
 }
 
-func (s *persistentVolumeSyncer) shouldSync(ctx context.Context, pObj *corev1.PersistentVolume) (bool, *corev1.PersistentVolumeClaim, error) {
+func (s *persistentVolumeSyncer) shouldSync(ctx *synccontext.SyncContext, pObj *corev1.PersistentVolume) (bool, *corev1.PersistentVolumeClaim, error) {
 	// is there an assigned PVC?
 	if pObj.Spec.ClaimRef == nil {
 		if translate.Default.IsManaged(ctx, pObj) {
@@ -236,7 +241,7 @@ func (s *persistentVolumeSyncer) shouldSync(ctx context.Context, pObj *corev1.Pe
 		return false, nil, nil
 	}
 
-	vName := mappings.PersistentVolumeClaims().HostToVirtual(ctx, types.NamespacedName{Name: pObj.Spec.ClaimRef.Name, Namespace: pObj.Spec.ClaimRef.Namespace}, nil)
+	vName := mappings.HostToVirtual(ctx, pObj.Spec.ClaimRef.Name, pObj.Spec.ClaimRef.Namespace, nil, mappings.PersistentVolumeClaims())
 	if vName.Name == "" {
 		if translate.Default.IsManaged(ctx, pObj) {
 			return true, nil, nil
@@ -260,7 +265,7 @@ func (s *persistentVolumeSyncer) shouldSync(ctx context.Context, pObj *corev1.Pe
 	return true, vPvc, nil
 }
 
-func (s *persistentVolumeSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
+func (s *persistentVolumeSyncer) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
 	pPv, ok := pObj.(*corev1.PersistentVolume)
 	if !ok {
 		return false, nil

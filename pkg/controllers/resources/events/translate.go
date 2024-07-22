@@ -1,18 +1,18 @@
 package events
 
 import (
-	"context"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	corev1 "k8s.io/api/core/v1"
 )
 
-func (s *eventSyncer) translateEvent(ctx context.Context, pEvent, vEvent *corev1.Event) error {
+func (s *eventSyncer) translateEvent(ctx *synccontext.SyncContext, pEvent, vEvent *corev1.Event) error {
 	// retrieve involved object
-	involvedObject, err := resources.GetInvolvedObject(ctx, s.virtualClient, pEvent)
+	involvedObject, err := resources.GetInvolvedObject(ctx, pEvent)
 	if err != nil {
 		return nil
 	}

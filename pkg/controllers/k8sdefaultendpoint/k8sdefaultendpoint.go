@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/loft-sh/vcluster/pkg/specialservices"
@@ -44,7 +44,7 @@ type EndpointController struct {
 	provider provider
 }
 
-func NewEndpointController(ctx *config.ControllerContext, provider provider) *EndpointController {
+func NewEndpointController(ctx *synccontext.ControllerContext, provider provider) *EndpointController {
 	return &EndpointController{
 		VirtualClient:       ctx.VirtualManager.GetClient(),
 		VirtualManagerCache: ctx.VirtualManager.GetCache(),

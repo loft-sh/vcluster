@@ -7,19 +7,17 @@ import (
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/config"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/log"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
-	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -36,13 +34,13 @@ type HostToVirtual func(ctx context.Context, req types.NamespacedName, pObj clie
 
 type VirtualToHost func(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName
 
-func CreateImporters(ctx *config.ControllerContext) error {
+func CreateImporters(ctx *synccontext.ControllerContext) error {
 	cfg := ctx.Config.Experimental.GenericSync
 	if len(cfg.Imports) == 0 {
 		return nil
 	}
 
-	registerCtx := util.ToRegisterContext(ctx)
+	registerCtx := ctx.ToRegisterContext()
 	if !registerCtx.Config.Experimental.MultiNamespaceMode.Enabled {
 		return fmt.Errorf("invalid configuration, 'import' type sync of the generic CRDs is allowed only in the multi-namespace mode")
 	}
@@ -104,46 +102,6 @@ func createImporter(ctx *synccontext.RegisterContext, config *vclusterconfig.Imp
 			IsClusterScopedCRD:   isClusterScoped,
 			HasStatusSubresource: hasStatusSubresource,
 		},
-	}, nil
-}
-
-func BuildCustomImporter(
-	registerCtx *synccontext.RegisterContext,
-	controllerID string,
-	objectPatcher ObjectPatcher,
-	hostToVirtual HostToVirtual,
-	virtualToHost VirtualToHost,
-	gvk schema.GroupVersionKind,
-	replaceWhenInvalid bool,
-) (syncertypes.Object, error) {
-	isClusterScoped, hasStatusSubresource, err := translate.EnsureCRDFromPhysicalCluster(
-		registerCtx,
-		registerCtx.PhysicalManager.GetConfig(),
-		registerCtx.VirtualManager.GetConfig(),
-		gvk,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("error creating %s(%s) syncer: %w", gvk.Kind, gvk.GroupVersion().String(), err)
-	}
-
-	return &importer{
-		ObjectPatcher: objectPatcher,
-
-		hostToVirtual: hostToVirtual,
-		virtualToHost: virtualToHost,
-
-		patcher: NewPatcher(registerCtx.PhysicalManager.GetClient(), registerCtx.VirtualManager.GetClient(), hasStatusSubresource, log.New(controllerID)),
-		gvk:     gvk,
-		name:    controllerID,
-		syncerOptions: &syncertypes.Options{
-			DisableUIDDeletion:   true,
-			IsClusterScopedCRD:   isClusterScoped,
-			HasStatusSubresource: hasStatusSubresource,
-		},
-
-		virtualClient: registerCtx.VirtualManager.GetClient(),
-
-		replaceWhenInvalid: replaceWhenInvalid,
 	}, nil
 }
 
@@ -385,7 +343,7 @@ func (s *importer) isVirtualManaged(vObj client.Object) bool {
 	return vObj.GetAnnotations() != nil && vObj.GetAnnotations()[translate.ControllerLabel] != "" && vObj.GetAnnotations()[translate.ControllerLabel] == s.Name()
 }
 
-func (s *importer) IsManaged(_ context.Context, pObj client.Object) (bool, error) {
+func (s *importer) IsManaged(_ *synccontext.SyncContext, pObj client.Object) (bool, error) {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return true, nil
 	}
@@ -407,7 +365,7 @@ func (s *importer) IsManaged(_ context.Context, pObj client.Object) (bool, error
 	return true, nil
 }
 
-func (s *importer) VirtualToHost(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *importer) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	if s.virtualToHost != nil {
 		return s.virtualToHost(ctx, req, vObj)
 	}
@@ -415,7 +373,7 @@ func (s *importer) VirtualToHost(ctx context.Context, req types.NamespacedName, 
 	return types.NamespacedName{Name: translate.Default.PhysicalName(req.Name, req.Namespace), Namespace: translate.Default.PhysicalNamespace(req.Namespace)}
 }
 
-func (s *importer) HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+func (s *importer) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return types.NamespacedName{
 			Name: req.Name,
@@ -442,7 +400,7 @@ func (s *importer) HostToVirtual(ctx context.Context, req types.NamespacedName, 
 	return s.hostToVirtual(ctx, req, pObj)
 }
 
-func (s *importer) TranslateMetadata(ctx context.Context, pObj client.Object) client.Object {
+func (s *importer) TranslateMetadata(ctx *synccontext.SyncContext, pObj client.Object) client.Object {
 	vObj := pObj.DeepCopyObject().(client.Object)
 	vObj.SetResourceVersion("")
 	vObj.SetUID("")
@@ -458,7 +416,7 @@ func (s *importer) TranslateMetadata(ctx context.Context, pObj client.Object) cl
 
 // TranslateMetadataUpdate translates the object's metadata annotations and labels and determines
 // if they have changed between the physical and virtual object
-func (s *importer) TranslateMetadataUpdate(_ context.Context, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
+func (s *importer) TranslateMetadataUpdate(_ *synccontext.SyncContext, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
 	updatedAnnotations := s.updateVirtualAnnotations(pObj.GetAnnotations())
 	updatedLabels := pObj.GetLabels()
 	return !equality.Semantic.DeepEqual(updatedAnnotations, vObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, vObj.GetLabels()), updatedAnnotations, updatedLabels

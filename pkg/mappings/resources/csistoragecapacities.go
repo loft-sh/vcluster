@@ -1,11 +1,8 @@
 package resources
 
 import (
-	"context"
-
 	"github.com/loft-sh/vcluster/pkg/constants"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	storagev1 "k8s.io/api/storage/v1"
@@ -14,12 +11,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateCSIStorageCapacitiesMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
+func CreateCSIStorageCapacitiesMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
 	s := &csiStorageCapacitiesMapper{
 		physicalClient: ctx.PhysicalManager.GetClient(),
 	}
 	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx, &storagev1.CSIStorageCapacity{}, constants.IndexByVirtualName, func(rawObj client.Object) []string {
-		return []string{s.HostToVirtual(ctx, types.NamespacedName{Name: rawObj.GetName(), Namespace: rawObj.GetNamespace()}, rawObj).Name}
+		return []string{s.HostToVirtual(ctx.ToSyncContext("csi storage capacity mapper"), types.NamespacedName{Name: rawObj.GetName(), Namespace: rawObj.GetNamespace()}, rawObj).Name}
 	})
 	if err != nil {
 		return nil, err
@@ -36,11 +33,11 @@ func (s *csiStorageCapacitiesMapper) GroupVersionKind() schema.GroupVersionKind 
 	return storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity")
 }
 
-func (s *csiStorageCapacitiesMapper) HostToVirtual(_ context.Context, req types.NamespacedName, _ client.Object) types.NamespacedName {
+func (s *csiStorageCapacitiesMapper) HostToVirtual(_ *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: translate.SafeConcatName(req.Name, "x", req.Namespace), Namespace: "kube-system"}
 }
 
-func (s *csiStorageCapacitiesMapper) VirtualToHost(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *csiStorageCapacitiesMapper) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	// if the virtual object is annotated with the physical name and namespace, return that
 	if vObj != nil {
 		vAnnotations := vObj.GetAnnotations()
@@ -65,6 +62,6 @@ func (s *csiStorageCapacitiesMapper) VirtualToHost(ctx context.Context, req type
 	}
 }
 
-func (s *csiStorageCapacitiesMapper) IsManaged(context.Context, client.Object) (bool, error) {
+func (s *csiStorageCapacitiesMapper) IsManaged(*synccontext.SyncContext, client.Object) (bool, error) {
 	return true, nil
 }

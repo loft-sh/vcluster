@@ -3,7 +3,6 @@ package filters
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,7 +14,9 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -24,21 +25,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/metrics"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	apirest "k8s.io/apiserver/pkg/registry/rest"
-	"k8s.io/client-go/rest"
 	statsv1alpha1 "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-func WithMetricsProxy(h http.Handler, localConfig *rest.Config, cachedVirtualClient client.Client) http.Handler {
-	s := serializer.NewCodecFactory(cachedVirtualClient.Scheme())
+func WithMetricsProxy(h http.Handler, registerCtx *synccontext.RegisterContext) http.Handler {
+	s := serializer.NewCodecFactory(scheme.Scheme)
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
 		if !ok {
@@ -78,7 +76,7 @@ func WithMetricsProxy(h http.Handler, localConfig *rest.Config, cachedVirtualCli
 			req.URL.Path = strings.Join(splitted, "/")
 
 			// execute the request
-			_, err := handleNodeRequest(localConfig, cachedVirtualClient, w, req)
+			_, err := handleNodeRequest(registerCtx, w, req)
 			if err != nil {
 				responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 				return
@@ -90,13 +88,13 @@ func WithMetricsProxy(h http.Handler, localConfig *rest.Config, cachedVirtualCli
 	})
 }
 
-func rewritePrometheusMetrics(req *http.Request, data []byte) ([]byte, error) {
+func rewritePrometheusMetrics(ctx *synccontext.SyncContext, req *http.Request, data []byte) ([]byte, error) {
 	metricsFamilies, err := MetricsDecode(data)
 	if err != nil {
 		return nil, err
 	}
 
-	metricsFamilies, err = MetricsRewrite(req.Context(), metricsFamilies)
+	metricsFamilies, err = MetricsRewrite(ctx, metricsFamilies)
 	if err != nil {
 		return nil, err
 	}
@@ -104,10 +102,10 @@ func rewritePrometheusMetrics(req *http.Request, data []byte) ([]byte, error) {
 	return MetricsEncode(metricsFamilies, expfmt.Negotiate(req.Header))
 }
 
-func handleNodeRequest(localConfig *rest.Config, vClient client.Client, w http.ResponseWriter, req *http.Request) (bool, error) {
+func handleNodeRequest(ctx *synccontext.RegisterContext, w http.ResponseWriter, req *http.Request) (bool, error) {
 	// authorization was done here already so we will just go forward with the rewrite
 	req.Header.Del("Authorization")
-	h, err := handler.Handler("", localConfig, nil)
+	h, err := handler.Handler("", ctx.PhysicalManager.GetConfig(), nil)
 	if err != nil {
 		return false, err
 	}
@@ -123,12 +121,12 @@ func handleNodeRequest(localConfig *rest.Config, vClient client.Client, w http.R
 	// now rewrite the metrics
 	newData := data
 	if IsKubeletMetrics(req.URL.Path) {
-		newData, err = rewritePrometheusMetrics(req, data)
+		newData, err = rewritePrometheusMetrics(ctx.ToSyncContext("node-request"), req, data)
 		if err != nil {
 			return false, err
 		}
 	} else if IsKubeletStats(req.URL.Path) {
-		newData, err = rewriteStats(req.Context(), data, vClient)
+		newData, err = rewriteStats(ctx.ToSyncContext("node-request"), data)
 		if err != nil {
 			return false, err
 		}
@@ -140,7 +138,7 @@ func handleNodeRequest(localConfig *rest.Config, vClient client.Client, w http.R
 	return true, nil
 }
 
-func rewriteStats(ctx context.Context, data []byte, vClient client.Client) ([]byte, error) {
+func rewriteStats(ctx *synccontext.SyncContext, data []byte) ([]byte, error) {
 	stats := &statsv1alpha1.Summary{}
 	err := json.Unmarshal(data, stats)
 	if err != nil {
@@ -151,14 +149,14 @@ func rewriteStats(ctx context.Context, data []byte, vClient client.Client) ([]by
 	newPods := []statsv1alpha1.PodStats{}
 	for _, pod := range stats.Pods {
 		// search if we can find the pod by name in the virtual cluster
-		name := mappings.Pods().HostToVirtual(ctx, types.NamespacedName{Name: pod.PodRef.Name, Namespace: pod.PodRef.Namespace}, nil)
+		name := mappings.HostToVirtual(ctx, pod.PodRef.Name, pod.PodRef.Namespace, nil, mappings.Pods())
 		if name.Name == "" {
 			continue
 		}
 
 		// query the pod from the virtual cluster
 		vPod := &corev1.Pod{}
-		err := vClient.Get(ctx, name, vPod)
+		err := ctx.VirtualClient.Get(ctx, name, vPod)
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				continue
@@ -174,7 +172,7 @@ func rewriteStats(ctx context.Context, data []byte, vClient client.Client) ([]by
 		newVolumes := []statsv1alpha1.VolumeStats{}
 		for _, volume := range pod.VolumeStats {
 			if volume.PVCRef != nil {
-				vPVC := mappings.PersistentVolumeClaims().HostToVirtual(ctx, types.NamespacedName{Name: volume.PVCRef.Name, Namespace: volume.PVCRef.Namespace}, nil)
+				vPVC := mappings.HostToVirtual(ctx, volume.PVCRef.Name, volume.PVCRef.Namespace, nil, mappings.PersistentVolumeClaims())
 				if vPVC.Name == "" {
 					continue
 				}
@@ -256,7 +254,7 @@ func MetricsEncode(metricsFamilies []*dto.MetricFamily, format expfmt.Format) ([
 	return buffer.Bytes(), nil
 }
 
-func MetricsRewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily) ([]*dto.MetricFamily, error) {
+func MetricsRewrite(ctx *synccontext.SyncContext, metricsFamilies []*dto.MetricFamily) ([]*dto.MetricFamily, error) {
 	resultMetricsFamily := []*dto.MetricFamily{}
 
 	// rewrite metrics
@@ -287,7 +285,7 @@ func MetricsRewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily) ([
 			// rewrite pod
 			if pod != "" {
 				// search if we can find the pod by name in the virtual cluster
-				name := mappings.Pods().HostToVirtual(ctx, types.NamespacedName{Name: pod, Namespace: namespace}, nil)
+				name := mappings.HostToVirtual(ctx, pod, namespace, nil, mappings.Pods())
 				if name.Name == "" {
 					continue
 				}
@@ -299,7 +297,7 @@ func MetricsRewrite(ctx context.Context, metricsFamilies []*dto.MetricFamily) ([
 			// rewrite persistentvolumeclaim
 			if persistentColumeClaim != "" {
 				// search if we can find the pvc by name in the virtual cluster
-				pvcName := mappings.PersistentVolumeClaims().HostToVirtual(ctx, types.NamespacedName{Name: persistentColumeClaim, Namespace: namespace}, nil)
+				pvcName := mappings.HostToVirtual(ctx, persistentColumeClaim, namespace, nil, mappings.PersistentVolumeClaims())
 				if pvcName.Name == "" {
 					continue
 				}

@@ -3,14 +3,14 @@ package services
 import (
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"k8s.io/apimachinery/pkg/types"
 
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	corev1 "k8s.io/api/core/v1"
@@ -306,7 +306,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                "Create Forward",
 			InitialVirtualState: []runtime.Object{baseService.DeepCopy()},
@@ -317,7 +317,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {createdService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*serviceSyncer).SyncToHost(syncCtx, baseService)
 				assert.NilError(t, err)
 			},
@@ -333,7 +333,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {pServicePorts1.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				syncCtx.EventSource = synccontext.EventSourceHost
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServicePorts1.DeepCopy(), vServicePorts1.DeepCopy())
 				assert.NilError(t, err)
@@ -350,7 +350,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {pServicePorts2Synced.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServicePorts2.DeepCopy(), vServicePorts1.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -366,7 +366,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {updatedForwardService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, createdByServerService.DeepCopy(), updateForwardService.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -382,7 +382,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {createdService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, createdService.DeepCopy(), baseService.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -398,7 +398,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardSpecService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				baseService := baseService.DeepCopy()
 				updateBackwardSpecService := updateBackwardSpecService.DeepCopy()
 				syncCtx.EventSource = synccontext.EventSourceHost
@@ -427,7 +427,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardSpecRecreateService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				baseService := baseService.DeepCopy()
 				updateBackwardSpecRecreateService := updateBackwardSpecRecreateService.DeepCopy()
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardSpecRecreateService, baseService)
@@ -456,7 +456,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {updateBackwardStatusService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, updateBackwardStatusService.DeepCopy(), baseService.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -472,7 +472,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {createdService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, createdService.DeepCopy(), baseService.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -488,7 +488,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				err := specialservices.SyncKubernetesService(synccontext.ConvertContext(ctx, "sync-kubernetes-service"), "default", "kubernetes", types.NamespacedName{
+				err := specialservices.SyncKubernetesService(ctx.ToSyncContext("sync-kubernetes-service"), "default", "kubernetes", types.NamespacedName{
 					Name:      specialservices.DefaultKubernetesSVCName,
 					Namespace: specialservices.DefaultKubernetesSVCNamespace,
 				}, TranslateServicePorts)
@@ -506,7 +506,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				err := specialservices.SyncKubernetesService(synccontext.ConvertContext(ctx, "sync-kubernetes-service"), "default", "kubernetes", types.NamespacedName{
+				err := specialservices.SyncKubernetesService(ctx.ToSyncContext("sync-kubernetes-service"), "default", "kubernetes", types.NamespacedName{
 					Name:      specialservices.DefaultKubernetesSVCName,
 					Namespace: specialservices.DefaultKubernetesSVCNamespace,
 				}, TranslateServicePorts)
@@ -524,7 +524,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithClusterIPService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				err := specialservices.SyncKubernetesService(synccontext.ConvertContext(ctx, "sync-kubernetes-service"), "default", "kubernetes", types.NamespacedName{
+				err := specialservices.SyncKubernetesService(ctx.ToSyncContext("sync-kubernetes-service"), "default", "kubernetes", types.NamespacedName{
 					Name:      specialservices.DefaultKubernetesSVCName,
 					Namespace: specialservices.DefaultKubernetesSVCNamespace,
 				}, TranslateServicePorts)
@@ -542,7 +542,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {kubernetesWithPortsService.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				err := specialservices.SyncKubernetesService(synccontext.ConvertContext(ctx, "sync-kubernetes-service"), "default", "kubernetes", types.NamespacedName{
+				err := specialservices.SyncKubernetesService(ctx.ToSyncContext("sync-kubernetes-service"), "default", "kubernetes", types.NamespacedName{
 					Name:      specialservices.DefaultKubernetesSVCName,
 					Namespace: specialservices.DefaultKubernetesSVCNamespace,
 				}, TranslateServicePorts)
@@ -560,7 +560,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {pServiceClusterIPFromExternal.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServiceExternal.DeepCopy(), vServiceClusterIPFromExternal.DeepCopy())
 				assert.NilError(t, err)
 			},
@@ -576,7 +576,7 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Service"): {pServiceNodePortFromExternal.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, pServiceExternal.DeepCopy(), vServiceNodePortFromExternal.DeepCopy())
 				assert.NilError(t, err)
 			},

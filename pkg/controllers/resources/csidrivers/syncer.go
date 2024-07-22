@@ -3,29 +3,34 @@ package csidrivers
 import (
 	"fmt"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/types"
 	storagev1 "k8s.io/api/storage/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.CSIDrivers())
+	if err != nil {
+		return nil, err
+	}
+
 	return &csidriverSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("csidriver", &storagev1.CSIDriver{}, mappings.CSIDrivers()),
+		Translator: translator.NewMirrorPhysicalTranslator("csidriver", &storagev1.CSIDriver{}, mapper),
 	}, nil
 }
 
 type csidriverSyncer struct {
-	syncer.Translator
+	types.Translator
 }
 
-var _ syncer.ToVirtualSyncer = &csidriverSyncer{}
-var _ syncer.Syncer = &csidriverSyncer{}
+var _ types.ToVirtualSyncer = &csidriverSyncer{}
+var _ types.Syncer = &csidriverSyncer{}
 
 func (s *csidriverSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	vObj := s.translateBackwards(ctx, pObj.(*storagev1.CSIDriver))

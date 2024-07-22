@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,6 +24,8 @@ func RegisterFakeSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Fak
 		currentNamespace:       ctx.CurrentNamespace,
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
 
+		mappings: ctx.Mappings,
+
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}
 
@@ -39,6 +41,8 @@ type fakeSyncer struct {
 	currentNamespace       string
 	currentNamespaceClient client.Client
 
+	mappings synccontext.MappingsRegistry
+
 	virtualClient client.Client
 }
 
@@ -51,6 +55,7 @@ func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		CurrentNamespace:       r.currentNamespace,
 		CurrentNamespaceClient: r.currentNamespaceClient,
 		VirtualClient:          r.virtualClient,
+		Mappings:               r.mappings,
 	}
 
 	// check if we should skip reconcile

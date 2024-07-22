@@ -3,26 +3,31 @@ package poddisruptionbudgets
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/types"
 	policyv1 "k8s.io/api/policy/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.PodDisruptionBudgets())
+	if err != nil {
+		return nil, err
+	}
+
 	return &pdbSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "podDisruptionBudget", &policyv1.PodDisruptionBudget{}, mappings.PodDisruptionBudgets()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "podDisruptionBudget", &policyv1.PodDisruptionBudget{}, mapper),
 	}, nil
 }
 
 type pdbSyncer struct {
-	syncertypes.GenericTranslator
+	types.GenericTranslator
 }
 
 func (pdb *pdbSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -51,7 +56,7 @@ func (pdb *pdbSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vOb
 		}
 	}()
 
-	pdb.translateUpdate(ctx.Context, pPDB, vPDB)
+	pdb.translateUpdate(ctx, pPDB, vPDB)
 
 	return ctrl.Result{}, nil
 }

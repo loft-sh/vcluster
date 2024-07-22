@@ -1,11 +1,11 @@
 package ingresses
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/klog/v2"
@@ -19,7 +19,7 @@ const (
 	ActionsSuffix          = "/actions."
 )
 
-func (s *ingressSyncer) translate(ctx context.Context, vIngress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
+func (s *ingressSyncer) translate(ctx *synccontext.SyncContext, vIngress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
 	newIngress := s.TranslateMetadata(ctx, vIngress).(*networkingv1.Ingress)
 	pSpec, err := translateSpec(ctx, vIngress.Namespace, &vIngress.Spec)
 	if err != nil {
@@ -31,21 +31,21 @@ func (s *ingressSyncer) translate(ctx context.Context, vIngress *networkingv1.In
 	return newIngress, nil
 }
 
-func (s *ingressSyncer) TranslateMetadata(ctx context.Context, vObj client.Object) client.Object {
+func (s *ingressSyncer) TranslateMetadata(ctx *synccontext.SyncContext, vObj client.Object) client.Object {
 	ingress := vObj.(*networkingv1.Ingress).DeepCopy()
 	updateAnnotations(ingress)
 
 	return s.GenericTranslator.TranslateMetadata(ctx, ingress)
 }
 
-func (s *ingressSyncer) TranslateMetadataUpdate(ctx context.Context, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
+func (s *ingressSyncer) TranslateMetadataUpdate(ctx *synccontext.SyncContext, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
 	vIngress := vObj.(*networkingv1.Ingress).DeepCopy()
 	updateAnnotations(vIngress)
 
 	return s.GenericTranslator.TranslateMetadataUpdate(ctx, vIngress, pObj)
 }
 
-func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.Ingress) error {
+func (s *ingressSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *networkingv1.Ingress) error {
 	pSpec, err := translateSpec(ctx, vObj.Namespace, &vObj.Spec)
 	if err != nil {
 		return err
@@ -59,7 +59,7 @@ func (s *ingressSyncer) translateUpdate(ctx context.Context, pObj, vObj *network
 	return nil
 }
 
-func translateSpec(ctx context.Context, namespace string, vIngressSpec *networkingv1.IngressSpec) (*networkingv1.IngressSpec, error) {
+func translateSpec(ctx *synccontext.SyncContext, namespace string, vIngressSpec *networkingv1.IngressSpec) (*networkingv1.IngressSpec, error) {
 	retSpec := vIngressSpec.DeepCopy()
 	if retSpec.DefaultBackend != nil {
 		if retSpec.DefaultBackend.Service != nil && retSpec.DefaultBackend.Service.Name != "" {

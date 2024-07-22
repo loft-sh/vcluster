@@ -3,16 +3,16 @@ package nodes
 import (
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,7 +28,7 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 	})
 	assert.NilError(t, err)
 
-	syncContext, object := generictesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	syncContext, object := syncertesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return NewSyncer(ctx, &fakeNodeServiceProvider{})
 	})
 	return syncContext, object.(*nodeSyncer)
@@ -51,7 +51,7 @@ func TestNodeDeletion(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                 "Delete unused node backwards",
 			InitialVirtualState:  []runtime.Object{baseNode},
@@ -143,7 +143,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                "Create backward",
 			InitialVirtualState: []runtime.Object{basePod.DeepCopy()},
@@ -281,7 +281,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                 "Taint matching Enforced Toleration",
 			InitialPhysicalState: []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
@@ -410,7 +410,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                 "Label Matched and enforceNodeSelector false - expect node to be synced from NodeSelector",
 			InitialPhysicalState: []runtime.Object{baseNode.DeepCopy()},
@@ -555,7 +555,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                 "Clear Node Images Enabled -- Synced Node Should have no images in status.images",
 			InitialPhysicalState: []runtime.Object{baseNode.DeepCopy()},
@@ -607,7 +607,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                 "Clear Node Images Disabled -- Synced Node Should have images in status.images",
 			InitialPhysicalState: []runtime.Object{baseNode.DeepCopy()},

@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	syncerresources "github.com/loft-sh/vcluster/pkg/controllers/resources"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	mapperresources "github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/server"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"k8s.io/klog/v2"
 )
 

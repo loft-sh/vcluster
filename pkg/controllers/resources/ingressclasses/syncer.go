@@ -3,29 +3,34 @@ package ingressclasses
 import (
 	"fmt"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/types"
 	networkingv1 "k8s.io/api/networking/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(_ *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.IngressClasses())
+	if err != nil {
+		return nil, err
+	}
+
 	return &ingressClassSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("ingressclass", &networkingv1.IngressClass{}, mappings.IngressClasses()),
+		Translator: translator.NewMirrorPhysicalTranslator("ingressclass", &networkingv1.IngressClass{}, mapper),
 	}, nil
 }
 
 type ingressClassSyncer struct {
-	syncer.Translator
+	types.Translator
 }
 
-var _ syncer.ToVirtualSyncer = &ingressClassSyncer{}
-var _ syncer.Syncer = &ingressClassSyncer{}
+var _ types.ToVirtualSyncer = &ingressClassSyncer{}
+var _ types.Syncer = &ingressClassSyncer{}
 
 func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	vObj := i.createVirtual(ctx, pObj.(*networkingv1.IngressClass))

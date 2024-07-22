@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,7 +23,7 @@ const (
 
 var PodServiceAccountTokenSecretName string
 
-func SecretNameFromPodName(ctx context.Context, podName, namespace string) string {
+func SecretNameFromPodName(ctx *synccontext.SyncContext, podName, namespace string) string {
 	return mappings.VirtualToHostName(ctx, fmt.Sprintf("%s-sa-token", podName), namespace, mappings.Secrets())
 }
 
@@ -36,7 +37,7 @@ func IgnoreAcceptableErrors(err error) error {
 	return err
 }
 
-func GetSecretIfExists(ctx context.Context, pClient client.Client, vPodName, vNamespace string) (*corev1.Secret, error) {
+func GetSecretIfExists(ctx *synccontext.SyncContext, pClient client.Client, vPodName, vNamespace string) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
 	err := pClient.Get(ctx, types.NamespacedName{
 		Name:      SecretNameFromPodName(ctx, vPodName, vNamespace),
@@ -53,7 +54,7 @@ func GetSecretIfExists(ctx context.Context, pClient client.Client, vPodName, vNa
 	return secret, nil
 }
 
-func SATokenSecret(ctx context.Context, pClient client.Client, vPod *corev1.Pod, tokens map[string]string) error {
+func SATokenSecret(ctx *synccontext.SyncContext, pClient client.Client, vPod *corev1.Pod, tokens map[string]string) error {
 	existingSecret, err := GetSecretIfExists(ctx, pClient, vPod.Name, vPod.Namespace)
 	if err := IgnoreAcceptableErrors(err); err != nil {
 		return err

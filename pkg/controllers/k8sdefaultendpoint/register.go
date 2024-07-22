@@ -1,13 +1,13 @@
 package k8sdefaultendpoint
 
 import (
-	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 )
 
-func Register(ctx *config.ControllerContext) error {
+func Register(ctx *synccontext.ControllerContext) error {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(ctx.VirtualManager.GetConfig())
 	if err != nil {
 		return err

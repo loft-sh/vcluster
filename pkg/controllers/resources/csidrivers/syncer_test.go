@@ -4,15 +4,14 @@ import (
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/config"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 )
 
 const kind = "CSIDriver"
@@ -93,10 +92,10 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 		vConfig.Sync.FromHost.CSIDrivers.Enabled = "true"
-		return generictesting.NewFakeRegisterContext(vConfig, pClient, vClient)
-	}, []*generictesting.SyncTest{
+		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*syncertesting.SyncTest{
 		{
 			Name:                 "Sync Up",
 			InitialVirtualState:  []runtime.Object{},
@@ -108,7 +107,7 @@ func TestSync(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*csidriverSyncer).SyncToVirtual(syncCtx, pObj)
 				assert.NilError(t, err)
 			},
@@ -119,7 +118,7 @@ func TestSync(t *testing.T) {
 			ExpectedVirtualState:  map[schema.GroupVersionKind][]runtime.Object{},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*csidriverSyncer).SyncToHost(syncCtx, vObj)
 				assert.NilError(t, err)
 			},
@@ -135,7 +134,7 @@ func TestSync(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObjUpdated},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*csidriverSyncer).Sync(syncCtx, pObjUpdated, vObj)
 				assert.NilError(t, err)
 			},

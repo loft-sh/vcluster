@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
@@ -21,7 +21,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func StartLeaderElection(ctx *config.ControllerContext, scheme *runtime.Scheme, run func() error) error {
+func StartLeaderElection(ctx *synccontext.ControllerContext, scheme *runtime.Scheme, run func() error) error {
 	localConfig := ctx.LocalManager.GetConfig()
 
 	// create the event recorder

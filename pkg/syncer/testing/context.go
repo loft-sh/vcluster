@@ -6,8 +6,10 @@ import (
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -16,7 +18,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -47,7 +48,7 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 		assert.NilError(t, err)
 	}
 
-	syncCtx := synccontext.ConvertContext(ctx, object.Name())
+	syncCtx := ctx.ToSyncContext(object.Name())
 	syncCtx.Log = loghelper.NewFromExisting(log.NewLog(0), object.Name())
 	return syncCtx, object
 }
@@ -61,6 +62,7 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),
 		PhysicalManager:        newFakeManager(pClient),
+		Mappings:               mappings.NewMappingsRegistry(),
 	}
 
 	// make sure we do not ensure any CRDs

@@ -1,13 +1,11 @@
 package resources
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -26,27 +24,23 @@ var AcceptedKinds = map[schema.GroupVersionKind]bool{
 	corev1.SchemeGroupVersion.WithKind("ConfigMap"): true,
 }
 
-func CreateEventsMapper(ctx *synccontext.RegisterContext) (mappings.Mapper, error) {
-	return &eventMapper{
-		virtualClient: ctx.VirtualManager.GetClient(),
-	}, nil
+func CreateEventsMapper(_ *synccontext.RegisterContext) (synccontext.Mapper, error) {
+	return &eventMapper{}, nil
 }
 
-type eventMapper struct {
-	virtualClient client.Client
-}
+type eventMapper struct{}
 
 func (s *eventMapper) GroupVersionKind() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("Event")
 }
 
-func (s *eventMapper) VirtualToHost(_ context.Context, _ types.NamespacedName, _ client.Object) types.NamespacedName {
+func (s *eventMapper) VirtualToHost(_ *synccontext.SyncContext, _ types.NamespacedName, _ client.Object) types.NamespacedName {
 	// we ignore virtual events here, we only react on host events and sync them to the virtual cluster
 	return types.NamespacedName{}
 }
 
-func (s *eventMapper) HostToVirtual(ctx context.Context, req types.NamespacedName, pObj client.Object) types.NamespacedName {
-	involvedObject, err := GetInvolvedObject(ctx, s.virtualClient, pObj)
+func (s *eventMapper) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+	involvedObject, err := GetInvolvedObject(ctx, pObj)
 	if err != nil {
 		err = IgnoreAcceptableErrors(err)
 		if err != nil {
@@ -69,7 +63,7 @@ func (s *eventMapper) HostToVirtual(ctx context.Context, req types.NamespacedNam
 	}
 }
 
-func (s *eventMapper) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
+func (s *eventMapper) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
 	return s.HostToVirtual(ctx, types.NamespacedName{Namespace: pObj.GetNamespace(), Name: pObj.GetName()}, pObj).Name != "", nil
 }
 
@@ -100,7 +94,7 @@ func IgnoreAcceptableErrors(err error) error {
 
 // GetInvolvedObject returns the related object from the vCLuster.
 // Alternatively returns a ErrNilPhysicalObject, ErrKindNotAccepted or ErrNotFound.
-func GetInvolvedObject(ctx context.Context, virtualClient client.Client, pObj client.Object) (metav1.Object, error) {
+func GetInvolvedObject(ctx *synccontext.SyncContext, pObj client.Object) (metav1.Object, error) {
 	if pObj == nil {
 		return nil, ErrNilPhysicalObject
 	}
@@ -117,13 +111,19 @@ func GetInvolvedObject(ctx context.Context, virtualClient client.Client, pObj cl
 	}
 
 	// create new virtual object
-	vInvolvedObj, err := virtualClient.Scheme().New(gvk)
+	vInvolvedObj, err := ctx.VirtualClient.Scheme().New(gvk)
+	if err != nil {
+		return nil, err
+	}
+
+	// get mapper
+	mapper, err := ctx.Mappings.ByGVK(gvk)
 	if err != nil {
 		return nil, err
 	}
 
 	// get involved object
-	vName := mappings.Default.ByGVK(gvk).HostToVirtual(ctx, types.NamespacedName{
+	vName := mapper.HostToVirtual(ctx, types.NamespacedName{
 		Namespace: pEvent.Namespace,
 		Name:      pEvent.InvolvedObject.Name,
 	}, nil)
@@ -132,7 +132,7 @@ func GetInvolvedObject(ctx context.Context, virtualClient client.Client, pObj cl
 	}
 
 	// get virtual object
-	err = virtualClient.Get(ctx, vName, vInvolvedObj.(client.Object))
+	err = ctx.VirtualClient.Get(ctx, vName, vInvolvedObj.(client.Object))
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return nil, err

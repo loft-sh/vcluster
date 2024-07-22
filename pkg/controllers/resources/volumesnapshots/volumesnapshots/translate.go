@@ -5,8 +5,8 @@ import (
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -26,7 +26,13 @@ func (s *volumeSnapshotSyncer) translate(ctx *synccontext.SyncContext, vVS *volu
 			if err != nil {
 				return nil, fmt.Errorf("failed to get virtual VolumeSnapshotContent resource referenced as source of the %s VolumeSnapshot: %w", vVS.Name, err)
 			}
-			translatedName := mappings.VolumeSnapshotContents().VirtualToHost(ctx, types.NamespacedName{Name: vVSC.Name}, vVSC).Name
+
+			mapper, err := ctx.Mappings.ByGVK(mappings.VolumeSnapshotContents())
+			if err != nil {
+				return nil, err
+			}
+
+			translatedName := mapper.VirtualToHost(ctx, types.NamespacedName{Name: vVSC.Name}, vVSC).Name
 			pVS.Spec.Source.VolumeSnapshotContentName = &translatedName
 		}
 	}

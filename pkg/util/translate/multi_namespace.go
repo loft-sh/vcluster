@@ -1,7 +1,6 @@
 package translate
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +50,7 @@ func (s *multiNamespace) PhysicalNameClusterScoped(name string) string {
 	return SafeConcatName("vcluster", name, "x", s.currentNamespace, "x", VClusterName)
 }
 
-func (s *multiNamespace) IsManaged(_ context.Context, pObj client.Object) bool {
+func (s *multiNamespace) IsManaged(_ *synccontext.SyncContext, pObj client.Object) bool {
 	// check if cluster scoped object
 	if pObj.GetNamespace() == "" {
 		return pObj.GetLabels()[MarkerLabel] == SafeConcatName(s.currentNamespace, "x", VClusterName)

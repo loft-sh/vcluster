@@ -3,27 +3,32 @@ package serviceaccounts
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/types"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	corev1 "k8s.io/api/core/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.ServiceAccounts())
+	if err != nil {
+		return nil, err
+	}
+
 	return &serviceAccountSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "serviceaccount", &corev1.ServiceAccount{}, mappings.ServiceAccounts()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "serviceaccount", &corev1.ServiceAccount{}, mapper),
 	}, nil
 }
 
 type serviceAccountSyncer struct {
-	syncertypes.GenericTranslator
+	types.GenericTranslator
 }
 
 func (s *serviceAccountSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -49,6 +54,6 @@ func (s *serviceAccountSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 		}
 	}()
 
-	s.translateUpdate(ctx.Context, pObj.(*corev1.ServiceAccount), vObj.(*corev1.ServiceAccount))
+	s.translateUpdate(ctx, pObj.(*corev1.ServiceAccount), vObj.(*corev1.ServiceAccount))
 	return ctrl.Result{}, nil
 }

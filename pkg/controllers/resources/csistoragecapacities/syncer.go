@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -23,8 +23,13 @@ import (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.CSIStorageCapacities())
+	if err != nil {
+		return nil, err
+	}
+
 	return &csistoragecapacitySyncer{
-		Mapper: mappings.CSIStorageCapacities(),
+		Mapper: mapper,
 
 		storageClassSyncEnabled:     ctx.Config.Sync.ToHost.StorageClasses.Enabled,
 		hostStorageClassSyncEnabled: ctx.Config.Sync.FromHost.StorageClasses.Enabled == "true",
@@ -33,7 +38,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 }
 
 type csistoragecapacitySyncer struct {
-	mappings.Mapper
+	synccontext.Mapper
 
 	storageClassSyncEnabled     bool
 	hostStorageClassSyncEnabled bool
@@ -103,27 +108,28 @@ func (s *csistoragecapacitySyncer) ModifyController(ctx *synccontext.RegisterCon
 		return nil, fmt.Errorf("failed to add allNSCache to physical manager: %w", err)
 	}
 
+	syncContext := ctx.ToSyncContext("csi storage capacity syncer")
 	return builder.WatchesRawSource(source.Kind(allNSCache, s.Resource(), &handler.Funcs{
 		CreateFunc: func(_ context.Context, ce event.CreateEvent, rli workqueue.RateLimitingInterface) {
 			obj := ce.Object
-			s.enqueuePhysical(ctx, obj, rli)
+			s.enqueuePhysical(syncContext, obj, rli)
 		},
 		UpdateFunc: func(_ context.Context, ue event.UpdateEvent, rli workqueue.RateLimitingInterface) {
 			obj := ue.ObjectNew
-			s.enqueuePhysical(ctx, obj, rli)
+			s.enqueuePhysical(syncContext, obj, rli)
 		},
 		DeleteFunc: func(_ context.Context, de event.DeleteEvent, rli workqueue.RateLimitingInterface) {
 			obj := de.Object
-			s.enqueuePhysical(ctx, obj, rli)
+			s.enqueuePhysical(syncContext, obj, rli)
 		},
 		GenericFunc: func(_ context.Context, ge event.GenericEvent, rli workqueue.RateLimitingInterface) {
 			obj := ge.Object
-			s.enqueuePhysical(ctx, obj, rli)
+			s.enqueuePhysical(syncContext, obj, rli)
 		},
 	})), nil
 }
 
-func (s *csistoragecapacitySyncer) enqueuePhysical(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface) {
+func (s *csistoragecapacitySyncer) enqueuePhysical(ctx *synccontext.SyncContext, obj client.Object, q workqueue.RateLimitingInterface) {
 	if obj == nil {
 		return
 	}

@@ -1,13 +1,13 @@
 package generic
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/patches"
 	patchesregex "github.com/loft-sh/vcluster/pkg/patches/regex"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -22,14 +22,14 @@ type exportPatcher struct {
 
 var _ ObjectPatcher = &exportPatcher{}
 
-func (e *exportPatcher) ServerSideApply(_ context.Context, fromObj, destObj, sourceObj client.Object) error {
+func (e *exportPatcher) ServerSideApply(_ *synccontext.SyncContext, fromObj, destObj, sourceObj client.Object) error {
 	return patches.ApplyPatches(destObj, sourceObj, e.config.Patches, e.config.ReversePatches, &virtualToHostNameResolver{
 		namespace:       fromObj.GetNamespace(),
 		targetNamespace: translate.Default.PhysicalNamespace(fromObj.GetNamespace()),
 	})
 }
 
-func (e *exportPatcher) ReverseUpdate(_ context.Context, destObj, sourceObj client.Object) error {
+func (e *exportPatcher) ReverseUpdate(_ *synccontext.SyncContext, destObj, sourceObj client.Object) error {
 	return patches.ApplyPatches(destObj, sourceObj, e.config.ReversePatches, nil, &hostToVirtualNameResolver{
 		gvk:  e.gvk,
 		pObj: sourceObj,

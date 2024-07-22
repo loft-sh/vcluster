@@ -1,15 +1,14 @@
 package csistoragecapacities
 
 import (
-	"context"
 	"fmt"
 
-	syncer "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -24,8 +23,8 @@ func (s *csistoragecapacitySyncer) Resource() client.Object {
 }
 
 // TranslateMetadata translates the object's metadata
-func (s *csistoragecapacitySyncer) TranslateMetadata(ctx context.Context, pObj client.Object) (client.Object, error) {
-	pName := mappings.CSIStorageCapacities().HostToVirtual(ctx, types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, pObj)
+func (s *csistoragecapacitySyncer) TranslateMetadata(ctx *synccontext.SyncContext, pObj client.Object) (client.Object, error) {
+	pName := mappings.HostToVirtual(ctx, pObj.GetName(), pObj.GetNamespace(), pObj, mappings.CSIStorageCapacities())
 	pObjCopy := pObj.DeepCopyObject()
 	vObj, ok := pObjCopy.(client.Object)
 	if !ok {

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -58,7 +58,7 @@ func applyOperation(ctx context.Context, operationFunc wait.ConditionWithContext
 	}, operationFunc)
 }
 
-func deleteOperation(ctrlCtx *config.ControllerContext, groupVersion schema.GroupVersion) wait.ConditionWithContextFunc {
+func deleteOperation(ctrlCtx *synccontext.ControllerContext, groupVersion schema.GroupVersion) wait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
 		err := ctrlCtx.VirtualManager.GetClient().Delete(ctx, &apiregistrationv1.APIService{
 			ObjectMeta: metav1.ObjectMeta{
@@ -78,7 +78,7 @@ func deleteOperation(ctrlCtx *config.ControllerContext, groupVersion schema.Grou
 	}
 }
 
-func createOperation(ctrlCtx *config.ControllerContext, serviceName string, hostPort int, groupVersion schema.GroupVersion) wait.ConditionWithContextFunc {
+func createOperation(ctrlCtx *synccontext.ControllerContext, serviceName string, hostPort int, groupVersion schema.GroupVersion) wait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -139,7 +139,7 @@ func createOperation(ctrlCtx *config.ControllerContext, serviceName string, host
 	}
 }
 
-func StartAPIServiceProxy(ctx *config.ControllerContext, targetServiceName, targetServiceNamespace string, targetPort, hostPort int) error {
+func StartAPIServiceProxy(ctx *synccontext.ControllerContext, targetServiceName, targetServiceNamespace string, targetPort, hostPort int) error {
 	tlsCertFile := ctx.Config.VirtualClusterKubeConfig().ServerCACert
 	tlsKeyFile := ctx.Config.VirtualClusterKubeConfig().ServerCAKey
 
@@ -231,11 +231,11 @@ func isAPIServiceProxyPathAllowed(method, path string) bool {
 	return false
 }
 
-func RegisterAPIService(ctx *config.ControllerContext, serviceName string, hostPort int, groupVersion schema.GroupVersion) error {
+func RegisterAPIService(ctx *synccontext.ControllerContext, serviceName string, hostPort int, groupVersion schema.GroupVersion) error {
 	return applyOperation(ctx, createOperation(ctx, serviceName, hostPort, groupVersion))
 }
 
-func DeregisterAPIService(ctx *config.ControllerContext, groupVersion schema.GroupVersion) error {
+func DeregisterAPIService(ctx *synccontext.ControllerContext, groupVersion schema.GroupVersion) error {
 	// check if the api service should get created
 	exists := checkExistingAPIService(ctx, ctx.VirtualManager.GetClient(), groupVersion)
 	if exists {

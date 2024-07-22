@@ -1,12 +1,11 @@
 package resources
 
 import (
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	networkingv1 "k8s.io/api/networking/v1"
 )
 
-func CreateIngressClassesMapper(_ *synccontext.RegisterContext) (mappings.Mapper, error) {
+func CreateIngressClassesMapper(_ *synccontext.RegisterContext) (synccontext.Mapper, error) {
 	return generic.NewMirrorMapper(&networkingv1.IngressClass{})
 }

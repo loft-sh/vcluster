@@ -1,16 +1,15 @@
 package ingresses
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -18,21 +17,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+func New(ctx *synccontext.RegisterContext) (types.Object, error) {
 	return NewSyncer(ctx)
 }
 
-func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+func NewSyncer(ctx *synccontext.RegisterContext) (types.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.Ingresses())
+	if err != nil {
+		return nil, err
+	}
+
 	return &ingressSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "ingress", &networkingv1.Ingress{}, mappings.Ingresses()),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "ingress", &networkingv1.Ingress{}, mapper),
 	}, nil
 }
 
 type ingressSyncer struct {
-	syncertypes.GenericTranslator
+	types.GenericTranslator
 }
 
-var _ syncertypes.Syncer = &ingressSyncer{}
+var _ types.Syncer = &ingressSyncer{}
 
 func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	if ctx.IsDelete {
@@ -73,7 +77,7 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	return ctrl.Result{}, nil
 }
 
-func SecretNamesFromIngress(ctx context.Context, ingress *networkingv1.Ingress) []string {
+func SecretNamesFromIngress(ctx *synccontext.SyncContext, ingress *networkingv1.Ingress) []string {
 	secrets := []string{}
 	_, extraSecrets := translateIngressAnnotations(ctx, ingress.Annotations, ingress.Namespace)
 	secrets = append(secrets, extraSecrets...)
@@ -91,7 +95,7 @@ var TranslateAnnotations = map[string]bool{
 	"nginx.ingress.kubernetes.io/proxy-ssl-secret": true,
 }
 
-func translateIngressAnnotations(ctx context.Context, annotations map[string]string, ingressNamespace string) (map[string]string, []string) {
+func translateIngressAnnotations(ctx *synccontext.SyncContext, annotations map[string]string, ingressNamespace string) (map[string]string, []string) {
 	foundSecrets := []string{}
 	newAnnotations := map[string]string{}
 	for k, v := range annotations {

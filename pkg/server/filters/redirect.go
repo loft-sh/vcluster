@@ -7,7 +7,9 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,13 +19,12 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime.Scheme, uncachedVirtualClient client.Client, admit admission.Interface, resources []delegatingauthorizer.GroupVersionResourceVerb) http.Handler {
-	s := serializer.NewCodecFactory(localScheme)
+func WithRedirect(h http.Handler, registerCtx *synccontext.RegisterContext, uncachedVirtualClient client.Client, admit admission.Interface, resources []delegatingauthorizer.GroupVersionResourceVerb) http.Handler {
+	s := serializer.NewCodecFactory(scheme.Scheme)
 	parameterCodec := runtime.NewParameterCodec(uncachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
@@ -54,7 +55,7 @@ func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime
 				}
 
 				// exchange namespace & name
-				pName := mappings.VirtualToHost(req.Context(), splitted[6], info.Namespace, mappings.Pods())
+				pName := mappings.VirtualToHost(registerCtx.ToSyncContext("redirect"), splitted[6], info.Namespace, mappings.Pods())
 				splitted[4] = pName.Namespace
 				splitted[6] = pName.Name
 				req.URL.Path = strings.Join(splitted, "/")
@@ -66,7 +67,7 @@ func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime
 				}
 			}
 
-			h, err := handler.Handler("", localConfig, nil)
+			h, err := handler.Handler("", registerCtx.PhysicalManager.GetConfig(), nil)
 			if err != nil {
 				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
 				return

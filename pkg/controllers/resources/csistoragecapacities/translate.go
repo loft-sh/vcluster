@@ -3,13 +3,12 @@ package csistoragecapacities
 import (
 	"fmt"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -17,7 +16,7 @@ import (
 func (s *csistoragecapacitySyncer) fetchVirtualStorageClass(ctx *synccontext.SyncContext, physName string) (string, bool, error) {
 	if s.storageClassSyncEnabled {
 		// the csistorage capacity being synced to the virtual cluster needs the name of the virtual storage cluster
-		vName := mappings.StorageClasses().HostToVirtual(ctx, types.NamespacedName{Name: physName}, nil)
+		vName := mappings.HostToVirtual(ctx, physName, "", nil, mappings.StorageClasses())
 		if vName.Name == "" {
 			return "", true, nil
 		}

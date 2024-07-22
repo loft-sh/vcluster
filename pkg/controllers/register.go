@@ -6,14 +6,13 @@ import (
 	"strings"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
-	util "github.com/loft-sh/vcluster/pkg/util/context"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -27,8 +26,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func RegisterControllers(ctx *config.ControllerContext, syncers []syncertypes.Object) error {
-	registerContext := util.ToRegisterContext(ctx)
+func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertypes.Object) error {
+	registerContext := ctx.ToRegisterContext()
 
 	// start default endpoint controller
 	err := k8sdefaultendpoint.Register(ctx)
@@ -101,7 +100,7 @@ func RegisterControllers(ctx *config.ControllerContext, syncers []syncertypes.Ob
 	return nil
 }
 
-func registerGenericSyncController(ctx *config.ControllerContext) error {
+func registerGenericSyncController(ctx *synccontext.ControllerContext) error {
 	err := generic.CreateExporters(ctx)
 	if err != nil {
 		return err
@@ -115,7 +114,7 @@ func registerGenericSyncController(ctx *config.ControllerContext) error {
 	return nil
 }
 
-func registerServiceSyncControllers(ctx *config.ControllerContext) error {
+func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
 	hostNamespace := ctx.Config.WorkloadTargetNamespace
 	if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
 		hostNamespace = ctx.Config.WorkloadNamespace
@@ -242,7 +241,7 @@ func parseMapping(mappings []vclusterconfig.ServiceMapping, fromDefaultNamespace
 	return ret, nil
 }
 
-func registerCoreDNSController(ctx *config.ControllerContext) error {
+func registerCoreDNSController(ctx *synccontext.ControllerContext) error {
 	controller := &coredns.NodeHostsReconciler{
 		Client: ctx.VirtualManager.GetClient(),
 		Log:    loghelper.New("corednsnodehosts-controller"),
@@ -254,7 +253,7 @@ func registerCoreDNSController(ctx *config.ControllerContext) error {
 	return nil
 }
 
-func registerPodSecurityController(ctx *config.ControllerContext) error {
+func registerPodSecurityController(ctx *synccontext.ControllerContext) error {
 	controller := &podsecurity.Reconciler{
 		Client:              ctx.VirtualManager.GetClient(),
 		PodSecurityStandard: ctx.Config.Policies.PodSecurityStandard,

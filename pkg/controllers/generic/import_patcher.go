@@ -7,6 +7,7 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/patches"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,11 +21,11 @@ type importPatcher struct {
 
 var _ ObjectPatcher = &importPatcher{}
 
-func (s *importPatcher) ServerSideApply(ctx context.Context, _, destObj, sourceObj client.Object) error {
+func (s *importPatcher) ServerSideApply(ctx *synccontext.SyncContext, _, destObj, sourceObj client.Object) error {
 	return patches.ApplyPatches(destObj, sourceObj, s.config.Patches, s.config.ReversePatches, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx})
 }
 
-func (s *importPatcher) ReverseUpdate(_ context.Context, destObj, sourceObj client.Object) error {
+func (s *importPatcher) ReverseUpdate(_ *synccontext.SyncContext, destObj, sourceObj client.Object) error {
 	return patches.ApplyPatches(destObj, sourceObj, s.config.ReversePatches, nil, &virtualToHostNameResolver{namespace: sourceObj.GetNamespace()})
 }
 

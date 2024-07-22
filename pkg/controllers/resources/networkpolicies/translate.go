@@ -1,14 +1,13 @@
 package networkpolicies
 
 import (
-	"context"
-
 	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 )
 
-func (s *networkPolicySyncer) translate(ctx context.Context, vNetworkPolicy *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
+func (s *networkPolicySyncer) translate(ctx *synccontext.SyncContext, vNetworkPolicy *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
 	newNetworkPolicy := s.TranslateMetadata(ctx, vNetworkPolicy).(*networkingv1.NetworkPolicy)
 	if spec := translateSpec(&vNetworkPolicy.Spec, vNetworkPolicy.GetNamespace()); spec != nil {
 		newNetworkPolicy.Spec = *spec
@@ -16,7 +15,7 @@ func (s *networkPolicySyncer) translate(ctx context.Context, vNetworkPolicy *net
 	return newNetworkPolicy
 }
 
-func (s *networkPolicySyncer) translateUpdate(ctx context.Context, pObj, vObj *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
+func (s *networkPolicySyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
 	if translatedSpec := translateSpec(&vObj.Spec, vObj.GetNamespace()); translatedSpec != nil {
 		pObj.Spec = *translatedSpec
 	}

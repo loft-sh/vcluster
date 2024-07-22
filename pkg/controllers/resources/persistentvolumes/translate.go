@@ -1,17 +1,16 @@
 package persistentvolumes
 
 import (
-	"context"
-
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (s *persistentVolumeSyncer) translate(ctx context.Context, vPv *corev1.PersistentVolume) (*corev1.PersistentVolume, error) {
+func (s *persistentVolumeSyncer) translate(ctx *synccontext.SyncContext, vPv *corev1.PersistentVolume) (*corev1.PersistentVolume, error) {
 	// translate the persistent volume
 	pPV := s.TranslateMetadata(ctx, vPv).(*corev1.PersistentVolume)
 	pPV.Spec.ClaimRef = nil
@@ -47,7 +46,7 @@ func (s *persistentVolumeSyncer) translateBackwards(pPv *corev1.PersistentVolume
 	return vObj
 }
 
-func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx context.Context, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) error {
+func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx *synccontext.SyncContext, vPv *corev1.PersistentVolume, pPv *corev1.PersistentVolume, vPvc *corev1.PersistentVolumeClaim) error {
 	// build virtual persistent volume
 	translatedSpec := *pPv.Spec.DeepCopy()
 	isStorageClassCreatedOnVirtual, isClaimRefCreatedOnVirtual := false, false

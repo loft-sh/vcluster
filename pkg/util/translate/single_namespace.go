@@ -1,7 +1,6 @@
 package translate
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"regexp"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/base36"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -65,7 +65,7 @@ func (s *singleNamespace) PhysicalNameClusterScoped(name string) string {
 	return SafeConcatName("vcluster", name, "x", s.targetNamespace, "x", VClusterName)
 }
 
-func (s *singleNamespace) IsManaged(ctx context.Context, pObj client.Object) bool {
+func (s *singleNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) bool {
 	// check if cluster scoped object
 	if pObj.GetNamespace() == "" {
 		return pObj.GetLabels()[MarkerLabel] == SafeConcatName(s.targetNamespace, "x", VClusterName)
@@ -85,12 +85,12 @@ func (s *singleNamespace) IsManaged(ctx context.Context, pObj client.Object) boo
 	if err == nil {
 		// check if the name annotation is correct
 		if pObj.GetAnnotations()[NameAnnotation] == "" ||
-			(mappings.Has(gvk) && pObj.GetName() != mappings.VirtualToHostName(ctx, pObj.GetAnnotations()[NameAnnotation], pObj.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk))) {
+			(ctx.Mappings.Has(gvk) && pObj.GetName() != mappings.VirtualToHostName(ctx, pObj.GetAnnotations()[NameAnnotation], pObj.GetAnnotations()[NamespaceAnnotation], gvk)) {
 			klog.FromContext(ctx).V(1).Info("Host object doesn't match, because name annotations is wrong",
 				"object", pObj.GetName(),
 				"kind", gvk.String(),
 				"existingName", pObj.GetName(),
-				"expectedName", mappings.VirtualToHostName(ctx, pObj.GetAnnotations()[NameAnnotation], pObj.GetAnnotations()[NamespaceAnnotation], mappings.ByGVK(gvk)),
+				"expectedName", mappings.VirtualToHostName(ctx, pObj.GetAnnotations()[NameAnnotation], pObj.GetAnnotations()[NamespaceAnnotation], gvk),
 				"nameAnnotation", pObj.GetAnnotations()[NamespaceAnnotation]+"/"+pObj.GetAnnotations()[NameAnnotation],
 			)
 			return false

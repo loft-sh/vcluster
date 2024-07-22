@@ -3,11 +3,11 @@ package csinodes
 import (
 	"fmt"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	syncertypes "github.com/loft-sh/vcluster/pkg/controllers/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -18,8 +18,13 @@ import (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.CSINodes())
+	if err != nil {
+		return nil, err
+	}
+
 	return &csinodeSyncer{
-		Translator:    translator.NewMirrorPhysicalTranslator("csinode", &storagev1.CSINode{}, mappings.CSINodes()),
+		Translator:    translator.NewMirrorPhysicalTranslator("csinode", &storagev1.CSINode{}, mapper),
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}, nil
 }

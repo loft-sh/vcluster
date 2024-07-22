@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -37,7 +38,7 @@ var AddRemoteNodePortSANs = func(_ context.Context, _, _ string, _ kubernetes.In
 	return nil
 }
 
-var ExchangeControlPlaneClient = func(controllerCtx *config.ControllerContext) (client.Client, error) {
+var ExchangeControlPlaneClient = func(controllerCtx *synccontext.ControllerContext) (client.Client, error) {
 	return controllerCtx.WorkloadNamespaceClient, nil
 }
 
