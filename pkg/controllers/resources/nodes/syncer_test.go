@@ -144,11 +144,14 @@ func TestSyncBothExist(t *testing.T) {
 		},
 	}
 	testCases := []struct {
-		name              string
-		withVirtualPod    bool
-		virtualNodeExists bool
-		modifiedPhysical  bool
-		expectNoVNode     bool
+		name                    string
+		withVirtualPod          bool
+		virtualNodeExists       bool
+		modifiedPhysical        bool
+		expectNoVNode           bool
+		syncFromHostLabel       bool
+		virtualFinalLabels      map[string]string
+		virtualFinalAnnotations map[string]string
 	}{
 		{
 			name:              "Update backward no change",
@@ -167,10 +170,42 @@ func TestSyncBothExist(t *testing.T) {
 			virtualNodeExists: true,
 			expectNoVNode:     true,
 		},
+		{
+			name:                    "Label Matched and enforceNodeSelector false - expect node to be synced from NodeSelector",
+			virtualNodeExists:       true,
+			syncFromHostLabel:       true,
+			virtualFinalAnnotations: map[string]string{translate.ManagedLabelsAnnotation: "test"},
+			virtualFinalLabels:      map[string]string{"test": "true"},
+		},
+		//			Annotations: map[string]string{
+		//				translate.ManagedLabelsAnnotation: "test",
+		//			},
+		//			Labels: map[string]string{
+		//				"test": "true",
+		//			},
+		//				{
+		//			Name:                 "Label Matched and enforceNodeSelector false - expect node to be synced from NodeSelector",
+		//			InitialPhysicalState: []runtime.Object{baseNode.DeepCopy()},
+		//			InitialVirtualState:  []runtime.Object{baseVNode.DeepCopy()},
+		//			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+		//				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode.DeepCopy()},
+		//			},
+		//			Sync: func(ctx *synccontext.RegisterContext) {
+		//				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
+		//				ctx.Config.Sync.FromHost.Nodes.Selector.Labels = map[string]string{
+		//					"test": "true",
+		//				}
+		//				syncCtx, syncer := newFakeSyncer(t, ctx)
+		//				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseVNode.DeepCopy())
+		//				assert.NilError(t, err)
+		//			},
+		//		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.name, func(t *testing.T) {
-			baseVNode := baseVNode
+			initialVNode := baseVNode.DeepCopy()
+			expectedVNode := baseVNode.DeepCopy()
+			physical := baseNode.DeepCopy()
 
 			initialObjects := []runtime.Object{}
 			expectedVirtualObjects := map[schema.GroupVersionKind][]runtime.Object{}
@@ -181,13 +216,18 @@ func TestSyncBothExist(t *testing.T) {
 			}
 
 			if tC.virtualNodeExists {
-				initialObjects = append(initialObjects, baseVNode.DeepCopy())
+				initialObjects = append(initialObjects, initialVNode.DeepCopy())
 			}
 			if !tC.expectNoVNode {
-				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Node")] = []runtime.Object{baseVNode.DeepCopy()}
+				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Node")] = []runtime.Object{expectedVNode}
+				if tC.virtualFinalLabels != nil {
+					expectedVNode.Labels = tC.virtualFinalLabels
+					physical.Labels = tC.virtualFinalLabels
+				}
+				if tC.virtualFinalAnnotations != nil {
+					expectedVNode.Annotations = tC.virtualFinalAnnotations
+				}
 			}
-
-			physical := baseNode.DeepCopy()
 
 			if tC.modifiedPhysical {
 				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Node")] = []runtime.Object{editedNode.DeepCopy()}
@@ -198,15 +238,24 @@ func TestSyncBothExist(t *testing.T) {
 				Name:                 tC.name,
 				InitialVirtualState:  initialObjects,
 				ExpectedVirtualState: expectedVirtualObjects,
-				Sync: func(ctx *synccontext.RegisterContext) {
-					ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
-					syncCtx, syncer := newFakeSyncer(t, ctx)
-					_, err := syncer.Sync(syncCtx, physical, baseVNode.DeepCopy())
-					assert.NilError(t, err)
-				},
 			}
 
-			test.Run(t, syncertesting.NewFakeRegisterContext)
+			// setting up the clients
+			pClient, vClient, vConfig := test.Setup()
+			registerContext := syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+			registerContext.Config.Networking.Advanced.ProxyKubelets.ByIP = false
+
+			if tC.syncFromHostLabel {
+				registerContext.Config.Sync.FromHost.Nodes.Selector.Labels = map[string]string{
+					"test": "true",
+				}
+			}
+
+			syncCtx, syncer := newFakeSyncer(t, registerContext)
+			_, err := syncer.Sync(syncCtx, physical, initialVNode.DeepCopy())
+			assert.NilError(t, err)
+
+			test.Validate(t)
 		})
 	}
 }
@@ -457,23 +506,6 @@ func TestLabelSelector(t *testing.T) {
 	}
 
 	syncertesting.RunTests(t, []*syncertesting.SyncTest{
-		{
-			Name:                 "Label Matched and enforceNodeSelector false - expect node to be synced from NodeSelector",
-			InitialPhysicalState: []runtime.Object{baseNode.DeepCopy()},
-			InitialVirtualState:  []runtime.Object{baseVNode.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode.DeepCopy()},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
-				ctx.Config.Sync.FromHost.Nodes.Selector.Labels = map[string]string{
-					"test": "true",
-				}
-				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseVNode.DeepCopy())
-				assert.NilError(t, err)
-			},
-		},
 		{
 			Name:                 "Label Not Matched and enforceNodeSelector false - expect node to be synced from pod needs",
 			InitialPhysicalState: []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
