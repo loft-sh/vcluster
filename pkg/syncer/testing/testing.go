@@ -36,26 +36,27 @@ type SyncTest struct {
 	InitialPhysicalState  []runtime.Object
 	InitialVirtualState   []runtime.Object
 	AdjustConfig          func(vConfig *config.VirtualClusterConfig)
+	pClient               *testingutil.FakeIndexClient
+	vClient               *testingutil.FakeIndexClient
+	vConfig               *config.VirtualClusterConfig
 }
 
 func RunTests(t *testing.T, tests []*SyncTest) {
 	// run focus first
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			test.Run(t, test, NewFakeRegisterContext)
+			test.Run(t, NewFakeRegisterContext)
 		})
 	}
 }
 
 func RunTestsWithContext(t *testing.T, createContext NewContextFunc, tests []*SyncTest) {
 	for _, test := range tests {
-		test.Run(t, test, createContext)
+		test.Run(t, createContext)
 	}
 }
 
-func (s *SyncTest) Run(t *testing.T, test *SyncTest, createContext NewContextFunc) {
-	ctx := context.Background()
-
+func (s *SyncTest) Setup() (*testingutil.FakeIndexClient, *testingutil.FakeIndexClient, *config.VirtualClusterConfig) {
 	for i := range s.InitialPhysicalState {
 		s.InitialPhysicalState[i] = s.InitialPhysicalState[i].DeepCopyObject()
 	}
@@ -63,25 +64,36 @@ func (s *SyncTest) Run(t *testing.T, test *SyncTest, createContext NewContextFun
 		s.InitialVirtualState[i] = s.InitialVirtualState[i].DeepCopyObject()
 	}
 
-	pClient := testingutil.NewFakeClient(scheme.Scheme, s.InitialPhysicalState...)
-	vClient := testingutil.NewFakeClient(scheme.Scheme, s.InitialVirtualState...)
-	vConfig := NewFakeConfig()
-	if test.AdjustConfig != nil {
-		test.AdjustConfig(vConfig)
+	s.pClient = testingutil.NewFakeClient(scheme.Scheme, s.InitialPhysicalState...)
+	s.vClient = testingutil.NewFakeClient(scheme.Scheme, s.InitialVirtualState...)
+	s.vConfig = NewFakeConfig()
+	return s.pClient, s.vClient, s.vConfig
+}
+
+func (s *SyncTest) Run(t *testing.T, createContext NewContextFunc) {
+	s.Setup()
+
+	if s.AdjustConfig != nil {
+		s.AdjustConfig(s.vConfig)
 	}
 
 	// do the sync
-	s.Sync(createContext(vConfig, pClient, vClient))
+	s.Sync(createContext(s.vConfig, s.pClient, s.vClient))
 
+	s.Validate(t)
+}
+
+func (s *SyncTest) Validate(t *testing.T) {
+	ctx := context.Background()
 	// Compare states
 	for gvk, objs := range s.ExpectedPhysicalState {
-		err := CompareObjs(ctx, t, s.Name+" physical state", pClient, gvk, scheme.Scheme, objs, s.Compare)
+		err := CompareObjs(ctx, t, s.Name+" physical state", s.pClient, gvk, scheme.Scheme, objs, s.Compare)
 		if err != nil {
 			t.Fatalf("%s - Physical State mismatch: %v", s.Name, err)
 		}
 	}
 	for gvk, objs := range s.ExpectedVirtualState {
-		err := CompareObjs(ctx, t, s.Name+" virtual state", vClient, gvk, scheme.Scheme, objs, s.Compare)
+		err := CompareObjs(ctx, t, s.Name+" virtual state", s.vClient, gvk, scheme.Scheme, objs, s.Compare)
 		if err != nil {
 			t.Fatalf("%s - Virtual State mismatch: %v", s.Name, err)
 		}
