@@ -25,7 +25,7 @@ var _ ObjectPatcher = &exportPatcher{}
 func (e *exportPatcher) ServerSideApply(_ *synccontext.SyncContext, fromObj, destObj, sourceObj client.Object) error {
 	return patches.ApplyPatches(destObj, sourceObj, e.config.Patches, e.config.ReversePatches, &virtualToHostNameResolver{
 		namespace:       fromObj.GetNamespace(),
-		targetNamespace: translate.Default.PhysicalNamespace(fromObj.GetNamespace()),
+		targetNamespace: translate.Default.HostNamespace(fromObj.GetNamespace()),
 	})
 }
 
@@ -54,21 +54,21 @@ func (r *virtualToHostNameResolver) TranslateNameWithNamespace(name string, name
 			}
 
 			return types.NamespacedName{
-				Namespace: translate.Default.PhysicalNamespace(namespace),
-				Name:      translate.Default.PhysicalName(name, ns),
+				Namespace: translate.Default.HostNamespace(namespace),
+				Name:      translate.Default.HostName(name, ns),
 			}
 		}), nil
 	}
 
-	return translate.Default.PhysicalName(name, namespace), nil
+	return translate.Default.HostName(name, namespace), nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
-	return translate.Default.TranslateLabelSelectorCluster(selector), nil
+	return translate.Default.HostLabelSelectorCluster(selector), nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelKey(key string) (string, error) {
-	return translate.Default.ConvertLabelKey(key), nil
+	return translate.Default.HostLabel(key), nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
@@ -77,11 +77,11 @@ func (r *virtualToHostNameResolver) TranslateLabelSelector(selector map[string]s
 	}
 
 	return metav1.LabelSelectorAsMap(
-		translate.Default.TranslateLabelSelector(labelSelector))
+		translate.Default.HostLabelSelector(labelSelector))
 }
 
 func (r *virtualToHostNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
-	return translate.Default.PhysicalNamespace(namespace), nil
+	return translate.Default.HostNamespace(namespace), nil
 }
 
 func validateExportConfig(config *vclusterconfig.Export) error {

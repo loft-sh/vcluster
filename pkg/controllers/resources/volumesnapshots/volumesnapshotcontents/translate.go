@@ -5,12 +5,14 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func (s *volumeSnapshotContentSyncer) translate(ctx *synccontext.SyncContext, vVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
-	pVSC := s.TranslateMetadata(ctx, vVSC).(*volumesnapshotv1.VolumeSnapshotContent)
+	pVSC := translate.HostMetadata(ctx, vVSC, s.VirtualToHost(ctx, types.NamespacedName{Name: vVSC.GetName(), Namespace: vVSC.GetNamespace()}, vVSC))
 	pVolumeSnapshot := mappings.VirtualToHost(ctx, vVSC.Spec.VolumeSnapshotRef.Name, vVSC.Spec.VolumeSnapshotRef.Namespace, mappings.VolumeSnapshots())
 	pVSC.Spec.VolumeSnapshotRef = corev1.ObjectReference{
 		Namespace: pVolumeSnapshot.Namespace,
@@ -21,15 +23,10 @@ func (s *volumeSnapshotContentSyncer) translate(ctx *synccontext.SyncContext, vV
 
 func (s *volumeSnapshotContentSyncer) translateBackwards(pVSC *volumesnapshotv1.VolumeSnapshotContent, vVS *volumesnapshotv1.VolumeSnapshot) *volumesnapshotv1.VolumeSnapshotContent {
 	// build virtual VolumeSnapshotContent object
-	vObj := pVSC.DeepCopy()
-	vObj.ResourceVersion = ""
-	vObj.UID = ""
-	vObj.ManagedFields = nil
-
+	vObj := translate.CopyObjectWithName(pVSC, types.NamespacedName{Name: pVSC.Name}, false)
 	if vVS != nil {
 		vObj.Spec.VolumeSnapshotRef = translateVolumeSnapshotRefBackwards(&vObj.Spec.VolumeSnapshotRef, vVS)
 	}
-
 	if vObj.Annotations == nil {
 		vObj.Annotations = map[string]string{}
 	}

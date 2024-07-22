@@ -2,14 +2,15 @@ package priorityclasses
 
 import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	schedulingv1 "k8s.io/api/scheduling/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (s *priorityClassSyncer) translate(ctx *synccontext.SyncContext, vObj client.Object) *schedulingv1.PriorityClass {
 	// translate the priority class
-	priorityClass := s.TranslateMetadata(ctx, vObj).(*schedulingv1.PriorityClass)
+	priorityClass := translate.HostMetadata(ctx, vObj.(*schedulingv1.PriorityClass), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 	priorityClass.GlobalDefault = false
 	if priorityClass.Value > 1000000000 {
 		priorityClass.Value = 1000000000
@@ -18,29 +19,17 @@ func (s *priorityClassSyncer) translate(ctx *synccontext.SyncContext, vObj clien
 }
 
 func (s *priorityClassSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj, sourceObject, targetObject *schedulingv1.PriorityClass) {
-	// check subsets
-	if !equality.Semantic.DeepEqual(vObj.PreemptionPolicy, pObj.PreemptionPolicy) {
-		targetObject.PreemptionPolicy = sourceObject.PreemptionPolicy
-	}
+	targetObject.PreemptionPolicy = sourceObject.PreemptionPolicy
+	targetObject.Description = sourceObject.Description
 
-	// check description
-	if vObj.Description != pObj.Description {
-		targetObject.Description = sourceObject.Description
-	}
-
-	// check annotations
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
-	if changed {
-		pObj.Annotations = updatedAnnotations
-		pObj.Labels = updatedLabels
-	}
+	// check metadata
+	pObj.Annotations = translate.HostAnnotations(vObj, pObj)
+	pObj.Labels = translate.HostLabels(ctx, vObj, pObj)
 
 	// check value
 	translatedValue := vObj.Value
 	if translatedValue > 1000000000 {
 		translatedValue = 1000000000
 	}
-	if translatedValue != pObj.Value {
-		pObj.Value = translatedValue
-	}
+	pObj.Value = translatedValue
 }

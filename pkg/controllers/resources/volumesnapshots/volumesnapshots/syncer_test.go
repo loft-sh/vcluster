@@ -56,7 +56,7 @@ func TestSync(t *testing.T) {
 	}
 
 	pObjectMeta := metav1.ObjectMeta{
-		Name:            translate.Default.PhysicalName(vObjectMeta.Name, vObjectMeta.Namespace),
+		Name:            translate.Default.HostName(vObjectMeta.Name, vObjectMeta.Namespace),
 		Namespace:       targetNamespace,
 		ResourceVersion: "1234",
 		Annotations: map[string]string{
@@ -74,14 +74,14 @@ func TestSync(t *testing.T) {
 		ObjectMeta: pObjectMeta,
 		Spec: volumesnapshotv1.VolumeSnapshotSpec{
 			Source: volumesnapshotv1.VolumeSnapshotSource{
-				PersistentVolumeClaimName: ptr.To(translate.Default.PhysicalName(*vPVSourceSnapshot.Spec.Source.PersistentVolumeClaimName, vObjectMeta.Namespace)),
+				PersistentVolumeClaimName: ptr.To(translate.Default.HostName(*vPVSourceSnapshot.Spec.Source.PersistentVolumeClaimName, vObjectMeta.Namespace)),
 			},
 			VolumeSnapshotClassName: vPVSourceSnapshot.Spec.VolumeSnapshotClassName,
 		},
 	}
 	pVSCSourceSnapshot := pPVSourceSnapshot.DeepCopy()
 	pVSCSourceSnapshot.Spec.Source = volumesnapshotv1.VolumeSnapshotSource{
-		VolumeSnapshotContentName: ptr.To(translate.Default.PhysicalNameClusterScoped(*vVSCSourceSnapshot.Spec.Source.VolumeSnapshotContentName)),
+		VolumeSnapshotContentName: ptr.To(translate.Default.HostNameCluster(*vVSCSourceSnapshot.Spec.Source.VolumeSnapshotContentName)),
 	}
 
 	pWithNilClass := pPVSourceSnapshot.DeepCopy()

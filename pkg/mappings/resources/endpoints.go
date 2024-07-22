@@ -8,5 +8,5 @@ import (
 )
 
 func CreateEndpointsMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	return generic.NewMapper(ctx, &corev1.Endpoints{}, translate.Default.PhysicalName)
+	return generic.NewMapper(ctx, &corev1.Endpoints{}, translate.Default.HostName)
 }

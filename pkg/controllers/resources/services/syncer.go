@@ -34,7 +34,11 @@ func New(ctx *synccontext.RegisterContext) (types.Object, error) {
 		// exclude "field.cattle.io/publicEndpoints" annotation used by Rancher,
 		// because if it is also installed in the host cluster, it will be
 		// overriding it, which would cause endless updates back and forth.
-		GenericTranslator: translator.NewGenericTranslator(ctx, "service", &corev1.Service{}, mapper, "field.cattle.io/publicEndpoints"),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "service", &corev1.Service{}, mapper),
+
+		excludedAnnotations: []string{
+			"field.cattle.io/publicEndpoints",
+		},
 
 		serviceName: ctx.Config.WorkloadService,
 	}, nil
@@ -42,6 +46,8 @@ func New(ctx *synccontext.RegisterContext) (types.Object, error) {
 
 type serviceSyncer struct {
 	types.GenericTranslator
+
+	excludedAnnotations []string
 
 	serviceName string
 }
@@ -59,7 +65,7 @@ func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Obj
 		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj.(*corev1.Service)))
+	return syncer.CreateHostObject(ctx, vObj, s.translate(ctx, vObj.(*corev1.Service)), s.EventRecorder())
 }
 
 func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
@@ -120,19 +126,18 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	// update status
 	vService.Status = pService.Status
 
-	// check annotations
-	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
+	// check annotations & labels
+	pService.Labels = translate.HostLabels(ctx, vObj, pObj)
+	updatedAnnotations := translate.HostAnnotations(vObj, pObj, s.excludedAnnotations...)
 
 	// remove the ServiceBlockDeletion annotation if it's not needed
 	if vService.Spec.ClusterIP == pService.Spec.ClusterIP {
 		delete(updatedAnnotations, ServiceBlockDeletion)
 	}
-
 	pService.Annotations = updatedAnnotations
-	pService.Labels = updatedLabels
 
 	// translate selector
-	pService.Spec.Selector = translate.Default.TranslateLabels(vService.Spec.Selector, vService.Namespace, nil)
+	pService.Spec.Selector = translate.Default.HostLabels(vService.Spec.Selector, pService.Spec.Selector, vService.Namespace, nil)
 	return ctrl.Result{}, nil
 }
 

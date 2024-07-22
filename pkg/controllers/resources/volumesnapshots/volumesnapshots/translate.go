@@ -7,12 +7,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (s *volumeSnapshotSyncer) translate(ctx *synccontext.SyncContext, vVS *volumesnapshotv1.VolumeSnapshot) (*volumesnapshotv1.VolumeSnapshot, error) {
-	pVS := s.TranslateMetadata(ctx, vVS).(*volumesnapshotv1.VolumeSnapshot)
+	pVS := translate.HostMetadata(ctx, vVS, s.VirtualToHost(ctx, types.NamespacedName{Name: vVS.GetName(), Namespace: vVS.GetNamespace()}, vVS))
 	if vVS.Annotations != nil && vVS.Annotations[constants.SkipTranslationAnnotation] == "true" {
 		pVS.Spec.Source = vVS.Spec.Source
 	} else {

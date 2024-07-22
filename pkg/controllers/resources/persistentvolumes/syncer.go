@@ -37,7 +37,11 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	return &persistentVolumeSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, mapper, constants.HostClusterPersistentVolumeAnnotation),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, mapper),
+
+		excludedAnnotations: []string{
+			constants.HostClusterPersistentVolumeAnnotation,
+		},
 
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}, nil
@@ -64,6 +68,8 @@ func mapPVCs(_ context.Context, obj client.Object) []reconcile.Request {
 
 type persistentVolumeSyncer struct {
 	syncertypes.GenericTranslator
+
+	excludedAnnotations []string
 
 	virtualClient client.Client
 }
@@ -202,7 +208,8 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.
 	if vPersistentVolume.Annotations[constants.HostClusterPersistentVolumeAnnotation] == "" {
 		// TODO: translate the storage secrets
 		pPersistentVolume.Spec.StorageClassName = mappings.VirtualToHostName(ctx, vPersistentVolume.Spec.StorageClassName, "", mappings.StorageClasses())
-		_, pPersistentVolume.Annotations, pPersistentVolume.Labels = s.TranslateMetadataUpdate(ctx, vPersistentVolume, pPersistentVolume)
+		pPersistentVolume.Annotations = translate.HostAnnotations(vPersistentVolume, pPersistentVolume, s.excludedAnnotations...)
+		pPersistentVolume.Labels = translate.HostLabels(ctx, vPersistentVolume, pPersistentVolume)
 	}
 
 	return ctrl.Result{}, nil

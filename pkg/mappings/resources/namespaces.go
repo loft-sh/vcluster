@@ -9,6 +9,6 @@ import (
 
 func CreateNamespacesMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
 	return generic.NewMapper(ctx, &corev1.Namespace{}, func(vName, _ string) string {
-		return translate.Default.PhysicalNamespace(vName)
+		return translate.Default.HostNamespace(vName)
 	})
 }

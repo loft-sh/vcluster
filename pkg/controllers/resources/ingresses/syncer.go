@@ -48,7 +48,7 @@ func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Obj
 		return ctrl.Result{}, err
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, pObj)
+	return syncer.CreateHostObject(ctx, vObj, pObj, s.EventRecorder())
 }
 
 func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
@@ -69,11 +69,7 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	pIngress, vIngress, source, target := synccontext.Cast[*networkingv1.Ingress](ctx, pObj, vObj)
 	target.Spec.IngressClassName = source.Spec.IngressClassName
 	vIngress.Status = pIngress.Status
-	err = s.translateUpdate(ctx, pIngress, vIngress)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
+	s.translateUpdate(ctx, pIngress, vIngress)
 	return ctrl.Result{}, nil
 }
 

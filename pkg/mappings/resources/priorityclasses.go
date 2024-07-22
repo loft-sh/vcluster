@@ -14,6 +14,6 @@ func CreatePriorityClassesMapper(ctx *synccontext.RegisterContext) (synccontext.
 
 	return generic.NewMapper(ctx, &schedulingv1.PriorityClass{}, func(vName, _ string) string {
 		// we have to prefix with vCluster as system is reserved
-		return translate.Default.PhysicalNameClusterScoped(vName)
+		return translate.Default.HostNameCluster(vName)
 	})
 }

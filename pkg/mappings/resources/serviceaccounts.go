@@ -8,5 +8,5 @@ import (
 )
 
 func CreateServiceAccountsMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	return generic.NewMapper(ctx, &corev1.ServiceAccount{}, translate.Default.PhysicalName)
+	return generic.NewMapper(ctx, &corev1.ServiceAccount{}, translate.Default.HostName)
 }

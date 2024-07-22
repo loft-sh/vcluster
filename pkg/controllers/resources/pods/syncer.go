@@ -8,6 +8,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
@@ -217,7 +218,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object)
 		return ctrl.Result{}, nil
 	}
 
-	return s.SyncToHostCreate(ctx, vPod, pPod)
+	return syncer.CreateHostObject(ctx, vPod, pPod, s.EventRecorder())
 }
 
 func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {

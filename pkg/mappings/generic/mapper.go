@@ -39,7 +39,7 @@ func NewMapperWithObject(ctx *synccontext.RegisterContext, obj client.Object, tr
 	if !mapperOptions.SkipIndex {
 		err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, obj.DeepCopyObject().(client.Object), constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 			if rawObj.GetNamespace() != "" {
-				return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translateName(rawObj.GetName(), rawObj.GetNamespace(), rawObj)}
+				return []string{translate.Default.HostNamespace(rawObj.GetNamespace()) + "/" + translateName(rawObj.GetName(), rawObj.GetNamespace(), rawObj)}
 			}
 
 			return []string{translateName(rawObj.GetName(), rawObj.GetNamespace(), rawObj)}
@@ -71,7 +71,7 @@ func (n *mapper) GroupVersionKind() schema.GroupVersionKind {
 
 func (n *mapper) VirtualToHost(_ *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	return types.NamespacedName{
-		Namespace: translate.Default.PhysicalNamespace(req.Namespace),
+		Namespace: translate.Default.HostNamespace(req.Namespace),
 		Name:      n.translateName(req.Name, req.Namespace, vObj),
 	}
 }

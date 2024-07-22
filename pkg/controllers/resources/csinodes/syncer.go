@@ -6,8 +6,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,14 +24,23 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	return &csinodeSyncer{
-		Translator:    translator.NewMirrorPhysicalTranslator("csinode", &storagev1.CSINode{}, mapper),
+		Mapper: mapper,
+
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}, nil
 }
 
 type csinodeSyncer struct {
-	syncertypes.Translator
+	synccontext.Mapper
 	virtualClient client.Client
+}
+
+func (s *csinodeSyncer) Name() string {
+	return "csinode"
+}
+
+func (s *csinodeSyncer) Resource() client.Object {
+	return &storagev1.CSINode{}
 }
 
 var _ syncertypes.ToVirtualSyncer = &csinodeSyncer{}
@@ -46,39 +55,38 @@ func (s *csinodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
-	vObj := s.translateBackwards(ctx, pObj.(*storagev1.CSINode))
+
+	vObj := translate.CopyObjectWithName(pObj.(*storagev1.CSINode), types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, false)
 	ctx.Log.Infof("create CSINode %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
 func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
+	node := &corev1.Node{}
+	err := s.virtualClient.Get(ctx, types.NamespacedName{Name: pObj.GetName()}, node)
+	if kerrors.IsNotFound(err) {
+		ctx.Log.Infof("delete virtual CSINode %s, because corresponding node object is missing", vObj.GetName())
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
+	} else if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// look up matching node name, delete csinode if not found
 	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
-	shouldPatch := true
 	defer func() {
-		if !shouldPatch {
-			return
-		}
 		if err := patch.Patch(ctx, pObj, vObj); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 	}()
 
-	node := &corev1.Node{}
-	err = s.virtualClient.Get(ctx, types.NamespacedName{Name: pObj.GetName()}, node)
-	if kerrors.IsNotFound(err) {
-		ctx.Log.Infof("delete virtual CSINode %s, because corresponding node object is missing", vObj.GetName())
-		shouldPatch = false
-		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
-	} else if err != nil {
-		return ctrl.Result{}, err
-	}
 	// check if there is a change
-	s.translateUpdateBackwards(ctx, pObj.(*storagev1.CSINode), vObj.(*storagev1.CSINode))
-
+	pCSINode, vCSINode, _, _ := synccontext.Cast[*storagev1.CSINode](ctx, pObj, vObj)
+	vCSINode.Annotations = pCSINode.Annotations
+	vCSINode.Labels = pCSINode.Labels
+	pCSINode.Spec.DeepCopyInto(&vCSINode.Spec)
 	return ctrl.Result{}, nil
 }
 

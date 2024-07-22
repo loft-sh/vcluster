@@ -37,7 +37,7 @@ func (s *networkPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, vObj clie
 		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj.(*networkingv1.NetworkPolicy)))
+	return syncer.CreateHostObject(ctx, vObj, s.translate(ctx, vObj.(*networkingv1.NetworkPolicy)), s.EventRecorder())
 }
 
 func (s *networkPolicySyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {

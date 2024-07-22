@@ -1,30 +1,27 @@
 package networkpolicies
 
 import (
-	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func (s *networkPolicySyncer) translate(ctx *synccontext.SyncContext, vNetworkPolicy *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
-	newNetworkPolicy := s.TranslateMetadata(ctx, vNetworkPolicy).(*networkingv1.NetworkPolicy)
+	newNetworkPolicy := translate.HostMetadata(ctx, vNetworkPolicy, s.VirtualToHost(ctx, types.NamespacedName{Name: vNetworkPolicy.GetName(), Namespace: vNetworkPolicy.GetNamespace()}, vNetworkPolicy))
 	if spec := translateSpec(&vNetworkPolicy.Spec, vNetworkPolicy.GetNamespace()); spec != nil {
 		newNetworkPolicy.Spec = *spec
 	}
 	return newNetworkPolicy
 }
 
-func (s *networkPolicySyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
+func (s *networkPolicySyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *networkingv1.NetworkPolicy) {
 	if translatedSpec := translateSpec(&vObj.Spec, vObj.GetNamespace()); translatedSpec != nil {
 		pObj.Spec = *translatedSpec
 	}
 
-	_, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
-	pObj.Labels = translatedLabels
-	pObj.Annotations = translatedAnnotations
-
-	return pObj
+	pObj.Annotations = translate.HostAnnotations(vObj, pObj)
+	pObj.Labels = translate.HostLabels(ctx, vObj, pObj)
 }
 
 func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *networkingv1.NetworkPolicySpec {
@@ -57,7 +54,7 @@ func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *netw
 		panic("Multi-Namespace Mode not supported for network policies yet!")
 	}
 
-	if translatedLabelSelector := translate.Default.TranslateLabelSelector(&spec.PodSelector); translatedLabelSelector != nil {
+	if translatedLabelSelector := translate.Default.HostLabelSelector(&spec.PodSelector); translatedLabelSelector != nil {
 		outSpec.PodSelector = *translatedLabelSelector
 		if outSpec.PodSelector.MatchLabels == nil {
 			outSpec.PodSelector.MatchLabels = map[string]string{}
@@ -79,11 +76,11 @@ func translateNetworkPolicyPeers(peers []networkingv1.NetworkPolicyPeer, namespa
 	out := []networkingv1.NetworkPolicyPeer{}
 	for _, peer := range peers {
 		newPeer := networkingv1.NetworkPolicyPeer{
-			PodSelector:       translate.Default.TranslateLabelSelector(peer.PodSelector),
+			PodSelector:       translate.Default.HostLabelSelector(peer.PodSelector),
 			NamespaceSelector: nil, // must be set to nil as all vcluster pods are in the same host namespace as the NetworkPolicy
 		}
 		if peer.IPBlock == nil {
-			translatedNamespaceSelectors := translate.LabelSelectorWithPrefix(podstranslate.NamespaceLabelPrefix, peer.NamespaceSelector)
+			translatedNamespaceSelectors := translate.LabelSelectorWithPrefix(translate.NamespaceLabelPrefix, peer.NamespaceSelector)
 			newPeer.PodSelector = translate.MergeLabelSelectors(newPeer.PodSelector, translatedNamespaceSelectors)
 
 			if newPeer.PodSelector.MatchLabels == nil {

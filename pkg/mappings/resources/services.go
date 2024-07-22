@@ -8,5 +8,5 @@ import (
 )
 
 func CreateServiceMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	return generic.NewMapper(ctx, &corev1.Service{}, translate.Default.PhysicalName)
+	return generic.NewMapper(ctx, &corev1.Service{}, translate.Default.HostName)
 }

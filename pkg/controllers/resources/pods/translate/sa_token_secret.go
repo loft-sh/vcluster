@@ -41,7 +41,7 @@ func GetSecretIfExists(ctx *synccontext.SyncContext, pClient client.Client, vPod
 	secret := &corev1.Secret{}
 	err := pClient.Get(ctx, types.NamespacedName{
 		Name:      SecretNameFromPodName(ctx, vPodName, vNamespace),
-		Namespace: translate.Default.PhysicalNamespace(vNamespace),
+		Namespace: translate.Default.HostNamespace(vNamespace),
 	}, secret)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -72,7 +72,7 @@ func SATokenSecret(ctx *synccontext.SyncContext, pClient client.Client, vPod *co
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SecretNameFromPodName(ctx, vPod.Name, vPod.Namespace),
-			Namespace: translate.Default.PhysicalNamespace(vPod.Namespace),
+			Namespace: translate.Default.HostNamespace(vPod.Namespace),
 
 			Annotations: map[string]string{
 				translate.SkipBackSyncInMultiNamespaceMode: "true",

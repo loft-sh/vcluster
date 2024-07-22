@@ -20,7 +20,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -370,7 +369,7 @@ func (s *importer) VirtualToHost(ctx *synccontext.SyncContext, req types.Namespa
 		return s.virtualToHost(ctx, req, vObj)
 	}
 
-	return types.NamespacedName{Name: translate.Default.PhysicalName(req.Name, req.Namespace), Namespace: translate.Default.PhysicalNamespace(req.Namespace)}
+	return types.NamespacedName{Name: translate.Default.HostName(req.Name, req.Namespace), Namespace: translate.Default.HostNamespace(req.Namespace)}
 }
 
 func (s *importer) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {
@@ -412,14 +411,6 @@ func (s *importer) TranslateMetadata(ctx *synccontext.SyncContext, pObj client.O
 	vObj.SetName(nn.Name)
 	vObj.SetNamespace(nn.Namespace)
 	return vObj
-}
-
-// TranslateMetadataUpdate translates the object's metadata annotations and labels and determines
-// if they have changed between the physical and virtual object
-func (s *importer) TranslateMetadataUpdate(_ *synccontext.SyncContext, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
-	updatedAnnotations := s.updateVirtualAnnotations(pObj.GetAnnotations())
-	updatedLabels := pObj.GetLabels()
-	return !equality.Semantic.DeepEqual(updatedAnnotations, vObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, vObj.GetLabels()), updatedAnnotations, updatedLabels
 }
 
 func (s *importer) updateVirtualAnnotations(a map[string]string) map[string]string {

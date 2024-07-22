@@ -11,17 +11,17 @@ import (
 )
 
 func CreateConfigMapsMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	mapper, err := generic.NewMapper(ctx, &corev1.ConfigMap{}, translate.Default.PhysicalName, generic.SkipIndex())
+	mapper, err := generic.NewMapper(ctx, &corev1.ConfigMap{}, translate.Default.HostName, generic.SkipIndex())
 	if err != nil {
 		return nil, err
 	}
 
 	err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.ConfigMap{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
 		if !translate.Default.SingleNamespaceTarget() && rawObj.GetName() == "kube-root-ca.crt" {
-			return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)}
+			return []string{translate.Default.HostNamespace(rawObj.GetNamespace()) + "/" + translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName)}
 		}
 
-		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
+		return []string{translate.Default.HostNamespace(rawObj.GetNamespace()) + "/" + translate.Default.HostName(rawObj.GetName(), rawObj.GetNamespace())}
 	})
 	if err != nil {
 		return nil, err

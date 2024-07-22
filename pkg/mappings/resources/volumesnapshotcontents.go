@@ -32,7 +32,7 @@ func CreateVolumeSnapshotContentsMapper(ctx *synccontext.RegisterContext) (syncc
 
 		vVSC, ok := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
 		if !ok || vVSC.Annotations == nil || vVSC.Annotations[constants.HostClusterVSCAnnotation] == "" {
-			return translate.Default.PhysicalNameClusterScoped(name)
+			return translate.Default.HostNameCluster(name)
 		}
 
 		return vVSC.Annotations[constants.HostClusterVSCAnnotation]

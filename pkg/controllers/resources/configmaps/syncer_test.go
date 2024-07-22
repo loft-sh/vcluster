@@ -29,7 +29,7 @@ func TestSync(t *testing.T) {
 	}
 	syncedConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.PhysicalName(baseConfigMap.Name, baseConfigMap.Namespace),
+			Name:      translate.Default.HostName(baseConfigMap.Name, baseConfigMap.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
 				translate.NameAnnotation:      baseConfigMap.Name,

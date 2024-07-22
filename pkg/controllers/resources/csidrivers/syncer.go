@@ -6,34 +6,43 @@ import (
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"github.com/loft-sh/vcluster/pkg/syncer/translator"
-	"github.com/loft-sh/vcluster/pkg/syncer/types"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := ctx.Mappings.ByGVK(mappings.CSIDrivers())
 	if err != nil {
 		return nil, err
 	}
 
 	return &csidriverSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("csidriver", &storagev1.CSIDriver{}, mapper),
+		Mapper: mapper,
 	}, nil
 }
 
 type csidriverSyncer struct {
-	types.Translator
+	synccontext.Mapper
 }
 
-var _ types.ToVirtualSyncer = &csidriverSyncer{}
-var _ types.Syncer = &csidriverSyncer{}
+func (s *csidriverSyncer) Name() string {
+	return "csidriver"
+}
+
+func (s *csidriverSyncer) Resource() client.Object {
+	return &storagev1.CSIDriver{}
+}
+
+var _ syncertypes.ToVirtualSyncer = &csidriverSyncer{}
+var _ syncertypes.Syncer = &csidriverSyncer{}
 
 func (s *csidriverSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj := s.translateBackwards(ctx, pObj.(*storagev1.CSIDriver))
+	vObj := translate.CopyObjectWithName(pObj.(*storagev1.CSIDriver), types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, false)
 	ctx.Log.Infof("create CSIDriver %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
@@ -48,9 +57,12 @@ func (s *csidriverSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 	}()
-	// check if there is a change
-	s.translateUpdateBackwards(ctx, pObj.(*storagev1.CSIDriver), vObj.(*storagev1.CSIDriver))
 
+	// check if there is a change
+	pCSIDriver, vCSIDriver, _, _ := synccontext.Cast[*storagev1.CSIDriver](ctx, pObj, vObj)
+	vCSIDriver.Annotations = pCSIDriver.Annotations
+	vCSIDriver.Labels = pCSIDriver.Labels
+	pCSIDriver.Spec.DeepCopyInto(&vCSIDriver.Spec)
 	return ctrl.Result{}, nil
 }
 

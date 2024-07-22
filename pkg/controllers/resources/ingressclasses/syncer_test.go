@@ -61,7 +61,7 @@ func TestSync(t *testing.T) {
 
 	pObjUpdated := &networkingv1.IngressClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
+			Name: translate.Default.HostNameCluster(vObjectMeta.Name),
 			Labels: map[string]string{
 				translate.MarkerLabel: translate.VClusterName,
 			},

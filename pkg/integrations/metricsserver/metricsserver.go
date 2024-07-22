@@ -166,7 +166,7 @@ func handleMetricsServerProxyRequest(
 	if info.Resource == PodResource && info.Verb == RequestVerbList {
 		// check if its a list request across all namespaces
 		if info.Namespace != "" {
-			splitted[5] = translate.Default.PhysicalNamespace(info.Namespace)
+			splitted[5] = translate.Default.HostNamespace(info.Namespace)
 		} else if translate.Default.SingleNamespaceTarget() {
 			// limit to current namespace in host cluster
 			splitted = append(splitted[:4], append([]string{"namespaces", ctx.Config.WorkloadTargetNamespace}, splitted[4:]...)...)
@@ -484,7 +484,7 @@ func translateLabelSelectors(req *http.Request) error {
 		}
 
 		for k, v := range selectors {
-			translatedKey := translate.Default.ConvertLabelKey(k)
+			translatedKey := translate.Default.HostLabel(k)
 			translatedSelectors[translatedKey] = v
 		}
 	}

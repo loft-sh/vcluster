@@ -1,17 +1,17 @@
 package translate
 
 import (
-	"context"
 	"encoding/json"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (t *translator) Diff(ctx context.Context, vPod, pPod *corev1.Pod) error {
+func (t *translator) Diff(ctx *synccontext.SyncContext, vPod, pPod *corev1.Pod) error {
 	// has status changed?
 	oldVPodStatus := vPod.Status.DeepCopy()
 	vPod.Status = *pPod.Status.DeepCopy()
@@ -29,7 +29,7 @@ func (t *translator) Diff(ctx context.Context, vPod, pPod *corev1.Pod) error {
 	t.calcSpecDiff(pPod, vPod)
 
 	// check annotations
-	_, updatedAnnotations, updatedLabels := translate.Default.ApplyMetadataUpdate(vPod, pPod, t.syncedLabels, getExcludedAnnotations(pPod)...)
+	updatedAnnotations, updatedLabels := translate.HostAnnotations(vPod, pPod, getExcludedAnnotations(pPod)...), translate.HostLabels(ctx, vPod, pPod)
 	if updatedAnnotations == nil {
 		updatedAnnotations = map[string]string{}
 	}
@@ -54,7 +54,7 @@ func (t *translator) Diff(ctx context.Context, vPod, pPod *corev1.Pod) error {
 	}
 	// check pod and namespace labels
 	for k, v := range vNamespace.GetLabels() {
-		updatedLabels[translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, k)] = v
+		updatedLabels[translate.ConvertLabelKeyWithPrefix(translate.NamespaceLabelPrefix, k)] = v
 	}
 
 	pPod.Annotations = updatedAnnotations

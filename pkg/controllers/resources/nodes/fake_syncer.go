@@ -8,7 +8,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"k8s.io/apimachinery/pkg/api/equality"
 
@@ -128,7 +127,7 @@ func (r *fakeNodeSyncer) updateIfNeeded(ctx *synccontext.SyncContext, node *core
 	}
 
 	if !equality.Semantic.DeepEqual(node.Status.Addresses, newAddresses) {
-		updated = translator.NewIfNil(updated, node)
+		updated = node.DeepCopy()
 		updated.Status.Addresses = newAddresses
 	}
 

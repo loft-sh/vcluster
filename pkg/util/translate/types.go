@@ -3,7 +3,6 @@ package translate
 import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -26,45 +25,31 @@ type Translator interface {
 	// IsTargetedNamespace checks if the provided namespace is a sync target for vcluster
 	IsTargetedNamespace(ns string) bool
 
-	// PhysicalNameClusterScoped returns the physical name for a cluster scoped
+	// HostNameCluster returns the host name for a cluster scoped
 	// virtual cluster object
-	PhysicalNameClusterScoped(vName string) string
+	HostNameCluster(vName string) string
 
-	// PhysicalName returns the physical name for a virtual cluster object
-	PhysicalName(vName, vNamespace string) string
+	// HostName returns the host name for a virtual cluster object
+	HostName(vName, vNamespace string) string
 
-	// PhysicalNameShort returns the short physical name for a virtual cluster object
-	PhysicalNameShort(vName, vNamespace string) string
+	// HostNameShort returns the short host name for a virtual cluster object
+	HostNameShort(vName, vNamespace string) string
 
-	// PhysicalNamespace returns the physical namespace for a virtual cluster object
-	PhysicalNamespace(vNamespace string) string
+	// HostNamespace returns the host namespace for a virtual cluster object
+	HostNamespace(vNamespace string) string
 
-	// TranslateLabelsCluster translates the labels of a cluster scoped object
-	TranslateLabelsCluster(vObj client.Object, pObj client.Object, syncedLabels []string) map[string]string
+	// HostLabels returns the host labels for the virtual labels
+	HostLabels(vLabels, pLabels map[string]string, vNamespace string, syncedLabels []string) map[string]string
 
-	// TranslateLabelSelectorCluster translates a label selector of a cluster scoped object
-	TranslateLabelSelectorCluster(labelSelector *metav1.LabelSelector) *metav1.LabelSelector
+	// HostLabelsCluster returns the physical labels for the virtual labels of a cluster object
+	HostLabelsCluster(vLabels, pLabels map[string]string, syncedLabels []string) map[string]string
 
-	// ApplyMetadata translates the metadata including labels and annotations initially from virtual to physical
-	ApplyMetadata(vObj client.Object, name types.NamespacedName, syncedLabels []string, excludedAnnotations ...string) client.Object
+	// HostLabel translates a single label
+	HostLabel(label string) string
 
-	// ApplyMetadataUpdate updates the physical objects metadata and signals if there were any changes
-	ApplyMetadataUpdate(vObj client.Object, pObj client.Object, syncedLabels []string, excludedAnnotations ...string) (bool, map[string]string, map[string]string)
+	// HostLabelSelector translates a label selector
+	HostLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector
 
-	// ApplyAnnotations applies the annotations from source to target
-	ApplyAnnotations(src client.Object, to client.Object, excluded []string) map[string]string
-
-	// ApplyLabels applies the labels from source to target
-	ApplyLabels(src client.Object, to client.Object, syncedLabels []string) map[string]string
-
-	// TranslateLabels translates labels
-	TranslateLabels(fromLabels map[string]string, vNamespace string, syncedLabels []string) map[string]string
-
-	// TranslateLabelSelector translates a label selector
-	TranslateLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector
-
-	// SetupMetadataWithName is similar to ApplyMetadata with a custom name translator and doesn't apply annotations and labels
-	SetupMetadataWithName(vObj client.Object, name types.NamespacedName) (client.Object, error)
-
-	ConvertLabelKey(string) string
+	// HostLabelSelectorCluster translates a label selector of a cluster scoped object
+	HostLabelSelectorCluster(labelSelector *metav1.LabelSelector) *metav1.LabelSelector
 }

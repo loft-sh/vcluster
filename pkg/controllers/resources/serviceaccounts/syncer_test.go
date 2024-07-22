@@ -35,7 +35,7 @@ func TestSync(t *testing.T) {
 	}
 	pSA := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.PhysicalName(vSA.Name, vSA.Namespace),
+			Name:      translate.Default.HostName(vSA.Name, vSA.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
 				"test":                                 "test",
@@ -49,7 +49,7 @@ func TestSync(t *testing.T) {
 				translate.NamespaceLabel: vSA.Namespace,
 			},
 		},
-		AutomountServiceAccountToken: &f,
+		AutomountServiceAccountToken: &[]bool{false}[0],
 	}
 
 	syncertesting.RunTests(t, []*syncertesting.SyncTest{

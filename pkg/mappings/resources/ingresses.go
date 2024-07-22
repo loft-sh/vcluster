@@ -8,5 +8,5 @@ import (
 )
 
 func CreateIngressesMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	return generic.NewMapper(ctx, &networkingv1.Ingress{}, translate.Default.PhysicalName)
+	return generic.NewMapper(ctx, &networkingv1.Ingress{}, translate.Default.HostName)
 }

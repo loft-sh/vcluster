@@ -6,7 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -14,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	controller2 "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -40,6 +43,8 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 
 	return &SyncController{
 		syncer: syncer,
+
+		config: ctx.Config,
 
 		mappings: ctx.Mappings,
 
@@ -69,6 +74,8 @@ func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer)
 type SyncController struct {
 	syncer syncertypes.Syncer
 
+	config *config.VirtualClusterConfig
+
 	mappings synccontext.MappingsRegistry
 
 	log            loghelper.Logger
@@ -88,6 +95,7 @@ type SyncController struct {
 func (r *SyncController) newSyncContext(ctx context.Context, logName string, eventSource synccontext.EventSource, isDelete bool) *synccontext.SyncContext {
 	return &synccontext.SyncContext{
 		Context:                ctx,
+		Config:                 r.config,
 		Log:                    loghelper.NewFromExisting(r.log.Base(), logName),
 		PhysicalClient:         r.physicalClient,
 		CurrentNamespace:       r.currentNamespace,
@@ -457,6 +465,27 @@ func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
 	}
 
 	return controller.Complete(r)
+}
+
+func CreateHostObject(ctx *synccontext.SyncContext, vObj, pObj client.Object, eventRecorder record.EventRecorder) (ctrl.Result, error) {
+	gvk, err := apiutil.GVKForObject(pObj, scheme.Scheme)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("gvk for object: %w", err)
+	}
+
+	ctx.Log.Infof("create host %s %s/%s", gvk.Kind, pObj.GetNamespace(), pObj.GetName())
+	err = ctx.PhysicalClient.Create(ctx, pObj)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			ctx.Log.Debugf("error syncing %s %s/%s to host cluster: %v", gvk.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+			return ctrl.Result{RequeueAfter: time.Second}, nil
+		}
+		ctx.Log.Infof("error syncing %s %s/%s to host cluster: %v", gvk.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+		eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to host cluster: %v", err)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func DeleteHostObject(ctx *synccontext.SyncContext, obj client.Object, reason string) (ctrl.Result, error) {

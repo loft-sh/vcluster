@@ -3,21 +3,15 @@ package endpoints
 import (
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (s *endpointsSyncer) translate(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Endpoints {
-	endpoints := s.TranslateMetadata(ctx, vObj).(*corev1.Endpoints)
+	endpoints := translate.HostMetadata(ctx, vObj.(*corev1.Endpoints), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj), s.excludedAnnotations...)
 	s.translateSpec(ctx, endpoints)
-
-	// make sure we delete the control-plane.alpha.kubernetes.io/leader annotation
-	// that will disable endpoint slice mirroring otherwise
-	if endpoints.Annotations != nil {
-		delete(endpoints.Annotations, "control-plane.alpha.kubernetes.io/leader")
-	}
-
 	return endpoints
 }
 
@@ -53,17 +47,10 @@ func (s *endpointsSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vO
 	// check subsets
 	translated := vObj.DeepCopy()
 	s.translateSpec(ctx, translated)
-	if !equality.Semantic.DeepEqual(translated.Subsets, pObj.Subsets) {
-		pObj.Subsets = translated.Subsets
-	}
+	pObj.Subsets = translated.Subsets
 
 	// check annotations & labels
-	_, annotations, labels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
-	delete(annotations, "control-plane.alpha.kubernetes.io/leader")
-	if !equality.Semantic.DeepEqual(annotations, pObj.Annotations) || !equality.Semantic.DeepEqual(labels, pObj.Labels) {
-		pObj.Annotations = annotations
-		pObj.Labels = labels
-	}
-
+	pObj.Annotations = translate.HostAnnotations(vObj, pObj, s.excludedAnnotations...)
+	pObj.Labels = translate.HostLabels(ctx, vObj, pObj)
 	return nil
 }

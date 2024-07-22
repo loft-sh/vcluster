@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
@@ -42,9 +43,10 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	storageClassesEnabled := ctx.Config.Sync.ToHost.StorageClasses.Enabled
-	excludedAnnotations := []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation}
 	return &persistentVolumeClaimSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mapper, excludedAnnotations...),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mapper),
+
+		excludedAnnotations: []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation},
 
 		storageClassesEnabled:    storageClassesEnabled,
 		schedulerEnabled:         ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
@@ -54,6 +56,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 type persistentVolumeClaimSyncer struct {
 	syncertypes.GenericTranslator
+
+	excludedAnnotations []string
 
 	storageClassesEnabled    bool
 	schedulerEnabled         bool
@@ -90,7 +94,7 @@ func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, v
 		return ctrl.Result{}, err
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, newPvc)
+	return syncer.CreateHostObject(ctx, vObj, newPvc, s.EventRecorder())
 }
 
 func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {

@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -71,7 +72,8 @@ func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.O
 		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj.(*corev1.ConfigMap)))
+	pObj := translate.HostMetadata(ctx, vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
+	return syncer.CreateHostObject(ctx, vObj, pObj, s.EventRecorder())
 }
 
 func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
@@ -109,9 +111,14 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object,
 		}
 	}()
 
-	s.translateUpdate(ctx, pConfigMap, vConfigMap)
+	// check annotations & labels
+	pConfigMap.Annotations = translate.HostAnnotations(vConfigMap, pConfigMap)
+	pConfigMap.Labels = translate.HostLabels(ctx, vConfigMap, pConfigMap)
 
-	// did the configmap change?
+	// bidirectional sync
+	source, target := synccontext.SyncSourceTarget(ctx, pConfigMap, vConfigMap)
+	target.Data = source.Data
+	target.BinaryData = source.BinaryData
 	return ctrl.Result{}, nil
 }
 
