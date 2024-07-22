@@ -20,6 +20,197 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+var (
+	baseName types.NamespacedName = types.NamespacedName{
+		Name: "mynode",
+	}
+	basePod corev1.Pod = corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mypod",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: baseName.Name,
+		},
+	}
+
+	baseNode corev1.Node = corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Status: corev1.NodeStatus{
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: 0,
+				},
+			},
+		},
+	}
+	baseVNode corev1.Node = corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: GetNodeHost(baseName.Name),
+					Type:    corev1.NodeHostName,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: constants.KubeletPort,
+				},
+			},
+		},
+	}
+)
+
+func TestSyncToVirtual(t *testing.T) {
+	testCases := []struct {
+		name           string
+		withVirtualPod bool
+		expectNode     bool
+	}{
+		{
+			name:           "Create backward",
+			withVirtualPod: true,
+			expectNode:     true,
+		},
+		{
+			name: "Create backward not needed",
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.name, func(t *testing.T) {
+			baseNode := baseNode.DeepCopy()
+
+			initialObjects := []runtime.Object{}
+			expectedVirtualObjects := map[schema.GroupVersionKind][]runtime.Object{}
+
+			if tC.withVirtualPod {
+				initialObjects = append(initialObjects, basePod.DeepCopy())
+				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Pod")] = []runtime.Object{basePod.DeepCopy()}
+			}
+
+			if tC.expectNode {
+				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Node")] = []runtime.Object{baseNode.DeepCopy()}
+			}
+
+			test := syncertesting.SyncTest{
+				Name:                 tC.name,
+				InitialVirtualState:  initialObjects,
+				ExpectedVirtualState: expectedVirtualObjects,
+				Sync: func(ctx *synccontext.RegisterContext) {
+					ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
+					syncCtx, syncer := newFakeSyncer(t, ctx)
+					_, err := syncer.SyncToVirtual(syncCtx, baseNode.DeepCopy())
+					assert.NilError(t, err)
+				},
+			}
+
+			test.Run(t, syncertesting.NewFakeRegisterContext)
+		})
+	}
+}
+
+func TestSyncBothExist(t *testing.T) {
+	editedNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+			Labels: map[string]string{
+				"test": "true",
+			},
+			Annotations: map[string]string{
+				"test":                                 "true",
+				translate.ManagedAnnotationsAnnotation: "test",
+				translate.ManagedLabelsAnnotation:      "test",
+			},
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: GetNodeHost(baseName.Name),
+					Type:    corev1.NodeHostName,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: constants.KubeletPort,
+				},
+			},
+			NodeInfo: corev1.NodeSystemInfo{
+				Architecture: "amd64",
+			},
+		},
+	}
+	testCases := []struct {
+		name              string
+		withVirtualPod    bool
+		virtualNodeExists bool
+		modifiedPhysical  bool
+		expectNoVNode     bool
+	}{
+		{
+			name:              "Update backward no change",
+			withVirtualPod:    true,
+			virtualNodeExists: true,
+			modifiedPhysical:  false,
+		},
+		{
+			name:              "Update backward",
+			withVirtualPod:    true,
+			virtualNodeExists: true,
+			modifiedPhysical:  true,
+		},
+		{
+			name:              "Delete backward",
+			virtualNodeExists: true,
+			expectNoVNode:     true,
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.name, func(t *testing.T) {
+			baseVNode := baseVNode
+
+			initialObjects := []runtime.Object{}
+			expectedVirtualObjects := map[schema.GroupVersionKind][]runtime.Object{}
+
+			if tC.withVirtualPod {
+				initialObjects = append(initialObjects, basePod.DeepCopy())
+				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Pod")] = []runtime.Object{basePod.DeepCopy()}
+			}
+
+			if tC.virtualNodeExists {
+				initialObjects = append(initialObjects, baseVNode.DeepCopy())
+			}
+			if !tC.expectNoVNode {
+				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Node")] = []runtime.Object{baseVNode.DeepCopy()}
+			}
+
+			physical := baseNode.DeepCopy()
+
+			if tC.modifiedPhysical {
+				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Node")] = []runtime.Object{editedNode.DeepCopy()}
+				physical = editedNode.DeepCopy()
+			}
+
+			test := syncertesting.SyncTest{
+				Name:                 tC.name,
+				InitialVirtualState:  initialObjects,
+				ExpectedVirtualState: expectedVirtualObjects,
+				Sync: func(ctx *synccontext.RegisterContext) {
+					ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
+					syncCtx, syncer := newFakeSyncer(t, ctx)
+					_, err := syncer.Sync(syncCtx, physical, baseVNode.DeepCopy())
+					assert.NilError(t, err)
+				},
+			}
+
+			test.Run(t, syncertesting.NewFakeRegisterContext)
+		})
+	}
+}
+
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *nodeSyncer) {
 	// we need that index here as well otherwise we wouldn't find the related pod
 	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
@@ -71,155 +262,8 @@ func TestNodeDeletion(t *testing.T) {
 	})
 }
 
-func TestSync(t *testing.T) {
-	baseName := types.NamespacedName{
-		Name: "mynode",
-	}
-	basePod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "mypod",
-		},
-		Spec: corev1.PodSpec{
-			NodeName: baseName.Name,
-		},
-	}
+func TestTaints(t *testing.T) {
 	baseNode := &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: baseName.Name,
-		},
-		Status: corev1.NodeStatus{
-			DaemonEndpoints: corev1.NodeDaemonEndpoints{
-				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: 0,
-				},
-			},
-		},
-	}
-	baseVNode := &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: baseName.Name,
-		},
-		Status: corev1.NodeStatus{
-			Addresses: []corev1.NodeAddress{
-				{
-					Address: GetNodeHost(baseName.Name),
-					Type:    corev1.NodeHostName,
-				},
-			},
-			DaemonEndpoints: corev1.NodeDaemonEndpoints{
-				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: constants.KubeletPort,
-				},
-			},
-		},
-	}
-	editedNode := &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: baseName.Name,
-			Labels: map[string]string{
-				"test": "true",
-			},
-			Annotations: map[string]string{
-				"test":                                 "true",
-				translate.ManagedAnnotationsAnnotation: "test",
-				translate.ManagedLabelsAnnotation:      "test",
-			},
-		},
-		Status: corev1.NodeStatus{
-			Addresses: []corev1.NodeAddress{
-				{
-					Address: GetNodeHost(baseName.Name),
-					Type:    corev1.NodeHostName,
-				},
-			},
-			DaemonEndpoints: corev1.NodeDaemonEndpoints{
-				KubeletEndpoint: corev1.DaemonEndpoint{
-					Port: constants.KubeletPort,
-				},
-			},
-			NodeInfo: corev1.NodeSystemInfo{
-				Architecture: "amd64",
-			},
-		},
-	}
-
-	syncertesting.RunTests(t, []*syncertesting.SyncTest{
-		{
-			Name:                "Create backward",
-			InitialVirtualState: []runtime.Object{basePod.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode.DeepCopy()},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod.DeepCopy()},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncToVirtual(syncCtx, baseNode.DeepCopy())
-				assert.NilError(t, err)
-			},
-		},
-		{
-			Name:                "Create backward not needed",
-			InitialVirtualState: []runtime.Object{},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncToVirtual(syncCtx, baseNode.DeepCopy())
-				assert.NilError(t, err)
-			},
-		},
-		{
-			Name:                "Update backward",
-			InitialVirtualState: []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {editedNode.DeepCopy()},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod.DeepCopy()},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
-				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, editedNode.DeepCopy(), baseNode.DeepCopy())
-				assert.NilError(t, err)
-
-				err = ctx.VirtualManager.GetClient().Get(ctx, types.NamespacedName{Name: baseNode.Name}, baseNode.DeepCopy())
-				assert.NilError(t, err)
-
-				_, err = syncer.Sync(syncCtx, editedNode.DeepCopy(), baseNode.DeepCopy())
-				assert.NilError(t, err)
-			},
-		},
-		{
-			Name:                "Update backward no change",
-			InitialVirtualState: []runtime.Object{basePod.DeepCopy(), baseNode.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode.DeepCopy()},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod.DeepCopy()},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
-				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseVNode.DeepCopy())
-				assert.NilError(t, err)
-			},
-		},
-		{
-			Name:                "Delete backward",
-			InitialVirtualState: []runtime.Object{baseNode.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Node"): {},
-				corev1.SchemeGroupVersion.WithKind("Pod"):  {},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, baseNode.DeepCopy(), baseNode.DeepCopy())
-				assert.NilError(t, err)
-			},
-		},
-	})
-
-	baseNode = &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Annotations: map[string]string{
@@ -253,7 +297,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	editedNode = &corev1.Node{
+	editedNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Annotations: map[string]string{
@@ -331,11 +375,13 @@ func TestSync(t *testing.T) {
 			},
 		},
 	})
+}
 
+func TestLabelSelector(t *testing.T) {
 	baseName = types.NamespacedName{
 		Name: "mynode",
 	}
-	basePod = &corev1.Pod{
+	basePod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "mypod",
 		},
@@ -343,7 +389,7 @@ func TestSync(t *testing.T) {
 			NodeName: baseName.Name,
 		},
 	}
-	baseNode = &corev1.Node{
+	baseNode = corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Labels: map[string]string{
@@ -361,7 +407,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
-	baseVNode = &corev1.Node{
+	baseVNode = corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 		},
@@ -382,7 +428,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
-	editedNode = &corev1.Node{
+	editedNode := corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Annotations: map[string]string{
@@ -477,12 +523,10 @@ func TestSync(t *testing.T) {
 			},
 		},
 	})
+}
 
-	baseName = types.NamespacedName{
-		Name: "mynode",
-	}
-
-	baseNode = &corev1.Node{
+func TestClearNode(t *testing.T) {
+	baseNode = corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Labels: map[string]string{
@@ -505,7 +549,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
-	baseVNode = &corev1.Node{
+	baseVNode = corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 		},
@@ -526,7 +570,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 	}
-	editedNode = &corev1.Node{
+	editedNode := corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Annotations: map[string]string{
@@ -573,8 +617,10 @@ func TestSync(t *testing.T) {
 			},
 		},
 	})
+}
 
-	editedNode = &corev1.Node{
+func TestClearNodeImageDisabled(t *testing.T) {
+	editedNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 			Annotations: map[string]string{
