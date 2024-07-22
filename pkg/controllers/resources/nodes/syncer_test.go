@@ -67,10 +67,9 @@ var (
 
 func TestSyncToVirtual(t *testing.T) {
 	testCases := []struct {
-		name              string
-		withVirtualPod    bool
-		virtualNodeExists bool
-		expectNode        bool
+		name           string
+		withVirtualPod bool
+		expectNode     bool
 	}{
 		{
 			name:           "Create backward",
@@ -93,9 +92,6 @@ func TestSyncToVirtual(t *testing.T) {
 				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Pod")] = []runtime.Object{basePod.DeepCopy()}
 			}
 
-			if tC.virtualNodeExists {
-				initialObjects = append(initialObjects, baseNode.DeepCopy())
-			}
 			if tC.expectNode {
 				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Node")] = []runtime.Object{baseNode.DeepCopy()}
 			}
