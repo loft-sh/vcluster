@@ -8,8 +8,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
-	"github.com/loft-sh/vcluster/pkg/syncer/types"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,29 +19,35 @@ import (
 
 var DefaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
 
-func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := ctx.Mappings.ByGVK(mappings.StorageClasses())
 	if err != nil {
 		return nil, err
 	}
 
 	return &storageClassSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "storageclass", &storagev1.StorageClass{}, mapper, DefaultStorageClassAnnotation),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "storageclass", &storagev1.StorageClass{}, mapper),
+
+		excludedAnnotations: []string{
+			DefaultStorageClassAnnotation,
+		},
 	}, nil
 }
 
 type storageClassSyncer struct {
-	types.GenericTranslator
+	syncertypes.GenericTranslator
+
+	excludedAnnotations []string
 }
 
-var _ types.Syncer = &storageClassSyncer{}
+var _ syncertypes.Syncer = &storageClassSyncer{}
 
 func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	if ctx.IsDelete {
 		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
 	}
 
-	newStorageClass := s.translate(ctx, vObj.(*storagev1.StorageClass))
+	newStorageClass := translate.HostMetadata(ctx, vObj.(*storagev1.StorageClass), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName()}, vObj), s.excludedAnnotations...)
 	ctx.Log.Infof("create physical storage class %s", newStorageClass.Name)
 	err := ctx.PhysicalClient.Create(ctx, newStorageClass)
 	if err != nil {
@@ -62,7 +70,18 @@ func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Obje
 		}
 	}()
 
-	s.translateUpdate(ctx, pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
+	pStorageClass, _, sourceSC, targetSC := synccontext.Cast[*storagev1.StorageClass](ctx, pObj, vObj)
+	pStorageClass.Annotations = translate.HostAnnotations(vObj, pObj, s.excludedAnnotations...)
+	pStorageClass.Labels = translate.HostLabels(ctx, vObj, pObj)
+
+	// bidirectional sync
+	targetSC.Provisioner = sourceSC.Provisioner
+	targetSC.Parameters = sourceSC.Parameters
+	targetSC.ReclaimPolicy = sourceSC.ReclaimPolicy
+	targetSC.MountOptions = sourceSC.MountOptions
+	targetSC.AllowVolumeExpansion = sourceSC.AllowVolumeExpansion
+	targetSC.VolumeBindingMode = sourceSC.VolumeBindingMode
+	targetSC.AllowedTopologies = sourceSC.AllowedTopologies
 
 	return ctrl.Result{}, nil
 }

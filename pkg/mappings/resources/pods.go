@@ -8,5 +8,5 @@ import (
 )
 
 func CreatePodsMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	return generic.NewMapper(ctx, &corev1.Pod{}, translate.Default.PhysicalName)
+	return generic.NewMapper(ctx, &corev1.Pod{}, translate.Default.HostName)
 }

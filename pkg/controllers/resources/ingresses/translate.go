@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -21,12 +22,7 @@ const (
 
 func (s *ingressSyncer) translate(ctx *synccontext.SyncContext, vIngress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
 	newIngress := s.TranslateMetadata(ctx, vIngress).(*networkingv1.Ingress)
-	pSpec, err := translateSpec(ctx, vIngress.Namespace, &vIngress.Spec)
-	if err != nil {
-		return nil, err
-	}
-
-	newIngress.Spec = *pSpec
+	newIngress.Spec = *translateSpec(ctx, vIngress.Namespace, &vIngress.Spec)
 	newIngress.Annotations, _ = translateIngressAnnotations(ctx, newIngress.Annotations, vIngress.Namespace)
 	return newIngress, nil
 }
@@ -34,39 +30,32 @@ func (s *ingressSyncer) translate(ctx *synccontext.SyncContext, vIngress *networ
 func (s *ingressSyncer) TranslateMetadata(ctx *synccontext.SyncContext, vObj client.Object) client.Object {
 	ingress := vObj.(*networkingv1.Ingress).DeepCopy()
 	updateAnnotations(ingress)
-
-	return s.GenericTranslator.TranslateMetadata(ctx, ingress)
+	return translate.HostMetadata(ctx, vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 }
 
-func (s *ingressSyncer) TranslateMetadataUpdate(ctx *synccontext.SyncContext, vObj client.Object, pObj client.Object) (changed bool, annotations map[string]string, labels map[string]string) {
+func (s *ingressSyncer) TranslateMetadataUpdate(ctx *synccontext.SyncContext, vObj client.Object, pObj client.Object) (annotations map[string]string, labels map[string]string) {
 	vIngress := vObj.(*networkingv1.Ingress).DeepCopy()
 	updateAnnotations(vIngress)
-
-	return s.GenericTranslator.TranslateMetadataUpdate(ctx, vIngress, pObj)
+	return translate.HostAnnotations(vIngress, pObj), translate.HostLabels(ctx, vIngress, pObj)
 }
 
-func (s *ingressSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *networkingv1.Ingress) error {
-	pSpec, err := translateSpec(ctx, vObj.Namespace, &vObj.Spec)
-	if err != nil {
-		return err
-	}
+func (s *ingressSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *networkingv1.Ingress) {
+	pObj.Spec = *translateSpec(ctx, vObj.Namespace, &vObj.Spec)
 
-	pObj.Spec = *pSpec
-	_, translatedAnnotations, translatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
+	var translatedAnnotations map[string]string
+	translatedAnnotations, pObj.Labels = s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	translatedAnnotations, _ = translateIngressAnnotations(ctx, translatedAnnotations, vObj.Namespace)
 	pObj.Annotations = translatedAnnotations
-	pObj.Labels = translatedLabels
-	return nil
 }
 
-func translateSpec(ctx *synccontext.SyncContext, namespace string, vIngressSpec *networkingv1.IngressSpec) (*networkingv1.IngressSpec, error) {
+func translateSpec(ctx *synccontext.SyncContext, namespace string, vIngressSpec *networkingv1.IngressSpec) *networkingv1.IngressSpec {
 	retSpec := vIngressSpec.DeepCopy()
 	if retSpec.DefaultBackend != nil {
 		if retSpec.DefaultBackend.Service != nil && retSpec.DefaultBackend.Service.Name != "" {
 			retSpec.DefaultBackend.Service.Name = mappings.VirtualToHostName(ctx, retSpec.DefaultBackend.Service.Name, namespace, mappings.Services())
 		}
 		if retSpec.DefaultBackend.Resource != nil {
-			retSpec.DefaultBackend.Resource.Name = translate.Default.PhysicalName(retSpec.DefaultBackend.Resource.Name, namespace)
+			retSpec.DefaultBackend.Resource.Name = translate.Default.HostName(retSpec.DefaultBackend.Resource.Name, namespace)
 		}
 	}
 
@@ -77,7 +66,7 @@ func translateSpec(ctx *synccontext.SyncContext, namespace string, vIngressSpec 
 					retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name = mappings.VirtualToHostName(ctx, retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name, namespace, mappings.Services())
 				}
 				if path.Backend.Resource != nil {
-					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.Default.PhysicalName(retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
+					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.Default.HostName(retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
 				}
 			}
 		}
@@ -89,7 +78,7 @@ func translateSpec(ctx *synccontext.SyncContext, namespace string, vIngressSpec 
 		}
 	}
 
-	return retSpec, nil
+	return retSpec
 }
 
 func getActionOrConditionValue(annotation, actionOrCondition string) string {
@@ -117,7 +106,7 @@ func processAlbAnnotations(namespace string, k string, v string) (string, string
 		// change k
 		action := getActionOrConditionValue(k, ActionsSuffix)
 		if !strings.Contains(k, "x-"+namespace+"-x") {
-			k = strings.Replace(k, action, translate.Default.PhysicalName(action, namespace), 1)
+			k = strings.Replace(k, action, translate.Default.HostName(action, namespace), 1)
 		}
 		// change v
 		var payload *actionPayload
@@ -131,7 +120,7 @@ func processAlbAnnotations(namespace string, k string, v string) (string, string
 					case string:
 						if svcName != "" {
 							if !strings.Contains(svcName, "x-"+namespace+"-x") {
-								targetGroup["serviceName"] = translate.Default.PhysicalName(svcName, namespace)
+								targetGroup["serviceName"] = translate.Default.HostName(svcName, namespace)
 							} else {
 								targetGroup["serviceName"] = svcName
 							}
@@ -149,7 +138,7 @@ func processAlbAnnotations(namespace string, k string, v string) (string, string
 	if strings.HasPrefix(k, AlbConditionAnnotation) {
 		condition := getActionOrConditionValue(k, ConditionSuffix)
 		if !strings.Contains(k, "x-"+namespace+"-x") {
-			k = strings.Replace(k, condition, translate.Default.PhysicalName(condition, namespace), 1)
+			k = strings.Replace(k, condition, translate.Default.HostName(condition, namespace), 1)
 		}
 	}
 	return k, v

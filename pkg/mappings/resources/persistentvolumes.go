@@ -17,7 +17,7 @@ func CreatePersistentVolumesMapper(ctx *synccontext.RegisterContext) (synccontex
 
 		vPv, ok := vObj.(*corev1.PersistentVolume)
 		if !ok || vPv.Annotations == nil || vPv.Annotations[constants.HostClusterPersistentVolumeAnnotation] == "" {
-			return translate.Default.PhysicalNameClusterScoped(name)
+			return translate.Default.HostNameCluster(name)
 		}
 
 		return vPv.Annotations[constants.HostClusterPersistentVolumeAnnotation]

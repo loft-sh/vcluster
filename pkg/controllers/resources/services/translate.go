@@ -4,11 +4,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func (s *serviceSyncer) translate(ctx *synccontext.SyncContext, vObj *corev1.Service) *corev1.Service {
-	newService := s.TranslateMetadata(ctx, vObj).(*corev1.Service)
-	newService.Spec.Selector = translate.Default.TranslateLabels(vObj.Spec.Selector, vObj.Namespace, nil)
+	newService := translate.HostMetadata(ctx, vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj), s.excludedAnnotations...)
+	newService.Spec.Selector = translate.Default.HostLabels(vObj.Spec.Selector, nil, vObj.Namespace, nil)
 	if newService.Spec.ClusterIP != "None" {
 		newService.Spec.ClusterIP = ""
 	}

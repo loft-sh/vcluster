@@ -8,7 +8,6 @@ import (
 	"gotest.tools/assert"
 	"k8s.io/utils/ptr"
 
-	podstranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -50,13 +49,13 @@ func TestSync(t *testing.T) {
 	pBaseSpec := networkingv1.NetworkPolicySpec{
 		PodSelector: metav1.LabelSelector{
 			MatchLabels: map[string]string{
-				translate.Default.ConvertLabelKey("mykey"): "mylabel",
-				translate.NamespaceLabel:                   vObjectMeta.Namespace,
-				translate.MarkerLabel:                      translate.VClusterName,
+				translate.Default.HostLabel("mykey"): "mylabel",
+				translate.NamespaceLabel:             vObjectMeta.Namespace,
+				translate.MarkerLabel:                translate.VClusterName,
 			},
 			MatchExpressions: []metav1.LabelSelectorRequirement{
 				{
-					Key:      translate.Default.ConvertLabelKey("secondkey"),
+					Key:      translate.Default.HostLabel("secondkey"),
 					Operator: metav1.LabelSelectorOpIn,
 					Values:   []string{"label-A", "label-B"},
 				},
@@ -64,7 +63,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.Default.PhysicalName("testnetworkpolicy", "test"),
+		Name:      translate.Default.HostName("testnetworkpolicy", "test"),
 		Namespace: "test",
 		Annotations: map[string]string{
 			translate.NameAnnotation:      vObjectMeta.Name,
@@ -125,9 +124,9 @@ func TestSync(t *testing.T) {
 			Ports: somePorts,
 			From: []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					translate.Default.ConvertLabelKey("random-key"): "value",
-					translate.MarkerLabel:                           translate.VClusterName,
-					translate.NamespaceLabel:                        vnetworkPolicyWithPodSelectorNoNs.GetNamespace(),
+					translate.Default.HostLabel("random-key"): "value",
+					translate.MarkerLabel:                     translate.VClusterName,
+					translate.NamespaceLabel:                  vnetworkPolicyWithPodSelectorNoNs.GetNamespace(),
 				},
 				MatchExpressions: []metav1.LabelSelectorRequirement{},
 			}}},
@@ -147,7 +146,7 @@ func TestSync(t *testing.T) {
 
 	pnetworkPolicyWithLabelSelectorNsSelector := pnetworkPolicyWithLabelSelectorNoNs.DeepCopy()
 	delete(pnetworkPolicyWithLabelSelectorNsSelector.Spec.Ingress[0].From[0].PodSelector.MatchLabels, translate.NamespaceLabel)
-	pnetworkPolicyWithLabelSelectorNsSelector.Spec.Ingress[0].From[0].PodSelector.MatchLabels[translate.ConvertLabelKeyWithPrefix(podstranslate.NamespaceLabelPrefix, "nslabelkey")] = "abc"
+	pnetworkPolicyWithLabelSelectorNsSelector.Spec.Ingress[0].From[0].PodSelector.MatchLabels[translate.ConvertLabelKeyWithPrefix(translate.NamespaceLabelPrefix, "nslabelkey")] = "abc"
 
 	vnetworkPolicyEgressWithPodSelectorNoNs := vBaseNetworkPolicy.DeepCopy()
 	vnetworkPolicyEgressWithPodSelectorNoNs.Spec.Egress = []networkingv1.NetworkPolicyEgressRule{
@@ -201,12 +200,12 @@ func TestSync(t *testing.T) {
 					},
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
-							Key:      translate.Default.ConvertLabelKey("pod-expr-key"),
+							Key:      translate.Default.HostLabel("pod-expr-key"),
 							Operator: metav1.LabelSelectorOpExists,
 							Values:   []string{"some-pod-key"},
 						},
 						{
-							Key:      translate.ConvertLabelKeyWithPrefix(podstranslate.NamespaceLabelPrefix, "ns-expr-key"),
+							Key:      translate.ConvertLabelKeyWithPrefix(translate.NamespaceLabelPrefix, "ns-expr-key"),
 							Operator: metav1.LabelSelectorOpDoesNotExist,
 							Values:   []string{"forbidden-ns-key"},
 						},

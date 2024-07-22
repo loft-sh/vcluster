@@ -8,5 +8,5 @@ import (
 )
 
 func CreatePersistentVolumeClaimsMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	return generic.NewMapper(ctx, &corev1.PersistentVolumeClaim{}, translate.Default.PhysicalName)
+	return generic.NewMapper(ctx, &corev1.PersistentVolumeClaim{}, translate.Default.HostName)
 }

@@ -30,15 +30,15 @@ type pdbSyncer struct {
 	types.GenericTranslator
 }
 
-func (pdb *pdbSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *pdbSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	if ctx.IsDelete {
 		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
 	}
 
-	return pdb.SyncToHostCreate(ctx, vObj, pdb.translate(ctx, vObj.(*policyv1.PodDisruptionBudget)))
+	return syncer.CreateHostObject(ctx, vObj, s.translate(ctx, vObj.(*policyv1.PodDisruptionBudget)), s.EventRecorder())
 }
 
-func (pdb *pdbSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
+func (s *pdbSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
 	vPDB := vObj.(*policyv1.PodDisruptionBudget)
 	pPDB := pObj.(*policyv1.PodDisruptionBudget)
 
@@ -46,17 +46,15 @@ func (pdb *pdbSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vOb
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
-
 	defer func() {
 		if err := patch.Patch(ctx, pPDB, vPDB); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 		if retErr != nil {
-			pdb.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
 		}
 	}()
 
-	pdb.translateUpdate(ctx, pPDB, vPDB)
-
+	s.translateUpdate(ctx, pPDB, vPDB)
 	return ctrl.Result{}, nil
 }

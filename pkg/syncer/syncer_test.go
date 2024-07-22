@@ -12,11 +12,10 @@ import (
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/moby/locker"
-
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"gotest.tools/v3/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,16 +43,8 @@ func NewMockSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error)
 }
 
 func (s *mockSyncer) naiveTranslateCreate(ctx *synccontext.SyncContext, vObj client.Object) client.Object {
-	pObj := s.TranslateMetadata(ctx, vObj)
+	pObj := translate.HostMetadata(ctx, vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 	return pObj
-}
-
-func (s *mockSyncer) naiveTranslateUpdate(ctx *synccontext.SyncContext, vObj client.Object, pObj client.Object) client.Object {
-	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
-	newPObj := pObj.DeepCopyObject().(client.Object)
-	newPObj.SetAnnotations(updatedAnnotations)
-	newPObj.SetLabels(updatedLabels)
-	return newPObj
 }
 
 // SyncToHost is called when a virtual object was created and needs to be synced down to the physical cluster
@@ -63,12 +54,15 @@ func (s *mockSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object
 		return ctrl.Result{}, errors.New("naive translate create failed")
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, pObj)
+	return CreateHostObject(ctx, vObj, pObj, s.EventRecorder())
 }
 
 // Sync is called to sync a virtual object with a physical object
 func (s *mockSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncToHostUpdate(ctx, vObj, s.naiveTranslateUpdate(ctx, vObj, pObj))
+	newPObj := pObj.DeepCopyObject().(client.Object)
+	newPObj.SetAnnotations(translate.HostAnnotations(vObj, pObj))
+	newPObj.SetLabels(translate.HostLabels(ctx, vObj, pObj))
+	return ctrl.Result{}, ctx.VirtualClient.Update(ctx, newPObj)
 }
 
 var _ syncertypes.Syncer = &mockSyncer{}
@@ -157,7 +151,7 @@ func TestReconcile(t *testing.T) {
 					},
 					&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      translator.PhysicalName("a", namespaceInVclusterA),
+							Name:      translator.HostName("a", namespaceInVclusterA),
 							Namespace: vclusterNamespace,
 							Annotations: map[string]string{
 								translate.NameAnnotation:      "a",
@@ -198,7 +192,7 @@ func TestReconcile(t *testing.T) {
 				// existing object doesn't have annotations/labels indicating it is owned, but has the name of the synced object
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      translate.Default.PhysicalName("a", namespaceInVclusterA),
+						Name:      translate.Default.HostName("a", namespaceInVclusterA),
 						Namespace: vclusterNamespace,
 						Annotations: map[string]string{
 							"app": "existing",
@@ -231,7 +225,7 @@ func TestReconcile(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Secret"): {
 					&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      translator.PhysicalName("a", namespaceInVclusterA),
+							Name:      translator.HostName("a", namespaceInVclusterA),
 							Namespace: vclusterNamespace,
 							Annotations: map[string]string{
 								"app": "existing",

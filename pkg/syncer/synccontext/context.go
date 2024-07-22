@@ -50,6 +50,8 @@ type SyncContext struct {
 
 	Log loghelper.Logger
 
+	Config *config.VirtualClusterConfig
+
 	PhysicalClient client.Client
 	VirtualClient  client.Client
 
@@ -140,6 +142,7 @@ func (c *ControllerContext) ToRegisterContext() *RegisterContext {
 func (r *RegisterContext) ToSyncContext(logName string) *SyncContext {
 	return &SyncContext{
 		Context:                r.Context,
+		Config:                 r.Config,
 		Log:                    loghelper.New(logName),
 		PhysicalClient:         r.PhysicalManager.GetClient(),
 		VirtualClient:          r.VirtualManager.GetClient(),

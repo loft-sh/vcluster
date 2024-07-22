@@ -23,5 +23,5 @@ func CreateVolumeSnapshotsMapper(ctx *synccontext.RegisterContext) (synccontext.
 		return nil, err
 	}
 
-	return generic.NewMapper(ctx, &volumesnapshotv1.VolumeSnapshot{}, translate.Default.PhysicalName)
+	return generic.NewMapper(ctx, &volumesnapshotv1.VolumeSnapshot{}, translate.Default.HostName)
 }

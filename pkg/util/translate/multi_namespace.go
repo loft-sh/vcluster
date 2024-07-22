@@ -4,15 +4,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -33,17 +29,17 @@ func (s *multiNamespace) SingleNamespaceTarget() bool {
 	return false
 }
 
-// PhysicalName returns the physical name of the name / namespace resource
-func (s *multiNamespace) PhysicalName(name, _ string) string {
+// HostName returns the physical name of the name / namespace resource
+func (s *multiNamespace) HostName(name, _ string) string {
 	return name
 }
 
-// PhysicalNameShort returns the short physical name of the name / namespace resource
-func (s *multiNamespace) PhysicalNameShort(name, _ string) string {
+// HostNameShort returns the short physical name of the name / namespace resource
+func (s *multiNamespace) HostNameShort(name, _ string) string {
 	return name
 }
 
-func (s *multiNamespace) PhysicalNameClusterScoped(name string) string {
+func (s *multiNamespace) HostNameCluster(name string) string {
 	if name == "" {
 		return ""
 	}
@@ -76,20 +72,20 @@ func (s *multiNamespace) IsTargetedNamespace(ns string) bool {
 	return strings.HasPrefix(ns, s.getNamespacePrefix()) && strings.HasSuffix(ns, getNamespaceSuffix(s.currentNamespace, VClusterName))
 }
 
-func (s *multiNamespace) convertLabelKey(key string) string {
+func hostLabelCluster(key, vClusterNamespace string) string {
 	digest := sha256.Sum256([]byte(key))
-	return SafeConcatName(LabelPrefix, s.currentNamespace, "x", VClusterName, "x", hex.EncodeToString(digest[0:])[0:10])
+	return SafeConcatName(LabelPrefix, vClusterNamespace, "x", VClusterName, "x", hex.EncodeToString(digest[0:])[0:10])
 }
 
 func (s *multiNamespace) getNamespacePrefix() string {
 	return "vcluster"
 }
 
-func (s *multiNamespace) PhysicalNamespace(vNamespace string) string {
-	return PhysicalNamespace(s.currentNamespace, vNamespace, s.getNamespacePrefix(), VClusterName)
+func (s *multiNamespace) HostNamespace(vNamespace string) string {
+	return hostNamespace(s.currentNamespace, vNamespace, s.getNamespacePrefix(), VClusterName)
 }
 
-func PhysicalNamespace(currentNamespace, vNamespace, prefix, suffix string) string {
+func hostNamespace(currentNamespace, vNamespace, prefix, suffix string) string {
 	sha := sha256.Sum256([]byte(vNamespace))
 	return fmt.Sprintf("%s-%s-%s", prefix, hex.EncodeToString(sha[0:])[0:8], getNamespaceSuffix(currentNamespace, suffix))
 }
@@ -99,140 +95,22 @@ func getNamespaceSuffix(currentNamespace, suffix string) string {
 	return hex.EncodeToString(sha[0:])[0:8]
 }
 
-func (s *multiNamespace) TranslateLabelsCluster(vObj client.Object, pObj client.Object, syncedLabels []string) map[string]string {
-	newLabels := map[string]string{}
-	if vObj != nil {
-		vObjLabels := vObj.GetLabels()
-		for k, v := range vObjLabels {
-			newLabels[s.convertLabelKey(k)] = v
-		}
-		if vObjLabels != nil {
-			for _, k := range syncedLabels {
-				if strings.HasSuffix(k, "/*") {
-					r, _ := regexp.Compile(strings.ReplaceAll(k, "/*", "/.*"))
-
-					for key, val := range vObjLabels {
-						if r.MatchString(key) {
-							newLabels[key] = val
-						}
-					}
-				} else {
-					if value, ok := vObjLabels[k]; ok {
-						newLabels[k] = value
-					}
-				}
-			}
-		}
-	}
-	if pObj != nil {
-		pObjLabels := pObj.GetLabels()
-		if pObjLabels != nil && pObjLabels[ControllerLabel] != "" {
-			newLabels[ControllerLabel] = pObjLabels[ControllerLabel]
-		}
-	}
-	newLabels[MarkerLabel] = SafeConcatName(s.currentNamespace, "x", VClusterName)
-	return newLabels
+func (s *multiNamespace) HostLabelsCluster(vLabels, pLabels map[string]string, syncedLabels []string) map[string]string {
+	return hostLabelsCluster(vLabels, pLabels, s.currentNamespace, syncedLabels)
 }
 
-func (s *multiNamespace) TranslateLabelSelectorCluster(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
-	if labelSelector == nil {
-		return nil
-	}
-
-	newLabelSelector := &metav1.LabelSelector{}
-	if labelSelector.MatchLabels != nil {
-		newLabelSelector.MatchLabels = map[string]string{}
-		for k, v := range labelSelector.MatchLabels {
-			newLabelSelector.MatchLabels[s.convertLabelKey(k)] = v
-		}
-	}
-	if len(labelSelector.MatchExpressions) > 0 {
-		newLabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}
-		for _, r := range labelSelector.MatchExpressions {
-			newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
-				Key:      s.convertLabelKey(r.Key),
-				Operator: r.Operator,
-				Values:   r.Values,
-			})
-		}
-	}
-
-	return newLabelSelector
+func (s *multiNamespace) HostLabelSelectorCluster(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+	return hostLabelSelectorCluster(labelSelector, s.currentNamespace)
 }
 
-func (s *multiNamespace) ApplyMetadata(vObj client.Object, name types.NamespacedName, syncedLabels []string, excludedAnnotations ...string) client.Object {
-	pObj, err := s.SetupMetadataWithName(vObj, name)
-	if err != nil {
-		return nil
-	}
-	pObj.SetAnnotations(s.ApplyAnnotations(vObj, nil, excludedAnnotations))
-	pObj.SetLabels(s.TranslateLabels(vObj.GetLabels(), vObj.GetNamespace(), syncedLabels))
-	return pObj
+func (s *multiNamespace) HostLabels(vLabels, _ map[string]string, _ string, _ []string) map[string]string {
+	return vLabels
 }
 
-func (s *multiNamespace) ApplyMetadataUpdate(vObj client.Object, pObj client.Object, syncedLabels []string, excludedAnnotations ...string) (bool, map[string]string, map[string]string) {
-	updatedAnnotations := s.ApplyAnnotations(vObj, pObj, excludedAnnotations)
-	updatedLabels := s.TranslateLabels(vObj.GetLabels(), vObj.GetNamespace(), syncedLabels)
-	return !equality.Semantic.DeepEqual(updatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, pObj.GetLabels()), updatedAnnotations, updatedLabels
-}
-
-func (s *multiNamespace) ApplyAnnotations(src client.Object, to client.Object, excluded []string) map[string]string {
-	excluded = append(excluded, NameAnnotation, NamespaceAnnotation, UIDAnnotation, KindAnnotation)
-	toAnnotations := map[string]string{}
-	if to != nil {
-		toAnnotations = to.GetAnnotations()
-	}
-
-	retMap := applyAnnotations(src.GetAnnotations(), toAnnotations, excluded...)
-	retMap[NameAnnotation] = src.GetName()
-	retMap[UIDAnnotation] = string(src.GetUID())
-	if src.GetNamespace() == "" {
-		delete(retMap, NamespaceAnnotation)
-	} else {
-		retMap[NamespaceAnnotation] = src.GetNamespace()
-	}
-
-	gvk, err := apiutil.GVKForObject(src, scheme.Scheme)
-	if err == nil {
-		retMap[KindAnnotation] = gvk.String()
-	}
-
-	return retMap
-}
-
-func (s *multiNamespace) ApplyLabels(src client.Object, _ client.Object, syncedLabels []string) map[string]string {
-	fromLabels := src.GetLabels()
-	if fromLabels == nil {
-		fromLabels = map[string]string{}
-	}
-	return s.TranslateLabels(fromLabels, src.GetNamespace(), syncedLabels)
-}
-
-func (s *multiNamespace) TranslateLabels(fromLabels map[string]string, _ string, _ []string) map[string]string {
-	return fromLabels
-}
-
-func (s *multiNamespace) SetupMetadataWithName(vObj client.Object, name types.NamespacedName) (client.Object, error) {
-	target := vObj.DeepCopyObject().(client.Object)
-	m, err := meta.Accessor(target)
-	if err != nil {
-		return nil, err
-	}
-
-	// reset metadata & translate name and namespace
-	ResetObjectMetadata(m)
-	m.SetName(name.Name)
-	if vObj.GetNamespace() != "" {
-		m.SetNamespace(name.Namespace)
-	}
-
-	return target, nil
-}
-
-func (s *multiNamespace) TranslateLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+func (s *multiNamespace) HostLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
 	return labelSelector
 }
 
-func (s *multiNamespace) ConvertLabelKey(key string) string {
+func (s *multiNamespace) HostLabel(key string) string {
 	return key
 }

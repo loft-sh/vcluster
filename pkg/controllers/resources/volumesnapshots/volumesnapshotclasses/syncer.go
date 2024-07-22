@@ -6,8 +6,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"github.com/loft-sh/vcluster/pkg/syncer/translator"
-	"github.com/loft-sh/vcluster/pkg/syncer/types"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -15,31 +16,38 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := ctx.Mappings.ByGVK(mappings.VolumeSnapshotClasses())
 	if err != nil {
 		return nil, err
 	}
 
 	return &volumeSnapshotClassSyncer{
-		Translator: translator.NewMirrorPhysicalTranslator("volumesnapshotclass", &volumesnapshotv1.VolumeSnapshotClass{}, mapper),
+		Mapper: mapper,
 	}, nil
 }
 
 type volumeSnapshotClassSyncer struct {
-	types.Translator
+	synccontext.Mapper
 }
 
-var _ types.ToVirtualSyncer = &volumeSnapshotClassSyncer{}
+func (s *volumeSnapshotClassSyncer) Name() string {
+	return "volumesnapshotclass"
+}
+
+func (s *volumeSnapshotClassSyncer) Resource() client.Object {
+	return &volumesnapshotv1.VolumeSnapshotClass{}
+}
+
+var _ syncertypes.ToVirtualSyncer = &volumeSnapshotClassSyncer{}
 
 func (s *volumeSnapshotClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	pVolumeSnapshotClass := pObj.(*volumesnapshotv1.VolumeSnapshotClass)
-	vObj := s.translateBackwards(ctx, pVolumeSnapshotClass)
+	vObj := translate.CopyObjectWithName(pObj.(*volumesnapshotv1.VolumeSnapshotClass), types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, false)
 	ctx.Log.Infof("create VolumeSnapshotClass %s, because it does not exist in the virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
-var _ types.Syncer = &volumeSnapshotClassSyncer{}
+var _ syncertypes.Syncer = &volumeSnapshotClassSyncer{}
 
 func (s *volumeSnapshotClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
 	// We are not doing any syncing Forward for the VolumeSnapshotClasses
@@ -58,14 +66,17 @@ func (s *volumeSnapshotClassSyncer) Sync(ctx *synccontext.SyncContext, pObj clie
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
-
 	defer func() {
 		if err := patch.Patch(ctx, pObj, vObj); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 	}()
 
-	s.translateUpdateBackwards(ctx, pObj.(*volumesnapshotv1.VolumeSnapshotClass), vObj.(*volumesnapshotv1.VolumeSnapshotClass))
-
+	pVSC, vVSC, _, _ := synccontext.Cast[*volumesnapshotv1.VolumeSnapshotClass](ctx, pObj, vObj)
+	vVSC.Annotations = pVSC.Annotations
+	vVSC.Labels = pVSC.Labels
+	vVSC.Driver = pVSC.Driver
+	vVSC.Parameters = pVSC.Parameters
+	vVSC.DeletionPolicy = pVSC.DeletionPolicy
 	return ctrl.Result{}, nil
 }

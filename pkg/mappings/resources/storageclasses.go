@@ -13,6 +13,6 @@ func CreateStorageClassesMapper(ctx *synccontext.RegisterContext) (synccontext.M
 	}
 
 	return generic.NewMapper(ctx, &storagev1.StorageClass{}, func(name, _ string) string {
-		return translate.Default.PhysicalNameClusterScoped(name)
+		return translate.Default.HostNameCluster(name)
 	})
 }

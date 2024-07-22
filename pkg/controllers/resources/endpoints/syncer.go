@@ -28,11 +28,17 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 	return &endpointsSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "endpoints", &corev1.Endpoints{}, mapper),
+
+		excludedAnnotations: []string{
+			"control-plane.alpha.kubernetes.io/leader",
+		},
 	}, nil
 }
 
 type endpointsSyncer struct {
 	syncertypes.GenericTranslator
+
+	excludedAnnotations []string
 }
 
 func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -40,7 +46,7 @@ func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.O
 		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, s.translate(ctx, vObj))
+	return syncer.CreateHostObject(ctx, vObj, s.translate(ctx, vObj), s.EventRecorder())
 }
 
 func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {

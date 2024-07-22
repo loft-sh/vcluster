@@ -5,9 +5,11 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	translator2 "github.com/loft-sh/vcluster/pkg/syncer/translator"
 	"github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -58,7 +60,7 @@ func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj cli
 		return ctrl.Result{}, err
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, pObj)
+	return syncer.CreateHostObject(ctx, vObj, pObj, s.EventRecorder())
 }
 
 func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
@@ -88,7 +90,6 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 			updated := vVS.DeepCopy()
 			updated.Finalizers = pVS.Finalizers
 			ctx.Log.Infof("update finalizers of the virtual VolumeSnapshot %s, because finalizers on the physical resource changed", vVS.Name)
-			translator2.PrintChanges(vObj, updated, ctx.Log)
 			err := ctx.VirtualClient.Update(ctx, updated)
 			if kerrors.IsNotFound(err) {
 				return ctrl.Result{}, nil
@@ -101,7 +102,6 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 			updated := vVS.DeepCopy()
 			updated.Status = pVS.Status.DeepCopy()
 			ctx.Log.Infof("update virtual VolumeSnapshot %s, because status has changed", vVS.Name)
-			translator2.PrintChanges(vObj, updated, ctx.Log)
 			err := ctx.VirtualClient.Status().Update(ctx, updated)
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
@@ -144,7 +144,8 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 	pVS.Spec.VolumeSnapshotClassName = vVS.Spec.VolumeSnapshotClassName
 
 	// check if metadata changed
-	_, pVS.Annotations, pVS.Labels = s.TranslateMetadataUpdate(ctx, vVS, pVS)
+	pVS.Annotations = translate.HostAnnotations(vVS, pVS)
+	pVS.Labels = translate.HostLabels(ctx, vVS, pVS)
 
 	return ctrl.Result{}, nil
 }

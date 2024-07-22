@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WithServiceCreateRedirect(handler http.Handler, registerCtx *synccontext.RegisterContext, uncachedLocalClient, uncachedVirtualClient client.Client, syncedLabels []string) http.Handler {
+func WithServiceCreateRedirect(handler http.Handler, registerCtx *synccontext.RegisterContext, uncachedLocalClient, uncachedVirtualClient client.Client) http.Handler {
 	decoder := encoding.NewDecoder(scheme.Scheme, false)
 	s := serializer.NewCodecFactory(scheme.Scheme)
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -62,7 +62,7 @@ func WithServiceCreateRedirect(handler http.Handler, registerCtx *synccontext.Re
 					syncContext.VirtualClient = uncachedVirtualImpersonatingClient
 					syncContext.PhysicalClient = uncachedLocalClient
 
-					svc, err := createService(syncContext, req, decoder, info.Namespace, syncedLabels)
+					svc, err := createService(syncContext, req, decoder, info.Namespace)
 					if err != nil {
 						responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 						return
@@ -184,7 +184,7 @@ func updateService(ctx *synccontext.SyncContext, req *http.Request, decoder enco
 	return newVService, nil
 }
 
-func createService(ctx *synccontext.SyncContext, req *http.Request, decoder encoding.Decoder, fromNamespace string, syncedLabels []string) (runtime.Object, error) {
+func createService(ctx *synccontext.SyncContext, req *http.Request, decoder encoding.Decoder, fromNamespace string) (runtime.Object, error) {
 	// authorization will be done at this point already, so we can redirect the request to the physical cluster
 	rawObj, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -210,12 +210,12 @@ func createService(ctx *synccontext.SyncContext, req *http.Request, decoder enco
 		vService.Name = vService.GenerateName + random.String(5)
 	}
 
-	newService := translate.Default.ApplyMetadata(vService, mappings.VirtualToHost(ctx, vService.Name, vService.Namespace, mappings.Services()), syncedLabels).(*corev1.Service)
+	newService := translate.HostMetadata(ctx, vService, mappings.VirtualToHost(ctx, vService.Name, vService.Namespace, mappings.Services()))
 	if newService.Annotations == nil {
 		newService.Annotations = map[string]string{}
 	}
 	newService.Annotations[services.ServiceBlockDeletion] = "true"
-	newService.Spec.Selector = translate.Default.TranslateLabels(vService.Spec.Selector, vService.Namespace, nil)
+	newService.Spec.Selector = translate.Default.HostLabels(vService.Spec.Selector, nil, vService.Namespace, nil)
 	err = ctx.PhysicalClient.Create(req.Context(), newService)
 	if err != nil {
 		klog.Infof("Error creating service in physical cluster: %v", err)

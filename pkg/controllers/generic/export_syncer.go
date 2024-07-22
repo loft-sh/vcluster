@@ -97,7 +97,7 @@ func createExporterFromConfig(ctx *synccontext.RegisterContext, config *vcluster
 
 	gvk := schema.FromAPIVersionAndKind(config.APIVersion, config.Kind)
 	controllerID := fmt.Sprintf("%s/%s/GenericExport", strings.ToLower(gvk.Kind), strings.ToLower(gvk.Group))
-	mapper, err := generic.NewMapper(ctx, obj, translate.Default.PhysicalName)
+	mapper, err := generic.NewMapper(ctx, obj, translate.Default.HostName)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (f *exporter) Name() string {
 
 // TranslateMetadata converts the virtual object into a physical object
 func (f *exporter) TranslateMetadata(ctx *synccontext.SyncContext, vObj client.Object) client.Object {
-	pObj := f.GenericTranslator.TranslateMetadata(ctx, vObj)
+	pObj := translate.HostMetadata(ctx, vObj, f.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 	if pObj == nil {
 		return nil
 	}
@@ -298,6 +298,7 @@ func (f *exporter) TranslateMetadata(ctx *synccontext.SyncContext, vObj client.O
 		a[translate.ControllerLabel] = f.Name()
 		pObj.SetAnnotations(a)
 	}
+
 	return pObj
 }
 

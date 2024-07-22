@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/pkg/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -17,18 +19,21 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 var (
-	NamespaceLabel  = "vcluster.loft.sh/namespace"
-	MarkerLabel     = "vcluster.loft.sh/managed-by"
-	LabelPrefix     = "vcluster.loft.sh/label"
-	ControllerLabel = "vcluster.loft.sh/controlled-by"
+	NamespaceLabel       = "vcluster.loft.sh/namespace"
+	MarkerLabel          = "vcluster.loft.sh/managed-by"
+	LabelPrefix          = "vcluster.loft.sh/label"
+	NamespaceLabelPrefix = "vcluster.loft.sh/ns-label"
+	ControllerLabel      = "vcluster.loft.sh/controlled-by"
 
 	// VClusterName is the vcluster name, usually set at start time
 	VClusterName = "suffix"
@@ -42,6 +47,75 @@ const (
 )
 
 var Owner client.Object
+
+func CopyObjectWithName[T client.Object](obj T, name types.NamespacedName, setOwner bool) T {
+	target := obj.DeepCopyObject().(T)
+
+	// reset metadata & translate name and namespace
+	ResetObjectMetadata(target)
+	target.SetName(name.Name)
+	if obj.GetNamespace() != "" {
+		target.SetNamespace(name.Namespace)
+
+		// set owning stateful set if defined
+		if setOwner && Owner != nil {
+			target.SetOwnerReferences(GetOwnerReference(obj))
+		}
+	}
+
+	return target
+}
+
+func HostMetadata[T client.Object](ctx *synccontext.SyncContext, vObj T, name types.NamespacedName, excludedAnnotations ...string) T {
+	pObj := CopyObjectWithName(vObj, name, true)
+	pObj.SetAnnotations(HostAnnotations(vObj, nil, excludedAnnotations...))
+	pObj.SetLabels(HostLabels(ctx, vObj, nil))
+	return pObj
+}
+
+func HostLabels(ctx *synccontext.SyncContext, vObj, pObj client.Object) map[string]string {
+	vLabels := vObj.GetLabels()
+	if vLabels == nil {
+		vLabels = map[string]string{}
+	}
+	var pLabels map[string]string
+	if pObj != nil {
+		pLabels = pObj.GetLabels()
+	}
+	if vObj.GetNamespace() == "" {
+		return Default.HostLabelsCluster(vLabels, pLabels, ctx.Config.Experimental.SyncSettings.SyncLabels)
+	}
+
+	syncLabels := []string{}
+	if ctx.Config != nil {
+		syncLabels = ctx.Config.Experimental.SyncSettings.SyncLabels
+	}
+	return Default.HostLabels(vLabels, pLabels, vObj.GetNamespace(), syncLabels)
+}
+
+func HostAnnotations(vObj, pObj client.Object, excluded ...string) map[string]string {
+	excluded = append(excluded, NameAnnotation, UIDAnnotation, KindAnnotation, NamespaceAnnotation)
+	toAnnotations := map[string]string{}
+	if pObj != nil {
+		toAnnotations = pObj.GetAnnotations()
+	}
+
+	retMap := applyAnnotations(vObj.GetAnnotations(), toAnnotations, excluded...)
+	retMap[NameAnnotation] = vObj.GetName()
+	retMap[UIDAnnotation] = string(vObj.GetUID())
+	if vObj.GetNamespace() == "" {
+		delete(retMap, NamespaceAnnotation)
+	} else {
+		retMap[NamespaceAnnotation] = vObj.GetNamespace()
+	}
+
+	gvk, err := apiutil.GVKForObject(vObj, scheme.Scheme)
+	if err == nil {
+		retMap[KindAnnotation] = gvk.String()
+	}
+
+	return retMap
+}
 
 func GetOwnerReference(object client.Object) []metav1.OwnerReference {
 	if Owner == nil || Owner.GetName() == "" || Owner.GetUID() == "" {
@@ -182,7 +256,7 @@ type ApplyMapsOptions struct {
 	ExcludeKeys []string
 }
 
-func applyMaps(fromMap map[string]string, toMap map[string]string, opts ApplyMapsOptions) (map[string]string, string) {
+func applyMaps(fromMap, toMap map[string]string, opts ApplyMapsOptions) (map[string]string, string) {
 	retMap := map[string]string{}
 	managedKeys := []string{}
 	for k, v := range fromMap {

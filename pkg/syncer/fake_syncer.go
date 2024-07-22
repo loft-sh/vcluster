@@ -3,6 +3,7 @@ package syncer
 import (
 	"context"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
@@ -26,6 +27,8 @@ func RegisterFakeSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Fak
 
 		mappings: ctx.Mappings,
 
+		config: ctx.Config,
+
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}
 
@@ -43,6 +46,8 @@ type fakeSyncer struct {
 
 	mappings synccontext.MappingsRegistry
 
+	config *config.VirtualClusterConfig
+
 	virtualClient client.Client
 }
 
@@ -51,6 +56,7 @@ func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	syncContext := &synccontext.SyncContext{
 		Context:                ctx,
 		Log:                    log,
+		Config:                 r.config,
 		PhysicalClient:         r.physicalClient,
 		CurrentNamespace:       r.currentNamespace,
 		CurrentNamespaceClient: r.currentNamespaceClient,

@@ -50,6 +50,14 @@ var (
 	_ syncertypes.Syncer          = &csistoragecapacitySyncer{}
 )
 
+func (s *csistoragecapacitySyncer) Name() string {
+	return "csistoragecapacity"
+}
+
+func (s *csistoragecapacitySyncer) Resource() client.Object {
+	return &storagev1.CSIStorageCapacity{}
+}
+
 func (s *csistoragecapacitySyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
 	vObj, shouldSkip, err := s.translateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity))
 	if err != nil || shouldSkip {

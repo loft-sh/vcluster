@@ -1,7 +1,6 @@
 package translate
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -36,7 +35,6 @@ const (
 	NamespaceAnnotation                  = "vcluster.loft.sh/namespace"
 	NameAnnotation                       = "vcluster.loft.sh/name"
 	VClusterLabelsAnnotation             = "vcluster.loft.sh/labels"
-	NamespaceLabelPrefix                 = "vcluster.loft.sh/ns-label"
 	UIDAnnotation                        = "vcluster.loft.sh/uid"
 	ClusterAutoScalerAnnotation          = "cluster-autoscaler.kubernetes.io/safe-to-evict"
 	ClusterAutoScalerDaemonSetAnnotation = "cluster-autoscaler.kubernetes.io/daemonset-pod"
@@ -53,8 +51,7 @@ var (
 
 type Translator interface {
 	Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
-	Diff(ctx context.Context, vPod, pPod *corev1.Pod) error
-
+	Diff(ctx *synccontext.SyncContext, vPod, pPod *corev1.Pod) error
 	TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error)
 }
 
@@ -94,8 +91,6 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 
 		defaultImageRegistry: ctx.Config.ControlPlane.Advanced.DefaultImageRegistry,
 
-		multiNamespaceMode: ctx.Config.Experimental.MultiNamespaceMode.Enabled,
-
 		serviceAccountSecretsEnabled: ctx.Config.Sync.ToHost.Pods.UseSecretsForSATokens,
 		clusterDomain:                ctx.Config.Networking.Advanced.ClusterDomain,
 		serviceAccount:               ctx.Config.ControlPlane.Advanced.WorkloadServiceAccount.Name,
@@ -107,7 +102,6 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		serviceAccountsEnabled: ctx.Config.Sync.ToHost.ServiceAccounts.Enabled,
 		priorityClassesEnabled: ctx.Config.Sync.ToHost.PriorityClasses.Enabled,
 		enableScheduler:        ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
-		syncedLabels:           ctx.Config.Experimental.SyncSettings.SyncLabels,
 
 		mountPhysicalHostPaths: ctx.Config.ControlPlane.HostPathMapper.Enabled && !ctx.Config.ControlPlane.HostPathMapper.Central,
 
@@ -127,8 +121,6 @@ type translator struct {
 
 	defaultImageRegistry string
 
-	multiNamespaceMode bool
-
 	// this is needed for host path mapper (legacy)
 	mountPhysicalHostPaths bool
 
@@ -141,7 +133,6 @@ type translator struct {
 	overrideHostsResources       corev1.ResourceRequirements
 	priorityClassesEnabled       bool
 	enableScheduler              bool
-	syncedLabels                 []string
 
 	virtualLogsPath       string
 	virtualPodLogsPath    string
@@ -157,11 +148,7 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 	}
 
 	// convert to core object
-	pPod := translate.Default.ApplyMetadata(
-		vPod,
-		mappings.VirtualToHost(ctx, vPod.Name, vPod.Namespace, mappings.Pods()),
-		t.syncedLabels,
-	).(*corev1.Pod)
+	pPod := translate.HostMetadata(ctx, vPod, mappings.VirtualToHost(ctx, vPod.Name, vPod.Namespace, mappings.Pods()))
 
 	// override pod fields
 	pPod.Status = corev1.PodStatus{}
@@ -251,7 +238,7 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 		updatedLabels = map[string]string{}
 	}
 	for k, v := range vNamespace.GetLabels() {
-		updatedLabels[translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, k)] = v
+		updatedLabels[translate.ConvertLabelKeyWithPrefix(translate.NamespaceLabelPrefix, k)] = v
 	}
 	pPod.SetLabels(updatedLabels)
 
@@ -590,7 +577,7 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
 	// check if its a label we have to rewrite
 	labelsMatch := FieldPathLabelRegEx.FindStringSubmatch(fieldSelector.FieldPath)
 	if len(labelsMatch) == 2 {
-		fieldSelector.FieldPath = "metadata.labels['" + translate.Default.ConvertLabelKey(labelsMatch[1]) + "']"
+		fieldSelector.FieldPath = "metadata.labels['" + translate.Default.HostLabel(labelsMatch[1]) + "']"
 		return
 	}
 
@@ -760,7 +747,7 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 	// We never select pods that are not in the vcluster namespace on the host, so we will
 	// omit Namespaces and namespaceSelector here
 	newAffinityTerm := corev1.PodAffinityTerm{
-		LabelSelector: translate.Default.TranslateLabelSelector(term.LabelSelector),
+		LabelSelector: translate.Default.HostLabelSelector(term.LabelSelector),
 		TopologyKey:   term.TopologyKey,
 	}
 
@@ -797,7 +784,7 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 			}
 		} else if term.NamespaceSelector != nil {
 			// translate namespace label selector
-			newAffinityTerm.LabelSelector = translate.MergeLabelSelectors(newAffinityTerm.LabelSelector, translate.LabelSelectorWithPrefix(NamespaceLabelPrefix, term.NamespaceSelector))
+			newAffinityTerm.LabelSelector = translate.MergeLabelSelectors(newAffinityTerm.LabelSelector, translate.LabelSelectorWithPrefix(translate.NamespaceLabelPrefix, term.NamespaceSelector))
 		} else {
 			// Match namespace where pod is in
 			// k8s docs: "a null or empty namespaces list and null namespaceSelector means "this pod's namespace""
@@ -817,7 +804,7 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 
 func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
 	for i := range pPod.Spec.TopologySpreadConstraints {
-		pPod.Spec.TopologySpreadConstraints[i].LabelSelector = translate.Default.TranslateLabelSelector(pPod.Spec.TopologySpreadConstraints[i].LabelSelector)
+		pPod.Spec.TopologySpreadConstraints[i].LabelSelector = translate.Default.HostLabelSelector(pPod.Spec.TopologySpreadConstraints[i].LabelSelector)
 
 		// make sure we only select pods in the current namespace
 		if pPod.Spec.TopologySpreadConstraints[i].LabelSelector != nil {

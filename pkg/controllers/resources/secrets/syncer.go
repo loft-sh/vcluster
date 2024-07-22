@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -106,7 +107,13 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Obje
 		return syncer.DeleteVirtualObject(ctx, vObj, "host object was delete")
 	}
 
-	return s.SyncToHostCreate(ctx, vObj, s.create(ctx, vObj.(*corev1.Secret)))
+	// translate secret
+	newSecret := translate.HostMetadata(ctx, vObj.(*corev1.Secret), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
+	if newSecret.Type == corev1.SecretTypeServiceAccountToken {
+		newSecret.Type = corev1.SecretTypeOpaque
+	}
+
+	return syncer.CreateHostObject(ctx, vObj, newSecret, s.EventRecorder())
 }
 
 func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
@@ -153,12 +160,8 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 	}
 
 	// check annotations
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
-	if changed {
-		pSecret.Annotations = updatedAnnotations
-		pSecret.Labels = updatedLabels
-	}
-
+	pSecret.Annotations = translate.HostAnnotations(vObj, pObj)
+	pSecret.Labels = translate.HostLabels(ctx, vObj, pObj)
 	return ctrl.Result{}, nil
 }
 

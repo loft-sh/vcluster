@@ -150,7 +150,7 @@ func NewServer(ctx *synccontext.ControllerContext, requestHeaderCaFile, clientCa
 		h = f(h, ctx)
 	}
 
-	h = filters.WithServiceCreateRedirect(h, registerCtx, uncachedLocalClient, uncachedVirtualClient, ctx.Config.Experimental.SyncSettings.SyncLabels)
+	h = filters.WithServiceCreateRedirect(h, registerCtx, uncachedLocalClient, uncachedVirtualClient)
 	h = filters.WithRedirect(h, registerCtx, uncachedVirtualClient, admissionHandler, s.redirectResources)
 	h = filters.WithMetricsProxy(h, registerCtx)
 

@@ -111,7 +111,6 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 			updated := vVSC.DeepCopy()
 			updated.Finalizers = pVSC.Finalizers
 			ctx.Log.Infof("update finalizers of the virtual VolumeSnapshotContent %s, because finalizers on the physical resource changed", vVSC.Name)
-			translator2.PrintChanges(vObj, updated, ctx.Log)
 			err := s.virtualClient.Update(ctx, updated)
 			if kerrors.IsNotFound(err) {
 				return ctrl.Result{RequeueAfter: time.Second}, nil
@@ -124,7 +123,6 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 			updated := vVSC.DeepCopy()
 			updated.Status = pVSC.Status.DeepCopy()
 			ctx.Log.Infof("update virtual VolumeSnapshotContent %s, because status has changed", vVSC.Name)
-			translator2.PrintChanges(vObj, updated, ctx.Log)
 			err := s.virtualClient.Status().Update(ctx, updated)
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
@@ -181,7 +179,7 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 	if vVSC.Annotations[constants.HostClusterVSCAnnotation] == "" {
 		pVSC.Spec.DeletionPolicy = vVSC.Spec.DeletionPolicy
 		pVSC.Spec.VolumeSnapshotClassName = vVSC.Spec.VolumeSnapshotClassName
-		_, pVSC.Annotations, pVSC.Labels = s.TranslateMetadataUpdate(ctx, vVSC, pVSC)
+		pVSC.Annotations, pVSC.Labels = translate.HostAnnotations(vVSC, pVSC), translate.HostLabels(ctx, vVSC, pVSC)
 	}
 
 	return ctrl.Result{}, nil

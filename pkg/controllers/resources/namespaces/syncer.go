@@ -42,16 +42,22 @@ func New(ctx *synccontext.RegisterContext) (types.Object, error) {
 	namespaceLabels[VClusterNamespaceAnnotation] = ctx.CurrentNamespace
 
 	return &namespaceSyncer{
-		GenericTranslator:          translator.NewGenericTranslator(ctx, "namespace", &corev1.Namespace{}, mapper, excludedAnnotations...),
+		GenericTranslator:          translator.NewGenericTranslator(ctx, "namespace", &corev1.Namespace{}, mapper),
 		workloadServiceAccountName: ctx.Config.ControlPlane.Advanced.WorkloadServiceAccount.Name,
-		namespaceLabels:            namespaceLabels,
+
+		excludedAnnotations: excludedAnnotations,
+
+		namespaceLabels: namespaceLabels,
 	}, nil
 }
 
 type namespaceSyncer struct {
 	types.GenericTranslator
 	workloadServiceAccountName string
-	namespaceLabels            map[string]string
+
+	excludedAnnotations []string
+
+	namespaceLabels map[string]string
 }
 
 var _ types.Syncer = &namespaceSyncer{}

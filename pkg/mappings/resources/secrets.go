@@ -8,5 +8,5 @@ import (
 )
 
 func CreateSecretsMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	return generic.NewMapper(ctx, &corev1.Secret{}, translate.Default.PhysicalName)
+	return generic.NewMapper(ctx, &corev1.Secret{}, translate.Default.HostName)
 }

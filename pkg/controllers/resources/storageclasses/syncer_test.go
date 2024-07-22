@@ -29,7 +29,7 @@ func TestSync(t *testing.T) {
 	}
 	pObject := &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
+			Name:            translate.Default.HostNameCluster(vObjectMeta.Name),
 			ResourceVersion: syncertesting.FakeClientResourceVersion,
 			Labels: map[string]string{
 				translate.MarkerLabel: translate.VClusterName,
@@ -51,7 +51,7 @@ func TestSync(t *testing.T) {
 	}
 	pObjectUpdated := &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: translate.Default.PhysicalNameClusterScoped(vObjectMeta.Name),
+			Name: translate.Default.HostNameCluster(vObjectMeta.Name),
 			Labels: map[string]string{
 				translate.MarkerLabel: translate.VClusterName,
 			},

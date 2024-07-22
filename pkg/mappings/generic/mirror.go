@@ -34,7 +34,7 @@ func (n *mirrorMapper) GroupVersionKind() schema.GroupVersionKind {
 func (n *mirrorMapper) VirtualToHost(_ *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	pNamespace := req.Namespace
 	if pNamespace != "" {
-		pNamespace = translate.Default.PhysicalNamespace(pNamespace)
+		pNamespace = translate.Default.HostNamespace(pNamespace)
 	}
 
 	return types.NamespacedName{

@@ -1,13 +1,11 @@
 package csistoragecapacities
 
 import (
-	"fmt"
-
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -55,18 +53,17 @@ func (s *csistoragecapacitySyncer) translateBackwards(ctx *synccontext.SyncConte
 		return nil, shouldSkip, err
 	}
 
-	translated, err := s.TranslateMetadata(ctx, pObj.DeepCopy())
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to translate metatdata backwards: %w", err)
-	}
-	vObj, ok := translated.(*storagev1.CSIStorageCapacity)
-	if !ok {
-		return nil, false, fmt.Errorf("failed to translate metatdata backwards: translated not a CSIStorageCapacity object: %+v", translated)
-	}
-
+	vObj := s.virtualMetadata(ctx, pObj.DeepCopy())
 	vObj.StorageClassName = scName
-
 	return vObj, false, nil
+}
+
+// TranslateMetadata translates the object's metadata
+func (s *csistoragecapacitySyncer) virtualMetadata(ctx *synccontext.SyncContext, pObj *storagev1.CSIStorageCapacity) *storagev1.CSIStorageCapacity {
+	vObj := translate.CopyObjectWithName(pObj, mappings.HostToVirtual(ctx, pObj.GetName(), pObj.GetNamespace(), pObj, mappings.CSIStorageCapacities()), false)
+	vObj.SetAnnotations(translate.HostAnnotations(pObj, nil))
+	vObj.SetLabels(translate.HostLabels(ctx, pObj, nil))
+	return vObj
 }
 
 func (s *csistoragecapacitySyncer) translateUpdateBackwards(ctx *synccontext.SyncContext, pObj, vObj *storagev1.CSIStorageCapacity) (bool, error) {
@@ -80,27 +77,10 @@ func (s *csistoragecapacitySyncer) translateUpdateBackwards(ctx *synccontext.Syn
 		return shouldSkip, err
 	}
 
-	changed, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(vObj, pObj)
-	if changed {
-		vObj.Labels = updatedLabels
-		vObj.Annotations = updatedAnnotations
-	}
-
-	if scName != vObj.StorageClassName {
-		vObj.StorageClassName = scName
-	}
-
-	if !equality.Semantic.DeepEqual(vObj.NodeTopology, pObj.NodeTopology) {
-		vObj.NodeTopology = pObj.NodeTopology
-	}
-
-	if !equality.Semantic.DeepEqual(vObj.Capacity, pObj.Capacity) {
-		vObj.Capacity = pObj.Capacity
-	}
-
-	if !equality.Semantic.DeepEqual(vObj.MaximumVolumeSize, pObj.MaximumVolumeSize) {
-		vObj.MaximumVolumeSize = pObj.MaximumVolumeSize
-	}
-
+	vObj.Annotations, vObj.Labels = translate.HostAnnotations(pObj, vObj), translate.HostLabels(ctx, pObj, vObj)
+	vObj.StorageClassName = scName
+	vObj.NodeTopology = pObj.NodeTopology
+	vObj.Capacity = pObj.Capacity
+	vObj.MaximumVolumeSize = pObj.MaximumVolumeSize
 	return false, nil
 }
