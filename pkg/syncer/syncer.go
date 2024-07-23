@@ -161,17 +161,11 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
-	// add mapping to context
-	syncContext.Context, err = synccontext.WithMappingFromObjects(syncContext.Context, pObj, vObj)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// check what function we should call
 	if vObj != nil && pObj != nil {
 		// make sure the object uid matches
 		pAnnotations := pObj.GetAnnotations()
-		if !r.options.DisableUIDDeletion && pAnnotations != nil && pAnnotations[translate.UIDAnnotation] != "" && pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {
+		if !r.options.DisableUIDDeletion && pAnnotations[translate.UIDAnnotation] != "" && pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {
 			// requeue if object is already being deleted
 			if pObj.GetDeletionTimestamp() != nil {
 				return ctrl.Result{RequeueAfter: time.Second}, nil
@@ -372,6 +366,12 @@ func (r *SyncController) extractRequest(ctx *synccontext.SyncContext, req ctrl.R
 	if isHostRequest(req) {
 		pReq = fromHostRequest(req)
 
+		// add mapping to context
+		ctx.Context = synccontext.WithMapping(ctx.Context, synccontext.NameMapping{
+			GroupVersionKind: r.syncer.GroupVersionKind(),
+			HostName:         pReq.NamespacedName,
+		})
+
 		// get physical object
 		exclude, pObj, err := r.getPhysicalObject(ctx, pReq.NamespacedName, nil)
 		if err != nil {
@@ -383,6 +383,13 @@ func (r *SyncController) extractRequest(ctx *synccontext.SyncContext, req ctrl.R
 		// try to get virtual name from physical
 		req.NamespacedName = r.syncer.HostToVirtual(ctx, pReq.NamespacedName, pObj)
 	}
+
+	// add mapping to context
+	ctx.Context = synccontext.WithMapping(ctx.Context, synccontext.NameMapping{
+		GroupVersionKind: r.syncer.GroupVersionKind(),
+		VirtualName:      vReq.NamespacedName,
+		HostName:         pReq.NamespacedName,
+	})
 
 	return req, pReq, nil
 }
@@ -409,6 +416,7 @@ func (r *SyncController) enqueueVirtual(ctx context.Context, obj client.Object, 
 				Name:      obj.GetName(),
 			},
 		}))
+
 		return
 	}
 
@@ -455,6 +463,7 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 				Name:      obj.GetName(),
 			},
 		})))
+
 		return
 	}
 
@@ -489,6 +498,27 @@ func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
 	}
 
 	return controller.Complete(r)
+}
+
+func CreateVirtualObject(ctx *synccontext.SyncContext, pObj, vObj client.Object, eventRecorder record.EventRecorder) (ctrl.Result, error) {
+	gvk, err := apiutil.GVKForObject(pObj, scheme.Scheme)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("gvk for object: %w", err)
+	}
+
+	ctx.Log.Infof("create host %s %s/%s", gvk.Kind, pObj.GetNamespace(), pObj.GetName())
+	err = ctx.PhysicalClient.Create(ctx, pObj)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			ctx.Log.Debugf("error syncing %s %s/%s to host cluster: %v", gvk.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+			return ctrl.Result{RequeueAfter: time.Second}, nil
+		}
+		ctx.Log.Infof("error syncing %s %s/%s to host cluster: %v", gvk.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+		eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to host cluster: %v", err)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func CreateHostObject(ctx *synccontext.SyncContext, vObj, pObj client.Object, eventRecorder record.EventRecorder) (ctrl.Result, error) {

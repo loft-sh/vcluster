@@ -2,10 +2,9 @@ package store
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/etcd"
@@ -98,14 +97,18 @@ func (m *etcdBackend) Save(ctx context.Context, mapping *Mapping) error {
 		return err
 	}
 
-	return m.etcdClient.Put(ctx, mappingsPrefix+mappingToKey(mapping.String()), mappingBytes)
+	return m.etcdClient.Put(ctx, mappingToKey(mapping), mappingBytes)
 }
 
 func (m *etcdBackend) Delete(ctx context.Context, mapping *Mapping) error {
-	return m.etcdClient.Delete(ctx, mappingsPrefix+mappingToKey(mapping.String()), 0)
+	return m.etcdClient.Delete(ctx, mappingToKey(mapping), 0)
 }
 
-func mappingToKey(key string) string {
-	sha := sha256.Sum256([]byte(key))
-	return strings.ToLower(fmt.Sprintf("%s", hex.EncodeToString(sha[0:])[0:20]))
+func mappingToKey(mapping *Mapping) string {
+	nameNamespace := mapping.VirtualName.Name
+	if mapping.VirtualName.Namespace != "" {
+		nameNamespace = mapping.VirtualName.Namespace + "/" + nameNamespace
+	}
+
+	return path.Join(mappingsPrefix, mapping.GroupVersion().String(), strings.ToLower(mapping.Kind), nameNamespace)
 }

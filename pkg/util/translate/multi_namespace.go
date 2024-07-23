@@ -93,28 +93,46 @@ func (s *multiNamespace) MarkerLabelCluster() string {
 	return SafeConcatName(s.currentNamespace, "x", VClusterName)
 }
 
-func (s *multiNamespace) HostLabelCluster(ctx *synccontext.SyncContext, key string) (retLabel string) {
+func (s *multiNamespace) VirtualLabelCluster(ctx *synccontext.SyncContext, pLabel string) (retLabel string, found bool) {
+	if keyMatchesSyncedLabels(ctx, pLabel) {
+		return pLabel, true
+	} else if !strings.HasPrefix(pLabel, LabelPrefix) {
+		return pLabel, true
+	}
+
 	defer func() {
-		recordLabelCluster(ctx, key, retLabel)
+		recordLabelCluster(ctx, retLabel, pLabel)
 	}()
 
 	// check if the label is within the store
 	if ctx != nil && ctx.Mappings != nil && ctx.Mappings.Store() != nil {
-		vLabel, ok := ctx.Mappings.Store().HostToVirtualLabelCluster(ctx, key)
+		vLabel, ok := ctx.Mappings.Store().HostToVirtualLabelCluster(ctx, pLabel)
 		if ok {
-			return vLabel
+			return vLabel, true
 		}
 	}
 
+	return "", false
+}
+
+func (s *multiNamespace) HostLabelCluster(ctx *synccontext.SyncContext, key string) (retLabel string) {
 	if keyMatchesSyncedLabels(ctx, key) {
 		return key
 	}
 
+	defer func() {
+		recordLabelCluster(ctx, key, retLabel)
+	}()
+
 	return hostLabelCluster(key, s.currentNamespace)
 }
 
-func (s *multiNamespace) HostLabel(_ *synccontext.SyncContext, key string) string {
-	return key
+func (s *multiNamespace) VirtualLabel(_ *synccontext.SyncContext, pLabel string) (string, bool) {
+	return pLabel, true
+}
+
+func (s *multiNamespace) HostLabel(_ *synccontext.SyncContext, vLabel string) string {
+	return vLabel
 }
 
 func hostLabelCluster(key, vClusterNamespace string) string {

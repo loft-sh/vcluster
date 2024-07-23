@@ -73,8 +73,6 @@ func TestStore(t *testing.T) {
 	assert.Equal(t, 1, len(store.mappings))
 	assert.Equal(t, 0, len(store.hostToVirtualLabel))
 	assert.Equal(t, 0, len(store.hostToVirtualLabelCluster))
-	assert.Equal(t, 0, len(store.virtualToHostLabel))
-	assert.Equal(t, 0, len(store.virtualToHostLabelCluster))
 	assert.Equal(t, 1, len(store.hostToVirtualName))
 	assert.Equal(t, 1, len(store.virtualToHostName))
 
@@ -89,8 +87,6 @@ func TestStore(t *testing.T) {
 	assert.Equal(t, 1, len(store.mappings))
 	assert.Equal(t, 0, len(store.hostToVirtualLabel))
 	assert.Equal(t, 0, len(store.hostToVirtualLabelCluster))
-	assert.Equal(t, 0, len(store.virtualToHostLabel))
-	assert.Equal(t, 0, len(store.virtualToHostLabelCluster))
 	assert.Equal(t, 1, len(store.hostToVirtualName))
 	assert.Equal(t, 1, len(store.virtualToHostName))
 
@@ -106,9 +102,6 @@ func TestStore(t *testing.T) {
 	assert.NilError(t, err)
 
 	// check mappings
-	hostLabel, ok := store.VirtualToHostLabel(baseCtx, labelMapping.Virtual)
-	assert.Equal(t, true, ok)
-	assert.Equal(t, hostLabel, labelMapping.Host)
 	virtualLabel, ok := store.HostToVirtualLabel(baseCtx, labelMapping.Host)
 	assert.Equal(t, true, ok)
 	assert.Equal(t, virtualLabel, labelMapping.Virtual)

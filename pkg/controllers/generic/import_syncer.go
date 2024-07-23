@@ -7,6 +7,7 @@ import (
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -15,9 +16,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/log"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -141,6 +140,10 @@ var _ syncertypes.Syncer = &importer{}
 
 func (s *importer) Syncer() syncertypes.Sync[client.Object] {
 	return syncer.ToGenericSyncer[*unstructured.Unstructured](s)
+}
+
+func (s *importer) Migrate(_ *synccontext.RegisterContext, _ synccontext.Mapper) error {
+	return nil
 }
 
 func (s *importer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*unstructured.Unstructured]) (ctrl.Result, error) {
@@ -383,13 +386,12 @@ func (s *importer) HostToVirtual(ctx *synccontext.SyncContext, req types.Namespa
 
 	// in multi-namespace mode we just query the target namespace
 	if !translate.Default.SingleNamespaceTarget() {
-		vNamespace := &corev1.Namespace{}
-		err := clienthelper.GetByIndex(ctx, s.virtualClient, vNamespace, constants.IndexByPhysicalName, req.Namespace)
-		if err != nil {
+		vNamespace := mappings.HostToVirtual(ctx, req.Namespace, "", nil, mappings.Namespaces())
+		if vNamespace.Name == "" {
 			return types.NamespacedName{}
 		}
 
-		return types.NamespacedName{Name: req.Name, Namespace: vNamespace.GetName()}
+		return types.NamespacedName{Name: req.Name, Namespace: vNamespace.Name}
 	}
 
 	// this is a little bit more tricky

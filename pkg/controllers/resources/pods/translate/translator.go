@@ -521,7 +521,7 @@ func (t *translator) translateProjectedVolume(
 				// rewrite projected volume to use sources as secret
 				projectedVolume.Sources[i].Secret = &corev1.SecretProjection{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: SecretNameFromPodName(ctx, vPod.Name, vPod.Namespace),
+						Name: SecretNameFromPodName(ctx, vPod.Name, vPod.Namespace).Name,
 					},
 					Items: []corev1.KeyToPath{
 						{

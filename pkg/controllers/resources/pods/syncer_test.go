@@ -20,11 +20,6 @@ import (
 )
 
 var (
-	PodLogsVolumeName    = "pod-logs"
-	LogsVolumeName       = "logs"
-	KubeletPodVolumeName = "kubelet-pods"
-	HostpathPodName      = "test-hostpaths"
-
 	pVclusterService = corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      syncertesting.DefaultTestVClusterServiceName,

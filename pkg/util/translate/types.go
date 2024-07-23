@@ -40,9 +40,15 @@ type Translator interface {
 	// HostNamespace returns the host namespace for a virtual cluster object
 	HostNamespace(vNamespace string) string
 
-	// HostLabel translates a single label for a namespace scoped resource
-	HostLabel(ctx *synccontext.SyncContext, label string) string
+	// HostLabel translates a single label from virtual to host for a namespace scoped resource
+	HostLabel(ctx *synccontext.SyncContext, vLabel string) string
 
-	// HostLabelCluster translates a single label for a namespace scoped resource
-	HostLabelCluster(ctx *synccontext.SyncContext, label string) string
+	// VirtualLabel translates a single label from host to virtual for a namespace scoped resource
+	VirtualLabel(ctx *synccontext.SyncContext, pLabel string) (string, bool)
+
+	// HostLabelCluster translates a single label from host to virtual for a cluster scoped resource
+	HostLabelCluster(ctx *synccontext.SyncContext, vLabel string) string
+
+	// VirtualLabelCluster translates a single label from host to virtual for a cluster scoped resource
+	VirtualLabelCluster(ctx *synccontext.SyncContext, pLabel string) (string, bool)
 }

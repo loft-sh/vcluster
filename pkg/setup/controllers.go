@@ -21,6 +21,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -101,6 +102,12 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 
 	// if not noop syncer
 	if !controllerContext.Config.Experimental.SyncSettings.DisableSync {
+		// migrate mappers
+		err = MigrateMappers(controllerContext.ToRegisterContext(), syncers)
+		if err != nil {
+			return err
+		}
+
 		// make sure the kubernetes service is synced
 		err = SyncKubernetesService(controllerContext)
 		if err != nil {
@@ -257,4 +264,34 @@ func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, curre
 
 	// write the default Secret
 	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, syncerConfig, options.Experimental.IsolatedControlPlane.KubeConfig != "")
+}
+
+func MigrateMappers(ctx *synccontext.RegisterContext, syncers []syncertypes.Object) error {
+	mappers := ctx.Mappings.List()
+	done := map[schema.GroupVersionKind]bool{}
+
+	// migrate mappers
+	for _, mapper := range mappers {
+		done[mapper.GroupVersionKind()] = true
+		err := mapper.Migrate(ctx, mapper)
+		if err != nil {
+			return fmt.Errorf("migrate mapper %s: %w", mapper.GroupVersionKind().String(), err)
+		}
+	}
+
+	// migrate syncers
+	for _, syncer := range syncers {
+		mapper, ok := syncer.(synccontext.Mapper)
+		if !ok || done[mapper.GroupVersionKind()] {
+			continue
+		}
+
+		done[mapper.GroupVersionKind()] = true
+		err := mapper.Migrate(ctx, mapper)
+		if err != nil {
+			return fmt.Errorf("migrate syncer mapper %s: %w", mapper.GroupVersionKind().String(), err)
+		}
+	}
+
+	return nil
 }

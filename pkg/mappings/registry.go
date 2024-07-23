@@ -2,6 +2,7 @@ package mappings
 
 import (
 	"fmt"
+	"maps"
 	"sync"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -36,6 +37,15 @@ func (m *Registry) Store() synccontext.MappingsStore {
 	return m.store
 }
 
+func (m *Registry) List() map[schema.GroupVersionKind]synccontext.Mapper {
+	m.m.Lock()
+	defer m.m.Unlock()
+
+	retMap := make(map[schema.GroupVersionKind]synccontext.Mapper, len(m.mappers))
+	maps.Copy(retMap, m.mappers)
+	return retMap
+}
+
 func (m *Registry) AddMapper(mapper synccontext.Mapper) error {
 	m.m.Lock()
 	defer m.m.Unlock()
@@ -64,24 +74,8 @@ func (m *Registry) ByGVK(gvk schema.GroupVersionKind) (synccontext.Mapper, error
 	return mapper, nil
 }
 
-func CSIDrivers() schema.GroupVersionKind {
-	return storagev1.SchemeGroupVersion.WithKind("CSIDriver")
-}
-
-func CSINodes() schema.GroupVersionKind {
-	return storagev1.SchemeGroupVersion.WithKind("CSINode")
-}
-
-func CSIStorageCapacities() schema.GroupVersionKind {
-	return storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity")
-}
-
 func VolumeSnapshotContents() schema.GroupVersionKind {
 	return volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent")
-}
-
-func NetworkPolicies() schema.GroupVersionKind {
-	return networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy")
 }
 
 func Nodes() schema.GroupVersionKind {
@@ -134,10 +128,6 @@ func PersistentVolumes() schema.GroupVersionKind {
 
 func StorageClasses() schema.GroupVersionKind {
 	return storagev1.SchemeGroupVersion.WithKind("StorageClass")
-}
-
-func IngressClasses() schema.GroupVersionKind {
-	return networkingv1.SchemeGroupVersion.WithKind("IngressClass")
 }
 
 func Namespaces() schema.GroupVersionKind {

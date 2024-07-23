@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -23,7 +24,7 @@ const (
 func (s *ingressSyncer) translate(ctx *synccontext.SyncContext, vIngress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
 	newIngress := s.TranslateMetadata(ctx, vIngress).(*networkingv1.Ingress)
 	newIngress.Spec = *translateSpec(ctx, vIngress.Namespace, &vIngress.Spec)
-	newIngress.Annotations, _ = translateIngressAnnotations(ctx, newIngress.Annotations, vIngress.Namespace)
+	newIngress.Annotations, _ = resources.TranslateIngressAnnotations(ctx, newIngress.Annotations, vIngress.Namespace)
 	return newIngress, nil
 }
 
@@ -44,7 +45,7 @@ func (s *ingressSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj
 
 	var translatedAnnotations map[string]string
 	translatedAnnotations, pObj.Labels = s.TranslateMetadataUpdate(ctx, vObj, pObj)
-	translatedAnnotations, _ = translateIngressAnnotations(ctx, translatedAnnotations, vObj.Namespace)
+	translatedAnnotations, _ = resources.TranslateIngressAnnotations(ctx, translatedAnnotations, vObj.Namespace)
 	pObj.Annotations = translatedAnnotations
 }
 

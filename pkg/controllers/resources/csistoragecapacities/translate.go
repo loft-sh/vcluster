@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -60,7 +61,7 @@ func (s *csistoragecapacitySyncer) translateBackwards(ctx *synccontext.SyncConte
 
 // TranslateMetadata translates the object's metadata
 func (s *csistoragecapacitySyncer) virtualMetadata(ctx *synccontext.SyncContext, pObj *storagev1.CSIStorageCapacity) *storagev1.CSIStorageCapacity {
-	vObj := translate.CopyObjectWithName(pObj, mappings.HostToVirtual(ctx, pObj.GetName(), pObj.GetNamespace(), pObj, mappings.CSIStorageCapacities()), false)
+	vObj := translate.CopyObjectWithName(pObj, s.HostToVirtual(ctx, types.NamespacedName{Name: pObj.Name, Namespace: pObj.Namespace}, pObj), false)
 	vObj.SetAnnotations(translate.HostAnnotations(pObj, nil))
 	vObj.SetLabels(translate.HostLabels(ctx, pObj, nil))
 	return vObj

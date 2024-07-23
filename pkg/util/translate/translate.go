@@ -73,6 +73,69 @@ func HostMetadata[T client.Object](ctx *synccontext.SyncContext, vObj T, name ty
 	return pObj
 }
 
+func VirtualMetadata[T client.Object](ctx *synccontext.SyncContext, pObj T, name types.NamespacedName, excludedAnnotations ...string) T {
+	vObj := CopyObjectWithName(pObj, name, false)
+	vObj.SetAnnotations(VirtualAnnotations(pObj, nil, excludedAnnotations...))
+	vObj.SetLabels(VirtualLabels(ctx, pObj, nil))
+	return vObj
+}
+
+func VirtualLabelsMap(ctx *synccontext.SyncContext, pLabels, vLabels map[string]string, excluded ...string) map[string]string {
+	if pLabels == nil {
+		return nil
+	}
+
+	excluded = append(excluded, MarkerLabel, NamespaceLabel, ControllerLabel)
+	retLabels := copyMaps(pLabels, vLabels, func(key string) bool {
+		return exists(excluded, key) || strings.HasPrefix(key, NamespaceLabelPrefix)
+	})
+
+	// try to translate back
+	for key, value := range retLabels {
+		delete(retLabels, key)
+		vKey, ok := Default.VirtualLabel(ctx, key)
+		if ok {
+			retLabels[vKey] = value
+		}
+	}
+
+	return retLabels
+}
+
+func VirtualAnnotations(pObj, vObj client.Object, excluded ...string) map[string]string {
+	excluded = append(excluded, NameAnnotation, UIDAnnotation, KindAnnotation, NamespaceAnnotation, ManagedAnnotationsAnnotation, ManagedLabelsAnnotation)
+	var toAnnotations map[string]string
+	if vObj != nil {
+		toAnnotations = vObj.GetAnnotations()
+	}
+
+	return copyMaps(pObj.GetAnnotations(), toAnnotations, func(key string) bool {
+		return exists(excluded, key)
+	})
+}
+
+func copyMaps(fromMap, toMap map[string]string, excludeKey func(string) bool) map[string]string {
+	retMap := map[string]string{}
+	for k, v := range fromMap {
+		if excludeKey != nil && excludeKey(k) {
+			continue
+		}
+
+		retMap[k] = v
+	}
+
+	for key := range toMap {
+		if excludeKey != nil && excludeKey(key) {
+			value, ok := toMap[key]
+			if ok {
+				retMap[key] = value
+			}
+		}
+	}
+
+	return retMap
+}
+
 func HostLabelsMap(ctx *synccontext.SyncContext, vLabels, pLabels map[string]string, vNamespace string) map[string]string {
 	if vLabels == nil {
 		return nil
@@ -95,7 +158,53 @@ func HostLabelsMap(ctx *synccontext.SyncContext, vLabels, pLabels map[string]str
 		newLabels[ControllerLabel] = pLabels[ControllerLabel]
 	}
 
+	// add already existing labels back
+	for k, v := range pLabels {
+		if strings.HasPrefix(k, "vcluster.loft.sh/") {
+			continue
+		}
+
+		_, ok := newLabels[k]
+		if !ok {
+			newLabels[k] = v
+		}
+	}
+
 	return newLabels
+}
+
+func VirtualLabelsMapCluster(ctx *synccontext.SyncContext, pLabels, vLabels map[string]string, excluded ...string) map[string]string {
+	if pLabels == nil {
+		return nil
+	}
+
+	excluded = append(excluded, MarkerLabel, ControllerLabel)
+	retLabels := copyMaps(pLabels, vLabels, func(key string) bool {
+		return exists(excluded, key) || strings.HasPrefix(key, NamespaceLabelPrefix)
+	})
+
+	// try to translate back
+	for key, value := range retLabels {
+		delete(retLabels, key)
+		vKey, ok := Default.VirtualLabelCluster(ctx, key)
+		if ok {
+			retLabels[vKey] = value
+		}
+	}
+
+	// add already existing labels back
+	for k, v := range pLabels {
+		if strings.HasPrefix(k, "vcluster.loft.sh/") {
+			continue
+		}
+
+		_, ok := retLabels[k]
+		if !ok {
+			retLabels[k] = v
+		}
+	}
+
+	return retLabels
 }
 
 func HostLabelsMapCluster(ctx *synccontext.SyncContext, vLabels, pLabels map[string]string) map[string]string {
@@ -108,6 +217,49 @@ func HostLabelsMapCluster(ctx *synccontext.SyncContext, vLabels, pLabels map[str
 	}
 	newLabels[MarkerLabel] = Default.MarkerLabelCluster()
 	return newLabels
+}
+
+func VirtualLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+	return virtualLabelSelector(ctx, labelSelector, Default.VirtualLabel)
+}
+
+func VirtualLabelSelectorCluster(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+	return virtualLabelSelector(ctx, labelSelector, Default.VirtualLabelCluster)
+}
+
+type vLabelFunc func(ctx *synccontext.SyncContext, key string) (string, bool)
+
+func virtualLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector, labelFunc vLabelFunc) *metav1.LabelSelector {
+	if labelSelector == nil {
+		return nil
+	}
+
+	newLabelSelector := &metav1.LabelSelector{}
+	if labelSelector.MatchLabels != nil {
+		newLabelSelector.MatchLabels = map[string]string{}
+		for k, v := range labelSelector.MatchLabels {
+			pLabel, ok := labelFunc(ctx, k)
+			if !ok {
+				pLabel = k
+			}
+
+			newLabelSelector.MatchLabels[pLabel] = v
+		}
+	}
+	for _, r := range labelSelector.MatchExpressions {
+		pLabel, ok := labelFunc(ctx, r.Key)
+		if !ok {
+			pLabel = r.Key
+		}
+
+		newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
+			Key:      pLabel,
+			Operator: r.Operator,
+			Values:   r.Values,
+		})
+	}
+
+	return newLabelSelector
 }
 
 func HostLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
@@ -141,6 +293,22 @@ func hostLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.Label
 	}
 
 	return newLabelSelector
+}
+
+func VirtualLabels(ctx *synccontext.SyncContext, pObj, vObj client.Object) map[string]string {
+	pLabels := pObj.GetLabels()
+	if pLabels == nil {
+		pLabels = map[string]string{}
+	}
+	var vLabels map[string]string
+	if vObj != nil {
+		vLabels = vObj.GetLabels()
+	}
+	if pObj.GetNamespace() == "" {
+		return VirtualLabelsMapCluster(ctx, pLabels, vLabels)
+	}
+
+	return VirtualLabelsMap(ctx, pLabels, vLabels)
 }
 
 func HostLabels(ctx *synccontext.SyncContext, vObj, pObj client.Object) map[string]string {

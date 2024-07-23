@@ -1,10 +1,9 @@
 package secrets
 
 import (
-	"context"
 	"fmt"
-	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/syncer"
@@ -12,20 +11,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-
-	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -63,39 +54,11 @@ func (s *secretSyncer) Syncer() syncertypes.Sync[client.Object] {
 	return syncer.ToGenericSyncer[*corev1.Secret](s)
 }
 
-var _ syncertypes.IndicesRegisterer = &secretSyncer{}
-
-func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	if ctx.Config.Sync.ToHost.Ingresses.Enabled {
-		err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &networkingv1.Ingress{}, constants.IndexByIngressSecret, func(rawObj client.Object) []string {
-			return ingresses.SecretNamesFromIngress(ctx.ToSyncContext("secret-indexer"), rawObj.(*networkingv1.Ingress))
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByPodSecret, func(rawObj client.Object) []string {
-		return pods.SecretNamesFromPod(ctx.ToSyncContext("secret-indexer"), rawObj.(*corev1.Pod))
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 var _ syncertypes.ControllerModifier = &secretSyncer{}
 
-func (s *secretSyncer) ModifyController(registerCtx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	if s.includeIngresses {
-		builder = builder.Watches(&networkingv1.Ingress{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
-			return mapIngresses(registerCtx.ToSyncContext("secret-syncer"), object)
-		}))
-	}
-
-	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, object client.Object) []reconcile.Request {
-		return mapPods(registerCtx.ToSyncContext("secret-syncer"), object)
+func (s *secretSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+	return builder.WatchesRawSource(ctx.Mappings.Store().Watch(s.GroupVersionKind(), func(nameMapping synccontext.NameMapping, queue workqueue.RateLimitingInterface) {
+		queue.Add(reconcile.Request{NamespacedName: nameMapping.VirtualName})
 	})), nil
 }
 
@@ -166,38 +129,36 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Syn
 }
 
 func (s *secretSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Secret]) (_ ctrl.Result, retErr error) {
-	// virtual object is not here anymore, so we delete
-	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	if event.IsDelete() {
+		// virtual object is not here anymore, so we delete
+		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	}
+
+	vObj := translate.VirtualMetadata(ctx, event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
+	isUsed, err := s.isSecretUsed(ctx, vObj)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if !isUsed {
+		return syncer.DeleteHostObject(ctx, event.Host, "virtual secret is not used anymore")
+	}
+
+	return syncer.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder())
 }
 
-func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.Object) (bool, error) {
-	secret, ok := vObj.(*corev1.Secret)
-	if !ok || secret == nil {
-		return false, fmt.Errorf("%#v is not a secret", vObj)
-	} else if secret.Annotations != nil && secret.Annotations[constants.SyncResourceAnnotation] == "true" {
+func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, secret *corev1.Secret) (bool, error) {
+	if secret.Annotations[constants.SyncResourceAnnotation] == "true" {
 		return true, nil
 	}
 
-	isUsed, err := isSecretUsedByPods(ctx, ctx.VirtualClient, secret.Namespace+"/"+secret.Name)
-	if err != nil {
-		return false, errors.Wrap(err, "is secret used by pods")
-	}
-	if isUsed {
+	// if other objects reference this secret we sync it
+	if len(ctx.Mappings.Store().ReferencesTo(ctx, synccontext.Object{
+		GroupVersionKind: s.GroupVersionKind(),
+		NamespacedName: types.NamespacedName{
+			Namespace: secret.Namespace,
+			Name:      secret.Name,
+		},
+	})) > 0 {
 		return true, nil
-	}
-
-	// check if we also sync ingresses
-	if s.includeIngresses {
-		ingressesList := &networkingv1.IngressList{}
-		err := ctx.VirtualClient.List(ctx, ingressesList, client.MatchingFields{constants.IndexByIngressSecret: secret.Namespace + "/" + secret.Name})
-		if err != nil {
-			return false, err
-		}
-
-		isUsed = meta.LenList(ingressesList) > 0
-		if isUsed {
-			return true, nil
-		}
 	}
 
 	if s.syncAllSecrets {
@@ -205,60 +166,4 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.O
 	}
 
 	return false, nil
-}
-
-func mapIngresses(ctx *synccontext.SyncContext, obj client.Object) []reconcile.Request {
-	ingress, ok := obj.(*networkingv1.Ingress)
-	if !ok {
-		return nil
-	}
-
-	requests := []reconcile.Request{}
-	names := ingresses.SecretNamesFromIngress(ctx, ingress)
-	for _, name := range names {
-		splitted := strings.Split(name, "/")
-		if len(splitted) == 2 {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: splitted[0],
-					Name:      splitted[1],
-				},
-			})
-		}
-	}
-
-	return requests
-}
-
-func mapPods(ctx *synccontext.SyncContext, obj client.Object) []reconcile.Request {
-	pod, ok := obj.(*corev1.Pod)
-	if !ok {
-		return nil
-	}
-
-	requests := []reconcile.Request{}
-	names := pods.SecretNamesFromPod(ctx, pod)
-	for _, name := range names {
-		splitted := strings.Split(name, "/")
-		if len(splitted) == 2 {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: splitted[0],
-					Name:      splitted[1],
-				},
-			})
-		}
-	}
-
-	return requests
-}
-
-func isSecretUsedByPods(ctx context.Context, vClient client.Client, secretName string) (bool, error) {
-	podList := &corev1.PodList{}
-	err := vClient.List(ctx, podList, client.MatchingFields{constants.IndexByPodSecret: secretName})
-	if err != nil {
-		return false, err
-	}
-
-	return meta.LenList(podList) > 0, nil
 }

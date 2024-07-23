@@ -11,13 +11,15 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const GarbageCollectionInterval = time.Minute * 5
+const GarbageCollectionInterval = time.Minute * 3
 
 func NewStore(ctx context.Context, cachedVirtualClient, cachedHostClient client.Client, backend Backend) (synccontext.MappingsStore, error) {
 	store := &Store{
@@ -31,9 +33,9 @@ func NewStore(ctx context.Context, cachedVirtualClient, cachedHostClient client.
 		hostToVirtualName:         make(map[synccontext.Object]lookupName),
 		virtualToHostName:         make(map[synccontext.Object]lookupName),
 		hostToVirtualLabel:        make(map[string]lookupLabel),
-		virtualToHostLabel:        make(map[string]lookupLabel),
 		hostToVirtualLabelCluster: make(map[string]lookupLabel),
-		virtualToHostLabelCluster: make(map[string]lookupLabel),
+
+		watches: make(map[schema.GroupVersionKind][]*watcher),
 	}
 
 	// retrieve initial mappings from backend
@@ -59,12 +61,10 @@ type Store struct {
 	virtualToHostName map[synccontext.Object]lookupName
 
 	// maps Label -> Label
-	hostToVirtualLabel map[string]lookupLabel
-	virtualToHostLabel map[string]lookupLabel
-
-	// maps Label -> Label
+	hostToVirtualLabel        map[string]lookupLabel
 	hostToVirtualLabelCluster map[string]lookupLabel
-	virtualToHostLabelCluster map[string]lookupLabel
+
+	watches map[schema.GroupVersionKind][]*watcher
 }
 
 type lookupName struct {
@@ -79,14 +79,16 @@ type lookupLabel struct {
 	Mappings []*Mapping
 }
 
-func (s *Store) dumpMappings(ctx context.Context) {
-	s.m.RLock()
-	defer s.m.RUnlock()
+func (s *Store) Watch(gvk schema.GroupVersionKind, addQueueFn synccontext.AddQueueFunc) source.Source {
+	s.m.Lock()
+	defer s.m.Unlock()
 
-	klog.FromContext(ctx).Info("Dump mappings")
-	for mapping, refMapping := range s.mappings {
-		klog.FromContext(ctx).Info("Mapping", "host", mapping.Host().String(), "virtual", mapping.Virtual().String(), "references", len(refMapping.References), "labels", len(refMapping.Labels), "labelsCluster", len(refMapping.LabelsCluster))
+	w := &watcher{
+		addQueueFn: addQueueFn,
 	}
+
+	s.watches[gvk] = append(s.watches[gvk], w)
+	return w
 }
 
 func (s *Store) StartGarbageCollection(ctx context.Context) {
@@ -100,6 +102,12 @@ func (s *Store) StartGarbageCollection(ctx context.Context) {
 func (s *Store) garbageCollectMappings(ctx context.Context) {
 	s.m.Lock()
 	defer s.m.Unlock()
+
+	startTime := time.Now()
+	klog.FromContext(ctx).V(1).Info("Start mappings garbage collection")
+	defer func() {
+		klog.FromContext(ctx).V(1).Info("Garbage collection done", "took", time.Since(startTime).String())
+	}()
 
 	for _, mapping := range s.mappings {
 		err := s.garbageCollectMapping(ctx, mapping)
@@ -117,11 +125,13 @@ func (s *Store) garbageCollectMapping(ctx context.Context, mapping *Mapping) err
 			return fmt.Errorf("create object: %w", err)
 		}
 
-		unstructuredObj := &unstructured.Unstructured{}
-		unstructuredObj.SetKind(mapping.GroupVersionKind.Kind)
-		unstructuredObj.SetAPIVersion(mapping.GroupVersionKind.GroupVersion().String())
+		obj = &unstructured.Unstructured{}
+	}
 
-		obj = unstructuredObj
+	uList, ok := obj.(*unstructured.Unstructured)
+	if ok {
+		uList.SetKind(mapping.GroupVersionKind.Kind)
+		uList.SetAPIVersion(mapping.GroupVersionKind.GroupVersion().String())
 	}
 
 	// check if virtual object exists
@@ -165,12 +175,6 @@ func (s *Store) garbageCollectMapping(ctx context.Context, mapping *Mapping) err
 }
 
 func (s *Store) start(ctx context.Context) error {
-	go func() {
-		wait.Until(func() {
-			s.dumpMappings(ctx)
-		}, time.Second*10, ctx.Done())
-	}()
-
 	s.m.Lock()
 	defer s.m.Unlock()
 
@@ -227,70 +231,55 @@ func (s *Store) handleEvent(ctx context.Context, watchEvent BackendWatchResponse
 	}
 }
 
-func (s *Store) HostToVirtualLabel(ctx context.Context, pLabel string) (string, bool) {
+func (s *Store) HostToVirtualLabel(_ context.Context, pLabel string) (string, bool) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	vObjLookup, ok := s.hostToVirtualLabel[pLabel]
-	if ok {
-		klog.FromContext(ctx).V(1).Info("Found host label mapping in store", "fromHost", pLabel, "toVirtual", vObjLookup.Label)
-	}
 	return vObjLookup.Label, ok
 }
 
-func (s *Store) VirtualToHostLabel(ctx context.Context, vLabel string) (string, bool) {
-	s.m.RLock()
-	defer s.m.RUnlock()
-
-	pObjLookup, ok := s.virtualToHostLabel[vLabel]
-	if ok {
-		klog.FromContext(ctx).V(1).Info("Found virtual label mapping in store", "fromHost", vLabel, "toVirtual", pObjLookup.Label)
-	}
-	return pObjLookup.Label, ok
-}
-
-func (s *Store) HostToVirtualLabelCluster(ctx context.Context, pLabel string) (string, bool) {
+func (s *Store) HostToVirtualLabelCluster(_ context.Context, pLabel string) (string, bool) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	vObjLookup, ok := s.hostToVirtualLabelCluster[pLabel]
-	if ok {
-		klog.FromContext(ctx).V(1).Info("Found host cluster-scoped label mapping in store", "fromHost", pLabel, "toVirtual", vObjLookup.Label)
-	}
 	return vObjLookup.Label, ok
 }
 
-func (s *Store) VirtualToHostLabelCluster(ctx context.Context, vLabel string) (string, bool) {
-	s.m.RLock()
-	defer s.m.RUnlock()
-
-	pObjLookup, ok := s.virtualToHostLabelCluster[vLabel]
-	if ok {
-		klog.FromContext(ctx).V(1).Info("Found virtual cluster-scoped label mapping in store", "fromHost", vLabel, "toVirtual", pObjLookup.Label)
-	}
-	return pObjLookup.Label, ok
+func (s *Store) HasHostObject(ctx context.Context, pObj synccontext.Object) bool {
+	_, ok := s.HostToVirtualName(ctx, pObj)
+	return ok
 }
 
-func (s *Store) HostToVirtualName(ctx context.Context, pObj synccontext.Object) (types.NamespacedName, bool) {
+func (s *Store) HostToVirtualName(_ context.Context, pObj synccontext.Object) (types.NamespacedName, bool) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	vObjLookup, ok := s.hostToVirtualName[pObj]
-	if ok {
-		klog.FromContext(ctx).V(1).Info("Found host name mapping in store", "fromHost", pObj.NamespacedName.String(), "toVirtual", vObjLookup.Object.NamespacedName.String())
-	}
 	return vObjLookup.Object.NamespacedName, ok
 }
 
-func (s *Store) VirtualToHostName(ctx context.Context, vObj synccontext.Object) (types.NamespacedName, bool) {
+func (s *Store) HasVirtualObject(ctx context.Context, vObj synccontext.Object) bool {
+	_, ok := s.VirtualToHostName(ctx, vObj)
+	return ok
+}
+
+func (s *Store) VirtualToHostName(_ context.Context, vObj synccontext.Object) (types.NamespacedName, bool) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
 	pObjLookup, ok := s.virtualToHostName[vObj]
-	if ok {
-		klog.FromContext(ctx).V(1).Info("Found virtual name mapping in store", "fromVirtual", vObj.NamespacedName.String(), "toHost", pObjLookup.Object.NamespacedName.String())
-	}
 	return pObjLookup.Object.NamespacedName, ok
+}
+
+func (s *Store) RecordAndSaveReference(ctx context.Context, nameMapping, belongsTo synccontext.NameMapping) error {
+	err := s.RecordReference(ctx, nameMapping, belongsTo)
+	if err != nil {
+		return err
+	}
+
+	return s.SaveMapping(ctx, belongsTo)
 }
 
 func (s *Store) RecordReference(ctx context.Context, nameMapping, belongsTo synccontext.NameMapping) error {
@@ -333,6 +322,7 @@ func (s *Store) RecordReference(ctx context.Context, nameMapping, belongsTo sync
 
 	// add to lookup maps
 	s.addNameToMaps(mapping, nameMapping.Virtual(), nameMapping.Host())
+	dispatchAll(s.watches[nameMapping.GroupVersionKind], nameMapping)
 	return nil
 }
 
@@ -437,7 +427,7 @@ func (s *Store) SaveMapping(ctx context.Context, nameMapping synccontext.NameMap
 	}
 
 	// save mapping
-	klog.FromContext(ctx).Info("Save mapping in store", "mapping", mapping.String())
+	klog.FromContext(ctx).Info("Save object mappings in store", "mapping", mapping.String())
 	err := s.backend.Save(ctx, mapping)
 	if err != nil {
 		return fmt.Errorf("save mapping %s: %w", mapping.NameMapping.String(), err)
@@ -445,6 +435,39 @@ func (s *Store) SaveMapping(ctx context.Context, nameMapping synccontext.NameMap
 
 	mapping.changed = false
 	return nil
+}
+
+func (s *Store) ReferencesTo(ctx context.Context, vObj synccontext.Object) []synccontext.NameMapping {
+	// we ignore empty mappings here
+	if vObj.Empty() {
+		return nil
+	}
+
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	hostNameLookup, ok := s.virtualToHostName[vObj]
+	if !ok {
+		return nil
+	}
+
+	// loop over references and exclude owner mapping
+	nameMapping := synccontext.NameMapping{
+		GroupVersionKind: vObj.GroupVersionKind,
+		VirtualName:      vObj.NamespacedName,
+		HostName:         hostNameLookup.Object.NamespacedName,
+	}
+	retReferences := []synccontext.NameMapping{}
+	for _, reference := range hostNameLookup.Mappings {
+		if reference.Equals(nameMapping) {
+			continue
+		}
+
+		retReferences = append(retReferences, reference.NameMapping)
+	}
+
+	klog.FromContext(ctx).V(1).Info("Found references for object", "object", vObj.String(), "references", len(retReferences))
+	return retReferences
 }
 
 func (s *Store) findMapping(mapping synccontext.NameMapping) (*Mapping, bool) {
@@ -493,6 +516,7 @@ func (s *Store) createMapping(ctx context.Context, nameMapping, belongsTo syncco
 	if vObj.Empty() || pObj.Empty() {
 		// check if the name mapping matches
 		if nameMapping.GroupVersionKind.String() != belongsTo.GroupVersionKind.String() {
+			klog.FromContext(ctx).Info("Cannot create name mapping, because owner mapping is incomplete and does not match group version kind", "owner", belongsTo.String(), "nameMapping", nameMapping.String())
 			return nil
 		}
 
@@ -571,14 +595,12 @@ func (s *Store) checkLabelClusterConflict(labelMapping synccontext.LabelMapping)
 	return nil
 }
 
-func (s *Store) removeLabelFromMaps(mapping *Mapping, vLabel, pLabel string) {
+func (s *Store) removeLabelFromMaps(mapping *Mapping, _, pLabel string) {
 	removeMappingFromLabelMap(s.hostToVirtualLabel, mapping, pLabel)
-	removeMappingFromLabelMap(s.virtualToHostLabel, mapping, vLabel)
 }
 
-func (s *Store) removeLabelClusterFromMaps(mapping *Mapping, vLabel, pLabel string) {
+func (s *Store) removeLabelClusterFromMaps(mapping *Mapping, _, pLabel string) {
 	removeMappingFromLabelMap(s.hostToVirtualLabelCluster, mapping, pLabel)
-	removeMappingFromLabelMap(s.virtualToHostLabelCluster, mapping, vLabel)
 }
 
 func (s *Store) removeNameFromMaps(mapping *Mapping, vObj, pObj synccontext.Object) {
@@ -588,12 +610,10 @@ func (s *Store) removeNameFromMaps(mapping *Mapping, vObj, pObj synccontext.Obje
 
 func (s *Store) addLabelToMaps(mapping *Mapping, vLabel, pLabel string) {
 	addMappingToLabelMap(s.hostToVirtualLabel, mapping, pLabel, vLabel)
-	addMappingToLabelMap(s.virtualToHostLabel, mapping, vLabel, pLabel)
 }
 
 func (s *Store) addLabelClusterToMaps(mapping *Mapping, vLabel, pLabel string) {
 	addMappingToLabelMap(s.hostToVirtualLabelCluster, mapping, pLabel, vLabel)
-	addMappingToLabelMap(s.virtualToHostLabelCluster, mapping, vLabel, pLabel)
 }
 
 func (s *Store) addNameToMaps(mapping *Mapping, vObj, pObj synccontext.Object) {
@@ -604,10 +624,12 @@ func (s *Store) addNameToMaps(mapping *Mapping, vObj, pObj synccontext.Object) {
 func (s *Store) addMapping(mapping *Mapping) {
 	s.mappings[mapping.NameMapping] = mapping
 	s.addNameToMaps(mapping, mapping.Virtual(), mapping.Host())
+	dispatchAll(s.watches[mapping.GroupVersionKind], mapping.NameMapping)
 
 	// add references
 	for _, reference := range mapping.References {
 		s.addNameToMaps(mapping, reference.Virtual(), reference.Host())
+		dispatchAll(s.watches[reference.GroupVersionKind], reference)
 	}
 
 	// add labels
@@ -623,10 +645,12 @@ func (s *Store) addMapping(mapping *Mapping) {
 
 func (s *Store) removeMapping(mapping *Mapping) {
 	delete(s.mappings, mapping.NameMapping)
+	dispatchAll(s.watches[mapping.GroupVersionKind], mapping.NameMapping)
 
 	// delete references
 	for _, reference := range mapping.References {
 		s.removeNameFromMaps(mapping, reference.Virtual(), reference.Host())
+		dispatchAll(s.watches[reference.GroupVersionKind], reference)
 	}
 
 	// delete labels

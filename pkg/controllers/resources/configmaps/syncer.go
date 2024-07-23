@@ -1,9 +1,7 @@
 package configmaps
 
 import (
-	"context"
 	"fmt"
-	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -17,10 +15,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -49,20 +47,12 @@ func (s *configMapSyncer) Syncer() syncertypes.Sync[client.Object] {
 	return syncer.ToGenericSyncer[*corev1.ConfigMap](s)
 }
 
-var _ syncertypes.IndicesRegisterer = &configMapSyncer{}
-
-func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	// index pods by their used config maps
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByConfigMap, func(rawObj client.Object) []string {
-		pod := rawObj.(*corev1.Pod)
-		return configNamesFromPod(pod)
-	})
-}
-
 var _ syncertypes.ControllerModifier = &configMapSyncer{}
 
-func (s *configMapSyncer) ModifyController(_ *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
+func (s *configMapSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+	return builder.WatchesRawSource(ctx.Mappings.Store().Watch(s.GroupVersionKind(), func(nameMapping synccontext.NameMapping, queue workqueue.RateLimitingInterface) {
+		queue.Add(reconcile.Request{NamespacedName: nameMapping.VirtualName})
+	})), nil
 }
 
 func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.ConfigMap]) (ctrl.Result, error) {
@@ -135,34 +125,14 @@ func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj run
 		return true, nil
 	}
 
-	podList := &corev1.PodList{}
-	err := ctx.VirtualClient.List(ctx, podList, client.MatchingFields{constants.IndexByConfigMap: configMap.Namespace + "/" + configMap.Name})
-	if err != nil {
-		return false, err
-	}
+	// retrieve references for config map
+	references := ctx.Mappings.Store().ReferencesTo(ctx, synccontext.Object{
+		GroupVersionKind: s.GroupVersionKind(),
+		NamespacedName: types.NamespacedName{
+			Namespace: configMap.Namespace,
+			Name:      configMap.Name,
+		},
+	})
 
-	return len(podList.Items) > 0, nil
-}
-
-func mapPods(_ context.Context, obj client.Object) []reconcile.Request {
-	pod, ok := obj.(*corev1.Pod)
-	if !ok {
-		return nil
-	}
-
-	requests := []reconcile.Request{}
-	names := configNamesFromPod(pod)
-	for _, name := range names {
-		splitted := strings.Split(name, "/")
-		if len(splitted) == 2 {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: splitted[0],
-					Name:      splitted[1],
-				},
-			})
-		}
-	}
-
-	return requests
+	return len(references) > 0, nil
 }

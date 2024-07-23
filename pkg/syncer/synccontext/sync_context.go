@@ -23,9 +23,6 @@ type SyncContext struct {
 
 	CurrentNamespace       string
 	CurrentNamespaceClient client.Client
-
-	EventSource EventSource
-	IsDelete    bool
 }
 
 func (s *SyncContext) Close() error {
@@ -44,14 +41,6 @@ func (s *SyncContext) Close() error {
 	}
 
 	return nil
-}
-
-func (s *SyncContext) EventFromHost() bool {
-	return s.EventSource == EventSourceHost
-}
-
-func (s *SyncContext) EventFromVirtual() bool {
-	return s.EventSource == EventSourceVirtual
 }
 
 type syncContextMappingType int

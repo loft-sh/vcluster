@@ -10,6 +10,10 @@ import (
 )
 
 func CreatePersistentVolumesMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
+	if !ctx.Config.Sync.ToHost.PersistentVolumes.Enabled {
+		return generic.NewMirrorMapper(&corev1.PersistentVolume{})
+	}
+
 	return generic.NewMapperWithObject(ctx, &corev1.PersistentVolume{}, func(name, _ string, vObj client.Object) string {
 		if vObj == nil {
 			return name

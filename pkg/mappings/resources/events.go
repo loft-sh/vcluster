@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,10 +26,14 @@ var AcceptedKinds = map[schema.GroupVersionKind]bool{
 }
 
 func CreateEventsMapper(_ *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	return &eventMapper{}, nil
+	return generic.WithRecorder(&eventMapper{}), nil
 }
 
 type eventMapper struct{}
+
+func (s *eventMapper) Migrate(_ *synccontext.RegisterContext, _ synccontext.Mapper) error {
+	return nil
+}
 
 func (s *eventMapper) GroupVersionKind() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("Event")

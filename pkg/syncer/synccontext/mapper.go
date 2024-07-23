@@ -8,14 +8,19 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // MappingsRegistry holds different mappings
 type MappingsRegistry interface {
 	// ByGVK retrieves a mapper by GroupVersionKind.
 	ByGVK(gvk schema.GroupVersionKind) (Mapper, error)
+
+	// List retrieves all mappers as a map
+	List() map[schema.GroupVersionKind]Mapper
 
 	// Has checks if the store contains a mapper with the given GroupVersionKind.
 	Has(gvk schema.GroupVersionKind) bool
@@ -27,10 +32,25 @@ type MappingsRegistry interface {
 	Store() MappingsStore
 }
 
+type AddQueueFunc func(nameMapping NameMapping, queue workqueue.RateLimitingInterface)
+
 // MappingsStore holds logic to store and retrieve mappings
 type MappingsStore interface {
+	// Watch builds a source that can be used in a controller to watch on changes within the store for a given
+	// GroupVersionKind.
+	Watch(gvk schema.GroupVersionKind, addQueueFn AddQueueFunc) source.Source
+
 	// StartGarbageCollection starts the mapping store garbage collection
 	StartGarbageCollection(ctx context.Context)
+
+	// HasHostObject checks if the store has a mapping for the host object
+	HasHostObject(ctx context.Context, pObj Object) bool
+
+	// HasVirtualObject checks if the store has a mapping for the virtual object
+	HasVirtualObject(ctx context.Context, pObj Object) bool
+
+	// RecordAndSaveReference records a reference mapping and directly saves it
+	RecordAndSaveReference(ctx context.Context, nameMapping, belongsTo NameMapping) error
 
 	// RecordReference records a reference mapping
 	RecordReference(ctx context.Context, nameMapping, belongsTo NameMapping) error
@@ -44,6 +64,9 @@ type MappingsStore interface {
 	// SaveMapping saves the mapping in the backing store
 	SaveMapping(ctx context.Context, mapping NameMapping) error
 
+	// ReferencesTo retrieves all known references to this object
+	ReferencesTo(ctx context.Context, vObj Object) []NameMapping
+
 	// HostToVirtualName maps the given host object to the virtual name if found within the store
 	HostToVirtualName(ctx context.Context, pObj Object) (types.NamespacedName, bool)
 
@@ -53,18 +76,18 @@ type MappingsStore interface {
 	// HostToVirtualLabel maps the given host label to the virtual label if found within the store
 	HostToVirtualLabel(ctx context.Context, pLabel string) (string, bool)
 
-	// VirtualToHostLabel maps the given virtual label to the host label if found within the store
-	VirtualToHostLabel(ctx context.Context, vLabel string) (string, bool)
-
 	// HostToVirtualLabelCluster maps the given host label to the virtual label if found within the store
 	HostToVirtualLabelCluster(ctx context.Context, pLabel string) (string, bool)
-
-	// VirtualToHostLabelCluster maps the given virtual label to the host label if found within the store
-	VirtualToHostLabelCluster(ctx context.Context, vLabel string) (string, bool)
 }
 
 // Mapper holds the mapping logic for an object
 type Mapper interface {
+	// Migrate is called right before the controllers are started and should be used for
+	// validating the mappings are initialized in the store correctly. Mapper is passed here
+	// as an argument because we want underling structs to retrieve the name from the topmost
+	// struct that implements the mapping as overriding methods within embedded structs is not possible in golang.
+	Migrate(ctx *RegisterContext, mapper Mapper) error
+
 	// GroupVersionKind retrieves the group version kind
 	GroupVersionKind() schema.GroupVersionKind
 
@@ -76,13 +99,6 @@ type Mapper interface {
 
 	// IsManaged determines if a physical object is managed by the vCluster
 	IsManaged(ctx *SyncContext, pObj client.Object) (bool, error)
-}
-
-func NewObject(name types.NamespacedName, gvk schema.GroupVersionKind) Object {
-	return Object{
-		GroupVersionKind: gvk,
-		NamespacedName:   name,
-	}
 }
 
 type Object struct {

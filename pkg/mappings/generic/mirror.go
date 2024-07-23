@@ -31,17 +31,11 @@ func (n *mirrorMapper) GroupVersionKind() schema.GroupVersionKind {
 	return n.gvk
 }
 
-func (n *mirrorMapper) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, _ client.Object) (retName types.NamespacedName) {
-	defer func() {
-		RecordMapping(ctx, retName, req, n.gvk)
-	}()
+func (n *mirrorMapper) Migrate(_ *synccontext.RegisterContext, _ synccontext.Mapper) error {
+	return nil
+}
 
-	// check store first
-	vName, ok := VirtualToHostFromStore(ctx, req, n.gvk)
-	if ok {
-		return vName
-	}
-
+func (n *mirrorMapper) VirtualToHost(_ *synccontext.SyncContext, req types.NamespacedName, _ client.Object) (retName types.NamespacedName) {
 	pNamespace := req.Namespace
 	if pNamespace != "" {
 		pNamespace = translate.Default.HostNamespace(pNamespace)
@@ -53,17 +47,7 @@ func (n *mirrorMapper) VirtualToHost(ctx *synccontext.SyncContext, req types.Nam
 	}
 }
 
-func (n *mirrorMapper) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) (retName types.NamespacedName) {
-	defer func() {
-		RecordMapping(ctx, req, retName, n.gvk)
-	}()
-
-	// check store first
-	vName, ok := HostToVirtualFromStore(ctx, req, n.gvk)
-	if ok {
-		return vName
-	}
-
+func (n *mirrorMapper) HostToVirtual(_ *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) (retName types.NamespacedName) {
 	if pObj != nil {
 		pAnnotations := pObj.GetAnnotations()
 		if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
@@ -74,13 +58,9 @@ func (n *mirrorMapper) HostToVirtual(ctx *synccontext.SyncContext, req types.Nam
 		}
 	}
 
-	// if a namespace is requested we need to return early here
-	if req.Namespace != "" {
-		return types.NamespacedName{}
-	}
-
 	return types.NamespacedName{
-		Name: req.Name,
+		Name:      req.Name,
+		Namespace: "", // this is intentionally empty
 	}
 }
 

@@ -1,9 +1,10 @@
-package resources
+package csistoragecapacities
 
 import (
-	"github.com/loft-sh/vcluster/pkg/constants"
+	"fmt"
+
+	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -12,21 +13,43 @@ import (
 )
 
 func CreateCSIStorageCapacitiesMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	s := &csiStorageCapacitiesMapper{
+	return generic.WithRecorder(&csiStorageCapacitiesMapper{
 		physicalClient: ctx.PhysicalManager.GetClient(),
-	}
-	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx, &storagev1.CSIStorageCapacity{}, constants.IndexByVirtualName, func(rawObj client.Object) []string {
-		return []string{s.HostToVirtual(ctx.ToSyncContext("csi storage capacity mapper"), types.NamespacedName{Name: rawObj.GetName(), Namespace: rawObj.GetNamespace()}, rawObj).Name}
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return s, nil
+	}), nil
 }
 
 type csiStorageCapacitiesMapper struct {
 	physicalClient client.Client
+}
+
+func (s *csiStorageCapacitiesMapper) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.Mapper) error {
+	list := &storagev1.CSIStorageCapacityList{}
+	err := ctx.VirtualManager.GetClient().List(ctx, list)
+	if err != nil {
+		return fmt.Errorf("error listing csi storage capacities: %w", err)
+	}
+
+	for _, val := range list.Items {
+		item := &val
+
+		// this will try to translate and record the mapping
+		vName := types.NamespacedName{Name: item.Name, Namespace: item.Namespace}
+		pName := mapper.VirtualToHost(ctx.ToSyncContext("migrate-"+item.Kind), vName, item)
+		if pName.Name != "" {
+			nameMapping := synccontext.NameMapping{
+				GroupVersionKind: s.GroupVersionKind(),
+				VirtualName:      vName,
+				HostName:         pName,
+			}
+
+			err = ctx.Mappings.Store().RecordAndSaveReference(ctx, nameMapping, nameMapping)
+			if err != nil {
+				return fmt.Errorf("error saving reference in store: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *csiStorageCapacitiesMapper) GroupVersionKind() schema.GroupVersionKind {
@@ -49,17 +72,7 @@ func (s *csiStorageCapacitiesMapper) VirtualToHost(ctx *synccontext.SyncContext,
 		}
 	}
 
-	sc := &storagev1.CSIStorageCapacity{}
-	pObj := sc.DeepCopyObject().(client.Object)
-	err := clienthelper.GetByIndex(ctx, s.physicalClient, pObj, constants.IndexByVirtualName, req.Name)
-	if err != nil {
-		return types.NamespacedName{}
-	}
-
-	return types.NamespacedName{
-		Namespace: pObj.GetNamespace(),
-		Name:      pObj.GetName(),
-	}
+	return types.NamespacedName{}
 }
 
 func (s *csiStorageCapacitiesMapper) IsManaged(*synccontext.SyncContext, client.Object) (bool, error) {
