@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
+	"github.com/loft-sh/vcluster/pkg/mappings/store"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util"
@@ -54,15 +55,19 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 }
 
 func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+	ctx := context.Background()
+	mappingsStore, _ := store.NewStore(ctx, vClient, pClient, store.NewMemoryBackend())
+
+	// create register context
 	translate.Default = translate.NewSingleNamespaceTranslator(DefaultTestTargetNamespace)
 	registerCtx := &synccontext.RegisterContext{
-		Context:                context.Background(),
+		Context:                ctx,
 		Config:                 vConfig,
 		CurrentNamespace:       DefaultTestCurrentNamespace,
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),
 		PhysicalManager:        newFakeManager(pClient),
-		Mappings:               mappings.NewMappingsRegistry(),
+		Mappings:               mappings.NewMappingsRegistry(mappingsStore),
 	}
 
 	// make sure we do not ensure any CRDs

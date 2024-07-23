@@ -23,6 +23,7 @@ var (
 
 type Client interface {
 	List(ctx context.Context, key string, rev int) ([]Value, error)
+	Watch(ctx context.Context, key string, rev int) clientv3.WatchChan
 	Get(ctx context.Context, key string) (Value, error)
 	Put(ctx context.Context, key string, value []byte) error
 	Create(ctx context.Context, key string, value []byte) error
@@ -92,6 +93,10 @@ func New(ctx context.Context, certificates *Certificates, endpoints ...string) (
 	return &client{
 		c: etcdClient,
 	}, nil
+}
+
+func (c *client) Watch(ctx context.Context, key string, rev int) clientv3.WatchChan {
+	return c.c.Watch(ctx, key, clientv3.WithPrefix(), clientv3.WithRev(int64(rev)))
 }
 
 func (c *client) List(ctx context.Context, key string, rev int) ([]Value, error) {

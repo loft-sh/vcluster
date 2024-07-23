@@ -31,7 +31,17 @@ func (n *mirrorMapper) GroupVersionKind() schema.GroupVersionKind {
 	return n.gvk
 }
 
-func (n *mirrorMapper) VirtualToHost(_ *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
+func (n *mirrorMapper) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, _ client.Object) (retName types.NamespacedName) {
+	defer func() {
+		RecordMapping(ctx, retName, req, n.gvk)
+	}()
+
+	// check store first
+	vName, ok := VirtualToHostFromStore(ctx, req, n.gvk)
+	if ok {
+		return vName
+	}
+
 	pNamespace := req.Namespace
 	if pNamespace != "" {
 		pNamespace = translate.Default.HostNamespace(pNamespace)
@@ -43,7 +53,17 @@ func (n *mirrorMapper) VirtualToHost(_ *synccontext.SyncContext, req types.Names
 	}
 }
 
-func (n *mirrorMapper) HostToVirtual(_ *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+func (n *mirrorMapper) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) (retName types.NamespacedName) {
+	defer func() {
+		RecordMapping(ctx, req, retName, n.gvk)
+	}()
+
+	// check store first
+	vName, ok := HostToVirtualFromStore(ctx, req, n.gvk)
+	if ok {
+		return vName
+	}
+
 	if pObj != nil {
 		pAnnotations := pObj.GetAnnotations()
 		if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {

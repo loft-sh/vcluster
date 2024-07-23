@@ -11,6 +11,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -35,26 +36,46 @@ func NewMapperWithObject(ctx *synccontext.RegisterContext, obj client.Object, tr
 		return nil, fmt.Errorf("retrieve GVK for object failed: %w", err)
 	}
 
+	retMapper := &mapper{
+		translateName: translateName,
+		virtualClient: ctx.VirtualManager.GetClient(),
+		obj:           obj,
+		gvk:           gvk,
+	}
+
 	mapperOptions := getOptions(options...)
 	if !mapperOptions.SkipIndex {
 		err = ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, obj.DeepCopyObject().(client.Object), constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-			if rawObj.GetNamespace() != "" {
-				return []string{translate.Default.HostNamespace(rawObj.GetNamespace()) + "/" + translateName(rawObj.GetName(), rawObj.GetNamespace(), rawObj)}
+			// we build a sync context here to record the mapping
+			syncContext := ctx.ToSyncContext(gvk.String())
+			syncContext.Context = synccontext.WithMapping(syncContext.Context, synccontext.NameMapping{
+				GroupVersionKind: gvk,
+				VirtualName: types.NamespacedName{
+					Name:      rawObj.GetName(),
+					Namespace: rawObj.GetNamespace(),
+				},
+			})
+			defer func() {
+				err = syncContext.Close()
+				if err != nil {
+					klog.FromContext(ctx).Error(err, "save mapping")
+				}
+			}()
+
+			// record mapping here
+			pName := retMapper.VirtualToHost(syncContext, types.NamespacedName{Name: rawObj.GetName(), Namespace: rawObj.GetNamespace()}, rawObj)
+			if pName.Namespace != "" {
+				return []string{pName.Namespace + "/" + pName.Name}
 			}
 
-			return []string{translateName(rawObj.GetName(), rawObj.GetNamespace(), rawObj)}
+			return []string{pName.Name}
 		})
 		if err != nil {
 			return nil, fmt.Errorf("index field: %w", err)
 		}
 	}
 
-	return &mapper{
-		translateName: translateName,
-		virtualClient: ctx.VirtualManager.GetClient(),
-		obj:           obj,
-		gvk:           gvk,
-	}, nil
+	return retMapper, nil
 }
 
 type mapper struct {
@@ -69,14 +90,39 @@ func (n *mapper) GroupVersionKind() schema.GroupVersionKind {
 	return n.gvk
 }
 
-func (n *mapper) VirtualToHost(_ *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (n *mapper) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) (retName types.NamespacedName) {
+	defer func() {
+		RecordMapping(ctx, retName, req, n.gvk)
+	}()
+
+	// check store first
+	vName, ok := VirtualToHostFromStore(ctx, req, n.gvk)
+	if ok {
+		return vName
+	}
+
+	pNamespace := req.Namespace
+	if pNamespace != "" {
+		pNamespace = translate.Default.HostNamespace(pNamespace)
+	}
+
 	return types.NamespacedName{
-		Namespace: translate.Default.HostNamespace(req.Namespace),
+		Namespace: pNamespace,
 		Name:      n.translateName(req.Name, req.Namespace, vObj),
 	}
 }
 
-func (n *mapper) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+func (n *mapper) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) (retName types.NamespacedName) {
+	defer func() {
+		RecordMapping(ctx, req, retName, n.gvk)
+	}()
+
+	// check store first
+	vName, ok := HostToVirtualFromStore(ctx, req, n.gvk)
+	if ok {
+		return vName
+	}
+
 	if pObj != nil {
 		pAnnotations := pObj.GetAnnotations()
 		if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
@@ -110,4 +156,51 @@ func (n *mapper) HostToVirtual(ctx *synccontext.SyncContext, req types.Namespace
 
 func (n *mapper) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
 	return translate.Default.IsManaged(ctx, pObj), nil
+}
+
+func RecordMapping(ctx *synccontext.SyncContext, pName, vName types.NamespacedName, gvk schema.GroupVersionKind) {
+	if pName.Name == "" || vName.Name == "" {
+		return
+	}
+
+	if ctx != nil && ctx.Mappings != nil && ctx.Mappings.Store() != nil {
+		// check if we have the owning object in the context
+		belongsTo, ok := synccontext.MappingFrom(ctx)
+		if !ok {
+			return
+		}
+
+		// record the reference
+		err := ctx.Mappings.Store().RecordReference(ctx, synccontext.NameMapping{
+			GroupVersionKind: gvk,
+
+			HostName:    pName,
+			VirtualName: vName,
+		}, belongsTo)
+		if err != nil {
+			klog.FromContext(ctx).Error(err, "record name mapping", "host", pName, "virtual", vName)
+		}
+	}
+}
+
+func HostToVirtualFromStore(ctx *synccontext.SyncContext, req types.NamespacedName, gvk schema.GroupVersionKind) (types.NamespacedName, bool) {
+	if ctx != nil && ctx.Mappings != nil && ctx.Mappings.Store() != nil {
+		return ctx.Mappings.Store().HostToVirtualName(ctx, synccontext.Object{
+			GroupVersionKind: gvk,
+			NamespacedName:   req,
+		})
+	}
+
+	return types.NamespacedName{}, false
+}
+
+func VirtualToHostFromStore(ctx *synccontext.SyncContext, req types.NamespacedName, gvk schema.GroupVersionKind) (types.NamespacedName, bool) {
+	if ctx != nil && ctx.Mappings != nil && ctx.Mappings.Store() != nil {
+		return ctx.Mappings.Store().VirtualToHostName(ctx, synccontext.Object{
+			GroupVersionKind: gvk,
+			NamespacedName:   req,
+		})
+	}
+
+	return types.NamespacedName{}, false
 }

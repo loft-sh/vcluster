@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/store"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/scheme"
@@ -318,6 +319,11 @@ func initControllerContext(
 		return nil, err
 	}
 
+	mappingStore, err := store.NewStore(ctx, virtualManager.GetClient(), localManager.GetClient(), store.NewMemoryBackend())
+	if err != nil {
+		return nil, fmt.Errorf("start mapping store: %w", err)
+	}
+
 	return &synccontext.ControllerContext{
 		Context:               ctx,
 		LocalManager:          localManager,
@@ -327,7 +333,7 @@ func initControllerContext(
 
 		WorkloadNamespaceClient: currentNamespaceClient,
 
-		Mappings: mappings.NewMappingsRegistry(),
+		Mappings: mappings.NewMappingsRegistry(mappingStore),
 
 		StopChan: stopChan,
 		Config:   vClusterOptions,

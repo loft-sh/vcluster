@@ -143,6 +143,10 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 		return fmt.Errorf("plugin set leader: %w", err)
 	}
 
+	// start mappings store garbage collection
+	controllerContext.Mappings.Store().StartGarbageCollection(controllerContext.Context)
+
+	// we are done here
 	klog.FromContext(controllerContext).Info("Successfully started vCluster controllers")
 	return nil
 }

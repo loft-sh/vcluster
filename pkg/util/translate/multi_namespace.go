@@ -93,7 +93,19 @@ func (s *multiNamespace) MarkerLabelCluster() string {
 	return SafeConcatName(s.currentNamespace, "x", VClusterName)
 }
 
-func (s *multiNamespace) HostLabelCluster(ctx *synccontext.SyncContext, key string) string {
+func (s *multiNamespace) HostLabelCluster(ctx *synccontext.SyncContext, key string) (retLabel string) {
+	defer func() {
+		recordLabelCluster(ctx, key, retLabel)
+	}()
+
+	// check if the label is within the store
+	if ctx != nil && ctx.Mappings != nil && ctx.Mappings.Store() != nil {
+		vLabel, ok := ctx.Mappings.Store().HostToVirtualLabelCluster(ctx, key)
+		if ok {
+			return vLabel
+		}
+	}
+
 	if keyMatchesSyncedLabels(ctx, key) {
 		return key
 	}

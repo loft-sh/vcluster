@@ -116,7 +116,19 @@ func (s *singleNamespace) HostNamespace(_ string) string {
 	return s.targetNamespace
 }
 
-func (s *singleNamespace) HostLabelCluster(ctx *synccontext.SyncContext, key string) string {
+func (s *singleNamespace) HostLabelCluster(ctx *synccontext.SyncContext, key string) (retLabel string) {
+	defer func() {
+		recordLabelCluster(ctx, key, retLabel)
+	}()
+
+	// check if the label is within the store
+	if ctx != nil && ctx.Mappings != nil && ctx.Mappings.Store() != nil {
+		vLabel, ok := ctx.Mappings.Store().HostToVirtualLabelCluster(ctx, key)
+		if ok {
+			return vLabel
+		}
+	}
+
 	if keyMatchesSyncedLabels(ctx, key) {
 		return key
 	}
@@ -124,12 +136,62 @@ func (s *singleNamespace) HostLabelCluster(ctx *synccontext.SyncContext, key str
 	return hostLabelCluster(key, s.targetNamespace)
 }
 
-func (s *singleNamespace) HostLabel(ctx *synccontext.SyncContext, key string) string {
+func (s *singleNamespace) HostLabel(ctx *synccontext.SyncContext, key string) (retLabel string) {
+	defer func() {
+		recordLabel(ctx, key, retLabel)
+	}()
+
+	// check if the label is within the store
+	if ctx != nil && ctx.Mappings != nil && ctx.Mappings.Store() != nil {
+		vLabel, ok := ctx.Mappings.Store().HostToVirtualLabel(ctx, key)
+		if ok {
+			return vLabel
+		}
+	}
+
 	if keyMatchesSyncedLabels(ctx, key) {
 		return key
 	}
 
 	return convertLabelKeyWithPrefix(LabelPrefix, key)
+}
+
+func recordLabel(ctx *synccontext.SyncContext, host, virtual string) {
+	if ctx != nil && ctx.Mappings != nil && ctx.Mappings.Store() != nil {
+		// check if we have the owning object in the context
+		belongsTo, ok := synccontext.MappingFrom(ctx)
+		if !ok {
+			return
+		}
+
+		// record the mapping
+		err := ctx.Mappings.Store().RecordLabel(ctx, synccontext.LabelMapping{
+			Virtual: virtual,
+			Host:    host,
+		}, belongsTo)
+		if err != nil {
+			klog.FromContext(ctx).Error(err, "record label mapping", "host", host, "virtual", virtual)
+		}
+	}
+}
+
+func recordLabelCluster(ctx *synccontext.SyncContext, host, virtual string) {
+	if ctx != nil && ctx.Mappings != nil && ctx.Mappings.Store() != nil {
+		// check if we have the owning object in the context
+		belongsTo, ok := synccontext.MappingFrom(ctx)
+		if !ok {
+			return
+		}
+
+		// record the mapping
+		err := ctx.Mappings.Store().RecordLabelCluster(ctx, synccontext.LabelMapping{
+			Virtual: virtual,
+			Host:    host,
+		}, belongsTo)
+		if err != nil {
+			klog.FromContext(ctx).Error(err, "record label mapping", "host", host, "virtual", virtual)
+		}
+	}
 }
 
 func keyMatchesSyncedLabels(ctx *synccontext.SyncContext, key string) bool {

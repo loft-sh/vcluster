@@ -16,16 +16,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewMappingsRegistry() synccontext.MappingsRegistry {
+func NewMappingsRegistry(store synccontext.MappingsStore) synccontext.MappingsRegistry {
 	return &Registry{
 		mappers: map[schema.GroupVersionKind]synccontext.Mapper{},
+
+		store: store,
 	}
 }
 
 type Registry struct {
 	mappers map[schema.GroupVersionKind]synccontext.Mapper
 
+	store synccontext.MappingsStore
+
 	m sync.Mutex
+}
+
+func (m *Registry) Store() synccontext.MappingsStore {
+	return m.store
 }
 
 func (m *Registry) AddMapper(mapper synccontext.Mapper) error {
