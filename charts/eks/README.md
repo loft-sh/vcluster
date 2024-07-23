@@ -1,6 +1,8 @@
 
 # vcluster (eks)
 
+**This helm chart is deprecated as using EKS as the Kubernetes distribution for vCluster is deprecated. We recommend using the vanilla Kubernetes distribution instead of EKS. Reminder: The Kubernetes distribution of the virtual cluster doesn't need to match the the distribution of your host cluster. You can use any distribution of vCluster to deploy vCluster on EKS clusters.**
+
 ## **[GitHub](https://github.com/loft-sh/vcluster)** • **[Website](https://www.vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/getting-started/setup)** • **[Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Twitter](https://twitter.com/loft_sh)** • **[Slack](https://slack.loft.sh/)**
 
 Create fully functional virtual Kubernetes clusters - Each vcluster runs inside a namespace of the underlying k8s cluster. It's cheaper than creating separate full-blown clusters and it offers better multi-tenancy and isolation than regular namespaces.
