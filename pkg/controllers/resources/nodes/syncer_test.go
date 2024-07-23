@@ -276,16 +276,11 @@ func TestSyncBothExist(t *testing.T) {
 			physical := baseNode.DeepCopy()
 
 			initialObjects := []runtime.Object{}
-			initialPhysicalObjects := []runtime.Object{}
 			expectedVirtualObjects := map[schema.GroupVersionKind][]runtime.Object{}
 
 			if tC.withVirtualPod {
 				initialObjects = append(initialObjects, basePod.DeepCopy())
 				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Pod")] = []runtime.Object{basePod.DeepCopy()}
-			}
-
-			if tC.withPhysicalPod {
-				initialPhysicalObjects = append(initialPhysicalObjects, basePod.DeepCopy())
 			}
 
 			if tC.virtualNodeExists {
