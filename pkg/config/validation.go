@@ -125,9 +125,6 @@ func validateDistro(config *VirtualClusterConfig) error {
 	if config.Config.ControlPlane.Distro.K8S.Enabled {
 		enabledDistros++
 	}
-	if config.Config.ControlPlane.Distro.EKS.Enabled {
-		enabledDistros++
-	}
 
 	if enabledDistros > 1 {
 		return fmt.Errorf("only one distribution can be enabled")

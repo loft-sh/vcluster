@@ -741,10 +741,6 @@
         "k0s": {
           "$ref": "#/$defs/DistroK0s",
           "description": "K0S holds k0s relevant configuration."
-        },
-        "eks": {
-          "$ref": "#/$defs/DistroK8s",
-          "description": "EKS holds eks relevant configuration."
         }
       },
       "additionalProperties": false,

@@ -26,12 +26,16 @@ func MigrateLegacyConfig(distro, oldValues string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("migrate legacy %s values: %w", distro, err)
 		}
-	case config.K8SDistro, config.EKSDistro:
+	case config.K8SDistro:
 		err = migrateK8sAndEKS(distro, oldValues, toConfig)
 		if err != nil {
 			return "", fmt.Errorf("migrate legacy %s values: %w", distro, err)
 		}
 	default:
+		if distro == "eks" {
+			return "", fmt.Errorf("eks distro is not supported anymore. Instead use the k8s distro with the eks images")
+		}
+
 		return "", fmt.Errorf("migrating distro %s is not supported", distro)
 	}
 
@@ -52,11 +56,6 @@ func migrateK8sAndEKS(distro, oldValues string, newConfig *config.Config) error 
 		convertAPIValues(oldConfig.API, &newConfig.ControlPlane.Distro.K8S.APIServer)
 		convertControllerValues(oldConfig.Controller, &newConfig.ControlPlane.Distro.K8S.ControllerManager)
 		convertSchedulerValues(oldConfig.Scheduler, &newConfig.ControlPlane.Distro.K8S.Scheduler)
-	} else if distro == config.EKSDistro {
-		newConfig.ControlPlane.Distro.EKS.Enabled = true
-		convertAPIValues(oldConfig.API, &newConfig.ControlPlane.Distro.EKS.APIServer)
-		convertControllerValues(oldConfig.Controller, &newConfig.ControlPlane.Distro.EKS.ControllerManager)
-		convertSchedulerValues(oldConfig.Scheduler, &newConfig.ControlPlane.Distro.EKS.Scheduler)
 	}
 
 	// convert etcd
