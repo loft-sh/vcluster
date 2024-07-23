@@ -59,7 +59,6 @@ func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vOb
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
-
 	defer func() {
 		if err := patch.Patch(ctx, pEvent, vEvent); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})

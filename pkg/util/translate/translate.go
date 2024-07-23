@@ -531,9 +531,7 @@ func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {
 				out.MatchLabels[k] = v
 			}
 		}
-		for _, expr := range selector.MatchExpressions {
-			out.MatchExpressions = append(out.MatchExpressions, expr)
-		}
+		out.MatchExpressions = append(out.MatchExpressions, selector.MatchExpressions...)
 	}
 	return out
 }

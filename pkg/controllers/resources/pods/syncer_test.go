@@ -564,13 +564,3 @@ func TestSync(t *testing.T) {
 		},
 	})
 }
-
-func convertLabelKeyWithPrefix(labels map[string]string) map[string]string {
-	ret := make(map[string]string, len(labels))
-
-	for k, v := range labels {
-		ret[translate.Default.HostLabel(nil, k)] = v
-	}
-
-	return ret
-}
