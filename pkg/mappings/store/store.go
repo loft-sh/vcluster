@@ -27,7 +27,7 @@ func NewStore(ctx context.Context, cachedVirtualClient, cachedHostClient client.
 		cachedHostClient:    cachedHostClient,
 
 		mappings: make(map[synccontext.NameMapping]*Mapping),
-		
+
 		hostToVirtualName:         make(map[synccontext.Object]lookupName),
 		virtualToHostName:         make(map[synccontext.Object]lookupName),
 		hostToVirtualLabel:        make(map[string]lookupLabel),
@@ -185,10 +185,46 @@ func (s *Store) start(ctx context.Context) error {
 			s.removeMapping(oldMapping)
 		}
 
+		klog.FromContext(ctx).V(1).Info("Add mapping", "mapping", mapping.String())
 		s.addMapping(mapping)
 	}
 
+	go func() {
+		wait.Until(func() {
+			for watchEvent := range s.backend.Watch(ctx) {
+				s.handleEvent(ctx, watchEvent)
+			}
+
+			klog.FromContext(ctx).Info("mapping store watch has ended")
+		}, time.Second, ctx.Done())
+	}()
+
 	return nil
+}
+
+func (s *Store) handleEvent(ctx context.Context, watchEvent BackendWatchResponse) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	if watchEvent.Err != nil {
+		klog.FromContext(ctx).Error(watchEvent.Err, "watch err in mappings store")
+		return
+	}
+
+	for _, event := range watchEvent.Events {
+		klog.FromContext(ctx).V(1).Info("mapping store received event", "type", event.Type, "mapping", event.Mapping.String())
+
+		// remove mapping in any case
+		oldMapping, ok := s.mappings[event.Mapping.NameMapping]
+		if ok {
+			s.removeMapping(oldMapping)
+		}
+
+		// re-add mapping if its an update
+		if event.Type == BackendWatchEventTypeUpdate {
+			s.addMapping(event.Mapping)
+		}
+	}
 }
 
 func (s *Store) HostToVirtualLabel(ctx context.Context, pLabel string) (string, bool) {

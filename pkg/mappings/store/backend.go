@@ -18,6 +18,8 @@ type Backend interface {
 
 type BackendWatchResponse struct {
 	Events []*BackendWatchEvent
+
+	Err error
 }
 
 type BackendWatchEvent struct {

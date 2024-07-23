@@ -23,7 +23,7 @@ func removeMappingFromNameMap(lookupMap map[synccontext.Object]lookupName, mappi
 	// remove from mappings
 	newMappings := []*Mapping{}
 	for _, otherMapping := range newLookupName.Mappings {
-		if otherMapping != mapping {
+		if otherMapping.String() != mapping.String() {
 			newMappings = append(newMappings, otherMapping)
 		}
 	}
@@ -45,7 +45,7 @@ func removeMappingFromLabelMap(lookupMap map[string]lookupLabel, mapping *Mappin
 	// remove from mappings
 	newMappings := []*Mapping{}
 	for _, otherMapping := range newLookupLabel.Mappings {
-		if otherMapping != mapping {
+		if otherMapping.String() != mapping.String() {
 			newMappings = append(newMappings, otherMapping)
 		}
 	}

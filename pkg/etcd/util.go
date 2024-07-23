@@ -27,7 +27,7 @@ type Certificates struct {
 func WaitForEtcd(parentCtx context.Context, certificates *Certificates, endpoints ...string) error {
 	var err error
 	waitErr := wait.PollUntilContextTimeout(parentCtx, time.Second, waitForClientTimeout, true, func(ctx context.Context) (bool, error) {
-		etcdClient, err := GetEtcdClient(parentCtx, certificates, endpoints...)
+		etcdClient, err := GetEtcdClient(ctx, certificates, endpoints...)
 		if err == nil {
 			defer func() {
 				_ = etcdClient.Close()
@@ -67,14 +67,11 @@ func GetEtcdClient(ctx context.Context, certificates *Certificates, endpoints ..
 // If no endpoints are provided, getEndpoints is called to provide defaults.
 func getClientConfig(ctx context.Context, certificates *Certificates, endpoints ...string) (*clientv3.Config, error) {
 	config := &clientv3.Config{
-		Endpoints:            endpoints,
-		Context:              ctx,
-		DialTimeout:          2 * time.Second,
-		DialKeepAliveTime:    30 * time.Second,
-		DialKeepAliveTimeout: 10 * time.Second,
-		AutoSyncInterval:     10 * time.Second,
-		Logger:               zap.L().Named("etcd-client"),
-		PermitWithoutStream:  true,
+		Endpoints:   endpoints,
+		Context:     ctx,
+		DialTimeout: 5 * time.Second,
+
+		Logger: zap.L().Named("etcd-client"),
 	}
 
 	if len(endpoints) > 0 {

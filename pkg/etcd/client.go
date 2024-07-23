@@ -136,7 +136,7 @@ func (c *client) Get(ctx context.Context, key string) (Value, error) {
 
 func (c *client) Put(ctx context.Context, key string, value []byte) error {
 	val, err := c.Get(ctx, key)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrNotFound) {
 		return err
 	}
 	if val.Revision == 0 {

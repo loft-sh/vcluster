@@ -8,6 +8,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/store"
 	"github.com/loft-sh/vcluster/pkg/plugin"
@@ -319,7 +320,12 @@ func initControllerContext(
 		return nil, err
 	}
 
-	mappingStore, err := store.NewStore(ctx, virtualManager.GetClient(), localManager.GetClient(), store.NewMemoryBackend())
+	etcdClient, err := etcd.NewFromConfig(ctx, vClusterOptions)
+	if err != nil {
+		return nil, fmt.Errorf("create etcd client: %w", err)
+	}
+
+	mappingStore, err := store.NewStore(ctx, virtualManager.GetClient(), localManager.GetClient(), store.NewEtcdBackend(etcdClient))
 	if err != nil {
 		return nil, fmt.Errorf("start mapping store: %w", err)
 	}

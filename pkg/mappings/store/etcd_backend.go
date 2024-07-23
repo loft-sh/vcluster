@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/etcd"
+	"go.etcd.io/etcd/api/v3/mvccpb"
+	"k8s.io/klog/v2"
 )
 
 var mappingsPrefix = "/vcluster/mappings/"
@@ -43,8 +45,51 @@ func (m *etcdBackend) List(ctx context.Context) ([]*Mapping, error) {
 	return retMappings, nil
 }
 
-func (m *etcdBackend) Watch(_ context.Context) <-chan BackendWatchResponse {
-	return nil
+func (m *etcdBackend) Watch(ctx context.Context) <-chan BackendWatchResponse {
+	responseChan := make(chan BackendWatchResponse)
+	watchChan := m.etcdClient.Watch(ctx, mappingsPrefix, 0)
+	go func() {
+		defer close(responseChan)
+
+		for event := range watchChan {
+			if event.Canceled {
+				responseChan <- BackendWatchResponse{
+					Err: event.Err(),
+				}
+			} else if len(event.Events) > 0 {
+				retEvents := make([]*BackendWatchEvent, 0, len(event.Events))
+				for _, singleEvent := range event.Events {
+					var eventType BackendWatchEventType
+					if singleEvent.Type == mvccpb.PUT {
+						eventType = BackendWatchEventTypeUpdate
+					} else if singleEvent.Type == mvccpb.DELETE {
+						eventType = BackendWatchEventTypeDelete
+					} else {
+						continue
+					}
+
+					// parse mapping
+					retMapping := &Mapping{}
+					err := json.Unmarshal(singleEvent.Kv.Value, retMapping)
+					if err != nil {
+						klog.FromContext(ctx).Info("Error decoding event", "key", string(singleEvent.Kv.Key), "error", err.Error())
+						continue
+					}
+
+					retEvents = append(retEvents, &BackendWatchEvent{
+						Type:    eventType,
+						Mapping: retMapping,
+					})
+				}
+
+				responseChan <- BackendWatchResponse{
+					Events: retEvents,
+				}
+			}
+		}
+	}()
+
+	return responseChan
 }
 
 func (m *etcdBackend) Save(ctx context.Context, mapping *Mapping) error {
@@ -53,11 +98,11 @@ func (m *etcdBackend) Save(ctx context.Context, mapping *Mapping) error {
 		return err
 	}
 
-	return m.etcdClient.Put(ctx, mappingToKey(mapping.String()), mappingBytes)
+	return m.etcdClient.Put(ctx, mappingsPrefix+mappingToKey(mapping.String()), mappingBytes)
 }
 
 func (m *etcdBackend) Delete(ctx context.Context, mapping *Mapping) error {
-	return m.etcdClient.Delete(ctx, mappingToKey(mapping.String()), 0)
+	return m.etcdClient.Delete(ctx, mappingsPrefix+mappingToKey(mapping.String()), 0)
 }
 
 func mappingToKey(key string) string {
