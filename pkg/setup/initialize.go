@@ -165,7 +165,7 @@ func initialize(ctx context.Context, parentCtx context.Context, options *config.
 				klog.Fatalf("Error running k3s: %v", err)
 			}
 		}()
-	case vclusterconfig.K8SDistro, vclusterconfig.EKSDistro:
+	case vclusterconfig.K8SDistro:
 		// try to generate k8s certificates
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == "/data/pki" {
@@ -203,15 +203,6 @@ func initialize(ctx context.Context, parentCtx context.Context, options *config.
 					options.ControlPlane.Distro.K8S.APIServer,
 					options.ControlPlane.Distro.K8S.ControllerManager,
 					options.ControlPlane.Distro.K8S.Scheduler,
-					options,
-				)
-			} else if distro == vclusterconfig.EKSDistro {
-				err = k8s.StartK8S(
-					parentCtx,
-					serviceCIDR,
-					options.ControlPlane.Distro.EKS.APIServer,
-					options.ControlPlane.Distro.EKS.ControllerManager,
-					options.ControlPlane.Distro.EKS.Scheduler,
 					options,
 				)
 			}

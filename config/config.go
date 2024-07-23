@@ -164,8 +164,6 @@ func (c *Config) Distro() string {
 		return K0SDistro
 	} else if c.ControlPlane.Distro.K8S.Enabled {
 		return K8SDistro
-	} else if c.ControlPlane.Distro.EKS.Enabled {
-		return EKSDistro
 	}
 
 	return K8SDistro
@@ -207,7 +205,7 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
-	if c.Distro() == K8SDistro || c.Distro() == EKSDistro {
+	if c.Distro() == K8SDistro {
 		if c.ControlPlane.BackingStore.Database.External.Enabled {
 			return true
 		}
@@ -702,9 +700,6 @@ type Distro struct {
 
 	// K0S holds k0s relevant configuration.
 	K0S DistroK0s `json:"k0s,omitempty"`
-
-	// EKS holds eks relevant configuration.
-	EKS DistroK8s `json:"eks,omitempty"`
 }
 
 type DistroK3s struct {

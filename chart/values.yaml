@@ -187,7 +187,7 @@ controlPlane:
           # Repository is the repository of the container image, e.g. my-repo/my-image
           repository: "kube-scheduler"
           # Tag is the tag of the container image, e.g. latest
-          tag: "v1.29.0"
+          tag: "v1.30.2"
       # Env are extra environment variables to use for the main container and NOT the init container.
       env: []
       # Security options can be used for the distro init container
@@ -250,75 +250,6 @@ controlPlane:
         repository: "k0sproject/k0s"
         # Tag is the tag of the container image, e.g. latest
         tag: "v1.30.2-k0s.0"
-      # Security options can be used for the distro init container
-      securityContext: {}
-      # Resources for the distro init container
-      resources:
-        limits:
-          cpu: 100m
-          memory: 256Mi
-        requests:
-          cpu: 40m
-          memory: 64Mi
-    # EKS holds eks relevant configuration.
-    eks:
-      # Enabled specifies if the K8s distro should be enabled. Only one distro can be enabled at the same time.
-      enabled: false
-      # APIServer holds configuration specific to starting the api server.
-      apiServer:
-        enabled: true
-        # Command is the command to start the distro binary. This will override the existing command.
-        command: []
-        # ExtraArgs are additional arguments to pass to the distro binary.
-        extraArgs: []
-        # ImagePullPolicy is the pull policy for the distro image
-        imagePullPolicy: ""
-        # Image is the distro image
-        image:
-          # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
-          # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
-          registry: "public.ecr.aws"
-          # Repository is the repository of the container image, e.g. my-repo/my-image
-          repository: "eks-distro/kubernetes/kube-apiserver"
-          # Tag is the tag of the container image, e.g. latest
-          tag: "v1.28.2-eks-1-28-6"
-      # ControllerManager holds configuration specific to starting the controller manager.
-      controllerManager:
-        enabled: true
-        # Command is the command to start the distro binary. This will override the existing command.
-        command: []
-        # ExtraArgs are additional arguments to pass to the distro binary.
-        extraArgs: []
-        # ImagePullPolicy is the pull policy for the distro image
-        imagePullPolicy: ""
-        # Image is the distro image
-        image:
-          # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
-          # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
-          registry: "public.ecr.aws"
-          # Repository is the repository of the container image, e.g. my-repo/my-image
-          repository: "eks-distro/kubernetes/kube-controller-manager"
-          # Tag is the tag of the container image, e.g. latest
-          tag: "v1.28.2-eks-1-28-6"
-      # Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
-      scheduler:
-        # Command is the command to start the distro binary. This will override the existing command.
-        command: []
-        # ExtraArgs are additional arguments to pass to the distro binary.
-        extraArgs: []
-        # ImagePullPolicy is the pull policy for the distro image
-        imagePullPolicy: ""
-        # Image is the distro image
-        image:
-          # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
-          # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
-          registry: "public.ecr.aws"
-          # Repository is the repository of the container image, e.g. my-repo/my-image
-          repository: "eks-distro/kubernetes/kube-scheduler"
-          # Tag is the tag of the container image, e.g. latest
-          tag: "v1.28.2-eks-1-28-6"
-      # Env are extra environment variables to use for the main container and NOT the init container.
-      env: []
       # Security options can be used for the distro init container
       securityContext: {}
       # Resources for the distro init container

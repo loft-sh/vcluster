@@ -66,7 +66,7 @@ tests:
           path: metadata.annotations.test
           value: test
 
-  - it: enable for eks & defaults
+  - it: enable for k8s & defaults
     release:
       name: my-release
       namespace: my-namespace
@@ -80,7 +80,7 @@ tests:
                 annotations:
                   test: test
         distro:
-          eks:
+          k8s:
             enabled: true
     asserts:
       - hasDocuments:
