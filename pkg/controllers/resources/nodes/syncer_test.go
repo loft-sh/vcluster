@@ -201,7 +201,6 @@ func TestSyncBothExist(t *testing.T) {
 			name:               "Don't Clear Nodes",
 			virtualNodeExists:  true,
 			withVirtualPod:     true,
-			clearImage:         false,
 			imagesPhysicalNode: []corev1.ContainerImage{{Names: []string{"ghcr.io/jetpack/calico"}}},
 		},
 		{
