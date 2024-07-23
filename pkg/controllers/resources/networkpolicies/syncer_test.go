@@ -49,13 +49,13 @@ func TestSync(t *testing.T) {
 	pBaseSpec := networkingv1.NetworkPolicySpec{
 		PodSelector: metav1.LabelSelector{
 			MatchLabels: map[string]string{
-				translate.Default.HostLabel("mykey"): "mylabel",
-				translate.NamespaceLabel:             vObjectMeta.Namespace,
-				translate.MarkerLabel:                translate.VClusterName,
+				translate.Default.HostLabel(nil, "mykey"): "mylabel",
+				translate.NamespaceLabel:                  vObjectMeta.Namespace,
+				translate.MarkerLabel:                     translate.VClusterName,
 			},
 			MatchExpressions: []metav1.LabelSelectorRequirement{
 				{
-					Key:      translate.Default.HostLabel("secondkey"),
+					Key:      translate.Default.HostLabel(nil, "secondkey"),
 					Operator: metav1.LabelSelectorOpIn,
 					Values:   []string{"label-A", "label-B"},
 				},
@@ -124,9 +124,9 @@ func TestSync(t *testing.T) {
 			Ports: somePorts,
 			From: []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					translate.Default.HostLabel("random-key"): "value",
-					translate.MarkerLabel:                     translate.VClusterName,
-					translate.NamespaceLabel:                  vnetworkPolicyWithPodSelectorNoNs.GetNamespace(),
+					translate.Default.HostLabel(nil, "random-key"): "value",
+					translate.MarkerLabel:                          translate.VClusterName,
+					translate.NamespaceLabel:                       vnetworkPolicyWithPodSelectorNoNs.GetNamespace(),
 				},
 				MatchExpressions: []metav1.LabelSelectorRequirement{},
 			}}},
@@ -146,7 +146,7 @@ func TestSync(t *testing.T) {
 
 	pnetworkPolicyWithLabelSelectorNsSelector := pnetworkPolicyWithLabelSelectorNoNs.DeepCopy()
 	delete(pnetworkPolicyWithLabelSelectorNsSelector.Spec.Ingress[0].From[0].PodSelector.MatchLabels, translate.NamespaceLabel)
-	pnetworkPolicyWithLabelSelectorNsSelector.Spec.Ingress[0].From[0].PodSelector.MatchLabels[translate.ConvertLabelKeyWithPrefix(translate.NamespaceLabelPrefix, "nslabelkey")] = "abc"
+	pnetworkPolicyWithLabelSelectorNsSelector.Spec.Ingress[0].From[0].PodSelector.MatchLabels[translate.HostLabelNamespace("nslabelkey")] = "abc"
 
 	vnetworkPolicyEgressWithPodSelectorNoNs := vBaseNetworkPolicy.DeepCopy()
 	vnetworkPolicyEgressWithPodSelectorNoNs.Spec.Egress = []networkingv1.NetworkPolicyEgressRule{
@@ -200,12 +200,12 @@ func TestSync(t *testing.T) {
 					},
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
-							Key:      translate.Default.HostLabel("pod-expr-key"),
+							Key:      translate.Default.HostLabel(nil, "pod-expr-key"),
 							Operator: metav1.LabelSelectorOpExists,
 							Values:   []string{"some-pod-key"},
 						},
 						{
-							Key:      translate.ConvertLabelKeyWithPrefix(translate.NamespaceLabelPrefix, "ns-expr-key"),
+							Key:      translate.HostLabelNamespace("ns-expr-key"),
 							Operator: metav1.LabelSelectorOpDoesNotExist,
 							Values:   []string{"forbidden-ns-key"},
 						},

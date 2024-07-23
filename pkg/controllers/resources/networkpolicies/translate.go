@@ -9,14 +9,14 @@ import (
 
 func (s *networkPolicySyncer) translate(ctx *synccontext.SyncContext, vNetworkPolicy *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
 	newNetworkPolicy := translate.HostMetadata(ctx, vNetworkPolicy, s.VirtualToHost(ctx, types.NamespacedName{Name: vNetworkPolicy.GetName(), Namespace: vNetworkPolicy.GetNamespace()}, vNetworkPolicy))
-	if spec := translateSpec(&vNetworkPolicy.Spec, vNetworkPolicy.GetNamespace()); spec != nil {
+	if spec := translateSpec(ctx, &vNetworkPolicy.Spec, vNetworkPolicy.GetNamespace()); spec != nil {
 		newNetworkPolicy.Spec = *spec
 	}
 	return newNetworkPolicy
 }
 
 func (s *networkPolicySyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *networkingv1.NetworkPolicy) {
-	if translatedSpec := translateSpec(&vObj.Spec, vObj.GetNamespace()); translatedSpec != nil {
+	if translatedSpec := translateSpec(ctx, &vObj.Spec, vObj.GetNamespace()); translatedSpec != nil {
 		pObj.Spec = *translatedSpec
 	}
 
@@ -24,7 +24,7 @@ func (s *networkPolicySyncer) translateUpdate(ctx *synccontext.SyncContext, pObj
 	pObj.Labels = translate.HostLabels(ctx, vObj, pObj)
 }
 
-func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *networkingv1.NetworkPolicySpec {
+func translateSpec(ctx *synccontext.SyncContext, spec *networkingv1.NetworkPolicySpec, namespace string) *networkingv1.NetworkPolicySpec {
 	if spec == nil {
 		return nil
 	}
@@ -36,7 +36,7 @@ func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *netw
 		}
 		outSpec.Egress = append(outSpec.Egress, networkingv1.NetworkPolicyEgressRule{
 			Ports: er.Ports,
-			To:    translateNetworkPolicyPeers(er.To, namespace),
+			To:    translateNetworkPolicyPeers(ctx, er.To, namespace),
 		})
 	}
 	for _, ir := range spec.Ingress {
@@ -45,7 +45,7 @@ func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *netw
 		}
 		outSpec.Ingress = append(outSpec.Ingress, networkingv1.NetworkPolicyIngressRule{
 			Ports: ir.Ports,
-			From:  translateNetworkPolicyPeers(ir.From, namespace),
+			From:  translateNetworkPolicyPeers(ctx, ir.From, namespace),
 		})
 	}
 
@@ -54,7 +54,7 @@ func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *netw
 		panic("Multi-Namespace Mode not supported for network policies yet!")
 	}
 
-	if translatedLabelSelector := translate.Default.HostLabelSelector(&spec.PodSelector); translatedLabelSelector != nil {
+	if translatedLabelSelector := translate.HostLabelSelector(ctx, &spec.PodSelector); translatedLabelSelector != nil {
 		outSpec.PodSelector = *translatedLabelSelector
 		if outSpec.PodSelector.MatchLabels == nil {
 			outSpec.PodSelector.MatchLabels = map[string]string{}
@@ -69,18 +69,18 @@ func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *netw
 	return outSpec
 }
 
-func translateNetworkPolicyPeers(peers []networkingv1.NetworkPolicyPeer, namespace string) []networkingv1.NetworkPolicyPeer {
+func translateNetworkPolicyPeers(ctx *synccontext.SyncContext, peers []networkingv1.NetworkPolicyPeer, namespace string) []networkingv1.NetworkPolicyPeer {
 	if peers == nil {
 		return nil
 	}
 	out := []networkingv1.NetworkPolicyPeer{}
 	for _, peer := range peers {
 		newPeer := networkingv1.NetworkPolicyPeer{
-			PodSelector:       translate.Default.HostLabelSelector(peer.PodSelector),
+			PodSelector:       translate.HostLabelSelector(ctx, peer.PodSelector),
 			NamespaceSelector: nil, // must be set to nil as all vcluster pods are in the same host namespace as the NetworkPolicy
 		}
 		if peer.IPBlock == nil {
-			translatedNamespaceSelectors := translate.LabelSelectorWithPrefix(translate.NamespaceLabelPrefix, peer.NamespaceSelector)
+			translatedNamespaceSelectors := translate.HostLabelSelectorNamespace(ctx, peer.NamespaceSelector)
 			newPeer.PodSelector = translate.MergeLabelSelectors(newPeer.PodSelector, translatedNamespaceSelectors)
 
 			if newPeer.PodSelector.MatchLabels == nil {

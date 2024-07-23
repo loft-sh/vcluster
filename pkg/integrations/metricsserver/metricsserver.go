@@ -131,15 +131,15 @@ func handleMetricsServerProxyRequest(
 	req *http.Request,
 	info *request.RequestInfo,
 ) {
+	syncContext := ctx.ToSyncContext("metrics-proxy")
 	splitted := strings.Split(req.URL.Path, "/")
-	err := translateLabelSelectors(req)
+	err := translateLabelSelectors(syncContext, req)
 	if err != nil {
 		klog.Infof("error translating label selectors %v", err)
 		requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
 		return
 	}
 
-	syncContext := ctx.ToSyncContext("metrics-proxy")
 	metricsServerProxy := &serverProxy{
 		syncContext: syncContext,
 
@@ -472,7 +472,7 @@ func getVirtualNodes(ctx context.Context, vClient client.Client) ([]corev1.Node,
 	return nodeList.Items, nil
 }
 
-func translateLabelSelectors(req *http.Request) error {
+func translateLabelSelectors(ctx *synccontext.SyncContext, req *http.Request) error {
 	translatedSelectors := make(map[string]string)
 
 	query := req.URL.Query()
@@ -484,7 +484,7 @@ func translateLabelSelectors(req *http.Request) error {
 		}
 
 		for k, v := range selectors {
-			translatedKey := translate.Default.HostLabel(k)
+			translatedKey := translate.Default.HostLabel(ctx, k)
 			translatedSelectors[translatedKey] = v
 		}
 	}

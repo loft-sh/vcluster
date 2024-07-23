@@ -13,7 +13,7 @@ func (s *eventSyncer) translateEvent(ctx *synccontext.SyncContext, pEvent, vEven
 	// retrieve involved object
 	involvedObject, err := resources.GetInvolvedObject(ctx, pEvent)
 	if err != nil {
-		return nil
+		return err
 	}
 	tempEvent := pEvent.DeepCopy()
 
@@ -25,7 +25,7 @@ func (s *eventSyncer) translateEvent(ctx *synccontext.SyncContext, pEvent, vEven
 
 	// rewrite name
 	namespace := involvedObject.GetNamespace()
-	name := hostEventNameToVirtual(vEvent.Name, pEvent.InvolvedObject.Name, vEvent.InvolvedObject.Name)
+	name := hostEventNameToVirtual(pEvent.Name, pEvent.InvolvedObject.Name, involvedObject.GetName())
 
 	// we replace namespace/name & name in messages so that it seems correct
 	tempEvent.Message = strings.ReplaceAll(tempEvent.Message, pEvent.InvolvedObject.Namespace+"/"+pEvent.InvolvedObject.Name, tempEvent.InvolvedObject.Namespace+"/"+tempEvent.InvolvedObject.Name)

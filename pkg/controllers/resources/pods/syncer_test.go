@@ -423,7 +423,6 @@ func TestSync(t *testing.T) {
 
 	pPodWithLabels := pPodBase.DeepCopy()
 	maps.Copy(pPodWithLabels.Labels, testLabels)
-	maps.Copy(pPodWithLabels.Labels, convertLabelKeyWithPrefix(testLabels))
 	pPodWithLabels.Annotations[podtranslate.VClusterLabelsAnnotation] = podtranslate.LabelsAnnotation(vPodWithLabels)
 
 	syncertesting.RunTests(t, []*syncertesting.SyncTest{
@@ -564,14 +563,4 @@ func TestSync(t *testing.T) {
 			},
 		},
 	})
-}
-
-func convertLabelKeyWithPrefix(labels map[string]string) map[string]string {
-	ret := make(map[string]string, len(labels))
-
-	for k, v := range labels {
-		ret[translate.ConvertLabelKeyWithPrefix(translate.LabelPrefix, k)] = v
-	}
-
-	return ret
 }

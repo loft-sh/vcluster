@@ -64,7 +64,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 	if !s.useFakePersistentVolumes {
 		if vPvc.Annotations == nil || vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
 			if vPvc.Spec.Selector != nil {
-				vPvc.Spec.Selector = translate.Default.HostLabelSelectorCluster(vPvc.Spec.Selector)
+				vPvc.Spec.Selector = translate.HostLabelSelectorCluster(ctx, vPvc.Spec.Selector)
 			}
 			if vPvc.Spec.VolumeName != "" {
 				vPvc.Spec.VolumeName = translate.Default.HostNameCluster(vPvc.Spec.VolumeName)

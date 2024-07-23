@@ -73,6 +73,76 @@ func HostMetadata[T client.Object](ctx *synccontext.SyncContext, vObj T, name ty
 	return pObj
 }
 
+func HostLabelsMap(ctx *synccontext.SyncContext, vLabels, pLabels map[string]string, vNamespace string) map[string]string {
+	if vLabels == nil {
+		return nil
+	}
+
+	newLabels := map[string]string{}
+	for k, v := range vLabels {
+		newLabels[Default.HostLabel(ctx, k)] = v
+	}
+
+	newLabels[MarkerLabel] = VClusterName
+	if vNamespace != "" {
+		newLabels[NamespaceLabel] = vNamespace
+	} else {
+		delete(newLabels, NamespaceLabel)
+	}
+
+	// set controller label
+	if pLabels[ControllerLabel] != "" {
+		newLabels[ControllerLabel] = pLabels[ControllerLabel]
+	}
+
+	return newLabels
+}
+
+func HostLabelsMapCluster(ctx *synccontext.SyncContext, vLabels, pLabels map[string]string) map[string]string {
+	newLabels := map[string]string{}
+	for k, v := range vLabels {
+		newLabels[Default.HostLabelCluster(ctx, k)] = v
+	}
+	if pLabels[ControllerLabel] != "" {
+		newLabels[ControllerLabel] = pLabels[ControllerLabel]
+	}
+	newLabels[MarkerLabel] = Default.MarkerLabelCluster()
+	return newLabels
+}
+
+func HostLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+	return hostLabelSelector(ctx, labelSelector, Default.HostLabel)
+}
+
+func HostLabelSelectorCluster(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+	return hostLabelSelector(ctx, labelSelector, Default.HostLabelCluster)
+}
+
+type labelFunc func(ctx *synccontext.SyncContext, key string) string
+
+func hostLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector, labelFunc labelFunc) *metav1.LabelSelector {
+	if labelSelector == nil {
+		return nil
+	}
+
+	newLabelSelector := &metav1.LabelSelector{}
+	if labelSelector.MatchLabels != nil {
+		newLabelSelector.MatchLabels = map[string]string{}
+		for k, v := range labelSelector.MatchLabels {
+			newLabelSelector.MatchLabels[labelFunc(ctx, k)] = v
+		}
+	}
+	for _, r := range labelSelector.MatchExpressions {
+		newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
+			Key:      labelFunc(ctx, r.Key),
+			Operator: r.Operator,
+			Values:   r.Values,
+		})
+	}
+
+	return newLabelSelector
+}
+
 func HostLabels(ctx *synccontext.SyncContext, vObj, pObj client.Object) map[string]string {
 	vLabels := vObj.GetLabels()
 	if vLabels == nil {
@@ -83,14 +153,10 @@ func HostLabels(ctx *synccontext.SyncContext, vObj, pObj client.Object) map[stri
 		pLabels = pObj.GetLabels()
 	}
 	if vObj.GetNamespace() == "" {
-		return Default.HostLabelsCluster(vLabels, pLabels, ctx.Config.Experimental.SyncSettings.SyncLabels)
+		return HostLabelsMapCluster(ctx, vLabels, pLabels)
 	}
 
-	syncLabels := []string{}
-	if ctx.Config != nil {
-		syncLabels = ctx.Config.Experimental.SyncSettings.SyncLabels
-	}
-	return Default.HostLabels(vLabels, pLabels, vObj.GetNamespace(), syncLabels)
+	return HostLabelsMap(ctx, vLabels, pLabels, vObj.GetNamespace())
 }
 
 func HostAnnotations(vObj, pObj client.Object, excluded ...string) map[string]string {
@@ -449,4 +515,23 @@ func KindExists(config *rest.Config, groupVersionKind schema.GroupVersionKind) (
 	}
 
 	return metav1.APIResource{}, kerrors.NewNotFound(schema.GroupResource{Group: groupVersionKind.Group}, groupVersionKind.Kind)
+}
+
+func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {
+	out := &metav1.LabelSelector{}
+	for _, selector := range elems {
+		if selector == nil {
+			continue
+		}
+		if len(selector.MatchLabels) > 0 {
+			if out.MatchLabels == nil {
+				out.MatchLabels = make(map[string]string, len(selector.MatchLabels))
+			}
+			for k, v := range selector.MatchLabels {
+				out.MatchLabels[k] = v
+			}
+		}
+		out.MatchExpressions = append(out.MatchExpressions, selector.MatchExpressions...)
+	}
+	return out
 }

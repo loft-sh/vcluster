@@ -2,7 +2,6 @@ package translate
 
 import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -23,11 +22,10 @@ type Translator interface {
 	IsManaged(ctx *synccontext.SyncContext, pObj client.Object) bool
 
 	// IsTargetedNamespace checks if the provided namespace is a sync target for vcluster
-	IsTargetedNamespace(ns string) bool
+	IsTargetedNamespace(namespace string) bool
 
-	// HostNameCluster returns the host name for a cluster scoped
-	// virtual cluster object
-	HostNameCluster(vName string) string
+	// MarkerLabelCluster returns the marker label for the cluster scoped object
+	MarkerLabelCluster() string
 
 	// HostName returns the host name for a virtual cluster object
 	HostName(vName, vNamespace string) string
@@ -35,21 +33,16 @@ type Translator interface {
 	// HostNameShort returns the short host name for a virtual cluster object
 	HostNameShort(vName, vNamespace string) string
 
+	// HostNameCluster returns the host name for a cluster scoped
+	// virtual cluster object
+	HostNameCluster(vName string) string
+
 	// HostNamespace returns the host namespace for a virtual cluster object
 	HostNamespace(vNamespace string) string
 
-	// HostLabels returns the host labels for the virtual labels
-	HostLabels(vLabels, pLabels map[string]string, vNamespace string, syncedLabels []string) map[string]string
+	// HostLabel translates a single label for a namespace scoped resource
+	HostLabel(ctx *synccontext.SyncContext, label string) string
 
-	// HostLabelsCluster returns the physical labels for the virtual labels of a cluster object
-	HostLabelsCluster(vLabels, pLabels map[string]string, syncedLabels []string) map[string]string
-
-	// HostLabel translates a single label
-	HostLabel(label string) string
-
-	// HostLabelSelector translates a label selector
-	HostLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector
-
-	// HostLabelSelectorCluster translates a label selector of a cluster scoped object
-	HostLabelSelectorCluster(labelSelector *metav1.LabelSelector) *metav1.LabelSelector
+	// HostLabelCluster translates a single label for a namespace scoped resource
+	HostLabelCluster(ctx *synccontext.SyncContext, label string) string
 }
