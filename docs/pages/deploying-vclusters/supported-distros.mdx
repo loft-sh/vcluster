@@ -64,6 +64,26 @@ kubectl get ns
 
 Behind the scenes, a different helm chart will be deployed (`vcluster-k8s`), that holds specific configuration to support vanilla k8s. Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/v0.19/charts/k8s) for all available chart options.
 
+## eks
+
+:::warning EKS Distribution 
+Though the EKS distribution is supported in v0.19, it is deprecated. Reminder: The Kubernetes distribution of the virtual cluster doesn't need to match the the distribution of your host cluster. You can use any distribution of vCluster to deploy vCluster on EKS clusters.
+:::
+
+When choosing this option, vCluster will deploy a separate etcd cluster.
+
+In order to use eks as backing cluster, create a vCluster with the following command:
+
+```
+vcluster create my-vcluster --distro eks
+```
+
+Connect to the vCluster and start using it:
+```
+kubectl get ns
+...
+```
+
 Behind the scenes, a different helm chart will be deployed (`vcluster-eks`), that holds a specific configuration to support vanilla k8s. Check the [GitHub repository](https://github.com/loft-sh/vcluster/tree/v0.19/charts/eks) for all available chart options.
 
 ## Other Distributions

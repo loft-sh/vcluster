@@ -59,7 +59,7 @@ vClusters provide immense benefits for large-scale Kubernetes deployments and mu
     - Auto-scale, purge, snapshot, and move your vClusters, since they are Kubernetes deployments.
 - **Low Overhead:**
     - vClusters are super lightweight and only reside in a single namespace.
-    - vClusters run with [K3s](https://k3s.io/), a super low-footprint K8s distribution. You can use other [supported distributions](./deploying-vclusters/supported-distros) such as [K0s](https://k0sproject.io/), vanilla [Kubernetes](https://kubernetes.io/), and [AWS EKS](https://aws.amazon.com/eks/).
+    - vClusters run with [K3s](https://k3s.io/), a super low-footprint K8s distribution. You can use other [supported distributions](./deploying-vclusters/supported-distros) such as [K0s](https://k0sproject.io/) or vanilla [Kubernetes](https://kubernetes.io/). [AWS EKS](https://aws.amazon.com/eks/) is a supported distribution that is now deprecated.
     - The vCluster control plane runs inside a single pod. Open source vCluster also uses a CoreDNS pod for vCluster-internal DNS capabilities. With vCluster.Pro, however, you can [enable the integrated CoreDNS](https://www.vcluster.com/pro/docs/features/integrated_coredns) so you don't need the additional pod.
 - **No Network Degradation:**
     - Since the pods and services inside a vCluster are actually being synchronized down to the host cluster, they are effectively using the underlying cluster's pod and service networking. The vCluster pods are as fast as other pods in the underlying host cluster.
