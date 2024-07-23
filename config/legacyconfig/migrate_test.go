@@ -98,31 +98,6 @@ sync:
       enabled: true`,
 		},
 		{
-			Name:   "Simple eks",
-			Distro: "eks",
-			In: `sync:
-  ingresses:
-    enabled: true`,
-			Expected: `controlPlane:
-  backingStore:
-    etcd:
-      deploy:
-        enabled: true
-  distro:
-    eks:
-      enabled: true
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady
-sync:
-  fromHost:
-    ingressClasses:
-      enabled: true
-  toHost:
-    ingresses:
-      enabled: true`,
-		},
-		{
 			Name:   "generic sync example",
 			Distro: "k3s",
 			In: `multiNamespaceMode:
@@ -395,9 +370,9 @@ syncer:
 		{
 			Name:   "binariesVolume",
 			Distro: "k3s",
-			In: `syncer: 
-  storage: 
-    binariesVolume: 
+			In: `syncer:
+  storage:
+    binariesVolume:
     - name: binaries
       persistentVolumeClaim:
         claimName: my-pvc`,

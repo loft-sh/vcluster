@@ -89,7 +89,7 @@ type CreateOptions struct {
 
 var CreatedByVClusterAnnotation = "vcluster.loft.sh/created"
 
-var AllowedDistros = []string{config.K8SDistro, config.K3SDistro, config.K0SDistro, config.EKSDistro}
+var AllowedDistros = []string{config.K8SDistro, config.K3SDistro, config.K0SDistro}
 
 type createHelm struct {
 	*flags.GlobalFlags

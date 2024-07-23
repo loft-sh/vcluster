@@ -31,7 +31,6 @@ type KnownIssues struct {
 	K3s map[string]issueList
 	K0s map[string]issueList
 	K8s map[string]issueList
-	Eks map[string]issueList
 }
 
 func main() {
@@ -53,7 +52,7 @@ func main() {
 
 	renderedBytes := &bytes.Buffer{}
 	renderedBytes.WriteString(header)
-	for _, v := range []string{"k3s", "k8s", "k0s", "eks"} {
+	for _, v := range []string{"k3s", "k8s", "k0s"} {
 		var versionMap map[string]string
 		switch v {
 		case "k3s":
@@ -62,8 +61,6 @@ func main() {
 			versionMap = vclusterconfig.K8SAPIVersionMap
 		case "k0s":
 			versionMap = vclusterconfig.K0SVersionMap
-		case "eks":
-			versionMap = vclusterconfig.EKSAPIVersionMap
 		}
 		buff := updateTableWithDistro(v, versionMap, issues)
 		renderedBytes.WriteString(fmt.Sprintf(templateString, v, v, buff.String()))
@@ -114,8 +111,6 @@ func updateTableWithDistro(distroName string, versionMap map[string]string, know
 		issues = knownIssues.K0s
 	case "k8s":
 		issues = knownIssues.K8s
-	case "eks":
-		issues = knownIssues.Eks
 	}
 
 	for hostVersion, issueList := range issues {

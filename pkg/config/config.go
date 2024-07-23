@@ -76,7 +76,7 @@ func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKu
 			ClientCACert:        "/data/k0s/pki/ca.crt",
 			RequestHeaderCACert: "/data/k0s/pki/front-proxy-ca.crt",
 		}
-	case config.EKSDistro, config.K8SDistro:
+	case config.K8SDistro:
 		distroConfig = config.VirtualClusterKubeConfig{
 			KubeConfig:          "/data/pki/admin.conf",
 			ServerCAKey:         "/data/pki/ca.key",
