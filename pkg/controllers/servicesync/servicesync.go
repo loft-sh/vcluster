@@ -6,6 +6,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +22,8 @@ import (
 )
 
 type ServiceSyncer struct {
+	SyncContext *synccontext.SyncContext
+
 	SyncServices map[string]types.NamespacedName
 
 	IsVirtualToHostSyncer bool
@@ -152,7 +155,7 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 			e.Log.Infof("Add owner reference to host target service %s", to.Name)
 			toService.OwnerReferences = translate.GetOwnerReference(nil)
 		}
-		toService.Spec.Selector = translate.Default.HostLabels(fromService.Spec.Selector, toService.Spec.Selector, fromService.Namespace, nil)
+		toService.Spec.Selector = translate.HostLabelsMap(e.SyncContext, fromService.Spec.Selector, toService.Spec.Selector, fromService.Namespace)
 		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
 		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)
 	} else if toService.Labels == nil || toService.Labels[translate.ControllerLabel] != "vcluster" {
@@ -162,7 +165,7 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 
 	// rewrite selector
 	targetService := toService.DeepCopy()
-	targetService.Spec.Selector = translate.Default.HostLabels(fromService.Spec.Selector, toService.Spec.Selector, fromService.Namespace, nil)
+	targetService.Spec.Selector = translate.HostLabelsMap(e.SyncContext, fromService.Spec.Selector, toService.Spec.Selector, fromService.Namespace)
 
 	// compare service ports
 	if !apiequality.Semantic.DeepEqual(toService.Spec.Ports, fromService.Spec.Ports) || !apiequality.Semantic.DeepEqual(toService.Spec.Selector, targetService.Spec.Selector) {

@@ -462,7 +462,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		// get current physical Pod resource
 		pPod, err := f.HostClient.CoreV1().Pods(translate.Default.HostNamespace(ns)).Get(f.Context, translate.Default.HostName(pod.Name, pod.Namespace), metav1.GetOptions{})
 		framework.ExpectNoError(err)
-		pKey := translate.ConvertLabelKeyWithPrefix(translate.NamespaceLabelPrefix, initialNsLabelKey)
+		pKey := translate.HostLabelNamespace(initialNsLabelKey)
 		framework.ExpectHaveKey(pPod.GetLabels(), pKey)
 		framework.ExpectEqual(pPod.GetLabels()[pKey], initialNsLabelValue)
 
@@ -485,7 +485,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 			}
 			pPod, err = f.HostClient.CoreV1().Pods(translate.Default.HostNamespace(ns)).Get(ctx, translate.Default.HostName(pod.Name, pod.Namespace), metav1.GetOptions{})
 			framework.ExpectNoError(err)
-			pKey = translate.ConvertLabelKeyWithPrefix(translate.NamespaceLabelPrefix, additionalLabelKey)
+			pKey = translate.HostLabelNamespace(additionalLabelKey)
 			if value, ok := pPod.GetLabels()[pKey]; ok {
 				framework.ExpectEqual(value, additionalLabelValue)
 				return true, nil

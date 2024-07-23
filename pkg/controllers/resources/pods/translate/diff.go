@@ -54,7 +54,7 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, vPod, pPod *corev1.Pod) 
 	}
 	// check pod and namespace labels
 	for k, v := range vNamespace.GetLabels() {
-		updatedLabels[translate.ConvertLabelKeyWithPrefix(translate.NamespaceLabelPrefix, k)] = v
+		updatedLabels[translate.HostLabelNamespace(k)] = v
 	}
 
 	pPod.Annotations = updatedAnnotations

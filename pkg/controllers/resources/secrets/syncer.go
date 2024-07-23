@@ -12,7 +12,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"k8s.io/apimachinery/pkg/api/equality"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -150,9 +149,7 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 	pSecret, vSecret, sourceSecret, targetSecret := synccontext.Cast[*corev1.Secret](ctx, pObj, vObj)
 
 	// check data
-	if !equality.Semantic.DeepEqual(vSecret.Data, pSecret.Data) {
-		targetSecret.Data = sourceSecret.Data
-	}
+	targetSecret.Data = sourceSecret.Data
 
 	// check secret type
 	if vSecret.Type != pSecret.Type && vSecret.Type != corev1.SecretTypeServiceAccountToken {

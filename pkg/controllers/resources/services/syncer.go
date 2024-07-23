@@ -137,7 +137,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	pService.Annotations = updatedAnnotations
 
 	// translate selector
-	pService.Spec.Selector = translate.Default.HostLabels(vService.Spec.Selector, pService.Spec.Selector, vService.Namespace, nil)
+	pService.Spec.Selector = translate.HostLabelsMap(ctx, vService.Spec.Selector, pService.Spec.Selector, vService.Namespace)
 	return ctrl.Result{}, nil
 }
 

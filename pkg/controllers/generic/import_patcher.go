@@ -25,8 +25,11 @@ func (s *importPatcher) ServerSideApply(ctx *synccontext.SyncContext, _, destObj
 	return patches.ApplyPatches(destObj, sourceObj, s.config.Patches, s.config.ReversePatches, &hostToVirtualImportNameResolver{virtualClient: s.virtualClient, ctx: ctx})
 }
 
-func (s *importPatcher) ReverseUpdate(_ *synccontext.SyncContext, destObj, sourceObj client.Object) error {
-	return patches.ApplyPatches(destObj, sourceObj, s.config.ReversePatches, nil, &virtualToHostNameResolver{namespace: sourceObj.GetNamespace()})
+func (s *importPatcher) ReverseUpdate(ctx *synccontext.SyncContext, destObj, sourceObj client.Object) error {
+	return patches.ApplyPatches(destObj, sourceObj, s.config.ReversePatches, nil, &virtualToHostNameResolver{
+		syncContext: ctx,
+		namespace:   sourceObj.GetNamespace(),
+	})
 }
 
 type hostToVirtualImportNameResolver struct {

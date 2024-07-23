@@ -9,7 +9,7 @@ import (
 
 func (s *pdbSyncer) translate(ctx *synccontext.SyncContext, vObj *policyv1.PodDisruptionBudget) *policyv1.PodDisruptionBudget {
 	newPDB := translate.HostMetadata(ctx, vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
-	newPDB.Spec.Selector = translate.Default.HostLabelSelector(newPDB.Spec.Selector)
+	newPDB.Spec.Selector = translate.HostLabelSelector(ctx, newPDB.Spec.Selector)
 	return newPDB
 }
 
@@ -18,5 +18,5 @@ func (s *pdbSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *po
 	pObj.Labels = translate.HostLabels(ctx, vObj, pObj)
 	pObj.Spec.MaxUnavailable = vObj.Spec.MaxUnavailable
 	pObj.Spec.MinAvailable = vObj.Spec.MinAvailable
-	pObj.Spec.Selector = translate.Default.HostLabelSelector(vObj.Spec.Selector)
+	pObj.Spec.Selector = translate.HostLabelSelector(ctx, vObj.Spec.Selector)
 }

@@ -22,8 +22,10 @@ type exportPatcher struct {
 
 var _ ObjectPatcher = &exportPatcher{}
 
-func (e *exportPatcher) ServerSideApply(_ *synccontext.SyncContext, fromObj, destObj, sourceObj client.Object) error {
+func (e *exportPatcher) ServerSideApply(ctx *synccontext.SyncContext, fromObj, destObj, sourceObj client.Object) error {
 	return patches.ApplyPatches(destObj, sourceObj, e.config.Patches, e.config.ReversePatches, &virtualToHostNameResolver{
+		syncContext: ctx,
+
 		namespace:       fromObj.GetNamespace(),
 		targetNamespace: translate.Default.HostNamespace(fromObj.GetNamespace()),
 	})
@@ -37,6 +39,8 @@ func (e *exportPatcher) ReverseUpdate(_ *synccontext.SyncContext, destObj, sourc
 }
 
 type virtualToHostNameResolver struct {
+	syncContext *synccontext.SyncContext
+
 	namespace       string
 	targetNamespace string
 }
@@ -64,11 +68,11 @@ func (r *virtualToHostNameResolver) TranslateNameWithNamespace(name string, name
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
-	return translate.Default.HostLabelSelectorCluster(selector), nil
+	return translate.HostLabelSelectorCluster(r.syncContext, selector), nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelKey(key string) (string, error) {
-	return translate.Default.HostLabel(key), nil
+	return translate.Default.HostLabel(r.syncContext, key), nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
@@ -76,8 +80,7 @@ func (r *virtualToHostNameResolver) TranslateLabelSelector(selector map[string]s
 		MatchLabels: selector,
 	}
 
-	return metav1.LabelSelectorAsMap(
-		translate.Default.HostLabelSelector(labelSelector))
+	return metav1.LabelSelectorAsMap(translate.HostLabelSelector(r.syncContext, labelSelector))
 }
 
 func (r *virtualToHostNameResolver) TranslateNamespaceRef(namespace string) (string, error) {

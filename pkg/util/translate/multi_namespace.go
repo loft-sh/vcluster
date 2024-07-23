@@ -8,7 +8,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -49,7 +48,7 @@ func (s *multiNamespace) HostNameCluster(name string) string {
 func (s *multiNamespace) IsManaged(_ *synccontext.SyncContext, pObj client.Object) bool {
 	// check if cluster scoped object
 	if pObj.GetNamespace() == "" {
-		return pObj.GetLabels()[MarkerLabel] == SafeConcatName(s.currentNamespace, "x", VClusterName)
+		return pObj.GetLabels()[MarkerLabel] == s.MarkerLabelCluster()
 	}
 
 	// vcluster has not synced the object IF:
@@ -72,11 +71,6 @@ func (s *multiNamespace) IsTargetedNamespace(ns string) bool {
 	return strings.HasPrefix(ns, s.getNamespacePrefix()) && strings.HasSuffix(ns, getNamespaceSuffix(s.currentNamespace, VClusterName))
 }
 
-func hostLabelCluster(key, vClusterNamespace string) string {
-	digest := sha256.Sum256([]byte(key))
-	return SafeConcatName(LabelPrefix, vClusterNamespace, "x", VClusterName, "x", hex.EncodeToString(digest[0:])[0:10])
-}
-
 func (s *multiNamespace) getNamespacePrefix() string {
 	return "vcluster"
 }
@@ -95,22 +89,23 @@ func getNamespaceSuffix(currentNamespace, suffix string) string {
 	return hex.EncodeToString(sha[0:])[0:8]
 }
 
-func (s *multiNamespace) HostLabelsCluster(vLabels, pLabels map[string]string, syncedLabels []string) map[string]string {
-	return hostLabelsCluster(vLabels, pLabels, s.currentNamespace, syncedLabels)
+func (s *multiNamespace) MarkerLabelCluster() string {
+	return SafeConcatName(s.currentNamespace, "x", VClusterName)
 }
 
-func (s *multiNamespace) HostLabelSelectorCluster(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
-	return hostLabelSelectorCluster(labelSelector, s.currentNamespace)
+func (s *multiNamespace) HostLabelCluster(ctx *synccontext.SyncContext, key string) string {
+	if keyMatchesSyncedLabels(ctx, key) {
+		return key
+	}
+
+	return hostLabelCluster(key, s.currentNamespace)
 }
 
-func (s *multiNamespace) HostLabels(vLabels, _ map[string]string, _ string, _ []string) map[string]string {
-	return vLabels
-}
-
-func (s *multiNamespace) HostLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
-	return labelSelector
-}
-
-func (s *multiNamespace) HostLabel(key string) string {
+func (s *multiNamespace) HostLabel(_ *synccontext.SyncContext, key string) string {
 	return key
+}
+
+func hostLabelCluster(key, vClusterNamespace string) string {
+	digest := sha256.Sum256([]byte(key))
+	return SafeConcatName(LabelPrefix, vClusterNamespace, "x", VClusterName, "x", hex.EncodeToString(digest[0:])[0:10])
 }

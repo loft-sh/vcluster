@@ -3,7 +3,6 @@ package translate
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"regexp"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -60,10 +59,14 @@ func (s *singleNamespace) HostNameCluster(name string) string {
 	return SafeConcatName("vcluster", name, "x", s.targetNamespace, "x", VClusterName)
 }
 
+func (s *singleNamespace) MarkerLabelCluster() string {
+	return SafeConcatName(s.targetNamespace, "x", VClusterName)
+}
+
 func (s *singleNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) bool {
 	// check if cluster scoped object
 	if pObj.GetNamespace() == "" {
-		return pObj.GetLabels()[MarkerLabel] == SafeConcatName(s.targetNamespace, "x", VClusterName)
+		return pObj.GetLabels()[MarkerLabel] == s.MarkerLabelCluster()
 	}
 
 	// is object not in our target namespace?
@@ -113,166 +116,47 @@ func (s *singleNamespace) HostNamespace(_ string) string {
 	return s.targetNamespace
 }
 
-func (s *singleNamespace) HostLabelsCluster(vLabels, pLabels map[string]string, syncedLabels []string) map[string]string {
-	return hostLabelsCluster(vLabels, pLabels, s.targetNamespace, syncedLabels)
+func (s *singleNamespace) HostLabelCluster(ctx *synccontext.SyncContext, key string) string {
+	if keyMatchesSyncedLabels(ctx, key) {
+		return key
+	}
+
+	return hostLabelCluster(key, s.targetNamespace)
 }
 
-func hostLabelsCluster(vLabels, pLabels map[string]string, vClusterNamespace string, syncedLabels []string) map[string]string {
-	newLabels := map[string]string{}
-	for k, v := range vLabels {
-		newLabels[hostLabelCluster(k, vClusterNamespace)] = v
+func (s *singleNamespace) HostLabel(ctx *synccontext.SyncContext, key string) string {
+	if keyMatchesSyncedLabels(ctx, key) {
+		return key
 	}
-	if len(vLabels) > 0 {
-		for _, k := range syncedLabels {
-			if strings.HasSuffix(k, "/*") {
-				r, _ := regexp.Compile(strings.ReplaceAll(k, "/*", "/.*"))
 
-				for key, val := range vLabels {
-					if r.MatchString(key) {
-						newLabels[key] = val
-					}
-				}
-			} else {
-				if value, ok := vLabels[k]; ok {
-					newLabels[k] = value
-				}
-			}
-		}
-	}
-	if pLabels[ControllerLabel] != "" {
-		newLabels[ControllerLabel] = pLabels[ControllerLabel]
-	}
-	newLabels[MarkerLabel] = SafeConcatName(vClusterNamespace, "x", VClusterName)
-	return newLabels
+	return convertLabelKeyWithPrefix(LabelPrefix, key)
 }
 
-func (s *singleNamespace) HostLabelSelectorCluster(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
-	return hostLabelSelectorCluster(labelSelector, s.targetNamespace)
-}
-
-func hostLabelSelectorCluster(labelSelector *metav1.LabelSelector, vClusterNamespace string) *metav1.LabelSelector {
-	if labelSelector == nil {
-		return nil
-	}
-
-	newLabelSelector := &metav1.LabelSelector{}
-	if labelSelector.MatchLabels != nil {
-		newLabelSelector.MatchLabels = map[string]string{}
-		for k, v := range labelSelector.MatchLabels {
-			newLabelSelector.MatchLabels[hostLabelCluster(k, vClusterNamespace)] = v
-		}
-	}
-	if len(labelSelector.MatchExpressions) > 0 {
-		newLabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}
-		for _, r := range labelSelector.MatchExpressions {
-			newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
-				Key:      hostLabelCluster(r.Key, vClusterNamespace),
-				Operator: r.Operator,
-				Values:   r.Values,
-			})
-		}
-	}
-
-	return newLabelSelector
-}
-
-func (s *singleNamespace) HostLabels(vLabels, pLabels map[string]string, vNamespace string, syncedLabels []string) map[string]string {
-	if vLabels == nil {
-		return nil
-	}
-
-	newLabels := map[string]string{}
-	for k, v := range vLabels {
-		newLabels[s.HostLabel(k)] = v
-	}
-	for _, k := range syncedLabels {
-		if strings.HasSuffix(k, "/*") {
-			r, _ := regexp.Compile(strings.ReplaceAll(k, "/*", "/.*"))
-
-			for key, val := range vLabels {
-				if r.MatchString(key) {
-					newLabels[key] = val
-				}
-			}
-		} else {
-			if value, ok := vLabels[k]; ok {
-				newLabels[k] = value
+func keyMatchesSyncedLabels(ctx *synccontext.SyncContext, key string) bool {
+	if ctx != nil && ctx.Config != nil {
+		for _, k := range ctx.Config.Experimental.SyncSettings.SyncLabels {
+			if strings.HasSuffix(k, "*") && strings.HasPrefix(key, strings.TrimSuffix(k, "*")) {
+				return true
+			} else if k == key {
+				return true
 			}
 		}
 	}
 
-	newLabels[MarkerLabel] = VClusterName
-	if vNamespace != "" {
-		newLabels[NamespaceLabel] = vNamespace
-	} else {
-		delete(newLabels, NamespaceLabel)
-	}
-
-	// set controller label
-	if pLabels[ControllerLabel] != "" {
-		newLabels[ControllerLabel] = pLabels[ControllerLabel]
-	}
-
-	return newLabels
+	return false
 }
 
-func (s *singleNamespace) HostLabelSelector(labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
-	return LabelSelectorWithPrefix(LabelPrefix, labelSelector)
+func HostLabelNamespace(key string) string {
+	return convertLabelKeyWithPrefix(NamespaceLabelPrefix, key)
 }
 
-func LabelSelectorWithPrefix(labelPrefix string, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
-	if labelSelector == nil {
-		return nil
-	}
-
-	newLabelSelector := &metav1.LabelSelector{}
-	if labelSelector.MatchLabels != nil {
-		newLabelSelector.MatchLabels = map[string]string{}
-		for k, v := range labelSelector.MatchLabels {
-			newLabelSelector.MatchLabels[ConvertLabelKeyWithPrefix(labelPrefix, k)] = v
-		}
-	}
-	if len(labelSelector.MatchExpressions) > 0 {
-		newLabelSelector.MatchExpressions = []metav1.LabelSelectorRequirement{}
-		for _, r := range labelSelector.MatchExpressions {
-			newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
-				Key:      ConvertLabelKeyWithPrefix(labelPrefix, r.Key),
-				Operator: r.Operator,
-				Values:   r.Values,
-			})
-		}
-	}
-
-	return newLabelSelector
+func HostLabelSelectorNamespace(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+	return hostLabelSelector(ctx, labelSelector, func(_ *synccontext.SyncContext, key string) string {
+		return HostLabelNamespace(key)
+	})
 }
 
-func (s *singleNamespace) HostLabel(key string) string {
-	return ConvertLabelKeyWithPrefix(LabelPrefix, key)
-}
-
-func ConvertLabelKeyWithPrefix(prefix, key string) string {
+func convertLabelKeyWithPrefix(prefix, key string) string {
 	digest := sha256.Sum256([]byte(key))
 	return SafeConcatName(prefix, VClusterName, "x", hex.EncodeToString(digest[0:])[0:10])
-}
-
-func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {
-	out := &metav1.LabelSelector{}
-	for _, selector := range elems {
-		if selector == nil {
-			continue
-		}
-		for k, v := range selector.MatchLabels {
-			if out.MatchLabels == nil {
-				out.MatchLabels = map[string]string{}
-			}
-			out.MatchLabels[k] = v
-		}
-		for _, expr := range selector.MatchExpressions {
-			if out.MatchExpressions == nil {
-				out.MatchExpressions = []metav1.LabelSelectorRequirement{}
-			}
-			out.MatchExpressions = append(out.MatchExpressions, expr)
-		}
-	}
-	return out
 }

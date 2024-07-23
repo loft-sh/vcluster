@@ -52,9 +52,8 @@ func TestSync(t *testing.T) {
 				translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Secret").String(),
 			},
 			Labels: map[string]string{
-				translate.NamespaceLabel:               baseSecret.Namespace,
-				testLabel:                              testLabelValue,
-				translate.Default.HostLabel(testLabel): testLabelValue,
+				translate.NamespaceLabel: baseSecret.Namespace,
+				testLabel:                testLabelValue,
 			},
 		},
 	}

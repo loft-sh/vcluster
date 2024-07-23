@@ -297,9 +297,9 @@ func TestSync(t *testing.T) {
 		ObjectMeta: pObjectMeta,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				translate.ConvertLabelKeyWithPrefix(translate.LabelPrefix, selectorKey): vServiceNodePortFromExternal.Spec.Selector[selectorKey],
-				translate.NamespaceLabel: vServiceNodePortFromExternal.Namespace,
-				translate.MarkerLabel:    translate.VClusterName,
+				translate.Default.HostLabel(nil, selectorKey): vServiceNodePortFromExternal.Spec.Selector[selectorKey],
+				translate.NamespaceLabel:                      vServiceNodePortFromExternal.Namespace,
+				translate.MarkerLabel:                         translate.VClusterName,
 			},
 			Type:  corev1.ServiceTypeNodePort,
 			Ports: vServiceNodePortFromExternal.Spec.Ports,

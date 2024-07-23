@@ -157,6 +157,7 @@ func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
 
 		// register controller
 		controller := &servicesync.ServiceSyncer{
+			SyncContext:     ctx.ToRegisterContext().ToSyncContext("map-host-service-syncer"),
 			SyncServices:    mapping,
 			CreateNamespace: true,
 			CreateEndpoints: true,
@@ -177,6 +178,7 @@ func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
 		}
 
 		controller := &servicesync.ServiceSyncer{
+			SyncContext:           ctx.ToRegisterContext().ToSyncContext("map-virtual-service-syncer"),
 			SyncServices:          mapping,
 			IsVirtualToHostSyncer: true,
 			From:                  ctx.VirtualManager,
