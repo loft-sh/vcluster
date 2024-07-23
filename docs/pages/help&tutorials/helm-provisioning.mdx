@@ -155,6 +155,10 @@ We can see the complete list of values that can be modified and their default se
 
 If you’re not familiar with what a vCluster distro is, the distro is the distribution of Kubernetes that runs inside of the virtual cluster. The default is k3s, and the other supported distros are k0s, eks, and k8s (a larger Kubernetes install that uses etcd).
 
+:::warning EKS Distribution 
+Though the EKS distribution is supported in v0.19, it is deprecated. Reminder: The Kubernetes distribution of the virtual cluster doesn't need to match the the distribution of your host cluster. You can use any distribution of vCluster to deploy vCluster on EKS clusters.
+:::
+
 We’ve used the default distro for this tutorial, k3s. To view its default values, we’d want to examine the file vcluster/charts/k3s/values.yaml.
 You can view the [entire file here](https://github.com/loft-sh/vcluster/tree/v0.19/charts/k3s/values.yaml).
 

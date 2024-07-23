@@ -19,12 +19,16 @@ brew install loft-sh/tap/vcluster
 For other platforms, see [the installation instructions](../getting-started/setup.mdx).
 
 # 2. Understanding vCluster distros
-A distro in vcluster is the Kubernetes distribution that runs inside the virtual cluster. There are four supported distros at the time of this writing:
+A distro in vcluster is the Kubernetes distribution that runs inside the virtual cluster. These are the supported distributions:
 
 - k3s (the default distro)
 - k0s
-- eks (the Kubernetes that is installed in AWS EKS clusters)
 - k8s (a Kubernetes with etcd)
+- eks (the Kubernetes that is installed in AWS EKS clusters) 
+
+:::warning EKS Distribution 
+Though the EKS distribution is supported in v0.19, it is deprecated. Reminder: The Kubernetes distribution of the virtual cluster doesn't need to match the the distribution of your host cluster. You can use any distribution of vCluster to deploy vCluster on EKS clusters.
+:::
 
 For this tutorial, we will use the k8s distro.
 If you're interested in enabling HA in rootless mode, or using the k3s distro, see some examples at the bottom of this page.
