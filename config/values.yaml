@@ -98,7 +98,7 @@ controlPlane:
         image:
           registry: registry.k8s.io
           repository: "kube-scheduler"
-          tag: "v1.29.0"
+          tag: "v1.30.2"
       env: []
       securityContext: {}
       resources:
@@ -137,44 +137,6 @@ controlPlane:
         registry: ""
         repository: "k0sproject/k0s"
         tag: "v1.30.2-k0s.0"
-      securityContext: {}
-      resources:
-        limits:
-          cpu: 100m
-          memory: 256Mi
-        requests:
-          cpu: 40m
-          memory: 64Mi
-
-    eks:
-      enabled: false
-      apiServer:
-        enabled: true
-        command: []
-        extraArgs: []
-        imagePullPolicy: ""
-        image:
-          registry: "public.ecr.aws"
-          repository: "eks-distro/kubernetes/kube-apiserver"
-          tag: "v1.28.2-eks-1-28-6"
-      controllerManager:
-        enabled: true
-        command: []
-        extraArgs: []
-        imagePullPolicy: ""
-        image:
-          registry: "public.ecr.aws"
-          repository: "eks-distro/kubernetes/kube-controller-manager"
-          tag: "v1.28.2-eks-1-28-6"
-      scheduler:
-        command: []
-        extraArgs: []
-        imagePullPolicy: ""
-        image:
-          registry: "public.ecr.aws"
-          repository: "eks-distro/kubernetes/kube-scheduler"
-          tag: "v1.28.2-eks-1-28-6"
-      env: []
       securityContext: {}
       resources:
         limits:

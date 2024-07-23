@@ -11,7 +11,6 @@ const (
 	K3SDistro = "k3s"
 	K8SDistro = "k8s"
 	K0SDistro = "k0s"
-	EKSDistro = "eks"
 	Unknown   = "unknown"
 )
 
@@ -70,30 +69,6 @@ var K8SEtcdVersionMap = map[string]string{
 	"1.29": "registry.k8s.io/etcd:3.5.10-0",
 	"1.28": "registry.k8s.io/etcd:3.5.9-0",
 	"1.27": "registry.k8s.io/etcd:3.5.7-0",
-}
-
-// EKSAPIVersionMap holds the supported eks api servers
-var EKSAPIVersionMap = map[string]string{
-	"1.28": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.28.2-eks-1-28-6",
-	"1.27": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.27.6-eks-1-27-13",
-	"1.26": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.26.9-eks-1-26-19",
-	"1.25": "public.ecr.aws/eks-distro/kubernetes/kube-apiserver:v1.25.14-eks-1-25-23",
-}
-
-// EKSControllerVersionMap holds the supported eks controller managers
-var EKSControllerVersionMap = map[string]string{
-	"1.28": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.28.2-eks-1-28-6",
-	"1.27": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.27.6-eks-1-27-13",
-	"1.26": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.26.9-eks-1-26-19",
-	"1.25": "public.ecr.aws/eks-distro/kubernetes/kube-controller-manager:v1.25.14-eks-1-25-23",
-}
-
-// EKSSchedulerVersionMap holds the supported eks controller managers
-var EKSSchedulerVersionMap = map[string]string{
-	"1.28": "public.ecr.aws/eks-distro/kubernetes/kube-scheduler:v1.28.2-eks-1-28-6",
-	"1.27": "public.ecr.aws/eks-distro/kubernetes/kube-scheduler:v1.27.6-eks-1-27-13",
-	"1.26": "public.ecr.aws/eks-distro/kubernetes/kube-scheduler:v1.26.9-eks-1-26-19",
-	"1.25": "public.ecr.aws/eks-distro/kubernetes/kube-scheduler:v1.25.14-eks-1-25-23",
 }
 
 // ExtraValuesOptions holds the chart options
@@ -155,12 +130,6 @@ func getExtraValues(options *ExtraValuesOptions) (*Config, error) {
 		return nil, err
 	}
 
-	// apply eks values
-	err = applyEKSExtraValues(vConfig, options)
-	if err != nil {
-		return nil, err
-	}
-
 	// add common release values
 	addCommonReleaseValues(vConfig, options)
 	return vConfig, nil
@@ -193,39 +162,6 @@ func applyK0SExtraValues(vConfig *Config, options *ExtraValuesOptions) error {
 	// build values
 	if image != "" {
 		vConfig.ControlPlane.Distro.K0S.Image = parseImage(image)
-	}
-
-	return nil
-}
-
-func applyEKSExtraValues(vConfig *Config, options *ExtraValuesOptions) error {
-	// get api server image
-	apiImage, err := getImageByVersion(options.KubernetesVersion, EKSAPIVersionMap)
-	if err != nil {
-		return err
-	}
-
-	// get controller image
-	controllerImage, err := getImageByVersion(options.KubernetesVersion, EKSControllerVersionMap)
-	if err != nil {
-		return err
-	}
-
-	// get scheduler image
-	schedulerImage, err := getImageByVersion(options.KubernetesVersion, EKSSchedulerVersionMap)
-	if err != nil {
-		return err
-	}
-
-	// build values
-	if apiImage != "" {
-		vConfig.ControlPlane.Distro.EKS.APIServer.Image = parseImage(apiImage)
-	}
-	if controllerImage != "" {
-		vConfig.ControlPlane.Distro.EKS.ControllerManager.Image = parseImage(controllerImage)
-	}
-	if schedulerImage != "" {
-		vConfig.ControlPlane.Distro.EKS.Scheduler.Image = parseImage(schedulerImage)
 	}
 
 	return nil
@@ -386,8 +322,6 @@ func addCommonReleaseValues(config *Config, options *ExtraValuesOptions) {
 			config.ControlPlane.Distro.K3S.Enabled = true
 		case K0SDistro:
 			config.ControlPlane.Distro.K0S.Enabled = true
-		case EKSDistro:
-			config.ControlPlane.Distro.EKS.Enabled = true
 		case K8SDistro:
 		}
 	}

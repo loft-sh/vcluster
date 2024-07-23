@@ -159,7 +159,7 @@ tests:
                 annotations:
                   test: test
         distro:
-          eks:
+          k8s:
             enabled: true
     asserts:
       - hasDocuments:

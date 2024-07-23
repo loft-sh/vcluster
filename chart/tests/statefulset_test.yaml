@@ -437,11 +437,11 @@ tests:
                 requests:
                   storage: 5Gi
 
-  - it: enable eks
+  - it: enable k8s
     set:
       controlPlane:
         distro:
-          eks:
+          k8s:
             enabled: true
     release:
       name: my-release
@@ -457,11 +457,11 @@ tests:
           path: spec.volumeClaimTemplates
           count: 1
 
-  - it: enable eks with deploy etcd
+  - it: enable k8s with deploy etcd
     set:
       controlPlane:
         distro:
-          eks:
+          k8s:
             enabled: true
         backingStore:
           etcd:

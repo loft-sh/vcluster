@@ -57,7 +57,7 @@ func NewFromConfig(ctx context.Context, vConfig *config.VirtualClusterConfig) (C
 		} else {
 			etcdEndpoints = "https://" + vConfig.Name + "-etcd:2379"
 		}
-	} else if vConfig.Distro() == vconfig.K8SDistro || vConfig.Distro() == vconfig.EKSDistro {
+	} else if vConfig.Distro() == vconfig.K8SDistro {
 		etcdEndpoints = constants.K8sKineEndpoint
 	} else if vConfig.Distro() == vconfig.K3SDistro {
 		etcdEndpoints = constants.K3sKineEndpoint
