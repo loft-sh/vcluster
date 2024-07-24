@@ -34,7 +34,8 @@ func convertValues(globalFlags *flags.GlobalFlags) *cobra.Command {
 		Long: `##############################################################
 ################## vcluster convert config ###################
 ##############################################################
-Converts virtual cluster config config to the v0.20 format
+Converts the given virtual cluster config to the v0.20 format.
+Reads from stdin if no file is given via "-f".
 
 Examples:
 vcluster convert config --distro k8s -f /my/k8s/values.yaml
