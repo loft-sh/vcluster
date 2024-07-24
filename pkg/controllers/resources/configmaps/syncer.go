@@ -14,7 +14,6 @@ import (
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -44,6 +43,12 @@ type configMapSyncer struct {
 	syncAllConfigMaps bool
 }
 
+var _ syncertypes.Syncer = &configMapSyncer{}
+
+func (s *configMapSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*corev1.ConfigMap](s)
+}
+
 var _ syncertypes.IndicesRegisterer = &configMapSyncer{}
 
 func (s *configMapSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
@@ -60,65 +65,63 @@ func (s *configMapSyncer) ModifyController(_ *synccontext.RegisterContext, build
 	return builder.Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(mapPods)), nil
 }
 
-func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	createNeeded, err := s.isConfigMapUsed(ctx, vObj)
+func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.ConfigMap]) (ctrl.Result, error) {
+	createNeeded, err := s.isConfigMapUsed(ctx, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !createNeeded {
 		return ctrl.Result{}, nil
 	}
 
-	if ctx.IsDelete {
-		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
+	if event.IsDelete() {
+		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
 	}
 
-	pObj := translate.HostMetadata(ctx, vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
-	return syncer.CreateHostObject(ctx, vObj, pObj, s.EventRecorder())
+	pObj := translate.HostMetadata(ctx, event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name, Namespace: event.Virtual.Namespace}, event.Virtual))
+	return syncer.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
 }
 
-func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
-	used, err := s.isConfigMapUsed(ctx, vObj)
+func (s *configMapSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.ConfigMap]) (_ ctrl.Result, retErr error) {
+	// virtual object is not here anymore, so we delete
+	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+}
+
+func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.ConfigMap]) (_ ctrl.Result, retErr error) {
+	used, err := s.isConfigMapUsed(ctx, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !used {
-		pConfigMap, err := meta.Accessor(pObj)
+		ctx.Log.Infof("delete physical config map %s/%s, because it is not used anymore", event.Host.GetNamespace(), event.Host.GetName())
+		err = ctx.PhysicalClient.Delete(ctx, event.Host)
 		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		ctx.Log.Infof("delete physical config map %s/%s, because it is not used anymore", pConfigMap.GetNamespace(), pConfigMap.GetName())
-		err = ctx.PhysicalClient.Delete(ctx, pObj)
-		if err != nil {
-			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", pConfigMap.GetNamespace(), pConfigMap.GetName(), err)
+			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", event.Host.GetNamespace(), event.Host.GetName(), err)
 			return ctrl.Result{}, err
 		}
 
 		return ctrl.Result{}, nil
 	}
-	pConfigMap, vConfigMap := pObj.(*corev1.ConfigMap), vObj.(*corev1.ConfigMap)
 
-	patch, err := patcher.NewSyncerPatcher(ctx, pConfigMap, vConfigMap)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 
 	defer func() {
-		if err := patch.Patch(ctx, pConfigMap, vConfigMap); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 		if retErr != nil {
-			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
 		}
 	}()
 
 	// check annotations & labels
-	pConfigMap.Annotations = translate.HostAnnotations(vConfigMap, pConfigMap)
-	pConfigMap.Labels = translate.HostLabels(ctx, vConfigMap, pConfigMap)
+	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
+	event.Host.Labels = translate.HostLabels(ctx, event.Virtual, event.Host)
 
 	// bidirectional sync
-	source, target := synccontext.SyncSourceTarget(ctx, pConfigMap, vConfigMap)
-	target.Data = source.Data
-	target.BinaryData = source.BinaryData
+	event.TargetObject().Data = event.SourceObject().Data
+	event.TargetObject().BinaryData = event.SourceObject().BinaryData
 	return ctrl.Result{}, nil
 }
 

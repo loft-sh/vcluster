@@ -26,15 +26,16 @@ type Syncer interface {
 	Object
 	synccontext.Mapper
 
-	// SyncToHost is called when a virtual object was created and needs to be synced down to the physical cluster
-	SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error)
-	// Sync is called to sync a virtual object with a physical object
-	Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error)
+	Syncer() Sync[client.Object]
 }
 
-type ToVirtualSyncer interface {
+type Sync[T client.Object] interface {
+	// SyncToHost is called when a virtual object was created and needs to be synced down to the physical cluster
+	SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[T]) (ctrl.Result, error)
+	// Sync is called to sync a virtual object with a physical object
+	Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[T]) (ctrl.Result, error)
 	// SyncToVirtual is called when a host object exists but the virtual object does not exist
-	SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error)
+	SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[T]) (ctrl.Result, error)
 }
 
 type FakeSyncer interface {

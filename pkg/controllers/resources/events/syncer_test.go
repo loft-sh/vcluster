@@ -93,7 +93,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, registerContext)
-				_, err := syncer.SyncToVirtual(syncContext, pEvent)
+				_, err := syncer.SyncToVirtual(syncContext, synccontext.NewSyncToVirtualEvent(pEvent))
 				assert.NilError(t, err)
 			},
 		},
@@ -115,7 +115,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, registerContext)
-				_, err := syncer.Sync(syncContext, pEventUpdated, vEvent)
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(pEventUpdated, vEvent))
 				assert.NilError(t, err)
 			},
 		},

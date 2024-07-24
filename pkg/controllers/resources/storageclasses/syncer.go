@@ -42,46 +42,54 @@ type storageClassSyncer struct {
 
 var _ syncertypes.Syncer = &storageClassSyncer{}
 
-func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	if ctx.IsDelete {
-		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
+func (s *storageClassSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*storagev1.StorageClass](s)
+}
+
+func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
+	if event.IsDelete() {
+		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
 	}
 
-	newStorageClass := translate.HostMetadata(ctx, vObj.(*storagev1.StorageClass), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName()}, vObj), s.excludedAnnotations...)
+	newStorageClass := translate.HostMetadata(ctx, event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name}, event.Virtual), s.excludedAnnotations...)
 	ctx.Log.Infof("create physical storage class %s", newStorageClass.Name)
 	err := ctx.PhysicalClient.Create(ctx, newStorageClass)
 	if err != nil {
-		ctx.Log.Infof("error syncing %s to physical cluster: %v", vObj.GetName(), err)
+		ctx.Log.Infof("error syncing %s to physical cluster: %v", event.Virtual.Name, err)
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 
 	defer func() {
-		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 	}()
 
-	pStorageClass, _, sourceSC, targetSC := synccontext.Cast[*storagev1.StorageClass](ctx, pObj, vObj)
-	pStorageClass.Annotations = translate.HostAnnotations(vObj, pObj, s.excludedAnnotations...)
-	pStorageClass.Labels = translate.HostLabels(ctx, vObj, pObj)
+	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
+	event.Host.Labels = translate.HostLabels(ctx, event.Virtual, event.Host)
 
 	// bidirectional sync
-	targetSC.Provisioner = sourceSC.Provisioner
-	targetSC.Parameters = sourceSC.Parameters
-	targetSC.ReclaimPolicy = sourceSC.ReclaimPolicy
-	targetSC.MountOptions = sourceSC.MountOptions
-	targetSC.AllowVolumeExpansion = sourceSC.AllowVolumeExpansion
-	targetSC.VolumeBindingMode = sourceSC.VolumeBindingMode
-	targetSC.AllowedTopologies = sourceSC.AllowedTopologies
+	event.TargetObject().Provisioner = event.SourceObject().Provisioner
+	event.TargetObject().Parameters = event.SourceObject().Parameters
+	event.TargetObject().ReclaimPolicy = event.SourceObject().ReclaimPolicy
+	event.TargetObject().MountOptions = event.SourceObject().MountOptions
+	event.TargetObject().AllowVolumeExpansion = event.SourceObject().AllowVolumeExpansion
+	event.TargetObject().VolumeBindingMode = event.SourceObject().VolumeBindingMode
+	event.TargetObject().AllowedTopologies = event.SourceObject().AllowedTopologies
 
 	return ctrl.Result{}, nil
+}
+
+func (s *storageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
+	// virtual object is not here anymore, so we delete
+	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
 }

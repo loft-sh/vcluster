@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -43,54 +44,56 @@ func (s *csinodeSyncer) Resource() client.Object {
 	return &storagev1.CSINode{}
 }
 
-var _ syncertypes.ToVirtualSyncer = &csinodeSyncer{}
 var _ syncertypes.Syncer = &csinodeSyncer{}
 
-func (s *csinodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func (s *csinodeSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*storagev1.CSINode](s)
+}
+
+func (s *csinodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.CSINode]) (ctrl.Result, error) {
 	// look up matching node name, don't sync if not found
 	node := &corev1.Node{}
-	err := s.virtualClient.Get(ctx, types.NamespacedName{Name: pObj.GetName()}, node)
+	err := s.virtualClient.Get(ctx, types.NamespacedName{Name: event.Host.Name}, node)
 	if kerrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	vObj := translate.CopyObjectWithName(pObj.(*storagev1.CSINode), types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, false)
+	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
 	ctx.Log.Infof("create CSINode %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
-func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
+func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.CSINode]) (_ ctrl.Result, retErr error) {
 	node := &corev1.Node{}
-	err := s.virtualClient.Get(ctx, types.NamespacedName{Name: pObj.GetName()}, node)
+	err := s.virtualClient.Get(ctx, types.NamespacedName{Name: event.Host.Name}, node)
 	if kerrors.IsNotFound(err) {
-		ctx.Log.Infof("delete virtual CSINode %s, because corresponding node object is missing", vObj.GetName())
-		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
+		ctx.Log.Infof("delete virtual CSINode %s, because corresponding node object is missing", event.Virtual.Name)
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// look up matching node name, delete csinode if not found
-	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 	}()
 
 	// check if there is a change
-	pCSINode, vCSINode, _, _ := synccontext.Cast[*storagev1.CSINode](ctx, pObj, vObj)
-	vCSINode.Annotations = pCSINode.Annotations
-	vCSINode.Labels = pCSINode.Labels
-	pCSINode.Spec.DeepCopyInto(&vCSINode.Spec)
+	event.Virtual.Annotations = event.Host.Annotations
+	event.Virtual.Labels = event.Host.Labels
+	event.Host.Spec.DeepCopyInto(&event.Virtual.Spec)
 	return ctrl.Result{}, nil
 }
 
-func (s *csinodeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	ctx.Log.Infof("delete virtual CSINode %s, because physical object is missing", vObj.GetName())
-	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
+func (s *csinodeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.CSINode]) (ctrl.Result, error) {
+	ctx.Log.Infof("delete virtual CSINode %s, because physical object is missing", event.Virtual.Name)
+	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 }

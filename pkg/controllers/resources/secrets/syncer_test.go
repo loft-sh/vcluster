@@ -91,7 +91,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.(*secretSyncer).SyncToHost(syncContext, baseSecret)
+				_, err := syncer.(*secretSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(baseSecret))
 				assert.NilError(t, err)
 			},
 		},
@@ -109,7 +109,7 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Experimental.SyncSettings.SyncLabels = []string{testLabel}
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.(*secretSyncer).SyncToHost(syncContext, baseSecret)
+				_, err := syncer.(*secretSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(baseSecret))
 				assert.NilError(t, err)
 			},
 		},
@@ -130,7 +130,7 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Experimental.SyncSettings.SyncLabels = []string{testLabel}
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.(*secretSyncer).Sync(syncContext, syncedSecret, updatedSecret)
+				_, err := syncer.(*secretSyncer).Sync(syncContext, synccontext.NewSyncEvent(syncedSecret, updatedSecret))
 				assert.NilError(t, err)
 			},
 		},
@@ -147,7 +147,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.(*secretSyncer).Sync(syncContext, syncedSecret, updatedSecret)
+				_, err := syncer.(*secretSyncer).Sync(syncContext, synccontext.NewSyncEvent(syncedSecret, updatedSecret))
 				assert.NilError(t, err)
 			},
 		},

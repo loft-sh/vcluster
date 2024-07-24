@@ -6,6 +6,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -97,6 +98,12 @@ func (s *nodeSyncer) Resource() client.Object {
 
 func (s *nodeSyncer) Name() string {
 	return "node"
+}
+
+var _ syncertypes.Syncer = &nodeSyncer{}
+
+func (s *nodeSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*corev1.Node](s)
 }
 
 var _ syncertypes.ControllerModifier = &nodeSyncer{}
@@ -254,62 +261,53 @@ func registerIndices(ctx *synccontext.RegisterContext) error {
 	})
 }
 
-var _ syncertypes.Syncer = &nodeSyncer{}
-
-func (s *nodeSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	vNode := vObj.(*corev1.Node)
-	ctx.Log.Infof("delete virtual node %s, because it is not needed anymore", vNode.Name)
-	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
+func (s *nodeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Node]) (ctrl.Result, error) {
+	ctx.Log.Infof("delete virtual node %s, because it is not needed anymore", event.Virtual.Name)
+	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 }
 
-func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
-	pNode := pObj.(*corev1.Node)
-	vNode := vObj.(*corev1.Node)
-
-	shouldSync, err := s.shouldSync(ctx, pNode)
+func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Node]) (_ ctrl.Result, retErr error) {
+	shouldSync, err := s.shouldSync(ctx, event.Host)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !shouldSync {
-		ctx.Log.Infof("delete virtual node %s, because there is no virtual pod with that node", pNode.Name)
-		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
+		ctx.Log.Infof("delete virtual node %s, because there is no virtual pod with that node", event.Host.Name)
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 	}
 
-	patch, err := patcher.NewSyncerPatcher(ctx, pNode, vNode)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		if err := patch.Patch(ctx, pNode, vNode); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 	}()
 
-	err = s.translateUpdateStatus(ctx, pNode, vNode)
+	err = s.translateUpdateStatus(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("update node status: %w", err)
 	}
 
-	s.translateUpdateBackwards(pNode, vNode)
+	s.translateUpdateBackwards(event.Host, event.Virtual)
 	return ctrl.Result{}, nil
 }
 
-var _ syncertypes.ToVirtualSyncer = &nodeSyncer{}
-
-func (s *nodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	pNode := pObj.(*corev1.Node)
-	shouldSync, err := s.shouldSync(ctx, pNode)
+func (s *nodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Node]) (ctrl.Result, error) {
+	shouldSync, err := s.shouldSync(ctx, event.Host)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !shouldSync {
 		return ctrl.Result{}, nil
 	}
 
-	ctx.Log.Infof("create virtual node %s, because there is a virtual pod with that node", pNode.Name)
+	ctx.Log.Infof("create virtual node %s, because there is a virtual pod with that node", event.Host.Name)
 	err = ctx.VirtualClient.Create(ctx, &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        pNode.Name,
-			Labels:      pNode.Labels,
-			Annotations: pNode.Annotations,
+			Name:        event.Host.Name,
+			Labels:      event.Host.Labels,
+			Annotations: event.Host.Annotations,
 		},
 	})
 	if err != nil {

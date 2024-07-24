@@ -19,10 +19,10 @@ import (
 )
 
 var (
-	baseName types.NamespacedName = types.NamespacedName{
+	baseName = types.NamespacedName{
 		Name: "mynode",
 	}
-	basePod corev1.Pod = corev1.Pod{
+	basePod = corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "mypod",
 		},
@@ -31,7 +31,7 @@ var (
 		},
 	}
 
-	baseNode corev1.Node = corev1.Node{
+	baseNode = corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 		},
@@ -43,7 +43,7 @@ var (
 			},
 		},
 	}
-	baseVNode corev1.Node = corev1.Node{
+	baseVNode = corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: baseName.Name,
 		},
@@ -101,7 +101,7 @@ func TestSyncToVirtual(t *testing.T) {
 				Sync: func(ctx *synccontext.RegisterContext) {
 					ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 					syncCtx, syncer := newFakeSyncer(t, ctx)
-					_, err := syncer.SyncToVirtual(syncCtx, baseNode.DeepCopy())
+					_, err := syncer.SyncToVirtual(syncCtx, synccontext.NewSyncToVirtualEvent(baseNode.DeepCopy()))
 					assert.NilError(t, err)
 				},
 			}
@@ -321,7 +321,7 @@ func TestSyncBothExist(t *testing.T) {
 			registerContext.Config.Sync.FromHost.Nodes.Selector.Labels = tC.syncFromHostLabel
 
 			syncCtx, syncer := newFakeSyncer(t, registerContext)
-			_, err := syncer.Sync(syncCtx, physical, initialVNode.DeepCopy())
+			_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(physical, initialVNode.DeepCopy()))
 			assert.NilError(t, err)
 
 			test.Validate(t)

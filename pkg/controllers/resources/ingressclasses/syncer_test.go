@@ -94,7 +94,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*ingressClassSyncer).SyncToVirtual(syncCtx, pObj)
+				_, err := syncer.(*ingressClassSyncer).SyncToVirtual(syncCtx, synccontext.NewSyncToVirtualEvent(pObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -105,7 +105,7 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*ingressClassSyncer).SyncToHost(syncCtx, vObj)
+				_, err := syncer.(*ingressClassSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -121,7 +121,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*ingressClassSyncer).Sync(syncCtx, pObjUpdated, vObj)
+				_, err := syncer.(*ingressClassSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pObjUpdated, vObj))
 				assert.NilError(t, err)
 			},
 		},

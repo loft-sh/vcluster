@@ -6,8 +6,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := ctx.Mappings.ByGVK(mappings.Events())
 	if err != nil {
 		return nil, err
@@ -43,43 +44,42 @@ func (s *eventSyncer) Name() string {
 	return "event"
 }
 
-var _ syncer.Syncer = &eventSyncer{}
+var _ syncertypes.Syncer = &eventSyncer{}
 
-func (s *eventSyncer) SyncToHost(_ *synccontext.SyncContext, _ client.Object) (ctrl.Result, error) {
+func (s *eventSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*corev1.Event](s)
+}
+
+func (s *eventSyncer) SyncToHost(_ *synccontext.SyncContext, _ *synccontext.SyncToHostEvent[*corev1.Event]) (ctrl.Result, error) {
 	// this should never happen since we ignore virtual events and don't handle objects we can't find
 	panic("unimplemented")
 }
 
-func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
-	// convert current events
-	pEvent := pObj.(*corev1.Event)
-	vEvent := vObj.(*corev1.Event)
-
-	patch, err := patcher.NewSyncerPatcher(ctx, pEvent, vEvent)
+func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Event]) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		if err := patch.Patch(ctx, pEvent, vEvent); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 	}()
 
 	// update event
-	err = s.translateEvent(ctx, pEvent, vEvent)
+	err = s.translateEvent(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
 	}
+
 	return ctrl.Result{}, nil
 }
 
-var _ syncer.ToVirtualSyncer = &eventSyncer{}
-
-func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
+func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Event]) (ctrl.Result, error) {
 	// build the virtual event
-	vObj := pObj.DeepCopyObject().(*corev1.Event)
+	vObj := event.Host.DeepCopy()
 	translate.ResetObjectMetadata(vObj)
-	err := s.translateEvent(ctx, pObj.(*corev1.Event), vObj)
+	err := s.translateEvent(ctx, event.Host, vObj)
 	if err != nil {
 		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
 	}

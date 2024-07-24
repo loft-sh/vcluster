@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -38,42 +39,43 @@ func (s *hostStorageClassSyncer) Resource() client.Object {
 	return &storagev1.StorageClass{}
 }
 
-var _ syncertypes.ToVirtualSyncer = &hostStorageClassSyncer{}
+var _ syncertypes.Syncer = &hostStorageClassSyncer{}
 
-func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj := translate.CopyObjectWithName(pObj.(*storagev1.StorageClass), types.NamespacedName{Name: pObj.GetName()}, false)
+func (s *hostStorageClassSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*storagev1.StorageClass](s)
+}
+
+func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
+	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name}, false)
 	ctx.Log.Infof("create storage class %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
-var _ syncertypes.Syncer = &hostStorageClassSyncer{}
-
-func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 	}()
 
 	// check if there is a change
-	pSC, vSC, _, _ := synccontext.Cast[*storagev1.StorageClass](ctx, pObj, vObj)
-	vSC.Annotations = pSC.Annotations
-	vSC.Labels = pSC.Labels
-	vSC.Provisioner = pSC.Provisioner
-	vSC.Parameters = pSC.Parameters
-	vSC.ReclaimPolicy = pSC.ReclaimPolicy
-	vSC.MountOptions = pSC.MountOptions
-	vSC.AllowVolumeExpansion = pSC.AllowVolumeExpansion
-	vSC.VolumeBindingMode = pSC.VolumeBindingMode
-	vSC.AllowedTopologies = pSC.AllowedTopologies
+	event.Virtual.Annotations = event.Host.Annotations
+	event.Virtual.Labels = event.Host.Labels
+	event.Virtual.Provisioner = event.Host.Provisioner
+	event.Virtual.Parameters = event.Host.Parameters
+	event.Virtual.ReclaimPolicy = event.Host.ReclaimPolicy
+	event.Virtual.MountOptions = event.Host.MountOptions
+	event.Virtual.AllowVolumeExpansion = event.Host.AllowVolumeExpansion
+	event.Virtual.VolumeBindingMode = event.Host.VolumeBindingMode
+	event.Virtual.AllowedTopologies = event.Host.AllowedTopologies
 	return ctrl.Result{}, nil
 }
 
-func (s *hostStorageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	ctx.Log.Infof("delete virtual storage class %s, because physical object is missing", vObj.GetName())
-	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
+func (s *hostStorageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
+	ctx.Log.Infof("delete virtual storage class %s, because physical object is missing", event.Virtual)
+	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 }

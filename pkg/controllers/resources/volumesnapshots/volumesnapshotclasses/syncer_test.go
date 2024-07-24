@@ -21,7 +21,6 @@ func TestSync(t *testing.T) {
 
 	vObjectMeta := metav1.ObjectMeta{
 		Name:            "testclass",
-		Namespace:       "test",
 		ResourceVersion: "999",
 	}
 	vBaseVSC := &volumesnapshotv1.VolumeSnapshotClass{
@@ -49,7 +48,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotClassSyncer).SyncToVirtual(syncCtx, vBaseVSC.DeepCopy())
+				_, err := syncer.(*volumeSnapshotClassSyncer).SyncToVirtual(syncCtx, synccontext.NewSyncToVirtualEvent(vBaseVSC.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -65,7 +64,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotClassSyncer).Sync(syncCtx, vMoreParamsVSC.DeepCopy(), vBaseVSC.DeepCopy())
+				_, err := syncer.(*volumeSnapshotClassSyncer).Sync(syncCtx, synccontext.NewSyncEvent(vMoreParamsVSC.DeepCopy(), vBaseVSC.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -81,7 +80,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotClassSyncer).Sync(syncCtx, vBaseVSC.DeepCopy(), vMoreParamsVSC.DeepCopy())
+				_, err := syncer.(*volumeSnapshotClassSyncer).Sync(syncCtx, synccontext.NewSyncEvent(vBaseVSC.DeepCopy(), vMoreParamsVSC.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -93,7 +92,7 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotClassSyncer).SyncToHost(syncCtx, vBaseVSC.DeepCopy())
+				_, err := syncer.(*volumeSnapshotClassSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vBaseVSC.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
