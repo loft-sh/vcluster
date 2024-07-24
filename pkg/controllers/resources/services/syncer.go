@@ -12,7 +12,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
-	"github.com/loft-sh/vcluster/pkg/syncer/types"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,7 +24,7 @@ import (
 
 var ServiceBlockDeletion = "vcluster.loft.sh/block-deletion"
 
-func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := ctx.Mappings.ByGVK(mappings.Services())
 	if err != nil {
 		return nil, err
@@ -45,48 +45,51 @@ func New(ctx *synccontext.RegisterContext) (types.Object, error) {
 }
 
 type serviceSyncer struct {
-	types.GenericTranslator
+	syncertypes.GenericTranslator
 
 	excludedAnnotations []string
 
 	serviceName string
 }
 
-var _ types.OptionsProvider = &serviceSyncer{}
+var _ syncertypes.OptionsProvider = &serviceSyncer{}
 
-func (s *serviceSyncer) Options() *types.Options {
-	return &types.Options{
+func (s *serviceSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
 		DisableUIDDeletion: true,
 	}
 }
 
-func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	if ctx.IsDelete {
-		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
-	}
+var _ syncertypes.Syncer = &serviceSyncer{}
 
-	return syncer.CreateHostObject(ctx, vObj, s.translate(ctx, vObj.(*corev1.Service)), s.EventRecorder())
+func (s *serviceSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*corev1.Service](s)
 }
 
-func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
-	vService := vObj.(*corev1.Service)
-	pService := pObj.(*corev1.Service)
+func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Service]) (ctrl.Result, error) {
+	if event.IsDelete() {
+		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
+	}
 
+	return syncer.CreateHostObject(ctx, event.Virtual, s.translate(ctx, event.Virtual), s.EventRecorder())
+}
+
+func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Service]) (_ ctrl.Result, retErr error) {
 	// delay if we are in the middle of a switch operation
-	if isSwitchingFromExternalName(pService, vService) {
+	if isSwitchingFromExternalName(event.Host, event.Virtual) {
 		return ctrl.Result{RequeueAfter: time.Second * 3}, nil
 	}
 
 	// check if recreating service is necessary
-	if vService.Spec.ClusterIP != pService.Spec.ClusterIP {
-		vService.Spec.ClusterIPs = nil
-		vService.Spec.ClusterIP = pService.Spec.ClusterIP
-		ctx.Log.Infof("recreating virtual service %s/%s, because cluster ip differs %s != %s", vService.Namespace, vService.Name, pService.Spec.ClusterIP, vService.Spec.ClusterIP)
+	if event.Virtual.Spec.ClusterIP != event.Host.Spec.ClusterIP {
+		event.Virtual.Spec.ClusterIPs = nil
+		event.Virtual.Spec.ClusterIP = event.Host.Spec.ClusterIP
+		ctx.Log.Infof("recreating virtual service %s/%s, because cluster ip differs %s != %s", event.Virtual.Namespace, event.Virtual.Name, event.Host.Spec.ClusterIP, event.Virtual.Spec.ClusterIP)
 
 		// recreate the new service with the correct cluster ip
-		err := recreateService(ctx, ctx.VirtualClient, vService)
+		err := recreateService(ctx, ctx.VirtualClient, event.Virtual)
 		if err != nil {
-			ctx.Log.Errorf("error creating virtual service: %s/%s", vService.Namespace, vService.Name)
+			ctx.Log.Errorf("error creating virtual service: %s/%s", event.Virtual.Namespace, event.Virtual.Name)
 			return ctrl.Result{}, err
 		}
 
@@ -94,50 +97,47 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, v
 	}
 
 	// patch the service
-	patch, err := patcher.NewSyncerPatcher(ctx, pService, vService)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		if err := patch.Patch(ctx, pService, vService); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 		if retErr != nil {
-			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
 		}
 	}()
 
-	// check
-	sourceService, targetService := synccontext.SyncSourceTarget(ctx, pService, vService)
-
 	// update spec bidirectionally
-	targetService.Spec.ExternalIPs = sourceService.Spec.ExternalIPs
-	targetService.Spec.LoadBalancerIP = sourceService.Spec.LoadBalancerIP
-	targetService.Spec.Ports = sourceService.Spec.Ports
-	targetService.Spec.PublishNotReadyAddresses = sourceService.Spec.PublishNotReadyAddresses
-	targetService.Spec.Type = sourceService.Spec.Type
-	targetService.Spec.ExternalName = sourceService.Spec.ExternalName
-	targetService.Spec.ExternalTrafficPolicy = sourceService.Spec.ExternalTrafficPolicy
-	targetService.Spec.SessionAffinity = sourceService.Spec.SessionAffinity
-	targetService.Spec.SessionAffinityConfig = sourceService.Spec.SessionAffinityConfig
-	targetService.Spec.LoadBalancerSourceRanges = sourceService.Spec.LoadBalancerSourceRanges
-	targetService.Spec.HealthCheckNodePort = sourceService.Spec.HealthCheckNodePort
+	event.TargetObject().Spec.ExternalIPs = event.SourceObject().Spec.ExternalIPs
+	event.TargetObject().Spec.LoadBalancerIP = event.SourceObject().Spec.LoadBalancerIP
+	event.TargetObject().Spec.Ports = event.SourceObject().Spec.Ports
+	event.TargetObject().Spec.PublishNotReadyAddresses = event.SourceObject().Spec.PublishNotReadyAddresses
+	event.TargetObject().Spec.Type = event.SourceObject().Spec.Type
+	event.TargetObject().Spec.ExternalName = event.SourceObject().Spec.ExternalName
+	event.TargetObject().Spec.ExternalTrafficPolicy = event.SourceObject().Spec.ExternalTrafficPolicy
+	event.TargetObject().Spec.SessionAffinity = event.SourceObject().Spec.SessionAffinity
+	event.TargetObject().Spec.SessionAffinityConfig = event.SourceObject().Spec.SessionAffinityConfig
+	event.TargetObject().Spec.LoadBalancerSourceRanges = event.SourceObject().Spec.LoadBalancerSourceRanges
+	event.TargetObject().Spec.HealthCheckNodePort = event.SourceObject().Spec.HealthCheckNodePort
 
 	// update status
-	vService.Status = pService.Status
+	event.Virtual.Status = event.Host.Status
 
 	// check annotations & labels
-	pService.Labels = translate.HostLabels(ctx, vObj, pObj)
-	updatedAnnotations := translate.HostAnnotations(vObj, pObj, s.excludedAnnotations...)
+	event.Host.Labels = translate.HostLabels(ctx, event.Virtual, event.Host)
+	updatedAnnotations := translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
 
 	// remove the ServiceBlockDeletion annotation if it's not needed
-	if vService.Spec.ClusterIP == pService.Spec.ClusterIP {
+	if event.Virtual.Spec.ClusterIP == event.Host.Spec.ClusterIP {
 		delete(updatedAnnotations, ServiceBlockDeletion)
 	}
-	pService.Annotations = updatedAnnotations
+	event.Host.Annotations = updatedAnnotations
 
 	// translate selector
-	pService.Spec.Selector = translate.HostLabelsMap(ctx, vService.Spec.Selector, pService.Spec.Selector, vService.Namespace)
+	event.Host.Spec.Selector = translate.HostLabelsMap(ctx, event.Virtual.Spec.Selector, event.Host.Spec.Selector, event.Virtual.Namespace)
 	return ctrl.Result{}, nil
 }
 
@@ -145,10 +145,8 @@ func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Serv
 	return vService.Spec.Type == corev1.ServiceTypeExternalName && pService.Spec.Type != vService.Spec.Type && pService.Spec.ClusterIP != ""
 }
 
-var _ types.ToVirtualSyncer = &serviceSyncer{}
-
-func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	isManaged, err := s.IsManaged(ctx, pObj)
+func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Service]) (ctrl.Result, error) {
+	isManaged, err := s.IsManaged(ctx, event.Host)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !isManaged {
@@ -158,12 +156,11 @@ func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.
 	// we have to delay deletion here if a vObj does not (yet) exist for a service that was just
 	// created, because vcluster intercepts those calls and first creates a service inside the host
 	// cluster and then inside the virtual cluster.
-	pService := pObj.(*corev1.Service)
-	if pService.Annotations != nil && pService.Annotations[ServiceBlockDeletion] == "true" {
+	if event.Host.Annotations != nil && event.Host.Annotations[ServiceBlockDeletion] == "true" {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	return syncer.DeleteHostObject(ctx, pObj, "virtual object was deleted")
+	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
 }
 
 func recreateService(ctx context.Context, virtualClient client.Client, vService *corev1.Service) error {
@@ -190,7 +187,7 @@ func recreateService(ctx context.Context, virtualClient client.Client, vService 
 	return nil
 }
 
-var _ types.Starter = &serviceSyncer{}
+var _ syncertypes.Starter = &serviceSyncer{}
 
 func (s *serviceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	// don't do anything for the kubernetes service

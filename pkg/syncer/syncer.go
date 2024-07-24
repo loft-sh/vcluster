@@ -44,6 +44,8 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 	return &SyncController{
 		syncer: syncer,
 
+		genericSyncer: syncer.Syncer(),
+
 		config: ctx.Config,
 
 		mappings: ctx.Mappings,
@@ -74,6 +76,8 @@ func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer)
 type SyncController struct {
 	syncer syncertypes.Syncer
 
+	genericSyncer syncertypes.Sync[client.Object]
+
 	config *config.VirtualClusterConfig
 
 	mappings synccontext.MappingsRegistry
@@ -92,7 +96,7 @@ type SyncController struct {
 	locker *locker.Locker
 }
 
-func (r *SyncController) newSyncContext(ctx context.Context, logName string, eventSource synccontext.EventSource, isDelete bool) *synccontext.SyncContext {
+func (r *SyncController) newSyncContext(ctx context.Context, logName string) *synccontext.SyncContext {
 	return &synccontext.SyncContext{
 		Context:                ctx,
 		Config:                 r.config,
@@ -101,24 +105,22 @@ func (r *SyncController) newSyncContext(ctx context.Context, logName string, eve
 		CurrentNamespace:       r.currentNamespace,
 		CurrentNamespaceClient: r.currentNamespaceClient,
 		VirtualClient:          r.virtualClient,
-		EventSource:            eventSource,
 		Mappings:               r.mappings,
-		IsDelete:               isDelete,
 	}
 }
 
 func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_ ctrl.Result, err error) {
 	// extract if this was a delete request
-	origReq, isDelete := fromDeleteRequest(origReq)
+	origReq, syncEventType := fromDeleteRequest(origReq)
 
 	// determine event source
-	eventSource := synccontext.EventSourceVirtual
+	syncEventSource := synccontext.SyncEventSourceVirtual
 	if isHostRequest(origReq) {
-		eventSource = synccontext.EventSourceHost
+		syncEventSource = synccontext.SyncEventSourceHost
 	}
 
 	// create sync context
-	syncContext := r.newSyncContext(ctx, origReq.Name, eventSource, isDelete)
+	syncContext := r.newSyncContext(ctx, origReq.Name)
 
 	// if host request we need to find the virtual object
 	vReq, pReq, err := r.extractRequest(syncContext, origReq)
@@ -167,9 +169,20 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 			return DeleteHostObject(syncContext, pObj, "virtual object uid is different")
 		}
 
-		return r.syncer.Sync(syncContext, pObj, vObj)
+		return r.genericSyncer.Sync(syncContext, &synccontext.SyncEvent[client.Object]{
+			Type:   syncEventType,
+			Source: syncEventSource,
+
+			Virtual: vObj,
+			Host:    pObj,
+		})
 	} else if vObj != nil {
-		return r.syncer.SyncToHost(syncContext, vObj)
+		return r.genericSyncer.SyncToHost(syncContext, &synccontext.SyncToHostEvent[client.Object]{
+			Type:   syncEventType,
+			Source: syncEventSource,
+
+			Virtual: vObj,
+		})
 	} else if pObj != nil {
 		if pObj.GetAnnotations() != nil {
 			if shouldSkip, ok := pObj.GetAnnotations()[translate.SkipBackSyncInMultiNamespaceMode]; ok && shouldSkip == "true" {
@@ -178,13 +191,12 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 			}
 		}
 
-		// check if virtual syncer
-		toVirtual, ok := r.syncer.(syncertypes.ToVirtualSyncer)
-		if ok {
-			return toVirtual.SyncToVirtual(syncContext, pObj)
-		}
+		return r.genericSyncer.SyncToVirtual(syncContext, &synccontext.SyncToVirtualEvent[client.Object]{
+			Type:   syncEventType,
+			Source: syncEventSource,
 
-		return DeleteHostObject(syncContext, pObj, "virtual object was deleted")
+			Host: pObj,
+		})
 	}
 
 	return ctrl.Result{}, nil
@@ -371,7 +383,7 @@ func (r *SyncController) enqueueVirtual(ctx context.Context, obj client.Object, 
 	// add a new request for the host object as otherwise this information might be lost after a delete event
 	if isDelete {
 		// add a new request for the host object
-		name := r.syncer.VirtualToHost(r.newSyncContext(ctx, obj.GetName(), synccontext.EventSourceVirtual, isDelete), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+		name := r.syncer.VirtualToHost(r.newSyncContext(ctx, obj.GetName()), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if name.Name != "" {
 			q.Add(toDeleteRequest(toHostRequest(reconcile.Request{
 				NamespacedName: name,
@@ -403,7 +415,7 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 	}
 
 	// sync context
-	syncContext := r.newSyncContext(ctx, obj.GetName(), synccontext.EventSourceHost, isDelete)
+	syncContext := r.newSyncContext(ctx, obj.GetName())
 
 	// we have a physical object here
 	managed, err := r.syncer.IsManaged(syncContext, obj)
@@ -553,9 +565,9 @@ func isHostRequest(name reconcile.Request) bool {
 	return strings.HasPrefix(name.Namespace, hostObjectRequestPrefix)
 }
 
-func fromDeleteRequest(req reconcile.Request) (reconcile.Request, bool) {
+func fromDeleteRequest(req reconcile.Request) (reconcile.Request, synccontext.SyncEventType) {
 	if !strings.HasPrefix(req.Namespace, deleteObjectRequestPrefix) {
-		return req, false
+		return req, synccontext.SyncEventTypeUnknown
 	}
 
 	return reconcile.Request{
@@ -563,7 +575,7 @@ func fromDeleteRequest(req reconcile.Request) (reconcile.Request, bool) {
 			Namespace: strings.TrimPrefix(req.Namespace, deleteObjectRequestPrefix),
 			Name:      req.Name,
 		},
-	}, true
+	}, synccontext.SyncEventTypeDelete
 }
 
 func fromHostRequest(req reconcile.Request) reconcile.Request {

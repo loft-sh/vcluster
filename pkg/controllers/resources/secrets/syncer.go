@@ -57,6 +57,12 @@ type secretSyncer struct {
 	syncAllSecrets bool
 }
 
+var _ syncertypes.Syncer = &secretSyncer{}
+
+func (s *secretSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*corev1.Secret](s)
+}
+
 var _ syncertypes.IndicesRegisterer = &secretSyncer{}
 
 func (s *secretSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
@@ -93,8 +99,8 @@ func (s *secretSyncer) ModifyController(registerCtx *synccontext.RegisterContext
 	})), nil
 }
 
-func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	createNeeded, err := s.isSecretUsed(ctx, vObj)
+func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Secret]) (ctrl.Result, error) {
+	createNeeded, err := s.isSecretUsed(ctx, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !createNeeded {
@@ -102,28 +108,28 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Obje
 	}
 
 	// delete if the host object was deleted
-	if ctx.IsDelete {
-		return syncer.DeleteVirtualObject(ctx, vObj, "host object was delete")
+	if event.IsDelete() {
+		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was delete")
 	}
 
 	// translate secret
-	newSecret := translate.HostMetadata(ctx, vObj.(*corev1.Secret), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
+	newSecret := translate.HostMetadata(ctx, event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name, Namespace: event.Virtual.Namespace}, event.Virtual))
 	if newSecret.Type == corev1.SecretTypeServiceAccountToken {
 		newSecret.Type = corev1.SecretTypeOpaque
 	}
 
-	return syncer.CreateHostObject(ctx, vObj, newSecret, s.EventRecorder())
+	return syncer.CreateHostObject(ctx, event.Virtual, newSecret, s.EventRecorder())
 }
 
-func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
-	used, err := s.isSecretUsed(ctx, vObj)
+func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Secret]) (_ ctrl.Result, retErr error) {
+	used, err := s.isSecretUsed(ctx, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !used {
-		ctx.Log.Infof("delete physical secret %s/%s, because it is not used anymore", pObj.GetNamespace(), pObj.GetName())
-		err = ctx.PhysicalClient.Delete(ctx, pObj)
+		ctx.Log.Infof("delete physical secret %s/%s, because it is not used anymore", event.Host.Namespace, event.Host.Name)
+		err = ctx.PhysicalClient.Delete(ctx, event.Host)
 		if err != nil {
-			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", pObj.GetNamespace(), pObj.GetName(), err)
+			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", event.Host.Namespace, event.Host.Name, err)
 			return ctrl.Result{}, err
 		}
 
@@ -131,35 +137,37 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vO
 	}
 
 	// patch objects
-	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 
 		if retErr != nil {
-			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
 		}
 	}()
 
-	// cast objects
-	pSecret, vSecret, sourceSecret, targetSecret := synccontext.Cast[*corev1.Secret](ctx, pObj, vObj)
-
 	// check data
-	targetSecret.Data = sourceSecret.Data
+	event.TargetObject().Data = event.SourceObject().Data
 
 	// check secret type
-	if vSecret.Type != pSecret.Type && vSecret.Type != corev1.SecretTypeServiceAccountToken {
-		targetSecret.Type = sourceSecret.Type
+	if event.Virtual.Type != event.Host.Type && event.Virtual.Type != corev1.SecretTypeServiceAccountToken {
+		event.TargetObject().Type = event.SourceObject().Type
 	}
 
 	// check annotations
-	pSecret.Annotations = translate.HostAnnotations(vObj, pObj)
-	pSecret.Labels = translate.HostLabels(ctx, vObj, pObj)
+	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
+	event.Host.Labels = translate.HostLabels(ctx, event.Virtual, event.Host)
 	return ctrl.Result{}, nil
+}
+
+func (s *secretSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Secret]) (_ ctrl.Result, retErr error) {
+	// virtual object is not here anymore, so we delete
+	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
 }
 
 func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, vObj runtime.Object) (bool, error) {

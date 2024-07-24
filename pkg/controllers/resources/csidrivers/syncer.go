@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -38,35 +39,37 @@ func (s *csidriverSyncer) Resource() client.Object {
 	return &storagev1.CSIDriver{}
 }
 
-var _ syncertypes.ToVirtualSyncer = &csidriverSyncer{}
 var _ syncertypes.Syncer = &csidriverSyncer{}
 
-func (s *csidriverSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj := translate.CopyObjectWithName(pObj.(*storagev1.CSIDriver), types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, false)
+func (s *csidriverSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*storagev1.CSIDriver](s)
+}
+
+func (s *csidriverSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.CSIDriver]) (ctrl.Result, error) {
+	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
 	ctx.Log.Infof("create CSIDriver %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
-func (s *csidriverSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+func (s *csidriverSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.CSIDriver]) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 	}()
 
 	// check if there is a change
-	pCSIDriver, vCSIDriver, _, _ := synccontext.Cast[*storagev1.CSIDriver](ctx, pObj, vObj)
-	vCSIDriver.Annotations = pCSIDriver.Annotations
-	vCSIDriver.Labels = pCSIDriver.Labels
-	pCSIDriver.Spec.DeepCopyInto(&vCSIDriver.Spec)
+	event.Virtual.Annotations = event.Host.Annotations
+	event.Virtual.Labels = event.Host.Labels
+	event.Host.Spec.DeepCopyInto(&event.Virtual.Spec)
 	return ctrl.Result{}, nil
 }
 
-func (s *csidriverSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	ctx.Log.Infof("delete virtual CSIDriver %s, because physical object is missing", vObj.GetName())
-	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
+func (s *csidriverSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.CSIDriver]) (ctrl.Result, error) {
+	ctx.Log.Infof("delete virtual CSIDriver %s, because host object is missing", event.Virtual.Name)
+	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 }

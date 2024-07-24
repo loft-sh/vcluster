@@ -6,6 +6,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	storagev1 "k8s.io/api/storage/v1"
@@ -45,10 +46,7 @@ type csistoragecapacitySyncer struct {
 	physicalClient              client.Client
 }
 
-var (
-	_ syncertypes.ToVirtualSyncer = &csistoragecapacitySyncer{}
-	_ syncertypes.Syncer          = &csistoragecapacitySyncer{}
-)
+var _ syncertypes.Syncer = &csistoragecapacitySyncer{}
 
 func (s *csistoragecapacitySyncer) Name() string {
 	return "csistoragecapacity"
@@ -58,8 +56,12 @@ func (s *csistoragecapacitySyncer) Resource() client.Object {
 	return &storagev1.CSIStorageCapacity{}
 }
 
-func (s *csistoragecapacitySyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj, shouldSkip, err := s.translateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity))
+func (s *csistoragecapacitySyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*storagev1.CSIStorageCapacity](s)
+}
+
+func (s *csistoragecapacitySyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.CSIStorageCapacity]) (ctrl.Result, error) {
+	vObj, shouldSkip, err := s.translateBackwards(ctx, event.Host)
 	if err != nil || shouldSkip {
 		return ctrl.Result{}, err
 	}
@@ -68,8 +70,8 @@ func (s *csistoragecapacitySyncer) SyncToVirtual(ctx *synccontext.SyncContext, p
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
-func (s *csistoragecapacitySyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+func (s *csistoragecapacitySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.CSIStorageCapacity]) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -80,27 +82,25 @@ func (s *csistoragecapacitySyncer) Sync(ctx *synccontext.SyncContext, pObj clien
 			// the virtual object was deleted so we don't patch
 			return
 		}
-		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 	}()
 
 	// check if there is a change
-	shouldSkip, err = s.translateUpdateBackwards(ctx, pObj.(*storagev1.CSIStorageCapacity), vObj.(*storagev1.CSIStorageCapacity))
+	shouldSkip, err = s.translateUpdateBackwards(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if shouldSkip {
-		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
+	} else if shouldSkip {
+		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (s *csistoragecapacitySyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	ctx.Log.Infof("delete virtual CSIStorageCapacity %s, because physical object is missing", vObj.GetName())
-	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, vObj)
+func (s *csistoragecapacitySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.CSIStorageCapacity]) (ctrl.Result, error) {
+	ctx.Log.Infof("delete virtual CSIStorageCapacity %s, because physical object is missing", event.Virtual.Name)
+	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 }
 
 func (s *csistoragecapacitySyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {

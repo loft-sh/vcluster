@@ -132,20 +132,24 @@ type exporter struct {
 	name string
 }
 
-func (f *exporter) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (f *exporter) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*unstructured.Unstructured](f)
+}
+
+func (f *exporter) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*unstructured.Unstructured]) (ctrl.Result, error) {
 	// check if selector matches
-	if !f.objectMatches(vObj) {
+	if !f.objectMatches(event.Virtual) {
 		return ctrl.Result{}, nil
 	}
 
 	// delete object if host was deleted
-	if ctx.IsDelete {
-		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
+	if event.IsDelete() {
+		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
 	}
 
 	// apply object to physical cluster
-	ctx.Log.Infof("Create physical %s %s/%s, since it is missing, but virtual object exists", f.gvk.Kind, vObj.GetNamespace(), vObj.GetName())
-	pObj, err := f.patcher.ApplyPatches(ctx, vObj, nil, f)
+	ctx.Log.Infof("Create physical %s %s/%s, since it is missing, but virtual object exists", f.gvk.Kind, event.Virtual.GetNamespace(), event.Virtual.GetName())
+	pObj, err := f.patcher.ApplyPatches(ctx, event.Virtual, nil, f)
 	if kerrors.IsConflict(err) {
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -154,7 +158,7 @@ func (f *exporter) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) 
 			return ctrl.Result{}, nil
 		}
 
-		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
+		f.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	} else if pObj == nil {
 		return ctrl.Result{}, nil
@@ -183,15 +187,15 @@ func (f *exporter) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) 
 	return ctrl.Result{}, nil
 }
 
-func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
+func (f *exporter) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*unstructured.Unstructured]) (ctrl.Result, error) {
 	// check if virtual object is not matching anymore
-	if !f.objectMatches(vObj) {
-		ctx.Log.Infof("delete physical %s %s/%s, because it is not used anymore", f.gvk.Kind, pObj.GetNamespace(), pObj.GetName())
-		err := ctx.PhysicalClient.Delete(ctx, pObj, &client.DeleteOptions{
+	if !f.objectMatches(event.Virtual) {
+		ctx.Log.Infof("delete physical %s %s/%s, because it is not used anymore", f.gvk.Kind, event.Host.GetNamespace(), event.Host.GetName())
+		err := ctx.PhysicalClient.Delete(ctx, event.Host, &client.DeleteOptions{
 			GracePeriodSeconds: &[]int64{0}[0],
 		})
 		if err != nil {
-			ctx.Log.Infof("error deleting physical %s %s/%s in physical cluster: %v", f.gvk.Kind, pObj.GetNamespace(), pObj.GetName(), err)
+			ctx.Log.Infof("error deleting physical %s %s/%s in physical cluster: %v", f.gvk.Kind, event.Host.GetNamespace(), event.Host.GetName(), err)
 			return ctrl.Result{}, err
 		}
 
@@ -199,15 +203,15 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	}
 
 	// check if either object is getting deleted
-	if vObj.GetDeletionTimestamp() != nil || pObj.GetDeletionTimestamp() != nil {
-		if pObj.GetDeletionTimestamp() == nil {
-			ctx.Log.Infof("delete physical object %s/%s, because the virtual object is being deleted", pObj.GetNamespace(), pObj.GetName())
-			if err := ctx.PhysicalClient.Delete(ctx, pObj); err != nil {
+	if event.Virtual.GetDeletionTimestamp() != nil || event.Host.GetDeletionTimestamp() != nil {
+		if event.Host.GetDeletionTimestamp() == nil {
+			ctx.Log.Infof("delete physical object %s/%s, because the virtual object is being deleted", event.Host.GetNamespace(), event.Host.GetName())
+			if err := ctx.PhysicalClient.Delete(ctx, event.Host); err != nil {
 				return ctrl.Result{}, err
 			}
-		} else if vObj.GetDeletionTimestamp() == nil {
-			ctx.Log.Infof("delete virtual object %s/%s, because physical object %s/%s is being deleted", vObj.GetNamespace(), vObj.GetName(), pObj.GetNamespace(), pObj.GetName())
-			if err := ctx.VirtualClient.Delete(ctx, vObj); err != nil {
+		} else if event.Virtual.GetDeletionTimestamp() == nil {
+			ctx.Log.Infof("delete virtual object %s/%s, because physical object %s/%s is being deleted", event.Virtual.GetNamespace(), event.Virtual.GetName(), event.Host.GetNamespace(), event.Host.GetName())
+			if err := ctx.VirtualClient.Delete(ctx, event.Virtual); err != nil {
 				return ctrl.Result{}, nil
 			}
 		}
@@ -216,20 +220,20 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	}
 
 	// apply reverse patches
-	result, err := f.patcher.ApplyReversePatches(ctx, vObj, pObj, f)
+	result, err := f.patcher.ApplyReversePatches(ctx, event.Virtual, event.Host, f)
 	if err != nil {
 		if kerrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
 		if kerrors.IsInvalid(err) {
-			ctx.Log.Infof("Warning: this message could indicate a timing issue with no significant impact, or a bug. Please report this if your resource never reaches the expected state. Error message: failed to patch virtual %s %s/%s: %v", f.gvk.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+			ctx.Log.Infof("Warning: this message could indicate a timing issue with no significant impact, or a bug. Please report this if your resource never reaches the expected state. Error message: failed to patch virtual %s %s/%s: %v", f.gvk.Kind, event.Virtual.GetNamespace(), event.Virtual.GetName(), err)
 			// this happens when some field is being removed shortly after being added, which suggest it's a timing issue
 			// it doesn't seem to have any negative consequence besides the logged error message
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
-		return ctrl.Result{}, fmt.Errorf("failed to patch virtual %s %s/%s: %w", f.gvk.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+		f.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
+		return ctrl.Result{}, fmt.Errorf("failed to patch virtual %s %s/%s: %w", f.gvk.Kind, event.Virtual.GetNamespace(), event.Virtual.GetName(), err)
 	} else if result == controllerutil.OperationResultUpdated || result == controllerutil.OperationResultUpdatedStatus || result == controllerutil.OperationResultUpdatedStatusOnly {
 		// a change will trigger reconciliation anyway, and at that point we can make
 		// a more accurate updates(reverse patches) to the virtual resource
@@ -237,14 +241,14 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	}
 
 	// apply patches
-	pObj, err = f.patcher.ApplyPatches(ctx, vObj, pObj, f)
+	pObj, err := f.patcher.ApplyPatches(ctx, event.Virtual, event.Host, f)
 	err = IgnoreAcceptableErrors(err)
 	if err != nil {
 		// when invalid, auto delete and recreate to recover
 		if kerrors.IsInvalid(err) && f.replaceWhenInvalid {
 			// Replace the object
 			ctx.Log.Infof("Replace physical object, because apply failed: %v", err)
-			err = ctx.PhysicalClient.Delete(ctx, pObj, &client.DeleteOptions{
+			err = ctx.PhysicalClient.Delete(ctx, event.Host, &client.DeleteOptions{
 				GracePeriodSeconds: &[]int64{0}[0],
 			})
 			if err != nil {
@@ -257,7 +261,7 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		f.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
+		f.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing to physical cluster: %v", err)
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	} else if pObj == nil {
 		return ctrl.Result{}, nil
@@ -266,10 +270,8 @@ func (f *exporter) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj c
 	return ctrl.Result{}, nil
 }
 
-var _ syncertypes.ToVirtualSyncer = &exporter{}
-
-func (f *exporter) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	isManaged, err := f.GenericTranslator.IsManaged(ctx, pObj)
+func (f *exporter) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*unstructured.Unstructured]) (ctrl.Result, error) {
+	isManaged, err := f.GenericTranslator.IsManaged(ctx, event.Host)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !isManaged {
@@ -277,7 +279,7 @@ func (f *exporter) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Objec
 	}
 
 	// delete physical object because virtual one is missing
-	return syncer.DeleteHostObject(ctx, pObj, fmt.Sprintf("delete physical %s because virtual is missing", pObj.GetName()))
+	return syncer.DeleteHostObject(ctx, event.Host, fmt.Sprintf("delete physical %s because virtual is missing", event.Host.GetName()))
 }
 
 func (f *exporter) Name() string {

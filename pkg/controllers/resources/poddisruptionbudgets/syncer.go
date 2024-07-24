@@ -8,14 +8,14 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
-	"github.com/loft-sh/vcluster/pkg/syncer/types"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	policyv1 "k8s.io/api/policy/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := ctx.Mappings.ByGVK(mappings.PodDisruptionBudgets())
 	if err != nil {
 		return nil, err
@@ -27,34 +27,42 @@ func New(ctx *synccontext.RegisterContext) (types.Object, error) {
 }
 
 type pdbSyncer struct {
-	types.GenericTranslator
+	syncertypes.GenericTranslator
 }
 
-func (s *pdbSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	if ctx.IsDelete {
-		return syncer.DeleteVirtualObject(ctx, vObj, "host object was deleted")
+var _ syncertypes.Syncer = &pdbSyncer{}
+
+func (s *pdbSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*policyv1.PodDisruptionBudget](s)
+}
+
+func (s *pdbSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*policyv1.PodDisruptionBudget]) (ctrl.Result, error) {
+	if event.IsDelete() {
+		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
 	}
 
-	return syncer.CreateHostObject(ctx, vObj, s.translate(ctx, vObj.(*policyv1.PodDisruptionBudget)), s.EventRecorder())
+	return syncer.CreateHostObject(ctx, event.Virtual, s.translate(ctx, event.Virtual), s.EventRecorder())
 }
 
-func (s *pdbSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
-	vPDB := vObj.(*policyv1.PodDisruptionBudget)
-	pPDB := pObj.(*policyv1.PodDisruptionBudget)
-
-	patch, err := patcher.NewSyncerPatcher(ctx, pPDB, vPDB)
+func (s *pdbSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*policyv1.PodDisruptionBudget]) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		if err := patch.Patch(ctx, pPDB, vPDB); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 		if retErr != nil {
-			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
 		}
 	}()
 
-	s.translateUpdate(ctx, pPDB, vPDB)
+	s.translateUpdate(ctx, event.Host, event.Virtual)
 	return ctrl.Result{}, nil
+}
+
+func (s *pdbSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*policyv1.PodDisruptionBudget]) (_ ctrl.Result, retErr error) {
+	// virtual object is not here anymore, so we delete
+	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
 }

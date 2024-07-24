@@ -440,7 +440,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).Sync(syncCtx, pPodWithNodeName.DeepCopy(), vPodWithNodeName)
+				_, err := syncer.(*podSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pPodWithNodeName.DeepCopy(), vPodWithNodeName))
 				assert.NilError(t, err)
 			},
 		},
@@ -459,7 +459,7 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Sync.FromHost.Nodes.Selector.Labels = nodeSelectorOption
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodWithNodeSelector.DeepCopy())
+				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPodWithNodeSelector.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -475,7 +475,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodPSS.DeepCopy())
+				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPodPSS.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -492,7 +492,7 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Policies.PodSecurityStandard = string(api.LevelPrivileged)
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodPSS.DeepCopy())
+				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPodPSS.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -509,7 +509,7 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Policies.PodSecurityStandard = string(api.LevelRestricted)
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodPSSR.DeepCopy())
+				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPodPSSR.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -525,8 +525,8 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.ControlPlane.HostPathMapper.Enabled = true
-				synccontext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncToHost(synccontext, vHostPathPod.DeepCopy())
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(vHostPathPod.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -538,8 +538,8 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"): {vNotInjectedPod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				synccontext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).Sync(synccontext, pInjectedPod.DeepCopy(), vNotInjectedPod.DeepCopy())
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).Sync(syncContext, synccontext.NewSyncEvent(pInjectedPod.DeepCopy(), vNotInjectedPod.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -558,7 +558,7 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Experimental.SyncSettings.SyncLabels = []string{syncLabelsWildcard}
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodWithLabels.DeepCopy())
+				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPodWithLabels.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},

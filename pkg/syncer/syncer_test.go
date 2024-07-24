@@ -47,22 +47,31 @@ func (s *mockSyncer) naiveTranslateCreate(ctx *synccontext.SyncContext, vObj cli
 	return pObj
 }
 
+func (s *mockSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return ToGenericSyncer[*corev1.Secret](s)
+}
+
 // SyncToHost is called when a virtual object was created and needs to be synced down to the physical cluster
-func (s *mockSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	pObj := s.naiveTranslateCreate(ctx, vObj)
+func (s *mockSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Secret]) (ctrl.Result, error) {
+	pObj := s.naiveTranslateCreate(ctx, event.Virtual)
 	if pObj == nil {
 		return ctrl.Result{}, errors.New("naive translate create failed")
 	}
 
-	return CreateHostObject(ctx, vObj, pObj, s.EventRecorder())
+	return CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
 }
 
 // Sync is called to sync a virtual object with a physical object
-func (s *mockSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	newPObj := pObj.DeepCopyObject().(client.Object)
-	newPObj.SetAnnotations(translate.HostAnnotations(vObj, pObj))
-	newPObj.SetLabels(translate.HostLabels(ctx, vObj, pObj))
+func (s *mockSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Secret]) (ctrl.Result, error) {
+	newPObj := event.Host.DeepCopyObject().(client.Object)
+	newPObj.SetAnnotations(translate.HostAnnotations(event.Virtual, event.Host))
+	newPObj.SetLabels(translate.HostLabels(ctx, event.Virtual, event.Host))
 	return ctrl.Result{}, ctx.VirtualClient.Update(ctx, newPObj)
+}
+
+func (s *mockSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Secret]) (_ ctrl.Result, retErr error) {
+	// virtual object is not here anymore, so we delete
+	return DeleteHostObject(ctx, event.Host, "virtual object was deleted")
 }
 
 var _ syncertypes.Syncer = &mockSyncer{}
@@ -276,7 +285,10 @@ func TestReconcile(t *testing.T) {
 		syncer := syncerImpl.(syncertypes.Syncer)
 
 		controller := &SyncController{
-			syncer:         syncer,
+			syncer: syncer,
+
+			genericSyncer: syncer.Syncer(),
+
 			log:            loghelper.New(syncer.Name()),
 			vEventRecorder: &testingutil.FakeEventRecorder{},
 			physicalClient: pClient,

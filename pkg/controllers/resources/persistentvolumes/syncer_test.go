@@ -202,7 +202,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncToVirtual(syncContext, basePPv)
+				_, err := syncer.SyncToVirtual(syncContext, synccontext.NewSyncToVirtualEvent(basePPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -219,7 +219,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncToVirtual(syncContext, wrongNsPPv)
+				_, err := syncer.SyncToVirtual(syncContext, synccontext.NewSyncToVirtualEvent(wrongNsPPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -236,7 +236,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncToVirtual(syncContext, noPvcPPv)
+				_, err := syncer.SyncToVirtual(syncContext, synccontext.NewSyncToVirtualEvent(noPvcPPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -255,7 +255,7 @@ func TestSync(t *testing.T) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
 				backwardUpdatePPv := backwardUpdatePPv.DeepCopy()
 				baseVPv := baseVPv.DeepCopy()
-				_, err := syncer.Sync(syncContext, backwardUpdatePPv, baseVPv)
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(backwardUpdatePPv, baseVPv))
 				assert.NilError(t, err)
 
 				err = syncContext.VirtualClient.Get(ctx, types.NamespacedName{Name: baseVPv.Name}, baseVPv)
@@ -264,7 +264,7 @@ func TestSync(t *testing.T) {
 				err = syncContext.PhysicalClient.Get(ctx, types.NamespacedName{Name: backwardUpdatePPv.Name}, backwardUpdatePPv)
 				assert.NilError(t, err)
 
-				_, err = syncer.Sync(syncContext, backwardUpdatePPv, baseVPv)
+				_, err = syncer.Sync(syncContext, synccontext.NewSyncEvent(backwardUpdatePPv, baseVPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -281,7 +281,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncContext, noPvcPPv, baseVPv)
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(noPvcPPv, baseVPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -298,7 +298,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncContext, basePPv, baseVPv)
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(basePPv, baseVPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -371,8 +371,7 @@ func TestSync(t *testing.T) {
 				err = syncContext.PhysicalClient.Get(ctx, types.NamespacedName{Name: basePPv.Name}, pPv)
 				assert.NilError(t, err)
 
-				syncContext.EventSource = synccontext.EventSourceHost
-				_, err = syncer.Sync(syncContext, pPv, vPv)
+				_, err = syncer.Sync(syncContext, synccontext.NewSyncEventWithSource(pPv, vPv, synccontext.SyncEventSourceHost))
 				assert.NilError(t, err)
 			},
 		},
@@ -390,7 +389,7 @@ func TestSync(t *testing.T) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
 				backwardRetainPPv := backwardRetainPPv.DeepCopy()
 				backwardRetainInitialVPv := backwardRetainInitialVPv.DeepCopy()
-				_, err := syncer.Sync(syncContext, backwardRetainPPv, backwardRetainInitialVPv)
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(backwardRetainPPv, backwardRetainInitialVPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -408,7 +407,7 @@ func TestSync(t *testing.T) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
 				backwardDeletePPv := backwardDeletePPv.DeepCopy()
 				backwardDeleteVPv := backwardDeleteVPv.DeepCopy()
-				_, err := syncer.Sync(syncContext, backwardDeletePPv, backwardDeleteVPv)
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(backwardDeletePPv, backwardDeleteVPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -426,7 +425,7 @@ func TestSync(t *testing.T) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
 				backwardDeletePPv := backwardDeletePPv.DeepCopy()
 				backwardDeleteVPvwithDelTS := backwardDeleteVPvwithDelTS.DeepCopy()
-				_, err := syncer.Sync(syncContext, backwardDeletePPv, backwardDeleteVPvwithDelTS)
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(backwardDeletePPv, backwardDeleteVPvwithDelTS))
 				assert.NilError(t, err)
 			},
 		},
@@ -444,7 +443,7 @@ func TestSync(t *testing.T) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
 				vPVforDeletePVWithoutClaim := vPVforDeletePVWithoutClaim.DeepCopy()
 				pPVforDeletePVWithoutClaim := pPVforDeletePVWithoutClaim.DeepCopy()
-				_, err := syncer.Sync(syncContext, pPVforDeletePVWithoutClaim, vPVforDeletePVWithoutClaim)
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(pPVforDeletePVWithoutClaim, vPVforDeletePVWithoutClaim))
 				assert.NilError(t, err)
 			},
 		},

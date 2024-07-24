@@ -119,7 +119,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotSyncer).SyncToHost(syncCtx, vPVSourceSnapshot.DeepCopy())
+				_, err := syncer.(*volumeSnapshotSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPVSourceSnapshot.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -135,7 +135,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotSyncer).SyncToHost(syncCtx, vVSCSourceSnapshot.DeepCopy())
+				_, err := syncer.(*volumeSnapshotSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vVSCSourceSnapshot.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -151,7 +151,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, pPVSourceSnapshot.DeepCopy(), vVSCSourceSnapshot.DeepCopy())
+				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pPVSourceSnapshot.DeepCopy(), vVSCSourceSnapshot.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -167,7 +167,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, pWithNilClass.DeepCopy(), vPVSourceSnapshot.DeepCopy())
+				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pWithNilClass.DeepCopy(), vPVSourceSnapshot.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -183,7 +183,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, pWithNilClass.DeepCopy(), vWithNilClass.DeepCopy())
+				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pWithNilClass.DeepCopy(), vWithNilClass.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -199,7 +199,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, pWithFinalizers, vPVSourceSnapshot.DeepCopy())
+				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pWithFinalizers, vPVSourceSnapshot.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -215,7 +215,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, pWithStatus, vPVSourceSnapshot.DeepCopy())
+				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pWithStatus, vPVSourceSnapshot.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -230,7 +230,7 @@ func TestSync(t *testing.T) {
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshot"): {}},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, pPVSourceSnapshot.DeepCopy(), vDeletingSnapshot)
+				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pPVSourceSnapshot.DeepCopy(), vDeletingSnapshot))
 				assert.NilError(t, err)
 			},
 		},

@@ -9,6 +9,7 @@ import (
 	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
 	"gotest.tools/assert"
@@ -111,7 +112,7 @@ func TestSyncHostStorageClass(t *testing.T) {
 				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "true"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = false
 				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, pObj)
+				_, err := sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, synccontext.NewSyncToVirtualEvent(pObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -124,7 +125,7 @@ func TestSyncHostStorageClass(t *testing.T) {
 				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "true"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = false
 				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := sync.(*csistoragecapacitySyncer).SyncToHost(syncCtx, vObj)
+				_, err := sync.(*csistoragecapacitySyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -142,7 +143,7 @@ func TestSyncHostStorageClass(t *testing.T) {
 				ctx.Config.Sync.FromHost.StorageClasses.Enabled = "true"
 				ctx.Config.Sync.ToHost.StorageClasses.Enabled = false
 				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := sync.(*csistoragecapacitySyncer).Sync(syncCtx, pObjUpdated, vObj)
+				_, err := sync.(*csistoragecapacitySyncer).Sync(syncCtx, synccontext.NewSyncEvent(pObjUpdated, vObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -257,13 +258,13 @@ func TestSyncStorageClass(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
 				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCa))
 				assert.NilError(t, err)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCb))
 				assert.NilError(t, err)
 
 				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err = sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, pObj)
+				_, err = sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, synccontext.NewSyncToVirtualEvent(pObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -284,13 +285,13 @@ func TestSyncStorageClass(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
 				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCa))
 				assert.NilError(t, err)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCb))
 				assert.NilError(t, err)
 
 				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err = sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, pObj)
+				_, err = sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, synccontext.NewSyncToVirtualEvent(pObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -311,13 +312,13 @@ func TestSyncStorageClass(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
 				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCa))
 				assert.NilError(t, err)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCb))
 				assert.NilError(t, err)
 
 				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err = sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, pObj)
+				_, err = sync.(*csistoragecapacitySyncer).SyncToVirtual(syncCtx, synccontext.NewSyncToVirtualEvent(pObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -333,13 +334,13 @@ func TestSyncStorageClass(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
 				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCa))
 				assert.NilError(t, err)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCb))
 				assert.NilError(t, err)
 
 				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err = sync.(*csistoragecapacitySyncer).SyncToHost(syncCtx, vObj)
+				_, err = sync.(*csistoragecapacitySyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -360,13 +361,13 @@ func TestSyncStorageClass(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
 				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCa))
 				assert.NilError(t, err)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCb))
 				assert.NilError(t, err)
 
 				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err = sync.(*csistoragecapacitySyncer).Sync(syncCtx, pObjUpdated, vObj)
+				_, err = sync.(*csistoragecapacitySyncer).Sync(syncCtx, synccontext.NewSyncEvent(pObjUpdated, vObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -387,13 +388,13 @@ func TestSyncStorageClass(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
 				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCa))
 				assert.NilError(t, err)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCb))
 				assert.NilError(t, err)
 
 				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err = sync.(*csistoragecapacitySyncer).Sync(syncCtx, pObj, vObj)
+				_, err = sync.(*csistoragecapacitySyncer).Sync(syncCtx, synccontext.NewSyncEvent(pObj, vObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -414,13 +415,13 @@ func TestSyncStorageClass(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				var err error
 				syncCtx, sync := syncertesting.FakeStartSyncer(t, ctx, storageclasses.New)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCa)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCa))
 				assert.NilError(t, err)
-				_, err = sync.(syncer.Syncer).SyncToHost(syncCtx, vSCb)
+				_, err = sync.(syncer.Syncer).Syncer().SyncToHost(syncCtx, synccontext.NewSyncToHostEvent[client.Object](vSCb))
 				assert.NilError(t, err)
 
 				syncCtx, sync = syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err = sync.(*csistoragecapacitySyncer).Sync(syncCtx, pObj, vObj)
+				_, err = sync.(*csistoragecapacitySyncer).Sync(syncCtx, synccontext.NewSyncEvent(pObj, vObj))
 				assert.NilError(t, err)
 			},
 		},

@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -39,44 +40,45 @@ func (s *volumeSnapshotClassSyncer) Resource() client.Object {
 	return &volumesnapshotv1.VolumeSnapshotClass{}
 }
 
-var _ syncertypes.ToVirtualSyncer = &volumeSnapshotClassSyncer{}
+var _ syncertypes.Syncer = &volumeSnapshotClassSyncer{}
 
-func (s *volumeSnapshotClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	vObj := translate.CopyObjectWithName(pObj.(*volumesnapshotv1.VolumeSnapshotClass), types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, false)
+func (s *volumeSnapshotClassSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*volumesnapshotv1.VolumeSnapshotClass](s)
+}
+
+func (s *volumeSnapshotClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*volumesnapshotv1.VolumeSnapshotClass]) (ctrl.Result, error) {
+	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name}, false)
 	ctx.Log.Infof("create VolumeSnapshotClass %s, because it does not exist in the virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
-var _ syncertypes.Syncer = &volumeSnapshotClassSyncer{}
-
-func (s *volumeSnapshotClassSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
+func (s *volumeSnapshotClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*volumesnapshotv1.VolumeSnapshotClass]) (ctrl.Result, error) {
 	// We are not doing any syncing Forward for the VolumeSnapshotClasses
 	// if this method is called it means that VolumeSnapshotClass was deleted in host or
 	// a new VolumeSnapshotClass was created in vcluster, and it should be deleted to avoid confusion
-	ctx.Log.Infof("delete VolumeSnapshotClass %s, because it does not exist in the host cluster", vObj.GetName())
-	err := ctx.VirtualClient.Delete(ctx, vObj)
+	ctx.Log.Infof("delete VolumeSnapshotClass %s, because it does not exist in the host cluster", event.Virtual.Name)
+	err := ctx.VirtualClient.Delete(ctx, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
-func (s *volumeSnapshotClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, pObj, vObj)
+func (s *volumeSnapshotClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*volumesnapshotv1.VolumeSnapshotClass]) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		if err := patch.Patch(ctx, pObj, vObj); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 	}()
 
-	pVSC, vVSC, _, _ := synccontext.Cast[*volumesnapshotv1.VolumeSnapshotClass](ctx, pObj, vObj)
-	vVSC.Annotations = pVSC.Annotations
-	vVSC.Labels = pVSC.Labels
-	vVSC.Driver = pVSC.Driver
-	vVSC.Parameters = pVSC.Parameters
-	vVSC.DeletionPolicy = pVSC.DeletionPolicy
+	event.Virtual.Annotations = event.Host.Annotations
+	event.Virtual.Labels = event.Host.Labels
+	event.Virtual.Driver = event.Host.Driver
+	event.Virtual.Parameters = event.Host.Parameters
+	event.Virtual.DeletionPolicy = event.Host.DeletionPolicy
 	return ctrl.Result{}, nil
 }

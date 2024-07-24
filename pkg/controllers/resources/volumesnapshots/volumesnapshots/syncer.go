@@ -8,7 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	translator2 "github.com/loft-sh/vcluster/pkg/syncer/translator"
-	"github.com/loft-sh/vcluster/pkg/syncer/types"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
@@ -26,7 +26,7 @@ var (
 	zero                              = int64(0)
 )
 
-func New(ctx *synccontext.RegisterContext) (types.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := ctx.Mappings.ByGVK(mappings.VolumeSnapshots())
 	if err != nil {
 		return nil, err
@@ -38,45 +38,45 @@ func New(ctx *synccontext.RegisterContext) (types.Object, error) {
 }
 
 type volumeSnapshotSyncer struct {
-	types.GenericTranslator
+	syncertypes.GenericTranslator
 }
 
-var _ types.Syncer = &volumeSnapshotSyncer{}
+var _ syncertypes.Syncer = &volumeSnapshotSyncer{}
 
-func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	vVS := vObj.(*volumesnapshotv1.VolumeSnapshot)
-	if ctx.IsDelete || vVS.DeletionTimestamp != nil {
+func (s *volumeSnapshotSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*volumesnapshotv1.VolumeSnapshot](s)
+}
+
+func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*volumesnapshotv1.VolumeSnapshot]) (ctrl.Result, error) {
+	if event.IsDelete() || event.Virtual.DeletionTimestamp != nil {
 		// delete volume snapshot immediately
-		if len(vObj.GetFinalizers()) > 0 || (vObj.GetDeletionGracePeriodSeconds() != nil && *vObj.GetDeletionGracePeriodSeconds() > 0) {
-			vObj.SetFinalizers([]string{})
-			vObj.SetDeletionGracePeriodSeconds(&zero)
-			return ctrl.Result{}, ctx.VirtualClient.Update(ctx, vObj)
+		if len(event.Virtual.GetFinalizers()) > 0 || (event.Virtual.GetDeletionGracePeriodSeconds() != nil && *event.Virtual.GetDeletionGracePeriodSeconds() > 0) {
+			event.Virtual.SetFinalizers([]string{})
+			event.Virtual.SetDeletionGracePeriodSeconds(&zero)
+			return ctrl.Result{}, ctx.VirtualClient.Update(ctx, event.Virtual)
 		}
 		return ctrl.Result{}, nil
 	}
 
-	pObj, err := s.translate(ctx, vVS)
+	pObj, err := s.translate(ctx, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateHostObject(ctx, vObj, pObj, s.EventRecorder())
+	return syncer.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
 }
 
-func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (_ ctrl.Result, retErr error) {
-	vVS := vObj.(*volumesnapshotv1.VolumeSnapshot)
-	pVS := pObj.(*volumesnapshotv1.VolumeSnapshot)
-
-	if pVS.DeletionTimestamp != nil {
-		if vVS.DeletionTimestamp == nil {
-			ctx.Log.Infof("delete virtual volume snapshot %s/%s, because the physical volume snapshot is being deleted", vVS.Namespace, vVS.Name)
-			err := ctx.VirtualClient.Delete(ctx, vVS, &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
+func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*volumesnapshotv1.VolumeSnapshot]) (_ ctrl.Result, retErr error) {
+	if event.Host.DeletionTimestamp != nil {
+		if event.Virtual.DeletionTimestamp == nil {
+			ctx.Log.Infof("delete virtual volume snapshot %s/%s, because the physical volume snapshot is being deleted", event.Virtual.Namespace, event.Virtual.Name)
+			err := ctx.VirtualClient.Delete(ctx, event.Virtual, &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-		} else if *vVS.DeletionGracePeriodSeconds != *pVS.DeletionGracePeriodSeconds {
-			ctx.Log.Infof("delete virtual volume snapshot %s/%s with grace period seconds %v", vVS.Namespace, vVS.Name, *pVS.DeletionGracePeriodSeconds)
-			err := ctx.VirtualClient.Delete(ctx, vVS, &client.DeleteOptions{GracePeriodSeconds: pVS.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(vVS.UID))})
+		} else if *event.Virtual.DeletionGracePeriodSeconds != *event.Host.DeletionGracePeriodSeconds {
+			ctx.Log.Infof("delete virtual volume snapshot %s/%s with grace period seconds %v", event.Virtual.Namespace, event.Virtual.Name, *event.Host.DeletionGracePeriodSeconds)
+			err := ctx.VirtualClient.Delete(ctx, event.Virtual, &client.DeleteOptions{GracePeriodSeconds: event.Host.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(event.Virtual.UID))})
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -86,10 +86,10 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 		//TODO: refactor finalizer syncing and handling
 		// we can not add new finalizers from physical to virtual once it has deletionTimestamp, we can only remove finalizers
 
-		if !equality.Semantic.DeepEqual(vVS.Finalizers, pVS.Finalizers) {
-			updated := vVS.DeepCopy()
-			updated.Finalizers = pVS.Finalizers
-			ctx.Log.Infof("update finalizers of the virtual VolumeSnapshot %s, because finalizers on the physical resource changed", vVS.Name)
+		if !equality.Semantic.DeepEqual(event.Virtual.Finalizers, event.Host.Finalizers) {
+			updated := event.Virtual.DeepCopy()
+			updated.Finalizers = event.Host.Finalizers
+			ctx.Log.Infof("update finalizers of the virtual VolumeSnapshot %s, because finalizers on the physical resource changed", event.Virtual.Name)
 			err := ctx.VirtualClient.Update(ctx, updated)
 			if kerrors.IsNotFound(err) {
 				return ctrl.Result{}, nil
@@ -98,54 +98,59 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Ob
 				return ctrl.Result{}, err
 			}
 		}
-		if !equality.Semantic.DeepEqual(vVS.Status, pVS.Status) {
-			updated := vVS.DeepCopy()
-			updated.Status = pVS.Status.DeepCopy()
-			ctx.Log.Infof("update virtual VolumeSnapshot %s, because status has changed", vVS.Name)
+		if !equality.Semantic.DeepEqual(event.Virtual.Status, event.Host.Status) {
+			updated := event.Virtual.DeepCopy()
+			updated.Status = event.Host.Status.DeepCopy()
+			ctx.Log.Infof("update virtual VolumeSnapshot %s, because status has changed", event.Virtual.Name)
 			err := ctx.VirtualClient.Status().Update(ctx, updated)
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
 		}
 		return ctrl.Result{}, nil
-	} else if vVS.DeletionTimestamp != nil {
-		if pVS.DeletionTimestamp == nil {
-			ctx.Log.Infof("delete physical volume snapshot %s/%s, because virtual volume snapshot is being deleted", pVS.Namespace, pVS.Name)
-			return ctrl.Result{}, ctx.PhysicalClient.Delete(ctx, pVS, &client.DeleteOptions{
-				GracePeriodSeconds: vVS.DeletionGracePeriodSeconds,
-				Preconditions:      metav1.NewUIDPreconditions(string(pVS.UID)),
+	} else if event.Virtual.DeletionTimestamp != nil {
+		if event.Host.DeletionTimestamp == nil {
+			ctx.Log.Infof("delete physical volume snapshot %s/%s, because virtual volume snapshot is being deleted", event.Host.Namespace, event.Host.Name)
+			return ctrl.Result{}, ctx.PhysicalClient.Delete(ctx, event.Host, &client.DeleteOptions{
+				GracePeriodSeconds: event.Virtual.DeletionGracePeriodSeconds,
+				Preconditions:      metav1.NewUIDPreconditions(string(event.Host.UID)),
 			})
 		}
 		return ctrl.Result{}, nil
 	}
 
 	// patch objects
-	patch, err := patcher.NewSyncerPatcher(ctx, pVS, vVS)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		if err := patch.Patch(ctx, pVS, vVS); err != nil {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 
 		if retErr != nil {
-			s.EventRecorder().Eventf(vVS, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
 		}
 	}()
 
 	// check backwards update
-	vVS.Finalizers = pVS.Finalizers
+	event.Virtual.Finalizers = event.Host.Finalizers
 
 	// check backwards status
-	vVS.Status = pVS.Status.DeepCopy()
+	event.Virtual.Status = event.Host.Status.DeepCopy()
 
 	// forward update
-	pVS.Spec.VolumeSnapshotClassName = vVS.Spec.VolumeSnapshotClassName
+	event.Host.Spec.VolumeSnapshotClassName = event.Virtual.Spec.VolumeSnapshotClassName
 
 	// check if metadata changed
-	pVS.Annotations = translate.HostAnnotations(vVS, pVS)
-	pVS.Labels = translate.HostLabels(ctx, vVS, pVS)
+	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
+	event.Host.Labels = translate.HostLabels(ctx, event.Virtual, event.Host)
 
 	return ctrl.Result{}, nil
+}
+
+func (s *volumeSnapshotSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*volumesnapshotv1.VolumeSnapshot]) (_ ctrl.Result, retErr error) {
+	// virtual object is not here anymore, so we delete
+	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
 }
