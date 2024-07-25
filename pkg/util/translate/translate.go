@@ -336,9 +336,7 @@ func applyMaps(fromMap, toMap map[string]string, opts ApplyMapsOptions) (map[str
 
 	for key, value := range toMap {
 		if exists(opts.ExcludeKeys, key) {
-			if value != "" {
-				retMap[key] = value
-			}
+			retMap[key] = value
 			continue
 		} else if exists(managedKeys, key) || exists(opts.ManagedKeys, key) {
 			continue
