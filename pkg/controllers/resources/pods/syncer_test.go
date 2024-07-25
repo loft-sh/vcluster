@@ -20,12 +20,12 @@ import (
 )
 
 var (
-	PodLogsVolumeName    string = "pod-logs"
-	LogsVolumeName       string = "logs"
-	KubeletPodVolumeName string = "kubelet-pods"
-	HostpathPodName      string = "test-hostpaths"
+	PodLogsVolumeName    = "pod-logs"
+	LogsVolumeName       = "logs"
+	KubeletPodVolumeName = "kubelet-pods"
+	HostpathPodName      = "test-hostpaths"
 	//NotInjectedPodName   string          = "test-not-injected"
-	pPodContainerEnv []corev1.EnvVar = []corev1.EnvVar{
+	pPodContainerEnv = []corev1.EnvVar{
 		{
 			Name:  "KUBERNETES_PORT",
 			Value: "tcp://1.2.3.4:443",
@@ -60,7 +60,7 @@ var (
 		},
 	}
 
-	pVclusterService corev1.Service = corev1.Service{
+	pVclusterService = corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      syncertesting.DefaultTestVClusterServiceName,
 			Namespace: syncertesting.DefaultTestCurrentNamespace,
@@ -69,7 +69,7 @@ var (
 			ClusterIP: "1.2.3.4",
 		},
 	}
-	pDNSService corev1.Service = corev1.Service{
+	pDNSService = corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      translate.Default.HostName("kube-dns", "kube-system"),
 			Namespace: syncertesting.DefaultTestTargetNamespace,
