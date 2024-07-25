@@ -71,7 +71,7 @@ var (
 	}
 	pDNSService corev1.Service = corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.PhysicalName("kube-dns", "kube-system"),
+			Name:      translate.Default.HostName("kube-dns", "kube-system"),
 			Namespace: syncertesting.DefaultTestTargetNamespace,
 		},
 		Spec: corev1.ServiceSpec{
@@ -94,7 +94,7 @@ func TestSyncTable(t *testing.T) {
 		Namespace: vNamespace.Name,
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.Default.PhysicalName("testpod", "testns"),
+		Name:      translate.Default.HostName("testpod", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
 			podtranslate.ClusterAutoScalerAnnotation:  "false",
@@ -264,7 +264,6 @@ func TestSyncTable(t *testing.T) {
 			}
 			if tC.expectPhysicalPodsLabels != nil {
 				maps.Copy(pPodFinal.Labels, tC.virtualPodsLabels)
-				maps.Copy(pPodFinal.Labels, convertLabelKeyWithPrefix(tC.virtualPodsLabels))
 				pPodFinal.Annotations[podtranslate.VClusterLabelsAnnotation] = podtranslate.LabelsAnnotation(vPodInitial.DeepCopy())
 			}
 
@@ -317,9 +316,9 @@ func TestSyncTable(t *testing.T) {
 
 			var err error
 			if tC.syncToHost {
-				_, err = syncer.(*podSyncer).SyncToHost(syncCtx, vPodInitial.DeepCopy())
+				_, err = syncer.(*podSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPodInitial.DeepCopy()))
 			} else {
-				_, err = syncer.(*podSyncer).Sync(syncCtx, pPodInitial.DeepCopy(), vPodInitial.DeepCopy())
+				_, err = syncer.(*podSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pPodInitial.DeepCopy(), vPodInitial.DeepCopy()))
 			}
 			assert.NilError(t, err)
 
