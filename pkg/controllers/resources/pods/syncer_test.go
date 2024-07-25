@@ -24,41 +24,6 @@ var (
 	LogsVolumeName       = "logs"
 	KubeletPodVolumeName = "kubelet-pods"
 	HostpathPodName      = "test-hostpaths"
-	//NotInjectedPodName   string          = "test-not-injected"
-	pPodContainerEnv = []corev1.EnvVar{
-		{
-			Name:  "KUBERNETES_PORT",
-			Value: "tcp://1.2.3.4:443",
-		},
-		{
-			Name:  "KUBERNETES_PORT_443_TCP",
-			Value: "tcp://1.2.3.4:443",
-		},
-		{
-			Name:  "KUBERNETES_PORT_443_TCP_ADDR",
-			Value: "1.2.3.4",
-		},
-		{
-			Name:  "KUBERNETES_PORT_443_TCP_PORT",
-			Value: "443",
-		},
-		{
-			Name:  "KUBERNETES_PORT_443_TCP_PROTO",
-			Value: "tcp",
-		},
-		{
-			Name:  "KUBERNETES_SERVICE_HOST",
-			Value: "1.2.3.4",
-		},
-		{
-			Name:  "KUBERNETES_SERVICE_PORT",
-			Value: "443",
-		},
-		{
-			Name:  "KUBERNETES_SERVICE_PORT_HTTPS",
-			Value: "443",
-		},
-	}
 
 	pVclusterService = corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
