@@ -342,7 +342,7 @@ func (cmd *createHelm) parseVClusterYAML(chartValues string) (*config.Config, er
 		// We cannot discriminate between k0s/k3s and eks/k8s. So we cannot prompt the actual values to convert, as this would cause false positives,
 		// because users are free to e.g. pass a k0s values file to a currently running k3s virtual cluster.
 		if isLegacyConfig([]byte(oldValues)) {
-			return nil, fmt.Errorf("it appears you are using a vCluster configuration using pre-v0.20 formatting. Please run %q to convert the values to the latest format", "vcluster convert config")
+			return nil, fmt.Errorf("it appears you are using a vCluster configuration using pre-v0.20 formatting. Please run %q to convert the values to the latest format", "vcluster convert config --distro <distro> -f /path/to/vcluster.yaml")
 		}
 
 		// TODO end
