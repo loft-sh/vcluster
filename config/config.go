@@ -232,7 +232,7 @@ func ValidateChanges(oldCfg, newCfg *Config) error {
 
 // ValidateStoreAndDistroChanges checks whether migrating from one store to the other is allowed.
 func ValidateStoreAndDistroChanges(currentStoreType, previousStoreType StoreType, currentDistro, previousDistro string) error {
-	if currentDistro != previousDistro {
+	if currentDistro != previousDistro && !(previousDistro == "eks" && currentDistro == K8SDistro) {
 		return fmt.Errorf("seems like you were using %s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", previousDistro, currentDistro)
 	}
 
