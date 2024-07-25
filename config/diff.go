@@ -57,17 +57,7 @@ func diff(from, to any) any {
 		for k, fromValue := range fromType {
 			toValue, ok := toMap[k]
 			if !ok {
-				switch fromValue.(type) {
-				// if its a boolean, its true -> false
-				case bool:
-					retMap[k] = false
-				// if its a string, its "something" -> ""
-				case string:
-					retMap[k] = ""
-				// if its an int, its 3 -> 0
-				case int:
-					retMap[k] = 0
-				}
+				retMap[k] = fromValue
 			} else if !reflect.DeepEqual(fromValue, toValue) {
 				switch fromValue.(type) {
 				case map[string]interface{}:

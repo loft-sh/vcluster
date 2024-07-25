@@ -361,7 +361,7 @@ syncer:
         tag: v0.0.1
   statefulSet:
     image:
-      registry: ""
+      registry: ghcr.io
       repository: loft-sh/test
       tag: abc
     scheduling:
@@ -388,6 +388,52 @@ syncer:
           claimName: my-pvc
     scheduling:
       podManagementPolicy: OrderedReady`,
+			ExpectedErr: "",
+		},
+		{
+			Name:   "quotas",
+			Distro: "k8s",
+			In: `isolation:
+  enabled: true
+  resourceQuota:
+    enabled: true
+    quota:
+      limits.cpu: 16`,
+			Expected: `controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+  distro:
+    k8s:
+      enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+policies:
+  limitRange:
+    enabled: true
+  networkPolicy:
+    enabled: true
+  podSecurityStandard: baseline
+  resourceQuota:
+    enabled: true
+    quota:
+      count/configmaps: 100
+      count/endpoints: 40
+      count/persistentvolumeclaims: 20
+      count/pods: 20
+      count/secrets: 100
+      count/services: 20
+      limits.cpu: 16
+      limits.ephemeral-storage: 160Gi
+      limits.memory: 40Gi
+      requests.cpu: 10
+      requests.ephemeral-storage: 60Gi
+      requests.memory: 20Gi
+      requests.storage: 100Gi
+      services.loadbalancers: 1
+      services.nodeports: 0`,
 			ExpectedErr: "",
 		},
 	}
