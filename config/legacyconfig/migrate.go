@@ -26,23 +26,19 @@ func MigrateLegacyConfig(distro, oldValues string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("migrate legacy %s values: %w", distro, err)
 		}
-	case config.K8SDistro:
-		err = migrateK8sAndEKS(distro, oldValues, toConfig)
+	case config.K8SDistro, "eks":
+		err = migrateK8sAndEKS(oldValues, toConfig)
 		if err != nil {
 			return "", fmt.Errorf("migrate legacy %s values: %w", distro, err)
 		}
 	default:
-		if distro == "eks" {
-			return "", fmt.Errorf("eks distro is not supported anymore. Instead use the k8s distro with the eks images")
-		}
-
 		return "", fmt.Errorf("migrating distro %s is not supported", distro)
 	}
 
 	return config.Diff(fromConfig, toConfig)
 }
 
-func migrateK8sAndEKS(distro, oldValues string, newConfig *config.Config) error {
+func migrateK8sAndEKS(oldValues string, newConfig *config.Config) error {
 	// unmarshal legacy config
 	oldConfig := &LegacyK8s{}
 	err := oldConfig.UnmarshalYAMLStrict([]byte(oldValues))
@@ -50,13 +46,10 @@ func migrateK8sAndEKS(distro, oldValues string, newConfig *config.Config) error 
 		return fmt.Errorf("unmarshal legacy config: %w", err)
 	}
 
-	// k8s specific
-	if distro == config.K8SDistro {
-		newConfig.ControlPlane.Distro.K8S.Enabled = true
-		convertAPIValues(oldConfig.API, &newConfig.ControlPlane.Distro.K8S.APIServer)
-		convertControllerValues(oldConfig.Controller, &newConfig.ControlPlane.Distro.K8S.ControllerManager)
-		convertSchedulerValues(oldConfig.Scheduler, &newConfig.ControlPlane.Distro.K8S.Scheduler)
-	}
+	newConfig.ControlPlane.Distro.K8S.Enabled = true
+	convertAPIValues(oldConfig.API, &newConfig.ControlPlane.Distro.K8S.APIServer)
+	convertControllerValues(oldConfig.Controller, &newConfig.ControlPlane.Distro.K8S.ControllerManager)
+	convertSchedulerValues(oldConfig.Scheduler, &newConfig.ControlPlane.Distro.K8S.Scheduler)
 
 	// convert etcd
 	err = convertEtcd(oldConfig.Etcd, newConfig)
