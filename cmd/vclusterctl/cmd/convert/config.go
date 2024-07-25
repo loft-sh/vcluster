@@ -60,7 +60,7 @@ func (cmd *configCmd) Run() error {
 	)
 
 	if cmd.distro == "" {
-		return fmt.Errorf("no distro given: please set \"--distro\" (IMPORTANT: distro must match the given config values)")
+		return fmt.Errorf("no distro given: please set \"--distro\" (IMPORTANT: distro must match the given config values, or be \"k8s\" if you are migrating from eks distro)")
 	}
 
 	if cmd.filePath != "" {
