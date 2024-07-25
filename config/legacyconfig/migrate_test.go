@@ -361,7 +361,6 @@ syncer:
         tag: v0.0.1
   statefulSet:
     image:
-      registry: ""
       repository: loft-sh/test
       tag: abc
     scheduling:
@@ -389,6 +388,37 @@ syncer:
     scheduling:
       podManagementPolicy: OrderedReady`,
 			ExpectedErr: "",
+		},
+		{
+			Name:   "quotas",
+			Distro: "k8s",
+			In: `isolation:
+  enabled: true
+  resourceQuota:
+    enabled: true
+    quota:
+      limits.cpu: 16`,
+			Expected: `controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+  distro:
+    k8s:
+      enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+policies:
+  limitRange:
+    enabled: true
+  networkPolicy:
+    enabled: true
+  podSecurityStandard: baseline
+  resourceQuota:
+    enabled: true
+    quota:
+      limits.cpu: 16`,
 		},
 	}
 
