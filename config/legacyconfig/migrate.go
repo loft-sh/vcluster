@@ -150,7 +150,7 @@ func convertEtcd(oldConfig EtcdValues, newConfig *config.Config) error {
 	}
 	newConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.ExtraArgs = oldConfig.ExtraArgs
 	if oldConfig.Resources != nil {
-		newConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Resources = *oldConfig.Resources
+		newConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Resources = mergeResources(newConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Resources, *oldConfig.Resources)
 	}
 	newConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Persistence.AddVolumes = oldConfig.Volumes
 	if oldConfig.PriorityClassName != "" {
@@ -408,19 +408,19 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 		}
 
 		if len(oldConfig.Isolation.LimitRange.Default) > 0 {
-			newConfig.Policies.LimitRange.Default = oldConfig.Isolation.LimitRange.Default
+			newConfig.Policies.LimitRange.Default = mergeMaps(newConfig.Policies.LimitRange.Default, oldConfig.Isolation.LimitRange.Default)
 		}
 		if len(oldConfig.Isolation.LimitRange.DefaultRequest) > 0 {
-			newConfig.Policies.LimitRange.DefaultRequest = oldConfig.Isolation.LimitRange.DefaultRequest
+			newConfig.Policies.LimitRange.DefaultRequest = mergeMaps(newConfig.Policies.LimitRange.DefaultRequest, oldConfig.Isolation.LimitRange.DefaultRequest)
 		}
 		if len(oldConfig.Isolation.ResourceQuota.Quota) > 0 {
-			newConfig.Policies.ResourceQuota.Quota = oldConfig.Isolation.ResourceQuota.Quota
+			newConfig.Policies.ResourceQuota.Quota = mergeMaps(newConfig.Policies.ResourceQuota.Quota, oldConfig.Isolation.ResourceQuota.Quota)
 		}
 		if len(oldConfig.Isolation.ResourceQuota.Scopes) > 0 {
 			newConfig.Policies.ResourceQuota.Scopes = oldConfig.Isolation.ResourceQuota.Scopes
 		}
 		if len(oldConfig.Isolation.ResourceQuota.ScopeSelector) > 0 {
-			newConfig.Policies.ResourceQuota.ScopeSelector = oldConfig.Isolation.ResourceQuota.ScopeSelector
+			newConfig.Policies.ResourceQuota.ScopeSelector = mergeMaps(newConfig.Policies.ResourceQuota.ScopeSelector, oldConfig.Isolation.ResourceQuota.ScopeSelector)
 		}
 
 		if oldConfig.Isolation.Namespace != nil {
@@ -455,7 +455,7 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 	newConfig.ControlPlane.CoreDNS.Deployment.Pods.Labels = oldConfig.Coredns.PodLabels
 	newConfig.ControlPlane.CoreDNS.Deployment.Pods.Annotations = oldConfig.Coredns.PodAnnotations
 	if oldConfig.Coredns.Resources != nil {
-		newConfig.ControlPlane.CoreDNS.Deployment.Resources = *oldConfig.Coredns.Resources
+		newConfig.ControlPlane.CoreDNS.Deployment.Resources = mergeResources(newConfig.ControlPlane.CoreDNS.Deployment.Resources, *oldConfig.Coredns.Resources)
 	}
 	if oldConfig.Coredns.Plugin.Enabled {
 		if len(oldConfig.Coredns.Plugin.Config) > 0 {
@@ -703,7 +703,7 @@ func convertSyncerConfig(oldConfig SyncerValues, newConfig *config.Config) error
 		return fmt.Errorf("syncer.volumeMounts is not allowed anymore, please remove this field or use syncer.extraVolumeMounts")
 	}
 	if len(oldConfig.Resources.Limits) > 0 || len(oldConfig.Resources.Requests) > 0 {
-		newConfig.ControlPlane.StatefulSet.Resources = oldConfig.Resources
+		newConfig.ControlPlane.StatefulSet.Resources = mergeResources(newConfig.ControlPlane.StatefulSet.Resources, oldConfig.Resources)
 	}
 
 	newConfig.ControlPlane.Service.Annotations = oldConfig.ServiceAnnotations
@@ -1058,7 +1058,7 @@ func convertVClusterConfig(oldConfig VClusterValues, retDistroCommon *config.Dis
 	retDistroCommon.Env = oldConfig.Env
 	convertImage(oldConfig.Image, &retDistroContainer.Image)
 	if len(oldConfig.Resources) > 0 {
-		retDistroCommon.Resources = oldConfig.Resources
+		retDistroCommon.Resources = mergeMaps(retDistroCommon.Resources, oldConfig.Resources)
 	}
 	retDistroContainer.ExtraArgs = append(retDistroContainer.ExtraArgs, oldConfig.ExtraArgs...)
 	if oldConfig.ImagePullPolicy != "" {
@@ -1143,4 +1143,25 @@ func convertObject(from, to interface{}) error {
 	}
 
 	return json.Unmarshal(out, to)
+}
+
+func mergeResources(from, to config.Resources) config.Resources {
+	return config.Resources{
+		Limits:   mergeMaps(from.Limits, to.Limits),
+		Requests: mergeMaps(from.Requests, to.Requests),
+	}
+}
+
+func mergeMaps(from, to map[string]interface{}) map[string]interface{} {
+	if from == nil && to == nil {
+		return nil
+	}
+	retMap := map[string]interface{}{}
+	for k, v := range from {
+		retMap[k] = v
+	}
+	for k, v := range to {
+		retMap[k] = v
+	}
+	return retMap
 }

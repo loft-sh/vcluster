@@ -390,6 +390,61 @@ syncer:
       podManagementPolicy: OrderedReady`,
 			ExpectedErr: "",
 		},
+		{
+			Name:   "quotas",
+			Distro: "k8s",
+			In: `isolation:
+  enabled: true
+  resourceQuota:
+    enabled: true
+    quota:
+      limits.cpu: 16`,
+			Expected: `controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+  distro:
+    k8s:
+      enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+policies:
+  limitRange:
+    enabled: true
+  networkPolicy:
+    enabled: true
+  podSecurityStandard: baseline
+  resourceQuota:
+    enabled: true
+    quota:
+      limits.cpu: 16`,
+			ExpectedErr: "",
+		},
+		{
+			Name:   "resources",
+			Distro: "k8s",
+			In: `syncer:
+  resources:
+    limits:
+      memory: 10Gi`,
+			Expected: `controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+  distro:
+    k8s:
+      enabled: true
+  statefulSet:
+    resources:
+      limits:
+        memory: 10Gi
+    scheduling:
+      podManagementPolicy: OrderedReady`,
+			ExpectedErr: "",
+		},
 	}
 
 	for _, testCase := range testCases {

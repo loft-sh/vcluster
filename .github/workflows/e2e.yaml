@@ -219,12 +219,7 @@ jobs:
           --connect=false \
           --distro=${{ matrix.distribution }}
 
-          _out=$(kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s 2>&1)
-          if [[ "${_out}" =~ "no matching resources" ]]
-          then
-            sleep 20
-            kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
-          fi
+          ./hack/wait-for-pod.sh -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }}
 
       - name: upgrade with the dev cli
         run: |
@@ -240,14 +235,7 @@ jobs:
           --local-chart-dir ./chart \
           -f ./test/commonValues.yaml
 
-          sleep 20
-
-          _out=$(kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s 2>&1)
-          if [[ "${_out}" =~ "no matching resources" ]]
-          then
-            sleep 20
-            kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
-          fi
+          ./hack/wait-for-pod.sh -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }}
 
   e2e-tests:
     name: Execute test suites
@@ -384,12 +372,9 @@ jobs:
         if: steps.create-vcluster.outcome == 'success'
         run: |
           set -x
-          _out=$(kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s 2>&1)
-          if [[ "${_out}" =~ "no matching resources" ]]
-          then
-            sleep 20
-            kubectl wait --for=condition=ready pod -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} --timeout=300s
-          fi
+
+          ./hack/wait-for-pod.sh -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }}
+
         continue-on-error: true
 
       - name: Collect deployment information in case vcluster fails to start
