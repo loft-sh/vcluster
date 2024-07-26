@@ -2,10 +2,46 @@ package config
 
 import (
 	_ "embed"
+	"strings"
 	"testing"
 
 	"gotest.tools/assert"
 )
+
+func TestConfig_Diff(t *testing.T) {
+	tests := []struct {
+		name string
+
+		config   func(c *Config)
+		expected string
+	}{
+		{
+			name: "Simple",
+			config: func(c *Config) {
+				c.Sync.ToHost.Services.Enabled = false
+			},
+			expected: `sync:
+  toHost:
+    services:
+      enabled: false`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defaultConfig, err := NewDefaultConfig()
+			assert.NilError(t, err)
+
+			toConfig, err := NewDefaultConfig()
+			assert.NilError(t, err)
+
+			tt.config(toConfig)
+
+			expectedConfig, err := Diff(defaultConfig, toConfig)
+			assert.NilError(t, err)
+			assert.Equal(t, tt.expected, strings.TrimSpace(expectedConfig))
+		})
+	}
+}
 
 func TestConfig_UnmarshalYAMLStrict(t *testing.T) {
 	type args struct {

@@ -67,6 +67,12 @@ func diff(from, to any) any {
 				// if its an int, its 3 -> 0
 				case int:
 					retMap[k] = 0
+				// if its an int, its 3 -> 0
+				case int64:
+					retMap[k] = int64(0)
+				// if its an int, its 3 -> 0
+				case float64:
+					retMap[k] = float64(0)
 				}
 			} else if !reflect.DeepEqual(fromValue, toValue) {
 				switch fromValue.(type) {
