@@ -100,6 +100,11 @@ func ValidateConfigAndSetDefaults(config *VirtualClusterConfig) error {
 		}
 	}
 
+	// set multi namespace mode name format
+	if config.Experimental.MultiNamespaceMode.NamespaceNameFormat.Prefix == "" {
+		config.Experimental.MultiNamespaceMode.NamespaceNameFormat.Prefix = "vcluster"
+	}
+
 	// check resolve dns
 	err = validateMappings(config.Networking.ResolveDNS)
 	if err != nil {
