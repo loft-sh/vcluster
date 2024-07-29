@@ -209,6 +209,10 @@ func (c *Config) BackingStoreType() StoreType {
 	}
 }
 
+func (c *Config) EmbeddedDatabase() bool {
+	return !c.ControlPlane.BackingStore.Database.External.Enabled && !c.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !c.ControlPlane.BackingStore.Etcd.Deploy.Enabled
+}
+
 func (c *Config) Distro() string {
 	if c.ControlPlane.Distro.K3S.Enabled {
 		return K3SDistro
