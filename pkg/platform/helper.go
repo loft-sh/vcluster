@@ -697,6 +697,16 @@ func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, con
 				contextOptions.Server = val.Server
 			}
 		}
+
+		if len(kubeConfig.AuthInfos) == 0 {
+			return kubeconfig.ContextOptions{}, errors.New("ingress access is configured but no credentials were present in the kubeconfig")
+		}
+		// find the first user and fill cert data with it
+		for _, v := range kubeConfig.AuthInfos {
+			contextOptions.ClientCertificateData = v.ClientCertificateData
+			contextOptions.ClientKeyData = v.ClientKeyData
+			break
+		}
 		if contextOptions.Server == "" {
 			return kubeconfig.ContextOptions{}, errors.New("could not determine server url")
 		}
