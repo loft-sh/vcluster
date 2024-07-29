@@ -276,6 +276,11 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		}
 	}
 
+	err = validateHABackingStoreCompatibility(vClusterConfig)
+	if err != nil {
+		return err
+	}
+
 	if isVClusterDeployed(release) {
 		// While certain backing store changes are allowed we prohibit changes to another distro.
 		if err := config.ValidateChanges(currentVClusterConfig, vClusterConfig); err != nil {
@@ -408,6 +413,16 @@ func isLegacyVCluster(version string) bool {
 		return false
 	}
 	return semver.Compare("v"+version, "v0.20.0-alpha.0") == -1
+}
+
+func validateHABackingStoreCompatibility(config *config.Config) error {
+	if !config.EmbeddedDatabase() {
+		return nil
+	}
+	if !(config.ControlPlane.StatefulSet.HighAvailability.Replicas > 1) {
+		return nil
+	}
+	return fmt.Errorf("cannot use default embedded database (sqlite) in high availability mode. Try embedded etcd backing store instead")
 }
 
 func isLegacyConfig(values []byte) bool {
