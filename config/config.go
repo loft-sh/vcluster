@@ -225,6 +225,14 @@ func (c *Config) Distro() string {
 	return K8SDistro
 }
 
+func (c *Config) IsConfiguredForSleepMode() bool {
+	if c != nil && c.External["platform"] == nil {
+		return false
+	}
+
+	return c.External["platform"]["autoSleep"] != nil || c.External["platform"]["autoDelete"] != nil
+}
+
 // ValidateChanges checks for disallowed config changes.
 // Currently only certain backingstore changes are allowed but no distro change.
 func ValidateChanges(oldCfg, newCfg *Config) error {

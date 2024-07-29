@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/loft-sh/log"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -17,7 +16,30 @@ const (
 	LoftCustomLinksDelimiter = "\n"
 )
 
-func UpdateLabels(obj metav1.Object, labelList []string) (bool, error) {
+type (
+	// Annotated is an interface for objects that have annotations
+	Annotated interface {
+		GetAnnotations() map[string]string
+	}
+	// Annotatable is an interface for objects that have annotations and `
+	Annotatable interface {
+		Annotated
+		SetAnnotations(map[string]string)
+	}
+
+	// Labeled is an interface for objects that have labels
+	Labeled interface {
+		GetLabels() map[string]string
+	}
+
+	// Labelable is an interface for objects that have labels and can set them
+	Labelable interface {
+		Labeled
+		SetLabels(map[string]string)
+	}
+)
+
+func UpdateLabels(obj Labelable, labelList []string) (bool, error) {
 	// parse strings to map
 	labels, err := parseStringMap(labelList)
 	if err != nil {
@@ -44,7 +66,7 @@ func UpdateLabels(obj metav1.Object, labelList []string) (bool, error) {
 	return changed, nil
 }
 
-func UpdateAnnotations(obj metav1.Object, annotationList []string) (bool, error) {
+func UpdateAnnotations(obj Annotatable, annotationList []string) (bool, error) {
 	// parse strings to map
 	annotations, err := parseStringMap(annotationList)
 	if err != nil {
@@ -72,7 +94,7 @@ func UpdateAnnotations(obj metav1.Object, annotationList []string) (bool, error)
 
 // SetCustomLinksAnnotation sets the list of links for the UI to display next to the project member({space/virtualcluster}instance)
 // it handles unspecified links (empty) during create and update
-func SetCustomLinksAnnotation(obj metav1.Object, links []string) bool {
+func SetCustomLinksAnnotation(obj Annotatable, links []string) bool {
 	var changed bool
 	if obj == nil {
 		log.GetInstance().Error("SetCustomLinksAnnotation called on nil object")

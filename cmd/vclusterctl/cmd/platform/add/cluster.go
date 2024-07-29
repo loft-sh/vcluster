@@ -143,7 +143,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 
 	if os.Getenv("DEVELOPMENT") == "true" {
 		helmArgs = []string{
-			"upgrade", "--install", "loft", "./chart",
+			"upgrade", "--install", "loft", cmp.Or(os.Getenv("DEVELOPMENT_CHART_DIR"), "./chart"),
 			"--create-namespace",
 			"--namespace", namespace,
 			"--set", "agentOnly=true",
