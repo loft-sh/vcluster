@@ -300,7 +300,8 @@ func (s *Store) RecordReference(ctx context.Context, nameMapping, belongsTo sync
 	// check if there is already a mapping
 	mapping, ok := s.findMapping(belongsTo)
 	if !ok {
-		return s.createMapping(ctx, nameMapping, belongsTo)
+		s.createMapping(ctx, nameMapping, belongsTo)
+		return nil
 	}
 
 	// check if we need to add mapping
@@ -356,7 +357,7 @@ func (s *Store) RecordLabel(ctx context.Context, labelMapping synccontext.LabelM
 
 	// add mapping
 	mapping.changed = true
-	klog.FromContext(ctx).Info("Add label mapping", "host", labelMapping.Host, "virtual", labelMapping.Virtual, "owner", mapping.Virtual().String())
+	klog.FromContext(ctx).V(1).Info("Add label mapping", "host", labelMapping.Host, "virtual", labelMapping.Virtual, "owner", mapping.Virtual().String())
 	mapping.Labels = append(mapping.Labels, labelMapping)
 
 	// add to lookup maps
@@ -365,12 +366,6 @@ func (s *Store) RecordLabel(ctx context.Context, labelMapping synccontext.LabelM
 }
 
 func (s *Store) RecordLabelCluster(ctx context.Context, labelMapping synccontext.LabelMapping, belongsTo synccontext.NameMapping) error {
-	// check if we have the owning object in the context
-	belongsTo, ok := synccontext.MappingFrom(ctx)
-	if !ok {
-		return nil
-	}
-
 	// we don't record incomplete mappings
 	if labelMapping.Host == "" || labelMapping.Virtual == "" {
 		return nil
@@ -400,7 +395,7 @@ func (s *Store) RecordLabelCluster(ctx context.Context, labelMapping synccontext
 
 	// add mapping
 	mapping.changed = true
-	klog.FromContext(ctx).Info("Add cluster-scoped label mapping", "host", labelMapping.Host, "virtual", labelMapping.Virtual, "owner", mapping.Virtual().String())
+	klog.FromContext(ctx).V(1).Info("Add cluster-scoped label mapping", "host", labelMapping.Host, "virtual", labelMapping.Virtual, "owner", mapping.Virtual().String())
 	mapping.LabelsCluster = append(mapping.LabelsCluster, labelMapping)
 
 	// add to lookup maps
@@ -420,7 +415,6 @@ func (s *Store) SaveMapping(ctx context.Context, nameMapping synccontext.NameMap
 	// check if there is already a mapping
 	mapping, ok := s.findMapping(nameMapping)
 	if !ok {
-		klog.FromContext(ctx).V(1).Info("couldn't find mapping", "mapping", nameMapping.String())
 		return nil
 	} else if !mapping.changed {
 		return nil
@@ -505,10 +499,10 @@ func (s *Store) findMapping(mapping synccontext.NameMapping) (*Mapping, bool) {
 	return retMapping, ok
 }
 
-func (s *Store) createMapping(ctx context.Context, nameMapping, belongsTo synccontext.NameMapping) error {
+func (s *Store) createMapping(ctx context.Context, nameMapping, belongsTo synccontext.NameMapping) {
 	// check if we should add a new mapping
 	if belongsTo.Empty() {
-		return nil
+		return
 	}
 
 	// check what object is empty
@@ -517,7 +511,7 @@ func (s *Store) createMapping(ctx context.Context, nameMapping, belongsTo syncco
 		// check if the name mapping matches
 		if nameMapping.GroupVersionKind.String() != belongsTo.GroupVersionKind.String() {
 			klog.FromContext(ctx).Info("Cannot create name mapping, because owner mapping is incomplete and does not match group version kind", "owner", belongsTo.String(), "nameMapping", nameMapping.String())
-			return nil
+			return
 		}
 
 		// try to find missing virtual or host object
@@ -526,7 +520,7 @@ func (s *Store) createMapping(ctx context.Context, nameMapping, belongsTo syncco
 		} else if pObj.Empty() && vObj.Equals(nameMapping.Virtual()) {
 			pObj = nameMapping.Host()
 		} else {
-			return nil
+			return
 		}
 	}
 
@@ -542,9 +536,8 @@ func (s *Store) createMapping(ctx context.Context, nameMapping, belongsTo syncco
 	}
 
 	// add to lookup maps
-	klog.FromContext(ctx).Info("Create name mapping", "host", newMapping.NameMapping.Host().String(), "virtual", newMapping.NameMapping.Virtual().String())
+	klog.FromContext(ctx).Info("Create name mapping", "host", newMapping.NameMapping.Host().String(), "virtual", newMapping.NameMapping.Virtual().String(), "nameMapping", nameMapping.String(), "belongsTo", belongsTo.String())
 	s.addMapping(newMapping)
-	return nil
 }
 
 func (s *Store) checkNameConflict(nameMapping synccontext.NameMapping) error {

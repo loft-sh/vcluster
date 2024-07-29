@@ -118,3 +118,37 @@ func TestStore(t *testing.T) {
 	_, ok = store.mappings[nameMapping]
 	assert.Equal(t, false, ok)
 }
+
+func TestRecordMapping(t *testing.T) {
+	genericStore, err := NewStore(context.TODO(), testingutil.NewFakeClient(scheme.Scheme), testingutil.NewFakeClient(scheme.Scheme), NewMemoryBackend())
+	assert.NilError(t, err)
+
+	store, ok := genericStore.(*Store)
+	assert.Equal(t, true, ok)
+
+	baseCtx := context.TODO()
+
+	gvk := corev1.SchemeGroupVersion.WithKind("ConfigMap")
+	virtual := types.NamespacedName{
+		Namespace: "default",
+		Name:      "kube-root-ca.crt",
+	}
+	host := types.NamespacedName{
+		Namespace: "vcluster-namespace",
+		Name:      "kube-root-ca.crt",
+	}
+	host2 := types.NamespacedName{
+		Namespace: "vcluster-namespace",
+		Name:      "vcluster-kube-root-ca.crt-x-vcluster",
+	}
+	err = store.RecordReference(baseCtx, synccontext.NameMapping{
+		GroupVersionKind: gvk,
+		VirtualName:      virtual,
+		HostName:         host2,
+	}, synccontext.NameMapping{
+		GroupVersionKind: gvk,
+		HostName:         host,
+	})
+	assert.NilError(t, err)
+	assert.Equal(t, 0, len(store.mappings))
+}

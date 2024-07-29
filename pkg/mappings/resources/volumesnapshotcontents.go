@@ -25,7 +25,7 @@ func CreateVolumeSnapshotContentsMapper(ctx *synccontext.RegisterContext) (syncc
 		return nil, err
 	}
 
-	return generic.NewMapperWithObject(ctx, &volumesnapshotv1.VolumeSnapshotContent{}, func(name, _ string, vObj client.Object) string {
+	return generic.NewMapperWithObject(ctx, &volumesnapshotv1.VolumeSnapshotContent{}, func(_ *synccontext.SyncContext, name, _ string, vObj client.Object) string {
 		if vObj == nil {
 			return name
 		}

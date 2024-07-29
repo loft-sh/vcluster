@@ -17,6 +17,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	translatepro "github.com/loft-sh/vcluster/pkg/util/translate/pro"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -110,6 +111,8 @@ func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 	defaultNamespaces := make(map[string]cache.Config)
 	if !options.Experimental.MultiNamespaceMode.Enabled {
 		defaultNamespaces[options.WorkloadTargetNamespace] = cache.Config{}
+
+		translatepro.AddMappingsToCache(defaultNamespaces)
 	}
 	// do we need access to another namespace to export the kubeconfig ?
 	// we will need access to all the objects that the vcluster usually has access to

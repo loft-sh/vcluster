@@ -60,7 +60,7 @@ func (s *csiStorageCapacitiesMapper) HostToVirtual(_ *synccontext.SyncContext, r
 	return types.NamespacedName{Name: translate.SafeConcatName(req.Name, "x", req.Namespace), Namespace: "kube-system"}
 }
 
-func (s *csiStorageCapacitiesMapper) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+func (s *csiStorageCapacitiesMapper) VirtualToHost(_ *synccontext.SyncContext, _ types.NamespacedName, vObj client.Object) types.NamespacedName {
 	// if the virtual object is annotated with the physical name and namespace, return that
 	if vObj != nil {
 		vAnnotations := vObj.GetAnnotations()

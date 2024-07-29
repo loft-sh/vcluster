@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/base36"
+	"github.com/loft-sh/vcluster/pkg/util/translate/pro"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,17 +32,25 @@ func (s *singleNamespace) SingleNamespaceTarget() bool {
 	return true
 }
 
-func (s *singleNamespace) HostName(name, namespace string) string {
-	return SingleNamespaceHostName(name, namespace, VClusterName)
+func (s *singleNamespace) HostName(ctx *synccontext.SyncContext, vName, vNamespace string) string {
+	if vName == "" {
+		return ""
+	} else if _, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
+		return vName
+	}
+
+	return SingleNamespaceHostName(vName, vNamespace, VClusterName)
 }
 
-func (s *singleNamespace) HostNameShort(name, namespace string) string {
-	if name == "" {
+func (s *singleNamespace) HostNameShort(ctx *synccontext.SyncContext, vName, vNamespace string) string {
+	if vName == "" {
 		return ""
+	} else if _, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
+		return vName
 	}
 
 	// we use base36 to avoid as much conflicts as possible
-	digest := sha256.Sum256([]byte(strings.Join([]string{name, "x", namespace, "x", VClusterName}, "-")))
+	digest := sha256.Sum256([]byte(strings.Join([]string{vName, "x", vNamespace, "x", VClusterName}, "-")))
 	return base36.EncodeBytes(digest[:])[0:10]
 }
 
@@ -70,9 +79,12 @@ func (s *singleNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Ob
 	}
 
 	// is object not in our target namespace?
-	if !s.IsTargetedNamespace(pObj.GetNamespace()) {
+	if !s.IsTargetedNamespace(ctx, pObj.GetNamespace()) {
 		return false
-	} else if pObj.GetLabels()[MarkerLabel] != VClusterName {
+	}
+
+	// if host namespace is mapped, we don't check for marker label
+	if _, ok := pro.HostNamespaceMatchesMapping(ctx, pObj.GetNamespace()); !ok && pObj.GetLabels()[MarkerLabel] != VClusterName {
 		return false
 	}
 
@@ -110,11 +122,19 @@ func (s *singleNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Ob
 	return true
 }
 
-func (s *singleNamespace) IsTargetedNamespace(ns string) bool {
-	return ns == s.targetNamespace
+func (s *singleNamespace) IsTargetedNamespace(ctx *synccontext.SyncContext, pNamespace string) bool {
+	if _, ok := pro.HostNamespaceMatchesMapping(ctx, pNamespace); ok {
+		return true
+	}
+
+	return pNamespace == s.targetNamespace
 }
 
-func (s *singleNamespace) HostNamespace(_ string) string {
+func (s *singleNamespace) HostNamespace(ctx *synccontext.SyncContext, vNamespace string) string {
+	if pNamespace, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
+		return pNamespace
+	}
+
 	return s.targetNamespace
 }
 
@@ -152,8 +172,10 @@ func (s *singleNamespace) HostLabelCluster(ctx *synccontext.SyncContext, key str
 	return hostLabelCluster(key, s.targetNamespace)
 }
 
-func (s *singleNamespace) VirtualLabel(ctx *synccontext.SyncContext, pLabel string) (retLabel string, found bool) {
-	if keyMatchesSyncedLabels(ctx, pLabel) {
+func (s *singleNamespace) VirtualLabel(ctx *synccontext.SyncContext, pLabel, vNamespace string) (retLabel string, found bool) {
+	if _, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
+		return pLabel, true
+	} else if keyMatchesSyncedLabels(ctx, pLabel) {
 		return pLabel, true
 	} else if !strings.HasPrefix(pLabel, LabelPrefix) {
 		return pLabel, true
@@ -174,8 +196,10 @@ func (s *singleNamespace) VirtualLabel(ctx *synccontext.SyncContext, pLabel stri
 	return "", false
 }
 
-func (s *singleNamespace) HostLabel(ctx *synccontext.SyncContext, vLabel string) (retLabel string) {
-	if keyMatchesSyncedLabels(ctx, vLabel) {
+func (s *singleNamespace) HostLabel(ctx *synccontext.SyncContext, vLabel, vNamespace string) (retLabel string) {
+	if _, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
+		return vLabel
+	} else if keyMatchesSyncedLabels(ctx, vLabel) {
 		return vLabel
 	}
 

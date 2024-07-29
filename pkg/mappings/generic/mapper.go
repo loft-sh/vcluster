@@ -16,25 +16,30 @@ import (
 )
 
 // PhysicalNameWithObjectFunc is a definition to translate a name that also optionally expects a vObj
-type PhysicalNameWithObjectFunc func(vName, vNamespace string, vObj client.Object) string
+type PhysicalNameWithObjectFunc func(ctx *synccontext.SyncContext, vName, vNamespace string, vObj client.Object) string
 
 // PhysicalNameFunc is a definition to translate a name
-type PhysicalNameFunc func(vName, vNamespace string) string
+type PhysicalNameFunc func(ctx *synccontext.SyncContext, vName, vNamespace string) string
 
 // NewMapper creates a new mapper with a custom physical name func
 func NewMapper(ctx *synccontext.RegisterContext, obj client.Object, translateName PhysicalNameFunc) (synccontext.Mapper, error) {
-	return NewMapperWithObject(ctx, obj, func(vName, vNamespace string, _ client.Object) string {
-		return translateName(vName, vNamespace)
+	return NewMapperWithObject(ctx, obj, func(ctx *synccontext.SyncContext, vName, vNamespace string, _ client.Object) string {
+		return translateName(ctx, vName, vNamespace)
 	})
 }
 
 // NewMapperWithObject creates a new mapper with a custom physical name func
 func NewMapperWithObject(ctx *synccontext.RegisterContext, obj client.Object, translateName PhysicalNameWithObjectFunc) (synccontext.Mapper, error) {
-	return NewMapperWithRecorder(ctx, obj, true, translateName)
+	return newMapper(ctx, obj, true, translateName)
 }
 
-// NewMapperWithRecorder creates a new mapper with a recorder to store mappings in the mappings store
-func NewMapperWithRecorder(ctx *synccontext.RegisterContext, obj client.Object, recorder bool, translateName PhysicalNameWithObjectFunc) (synccontext.Mapper, error) {
+// NewMapperWithoutRecorder creates a new mapper with a recorder to store mappings in the mappings store
+func NewMapperWithoutRecorder(ctx *synccontext.RegisterContext, obj client.Object, translateName PhysicalNameWithObjectFunc) (synccontext.Mapper, error) {
+	return newMapper(ctx, obj, false, translateName)
+}
+
+// newMapper creates a new mapper with a recorder to store mappings in the mappings store
+func newMapper(ctx *synccontext.RegisterContext, obj client.Object, recorder bool, translateName PhysicalNameWithObjectFunc) (synccontext.Mapper, error) {
 	gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
 	if err != nil {
 		return nil, fmt.Errorf("retrieve GVK for object failed: %w", err)
@@ -88,7 +93,7 @@ func (n *mapper) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.Ma
 	}
 
 	// it's safe to list here without namespace as this will just list all items in the cache
-	err = ctx.PhysicalManager.GetClient().List(ctx, list.(client.ObjectList))
+	err = ctx.VirtualManager.GetClient().List(ctx, list.(client.ObjectList))
 	if err != nil {
 		return fmt.Errorf("error listing %s: %w", listGvk.String(), err)
 	}
@@ -104,9 +109,9 @@ func (n *mapper) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.Ma
 			continue
 		}
 
-		pName := types.NamespacedName{Name: clientObject.GetName(), Namespace: clientObject.GetNamespace()}
-		vName := mapper.HostToVirtual(ctx.ToSyncContext("migrate-"+listGvk.Kind), pName, clientObject)
-		if vName.Name != "" {
+		vName := types.NamespacedName{Name: clientObject.GetName(), Namespace: clientObject.GetNamespace()}
+		pName := mapper.VirtualToHost(ctx.ToSyncContext("migrate-"+listGvk.Kind), vName, clientObject)
+		if pName.Name != "" {
 			nameMapping := synccontext.NameMapping{
 				GroupVersionKind: n.gvk,
 				VirtualName:      vName,
@@ -124,24 +129,14 @@ func (n *mapper) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.Ma
 }
 
 func (n *mapper) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) (retName types.NamespacedName) {
-	defer func() {
-		RecordMapping(ctx, retName, req, n.GroupVersionKind())
-	}()
-
-	// check store first
-	pName, ok := VirtualToHostFromStore(ctx, req, n.GroupVersionKind())
-	if ok {
-		return pName
-	}
-
 	pNamespace := req.Namespace
 	if pNamespace != "" {
-		pNamespace = translate.Default.HostNamespace(pNamespace)
+		pNamespace = translate.Default.HostNamespace(ctx, pNamespace)
 	}
 
 	return types.NamespacedName{
 		Namespace: pNamespace,
-		Name:      n.translateName(req.Name, req.Namespace, vObj),
+		Name:      n.translateName(ctx, req.Name, req.Namespace, vObj),
 	}
 }
 

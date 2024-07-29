@@ -39,7 +39,7 @@ func WaitForEtcd(parentCtx context.Context, certificates *Certificates, endpoint
 			}
 		}
 
-		klog.Infof("Couldn't connect to embedded etcd (will retry in a second): %v", err)
+		klog.Infof("Couldn't connect to etcd (will retry in a second): %v", err)
 		return false, nil
 	})
 	if waitErr != nil {

@@ -50,6 +50,14 @@ func (s *eventSyncer) Syncer() syncertypes.Sync[client.Object] {
 	return syncer.ToGenericSyncer[*corev1.Event](s)
 }
 
+var _ syncertypes.OptionsProvider = &eventSyncer{}
+
+func (s *eventSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		SkipMappingsRecording: true,
+	}
+}
+
 func (s *eventSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Event]) (ctrl.Result, error) {
 	// check if delete event
 	if event.IsDelete() {

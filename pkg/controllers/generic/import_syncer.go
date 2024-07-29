@@ -96,9 +96,8 @@ func createImporter(ctx *synccontext.RegisterContext, config *vclusterconfig.Imp
 
 		name: controllerID,
 		syncerOptions: &syncertypes.Options{
-			DisableUIDDeletion:   true,
-			IsClusterScopedCRD:   isClusterScoped,
-			HasStatusSubresource: hasStatusSubresource,
+			DisableUIDDeletion: true,
+			IsClusterScopedCRD: isClusterScoped,
 		},
 	}, nil
 }
@@ -347,7 +346,7 @@ func (s *importer) isVirtualManaged(vObj client.Object) bool {
 	return vObj.GetAnnotations() != nil && vObj.GetAnnotations()[translate.ControllerLabel] != "" && vObj.GetAnnotations()[translate.ControllerLabel] == s.Name()
 }
 
-func (s *importer) IsManaged(_ *synccontext.SyncContext, pObj client.Object) (bool, error) {
+func (s *importer) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return true, nil
 	}
@@ -356,7 +355,7 @@ func (s *importer) IsManaged(_ *synccontext.SyncContext, pObj client.Object) (bo
 	}
 
 	// check if the pObj belong to a namespace managed by this vcluster
-	if !translate.Default.IsTargetedNamespace(pObj.GetNamespace()) {
+	if !translate.Default.IsTargetedNamespace(ctx, pObj.GetNamespace()) {
 		return false, nil
 	}
 
@@ -374,7 +373,7 @@ func (s *importer) VirtualToHost(ctx *synccontext.SyncContext, req types.Namespa
 		return s.virtualToHost(ctx, req, vObj)
 	}
 
-	return types.NamespacedName{Name: translate.Default.HostName(req.Name, req.Namespace), Namespace: translate.Default.HostNamespace(req.Namespace)}
+	return types.NamespacedName{Name: translate.Default.HostName(ctx, req.Name, req.Namespace), Namespace: translate.Default.HostNamespace(ctx, req.Namespace)}
 }
 
 func (s *importer) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {

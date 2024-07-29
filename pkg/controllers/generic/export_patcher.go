@@ -27,7 +27,7 @@ func (e *exportPatcher) ServerSideApply(ctx *synccontext.SyncContext, fromObj, d
 		syncContext: ctx,
 
 		namespace:       fromObj.GetNamespace(),
-		targetNamespace: translate.Default.HostNamespace(fromObj.GetNamespace()),
+		targetNamespace: translate.Default.HostNamespace(ctx, fromObj.GetNamespace()),
 	})
 }
 
@@ -58,13 +58,13 @@ func (r *virtualToHostNameResolver) TranslateNameWithNamespace(name string, name
 			}
 
 			return types.NamespacedName{
-				Namespace: translate.Default.HostNamespace(namespace),
-				Name:      translate.Default.HostName(name, ns),
+				Namespace: translate.Default.HostNamespace(r.syncContext, namespace),
+				Name:      translate.Default.HostName(r.syncContext, name, ns),
 			}
 		}), nil
 	}
 
-	return translate.Default.HostName(name, namespace), nil
+	return translate.Default.HostName(r.syncContext, name, namespace), nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
@@ -72,7 +72,7 @@ func (r *virtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelKey(key string) (string, error) {
-	return translate.Default.HostLabel(r.syncContext, key), nil
+	return translate.Default.HostLabel(r.syncContext, key, ""), nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
@@ -80,11 +80,11 @@ func (r *virtualToHostNameResolver) TranslateLabelSelector(selector map[string]s
 		MatchLabels: selector,
 	}
 
-	return metav1.LabelSelectorAsMap(translate.HostLabelSelector(r.syncContext, labelSelector))
+	return metav1.LabelSelectorAsMap(translate.HostLabelSelector(r.syncContext, labelSelector, ""))
 }
 
 func (r *virtualToHostNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
-	return translate.Default.HostNamespace(namespace), nil
+	return translate.Default.HostNamespace(r.syncContext, namespace), nil
 }
 
 func validateExportConfig(config *vclusterconfig.Export) error {

@@ -30,13 +30,13 @@ func (s *ingressSyncer) translate(ctx *synccontext.SyncContext, vIngress *networ
 
 func (s *ingressSyncer) TranslateMetadata(ctx *synccontext.SyncContext, vObj client.Object) client.Object {
 	ingress := vObj.(*networkingv1.Ingress).DeepCopy()
-	updateAnnotations(ingress)
+	updateAnnotations(ctx, ingress)
 	return translate.HostMetadata(ctx, vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 }
 
 func (s *ingressSyncer) TranslateMetadataUpdate(ctx *synccontext.SyncContext, vObj client.Object, pObj client.Object) (annotations map[string]string, labels map[string]string) {
 	vIngress := vObj.(*networkingv1.Ingress).DeepCopy()
-	updateAnnotations(vIngress)
+	updateAnnotations(ctx, vIngress)
 	return translate.HostAnnotations(vIngress, pObj), translate.HostLabels(ctx, vIngress, pObj)
 }
 
@@ -56,7 +56,7 @@ func translateSpec(ctx *synccontext.SyncContext, namespace string, vIngressSpec 
 			retSpec.DefaultBackend.Service.Name = mappings.VirtualToHostName(ctx, retSpec.DefaultBackend.Service.Name, namespace, mappings.Services())
 		}
 		if retSpec.DefaultBackend.Resource != nil {
-			retSpec.DefaultBackend.Resource.Name = translate.Default.HostName(retSpec.DefaultBackend.Resource.Name, namespace)
+			retSpec.DefaultBackend.Resource.Name = translate.Default.HostName(ctx, retSpec.DefaultBackend.Resource.Name, namespace)
 		}
 	}
 
@@ -67,7 +67,7 @@ func translateSpec(ctx *synccontext.SyncContext, namespace string, vIngressSpec 
 					retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name = mappings.VirtualToHostName(ctx, retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name, namespace, mappings.Services())
 				}
 				if path.Backend.Resource != nil {
-					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.Default.HostName(retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
+					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.Default.HostName(ctx, retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
 				}
 			}
 		}
@@ -102,12 +102,12 @@ type actionPayload struct {
 	} `json:"forwardConfig,omitempty"`
 }
 
-func processAlbAnnotations(namespace string, k string, v string) (string, string) {
+func processAlbAnnotations(ctx *synccontext.SyncContext, namespace string, k string, v string) (string, string) {
 	if strings.HasPrefix(k, AlbActionsAnnotation) {
 		// change k
 		action := getActionOrConditionValue(k, ActionsSuffix)
 		if !strings.Contains(k, "x-"+namespace+"-x") {
-			k = strings.Replace(k, action, translate.Default.HostName(action, namespace), 1)
+			k = strings.Replace(k, action, translate.Default.HostName(ctx, action, namespace), 1)
 		}
 		// change v
 		var payload *actionPayload
@@ -121,7 +121,7 @@ func processAlbAnnotations(namespace string, k string, v string) (string, string
 					case string:
 						if svcName != "" {
 							if !strings.Contains(svcName, "x-"+namespace+"-x") {
-								targetGroup["serviceName"] = translate.Default.HostName(svcName, namespace)
+								targetGroup["serviceName"] = translate.Default.HostName(ctx, svcName, namespace)
 							} else {
 								targetGroup["serviceName"] = svcName
 							}
@@ -139,16 +139,16 @@ func processAlbAnnotations(namespace string, k string, v string) (string, string
 	if strings.HasPrefix(k, AlbConditionAnnotation) {
 		condition := getActionOrConditionValue(k, ConditionSuffix)
 		if !strings.Contains(k, "x-"+namespace+"-x") {
-			k = strings.Replace(k, condition, translate.Default.HostName(condition, namespace), 1)
+			k = strings.Replace(k, condition, translate.Default.HostName(ctx, condition, namespace), 1)
 		}
 	}
 	return k, v
 }
 
-func updateAnnotations(ingress *networkingv1.Ingress) {
+func updateAnnotations(ctx *synccontext.SyncContext, ingress *networkingv1.Ingress) {
 	for k, v := range ingress.Annotations {
 		delete(ingress.Annotations, k)
-		k, v = processAlbAnnotations(ingress.Namespace, k, v)
+		k, v = processAlbAnnotations(ctx, ingress.Namespace, k, v)
 		ingress.Annotations[k] = v
 	}
 }

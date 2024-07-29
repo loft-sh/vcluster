@@ -12,6 +12,20 @@ var (
 	KindAnnotation      = "vcluster.loft.sh/object-kind"
 )
 
+var (
+	NamespaceLabel       = "vcluster.loft.sh/namespace"
+	MarkerLabel          = "vcluster.loft.sh/managed-by"
+	LabelPrefix          = "vcluster.loft.sh/label"
+	NamespaceLabelPrefix = "vcluster.loft.sh/ns-label"
+	ControllerLabel      = "vcluster.loft.sh/controlled-by"
+
+	// VClusterName is the vcluster name, usually set at start time
+	VClusterName = "suffix"
+
+	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
+	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"
+)
+
 var Default Translator = &singleNamespace{}
 
 type Translator interface {
@@ -22,29 +36,29 @@ type Translator interface {
 	IsManaged(ctx *synccontext.SyncContext, pObj client.Object) bool
 
 	// IsTargetedNamespace checks if the provided namespace is a sync target for vcluster
-	IsTargetedNamespace(namespace string) bool
+	IsTargetedNamespace(ctx *synccontext.SyncContext, namespace string) bool
 
 	// MarkerLabelCluster returns the marker label for the cluster scoped object
 	MarkerLabelCluster() string
 
 	// HostName returns the host name for a virtual cluster object
-	HostName(vName, vNamespace string) string
+	HostName(ctx *synccontext.SyncContext, vName, vNamespace string) string
 
 	// HostNameShort returns the short host name for a virtual cluster object
-	HostNameShort(vName, vNamespace string) string
+	HostNameShort(ctx *synccontext.SyncContext, vName, vNamespace string) string
 
 	// HostNameCluster returns the host name for a cluster scoped
 	// virtual cluster object
 	HostNameCluster(vName string) string
 
 	// HostNamespace returns the host namespace for a virtual cluster object
-	HostNamespace(vNamespace string) string
+	HostNamespace(ctx *synccontext.SyncContext, vNamespace string) string
 
 	// HostLabel translates a single label from virtual to host for a namespace scoped resource
-	HostLabel(ctx *synccontext.SyncContext, vLabel string) string
+	HostLabel(ctx *synccontext.SyncContext, vLabel, vNamespace string) string
 
 	// VirtualLabel translates a single label from host to virtual for a namespace scoped resource
-	VirtualLabel(ctx *synccontext.SyncContext, pLabel string) (string, bool)
+	VirtualLabel(ctx *synccontext.SyncContext, pLabel, vNamespace string) (string, bool)
 
 	// HostLabelCluster translates a single label from host to virtual for a cluster scoped resource
 	HostLabelCluster(ctx *synccontext.SyncContext, vLabel string) string

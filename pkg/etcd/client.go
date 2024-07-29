@@ -52,6 +52,13 @@ func NewFromConfig(ctx context.Context, vConfig *config.VirtualClusterConfig) (C
 			ServerCert: "/data/pki/apiserver-etcd-client.crt",
 			ServerKey:  "/data/pki/apiserver-etcd-client.key",
 		}
+		if vConfig.Distro() == vconfig.K0SDistro {
+			etcdCertificates = &Certificates{
+				CaCert:     "/data/k0s/pki/etcd/ca.crt",
+				ServerCert: "/data/k0s/pki/apiserver-etcd-client.crt",
+				ServerKey:  "/data/k0s/pki/apiserver-etcd-client.key",
+			}
+		}
 
 		if vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			etcdEndpoints = "https://127.0.0.1:2379"

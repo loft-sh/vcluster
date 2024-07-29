@@ -39,9 +39,9 @@ func dispatchAll(watches []*watcher, nameMapping synccontext.NameMapping) {
 		return
 	}
 
-	go func(watches []*watcher) {
+	go func() {
 		for _, watch := range watches {
 			watch.Dispatch(nameMapping)
 		}
-	}(watches)
+	}()
 }

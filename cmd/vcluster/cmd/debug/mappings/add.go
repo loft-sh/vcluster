@@ -32,7 +32,7 @@ func NewAddCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Adds a custom mapping to the vCluster stored mappings",
-		RunE: func(cobraCommand *cobra.Command, args []string) (err error) {
+		RunE: func(cobraCommand *cobra.Command, _ []string) (err error) {
 			return ExecuteSave(cobraCommand.Context(), options)
 		},
 	}

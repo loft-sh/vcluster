@@ -48,13 +48,13 @@ func TestExistingEndpoints(t *testing.T) {
 	}
 	pEndpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName(vEndpoints.Name, vEndpoints.Namespace),
+			Name:      translate.Default.HostName(nil, vEndpoints.Name, vEndpoints.Namespace),
 			Namespace: "test",
 		},
 	}
 	pService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName(vEndpoints.Name, vEndpoints.Namespace),
+			Name:      translate.Default.HostName(nil, vEndpoints.Name, vEndpoints.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
 				translate.NameAnnotation:      vEndpoints.Name,
@@ -69,7 +69,7 @@ func TestExistingEndpoints(t *testing.T) {
 	}
 	expectedEndpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName(vEndpoints.Name, vEndpoints.Namespace),
+			Name:      translate.Default.HostName(nil, vEndpoints.Name, vEndpoints.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
 				translate.NameAnnotation:      vEndpoints.Name,
@@ -148,7 +148,7 @@ func TestSync(t *testing.T) {
 	}
 	syncedEndpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName(baseEndpoints.Name, baseEndpoints.Namespace),
+			Name:      translate.Default.HostName(nil, baseEndpoints.Name, baseEndpoints.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
 				translate.NameAnnotation:      baseEndpoints.Name,

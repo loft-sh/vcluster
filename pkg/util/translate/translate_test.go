@@ -141,7 +141,7 @@ func TestLabelsMap(t *testing.T) {
 
 	pMap["other"] = "other"
 
-	vMap := VirtualLabelsMap(syncContext, pMap, nil)
+	vMap := VirtualLabelsMap(syncContext, pMap, nil, "")
 	assert.DeepEqual(t, map[string]string{
 		"test":    "test",
 		"test123": "test123",
@@ -188,7 +188,7 @@ func TestLabelSelector(t *testing.T) {
 			"test":    "test",
 			"test123": "test123",
 		},
-	})
+	}, "")
 	assert.DeepEqual(t, &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"vcluster.loft.sh/label-suffix-x-9f86d08188": "test",
@@ -196,7 +196,7 @@ func TestLabelSelector(t *testing.T) {
 		},
 	}, pMap)
 
-	vMap := VirtualLabelSelector(syncContext, pMap)
+	vMap := VirtualLabelSelector(syncContext, pMap, "")
 	assert.DeepEqual(t, &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"test":    "test",
@@ -204,7 +204,7 @@ func TestLabelSelector(t *testing.T) {
 		},
 	}, vMap)
 
-	pMap = HostLabelSelector(syncContext, vMap)
+	pMap = HostLabelSelector(syncContext, vMap, "")
 	assert.DeepEqual(t, &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"vcluster.loft.sh/label-suffix-x-9f86d08188": "test",

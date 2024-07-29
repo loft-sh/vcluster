@@ -1,6 +1,7 @@
 package debug
 
 import (
+	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/debug/etcd"
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/debug/mappings"
 	"github.com/spf13/cobra"
 )
@@ -17,5 +18,6 @@ func NewDebugCmd() *cobra.Command {
 	}
 
 	debugCmd.AddCommand(mappings.NewMappingsCmd())
+	debugCmd.AddCommand(etcd.NewEtcdCmd())
 	return debugCmd
 }

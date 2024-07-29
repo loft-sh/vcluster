@@ -47,15 +47,6 @@ type syncContextMappingType int
 
 const mappingKey syncContextMappingType = iota
 
-// WithMapping adds the mapping to the context
-func WithMapping(ctx context.Context, nameMapping NameMapping) context.Context {
-	if nameMapping.Empty() {
-		return ctx
-	}
-
-	return context.WithValue(ctx, mappingKey, nameMapping)
-}
-
 // WithMappingFromObjects adds the mapping to the context
 func WithMappingFromObjects(ctx context.Context, pObj, vObj client.Object) (context.Context, error) {
 	nameMapping, err := NewNameMappingFrom(pObj, vObj)
@@ -66,8 +57,20 @@ func WithMappingFromObjects(ctx context.Context, pObj, vObj client.Object) (cont
 	return WithMapping(ctx, nameMapping), nil
 }
 
+// WithMapping adds the mapping to the context
+func WithMapping(ctx context.Context, nameMapping NameMapping) context.Context {
+	if nameMapping.Empty() {
+		return ctx
+	}
+
+	return context.WithValue(ctx, mappingKey, nameMapping)
+}
+
 // MappingFrom returns the value of the original request path key on the ctx
 func MappingFrom(ctx context.Context) (NameMapping, bool) {
 	info, ok := ctx.Value(mappingKey).(NameMapping)
+	if info.Empty() {
+		return NameMapping{}, false
+	}
 	return info, ok
 }

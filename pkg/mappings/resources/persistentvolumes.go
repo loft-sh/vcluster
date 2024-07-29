@@ -14,7 +14,7 @@ func CreatePersistentVolumesMapper(ctx *synccontext.RegisterContext) (synccontex
 		return generic.NewMirrorMapper(&corev1.PersistentVolume{})
 	}
 
-	return generic.NewMapperWithObject(ctx, &corev1.PersistentVolume{}, func(name, _ string, vObj client.Object) string {
+	return generic.NewMapperWithObject(ctx, &corev1.PersistentVolume{}, func(_ *synccontext.SyncContext, name, _ string, vObj client.Object) string {
 		if vObj == nil {
 			return name
 		}

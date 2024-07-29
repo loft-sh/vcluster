@@ -15,6 +15,8 @@ import (
 
 type ListOptions struct {
 	Config string
+
+	Kind string
 }
 
 func NewListCommand() *cobra.Command {
@@ -23,14 +25,16 @@ func NewListCommand() *cobra.Command {
 		Use:   "list",
 		Short: "Dump the vCluster stored mappings",
 		Args:  cobra.NoArgs,
-		RunE: func(cobraCommand *cobra.Command, args []string) (err error) {
+		RunE: func(cobraCommand *cobra.Command, _ []string) (err error) {
 			return ExecuteList(cobraCommand.Context(), options)
 		},
 	}
 
 	cmd.Flags().StringVar(&options.Config, "config", constants.DefaultVClusterConfigLocation, "The path where to find the vCluster config to load")
+	cmd.Flags().StringVar(&options.Kind, "kind", "", "The kind of objects to list")
 	return cmd
 }
+
 func ExecuteList(ctx context.Context, options *ListOptions) error {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(options.Config, os.Getenv("VCLUSTER_NAME"), nil)
@@ -48,6 +52,19 @@ func ExecuteList(ctx context.Context, options *ListOptions) error {
 	mappings, err := store.NewEtcdBackend(etcdClient).List(ctx)
 	if err != nil {
 		return fmt.Errorf("list mappings: %w", err)
+	}
+
+	// filter if kind is specified
+	if options.Kind != "" {
+		newMappings := make([]*store.Mapping, 0, len(mappings))
+		for _, mapping := range mappings {
+			if mapping.Kind != options.Kind {
+				continue
+			}
+
+			newMappings = append(newMappings, mapping)
+		}
+		mappings = newMappings
 	}
 
 	// print mappings

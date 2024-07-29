@@ -56,7 +56,7 @@ func TestSync(t *testing.T) {
 	}
 
 	pObjectMeta := metav1.ObjectMeta{
-		Name:            translate.Default.HostName(vObjectMeta.Name, vObjectMeta.Namespace),
+		Name:            translate.Default.HostName(nil, vObjectMeta.Name, vObjectMeta.Namespace),
 		Namespace:       targetNamespace,
 		ResourceVersion: "1234",
 		Annotations: map[string]string{
@@ -74,7 +74,7 @@ func TestSync(t *testing.T) {
 		ObjectMeta: pObjectMeta,
 		Spec: volumesnapshotv1.VolumeSnapshotSpec{
 			Source: volumesnapshotv1.VolumeSnapshotSource{
-				PersistentVolumeClaimName: ptr.To(translate.Default.HostName(*vPVSourceSnapshot.Spec.Source.PersistentVolumeClaimName, vObjectMeta.Namespace)),
+				PersistentVolumeClaimName: ptr.To(translate.Default.HostName(nil, *vPVSourceSnapshot.Spec.Source.PersistentVolumeClaimName, vObjectMeta.Namespace)),
 			},
 			VolumeSnapshotClassName: vPVSourceSnapshot.Spec.VolumeSnapshotClassName,
 		},

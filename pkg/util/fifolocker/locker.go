@@ -10,13 +10,17 @@ If a lock with a given name does not exist when `Lock` is called, one is
 created.
 Lock references are automatically cleaned up on `Unlock` if nothing else is
 waiting for the lock.
+
+CHANGED BY LOFT: We exchanged the default sync.Mutex with fifomu.Mutex to account for problems
 */
-package locker
+package fifolocker
 
 import (
 	"errors"
 	"sync"
 	"sync/atomic"
+
+	"github.com/loft-sh/vcluster/pkg/util/fifomu"
 )
 
 // ErrNoSuchLock is returned when the requested lock does not exist
@@ -30,7 +34,7 @@ type Locker struct {
 
 // lockCtr is used by Locker to represent a lock with a given name.
 type lockCtr struct {
-	mu sync.Mutex
+	mu fifomu.Mutex
 	// waiters is the number of waiters waiting to acquire the lock
 	// this is int32 instead of uint32 so we can add `-1` in `dec()`
 	waiters int32

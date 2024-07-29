@@ -9,7 +9,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	policyv1 "k8s.io/api/policy/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,7 +29,7 @@ type Registry struct {
 
 	store synccontext.MappingsStore
 
-	m sync.Mutex
+	m sync.RWMutex
 }
 
 func (m *Registry) Store() synccontext.MappingsStore {
@@ -38,12 +37,10 @@ func (m *Registry) Store() synccontext.MappingsStore {
 }
 
 func (m *Registry) List() map[schema.GroupVersionKind]synccontext.Mapper {
-	m.m.Lock()
-	defer m.m.Unlock()
+	m.m.RLock()
+	defer m.m.RUnlock()
 
-	retMap := make(map[schema.GroupVersionKind]synccontext.Mapper, len(m.mappers))
-	maps.Copy(retMap, m.mappers)
-	return retMap
+	return maps.Clone(m.mappers)
 }
 
 func (m *Registry) AddMapper(mapper synccontext.Mapper) error {
@@ -55,16 +52,16 @@ func (m *Registry) AddMapper(mapper synccontext.Mapper) error {
 }
 
 func (m *Registry) Has(gvk schema.GroupVersionKind) bool {
-	m.m.Lock()
-	defer m.m.Unlock()
+	m.m.RLock()
+	defer m.m.RUnlock()
 
 	_, ok := m.mappers[gvk]
 	return ok
 }
 
 func (m *Registry) ByGVK(gvk schema.GroupVersionKind) (synccontext.Mapper, error) {
-	m.m.Lock()
-	defer m.m.Unlock()
+	m.m.RLock()
+	defer m.m.RUnlock()
 
 	mapper, ok := m.mappers[gvk]
 	if !ok {
@@ -80,10 +77,6 @@ func VolumeSnapshotContents() schema.GroupVersionKind {
 
 func Nodes() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("Node")
-}
-
-func PodDisruptionBudgets() schema.GroupVersionKind {
-	return policyv1.SchemeGroupVersion.WithKind("PodDisruptionBudget")
 }
 
 func VolumeSnapshots() schema.GroupVersionKind {

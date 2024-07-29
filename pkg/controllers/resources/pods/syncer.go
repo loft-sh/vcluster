@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/token"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/syncer"
@@ -337,7 +338,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	}()
 
 	// update the virtual pod if the spec has changed
-	err = s.podTranslator.Diff(ctx, event.Virtual, event.Host)
+	err = s.podTranslator.Diff(ctx, event)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -346,17 +347,25 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 }
 
 func (s *podSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Pod]) (_ ctrl.Result, retErr error) {
-	// virtual object is not here anymore, so we delete
-	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
+		// virtual object is not here anymore, so we delete
+		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func setSATokenSecretAsOwner(ctx *synccontext.SyncContext, pClient client.Client, vObj, pObj *corev1.Pod) error {
-	secret, err := translatepods.GetSecretIfExists(ctx, pClient, vObj.Name, vObj.Namespace)
-	if err := translatepods.IgnoreAcceptableErrors(err); err != nil {
+	if !ctx.Config.Sync.ToHost.Pods.UseSecretsForSATokens {
+		return nil
+	}
+
+	secret, err := token.GetSecretIfExists(ctx, pClient, vObj.Name, vObj.Namespace)
+	if err := token.IgnoreAcceptableErrors(err); err != nil {
 		return err
 	} else if secret != nil {
 		// check if owner is vCluster service, if so, modify to pod as owner
-		err := translatepods.SetPodAsOwner(ctx, pObj, pClient, secret)
+		err := token.SetPodAsOwner(ctx, pObj, pClient, secret)
 		if err != nil {
 			return err
 		}

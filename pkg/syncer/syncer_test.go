@@ -3,27 +3,34 @@ package syncer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/fifolocker"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/moby/locker"
 	"gotest.tools/v3/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // named mock instead of fake because there's a real "fake" syncer that syncs fake objects
@@ -31,7 +38,7 @@ type mockSyncer struct {
 	syncertypes.GenericTranslator
 }
 
-func NewMockSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+func NewMockSyncer(ctx *synccontext.RegisterContext) (syncertypes.Syncer, error) {
 	mapper, err := ctx.Mappings.ByGVK(mappings.Secrets())
 	if err != nil {
 		return nil, err
@@ -42,18 +49,13 @@ func NewMockSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error)
 	}, nil
 }
 
-func (s *mockSyncer) naiveTranslateCreate(ctx *synccontext.SyncContext, vObj client.Object) client.Object {
-	pObj := translate.HostMetadata(ctx, vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
-	return pObj
-}
-
 func (s *mockSyncer) Syncer() syncertypes.Sync[client.Object] {
 	return ToGenericSyncer[*corev1.Secret](s)
 }
 
 // SyncToHost is called when a virtual object was created and needs to be synced down to the physical cluster
 func (s *mockSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Secret]) (ctrl.Result, error) {
-	pObj := s.naiveTranslateCreate(ctx, event.Virtual)
+	pObj := translate.HostMetadata(ctx, event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.GetName(), Namespace: event.Virtual.GetNamespace()}, event.Virtual))
 	if pObj == nil {
 		return ctrl.Result{}, errors.New("naive translate create failed")
 	}
@@ -62,11 +64,24 @@ func (s *mockSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext
 }
 
 // Sync is called to sync a virtual object with a physical object
-func (s *mockSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Secret]) (ctrl.Result, error) {
-	newPObj := event.Host.DeepCopyObject().(client.Object)
-	newPObj.SetAnnotations(translate.HostAnnotations(event.Virtual, event.Host))
-	newPObj.SetLabels(translate.HostLabels(ctx, event.Virtual, event.Host))
-	return ctrl.Result{}, ctx.VirtualClient.Update(ctx, newPObj)
+func (s *mockSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Secret]) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
+	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
+	event.Host.Labels = translate.HostLabels(ctx, event.Virtual, event.Host)
+
+	// check data
+	event.TargetObject().Data = event.SourceObject().Data
+
+	return ctrl.Result{}, nil
 }
 
 func (s *mockSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Secret]) (_ ctrl.Result, retErr error) {
@@ -77,23 +92,197 @@ func (s *mockSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccont
 var _ syncertypes.Syncer = &mockSyncer{}
 
 var (
-	vclusterNamespace    = "test"
-	namespaceInVclusterA = "default"
+	namespaceInVClusterA = "default"
 )
 
-func TestReconcile(t *testing.T) {
-	translator := translate.NewSingleNamespaceTranslator(vclusterNamespace)
+type fakeSource struct {
+	m sync.Mutex
+
+	queue workqueue.RateLimitingInterface
+}
+
+func (f *fakeSource) String() string {
+	return "fake-source"
+}
+
+func (f *fakeSource) Add(request reconcile.Request) {
+	f.m.Lock()
+	defer f.m.Unlock()
+
+	f.queue.Add(request)
+}
+
+func (f *fakeSource) Start(_ context.Context, queue workqueue.RateLimitingInterface) error {
+	f.m.Lock()
+	defer f.m.Unlock()
+
+	f.queue = queue
+	return nil
+}
+
+func TestController(t *testing.T) {
+	translator := translate.NewSingleNamespaceTranslator(syncertesting.DefaultTestTargetNamespace)
 
 	type testCase struct {
-		Name  string
-		Focus bool
-
-		Syncer func(ctx *synccontext.RegisterContext) (syncertypes.Object, error)
+		Name string
 
 		EnqueueObjs []types.NamespacedName
 
 		InitialPhysicalState []runtime.Object
 		InitialVirtualState  []runtime.Object
+
+		ExpectedPhysicalState map[schema.GroupVersionKind][]runtime.Object
+		ExpectedVirtualState  map[schema.GroupVersionKind][]runtime.Object
+
+		Compare syncertesting.Compare
+	}
+
+	testCases := []testCase{
+		{
+			Name: "should sync down",
+
+			EnqueueObjs: []types.NamespacedName{
+				{Name: "a", Namespace: namespaceInVClusterA},
+			},
+
+			InitialVirtualState: []runtime.Object{
+				// secret that might be created by ingress controller or cert managers
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "a",
+						Namespace: namespaceInVClusterA,
+						UID:       "123",
+					},
+				},
+			},
+
+			InitialPhysicalState: []runtime.Object{
+				// secret that might be created by ingress controller or cert managers
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "a",
+						Namespace: syncertesting.DefaultTestTargetNamespace,
+						UID:       "123",
+					},
+				},
+			},
+
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				// existing secret should remain
+				corev1.SchemeGroupVersion.WithKind("Secret"): {
+					&corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "a",
+							Namespace: namespaceInVClusterA,
+							UID:       "123",
+						},
+					},
+				},
+			},
+
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				// existing secret should remain
+				corev1.SchemeGroupVersion.WithKind("Secret"): {
+					&corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "a",
+							Namespace: syncertesting.DefaultTestTargetNamespace,
+							UID:       "123",
+						},
+					},
+					&corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      translator.HostName(nil, "a", namespaceInVClusterA),
+							Namespace: syncertesting.DefaultTestTargetNamespace,
+							Annotations: map[string]string{
+								translate.NameAnnotation:      "a",
+								translate.NamespaceAnnotation: namespaceInVClusterA,
+								translate.UIDAnnotation:       "123",
+								translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Secret").String(),
+							},
+							Labels: map[string]string{
+								translate.NamespaceLabel: namespaceInVClusterA,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for i, tc := range testCases {
+		t.Logf("running test #%d: %s", i, tc.Name)
+
+		// setup mocks
+		ctx := context.Background()
+		pClient := testingutil.NewFakeClient(scheme.Scheme, tc.InitialPhysicalState...)
+		vClient := testingutil.NewFakeClient(scheme.Scheme, tc.InitialVirtualState...)
+
+		fakeContext := syncertesting.NewFakeRegisterContext(syncertesting.NewFakeConfig(), pClient, vClient)
+		syncer, err := NewMockSyncer(fakeContext)
+		assert.NilError(t, err)
+
+		syncController, err := NewSyncController(fakeContext, syncer)
+		assert.NilError(t, err)
+
+		genericController, err := syncController.Build(fakeContext)
+		assert.NilError(t, err)
+
+		source := &fakeSource{}
+		err = genericController.Watch(source)
+		assert.NilError(t, err)
+
+		go func() {
+			err = genericController.Start(fakeContext)
+			assert.NilError(t, err)
+		}()
+
+		time.Sleep(time.Second)
+
+		// execute
+		for _, req := range tc.EnqueueObjs {
+			source.Add(ctrl.Request{NamespacedName: req})
+		}
+
+		time.Sleep(time.Second)
+
+		// assert expected result
+		// Compare states
+		if tc.ExpectedPhysicalState != nil {
+			for gvk, objs := range tc.ExpectedPhysicalState {
+				err := syncertesting.CompareObjs(ctx, t, tc.Name+" physical state", fakeContext.PhysicalManager.GetClient(), gvk, scheme.Scheme, objs, tc.Compare)
+				if err != nil {
+					t.Fatalf("%s - Physical State mismatch: %v", tc.Name, err)
+				}
+			}
+		}
+		if tc.ExpectedVirtualState != nil {
+			for gvk, objs := range tc.ExpectedVirtualState {
+				err := syncertesting.CompareObjs(ctx, t, tc.Name+" virtual state", fakeContext.VirtualManager.GetClient(), gvk, scheme.Scheme, objs, tc.Compare)
+				if err != nil {
+					t.Fatalf("%s - Virtual State mismatch: %v", tc.Name, err)
+				}
+			}
+		}
+	}
+}
+
+func TestReconcile(t *testing.T) {
+	translator := translate.NewSingleNamespaceTranslator(syncertesting.DefaultTestTargetNamespace)
+
+	type testCase struct {
+		Name  string
+		Focus bool
+
+		Syncer func(ctx *synccontext.RegisterContext) (syncertypes.Syncer, error)
+
+		EnqueueObjs []types.NamespacedName
+
+		InitialPhysicalState []runtime.Object
+		InitialVirtualState  []runtime.Object
+
+		CreatePhysicalObjects []client.Object
+		CreateVirtualObjects  []client.Object
 
 		ExpectedPhysicalState map[schema.GroupVersionKind][]runtime.Object
 		ExpectedVirtualState  map[schema.GroupVersionKind][]runtime.Object
@@ -110,7 +299,7 @@ func TestReconcile(t *testing.T) {
 			Syncer: NewMockSyncer,
 
 			EnqueueObjs: []types.NamespacedName{
-				{Name: "a", Namespace: namespaceInVclusterA},
+				{Name: "a", Namespace: namespaceInVClusterA},
 			},
 
 			InitialVirtualState: []runtime.Object{
@@ -118,7 +307,7 @@ func TestReconcile(t *testing.T) {
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "a",
-						Namespace: namespaceInVclusterA,
+						Namespace: namespaceInVClusterA,
 						UID:       "123",
 					},
 				},
@@ -129,7 +318,7 @@ func TestReconcile(t *testing.T) {
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "a",
-						Namespace: vclusterNamespace,
+						Namespace: syncertesting.DefaultTestTargetNamespace,
 						UID:       "123",
 					},
 				},
@@ -141,7 +330,7 @@ func TestReconcile(t *testing.T) {
 					&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "a",
-							Namespace: namespaceInVclusterA,
+							Namespace: namespaceInVClusterA,
 							UID:       "123",
 						},
 					},
@@ -154,22 +343,22 @@ func TestReconcile(t *testing.T) {
 					&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "a",
-							Namespace: vclusterNamespace,
+							Namespace: syncertesting.DefaultTestTargetNamespace,
 							UID:       "123",
 						},
 					},
 					&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      translator.HostName("a", namespaceInVclusterA),
-							Namespace: vclusterNamespace,
+							Name:      translator.HostName(nil, "a", namespaceInVClusterA),
+							Namespace: syncertesting.DefaultTestTargetNamespace,
 							Annotations: map[string]string{
 								translate.NameAnnotation:      "a",
-								translate.NamespaceAnnotation: namespaceInVclusterA,
+								translate.NamespaceAnnotation: namespaceInVClusterA,
 								translate.UIDAnnotation:       "123",
 								translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Secret").String(),
 							},
 							Labels: map[string]string{
-								translate.NamespaceLabel: namespaceInVclusterA,
+								translate.NamespaceLabel: namespaceInVClusterA,
 							},
 						},
 					},
@@ -179,11 +368,11 @@ func TestReconcile(t *testing.T) {
 			shouldErr: false,
 		},
 		{
-			Name:   "should fail to sync down when object of desired name already exists",
+			Name:   "should adopt object of desired name when already exists",
 			Syncer: NewMockSyncer,
 
 			EnqueueObjs: []types.NamespacedName{
-				{Name: "a", Namespace: namespaceInVclusterA},
+				{Name: "a", Namespace: namespaceInVClusterA},
 			},
 
 			InitialVirtualState: []runtime.Object{
@@ -191,7 +380,7 @@ func TestReconcile(t *testing.T) {
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "a",
-						Namespace: namespaceInVclusterA,
+						Namespace: namespaceInVClusterA,
 						UID:       "123",
 					},
 				},
@@ -201,8 +390,8 @@ func TestReconcile(t *testing.T) {
 				// existing object doesn't have annotations/labels indicating it is owned, but has the name of the synced object
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      translate.Default.HostName("a", namespaceInVclusterA),
-						Namespace: vclusterNamespace,
+						Name:      translator.HostName(nil, "a", namespaceInVClusterA),
+						Namespace: syncertesting.DefaultTestTargetNamespace,
 						Annotations: map[string]string{
 							"app": "existing",
 						},
@@ -222,7 +411,7 @@ func TestReconcile(t *testing.T) {
 					&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "a",
-							Namespace: namespaceInVclusterA,
+							Namespace: namespaceInVClusterA,
 							UID:       "123",
 						},
 					},
@@ -234,13 +423,91 @@ func TestReconcile(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Secret"): {
 					&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      translator.HostName("a", namespaceInVclusterA),
-							Namespace: vclusterNamespace,
+							Name:      translator.HostName(nil, "a", namespaceInVClusterA),
+							Namespace: syncertesting.DefaultTestTargetNamespace,
 							Annotations: map[string]string{
-								"app": "existing",
+								"app":                         "existing",
+								translate.NameAnnotation:      "a",
+								translate.NamespaceAnnotation: namespaceInVClusterA,
+								translate.UIDAnnotation:       "123",
+								translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Secret").String(),
 							},
 							Labels: map[string]string{
-								"app": "existing",
+								"app":                    "existing",
+								translate.NamespaceLabel: namespaceInVClusterA,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:   "should not adopt virtual object",
+			Syncer: NewMockSyncer,
+
+			EnqueueObjs: []types.NamespacedName{
+				toHostRequest(reconcile.Request{
+					NamespacedName: types.NamespacedName{Name: "abc", Namespace: syncertesting.DefaultTestTargetNamespace},
+				}).NamespacedName,
+			},
+
+			CreateVirtualObjects: []client.Object{
+				// secret that might be created by ingress controller or cert managers
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "abc",
+						Namespace: namespaceInVClusterA,
+						UID:       "123",
+					},
+				},
+			},
+
+			CreatePhysicalObjects: []client.Object{
+				// existing object doesn't have annotations/labels indicating it is owned, but has the name of the synced object
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "abc",
+						Namespace: syncertesting.DefaultTestTargetNamespace,
+						Annotations: map[string]string{
+							translate.NameAnnotation:      "abc",
+							translate.NamespaceAnnotation: namespaceInVClusterA,
+						},
+						Labels: map[string]string{
+							translate.MarkerLabel: translate.VClusterName,
+						},
+					},
+					Data: map[string][]byte{
+						"datakey1": []byte("datavalue1"),
+					},
+				},
+			},
+
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				// existing secret should remain
+				corev1.SchemeGroupVersion.WithKind("Secret"): {
+					&corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "abc",
+							Namespace: namespaceInVClusterA,
+							UID:       "123",
+						},
+					},
+				},
+			},
+
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				// existing secret should remain
+				corev1.SchemeGroupVersion.WithKind("Secret"): {
+					&corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "abc",
+							Namespace: syncertesting.DefaultTestTargetNamespace,
+							Annotations: map[string]string{
+								translate.NameAnnotation:      "abc",
+								translate.NamespaceAnnotation: namespaceInVClusterA,
+							},
+							Labels: map[string]string{
+								translate.MarkerLabel: translate.VClusterName,
 							},
 						},
 						Data: map[string][]byte{
@@ -249,9 +516,6 @@ func TestReconcile(t *testing.T) {
 					},
 				},
 			},
-
-			shouldErr: true,
-			errMsg:    "conflict: cannot sync virtual object default/a as unmanaged physical object test/a-x-default-x-suffix exists with desired name",
 		},
 	}
 	sort.SliceStable(testCases, func(i, j int) bool {
@@ -280,9 +544,8 @@ func TestReconcile(t *testing.T) {
 		vClient := testingutil.NewFakeClient(scheme.Scheme, tc.InitialVirtualState...)
 
 		fakeContext := syncertesting.NewFakeRegisterContext(syncertesting.NewFakeConfig(), pClient, vClient)
-		syncerImpl, err := tc.Syncer(fakeContext)
+		syncer, err := tc.Syncer(fakeContext)
 		assert.NilError(t, err)
-		syncer := syncerImpl.(syncertypes.Syncer)
 
 		controller := &SyncController{
 			syncer: syncer,
@@ -301,7 +564,17 @@ func TestReconcile(t *testing.T) {
 			virtualClient: vClient,
 			options:       options,
 
-			locker: locker.New(),
+			locker: fifolocker.New(),
+		}
+
+		// create objects
+		for _, pObj := range tc.CreatePhysicalObjects {
+			err = fakeContext.PhysicalManager.GetClient().Create(ctx, pObj)
+			assert.NilError(t, err)
+		}
+		for _, vObj := range tc.CreateVirtualObjects {
+			err = fakeContext.VirtualManager.GetClient().Create(ctx, vObj)
+			assert.NilError(t, err)
 		}
 
 		// execute

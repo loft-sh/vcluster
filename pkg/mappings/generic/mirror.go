@@ -35,10 +35,10 @@ func (n *mirrorMapper) Migrate(_ *synccontext.RegisterContext, _ synccontext.Map
 	return nil
 }
 
-func (n *mirrorMapper) VirtualToHost(_ *synccontext.SyncContext, req types.NamespacedName, _ client.Object) (retName types.NamespacedName) {
+func (n *mirrorMapper) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, _ client.Object) (retName types.NamespacedName) {
 	pNamespace := req.Namespace
 	if pNamespace != "" {
-		pNamespace = translate.Default.HostNamespace(pNamespace)
+		pNamespace = translate.Default.HostNamespace(ctx, pNamespace)
 	}
 
 	return types.NamespacedName{

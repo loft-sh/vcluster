@@ -57,7 +57,7 @@ var _ = ginkgo.Describe("plugin", func() {
 		// wait for service to become synced
 		hostService := &corev1.Service{}
 		gomega.Eventually(func() bool {
-			err := f.HostCRClient.Get(f.Context, types.NamespacedName{Name: translate.Default.HostName(service.Name, service.Namespace), Namespace: f.VclusterNamespace}, hostService)
+			err := f.HostCRClient.Get(f.Context, types.NamespacedName{Name: translate.Default.HostName(nil, service.Name, service.Namespace), Namespace: f.VclusterNamespace}, hostService)
 			return err == nil
 		}).
 			WithPolling(pollingInterval).

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	satoken "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/token"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -51,7 +52,7 @@ var (
 
 type Translator interface {
 	Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
-	Diff(ctx *synccontext.SyncContext, vPod, pPod *corev1.Pod) error
+	Diff(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error
 	TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error)
 }
 
@@ -404,7 +405,7 @@ func (t *translator) translateVolumes(ctx *synccontext.SyncContext, pPod *corev1
 		}
 		if pPod.Spec.Volumes[i].DownwardAPI != nil {
 			for j := range pPod.Spec.Volumes[i].DownwardAPI.Items {
-				translateFieldRef(ctx, pPod.Spec.Volumes[i].DownwardAPI.Items[j].FieldRef)
+				translateFieldRef(ctx, pPod.Spec.Volumes[i].DownwardAPI.Items[j].FieldRef, vPod.Namespace)
 			}
 		}
 		if pPod.Spec.Volumes[i].ISCSI != nil && pPod.Spec.Volumes[i].ISCSI.SecretRef != nil {
@@ -441,7 +442,7 @@ func (t *translator) translateVolumes(ctx *synccontext.SyncContext, pPod *corev1
 
 	// create the service account token holder secret if necessary
 	if len(tokenSecrets) > 0 {
-		err := SATokenSecret(ctx, t.pClient, vPod, tokenSecrets)
+		err := satoken.SATokenSecret(ctx, t.pClient, vPod, tokenSecrets)
 		if err != nil {
 			return fmt.Errorf("create sa token secret: %w", err)
 		}
@@ -470,7 +471,7 @@ func (t *translator) translateProjectedVolume(
 		}
 		if projectedVolume.Sources[i].DownwardAPI != nil {
 			for j := range projectedVolume.Sources[i].DownwardAPI.Items {
-				translateFieldRef(ctx, projectedVolume.Sources[i].DownwardAPI.Items[j].FieldRef)
+				translateFieldRef(ctx, projectedVolume.Sources[i].DownwardAPI.Items[j].FieldRef, vPod.Namespace)
 			}
 		}
 		if projectedVolume.Sources[i].ServiceAccountToken != nil {
@@ -521,7 +522,7 @@ func (t *translator) translateProjectedVolume(
 				// rewrite projected volume to use sources as secret
 				projectedVolume.Sources[i].Secret = &corev1.SecretProjection{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: SecretNameFromPodName(ctx, vPod.Name, vPod.Namespace).Name,
+						Name: satoken.SecretNameFromPodName(ctx, vPod.Name, vPod.Namespace).Name,
 					},
 					Items: []corev1.KeyToPath{
 						{
@@ -569,7 +570,7 @@ func (t *translator) translateProjectedVolume(
 	return nil
 }
 
-func translateFieldRef(ctx *synccontext.SyncContext, fieldSelector *corev1.ObjectFieldSelector) {
+func translateFieldRef(ctx *synccontext.SyncContext, fieldSelector *corev1.ObjectFieldSelector, vNamespace string) {
 	if fieldSelector == nil {
 		return
 	}
@@ -577,7 +578,7 @@ func translateFieldRef(ctx *synccontext.SyncContext, fieldSelector *corev1.Objec
 	// check if its a label we have to rewrite
 	labelsMatch := FieldPathLabelRegEx.FindStringSubmatch(fieldSelector.FieldPath)
 	if len(labelsMatch) == 2 {
-		fieldSelector.FieldPath = "metadata.labels['" + translate.Default.HostLabel(ctx, labelsMatch[1]) + "']"
+		fieldSelector.FieldPath = "metadata.labels['" + translate.Default.HostLabel(ctx, labelsMatch[1], vNamespace) + "']"
 		return
 	}
 
@@ -598,7 +599,7 @@ func translateFieldRef(ctx *synccontext.SyncContext, fieldSelector *corev1.Objec
 func (t *translator) TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 	envNameMap := make(map[string]struct{})
 	for j, env := range envVar {
-		translateDownwardAPI(ctx, &envVar[j])
+		translateDownwardAPI(ctx, &envVar[j], vPod.Namespace)
 		if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil && env.ValueFrom.ConfigMapKeyRef.Name != "" {
 			envVar[j].ValueFrom.ConfigMapKeyRef.Name = mappings.VirtualToHostName(ctx, envVar[j].ValueFrom.ConfigMapKeyRef.Name, vPod.Namespace, mappings.ConfigMaps())
 		}
@@ -639,14 +640,14 @@ func (t *translator) TranslateContainerEnv(ctx *synccontext.SyncContext, envVar 
 	return envVar, envFrom, nil
 }
 
-func translateDownwardAPI(ctx *synccontext.SyncContext, env *corev1.EnvVar) {
+func translateDownwardAPI(ctx *synccontext.SyncContext, env *corev1.EnvVar, vNamespace string) {
 	if env.ValueFrom == nil {
 		return
 	}
 	if env.ValueFrom.FieldRef == nil {
 		return
 	}
-	translateFieldRef(ctx, env.ValueFrom.FieldRef)
+	translateFieldRef(ctx, env.ValueFrom.FieldRef, vNamespace)
 }
 
 func (t *translator) translateDNSConfig(pPod *corev1.Pod, vPod *corev1.Pod, nameServer string) {
@@ -747,7 +748,7 @@ func (t *translator) translatePodAffinityTerm(ctx *synccontext.SyncContext, vPod
 	// We never select pods that are not in the vcluster namespace on the host, so we will
 	// omit Namespaces and namespaceSelector here
 	newAffinityTerm := corev1.PodAffinityTerm{
-		LabelSelector: translate.HostLabelSelector(ctx, term.LabelSelector),
+		LabelSelector: translate.HostLabelSelector(ctx, term.LabelSelector, vPod.Namespace),
 		TopologyKey:   term.TopologyKey,
 	}
 
@@ -804,7 +805,7 @@ func (t *translator) translatePodAffinityTerm(ctx *synccontext.SyncContext, vPod
 
 func translateTopologySpreadConstraints(ctx *synccontext.SyncContext, vPod *corev1.Pod, pPod *corev1.Pod) {
 	for i := range pPod.Spec.TopologySpreadConstraints {
-		pPod.Spec.TopologySpreadConstraints[i].LabelSelector = translate.HostLabelSelector(ctx, pPod.Spec.TopologySpreadConstraints[i].LabelSelector)
+		pPod.Spec.TopologySpreadConstraints[i].LabelSelector = translate.HostLabelSelector(ctx, pPod.Spec.TopologySpreadConstraints[i].LabelSelector, vPod.Namespace)
 
 		// make sure we only select pods in the current namespace
 		if pPod.Spec.TopologySpreadConstraints[i].LabelSelector != nil {

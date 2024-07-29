@@ -71,8 +71,9 @@ type Options struct {
 	// and virtual doesn't match anymore.
 	DisableUIDDeletion bool
 
-	IsClusterScopedCRD   bool
-	HasStatusSubresource bool
+	IsClusterScopedCRD bool
+
+	SkipMappingsRecording bool
 }
 
 type OptionsProvider interface {

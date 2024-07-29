@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
+	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/token"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"

@@ -12,13 +12,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/fifolocker"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/moby/locker"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	controller2 "sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -61,7 +61,7 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 		virtualClient: ctx.VirtualManager.GetClient(),
 		options:       options,
 
-		locker: locker.New(),
+		locker: fifolocker.New(),
 	}, nil
 }
 
@@ -94,7 +94,7 @@ type SyncController struct {
 	virtualClient client.Client
 	options       *syncertypes.Options
 
-	locker *locker.Locker
+	locker *fifolocker.Locker
 }
 
 func (r *SyncController) newSyncContext(ctx context.Context, logName string) *synccontext.SyncContext {
@@ -140,6 +140,8 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 	// reconciling on the same object in parallel as this could
 	// happen if a host event and virtual event are queued at the
 	// same time.
+	//
+	// This is FIFO, we use a special mutex for this (fifomu.Mutex)
 	r.locker.Lock(vReq.String())
 	defer func() {
 		_ = r.locker.Unlock(vReq.String())
@@ -159,6 +161,14 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 	vObj, pObj, err := r.getObjects(syncContext, vReq, pReq)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// add mapping to context
+	if !r.options.SkipMappingsRecording {
+		syncContext.Context, err = synccontext.WithMappingFromObjects(syncContext.Context, pObj, vObj)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// check what function we should call
@@ -366,12 +376,6 @@ func (r *SyncController) extractRequest(ctx *synccontext.SyncContext, req ctrl.R
 	if isHostRequest(req) {
 		pReq = fromHostRequest(req)
 
-		// add mapping to context
-		ctx.Context = synccontext.WithMapping(ctx.Context, synccontext.NameMapping{
-			GroupVersionKind: r.syncer.GroupVersionKind(),
-			HostName:         pReq.NamespacedName,
-		})
-
 		// get physical object
 		exclude, pObj, err := r.getPhysicalObject(ctx, pReq.NamespacedName, nil)
 		if err != nil {
@@ -383,13 +387,6 @@ func (r *SyncController) extractRequest(ctx *synccontext.SyncContext, req ctrl.R
 		// try to get virtual name from physical
 		req.NamespacedName = r.syncer.HostToVirtual(ctx, pReq.NamespacedName, pObj)
 	}
-
-	// add mapping to context
-	ctx.Context = synccontext.WithMapping(ctx.Context, synccontext.NameMapping{
-		GroupVersionKind: r.syncer.GroupVersionKind(),
-		VirtualName:      vReq.NamespacedName,
-		HostName:         pReq.NamespacedName,
-	})
 
 	return req, pReq, nil
 }
@@ -476,10 +473,10 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 	}))
 }
 
-func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
+func (r *SyncController) Build(ctx *synccontext.RegisterContext) (controller.Controller, error) {
 	// build the basic controller
-	controller := ctrl.NewControllerManagedBy(ctx.VirtualManager).
-		WithOptions(controller2.Options{
+	controllerBuilder := ctrl.NewControllerManagedBy(ctx.VirtualManager).
+		WithOptions(controller.Options{
 			MaxConcurrentReconciles: 10,
 			CacheSyncTimeout:        constants.DefaultCacheSyncTimeout,
 		}).
@@ -491,30 +488,35 @@ func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
 	modifier, isControllerModifier := r.syncer.(syncertypes.ControllerModifier)
 	if isControllerModifier {
 		var err error
-		controller, err = modifier.ModifyController(ctx, controller)
+		controllerBuilder, err = modifier.ModifyController(ctx, controllerBuilder)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return controller.Complete(r)
+	return controllerBuilder.Build(r)
+}
+
+func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
+	_, err := r.Build(ctx)
+	return err
 }
 
 func CreateVirtualObject(ctx *synccontext.SyncContext, pObj, vObj client.Object, eventRecorder record.EventRecorder) (ctrl.Result, error) {
-	gvk, err := apiutil.GVKForObject(pObj, scheme.Scheme)
+	gvk, err := apiutil.GVKForObject(vObj, scheme.Scheme)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("gvk for object: %w", err)
 	}
 
-	ctx.Log.Infof("create host %s %s/%s", gvk.Kind, pObj.GetNamespace(), pObj.GetName())
-	err = ctx.PhysicalClient.Create(ctx, pObj)
+	ctx.Log.Infof("create virtual %s %s/%s", gvk.Kind, vObj.GetNamespace(), vObj.GetName())
+	err = ctx.VirtualClient.Create(ctx, vObj)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			ctx.Log.Debugf("error syncing %s %s/%s to host cluster: %v", gvk.Kind, vObj.GetNamespace(), vObj.GetName(), err)
+			ctx.Log.Debugf("error syncing %s %s/%s to virtual cluster: %v", gvk.Kind, pObj.GetNamespace(), pObj.GetName(), err)
 			return ctrl.Result{RequeueAfter: time.Second}, nil
 		}
-		ctx.Log.Infof("error syncing %s %s/%s to host cluster: %v", gvk.Kind, vObj.GetNamespace(), vObj.GetName(), err)
-		eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to host cluster: %v", err)
+		ctx.Log.Infof("error syncing %s %s/%s to virtual cluster: %v", gvk.Kind, pObj.GetNamespace(), pObj.GetName(), err)
+		eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
 		return ctrl.Result{}, err
 	}
 

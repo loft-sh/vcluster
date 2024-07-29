@@ -1,4 +1,4 @@
-package mappings
+package etcd
 
 import (
 	"context"
@@ -8,30 +8,32 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
-	"github.com/loft-sh/vcluster/pkg/mappings/store"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
-type ClearOptions struct {
+type KeysOptions struct {
 	Config string
+
+	Prefix string
 }
 
-func NewClearCommand() *cobra.Command {
-	options := &ClearOptions{}
+func NewKeysCommand() *cobra.Command {
+	options := &KeysOptions{}
 	cmd := &cobra.Command{
-		Use:   "clear",
-		Short: "Empty the vCluster stored mappings",
+		Use:   "keys",
+		Short: "Dump the vCluster etcd stored keys",
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCommand *cobra.Command, _ []string) (err error) {
-			return ExecuteClear(cobraCommand.Context(), options)
+			return ExecuteKeys(cobraCommand.Context(), options)
 		},
 	}
 
 	cmd.Flags().StringVar(&options.Config, "config", constants.DefaultVClusterConfigLocation, "The path where to find the vCluster config to load")
+	cmd.Flags().StringVar(&options.Prefix, "prefix", "/", "The prefix to use for listing the keys")
 	return cmd
 }
-func ExecuteClear(ctx context.Context, options *ClearOptions) error {
+
+func ExecuteKeys(ctx context.Context, options *KeysOptions) error {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(options.Config, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
@@ -45,19 +47,14 @@ func ExecuteClear(ctx context.Context, options *ClearOptions) error {
 	}
 
 	// create new etcd backend & list mappings
-	etcdBackend := store.NewEtcdBackend(etcdClient)
-	mappings, err := etcdBackend.List(ctx)
+	keyValues, err := etcdClient.List(ctx, options.Prefix, 0)
 	if err != nil {
-		return fmt.Errorf("list mappings: %w", err)
+		return err
 	}
 
 	// print mappings
-	for _, mapping := range mappings {
-		klog.FromContext(ctx).Info("Delete mapping", "mapping", mapping.String())
-		err = etcdBackend.Delete(ctx, mapping)
-		if err != nil {
-			return fmt.Errorf("delete mapping %s: %w", mapping.String(), err)
-		}
+	for _, keyValue := range keyValues {
+		fmt.Println(string(keyValue.Key))
 	}
 
 	return nil

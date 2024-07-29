@@ -14,8 +14,8 @@ import (
 )
 
 func CreateConfigMapsMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	mapper, err := generic.NewMapperWithRecorder(ctx, &corev1.ConfigMap{}, false, func(vName, vNamespace string, _ client.Object) string {
-		return translate.Default.HostName(vName, vNamespace)
+	mapper, err := generic.NewMapperWithoutRecorder(ctx, &corev1.ConfigMap{}, func(ctx *synccontext.SyncContext, vName, vNamespace string, _ client.Object) string {
+		return translate.Default.HostName(ctx, vName, vNamespace)
 	})
 	if err != nil {
 		return nil, err
@@ -31,25 +31,29 @@ type configMapsMapper struct {
 }
 
 func (s *configMapsMapper) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) types.NamespacedName {
-	if !translate.Default.SingleNamespaceTarget() && req.Name == "kube-root-ca.crt" {
+	pName := s.Mapper.VirtualToHost(ctx, req, vObj)
+	if pName.Name == "kube-root-ca.crt" {
 		return types.NamespacedName{
 			Name:      translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName),
-			Namespace: s.Mapper.VirtualToHost(ctx, req, vObj).Namespace,
+			Namespace: pName.Namespace,
 		}
 	}
 
-	return s.Mapper.VirtualToHost(ctx, req, vObj)
+	return pName
 }
 
 func (s *configMapsMapper) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {
-	if !translate.Default.SingleNamespaceTarget() && req.Name == translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName) {
+	// ignore kube-root-ca.crt from host
+	if req.Name == "kube-root-ca.crt" {
+		return types.NamespacedName{}
+	}
+
+	// translate the special kube-root-ca.crt back
+	if req.Name == translate.SafeConcatName("vcluster", "kube-root-ca.crt", "x", translate.VClusterName) {
 		return types.NamespacedName{
 			Name:      "kube-root-ca.crt",
 			Namespace: s.Mapper.HostToVirtual(ctx, req, pObj).Namespace,
 		}
-	} else if !translate.Default.SingleNamespaceTarget() && req.Name == "kube-root-ca.crt" {
-		// ignore kube-root-ca.crt from host
-		return types.NamespacedName{}
 	}
 
 	return s.Mapper.HostToVirtual(ctx, req, pObj)
