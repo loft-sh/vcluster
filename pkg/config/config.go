@@ -53,10 +53,6 @@ type VirtualClusterConfig struct {
 	ControlPlaneNamespace string `json:"controlPlaneNamespace,omitempty"`
 }
 
-func (v VirtualClusterConfig) EmbeddedDatabase() bool {
-	return !v.ControlPlane.BackingStore.Database.External.Enabled && !v.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !v.ControlPlane.BackingStore.Etcd.Deploy.Enabled
-}
-
 func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKubeConfig {
 	distroConfig := config.VirtualClusterKubeConfig{}
 	switch v.Distro() {
