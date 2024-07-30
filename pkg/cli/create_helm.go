@@ -268,7 +268,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		cmd.Connect = false
 	}
 
-	if isSleepModeConfigured(vClusterConfig) {
+	if vClusterConfig.IsConfiguredForSleepMode() {
 		if agentDeployed, err := cmd.isLoftAgentDeployed(ctx); err != nil {
 			return fmt.Errorf("is agent deployed: %w", err)
 		} else if !agentDeployed {
@@ -387,13 +387,6 @@ func (cmd *createHelm) isLoftAgentDeployed(ctx context.Context) (bool, error) {
 	}
 
 	return len(podList.Items) > 0, nil
-}
-
-func isSleepModeConfigured(vClusterConfig *config.Config) bool {
-	if vClusterConfig == nil || vClusterConfig.External == nil || vClusterConfig.External["platform"] == nil {
-		return false
-	}
-	return vClusterConfig.External["platform"]["autoSleep"] != nil || vClusterConfig.External["platform"]["autoDelete"] != nil
 }
 
 func isVClusterDeployed(release *helm.Release) bool {

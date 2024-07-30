@@ -22,11 +22,15 @@ func PausePlatform(ctx context.Context, options *PauseOptions, cfg *cliconfig.CL
 	if err != nil {
 		return err
 	}
+
 	vCluster, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, options.Project, log)
 	if err != nil {
 		return err
-	} else if vCluster.VirtualCluster != nil && vCluster.VirtualCluster.Spec.External {
-		return fmt.Errorf("cannot pause a virtual cluster that was created via helm, please run 'vcluster use driver helm' or use the '--driver helm' flag")
+	}
+
+	if vCluster.IsInstanceSleeping() {
+		log.Infof("vcluster %s/%s is already paused", vCluster.VirtualCluster.Namespace, vClusterName)
+		return nil
 	}
 
 	managementClient, err := platformClient.Management()
