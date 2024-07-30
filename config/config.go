@@ -226,7 +226,7 @@ func (c *Config) Distro() string {
 }
 
 func (c *Config) IsConfiguredForSleepMode() bool {
-	if c != nil && c.External["platform"] == nil {
+	if c != nil && c.External != nil && c.External["platform"] == nil {
 		return false
 	}
 
