@@ -1,0 +1,8 @@
+{
+  "repoOwner": "loft-sh",
+  "repoName": "vcluster",
+  "targetBranchChoices": ["v0.19", "v0.20"],
+  "branchLabelMapping": {
+    "^backport-to-(.+)$": "$1"
+  }
+}
