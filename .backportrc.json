@@ -1,0 +1,14 @@
+// .backportrc.json
+{
+  // example repo info
+  "repoOwner": "loft-sh",
+  "repoName": "vcluster",
+
+  // the branches available to backport to
+  "targetBranchChoices": ["v0.19", "v0.20"],
+
+  // In this case, adding the label "backport-to-production" will backport the PR to the "production" branch
+  "branchLabelMapping": {
+    "^backport-to-(.+)$": "$1"
+  }
+}
