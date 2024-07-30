@@ -63,7 +63,6 @@ func AddVClusterHelm(
 				"Yes. Wake and add now.",
 			},
 		})
-
 		if err != nil {
 			return fmt.Errorf("failed to capture your response %w", err)
 		}
