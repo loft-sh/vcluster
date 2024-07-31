@@ -133,7 +133,7 @@ func handleMetricsServerProxyRequest(
 ) {
 	syncContext := ctx.ToSyncContext("metrics-proxy")
 	splitted := strings.Split(req.URL.Path, "/")
-	err := translateLabelSelectors(syncContext, req)
+	err := translateLabelSelectors(syncContext, req, info.Namespace)
 	if err != nil {
 		klog.Infof("error translating label selectors %v", err)
 		requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
@@ -166,7 +166,7 @@ func handleMetricsServerProxyRequest(
 	if info.Resource == PodResource && info.Verb == RequestVerbList {
 		// check if its a list request across all namespaces
 		if info.Namespace != "" {
-			splitted[5] = translate.Default.HostNamespace(info.Namespace)
+			splitted[5] = translate.Default.HostNamespace(syncContext, info.Namespace)
 		} else if translate.Default.SingleNamespaceTarget() {
 			// limit to current namespace in host cluster
 			splitted = append(splitted[:4], append([]string{"namespaces", ctx.Config.WorkloadTargetNamespace}, splitted[4:]...)...)
@@ -472,7 +472,7 @@ func getVirtualNodes(ctx context.Context, vClient client.Client) ([]corev1.Node,
 	return nodeList.Items, nil
 }
 
-func translateLabelSelectors(ctx *synccontext.SyncContext, req *http.Request) error {
+func translateLabelSelectors(ctx *synccontext.SyncContext, req *http.Request, namespace string) error {
 	translatedSelectors := make(map[string]string)
 
 	query := req.URL.Query()
@@ -484,7 +484,7 @@ func translateLabelSelectors(ctx *synccontext.SyncContext, req *http.Request) er
 		}
 
 		for k, v := range selectors {
-			translatedKey := translate.Default.HostLabel(ctx, k)
+			translatedKey := translate.Default.HostLabel(ctx, k, namespace)
 			translatedSelectors[translatedKey] = v
 		}
 	}

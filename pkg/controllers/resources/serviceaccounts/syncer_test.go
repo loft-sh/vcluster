@@ -3,8 +3,10 @@ package serviceaccounts
 import (
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -35,7 +37,7 @@ func TestSync(t *testing.T) {
 	}
 	pSA := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName(vSA.Name, vSA.Namespace),
+			Name:      translate.Default.HostName(nil, vSA.Name, vSA.Namespace),
 			Namespace: "test",
 			Annotations: map[string]string{
 				"test":                                 "test",
@@ -52,7 +54,10 @@ func TestSync(t *testing.T) {
 		AutomountServiceAccountToken: &[]bool{false}[0],
 	}
 
-	syncertesting.RunTests(t, []*syncertesting.SyncTest{
+	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.ToHost.ServiceAccounts.Enabled = true
+		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*syncertesting.SyncTest{
 		{
 			Name: "ServiceAccount sync",
 			InitialVirtualState: []runtime.Object{

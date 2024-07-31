@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"math"
 	"sort"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/translate/pro"
 	"github.com/pkg/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -26,20 +28,6 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-)
-
-var (
-	NamespaceLabel       = "vcluster.loft.sh/namespace"
-	MarkerLabel          = "vcluster.loft.sh/managed-by"
-	LabelPrefix          = "vcluster.loft.sh/label"
-	NamespaceLabelPrefix = "vcluster.loft.sh/ns-label"
-	ControllerLabel      = "vcluster.loft.sh/controlled-by"
-
-	// VClusterName is the vcluster name, usually set at start time
-	VClusterName = "suffix"
-
-	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
-	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"
 )
 
 const (
@@ -73,14 +61,85 @@ func HostMetadata[T client.Object](ctx *synccontext.SyncContext, vObj T, name ty
 	return pObj
 }
 
+func VirtualMetadata[T client.Object](ctx *synccontext.SyncContext, pObj T, name types.NamespacedName, excludedAnnotations ...string) T {
+	vObj := CopyObjectWithName(pObj, name, false)
+	vObj.SetAnnotations(VirtualAnnotations(pObj, nil, excludedAnnotations...))
+	vObj.SetLabels(VirtualLabels(ctx, pObj, nil, vObj.GetNamespace()))
+	return vObj
+}
+
+func VirtualLabelsMap(ctx *synccontext.SyncContext, pLabels, vLabels map[string]string, vNamespace string, excluded ...string) map[string]string {
+	if pLabels == nil {
+		return nil
+	} else if _, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok || !Default.SingleNamespaceTarget() {
+		retMap := map[string]string{}
+		maps.Copy(retMap, pLabels)
+		return retMap
+	}
+
+	excluded = append(excluded, MarkerLabel, NamespaceLabel, ControllerLabel)
+	retLabels := copyMaps(pLabels, vLabels, func(key string) bool {
+		return exists(excluded, key) || strings.HasPrefix(key, NamespaceLabelPrefix)
+	})
+
+	// try to translate back
+	for key, value := range retLabels {
+		delete(retLabels, key)
+		vKey, ok := Default.VirtualLabel(ctx, key, vNamespace)
+		if ok {
+			retLabels[vKey] = value
+		}
+	}
+
+	return retLabels
+}
+
+func VirtualAnnotations(pObj, vObj client.Object, excluded ...string) map[string]string {
+	excluded = append(excluded, NameAnnotation, UIDAnnotation, KindAnnotation, NamespaceAnnotation, ManagedAnnotationsAnnotation, ManagedLabelsAnnotation)
+	var toAnnotations map[string]string
+	if vObj != nil {
+		toAnnotations = vObj.GetAnnotations()
+	}
+
+	return copyMaps(pObj.GetAnnotations(), toAnnotations, func(key string) bool {
+		return exists(excluded, key)
+	})
+}
+
+func copyMaps(fromMap, toMap map[string]string, excludeKey func(string) bool) map[string]string {
+	retMap := map[string]string{}
+	for k, v := range fromMap {
+		if excludeKey != nil && excludeKey(k) {
+			continue
+		}
+
+		retMap[k] = v
+	}
+
+	for key := range toMap {
+		if excludeKey != nil && excludeKey(key) {
+			value, ok := toMap[key]
+			if ok {
+				retMap[key] = value
+			}
+		}
+	}
+
+	return retMap
+}
+
 func HostLabelsMap(ctx *synccontext.SyncContext, vLabels, pLabels map[string]string, vNamespace string) map[string]string {
 	if vLabels == nil {
 		return nil
+	} else if _, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok || !Default.SingleNamespaceTarget() {
+		retMap := map[string]string{}
+		maps.Copy(retMap, vLabels)
+		return retMap
 	}
 
 	newLabels := map[string]string{}
 	for k, v := range vLabels {
-		newLabels[Default.HostLabel(ctx, k)] = v
+		newLabels[Default.HostLabel(ctx, k, vNamespace)] = v
 	}
 
 	newLabels[MarkerLabel] = VClusterName
@@ -95,7 +154,53 @@ func HostLabelsMap(ctx *synccontext.SyncContext, vLabels, pLabels map[string]str
 		newLabels[ControllerLabel] = pLabels[ControllerLabel]
 	}
 
+	// add already existing labels back
+	for k, v := range pLabels {
+		if strings.HasPrefix(k, "vcluster.loft.sh/") {
+			continue
+		}
+
+		_, ok := newLabels[k]
+		if !ok {
+			newLabels[k] = v
+		}
+	}
+
 	return newLabels
+}
+
+func VirtualLabelsMapCluster(ctx *synccontext.SyncContext, pLabels, vLabels map[string]string, excluded ...string) map[string]string {
+	if pLabels == nil {
+		return nil
+	}
+
+	excluded = append(excluded, MarkerLabel, ControllerLabel)
+	retLabels := copyMaps(pLabels, vLabels, func(key string) bool {
+		return exists(excluded, key) || strings.HasPrefix(key, NamespaceLabelPrefix)
+	})
+
+	// try to translate back
+	for key, value := range retLabels {
+		delete(retLabels, key)
+		vKey, ok := Default.VirtualLabelCluster(ctx, key)
+		if ok {
+			retLabels[vKey] = value
+		}
+	}
+
+	// add already existing labels back
+	for k, v := range pLabels {
+		if strings.HasPrefix(k, "vcluster.loft.sh/") {
+			continue
+		}
+
+		_, ok := retLabels[k]
+		if !ok {
+			retLabels[k] = v
+		}
+	}
+
+	return retLabels
 }
 
 func HostLabelsMapCluster(ctx *synccontext.SyncContext, vLabels, pLabels map[string]string) map[string]string {
@@ -110,8 +215,55 @@ func HostLabelsMapCluster(ctx *synccontext.SyncContext, vLabels, pLabels map[str
 	return newLabels
 }
 
-func HostLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
-	return hostLabelSelector(ctx, labelSelector, Default.HostLabel)
+func VirtualLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector, vNamespace string) *metav1.LabelSelector {
+	return virtualLabelSelector(ctx, labelSelector, func(ctx *synccontext.SyncContext, key string) (string, bool) {
+		return Default.VirtualLabel(ctx, key, vNamespace)
+	})
+}
+
+func VirtualLabelSelectorCluster(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
+	return virtualLabelSelector(ctx, labelSelector, Default.VirtualLabelCluster)
+}
+
+type vLabelFunc func(ctx *synccontext.SyncContext, key string) (string, bool)
+
+func virtualLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector, labelFunc vLabelFunc) *metav1.LabelSelector {
+	if labelSelector == nil {
+		return nil
+	}
+
+	newLabelSelector := &metav1.LabelSelector{}
+	if labelSelector.MatchLabels != nil {
+		newLabelSelector.MatchLabels = map[string]string{}
+		for k, v := range labelSelector.MatchLabels {
+			pLabel, ok := labelFunc(ctx, k)
+			if !ok {
+				pLabel = k
+			}
+
+			newLabelSelector.MatchLabels[pLabel] = v
+		}
+	}
+	for _, r := range labelSelector.MatchExpressions {
+		pLabel, ok := labelFunc(ctx, r.Key)
+		if !ok {
+			pLabel = r.Key
+		}
+
+		newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
+			Key:      pLabel,
+			Operator: r.Operator,
+			Values:   r.Values,
+		})
+	}
+
+	return newLabelSelector
+}
+
+func HostLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector, vNamespace string) *metav1.LabelSelector {
+	return hostLabelSelector(ctx, labelSelector, func(ctx *synccontext.SyncContext, key string) string {
+		return Default.HostLabel(ctx, key, vNamespace)
+	})
 }
 
 func HostLabelSelectorCluster(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
@@ -141,6 +293,22 @@ func hostLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.Label
 	}
 
 	return newLabelSelector
+}
+
+func VirtualLabels(ctx *synccontext.SyncContext, pObj, vObj client.Object, vNamespace string) map[string]string {
+	pLabels := pObj.GetLabels()
+	if pLabels == nil {
+		pLabels = map[string]string{}
+	}
+	var vLabels map[string]string
+	if vObj != nil {
+		vLabels = vObj.GetLabels()
+	}
+	if pObj.GetNamespace() == "" {
+		return VirtualLabelsMapCluster(ctx, pLabels, vLabels)
+	}
+
+	return VirtualLabelsMap(ctx, pLabels, vLabels, vNamespace)
 }
 
 func HostLabels(ctx *synccontext.SyncContext, vObj, pObj client.Object) map[string]string {
@@ -216,21 +384,6 @@ func SafeConcatName(name ...string) string {
 		return strings.ReplaceAll(fullPath[0:52]+"-"+hex.EncodeToString(digest[0:])[0:10], ".-", "-")
 	}
 	return fullPath
-}
-
-func UniqueSlice(stringSlice []string) []string {
-	keys := make(map[string]bool)
-	list := []string{}
-	for _, entry := range stringSlice {
-		if entry == "" {
-			continue
-		}
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list
 }
 
 func Split(s, sep string) (string, string) {

@@ -11,12 +11,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (t *translator) Diff(ctx *synccontext.SyncContext, vPod, pPod *corev1.Pod) error {
+func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error {
+	// sync conditions
+	event.TargetObject().Status.Conditions = event.SourceObject().Status.Conditions
+
 	// has status changed?
-	oldVPodStatus := vPod.Status.DeepCopy()
+	vPod := event.Virtual
+	pPod := event.Host
 	vPod.Status = *pPod.Status.DeepCopy()
 	stripInjectedSidecarContainers(vPod, pPod)
-	updateConditions(pPod, vPod, oldVPodStatus)
 
 	// get Namespace resource in order to have access to its labels
 	vNamespace := &corev1.Namespace{}
@@ -29,7 +32,8 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, vPod, pPod *corev1.Pod) 
 	t.calcSpecDiff(pPod, vPod)
 
 	// check annotations
-	updatedAnnotations, updatedLabels := translate.HostAnnotations(vPod, pPod, getExcludedAnnotations(pPod)...), translate.HostLabels(ctx, vPod, pPod)
+	updatedAnnotations := translate.HostAnnotations(vPod, pPod, getExcludedAnnotations(pPod)...)
+	updatedLabels := translate.HostLabels(ctx, vPod, pPod)
 	if updatedAnnotations == nil {
 		updatedAnnotations = map[string]string{}
 	}
@@ -52,6 +56,7 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, vPod, pPod *corev1.Pod) 
 		delete(updatedAnnotations, OwnerReferences)
 		delete(updatedAnnotations, OwnerSetKind)
 	}
+
 	// check pod and namespace labels
 	for k, v := range vNamespace.GetLabels() {
 		updatedLabels[translate.HostLabelNamespace(k)] = v
@@ -71,7 +76,7 @@ func getExcludedAnnotations(pPod *corev1.Pod) []string {
 					if source.DownwardAPI != nil {
 						for _, item := range source.DownwardAPI.Items {
 							if item.FieldRef != nil {
-								// check if its a label we have to rewrite
+								// check if it's a label we have to rewrite
 								annotationsMatch := FieldPathAnnotationRegEx.FindStringSubmatch(item.FieldRef.FieldPath)
 								if len(annotationsMatch) == 2 {
 									if strings.HasPrefix(annotationsMatch[1], ServiceAccountTokenAnnotation) {

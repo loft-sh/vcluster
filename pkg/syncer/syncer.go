@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -11,13 +12,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/fifolocker"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/moby/locker"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	controller2 "sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -60,7 +61,7 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 		virtualClient: ctx.VirtualManager.GetClient(),
 		options:       options,
 
-		locker: locker.New(),
+		locker: fifolocker.New(),
 	}, nil
 }
 
@@ -93,7 +94,7 @@ type SyncController struct {
 	virtualClient client.Client
 	options       *syncertypes.Options
 
-	locker *locker.Locker
+	locker *fifolocker.Locker
 }
 
 func (r *SyncController) newSyncContext(ctx context.Context, logName string) *synccontext.SyncContext {
@@ -109,7 +110,7 @@ func (r *SyncController) newSyncContext(ctx context.Context, logName string) *sy
 	}
 }
 
-func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_ ctrl.Result, err error) {
+func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_ ctrl.Result, retErr error) {
 	// extract if this was a delete request
 	origReq, syncEventType := fromDeleteRequest(origReq)
 
@@ -121,6 +122,11 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 
 	// create sync context
 	syncContext := r.newSyncContext(ctx, origReq.Name)
+	defer func() {
+		if err := syncContext.Close(); err != nil {
+			retErr = errors.Join(retErr, err)
+		}
+	}()
 
 	// if host request we need to find the virtual object
 	vReq, pReq, err := r.extractRequest(syncContext, origReq)
@@ -134,6 +140,8 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 	// reconciling on the same object in parallel as this could
 	// happen if a host event and virtual event are queued at the
 	// same time.
+	//
+	// This is FIFO, we use a special mutex for this (fifomu.Mutex)
 	r.locker.Lock(vReq.String())
 	defer func() {
 		_ = r.locker.Unlock(vReq.String())
@@ -155,11 +163,19 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
+	// add mapping to context
+	if !r.options.SkipMappingsRecording {
+		syncContext.Context, err = synccontext.WithMappingFromObjects(syncContext.Context, pObj, vObj)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// check what function we should call
 	if vObj != nil && pObj != nil {
 		// make sure the object uid matches
 		pAnnotations := pObj.GetAnnotations()
-		if !r.options.DisableUIDDeletion && pAnnotations != nil && pAnnotations[translate.UIDAnnotation] != "" && pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {
+		if !r.options.DisableUIDDeletion && pAnnotations[translate.UIDAnnotation] != "" && pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {
 			// requeue if object is already being deleted
 			if pObj.GetDeletionTimestamp() != nil {
 				return ctrl.Result{RequeueAfter: time.Second}, nil
@@ -397,6 +413,7 @@ func (r *SyncController) enqueueVirtual(ctx context.Context, obj client.Object, 
 				Name:      obj.GetName(),
 			},
 		}))
+
 		return
 	}
 
@@ -443,6 +460,7 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 				Name:      obj.GetName(),
 			},
 		})))
+
 		return
 	}
 
@@ -455,10 +473,10 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 	}))
 }
 
-func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
+func (r *SyncController) Build(ctx *synccontext.RegisterContext) (controller.Controller, error) {
 	// build the basic controller
-	controller := ctrl.NewControllerManagedBy(ctx.VirtualManager).
-		WithOptions(controller2.Options{
+	controllerBuilder := ctrl.NewControllerManagedBy(ctx.VirtualManager).
+		WithOptions(controller.Options{
 			MaxConcurrentReconciles: 10,
 			CacheSyncTimeout:        constants.DefaultCacheSyncTimeout,
 		}).
@@ -470,13 +488,39 @@ func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
 	modifier, isControllerModifier := r.syncer.(syncertypes.ControllerModifier)
 	if isControllerModifier {
 		var err error
-		controller, err = modifier.ModifyController(ctx, controller)
+		controllerBuilder, err = modifier.ModifyController(ctx, controllerBuilder)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return controller.Complete(r)
+	return controllerBuilder.Build(r)
+}
+
+func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
+	_, err := r.Build(ctx)
+	return err
+}
+
+func CreateVirtualObject(ctx *synccontext.SyncContext, pObj, vObj client.Object, eventRecorder record.EventRecorder) (ctrl.Result, error) {
+	gvk, err := apiutil.GVKForObject(vObj, scheme.Scheme)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("gvk for object: %w", err)
+	}
+
+	ctx.Log.Infof("create virtual %s %s/%s", gvk.Kind, vObj.GetNamespace(), vObj.GetName())
+	err = ctx.VirtualClient.Create(ctx, vObj)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			ctx.Log.Debugf("error syncing %s %s/%s to virtual cluster: %v", gvk.Kind, pObj.GetNamespace(), pObj.GetName(), err)
+			return ctrl.Result{RequeueAfter: time.Second}, nil
+		}
+		ctx.Log.Infof("error syncing %s %s/%s to virtual cluster: %v", gvk.Kind, pObj.GetNamespace(), pObj.GetName(), err)
+		eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func CreateHostObject(ctx *synccontext.SyncContext, vObj, pObj client.Object, eventRecorder record.EventRecorder) (ctrl.Result, error) {

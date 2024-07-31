@@ -3,7 +3,7 @@ package csidrivers
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -16,8 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
-	mapper, err := ctx.Mappings.ByGVK(mappings.CSIDrivers())
+func New(_ *synccontext.RegisterContext) (syncertypes.Object, error) {
+	mapper, err := generic.NewMirrorMapper(&storagev1.CSIDriver{})
 	if err != nil {
 		return nil, err
 	}

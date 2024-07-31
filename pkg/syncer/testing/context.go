@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
+	"github.com/loft-sh/vcluster/pkg/mappings/store"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util"
@@ -48,21 +49,32 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 		assert.NilError(t, err)
 	}
 
+	// run migrate
+	mapper, ok := object.(synccontext.Mapper)
+	if ok {
+		err := mapper.Migrate(ctx, mapper)
+		assert.NilError(t, err)
+	}
+
 	syncCtx := ctx.ToSyncContext(object.Name())
 	syncCtx.Log = loghelper.NewFromExisting(log.NewLog(0), object.Name())
 	return syncCtx, object
 }
 
 func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+	ctx := context.Background()
+	mappingsStore, _ := store.NewStore(ctx, vClient, pClient, store.NewMemoryBackend())
+
+	// create register context
 	translate.Default = translate.NewSingleNamespaceTranslator(DefaultTestTargetNamespace)
 	registerCtx := &synccontext.RegisterContext{
-		Context:                context.Background(),
+		Context:                ctx,
 		Config:                 vConfig,
 		CurrentNamespace:       DefaultTestCurrentNamespace,
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         newFakeManager(vClient),
 		PhysicalManager:        newFakeManager(pClient),
-		Mappings:               mappings.NewMappingsRegistry(),
+		Mappings:               mappings.NewMappingsRegistry(mappingsStore),
 	}
 
 	// make sure we do not ensure any CRDs
@@ -70,7 +82,15 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 		return nil
 	}
 
+	// register & migrate mappers
 	resources.MustRegisterMappings(registerCtx)
+	for _, mapper := range registerCtx.Mappings.List() {
+		err := mapper.Migrate(registerCtx, mapper)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	return registerCtx
 }
 

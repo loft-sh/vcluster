@@ -54,7 +54,7 @@ func translateSpec(ctx *synccontext.SyncContext, spec *networkingv1.NetworkPolic
 		panic("Multi-Namespace Mode not supported for network policies yet!")
 	}
 
-	if translatedLabelSelector := translate.HostLabelSelector(ctx, &spec.PodSelector); translatedLabelSelector != nil {
+	if translatedLabelSelector := translate.HostLabelSelector(ctx, &spec.PodSelector, namespace); translatedLabelSelector != nil {
 		outSpec.PodSelector = *translatedLabelSelector
 		if outSpec.PodSelector.MatchLabels == nil {
 			outSpec.PodSelector.MatchLabels = map[string]string{}
@@ -76,7 +76,7 @@ func translateNetworkPolicyPeers(ctx *synccontext.SyncContext, peers []networkin
 	out := []networkingv1.NetworkPolicyPeer{}
 	for _, peer := range peers {
 		newPeer := networkingv1.NetworkPolicyPeer{
-			PodSelector:       translate.HostLabelSelector(ctx, peer.PodSelector),
+			PodSelector:       translate.HostLabelSelector(ctx, peer.PodSelector, namespace),
 			NamespaceSelector: nil, // must be set to nil as all vcluster pods are in the same host namespace as the NetworkPolicy
 		}
 		if peer.IPBlock == nil {

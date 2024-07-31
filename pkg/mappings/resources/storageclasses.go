@@ -12,7 +12,7 @@ func CreateStorageClassesMapper(ctx *synccontext.RegisterContext) (synccontext.M
 		return generic.NewMirrorMapper(&storagev1.StorageClass{})
 	}
 
-	return generic.NewMapper(ctx, &storagev1.StorageClass{}, func(name, _ string) string {
+	return generic.NewMapper(ctx, &storagev1.StorageClass{}, func(_ *synccontext.SyncContext, name, _ string) string {
 		return translate.Default.HostNameCluster(name)
 	})
 }

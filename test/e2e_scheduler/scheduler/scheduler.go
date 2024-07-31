@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = ginkgo.Describe("Scheduler sync", func() {
@@ -20,12 +21,18 @@ var _ = ginkgo.Describe("Scheduler sync", func() {
 		framework.ExpectNoError(err)
 
 		for _, vnode := range virtualNodes.Items {
+			origNode := vnode.DeepCopy()
 			vnode.Spec.Taints = append(vnode.Spec.Taints, corev1.Taint{
 				Key:    "key1",
 				Value:  "value1",
 				Effect: corev1.TaintEffectNoSchedule,
 			})
-			_, err = f.VClusterClient.CoreV1().Nodes().Update(f.Context, &vnode, metav1.UpdateOptions{})
+
+			patch := client.MergeFrom(origNode)
+			patchBytes, err := patch.Data(&vnode)
+			framework.ExpectNoError(err)
+
+			_, err = f.VClusterClient.CoreV1().Nodes().Patch(f.Context, vnode.Name, patch.Type(), patchBytes, metav1.PatchOptions{})
 			framework.ExpectNoError(err)
 		}
 

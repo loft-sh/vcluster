@@ -72,7 +72,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		framework.ExpectNoError(err)
 
 		// get physical service
-		pService, err := f.HostClient.CoreV1().Services(translate.Default.HostNamespace(ns)).Get(f.Context, translate.Default.HostName(vService.Name, vService.Namespace), metav1.GetOptions{})
+		pService, err := f.HostClient.CoreV1().Services(translate.Default.HostNamespace(nil, ns)).Get(f.Context, translate.Default.HostName(nil, vService.Name, vService.Namespace), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
 		// check node ports are the same
@@ -108,7 +108,7 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		_, err = f.VClusterClient.CoreV1().Services(ns).Get(f.Context, service.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
-		_, err = f.HostClient.CoreV1().Services(translate.Default.HostNamespace(ns)).Get(f.Context, translate.Default.HostName(service.Name, service.Namespace), metav1.GetOptions{})
+		_, err = f.HostClient.CoreV1().Services(translate.Default.HostNamespace(nil, ns)).Get(f.Context, translate.Default.HostName(nil, service.Name, service.Namespace), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 	})
 

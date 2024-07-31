@@ -8,13 +8,16 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
+	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/store"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	translatepro "github.com/loft-sh/vcluster/pkg/util/translate/pro"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -108,6 +111,8 @@ func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 	defaultNamespaces := make(map[string]cache.Config)
 	if !options.Experimental.MultiNamespaceMode.Enabled {
 		defaultNamespaces[options.WorkloadTargetNamespace] = cache.Config{}
+
+		translatepro.AddMappingsToCache(defaultNamespaces)
 	}
 	// do we need access to another namespace to export the kubeconfig ?
 	// we will need access to all the objects that the vcluster usually has access to
@@ -318,6 +323,16 @@ func initControllerContext(
 		return nil, err
 	}
 
+	etcdClient, err := etcd.NewFromConfig(ctx, vClusterOptions)
+	if err != nil {
+		return nil, fmt.Errorf("create etcd client: %w", err)
+	}
+
+	mappingStore, err := store.NewStore(ctx, virtualManager.GetClient(), localManager.GetClient(), store.NewEtcdBackend(etcdClient))
+	if err != nil {
+		return nil, fmt.Errorf("start mapping store: %w", err)
+	}
+
 	return &synccontext.ControllerContext{
 		Context:               ctx,
 		LocalManager:          localManager,
@@ -327,7 +342,7 @@ func initControllerContext(
 
 		WorkloadNamespaceClient: currentNamespaceClient,
 
-		Mappings: mappings.NewMappingsRegistry(),
+		Mappings: mappings.NewMappingsRegistry(mappingStore),
 
 		StopChan: stopChan,
 		Config:   vClusterOptions,

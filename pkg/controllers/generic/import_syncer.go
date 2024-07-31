@@ -7,6 +7,7 @@ import (
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -15,9 +16,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/log"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -97,9 +96,8 @@ func createImporter(ctx *synccontext.RegisterContext, config *vclusterconfig.Imp
 
 		name: controllerID,
 		syncerOptions: &syncertypes.Options{
-			DisableUIDDeletion:   true,
-			IsClusterScopedCRD:   isClusterScoped,
-			HasStatusSubresource: hasStatusSubresource,
+			DisableUIDDeletion: true,
+			IsClusterScopedCRD: isClusterScoped,
 		},
 	}, nil
 }
@@ -141,6 +139,10 @@ var _ syncertypes.Syncer = &importer{}
 
 func (s *importer) Syncer() syncertypes.Sync[client.Object] {
 	return syncer.ToGenericSyncer[*unstructured.Unstructured](s)
+}
+
+func (s *importer) Migrate(_ *synccontext.RegisterContext, _ synccontext.Mapper) error {
+	return nil
 }
 
 func (s *importer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*unstructured.Unstructured]) (ctrl.Result, error) {
@@ -344,7 +346,7 @@ func (s *importer) isVirtualManaged(vObj client.Object) bool {
 	return vObj.GetAnnotations() != nil && vObj.GetAnnotations()[translate.ControllerLabel] != "" && vObj.GetAnnotations()[translate.ControllerLabel] == s.Name()
 }
 
-func (s *importer) IsManaged(_ *synccontext.SyncContext, pObj client.Object) (bool, error) {
+func (s *importer) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return true, nil
 	}
@@ -353,7 +355,7 @@ func (s *importer) IsManaged(_ *synccontext.SyncContext, pObj client.Object) (bo
 	}
 
 	// check if the pObj belong to a namespace managed by this vcluster
-	if !translate.Default.IsTargetedNamespace(pObj.GetNamespace()) {
+	if !translate.Default.IsTargetedNamespace(ctx, pObj.GetNamespace()) {
 		return false, nil
 	}
 
@@ -371,7 +373,7 @@ func (s *importer) VirtualToHost(ctx *synccontext.SyncContext, req types.Namespa
 		return s.virtualToHost(ctx, req, vObj)
 	}
 
-	return types.NamespacedName{Name: translate.Default.HostName(req.Name, req.Namespace), Namespace: translate.Default.HostNamespace(req.Namespace)}
+	return types.NamespacedName{Name: translate.Default.HostName(ctx, req.Name, req.Namespace), Namespace: translate.Default.HostNamespace(ctx, req.Namespace)}
 }
 
 func (s *importer) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {
@@ -383,13 +385,12 @@ func (s *importer) HostToVirtual(ctx *synccontext.SyncContext, req types.Namespa
 
 	// in multi-namespace mode we just query the target namespace
 	if !translate.Default.SingleNamespaceTarget() {
-		vNamespace := &corev1.Namespace{}
-		err := clienthelper.GetByIndex(ctx, s.virtualClient, vNamespace, constants.IndexByPhysicalName, req.Namespace)
-		if err != nil {
+		vNamespace := mappings.HostToVirtual(ctx, req.Namespace, "", nil, mappings.Namespaces())
+		if vNamespace.Name == "" {
 			return types.NamespacedName{}
 		}
 
-		return types.NamespacedName{Name: req.Name, Namespace: vNamespace.GetName()}
+		return types.NamespacedName{Name: req.Name, Namespace: vNamespace.Name}
 	}
 
 	// this is a little bit more tricky

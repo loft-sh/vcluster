@@ -20,11 +20,6 @@ import (
 )
 
 var (
-	PodLogsVolumeName    = "pod-logs"
-	LogsVolumeName       = "logs"
-	KubeletPodVolumeName = "kubelet-pods"
-	HostpathPodName      = "test-hostpaths"
-
 	pVclusterService = corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      syncertesting.DefaultTestVClusterServiceName,
@@ -36,7 +31,7 @@ var (
 	}
 	pDNSService = corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName("kube-dns", "kube-system"),
+			Name:      translate.Default.HostName(nil, "kube-dns", "kube-system"),
 			Namespace: syncertesting.DefaultTestTargetNamespace,
 		},
 		Spec: corev1.ServiceSpec{
@@ -59,7 +54,7 @@ func TestSyncTable(t *testing.T) {
 		Namespace: vNamespace.Name,
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.Default.HostName("testpod", "testns"),
+		Name:      translate.Default.HostName(nil, "testpod", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
 			podtranslate.ClusterAutoScalerAnnotation:  "false",
@@ -344,7 +339,7 @@ func TestSync(t *testing.T) {
 	translate.VClusterName = syncertesting.DefaultTestVClusterName
 	pDNSService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName("kube-dns", "kube-system"),
+			Name:      translate.Default.HostName(nil, "kube-dns", "kube-system"),
 			Namespace: syncertesting.DefaultTestTargetNamespace,
 		},
 		Spec: corev1.ServiceSpec{
@@ -361,7 +356,7 @@ func TestSync(t *testing.T) {
 		Namespace: vNamespace.Name,
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.Default.HostName("testpod", "testns"),
+		Name:      translate.Default.HostName(nil, "testpod", "testns"),
 		Namespace: "test",
 		Annotations: map[string]string{
 			podtranslate.ClusterAutoScalerAnnotation:  "false",
@@ -462,7 +457,7 @@ func TestSync(t *testing.T) {
 	hostToContainer := corev1.MountPropagationHostToContainer
 	pHostPathPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName(vHostPathPod.Name, syncertesting.DefaultTestCurrentNamespace),
+			Name:      translate.Default.HostName(nil, vHostPathPod.Name, syncertesting.DefaultTestCurrentNamespace),
 			Namespace: syncertesting.DefaultTestTargetNamespace,
 
 			Annotations: map[string]string{

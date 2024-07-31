@@ -28,7 +28,7 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 	}
 	basicSelectorTranslatedWithMarker := &metav1.LabelSelector{MatchLabels: map[string]string{}}
 	for k, v := range basicSelector.MatchLabels {
-		basicSelectorTranslatedWithMarker.MatchLabels[translate.Default.HostLabel(nil, k)] = v
+		basicSelectorTranslatedWithMarker.MatchLabels[translate.Default.HostLabel(nil, k, "")] = v
 	}
 	basicSelectorTranslatedWithMarker.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 
@@ -199,7 +199,7 @@ func TestVolumeTranslation(t *testing.T) {
 					Name: "eph-vol",
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: translate.Default.HostName("pod-name-eph-vol", "test-ns"),
+							ClaimName: translate.Default.HostName(nil, "pod-name-eph-vol", "test-ns"),
 						},
 						Ephemeral: nil,
 					},

@@ -30,6 +30,10 @@ func CreateEventsMapper(_ *synccontext.RegisterContext) (synccontext.Mapper, err
 
 type eventMapper struct{}
 
+func (s *eventMapper) Migrate(_ *synccontext.RegisterContext, _ synccontext.Mapper) error {
+	return nil
+}
+
 func (s *eventMapper) GroupVersionKind() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("Event")
 }

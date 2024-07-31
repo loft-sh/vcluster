@@ -38,22 +38,6 @@ type ControllerContext struct {
 	Mappings MappingsRegistry
 }
 
-type SyncContext struct {
-	context.Context
-
-	Log loghelper.Logger
-
-	Config *config.VirtualClusterConfig
-
-	PhysicalClient client.Client
-	VirtualClient  client.Client
-
-	Mappings MappingsRegistry
-
-	CurrentNamespace       string
-	CurrentNamespaceClient client.Client
-}
-
 type RegisterContext struct {
 	context.Context
 

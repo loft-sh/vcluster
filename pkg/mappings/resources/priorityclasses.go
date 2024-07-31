@@ -12,7 +12,7 @@ func CreatePriorityClassesMapper(ctx *synccontext.RegisterContext) (synccontext.
 		return generic.NewMirrorMapper(&schedulingv1.PriorityClass{})
 	}
 
-	return generic.NewMapper(ctx, &schedulingv1.PriorityClass{}, func(vName, _ string) string {
+	return generic.NewMapper(ctx, &schedulingv1.PriorityClass{}, func(_ *synccontext.SyncContext, vName, _ string) string {
 		// we have to prefix with vCluster as system is reserved
 		return translate.Default.HostNameCluster(vName)
 	})

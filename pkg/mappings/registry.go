@@ -2,13 +2,13 @@ package mappings
 
 import (
 	"fmt"
+	"maps"
 	"sync"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	policyv1 "k8s.io/api/policy/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -16,16 +16,31 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewMappingsRegistry() synccontext.MappingsRegistry {
+func NewMappingsRegistry(store synccontext.MappingsStore) synccontext.MappingsRegistry {
 	return &Registry{
 		mappers: map[schema.GroupVersionKind]synccontext.Mapper{},
+
+		store: store,
 	}
 }
 
 type Registry struct {
 	mappers map[schema.GroupVersionKind]synccontext.Mapper
 
-	m sync.Mutex
+	store synccontext.MappingsStore
+
+	m sync.RWMutex
+}
+
+func (m *Registry) Store() synccontext.MappingsStore {
+	return m.store
+}
+
+func (m *Registry) List() map[schema.GroupVersionKind]synccontext.Mapper {
+	m.m.RLock()
+	defer m.m.RUnlock()
+
+	return maps.Clone(m.mappers)
 }
 
 func (m *Registry) AddMapper(mapper synccontext.Mapper) error {
@@ -37,16 +52,16 @@ func (m *Registry) AddMapper(mapper synccontext.Mapper) error {
 }
 
 func (m *Registry) Has(gvk schema.GroupVersionKind) bool {
-	m.m.Lock()
-	defer m.m.Unlock()
+	m.m.RLock()
+	defer m.m.RUnlock()
 
 	_, ok := m.mappers[gvk]
 	return ok
 }
 
 func (m *Registry) ByGVK(gvk schema.GroupVersionKind) (synccontext.Mapper, error) {
-	m.m.Lock()
-	defer m.m.Unlock()
+	m.m.RLock()
+	defer m.m.RUnlock()
 
 	mapper, ok := m.mappers[gvk]
 	if !ok {
@@ -56,32 +71,12 @@ func (m *Registry) ByGVK(gvk schema.GroupVersionKind) (synccontext.Mapper, error
 	return mapper, nil
 }
 
-func CSIDrivers() schema.GroupVersionKind {
-	return storagev1.SchemeGroupVersion.WithKind("CSIDriver")
-}
-
-func CSINodes() schema.GroupVersionKind {
-	return storagev1.SchemeGroupVersion.WithKind("CSINode")
-}
-
-func CSIStorageCapacities() schema.GroupVersionKind {
-	return storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity")
-}
-
 func VolumeSnapshotContents() schema.GroupVersionKind {
 	return volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent")
 }
 
-func NetworkPolicies() schema.GroupVersionKind {
-	return networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy")
-}
-
 func Nodes() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("Node")
-}
-
-func PodDisruptionBudgets() schema.GroupVersionKind {
-	return policyv1.SchemeGroupVersion.WithKind("PodDisruptionBudget")
 }
 
 func VolumeSnapshots() schema.GroupVersionKind {
@@ -126,10 +121,6 @@ func PersistentVolumes() schema.GroupVersionKind {
 
 func StorageClasses() schema.GroupVersionKind {
 	return storagev1.SchemeGroupVersion.WithKind("StorageClass")
-}
-
-func IngressClasses() schema.GroupVersionKind {
-	return networkingv1.SchemeGroupVersion.WithKind("IngressClass")
 }
 
 func Namespaces() schema.GroupVersionKind {

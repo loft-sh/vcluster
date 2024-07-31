@@ -3,7 +3,7 @@ package csinodes
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -19,7 +19,7 @@ import (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
-	mapper, err := ctx.Mappings.ByGVK(mappings.CSINodes())
+	mapper, err := generic.NewMirrorMapper(&storagev1.CSINode{})
 	if err != nil {
 		return nil, err
 	}

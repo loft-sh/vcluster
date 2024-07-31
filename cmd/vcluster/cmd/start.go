@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/integrations"
 	"github.com/loft-sh/vcluster/pkg/leaderelection"
 	"github.com/loft-sh/vcluster/pkg/plugin"
@@ -38,7 +39,7 @@ func NewStartCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&startOptions.Config, "config", "/var/vcluster/config.yaml", "The path where to find the vCluster config to load")
+	cmd.Flags().StringVar(&startOptions.Config, "config", constants.DefaultVClusterConfigLocation, "The path where to find the vCluster config to load")
 
 	// Should only be used for development
 	cmd.Flags().StringArrayVar(&startOptions.SetValues, "set", []string{}, "Set values for the config. E.g. --set 'exportKubeConfig.secret.name=my-name'")

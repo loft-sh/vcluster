@@ -50,9 +50,22 @@ func (s *eventSyncer) Syncer() syncertypes.Sync[client.Object] {
 	return syncer.ToGenericSyncer[*corev1.Event](s)
 }
 
-func (s *eventSyncer) SyncToHost(_ *synccontext.SyncContext, _ *synccontext.SyncToHostEvent[*corev1.Event]) (ctrl.Result, error) {
-	// this should never happen since we ignore virtual events and don't handle objects we can't find
-	panic("unimplemented")
+var _ syncertypes.OptionsProvider = &eventSyncer{}
+
+func (s *eventSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		SkipMappingsRecording: true,
+	}
+}
+
+func (s *eventSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Event]) (ctrl.Result, error) {
+	// check if delete event
+	if event.IsDelete() {
+		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host event was deleted")
+	}
+
+	// just ignore, Kubernetes will clean them up
+	return ctrl.Result{}, nil
 }
 
 func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Event]) (_ ctrl.Result, retErr error) {
