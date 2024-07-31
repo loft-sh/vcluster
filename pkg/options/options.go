@@ -1,7 +1,7 @@
 package options
 
 const (
-	DefaultHostsRewriteImage = "library/alpine:3.13.1"
+	DefaultHostsRewriteImage = "library/alpine:3.20.2"
 	GenericConfig            = "CONFIG"
 )
 

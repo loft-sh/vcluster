@@ -193,6 +193,7 @@ syncer:
   podLabels: {}
   priorityClassName: ""
   kubeConfigContextName: "my-vcluster"
+  overrideHostsContainerImage: ""
   # Security context configuration
   securityContext:
     allowPrivilegeEscalation: false

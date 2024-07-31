@@ -166,6 +166,7 @@ syncer:
       cpu: 10m
       memory: 64Mi
   kubeConfigContextName: "my-vcluster"
+  overrideHostsContainerImage: ""
   serviceAnnotations: {}
   # Storage settings for the vcluster
   storage:

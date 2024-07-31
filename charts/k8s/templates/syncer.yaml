@@ -303,6 +303,10 @@ spec:
           - --enforce-mutating-hook={{ . | toYaml | b64enc }}
           {{- end }}
           {{- end }}
+          {{- if .Values.syncer.overrideHostsContainerImage }}
+          - --override-hosts
+          - --override-hosts-container-image={{ .Values.syncer.overrideHostsContainerImage }}
+          {{- end }}
           {{- range $f := .Values.syncer.extraArgs }}
           - {{ $f | quote }}
           {{- end }}
