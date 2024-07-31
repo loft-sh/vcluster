@@ -1,8 +1,6 @@
 name: Lint
 
 on:
-  release:
-    types: [created]
   pull_request:
     branches:
       - main
