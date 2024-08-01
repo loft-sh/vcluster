@@ -1839,6 +1839,9 @@
           "type": "boolean",
           "description": "Enabled defines if the network policy should be deployed by vCluster."
         },
+        "platformEnabled": {
+          "type": "boolean"
+        },
         "fallbackDns": {
           "type": "string"
         },

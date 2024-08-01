@@ -443,6 +443,7 @@ policies:
 
   networkPolicy:
     enabled: false
+    platformEnabled: false
     labels: {}
     annotations: {}
     fallbackDns: 8.8.8.8

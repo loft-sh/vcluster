@@ -734,6 +734,7 @@ policies:
   networkPolicy:
     # Enabled defines if the network policy should be deployed by vCluster.
     enabled: false
+    platformEnabled: false
     labels: {}
     annotations: {}
     fallbackDns: 8.8.8.8

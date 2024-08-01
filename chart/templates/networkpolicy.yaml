@@ -95,6 +95,12 @@ spec:
           podSelector:
             matchLabels:
               k8s-app: kube-dns
+        {{- if .Values.policies.networkPolicy.platformEnabled }}
+        - podSelector:
+            matchLabels:
+              app: loft
+          namespaceSelector: {}
+        {{- end }}
   policyTypes:
     - Egress
   {{- end }}
