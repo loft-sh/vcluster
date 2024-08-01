@@ -1451,6 +1451,9 @@ type OutgoingConnections struct {
 	// to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
 	// that should not be included within this rule.
 	IPBlock IPBlock `json:"ipBlock,omitempty"`
+
+	// Platform enables egress access towards loft platform
+	Platform bool `json:"platform,omitempty"`
 }
 
 type IPBlock struct {
