@@ -284,7 +284,7 @@ func waitForAPI(ctx context.Context) error {
 		return true, nil
 	})
 	if err != nil {
-		return fmt.Errorf("error waiting for API server: %v%w", lastErr, err)
+		return fmt.Errorf("error waiting for API server: %w", lastErr)
 	}
 
 	return nil
