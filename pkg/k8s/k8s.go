@@ -3,8 +3,8 @@ package k8s
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -17,6 +17,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 )
 
@@ -136,9 +137,9 @@ func StartK8S(
 	}
 
 	// wait for api server to be up as otherwise controller and scheduler might fail
-	isUp := waitForAPI(ctx)
-	if !isUp {
-		return errors.New("waited until timeout for the api to be up, but it never did")
+	err := waitForAPI(ctx)
+	if err != nil {
+		return fmt.Errorf("waited until timeout for the api to be up: %w", err)
 	}
 
 	// start controller command
@@ -216,7 +217,7 @@ func StartK8S(
 	// regular stop case, will return as soon as a component returns an error.
 	// we don't expect the components to stop by themselves since they're supposed
 	// to run until killed or until they fail
-	err := eg.Wait()
+	err = eg.Wait()
 	if err == nil || err.Error() == "signal: killed" {
 		return nil
 	}
@@ -244,30 +245,47 @@ func RunCommand(ctx context.Context, command []string, component string) error {
 
 // waits for the api to be up, ignoring certs and calling it
 // localhost
-func waitForAPI(ctx context.Context) bool {
+func waitForAPI(ctx context.Context) error {
 	client := &http.Client{
 		Timeout: 2 * time.Second,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
+
 	// sometimes the etcd pod takes a very long time to be ready,
 	// we might want to fine tune how long we wait later
-	for i := 0; i < 60; i++ {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://127.0.0.1:6443/version", nil)
+	var lastErr error
+	err := wait.PollUntilContextTimeout(ctx, time.Second*2, time.Minute*5, true, func(ctx context.Context) (done bool, err error) {
+		// build the request
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://127.0.0.1:6443/readyz", nil)
 		if err != nil {
+			lastErr = err
 			klog.Errorf("could not create the request to wait for the api: %s", err.Error())
+			return false, nil
 		}
-		_, err = client.Do(req)
-		switch {
-		case errors.Is(err, nil):
-			return true
-		case errors.Is(err, context.Canceled):
-			return false
-		default:
-			klog.Info("error while targeting the api on localhost, this is expected during the vcluster creation, will retry after 2 seconds:", err)
-			time.Sleep(time.Second * 2)
+
+		// do the request
+		response, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			klog.Info("error while targeting the api on localhost, this is expected during the vCluster creation, will retry after 2 seconds:", err)
+			return false, nil
 		}
+
+		// check if we got a ok response status code
+		if response.StatusCode != http.StatusOK {
+			bytes, _ := io.ReadAll(response.Body)
+			klog.FromContext(ctx).Info("api server not ready yet", "reason", string(bytes))
+			lastErr = fmt.Errorf("api server not ready yet, reason: %s", string(bytes))
+			return false, nil
+		}
+
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("error waiting for API server: %w", lastErr)
 	}
-	return false
+
+	return nil
 }
