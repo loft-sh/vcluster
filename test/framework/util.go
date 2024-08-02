@@ -242,77 +242,6 @@ func (f *Framework) CreateCurlPod(ns string) (*corev1.Pod, error) {
 	}, metav1.CreateOptions{})
 }
 
-func (f *Framework) CreateCurlPodHost(ns string, labels map[string]string) (*corev1.Pod, error) {
-	return f.HostClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "curl",
-			Labels: labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:            "curl",
-					Image:           "curlimages/curl",
-					ImagePullPolicy: corev1.PullIfNotPresent,
-					SecurityContext: f.GetDefaultSecurityContext(),
-					Command:         []string{"sleep"},
-					Args:            []string{"9999"},
-				},
-			},
-		},
-	}, metav1.CreateOptions{})
-}
-
-func (f *Framework) CreateHostNginxPodAndService(ns string, labels map[string]string) (*corev1.Pod, *corev1.Service, error) {
-	podName := "nginx"
-	serviceName := "nginx"
-
-	_, err := f.HostClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   ns,
-			Labels: labels,
-		},
-	}, metav1.CreateOptions{})
-	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return nil, nil, err
-	}
-
-	pod, err := f.HostClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   podName,
-			Labels: labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:            podName,
-					Image:           "nginxinc/nginx-unprivileged",
-					ImagePullPolicy: corev1.PullIfNotPresent,
-					SecurityContext: f.GetDefaultSecurityContext(),
-				},
-			},
-		},
-	}, metav1.CreateOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	service, err := f.HostClient.CoreV1().Services(ns).Create(f.Context, &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceName,
-			Namespace: ns,
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: labels,
-			Ports: []corev1.ServicePort{
-				{Port: 8080},
-			},
-		},
-	}, metav1.CreateOptions{})
-
-	return pod, service, err
-}
-
 func (f *Framework) CreateNginxPodAndService(ns string) (*corev1.Pod, *corev1.Service, error) {
 	podName := "nginx"
 	serviceName := "nginx"
@@ -354,19 +283,6 @@ func (f *Framework) CreateNginxPodAndService(ns string) (*corev1.Pod, *corev1.Se
 	return pod, service, err
 }
 
-func (f *Framework) TestHostServiceIsEventuallyReachable(curlPod *corev1.Pod, service *corev1.Service) {
-	var stdoutBuffer []byte
-	var lastError error
-	err := wait.PollUntilContextTimeout(f.Context, 10*time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		stdoutBuffer, _, lastError = f.curlHostService(ctx, curlPod, service)
-		if lastError == nil && string(stdoutBuffer) == "200" {
-			return true, nil
-		}
-		return false, nil
-	})
-	ExpectNoError(err, "Nginx service is expected to be reachable. On the last attempt got %s http code and following error:", string(stdoutBuffer), lastError)
-}
-
 func (f *Framework) TestServiceIsEventuallyReachable(curlPod *corev1.Pod, service *corev1.Service) {
 	var stdoutBuffer []byte
 	var lastError error
@@ -393,29 +309,10 @@ func (f *Framework) TestServiceIsEventuallyUnreachable(curlPod *corev1.Pod, serv
 	ExpectNoError(err, "Nginx service is expected to be unreachable. On the last attempt got %s http code and following error:", string(stdoutBuffer), lastError)
 }
 
-func (f *Framework) TestHostServiceIsEventuallyUnreachable(curlPod *corev1.Pod, service *corev1.Service) {
-	var stdoutBuffer, stderrBuffer []byte
-	var lastError error
-	err := wait.PollUntilContextTimeout(f.Context, 10*time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		stdoutBuffer, stderrBuffer, lastError = f.curlHostService(ctx, curlPod, service)
-		if lastError != nil && strings.Contains(string(stderrBuffer), "timed out") && string(stdoutBuffer) == "000" {
-			return true, nil
-		}
-		return false, nil
-	})
-	ExpectNoError(err, "Nginx service is expected to be unreachable. On the last attempt got %s http code and following error:", string(stdoutBuffer), lastError)
-}
-
 func (f *Framework) curlService(_ context.Context, curlPod *corev1.Pod, service *corev1.Service) ([]byte, []byte, error) {
 	url := fmt.Sprintf("http://%s.%s.svc:%d/", service.GetName(), service.GetNamespace(), service.Spec.Ports[0].Port)
 	cmd := []string{"curl", "-s", "--show-error", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "2", url}
 	return podhelper.ExecBuffered(f.Context, f.VClusterConfig, curlPod.GetNamespace(), curlPod.GetName(), curlPod.Spec.Containers[0].Name, cmd, nil)
-}
-
-func (f *Framework) curlHostService(_ context.Context, curlPod *corev1.Pod, service *corev1.Service) ([]byte, []byte, error) {
-	url := fmt.Sprintf("http://%s.%s.svc:%d/", service.GetName(), service.GetNamespace(), service.Spec.Ports[0].Port)
-	cmd := []string{"curl", "-s", "--show-error", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "2", url}
-	return podhelper.ExecBuffered(f.Context, f.HostConfig, curlPod.GetNamespace(), curlPod.GetName(), curlPod.Spec.Containers[0].Name, cmd, nil)
 }
 
 func (f *Framework) CreateEgressNetworkPolicyForDNS(ctx context.Context, ns string) (*networkingv1.NetworkPolicy, error) {
