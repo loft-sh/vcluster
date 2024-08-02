@@ -4,6 +4,7 @@ FROM rancher/kine:${KINE_VERSION} as kine
 # Build program
 FROM golang:1.22 as builder
 
+
 WORKDIR /vcluster-dev
 ARG TARGETOS
 ARG TARGETARCH
