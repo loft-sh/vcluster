@@ -1386,8 +1386,7 @@ type LimitRange struct {
 
 type NetworkPolicy struct {
 	// Enabled defines if the network policy should be deployed by vCluster.
-	Enabled         bool `json:"enabled,omitempty"`
-	PlatformEnabled bool `json:"platformEnabled,omitempty"`
+	Enabled bool `json:"enabled,omitempty"`
 
 	FallbackDNS         string              `json:"fallbackDns,omitempty"`
 	OutgoingConnections OutgoingConnections `json:"outgoingConnections,omitempty"`
@@ -1400,6 +1399,9 @@ type OutgoingConnections struct {
 	// to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
 	// that should not be included within this rule.
 	IPBlock IPBlock `json:"ipBlock,omitempty"`
+
+	// Platform enables egress access towards loft platform
+	Platform bool `json:"platform,omitempty"`
 }
 
 type IPBlock struct {
