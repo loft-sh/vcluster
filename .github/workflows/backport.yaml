@@ -7,7 +7,7 @@ on:
 jobs:
   backport:
     name: Backport PR
-    if: !(contains(github.event.pull_request.labels.*.name, 'backport'))
+    if: "!(contains(github.event.pull_request.labels.*.name, 'backport'))"
     runs-on: ubuntu-latest
     steps:
       - name: Backport Action
