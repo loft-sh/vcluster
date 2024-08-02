@@ -4,6 +4,10 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"io"
+	"os"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
@@ -77,6 +81,7 @@ func (cmd *ConnectCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	cmd.overrideLogStdoutIfNeeded()
 
 	cfg := cmd.LoadedConfig(cmd.Log)
 
@@ -99,4 +104,13 @@ func (cmd *ConnectCmd) validateFlags() error {
 	}
 
 	return nil
+}
+
+// overrideLogStdoutIfNeeded
+// If user specifies --print flag, we have to discard all the logs, otherwise
+// we will get invalid kubeconfig.
+func (cmd *ConnectCmd) overrideLogStdoutIfNeeded() {
+	if cmd.Print {
+		cmd.Log = log.NewStdoutLogger(os.Stdin, io.Discard, os.Stderr, logrus.InfoLevel)
+	}
 }
