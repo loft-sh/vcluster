@@ -447,6 +447,7 @@ policies:
     annotations: {}
     fallbackDns: 8.8.8.8
     outgoingConnections:
+      platform: true
       ipBlock:
         cidr: 0.0.0.0/0
         except:
