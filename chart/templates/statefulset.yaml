@@ -117,7 +117,9 @@ spec:
         #     name: coredns-custom
         #     optional: true
         {{- end }}
-        {{- if not (include "vcluster.persistence.volumeClaim.enabled" .) }}
+        {{- if .Values.controlPlane.statefulSet.persistence.dataVolume }}
+{{ toYaml .Values.controlPlane.statefulSet.persistence.dataVolume | indent 8 }}
+        {{- else if not (include "vcluster.persistence.volumeClaim.enabled" .) }}
         - name: data
           emptyDir: {}
         {{- end }}
