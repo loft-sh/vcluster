@@ -1225,6 +1225,9 @@ type ControlPlanePersistence struct {
 	// VolumeClaimTemplates defines the volumeClaimTemplates for the statefulSet
 	VolumeClaimTemplates []map[string]interface{} `json:"volumeClaimTemplates,omitempty"`
 
+	// Allows you to override the dataVolume. Only works correctly if volumeClaim.enabled=false.
+	DataVolume []map[string]interface{} `json:"dataVolume,omitempty"`
+
 	// BinariesVolume defines a binaries volume that is used to retrieve
 	// distro specific executables to be run by the syncer controller.
 	// This volume doesn't need to be persistent.

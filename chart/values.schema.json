@@ -247,6 +247,13 @@
           "type": "array",
           "description": "VolumeClaimTemplates defines the volumeClaimTemplates for the statefulSet"
         },
+        "dataVolume": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "Allows you to override the dataVolume. Only works correctly if volumeClaim.enabled=false."
+        },
         "binariesVolume": {
           "items": {
             "type": "object"
