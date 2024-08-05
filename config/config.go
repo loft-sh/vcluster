@@ -178,6 +178,10 @@ func (c *Config) BackingStoreType() StoreType {
 	}
 }
 
+func (c *Config) EmbeddedDatabase() bool {
+	return !c.ControlPlane.BackingStore.Database.External.Enabled && !c.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !c.ControlPlane.BackingStore.Etcd.Deploy.Enabled
+}
+
 func (c *Config) Distro() string {
 	if c.ControlPlane.Distro.K3S.Enabled {
 		return K3SDistro
@@ -188,6 +192,14 @@ func (c *Config) Distro() string {
 	}
 
 	return K8SDistro
+}
+
+func (c *Config) IsConfiguredForSleepMode() bool {
+	if c != nil && c.External != nil && c.External["platform"] == nil {
+		return false
+	}
+
+	return c.External["platform"]["autoSleep"] != nil || c.External["platform"]["autoDelete"] != nil
 }
 
 // ValidateChanges checks for disallowed config changes.
@@ -201,7 +213,7 @@ func ValidateChanges(oldCfg, newCfg *Config) error {
 
 // ValidateStoreAndDistroChanges checks whether migrating from one store to the other is allowed.
 func ValidateStoreAndDistroChanges(currentStoreType, previousStoreType StoreType, currentDistro, previousDistro string) error {
-	if currentDistro != previousDistro {
+	if currentDistro != previousDistro && !(previousDistro == "eks" && currentDistro == K8SDistro) {
 		return fmt.Errorf("seems like you were using %s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", previousDistro, currentDistro)
 	}
 
@@ -721,9 +733,6 @@ type Distro struct {
 
 	// K0S holds k0s relevant configuration.
 	K0S DistroK0s `json:"k0s,omitempty"`
-
-	// EKS holds eks relevant configuration.
-	EKS DistroK8s `json:"eks,omitempty"`
 }
 
 type DistroK3s struct {
@@ -1185,6 +1194,9 @@ type ControlPlanePersistence struct {
 	// VolumeClaimTemplates defines the volumeClaimTemplates for the statefulSet
 	VolumeClaimTemplates []map[string]interface{} `json:"volumeClaimTemplates,omitempty"`
 
+	// Allows you to override the dataVolume. Only works correctly if volumeClaim.enabled=false.
+	DataVolume []map[string]interface{} `json:"dataVolume,omitempty"`
+
 	// BinariesVolume defines a binaries volume that is used to retrieve
 	// distro specific executables to be run by the syncer controller.
 	// This volume doesn't need to be persistent.
@@ -1218,31 +1230,31 @@ type VolumeClaim struct {
 // VolumeMount describes a mounting of a Volume within a container.
 type VolumeMount struct {
 	// This must match the Name of a Volume.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name"`
+	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
 
 	// Mounted read-only if true, read-write otherwise (false or unspecified).
 	// Defaults to false.
-	ReadOnly bool `protobuf:"varint,2,opt,name=readOnly" json:"readOnly,omitempty"`
+	ReadOnly bool `json:"readOnly,omitempty" protobuf:"varint,2,opt,name=readOnly"`
 
 	// Path within the container at which the volume should be mounted.  Must
 	// not contain ':'.
-	MountPath string `protobuf:"bytes,3,opt,name=mountPath" json:"mountPath"`
+	MountPath string `json:"mountPath" protobuf:"bytes,3,opt,name=mountPath"`
 
 	// Path within the volume from which the container's volume should be mounted.
 	// Defaults to "" (volume's root).
-	SubPath string `protobuf:"bytes,4,opt,name=subPath" json:"subPath,omitempty"`
+	SubPath string `json:"subPath,omitempty" protobuf:"bytes,4,opt,name=subPath"`
 
 	// mountPropagation determines how mounts are propagated from the host
 	// to container and the other way around.
 	// When not set, MountPropagationNone is used.
 	// This field is beta in 1.10.
-	MountPropagation *string `protobuf:"bytes,5,opt,name=mountPropagation,casttype=MountPropagationMode" json:"mountPropagation,omitempty"`
+	MountPropagation *string `json:"mountPropagation,omitempty" protobuf:"bytes,5,opt,name=mountPropagation,casttype=MountPropagationMode"`
 
 	// Expanded path within the volume from which the container's volume should be mounted.
 	// Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment.
 	// Defaults to "" (volume's root).
 	// SubPathExpr and SubPath are mutually exclusive.
-	SubPathExpr string `protobuf:"bytes,6,opt,name=subPathExpr" json:"subPathExpr,omitempty"`
+	SubPathExpr string `json:"subPathExpr,omitempty" protobuf:"bytes,6,opt,name=subPathExpr"`
 }
 
 type ControlPlaneScheduling struct {
@@ -1411,6 +1423,9 @@ type OutgoingConnections struct {
 	// to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
 	// that should not be included within this rule.
 	IPBlock IPBlock `json:"ipBlock,omitempty"`
+
+	// Platform enables egress access towards loft platform
+	Platform bool `json:"platform,omitempty"`
 }
 
 type IPBlock struct {
@@ -1453,7 +1468,7 @@ type MutatingWebhookConfiguration struct {
 type MutatingWebhook struct {
 	// reinvocationPolicy indicates whether this webhook should be called multiple times as part of a single admission evaluation.
 	// Allowed values are "Never" and "IfNeeded".
-	ReinvocationPolicy *string `protobuf:"bytes,10,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType" json:"reinvocationPolicy,omitempty"`
+	ReinvocationPolicy *string `json:"reinvocationPolicy,omitempty" protobuf:"bytes,10,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType"`
 
 	ValidatingWebhook `json:",inline"`
 }
@@ -1955,16 +1970,16 @@ type DenyRule struct {
 
 type RuleWithVerbs struct {
 	// APIGroups is the API groups the resources belong to. '*' is all groups.
-	APIGroups []string `protobuf:"bytes,1,rep,name=apiGroups" json:"apiGroups,omitempty"`
+	APIGroups []string `json:"apiGroups,omitempty" protobuf:"bytes,1,rep,name=apiGroups"`
 
 	// APIVersions is the API versions the resources belong to. '*' is all versions.
-	APIVersions []string `protobuf:"bytes,2,rep,name=apiVersions" json:"apiVersions,omitempty"`
+	APIVersions []string `json:"apiVersions,omitempty" protobuf:"bytes,2,rep,name=apiVersions"`
 
 	// Resources is a list of resources this rule applies to.
-	Resources []string `protobuf:"bytes,3,rep,name=resources" json:"resources,omitempty"`
+	Resources []string `json:"resources,omitempty" protobuf:"bytes,3,rep,name=resources"`
 
 	// Scope specifies the scope of this rule.
-	Scope *string `protobuf:"bytes,4,rep,name=scope" json:"scope,omitempty"`
+	Scope *string `json:"scope,omitempty" protobuf:"bytes,4,rep,name=scope"`
 
 	// Verb is the kube verb associated with the request for API requests, not the http verb. This includes things like list and watch.
 	// For non-resource requests, this is the lowercase http verb.

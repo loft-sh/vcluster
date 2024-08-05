@@ -51,12 +51,29 @@ func Register(ctx *config.ControllerContext) error {
 		targetService := cmp.Or(ctx.Config.Integrations.MetricsServer.APIService.Service.Name, "metrics-server")
 		targetServiceNamespace := cmp.Or(ctx.Config.Integrations.MetricsServer.APIService.Service.Namespace, "kube-system")
 		targetServicePort := cmp.Or(ctx.Config.Integrations.MetricsServer.APIService.Service.Port, 443)
-		err := apiservice.StartAPIServiceProxy(ctx, targetService, targetServiceNamespace, targetServicePort, hostPort)
-		if err != nil {
-			return fmt.Errorf("start api service proxy: %w", err)
-		}
 
 		ctx.PostServerHooks = append(ctx.PostServerHooks, func(h http.Handler, clients config.Clients) http.Handler {
+			err := apiservice.StartAPIServiceProxy(
+				ctx,
+				targetService,
+				targetServiceNamespace,
+				targetServicePort,
+				hostPort,
+				func(h http.Handler) http.Handler {
+					return WithMetricsServerProxy(
+						h,
+						ctx.Config.WorkloadTargetNamespace,
+						clients.CachedHostClient,
+						clients.CachedVirtualClient,
+						clients.HostConfig,
+						ctx.Config.Experimental.MultiNamespaceMode.Enabled,
+					)
+				},
+			)
+			if err != nil {
+				panic(fmt.Sprintf("start api service proxy: %s", err))
+			}
+
 			return WithMetricsServerProxy(
 				h,
 				ctx.Config.WorkloadTargetNamespace,
