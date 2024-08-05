@@ -3,6 +3,7 @@ package coredns
 import (
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/coredns"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/test/framework"
@@ -73,5 +74,15 @@ var _ = ginkgo.Describe("CoreDNS resolves host names correctly", func() {
 			framework.ExpectEmpty(stderrBuffer)
 			framework.ExpectEqual(string(stdoutBuffer), "ok")
 		}
+	})
+	ginkgo.It("Test coredns uses pinned image version", func() {
+		coreDNSName, coreDNSNamespace := "coredns", "kube-system"
+		coreDNSDeployment, err := f.VClusterClient.AppsV1().Deployments(coreDNSNamespace).Get(f.Context, coreDNSName, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+		framework.ExpectEqual(len(coreDNSDeployment.Spec.Template.Spec.Containers), 1)
+		framework.ExpectEqual(coreDNSDeployment.Spec.Template.Spec.Containers[0].Image, coredns.DefaultImage)
+		// these are images with known security vulnerabilities.
+		framework.ExpectNotEqual(coreDNSDeployment.Spec.Template.Spec.Containers[0].Image, "1.11.1")
+		framework.ExpectNotEqual(coreDNSDeployment.Spec.Template.Spec.Containers[0].Image, "1.11.0")
 	})
 })
