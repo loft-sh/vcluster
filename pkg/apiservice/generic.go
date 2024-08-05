@@ -18,8 +18,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -139,7 +142,14 @@ func createOperation(ctrlCtx *synccontext.ControllerContext, serviceName string,
 	}
 }
 
-func StartAPIServiceProxy(ctx *synccontext.ControllerContext, targetServiceName, targetServiceNamespace string, targetPort, hostPort int) error {
+func StartAPIServiceProxy(
+	ctx *synccontext.ControllerContext,
+	targetServiceName,
+	targetServiceNamespace string,
+	targetPort,
+	hostPort int,
+	extraHandlers ...func(h http.Handler) http.Handler,
+) error {
 	tlsCertFile := ctx.Config.VirtualClusterKubeConfig().ServerCACert
 	tlsKeyFile := ctx.Config.VirtualClusterKubeConfig().ServerCAKey
 
@@ -162,25 +172,21 @@ func StartAPIServiceProxy(ctx *synccontext.ControllerContext, targetServiceName,
 		return fmt.Errorf("create host proxy handler: %w", err)
 	}
 
-	s := serializer.NewCodecFactory(scheme.Scheme)
-	server := &http.Server{
-		Addr: "localhost:" + strconv.Itoa(hostPort),
-		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			// we only allow traffic to discovery paths
-			if !isAPIServiceProxyPathAllowed(request.Method, request.URL.Path) {
-				klog.FromContext(ctx).Info("Denied access to api service proxy at path", "path", request.URL.Path, "method", request.Method)
-				responsewriters.ErrorNegotiated(
-					kerrors.NewForbidden(metav1.SchemeGroupVersion.WithResource("proxy").GroupResource(), "proxy", fmt.Errorf("paths other than discovery paths are not allowed")),
-					s,
-					corev1.SchemeGroupVersion,
-					writer,
-					request,
-				)
-				return
-			}
+	h := serveHandler(ctx, proxyHandler)
 
-			proxyHandler.ServeHTTP(writer, request)
-		}),
+	// add custom handlers
+	for _, extraHandler := range extraHandlers {
+		h = extraHandler(h)
+	}
+
+	h = genericapifilters.WithRequestInfo(h, &request.RequestInfoFactory{
+		APIPrefixes:          sets.NewString("api", "apis"),
+		GrouplessAPIPrefixes: sets.NewString("api"),
+	})
+
+	server := &http.Server{
+		Addr:    "localhost:" + strconv.Itoa(hostPort),
+		Handler: h,
 	}
 
 	go func() {
@@ -193,6 +199,26 @@ func StartAPIServiceProxy(ctx *synccontext.ControllerContext, targetServiceName,
 	}()
 
 	return nil
+}
+
+func serveHandler(ctx context.Context, next http.Handler) http.Handler {
+	s := serializer.NewCodecFactory(scheme.Scheme)
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		// we only allow traffic to discovery paths
+		if !isAPIServiceProxyPathAllowed(request.Method, request.URL.Path) {
+			klog.FromContext(ctx).Info("Denied access to api service proxy at path", "path", request.URL.Path, "method", request.Method)
+			responsewriters.ErrorNegotiated(
+				kerrors.NewForbidden(metav1.SchemeGroupVersion.WithResource("proxy").GroupResource(), "proxy", fmt.Errorf("paths other than discovery paths are not allowed")),
+				s,
+				corev1.SchemeGroupVersion,
+				writer,
+				request,
+			)
+			return
+		}
+
+		next.ServeHTTP(writer, request)
+	})
 }
 
 func isAPIServiceProxyPathAllowed(method, path string) bool {
