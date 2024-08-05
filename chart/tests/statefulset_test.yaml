@@ -559,3 +559,20 @@ tests:
             name: binaries
             persistentVolumeClaim:
                 claimName: my-pvc
+
+  - it: dataVolume - should set the specified data volume type correctly
+    set:
+      controlPlane:
+        statefulSet:
+          persistence:
+            dataVolume:
+              - name: data
+                persistentVolumeClaim:
+                  claimName: my-custom-pvc
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            persistentVolumeClaim:
+              claimName: my-custom-pvc
