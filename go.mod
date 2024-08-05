@@ -7,7 +7,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/docker/cli v25.0.0+incompatible
-	github.com/docker/docker v25.0.5+incompatible
+	github.com/docker/docker v25.0.6+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.4.2
 	github.com/go-openapi/loads v0.21.2
