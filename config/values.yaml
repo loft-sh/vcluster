@@ -327,6 +327,7 @@ controlPlane:
       volumeClaimTemplates: []
       addVolumeMounts: []
       addVolumes: []
+      dataVolume: []
       binariesVolume:
       - name: binaries
         emptyDir: {}
