@@ -80,37 +80,6 @@ type Config struct {
 type Integrations struct {
 	// MetricsServer reuses the metrics server from the host cluster within the vCluster.
 	MetricsServer MetricsServer `json:"metricsServer,omitempty"`
-
-	// KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
-	KubeVirt KubeVirt `json:"kubeVirt,omitempty"`
-}
-
-// KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
-type KubeVirt struct {
-	// Enabled signals if the integration should be enabled
-	Enabled bool `json:"enabled,omitempty"`
-	// APIService holds information about where to find the virt-api service. Defaults to virt-api/kubevirt.
-	APIService APIService `json:"apiService,omitempty"`
-	// Webhook holds configuration for enabling the webhook within the vCluster
-	Webhook EnableSwitch `json:"webhook,omitempty"`
-	// Sync holds configuration on what resources to sync
-	Sync KubeVirtSync `json:"sync,omitempty"`
-}
-
-// KubeVirtSync are the crds that are supported by this integration
-type KubeVirtSync struct {
-	// If DataVolumes should get synced
-	DataVolumes EnableSwitch `json:"dataVolumes,omitempty"`
-	// If VirtualMachineInstanceMigrations should get synced
-	VirtualMachineInstanceMigrations EnableSwitch `json:"virtualMachineInstanceMigrations,omitempty"`
-	// If VirtualMachineInstances should get synced
-	VirtualMachineInstances EnableSwitch `json:"virtualMachineInstances,omitempty"`
-	// If VirtualMachines should get synced
-	VirtualMachines EnableSwitch `json:"virtualMachines,omitempty"`
-	// If VirtualMachineClones should get synced
-	VirtualMachineClones EnableSwitch `json:"virtualMachineClones,omitempty"`
-	// If VirtualMachinePools should get synced
-	VirtualMachinePools EnableSwitch `json:"virtualMachinePools,omitempty"`
 }
 
 // MetricsServer reuses the metrics server from the host cluster within the vCluster.
@@ -216,8 +185,6 @@ func (c *Config) Distro() string {
 		return K0SDistro
 	} else if c.ControlPlane.Distro.K8S.Enabled {
 		return K8SDistro
-	} else if c.ControlPlane.Distro.EKS.Enabled {
-		return EKSDistro
 	}
 
 	return K8SDistro
@@ -259,7 +226,7 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
-	if c.Distro() == K8SDistro || c.Distro() == EKSDistro {
+	if c.Distro() == K8SDistro {
 		if c.ControlPlane.BackingStore.Database.External.Enabled {
 			return true
 		}
