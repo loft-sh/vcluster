@@ -13,7 +13,6 @@ var (
 )
 
 var (
-	VClusterAppLabel     = "app"
 	VClusterReleaseLabel = "release"
 	NamespaceLabel       = "vcluster.loft.sh/namespace"
 	MarkerLabel          = "vcluster.loft.sh/managed-by"

@@ -137,7 +137,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	event.Host.Annotations = updatedAnnotations
 
 	// translate selector
-	event.Host.Spec.Selector = translate.HostLabelsMap(event.Virtual.Spec.Selector, event.Host.Spec.Selector, event.Virtual.Namespace)
+	event.Host.Spec.Selector = translate.HostLabelsMap(event.Virtual.Spec.Selector, event.Host.Spec.Selector, event.Virtual.Namespace, false)
 	return ctrl.Result{}, nil
 }
 

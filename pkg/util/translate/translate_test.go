@@ -10,6 +10,41 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func TestNotRewritingLabels(t *testing.T) {
+	pMap := map[string]string{
+		"abc": "abc",
+		"def": "def",
+		"hij": "hij",
+		"app": "my-app",
+	}
+
+	pMap = HostLabelsMap(pMap, pMap, "test", false)
+	assert.DeepEqual(t, map[string]string{
+		"abc": "abc",
+		"def": "def",
+		"hij": "hij",
+		"app": "my-app",
+	}, pMap)
+
+	pMap = VirtualLabelsMap(pMap, pMap)
+	assert.DeepEqual(t, map[string]string{
+		"abc": "abc",
+		"def": "def",
+		"hij": "hij",
+		"app": "my-app",
+	}, pMap)
+
+	pMap = HostLabelsMap(pMap, pMap, "test", true)
+	assert.DeepEqual(t, map[string]string{
+		"abc":          "abc",
+		"def":          "def",
+		"hij":          "hij",
+		"app":          "my-app",
+		NamespaceLabel: "test",
+		MarkerLabel:    VClusterName,
+	}, pMap)
+}
+
 func TestAnnotations(t *testing.T) {
 	vObj := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -61,7 +96,7 @@ func TestRecursiveLabelsMap(t *testing.T) {
 	vMaps := []map[string]string{}
 	for i := 0; i <= 10; i++ {
 		vMaps = append(vMaps, maps.Clone(vMap))
-		vMap = HostLabelsMap(vMap, nil, fmt.Sprintf("test-%d", i))
+		vMap = HostLabelsMap(vMap, nil, fmt.Sprintf("test-%d", i), false)
 	}
 
 	assert.DeepEqual(t, map[string]string{
@@ -83,15 +118,15 @@ func TestLabelsMap(t *testing.T) {
 	vMap := map[string]string{
 		"test":    "test",
 		"test123": "test123",
-		"app":     "vcluster",
-		"vcluster.loft.sh/label-suffix-x-a172cedcae": "vcluster123",
+		"release": "vcluster",
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster123",
 	}
 
-	pMap := HostLabelsMap(vMap, nil, "test")
+	pMap := HostLabelsMap(vMap, nil, "test", false)
 	assert.DeepEqual(t, map[string]string{
 		"test":    "test",
 		"test123": "test123",
-		"vcluster.loft.sh/label-suffix-x-a172cedcae": "vcluster",
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster",
 		MarkerLabel:    VClusterName,
 		NamespaceLabel: "test",
 	}, pMap)
@@ -103,13 +138,13 @@ func TestLabelsMap(t *testing.T) {
 		"test":    "test",
 		"test123": "test123",
 		"other":   "other",
-		"app":     "vcluster",
-		"vcluster.loft.sh/label-suffix-x-a172cedcae": "vcluster123",
+		"release": "vcluster",
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster123",
 	}, vMap)
 
-	pMap = HostLabelsMap(vMap, pMap, "test")
+	pMap = HostLabelsMap(vMap, pMap, "test", false)
 	assert.DeepEqual(t, map[string]string{
-		"vcluster.loft.sh/label-suffix-x-a172cedcae": "vcluster",
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster",
 		MarkerLabel:    VClusterName,
 		NamespaceLabel: "test",
 		"test":         "test",
@@ -123,14 +158,14 @@ func TestLabelSelector(t *testing.T) {
 		MatchLabels: map[string]string{
 			"test":    "test",
 			"test123": "test123",
-			"app":     "vcluster",
+			"release": "vcluster",
 		},
 	})
 	assert.DeepEqual(t, &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"test":    "test",
 			"test123": "test123",
-			"vcluster.loft.sh/label-suffix-x-a172cedcae": "vcluster",
+			"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster",
 		},
 	}, pMap)
 
@@ -139,7 +174,7 @@ func TestLabelSelector(t *testing.T) {
 		MatchLabels: map[string]string{
 			"test":    "test",
 			"test123": "test123",
-			"app":     "vcluster",
+			"release": "vcluster",
 		},
 	}, vMap)
 
@@ -148,7 +183,7 @@ func TestLabelSelector(t *testing.T) {
 		MatchLabels: map[string]string{
 			"test":    "test",
 			"test123": "test123",
-			"vcluster.loft.sh/label-suffix-x-a172cedcae": "vcluster",
+			"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster",
 		},
 	}, pMap)
 }
