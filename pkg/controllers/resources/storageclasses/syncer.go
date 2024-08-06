@@ -51,7 +51,7 @@ func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syn
 		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
 	}
 
-	newStorageClass := translate.HostMetadata(ctx, event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name}, event.Virtual), s.excludedAnnotations...)
+	newStorageClass := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name}, event.Virtual), s.excludedAnnotations...)
 	ctx.Log.Infof("create physical storage class %s", newStorageClass.Name)
 	err := ctx.PhysicalClient.Create(ctx, newStorageClass)
 	if err != nil {
@@ -75,7 +75,7 @@ func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 	}()
 
 	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
-	event.Host.Labels = translate.HostLabels(ctx, event.Virtual, event.Host)
+	event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 
 	// bidirectional sync
 	event.TargetObject().Provisioner = event.SourceObject().Provisioner

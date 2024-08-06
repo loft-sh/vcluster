@@ -28,7 +28,7 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 	}
 	basicSelectorTranslatedWithMarker := &metav1.LabelSelector{MatchLabels: map[string]string{}}
 	for k, v := range basicSelector.MatchLabels {
-		basicSelectorTranslatedWithMarker.MatchLabels[translate.Default.HostLabel(nil, k, "")] = v
+		basicSelectorTranslatedWithMarker.MatchLabels[translate.HostLabel(k)] = v
 	}
 	basicSelectorTranslatedWithMarker.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 
@@ -148,7 +148,7 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 			log:           loghelper.New("pods-syncer-translator-test"),
 		}
 
-		result := tr.translatePodAffinityTerm(nil, pod, testCase.term)
+		result := tr.translatePodAffinityTerm(pod, testCase.term)
 		assert.Assert(t, cmp.DeepEqual(result, testCase.expectedTerm), "Unexpected translation of the PodAffinityTerm in the '%s' test case", testCase.name)
 
 		// read the events from the recorder mock

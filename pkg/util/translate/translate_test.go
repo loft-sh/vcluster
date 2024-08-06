@@ -1,16 +1,13 @@
 package translate
 
 import (
-	"context"
+	"fmt"
+	"maps"
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/mappings"
-	"github.com/loft-sh/vcluster/pkg/mappings/store"
-	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestAnnotations(t *testing.T) {
@@ -56,213 +53,102 @@ func TestAnnotations(t *testing.T) {
 	}, pObj.Annotations)
 }
 
-func TestLabelsMapCluster(t *testing.T) {
-	backend := store.NewMemoryBackend()
-	mappingsStore, err := store.NewStore(context.TODO(), nil, nil, backend)
-	assert.NilError(t, err)
-
-	ownerMapping := synccontext.NameMapping{
-		GroupVersionKind: corev1.SchemeGroupVersion.WithKind("PersistentVolume"),
-		VirtualName: types.NamespacedName{
-			Name: "test",
-		},
-		HostName: types.NamespacedName{
-			Name: "test",
-		},
+func TestRecursiveLabelsMap(t *testing.T) {
+	vMap := map[string]string{
+		NamespaceLabel: "test",
 	}
-	err = mappingsStore.RecordReference(context.TODO(), ownerMapping, ownerMapping)
-	assert.NilError(t, err)
 
-	syncContext := &synccontext.SyncContext{
-		Context:  synccontext.WithMapping(context.TODO(), ownerMapping),
-		Mappings: mappings.NewMappingsRegistry(mappingsStore),
+	vMaps := []map[string]string{}
+	for i := 0; i <= 10; i++ {
+		vMaps = append(vMaps, maps.Clone(vMap))
+		vMap = HostLabelsMap(vMap, nil, fmt.Sprintf("test-%d", i))
 	}
-	pMap := HostLabelsMapCluster(syncContext, map[string]string{
-		"test":    "test",
-		"test123": "test123",
-	}, nil)
-	assert.DeepEqual(t, map[string]string{
-		"vcluster.loft.sh/label--x-suffix-x-9f86d08188": "test",
-		"vcluster.loft.sh/label--x-suffix-x-ecd71870d1": "test123",
-		MarkerLabel: "-x-suffix",
-	}, pMap)
 
-	pMap["other"] = "other"
-
-	vMap := VirtualLabelsMapCluster(syncContext, pMap, nil)
 	assert.DeepEqual(t, map[string]string{
-		"test":    "test",
-		"test123": "test123",
-		"other":   "other",
+		"vcluster.loft.sh/label-suffix-x-101dcd4e86": "test-9",
+		"vcluster.loft.sh/label-suffix-x-e5f1b28ab2": "suffix",
+		MarkerLabel:    VClusterName,
+		NamespaceLabel: "test-10",
 	}, vMap)
 
-	pMap = HostLabelsMapCluster(syncContext, vMap, pMap)
-	assert.DeepEqual(t, map[string]string{
-		"vcluster.loft.sh/label--x-suffix-x-9f86d08188": "test",
-		"vcluster.loft.sh/label--x-suffix-x-ecd71870d1": "test123",
-		"vcluster.loft.sh/label--x-suffix-x-d9298a10d1": "other",
-		MarkerLabel: "-x-suffix",
-	}, pMap)
+	// now translate back and check
+	pMap := vMap
+	for i := 10; i >= 0; i-- {
+		pMap = VirtualLabelsMap(pMap, vMaps[i])
+		assert.DeepEqual(t, pMap, vMaps[i])
+	}
 }
 
 func TestLabelsMap(t *testing.T) {
-	backend := store.NewMemoryBackend()
-	mappingsStore, err := store.NewStore(context.TODO(), nil, nil, backend)
-	assert.NilError(t, err)
-
-	ownerMapping := synccontext.NameMapping{
-		GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Secret"),
-		VirtualName: types.NamespacedName{
-			Name:      "test",
-			Namespace: "test",
-		},
-		HostName: types.NamespacedName{
-			Name:      "test",
-			Namespace: "test",
-		},
-	}
-	err = mappingsStore.RecordReference(context.TODO(), ownerMapping, ownerMapping)
-	assert.NilError(t, err)
-
-	syncContext := &synccontext.SyncContext{
-		Context:  synccontext.WithMapping(context.TODO(), ownerMapping),
-		Mappings: mappings.NewMappingsRegistry(mappingsStore),
-	}
-	pMap := HostLabelsMap(syncContext, map[string]string{
+	vMap := map[string]string{
 		"test":    "test",
 		"test123": "test123",
-	}, nil, "test")
+		"app":     "vcluster",
+		"vcluster.loft.sh/label-suffix-x-a172cedcae": "vcluster123",
+	}
+
+	pMap := HostLabelsMap(vMap, nil, "test")
 	assert.DeepEqual(t, map[string]string{
-		"vcluster.loft.sh/label-suffix-x-9f86d08188": "test",
-		"vcluster.loft.sh/label-suffix-x-ecd71870d1": "test123",
+		"test":    "test",
+		"test123": "test123",
+		"vcluster.loft.sh/label-suffix-x-a172cedcae": "vcluster",
 		MarkerLabel:    VClusterName,
 		NamespaceLabel: "test",
 	}, pMap)
 
 	pMap["other"] = "other"
 
-	vMap := VirtualLabelsMap(syncContext, pMap, nil, "")
+	vMap = VirtualLabelsMap(pMap, vMap)
 	assert.DeepEqual(t, map[string]string{
 		"test":    "test",
 		"test123": "test123",
 		"other":   "other",
+		"app":     "vcluster",
+		"vcluster.loft.sh/label-suffix-x-a172cedcae": "vcluster123",
 	}, vMap)
 
-	pMap = HostLabelsMap(syncContext, vMap, pMap, "test")
+	pMap = HostLabelsMap(vMap, pMap, "test")
 	assert.DeepEqual(t, map[string]string{
-		"vcluster.loft.sh/label-suffix-x-9f86d08188": "test",
-		"vcluster.loft.sh/label-suffix-x-ecd71870d1": "test123",
-		"vcluster.loft.sh/label-suffix-x-d9298a10d1": "other",
+		"vcluster.loft.sh/label-suffix-x-a172cedcae": "vcluster",
 		MarkerLabel:    VClusterName,
 		NamespaceLabel: "test",
+		"test":         "test",
+		"test123":      "test123",
 		"other":        "other",
 	}, pMap)
 }
 
 func TestLabelSelector(t *testing.T) {
-	backend := store.NewMemoryBackend()
-	mappingsStore, err := store.NewStore(context.TODO(), nil, nil, backend)
-	assert.NilError(t, err)
-
-	ownerMapping := synccontext.NameMapping{
-		GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Secret"),
-		VirtualName: types.NamespacedName{
-			Name:      "test",
-			Namespace: "test",
-		},
-		HostName: types.NamespacedName{
-			Name:      "test",
-			Namespace: "test",
-		},
-	}
-	err = mappingsStore.RecordReference(context.TODO(), ownerMapping, ownerMapping)
-	assert.NilError(t, err)
-
-	syncContext := &synccontext.SyncContext{
-		Context:  synccontext.WithMapping(context.TODO(), ownerMapping),
-		Mappings: mappings.NewMappingsRegistry(mappingsStore),
-	}
-
-	pMap := HostLabelSelector(syncContext, &metav1.LabelSelector{
+	pMap := HostLabelSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"test":    "test",
 			"test123": "test123",
-		},
-	}, "")
-	assert.DeepEqual(t, &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"vcluster.loft.sh/label-suffix-x-9f86d08188": "test",
-			"vcluster.loft.sh/label-suffix-x-ecd71870d1": "test123",
-		},
-	}, pMap)
-
-	vMap := VirtualLabelSelector(syncContext, pMap, "")
-	assert.DeepEqual(t, &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"test":    "test",
-			"test123": "test123",
-		},
-	}, vMap)
-
-	pMap = HostLabelSelector(syncContext, vMap, "")
-	assert.DeepEqual(t, &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"vcluster.loft.sh/label-suffix-x-9f86d08188": "test",
-			"vcluster.loft.sh/label-suffix-x-ecd71870d1": "test123",
-		},
-	}, pMap)
-}
-
-func TestLabelSelectorCluster(t *testing.T) {
-	backend := store.NewMemoryBackend()
-	mappingsStore, err := store.NewStore(context.TODO(), nil, nil, backend)
-	assert.NilError(t, err)
-
-	ownerMapping := synccontext.NameMapping{
-		GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Secret"),
-		VirtualName: types.NamespacedName{
-			Name:      "test",
-			Namespace: "test",
-		},
-		HostName: types.NamespacedName{
-			Name:      "test",
-			Namespace: "test",
-		},
-	}
-	err = mappingsStore.RecordReference(context.TODO(), ownerMapping, ownerMapping)
-	assert.NilError(t, err)
-
-	syncContext := &synccontext.SyncContext{
-		Context:  synccontext.WithMapping(context.TODO(), ownerMapping),
-		Mappings: mappings.NewMappingsRegistry(mappingsStore),
-	}
-
-	pMap := HostLabelSelectorCluster(syncContext, &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"test":    "test",
-			"test123": "test123",
+			"app":     "vcluster",
 		},
 	})
 	assert.DeepEqual(t, &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"vcluster.loft.sh/label--x-suffix-x-9f86d08188": "test",
-			"vcluster.loft.sh/label--x-suffix-x-ecd71870d1": "test123",
+			"test":    "test",
+			"test123": "test123",
+			"vcluster.loft.sh/label-suffix-x-a172cedcae": "vcluster",
 		},
 	}, pMap)
 
-	vMap := VirtualLabelSelectorCluster(syncContext, pMap)
+	vMap := VirtualLabelSelector(pMap)
 	assert.DeepEqual(t, &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"test":    "test",
 			"test123": "test123",
+			"app":     "vcluster",
 		},
 	}, vMap)
 
-	pMap = HostLabelSelectorCluster(syncContext, vMap)
+	pMap = HostLabelSelector(vMap)
 	assert.DeepEqual(t, &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"vcluster.loft.sh/label--x-suffix-x-9f86d08188": "test",
-			"vcluster.loft.sh/label--x-suffix-x-ecd71870d1": "test123",
+			"test":    "test",
+			"test123": "test123",
+			"vcluster.loft.sh/label-suffix-x-a172cedcae": "vcluster",
 		},
 	}, pMap)
 }

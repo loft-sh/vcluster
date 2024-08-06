@@ -8,8 +8,8 @@ import (
 )
 
 func (s *serviceSyncer) translate(ctx *synccontext.SyncContext, vObj *corev1.Service) *corev1.Service {
-	newService := translate.HostMetadata(ctx, vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj), s.excludedAnnotations...)
-	newService.Spec.Selector = translate.HostLabelsMap(ctx, vObj.Spec.Selector, nil, vObj.Namespace)
+	newService := translate.HostMetadata(vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj), s.excludedAnnotations...)
+	newService.Spec.Selector = translate.HostLabelsMap(vObj.Spec.Selector, nil, vObj.Namespace)
 	if newService.Spec.ClusterIP != "None" {
 		newService.Spec.ClusterIP = ""
 	}

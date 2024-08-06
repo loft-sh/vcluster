@@ -63,7 +63,7 @@ func (s *csistoragecapacitySyncer) translateBackwards(ctx *synccontext.SyncConte
 func (s *csistoragecapacitySyncer) virtualMetadata(ctx *synccontext.SyncContext, pObj *storagev1.CSIStorageCapacity) *storagev1.CSIStorageCapacity {
 	vObj := translate.CopyObjectWithName(pObj, s.HostToVirtual(ctx, types.NamespacedName{Name: pObj.Name, Namespace: pObj.Namespace}, pObj), false)
 	vObj.SetAnnotations(translate.HostAnnotations(pObj, nil))
-	vObj.SetLabels(translate.HostLabels(ctx, pObj, nil))
+	vObj.SetLabels(translate.HostLabels(pObj, nil))
 	return vObj
 }
 
@@ -78,7 +78,8 @@ func (s *csistoragecapacitySyncer) translateUpdateBackwards(ctx *synccontext.Syn
 		return shouldSkip, err
 	}
 
-	vObj.Annotations, vObj.Labels = translate.HostAnnotations(pObj, vObj), translate.HostLabels(ctx, pObj, vObj)
+	vObj.Annotations = translate.HostAnnotations(pObj, vObj)
+	vObj.Labels = translate.HostLabels(pObj, vObj)
 	vObj.StorageClassName = scName
 	vObj.NodeTopology = pObj.NodeTopology
 	vObj.Capacity = pObj.Capacity

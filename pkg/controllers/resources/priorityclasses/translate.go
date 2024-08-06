@@ -10,7 +10,7 @@ import (
 
 func (s *priorityClassSyncer) translate(ctx *synccontext.SyncContext, vObj client.Object) *schedulingv1.PriorityClass {
 	// translate the priority class
-	priorityClass := translate.HostMetadata(ctx, vObj.(*schedulingv1.PriorityClass), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
+	priorityClass := translate.HostMetadata(vObj.(*schedulingv1.PriorityClass), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 	priorityClass.GlobalDefault = false
 	if priorityClass.Value > 1000000000 {
 		priorityClass.Value = 1000000000
@@ -18,13 +18,13 @@ func (s *priorityClassSyncer) translate(ctx *synccontext.SyncContext, vObj clien
 	return priorityClass
 }
 
-func (s *priorityClassSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj, sourceObject, targetObject *schedulingv1.PriorityClass) {
+func (s *priorityClassSyncer) translateUpdate(pObj, vObj, sourceObject, targetObject *schedulingv1.PriorityClass) {
 	targetObject.PreemptionPolicy = sourceObject.PreemptionPolicy
 	targetObject.Description = sourceObject.Description
 
 	// check metadata
 	pObj.Annotations = translate.HostAnnotations(vObj, pObj)
-	pObj.Labels = translate.HostLabels(ctx, vObj, pObj)
+	pObj.Labels = translate.HostLabels(vObj, pObj)
 
 	// check value
 	translatedValue := vObj.Value

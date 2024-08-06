@@ -55,12 +55,6 @@ type MappingsStore interface {
 	// RecordReference records a reference mapping
 	RecordReference(ctx context.Context, nameMapping, belongsTo NameMapping) error
 
-	// RecordLabel records a label mapping in the store
-	RecordLabel(ctx context.Context, labelMapping LabelMapping, belongsTo NameMapping) error
-
-	// RecordLabelCluster records a label mapping for a cluster scoped object in the store
-	RecordLabelCluster(ctx context.Context, labelMapping LabelMapping, belongsTo NameMapping) error
-
 	// SaveMapping saves the mapping in the backing store
 	SaveMapping(ctx context.Context, mapping NameMapping) error
 
@@ -72,12 +66,6 @@ type MappingsStore interface {
 
 	// VirtualToHostName maps the given virtual object to the host name if found within the store
 	VirtualToHostName(ctx context.Context, vObj Object) (types.NamespacedName, bool)
-
-	// HostToVirtualLabel maps the given host label to the virtual label if found within the store
-	HostToVirtualLabel(ctx context.Context, pLabel string) (string, bool)
-
-	// HostToVirtualLabelCluster maps the given host label to the virtual label if found within the store
-	HostToVirtualLabelCluster(ctx context.Context, pLabel string) (string, bool)
 }
 
 // Mapper holds the mapping logic for an object
@@ -194,21 +182,5 @@ func (n NameMapping) String() string {
 		n.GroupVersionKind.String(),
 		n.VirtualName.String(),
 		n.HostName.String(),
-	}, ";")
-}
-
-type LabelMapping struct {
-	Virtual string
-	Host    string
-}
-
-func (l LabelMapping) Equals(other LabelMapping) bool {
-	return l.Host == other.Host && l.Virtual == other.Virtual
-}
-
-func (l LabelMapping) String() string {
-	return strings.Join([]string{
-		l.Virtual,
-		l.Host,
 	}, ";")
 }

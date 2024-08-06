@@ -171,7 +171,6 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 		Plugins:                     legacyPlugins,
 		DefaultImageRegistry:        v.ControlPlane.Advanced.DefaultImageRegistry,
 		EnforcePodSecurityStandard:  v.Policies.PodSecurityStandard,
-		SyncLabels:                  v.Experimental.SyncSettings.SyncLabels,
 		MountPhysicalHostPaths:      false,
 		HostMetricsBindAddress:      "0",
 		VirtualMetricsBindAddress:   "0",

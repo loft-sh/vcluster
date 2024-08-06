@@ -33,7 +33,7 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 
 	// check annotations
 	updatedAnnotations := translate.HostAnnotations(vPod, pPod, getExcludedAnnotations(pPod)...)
-	updatedLabels := translate.HostLabels(ctx, vPod, pPod)
+	updatedLabels := translate.HostLabels(vPod, pPod)
 	if updatedAnnotations == nil {
 		updatedAnnotations = map[string]string{}
 	}

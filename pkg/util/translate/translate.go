@@ -5,15 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"maps"
 	"math"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
-	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"github.com/loft-sh/vcluster/pkg/util/translate/pro"
 	"github.com/pkg/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -54,44 +51,18 @@ func CopyObjectWithName[T client.Object](obj T, name types.NamespacedName, setOw
 	return target
 }
 
-func HostMetadata[T client.Object](ctx *synccontext.SyncContext, vObj T, name types.NamespacedName, excludedAnnotations ...string) T {
+func HostMetadata[T client.Object](vObj T, name types.NamespacedName, excludedAnnotations ...string) T {
 	pObj := CopyObjectWithName(vObj, name, true)
 	pObj.SetAnnotations(HostAnnotations(vObj, nil, excludedAnnotations...))
-	pObj.SetLabels(HostLabels(ctx, vObj, nil))
+	pObj.SetLabels(HostLabels(vObj, nil))
 	return pObj
 }
 
-func VirtualMetadata[T client.Object](ctx *synccontext.SyncContext, pObj T, name types.NamespacedName, excludedAnnotations ...string) T {
+func VirtualMetadata[T client.Object](pObj T, name types.NamespacedName, excludedAnnotations ...string) T {
 	vObj := CopyObjectWithName(pObj, name, false)
 	vObj.SetAnnotations(VirtualAnnotations(pObj, nil, excludedAnnotations...))
-	vObj.SetLabels(VirtualLabels(ctx, pObj, nil, vObj.GetNamespace()))
+	vObj.SetLabels(VirtualLabels(pObj, nil))
 	return vObj
-}
-
-func VirtualLabelsMap(ctx *synccontext.SyncContext, pLabels, vLabels map[string]string, vNamespace string, excluded ...string) map[string]string {
-	if pLabels == nil {
-		return nil
-	} else if _, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok || !Default.SingleNamespaceTarget() {
-		retMap := map[string]string{}
-		maps.Copy(retMap, pLabels)
-		return retMap
-	}
-
-	excluded = append(excluded, MarkerLabel, NamespaceLabel, ControllerLabel)
-	retLabels := copyMaps(pLabels, vLabels, func(key string) bool {
-		return exists(excluded, key) || strings.HasPrefix(key, NamespaceLabelPrefix)
-	})
-
-	// try to translate back
-	for key, value := range retLabels {
-		delete(retLabels, key)
-		vKey, ok := Default.VirtualLabel(ctx, key, vNamespace)
-		if ok {
-			retLabels[vKey] = value
-		}
-	}
-
-	return retLabels
 }
 
 func VirtualAnnotations(pObj, vObj client.Object, excluded ...string) map[string]string {
@@ -126,205 +97,6 @@ func copyMaps(fromMap, toMap map[string]string, excludeKey func(string) bool) ma
 	}
 
 	return retMap
-}
-
-func HostLabelsMap(ctx *synccontext.SyncContext, vLabels, pLabels map[string]string, vNamespace string) map[string]string {
-	if vLabels == nil {
-		return nil
-	} else if _, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok || !Default.SingleNamespaceTarget() {
-		retMap := map[string]string{}
-		maps.Copy(retMap, vLabels)
-		return retMap
-	}
-
-	newLabels := map[string]string{}
-	for k, v := range vLabels {
-		newLabels[Default.HostLabel(ctx, k, vNamespace)] = v
-	}
-
-	newLabels[MarkerLabel] = VClusterName
-	if vNamespace != "" {
-		newLabels[NamespaceLabel] = vNamespace
-	} else {
-		delete(newLabels, NamespaceLabel)
-	}
-
-	// set controller label
-	if pLabels[ControllerLabel] != "" {
-		newLabels[ControllerLabel] = pLabels[ControllerLabel]
-	}
-
-	// add already existing labels back
-	for k, v := range pLabels {
-		if strings.HasPrefix(k, "vcluster.loft.sh/") {
-			continue
-		}
-
-		_, ok := newLabels[k]
-		if !ok {
-			newLabels[k] = v
-		}
-	}
-
-	return newLabels
-}
-
-func VirtualLabelsMapCluster(ctx *synccontext.SyncContext, pLabels, vLabels map[string]string, excluded ...string) map[string]string {
-	if pLabels == nil {
-		return nil
-	}
-
-	excluded = append(excluded, MarkerLabel, ControllerLabel)
-	retLabels := copyMaps(pLabels, vLabels, func(key string) bool {
-		return exists(excluded, key) || strings.HasPrefix(key, NamespaceLabelPrefix)
-	})
-
-	// try to translate back
-	for key, value := range retLabels {
-		delete(retLabels, key)
-		vKey, ok := Default.VirtualLabelCluster(ctx, key)
-		if ok {
-			retLabels[vKey] = value
-		}
-	}
-
-	// add already existing labels back
-	for k, v := range pLabels {
-		if strings.HasPrefix(k, "vcluster.loft.sh/") {
-			continue
-		}
-
-		_, ok := retLabels[k]
-		if !ok {
-			retLabels[k] = v
-		}
-	}
-
-	return retLabels
-}
-
-func HostLabelsMapCluster(ctx *synccontext.SyncContext, vLabels, pLabels map[string]string) map[string]string {
-	newLabels := map[string]string{}
-	for k, v := range vLabels {
-		newLabels[Default.HostLabelCluster(ctx, k)] = v
-	}
-	if pLabels[ControllerLabel] != "" {
-		newLabels[ControllerLabel] = pLabels[ControllerLabel]
-	}
-	newLabels[MarkerLabel] = Default.MarkerLabelCluster()
-	return newLabels
-}
-
-func VirtualLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector, vNamespace string) *metav1.LabelSelector {
-	return virtualLabelSelector(ctx, labelSelector, func(ctx *synccontext.SyncContext, key string) (string, bool) {
-		return Default.VirtualLabel(ctx, key, vNamespace)
-	})
-}
-
-func VirtualLabelSelectorCluster(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
-	return virtualLabelSelector(ctx, labelSelector, Default.VirtualLabelCluster)
-}
-
-type vLabelFunc func(ctx *synccontext.SyncContext, key string) (string, bool)
-
-func virtualLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector, labelFunc vLabelFunc) *metav1.LabelSelector {
-	if labelSelector == nil {
-		return nil
-	}
-
-	newLabelSelector := &metav1.LabelSelector{}
-	if labelSelector.MatchLabels != nil {
-		newLabelSelector.MatchLabels = map[string]string{}
-		for k, v := range labelSelector.MatchLabels {
-			pLabel, ok := labelFunc(ctx, k)
-			if !ok {
-				pLabel = k
-			}
-
-			newLabelSelector.MatchLabels[pLabel] = v
-		}
-	}
-	for _, r := range labelSelector.MatchExpressions {
-		pLabel, ok := labelFunc(ctx, r.Key)
-		if !ok {
-			pLabel = r.Key
-		}
-
-		newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
-			Key:      pLabel,
-			Operator: r.Operator,
-			Values:   r.Values,
-		})
-	}
-
-	return newLabelSelector
-}
-
-func HostLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector, vNamespace string) *metav1.LabelSelector {
-	return hostLabelSelector(ctx, labelSelector, func(ctx *synccontext.SyncContext, key string) string {
-		return Default.HostLabel(ctx, key, vNamespace)
-	})
-}
-
-func HostLabelSelectorCluster(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector) *metav1.LabelSelector {
-	return hostLabelSelector(ctx, labelSelector, Default.HostLabelCluster)
-}
-
-type labelFunc func(ctx *synccontext.SyncContext, key string) string
-
-func hostLabelSelector(ctx *synccontext.SyncContext, labelSelector *metav1.LabelSelector, labelFunc labelFunc) *metav1.LabelSelector {
-	if labelSelector == nil {
-		return nil
-	}
-
-	newLabelSelector := &metav1.LabelSelector{}
-	if labelSelector.MatchLabels != nil {
-		newLabelSelector.MatchLabels = map[string]string{}
-		for k, v := range labelSelector.MatchLabels {
-			newLabelSelector.MatchLabels[labelFunc(ctx, k)] = v
-		}
-	}
-	for _, r := range labelSelector.MatchExpressions {
-		newLabelSelector.MatchExpressions = append(newLabelSelector.MatchExpressions, metav1.LabelSelectorRequirement{
-			Key:      labelFunc(ctx, r.Key),
-			Operator: r.Operator,
-			Values:   r.Values,
-		})
-	}
-
-	return newLabelSelector
-}
-
-func VirtualLabels(ctx *synccontext.SyncContext, pObj, vObj client.Object, vNamespace string) map[string]string {
-	pLabels := pObj.GetLabels()
-	if pLabels == nil {
-		pLabels = map[string]string{}
-	}
-	var vLabels map[string]string
-	if vObj != nil {
-		vLabels = vObj.GetLabels()
-	}
-	if pObj.GetNamespace() == "" {
-		return VirtualLabelsMapCluster(ctx, pLabels, vLabels)
-	}
-
-	return VirtualLabelsMap(ctx, pLabels, vLabels, vNamespace)
-}
-
-func HostLabels(ctx *synccontext.SyncContext, vObj, pObj client.Object) map[string]string {
-	vLabels := vObj.GetLabels()
-	if vLabels == nil {
-		vLabels = map[string]string{}
-	}
-	var pLabels map[string]string
-	if pObj != nil {
-		pLabels = pObj.GetLabels()
-	}
-	if vObj.GetNamespace() == "" {
-		return HostLabelsMapCluster(ctx, vLabels, pLabels)
-	}
-
-	return HostLabelsMap(ctx, vLabels, pLabels, vObj.GetNamespace())
 }
 
 func HostAnnotations(vObj, pObj client.Object, excluded ...string) map[string]string {
@@ -666,23 +438,4 @@ func KindExists(config *rest.Config, groupVersionKind schema.GroupVersionKind) (
 	}
 
 	return metav1.APIResource{}, kerrors.NewNotFound(schema.GroupResource{Group: groupVersionKind.Group}, groupVersionKind.Kind)
-}
-
-func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {
-	out := &metav1.LabelSelector{}
-	for _, selector := range elems {
-		if selector == nil {
-			continue
-		}
-		if len(selector.MatchLabels) > 0 {
-			if out.MatchLabels == nil {
-				out.MatchLabels = make(map[string]string, len(selector.MatchLabels))
-			}
-			for k, v := range selector.MatchLabels {
-				out.MatchLabels[k] = v
-			}
-		}
-		out.MatchExpressions = append(out.MatchExpressions, selector.MatchExpressions...)
-	}
-	return out
 }

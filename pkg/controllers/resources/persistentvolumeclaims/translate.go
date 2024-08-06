@@ -16,7 +16,7 @@ var (
 )
 
 func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vPvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
-	pPVC := translate.HostMetadata(ctx, vPvc, s.VirtualToHost(ctx, types.NamespacedName{Name: vPvc.GetName(), Namespace: vPvc.GetNamespace()}, vPvc), s.excludedAnnotations...)
+	pPVC := translate.HostMetadata(vPvc, s.VirtualToHost(ctx, types.NamespacedName{Name: vPvc.GetName(), Namespace: vPvc.GetNamespace()}, vPvc), s.excludedAnnotations...)
 	s.translateSelector(ctx, pPVC)
 
 	if vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
@@ -64,7 +64,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 	if !s.useFakePersistentVolumes {
 		if vPvc.Annotations == nil || vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
 			if vPvc.Spec.Selector != nil {
-				vPvc.Spec.Selector = translate.HostLabelSelectorCluster(ctx, vPvc.Spec.Selector)
+				vPvc.Spec.Selector = translate.HostLabelSelector(vPvc.Spec.Selector)
 			}
 			if vPvc.Spec.VolumeName != "" {
 				vPvc.Spec.VolumeName = translate.Default.HostNameCluster(vPvc.Spec.VolumeName)
@@ -89,13 +89,13 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 	}
 }
 
-func (s *persistentVolumeClaimSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *corev1.PersistentVolumeClaim) {
+func (s *persistentVolumeClaimSyncer) translateUpdate(pObj, vObj *corev1.PersistentVolumeClaim) {
 	// allow storage size to be increased
 	pObj.Spec.Resources.Requests = vObj.Spec.Resources.Requests
 
 	// change annotations / labels
 	pObj.Annotations = translate.HostAnnotations(vObj, pObj, s.excludedAnnotations...)
-	pObj.Labels = translate.HostLabels(ctx, vObj, pObj)
+	pObj.Labels = translate.HostLabels(vObj, pObj)
 }
 
 func (s *persistentVolumeClaimSyncer) translateUpdateBackwards(pObj, vObj *corev1.PersistentVolumeClaim) {

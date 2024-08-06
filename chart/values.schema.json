@@ -1398,13 +1398,6 @@
           "type": "boolean",
           "description": "SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection."
         },
-        "syncLabels": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "SyncLabels are labels that should get not rewritten when syncing from the virtual cluster."
-        },
         "hostMetricsBindAddress": {
           "type": "string",
           "description": "HostMetricsBindAddress is the bind address for the local manager"

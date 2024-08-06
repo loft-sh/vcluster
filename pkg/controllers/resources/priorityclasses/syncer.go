@@ -65,7 +65,7 @@ func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 	}()
 
 	// did the priority class change?
-	s.translateUpdate(ctx, event.Host, event.Virtual, event.SourceObject(), event.TargetObject())
+	s.translateUpdate(event.Host, event.Virtual, event.SourceObject(), event.TargetObject())
 	return ctrl.Result{}, nil
 }
 

@@ -830,8 +830,6 @@ experimental:
   syncSettings:
     # DisableSync will not sync any resources and disable most control plane functionality.
     disableSync: false
-    # SyncLabels are labels that should get not rewritten when syncing from the virtual cluster.
-    syncLabels: []
     # RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled
     rewriteKubernetesService: false
     # TargetNamespace is the namespace where the workloads should get synced to.

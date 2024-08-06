@@ -91,7 +91,7 @@ func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 		}
 	}()
 
-	s.translateUpdate(ctx, event.Host, event.Virtual)
+	s.translateUpdate(event.Host, event.Virtual)
 	return ctrl.Result{}, s.EnsureWorkloadServiceAccount(ctx, event.Host.Name)
 }
 

@@ -55,7 +55,7 @@ func (s *mockSyncer) Syncer() syncertypes.Sync[client.Object] {
 
 // SyncToHost is called when a virtual object was created and needs to be synced down to the physical cluster
 func (s *mockSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Secret]) (ctrl.Result, error) {
-	pObj := translate.HostMetadata(ctx, event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.GetName(), Namespace: event.Virtual.GetNamespace()}, event.Virtual))
+	pObj := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.GetName(), Namespace: event.Virtual.GetNamespace()}, event.Virtual))
 	if pObj == nil {
 		return ctrl.Result{}, errors.New("naive translate create failed")
 	}
@@ -76,7 +76,7 @@ func (s *mockSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	}()
 
 	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
-	event.Host.Labels = translate.HostLabels(ctx, event.Virtual, event.Host)
+	event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 
 	// check data
 	event.TargetObject().Data = event.SourceObject().Data
@@ -433,7 +433,6 @@ func TestReconcile(t *testing.T) {
 								translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Secret").String(),
 							},
 							Labels: map[string]string{
-								"app":                    "existing",
 								translate.NamespaceLabel: namespaceInVClusterA,
 							},
 						},

@@ -30,10 +30,8 @@ func NewStore(ctx context.Context, cachedVirtualClient, cachedHostClient client.
 
 		mappings: make(map[synccontext.NameMapping]*Mapping),
 
-		hostToVirtualName:         make(map[synccontext.Object]lookupName),
-		virtualToHostName:         make(map[synccontext.Object]lookupName),
-		hostToVirtualLabel:        make(map[string]lookupLabel),
-		hostToVirtualLabelCluster: make(map[string]lookupLabel),
+		hostToVirtualName: make(map[synccontext.Object]lookupName),
+		virtualToHostName: make(map[synccontext.Object]lookupName),
 
 		watches: make(map[schema.GroupVersionKind][]*watcher),
 	}
@@ -60,21 +58,11 @@ type Store struct {
 	hostToVirtualName map[synccontext.Object]lookupName
 	virtualToHostName map[synccontext.Object]lookupName
 
-	// maps Label -> Label
-	hostToVirtualLabel        map[string]lookupLabel
-	hostToVirtualLabelCluster map[string]lookupLabel
-
 	watches map[schema.GroupVersionKind][]*watcher
 }
 
 type lookupName struct {
 	Object synccontext.Object
-
-	Mappings []*Mapping
-}
-
-type lookupLabel struct {
-	Label string
 
 	Mappings []*Mapping
 }
@@ -231,22 +219,6 @@ func (s *Store) handleEvent(ctx context.Context, watchEvent BackendWatchResponse
 	}
 }
 
-func (s *Store) HostToVirtualLabel(_ context.Context, pLabel string) (string, bool) {
-	s.m.RLock()
-	defer s.m.RUnlock()
-
-	vObjLookup, ok := s.hostToVirtualLabel[pLabel]
-	return vObjLookup.Label, ok
-}
-
-func (s *Store) HostToVirtualLabelCluster(_ context.Context, pLabel string) (string, bool) {
-	s.m.RLock()
-	defer s.m.RUnlock()
-
-	vObjLookup, ok := s.hostToVirtualLabelCluster[pLabel]
-	return vObjLookup.Label, ok
-}
-
 func (s *Store) HasHostObject(ctx context.Context, pObj synccontext.Object) bool {
 	_, ok := s.HostToVirtualName(ctx, pObj)
 	return ok
@@ -324,82 +296,6 @@ func (s *Store) RecordReference(ctx context.Context, nameMapping, belongsTo sync
 	// add to lookup maps
 	s.addNameToMaps(mapping, nameMapping.Virtual(), nameMapping.Host())
 	dispatchAll(s.watches[nameMapping.GroupVersionKind], nameMapping)
-	return nil
-}
-
-func (s *Store) RecordLabel(ctx context.Context, labelMapping synccontext.LabelMapping, belongsTo synccontext.NameMapping) error {
-	// we don't record incomplete mappings
-	if labelMapping.Host == "" || labelMapping.Virtual == "" {
-		return nil
-	}
-
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	// check if there is already a conflicting mapping
-	err := s.checkLabelConflict(labelMapping)
-	if err != nil {
-		return err
-	}
-
-	// check if there is already a mapping
-	mapping, ok := s.findMapping(belongsTo)
-	if !ok {
-		return nil
-	}
-
-	// check if reference already exists
-	for _, label := range mapping.Labels {
-		if label.Equals(labelMapping) {
-			return nil
-		}
-	}
-
-	// add mapping
-	mapping.changed = true
-	klog.FromContext(ctx).V(1).Info("Add label mapping", "host", labelMapping.Host, "virtual", labelMapping.Virtual, "owner", mapping.Virtual().String())
-	mapping.Labels = append(mapping.Labels, labelMapping)
-
-	// add to lookup maps
-	s.addLabelToMaps(mapping, labelMapping.Virtual, labelMapping.Host)
-	return nil
-}
-
-func (s *Store) RecordLabelCluster(ctx context.Context, labelMapping synccontext.LabelMapping, belongsTo synccontext.NameMapping) error {
-	// we don't record incomplete mappings
-	if labelMapping.Host == "" || labelMapping.Virtual == "" {
-		return nil
-	}
-
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	// check if there is already a conflicting mapping
-	err := s.checkLabelClusterConflict(labelMapping)
-	if err != nil {
-		return err
-	}
-
-	// check if there is already a mapping
-	mapping, ok := s.findMapping(belongsTo)
-	if !ok {
-		return nil
-	}
-
-	// check if reference already exists
-	for _, label := range mapping.LabelsCluster {
-		if label.Equals(labelMapping) {
-			return nil
-		}
-	}
-
-	// add mapping
-	mapping.changed = true
-	klog.FromContext(ctx).V(1).Info("Add cluster-scoped label mapping", "host", labelMapping.Host, "virtual", labelMapping.Virtual, "owner", mapping.Virtual().String())
-	mapping.LabelsCluster = append(mapping.LabelsCluster, labelMapping)
-
-	// add to lookup maps
-	s.addLabelClusterToMaps(mapping, labelMapping.Virtual, labelMapping.Host)
 	return nil
 }
 
@@ -556,57 +452,9 @@ func (s *Store) checkNameConflict(nameMapping synccontext.NameMapping) error {
 	return nil
 }
 
-func (s *Store) checkLabelConflict(labelMapping synccontext.LabelMapping) error {
-	// check if the mapping is conflicting
-	vLabel, ok := s.hostToVirtualLabel[labelMapping.Host]
-	if ok && vLabel.Label != labelMapping.Virtual {
-		return fmt.Errorf("there is already another label mapping %s -> %s that conflicts with %s -> %s", labelMapping.Host, vLabel.Label, labelMapping.Host, labelMapping.Virtual)
-	}
-
-	// check the other way around
-	pLabel, ok := s.hostToVirtualLabel[labelMapping.Virtual]
-	if ok && pLabel.Label != labelMapping.Host {
-		return fmt.Errorf("there is already another label mapping %s -> %s that conflicts with %s -> %s", labelMapping.Virtual, pLabel.Label, labelMapping.Virtual, labelMapping.Host)
-	}
-
-	return nil
-}
-
-func (s *Store) checkLabelClusterConflict(labelMapping synccontext.LabelMapping) error {
-	// check if the mapping is conflicting
-	vLabel, ok := s.hostToVirtualLabelCluster[labelMapping.Host]
-	if ok && vLabel.Label != labelMapping.Virtual {
-		return fmt.Errorf("there is already another cluster-scoped label mapping %s -> %s that conflicts with %s -> %s", labelMapping.Host, vLabel.Label, labelMapping.Host, labelMapping.Virtual)
-	}
-
-	// check the other way around
-	pLabel, ok := s.hostToVirtualLabelCluster[labelMapping.Virtual]
-	if ok && pLabel.Label != labelMapping.Host {
-		return fmt.Errorf("there is already another cluster-scoped label mapping %s -> %s that conflicts with %s -> %s", labelMapping.Virtual, pLabel.Label, labelMapping.Virtual, labelMapping.Host)
-	}
-
-	return nil
-}
-
-func (s *Store) removeLabelFromMaps(mapping *Mapping, _, pLabel string) {
-	removeMappingFromLabelMap(s.hostToVirtualLabel, mapping, pLabel)
-}
-
-func (s *Store) removeLabelClusterFromMaps(mapping *Mapping, _, pLabel string) {
-	removeMappingFromLabelMap(s.hostToVirtualLabelCluster, mapping, pLabel)
-}
-
 func (s *Store) removeNameFromMaps(mapping *Mapping, vObj, pObj synccontext.Object) {
 	removeMappingFromNameMap(s.hostToVirtualName, mapping, pObj)
 	removeMappingFromNameMap(s.virtualToHostName, mapping, vObj)
-}
-
-func (s *Store) addLabelToMaps(mapping *Mapping, vLabel, pLabel string) {
-	addMappingToLabelMap(s.hostToVirtualLabel, mapping, pLabel, vLabel)
-}
-
-func (s *Store) addLabelClusterToMaps(mapping *Mapping, vLabel, pLabel string) {
-	addMappingToLabelMap(s.hostToVirtualLabelCluster, mapping, pLabel, vLabel)
 }
 
 func (s *Store) addNameToMaps(mapping *Mapping, vObj, pObj synccontext.Object) {
@@ -624,16 +472,6 @@ func (s *Store) addMapping(mapping *Mapping) {
 		s.addNameToMaps(mapping, reference.Virtual(), reference.Host())
 		dispatchAll(s.watches[reference.GroupVersionKind], reference)
 	}
-
-	// add labels
-	for _, label := range mapping.Labels {
-		s.addLabelToMaps(mapping, label.Virtual, label.Host)
-	}
-
-	// add labels cluster
-	for _, label := range mapping.LabelsCluster {
-		s.addLabelClusterToMaps(mapping, label.Virtual, label.Host)
-	}
 }
 
 func (s *Store) removeMapping(mapping *Mapping) {
@@ -644,15 +482,5 @@ func (s *Store) removeMapping(mapping *Mapping) {
 	for _, reference := range mapping.References {
 		s.removeNameFromMaps(mapping, reference.Virtual(), reference.Host())
 		dispatchAll(s.watches[reference.GroupVersionKind], reference)
-	}
-
-	// delete labels
-	for _, label := range mapping.Labels {
-		s.removeLabelFromMaps(mapping, label.Virtual, label.Host)
-	}
-
-	// delete labels cluster
-	for _, label := range mapping.LabelsCluster {
-		s.removeLabelClusterFromMaps(mapping, label.Virtual, label.Host)
 	}
 }

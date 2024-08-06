@@ -8,15 +8,15 @@ import (
 )
 
 func (s *pdbSyncer) translate(ctx *synccontext.SyncContext, vObj *policyv1.PodDisruptionBudget) *policyv1.PodDisruptionBudget {
-	newPDB := translate.HostMetadata(ctx, vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
-	newPDB.Spec.Selector = translate.HostLabelSelector(ctx, newPDB.Spec.Selector, vObj.Namespace)
+	newPDB := translate.HostMetadata(vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
+	newPDB.Spec.Selector = translate.HostLabelSelector(newPDB.Spec.Selector)
 	return newPDB
 }
 
-func (s *pdbSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *policyv1.PodDisruptionBudget) {
+func (s *pdbSyncer) translateUpdate(pObj, vObj *policyv1.PodDisruptionBudget) {
 	pObj.Annotations = translate.HostAnnotations(vObj, pObj)
-	pObj.Labels = translate.HostLabels(ctx, vObj, pObj)
+	pObj.Labels = translate.HostLabels(vObj, pObj)
 	pObj.Spec.MaxUnavailable = vObj.Spec.MaxUnavailable
 	pObj.Spec.MinAvailable = vObj.Spec.MinAvailable
-	pObj.Spec.Selector = translate.HostLabelSelector(ctx, vObj.Spec.Selector, vObj.Namespace)
+	pObj.Spec.Selector = translate.HostLabelSelector(vObj.Spec.Selector)
 }

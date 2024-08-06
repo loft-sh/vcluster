@@ -210,12 +210,12 @@ func createService(ctx *synccontext.SyncContext, req *http.Request, decoder enco
 		vService.Name = vService.GenerateName + random.String(5)
 	}
 
-	newService := translate.HostMetadata(ctx, vService, mappings.VirtualToHost(ctx, vService.Name, vService.Namespace, mappings.Services()))
+	newService := translate.HostMetadata(vService, mappings.VirtualToHost(ctx, vService.Name, vService.Namespace, mappings.Services()))
 	if newService.Annotations == nil {
 		newService.Annotations = map[string]string{}
 	}
 	newService.Annotations[services.ServiceBlockDeletion] = "true"
-	newService.Spec.Selector = translate.HostLabelsMap(ctx, vService.Spec.Selector, nil, vService.Namespace)
+	newService.Spec.Selector = translate.HostLabelsMap(vService.Spec.Selector, nil, vService.Namespace)
 	err = ctx.PhysicalClient.Create(req.Context(), newService)
 	if err != nil {
 		klog.Infof("Error creating service in physical cluster: %v", err)

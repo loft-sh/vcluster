@@ -10,7 +10,7 @@ import (
 )
 
 func (s *endpointsSyncer) translate(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Endpoints {
-	endpoints := translate.HostMetadata(ctx, vObj.(*corev1.Endpoints), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj), s.excludedAnnotations...)
+	endpoints := translate.HostMetadata(vObj.(*corev1.Endpoints), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj), s.excludedAnnotations...)
 	s.translateSpec(ctx, endpoints)
 	return endpoints
 }
@@ -51,6 +51,6 @@ func (s *endpointsSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vO
 
 	// check annotations & labels
 	pObj.Annotations = translate.HostAnnotations(vObj, pObj, s.excludedAnnotations...)
-	pObj.Labels = translate.HostLabels(ctx, vObj, pObj)
+	pObj.Labels = translate.HostLabels(vObj, pObj)
 	return nil
 }

@@ -127,7 +127,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	event.Virtual.Status = event.Host.Status
 
 	// check annotations & labels
-	event.Host.Labels = translate.HostLabels(ctx, event.Virtual, event.Host)
+	event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 	updatedAnnotations := translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
 
 	// remove the ServiceBlockDeletion annotation if it's not needed
@@ -137,7 +137,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	event.Host.Annotations = updatedAnnotations
 
 	// translate selector
-	event.Host.Spec.Selector = translate.HostLabelsMap(ctx, event.Virtual.Spec.Selector, event.Host.Spec.Selector, event.Virtual.Namespace)
+	event.Host.Spec.Selector = translate.HostLabelsMap(event.Virtual.Spec.Selector, event.Host.Spec.Selector, event.Virtual.Namespace)
 	return ctrl.Result{}, nil
 }
 

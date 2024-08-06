@@ -496,7 +496,6 @@ experimental:
 
   syncSettings:
     disableSync: false
-    syncLabels: []
     rewriteKubernetesService: false
     targetNamespace: ""
     setOwner: true
