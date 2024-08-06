@@ -280,8 +280,9 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if err != nil {
 		return err
 	}
-
+	verb := "created"
 	if isVClusterDeployed(release) {
+		verb = "upgraded"
 		// While certain backing store changes are allowed we prohibit changes to another distro.
 		if err := config.ValidateChanges(currentVClusterConfig, vClusterConfig); err != nil {
 			return err
@@ -304,7 +305,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 
 	// check if we should connect to the vcluster or print the kubeconfig
 	if cmd.Connect || cmd.Print {
-		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s", vClusterName, cmd.Namespace)
+		cmd.log.Donef("Successfully %s virtual cluster %s in namespace %s", verb, vClusterName, cmd.Namespace)
 		return ConnectHelm(ctx, &ConnectOptions{
 			BackgroundProxy:       cmd.BackgroundProxy,
 			UpdateCurrent:         cmd.UpdateCurrent,
@@ -315,9 +316,18 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	}
 
 	if cmd.localCluster {
-		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster", vClusterName, cmd.Namespace, vClusterName, cmd.Namespace)
+		cmd.log.Donef(
+			"Successfully %s virtual cluster %s in namespace %s. \n"+
+				"- Use 'vcluster connect %s --namespace %s' to access the virtual cluster",
+			verb, vClusterName, cmd.Namespace, vClusterName, cmd.Namespace,
+		)
 	} else {
-		cmd.log.Donef("Successfully created virtual cluster %s in namespace %s. \n- Use 'vcluster connect %s --namespace %s' to access the virtual cluster\n- Use `vcluster connect %s --namespace %s -- kubectl get ns` to run a command directly within the vcluster", vClusterName, cmd.Namespace, vClusterName, cmd.Namespace, vClusterName, cmd.Namespace)
+		cmd.log.Donef(
+			"Successfully %s virtual cluster %s in namespace %s. \n"+
+				"- Use 'vcluster connect %s --namespace %s' to access the virtual cluster\n"+
+				"- Use `vcluster connect %s --namespace %s -- kubectl get ns` to run a command directly within the vcluster",
+			verb, vClusterName, cmd.Namespace, vClusterName, cmd.Namespace, vClusterName, cmd.Namespace,
+		)
 	}
 
 	return nil
