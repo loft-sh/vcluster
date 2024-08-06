@@ -89,7 +89,12 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	// set features for plugins to recognize
 	plugin.DefaultManager.SetProFeatures(pro.LicenseFeatures())
 
-	// check if we should create certs
+	// connect to vCluster platform if configured
+	startPlatformServersAndControllers, err := pro.ConnectToPlatform(ctx, vConfig)
+	if err != nil {
+		return fmt.Errorf("connect to platform: %w", err)
+	}
+
 	err = setup.Initialize(ctx, vConfig)
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)
@@ -99,6 +104,11 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	controllerCtx, err := setup.NewControllerContext(ctx, vConfig)
 	if err != nil {
 		return fmt.Errorf("create controller context: %w", err)
+	}
+
+	err = startPlatformServersAndControllers(controllerCtx.VirtualManager)
+	if err != nil {
+		return fmt.Errorf("start platform controllers: %w", err)
 	}
 
 	// start integrations
@@ -132,11 +142,6 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		if err != nil {
 			return fmt.Errorf("start integrated core dns: %w", err)
 		}
-	}
-
-	// connect to vCluster platform if configured
-	if err := pro.ConnectToPlatform(ctx, vConfig, controllerCtx.VirtualManager); err != nil {
-		return fmt.Errorf("connect to platform: %w", err)
 	}
 
 	// start leader election + controllers
