@@ -88,6 +88,7 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 		if err != nil {
 			return false, nil
 		}
+		log.Done("vCluster is up and running")
 		return true, nil
 	})
 	if err != nil {
