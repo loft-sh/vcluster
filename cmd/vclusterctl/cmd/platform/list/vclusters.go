@@ -6,6 +6,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/spf13/cobra"
 )
 
@@ -14,11 +15,12 @@ type VClustersCmd struct {
 	*flags.GlobalFlags
 	cli.ListOptions
 
-	log log.Logger
+	log     log.Logger
+	Project string
 }
 
 // newVClustersCmd creates a new command
-func newVClustersCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+func newVClustersCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &VClustersCmd{
 		GlobalFlags: globalFlags,
 		log:         log.GetInstance(),
@@ -42,11 +44,13 @@ vcluster platform list vclusters
 		},
 	}
 
+	p, _ := defaults.Get(pdefaults.KeyProject, "")
+	cobraCmd.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
 	cobraCmd.Flags().StringVar(&cmd.Output, "output", "table", "Choose the format of the output. [table|json]")
 
 	return cobraCmd
 }
 
 func (cmd *VClustersCmd) Run(ctx context.Context) error {
-	return cli.ListPlatform(ctx, &cmd.ListOptions, cmd.GlobalFlags, cmd.log)
+	return cli.ListPlatform(ctx, &cmd.ListOptions, cmd.GlobalFlags, cmd.log, cmd.Project)
 }
