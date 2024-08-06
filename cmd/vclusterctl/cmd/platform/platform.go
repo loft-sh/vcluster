@@ -48,6 +48,8 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	}
 
 	startCmd := NewStartCmd(globalFlags)
+	loginCmd := NewCobraLoginCmd(globalFlags)
+	logoutCmd := NewLogoutCobraCmd(globalFlags)
 
 	platformCmd.AddCommand(startCmd)
 	platformCmd.AddCommand(NewResetCmd(globalFlags))
@@ -63,6 +65,8 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	platformCmd.AddCommand(share.NewShareCmd(globalFlags, defaults))
 	platformCmd.AddCommand(create.NewCreateCmd(globalFlags, defaults))
 	platformCmd.AddCommand(cmddelete.NewDeleteCmd(globalFlags, defaults))
+	platformCmd.AddCommand(loginCmd)
+	platformCmd.AddCommand(logoutCmd)
 
 	return platformCmd, nil
 }

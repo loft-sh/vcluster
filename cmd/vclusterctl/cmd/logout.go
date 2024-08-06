@@ -1,31 +1,14 @@
 package cmd
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
+	platformcli "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/loft-sh/vcluster/pkg/platform"
-	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 )
 
-type LogoutCmd struct {
-	*flags.GlobalFlags
-
-	Log log.Logger
-}
-
 func NewLogoutCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
-	cmd := &LogoutCmd{
-		GlobalFlags: globalFlags,
-		Log:         log.GetInstance(),
-	}
-
+	cmd := platformcli.NewLogoutCmd(globalFlags)
 	description := `########################################################
 ################### vcluster logout ####################
 ########################################################
@@ -42,35 +25,10 @@ vcluster logout
 		Long:  description,
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
+			log.GetInstance().Warnf("\"vcluster logout\" is deprecated, please use \"vcluster platform logout\" instead")
 			return cmd.Run(cobraCmd.Context())
 		},
 	}
 
 	return logoutCmd, nil
-}
-
-func (cmd *LogoutCmd) Run(ctx context.Context) error {
-	platformClient := platform.NewClientFromConfig(cmd.LoadedConfig(cmd.Log))
-
-	// delete old access key if were logged in before
-	cfg := platformClient.Config()
-	if cfg.Platform.AccessKey != "" {
-		if err := platformClient.Logout(ctx); err != nil {
-			cmd.Log.Errorf("failed to send logout request: %v", err)
-		}
-
-		configHost := cfg.Platform.Host
-		cfg.Platform.Host = ""
-		cfg.Platform.AccessKey = ""
-		cfg.Platform.LastInstallContext = ""
-		cfg.Platform.Insecure = false
-
-		if err := platformClient.Save(); err != nil {
-			return fmt.Errorf("save config: %w", err)
-		}
-
-		cmd.Log.Donef(product.Replace("Successfully logged out of loft instance %s"), ansi.Color(configHost, "white+b"))
-	}
-
-	return use.SwitchDriver(ctx, cfg, string(config.HelmDriver), cmd.Log)
 }
