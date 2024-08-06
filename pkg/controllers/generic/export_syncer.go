@@ -288,7 +288,7 @@ func (f *exporter) Name() string {
 
 // TranslateMetadata converts the virtual object into a physical object
 func (f *exporter) TranslateMetadata(ctx *synccontext.SyncContext, vObj client.Object) client.Object {
-	pObj := translate.HostMetadata(ctx, vObj, f.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
+	pObj := translate.HostMetadata(vObj, f.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 	if pObj == nil {
 		return nil
 	}

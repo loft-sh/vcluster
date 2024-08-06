@@ -75,7 +75,7 @@ func TestSync(t *testing.T) {
 		ObjectMeta: hostClusterSyncedPDB.ObjectMeta,
 		Spec: policyv1.PodDisruptionBudgetSpec{
 			MaxUnavailable: vclusterUpdatedSelectorPDB.Spec.MaxUnavailable,
-			Selector:       translate.HostLabelSelector(nil, vclusterUpdatedSelectorPDB.Spec.Selector, ""),
+			Selector:       translate.HostLabelSelector(vclusterUpdatedSelectorPDB.Spec.Selector),
 		},
 	}
 

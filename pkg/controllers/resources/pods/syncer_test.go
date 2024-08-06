@@ -90,7 +90,6 @@ func TestSyncTable(t *testing.T) {
 		nodeSelectorOption       map[string]string
 		syncToHost               bool
 		securityStandard         string
-		syncLabels               []string
 		virtualPodsLabels        map[string]string
 		expectPhysicalPodsLabels map[string]string
 	}{
@@ -163,7 +162,6 @@ func TestSyncTable(t *testing.T) {
 			syncToHost:               true,
 			expectVirtualPod:         true,
 			virtualPodWithoutNode:    true,
-			syncLabels:               []string{"test.sh/*"},
 			virtualPodsLabels:        map[string]string{"test.sh/abcd": "yes"},
 			expectPhysicalPodsLabels: map[string]string{"test.sh/abcd": "yes"},
 		},
@@ -270,7 +268,6 @@ func TestSyncTable(t *testing.T) {
 			if tC.securityStandard != "" {
 				registerContext.Config.Policies.PodSecurityStandard = tC.securityStandard
 			}
-			registerContext.Config.Experimental.SyncSettings.SyncLabels = tC.syncLabels
 
 			syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, New)
 

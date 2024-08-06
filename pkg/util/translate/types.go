@@ -13,11 +13,14 @@ var (
 )
 
 var (
+	VClusterAppLabel     = "app"
+	VClusterReleaseLabel = "release"
 	NamespaceLabel       = "vcluster.loft.sh/namespace"
 	MarkerLabel          = "vcluster.loft.sh/managed-by"
+	ControllerLabel      = "vcluster.loft.sh/controlled-by"
+
 	LabelPrefix          = "vcluster.loft.sh/label"
 	NamespaceLabelPrefix = "vcluster.loft.sh/ns-label"
-	ControllerLabel      = "vcluster.loft.sh/controlled-by"
 
 	// VClusterName is the vcluster name, usually set at start time
 	VClusterName = "suffix"
@@ -53,16 +56,4 @@ type Translator interface {
 
 	// HostNamespace returns the host namespace for a virtual cluster object
 	HostNamespace(ctx *synccontext.SyncContext, vNamespace string) string
-
-	// HostLabel translates a single label from virtual to host for a namespace scoped resource
-	HostLabel(ctx *synccontext.SyncContext, vLabel, vNamespace string) string
-
-	// VirtualLabel translates a single label from host to virtual for a namespace scoped resource
-	VirtualLabel(ctx *synccontext.SyncContext, pLabel, vNamespace string) (string, bool)
-
-	// HostLabelCluster translates a single label from host to virtual for a cluster scoped resource
-	HostLabelCluster(ctx *synccontext.SyncContext, vLabel string) string
-
-	// VirtualLabelCluster translates a single label from host to virtual for a cluster scoped resource
-	VirtualLabelCluster(ctx *synccontext.SyncContext, pLabel string) (string, bool)
 }

@@ -12,7 +12,7 @@ import (
 )
 
 func (s *volumeSnapshotContentSyncer) translate(ctx *synccontext.SyncContext, vVSC *volumesnapshotv1.VolumeSnapshotContent) *volumesnapshotv1.VolumeSnapshotContent {
-	pVSC := translate.HostMetadata(ctx, vVSC, s.VirtualToHost(ctx, types.NamespacedName{Name: vVSC.GetName(), Namespace: vVSC.GetNamespace()}, vVSC))
+	pVSC := translate.HostMetadata(vVSC, s.VirtualToHost(ctx, types.NamespacedName{Name: vVSC.GetName(), Namespace: vVSC.GetNamespace()}, vVSC))
 	pVolumeSnapshot := mappings.VirtualToHost(ctx, vVSC.Spec.VolumeSnapshotRef.Name, vVSC.Spec.VolumeSnapshotRef.Namespace, mappings.VolumeSnapshots())
 	pVSC.Spec.VolumeSnapshotRef = corev1.ObjectReference{
 		Namespace: pVolumeSnapshot.Namespace,

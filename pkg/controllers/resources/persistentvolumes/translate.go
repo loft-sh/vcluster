@@ -12,7 +12,7 @@ import (
 
 func (s *persistentVolumeSyncer) translate(ctx *synccontext.SyncContext, vPv *corev1.PersistentVolume) (*corev1.PersistentVolume, error) {
 	// translate the persistent volume
-	pPV := translate.HostMetadata(ctx, vPv, s.VirtualToHost(ctx, types.NamespacedName{Name: vPv.GetName()}, vPv), s.excludedAnnotations...)
+	pPV := translate.HostMetadata(vPv, s.VirtualToHost(ctx, types.NamespacedName{Name: vPv.GetName()}, vPv), s.excludedAnnotations...)
 	pPV.Spec.ClaimRef = nil
 
 	// TODO: translate the storage secrets

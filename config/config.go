@@ -1731,9 +1731,6 @@ type ExperimentalSyncSettings struct {
 	// SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.
 	SetOwner bool `json:"setOwner,omitempty"`
 
-	// SyncLabels are labels that should get not rewritten when syncing from the virtual cluster.
-	SyncLabels []string `json:"syncLabels,omitempty"`
-
 	// HostMetricsBindAddress is the bind address for the local manager
 	HostMetricsBindAddress string `json:"hostMetricsBindAddress,omitempty"`
 

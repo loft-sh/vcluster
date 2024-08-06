@@ -59,7 +59,7 @@ func (s *pdbSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		}
 	}()
 
-	s.translateUpdate(ctx, event.Host, event.Virtual)
+	s.translateUpdate(event.Host, event.Virtual)
 	return ctrl.Result{}, nil
 }
 

@@ -28,10 +28,6 @@ func TestStore(t *testing.T) {
 		Name:      "host-name",
 		Namespace: "host-namespace",
 	}
-	labelMapping := synccontext.LabelMapping{
-		Virtual: "virtual-label",
-		Host:    "host-label",
-	}
 
 	baseCtx := context.TODO()
 	baseMapping := synccontext.NameMapping{
@@ -71,8 +67,6 @@ func TestStore(t *testing.T) {
 
 	// check inner structure of store
 	assert.Equal(t, 1, len(store.mappings))
-	assert.Equal(t, 0, len(store.hostToVirtualLabel))
-	assert.Equal(t, 0, len(store.hostToVirtualLabelCluster))
 	assert.Equal(t, 1, len(store.hostToVirtualName))
 	assert.Equal(t, 1, len(store.virtualToHostName))
 
@@ -85,8 +79,6 @@ func TestStore(t *testing.T) {
 	err = store.RecordReference(baseCtx, nameMapping, baseMapping)
 	assert.NilError(t, err)
 	assert.Equal(t, 1, len(store.mappings))
-	assert.Equal(t, 0, len(store.hostToVirtualLabel))
-	assert.Equal(t, 0, len(store.hostToVirtualLabelCluster))
 	assert.Equal(t, 1, len(store.hostToVirtualName))
 	assert.Equal(t, 1, len(store.virtualToHostName))
 
@@ -94,24 +86,6 @@ func TestStore(t *testing.T) {
 	mapping, ok := store.mappings[nameMapping]
 	assert.Equal(t, true, ok)
 	assert.Equal(t, 0, len(mapping.References))
-	assert.Equal(t, 0, len(mapping.Labels))
-	assert.Equal(t, 0, len(mapping.LabelsCluster))
-
-	// map label
-	err = store.RecordLabel(baseCtx, labelMapping, baseMapping)
-	assert.NilError(t, err)
-
-	// check mappings
-	virtualLabel, ok := store.HostToVirtualLabel(baseCtx, labelMapping.Host)
-	assert.Equal(t, true, ok)
-	assert.Equal(t, virtualLabel, labelMapping.Virtual)
-
-	// validate mapping itself
-	mapping, ok = store.mappings[nameMapping]
-	assert.Equal(t, true, ok)
-	assert.Equal(t, 0, len(mapping.References))
-	assert.Equal(t, 1, len(mapping.Labels))
-	assert.Equal(t, 0, len(mapping.LabelsCluster))
 
 	// garbage collect mapping
 	store.garbageCollectMappings(context.TODO())

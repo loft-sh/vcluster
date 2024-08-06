@@ -76,7 +76,7 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncconte
 	}
 
 	// translate secret
-	newSecret := translate.HostMetadata(ctx, event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name, Namespace: event.Virtual.Namespace}, event.Virtual))
+	newSecret := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name, Namespace: event.Virtual.Namespace}, event.Virtual))
 	if newSecret.Type == corev1.SecretTypeServiceAccountToken {
 		newSecret.Type = corev1.SecretTypeOpaque
 	}
@@ -124,7 +124,7 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Syn
 
 	// check annotations
 	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
-	event.Host.Labels = translate.HostLabels(ctx, event.Virtual, event.Host)
+	event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 	return ctrl.Result{}, nil
 }
 
@@ -134,7 +134,7 @@ func (s *secretSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncco
 		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
 	}
 
-	vObj := translate.VirtualMetadata(ctx, event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
+	vObj := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
 	isUsed, err := s.isSecretUsed(ctx, vObj)
 	if err != nil {
 		return ctrl.Result{}, err

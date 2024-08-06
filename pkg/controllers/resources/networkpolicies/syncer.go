@@ -59,7 +59,7 @@ func (s *networkPolicySyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 		}
 	}()
 
-	s.translateUpdate(ctx, event.Host, event.Virtual)
+	s.translateUpdate(event.Host, event.Virtual)
 	return ctrl.Result{}, nil
 }
 

@@ -978,11 +978,6 @@ func migrateFlag(key, value string, newConfig *config.Config) error {
 		return fmt.Errorf("shouldn't be used directly, use isolation.podSecurityStandard instead")
 	case "plugins":
 		return fmt.Errorf("shouldn't be used directly")
-	case "sync-labels":
-		if value == "" {
-			return fmt.Errorf("value is missing")
-		}
-		newConfig.Experimental.SyncSettings.SyncLabels = append(newConfig.Experimental.SyncSettings.SyncLabels, strings.Split(value, ",")...)
 	case "map-virtual-service":
 		return fmt.Errorf("shouldn't be used directly")
 	case "map-host-service":

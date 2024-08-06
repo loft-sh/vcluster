@@ -160,7 +160,7 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, event *
 	event.Virtual.Status = *event.Host.Status.DeepCopy()
 
 	// forward update
-	s.translateUpdate(ctx, event.Host, event.Virtual)
+	s.translateUpdate(event.Host, event.Virtual)
 
 	return ctrl.Result{}, nil
 }

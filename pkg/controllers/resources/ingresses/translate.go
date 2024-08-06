@@ -31,13 +31,13 @@ func (s *ingressSyncer) translate(ctx *synccontext.SyncContext, vIngress *networ
 func (s *ingressSyncer) TranslateMetadata(ctx *synccontext.SyncContext, vObj client.Object) client.Object {
 	ingress := vObj.(*networkingv1.Ingress).DeepCopy()
 	updateAnnotations(ctx, ingress)
-	return translate.HostMetadata(ctx, vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
+	return translate.HostMetadata(vObj, s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj))
 }
 
 func (s *ingressSyncer) TranslateMetadataUpdate(ctx *synccontext.SyncContext, vObj client.Object, pObj client.Object) (annotations map[string]string, labels map[string]string) {
 	vIngress := vObj.(*networkingv1.Ingress).DeepCopy()
 	updateAnnotations(ctx, vIngress)
-	return translate.HostAnnotations(vIngress, pObj), translate.HostLabels(ctx, vIngress, pObj)
+	return translate.HostAnnotations(vIngress, pObj), translate.HostLabels(vIngress, pObj)
 }
 
 func (s *ingressSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *networkingv1.Ingress) {

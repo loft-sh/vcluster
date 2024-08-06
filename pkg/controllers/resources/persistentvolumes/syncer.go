@@ -208,7 +208,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 		// TODO: translate the storage secrets
 		event.Host.Spec.StorageClassName = mappings.VirtualToHostName(ctx, event.Virtual.Spec.StorageClassName, "", mappings.StorageClasses())
 		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
-		event.Host.Labels = translate.HostLabels(ctx, event.Virtual, event.Host)
+		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 	}
 
 	return ctrl.Result{}, nil

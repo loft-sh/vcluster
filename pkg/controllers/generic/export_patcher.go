@@ -68,11 +68,11 @@ func (r *virtualToHostNameResolver) TranslateNameWithNamespace(name string, name
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
-	return translate.HostLabelSelectorCluster(r.syncContext, selector), nil
+	return translate.HostLabelSelector(selector), nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelKey(key string) (string, error) {
-	return translate.Default.HostLabel(r.syncContext, key, ""), nil
+	return translate.HostLabel(key), nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
@@ -80,7 +80,7 @@ func (r *virtualToHostNameResolver) TranslateLabelSelector(selector map[string]s
 		MatchLabels: selector,
 	}
 
-	return metav1.LabelSelectorAsMap(translate.HostLabelSelector(r.syncContext, labelSelector, ""))
+	return metav1.LabelSelectorAsMap(translate.HostLabelSelector(labelSelector))
 }
 
 func (r *virtualToHostNameResolver) TranslateNamespaceRef(namespace string) (string, error) {

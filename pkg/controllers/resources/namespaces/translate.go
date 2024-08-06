@@ -9,7 +9,7 @@ import (
 )
 
 func (s *namespaceSyncer) translate(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Namespace {
-	newNamespace := translate.HostMetadata(ctx, vObj.(*corev1.Namespace), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName()}, vObj), s.excludedAnnotations...)
+	newNamespace := translate.HostMetadata(vObj.(*corev1.Namespace), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName()}, vObj), s.excludedAnnotations...)
 	if newNamespace.Labels == nil {
 		newNamespace.Labels = map[string]string{}
 	}
@@ -22,9 +22,9 @@ func (s *namespaceSyncer) translate(ctx *synccontext.SyncContext, vObj client.Ob
 	return newNamespace
 }
 
-func (s *namespaceSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *corev1.Namespace) {
+func (s *namespaceSyncer) translateUpdate(pObj, vObj *corev1.Namespace) {
 	pObj.Annotations = translate.HostAnnotations(vObj, pObj, s.excludedAnnotations...)
-	updatedLabels := translate.HostLabels(ctx, vObj, pObj)
+	updatedLabels := translate.HostLabels(vObj, pObj)
 	if updatedLabels == nil {
 		updatedLabels = map[string]string{}
 	}

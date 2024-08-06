@@ -145,7 +145,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 
 	// check if metadata changed
 	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
-	event.Host.Labels = translate.HostLabels(ctx, event.Virtual, event.Host)
+	event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 
 	return ctrl.Result{}, nil
 }

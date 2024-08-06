@@ -177,7 +177,8 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, event *
 	if event.Virtual.Annotations[constants.HostClusterVSCAnnotation] == "" {
 		event.Host.Spec.DeletionPolicy = event.Virtual.Spec.DeletionPolicy
 		event.Host.Spec.VolumeSnapshotClassName = event.Virtual.Spec.VolumeSnapshotClassName
-		event.Host.Annotations, event.Host.Labels = translate.HostAnnotations(event.Virtual, event.Host), translate.HostLabels(ctx, event.Virtual, event.Host)
+		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
+		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 	}
 
 	return ctrl.Result{}, nil
