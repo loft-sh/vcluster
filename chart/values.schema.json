@@ -921,6 +921,10 @@
           "type": "boolean",
           "description": "Enabled specifies if the K8s distro should be enabled. Only one distro can be enabled at the same time."
         },
+        "version": {
+          "type": "string",
+          "description": "Version specifies k8s components (scheduler, kube-controller-manager \u0026 apiserver) version.\nIt is a shortcut for controlPlane.distro.k8s.apiServer.image.tag,\ncontrolPlane.distro.k8s.controllerManager.image.tag and\ncontrolPlane.distro.k8s.scheduler.image.tag\nIf e.g. controlPlane.distro.k8s.version is set to v1.30.1 and\ncontrolPlane.distro.k8s.scheduler.image.tag\n(or controlPlane.distro.k8s.controllerManager.image.tag or controlPlane.distro.k8s.apiServer.image.tag)\nis set to v1.31.0,\nvalue from controlPlane.distro.k8s.\u003ccontrolPlane-component\u003e.image.tag will be used\n(where \u003ccontrolPlane-component is apiServer, controllerManager and scheduler)."
+        },
         "apiServer": {
           "$ref": "#/$defs/DistroContainerEnabled",
           "description": "APIServer holds configuration specific to starting the api server."

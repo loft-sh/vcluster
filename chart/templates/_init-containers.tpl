@@ -8,6 +8,37 @@
 {{- end -}}
 {{- end -}}
 
+{{/* Bump $defaultTag value whenever k8s version is bumped */}}
+{{- define "vcluster.k8s.controllerManager.image.tag" -}}
+{{- $defaultTag := "v1.30.2" -}}
+{{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.controllerManager.image.tag $defaultTag) -}}
+{{ .Values.controlPlane.distro.k8s.version}}
+{{- else -}}
+{{ .Values.controlPlane.distro.k8s.controllerManager.image.tag }}
+{{- end -}}
+{{- end -}}
+
+{{/* Bump $defaultTag value whenever k8s version is bumped */}}
+{{- define "vcluster.k8s.apiServer.image.tag" -}}
+{{- $defaultTag := "v1.30.2" -}}
+{{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.apiServer.image.tag $defaultTag) -}}
+{{ .Values.controlPlane.distro.k8s.version}}
+{{- else -}}
+{{ .Values.controlPlane.distro.k8s.apiServer.image.tag }}
+{{- end -}}
+{{- end -}}
+
+
+{{/* Bump $defaultTag value whenever k8s version is bumped */}}
+{{- define "vcluster.k8s.scheduler.image.tag" -}}
+{{- $defaultTag := "v1.30.2" -}}
+{{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.scheduler.image.tag $defaultTag) -}}
+{{ .Values.controlPlane.distro.k8s.version}}
+{{- else -}}
+{{ .Values.controlPlane.distro.k8s.scheduler.image.tag }}
+{{- end -}}
+{{- end -}}
+
 {{- define "vcluster.k8s.initContainers" -}}
 {{- include "vcluster.oldPlugins.initContainers" . }}
 {{- include "vcluster.plugins.initContainers" . }}
@@ -32,7 +63,7 @@
 {{ toYaml .Values.controlPlane.distro.k8s.resources | indent 4 }}
 {{- if .Values.controlPlane.distro.k8s.controllerManager.enabled }}
 - name: kube-controller-manager
-  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.controllerManager.image.registry "repository" .Values.controlPlane.distro.k8s.controllerManager.image.repository "tag" .Values.controlPlane.distro.k8s.controllerManager.image.tag) }}"
+  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.controllerManager.image.registry "repository" .Values.controlPlane.distro.k8s.controllerManager.image.repository "tag" (include "vcluster.k8s.controllerManager.image.tag" .)) }}"
   volumeMounts:
     - mountPath: /binaries
       name: binaries
@@ -52,7 +83,7 @@
 {{- end }}
 {{- if .Values.controlPlane.advanced.virtualScheduler.enabled }}
 - name: kube-scheduler-manager
-  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.scheduler.image.registry "repository" .Values.controlPlane.distro.k8s.scheduler.image.repository "tag" .Values.controlPlane.distro.k8s.scheduler.image.tag) }}"
+  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.scheduler.image.registry "repository" .Values.controlPlane.distro.k8s.scheduler.image.repository "tag" (include "vcluster.k8s.scheduler.image.tag" .)) }}"
   volumeMounts:
     - mountPath: /binaries
       name: binaries
@@ -72,7 +103,7 @@
 {{- end }}
 {{- if .Values.controlPlane.distro.k8s.apiServer.enabled }}
 - name: kube-apiserver
-  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.apiServer.image.registry "repository" .Values.controlPlane.distro.k8s.apiServer.image.repository "tag" .Values.controlPlane.distro.k8s.apiServer.image.tag) }}"
+  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.apiServer.image.registry "repository" .Values.controlPlane.distro.k8s.apiServer.image.repository "tag" (include "vcluster.k8s.apiServer.image.tag" .)) }}"
   volumeMounts:
     - mountPath: /binaries
       name: binaries

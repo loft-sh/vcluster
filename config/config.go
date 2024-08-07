@@ -784,6 +784,18 @@ type DistroK8s struct {
 	// Enabled specifies if the K8s distro should be enabled. Only one distro can be enabled at the same time.
 	Enabled bool `json:"enabled,omitempty"`
 
+	// Version specifies k8s components (scheduler, kube-controller-manager & apiserver) version.
+	// It is a shortcut for controlPlane.distro.k8s.apiServer.image.tag,
+	// controlPlane.distro.k8s.controllerManager.image.tag and
+	// controlPlane.distro.k8s.scheduler.image.tag
+	// If e.g. controlPlane.distro.k8s.version is set to v1.30.1 and
+	// controlPlane.distro.k8s.scheduler.image.tag
+	//(or controlPlane.distro.k8s.controllerManager.image.tag or controlPlane.distro.k8s.apiServer.image.tag)
+	// is set to v1.31.0,
+	// value from controlPlane.distro.k8s.<controlPlane-component>.image.tag will be used
+	// (where <controlPlane-component is apiServer, controllerManager and scheduler).
+	Version string `json:"version,omitempty"`
+
 	// APIServer holds configuration specific to starting the api server.
 	APIServer DistroContainerEnabled `json:"apiServer,omitempty"`
 
