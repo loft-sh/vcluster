@@ -27,6 +27,7 @@
     .Values.sync.toHost.volumeSnapshots.enabled
     .Values.controlPlane.advanced.virtualScheduler.enabled
     .Values.sync.fromHost.ingressClasses.enabled
+    .Values.sync.fromHost.runtimeClasses.enabled
     (eq (toString .Values.sync.fromHost.storageClasses.enabled) "true")
     (eq (toString .Values.sync.fromHost.csiNodes.enabled) "true")
     (eq (toString .Values.sync.fromHost.csiDrivers.enabled) "true")

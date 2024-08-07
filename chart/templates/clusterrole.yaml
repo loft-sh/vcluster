@@ -74,6 +74,11 @@ rules:
     resources: ["ingressclasses"]
     verbs: ["get", "watch", "list"]
   {{- end }}
+  {{- if .Values.sync.fromHost.runtimeClasses.enabled }}
+  - apiGroups: ["nodes.k8s.io"]
+    resources: ["runtimeclasses"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
   {{- if .Values.sync.toHost.storageClasses.enabled }}
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]

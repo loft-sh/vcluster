@@ -2701,6 +2701,10 @@
           "$ref": "#/$defs/EnableSwitch",
           "description": "IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back."
         },
+        "runtimeClasses": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back."
+        },
         "storageClasses": {
           "$ref": "#/$defs/EnableAutoSwitch",
           "description": "StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
