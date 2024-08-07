@@ -79,6 +79,7 @@ controlPlane:
   distro:
     k8s:
       enabled: false
+      version: ""
       apiServer:
         enabled: true
         command: []
