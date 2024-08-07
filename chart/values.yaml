@@ -102,6 +102,9 @@ sync:
     # IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
     ingressClasses:
       enabled: false
+    # RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
+    runtimeClasses:
+      enabled: false
     # Nodes defines if nodes should get synced from the host cluster to the virtual cluster, but not back.
     nodes:
       # Enabled specifies if syncing real nodes should be enabled. If this is disabled, vCluster will create fake nodes instead.

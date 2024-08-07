@@ -405,6 +405,9 @@ type SyncFromHost struct {
 	// IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
 	IngressClasses EnableSwitch `json:"ingressClasses,omitempty"`
 
+	// RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
+	RuntimeClasses EnableSwitch `json:"runtimeClasses,omitempty"`
+
 	// StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
 	StorageClasses EnableAutoSwitch `json:"storageClasses,omitempty"`
 

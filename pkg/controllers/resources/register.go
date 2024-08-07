@@ -19,6 +19,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/poddisruptionbudgets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/runtimeclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
@@ -50,6 +51,7 @@ func getSyncers(ctx *synccontext.RegisterContext) []BuildController {
 		isEnabled(ctx.Config.Sync.ToHost.PersistentVolumeClaims.Enabled, persistentvolumeclaims.New),
 		isEnabled(ctx.Config.Sync.ToHost.Ingresses.Enabled, ingresses.New),
 		isEnabled(ctx.Config.Sync.FromHost.IngressClasses.Enabled, ingressclasses.New),
+		isEnabled(ctx.Config.Sync.FromHost.RuntimeClasses.Enabled, runtimeclasses.New),
 		isEnabled(ctx.Config.Sync.ToHost.StorageClasses.Enabled, storageclasses.New),
 		isEnabled(ctx.Config.Sync.FromHost.StorageClasses.Enabled == "true", storageclasses.NewHostStorageClassSyncer),
 		isEnabled(ctx.Config.Sync.ToHost.PriorityClasses.Enabled, priorityclasses.New),

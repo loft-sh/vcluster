@@ -61,6 +61,8 @@ sync:
       enabled: auto
     ingressClasses:
       enabled: false
+    runtimeClasses:
+      enabled: false
     nodes:
       enabled: false
       syncBackChanges: false
