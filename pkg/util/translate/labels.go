@@ -8,8 +8,7 @@ import (
 )
 
 var translateLabels = map[string]bool{
-	// rewrite app & release
-	VClusterAppLabel:     true,
+	// rewrite release
 	VClusterReleaseLabel: true,
 
 	// namespace, marker & controlled-by
@@ -40,7 +39,7 @@ func VirtualLabel(pLabel string) (string, bool) {
 	return pLabel, true
 }
 
-func HostLabelsMap(vLabels, pLabels map[string]string, vNamespace string) map[string]string {
+func HostLabelsMap(vLabels, pLabels map[string]string, vNamespace string, isMetadata bool) map[string]string {
 	if vLabels == nil {
 		return nil
 	}
@@ -57,12 +56,14 @@ func HostLabelsMap(vLabels, pLabels map[string]string, vNamespace string) map[st
 		}
 	}
 
-	// check if namespace or cluster-scoped
-	if vNamespace != "" {
-		newLabels[MarkerLabel] = VClusterName
-		newLabels[NamespaceLabel] = vNamespace
-	} else {
-		newLabels[MarkerLabel] = Default.MarkerLabelCluster()
+	// check if we should add namespace and marker label
+	if isMetadata || pLabels == nil || pLabels[MarkerLabel] != "" {
+		if vNamespace == "" {
+			newLabels[MarkerLabel] = Default.MarkerLabelCluster()
+		} else if Default.SingleNamespaceTarget() {
+			newLabels[MarkerLabel] = VClusterName
+			newLabels[NamespaceLabel] = vNamespace
+		}
 	}
 
 	// set controller label
@@ -201,7 +202,7 @@ func HostLabels(vObj, pObj client.Object) map[string]string {
 	if pObj != nil {
 		pLabels = pObj.GetLabels()
 	}
-	return HostLabelsMap(vLabels, pLabels, vObj.GetNamespace())
+	return HostLabelsMap(vLabels, pLabels, vObj.GetNamespace(), true)
 }
 
 func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {

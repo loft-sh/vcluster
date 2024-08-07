@@ -155,7 +155,7 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 			e.Log.Infof("Add owner reference to host target service %s", to.Name)
 			toService.OwnerReferences = translate.GetOwnerReference(nil)
 		}
-		toService.Spec.Selector = translate.HostLabelsMap(fromService.Spec.Selector, toService.Spec.Selector, fromService.Namespace)
+		toService.Spec.Selector = translate.HostLabelsMap(fromService.Spec.Selector, toService.Spec.Selector, fromService.Namespace, false)
 		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
 		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)
 	} else if toService.Labels == nil || toService.Labels[translate.ControllerLabel] != "vcluster" {
@@ -165,7 +165,7 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 
 	// rewrite selector
 	targetService := toService.DeepCopy()
-	targetService.Spec.Selector = translate.HostLabelsMap(fromService.Spec.Selector, toService.Spec.Selector, fromService.Namespace)
+	targetService.Spec.Selector = translate.HostLabelsMap(fromService.Spec.Selector, toService.Spec.Selector, fromService.Namespace, false)
 
 	// compare service ports
 	if !apiequality.Semantic.DeepEqual(toService.Spec.Ports, fromService.Spec.Ports) || !apiequality.Semantic.DeepEqual(toService.Spec.Selector, targetService.Spec.Selector) {
