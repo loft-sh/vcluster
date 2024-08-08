@@ -3,7 +3,9 @@ name: Automatic CLI Docs Update
 on:
   pull_request:
     branches: ["doc-226-target-test"]
-    types: [opened, reopened, edited, ready_for_review, converted_to_draft]
+    types: [converted_to_draft]
+env:
+  GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
 
 jobs:
   trigger-cli-docs-update:
