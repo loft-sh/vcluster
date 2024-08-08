@@ -84,7 +84,7 @@ embed-chart version="0.0.0":
   RELEASE_VERSION={{ version }} go generate -tags embed_chart ./...
 
 # Run e2e tests
-e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && delete-kind
+e2e distribution="k3s" path="./test/functional_tests/e2e" multinamespace="false": create-kind && delete-kind
   echo "Execute test suites ({{ distribution }}, {{ path }}, {{ multinamespace }})"
 
   TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean
@@ -113,7 +113,7 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
     --local-chart-dir ./chart/ \
     -f ./dist/commonValues.yaml \
     -f {{ path }}/values.yaml \
-    $([[ "{{ multinamespace }}" = "true" ]] && echo "-f ./test/multins_values.yaml" || echo "")
+    $([[ "{{ multinamespace }}" = "true" ]] && echo "-f ./test/functional_tests/multins_values.yaml" || echo "")
 
   kubectl wait --for=condition=ready pod -l app=vcluster -n vcluster --timeout=300s
 

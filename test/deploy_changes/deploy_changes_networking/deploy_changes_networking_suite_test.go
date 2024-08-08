@@ -1,4 +1,4 @@
-package e2egeneric
+package deploynetworkingchanges
 
 import (
 	"context"
@@ -13,9 +13,6 @@ import (
 
 	// Enable cloud provider auth
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
-	// Register tests
-	_ "github.com/loft-sh/vcluster/test/e2e_generic/clusterscope"
 )
 
 var (
@@ -26,7 +23,7 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 }
 
-func TestRunE2ETests(t *testing.T) {
+func TestRunDeployChangesTests(t *testing.T) {
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	err := framework.CreateFramework(context.Background(), scheme)
 	if err != nil {
@@ -40,5 +37,5 @@ func TestRunE2ETests(t *testing.T) {
 		}
 	})
 
-	ginkgo.RunSpecs(t, "Vcluster e2e suite")
+	ginkgo.RunSpecs(t, "Vcluster Deploy changes suite")
 }

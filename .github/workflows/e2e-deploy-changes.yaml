@@ -1,0 +1,273 @@
+name: E2E Deploy Changes CI
+
+on:
+  workflow_dispatch:
+  release:
+    types: [created]
+  pull_request:
+    branches:
+      - main
+      - v*
+    paths:
+      - "test/deploy_changes/**"
+    
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  REPOSITORY_NAME: ghcr.io/${{ github.repository }}-ci
+  TAG_NAME: PR${{ github.event.number }}
+  VCLUSTER_SUFFIX: vcluster
+  VCLUSTER_NAME: vcluster
+  VCLUSTER_NAMESPACE: vcluster
+
+jobs:
+  build-and-push-syncer-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git fetch --force --tags
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Setup Just
+        uses: extractions/setup-just@v2
+      - name: Setup Syft
+        uses: anchore/sbom-action/download-syft@v0.17.0
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          install-only: true
+          version: latest
+      - name: Build and save syncer image
+        run: |
+          set -x
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster --clean --output ./vcluster
+          docker build -t "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
+          docker save -o vcluster_syncer "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}"
+      - name: Upload syncer image to artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcluster_syncer
+          path: ./vcluster_syncer
+          retention-days: 7
+
+  build-vcluster-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git fetch --force --tags
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Setup Just
+        uses: extractions/setup-just@v2
+      - name: Setup Syft
+        uses: anchore/sbom-action/download-syft@v0.17.0
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          install-only: true
+      - name: Build vcluster cli
+        run: |
+          set -x
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
+      - name: Upload vcluster cli to artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcluster
+          path: ./vcluster
+          retention-days: 7
+
+  build-tests: 
+    name: Build tests binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure git
+        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+      
+      - name: Build e2e binary
+        run: |
+          cd ./test
+          go run -mod=vendor github.com/onsi/ginkgo/v2/ginkgo build --require-suite -r --mod vendor $(ls -d ./deploy_changes/deploy_* | jq -R . | jq -rcs '. | join(" \\\n")')
+        env:
+          GOWORK: off
+
+      - name: Upload test binaries to artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-binaries
+          path: test/deploy_changes/**/*.test
+          retention-days: 7
+  
+  generate-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: List test directories
+        id: set-paths-matrix
+        run: |
+          cd ./test
+          set -x
+          sudo apt-get install -y jq
+
+          paths=$(ls -d ./deploy_changes/*/ | grep -v 'common/')
+          echo "matrix=$(printf '%s\n' "${paths}" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
+
+    outputs:
+      matrix: ${{ steps.set-paths-matrix.outputs.matrix }}
+
+  execute-deploy-tests:
+    needs:
+      - build-and-push-syncer-image
+      - build-vcluster-cli
+      - build-tests
+      - generate-matrix
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: 
+        test-suite-path: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        name: Setup Helm
+        with:
+          version: "v3.11.0"
+
+      - name: Set up kind k8s cluster
+        uses: engineerd/setup-kind@v0.5.0
+        with:
+          version: "v0.20.0"
+          image: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
+
+      - name: Testing kind cluster set-up
+        run: |
+          set -x
+          kubectl cluster-info
+          kubectl get pods -n kube-system
+          echo "kubectl config current-context:" $(kubectl config current-context)
+          echo "KUBECONFIG env var:" ${KUBECONFIG}
+
+      - name: Download vcluster cli
+        uses: actions/download-artifact@v4
+        with:
+          name: vcluster
+
+      - name: Download syncer image
+        uses: actions/download-artifact@v4
+        with:
+          name: vcluster_syncer
+
+      - name: Download test binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: test-binaries
+          path: ./test/deploy_changes
+
+      - name: Create vcluster
+        id: create-vcluster
+        run: |
+          set -x
+
+          kind load image-archive vcluster_syncer
+          
+          chmod +x vcluster && sudo mv vcluster /usr/bin
+
+          cd ./test
+
+          sudo apt-get install -y sed
+
+          sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" ${{ matrix.test-suite-path }}commonValues.yaml
+          sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" ${{ matrix.test-suite-path }}commonValues.yaml
+
+          vcluster create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
+          --create-namespace \
+          --debug \
+          --connect=false \
+          --local-chart-dir ../chart \
+          -f ${{ matrix.test-suite-path }}commonValues.yaml 
+        continue-on-error: true
+
+      - name: Wait until vcluster is ready
+        id: wait-until-vcluster-is-ready
+        if: steps.create-vcluster.outcome == 'success'
+        run: |
+          set -x
+
+          ./hack/wait-for-pod.sh -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }}
+
+        continue-on-error: true
+
+      - name: Collect deployment information in case vcluster fails to start
+        if: steps.wait-until-vcluster-is-ready.outcome != 'success'
+        run: |
+          set -x
+          kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}
+          echo "======================================================================================================================"
+          kubectl get events -n ${{ env.VCLUSTER_NAMESPACE }} --sort-by='.lastTimestamp'
+          echo "======================================================================================================================"
+          kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1
+          echo "======================================================================================================================"
+          kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
+          exit 1
+      
+      # Skips NetworkPolicy tests because they require network plugin with support (e.g. Calico)
+      - name: Execute tests
+        id: execute-tests
+        run: |
+          set -x
+          
+          cd ./test/deploy_changes
+
+          cd $(echo "${{ matrix.test-suite-path }}" | sed -e 's#^./deploy_changes/##' -e 's#/$##')
+        
+          sudo chmod +x $(echo "${{ matrix.test-suite-path }}" | sed -e 's#^./deploy_changes/##' -e 's#/$##').test
+          
+          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} ./$(echo "${{ matrix.test-suite-path }}" | sed -e 's#^./deploy_changes/##' -e 's#/$##').test -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast
+        
+          if kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p >/dev/null 2>/dev/null; then
+            echo "vCluster has restarted during testing, failing..."
+            exit 1
+          fi
+
+        continue-on-error: true
+
+      - name: Print logs if tests fail
+        if: steps.execute-tests.outcome == 'failure'
+        run: |
+          set -x
+          kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}
+          echo "======================================================================================================================"
+          kubectl get events -n ${{ env.VCLUSTER_NAMESPACE }} --sort-by='.lastTimestamp'
+          echo "======================================================================================================================"
+          kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1
+          echo "======================================================================================================================"
+          kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
+          exit 1
+
