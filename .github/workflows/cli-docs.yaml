@@ -1,0 +1,32 @@
+name: Automatic CLI Docs Update
+
+on:
+  pull_request:
+    branches: ["doc-226-target-test"]
+    types: [opened, reopened, edited]
+
+jobs:
+  trigger-cli-docs-update:
+    name: Trigger CLI Docs Update
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger cli-docs workflow
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
+          script: |
+            const version = 'some-version';
+            const ref = '${{ steps.get_version.outputs.release_version }}';
+            const response = await github.rest.actions.createWorkflowDispatch({
+              owner: 'loft-sh',
+              repo: 'vcluster-docs',
+              workflow_id: 'cli-docs.yaml',
+              ref: 'main',
+              inputs: {
+                version: version,
+                ref: ref,
+                title: title,
+              }
+            });
+            console.log(response)
