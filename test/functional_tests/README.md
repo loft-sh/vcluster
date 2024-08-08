@@ -3,13 +3,13 @@
 1. Start test environment:
     - Start the vcluster in test mode `devspace run test <distro> <valuesFilePath from the testsuite>`
     
-      - To run the test from the a general test suite i.e from `./test/e2e`.
+      - To run the test from the a general test suite i.e from `./test/functional_tests/e2e`.
       
           `devspace --namespace vcluster run test k3s`
       
       - To run tests from a specific test suite, you'll need to specify the values file path from that test suite.
       
-          `devspace --namespace vcluster run test k3s --var VALUES_FILE=./test/e2e_node/values.yaml`
+          `devspace --namespace vcluster run test k3s --var VALUES_FILE=./test/functional_tests/e2e_node/values.yaml`
     
     - Then run following command in the terminal to start vcluster syncer.
         - To run default test suite start syncer with following command
@@ -17,11 +17,11 @@
         go run -mod vendor cmd/vcluster/main.go start --sync 'networkpolicies' --name=vcluster --service-account=vc-workload-vcluster --kube-config-context-name=my-vcluster --leader-elect=false --sync=nodes --sync=-ingressclasses --node-selector=kubernetes.io/hostname=kind-control-plane '--map-host-service=test/test=default/test' '--map-virtual-service=test/test=test'
         ```
 
-        - To run tests from other test suites you'll need to change the flags for `go run -mod vendor cmd/vcluster/main.go start` accordingly. You can check the list of syncer flags by running `helm template vcluster ./charts/k3s/ -f ./test/commonValues.yaml -f ./test/<test_suite>/values.yaml`
+        - To run tests from other test suites you'll need to change the flags for `go run -mod vendor cmd/vcluster/main.go start` accordingly. You can check the list of syncer flags by running `helm template vcluster ./charts/k3s/ -f ./test/functional_tests/commonValues.yaml -f ./test/functional_tests/<test_suite>/values.yaml`
         
          For e.g.
          ```
-         helm template vcluster ./charts/k3s/ -f ./test/commonValues.yaml -f ./test/e2e_target_namespace/values.yaml
+         helm template vcluster ./charts/k3s/ -f ./test/functional_tests/commonValues.yaml -f ./test/functional_tests/e2e_target_namespace/values.yaml
 
          # Then look for `name: syncer` container
 
