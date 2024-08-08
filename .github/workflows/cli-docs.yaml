@@ -1,41 +1,35 @@
 name: Automatic CLI Docs Update
 
 on:
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Branch to update the CLI docs from'
-        required: true
-      title:
-        description: 'Title of the PR'
-        required: true
-
-  pull_request_target:
-    types: ["labeled", "closed"]
-    paths:
-      - "docs/cli/**"
-      - ".github/workflows/cli-docs.yaml"
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  pull_request:
+    branches: ["doc-226-target-test"]
+    types: [opened, reopened, edited]
 
 jobs:
   trigger-cli-docs-update:
     name: Trigger CLI Docs Update
-    if: github.event.pull_request.merged == true && github.event.pull_request.labels.*.name == 'update-cli-docs'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Trigger CLI Docs Update workflow in vcluster-docs
-        run: |
-          gh api \
-          --method POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/loft-sh/vcluster-docs/dispatches \
-            -f "event_type=update-cli-docs" \
-            -F "client_payload[ref]={{ github.event.pull_request.head.ref }}" \
-            -F "client_payload[title]={{ github.event.pull_request.title }}"
+      - name: Trigger cli-docs workflow
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
+          script: |
+            const version = 'some-version';
+            const ref = '${{ steps.get_version.outputs.release_version }}';
+            const response = await github.rest.actions.createWorkflowDispatch({
+              owner: 'loft-sh',
+              repo: 'vcluster-docs',
+              workflow_id: 'cli-docs.yaml',
+              ref: 'main',
+              inputs: {
+                version: version,
+                ref: ref,
+                title: title,
+              }
+            });
+            console.log(response)
