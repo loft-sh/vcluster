@@ -1,6 +1,15 @@
 name: Automatic CLI Docs Update
 
 on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch to update the CLI docs from'
+        required: true
+      title:
+        description: 'Title of the PR'
+        required: true
+
   pull_request_target:
     types: ["labeled", "closed"]
     paths:
