@@ -18,18 +18,36 @@ func (s *priorityClassSyncer) translate(ctx *synccontext.SyncContext, vObj clien
 	return priorityClass
 }
 
-func (s *priorityClassSyncer) translateUpdate(pObj, vObj, sourceObject, targetObject *schedulingv1.PriorityClass) {
+func (s *priorityClassSyncer) translateFromHost(ctx *synccontext.SyncContext, pObj client.Object) *schedulingv1.PriorityClass {
+	// translate the priority class
+	priorityClass := translate.VirtualMetadata(pObj.(*schedulingv1.PriorityClass), s.HostToVirtual(ctx, types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, pObj))
+	if priorityClass.Name == "" {
+		priorityClass.Name = pObj.GetName()
+	}
+	return priorityClass
+}
+
+func (s *priorityClassSyncer) translateUpdate(event *synccontext.SyncEvent[*schedulingv1.PriorityClass]) {
+	targetObject := event.TargetObject()
+	sourceObject := event.SourceObject()
+	pObj := event.Host
+	vObj := event.Virtual
+
 	targetObject.PreemptionPolicy = sourceObject.PreemptionPolicy
 	targetObject.Description = sourceObject.Description
 
-	// check metadata
-	pObj.Annotations = translate.HostAnnotations(vObj, pObj)
-	pObj.Labels = translate.HostLabels(vObj, pObj)
-
-	// check value
-	translatedValue := vObj.Value
-	if translatedValue > 1000000000 {
-		translatedValue = 1000000000
+	switch event.Source {
+	case synccontext.SyncEventSourceVirtual:
+		// check metadata
+		pObj.Annotations = translate.HostAnnotations(vObj, pObj)
+		pObj.Labels = translate.HostLabels(vObj, pObj)
+		translatedValue := vObj.Value
+		if translatedValue > 1000000000 {
+			translatedValue = 1000000000
+		}
+		pObj.Value = translatedValue
+	case synccontext.SyncEventSourceHost:
+		vObj.Annotations = translate.VirtualAnnotations(pObj, vObj)
+		vObj.Labels = translate.VirtualLabels(pObj, vObj)
 	}
-	pObj.Value = translatedValue
 }
