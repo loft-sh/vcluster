@@ -10,24 +10,14 @@ jobs:
     name: Trigger CLI Docs Update
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger cli-docs workflow
-        uses: actions/github-script@v7
-        continue-on-error: true
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const title = 'from pr ${{ github.event.pull_request.number }}'
-            const version = 'some-version';
-            const ref = '${{ github.event.pull_request.head.sha }}';
-            const response = await github.rest.actions.createWorkflowDispatch({
-              owner: 'loft-sh',
-              repo: 'vcluster-docs',
-              workflow_id: 'cli-docs.yaml',
-              ref: 'main',
-              inputs: {
-                version: version,
-                ref: ref,
-                title: title,
-              }
-            });
-            console.log(response)
+      - name: Trigger CLI Docs Update workflow in vcluster-docs
+        run: |
+          gh api \
+          --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/loft-sh/vcluster-docs/dispatches \
+            -f "event_type=update-cli-docs" \
+            -F "client_payload[ref]={{ github.event.pull_request.head.ref }}" \
+            -F "client_payload[title]={{ github.event.pull_request.title }}"
+            -F "client_payload[version]=some-version"
