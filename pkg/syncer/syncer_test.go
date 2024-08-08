@@ -192,7 +192,7 @@ func TestController(t *testing.T) {
 					},
 					&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      translator.HostName(nil, "a", namespaceInVClusterA),
+							Name:      translator.HostName(nil, "a", namespaceInVClusterA).Name,
 							Namespace: syncertesting.DefaultTestTargetNamespace,
 							Annotations: map[string]string{
 								translate.NameAnnotation:      "a",
@@ -349,7 +349,7 @@ func TestReconcile(t *testing.T) {
 					},
 					&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      translator.HostName(nil, "a", namespaceInVClusterA),
+							Name:      translator.HostName(nil, "a", namespaceInVClusterA).Name,
 							Namespace: syncertesting.DefaultTestTargetNamespace,
 							Annotations: map[string]string{
 								translate.NameAnnotation:      "a",
@@ -390,7 +390,7 @@ func TestReconcile(t *testing.T) {
 				// existing object doesn't have annotations/labels indicating it is owned, but has the name of the synced object
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      translator.HostName(nil, "a", namespaceInVClusterA),
+						Name:      translator.HostName(nil, "a", namespaceInVClusterA).Name,
 						Namespace: syncertesting.DefaultTestTargetNamespace,
 						Annotations: map[string]string{
 							"app": "existing",
@@ -423,7 +423,7 @@ func TestReconcile(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Secret"): {
 					&corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      translator.HostName(nil, "a", namespaceInVClusterA),
+							Name:      translator.HostName(nil, "a", namespaceInVClusterA).Name,
 							Namespace: syncertesting.DefaultTestTargetNamespace,
 							Annotations: map[string]string{
 								"app":                         "existing",

@@ -6,6 +6,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
@@ -31,21 +32,21 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, err
 	}
 
+	// only add importer if all secrets should get synced
+	importer := syncer.NewNoopImporter()
+	if ctx.Config.Sync.ToHost.Secrets.All {
+		importer = pro.NewImporter(mapper)
+	}
+
 	return &secretSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "secret", &corev1.Secret{}, mapper),
-
-		includeIngresses: ctx.Config.Sync.ToHost.Ingresses.Enabled,
-
-		syncAllSecrets: ctx.Config.Sync.ToHost.Secrets.All,
+		Importer:          importer,
 	}, nil
 }
 
 type secretSyncer struct {
 	syncertypes.GenericTranslator
-
-	includeIngresses bool
-
-	syncAllSecrets bool
+	syncertypes.Importer
 }
 
 var _ syncertypes.Syncer = &secretSyncer{}
@@ -71,7 +72,7 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncconte
 	}
 
 	// delete if the host object was deleted
-	if event.IsDelete() {
+	if event.IsDelete() || event.Virtual.DeletionTimestamp != nil {
 		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was delete")
 	}
 
@@ -79,6 +80,11 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncconte
 	newSecret := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name, Namespace: event.Virtual.Namespace}, event.Virtual))
 	if newSecret.Type == corev1.SecretTypeServiceAccountToken {
 		newSecret.Type = corev1.SecretTypeOpaque
+	}
+
+	err = pro.ApplyPatchesHostObject(ctx, nil, newSecret, event.Virtual, ctx.Config.Sync.ToHost.Secrets.Translate)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return syncer.CreateHostObject(ctx, event.Virtual, newSecret, s.EventRecorder())
@@ -100,7 +106,7 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Syn
 	}
 
 	// patch objects
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Secrets.Translate))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -124,12 +130,19 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Syn
 
 	// check annotations
 	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
-	event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
+
+	// check labels
+	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
+	} else {
+		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
+	}
+
 	return ctrl.Result{}, nil
 }
 
 func (s *secretSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Secret]) (_ ctrl.Result, retErr error) {
-	if event.IsDelete() {
+	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
 		// virtual object is not here anymore, so we delete
 		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
 	}
@@ -139,7 +152,12 @@ func (s *secretSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncco
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !isUsed {
-		return syncer.DeleteHostObject(ctx, event.Host, "virtual secret is not used anymore")
+		return ctrl.Result{}, nil
+	}
+
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.Secrets.Translate)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return syncer.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder())
@@ -147,6 +165,11 @@ func (s *secretSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncco
 
 func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, secret *corev1.Secret) (bool, error) {
 	if secret.Annotations[constants.SyncResourceAnnotation] == "true" {
+		return true, nil
+	}
+
+	// if all objects should get synced we sync it
+	if ctx.Config.Sync.ToHost.Secrets.All {
 		return true, nil
 	}
 
@@ -158,10 +181,6 @@ func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, secret *corev1
 			Name:      secret.Name,
 		},
 	})) > 0 {
-		return true, nil
-	}
-
-	if s.syncAllSecrets {
 		return true, nil
 	}
 

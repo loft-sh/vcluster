@@ -63,7 +63,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.Default.HostName(nil, "testnetworkpolicy", "test"),
+		Name:      translate.Default.HostName(nil, "testnetworkpolicy", "test").Name,
 		Namespace: "test",
 		Annotations: map[string]string{
 			translate.NameAnnotation:      vObjectMeta.Name,

@@ -8,6 +8,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -35,6 +36,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		// because if it is also installed in the host cluster, it will be
 		// overriding it, which would cause endless updates back and forth.
 		GenericTranslator: translator.NewGenericTranslator(ctx, "service", &corev1.Service{}, mapper),
+		Importer:          pro.NewImporter(mapper),
 
 		excludedAnnotations: []string{
 			"field.cattle.io/publicEndpoints",
@@ -46,6 +48,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 type serviceSyncer struct {
 	syncertypes.GenericTranslator
+	syncertypes.Importer
 
 	excludedAnnotations []string
 
@@ -67,11 +70,17 @@ func (s *serviceSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Service]) (ctrl.Result, error) {
-	if event.IsDelete() {
+	if event.IsDelete() || event.Virtual.DeletionTimestamp != nil {
 		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
 	}
 
-	return syncer.CreateHostObject(ctx, event.Virtual, s.translate(ctx, event.Virtual), s.EventRecorder())
+	pObj := s.translate(ctx, event.Virtual)
+	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.Services.Translate)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return syncer.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
 }
 
 func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Service]) (_ ctrl.Result, retErr error) {
@@ -97,7 +106,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	}
 
 	// patch the service
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Services.Translate))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -126,8 +135,14 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	// update status
 	event.Virtual.Status = event.Host.Status
 
-	// check annotations & labels
-	event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
+	// check labels
+	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
+	} else {
+		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
+	}
+
+	// check annotations
 	updatedAnnotations := translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
 
 	// remove the ServiceBlockDeletion annotation if it's not needed
@@ -137,7 +152,12 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	event.Host.Annotations = updatedAnnotations
 
 	// translate selector
-	event.Host.Spec.Selector = translate.HostLabelsMap(event.Virtual.Spec.Selector, event.Host.Spec.Selector, event.Virtual.Namespace, false)
+	if event.Source == synccontext.SyncEventSourceHost {
+		event.Host.Spec.Selector = translate.VirtualLabelsMap(event.Host.Spec.Selector, event.Virtual.Spec.Selector)
+	} else {
+		event.Host.Spec.Selector = translate.HostLabelsMap(event.Virtual.Spec.Selector, event.Host.Spec.Selector, event.Virtual.Namespace, false)
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -146,13 +166,6 @@ func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Serv
 }
 
 func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Service]) (ctrl.Result, error) {
-	isManaged, err := s.IsManaged(ctx, event.Host)
-	if err != nil {
-		return ctrl.Result{}, err
-	} else if !isManaged {
-		return ctrl.Result{}, nil
-	}
-
 	// we have to delay deletion here if a vObj does not (yet) exist for a service that was just
 	// created, because vcluster intercepts those calls and first creates a service inside the host
 	// cluster and then inside the virtual cluster.
@@ -160,7 +173,17 @@ func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
+		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	}
+
+	vObj := s.translateToVirtual(ctx, event.Host)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.Services.Translate)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return syncer.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder())
 }
 
 func recreateService(ctx context.Context, virtualClient client.Client, vService *corev1.Service) error {

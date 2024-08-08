@@ -19,7 +19,8 @@ import (
 
 func (f *Framework) WaitForPodRunning(podName string, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second*5, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		pod, err := f.HostClient.CoreV1().Pods(translate.Default.HostNamespace(nil, ns)).Get(ctx, translate.Default.HostName(nil, podName, ns), metav1.GetOptions{})
+		pPodName := translate.Default.HostName(nil, podName, ns)
+		pod, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(ctx, pPodName.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -45,7 +46,8 @@ func (f *Framework) WaitForPodRunning(podName string, ns string) error {
 
 func (f *Framework) WaitForPodToComeUpWithReadinessConditions(podName string, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		pod, err := f.HostClient.CoreV1().Pods(translate.Default.HostNamespace(nil, ns)).Get(ctx, translate.Default.HostName(nil, podName, ns), metav1.GetOptions{})
+		pPodName := translate.Default.HostName(nil, podName, ns)
+		pod, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(ctx, pPodName.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -64,7 +66,8 @@ func (f *Framework) WaitForPodToComeUpWithReadinessConditions(podName string, ns
 
 func (f *Framework) WaitForPodToComeUpWithEphemeralContainers(podName string, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		pod, err := f.HostClient.CoreV1().Pods(translate.Default.HostNamespace(nil, ns)).Get(ctx, translate.Default.HostName(nil, podName, ns), metav1.GetOptions{})
+		pPodName := translate.Default.HostName(nil, podName, ns)
+		pod, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(ctx, pPodName.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -84,7 +87,8 @@ func (f *Framework) WaitForPodToComeUpWithEphemeralContainers(podName string, ns
 
 func (f *Framework) WaitForPersistentVolumeClaimBound(pvcName, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(translate.Default.HostNamespace(nil, ns)).Get(ctx, translate.Default.HostName(nil, pvcName, ns), metav1.GetOptions{})
+		pPvcName := translate.Default.HostName(nil, pvcName, ns)
+		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(pPvcName.Namespace).Get(ctx, pPvcName.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -143,7 +147,8 @@ func (f *Framework) WaitForServiceAccount(saName string, ns string) error {
 
 func (f *Framework) WaitForService(serviceName string, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err := f.HostClient.CoreV1().Services(translate.Default.HostNamespace(nil, ns)).Get(ctx, translate.Default.HostName(nil, serviceName, ns), metav1.GetOptions{})
+		pServiceName := translate.Default.HostName(nil, serviceName, ns)
+		_, err := f.HostClient.CoreV1().Services(pServiceName.Namespace).Get(ctx, pServiceName.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -186,7 +191,8 @@ func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) e
 		}
 
 		// Check for annotation
-		pService, err := f.HostClient.CoreV1().Services(translate.Default.HostNamespace(nil, ns)).Get(ctx, translate.Default.HostName(nil, serviceName, ns), metav1.GetOptions{})
+		pServiceName := translate.Default.HostName(nil, serviceName, ns)
+		pService, err := f.HostClient.CoreV1().Services(pServiceName.Namespace).Get(ctx, pServiceName.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil

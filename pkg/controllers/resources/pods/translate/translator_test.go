@@ -199,7 +199,7 @@ func TestVolumeTranslation(t *testing.T) {
 					Name: "eph-vol",
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: translate.Default.HostName(nil, "pod-name-eph-vol", "test-ns"),
+							ClaimName: translate.Default.HostName(nil, "pod-name-eph-vol", "test-ns").Name,
 						},
 						Ephemeral: nil,
 					},

@@ -40,7 +40,7 @@ func TestSync(t *testing.T) {
 	}
 	syncedSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName(nil, baseSecret.Name, baseSecret.Namespace),
+			Name:      translate.Default.HostName(nil, baseSecret.Name, baseSecret.Namespace).Name,
 			Namespace: "test",
 			Annotations: map[string]string{
 				translate.NameAnnotation:      baseSecret.Name,
