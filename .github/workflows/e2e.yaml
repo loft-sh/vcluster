@@ -10,7 +10,7 @@ on:
     paths:
       - "**.go"
       - "!**_test.go" # exclude test files to ignore unit test changes
-      - "test/**" # include test files in e2e again
+      - "test/functional_tests/**" # include test files in e2e again
       - "!**.md"
       - "Dockerfile.release"
       - ".github/workflows/e2e.yaml"
@@ -104,7 +104,7 @@ jobs:
         run: |
           set -x
           sudo apt-get install -y jq
-          paths=$(ls -d ./test/e2e*)
+          paths=$(ls -d ./test/functional_tests/e2e*)
           echo "matrix=$(printf '%s\n' "${paths}" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
     outputs:
       matrix: ${{ steps.set-paths-matrix.outputs.matrix }}
@@ -129,7 +129,8 @@ jobs:
 
       - name: Build e2e binary
         run: |
-          go run -mod=vendor github.com/onsi/ginkgo/v2/ginkgo build --require-suite -r --mod vendor $(ls -d ./test/e2e* | jq -R . | jq -rcs '. | join(" \\\n")')
+          go run -mod=vendor github.com/onsi/ginkgo/v2/ginkgo build --require-suite -r --mod vendor $(ls -d ./test/functional_tests/e2e* | jq -R . | jq -rcs '. | join(" \\\n")')
+          
         env:
           GOWORK: off
 
@@ -137,7 +138,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: e2e-binaries
-          path: ./test/*/*.test
+          path: ./test/functional_tests/*/*.test
           retention-days: 7
   
   vcluster-install-delete:
@@ -287,14 +288,14 @@ jobs:
           chmod +x ./vcluster-dev/vcluster
           set -x
 
-          sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" test/commonValues.yaml
-          sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" test/commonValues.yaml
+          sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" test/functional_tests/commonValues.yaml
+          sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" test/functional_tests/commonValues.yaml
 
           ./vcluster-dev/vcluster create vcluster --distro=${{ matrix.distribution }} \
           --connect=false \
           --upgrade \
           --local-chart-dir ./chart \
-          -f ./test/commonValues.yaml
+          -f ./test/functional_tests/commonValues.yaml
 
           ./hack/wait-for-pod.sh -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }}
 
@@ -317,15 +318,15 @@ jobs:
         include:
           - distribution: "k8s"
             ha: "true"
-            test-suite-path: "./test/e2e"
+            test-suite-path: "./test/functional_tests/e2e"
             multinamespace-mode: "false"
           - distribution: "k3s"
             ha: "true"
-            test-suite-path: "./test/e2e"
+            test-suite-path: "./test/functional_tests/e2e"
             multinamespace-mode: "false"
           - distribution: "k0s"
             ha: "true"
-            test-suite-path: "./test/e2e"
+            test-suite-path: "./test/functional_tests/e2e"
             multinamespace-mode: "false"
         exclude:
           - ha: "true"
@@ -335,13 +336,13 @@ jobs:
             multinamespace-mode: "true"
           - distribution: "k3s"
             multinamespace-mode: "true"
-            test-suite-path: "./test/e2e_target_namespace"
+            test-suite-path: "./test/functional_tests/e2e_target_namespace"
           - distribution: "k3s"
             multinamespace-mode: "true"
-            test-suite-path: "./test/e2e_plugin"
+            test-suite-path: "./test/functional_tests/e2e_plugin"
           - distribution: "k3s"
             multinamespace-mode: "true"
-            test-suite-path: "./test/e2e_isolation_mode"
+            test-suite-path: "./test/functional_tests/e2e_isolation_mode"
 
     steps:
       - name: Checkout repository
@@ -380,7 +381,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: e2e-binaries
-          path: ./test
+          path: ./test/functional_tests/
 
       # - name: Setup upterm session for debugging
       #   uses: lhotari/action-upterm@v1
@@ -392,18 +393,18 @@ jobs:
 
           extraArgs=()
           if [ ${{ matrix.multinamespace-mode }} == "true" ]; then
-            extraArgs+=( -f ./test/multins_values.yaml )
+            extraArgs+=( -f ./test/functional_tests/multins_values.yaml )
           fi
-          if [ ${{ matrix.test-suite-path }} == "./test/e2e_metrics_proxy" ]; then
+          if [ ${{ matrix.test-suite-path }} == "./test/functional_tests/e2e_metrics_proxy" ]; then
             helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
             helm upgrade --install metrics-server metrics-server/metrics-server --set args={--kubelet-insecure-tls} --set containerPort=4443 -n kube-system
           fi
 
           if [ ${{ matrix.ha }} == "true" ]; then
-            haValues="-f ./test/values_ha.yaml"
+            haValues="-f ./test/functional_tests/values_ha.yaml"
           fi
 
-          if [ ${{ matrix.test-suite-path }} == "./test/e2e_target_namespace" ]; then
+          if [ ${{ matrix.test-suite-path }} == "./test/functional_tests/e2e_target_namespace" ]; then
             kubectl apply -f ${{ matrix.test-suite-path }}/role.yaml
           fi
 
@@ -422,7 +423,7 @@ jobs:
           --connect=false \
           --distro=${{ matrix.distribution }} \
           --local-chart-dir ./chart \
-          -f ./test/commonValues.yaml \
+          -f ./test/functional_tests/commonValues.yaml \
           $haValues \
           -f ${{ matrix.test-suite-path }}/values.yaml \
           "${extraArgs[@]}"
@@ -448,7 +449,7 @@ jobs:
           echo "======================================================================================================================"
           kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1
           echo "======================================================================================================================"
-          if [[ "${{ matrix.test-suite-path }}" = "./test/e2e_plugin" ]]; then
+          if [[ "${{ matrix.test-suite-path }}" = "./test/functional_tests/e2e_plugin" ]]; then
             kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c bootstrap-with-deployment --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c bootstrap-with-deployment --tail=-1
             echo "======================================================================================================================"
           fi
@@ -462,9 +463,9 @@ jobs:
         run: |
           set -x
 
-          sudo chmod +x $(echo "${{ matrix.test-suite-path }}" | sed "s#./test/##g").test
+          sudo chmod +x $(echo "${{ matrix.test-suite-path }}" | sed "s#./test/functional_tests/##g").test
 
-          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} ./$(echo "${{ matrix.test-suite-path }}" | sed "s#./test/##g").test -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast
+          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} ./$(echo "${{ matrix.test-suite-path }}" | sed "s#./test/functional_tests/##g").test -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast
           if kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p >/dev/null 2>/dev/null; then
             echo "vCluster has restarted during testing, failing..."
             exit 1
