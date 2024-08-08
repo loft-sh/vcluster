@@ -15,7 +15,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	// Register tests
-	_ "github.com/loft-sh/vcluster/test/e2e_cli/connect"
+	_ "github.com/loft-sh/vcluster/test/functional_tests/e2e_cli/connect"
 )
 
 var (

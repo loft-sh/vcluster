@@ -1,4 +1,4 @@
-package e2eplugin
+package e2etargetnamespace
 
 import (
 	"context"
@@ -15,10 +15,10 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
-	_ "github.com/loft-sh/vcluster/test/e2e_plugin/plugin"
-
 	// Enable cloud provider auth
+	_ "github.com/loft-sh/vcluster/test/functional_tests/e2e_target_namespace/targetnamespace"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	// Register tests
 )
 
 var (
@@ -34,12 +34,12 @@ func init() {
 	_ = apiregistrationv1.AddToScheme(scheme)
 }
 
-// TestRunE2EPluginModeTests checks configuration parameters (specified through flags) and then runs
+// TestRunE2ETargetNamespaceTests checks configuration parameters (specified through flags) and then runs
 // E2E tests using the Ginkgo runner.
 // If a "report directory" is specified, one or more JUnit test reports will be
 // generated in this directory, and cluster logs will also be saved.
 // This function is called on each Ginkgo node in parallel mode.
-func TestRunE2EPluginModeTests(t *testing.T) {
+func TestRunE2ETargetNamespaceTests(t *testing.T) {
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	err := framework.CreateFramework(context.Background(), scheme)
 	if err != nil {
@@ -53,5 +53,5 @@ func TestRunE2EPluginModeTests(t *testing.T) {
 		}
 	})
 
-	ginkgo.RunSpecs(t, "vCluster e2ePlugin suite")
+	ginkgo.RunSpecs(t, "Vcluster e2eTargetNamespace suite")
 }

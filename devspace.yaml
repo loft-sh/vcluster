@@ -6,9 +6,9 @@ vars:
   # Make sure vcluster is the default namespace
   DEVSPACE_FLAGS: "-n vcluster"
   SYNCER_IMAGE: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
-  COMMON_VALUES: ./test/commonValues.yaml
-  PRO_VALUES: ./test/proValues.yaml
-  VALUES_FILE: ./test/e2e/values.yaml
+  COMMON_VALUES: ./test/functional_tests/commonValues.yaml
+  PRO_VALUES: ./test/functional_tests/proValues.yaml
+  VALUES_FILE: ./test/functional_tests/e2e/values.yaml
 
 # Images DevSpace will build for vcluster
 images:
@@ -218,7 +218,7 @@ profiles:
 
 commands:
   # e.g. devspace run test k3s
-  # e.g. devspace run test k3s --var VALUES_FILE=./test/e2e_node
+  # e.g. devspace run test k3s --var VALUES_FILE=./test/functional_tests/e2e_node
   test: |-
     devspace purge -n ${DEVSPACE_NAMESPACE} --debug
     devspace dev -n ${DEVSPACE_NAMESPACE} --profile test-$@

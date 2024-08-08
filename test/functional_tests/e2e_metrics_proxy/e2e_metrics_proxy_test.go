@@ -1,4 +1,4 @@
-package e2enode
+package e2emetricsproxy
 
 import (
 	"context"
@@ -19,16 +19,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	// Register tests
-	_ "github.com/loft-sh/vcluster/test/e2e/coredns"
-	_ "github.com/loft-sh/vcluster/test/e2e/k8sdefaultendpoint"
-	_ "github.com/loft-sh/vcluster/test/e2e/manifests"
-	_ "github.com/loft-sh/vcluster/test/e2e/servicesync"
-	_ "github.com/loft-sh/vcluster/test/e2e/syncer/networkpolicies"
-	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pods"
-	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pvc"
-	_ "github.com/loft-sh/vcluster/test/e2e/syncer/services"
-	_ "github.com/loft-sh/vcluster/test/e2e/webhook"
-	_ "github.com/loft-sh/vcluster/test/e2e_node/node"
+	_ "github.com/loft-sh/vcluster/test/functional_tests/e2e_metrics_proxy/metricsproxy"
 )
 
 var (
@@ -44,12 +35,12 @@ func init() {
 	_ = apiregistrationv1.AddToScheme(scheme)
 }
 
-// TestRunE2ENodeTests checks configuration parameters (specified through flags) and then runs
+// TestRunE2ETargetNamespaceTests checks configuration parameters (specified through flags) and then runs
 // E2E tests using the Ginkgo runner.
 // If a "report directory" is specified, one or more JUnit test reports will be
 // generated in this directory, and cluster logs will also be saved.
 // This function is called on each Ginkgo node in parallel mode.
-func TestRunE2ENodeTests(t *testing.T) {
+func TestRunE2ETargetNamespaceTests(t *testing.T) {
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	err := framework.CreateFramework(context.Background(), scheme)
 	if err != nil {
@@ -63,5 +54,5 @@ func TestRunE2ENodeTests(t *testing.T) {
 		}
 	})
 
-	ginkgo.RunSpecs(t, "Vcluster e2enode suite")
+	ginkgo.RunSpecs(t, "vcluster e2eProxyMetricsServer suite")
 }
