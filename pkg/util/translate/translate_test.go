@@ -10,6 +10,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func TestVirtualLabels(t *testing.T) {
+	vMap := VirtualLabelsMap(map[string]string{
+		"test":    "test",
+		"test123": "test123",
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster",
+	}, nil)
+	assert.DeepEqual(t, map[string]string{
+		"test":    "test",
+		"test123": "test123",
+		"release": "vcluster",
+	}, vMap)
+}
+
 func TestNotRewritingLabels(t *testing.T) {
 	pMap := map[string]string{
 		"abc": "abc",

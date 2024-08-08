@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -25,16 +26,16 @@ func CreateVolumeSnapshotContentsMapper(ctx *synccontext.RegisterContext) (syncc
 		return nil, err
 	}
 
-	return generic.NewMapperWithObject(ctx, &volumesnapshotv1.VolumeSnapshotContent{}, func(_ *synccontext.SyncContext, name, _ string, vObj client.Object) string {
+	return generic.NewMapperWithObject(ctx, &volumesnapshotv1.VolumeSnapshotContent{}, func(_ *synccontext.SyncContext, name, _ string, vObj client.Object) types.NamespacedName {
 		if vObj == nil {
-			return name
+			return types.NamespacedName{Name: name}
 		}
 
 		vVSC, ok := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
 		if !ok || vVSC.Annotations == nil || vVSC.Annotations[constants.HostClusterVSCAnnotation] == "" {
-			return translate.Default.HostNameCluster(name)
+			return types.NamespacedName{Name: translate.Default.HostNameCluster(name)}
 		}
 
-		return vVSC.Annotations[constants.HostClusterVSCAnnotation]
+		return types.NamespacedName{Name: vVSC.Annotations[constants.HostClusterVSCAnnotation]}
 	})
 }

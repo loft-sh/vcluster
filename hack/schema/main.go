@@ -18,6 +18,7 @@ const ValuesOutFile = "chart/values.yaml"
 
 var SkipProperties = map[string]string{
 	"EnableSwitch":              "*",
+	"EnableSwitchWithTranslate": "enabled",
 	"SyncAllResource":           "enabled",
 	"DistroContainerEnabled":    "enabled",
 	"EtcdDeployService":         "*",

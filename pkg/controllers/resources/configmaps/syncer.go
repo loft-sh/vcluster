@@ -6,13 +6,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/util/workqueue"
@@ -28,17 +28,21 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, err
 	}
 
+	// only add importer if all configmaps should get synced
+	importer := syncer.NewNoopImporter()
+	if ctx.Config.Sync.ToHost.ConfigMaps.All {
+		importer = pro.NewImporter(mapper)
+	}
+
 	return &configMapSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "configmap", &corev1.ConfigMap{}, mapper),
-
-		syncAllConfigMaps: ctx.Config.Sync.ToHost.ConfigMaps.All,
+		Importer:          importer,
 	}, nil
 }
 
 type configMapSyncer struct {
 	syncertypes.GenericTranslator
-
-	syncAllConfigMaps bool
+	syncertypes.Importer
 }
 
 var _ syncertypes.Syncer = &configMapSyncer{}
@@ -63,17 +67,39 @@ func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 		return ctrl.Result{}, nil
 	}
 
-	if event.IsDelete() {
+	if event.IsDelete() || event.Virtual.DeletionTimestamp != nil {
 		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
 	}
 
 	pObj := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name, Namespace: event.Virtual.Namespace}, event.Virtual))
+	err = pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.ConfigMaps.Translate)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	return syncer.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
 }
 
 func (s *configMapSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.ConfigMap]) (_ ctrl.Result, retErr error) {
-	// virtual object is not here anymore, so we delete
-	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
+		// virtual object is not here anymore, so we delete
+		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	}
+
+	vObj := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
+	createNeeded, err := s.isConfigMapUsed(ctx, vObj)
+	if err != nil {
+		return ctrl.Result{}, err
+	} else if !createNeeded {
+		return ctrl.Result{}, nil
+	}
+
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.ConfigMaps.Translate)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return syncer.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder())
 }
 
 func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.ConfigMap]) (_ ctrl.Result, retErr error) {
@@ -91,7 +117,7 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 		return ctrl.Result{}, nil
 	}
 
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.ConfigMaps.Translate))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -107,7 +133,13 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 
 	// check annotations & labels
 	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
-	event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
+
+	// check labels
+	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
+	} else {
+		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
+	}
 
 	// bidirectional sync
 	event.TargetObject().Data = event.SourceObject().Data
@@ -115,13 +147,10 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 	return ctrl.Result{}, nil
 }
 
-func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj runtime.Object) (bool, error) {
-	configMap, ok := vObj.(*corev1.ConfigMap)
-	if !ok || configMap == nil {
-		return false, fmt.Errorf("%#v is not a config map", vObj)
-	} else if configMap.Annotations != nil && configMap.Annotations[constants.SyncResourceAnnotation] == "true" {
+func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj *corev1.ConfigMap) (bool, error) {
+	if vObj.Annotations[constants.SyncResourceAnnotation] == "true" {
 		return true, nil
-	} else if s.syncAllConfigMaps {
+	} else if ctx.Config.Sync.ToHost.ConfigMaps.All {
 		return true, nil
 	}
 
@@ -129,8 +158,8 @@ func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj run
 	references := ctx.Mappings.Store().ReferencesTo(ctx, synccontext.Object{
 		GroupVersionKind: s.GroupVersionKind(),
 		NamespacedName: types.NamespacedName{
-			Namespace: configMap.Namespace,
-			Name:      configMap.Name,
+			Namespace: vObj.Namespace,
+			Name:      vObj.Name,
 		},
 	})
 

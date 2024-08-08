@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
@@ -26,11 +27,13 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 	return &serviceAccountSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "serviceaccount", &corev1.ServiceAccount{}, mapper),
+		Importer:          pro.NewImporter(mapper),
 	}, nil
 }
 
 type serviceAccountSyncer struct {
 	syncertypes.GenericTranslator
+	syncertypes.Importer
 }
 
 var _ syncertypes.Syncer = &serviceAccountSyncer{}
@@ -40,7 +43,7 @@ func (s *serviceAccountSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *serviceAccountSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.ServiceAccount]) (ctrl.Result, error) {
-	if event.IsDelete() {
+	if event.IsDelete() || event.Virtual.DeletionTimestamp != nil {
 		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
 	}
 
@@ -73,6 +76,11 @@ func (s *serviceAccountSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 }
 
 func (s *serviceAccountSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.ServiceAccount]) (_ ctrl.Result, retErr error) {
-	// virtual object is not here anymore, so we delete
-	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
+		// virtual object is not here anymore, so we delete
+		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	}
+
+	vObj := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
+	return syncer.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder())
 }

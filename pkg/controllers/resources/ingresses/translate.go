@@ -56,7 +56,7 @@ func translateSpec(ctx *synccontext.SyncContext, namespace string, vIngressSpec 
 			retSpec.DefaultBackend.Service.Name = mappings.VirtualToHostName(ctx, retSpec.DefaultBackend.Service.Name, namespace, mappings.Services())
 		}
 		if retSpec.DefaultBackend.Resource != nil {
-			retSpec.DefaultBackend.Resource.Name = translate.Default.HostName(ctx, retSpec.DefaultBackend.Resource.Name, namespace)
+			retSpec.DefaultBackend.Resource.Name = translate.Default.HostName(ctx, retSpec.DefaultBackend.Resource.Name, namespace).Name
 		}
 	}
 
@@ -67,7 +67,7 @@ func translateSpec(ctx *synccontext.SyncContext, namespace string, vIngressSpec 
 					retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name = mappings.VirtualToHostName(ctx, retSpec.Rules[i].HTTP.Paths[j].Backend.Service.Name, namespace, mappings.Services())
 				}
 				if path.Backend.Resource != nil {
-					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.Default.HostName(ctx, retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace)
+					retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name = translate.Default.HostName(ctx, retSpec.Rules[i].HTTP.Paths[j].Backend.Resource.Name, namespace).Name
 				}
 			}
 		}
@@ -107,7 +107,7 @@ func processAlbAnnotations(ctx *synccontext.SyncContext, namespace string, k str
 		// change k
 		action := getActionOrConditionValue(k, ActionsSuffix)
 		if !strings.Contains(k, "x-"+namespace+"-x") {
-			k = strings.Replace(k, action, translate.Default.HostName(ctx, action, namespace), 1)
+			k = strings.Replace(k, action, translate.Default.HostName(ctx, action, namespace).Name, 1)
 		}
 		// change v
 		var payload *actionPayload
@@ -121,7 +121,7 @@ func processAlbAnnotations(ctx *synccontext.SyncContext, namespace string, k str
 					case string:
 						if svcName != "" {
 							if !strings.Contains(svcName, "x-"+namespace+"-x") {
-								targetGroup["serviceName"] = translate.Default.HostName(ctx, svcName, namespace)
+								targetGroup["serviceName"] = translate.Default.HostName(ctx, svcName, namespace).Name
 							} else {
 								targetGroup["serviceName"] = svcName
 							}
@@ -139,7 +139,7 @@ func processAlbAnnotations(ctx *synccontext.SyncContext, namespace string, k str
 	if strings.HasPrefix(k, AlbConditionAnnotation) {
 		condition := getActionOrConditionValue(k, ConditionSuffix)
 		if !strings.Contains(k, "x-"+namespace+"-x") {
-			k = strings.Replace(k, condition, translate.Default.HostName(ctx, condition, namespace), 1)
+			k = strings.Replace(k, condition, translate.Default.HostName(ctx, condition, namespace).Name, 1)
 		}
 	}
 	return k, v

@@ -37,7 +37,7 @@ func TestSync(t *testing.T) {
 	}
 	pSA := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName(nil, vSA.Name, vSA.Namespace),
+			Name:      translate.Default.HostName(nil, vSA.Name, vSA.Namespace).Name,
 			Namespace: "test",
 			Annotations: map[string]string{
 				"test":                                 "test",

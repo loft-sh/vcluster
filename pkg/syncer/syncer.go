@@ -440,7 +440,28 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 		klog.Errorf("error checking object %v if managed: %v", obj, err)
 		return
 	} else if !managed {
-		return
+		// check if we should import
+
+		// don't import if object was deleted
+		if isDelete {
+			return
+		}
+
+		// is importer?
+		importer, ok := r.syncer.(syncertypes.Importer)
+		if !ok {
+			return
+		}
+
+		// try to import
+		imported, err := importer.Import(syncContext, obj)
+		if err != nil {
+			klog.Errorf("error importing object %v: %v", obj, err)
+			return
+		} else if !imported {
+			// not imported, so just return
+			return
+		}
 	}
 
 	// add a new request for the virtual object as otherwise this information might be lost after a delete event

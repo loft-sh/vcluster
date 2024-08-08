@@ -14,7 +14,7 @@ import (
 )
 
 func CreateConfigMapsMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	mapper, err := generic.NewMapperWithoutRecorder(ctx, &corev1.ConfigMap{}, func(ctx *synccontext.SyncContext, vName, vNamespace string, _ client.Object) string {
+	mapper, err := generic.NewMapperWithoutRecorder(ctx, &corev1.ConfigMap{}, func(ctx *synccontext.SyncContext, vName, vNamespace string, _ client.Object) types.NamespacedName {
 		return translate.Default.HostName(ctx, vName, vNamespace)
 	})
 	if err != nil {

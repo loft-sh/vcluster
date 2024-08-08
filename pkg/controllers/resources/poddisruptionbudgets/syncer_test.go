@@ -24,7 +24,7 @@ func TestSync(t *testing.T) {
 		ResourceVersion: syncertesting.FakeClientResourceVersion,
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.Default.HostName(nil, "testPDB", vObjectMeta.Namespace),
+		Name:      translate.Default.HostName(nil, "testPDB", vObjectMeta.Namespace).Name,
 		Namespace: "test",
 		Annotations: map[string]string{
 			translate.NameAnnotation:      vObjectMeta.Name,

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,6 +27,12 @@ type optionFn func(p *Patcher)
 
 func (o optionFn) Apply(p *Patcher) {
 	o(p)
+}
+
+func TranslatePatches(translate []config.TranslatePatch) Option {
+	return optionFn(func(p *Patcher) {
+		p.patches = translate
+	})
 }
 
 func Direction(direction string) Option {
@@ -65,6 +73,12 @@ type SyncerPatcher struct {
 
 // Patch will attempt to patch the given object, including its status.
 func (h *SyncerPatcher) Patch(ctx *synccontext.SyncContext, pObj, vObj client.Object) error {
+	h.vPatcher.vObj = vObj
+	h.vPatcher.pObj = pObj
+
+	h.pPatcher.vObj = vObj
+	h.pPatcher.pObj = pObj
+
 	err := h.vPatcher.Patch(ctx, vObj)
 	if err != nil {
 		return fmt.Errorf("patch virtual object: %w", err)
@@ -85,9 +99,15 @@ type Patcher struct {
 	beforeObject client.Object
 	before       *unstructured.Unstructured
 	after        *unstructured.Unstructured
-	changes      map[string]bool
+
+	vObj client.Object
+	pObj client.Object
+
+	changes map[string]bool
 
 	direction string
+
+	patches []config.TranslatePatch
 
 	NoStatusSubResource bool
 }
@@ -127,10 +147,26 @@ func NewPatcher(obj client.Object, crClient client.Client, options ...Option) (*
 }
 
 // Patch will attempt to patch the given object, including its status.
-func (h *Patcher) Patch(ctx context.Context, obj client.Object) error {
+func (h *Patcher) Patch(ctx *synccontext.SyncContext, obj client.Object) error {
 	// Return early if the object is nil.
 	if err := checkNilObject(obj); err != nil {
 		return err
+	}
+
+	// apply translate patches if wanted
+	if len(h.patches) > 0 {
+		obj = obj.DeepCopyObject().(client.Object)
+		if h.direction == "host" {
+			err := pro.ApplyPatchesHostObject(ctx, h.beforeObject, obj, h.vObj, h.patches)
+			if err != nil {
+				return fmt.Errorf("apply patches host object: %w", err)
+			}
+		} else if h.direction == "virtual" {
+			err := pro.ApplyPatchesVirtualObject(ctx, h.beforeObject, obj, h.pObj, h.patches)
+			if err != nil {
+				return fmt.Errorf("apply patches virtual object: %w", err)
+			}
+		}
 	}
 
 	// Get the GroupVersionKind of the object that we want to patch.

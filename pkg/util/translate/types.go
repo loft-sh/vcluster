@@ -2,6 +2,7 @@ package translate
 
 import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,10 +45,10 @@ type Translator interface {
 	MarkerLabelCluster() string
 
 	// HostName returns the host name for a virtual cluster object
-	HostName(ctx *synccontext.SyncContext, vName, vNamespace string) string
+	HostName(ctx *synccontext.SyncContext, vName, vNamespace string) types.NamespacedName
 
 	// HostNameShort returns the short host name for a virtual cluster object
-	HostNameShort(ctx *synccontext.SyncContext, vName, vNamespace string) string
+	HostNameShort(ctx *synccontext.SyncContext, vName, vNamespace string) types.NamespacedName
 
 	// HostNameCluster returns the host name for a cluster scoped
 	// virtual cluster object

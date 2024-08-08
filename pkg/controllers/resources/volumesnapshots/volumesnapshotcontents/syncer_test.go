@@ -41,7 +41,7 @@ func TestSync(t *testing.T) {
 	}
 	pVolumeSnapshot := &volumesnapshotv1.VolumeSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName(nil, vVolumeSnapshot.Name, vVolumeSnapshot.Namespace),
+			Name:      translate.Default.HostName(nil, vVolumeSnapshot.Name, vVolumeSnapshot.Namespace).Name,
 			Namespace: targetNamespace,
 		},
 	}
@@ -79,7 +79,7 @@ func TestSync(t *testing.T) {
 		Spec:       *vPreProvisioned.Spec.DeepCopy(),
 	}
 	pPreProvisioned.Spec.VolumeSnapshotRef = corev1.ObjectReference{
-		Name:      translate.Default.HostName(nil, vPreProvisioned.Spec.VolumeSnapshotRef.Name, vPreProvisioned.Spec.VolumeSnapshotRef.Namespace),
+		Name:      translate.Default.HostName(nil, vPreProvisioned.Spec.VolumeSnapshotRef.Name, vPreProvisioned.Spec.VolumeSnapshotRef.Namespace).Name,
 		Namespace: targetNamespace,
 	}
 
@@ -91,7 +91,7 @@ func TestSync(t *testing.T) {
 		ObjectMeta: pDynamicObjectMeta,
 		Spec: volumesnapshotv1.VolumeSnapshotContentSpec{
 			VolumeSnapshotRef: corev1.ObjectReference{
-				Name:      translate.Default.HostName(nil, vVolumeSnapshot.Name, vVolumeSnapshot.Namespace),
+				Name:      translate.Default.HostName(nil, vVolumeSnapshot.Name, vVolumeSnapshot.Namespace).Name,
 				Namespace: targetNamespace,
 			},
 			DeletionPolicy:          volumesnapshotv1.VolumeSnapshotContentDelete,

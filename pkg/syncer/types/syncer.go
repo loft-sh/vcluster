@@ -17,16 +17,16 @@ type Object interface {
 	Resource() client.Object
 }
 
-type Exporter interface {
-	Base
-	Register()
-}
-
 type Syncer interface {
 	Object
 	synccontext.Mapper
 
 	Syncer() Sync[client.Object]
+}
+
+type Importer interface {
+	// Import imports the given host object into the virtual cluster
+	Import(ctx *synccontext.SyncContext, pObj client.Object) (bool, error)
 }
 
 type Sync[T client.Object] interface {

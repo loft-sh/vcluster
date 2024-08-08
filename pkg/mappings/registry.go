@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 func NewMappingsRegistry(store synccontext.MappingsStore) synccontext.MappingsRegistry {
@@ -139,6 +141,10 @@ func PriorityClasses() schema.GroupVersionKind {
 	return schedulingv1.SchemeGroupVersion.WithKind("PriorityClass")
 }
 
+func VirtualToHostNamespace(ctx *synccontext.SyncContext, vNamespace string) string {
+	return VirtualToHostName(ctx, vNamespace, "", Namespaces())
+}
+
 func VirtualToHostName(ctx *synccontext.SyncContext, vName, vNamespace string, gvk schema.GroupVersionKind) string {
 	return VirtualToHost(ctx, vName, vNamespace, gvk).Name
 }
@@ -150,6 +156,20 @@ func HostToVirtual(ctx *synccontext.SyncContext, pName, pNamespace string, pObj 
 	}
 
 	return mapper.HostToVirtual(ctx, types.NamespacedName{Name: pName, Namespace: pNamespace}, pObj)
+}
+
+func IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
+	gvk, err := apiutil.GVKForObject(pObj, scheme.Scheme)
+	if err != nil {
+		return false, err
+	}
+
+	mapper, err := ctx.Mappings.ByGVK(gvk)
+	if err != nil {
+		return false, err
+	}
+
+	return mapper.IsManaged(ctx, pObj)
 }
 
 func VirtualToHost(ctx *synccontext.SyncContext, vName, vNamespace string, gvk schema.GroupVersionKind) types.NamespacedName {

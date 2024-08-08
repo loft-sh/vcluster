@@ -7,7 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var translateLabels = map[string]bool{
+var LabelsToTranslate = map[string]bool{
 	// rewrite release
 	VClusterReleaseLabel: true,
 
@@ -17,8 +17,17 @@ var translateLabels = map[string]bool{
 	ControllerLabel: true,
 }
 
+func IsTranslatedLabel(label string) (string, bool) {
+	for k := range LabelsToTranslate {
+		if convertLabelKeyWithPrefix(LabelPrefix, k) == label {
+			return k, true
+		}
+	}
+	return "", false
+}
+
 func HostLabel(vLabel string) string {
-	if translateLabels[vLabel] {
+	if LabelsToTranslate[vLabel] {
 		return convertLabelKeyWithPrefix(LabelPrefix, vLabel)
 	}
 
@@ -26,14 +35,12 @@ func HostLabel(vLabel string) string {
 }
 
 func VirtualLabel(pLabel string) (string, bool) {
-	if translateLabels[pLabel] {
+	if LabelsToTranslate[pLabel] {
 		return "", false
 	}
 
-	for k := range translateLabels {
-		if convertLabelKeyWithPrefix(LabelPrefix, k) == pLabel {
-			return k, true
-		}
+	if originalLabel, ok := IsTranslatedLabel(pLabel); ok {
+		return originalLabel, true
 	}
 
 	return pLabel, true
@@ -46,14 +53,11 @@ func HostLabelsMap(vLabels, pLabels map[string]string, vNamespace string, isMeta
 
 	newLabels := map[string]string{}
 	for k, v := range vLabels {
-		pLabel := HostLabel(k)
-
-		// this can happen since multiple keys could translate
-		// to the same pLabel, so we prefer the pLabel != k one
-		_, ok := newLabels[pLabel]
-		if !ok || pLabel != k {
-			newLabels[pLabel] = v
+		if _, ok := IsTranslatedLabel(k); ok {
+			continue
 		}
+
+		newLabels[HostLabel(k)] = v
 	}
 
 	// check if we should add namespace and marker label
@@ -86,23 +90,18 @@ func VirtualLabelsMap(pLabels, vLabels map[string]string, excluded ...string) ma
 
 	// try to translate back
 	for key, value := range retLabels {
+		// if the original key was on vLabels we want to preserve it
+		vValue, ok := vLabels[key]
+		if !ok {
+			delete(retLabels, key)
+		} else {
+			retLabels[key] = vValue
+		}
+
+		// if the virtual label can be converted we will add it back
 		vKey, ok := VirtualLabel(key)
 		if ok {
-			// if the original key was on vLabels we want to preserve it
-			vValue, ok := vLabels[key]
-			if !ok {
-				delete(retLabels, key)
-			} else {
-				retLabels[key] = vValue
-			}
-
 			retLabels[vKey] = value
-		} else {
-			// if the original key was on vLabels we want to preserve it
-			vValue, ok := vLabels[key]
-			if ok {
-				retLabels[key] = vValue
-			}
 		}
 	}
 

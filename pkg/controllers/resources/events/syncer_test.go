@@ -34,7 +34,7 @@ func TestSync(t *testing.T) {
 	}
 	pPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName(nil, vPod.Name, vPod.Namespace),
+			Name:      translate.Default.HostName(nil, vPod.Name, vPod.Namespace).Name,
 			Namespace: syncertesting.DefaultTestTargetNamespace,
 		},
 	}

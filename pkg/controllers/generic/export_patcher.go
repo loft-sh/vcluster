@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patches"
 	patchesregex "github.com/loft-sh/vcluster/pkg/patches/regex"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -27,7 +28,7 @@ func (e *exportPatcher) ServerSideApply(ctx *synccontext.SyncContext, fromObj, d
 		syncContext: ctx,
 
 		namespace:       fromObj.GetNamespace(),
-		targetNamespace: translate.Default.HostNamespace(ctx, fromObj.GetNamespace()),
+		targetNamespace: mappings.VirtualToHostNamespace(ctx, fromObj.GetNamespace()),
 	})
 }
 
@@ -57,14 +58,11 @@ func (r *virtualToHostNameResolver) TranslateNameWithNamespace(name string, name
 				ns = namespace
 			}
 
-			return types.NamespacedName{
-				Namespace: translate.Default.HostNamespace(r.syncContext, namespace),
-				Name:      translate.Default.HostName(r.syncContext, name, ns),
-			}
+			return translate.Default.HostName(r.syncContext, name, ns)
 		}), nil
 	}
 
-	return translate.Default.HostName(r.syncContext, name, namespace), nil
+	return translate.Default.HostName(r.syncContext, name, namespace).Name, nil
 }
 
 func (r *virtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
@@ -84,7 +82,7 @@ func (r *virtualToHostNameResolver) TranslateLabelSelector(selector map[string]s
 }
 
 func (r *virtualToHostNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
-	return translate.Default.HostNamespace(r.syncContext, namespace), nil
+	return mappings.VirtualToHostNamespace(r.syncContext, namespace), nil
 }
 
 func validateExportConfig(config *vclusterconfig.Export) error {

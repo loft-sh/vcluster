@@ -31,14 +31,24 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	// spec diff
 	t.calcSpecDiff(pPod, vPod)
 
+	// check pod and namespace labels
+	if event.Source == synccontext.SyncEventSourceHost {
+		vPod.Labels = translate.VirtualLabels(pPod, vPod)
+	} else {
+		updatedLabels := translate.HostLabels(vPod, pPod)
+		if updatedLabels == nil {
+			updatedLabels = map[string]string{}
+		}
+		for k, v := range vNamespace.GetLabels() {
+			updatedLabels[translate.HostLabelNamespace(k)] = v
+		}
+		pPod.Labels = updatedLabels
+	}
+
 	// check annotations
-	updatedAnnotations := translate.HostAnnotations(vPod, pPod, getExcludedAnnotations(pPod)...)
-	updatedLabels := translate.HostLabels(vPod, pPod)
+	updatedAnnotations := translate.HostAnnotations(vPod, pPod, GetExcludedAnnotations(pPod)...)
 	if updatedAnnotations == nil {
 		updatedAnnotations = map[string]string{}
-	}
-	if updatedLabels == nil {
-		updatedLabels = map[string]string{}
 	}
 
 	// set owner references
@@ -57,17 +67,11 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 		delete(updatedAnnotations, OwnerSetKind)
 	}
 
-	// check pod and namespace labels
-	for k, v := range vNamespace.GetLabels() {
-		updatedLabels[translate.HostLabelNamespace(k)] = v
-	}
-
 	pPod.Annotations = updatedAnnotations
-	pPod.Labels = updatedLabels
 	return nil
 }
 
-func getExcludedAnnotations(pPod *corev1.Pod) []string {
+func GetExcludedAnnotations(pPod *corev1.Pod) []string {
 	annotations := []string{ClusterAutoScalerAnnotation, OwnerReferences, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, VClusterLabelsAnnotation}
 	if pPod != nil {
 		for _, v := range pPod.Spec.Volumes {
