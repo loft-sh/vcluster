@@ -16,8 +16,9 @@ jobs:
         with:
           github-token: ${{ secrets.GH_ACCESS_TOKEN }}
           script: |
+            const title = 'from pr ${{ github.event.pull_request.number }}'
             const version = 'some-version';
-            const ref = '${{ steps.get_version.outputs.release_version }}';
+            const ref = '${{ github.event.pull_request.head.sha }}';
             const response = await github.rest.actions.createWorkflowDispatch({
               owner: 'loft-sh',
               repo: 'vcluster-docs',
