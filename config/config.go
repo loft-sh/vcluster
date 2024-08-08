@@ -83,6 +83,15 @@ type Integrations struct {
 
 	// KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
 	KubeVirt KubeVirt `json:"kubeVirt,omitempty"`
+
+	// ExternalSecrets reuses a host's external secret operator and makes some of its CRDs available inside the virtual cluster
+	ExternalSecrets ExternalSecrets `json:"externalSecrets,omitempty"`
+}
+
+// ExternalSecrets reuses a host's external secret operator and makes some of its CRDs available inside the virtual cluster
+type ExternalSecrets struct {
+	// Enabled signals if the integration should be enabled
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
