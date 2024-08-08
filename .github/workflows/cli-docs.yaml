@@ -21,5 +21,5 @@ jobs:
             /repos/loft-sh/vcluster-docs/dispatches \
             -f "event_type=update-cli-docs" \
             -F "client_payload[ref]={{ github.event.pull_request.head.ref }}" \
-            -F "client_payload[title]={{ github.event.pull_request.title }}"
+            -F "client_payload[title]={{ github.event.pull_request.title }}" \
             -F "client_payload[version]=some-version"
