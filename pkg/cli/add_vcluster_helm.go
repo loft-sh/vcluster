@@ -23,6 +23,7 @@ type AddVClusterOptions struct {
 	Insecure   bool
 	AccessKey  string
 	Host       string
+	CaCert     []byte
 }
 
 func AddVClusterHelm(
@@ -98,6 +99,7 @@ func AddVClusterHelm(
 		options.AccessKey,
 		options.Host,
 		options.Insecure,
+		options.CaCert,
 	)
 	if err != nil {
 		return err
