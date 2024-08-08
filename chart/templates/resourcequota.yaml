@@ -2,16 +2,16 @@
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: vc-{{ .Release.Name }}
+  name: vc-{{ (include "vcluster.name" .) }}
   {{- if .Values.experimental.syncSettings.targetNamespace }}
   namespace: {{ .Values.experimental.syncSettings.targetNamespace }}
   {{- else }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ (include "vcluster.namespace" .) }}
   {{- end }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ (include "vcluster.name" .) }}"
     heritage: "{{ .Release.Service }}"
     {{- if .Values.policies.resourceQuota.labels }}
 {{ toYaml .Values.policies.resourceQuota.labels | indent 4 }}

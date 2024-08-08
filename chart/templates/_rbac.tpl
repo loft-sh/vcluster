@@ -1,9 +1,9 @@
 {{- define "vcluster.clusterRoleName" -}}
-{{- printf "vc-%s-v-%s" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
+{{- printf "vc-%s-v-%s" (include "vcluster.name" .) (include "vcluster.namespace" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{- define "vcluster.clusterRoleNameMultinamespace" -}}
-{{- printf "vc-mn-%s-v-%s" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
+{{- printf "vc-mn-%s-v-%s" (include "vcluster.name" .) (include "vcluster.namespace" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
@@ -150,7 +150,7 @@
 */}}
 {{- define "vcluster.rbac.createPlatformSecretRole" -}}
 {{- $createRBAC := dig "platform" "apiKey" "createRBAC" true .Values.external -}}
-{{- if and $createRBAC (ne (include "vcluster.rbac.platformSecretNamespace" .) .Release.Namespace) }}
+{{- if and $createRBAC (ne (include "vcluster.rbac.platformSecretNamespace" .) (include "vcluster.namespace" .)) }}
 {{- true -}}
 {{- end }}
 {{- end -}}
@@ -159,7 +159,7 @@
   Namespace containing the vCluster platform secret
 */}}
 {{- define "vcluster.rbac.platformSecretNamespace" -}}
-{{- dig "platform" "apiKey" "namespace" .Release.Namespace .Values.external | default .Release.Namespace -}}
+{{- dig "platform" "apiKey" "namespace" (include "vcluster.namespace" .) .Values.external | default (include "vcluster.namespace" .) -}}
 {{- end -}}
 
 {{/*
@@ -170,10 +170,10 @@
 {{- end -}}
 
 {{- define "vcluster.rbac.platformRoleName" -}}
-{{- printf "vc-%s-v-%s-platform-role" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
+{{- printf "vc-%s-v-%s-platform-role" (include "vcluster.name" .) (include "vcluster.namespace" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 
 {{- define "vcluster.rbac.platformRoleBindingName" -}}
-{{- printf "vc-%s-v-%s-platform-role-binding" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
+{{- printf "vc-%s-v-%s-platform-role-binding" (include "vcluster.name" .) (include "vcluster.namespace" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}

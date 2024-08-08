@@ -6,7 +6,7 @@ metadata:
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ (include "vcluster.name" .) }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.controlPlane.advanced.globalMetadata.annotations }}
   annotations:
@@ -17,9 +17,9 @@ subjects:
     {{- if .Values.controlPlane.advanced.serviceAccount.name }}
     name: {{ .Values.controlPlane.advanced.serviceAccount.name }}
     {{- else }}
-    name: vc-{{ .Release.Name }}
+    name: vc-{{ (include "vcluster.name" .) }}
     {{- end }}
-    namespace: {{ .Release.Namespace }}
+    namespace: {{ (include "vcluster.namespace" .) }}
 roleRef:
   kind: ClusterRole
   name: {{ template "vcluster.clusterRoleName" . }}

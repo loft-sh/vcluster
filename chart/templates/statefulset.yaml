@@ -2,12 +2,12 @@
 apiVersion: apps/v1
 kind: {{ include "vcluster.kind" . }}
 metadata:
-  name: {{ .Release.Name }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ (include "vcluster.name" .) }}
+  namespace: {{ (include "vcluster.namespace" .) }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ (include "vcluster.name" .) }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.controlPlane.statefulSet.labels }}
 {{ toYaml .Values.controlPlane.statefulSet.labels | indent 4 }}
@@ -21,13 +21,13 @@ spec:
   selector:
     matchLabels:
       app: vcluster
-      release: {{ .Release.Name }}
+      release: {{ (include "vcluster.name" .) }}
   {{- if eq (include "vcluster.kind" .) "StatefulSet" }}
   {{- if ge (int .Capabilities.KubeVersion.Minor) 27 }}
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: {{ .Values.controlPlane.statefulSet.persistence.volumeClaim.retentionPolicy }}
   {{- end }}
-  serviceName: {{ .Release.Name }}-headless
+  serviceName: {{ (include "vcluster.name" .) }}-headless
   podManagementPolicy: {{ .Values.controlPlane.statefulSet.scheduling.podManagementPolicy }}
 {{ include "vcluster.persistence" . | indent 2 }}
   {{- else }}
@@ -51,7 +51,7 @@ spec:
       {{- end }}
       labels:
         app: vcluster
-        release: {{ .Release.Name }}
+        release: {{ (include "vcluster.name" .) }}
         {{- if .Values.controlPlane.statefulSet.pods.labels }}
 {{ toYaml .Values.controlPlane.statefulSet.pods.labels | indent 8 }}
         {{- end }}
@@ -86,7 +86,7 @@ spec:
       {{- if .Values.controlPlane.advanced.serviceAccount.name }}
       serviceAccountName: {{ .Values.controlPlane.advanced.serviceAccount.name }}
       {{- else }}
-      serviceAccountName: vc-{{ .Release.Name }}
+      serviceAccountName: vc-{{ (include "vcluster.name" .) }}
       {{- end }}
       volumes:
 {{- include "vcluster.plugins.volumes" . | indent 8 }}
@@ -107,11 +107,11 @@ spec:
         {{- end }}
         - name: vcluster-config
           secret:
-            secretName: vc-config-{{ .Release.Name }}
+            secretName: vc-config-{{ (include "vcluster.name" .) }}
         {{- if .Values.controlPlane.coredns.enabled }}
         - name: coredns
           configMap:
-            name: vc-coredns-{{ .Release.Name }}
+            name: vc-coredns-{{ (include "vcluster.name" .) }}
         # - name: custom-config-volume
         #   configMap:
         #     name: coredns-custom
@@ -182,7 +182,7 @@ spec:
 {{ toYaml .Values.controlPlane.statefulSet.resources | indent 12 }}
           env:
             - name: VCLUSTER_NAME
-              value: "{{ .Release.Name }}"
+              value: "{{ (include "vcluster.name" .) }}"
             - name: POD_NAME
               valueFrom:
                 fieldRef:

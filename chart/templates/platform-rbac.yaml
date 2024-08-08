@@ -21,7 +21,7 @@ subjects:
     {{- if .Values.controlPlane.advanced.serviceAccount.name }}
     name: {{ .Values.controlPlane.advanced.serviceAccount.name }}
     {{- else }}
-    name: vc-{{ .Release.Name }}
+    name: vc-{{ (include "vcluster.name" .) }}
     {{- end }}
     namespace: {{ include "vcluster.rbac.platformSecretNamespace" .}}
 roleRef:

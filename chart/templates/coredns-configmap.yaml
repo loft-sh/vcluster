@@ -2,8 +2,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: vc-coredns-{{ .Release.Name }}
-  namespace: {{ .Release.Namespace }}
+  name: vc-coredns-{{ (include "vcluster.name" .) }}
+  namespace: {{ (include "vcluster.namespace" .) }}
   {{- if .Values.controlPlane.advanced.globalMetadata.annotations }}
   annotations:
 {{ toYaml .Values.controlPlane.advanced.globalMetadata.annotations | indent 4 }}

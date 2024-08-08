@@ -15,3 +15,11 @@
 {{ .repository }}:{{ .tag }}
 {{- end -}}
 {{- end -}}
+
+{{- define "vcluster.namespace" -}}
+{{ .Values.namespaceOverride | default .Release.Namespace }}
+{{- end -}}
+
+{{- define "vcluster.name" -}}
+{{ .Values.nameOverride | default .Release.Name }}
+{{- end -}}

@@ -1,3 +1,14 @@
+
+## Override the deployment name
+##wsl
+nameOverride: ""
+
+## Override the deployment namespace
+##
+namespaceOverride: ""
+
+namespace:
+  create: false
 # Sync describes how to sync resources from the virtual cluster to host cluster and back.
 sync:
   # Configure resources to sync from the virtual cluster to the host cluster.

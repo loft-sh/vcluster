@@ -5,12 +5,12 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ .Release.Name }}-etcd
-  namespace: {{ .Release.Namespace }}
+  name: {{ (include "vcluster.name" .) }}-etcd
+  namespace: {{ (include "vcluster.namespace" .) }}
   labels:
     app: vcluster-etcd
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ (include "vcluster.name" .) }}"
     heritage: "{{ .Release.Service }}"
 {{- if $externalEtcd.labels }}
 {{ toYaml $externalEtcd.labels | indent 4 }}
@@ -23,7 +23,7 @@ metadata:
 spec:
   replicas: {{ $externalEtcd.highAvailability.replicas }}
   podManagementPolicy: {{ $externalEtcd.scheduling.podManagementPolicy }}
-  serviceName: {{ .Release.Name }}-etcd-headless
+  serviceName: {{ (include "vcluster.name" .) }}-etcd-headless
   {{- if eq $externalEtcd.persistence.volumeClaim.retentionPolicy "Delete" }}
   {{- if ge (int .Capabilities.KubeVersion.Minor) 27 }}
   persistentVolumeClaimRetentionPolicy:
@@ -33,7 +33,7 @@ spec:
   selector:
     matchLabels:
       app: vcluster-etcd
-      release: {{ .Release.Name }}
+      release: {{ (include "vcluster.name" .) }}
   {{- if $externalEtcd.persistence.volumeClaimTemplates }}
   volumeClaimTemplates:
 {{ toYaml $externalEtcd.persistence.volumeClaimTemplates | indent 4 }}
@@ -58,7 +58,7 @@ spec:
       {{- end }}
       labels:
         app: vcluster-etcd
-        release: {{ .Release.Name }}
+        release: {{ (include "vcluster.name" .) }}
         {{- range $k, $v := $externalEtcd.pods.labels }}
         {{ $k }}: {{ $v | quote }}
         {{- end }}
@@ -83,7 +83,7 @@ spec:
                 - key: release
                   operator: In
                   values:
-                  - {{ .Release.Name }}
+                  - {{ (include "vcluster.name" .) }}
               topologyKey: "kubernetes.io/hostname"
           # if possible avoid scheduling pod onto node that is in the same zone as one or more vcluster pods are running
           - weight: 50
@@ -97,7 +97,7 @@ spec:
                 - key: release
                   operator: In
                   values:
-                  - {{ .Release.Name }}
+                  - {{ (include "vcluster.name" .) }}
               topologyKey: topology.kubernetes.io/zone
       {{- end }}
       {{- if $externalEtcd.scheduling.topologySpreadConstraints }}
@@ -112,12 +112,12 @@ spec:
       {{- if .Values.controlPlane.advanced.serviceAccount.name }}
       serviceAccountName: {{ .Values.controlPlane.advanced.serviceAccount.name }}
       {{- else }}
-      serviceAccountName: vc-{{ .Release.Name }}
+      serviceAccountName: vc-{{ (include "vcluster.name" .) }}
       {{- end }}
       volumes:
         - name: certs
           secret:
-            secretName: {{ .Release.Name }}-certs
+            secretName: {{ (include "vcluster.name" .) }}-certs
       {{- if $externalEtcd.persistence.addVolumes }}
 {{ toYaml $externalEtcd.persistence.addVolumes | indent 8 }}
       {{- end }}
@@ -141,12 +141,12 @@ spec:
           - '--cert-file=/run/config/pki/etcd-server.crt'
           - '--client-cert-auth=true'
           - '--data-dir=/var/lib/etcd'
-          - '--advertise-client-urls=https://$(NAME).{{ .Release.Name }}-etcd-headless.{{ .Release.Namespace }}:2379'
-          - '--initial-advertise-peer-urls=https://$(NAME).{{ .Release.Name }}-etcd-headless.{{ .Release.Namespace }}:2380'
-          {{- $releaseName := .Release.Name -}}
-          {{- $releaseNamespace := .Release.Namespace }}
+          - '--advertise-client-urls=https://$(NAME).{{ (include "vcluster.name" .) }}-etcd-headless.{{ (include "vcluster.namespace" .) }}:2379'
+          - '--initial-advertise-peer-urls=https://$(NAME).{{ (include "vcluster.name" .) }}-etcd-headless.{{ (include "vcluster.namespace" .) }}:2380'
+          {{- $releaseName := (include "vcluster.name" .) -}}
+          {{- $releaseNamespace := (include "vcluster.namespace" .) }}
           - '--initial-cluster={{ range $index := untilStep 0 (int $externalEtcd.highAvailability.replicas) 1 }}{{ if (ne (int $index) 0) }},{{ end }}{{ $releaseName }}-etcd-{{ $index }}=https://{{ $releaseName }}-etcd-{{ $index }}.{{ $releaseName }}-etcd-headless.{{ $releaseNamespace }}:2380{{ end }}'
-          - '--initial-cluster-token={{ .Release.Name }}'
+          - '--initial-cluster-token={{ (include "vcluster.name" .) }}'
           - '--initial-cluster-state=new'
           - '--listen-client-urls=https://0.0.0.0:2379'
           - '--listen-metrics-urls=http://0.0.0.0:2381'

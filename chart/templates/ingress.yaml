@@ -7,12 +7,12 @@ metadata:
   annotations:
   {{- toYaml $annotations | nindent 4 }}
   {{- end }}
-  name: {{ .Release.Name }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ (include "vcluster.name" .) }}
+  namespace: {{ (include "vcluster.namespace" .) }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ (include "vcluster.name" .) }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.controlPlane.ingress.labels }}
 {{ toYaml .Values.controlPlane.ingress.labels | indent 4 }}
@@ -28,7 +28,7 @@ spec:
        paths:
         - backend:
             service:
-              name: {{ .Release.Name }}
+              name: {{ (include "vcluster.name" .) }}
               port:
                 name: https
           path: /

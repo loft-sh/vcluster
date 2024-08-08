@@ -3127,6 +3127,23 @@
     }
   },
   "properties": {
+    "namespaceOverride": {
+      "type": "string",
+      "description": "Override the namespace for vcluster resources"
+    },
+    "nameOverride": {
+      "type": "string",
+      "description": "Override the release name"
+    },
+    "namespace": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Specify whether to create a namespace"
+        }
+      }
+    },
     "global": {
       "description": "Global values shared across all (sub)charts"
     },

@@ -2,16 +2,16 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: vc-work-{{ .Release.Name }}
+  name: vc-work-{{ (include "vcluster.name" .) }}
   {{- if .Values.experimental.syncSettings.targetNamespace }}
   namespace: {{ .Values.experimental.syncSettings.targetNamespace }}
   {{- else }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ (include "vcluster.namespace" .) }}
   {{- end }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ (include "vcluster.name" .) }}"
     heritage: "{{ .Release.Service }}"
     {{- if .Values.policies.networkPolicy.labels }}
 {{ toYaml .Values.policies.networkPolicy.labels | indent 4 }}
@@ -24,7 +24,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      vcluster.loft.sh/managed-by: {{ .Release.Name }}
+      vcluster.loft.sh/managed-by: {{ (include "vcluster.name" .) }}
   egress:
     # Allows outgoing connections to the vcluster control plane
     - ports:
@@ -33,7 +33,7 @@ spec:
       to:
         - podSelector:
             matchLabels:
-              release: {{ .Release.Name }}
+              release: {{ (include "vcluster.name" .) }}
     # Allows outgoing connections to DNS server
     - ports:
         - port: 53
@@ -45,7 +45,7 @@ spec:
     - to:
       - podSelector:
           matchLabels:
-            vcluster.loft.sh/managed-by: {{ .Release.Name }}
+            vcluster.loft.sh/managed-by: {{ (include "vcluster.name" .) }}
       - ipBlock:
           cidr: {{ .Values.policies.networkPolicy.outgoingConnections.ipBlock.cidr }}
           except:
@@ -58,12 +58,12 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: vc-cp-{{ .Release.Name }}
-  namespace: {{ .Release.Namespace }}
+  name: vc-cp-{{ (include "vcluster.name" .) }}
+  namespace: {{ (include "vcluster.namespace" .) }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ (include "vcluster.name" .) }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.policies.networkPolicy.labels }}
 {{ toYaml .Values.policies.networkPolicy.labels | indent 4 }}
@@ -76,7 +76,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      release: {{ .Release.Name }}
+      release: {{ (include "vcluster.name" .) }}
   egress:
     # Allows outgoing connections to all pods with
     # port 443, 8443 or 6443. This is needed for host Kubernetes

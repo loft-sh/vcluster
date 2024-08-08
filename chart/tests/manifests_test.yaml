@@ -73,7 +73,7 @@ tests:
               kind: Pod
               metadata:
                 name: nginx
-                namespace: {{ .Release.Namespace }}
+                namespace: {{ (include "vcluster.namespace" .) }}
                 labels:
                   app: nginx
               spec:

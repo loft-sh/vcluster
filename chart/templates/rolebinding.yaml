@@ -9,13 +9,13 @@ metadata:
 {{- if .Values.experimental.multiNamespaceMode.enabled }}
   name: {{ template "vcluster.clusterRoleNameMultinamespace" . }}
 {{- else }}
-  name: vc-{{ .Release.Name }}
-  namespace: {{ .Release.Namespace }}
+  name: vc-{{ (include "vcluster.name" .) }}
+  namespace: {{ (include "vcluster.namespace" .) }}
 {{- end }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: "{{ (include "vcluster.name" .) }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.controlPlane.advanced.globalMetadata.annotations }}
   annotations:
@@ -26,16 +26,16 @@ subjects:
     {{- if .Values.controlPlane.advanced.serviceAccount.name }}
     name: {{ .Values.controlPlane.advanced.serviceAccount.name }}
     {{- else }}
-    name: vc-{{ .Release.Name }}
+    name: vc-{{ (include "vcluster.name" .) }}
     {{- end }}
-    namespace: {{ .Release.Namespace }}
+    namespace: {{ (include "vcluster.namespace" .) }}
 roleRef:
 {{- if .Values.experimental.multiNamespaceMode.enabled }}
   kind: ClusterRole
   name: {{ template "vcluster.clusterRoleNameMultinamespace" . }}
 {{- else }}
   kind: Role
-  name: vc-{{ .Release.Name }}
+  name: vc-{{ (include "vcluster.name" .) }}
 {{- end }}
   apiGroup: rbac.authorization.k8s.io
 {{- end }}
