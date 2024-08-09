@@ -408,6 +408,9 @@ type SyncFromHost struct {
 	// RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
 	RuntimeClasses EnableSwitch `json:"runtimeClasses,omitempty"`
 
+	// PriorityClasses defines if priority classes classes should get synced from the host cluster to the virtual cluster, but not back.
+	PriorityClasses EnableSwitch `json:"priorityClasses,omitempty"`
+
 	// StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
 	StorageClasses EnableAutoSwitch `json:"storageClasses,omitempty"`
 

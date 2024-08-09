@@ -63,6 +63,8 @@ sync:
       enabled: false
     runtimeClasses:
       enabled: false
+    priorityClasses:
+      enabled: false
     nodes:
       enabled: false
       syncBackChanges: false

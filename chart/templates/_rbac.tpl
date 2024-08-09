@@ -24,6 +24,7 @@
     .Values.experimental.isolatedControlPlane.enabled
     .Values.sync.toHost.persistentVolumes.enabled
     .Values.sync.toHost.priorityClasses.enabled
+    .Values.sync.fromHost.priorityClasses.enabled
     .Values.sync.toHost.volumeSnapshots.enabled
     .Values.controlPlane.advanced.virtualScheduler.enabled
     .Values.sync.fromHost.ingressClasses.enabled

@@ -24,7 +24,7 @@ func getMappers(ctx *synccontext.RegisterContext) []BuildMapper {
 		CreatePersistentVolumeClaimsMapper,
 		isEnabled(ctx.Config.Sync.ToHost.ServiceAccounts.Enabled, CreateServiceAccountsMapper),
 		CreateServiceMapper,
-		isEnabled(ctx.Config.Sync.ToHost.PriorityClasses.Enabled, CreatePriorityClassesMapper),
+		isEnabled(ctx.Config.Sync.ToHost.PriorityClasses.Enabled || ctx.Config.Sync.FromHost.PriorityClasses.Enabled, CreatePriorityClassesMapper),
 		CreatePersistentVolumesMapper,
 		CreatePodsMapper,
 		CreateStorageClassesMapper,
