@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/flags/create"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
@@ -75,6 +76,16 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	_, err = platform.InitClientFromConfig(ctx, cfg)
 	if err == nil {
 		config.PrintDriverInfo("create", driver, cmd.log)
+	}
+
+	vclusters, err := find.ListVClusters(ctx, "", "", cmd.Namespace, cmd.log)
+	if err != nil {
+		return err
+	}
+	for _, v := range vclusters {
+		if v.Namespace == cmd.Namespace && v.Name != args[0] {
+			return fmt.Errorf("there is already a virtual cluster in namespace %s", cmd.Namespace)
+		}
 	}
 
 	// check if we should create a platform vCluster
