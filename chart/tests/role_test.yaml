@@ -213,3 +213,74 @@ tests:
             apiGroups: [ "pool.kubevirt.io" ]
             resources: [ "virtualmachinepools", "virtualmachinepools/status" ]
             verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+
+  - it: crd sync
+    set:
+      sync:
+        toHost:
+          customResourceDefinitions:
+            test.my-group:
+              enabled: false
+            test.my-group-2:
+              enabled: true
+            tests.my-group-3.com:
+              enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - lengthEqual:
+          path: rules
+          count: 7
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "my-group-2" ]
+            resources: [ "test" ]
+            verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "my-group-3.com" ]
+            resources: [ "tests" ]
+            verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+
+  - it: translate
+    set:
+      sync:
+        toHost:
+          customResourceDefinitions:
+            test.my-group-2:
+              enabled: true
+              translate:
+                - path: "test"
+                  expression:
+                    toHost: "test"
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: translate 2
+    set:
+      sync:
+        toHost:
+          customResourceDefinitions:
+            test.my-group-2:
+              enabled: true
+              translate:
+                - path: "test"
+                  reference:
+                    apiVersion: "v1"
+                    kind: "Secret"
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - notFailedTemplate: {}

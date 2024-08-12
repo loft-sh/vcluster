@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/base36"
 	"github.com/loft-sh/vcluster/pkg/util/translate/pro"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -32,26 +33,38 @@ func (s *singleNamespace) SingleNamespaceTarget() bool {
 	return true
 }
 
-func (s *singleNamespace) HostName(ctx *synccontext.SyncContext, vName, vNamespace string) string {
+func (s *singleNamespace) HostName(ctx *synccontext.SyncContext, vName, vNamespace string) types.NamespacedName {
 	if vName == "" {
-		return ""
-	} else if _, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
-		return vName
+		return types.NamespacedName{}
+	} else if pNamespace, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
+		return types.NamespacedName{
+			Name:      vName,
+			Namespace: pNamespace,
+		}
 	}
 
-	return SingleNamespaceHostName(vName, vNamespace, VClusterName)
+	return types.NamespacedName{
+		Name:      SingleNamespaceHostName(vName, vNamespace, VClusterName),
+		Namespace: s.HostNamespace(ctx, vNamespace),
+	}
 }
 
-func (s *singleNamespace) HostNameShort(ctx *synccontext.SyncContext, vName, vNamespace string) string {
+func (s *singleNamespace) HostNameShort(ctx *synccontext.SyncContext, vName, vNamespace string) types.NamespacedName {
 	if vName == "" {
-		return ""
-	} else if _, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
-		return vName
+		return types.NamespacedName{}
+	} else if pNamespace, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
+		return types.NamespacedName{
+			Name:      vName,
+			Namespace: pNamespace,
+		}
 	}
 
 	// we use base36 to avoid as much conflicts as possible
 	digest := sha256.Sum256([]byte(strings.Join([]string{vName, "x", vNamespace, "x", VClusterName}, "-")))
-	return base36.EncodeBytes(digest[:])[0:10]
+	return types.NamespacedName{
+		Name:      "v" + base36.EncodeBytes(digest[:])[0:13], // needs to start with a character for certain objects (e.g. services)
+		Namespace: s.HostNamespace(ctx, vNamespace),
+	}
 }
 
 func SingleNamespaceHostName(name, namespace, suffix string) string {
@@ -131,6 +144,10 @@ func (s *singleNamespace) IsTargetedNamespace(ctx *synccontext.SyncContext, pNam
 }
 
 func (s *singleNamespace) HostNamespace(ctx *synccontext.SyncContext, vNamespace string) string {
+	if vNamespace == "" {
+		return ""
+	}
+
 	if pNamespace, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
 		return pNamespace
 	}

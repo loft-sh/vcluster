@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate/pro"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -30,13 +31,16 @@ func (s *multiNamespace) SingleNamespaceTarget() bool {
 }
 
 // HostName returns the physical name of the name / namespace resource
-func (s *multiNamespace) HostName(_ *synccontext.SyncContext, name, _ string) string {
-	return name
+func (s *multiNamespace) HostName(ctx *synccontext.SyncContext, name, namespace string) types.NamespacedName {
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: s.HostNamespace(ctx, namespace),
+	}
 }
 
 // HostNameShort returns the short physical name of the name / namespace resource
-func (s *multiNamespace) HostNameShort(_ *synccontext.SyncContext, name, _ string) string {
-	return name
+func (s *multiNamespace) HostNameShort(ctx *synccontext.SyncContext, name, namespace string) types.NamespacedName {
+	return s.HostName(ctx, name, namespace)
 }
 
 func (s *multiNamespace) HostNameCluster(name string) string {
@@ -81,6 +85,10 @@ func (s *multiNamespace) getNamespacePrefix() string {
 }
 
 func (s *multiNamespace) HostNamespace(ctx *synccontext.SyncContext, vNamespace string) string {
+	if vNamespace == "" {
+		return ""
+	}
+
 	if pNamespace, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
 		return pNamespace
 	}

@@ -7,10 +7,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
@@ -45,6 +47,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	storageClassesEnabled := ctx.Config.Sync.ToHost.StorageClasses.Enabled
 	return &persistentVolumeClaimSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mapper),
+		Importer:          pro.NewImporter(mapper),
 
 		excludedAnnotations: []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation},
 
@@ -56,6 +59,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 type persistentVolumeClaimSyncer struct {
 	syncertypes.GenericTranslator
+	syncertypes.Importer
 
 	excludedAnnotations []string
 
@@ -94,6 +98,11 @@ func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, e
 	newPvc, err := s.translate(ctx, event.Virtual)
 	if err != nil {
 		s.EventRecorder().Event(event.Virtual, "Warning", "SyncError", err.Error())
+		return ctrl.Result{}, err
+	}
+
+	err = pro.ApplyPatchesHostObject(ctx, nil, newPvc, event.Virtual, ctx.Config.Sync.ToHost.PersistentVolumeClaims.Translate)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -139,7 +148,7 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, event *
 	}
 
 	// patch objects
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.PersistentVolumeClaims.Translate))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -159,15 +168,35 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, event *
 	// copy host status
 	event.Virtual.Status = *event.Host.Status.DeepCopy()
 
-	// forward update
-	s.translateUpdate(event.Host, event.Virtual)
+	// allow storage size to be increased
+	event.Host.Spec.Resources.Requests = event.Virtual.Spec.Resources.Requests
+
+	// change annotations
+	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
+
+	// check labels
+	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
+	} else {
+		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
+	}
 
 	return ctrl.Result{}, nil
 }
 
 func (s *persistentVolumeClaimSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.PersistentVolumeClaim]) (_ ctrl.Result, retErr error) {
-	// virtual object is not here anymore, so we delete
-	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
+		// virtual object is not here anymore, so we delete
+		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	}
+
+	vPvc := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host), s.excludedAnnotations...)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vPvc, event.Host, ctx.Config.Sync.ToHost.PersistentVolumeClaims.Translate)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return syncer.CreateVirtualObject(ctx, event.Host, vPvc, s.EventRecorder())
 }
 
 func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.SyncContext, pObj *corev1.PersistentVolumeClaim, vObj *corev1.PersistentVolumeClaim, log loghelper.Logger) (bool, error) {

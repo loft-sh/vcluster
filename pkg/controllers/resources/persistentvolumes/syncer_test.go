@@ -32,7 +32,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 	basePPvcReference := &corev1.ObjectReference{
-		Name:            translate.Default.HostName(nil, "testpvc", "test"),
+		Name:            translate.Default.HostName(nil, "testpvc", "test").Name,
 		Namespace:       "test",
 		ResourceVersion: syncertesting.FakeClientResourceVersion,
 	}

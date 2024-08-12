@@ -362,10 +362,10 @@ type SyncToHost struct {
 	ConfigMaps SyncAllResource `json:"configMaps,omitempty"`
 
 	// Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster.
-	Ingresses EnableSwitch `json:"ingresses,omitempty"`
+	Ingresses EnableSwitchWithTranslate `json:"ingresses,omitempty"`
 
 	// Services defines if services created within the virtual cluster should get synced to the host cluster.
-	Services EnableSwitch `json:"services,omitempty"`
+	Services EnableSwitchWithTranslate `json:"services,omitempty"`
 
 	// Endpoints defines if endpoints created within the virtual cluster should get synced to the host cluster.
 	Endpoints EnableSwitch `json:"endpoints,omitempty"`
@@ -374,7 +374,7 @@ type SyncToHost struct {
 	NetworkPolicies EnableSwitch `json:"networkPolicies,omitempty"`
 
 	// PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster.
-	PersistentVolumeClaims EnableSwitch `json:"persistentVolumeClaims,omitempty"`
+	PersistentVolumeClaims EnableSwitchWithTranslate `json:"persistentVolumeClaims,omitempty"`
 
 	// PersistentVolumes defines if persistent volumes created within the virtual cluster should get synced to the host cluster.
 	PersistentVolumes EnableSwitch `json:"persistentVolumes,omitempty"`
@@ -393,6 +393,17 @@ type SyncToHost struct {
 
 	// PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster.
 	PriorityClasses EnableSwitch `json:"priorityClasses,omitempty"`
+
+	// CustomResourceDefinitions defines what custom resource definitions should get synced from the virtual cluster to the host cluster.
+	CustomResourceDefinitions map[string]SyncToHostCustomResourceDefinition `json:"customResourceDefinitions,omitempty"`
+}
+
+type EnableSwitchWithTranslate struct {
+	// Enabled defines if this option should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Translate the patch according to the given patches.
+	Translate []TranslatePatch `json:"translate,omitempty"`
 }
 
 type SyncFromHost struct {
@@ -422,6 +433,57 @@ type SyncFromHost struct {
 
 	// CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
 	CSIStorageCapacities EnableAutoSwitch `json:"csiStorageCapacities,omitempty"`
+
+	// CustomResourceDefinitions defines what custom resource definitions should get synced read-only to the virtual cluster from the host cluster.
+	CustomResourceDefinitions map[string]SyncFromHostCustomResourceDefinition `json:"customResourceDefinitions,omitempty"`
+}
+
+type SyncToHostCustomResourceDefinition struct {
+	// Enabled defines if this option should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Translate the patch according to the given patches.
+	Translate []TranslatePatch `json:"translate,omitempty"`
+}
+
+type TranslatePatch struct {
+	// Path is the path within the patch to target. If the path is not found within the patch, the patch is not applied.
+	Path string `json:"path,omitempty" jsonschema:"required"`
+
+	// Expression transforms the value according to the given JavaScript expression.
+	Expression *TranslatePatchExpression `json:"expression,omitempty" jsonschema:"oneof_required=expression"`
+
+	// Reference rewrites the value value according to the name.
+	Reference *TranslatePatchReference `json:"reference,omitempty" jsonschema:"oneof_required=reference"`
+}
+
+type TranslatePatchReference struct {
+	// APIVersion is the apiVersion of the referenced object.
+	APIVersion string `json:"apiVersion,omitempty" jsonschema:"required"`
+
+	// Kind is the kind of the referenced object.
+	Kind string `json:"kind,omitempty" jsonschema:"required"`
+
+	// NamePath is the optional path to the reference name within the object. If omitted namePath equals to the
+	// translate patch path.
+	NamePath string `json:"namePath,omitempty"`
+
+	// NamespacePath is the optional path to the reference namespace within the object. If omitted namespacePath equals to the
+	// metadata.namespace path of the object.
+	NamespacePath string `json:"namespacePath,omitempty"`
+}
+
+type TranslatePatchExpression struct {
+	// ToHost is the expression to apply when retrieving a change from virtual to host.
+	ToHost string `json:"toHost,omitempty" jsonschema:"oneof_required=toHost"`
+
+	// FromHost is the patch to apply when retrieving a change from host to virtual.
+	FromHost string `json:"fromHost,omitempty" jsonschema:"oneof_required=fromHost"`
+}
+
+type SyncFromHostCustomResourceDefinition struct {
+	// Enabled defines if this option should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 type EnableAutoSwitch struct {
@@ -440,6 +502,9 @@ type SyncAllResource struct {
 
 	// All defines if all resources of that type should get synced or only the necessary ones that are needed.
 	All bool `json:"all,omitempty"`
+
+	// Translate the patch according to the given patches.
+	Translate []TranslatePatch `json:"translate,omitempty"`
 }
 
 type SyncPods struct {
@@ -461,6 +526,9 @@ type SyncPods struct {
 	// a small container to each stateful set pod that will initially rewrite the /etc/hosts file to match the FQDN expected by
 	// the virtual cluster.
 	RewriteHosts SyncRewriteHosts `json:"rewriteHosts,omitempty"`
+
+	// Translate the patch according to the given patches.
+	Translate []TranslatePatch `json:"translate,omitempty"`
 }
 
 type SyncRewriteHosts struct {

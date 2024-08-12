@@ -323,3 +323,55 @@ tests:
             apiGroups: ["admissionregistration.k8s.io"]
             resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
             verbs: ["get", "list", "watch"]
+
+  - it: crd sync to host
+    set:
+      sync:
+        toHost:
+          customResourceDefinitions:
+            test.test-group:
+              enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "apiextensions.k8s.io" ]
+            resources: [ "customresourcedefinitions" ]
+            verbs: [ "get", "list", "watch" ]
+
+  - it: crd sync from host
+    set:
+      sync:
+        fromHost:
+          customResourceDefinitions:
+            test.test-group:
+              enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 2
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "test-group" ]
+            resources: [ "test" ]
+            verbs: [ "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "apiextensions.k8s.io" ]
+            resources: [ "customresourcedefinitions" ]
+            verbs: [ "get", "list", "watch" ]

@@ -983,6 +983,23 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "EnableSwitchWithTranslate": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "translate": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "Translate the patch according to the given patches."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Etcd": {
       "properties": {
         "embedded": {
@@ -2686,6 +2703,13 @@
         "all": {
           "type": "boolean",
           "description": "All defines if all resources of that type should get synced or only the necessary ones that are needed."
+        },
+        "translate": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "Translate the patch according to the given patches."
         }
       },
       "additionalProperties": false,
@@ -2728,6 +2752,23 @@
         "csiStorageCapacities": {
           "$ref": "#/$defs/EnableAutoSwitch",
           "description": "CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
+        },
+        "customResourceDefinitions": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SyncFromHostCustomResourceDefinition"
+          },
+          "type": "object",
+          "description": "CustomResourceDefinitions defines what custom resource definitions should get synced read-only to the virtual cluster from the host cluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SyncFromHostCustomResourceDefinition": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
         }
       },
       "additionalProperties": false,
@@ -2799,6 +2840,13 @@
         "rewriteHosts": {
           "$ref": "#/$defs/SyncRewriteHosts",
           "description": "RewriteHosts is a special option needed to rewrite statefulset containers to allow the correct FQDN. virtual cluster will add\na small container to each stateful set pod that will initially rewrite the /etc/hosts file to match the FQDN expected by\nthe virtual cluster."
+        },
+        "translate": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "Translate the patch according to the given patches."
         }
       },
       "additionalProperties": false,
@@ -2847,11 +2895,11 @@
           "description": "ConfigMaps defines if config maps created within the virtual cluster should get synced to the host cluster."
         },
         "ingresses": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithTranslate",
           "description": "Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster."
         },
         "services": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithTranslate",
           "description": "Services defines if services created within the virtual cluster should get synced to the host cluster."
         },
         "endpoints": {
@@ -2863,7 +2911,7 @@
           "description": "NetworkPolicies defines if network policies created within the virtual cluster should get synced to the host cluster."
         },
         "persistentVolumeClaims": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithTranslate",
           "description": "PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster."
         },
         "persistentVolumes": {
@@ -2889,6 +2937,30 @@
         "priorityClasses": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster."
+        },
+        "customResourceDefinitions": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SyncToHostCustomResourceDefinition"
+          },
+          "type": "object",
+          "description": "CustomResourceDefinitions defines what custom resource definitions should get synced from the virtual cluster to the host cluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SyncToHostCustomResourceDefinition": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "translate": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "Translate the patch according to the given patches."
         }
       },
       "additionalProperties": false,
@@ -2915,6 +2987,95 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "TranslatePatch": {
+      "oneOf": [
+        {
+          "required": [
+            "expression"
+          ],
+          "title": "expression"
+        },
+        {
+          "required": [
+            "reference"
+          ],
+          "title": "reference"
+        }
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path is the path within the patch to target. If the path is not found within the patch, the patch is not applied."
+        },
+        "expression": {
+          "$ref": "#/$defs/TranslatePatchExpression",
+          "description": "Expression transforms the value according to the given JavaScript expression."
+        },
+        "reference": {
+          "$ref": "#/$defs/TranslatePatchReference",
+          "description": "Reference rewrites the value value according to the name."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "path"
+      ]
+    },
+    "TranslatePatchExpression": {
+      "oneOf": [
+        {
+          "required": [
+            "toHost"
+          ],
+          "title": "toHost"
+        },
+        {
+          "required": [
+            "fromHost"
+          ],
+          "title": "fromHost"
+        }
+      ],
+      "properties": {
+        "toHost": {
+          "type": "string",
+          "description": "ToHost is the expression to apply when retrieving a change from virtual to host."
+        },
+        "fromHost": {
+          "type": "string",
+          "description": "FromHost is the patch to apply when retrieving a change from host to virtual."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "TranslatePatchReference": {
+      "properties": {
+        "apiVersion": {
+          "type": "string",
+          "description": "APIVersion is the apiVersion of the referenced object."
+        },
+        "kind": {
+          "type": "string",
+          "description": "Kind is the kind of the referenced object."
+        },
+        "namePath": {
+          "type": "string",
+          "description": "NamePath is the optional path to the reference name within the object. If omitted namePath equals to the\ntranslate patch path."
+        },
+        "namespacePath": {
+          "type": "string",
+          "description": "NamespacePath is the optional path to the reference namespace within the object. If omitted namespacePath equals to the\nmetadata.namespace path of the object."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "apiVersion",
+        "kind"
+      ]
     },
     "ValidatingWebhook": {
       "properties": {

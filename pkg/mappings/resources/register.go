@@ -19,7 +19,7 @@ func getMappers(ctx *synccontext.RegisterContext) []BuildMapper {
 		CreateEndpointsMapper,
 		CreateEventsMapper,
 		isEnabled(ctx.Config.Sync.ToHost.Ingresses.Enabled, CreateIngressesMapper),
-		isEnabled(ctx.Config.Experimental.MultiNamespaceMode.Enabled, CreateNamespacesMapper),
+		CreateNamespacesMapper,
 		CreateNodesMapper,
 		CreatePersistentVolumeClaimsMapper,
 		isEnabled(ctx.Config.Sync.ToHost.ServiceAccounts.Enabled, CreateServiceAccountsMapper),

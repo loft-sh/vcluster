@@ -5,6 +5,7 @@ import (
 
 	syncerresources "github.com/loft-sh/vcluster/pkg/controllers/resources"
 	mapperresources "github.com/loft-sh/vcluster/pkg/mappings/resources"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/server"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
@@ -29,6 +30,13 @@ func StartManagers(ctx *synccontext.RegisterContext) ([]syncertypes.Object, erro
 	if err != nil {
 		return nil, fmt.Errorf("create syncers: %w", err)
 	}
+
+	// init pro syncers as well
+	proSyncers, err := pro.BuildProSyncers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create pro syncers: %w", err)
+	}
+	syncers = append(syncers, proSyncers...)
 
 	// start the local manager
 	go func() {

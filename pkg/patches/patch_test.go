@@ -496,11 +496,11 @@ func (r *fakeVirtualToHostNameResolver) TranslateNameWithNamespace(name string, 
 			if ns == "" {
 				ns = namespace
 			}
-			return types.NamespacedName{Namespace: r.targetNamespace, Name: translate.Default.HostName(nil, name, ns)}
+			return types.NamespacedName{Namespace: r.targetNamespace, Name: translate.Default.HostName(nil, name, ns).Name}
 		}), nil
 	}
 
-	return translate.Default.HostName(nil, name, namespace), nil
+	return translate.Default.HostName(nil, name, namespace).Name, nil
 }
 
 func (r *fakeVirtualToHostNameResolver) TranslateLabelKey(key string) (string, error) {

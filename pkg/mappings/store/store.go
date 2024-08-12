@@ -476,6 +476,7 @@ func (s *Store) addMapping(mapping *Mapping) {
 
 func (s *Store) removeMapping(mapping *Mapping) {
 	delete(s.mappings, mapping.NameMapping)
+	s.removeNameFromMaps(mapping, mapping.Virtual(), mapping.Host())
 	dispatchAll(s.watches[mapping.GroupVersionKind], mapping.NameMapping)
 
 	// delete references

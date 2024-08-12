@@ -89,15 +89,6 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 	}
 }
 
-func (s *persistentVolumeClaimSyncer) translateUpdate(pObj, vObj *corev1.PersistentVolumeClaim) {
-	// allow storage size to be increased
-	pObj.Spec.Resources.Requests = vObj.Spec.Resources.Requests
-
-	// change annotations / labels
-	pObj.Annotations = translate.HostAnnotations(vObj, pObj, s.excludedAnnotations...)
-	pObj.Labels = translate.HostLabels(vObj, pObj)
-}
-
 func (s *persistentVolumeClaimSyncer) translateUpdateBackwards(pObj, vObj *corev1.PersistentVolumeClaim) {
 	if vObj.Annotations[bindCompletedAnnotation] != pObj.Annotations[bindCompletedAnnotation] {
 		if vObj.Annotations == nil {

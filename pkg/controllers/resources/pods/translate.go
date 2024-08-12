@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -75,7 +76,7 @@ func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, e
 
 	// first try to find the actual synced service, then fallback to a different if we have a suffix (only in the case of integrated coredns)
 	pClient, namespace := specialservices.Default.DNSNamespace(ctx)
-	ip := s.translateAndFindService(
+	ip := s.translateAndFindDNSService(
 		ctx,
 		pClient,
 		namespace,
@@ -88,13 +89,14 @@ func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, e
 	return ip, nil
 }
 
-func (s *podSyncer) translateAndFindService(ctx *synccontext.SyncContext, kubeClient client.Client, namespace, name string) string {
+func (s *podSyncer) translateAndFindDNSService(ctx *synccontext.SyncContext, kubeClient client.Client, namespace, name string) string {
 	pService := &corev1.Service{}
 	err := kubeClient.Get(ctx, types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,
 	}, pService)
 	if err != nil {
+		klog.FromContext(ctx).V(1).Info("Error trying to find dns service", "error", err)
 		return ""
 	}
 
