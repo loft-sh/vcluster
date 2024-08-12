@@ -130,6 +130,15 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if err != nil {
 		return err
 	}
+	vclusters, err := find.ListVClusters(ctx, cmd.Context, "", cmd.Namespace, log)
+	if err != nil {
+		return err
+	}
+	for _, v := range vclusters {
+		if v.Namespace == cmd.Namespace && v.Name != vClusterName {
+			return fmt.Errorf("there is already a virtual cluster in namespace %s", cmd.Namespace)
+		}
+	}
 
 	err = cmd.prepare(ctx, vClusterName)
 	if err != nil {
