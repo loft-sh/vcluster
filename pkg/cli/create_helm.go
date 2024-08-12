@@ -130,7 +130,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if err != nil {
 		return err
 	}
-	vclusters, err := find.ListVClusters(ctx, "", "", cmd.Namespace, log)
+	vclusters, err := find.ListVClusters(ctx, cmd.Context, "", cmd.Namespace, log)
 	if err != nil {
 		return err
 	}
