@@ -2985,6 +2985,20 @@
       "type": "object"
     },
     "TranslatePatch": {
+      "oneOf": [
+        {
+          "required": [
+            "expression"
+          ],
+          "title": "expression"
+        },
+        {
+          "required": [
+            "reference"
+          ],
+          "title": "reference"
+        }
+      ],
       "properties": {
         "path": {
           "type": "string",
@@ -3000,9 +3014,26 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "path"
+      ]
     },
     "TranslatePatchExpression": {
+      "oneOf": [
+        {
+          "required": [
+            "toHost"
+          ],
+          "title": "toHost"
+        },
+        {
+          "required": [
+            "fromHost"
+          ],
+          "title": "fromHost"
+        }
+      ],
       "properties": {
         "toHost": {
           "type": "string",
@@ -3025,10 +3056,22 @@
         "kind": {
           "type": "string",
           "description": "Kind is the kind of the referenced object."
+        },
+        "namePath": {
+          "type": "string",
+          "description": "NamePath is the optional path to the reference name within the object. If omitted namePath equals to the\ntranslate patch path."
+        },
+        "namespacePath": {
+          "type": "string",
+          "description": "NamespacePath is the optional path to the reference namespace within the object. If omitted namespacePath equals to the\nmetadata.namespace path of the object."
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "apiVersion",
+        "kind"
+      ]
     },
     "ValidatingWebhook": {
       "properties": {

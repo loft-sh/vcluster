@@ -111,6 +111,12 @@ func ValidateConfigAndSetDefaults(config *VirtualClusterConfig) error {
 		config.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + config.Name
 	}
 
+	// pro validate config
+	err = ProValidateConfig(config)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -456,5 +462,9 @@ func validateK0sAndNoExperimentalKubeconfig(c *VirtualClusterConfig) error {
 	if virtualclusterconfig != empty {
 		return errors.New("config.experimental.VirtualClusterConfig cannot be set for k0s")
 	}
+	return nil
+}
+
+var ProValidateConfig = func(_ *VirtualClusterConfig) error {
 	return nil
 }

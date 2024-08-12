@@ -62,7 +62,7 @@ func (s *singleNamespace) HostNameShort(ctx *synccontext.SyncContext, vName, vNa
 	// we use base36 to avoid as much conflicts as possible
 	digest := sha256.Sum256([]byte(strings.Join([]string{vName, "x", vNamespace, "x", VClusterName}, "-")))
 	return types.NamespacedName{
-		Name:      base36.EncodeBytes(digest[:])[0:10],
+		Name:      "v" + base36.EncodeBytes(digest[:])[0:13], // needs to start with a character for certain objects (e.g. services)
 		Namespace: s.HostNamespace(ctx, vNamespace),
 	}
 }

@@ -112,16 +112,17 @@ rules:
     resources: ["nodes"]
     verbs: ["get", "list"]
   {{- end }}
-  {{- if .Values.integrations.kubeVirt.enabled }}
-  - apiGroups: ["apiextensions.k8s.io"]
-    resources: ["customresourcedefinitions"]
-    verbs: ["get", "list", "watch"]
-  {{- end }}
   {{- if and .Values.integrations.kubeVirt.enabled .Values.integrations.kubeVirt.webhook.enabled }}
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
     verbs: ["get", "list", "watch"]
   {{- end }}
+  {{- if or .Values.integrations.kubeVirt.enabled .Values.sync.toHost.customResourceDefinitions .Values.sync.fromHost.customResourceDefinitions }}
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+  {{- include "vcluster.customResourceDefinitions.clusterRoleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.clusterRoleExtraRules" . | indent 2 }}
   {{- include "vcluster.generic.clusterRoleExtraRules" . | indent 2 }}
   {{- include "vcluster.rbac.clusterRoleExtraRules" . | indent 2 }}

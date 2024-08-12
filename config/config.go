@@ -445,29 +445,37 @@ type SyncToHostCustomResourceDefinition struct {
 
 type TranslatePatch struct {
 	// Path is the path within the patch to target. If the path is not found within the patch, the patch is not applied.
-	Path string `json:"path,omitempty"`
+	Path string `json:"path,omitempty" jsonschema:"required"`
 
 	// Expression transforms the value according to the given JavaScript expression.
-	Expression *TranslatePatchExpression `json:"expression,omitempty"`
+	Expression *TranslatePatchExpression `json:"expression,omitempty" jsonschema:"oneof_required=expression"`
 
 	// Reference rewrites the value value according to the name.
-	Reference *TranslatePatchReference `json:"reference,omitempty"`
+	Reference *TranslatePatchReference `json:"reference,omitempty" jsonschema:"oneof_required=reference"`
 }
 
 type TranslatePatchReference struct {
 	// APIVersion is the apiVersion of the referenced object.
-	APIVersion string `json:"apiVersion,omitempty"`
+	APIVersion string `json:"apiVersion,omitempty" jsonschema:"required"`
 
 	// Kind is the kind of the referenced object.
-	Kind string `json:"kind,omitempty"`
+	Kind string `json:"kind,omitempty" jsonschema:"required"`
+
+	// NamePath is the optional path to the reference name within the object. If omitted namePath equals to the
+	// translate patch path.
+	NamePath string `json:"namePath,omitempty"`
+
+	// NamespacePath is the optional path to the reference namespace within the object. If omitted namespacePath equals to the
+	// metadata.namespace path of the object.
+	NamespacePath string `json:"namespacePath,omitempty"`
 }
 
 type TranslatePatchExpression struct {
 	// ToHost is the expression to apply when retrieving a change from virtual to host.
-	ToHost string `json:"toHost,omitempty"`
+	ToHost string `json:"toHost,omitempty" jsonschema:"oneof_required=toHost"`
 
 	// FromHost is the patch to apply when retrieving a change from host to virtual.
-	FromHost string `json:"fromHost,omitempty"`
+	FromHost string `json:"fromHost,omitempty" jsonschema:"oneof_required=fromHost"`
 }
 
 type SyncFromHostCustomResourceDefinition struct {

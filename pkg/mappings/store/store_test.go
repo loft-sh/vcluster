@@ -91,6 +91,9 @@ func TestStore(t *testing.T) {
 	store.garbageCollectMappings(context.TODO())
 	_, ok = store.mappings[nameMapping]
 	assert.Equal(t, false, ok)
+	assert.Equal(t, 0, len(store.mappings))
+	assert.Equal(t, 0, len(store.hostToVirtualName))
+	assert.Equal(t, 0, len(store.virtualToHostName))
 }
 
 func TestRecordMapping(t *testing.T) {
