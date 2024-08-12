@@ -23,21 +23,25 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 	return &priorityClassSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "priorityclass", &schedulingv1.PriorityClass{}, mapper),
+		fromHost:          ctx.Config.Sync.FromHost.PriorityClasses.Enabled,
+		toHost:            ctx.Config.Sync.ToHost.PriorityClasses.Enabled,
 	}, nil
 }
 
 type priorityClassSyncer struct {
 	syncertypes.GenericTranslator
+	fromHost bool
+	toHost   bool
 }
 
 var _ syncertypes.Syncer = &priorityClassSyncer{}
 
 func (s *priorityClassSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*schedulingv1.PriorityClass](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 func (s *priorityClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*schedulingv1.PriorityClass]) (ctrl.Result, error) {
-	if event.IsDelete() {
+	if !s.toHost || (s.fromHost && event.IsDelete()) {
 		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
 	}
 
@@ -64,12 +68,27 @@ func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 		}
 	}()
 
-	// did the priority class change?
-	s.translateUpdate(event.Host, event.Virtual, event.SourceObject(), event.TargetObject())
+	if (s.fromHost && event.Source == synccontext.SyncEventSourceHost) || (s.toHost && event.Source == synccontext.SyncEventSourceVirtual) {
+		// did the priority class change?
+		s.translateUpdate(event)
+	}
+
 	return ctrl.Result{}, nil
 }
 
 func (s *priorityClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*schedulingv1.PriorityClass]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
-	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	if !s.fromHost || (event.IsDelete() && s.toHost) {
+		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	}
+
+	newVirtualPC := s.translateFromHost(ctx, event.Host)
+	ctx.Log.Infof("create virtual priority class %s from host priority class", newVirtualPC.Name)
+	err := ctx.VirtualClient.Create(ctx, newVirtualPC)
+	if err != nil {
+		ctx.Log.Infof("error syncing %s to virtual cluster: %v", event.Host.Name, err)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }

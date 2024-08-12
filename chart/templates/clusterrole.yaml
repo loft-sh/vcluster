@@ -84,7 +84,7 @@ rules:
     resources: ["storageclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
   {{- end }}
-  {{- if .Values.sync.toHost.priorityClasses.enabled }}
+  {{- if or .Values.sync.toHost.priorityClasses.enabled .Values.sync.fromHost.priorityClasses.enabled }}
   - apiGroups: ["scheduling.k8s.io"]
     resources: ["priorityclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]

@@ -2709,6 +2709,10 @@
           "$ref": "#/$defs/EnableSwitch",
           "description": "RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back."
         },
+        "priorityClasses": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "PriorityClasses defines if priority classes classes should get synced from the host cluster to the virtual cluster, but not back."
+        },
         "storageClasses": {
           "$ref": "#/$defs/EnableAutoSwitch",
           "description": "StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
