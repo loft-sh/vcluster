@@ -361,7 +361,7 @@ func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
 	}
 
 	// build a rest config
-	config, err := getRestConfig(c.config.Platform.Host+hostSuffix, c.config.Platform.AccessKey, c.config.Platform.Insecure)
+	config, err := getRestConfig(c.config.Platform.Host+hostSuffix, c.config.Platform.AccessKey, c.config.Platform.CertificateAuthorityData, c.config.Platform.Insecure)
 	if err != nil {
 		return nil, err
 	}
@@ -369,8 +369,8 @@ func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
 	return config, err
 }
 
-func getRestConfig(host, token string, insecure bool) (*rest.Config, error) {
-	config, err := getKubeConfig(host, token, "", insecure).ClientConfig()
+func getRestConfig(host, token string, certificateAuthorityData []byte, insecure bool) (*rest.Config, error) {
+	config, err := getKubeConfig(host, token, "", certificateAuthorityData, insecure).ClientConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +379,7 @@ func getRestConfig(host, token string, insecure bool) (*rest.Config, error) {
 	return config, nil
 }
 
-func getKubeConfig(host, token, namespace string, insecure bool) clientcmd.ClientConfig {
+func getKubeConfig(host, token, namespace string, certificateAuthorityData []byte, insecure bool) clientcmd.ClientConfig {
 	contextName := "local"
 	kubeConfig := clientcmdapi.NewConfig()
 	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
@@ -394,6 +394,10 @@ func getKubeConfig(host, token, namespace string, insecure bool) clientcmd.Clien
 			Server:                host,
 			InsecureSkipTLSVerify: insecure,
 		},
+	}
+	if len(certificateAuthorityData) > 0 {
+		kubeConfig.Clusters[contextName].CertificateAuthorityData = certificateAuthorityData
+		kubeConfig.Clusters[contextName].InsecureSkipTLSVerify = false
 	}
 	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
 		contextName: {
