@@ -561,10 +561,9 @@ func (cmd *createHelm) ToChartOptions(kubernetesVersion *version.Info, log log.L
 
 	cfg := cmd.LoadedConfig(log)
 	return &config.ExtraValuesOptions{
-		Distro:    cmd.Distro,
-		Expose:    cmd.Expose,
-		SyncNodes: cmd.localCluster,
-		NodePort:  cmd.localCluster,
+		Distro:   cmd.Distro,
+		Expose:   cmd.Expose,
+		NodePort: cmd.localCluster,
 		KubernetesVersion: config.KubernetesVersion{
 			Major: kubernetesVersion.Major,
 			Minor: kubernetesVersion.Minor,
