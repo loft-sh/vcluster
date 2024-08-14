@@ -36,6 +36,8 @@ type Platform struct {
 	VirtualClusterAccessKey string `json:"virtualClusterAccessKey,omitempty"`
 	// Insecure specifies if the loft instance is insecure
 	Insecure bool `json:"insecure,omitempty"`
+	// CertificateAuthorityData is passed as certificate-authority-data to the platform config
+	CertificateAuthorityData []byte `json:"certificateAuthorityData,omitempty"`
 }
 
 type VirtualClusterCertificatesEntry struct {

@@ -17,12 +17,13 @@ import (
 )
 
 type AddVClusterOptions struct {
-	Project    string
-	ImportName string
-	Restart    bool
-	Insecure   bool
-	AccessKey  string
-	Host       string
+	Project                  string
+	ImportName               string
+	Restart                  bool
+	Insecure                 bool
+	AccessKey                string
+	Host                     string
+	CertificateAuthorityData []byte
 }
 
 func AddVClusterHelm(
@@ -98,6 +99,7 @@ func AddVClusterHelm(
 		options.AccessKey,
 		options.Host,
 		options.Insecure,
+		options.CertificateAuthorityData,
 	)
 	if err != nil {
 		return err
