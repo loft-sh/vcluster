@@ -102,7 +102,7 @@ type createHelm struct {
 	localCluster     bool
 }
 
-func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
+func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger, reuseNamespace bool) error {
 	cmd := &createHelm{
 		GlobalFlags:   globalFlags,
 		CreateOptions: options,
@@ -134,9 +134,12 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if err != nil {
 		return err
 	}
-	for _, v := range vclusters {
-		if v.Namespace == cmd.Namespace && v.Name != vClusterName {
-			return fmt.Errorf("there is already a virtual cluster in namespace %s", cmd.Namespace)
+
+	if !reuseNamespace {
+		for _, v := range vclusters {
+			if v.Namespace == cmd.Namespace && v.Name != vClusterName {
+				return fmt.Errorf("there is already a virtual cluster in namespace %s", cmd.Namespace)
+			}
 		}
 	}
 
