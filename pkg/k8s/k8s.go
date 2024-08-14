@@ -62,6 +62,13 @@ func StartK8S(
 
 		etcdEndpoints = constants.K8sKineEndpoint
 	} else if vConfig.ControlPlane.BackingStore.Database.External.Enabled {
+		// we check for an empty datasource string here because the platform connect
+		// process may overwrite an empty datasource string with a platform supplied
+		// one. At this point the platform connect process is assumed to have happened.
+		if vConfig.ControlPlane.BackingStore.Database.External.DataSource == "" {
+			return fmt.Errorf("external datasource cannot be empty if external database is enabled")
+		}
+
 		// call out to the pro code
 		var err error
 		etcdEndpoints, etcdCertificates, err = pro.ConfigureExternalDatabase(ctx, vConfig)
