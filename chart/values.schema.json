@@ -1812,8 +1812,15 @@
     "LimitRange": {
       "properties": {
         "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the limit range should be deployed by vCluster."
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "description": "Enabled defines if the limit range should be deployed by vCluster. \"auto\" means that if resourceQuota is enabled,\nthe limitRange will be enabled as well."
         },
         "default": {
           "type": "object",
@@ -2523,8 +2530,15 @@
     "ResourceQuota": {
       "properties": {
         "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the resource quota should be enabled."
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "description": "Enabled defines if the resource quota should be enabled. \"auto\" means that if limitRange is enabled,\nthe resourceQuota will be enabled as well."
         },
         "quota": {
           "type": "object",

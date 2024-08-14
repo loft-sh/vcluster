@@ -1,4 +1,5 @@
-{{- if .Values.policies.limitRange.enabled }}
+{{- if or (eq (toString .Values.policies.limitRange.enabled) "true") (eq (toString .Values.policies.resourceQuota.enabled) "true") }}
+{{- if not (eq (toString .Values.policies.limitRange.enabled) "false") }}
 apiVersion: v1
 kind: LimitRange
 metadata:
@@ -32,4 +33,5 @@ spec:
       {{ $key }}: {{ $val | quote }}
       {{- end }}
     type: Container
+{{- end }}
 {{- end }}

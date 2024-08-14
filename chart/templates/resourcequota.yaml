@@ -1,4 +1,5 @@
-{{- if .Values.policies.resourceQuota.enabled }}
+{{- if or (eq (toString .Values.policies.resourceQuota.enabled) "true") (eq (toString .Values.policies.limitRange.enabled) "true") }}
+{{- if not (eq (toString .Values.policies.resourceQuota.enabled) "false") }}
 apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -39,5 +40,5 @@ spec:
   scopes:
 {{- toYaml .Values.policies.resourceQuota.scopes | nindent 4 }}
   {{- end}}
-
+{{- end }}
 {{- end }}
