@@ -1482,8 +1482,9 @@ func (p Policies) JSONSchemaExtend(base *jsonschema.Schema) {
 }
 
 type ResourceQuota struct {
-	// Enabled defines if the resource quota should be enabled.
-	Enabled bool `json:"enabled,omitempty"`
+	// Enabled defines if the resource quota should be enabled. "auto" means that if limitRange is enabled,
+	// the resourceQuota will be enabled as well.
+	Enabled StrBool `json:"enabled,omitempty" jsonschema:"oneof_type=string;boolean"`
 
 	// Quota are the quota options
 	Quota map[string]interface{} `json:"quota,omitempty"`
@@ -1513,8 +1514,9 @@ type LabelSelectorRequirement struct {
 }
 
 type LimitRange struct {
-	// Enabled defines if the limit range should be deployed by vCluster.
-	Enabled bool `json:"enabled,omitempty"`
+	// Enabled defines if the limit range should be deployed by vCluster. "auto" means that if resourceQuota is enabled,
+	// the limitRange will be enabled as well.
+	Enabled StrBool `json:"enabled,omitempty" jsonschema:"oneof_type=string;boolean"`
 
 	// Default are the default limits for the limit range
 	Default map[string]interface{} `json:"default,omitempty"`

@@ -733,8 +733,9 @@ networking:
 policies:
   # ResourceQuota specifies resource quota options.
   resourceQuota:
-    # Enabled defines if the resource quota should be enabled.
-    enabled: false
+    # Enabled defines if the resource quota should be enabled. "auto" means that if limitRange is enabled,
+    # the resourceQuota will be enabled as well.
+    enabled: auto
     labels: {}
     annotations: {}
     # Quota are the quota options
@@ -762,8 +763,9 @@ policies:
   
   # LimitRange specifies limit range options.
   limitRange:
-    # Enabled defines if the limit range should be deployed by vCluster.
-    enabled: false
+    # Enabled defines if the limit range should be deployed by vCluster. "auto" means that if resourceQuota is enabled,
+    # the limitRange will be enabled as well.
+    enabled: auto
     labels: {}
     annotations: {}
     # Default are the default limits for the limit range

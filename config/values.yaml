@@ -428,7 +428,7 @@ networking:
 
 policies:
   resourceQuota:
-    enabled: false
+    enabled: auto
     labels: {}
     annotations: {}
     quota:
@@ -452,7 +452,7 @@ policies:
     scopes: []
 
   limitRange:
-    enabled: false
+    enabled: auto
     labels: {}
     annotations: {}
     default:
