@@ -18,17 +18,17 @@ import (
 )
 
 type DescribeOutput struct {
-	Distro       string   `json:"Distro"`
-	Version      string   `json:"Version"`
-	BackingStore string   `json:"Backing Store"`
-	ImageTags    ImageTag `json:"Image tags"`
+	Distro       string   `json:"distro"`
+	Version      string   `json:"version"`
+	BackingStore string   `json:"backingStore"`
+	ImageTags    ImageTag `json:"imageTags"`
 }
 
 type ImageTag struct {
 	APIServer         string `json:"apiServer,omitempty"`
 	Syncer            string `json:"syncer,omitempty"`
 	Scheduler         string `json:"scheduler,omitempty"`
-	ControllerManager string `json:"controllerManger,omitempty"`
+	ControllerManager string `json:"controllerManager,omitempty"`
 }
 
 func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Writer, name, format string) error {
