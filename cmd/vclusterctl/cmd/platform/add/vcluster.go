@@ -48,6 +48,9 @@ vcluster platform add vcluster my-vcluster --namespace vcluster-my-vcluster --pr
 	addCmd.Flags().StringVar(&cmd.AccessKey, "access-key", "", "The access key for the vCluster to connect to the platform. If empty, the CLI will generate one")
 	addCmd.Flags().StringVar(&cmd.Host, "host", "", "The host where to reach the platform")
 	addCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "If the platform host is insecure")
+	addCmd.Flags().BytesBase64Var(&cmd.CertificateAuthorityData, "ca-data", []byte{}, "additional, base64 encoded certificate authority data that will be passed to the platform secret")
+	// This is hidden until the platform side will be ready to use it
+	_ = addCmd.Flags().MarkHidden("ca-data")
 
 	return addCmd
 }

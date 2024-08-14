@@ -31,6 +31,7 @@ func ApplyPlatformSecret(
 	accessKey,
 	host string,
 	insecure bool,
+	certificateAuthorityData []byte,
 ) error {
 	var err error
 	accessKey, host, insecure, err = getAccessKeyAndHost(ctx, config, accessKey, host, insecure)
@@ -40,9 +41,10 @@ func ApplyPlatformSecret(
 
 	// build secret payload
 	payload := map[string][]byte{
-		"accessKey": []byte(accessKey),
-		"host":      []byte(strings.TrimPrefix(host, "https://")),
-		"insecure":  []byte(strconv.FormatBool(insecure)),
+		"accessKey":                []byte(accessKey),
+		"host":                     []byte(strings.TrimPrefix(host, "https://")),
+		"insecure":                 []byte(strconv.FormatBool(insecure)),
+		"certificateAuthorityData": certificateAuthorityData,
 	}
 	if project != "" {
 		payload["project"] = []byte(project)
