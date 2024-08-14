@@ -161,20 +161,19 @@ func getImageTags(c *config.Config, version string) (syncer, api, scheduler, con
 		k8s := c.ControlPlane.Distro.K8S
 
 		api = valueOrDefaultRegistry(k8s.APIServer.Image.Registry, defaultRegistry) + "/" + k8s.APIServer.Image.Repository + ":" + k8s.APIServer.Image.Tag
-		// this is the case where the repository is not set
-		if strings.HasPrefix(api, valueOrDefaultRegistry(k8s.APIServer.Image.Registry, defaultRegistry)+"/:") {
+		if k8s.APIServer.Image.Repository == "" {
 			// with the platform driver if only the registry is set we won't be able to display complete info
 			api = ""
 		}
 
 		scheduler = valueOrDefaultRegistry(k8s.Scheduler.Image.Registry, defaultRegistry) + "/" + k8s.Scheduler.Image.Repository + ":" + k8s.Scheduler.Image.Tag
-		if strings.HasPrefix(scheduler, valueOrDefaultRegistry(k8s.Scheduler.Image.Registry, defaultRegistry)+"/:") {
+		if k8s.Scheduler.Image.Repository == "" {
 			// with the platform driver if only the registry is set we won't be able to display complete info
 			scheduler = ""
 		}
 
 		controllerManager = valueOrDefaultRegistry(k8s.ControllerManager.Image.Registry, defaultRegistry) + "/" + k8s.ControllerManager.Image.Repository + ":" + k8s.ControllerManager.Image.Tag
-		if strings.HasPrefix(controllerManager, valueOrDefaultRegistry(k8s.ControllerManager.Image.Registry, defaultRegistry)+"/:") {
+		if k8s.ControllerManager.Image.Repository == "" {
 			// with the platform driver if only the registry is set we won't be able to display complete info
 			controllerManager = ""
 		}
@@ -197,6 +196,11 @@ func getImageTags(c *config.Config, version string) (syncer, api, scheduler, con
 			api = ""
 		}
 	}
+
+	syncer = strings.TrimPrefix(syncer, "/")
+	api = strings.TrimPrefix(api, "/")
+	scheduler = strings.TrimPrefix(scheduler, "/")
+	controllerManager = strings.TrimPrefix(controllerManager, "/")
 
 	syncer = strings.TrimSuffix(syncer, ":")
 	api = strings.TrimSuffix(api, ":")
