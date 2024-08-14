@@ -77,7 +77,6 @@ type ExtraValuesOptions struct {
 
 	Expose            bool
 	NodePort          bool
-	SyncNodes         bool
 	KubernetesVersion KubernetesVersion
 
 	DisableTelemetry    bool
@@ -283,10 +282,6 @@ func addCommonReleaseValues(config *Config, options *ExtraValuesOptions) {
 		}
 
 		config.ControlPlane.Service.Spec["type"] = "NodePort"
-	}
-
-	if options.SyncNodes {
-		config.Sync.FromHost.Nodes.Enabled = true
 	}
 
 	if options.DisableTelemetry {
