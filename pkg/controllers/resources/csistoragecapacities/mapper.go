@@ -42,7 +42,7 @@ func (s *csiStorageCapacitiesMapper) Migrate(ctx *synccontext.RegisterContext, m
 				HostName:         pName,
 			}
 
-			err = ctx.Mappings.Store().RecordAndSaveReference(ctx, nameMapping, nameMapping)
+			err = ctx.Mappings.Store().AddReferenceAndSave(ctx, nameMapping, nameMapping)
 			if err != nil {
 				return fmt.Errorf("error saving reference in store: %w", err)
 			}

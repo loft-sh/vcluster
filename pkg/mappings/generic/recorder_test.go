@@ -55,7 +55,7 @@ func TestRecorder(t *testing.T) {
 		VirtualName:      vTest,
 		HostName:         pTestOther,
 	}
-	err = mappingsStore.RecordReference(syncContext.Context, conflictingMapping, conflictingMapping)
+	err = mappingsStore.AddReference(syncContext.Context, conflictingMapping, conflictingMapping)
 	assert.NilError(t, err)
 
 	// check that mapping is empty
@@ -86,7 +86,7 @@ func TestRecorder(t *testing.T) {
 		HostName:         retTest,
 		VirtualName:      pTestOther,
 	}
-	err = mappingsStore.RecordReference(syncContext.Context, conflictingMapping, conflictingMapping)
+	err = mappingsStore.AddReference(syncContext.Context, conflictingMapping, conflictingMapping)
 	assert.ErrorContains(t, err, "there is already another name mapping")
 
 	// check if managed 1
