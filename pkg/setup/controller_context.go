@@ -280,7 +280,7 @@ func initControllerContext(
 		return nil, errors.Wrap(err, "get virtual cluster version")
 	}
 	nodes.FakeNodesVersion = virtualClusterVersion.GitVersion
-	klog.Infof("Can connect to virtual cluster with version " + virtualClusterVersion.GitVersion)
+	klog.Info("Can connect to virtual cluster with version " + virtualClusterVersion.GitVersion)
 
 	// create a new current namespace client
 	currentNamespaceClient, err := newCurrentNamespaceClient(ctx, localManager, vClusterOptions)

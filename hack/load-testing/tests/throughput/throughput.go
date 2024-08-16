@@ -31,7 +31,7 @@ func TestThroughput(ctx context.Context, kubeClient client.Client, namespace str
 
 		err = kubeClient.Create(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: fmt.Sprintf("secret-test-" + random.String(10) + "-"),
+				GenerateName: fmt.Sprint("secret-test-" + random.String(10) + "-"),
 				Namespace:    namespace,
 			},
 			Data: map[string][]byte{
