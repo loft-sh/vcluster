@@ -740,21 +740,21 @@ policies:
     annotations: {}
     # Quota are the quota options
     quota:
-      requests.cpu: 10
-      requests.memory: 20Gi
-      requests.storage: "100Gi"
-      requests.ephemeral-storage: 60Gi
-      limits.cpu: 20
-      limits.memory: 40Gi
-      limits.ephemeral-storage: 160Gi
-      services.nodeports: 0
-      services.loadbalancers: 1
-      count/endpoints: 40
-      count/pods: 20
-      count/services: 20
-      count/secrets: 100
-      count/configmaps: 100
-      count/persistentvolumeclaims: 20
+      # requests.cpu: 10
+      # requests.memory: 20Gi
+      # requests.storage: "100Gi"
+      # requests.ephemeral-storage: 60Gi
+      # limits.cpu: 20
+      # limits.memory: 40Gi
+      # limits.ephemeral-storage: 160Gi
+      # services.nodeports: 0
+      # services.loadbalancers: 1
+      # count/endpoints: 40
+      # count/pods: 20
+      # count/services: 20
+      # count/secrets: 100
+      # count/configmaps: 100
+      # count/persistentvolumeclaims: 20
     # ScopeSelector is the resource quota scope selector
     scopeSelector:
       matchExpressions: []
@@ -770,14 +770,14 @@ policies:
     annotations: {}
     # Default are the default limits for the limit range
     default:
-      ephemeral-storage: 8Gi
-      memory: 512Mi
-      cpu: "1"
+      # ephemeral-storage: 8Gi
+      # memory: 512Mi
+      # cpu: "1"
     # DefaultRequest are the default request options for the limit range
     defaultRequest:
-      ephemeral-storage: 3Gi
-      memory: 128Mi
-      cpu: 100m
+      # ephemeral-storage: 3Gi
+      # memory: 128Mi
+      # cpu: 100m
   
   # NetworkPolicy specifies network policy options.
   networkPolicy:
