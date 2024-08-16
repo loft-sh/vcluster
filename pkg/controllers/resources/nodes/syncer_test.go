@@ -142,22 +142,24 @@ func TestSyncBothExist(t *testing.T) {
 		},
 	}
 	testCases := []struct {
-		name                    string
-		withVirtualPod          bool
-		withPhysicalPod         bool
-		virtualNodeExists       bool
-		modifiedPhysical        bool
-		expectNoVNode           bool
-		syncFromHostLabel       map[string]string
-		hostLabel               map[string]string
-		virtualFinalLabels      map[string]string
-		virtualFinalAnnotations map[string]string
-		physicalAnnotations     map[string]string
-		imagesPhysicalNode      []corev1.ContainerImage
-		enforceTolerations      []string
-		clearImage              bool
-		physicalTaints          []corev1.Taint
-		expectedTaints          []corev1.Taint
+		name                      string
+		withVirtualPod            bool
+		withPhysicalPod           bool
+		virtualNodeExists         bool
+		modifiedPhysical          bool
+		expectNoVNode             bool
+		syncNodes                 bool
+		syncFromHostLabel         map[string]string
+		hostLabel                 map[string]string
+		virtualFinalLabels        map[string]string
+		virtualInitialAnnotations map[string]string
+		virtualFinalAnnotations   map[string]string
+		physicalAnnotations       map[string]string
+		imagesPhysicalNode        []corev1.ContainerImage
+		enforceTolerations        []string
+		clearImage                bool
+		physicalTaints            []corev1.Taint
+		expectedTaints            []corev1.Taint
 	}{
 		{
 			name:              "Update backward no change",
@@ -267,6 +269,25 @@ func TestSyncBothExist(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:              "Nodes syncing enabled -- Ignore updates to Rancher managed annotations",
+			withVirtualPod:    true,
+			withPhysicalPod:   true,
+			virtualNodeExists: true,
+			syncNodes:         true,
+			physicalAnnotations: map[string]string{
+				RancherAgentPodRequestsAnnotation: "{\"pods\":\"3\"}",
+				RancherAgentPodLimitsAnnotation:   "{\"pods\":\"10\"}",
+			},
+			virtualInitialAnnotations: map[string]string{
+				RancherAgentPodRequestsAnnotation: "{\"pods\":\"1\"}",
+				RancherAgentPodLimitsAnnotation:   "{\"pods\":\"5\"}",
+			},
+			virtualFinalAnnotations: map[string]string{
+				RancherAgentPodRequestsAnnotation: "{\"pods\":\"1\"}",
+				RancherAgentPodLimitsAnnotation:   "{\"pods\":\"5\"}",
+			},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.name, func(t *testing.T) {
@@ -283,7 +304,12 @@ func TestSyncBothExist(t *testing.T) {
 			}
 
 			if tC.virtualNodeExists {
-				initialObjects = append(initialObjects, initialVNode.DeepCopy())
+				node := initialVNode.DeepCopy()
+				if len(tC.virtualInitialAnnotations) > 0 {
+					node.Annotations = tC.virtualInitialAnnotations
+				}
+
+				initialObjects = append(initialObjects, node)
 			}
 
 			physical.Labels = tC.hostLabel
@@ -316,6 +342,7 @@ func TestSyncBothExist(t *testing.T) {
 			registerContext := syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
 
 			registerContext.Config.Networking.Advanced.ProxyKubelets.ByIP = false
+			registerContext.Config.Sync.FromHost.Nodes.Enabled = tC.syncNodes
 			registerContext.Config.Sync.FromHost.Nodes.ClearImageStatus = tC.clearImage
 			registerContext.Config.Sync.ToHost.Pods.EnforceTolerations = tC.enforceTolerations
 			registerContext.Config.Sync.FromHost.Nodes.Selector.Labels = tC.syncFromHostLabel
