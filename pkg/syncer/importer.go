@@ -15,3 +15,7 @@ type noopImporter struct{}
 func (n *noopImporter) Import(_ *synccontext.SyncContext, _ client.Object) (bool, error) {
 	return false, nil
 }
+
+func (n *noopImporter) IgnoreHostObject(_ *synccontext.SyncContext, _ client.Object) bool {
+	return false
+}

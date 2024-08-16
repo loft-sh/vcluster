@@ -163,6 +163,11 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 		return ctrl.Result{}, err
 	}
 
+	// check if we should ignore object
+	if importer, ok := r.syncer.(syncertypes.Importer); ok && importer.IgnoreHostObject(syncContext, pObj) {
+		return ctrl.Result{Requeue: true}, nil
+	}
+
 	// add mapping to context
 	if !r.options.SkipMappingsRecording {
 		syncContext.Context, err = synccontext.WithMappingFromObjects(syncContext.Context, pObj, vObj)
@@ -391,21 +396,13 @@ func (r *SyncController) extractRequest(ctx *synccontext.SyncContext, req ctrl.R
 	return req, pReq, nil
 }
 
-func (r *SyncController) enqueueVirtual(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface, isDelete bool) {
+func (r *SyncController) enqueueVirtual(_ context.Context, obj client.Object, q workqueue.RateLimitingInterface, isDelete bool) {
 	if obj == nil {
 		return
 	}
 
 	// add a new request for the host object as otherwise this information might be lost after a delete event
 	if isDelete {
-		// add a new request for the host object
-		name := r.syncer.VirtualToHost(r.newSyncContext(ctx, obj.GetName()), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
-		if name.Name != "" {
-			q.Add(toDeleteRequest(toHostRequest(reconcile.Request{
-				NamespacedName: name,
-			})))
-		}
-
 		// add a new request for the virtual object
 		q.Add(toDeleteRequest(reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -441,39 +438,32 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 		return
 	} else if !managed {
 		// check if we should import
-
-		// don't import if object was deleted
-		if isDelete {
-			return
+		imported := false
+		if importer, ok := r.syncer.(syncertypes.Importer); ok && !isDelete {
+			imported, err = importer.Import(syncContext, obj)
+			if err != nil {
+				klog.Errorf("error importing object %v: %v", obj, err)
+				return
+			}
 		}
 
-		// is importer?
-		importer, ok := r.syncer.(syncertypes.Importer)
-		if !ok {
-			return
-		}
-
-		// try to import
-		imported, err := importer.Import(syncContext, obj)
-		if err != nil {
-			klog.Errorf("error importing object %v: %v", obj, err)
-			return
-		} else if !imported {
-			// not imported, so just return
+		// if not imported we exit here
+		if !imported {
 			return
 		}
 	}
 
+	// check if we should ignore the host object
+	if importer, ok := r.syncer.(syncertypes.Importer); ok && importer.IgnoreHostObject(syncContext, obj) {
+		// since we check later anyways in the actual syncer again if we should ignore the object we only need to set
+		// isDelete = false here to make sure the event is propagated and not missed and the syncer is recreating the
+		// object correctly as soon as its deleted. However, we don't want it to be a delete event as this will delete
+		// the virtual object so we need to set that to false here.
+		isDelete = false
+	}
+
 	// add a new request for the virtual object as otherwise this information might be lost after a delete event
 	if isDelete {
-		// add a new request for the virtual object
-		name := r.syncer.HostToVirtual(syncContext, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
-		if name.Name != "" {
-			q.Add(toDeleteRequest(reconcile.Request{
-				NamespacedName: name,
-			}))
-		}
-
 		// add a new request for the host object
 		q.Add(toDeleteRequest(toHostRequest(reconcile.Request{
 			NamespacedName: types.NamespacedName{

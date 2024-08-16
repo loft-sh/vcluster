@@ -10,7 +10,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,11 +30,13 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 	return &ingressSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "ingress", &networkingv1.Ingress{}, mapper),
+		Importer:          pro.NewImporter(mapper),
 	}, nil
 }
 
 type ingressSyncer struct {
 	syncertypes.GenericTranslator
+	syncertypes.Importer
 }
 
 var _ syncertypes.Syncer = &ingressSyncer{}
@@ -82,5 +86,15 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 
 func (s *ingressSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*networkingv1.Ingress]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
-	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
+		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	}
+
+	vIngress := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vIngress, event.Host, ctx.Config.Sync.ToHost.Ingresses.Translate)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return syncer.CreateVirtualObject(ctx, event.Host, vIngress, s.EventRecorder())
 }
