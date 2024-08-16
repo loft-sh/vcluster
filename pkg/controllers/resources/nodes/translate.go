@@ -19,7 +19,9 @@ import (
 )
 
 var (
-	TaintsAnnotation = "vcluster.loft.sh/original-taints"
+	TaintsAnnotation                  = "vcluster.loft.sh/original-taints"
+	RancherAgentPodRequestsAnnotation = "management.cattle.io/pod-requests"
+	RancherAgentPodLimitsAnnotation   = "management.cattle.io/pod-limits"
 )
 
 func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.Node) *corev1.Node {
@@ -27,7 +29,8 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 
 	// merge labels & taints
 	translatedSpec := pNode.Spec.DeepCopy()
-	labels, annotations := translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels, TaintsAnnotation)
+	excludeAnnotations := []string{TaintsAnnotation, RancherAgentPodRequestsAnnotation, RancherAgentPodLimitsAnnotation}
+	labels, annotations := translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels, excludeAnnotations...)
 
 	// merge taints together
 	oldPhysical := []string{}
