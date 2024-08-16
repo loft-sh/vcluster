@@ -58,7 +58,7 @@ func (s *secretsMapper) Migrate(ctx *synccontext.RegisterContext, mapper synccon
 		for _, secret := range secretNamesFromPod(syncContext, item) {
 			pName := mapper.VirtualToHost(syncContext, secret, nil)
 			if pName.Name != "" {
-				err = ctx.Mappings.Store().RecordAndSaveReference(ctx, synccontext.NameMapping{
+				err = ctx.Mappings.Store().AddReferenceAndSave(ctx, synccontext.NameMapping{
 					GroupVersionKind: mappings.Secrets(),
 					VirtualName:      secret,
 					HostName:         pName,
@@ -90,7 +90,7 @@ func (s *secretsMapper) Migrate(ctx *synccontext.RegisterContext, mapper synccon
 			for _, secret := range secretNamesFromIngress(syncContext, item) {
 				pName := mapper.VirtualToHost(syncContext, secret, nil)
 				if pName.Name != "" {
-					err = ctx.Mappings.Store().RecordAndSaveReference(ctx, synccontext.NameMapping{
+					err = ctx.Mappings.Store().AddReferenceAndSave(ctx, synccontext.NameMapping{
 						GroupVersionKind: mappings.Secrets(),
 						VirtualName:      secret,
 						HostName:         pName,

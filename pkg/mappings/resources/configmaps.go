@@ -86,7 +86,7 @@ func (s *configMapsMapper) Migrate(ctx *synccontext.RegisterContext, mapper sync
 		for _, configMap := range configMapsFromPod(item) {
 			pName := mapper.VirtualToHost(ctx.ToSyncContext("migrate-pod"), configMap, nil)
 			if pName.Name != "" {
-				err = ctx.Mappings.Store().RecordAndSaveReference(ctx, synccontext.NameMapping{
+				err = ctx.Mappings.Store().AddReferenceAndSave(ctx, synccontext.NameMapping{
 					GroupVersionKind: mappings.ConfigMaps(),
 					VirtualName:      configMap,
 					HostName:         pName,

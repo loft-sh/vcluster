@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,6 +25,8 @@ const GarbageCollectionInterval = time.Minute * 3
 func NewStore(ctx context.Context, cachedVirtualClient, cachedHostClient client.Client, backend Backend) (synccontext.MappingsStore, error) {
 	store := &Store{
 		backend: backend,
+
+		sender: uuid.NewString(),
 
 		cachedVirtualClient: cachedVirtualClient,
 		cachedHostClient:    cachedHostClient,
@@ -47,6 +50,8 @@ func NewStore(ctx context.Context, cachedVirtualClient, cachedHostClient client.
 
 type Store struct {
 	m sync.RWMutex
+
+	sender string
 
 	cachedVirtualClient client.Client
 	cachedHostClient    client.Client
@@ -106,60 +111,75 @@ func (s *Store) garbageCollectMappings(ctx context.Context) {
 }
 
 func (s *Store) garbageCollectMapping(ctx context.Context, mapping *Mapping) error {
+	// check if object exists
+	exists, err := s.objectExists(ctx, mapping.NameMapping)
+	if err != nil {
+		return err
+	} else if exists {
+		return nil
+	}
+
+	// delete the mapping
+	err = s.deleteMapping(ctx, mapping)
+	if err != nil {
+		return err
+	}
+
+	klog.FromContext(ctx).Info("Remove mapping as both virtual and host were not found", "mapping", mapping.String())
+	return nil
+}
+
+func (s *Store) deleteMapping(ctx context.Context, mapping *Mapping) error {
+	// set sender
+	mapping.Sender = s.sender
+
+	// remove mapping from backend
+	err := s.backend.Delete(ctx, mapping)
+	if err != nil {
+		return fmt.Errorf("remove mapping from backend: %w", err)
+	}
+
+	s.removeMapping(mapping)
+	return nil
+}
+
+func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMapping) (bool, error) {
 	// build the object we can query
-	obj, err := scheme.Scheme.New(mapping.GroupVersionKind)
+	obj, err := scheme.Scheme.New(nameMapping.GroupVersionKind)
 	if err != nil {
 		if !runtime.IsNotRegisteredError(err) {
-			return fmt.Errorf("create object: %w", err)
+			return false, fmt.Errorf("create object: %w", err)
 		}
 
 		obj = &unstructured.Unstructured{}
 	}
 
-	uList, ok := obj.(*unstructured.Unstructured)
+	// set kind & apiVersion if unstructured
+	uObject, ok := obj.(*unstructured.Unstructured)
 	if ok {
-		uList.SetKind(mapping.GroupVersionKind.Kind)
-		uList.SetAPIVersion(mapping.GroupVersionKind.GroupVersion().String())
+		uObject.SetKind(nameMapping.GroupVersionKind.Kind)
+		uObject.SetAPIVersion(nameMapping.GroupVersionKind.GroupVersion().String())
 	}
 
 	// check if virtual object exists
-	virtualExists := true
-	err = s.cachedVirtualClient.Get(ctx, types.NamespacedName{Name: mapping.VirtualName.Name, Namespace: mapping.VirtualName.Namespace}, obj.DeepCopyObject().(client.Object))
-	if err != nil {
-		if !kerrors.IsNotFound(err) {
-			// TODO: filter out other allowed errors here could be Forbidden, Type not found etc.
-			klog.FromContext(ctx).Info("Error retrieving virtual object", "virtualObject", mapping.Virtual().String())
-		}
-
-		virtualExists = false
+	err = s.cachedVirtualClient.Get(ctx, nameMapping.VirtualName, obj.DeepCopyObject().(client.Object))
+	if err == nil {
+		return true, nil
+	} else if !kerrors.IsNotFound(err) {
+		// TODO: filter out other allowed errors here could be Forbidden, Type not found etc.
+		klog.FromContext(ctx).Info("Error retrieving virtual object", "virtualObject", nameMapping.Virtual().String())
 	}
 
 	// check if host object exists
-	hostExists := true
-	err = s.cachedVirtualClient.Get(ctx, types.NamespacedName{Name: mapping.HostName.Name, Namespace: mapping.HostName.Namespace}, obj.DeepCopyObject().(client.Object))
-	if err != nil {
-		if !kerrors.IsNotFound(err) {
-			// TODO: filter out other allowed errors here could be Forbidden, Type not found etc.
-			klog.FromContext(ctx).Info("Error retrieving host object", "hostObject", mapping.Host().String())
-		}
-
-		hostExists = false
+	err = s.cachedHostClient.Get(ctx, nameMapping.HostName, obj.DeepCopyObject().(client.Object))
+	if err == nil {
+		return true, nil
+	} else if !kerrors.IsNotFound(err) {
+		// TODO: filter out other allowed errors here could be Forbidden, Type not found etc.
+		klog.FromContext(ctx).Info("Error retrieving host object", "hostObject", nameMapping.Host().String())
 	}
 
-	// remove mapping if both objects are not found anymore
-	if virtualExists || hostExists {
-		return nil
-	}
-
-	// remove mapping from backend
-	err = s.backend.Delete(ctx, mapping)
-	if err != nil {
-		return fmt.Errorf("remove mapping from backend: %w", err)
-	}
-
-	klog.FromContext(ctx).Info("Remove mapping as both virtual and host were not found", "mapping", mapping.String())
-	s.removeMapping(mapping)
-	return nil
+	return false, nil
 }
 
 func (s *Store) start(ctx context.Context) error {
@@ -204,6 +224,11 @@ func (s *Store) handleEvent(ctx context.Context, watchEvent BackendWatchResponse
 	}
 
 	for _, event := range watchEvent.Events {
+		// ignore events sent by us
+		if event.Mapping.Sender == s.sender {
+			continue
+		}
+
 		klog.FromContext(ctx).V(1).Info("mapping store received event", "type", event.Type, "mapping", event.Mapping.String())
 
 		// remove mapping in any case
@@ -245,8 +270,8 @@ func (s *Store) VirtualToHostName(_ context.Context, vObj synccontext.Object) (t
 	return pObjLookup.Object.NamespacedName, ok
 }
 
-func (s *Store) RecordAndSaveReference(ctx context.Context, nameMapping, belongsTo synccontext.NameMapping) error {
-	err := s.RecordReference(ctx, nameMapping, belongsTo)
+func (s *Store) DeleteReferenceAndSave(ctx context.Context, nameMapping, belongsTo synccontext.NameMapping) error {
+	err := s.DeleteReference(ctx, nameMapping, belongsTo)
 	if err != nil {
 		return err
 	}
@@ -254,7 +279,57 @@ func (s *Store) RecordAndSaveReference(ctx context.Context, nameMapping, belongs
 	return s.SaveMapping(ctx, belongsTo)
 }
 
-func (s *Store) RecordReference(ctx context.Context, nameMapping, belongsTo synccontext.NameMapping) error {
+func (s *Store) DeleteReference(ctx context.Context, nameMapping, belongsTo synccontext.NameMapping) error {
+	// we don't record incomplete mappings
+	if nameMapping.Host().Empty() || nameMapping.Virtual().Empty() {
+		return nil
+	}
+
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	// check if there is already a mapping
+	mapping, ok := s.findMapping(belongsTo)
+	if !ok {
+		return nil
+	}
+
+	// check if reference already exists
+	newReferences := make([]synccontext.NameMapping, 0, len(mapping.References)-1)
+	for _, reference := range mapping.References {
+		if reference.Equals(nameMapping) {
+			continue
+		}
+
+		newReferences = append(newReferences, reference)
+	}
+
+	// check if we found the reference
+	if len(newReferences) == len(mapping.References) {
+		return nil
+	}
+
+	// signal mapping was changed
+	mapping.References = newReferences
+	mapping.changed = true
+	klog.FromContext(ctx).Info("Delete mapping reference", "host", nameMapping.Host().String(), "virtual", nameMapping.Virtual().String(), "owner", mapping.Virtual().String())
+
+	// add to lookup maps
+	s.removeNameFromMaps(mapping, nameMapping.Virtual(), nameMapping.Host())
+	dispatchAll(s.watches[nameMapping.GroupVersionKind], nameMapping)
+	return nil
+}
+
+func (s *Store) AddReferenceAndSave(ctx context.Context, nameMapping, belongsTo synccontext.NameMapping) error {
+	err := s.AddReference(ctx, nameMapping, belongsTo)
+	if err != nil {
+		return err
+	}
+
+	return s.SaveMapping(ctx, belongsTo)
+}
+
+func (s *Store) AddReference(ctx context.Context, nameMapping, belongsTo synccontext.NameMapping) error {
 	// we don't record incomplete mappings
 	if nameMapping.Host().Empty() || nameMapping.Virtual().Empty() {
 		return nil
@@ -290,7 +365,7 @@ func (s *Store) RecordReference(ctx context.Context, nameMapping, belongsTo sync
 
 	// add mapping
 	mapping.changed = true
-	klog.FromContext(ctx).Info("Add name mapping", "host", nameMapping.Host().String(), "virtual", nameMapping.Virtual().String(), "owner", mapping.Virtual().String())
+	klog.FromContext(ctx).Info("Add mapping reference", "host", nameMapping.Host().String(), "virtual", nameMapping.Virtual().String(), "owner", mapping.Virtual().String())
 	mapping.References = append(mapping.References, nameMapping)
 
 	// add to lookup maps
@@ -316,6 +391,9 @@ func (s *Store) SaveMapping(ctx context.Context, nameMapping synccontext.NameMap
 		return nil
 	}
 
+	// set sender
+	mapping.Sender = s.sender
+
 	// save mapping
 	klog.FromContext(ctx).Info("Save object mappings in store", "mapping", mapping.String())
 	err := s.backend.Save(ctx, mapping)
@@ -327,14 +405,44 @@ func (s *Store) SaveMapping(ctx context.Context, nameMapping synccontext.NameMap
 	return nil
 }
 
-func (s *Store) ReferencesTo(ctx context.Context, vObj synccontext.Object) []synccontext.NameMapping {
+func (s *Store) DeleteMapping(ctx context.Context, nameMapping synccontext.NameMapping) error {
 	// we ignore empty mappings here
-	if vObj.Empty() {
+	if nameMapping.Empty() {
 		return nil
 	}
 
 	s.m.Lock()
 	defer s.m.Unlock()
+
+	// check if there is already a mapping
+	mapping, ok := s.findMapping(nameMapping)
+	if !ok {
+		return nil
+	}
+
+	// delete the mapping
+	err := s.deleteMapping(ctx, mapping)
+	if err != nil {
+		return err
+	}
+
+	klog.FromContext(ctx).Info("Remove object mappings in store", "mapping", mapping.String())
+	return nil
+}
+
+func (s *Store) ReferencesTo(ctx context.Context, vObj synccontext.Object) []synccontext.NameMapping {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	retReferences := s.referencesTo(vObj)
+	klog.FromContext(ctx).V(1).Info("Found references for object", "object", vObj.String(), "references", len(retReferences))
+	return retReferences
+}
+
+func (s *Store) referencesTo(vObj synccontext.Object) []synccontext.NameMapping {
+	if vObj.Empty() {
+		return nil
+	}
 
 	hostNameLookup, ok := s.virtualToHostName[vObj]
 	if !ok {
@@ -356,7 +464,6 @@ func (s *Store) ReferencesTo(ctx context.Context, vObj synccontext.Object) []syn
 		retReferences = append(retReferences, reference.NameMapping)
 	}
 
-	klog.FromContext(ctx).V(1).Info("Found references for object", "object", vObj.String(), "references", len(retReferences))
 	return retReferences
 }
 

@@ -49,14 +49,23 @@ type MappingsStore interface {
 	// HasVirtualObject checks if the store has a mapping for the virtual object
 	HasVirtualObject(ctx context.Context, pObj Object) bool
 
-	// RecordAndSaveReference records a reference mapping and directly saves it
-	RecordAndSaveReference(ctx context.Context, nameMapping, belongsTo NameMapping) error
+	// AddReferenceAndSave adds a reference mapping and directly saves the mapping
+	AddReferenceAndSave(ctx context.Context, nameMapping, belongsTo NameMapping) error
 
-	// RecordReference records a reference mapping
-	RecordReference(ctx context.Context, nameMapping, belongsTo NameMapping) error
+	// DeleteReferenceAndSave deletes a reference mapping and directly saves the mapping
+	DeleteReferenceAndSave(ctx context.Context, nameMapping, belongsTo NameMapping) error
+
+	// AddReference adds a reference mapping
+	AddReference(ctx context.Context, nameMapping, belongsTo NameMapping) error
+
+	// DeleteReference deletes a reference mapping
+	DeleteReference(ctx context.Context, nameMapping, belongsTo NameMapping) error
 
 	// SaveMapping saves the mapping in the backing store
 	SaveMapping(ctx context.Context, mapping NameMapping) error
+
+	// DeleteMapping deletes the mapping in the backing store
+	DeleteMapping(ctx context.Context, mapping NameMapping) error
 
 	// ReferencesTo retrieves all known references to this object
 	ReferencesTo(ctx context.Context, vObj Object) []NameMapping
