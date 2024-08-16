@@ -27,6 +27,9 @@ type Syncer interface {
 type Importer interface {
 	// Import imports the given host object into the virtual cluster
 	Import(ctx *synccontext.SyncContext, pObj client.Object) (bool, error)
+
+	// IgnoreHostObject is used to ignore certain objects during the import process
+	IgnoreHostObject(ctx *synccontext.SyncContext, pObj client.Object) bool
 }
 
 type Sync[T client.Object] interface {
