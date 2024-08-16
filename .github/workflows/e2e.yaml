@@ -144,9 +144,18 @@ jobs:
     name: Execute test suites
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure git
+        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
       - name: download current cli
         run: |
-          curl -L -o vcluster-current "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64"
+          VERSION=$(git ls-remote --tags origin -l 'v0.19.*' | awk -F'/' '{print $3}' | sort -V | tail -n 1)
+          curl -L -o vcluster-current "https://github.com/loft-sh/vcluster/releases/download/${VERSION}/vcluster-linux-amd64"
       - name: Upload vcluster cli to artifact
         uses: actions/upload-artifact@v4
         with:
