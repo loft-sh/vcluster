@@ -298,25 +298,25 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 
 func (cmd *CreateCmd) validateOSSFlags() error {
 	if cmd.Project != "" {
-		return fmt.Errorf("cannot use --project as you are not connected to a vCluster.Pro instance." + loginText)
+		return errors.New("cannot use --project as you are not connected to a vCluster.Pro instance." + loginText)
 	}
 	if cmd.Cluster != "" {
-		return fmt.Errorf("cannot use --cluster as you are not connected to a vCluster.Pro instance." + loginText)
+		return errors.New("cannot use --cluster as you are not connected to a vCluster.Pro instance." + loginText)
 	}
 	if cmd.Template != "" {
-		return fmt.Errorf("cannot use --template as you are not connected to a vCluster.Pro instance." + loginText)
+		return errors.New("cannot use --template as you are not connected to a vCluster.Pro instance." + loginText)
 	}
 	if cmd.TemplateVersion != "" {
-		return fmt.Errorf("cannot use --template-version as you are not connected to a vCluster.Pro instance." + loginText)
+		return errors.New("cannot use --template-version as you are not connected to a vCluster.Pro instance." + loginText)
 	}
 	if len(cmd.Links) > 0 {
-		return fmt.Errorf("cannot use --link as you are not connected to a vCluster.Pro instance." + loginText)
+		return errors.New("cannot use --link as you are not connected to a vCluster.Pro instance." + loginText)
 	}
 	if cmd.Params != "" {
-		return fmt.Errorf("cannot use --params as you are not connected to a vCluster.Pro instance." + loginText)
+		return errors.New("cannot use --params as you are not connected to a vCluster.Pro instance." + loginText)
 	}
 	if len(cmd.SetParams) > 0 {
-		return fmt.Errorf("cannot use --set-params as you are not connected to a vCluster.Pro instance." + loginText)
+		return errors.New("cannot use --set-params as you are not connected to a vCluster.Pro instance." + loginText)
 	}
 
 	return nil

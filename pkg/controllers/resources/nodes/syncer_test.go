@@ -575,4 +575,74 @@ func TestSync(t *testing.T) {
 			},
 		},
 	})
+
+	basePod = &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mypod",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: baseName.Name,
+		},
+	}
+	baseNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+			Annotations: map[string]string{
+				RancherAgentPodRequestsAnnotation: "{\"pods\":\"3\"}",
+				RancherAgentPodLimitsAnnotation:   "{\"pods\":\"10\"}",
+			},
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: GetNodeHost(baseName.Name),
+					Type:    corev1.NodeHostName,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: constants.KubeletPort,
+				},
+			},
+		},
+	}
+
+	baseVNode = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: baseName.Name,
+			Annotations: map[string]string{
+				RancherAgentPodRequestsAnnotation: "{\"pods\":\"1\"}",
+				RancherAgentPodLimitsAnnotation:   "{\"pods\":\"5\"}",
+			},
+		},
+		Status: corev1.NodeStatus{
+			Addresses: []corev1.NodeAddress{
+				{
+					Address: GetNodeHost(baseName.Name),
+					Type:    corev1.NodeHostName,
+				},
+			},
+			DaemonEndpoints: corev1.NodeDaemonEndpoints{
+				KubeletEndpoint: corev1.DaemonEndpoint{
+					Port: constants.KubeletPort,
+				},
+			},
+		},
+	}
+
+	generictesting.RunTests(t, []*generictesting.SyncTest{
+		{
+			Name:                 "Nodes syncing enabled -- Ignore updates to Rancher managed annotations",
+			InitialPhysicalState: []runtime.Object{basePod, baseNode},
+			InitialVirtualState:  []runtime.Object{basePod, baseVNode},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Node"): {baseVNode},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncCtx, baseNode, baseVNode)
+				assert.NilError(t, err)
+			},
+		},
+	})
 }
