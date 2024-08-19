@@ -827,6 +827,12 @@ type ControlPlaneStatefulSet struct {
 
 	// Env are additional environment variables for the statefulSet container.
 	Env []map[string]interface{} `json:"env,omitempty"`
+
+	// Set DNS policy for the pod.
+	DNSPolicy DNSPolicy `json:"dnsPolicy,omitempty"`
+
+	// Specifies the DNS parameters of a pod.
+	DNSConfig *PodDNSConfig `json:"dnsConfig,omitempty"`
 }
 
 type Distro struct {
@@ -2106,6 +2112,63 @@ type RuleWithVerbs struct {
 	// If '*' is present, the length of the slice must be one.
 	Verbs []string `json:"operations,omitempty"`
 }
+
+// PodDNSConfig defines the DNS parameters of a pod in addition to
+// those generated from DNSPolicy.
+type PodDNSConfig struct {
+	// A list of DNS name server IP addresses.
+	// This will be appended to the base nameservers generated from DNSPolicy.
+	// Duplicated nameservers will be removed.
+	// +optional
+	// +listType=atomic
+	Nameservers []string `protobuf:"bytes,1,rep,name=nameservers" json:"nameservers,omitempty"`
+	// A list of DNS search domains for host-name lookup.
+	// This will be appended to the base search paths generated from DNSPolicy.
+	// Duplicated search paths will be removed.
+	// +optional
+	// +listType=atomic
+	Searches []string `protobuf:"bytes,2,rep,name=searches" json:"searches,omitempty"`
+	// A list of DNS resolver options.
+	// This will be merged with the base options generated from DNSPolicy.
+	// Duplicated entries will be removed. Resolution options given in Options
+	// will override those that appear in the base DNSPolicy.
+	// +optional
+	// +listType=atomic
+	Options []PodDNSConfigOption `protobuf:"bytes,3,rep,name=options" json:"options,omitempty"`
+}
+
+// PodDNSConfigOption defines DNS resolver options of a pod.
+type PodDNSConfigOption struct {
+	// Required.
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	// +optional
+	Value *string `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+}
+
+// DNSPolicy defines how a pod's DNS will be configured.
+// +enum
+type DNSPolicy string
+
+const (
+	// DNSClusterFirstWithHostNet indicates that the pod should use cluster DNS
+	// first, if it is available, then fall back on the default
+	// (as determined by kubelet) DNS settings.
+	DNSClusterFirstWithHostNet DNSPolicy = "ClusterFirstWithHostNet"
+
+	// DNSClusterFirst indicates that the pod should use cluster DNS
+	// first unless hostNetwork is true, if it is available, then
+	// fall back on the default (as determined by kubelet) DNS settings.
+	DNSClusterFirst DNSPolicy = "ClusterFirst"
+
+	// DNSDefault indicates that the pod should use the default (as
+	// determined by kubelet) DNS settings.
+	DNSDefault DNSPolicy = "Default"
+
+	// DNSNone indicates that the pod should use empty DNS settings. DNS
+	// parameters such as nameservers and search paths should be defined via
+	// DNSConfig.
+	DNSNone DNSPolicy = "None"
+)
 
 // addProToJSONSchema looks for fields with the `product:"pro"` tag and adds the pro tag to the central field.
 // Requires `json:""` tag to be set as well.

@@ -517,6 +517,14 @@
           },
           "type": "array",
           "description": "Env are additional environment variables for the statefulSet container."
+        },
+        "dnsPolicy": {
+          "type": "string",
+          "description": "Set DNS policy for the pod."
+        },
+        "dnsConfig": {
+          "$ref": "#/$defs/PodDNSConfig",
+          "description": "Specifies the DNS parameters of a pod."
         }
       },
       "additionalProperties": false,
@@ -2321,6 +2329,49 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "PodDNSConfig": {
+      "properties": {
+        "nameservers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "A list of DNS name server IP addresses.\nThis will be appended to the base nameservers generated from DNSPolicy.\nDuplicated nameservers will be removed.\n+optional\n+listType=atomic"
+        },
+        "searches": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "A list of DNS search domains for host-name lookup.\nThis will be appended to the base search paths generated from DNSPolicy.\nDuplicated search paths will be removed.\n+optional\n+listType=atomic"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/PodDNSConfigOption"
+          },
+          "type": "array",
+          "description": "A list of DNS resolver options.\nThis will be merged with the base options generated from DNSPolicy.\nDuplicated entries will be removed. Resolution options given in Options\nwill override those that appear in the base DNSPolicy.\n+optional\n+listType=atomic"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "PodDNSConfig defines the DNS parameters of a pod in addition to those generated from DNSPolicy."
+    },
+    "PodDNSConfigOption": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Required."
+        },
+        "value": {
+          "type": "string",
+          "description": "+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "PodDNSConfigOption defines DNS resolver options of a pod."
     },
     "Policies": {
       "properties": {
