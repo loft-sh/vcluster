@@ -156,13 +156,13 @@ func (n *mapper) HostToVirtual(ctx *synccontext.SyncContext, req types.Namespace
 // TryToTranslateBack is used to find out the name mapping automatically in certain scenarios, this doesn't always
 // work, but for some cases this is pretty useful.
 func TryToTranslateBack(ctx *synccontext.SyncContext, req types.NamespacedName, gvk schema.GroupVersionKind) types.NamespacedName {
-	if ctx == nil || ctx.Config == nil || ctx.Mappings == nil || !ctx.Mappings.Has(mappings.Namespaces()) {
+	if ctx == nil || ctx.Config == nil || ctx.Mappings == nil {
 		return types.NamespacedName{}
 	}
 
 	// if multi-namespace mode we try to translate back
 	if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
-		if gvk == mappings.Namespaces() {
+		if gvk == mappings.Namespaces() || !ctx.Mappings.Has(mappings.Namespaces()) {
 			return types.NamespacedName{}
 		}
 
