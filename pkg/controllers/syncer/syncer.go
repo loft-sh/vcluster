@@ -2,6 +2,7 @@ package syncer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -270,7 +271,7 @@ func (r *SyncController) excludePhysical(ctx context.Context, pObj, vObj client.
 		if !excluderOk && vObj != nil {
 			msg := fmt.Sprintf("conflict: cannot sync virtual object %s/%s as unmanaged physical object %s/%s exists with desired name", vObj.GetNamespace(), vObj.GetName(), pObj.GetNamespace(), pObj.GetName())
 			r.vEventRecorder.Eventf(vObj, "Warning", "SyncError", msg)
-			return false, fmt.Errorf(msg)
+			return false, errors.New(msg)
 		}
 
 		return true, nil
