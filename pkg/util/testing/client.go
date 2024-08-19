@@ -22,8 +22,15 @@ func NewFakeClient(scheme *runtime.Scheme, objs ...runtime.Object) *FakeIndexCli
 		co = append(co, o.(client.Object))
 	}
 
+	fakeMapper := NewFakeMapper(scheme).(*meta.DefaultRESTMapper)
+	for groupVersionKind := range scheme.AllKnownTypes() {
+		// we just assume everything is namespace scoped, if this causes issues we can
+		// exclude certain resources here
+		fakeMapper.Add(groupVersionKind, meta.RESTScopeNamespace)
+	}
+
 	return &FakeIndexClient{
-		Client:     fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).WithStatusSubresource(co...).Build(),
+		Client:     fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).WithRESTMapper(fakeMapper).WithStatusSubresource(co...).Build(),
 		scheme:     scheme,
 		indexFuncs: map[schema.GroupVersionKind]map[string]client.IndexerFunc{},
 		indexes:    map[schema.GroupVersionKind]map[string]map[string][]runtime.Object{},
@@ -43,6 +50,14 @@ type FakeIndexClient struct {
 
 	indexFuncs map[schema.GroupVersionKind]map[string]client.IndexerFunc
 	indexes    map[schema.GroupVersionKind]map[string]map[string][]runtime.Object
+}
+
+func (fc *FakeIndexClient) AddMapping(kind schema.GroupVersionKind, scope meta.RESTScope) {
+	fc.Client.RESTMapper().(*meta.DefaultRESTMapper).Add(kind, scope)
+}
+
+func (fc *FakeIndexClient) AddSpecificMapping(kind schema.GroupVersionKind, plural, singular schema.GroupVersionResource, scope meta.RESTScope) {
+	fc.Client.RESTMapper().(*meta.DefaultRESTMapper).AddSpecific(kind, plural, singular, scope)
 }
 
 func (fc *FakeIndexClient) updateIndices(ctx context.Context, obj runtime.Object) error {

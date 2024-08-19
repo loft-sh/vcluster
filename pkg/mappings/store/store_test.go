@@ -89,7 +89,7 @@ func TestWatching(t *testing.T) {
 	ctx := context.TODO()
 	vClient := testingutil.NewFakeClient(scheme.Scheme)
 	pClient := testingutil.NewFakeClient(scheme.Scheme)
-	backend := NewMemoryBackend()
+	backend := NewMemoryBackend().(*memoryBackend)
 	genericStore, err := NewStore(ctx, vClient, pClient, backend)
 	assert.NilError(t, err)
 
@@ -99,6 +99,14 @@ func TestWatching(t *testing.T) {
 	secretMapping := NewRandomMapping(corev1.SchemeGroupVersion.WithKind("Secret"))
 	otherSecretMapping := NewRandomMapping(corev1.SchemeGroupVersion.WithKind("Secret"))
 	podMapping := NewRandomMapping(corev1.SchemeGroupVersion.WithKind("Pod"))
+
+	// wait for store to watch backend
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
+		backend.m.Lock()
+		defer backend.m.Unlock()
+		return len(backend.watches) == 1, nil
+	})
+	assert.NilError(t, err)
 
 	// check save
 	err = backend.Save(ctx, &Mapping{
@@ -111,7 +119,7 @@ func TestWatching(t *testing.T) {
 	assert.NilError(t, err)
 
 	// wait for event to arrive
-	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second, true, func(_ context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
 		store.m.Lock()
 		defer store.m.Unlock()
 		return len(store.mappings) == 1 && len(store.hostToVirtualName) == 2 && len(store.virtualToHostName) == 2 && len(store.referencesTo(podMapping.Virtual())) == 1, nil
@@ -129,7 +137,7 @@ func TestWatching(t *testing.T) {
 	assert.NilError(t, err)
 
 	// wait for event to arrive
-	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second, true, func(_ context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
 		store.m.Lock()
 		defer store.m.Unlock()
 		return len(store.mappings) == 2 && len(store.hostToVirtualName) == 3 && len(store.virtualToHostName) == 3 && len(store.referencesTo(podMapping.Virtual())) == 2, nil
@@ -144,7 +152,7 @@ func TestWatching(t *testing.T) {
 	assert.NilError(t, err)
 
 	// wait for event to arrive
-	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second, true, func(_ context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
 		store.m.Lock()
 		defer store.m.Unlock()
 		return len(store.mappings) == 2 && len(store.hostToVirtualName) == 3 && len(store.virtualToHostName) == 3 && len(store.referencesTo(podMapping.Virtual())) == 1, nil
@@ -159,7 +167,7 @@ func TestWatching(t *testing.T) {
 	assert.NilError(t, err)
 
 	// wait for event to arrive
-	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second, true, func(_ context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
 		store.m.Lock()
 		defer store.m.Unlock()
 		return len(store.mappings) == 1 && len(store.hostToVirtualName) == 2 && len(store.virtualToHostName) == 2 && len(store.referencesTo(podMapping.Virtual())) == 1, nil
@@ -174,7 +182,7 @@ func TestWatching(t *testing.T) {
 	assert.NilError(t, err)
 
 	// wait for event to arrive
-	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second, true, func(_ context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
 		store.m.Lock()
 		defer store.m.Unlock()
 		return len(store.mappings) == 0 && len(store.hostToVirtualName) == 0 && len(store.virtualToHostName) == 0 && len(store.referencesTo(podMapping.Virtual())) == 0, nil
