@@ -109,7 +109,7 @@ func (s *singleNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Ob
 		// check if the name annotation is correct
 		if pObj.GetAnnotations()[NameAnnotation] == "" {
 			return false
-		} else if ctx.Mappings.Has(gvk) && pObj.GetName() != mappings.VirtualToHostName(ctx, pObj.GetAnnotations()[NameAnnotation], pObj.GetAnnotations()[NamespaceAnnotation], gvk) {
+		} else if ctx.Mappings != nil && ctx.Mappings.Has(gvk) && pObj.GetName() != mappings.VirtualToHostName(ctx, pObj.GetAnnotations()[NameAnnotation], pObj.GetAnnotations()[NamespaceAnnotation], gvk) {
 			klog.FromContext(ctx).V(1).Info("Host object doesn't match, because name annotations is wrong",
 				"object", pObj.GetName(),
 				"kind", gvk.String(),

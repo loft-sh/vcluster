@@ -164,6 +164,16 @@ func TestLabelsMap(t *testing.T) {
 		"test123":      "test123",
 		"other":        "other",
 	}, pMap)
+
+	delete(vMap, "other")
+	pMap = HostLabelsMap(vMap, pMap, "test", false)
+	assert.DeepEqual(t, map[string]string{
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster",
+		MarkerLabel:    VClusterName,
+		NamespaceLabel: "test",
+		"test":         "test",
+		"test123":      "test123",
+	}, pMap)
 }
 
 func TestLabelSelector(t *testing.T) {
