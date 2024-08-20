@@ -11,6 +11,7 @@ import (
 )
 
 func TestVirtualLabels(t *testing.T) {
+	assert.Assert(t, VirtualLabelsMap(nil, nil) == nil)
 	vMap := VirtualLabelsMap(map[string]string{
 		"test":    "test",
 		"test123": "test123",

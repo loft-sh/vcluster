@@ -3066,6 +3066,12 @@
             "reference"
           ],
           "title": "reference"
+        },
+        {
+          "required": [
+            "labels"
+          ],
+          "title": "labels"
         }
       ],
       "properties": {
@@ -3079,7 +3085,11 @@
         },
         "reference": {
           "$ref": "#/$defs/TranslatePatchReference",
-          "description": "Reference rewrites the value value according to the name."
+          "description": "Reference treats the path value as a reference to another object and will rewrite it based on the chosen mode\nautomatically. In single-namespace mode this will translate the name to \"vxxxxxxxxx\" to avoid conflicts with\nother names, in multi-namespace mode this will not translate the name."
+        },
+        "labels": {
+          "$ref": "#/$defs/TranslatePatchLabels",
+          "description": "Labels treats the path value as a labels selector."
         }
       },
       "additionalProperties": false,
@@ -3113,6 +3123,11 @@
           "description": "FromHost is the patch to apply when retrieving a change from host to virtual."
         }
       },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "TranslatePatchLabels": {
+      "properties": {},
       "additionalProperties": false,
       "type": "object"
     },

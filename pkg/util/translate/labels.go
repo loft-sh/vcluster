@@ -179,7 +179,11 @@ func VirtualLabels(pObj, vObj client.Object) map[string]string {
 	if vObj != nil {
 		vLabels = vObj.GetLabels()
 	}
-	return VirtualLabelsMap(pLabels, vLabels)
+	retLabels := VirtualLabelsMap(pLabels, vLabels)
+	if len(retLabels) == 0 {
+		return nil
+	}
+	return retLabels
 }
 
 func HostLabels(vObj, pObj client.Object) map[string]string {
@@ -191,7 +195,11 @@ func HostLabels(vObj, pObj client.Object) map[string]string {
 	if pObj != nil {
 		pLabels = pObj.GetLabels()
 	}
-	return HostLabelsMap(vLabels, pLabels, vObj.GetNamespace(), true)
+	retLabels := HostLabelsMap(vLabels, pLabels, vObj.GetNamespace(), true)
+	if len(retLabels) == 0 {
+		return nil
+	}
+	return retLabels
 }
 
 func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {
