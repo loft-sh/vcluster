@@ -453,9 +453,16 @@ type TranslatePatch struct {
 	// Expression transforms the value according to the given JavaScript expression.
 	Expression *TranslatePatchExpression `json:"expression,omitempty" jsonschema:"oneof_required=expression"`
 
-	// Reference rewrites the value value according to the name.
+	// Reference treats the path value as a reference to another object and will rewrite it based on the chosen mode
+	// automatically. In single-namespace mode this will translate the name to "vxxxxxxxxx" to avoid conflicts with
+	// other names, in multi-namespace mode this will not translate the name.
 	Reference *TranslatePatchReference `json:"reference,omitempty" jsonschema:"oneof_required=reference"`
+
+	// Labels treats the path value as a labels selector.
+	Labels *TranslatePatchLabels `json:"labels,omitempty" jsonschema:"oneof_required=labels"`
 }
+
+type TranslatePatchLabels struct{}
 
 type TranslatePatchReference struct {
 	// APIVersion is the apiVersion of the referenced object.
