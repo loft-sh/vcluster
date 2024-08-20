@@ -221,7 +221,7 @@ func tryToFindHostNameInStore(ctx *synccontext.SyncContext, pName types.Namespac
 			continue
 		}
 
-		// check if this is actually a HostNameShort
+		// check if this is actually a HostName
 		if pName.String() != translate.Default.HostName(ctx, vName.Name, vName.Namespace).String() {
 			continue
 		}

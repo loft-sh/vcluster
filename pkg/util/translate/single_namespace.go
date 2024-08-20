@@ -150,6 +150,18 @@ func (s *singleNamespace) IsTargetedNamespace(ctx *synccontext.SyncContext, pNam
 	return pNamespace == s.targetNamespace
 }
 
+func (s *singleNamespace) LabelsToTranslate() map[string]bool {
+	return map[string]bool{
+		// rewrite release
+		VClusterReleaseLabel: true,
+
+		// namespace, marker & controlled-by
+		NamespaceLabel:  true,
+		MarkerLabel:     true,
+		ControllerLabel: true,
+	}
+}
+
 func (s *singleNamespace) HostNamespace(ctx *synccontext.SyncContext, vNamespace string) string {
 	if vNamespace == "" {
 		return ""

@@ -79,6 +79,15 @@ func (s *multiNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Obj
 	return true
 }
 
+func (s *multiNamespace) LabelsToTranslate() map[string]bool {
+	return map[string]bool{
+		// namespace, marker & controlled-by
+		NamespaceLabel:  true,
+		MarkerLabel:     true,
+		ControllerLabel: true,
+	}
+}
+
 func (s *multiNamespace) IsTargetedNamespace(ctx *synccontext.SyncContext, pNamespace string) bool {
 	if _, ok := pro.HostNamespaceMatchesMapping(ctx, pNamespace); ok {
 		return true

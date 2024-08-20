@@ -58,4 +58,7 @@ type Translator interface {
 
 	// HostNamespace returns the host namespace for a virtual cluster object
 	HostNamespace(ctx *synccontext.SyncContext, vNamespace string) string
+
+	// LabelsToTranslate are the labels that should be translated
+	LabelsToTranslate() map[string]bool
 }

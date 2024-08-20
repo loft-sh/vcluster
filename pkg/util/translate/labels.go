@@ -7,18 +7,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var LabelsToTranslate = map[string]bool{
-	// rewrite release
-	VClusterReleaseLabel: true,
-
-	// namespace, marker & controlled-by
-	NamespaceLabel:  true,
-	MarkerLabel:     true,
-	ControllerLabel: true,
-}
-
 func IsTranslatedLabel(label string) (string, bool) {
-	for k := range LabelsToTranslate {
+	for k := range Default.LabelsToTranslate() {
 		if convertLabelKeyWithPrefix(LabelPrefix, k) == label {
 			return k, true
 		}
@@ -27,7 +17,7 @@ func IsTranslatedLabel(label string) (string, bool) {
 }
 
 func HostLabel(vLabel string) string {
-	if LabelsToTranslate[vLabel] {
+	if Default.LabelsToTranslate()[vLabel] {
 		return convertLabelKeyWithPrefix(LabelPrefix, vLabel)
 	}
 
@@ -35,7 +25,7 @@ func HostLabel(vLabel string) string {
 }
 
 func VirtualLabel(pLabel string) (string, bool) {
-	if LabelsToTranslate[pLabel] {
+	if Default.LabelsToTranslate()[pLabel] {
 		return "", false
 	}
 
