@@ -78,26 +78,56 @@ func (n *mapper) VirtualToHost(ctx *synccontext.SyncContext, req types.Namespace
 }
 
 func (n *mapper) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) (retName types.NamespacedName) {
-	if pObj != nil {
-		pAnnotations := pObj.GetAnnotations()
-		if pAnnotations[translate.NameAnnotation] != "" {
-			// check if kind matches
-			gvk, ok := pAnnotations[translate.KindAnnotation]
-			if !ok || n.gvk.String() == gvk {
-				return types.NamespacedName{
-					Namespace: pAnnotations[translate.NamespaceAnnotation],
-					Name:      pAnnotations[translate.NameAnnotation],
-				}
-			}
-		}
+	vName := TryToTranslateBackByAnnotations(ctx, req, pObj, n.gvk)
+	if vName.Name != "" {
+		return vName
 	}
 
-	return TryToTranslateBack(ctx, req, n.gvk)
+	return TryToTranslateBackByName(ctx, req, n.gvk)
 }
 
-// TryToTranslateBack is used to find out the name mapping automatically in certain scenarios, this doesn't always
+func TryToTranslateBackByAnnotations(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object, objectGvk schema.GroupVersionKind) types.NamespacedName {
+	if pObj == nil {
+		return types.NamespacedName{}
+	}
+
+	// check if name annotation is there
+	pAnnotations := pObj.GetAnnotations()
+	if pAnnotations[translate.NameAnnotation] == "" {
+		return types.NamespacedName{}
+	}
+
+	// make sure kind matches
+	gvk, ok := pAnnotations[translate.KindAnnotation]
+	if ok && objectGvk.String() != gvk {
+		return types.NamespacedName{}
+	}
+
+	// make sure host name matches
+	pName, ok := pAnnotations[translate.HostNameAnnotation]
+	if ok && pName != pObj.GetName() {
+		return types.NamespacedName{}
+	}
+
+	// make sure host namespace matches
+	pNamespace, ok := pAnnotations[translate.HostNamespaceAnnotation]
+	if ok && pNamespace != pObj.GetNamespace() {
+		return types.NamespacedName{}
+	}
+
+	klog.FromContext(ctx).V(1).Info("Translated back name/namespace via annotations method", "req", req.String(), "ret", types.NamespacedName{
+		Namespace: pAnnotations[translate.NamespaceAnnotation],
+		Name:      pAnnotations[translate.NameAnnotation],
+	}.String())
+	return types.NamespacedName{
+		Namespace: pAnnotations[translate.NamespaceAnnotation],
+		Name:      pAnnotations[translate.NameAnnotation],
+	}
+}
+
+// TryToTranslateBackByName is used to find out the name mapping automatically in certain scenarios, this doesn't always
 // work, but for some cases this is pretty useful.
-func TryToTranslateBack(ctx *synccontext.SyncContext, req types.NamespacedName, gvk schema.GroupVersionKind) types.NamespacedName {
+func TryToTranslateBackByName(ctx *synccontext.SyncContext, req types.NamespacedName, gvk schema.GroupVersionKind) types.NamespacedName {
 	if ctx == nil || ctx.Config == nil || ctx.Mappings == nil {
 		return types.NamespacedName{}
 	}

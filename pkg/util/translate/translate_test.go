@@ -80,6 +80,7 @@ func TestAnnotations(t *testing.T) {
 		ManagedAnnotationsAnnotation: "test",
 		KindAnnotation:               corev1.SchemeGroupVersion.WithKind("Secret").String(),
 		NameAnnotation:               "",
+		HostNameAnnotation:           "",
 		UIDAnnotation:                "",
 	}, pObj.Annotations)
 
@@ -97,6 +98,7 @@ func TestAnnotations(t *testing.T) {
 		ManagedAnnotationsAnnotation: "other\ntest",
 		KindAnnotation:               corev1.SchemeGroupVersion.WithKind("Secret").String(),
 		NameAnnotation:               "",
+		HostNameAnnotation:           "",
 		UIDAnnotation:                "",
 	}, pObj.Annotations)
 }

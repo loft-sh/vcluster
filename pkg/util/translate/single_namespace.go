@@ -132,6 +132,13 @@ func (s *singleNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Ob
 		}
 	}
 
+	// check if host name / namespace matches actual name / namespace
+	if pObj.GetAnnotations()[HostNameAnnotation] != "" && pObj.GetAnnotations()[HostNameAnnotation] != pObj.GetName() {
+		return false
+	} else if pObj.GetAnnotations()[HostNamespaceAnnotation] != "" && pObj.GetAnnotations()[HostNamespaceAnnotation] != pObj.GetNamespace() {
+		return false
+	}
+
 	return true
 }
 
