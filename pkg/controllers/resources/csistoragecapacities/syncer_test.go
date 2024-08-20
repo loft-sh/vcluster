@@ -32,10 +32,12 @@ func TestSyncHostStorageClass(t *testing.T) {
 		Name:      "test-csistoragecapacity-x-test",
 		Namespace: "kube-system",
 		Annotations: map[string]string{
-			translate.NameAnnotation:      "test-csistoragecapacity",
-			translate.NamespaceAnnotation: "test",
-			translate.UIDAnnotation:       "",
-			translate.KindAnnotation:      storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity").String(),
+			translate.NameAnnotation:          "test-csistoragecapacity",
+			translate.NamespaceAnnotation:     "test",
+			translate.UIDAnnotation:           "",
+			translate.KindAnnotation:          storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity").String(),
+			translate.HostNameAnnotation:      "test-csistoragecapacity-x-test",
+			translate.HostNamespaceAnnotation: "kube-system",
 		},
 		Labels: map[string]string{
 			"vcluster.loft.sh/namespace": "test",
@@ -159,10 +161,12 @@ func TestSyncStorageClass(t *testing.T) {
 		Name:      "test-csistoragecapacity-x-test",
 		Namespace: "kube-system",
 		Annotations: map[string]string{
-			translate.NameAnnotation:      "test-csistoragecapacity",
-			translate.NamespaceAnnotation: "test",
-			translate.UIDAnnotation:       "",
-			translate.KindAnnotation:      storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity").String(),
+			translate.NameAnnotation:          "test-csistoragecapacity",
+			translate.NamespaceAnnotation:     "test",
+			translate.UIDAnnotation:           "",
+			translate.KindAnnotation:          storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity").String(),
+			translate.HostNameAnnotation:      "test-csistoragecapacity-x-test",
+			translate.HostNamespaceAnnotation: "kube-system",
 		},
 		Labels: map[string]string{
 			"vcluster.loft.sh/namespace": "test",

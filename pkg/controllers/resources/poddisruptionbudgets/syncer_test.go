@@ -28,10 +28,12 @@ func TestSync(t *testing.T) {
 		Name:      translate.Default.HostName(nil, "testPDB", vObjectMeta.Namespace).Name,
 		Namespace: "test",
 		Annotations: map[string]string{
-			translate.NameAnnotation:      vObjectMeta.Name,
-			translate.NamespaceAnnotation: vObjectMeta.Namespace,
-			translate.UIDAnnotation:       "",
-			translate.KindAnnotation:      policyv1.SchemeGroupVersion.WithKind("PodDisruptionBudget").String(),
+			translate.NameAnnotation:          vObjectMeta.Name,
+			translate.NamespaceAnnotation:     vObjectMeta.Namespace,
+			translate.UIDAnnotation:           "",
+			translate.KindAnnotation:          policyv1.SchemeGroupVersion.WithKind("PodDisruptionBudget").String(),
+			translate.HostNameAnnotation:      translate.Default.HostName(nil, "testPDB", vObjectMeta.Namespace).Name,
+			translate.HostNamespaceAnnotation: "test",
 		},
 		Labels: map[string]string{
 			translate.NamespaceLabel: vObjectMeta.Namespace,

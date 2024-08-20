@@ -53,7 +53,7 @@ func CopyObjectWithName[T client.Object](obj T, name types.NamespacedName, setOw
 
 func HostMetadata[T client.Object](vObj T, name types.NamespacedName, excludedAnnotations ...string) T {
 	pObj := CopyObjectWithName(vObj, name, true)
-	pObj.SetAnnotations(HostAnnotations(vObj, nil, excludedAnnotations...))
+	pObj.SetAnnotations(HostAnnotations(vObj, pObj, excludedAnnotations...))
 	pObj.SetLabels(HostLabels(vObj, nil))
 	return pObj
 }
@@ -66,7 +66,7 @@ func VirtualMetadata[T client.Object](pObj T, name types.NamespacedName, exclude
 }
 
 func VirtualAnnotations(pObj, vObj client.Object, excluded ...string) map[string]string {
-	excluded = append(excluded, NameAnnotation, UIDAnnotation, KindAnnotation, NamespaceAnnotation, ManagedAnnotationsAnnotation, ManagedLabelsAnnotation)
+	excluded = append(excluded, NameAnnotation, NamespaceAnnotation, HostNameAnnotation, HostNamespaceAnnotation, UIDAnnotation, KindAnnotation, ManagedAnnotationsAnnotation, ManagedLabelsAnnotation)
 	var toAnnotations map[string]string
 	if vObj != nil {
 		toAnnotations = vObj.GetAnnotations()
@@ -100,7 +100,7 @@ func copyMaps(fromMap, toMap map[string]string, excludeKey func(string) bool) ma
 }
 
 func HostAnnotations(vObj, pObj client.Object, excluded ...string) map[string]string {
-	excluded = append(excluded, NameAnnotation, UIDAnnotation, KindAnnotation, NamespaceAnnotation)
+	excluded = append(excluded, NameAnnotation, HostNameAnnotation, HostNamespaceAnnotation, UIDAnnotation, KindAnnotation, NamespaceAnnotation)
 	toAnnotations := map[string]string{}
 	if pObj != nil {
 		toAnnotations = pObj.GetAnnotations()
@@ -109,6 +109,12 @@ func HostAnnotations(vObj, pObj client.Object, excluded ...string) map[string]st
 	retMap := applyAnnotations(vObj.GetAnnotations(), toAnnotations, excluded...)
 	retMap[NameAnnotation] = vObj.GetName()
 	retMap[UIDAnnotation] = string(vObj.GetUID())
+	if pObj != nil {
+		retMap[HostNameAnnotation] = pObj.GetName()
+		if pObj.GetNamespace() != "" {
+			retMap[HostNamespaceAnnotation] = pObj.GetNamespace()
+		}
+	}
 	if vObj.GetNamespace() == "" {
 		delete(retMap, NamespaceAnnotation)
 	} else {

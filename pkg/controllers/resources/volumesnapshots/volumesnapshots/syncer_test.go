@@ -60,10 +60,12 @@ func TestSync(t *testing.T) {
 		Namespace:       targetNamespace,
 		ResourceVersion: "1234",
 		Annotations: map[string]string{
-			translate.NameAnnotation:      vObjectMeta.Name,
-			translate.NamespaceAnnotation: vObjectMeta.Namespace,
-			translate.UIDAnnotation:       "",
-			translate.KindAnnotation:      volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshot").String(),
+			translate.NameAnnotation:          vObjectMeta.Name,
+			translate.NamespaceAnnotation:     vObjectMeta.Namespace,
+			translate.UIDAnnotation:           "",
+			translate.KindAnnotation:          volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshot").String(),
+			translate.HostNamespaceAnnotation: targetNamespace,
+			translate.HostNameAnnotation:      translate.Default.HostName(nil, vObjectMeta.Name, vObjectMeta.Namespace).Name,
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.VClusterName,

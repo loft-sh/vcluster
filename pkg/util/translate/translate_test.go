@@ -21,6 +21,21 @@ func TestVirtualLabels(t *testing.T) {
 		"test123": "test123",
 		"release": "vcluster",
 	}, vMap)
+
+	Default = NewMultiNamespaceTranslator("test")
+	vMap = VirtualLabelsMap(map[string]string{
+		"test":    "test",
+		"test123": "test123",
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster",
+	}, nil)
+	assert.DeepEqual(t, map[string]string{
+		"test":    "test",
+		"test123": "test123",
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster",
+	}, vMap)
+
+	// restore Default
+	Default = &singleNamespace{}
 }
 
 func TestNotRewritingLabels(t *testing.T) {
@@ -80,6 +95,7 @@ func TestAnnotations(t *testing.T) {
 		ManagedAnnotationsAnnotation: "test",
 		KindAnnotation:               corev1.SchemeGroupVersion.WithKind("Secret").String(),
 		NameAnnotation:               "",
+		HostNameAnnotation:           "",
 		UIDAnnotation:                "",
 	}, pObj.Annotations)
 
@@ -97,6 +113,7 @@ func TestAnnotations(t *testing.T) {
 		ManagedAnnotationsAnnotation: "other\ntest",
 		KindAnnotation:               corev1.SchemeGroupVersion.WithKind("Secret").String(),
 		NameAnnotation:               "",
+		HostNameAnnotation:           "",
 		UIDAnnotation:                "",
 	}, pObj.Annotations)
 }
@@ -125,6 +142,58 @@ func TestRecursiveLabelsMap(t *testing.T) {
 		pMap = VirtualLabelsMap(pMap, vMaps[i])
 		assert.DeepEqual(t, pMap, vMaps[i])
 	}
+}
+
+func TestLabelsMapMultiNamespaceMode(t *testing.T) {
+	Default = NewMultiNamespaceTranslator("test")
+	defer func() {
+		// restore Default
+		Default = &singleNamespace{}
+	}()
+
+	vMap := map[string]string{
+		"test":    "test",
+		"test123": "test123",
+		"release": "vcluster",
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster123",
+	}
+
+	pMap := HostLabelsMap(vMap, nil, "test", false)
+	assert.DeepEqual(t, map[string]string{
+		"test":    "test",
+		"test123": "test123",
+		"release": "vcluster",
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster123",
+	}, pMap)
+
+	pMap["other"] = "other"
+
+	vMap = VirtualLabelsMap(pMap, vMap)
+	assert.DeepEqual(t, map[string]string{
+		"test":    "test",
+		"test123": "test123",
+		"other":   "other",
+		"release": "vcluster",
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster123",
+	}, vMap)
+
+	pMap = HostLabelsMap(vMap, pMap, "test", false)
+	assert.DeepEqual(t, map[string]string{
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster123",
+		"release": "vcluster",
+		"test":    "test",
+		"test123": "test123",
+		"other":   "other",
+	}, pMap)
+
+	delete(vMap, "other")
+	pMap = HostLabelsMap(vMap, pMap, "test", false)
+	assert.DeepEqual(t, map[string]string{
+		"vcluster.loft.sh/label-suffix-x-a4d451ec23": "vcluster123",
+		"release": "vcluster",
+		"test":    "test",
+		"test123": "test123",
+	}, pMap)
 }
 
 func TestLabelsMap(t *testing.T) {

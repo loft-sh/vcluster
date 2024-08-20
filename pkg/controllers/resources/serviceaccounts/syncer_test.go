@@ -46,6 +46,8 @@ func TestSync(t *testing.T) {
 				translate.NamespaceAnnotation:          vSA.Namespace,
 				translate.UIDAnnotation:                "",
 				translate.KindAnnotation:               corev1.SchemeGroupVersion.WithKind("ServiceAccount").String(),
+				translate.HostNamespaceAnnotation:      "test",
+				translate.HostNameAnnotation:           translate.Default.HostName(nil, vSA.Name, vSA.Namespace).Name,
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: vSA.Namespace,

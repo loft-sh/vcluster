@@ -62,7 +62,7 @@ func (s *csistoragecapacitySyncer) translateBackwards(ctx *synccontext.SyncConte
 // TranslateMetadata translates the object's metadata
 func (s *csistoragecapacitySyncer) virtualMetadata(ctx *synccontext.SyncContext, pObj *storagev1.CSIStorageCapacity) *storagev1.CSIStorageCapacity {
 	vObj := translate.CopyObjectWithName(pObj, s.HostToVirtual(ctx, types.NamespacedName{Name: pObj.Name, Namespace: pObj.Namespace}, pObj), false)
-	vObj.SetAnnotations(translate.HostAnnotations(pObj, nil))
+	vObj.SetAnnotations(translate.HostAnnotations(pObj, vObj))
 	vObj.SetLabels(translate.HostLabels(pObj, nil))
 	return vObj
 }

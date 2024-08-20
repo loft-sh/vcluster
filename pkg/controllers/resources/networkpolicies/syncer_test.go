@@ -66,10 +66,12 @@ func TestSync(t *testing.T) {
 		Name:      translate.Default.HostName(nil, "testnetworkpolicy", "test").Name,
 		Namespace: "test",
 		Annotations: map[string]string{
-			translate.NameAnnotation:      vObjectMeta.Name,
-			translate.NamespaceAnnotation: vObjectMeta.Namespace,
-			translate.UIDAnnotation:       "",
-			translate.KindAnnotation:      networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy").String(),
+			translate.NameAnnotation:          vObjectMeta.Name,
+			translate.NamespaceAnnotation:     vObjectMeta.Namespace,
+			translate.UIDAnnotation:           "",
+			translate.KindAnnotation:          networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy").String(),
+			translate.HostNameAnnotation:      translate.Default.HostName(nil, "testnetworkpolicy", "test").Name,
+			translate.HostNamespaceAnnotation: "test",
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel:    translate.VClusterName,

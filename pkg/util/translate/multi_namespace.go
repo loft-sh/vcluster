@@ -69,7 +69,23 @@ func (s *multiNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Obj
 		}
 	}
 
+	// check if host name / namespace matches actual name / namespace
+	if pObj.GetAnnotations()[HostNameAnnotation] != "" && pObj.GetAnnotations()[HostNameAnnotation] != pObj.GetName() {
+		return false
+	} else if pObj.GetAnnotations()[HostNamespaceAnnotation] != "" && pObj.GetAnnotations()[HostNamespaceAnnotation] != pObj.GetNamespace() {
+		return false
+	}
+
 	return true
+}
+
+func (s *multiNamespace) LabelsToTranslate() map[string]bool {
+	return map[string]bool{
+		// namespace, marker & controlled-by
+		NamespaceLabel:  true,
+		MarkerLabel:     true,
+		ControllerLabel: true,
+	}
 }
 
 func (s *multiNamespace) IsTargetedNamespace(ctx *synccontext.SyncContext, pNamespace string) bool {

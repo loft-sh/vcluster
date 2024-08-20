@@ -426,6 +426,8 @@ func (s *importer) updateVirtualAnnotations(a map[string]string) map[string]stri
 	delete(a, translate.NamespaceAnnotation)
 	delete(a, translate.UIDAnnotation)
 	delete(a, translate.KindAnnotation)
+	delete(a, translate.HostNameAnnotation)
+	delete(a, translate.HostNamespaceAnnotation)
 	delete(a, corev1.LastAppliedConfigAnnotation)
 	return a
 }

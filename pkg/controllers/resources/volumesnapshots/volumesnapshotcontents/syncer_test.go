@@ -69,9 +69,10 @@ func TestSync(t *testing.T) {
 		Name:            translate.Default.HostNameCluster(vPreProvisioned.Name),
 		ResourceVersion: "12345",
 		Annotations: map[string]string{
-			translate.NameAnnotation: vObjectMeta.Name,
-			translate.UIDAnnotation:  "",
-			translate.KindAnnotation: volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent").String(),
+			translate.NameAnnotation:     vObjectMeta.Name,
+			translate.UIDAnnotation:      "",
+			translate.KindAnnotation:     volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent").String(),
+			translate.HostNameAnnotation: translate.Default.HostNameCluster(vPreProvisioned.Name),
 		},
 	}
 	pPreProvisioned := &volumesnapshotv1.VolumeSnapshotContent{
