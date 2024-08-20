@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/mappings/store"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -141,6 +142,170 @@ func TestTryToTranslateBackByAnnotations(t *testing.T) {
 			assert.NilError(t, err)
 			result := TryToTranslateBackByAnnotations(syncContext, types.NamespacedName{Name: testCase.Object.GetName(), Namespace: testCase.Object.GetNamespace()}, testCase.Object, gvk)
 			assert.Equal(t, testCase.Result.String(), result.String())
+		})
+	}
+}
+
+func TestTryToTranslateBackByStore(t *testing.T) {
+	translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
+
+	type testCase struct {
+		Name string
+
+		Mappings []*store.Mapping
+
+		Mapping synccontext.Object
+
+		Expected types.NamespacedName
+	}
+	testCases := []testCase{
+		{
+			Name: "Simple",
+
+			Mappings: []*store.Mapping{
+				{
+					NameMapping: synccontext.NameMapping{
+						GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Pod"),
+						VirtualName:      types.NamespacedName{Name: "test", Namespace: "test"},
+						HostName:         translate.Default.HostNameShort(nil, "test", "test"),
+					},
+				},
+			},
+
+			Mapping: synccontext.Object{
+				GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Secret"),
+				NamespacedName:   translate.Default.HostNameShort(nil, "test", "test"),
+			},
+
+			Expected: types.NamespacedName{Name: "test", Namespace: "test"},
+		},
+		{
+			Name: "Wrong name mapping",
+
+			Mappings: []*store.Mapping{
+				{
+					NameMapping: synccontext.NameMapping{
+						GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Pod"),
+						VirtualName:      types.NamespacedName{Name: "test123", Namespace: "test"},
+						HostName:         translate.Default.HostNameShort(nil, "test", "test"),
+					},
+				},
+			},
+
+			Mapping: synccontext.Object{
+				GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Secret"),
+				NamespacedName:   translate.Default.HostNameShort(nil, "test", "test"),
+			},
+		},
+		{
+			Name: "Match within name",
+
+			Mappings: []*store.Mapping{
+				{
+					NameMapping: synccontext.NameMapping{
+						GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Pod"),
+						VirtualName:      types.NamespacedName{Name: "test", Namespace: "test"},
+						HostName:         translate.Default.HostNameShort(nil, "test", "test"),
+					},
+				},
+			},
+
+			Mapping: synccontext.Object{
+				GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Secret"),
+				NamespacedName: types.NamespacedName{
+					Namespace: translate.Default.HostNameShort(nil, "test", "test").Namespace,
+					Name:      "testme-" + translate.Default.HostNameShort(nil, "test", "test").Name + "-testme",
+				},
+			},
+
+			Expected: types.NamespacedName{Name: "testme-test-testme", Namespace: "test"},
+		},
+		{
+			Name: "Match multiple within name",
+
+			Mappings: []*store.Mapping{
+				{
+					NameMapping: synccontext.NameMapping{
+						GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Pod"),
+						VirtualName:      types.NamespacedName{Name: "test", Namespace: "test"},
+						HostName:         translate.Default.HostNameShort(nil, "test", "test"),
+					},
+				},
+			},
+
+			Mapping: synccontext.Object{
+				GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Secret"),
+				NamespacedName: types.NamespacedName{
+					Namespace: translate.Default.HostNameShort(nil, "test", "test").Namespace,
+					Name:      "testme-" + translate.Default.HostNameShort(nil, "test", "test").Name + "-testme-" + translate.Default.HostNameShort(nil, "test", "test").Name,
+				},
+			},
+
+			Expected: types.NamespacedName{Name: "testme-test-testme-test", Namespace: "test"},
+		},
+		{
+			Name: "Translate back regular name",
+
+			Mappings: []*store.Mapping{
+				{
+					NameMapping: synccontext.NameMapping{
+						GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Pod"),
+						VirtualName:      types.NamespacedName{Name: "test", Namespace: "test"},
+						HostName:         translate.Default.HostName(nil, "test", "test"),
+					},
+				},
+			},
+
+			Mapping: synccontext.Object{
+				GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Secret"),
+				NamespacedName:   translate.Default.HostName(nil, "test", "test"),
+			},
+
+			Expected: types.NamespacedName{Name: "test", Namespace: "test"},
+		},
+		{
+			Name: "Don't translate back regular name in between",
+
+			Mappings: []*store.Mapping{
+				{
+					NameMapping: synccontext.NameMapping{
+						GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Pod"),
+						VirtualName:      types.NamespacedName{Name: "test", Namespace: "test"},
+						HostName:         translate.Default.HostName(nil, "test", "test"),
+					},
+				},
+			},
+
+			Mapping: synccontext.Object{
+				GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Secret"),
+				NamespacedName: types.NamespacedName{
+					Namespace: translate.Default.HostName(nil, "test", "test").Namespace,
+					Name:      "testme-" + translate.Default.HostName(nil, "test", "test").Name,
+				},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			storeBackend := store.NewMemoryBackend(testCase.Mappings...)
+			mappingsStore, err := store.NewStore(context.TODO(), nil, nil, storeBackend)
+			assert.NilError(t, err)
+
+			// check recording
+			syncContext := &synccontext.SyncContext{
+				Context:  context.TODO(),
+				Config:   testingutil.NewFakeConfig(),
+				Mappings: mappings.NewMappingsRegistry(mappingsStore),
+			}
+			for _, mapping := range testCase.Mappings {
+				if !syncContext.Mappings.Has(mapping.GroupVersionKind) {
+					err = syncContext.Mappings.AddMapper(&fakeMapper{gvk: mapping.GroupVersionKind})
+					assert.NilError(t, err)
+				}
+			}
+
+			assert.Equal(t, TryToTranslateBackByName(syncContext, testCase.Mapping.NamespacedName, testCase.Mapping.GroupVersionKind).String(), testCase.Expected.String())
 		})
 	}
 }

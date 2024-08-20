@@ -2,6 +2,7 @@ package generic
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -14,6 +15,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
+
+var shortNameMatcher = regexp.MustCompile(`v[a-z0-9]{13}`)
 
 // PhysicalNameWithObjectFunc is a definition to translate a name that also optionally expects a vObj
 type PhysicalNameWithObjectFunc func(ctx *synccontext.SyncContext, vName, vNamespace string, vObj client.Object) types.NamespacedName
@@ -159,6 +162,28 @@ func TryToTranslateBackByName(ctx *synccontext.SyncContext, req types.Namespaced
 		}
 	}
 
+	// try single-namespace mode assumptions
+	vName := tryToMatchHostNameShort(ctx, req)
+	if vName.Name != "" {
+		return vName
+	}
+
+	// try searching mapping store for host name short
+	vName = tryToFindHostNameShortInStore(ctx, req)
+	if vName.Name != "" {
+		return vName
+	}
+
+	// try searching mapping store for host name
+	vName = tryToFindHostNameInStore(ctx, req)
+	if vName.Name != "" {
+		return vName
+	}
+
+	return types.NamespacedName{}
+}
+
+func tryToMatchHostNameShort(ctx *synccontext.SyncContext, req types.NamespacedName) types.NamespacedName {
 	// if single namespace mode and the owner object was translated via NameShort, we can try to find that name
 	// within the host name and assume it's the same namespace / name
 	nameMapping, ok := synccontext.MappingFrom(ctx)
@@ -183,6 +208,67 @@ func TryToTranslateBackByName(ctx *synccontext.SyncContext, req types.Namespaced
 		Name:      vName,
 		Namespace: vNamespace,
 	}
+}
+
+func tryToFindHostNameInStore(ctx *synccontext.SyncContext, pName types.NamespacedName) types.NamespacedName {
+	for gvk := range ctx.Mappings.List() {
+		// try to find match in store
+		vName, ok := ctx.Mappings.Store().HostToVirtualName(ctx, synccontext.Object{
+			GroupVersionKind: gvk,
+			NamespacedName:   pName,
+		})
+		if !ok || vName.Name == "" || vName.Namespace == "" {
+			continue
+		}
+
+		// check if this is actually a HostNameShort
+		if pName.String() != translate.Default.HostName(ctx, vName.Name, vName.Namespace).String() {
+			continue
+		}
+
+		// replace pName.Name with vName.Name
+		return types.NamespacedName{
+			Name:      vName.Name,
+			Namespace: vName.Namespace,
+		}
+	}
+
+	return types.NamespacedName{}
+}
+
+func tryToFindHostNameShortInStore(ctx *synccontext.SyncContext, pName types.NamespacedName) types.NamespacedName {
+	// we search for strings that are exact length 10 and have no - or . in it
+	matches := shortNameMatcher.FindAllString(pName.Name, -1)
+
+	// loop over all mapping gvk's
+	for _, match := range matches {
+		for gvk := range ctx.Mappings.List() {
+			// try to find match in store
+			vName, ok := ctx.Mappings.Store().HostToVirtualName(ctx, synccontext.Object{
+				GroupVersionKind: gvk,
+				NamespacedName: types.NamespacedName{
+					Namespace: pName.Namespace,
+					Name:      match,
+				},
+			})
+			if !ok || vName.Name == "" || vName.Namespace == "" {
+				continue
+			}
+
+			// check if this is actually a HostNameShort
+			if match != translate.Default.HostNameShort(ctx, vName.Name, vName.Namespace).Name {
+				continue
+			}
+
+			// replace pName.Name with vName.Name
+			return types.NamespacedName{
+				Name:      strings.ReplaceAll(pName.Name, match, vName.Name),
+				Namespace: vName.Namespace,
+			}
+		}
+	}
+
+	return types.NamespacedName{}
 }
 
 func (n *mapper) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
