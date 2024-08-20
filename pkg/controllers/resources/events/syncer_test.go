@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +20,7 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 }
 
 func TestSync(t *testing.T) {
-	translate.Default = translate.NewSingleNamespaceTranslator(syncertesting.DefaultTestTargetNamespace)
+	translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
 
 	vNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -35,13 +36,13 @@ func TestSync(t *testing.T) {
 	pPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      translate.Default.HostName(nil, vPod.Name, vPod.Namespace).Name,
-			Namespace: syncertesting.DefaultTestTargetNamespace,
+			Namespace: testingutil.DefaultTestTargetNamespace,
 		},
 	}
 	pEvent := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-event",
-			Namespace: syncertesting.DefaultTestTargetNamespace,
+			Namespace: testingutil.DefaultTestTargetNamespace,
 		},
 		InvolvedObject: corev1.ObjectReference{
 			APIVersion:      corev1.SchemeGroupVersion.String(),

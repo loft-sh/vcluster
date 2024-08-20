@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
@@ -21,18 +20,6 @@ import (
 
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/record"
-	"k8s.io/klog/v2"
-)
-
-const (
-	DefaultTestTargetNamespace     = "test"
-	DefaultTestCurrentNamespace    = "vcluster"
-	DefaultTestVClusterName        = "vcluster"
-	DefaultTestVClusterServiceName = "vcluster"
 )
 
 func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func(ctx *synccontext.RegisterContext) (syncer.Object, error)) (*synccontext.SyncContext, syncer.Object) {
@@ -66,14 +53,14 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 	mappingsStore, _ := store.NewStore(ctx, vClient, pClient, store.NewMemoryBackend())
 
 	// create register context
-	translate.Default = translate.NewSingleNamespaceTranslator(DefaultTestTargetNamespace)
+	translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
 	registerCtx := &synccontext.RegisterContext{
 		Context:                ctx,
 		Config:                 vConfig,
-		CurrentNamespace:       DefaultTestCurrentNamespace,
+		CurrentNamespace:       testingutil.DefaultTestCurrentNamespace,
 		CurrentNamespaceClient: pClient,
-		VirtualManager:         newFakeManager(vClient),
-		PhysicalManager:        newFakeManager(pClient),
+		VirtualManager:         testingutil.NewFakeManager(vClient),
+		PhysicalManager:        testingutil.NewFakeManager(pClient),
 		Mappings:               mappings.NewMappingsRegistry(mappingsStore),
 	}
 
@@ -92,61 +79,4 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 	}
 
 	return registerCtx
-}
-
-func NewFakeConfig() *config.VirtualClusterConfig {
-	// default config
-	defaultConfig, err := vclusterconfig.NewDefaultConfig()
-	if err != nil {
-		panic(err.Error())
-	}
-
-	// parse config
-	vConfig := &config.VirtualClusterConfig{
-		Config:                  *defaultConfig,
-		Name:                    DefaultTestVClusterName,
-		ControlPlaneService:     DefaultTestVClusterName,
-		WorkloadService:         DefaultTestVClusterServiceName,
-		WorkloadNamespace:       DefaultTestTargetNamespace,
-		WorkloadTargetNamespace: DefaultTestTargetNamespace,
-	}
-
-	err = config.ValidateConfigAndSetDefaults(vConfig)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	return vConfig
-}
-
-type fakeEventBroadcaster struct{}
-
-func (f *fakeEventBroadcaster) StartEventWatcher(_ func(*corev1.Event)) watch.Interface {
-	return nil
-}
-
-func (f *fakeEventBroadcaster) StartRecordingToSink(_ record.EventSink) watch.Interface {
-	return nil
-}
-
-func (f *fakeEventBroadcaster) StartLogging(_ func(format string, args ...interface{})) watch.Interface {
-	return nil
-}
-
-func (f *fakeEventBroadcaster) StartStructuredLogging(_ klog.Level) watch.Interface {
-	return nil
-}
-
-func (f *fakeEventBroadcaster) NewRecorder(_ *runtime.Scheme, _ corev1.EventSource) record.EventRecorder {
-	return f
-}
-
-func (f *fakeEventBroadcaster) Shutdown() {}
-
-func (f *fakeEventBroadcaster) Event(_ runtime.Object, _, _, _ string) {}
-
-func (f *fakeEventBroadcaster) Eventf(_ runtime.Object, _, _, _ string, _ ...interface{}) {
-}
-
-func (f *fakeEventBroadcaster) AnnotatedEventf(_ runtime.Object, _ map[string]string, _, _, _ string, _ ...interface{}) {
 }

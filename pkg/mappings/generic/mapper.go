@@ -8,9 +8,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -72,62 +69,7 @@ func (n *mapper) GroupVersionKind() schema.GroupVersionKind {
 	return n.gvk
 }
 
-func (n *mapper) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.Mapper) error {
-	gvk := mapper.GroupVersionKind()
-	listGvk := schema.GroupVersionKind{
-		Group:   gvk.Group,
-		Version: gvk.Version,
-		Kind:    gvk.Kind + "List",
-	}
-
-	list, err := scheme.Scheme.New(listGvk)
-	if err != nil {
-		if !runtime.IsNotRegisteredError(err) {
-			return fmt.Errorf("migrate create object list %s: %w", listGvk.String(), err)
-		}
-
-		list = &unstructured.UnstructuredList{}
-	}
-
-	uList, ok := list.(*unstructured.UnstructuredList)
-	if ok {
-		uList.SetKind(listGvk.Kind)
-		uList.SetAPIVersion(listGvk.GroupVersion().String())
-	}
-
-	// it's safe to list here without namespace as this will just list all items in the cache
-	err = ctx.VirtualManager.GetClient().List(ctx, list.(client.ObjectList))
-	if err != nil {
-		return fmt.Errorf("error listing %s: %w", listGvk.String(), err)
-	}
-
-	items, err := meta.ExtractList(list)
-	if err != nil {
-		return fmt.Errorf("extract list %s: %w", listGvk.String(), err)
-	}
-
-	for _, item := range items {
-		clientObject, ok := item.(client.Object)
-		if !ok {
-			continue
-		}
-
-		vName := types.NamespacedName{Name: clientObject.GetName(), Namespace: clientObject.GetNamespace()}
-		pName := mapper.VirtualToHost(ctx.ToSyncContext("migrate-"+listGvk.Kind), vName, clientObject)
-		if pName.Name != "" {
-			nameMapping := synccontext.NameMapping{
-				GroupVersionKind: n.gvk,
-				VirtualName:      vName,
-				HostName:         pName,
-			}
-
-			err = ctx.Mappings.Store().AddReferenceAndSave(ctx, nameMapping, nameMapping)
-			if err != nil {
-				return fmt.Errorf("error saving reference in store: %w", err)
-			}
-		}
-	}
-
+func (n *mapper) Migrate(_ *synccontext.RegisterContext, _ synccontext.Mapper) error {
 	return nil
 }
 
@@ -156,13 +98,13 @@ func (n *mapper) HostToVirtual(ctx *synccontext.SyncContext, req types.Namespace
 // TryToTranslateBack is used to find out the name mapping automatically in certain scenarios, this doesn't always
 // work, but for some cases this is pretty useful.
 func TryToTranslateBack(ctx *synccontext.SyncContext, req types.NamespacedName, gvk schema.GroupVersionKind) types.NamespacedName {
-	if ctx == nil || ctx.Config == nil || ctx.Mappings == nil || !ctx.Mappings.Has(mappings.Namespaces()) {
+	if ctx == nil || ctx.Config == nil || ctx.Mappings == nil {
 		return types.NamespacedName{}
 	}
 
 	// if multi-namespace mode we try to translate back
 	if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
-		if gvk == mappings.Namespaces() {
+		if gvk == mappings.Namespaces() || !ctx.Mappings.Has(mappings.Namespaces()) {
 			return types.NamespacedName{}
 		}
 

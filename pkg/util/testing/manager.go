@@ -7,13 +7,15 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/loft-sh/vcluster/pkg/util/log"
-	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	toolscache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,12 +25,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-func newFakeManager(client *testingutil.FakeIndexClient) ctrl.Manager {
+func NewFakeManager(client *FakeIndexClient) ctrl.Manager {
 	return &fakeManager{client: client}
 }
 
 type fakeManager struct {
-	client *testingutil.FakeIndexClient
+	client *FakeIndexClient
 }
 
 func (f *fakeManager) SetFields(_ interface{}) error { return nil }
@@ -80,7 +82,7 @@ func (f *fakeManager) AddMetricsServerExtraHandler(_ string, _ http.Handler) err
 }
 
 type fakeCache struct {
-	*testingutil.FakeIndexClient
+	*FakeIndexClient
 }
 
 func (f *fakeCache) GetInformer(_ context.Context, _ client.Object, _ ...cache.InformerGetOption) (cache.Informer, error) {
@@ -133,4 +135,36 @@ func (f *fakeInformer) HasSynced() bool {
 
 func (f *fakeInformer) IsStopped() bool {
 	return false
+}
+
+type fakeEventBroadcaster struct{}
+
+func (f *fakeEventBroadcaster) StartEventWatcher(_ func(*corev1.Event)) watch.Interface {
+	return nil
+}
+
+func (f *fakeEventBroadcaster) StartRecordingToSink(_ record.EventSink) watch.Interface {
+	return nil
+}
+
+func (f *fakeEventBroadcaster) StartLogging(_ func(format string, args ...interface{})) watch.Interface {
+	return nil
+}
+
+func (f *fakeEventBroadcaster) StartStructuredLogging(_ klog.Level) watch.Interface {
+	return nil
+}
+
+func (f *fakeEventBroadcaster) NewRecorder(_ *runtime.Scheme, _ corev1.EventSource) record.EventRecorder {
+	return f
+}
+
+func (f *fakeEventBroadcaster) Shutdown() {}
+
+func (f *fakeEventBroadcaster) Event(_ runtime.Object, _, _, _ string) {}
+
+func (f *fakeEventBroadcaster) Eventf(_ runtime.Object, _, _, _ string, _ ...interface{}) {
+}
+
+func (f *fakeEventBroadcaster) AnnotatedEventf(_ runtime.Object, _ map[string]string, _, _, _ string, _ ...interface{}) {
 }

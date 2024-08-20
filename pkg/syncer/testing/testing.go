@@ -66,7 +66,7 @@ func (s *SyncTest) Setup() (*testingutil.FakeIndexClient, *testingutil.FakeIndex
 
 	s.pClient = testingutil.NewFakeClient(scheme.Scheme, s.InitialPhysicalState...)
 	s.vClient = testingutil.NewFakeClient(scheme.Scheme, s.InitialVirtualState...)
-	s.vConfig = NewFakeConfig()
+	s.vConfig = testingutil.NewFakeConfig()
 	return s.pClient, s.vClient, s.vConfig
 }
 

@@ -213,7 +213,7 @@ func TestVolumeTranslation(t *testing.T) {
 			fakeRecorder := record.NewFakeRecorder(10)
 			pClient := testingutil.NewFakeClient(scheme.Scheme)
 			vClient := testingutil.NewFakeClient(scheme.Scheme)
-			registerCtx := generictesting.NewFakeRegisterContext(generictesting.NewFakeConfig(), pClient, vClient)
+			registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
 			tr := &translator{
 				eventRecorder: fakeRecorder,
 				log:           loghelper.New("pods-syncer-translator-test"),

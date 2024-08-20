@@ -17,7 +17,7 @@ import (
 )
 
 func TestSync(t *testing.T) {
-	translate.Default = translate.NewSingleNamespaceTranslator(syncertesting.DefaultTestTargetNamespace)
+	translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
 
 	vObjectMeta := metav1.ObjectMeta{
 		Name:            "testclass",

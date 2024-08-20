@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -17,7 +18,7 @@ import (
 )
 
 func TestSync(t *testing.T) {
-	translate.Default = translate.NewSingleNamespaceTranslator(syncertesting.DefaultTestTargetNamespace)
+	translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
 	vObjectMeta := metav1.ObjectMeta{
 		Name:            "testPDB",
 		Namespace:       "default",

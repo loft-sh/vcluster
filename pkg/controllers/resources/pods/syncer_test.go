@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -22,8 +23,8 @@ import (
 var (
 	pVclusterService = corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      syncertesting.DefaultTestVClusterServiceName,
-			Namespace: syncertesting.DefaultTestCurrentNamespace,
+			Name:      testingutil.DefaultTestVClusterServiceName,
+			Namespace: testingutil.DefaultTestCurrentNamespace,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "1.2.3.4",
@@ -32,7 +33,7 @@ var (
 	pDNSService = corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      translate.Default.HostName(nil, "kube-dns", "kube-system").Name,
-			Namespace: syncertesting.DefaultTestTargetNamespace,
+			Namespace: testingutil.DefaultTestTargetNamespace,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "2.2.2.2",
@@ -41,7 +42,7 @@ var (
 )
 
 func TestSyncTable(t *testing.T) {
-	translate.Default = translate.NewSingleNamespaceTranslator(syncertesting.DefaultTestTargetNamespace)
+	translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
 	specialservices.Default = specialservices.NewDefaultServiceSyncer()
 
 	vNamespace := corev1.Namespace{
@@ -285,7 +286,7 @@ func TestSyncTable(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	translate.Default = translate.NewSingleNamespaceTranslator(syncertesting.DefaultTestTargetNamespace)
+	translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
 	specialservices.Default = specialservices.NewDefaultServiceSyncer()
 
 	PodLogsVolumeName := "pod-logs"
@@ -326,18 +327,18 @@ func TestSync(t *testing.T) {
 
 	pVclusterService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      syncertesting.DefaultTestVClusterServiceName,
-			Namespace: syncertesting.DefaultTestCurrentNamespace,
+			Name:      testingutil.DefaultTestVClusterServiceName,
+			Namespace: testingutil.DefaultTestCurrentNamespace,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "1.2.3.4",
 		},
 	}
-	translate.VClusterName = syncertesting.DefaultTestVClusterName
+	translate.VClusterName = testingutil.DefaultTestVClusterName
 	pDNSService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      translate.Default.HostName(nil, "kube-dns", "kube-system").Name,
-			Namespace: syncertesting.DefaultTestTargetNamespace,
+			Namespace: testingutil.DefaultTestTargetNamespace,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "2.2.2.2",
@@ -390,14 +391,14 @@ func TestSync(t *testing.T) {
 
 	vHostpathNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: syncertesting.DefaultTestCurrentNamespace,
+			Name: testingutil.DefaultTestCurrentNamespace,
 		},
 	}
 
 	vHostPathPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      HostpathPodName,
-			Namespace: syncertesting.DefaultTestCurrentNamespace,
+			Namespace: testingutil.DefaultTestCurrentNamespace,
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -449,13 +450,13 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	vHostPath := fmt.Sprintf(podtranslate.VirtualPathTemplate, syncertesting.DefaultTestCurrentNamespace, syncertesting.DefaultTestVClusterName)
+	vHostPath := fmt.Sprintf(podtranslate.VirtualPathTemplate, testingutil.DefaultTestCurrentNamespace, testingutil.DefaultTestVClusterName)
 
 	hostToContainer := corev1.MountPropagationHostToContainer
 	pHostPathPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName(nil, vHostPathPod.Name, syncertesting.DefaultTestCurrentNamespace).Name,
-			Namespace: syncertesting.DefaultTestTargetNamespace,
+			Name:      translate.Default.HostName(nil, vHostPathPod.Name, testingutil.DefaultTestCurrentNamespace).Name,
+			Namespace: testingutil.DefaultTestTargetNamespace,
 
 			Annotations: map[string]string{
 				podtranslate.ClusterAutoScalerAnnotation:  "false",
