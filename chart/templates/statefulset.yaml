@@ -83,6 +83,13 @@ spec:
       {{- if .Values.controlPlane.statefulSet.scheduling.priorityClassName }}
       priorityClassName: {{ .Values.controlPlane.statefulSet.scheduling.priorityClassName }}
       {{- end }}
+      {{- if .Values.controlPlane.statefulSet.dnsPolicy }}
+      dnsPolicy: {{ .Values.controlPlane.statefulSet.dnsPolicy }}
+      {{- end }}
+      {{- if .Values.controlPlane.statefulSet.dnsConfig }}
+      dnsConfig: 
+{{ toYaml .Values.controlPlane.statefulSet.dnsConfig | indent 8 }}
+      {{- end }}
       {{- if .Values.controlPlane.advanced.serviceAccount.name }}
       serviceAccountName: {{ .Values.controlPlane.advanced.serviceAccount.name }}
       {{- else }}

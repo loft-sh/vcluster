@@ -1,0 +1,61 @@
+syncer:
+  env:
+    - name: PROXY_WEBHOOK_CONFIG
+      value: |-
+        ---
+        version: v1alphav1
+        checks:
+        - name: "Deny \"Node\" access"
+          rules:
+          - operations:
+            - "*"
+            apiGroups:
+            - ''
+            apiVersions:
+            - "*"
+            resources:
+            - "nodes/*" # using wildcard in order to cover subresources
+            scope: Cluster
+
+
+# controlPlane:
+#   hostPathMapper:
+#     enabled: true
+
+# isolation:
+#   enabled: true
+#   networkPolicy:
+#     enabled: true
+#     outgoingConnections:
+#       ipBlock:
+#         cidr: 0.0.0.0/0
+#         except:
+#           - 172.16.0.0/12
+
+# sync:
+#   generic:
+#    config: |-
+#     version: v1beta1
+#     hooks:
+#       virtualToHost:
+#         - apiVersion: networking.k8s.io/v1
+#           kind: Ingress
+
+#           patches:
+#             - op: rewriteName
+#               path: .metadata.annotations['nginx.ingress.kubernetes.io/mirror-target']
+#               regex: >
+#                 ^(https?:\/\/)*$NAME((\.$NAMESPACE)?(\.svc(\.cluster\.local)?){1})?.*$
+#       hostToVirtual: []
+
+# syncer:
+#   storage:
+#     binariesVolume:
+#       - name: binaries
+#         ephemeral:
+#           volumeClaimTemplate:
+#             spec:
+#               accessModes: [ "ReadWriteOnce" ]
+#               resources:
+#                 requests:
+#                   storage: 1Gi

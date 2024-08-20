@@ -751,3 +751,40 @@ tests:
       - equal:
           path: spec.template.spec.initContainers[3].image
           value: registry.k8s.io/kube-apiserver:v99914
+  
+  - it: custom dnsPolicy
+    set:
+      controlPlane:
+        statefulSet:
+          dnsPolicy: "ClusterFirst"
+    asserts:
+      - equal:
+          path: spec.template.spec.dnsPolicy
+          value: "ClusterFirst"
+
+  - it: custom dnsConfig
+    set:
+      controlPlane:
+        statefulSet:
+          dnsConfig:
+            nameservers:
+            - 192.0.2.1    
+            searches:
+              - ns1.svc.cluster-domain.example
+            options:
+              - name: ndots
+                value: "2"
+    asserts:
+      - equal:
+          path: spec.template.spec.dnsConfig.nameservers[0]
+          value: "192.0.2.1"
+      - equal:
+          path: spec.template.spec.dnsConfig.searches[0]
+          value: "ns1.svc.cluster-domain.example"
+      - equal:
+          path: spec.template.spec.dnsConfig.options[0].name
+          value: "ndots"
+      - equal:
+          path: spec.template.spec.dnsConfig.options[0].value
+          value: "2"
+
