@@ -468,14 +468,19 @@ type TranslatePatchReference struct {
 	// APIVersion is the apiVersion of the referenced object.
 	APIVersion string `json:"apiVersion,omitempty" jsonschema:"required"`
 
+	// APIVersionPath is optional relative path to use to determine the kind. If APIVersionPath is not found, will fallback to apiVersion.
+	APIVersionPath string `json:"apiVersionPath,omitempty"`
+
 	// Kind is the kind of the referenced object.
 	Kind string `json:"kind,omitempty" jsonschema:"required"`
 
-	// NamePath is the optional path to the reference name within the object. If omitted namePath equals to the
-	// translate patch path.
+	// KindPath is the optional relative path to use to determine the kind. If KindPath is not found, will fallback to kind.
+	KindPath string `json:"kindPath,omitempty"`
+
+	// NamePath is the optional relative path to the reference name within the object.
 	NamePath string `json:"namePath,omitempty"`
 
-	// NamespacePath is the optional path to the reference namespace within the object. If omitted namespacePath equals to the
+	// NamespacePath is the optional relative path to the reference namespace within the object. If omitted or not found, namespacePath equals to the
 	// metadata.namespace path of the object.
 	NamespacePath string `json:"namespacePath,omitempty"`
 }
