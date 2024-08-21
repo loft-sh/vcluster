@@ -22,7 +22,7 @@ func NewFakeClient(scheme *runtime.Scheme, objs ...runtime.Object) *FakeIndexCli
 		co = append(co, o.(client.Object))
 	}
 
-	fakeMapper := NewFakeMapper(scheme).(*meta.DefaultRESTMapper)
+	fakeMapper := NewFakeRESTMapper(scheme).(*meta.DefaultRESTMapper)
 	for groupVersionKind := range scheme.AllKnownTypes() {
 		// we just assume everything is namespace scoped, if this causes issues we can
 		// exclude certain resources here
@@ -37,8 +37,8 @@ func NewFakeClient(scheme *runtime.Scheme, objs ...runtime.Object) *FakeIndexCli
 	}
 }
 
-// NewFakeMapper creates a new fake mapper
-func NewFakeMapper(scheme *runtime.Scheme) meta.RESTMapper {
+// NewFakeRESTMapper creates a new fake mapper
+func NewFakeRESTMapper(scheme *runtime.Scheme) meta.RESTMapper {
 	return meta.NewDefaultRESTMapper(scheme.PreferredVersionAllGroups())
 }
 

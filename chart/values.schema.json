@@ -3137,17 +3137,25 @@
           "type": "string",
           "description": "APIVersion is the apiVersion of the referenced object."
         },
+        "apiVersionPath": {
+          "type": "string",
+          "description": "APIVersionPath is optional relative path to use to determine the kind. If APIVersionPath is not found, will fallback to apiVersion."
+        },
         "kind": {
           "type": "string",
           "description": "Kind is the kind of the referenced object."
         },
+        "kindPath": {
+          "type": "string",
+          "description": "KindPath is the optional relative path to use to determine the kind. If KindPath is not found, will fallback to kind."
+        },
         "namePath": {
           "type": "string",
-          "description": "NamePath is the optional path to the reference name within the object. If omitted namePath equals to the\ntranslate patch path."
+          "description": "NamePath is the optional relative path to the reference name within the object."
         },
         "namespacePath": {
           "type": "string",
-          "description": "NamespacePath is the optional path to the reference namespace within the object. If omitted namespacePath equals to the\nmetadata.namespace path of the object."
+          "description": "NamespacePath is the optional relative path to the reference namespace within the object. If omitted or not found, namespacePath equals to the\nmetadata.namespace path of the object."
         }
       },
       "additionalProperties": false,
