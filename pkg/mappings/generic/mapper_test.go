@@ -300,7 +300,7 @@ func TestTryToTranslateBackByStore(t *testing.T) {
 			}
 			for _, mapping := range testCase.Mappings {
 				if !syncContext.Mappings.Has(mapping.GroupVersionKind) {
-					err = syncContext.Mappings.AddMapper(&fakeMapper{gvk: mapping.GroupVersionKind})
+					err = syncContext.Mappings.AddMapper(testingutil.NewFakeMapper(mapping.GroupVersionKind))
 					assert.NilError(t, err)
 				}
 			}

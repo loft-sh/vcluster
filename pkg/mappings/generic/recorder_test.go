@@ -13,7 +13,6 @@ import (
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -265,7 +264,7 @@ func TestRecorder(t *testing.T) {
 	}
 
 	// create mapper
-	recorderMapper := WithRecorder(&fakeMapper{gvk: gvk})
+	recorderMapper := WithRecorder(testingutil.NewFakeMapper(gvk))
 
 	// record mapping
 	vTest := types.NamespacedName{
@@ -345,28 +344,4 @@ func TestRecorder(t *testing.T) {
 	})
 	assert.NilError(t, err)
 	assert.Equal(t, isManaged, false)
-}
-
-var _ synccontext.Mapper = &fakeMapper{}
-
-type fakeMapper struct {
-	gvk schema.GroupVersionKind
-}
-
-func (f *fakeMapper) Migrate(_ *synccontext.RegisterContext, _ synccontext.Mapper) error {
-	return nil
-}
-
-func (f *fakeMapper) GroupVersionKind() schema.GroupVersionKind { return f.gvk }
-
-func (f *fakeMapper) VirtualToHost(_ *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
-	return req
-}
-
-func (f *fakeMapper) HostToVirtual(_ *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
-	return req
-}
-
-func (f *fakeMapper) IsManaged(_ *synccontext.SyncContext, _ client.Object) (bool, error) {
-	return false, nil
 }
