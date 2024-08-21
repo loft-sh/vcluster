@@ -32,6 +32,18 @@ spec:
       {{- range $key, $val := .Values.policies.limitRange.defaultRequest }}
       {{ $key }}: {{ $val | quote }}
       {{- end }}
+    {{- if .Values.policies.limitRange.min }}
+    min:
+      {{- range $key, $val := .Values.policies.limitRange.min }}
+      {{ $key }}: {{ $val | quote }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.policies.limitRange.max }}
+    max:
+      {{- range $key, $val := .Values.policies.limitRange.max }}
+      {{ $key }}: {{ $val | quote }}
+      {{- end }}
+    {{- end }}
     type: Container
 {{- end }}
 {{- end }}

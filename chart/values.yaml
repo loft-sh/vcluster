@@ -778,7 +778,11 @@ policies:
       ephemeral-storage: 3Gi
       memory: 128Mi
       cpu: 100m
-  
+    # Max are the max limits for the limit range
+    max: {}
+    # Min are the min limits for the limit range
+    min: {}
+
   # NetworkPolicy specifies network policy options.
   networkPolicy:
     # Enabled defines if the network policy should be deployed by vCluster.
