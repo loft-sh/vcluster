@@ -90,7 +90,7 @@ func NewServer(ctx *synccontext.ControllerContext, requestHeaderCaFile, clientCa
 	uncachedVirtualClient = pluginhookclient.WrapVirtualClient(uncachedVirtualClient)
 	uncachedLocalClient = pluginhookclient.WrapPhysicalClient(uncachedLocalClient)
 
-	certSyncer, err := cert.NewSyncer(ctx, ctx.Config.WorkloadNamespace, ctx.WorkloadNamespaceClient, ctx.Config)
+	certSyncer, err := cert.NewSyncer(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "create cert syncer")
 	}

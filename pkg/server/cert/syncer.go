@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,26 +33,30 @@ type Syncer interface {
 	dynamiccertificates.CertKeyContentProvider
 }
 
-func NewSyncer(_ context.Context, currentNamespace string, currentNamespaceClient client.Client, options *config.VirtualClusterConfig) (Syncer, error) {
+func NewSyncer(ctx *synccontext.ControllerContext) (Syncer, error) {
 	return &syncer{
-		clusterDomain: options.Networking.Advanced.ClusterDomain,
+		clusterDomain: ctx.Config.Networking.Advanced.ClusterDomain,
 
-		serverCaKey:  options.VirtualClusterKubeConfig().ServerCAKey,
-		serverCaCert: options.VirtualClusterKubeConfig().ServerCACert,
+		ingressHost: ctx.Config.ControlPlane.Ingress.Host,
 
-		fakeKubeletIPs: options.Networking.Advanced.ProxyKubelets.ByIP,
+		serverCaKey:  ctx.Config.VirtualClusterKubeConfig().ServerCAKey,
+		serverCaCert: ctx.Config.VirtualClusterKubeConfig().ServerCACert,
 
-		addSANs:   options.ControlPlane.Proxy.ExtraSANs,
+		fakeKubeletIPs: ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
+
+		addSANs:   ctx.Config.ControlPlane.Proxy.ExtraSANs,
 		listeners: []dynamiccertificates.Listener{},
 
-		serviceName:           options.WorkloadService,
-		currentNamespace:      currentNamespace,
-		currentNamespaceCient: currentNamespaceClient,
+		serviceName:           ctx.Config.WorkloadService,
+		currentNamespace:      ctx.Config.WorkloadNamespace,
+		currentNamespaceCient: ctx.WorkloadNamespaceClient,
 	}, nil
 }
 
 type syncer struct {
 	clusterDomain string
+
+	ingressHost string
 
 	serverCaCert string
 	serverCaKey  string
@@ -185,6 +189,11 @@ func (s *syncer) getSANs(ctx context.Context) ([]string, error) {
 
 			retSANs = append(retSANs, svc.Spec.ClusterIP)
 		}
+	}
+
+	// ingress host
+	if s.ingressHost != "" {
+		retSANs = append(retSANs, s.ingressHost)
 	}
 
 	// make sure other sans are there as well
