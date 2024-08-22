@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func GenServingCerts(caCertFile, caKeyFile string, currentCert, currentKey []byte, clusterDomain string, SANs []string) ([]byte, []byte, bool, error) {
+func GenServingCerts(caCertFile, caKeyFile string, currentCert, currentKey []byte, clusterDomain, ingressHost string, SANs []string) ([]byte, []byte, bool, error) {
 	regen := false
 	commonName := "kube-apiserver"
 	extKeyUsage := []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
@@ -22,6 +22,9 @@ func GenServingCerts(caCertFile, caKeyFile string, currentCert, currentKey []byt
 		"kubernetes.default",
 		"kubernetes",
 		"localhost",
+	}
+	if ingressHost != "" {
+		dnsNames = append(dnsNames, ingressHost)
 	}
 
 	altNames := &certhelper.AltNames{

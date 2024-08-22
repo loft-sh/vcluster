@@ -37,6 +37,8 @@ func NewSyncer(_ context.Context, currentNamespace string, currentNamespaceClien
 	return &syncer{
 		clusterDomain: options.Networking.Advanced.ClusterDomain,
 
+		ingressHost: options.ControlPlane.Ingress.Host,
+
 		serverCaKey:  options.VirtualClusterKubeConfig().ServerCAKey,
 		serverCaCert: options.VirtualClusterKubeConfig().ServerCACert,
 
@@ -53,6 +55,8 @@ func NewSyncer(_ context.Context, currentNamespace string, currentNamespaceClien
 
 type syncer struct {
 	clusterDomain string
+
+	ingressHost string
 
 	serverCaCert string
 	serverCaKey  string
@@ -210,7 +214,7 @@ func (s *syncer) regen(extraSANs []string) error {
 	klog.Infof("Generating serving cert for service ips: %v", extraSANs)
 
 	// GenServingCerts will write generated or updated cert/key to s.currentCert, s.currentKey
-	cert, key, _, err := GenServingCerts(s.serverCaCert, s.serverCaKey, s.currentCert, s.currentKey, s.clusterDomain, extraSANs)
+	cert, key, _, err := GenServingCerts(s.serverCaCert, s.serverCaKey, s.currentCert, s.currentKey, s.clusterDomain, s.ingressHost, extraSANs)
 	if err != nil {
 		return err
 	}
