@@ -103,6 +103,22 @@ type Object struct {
 	types.NamespacedName
 }
 
+func (o Object) WithVirtualName(vName types.NamespacedName) NameMapping {
+	return NameMapping{
+		GroupVersionKind: o.GroupVersionKind,
+		VirtualName:      vName,
+		HostName:         o.NamespacedName,
+	}
+}
+
+func (o Object) WithHostName(pName types.NamespacedName) NameMapping {
+	return NameMapping{
+		GroupVersionKind: o.GroupVersionKind,
+		VirtualName:      o.NamespacedName,
+		HostName:         pName,
+	}
+}
+
 func (o Object) Equals(other Object) bool {
 	return o.String() == other.String()
 }
