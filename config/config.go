@@ -448,7 +448,7 @@ type SyncToHostCustomResourceDefinition struct {
 
 type TranslatePatch struct {
 	// Path is the path within the patch to target. If the path is not found within the patch, the patch is not applied.
-	Path string `json:"path,omitempty" jsonschema:"required"`
+	Path string `json:"path,omitempty"`
 
 	// Expression transforms the value according to the given JavaScript expression.
 	Expression *TranslatePatchExpression `json:"expression,omitempty" jsonschema:"oneof_required=expression"`
