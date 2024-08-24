@@ -28,49 +28,49 @@ const (
 // K3SVersionMap holds the supported k3s versions
 var K3SVersionMap = map[string]string{
 	"1.30": "rancher/k3s:v1.30.4-k3s1",
-	"1.29": "rancher/k3s:v1.29.6-k3s1",
-	"1.28": "rancher/k3s:v1.28.11-k3s1",
-	"1.27": "rancher/k3s:v1.27.15-k3s1",
+	"1.29": "rancher/k3s:v1.29.8-k3s1",
+	"1.28": "rancher/k3s:v1.28.13-k3s1",
+	"1.27": "rancher/k3s:v1.27.16-k3s1",
 }
 
 // K0SVersionMap holds the supported k0s versions
 var K0SVersionMap = map[string]string{
 	"1.30": "k0sproject/k0s:v1.30.4-k0s.0",
-	"1.29": "k0sproject/k0s:v1.29.6-k0s.0",
-	"1.28": "k0sproject/k0s:v1.28.11-k0s.0",
-	"1.27": "k0sproject/k0s:v1.27.15-k0s.0",
+	"1.29": "k0sproject/k0s:v1.29.8-k0s.0",
+	"1.28": "k0sproject/k0s:v1.28.13-k0s.0",
+	"1.27": "k0sproject/k0s:v1.27.16-k0s.0",
 }
 
 // K8SAPIVersionMap holds the supported k8s api servers
 var K8SAPIVersionMap = map[string]string{
 	"1.30": "registry.k8s.io/kube-apiserver:v1.30.4",
-	"1.29": "registry.k8s.io/kube-apiserver:v1.29.6",
-	"1.28": "registry.k8s.io/kube-apiserver:v1.28.11",
-	"1.27": "registry.k8s.io/kube-apiserver:v1.27.15",
+	"1.29": "registry.k8s.io/kube-apiserver:v1.29.8",
+	"1.28": "registry.k8s.io/kube-apiserver:v1.28.13",
+	"1.27": "registry.k8s.io/kube-apiserver:v1.27.16",
 }
 
 // K8SControllerVersionMap holds the supported k8s controller managers
 var K8SControllerVersionMap = map[string]string{
 	"1.30": "registry.k8s.io/kube-controller-manager:v1.30.4",
-	"1.29": "registry.k8s.io/kube-controller-manager:v1.29.6",
-	"1.28": "registry.k8s.io/kube-controller-manager:v1.28.11",
-	"1.27": "registry.k8s.io/kube-controller-manager:v1.27.15",
+	"1.29": "registry.k8s.io/kube-controller-manager:v1.29.8",
+	"1.28": "registry.k8s.io/kube-controller-manager:v1.28.13",
+	"1.27": "registry.k8s.io/kube-controller-manager:v1.27.16",
 }
 
 // K8SSchedulerVersionMap holds the supported k8s schedulers
 var K8SSchedulerVersionMap = map[string]string{
 	"1.30": "registry.k8s.io/kube-scheduler:v1.30.4",
-	"1.29": "registry.k8s.io/kube-scheduler:v1.29.6",
-	"1.28": "registry.k8s.io/kube-scheduler:v1.28.11",
-	"1.27": "registry.k8s.io/kube-scheduler:v1.27.15",
+	"1.29": "registry.k8s.io/kube-scheduler:v1.29.8",
+	"1.28": "registry.k8s.io/kube-scheduler:v1.28.13",
+	"1.27": "registry.k8s.io/kube-scheduler:v1.27.16",
 }
 
 // K8SEtcdVersionMap holds the supported etcd
 var K8SEtcdVersionMap = map[string]string{
 	"1.30": "registry.k8s.io/etcd:3.5.15-0",
-	"1.29": "registry.k8s.io/etcd:3.5.10-0",
-	"1.28": "registry.k8s.io/etcd:3.5.9-0",
-	"1.27": "registry.k8s.io/etcd:3.5.7-0",
+	"1.29": "registry.k8s.io/etcd:3.5.12-0",
+	"1.28": "registry.k8s.io/etcd:3.5.12-0",
+	"1.27": "registry.k8s.io/etcd:3.5.12-0",
 }
 
 var vclusterVersionsWithK8sVersionSupport []semver.Version
