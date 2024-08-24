@@ -36,10 +36,10 @@ jobs:
     name: Execute all go tests
     runs-on: ubuntu-22.04
     steps:
-      - name: Set up Go 1.21
+      - name: Set up Go 1.22
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version-file: "go.mod"
           cache: false
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4

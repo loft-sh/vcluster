@@ -30,7 +30,7 @@ jobs:
       - name: Setup Cosgin
         uses: sigstore/cosign-installer@main
         with:
-          cosign-release: "v2.2.3"
+          cosign-release: "v2.4.0"
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0.17.2
       - name: Set up QEMU
@@ -39,7 +39,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
       - uses: azure/setup-helm@v4
         with:
-          version: "v3.0.2"
+          version: "v3.15.4"
       - id: get_version
         run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
@@ -124,7 +124,7 @@ jobs:
         uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
         with:
-          version: "v3.0.2"
+          version: "v3.15.4"
       - run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/v!!p')
           helm plugin install https://github.com/chartmuseum/helm-push.git
