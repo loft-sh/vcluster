@@ -1,7 +1,7 @@
 # Documentation
 
-This website is built using [Docusaurus 2](https://v2.docusaurus.io/), a modern static website generator.
-That means, for installing and developing this docusaurus documentation, you will need to have node@16 or higher. 
+This website is built using [Docusaurus 3](https://docusaurus.io/), a modern static website generator.
+That means, for installing and developing this docusaurus documentation, you will need to have node@18 or higher.
 
 ## Local development
 
@@ -33,7 +33,7 @@ This command generates static content into the `build` directory and can be serv
 
 ## Pull request deploy preview
 
-Netlify generates a deploy preview URL. To see your changes, append `docs/` to the generated URL. 
+Netlify generates a deploy preview URL. To see your changes, append `docs/` to the generated URL.
 
 ## Creating new versions
 
@@ -47,5 +47,5 @@ go run -mod=vendor ./hack/gen-docs.go
 ### 2. Create version
 
 ```bash
-yarn run docusaurus docs:version 0.1
+yarn run docusaurus docs:version 0.20
 ```

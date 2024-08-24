@@ -1,4 +1,4 @@
-__webpack_public_path__ = "/docs/v0.19/";
+__webpack_public_path__ = "/docs/v0.20/";
 
 module.exports = {
   title: "vcluster docs | Virtual Clusters for Kubernetes",
@@ -90,11 +90,11 @@ module.exports = {
   ],
   scripts: [
     {
-      src: "https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js",
+      src: "https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js",
       async: true,
     },
     {
-      src: "/docs/v0.19/js/custom.js",
+      src: "/docs/v0.20/js/custom.js",
       async: true,
     },
   ],

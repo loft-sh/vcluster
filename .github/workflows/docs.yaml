@@ -22,7 +22,7 @@ env:
   NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
   NETLIFY_ACCESS_TOKEN: ${{ secrets.NETLIFY_ACCESS_TOKEN }}
   OUT_DIR: build/
-  TARGET_OUT_DIR: build/docs/v0.19
+  TARGET_OUT_DIR: build/docs/v0.20
 
 jobs:
   run:
@@ -32,7 +32,7 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "16"
+          node-version: "20"
       - name: Build Docs
         run: |
           yarn
@@ -49,7 +49,7 @@ jobs:
             mkdir -p $TARGET_OUT_DIR
             mv tmp-$TARGET_OUT_DIR/* $TARGET_OUT_DIR
 
-            npm install -g netlify-cli@3.20.1
+            npm install -g netlify-cli@17.35.0
           fi
         working-directory: ./docs
       - name: Deploy Preview Site

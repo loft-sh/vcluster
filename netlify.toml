@@ -6,7 +6,7 @@ command = """
 
     yarn build
     mkdir -p public/docs
-    mv build/ public/docs/v0.19
+    mv build/ public/docs/v0.20
   """
 
 [build.processing]
