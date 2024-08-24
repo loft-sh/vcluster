@@ -170,6 +170,22 @@ func (a AccessKeyScope) ContainsRole(val AccessKeyScopeRoleName) bool {
 	return false
 }
 
+func (a AccessKeyScope) GetRole(name AccessKeyScopeRoleName) AccessKeyScopeRole {
+	for _, entry := range a.Roles {
+		if entry.Role == name {
+			return entry
+		}
+	}
+
+	if a.ContainsRole(name) {
+		return AccessKeyScopeRole{
+			Role: name,
+		}
+	}
+
+	return AccessKeyScopeRole{}
+}
+
 type AccessKeyScopeRole struct {
 	// Role is the name of the role to apply to the access key scope.
 	// +optional

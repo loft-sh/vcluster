@@ -68,6 +68,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&LicenseTokenList{},
 		&LoftUpgrade{},
 		&LoftUpgradeList{},
+		&OIDCClient{},
+		&OIDCClientList{},
 		&OwnedAccessKey{},
 		&OwnedAccessKeyList{},
 		&Project{},
@@ -79,6 +81,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ProjectMembers{},
 		&ProjectMigrateSpaceInstance{},
 		&ProjectMigrateVirtualClusterInstance{},
+		&ProjectRunners{},
 		&ProjectTemplates{},
 		&ProjectSecret{},
 		&ProjectSecretList{},
@@ -111,6 +114,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&TeamList{},
 		&TeamAccessKeys{},
 		&TeamClusters{},
+		&TranslateVClusterResourceName{},
+		&TranslateVClusterResourceNameList{},
 		&User{},
 		&UserList{},
 		&UserAccessKeys{},
@@ -239,6 +244,7 @@ var (
 			management.NewLicenseRequestREST),
 		management.ManagementLicenseTokenStorage,
 		management.ManagementLoftUpgradeStorage,
+		management.ManagementOIDCClientStorage,
 		management.ManagementOwnedAccessKeyStorage,
 		management.ManagementProjectStorage,
 		builders.NewApiResourceWithStorage(
@@ -281,6 +287,11 @@ var (
 			func() runtime.Object { return &ProjectMigrateVirtualClusterInstance{} }, // Register versioned resource
 			nil,
 			management.NewProjectMigrateVirtualClusterInstanceREST),
+		builders.NewApiResourceWithStorage(
+			management.InternalProjectRunnersREST,
+			func() runtime.Object { return &ProjectRunners{} }, // Register versioned resource
+			nil,
+			management.NewProjectRunnersREST),
 		builders.NewApiResourceWithStorage(
 			management.InternalProjectTemplatesREST,
 			func() runtime.Object { return &ProjectTemplates{} }, // Register versioned resource
@@ -329,6 +340,7 @@ var (
 			func() runtime.Object { return &TeamClusters{} }, // Register versioned resource
 			nil,
 			management.NewTeamClustersREST),
+		management.ManagementTranslateVClusterResourceNameStorage,
 		management.ManagementUserStorage,
 		builders.NewApiResourceWithStorage(
 			management.InternalUserAccessKeysREST,
@@ -688,6 +700,14 @@ type LoftUpgradeList struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+type OIDCClientList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []OIDCClient `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type OwnedAccessKeyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -756,6 +776,14 @@ type ProjectMigrateVirtualClusterInstanceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ProjectMigrateVirtualClusterInstance `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ProjectRunnersList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ProjectRunners `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -908,6 +936,14 @@ type TeamClustersList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []TeamClusters `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type TranslateVClusterResourceNameList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []TranslateVClusterResourceName `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

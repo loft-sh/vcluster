@@ -18,10 +18,10 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/invopop/jsonschema v0.12.0
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
-	github.com/loft-sh/agentapi/v4 v4.0.0-alpha.6.0.20240614131646-3359da6a4818
+	github.com/loft-sh/admin-apis v0.0.0-20240814093917-dc663916b354
+	github.com/loft-sh/agentapi/v4 v4.0.0-beta.7
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
-	github.com/loft-sh/api/v4 v4.0.0-alpha.6.0.20240614134907-f9ecc1668e9e
+	github.com/loft-sh/api/v4 v4.0.0-beta.7
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0

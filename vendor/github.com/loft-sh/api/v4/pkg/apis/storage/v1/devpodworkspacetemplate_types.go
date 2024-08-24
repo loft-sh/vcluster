@@ -97,6 +97,10 @@ type DevPodWorkspaceTemplateDefinition struct {
 	// +optional
 	WorkspaceEnv map[string]DevPodProviderOption `json:"workspaceEnv,omitempty"`
 
+	// InitEnv are environment variables that should be available during the initialization phase of the created workspace.
+	// +optional
+	InitEnv map[string]DevPodProviderOption `json:"initEnv,omitempty"`
+
 	// InstanceTemplate holds the workspace instance template
 	// +optional
 	InstanceTemplate DevPodWorkspaceInstanceTemplateDefinition `json:"instanceTemplate,omitempty"`

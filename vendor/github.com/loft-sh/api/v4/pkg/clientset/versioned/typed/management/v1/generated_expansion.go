@@ -38,6 +38,8 @@ type LicenseTokenExpansion interface{}
 
 type LoftUpgradeExpansion interface{}
 
+type OIDCClientExpansion interface{}
+
 type OwnedAccessKeyExpansion interface{}
 
 type ProjectExpansion interface{}
@@ -67,6 +69,8 @@ type SubjectAccessReviewExpansion interface{}
 type TaskExpansion interface{}
 
 type TeamExpansion interface{}
+
+type TranslateVClusterResourceNameExpansion interface{}
 
 type UserExpansion interface{}
 

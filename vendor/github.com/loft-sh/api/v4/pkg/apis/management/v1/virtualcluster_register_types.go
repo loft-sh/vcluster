@@ -10,7 +10,7 @@ import (
 
 // RegisterVirtualCluster holds config request and response data for virtual clusters
 // +k8s:openapi-gen=true
-// +resource:path=registervirtualcluster,rest=RegisterVirtualClusterREST
+// +resource:path=registervirtualclusters,rest=RegisterVirtualClusterREST
 type RegisterVirtualCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
