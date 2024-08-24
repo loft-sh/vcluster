@@ -1,14 +1,14 @@
 ### Run Conformance Tests
 
-You will need a cluster with at least 2 nodes.  
-The steps below assume that you will use a local minikube cluster.  
+You will need a cluster with at least 2 nodes.
+The steps below assume that you will use a local minikube cluster.
 We executed the test on a minikube instance with docker driver (default auto-detected by system).
 
 
 ### 1. Create a multinode minikube cluster
 
 ```
-minikube start --kubernetes-version 1.30.2 --nodes=2
+minikube start --kubernetes-version 1.30.4 --nodes=2
 ```
 
 ### 2. Create the vcluster
@@ -25,21 +25,21 @@ controlPlane:
         enabled: true
         statefulSet:
           image:
-            tag: 3.5.13-0
+            tag: 3.5.15-0
   distro:
     k8s:
       apiServer:
         extraArgs:
         - --service-account-jwks-uri=https://kubernetes.default.svc.cluster.local/openid/v1/jwks
         image:
-          tag: v1.30.2
+          tag: v1.30.4
       controllerManager:
         image:
-          tag: v1.30.2
+          tag: v1.30.4
       enabled: true
       scheduler:
         image:
-          tag: v1.30.2
+          tag: v1.30.4
   statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady

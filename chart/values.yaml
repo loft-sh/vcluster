@@ -77,7 +77,7 @@ sync:
     # PersistentVolumes defines if persistent volumes created within the virtual cluster should get synced to the host cluster.
     persistentVolumes:
       enabled: false
-  
+
   # Configure what resources vCluster should sync from the host cluster to the virtual cluster.
   fromHost:
     # Events defines if events should get synced from the host cluster to the virtual cluster, but not back.
@@ -134,7 +134,7 @@ controlPlane:
       # It is a shortcut for controlPlane.distro.k8s.apiServer.image.tag,
       # controlPlane.distro.k8s.controllerManager.image.tag and
       # controlPlane.distro.k8s.scheduler.image.tag
-      # If e.g. controlPlane.distro.k8s.version is set to v1.30.1 and
+      # If e.g. controlPlane.distro.k8s.version is set to v1.30.4 and
       # controlPlane.distro.k8s.scheduler.image.tag
       # (or controlPlane.distro.k8s.controllerManager.image.tag or controlPlane.distro.k8s.apiServer.image.tag)
       # is set to v1.31.0,
@@ -158,7 +158,7 @@ controlPlane:
           # Repository is the repository of the container image, e.g. my-repo/my-image
           repository: kube-apiserver
           # Tag is the tag of the container image, e.g. latest
-          tag: "v1.30.2"
+          tag: "v1.30.4"
       # ControllerManager holds configuration specific to starting the controller manager.
       controllerManager:
         enabled: true
@@ -176,7 +176,7 @@ controlPlane:
           # Repository is the repository of the container image, e.g. my-repo/my-image
           repository: "kube-controller-manager"
           # Tag is the tag of the container image, e.g. latest
-          tag: "v1.30.2"
+          tag: "v1.30.4"
       # Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
       scheduler:
         # Command is the command to start the distro binary. This will override the existing command.
@@ -193,7 +193,7 @@ controlPlane:
           # Repository is the repository of the container image, e.g. my-repo/my-image
           repository: "kube-scheduler"
           # Tag is the tag of the container image, e.g. latest
-          tag: "v1.30.2"
+          tag: "v1.30.4"
       # Env are extra environment variables to use for the main container and NOT the init container.
       env: []
       # Security options can be used for the distro init container
@@ -224,7 +224,7 @@ controlPlane:
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "rancher/k3s"
         # Tag is the tag of the container image, e.g. latest
-        tag: "v1.30.2-k3s1"
+        tag: "v1.30.4-k3s1"
       # Security options can be used for the distro init container
       securityContext: {}
       # Resources for the distro init container
@@ -255,7 +255,7 @@ controlPlane:
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "k0sproject/k0s"
         # Tag is the tag of the container image, e.g. latest
-        tag: "v1.30.2-k0s.0"
+        tag: "v1.30.4-k0s.0"
       # Security options can be used for the distro init container
       securityContext: {}
       # Resources for the distro init container
@@ -266,7 +266,7 @@ controlPlane:
         requests:
           cpu: 40m
           memory: 64Mi
-  
+
   # BackingStore defines which backing store to use for virtual cluster. If not defined will use embedded database as a default backing store.
   backingStore:
     # Database defines that a database backend should be used as the backend for the virtual cluster. This uses a project called kine under the hood which is a shim for bridging Kubernetes and relational databases.
@@ -318,7 +318,7 @@ controlPlane:
             # Repository is the repository of the container image, e.g. my-repo/my-image
             repository: "etcd"
             # Tag is the tag of the container image, e.g. latest
-            tag: "3.5.13-0"
+            tag: "3.5.15-0"
           # ImagePullPolicy is the pull policy for the external etcd image
           imagePullPolicy: ""
           # ExtraArgs are appended to the etcd command.
@@ -387,7 +387,7 @@ controlPlane:
         headlessService:
           enabled: true
           annotations: {}
-  
+
   # Proxy defines options for the virtual cluster control plane proxy that is used to do authentication and intercept requests.
   proxy:
     # BindAddress under which vCluster will expose the proxy.
@@ -396,7 +396,7 @@ controlPlane:
     port: 8443
     # ExtraSANs are extra hostnames to sign the vCluster proxy certificate for.
     extraSANs: []
-  
+
   # CoreDNS defines everything related to the coredns that is deployed and used within the vCluster.
   coredns:
     # Enabled defines if coredns is enabled
@@ -448,7 +448,7 @@ controlPlane:
           labelSelector:
             matchLabels:
               k8s-app: kube-dns
-  
+
   # Service defines options for vCluster service deployed by Helm.
   service:
     # Enabled defines if the control plane service should be enabled
@@ -462,7 +462,7 @@ controlPlane:
     # Spec allows you to configure extra service options.
     spec:
       type: ClusterIP
-  
+
   # Ingress defines options for vCluster ingress deployed by Helm.
   ingress:
     # Enabled defines if the control plane ingress should be enabled
@@ -479,7 +479,7 @@ controlPlane:
     # Spec allows you to configure extra ingress options.
     spec:
       tls: []
-  
+
   # StatefulSet defines options for vCluster statefulSet deployed by Helm.
   statefulSet:
     labels: {}
@@ -595,14 +595,14 @@ controlPlane:
       # StartupProbe specifies if the startup probe for the container should be enabled
       startupProbe:
         enabled: true
-  
+
   # ServiceMonitor can be used to automatically create a service monitor for vCluster deployment itself.
   serviceMonitor:
     # Enabled configures if Helm should create the service monitor.
     enabled: false
     labels: {}
     annotations: {}
-  
+
   # Advanced holds additional configuration for the vCluster control plane.
   advanced:
     # DefaultImageRegistry will be used as a prefix for all internal images deployed by vCluster or Helm. This makes it easy to
@@ -649,7 +649,7 @@ integrations:
     nodes: true
     # Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
     pods: true
-  
+
   # ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster
   externalSecrets:
     # Enabled defines whether the external secret integration is enabled or not
@@ -672,7 +672,7 @@ integrations:
         # Selector defines what cluster stores should be synced
         selector:
           labels: {}
-  
+
   # KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
   kubeVirt:
     # Enabled signals if the integration should be enabled
@@ -711,7 +711,7 @@ rbac:
     overwriteRules: []
     # ExtraRules will add rules to the role.
     extraRules: []
-  
+
   # ClusterRole holds virtual cluster cluster role configuration
   clusterRole:
     # Enabled defines if the cluster role should be enabled or disabled. If auto, vCluster automatically determines whether the virtual cluster requires a cluster role.
@@ -731,10 +731,10 @@ networking:
     toHost: []
     # FromHost defines the services that should get synced from the host to the virtual cluster.
     fromHost: []
-  
+
   # ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured.
   resolveDNS: []
-  
+
   # Advanced holds advanced network options.
   advanced:
     # ClusterDomain is the Kubernetes cluster domain to use within the virtual cluster.
@@ -783,7 +783,7 @@ policies:
       matchExpressions: []
     # Scopes are the resource quota scopes
     scopes: []
-  
+
   # LimitRange specifies limit range options.
   limitRange:
     # Enabled defines if the limit range should be deployed by vCluster. "auto" means that if resourceQuota is enabled,
@@ -801,7 +801,7 @@ policies:
       ephemeral-storage: 3Gi
       memory: 128Mi
       cpu: 100m
-  
+
   # NetworkPolicy specifies network policy options.
   networkPolicy:
     # Enabled defines if the network policy should be deployed by vCluster.
@@ -829,7 +829,7 @@ policies:
           - 10.0.0.0/8
           - 172.16.0.0/12
           - 192.168.0.0/16
-  
+
   # CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.
   centralAdmission:
     # ValidatingWebhooks are validating webhooks that should be enforced in the virtual cluster
@@ -841,10 +841,10 @@ policies:
 exportKubeConfig:
   # Context is the name of the context within the generated kubeconfig to use.
   context: ""
-  
+
   # Override the default https://localhost:8443 and specify a custom hostname for the generated kubeconfig.
   server: ""
-  
+
   # Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.
   # If this is not defined, vCluster create it with `vc-NAME`. If you specify another name,
   # vCluster creates the config in this other secret.
@@ -867,7 +867,7 @@ experimental:
   multiNamespaceMode:
     # Enabled specifies if multi namespace mode should get enabled
     enabled: false
-  
+
   # SyncSettings are advanced settings for the syncer controller.
   syncSettings:
     # DisableSync will not sync any resources and disable most control plane functionality.
@@ -878,12 +878,12 @@ experimental:
     targetNamespace: ""
     # SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.
     setOwner: true
-  
+
   # IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
   isolatedControlPlane:
     # Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane.
     headless: false
-  
+
   # Deploy allows you to configure manifests and Helm charts to deploy within the virtual cluster.
   deploy:
     # Host defines what manifests to deploy into the host cluster
@@ -900,7 +900,7 @@ experimental:
       manifestsTemplate: ""
       # Helm are Helm charts that should get deployed into the virtual cluster
       helm: []
-  
+
   # GenericSync holds options to generically sync resources from virtual cluster to host.
   genericSync:
     clusterRole:
