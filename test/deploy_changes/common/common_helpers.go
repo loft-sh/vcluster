@@ -2,6 +2,8 @@ package common
 
 import (
 	"bytes"
+	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -41,9 +43,13 @@ func DeployChangesToVClusterUsingCLI(f *framework.Framework) {
 
 func DisconnectFromVCluster(f *framework.Framework) {
 	disconnectCmd := exec.Command("vcluster", "disconnect")
-	err := disconnectCmd.Run()
-	if err != nil && !strings.Contains(err.Error(), "not a virtual cluster context") {
-		framework.ExpectNoError(err, "Error disconnecting from vCluster")
+	output, err := disconnectCmd.CombinedOutput()
+	if err != nil {
+		if strings.Contains(string(output), "is not a virtual cluster context") {
+			fmt.Println("No virtual cluster context to disconnect from.")
+		} else {
+			framework.ExpectNoError(err, "Error disconnecting from vCluster")
+		}
 	}
 }
 
@@ -54,4 +60,20 @@ func VerifyClusterIsActive(f *framework.Framework) {
 		framework.ExpectNoError(err)
 		return err == nil && strings.Contains(string(output), f.VclusterName) && strings.Contains(string(output), "Running")
 	}).WithPolling(pollingInterval).WithTimeout(pollingDurationLong).Should(gomega.BeTrue())
+}
+
+func DeleteVCluster(vClusterName string, f *framework.Framework) {
+	ctx, cancel := context.WithTimeout(context.Background(), pollingDurationLong)
+	defer cancel()
+
+	deleteCmd := exec.CommandContext(ctx, "vcluster", "delete", vClusterName, "-n", f.VclusterNamespace)
+	var stdout, stderr bytes.Buffer
+	deleteCmd.Stdout = &stdout
+	deleteCmd.Stderr = &stderr
+	err := deleteCmd.Run()
+	if err != nil {
+		fmt.Println("stderr: ", stderr.String())
+		framework.ExpectNoError(err, "Error executing vcluster delete command")
+	}
+	gomega.Expect(strings.Contains(stdout.String(), "Successfully deleted virtual cluster")).To(gomega.BeTrue())
 }

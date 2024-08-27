@@ -1,0 +1,35 @@
+controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        statefulSet:
+          resources:
+            requests:
+              cpu: "0"
+  statefulSet:
+    image:
+      registry: ""
+      repository: REPLACE_REPOSITORY_NAME
+      tag: REPLACE_TAG_NAME
+    env:
+      - name: DEBUG
+        value: "true"
+    resources:
+      requests:
+        cpu: "0"
+# values for general test suite
+networking:
+  replicateServices:
+    toHost:
+      - from: test/test
+        to: test
+      - from: test/nginx
+        to: nginx
+    fromHost:
+      - from: test/test
+        to: default/test
+      - from: test/nginx
+        to: default/nginx
+experimental:
+  syncSettings:
+    setOwner: true
