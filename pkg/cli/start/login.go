@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	netUrl "net/url"
+	"os/exec"
 	"strings"
 
 	types "github.com/loft-sh/api/v4/pkg/auth"
@@ -29,9 +31,13 @@ func (l *LoftStarter) login(url string) error {
 	if l.isLoggedIn(url) {
 		// still open the UI
 		err := open.Run(url)
-		if err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			l.Log.Warnf("Couldn't open the login page in a browser. No browser found: %v", err)
+		} else if err != nil {
 			return fmt.Errorf("couldn't open the login page in a browser: %w", err)
 		}
+
+		l.Log.Infof("If the browser does not open automatically, please navigate to %s", url)
 
 		return nil
 	}
@@ -107,11 +113,13 @@ func (l *LoftStarter) loginUI(url string) error {
 	loginURL := fmt.Sprintf("%s/login#%s", url, queryString)
 
 	err := open.Run(loginURL)
-	if err != nil {
+	if errors.Is(err, exec.ErrNotFound) {
+		l.Log.Warnf("Couldn't open the login page in a browser. No browser found: %v", err)
+	} else if err != nil {
 		return fmt.Errorf("couldn't open the login page in a browser: %w", err)
 	}
 
-	l.Log.Infof("If the browser does not open automatically, please navigate to %s", loginURL)
+	l.Log.Infof("If the browser does not open automatically, please navigate to %s", url)
 
 	return nil
 }
