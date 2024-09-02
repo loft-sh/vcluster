@@ -31,7 +31,6 @@ jobs:
           git clone --single-branch https://github.com/loft-sh/vcluster-config.git
 
           cp -R config/. vcluster-config/config/
-          cp chart/values.schema.json vcluster-config/values.schema.json
 
           cd vcluster-config
 
