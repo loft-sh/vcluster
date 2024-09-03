@@ -159,6 +159,14 @@ data:
             {{- if .Values.controlPlane.coredns.deployment.nodeSelector }}
 {{ toYaml .Values.controlPlane.coredns.deployment.nodeSelector | indent 12 }}
             {{- end }}
+          {{- if .Values.controlPlane.coredns.deployment.affinity }}
+          affinity:
+{{ toYaml .Values.controlPlane.coredns.deployment.affinity | indent 12 }}
+          {{- end }}
+          {{- if .Values.controlPlane.coredns.deployment.tolerations }}
+          tolerations:
+{{ toYaml .Values.controlPlane.coredns.deployment.tolerations | indent 12 }}
+          {{- end }}
             {{- if .Values.controlPlane.coredns.deployment.topologySpreadConstraints  }}
           topologySpreadConstraints:
 {{ toYaml .Values.controlPlane.coredns.deployment.topologySpreadConstraints  | indent 12 }}
