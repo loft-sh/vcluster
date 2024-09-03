@@ -386,6 +386,19 @@ integrations:
     enabled: false
     nodes: true
     pods: true
+  externalSecrets:
+    enabled: false
+    webhook:
+      enabled: false
+    sync:
+      externalSecrets:
+        enabled: true
+      stores:
+        enabled: false
+      clusterStores:
+        enabled: false
+        selector:
+          labels: {}
   kubeVirt:
     enabled: false
     webhook:

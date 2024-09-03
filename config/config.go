@@ -83,6 +83,39 @@ type Integrations struct {
 
 	// KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
 	KubeVirt KubeVirt `json:"kubeVirt,omitempty"`
+
+	// ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster
+	ExternalSecrets ExternalSecrets `json:"externalSecrets,omitempty"`
+}
+
+// ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster
+type ExternalSecrets struct {
+	// Enabled defines whether the external secret integration is enabled or not
+	Enabled bool `json:"enabled,omitempty"`
+	// Webhook defines whether the host webhooks are reused or not
+	Webhook EnableSwitch `json:"webhook,omitempty"`
+	// Sync defines the syncing behavior for the integration
+	Sync ExternalSecretsSync `json:"sync,omitempty"`
+}
+
+type ExternalSecretsSync struct {
+	// ExternalSecrets defines whether to sync external secrets or not
+	ExternalSecrets EnableSwitch `json:"externalSecrets,omitempty"`
+	// Stores defines whether to sync stores or not
+	Stores EnableSwitch `json:"stores,omitempty"`
+	// ClusterStores defines whether to sync cluster stores or not
+	ClusterStores ClusterStoresSyncConfig `json:"clusterStores,omitempty"`
+}
+
+type ClusterStoresSyncConfig struct {
+	EnableSwitch
+	// Selector defines what cluster stores should be synced
+	Selector LabelSelector `json:"selector,omitempty"`
+}
+
+type LabelSelector struct {
+	// Labels defines what labels should be looked for
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster

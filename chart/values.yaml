@@ -650,6 +650,29 @@ integrations:
     # Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
     pods: true
   
+  # ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster
+  externalSecrets:
+    # Enabled defines whether the external secret integration is enabled or not
+    enabled: false
+    # Webhook defines whether the host webhooks are reused or not
+    webhook:
+      enabled: false
+    # Sync defines the syncing behavior for the integration
+    sync:
+      # ExternalSecrets defines whether to sync external secrets or not
+      externalSecrets:
+        enabled: true
+      # Stores defines whether to sync stores or not
+      stores:
+        enabled: false
+      # ClusterStores defines whether to sync cluster stores or not
+      clusterStores:
+        # Enabled defines if this option should be enabled.
+        enabled: false
+        # Selector defines what cluster stores should be synced
+        selector:
+          labels: {}
+  
   # KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
   kubeVirt:
     # Enabled signals if the integration should be enabled
