@@ -1,0 +1,68 @@
+name: Sync Config Schema
+on:
+  release:
+    types:
+      - published # this will run whenever a release (or pre-release is created)
+      - released # this will run when a (not-pre-)release is created or was changed from pre-release to a release
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    outputs:
+      latest_release_tag: ${{ steps.release.outputs.latest_release }}
+      is_latest_release: ${{ steps.release.outputs.is_latest_release }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure git
+        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Get release info
+        id: release
+        run: |
+          RELEASE_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest")
+
+          LATEST_RELEASE_NAME=$(echo "$RELEASE_JSON" | jq -r '.name')
+          IS_LATEST="false"
+          if [[ "${LATEST_RELEASE_NAME}" == "${{ github.event.release.tag_name }}" ]]; then
+            IS_LATEST="true"
+          fi
+          echo "Latest release name: $LATEST_RELEASE_NAME"
+          echo "Is latest release: $IS_LATEST"
+          echo "latest_release=$LATEST_RELEASE_NAME" >> "$GITHUB_OUTPUT"
+          echo "is_latest_release=$IS_LATEST" >> "$GITHUB_OUTPUT"
+
+      - name: Clone and update
+        if: ${{ steps.release.outputs.is_latest_release == 'true' }}
+        run: |
+          git clone --single-branch https://github.com/loft-sh/vcluster-config.git
+
+          # copy generated schema from vcluster chart values to vcluster-config
+          cp chart/values.schema.json vcluster-config/values.schema.json
+
+          cd vcluster-config
+
+          git add --all
+
+          # if there are no changes, exit early
+          if git diff-index --quiet HEAD --; then
+            exit 0
+          fi
+
+          # set git info
+          git config --global user.name "Loft Bot"
+          git config --global user.email 'loft-bot@users.noreply.github.com'
+          echo "Changes detected"
+
+          # commit changes
+          git commit -m "chore: sync vCluster config schema"
+          git push -u origin -f main
+          echo "Pushed commit to main branch"
