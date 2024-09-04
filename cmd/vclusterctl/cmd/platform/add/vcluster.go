@@ -29,7 +29,12 @@ Adds a vCluster to the vCluster platform.
 
 Example:
 vcluster platform add vcluster my-vcluster --namespace vcluster-my-vcluster --project my-project --import-name my-vcluster
+
+Add all vClusters in the host cluster:
+vcluster platform add vcluster ignored --project my-project --all
+
 ###############################################
+
 	`
 
 	addCmd := &cobra.Command{
@@ -51,6 +56,7 @@ vcluster platform add vcluster my-vcluster --namespace vcluster-my-vcluster --pr
 	addCmd.Flags().BytesBase64Var(&cmd.CertificateAuthorityData, "ca-data", []byte{}, "additional, base64 encoded certificate authority data that will be passed to the platform secret")
 	// This is hidden until the platform side will be ready to use it
 	_ = addCmd.Flags().MarkHidden("ca-data")
+	addCmd.Flags().BoolVar(&cmd.All, "all", false, "all will try to add all vCluster found in all namespaces in the host cluster. If this flag is set, vcluster name argument is ignored")
 
 	return addCmd
 }

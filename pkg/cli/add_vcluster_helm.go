@@ -2,8 +2,13 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
@@ -24,6 +29,7 @@ type AddVClusterOptions struct {
 	AccessKey                string
 	Host                     string
 	CertificateAuthorityData []byte
+	All                      bool
 }
 
 func AddVClusterHelm(
@@ -33,22 +39,105 @@ func AddVClusterHelm(
 	vClusterName string,
 	log log.Logger,
 ) error {
-	// check if vCluster exists
-	vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
+	var vClusters []find.VCluster
+	if options.All {
+		log.Debugf("add vcluster called with --all flag")
+		kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+			clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+				CurrentContext: globalFlags.Context,
+			})
+		hostClusterRestConfig, err := kubeClientConfig.ClientConfig()
+		if err != nil {
+			return err
+		}
+		hostKubeClient, err := kubernetes.NewForConfig(hostClusterRestConfig)
+		if err != nil {
+			return err
+		}
+		namespaces, err := hostKubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		log.Debugf("looking for vclusters in %d namespaces", len(namespaces.Items))
+		for _, ns := range namespaces.Items {
+			log.Infof("looking for a vcluster in %s namespace", ns.GetName())
+			vClustersInNamespace, err := find.ListVClusters(ctx, globalFlags.Context, "", ns.GetName(), log)
+			if err != nil {
+				return err
+			}
+			if len(vClustersInNamespace) == 0 {
+				log.Infof("no vClusters found in context %s and namespace %s", globalFlags.Context, ns.GetName())
+				continue
+			}
+			vClusters = append(vClusters, vClustersInNamespace...)
+		}
+	} else {
+		// check if vCluster exists
+		vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
+		if err != nil {
+			return err
+		}
+		vClusters = append(vClusters, *vCluster)
+	}
+
+	if len(vClusters) == 0 {
+		return nil
+	}
+
+	restConfig, err := vClusters[0].ClientFactory.ClientConfig()
 	if err != nil {
 		return err
 	}
 
 	// create kube client
-	restConfig, err := vCluster.ClientFactory.ClientConfig()
-	if err != nil {
-		return err
-	}
 	kubeClient, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return err
 	}
+	addErr := &VClusterAddError{}
+	log.Debugf("trying to add %d vClusters to platform", len(vClusters))
+	for _, vCluster := range vClusters {
+		vCluster := vCluster
+		log.Infof("adding %s vCluster to platform", vCluster.Name)
+		addErr.addErr(vCluster.Name, addVClusterHelm(ctx, options, globalFlags, vCluster.Name, &vCluster, kubeClient, log))
+	}
 
+	return addErr.CombinedError()
+}
+
+type VClusterAddError struct {
+	errs []error
+}
+
+func (vce *VClusterAddError) CombinedError() error {
+	if len(vce.errs) == 0 {
+		return nil
+	} else if len(vce.errs) == 1 {
+		return vce.errs[0]
+	}
+	errMsg := strings.Builder{}
+	for _, err := range vce.errs {
+		_, _ = errMsg.WriteString(err.Error() + "|")
+	}
+	return errors.New(errMsg.String())
+}
+
+func (vce *VClusterAddError) addErr(vClusterName string, err error) {
+	if err == nil {
+		return
+	}
+	vce.errs = append(vce.errs, fmt.Errorf("cannot add vcluster %s: %w", vClusterName, err))
+}
+
+func addVClusterHelm(
+	ctx context.Context,
+	options *AddVClusterOptions,
+	globalFlags *flags.GlobalFlags,
+	vClusterName string,
+	vCluster *find.VCluster,
+	kubeClient *kubernetes.Clientset,
+	log log.Logger,
+) error {
 	snoozed := false
 	// If the vCluster was paused with the helm driver, adding it to the platform will only create the secret for registration
 	// which leads to confusing behavior for the user since they won't see the cluster in the platform UI until it is resumed.
@@ -89,7 +178,7 @@ func AddVClusterHelm(
 	}
 
 	// apply platform secret
-	err = platform.ApplyPlatformSecret(
+	err := platform.ApplyPlatformSecret(
 		ctx,
 		globalFlags.LoadedConfig(log),
 		kubeClient,
