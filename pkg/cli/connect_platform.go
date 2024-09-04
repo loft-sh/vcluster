@@ -71,7 +71,7 @@ func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *
 	}
 
 	// retrieve vCluster kube config
-	kubeConfig, err := cmd.getVClusterKubeConfig(ctx, platformClient, vCluster)
+	kubeConfig, err := cmd.getVClusterKubeConfig(ctx, platformClient, globalFlags, vCluster)
 	if err != nil {
 		return err
 	}
@@ -101,12 +101,12 @@ func (cmd *connectPlatform) validateProFlags() error {
 	return nil
 }
 
-func (cmd *connectPlatform) getVClusterKubeConfig(ctx context.Context, platformClient platform.Client, vCluster *platform.VirtualClusterInstanceProject) (*clientcmdapi.Config, error) {
+func (cmd *connectPlatform) getVClusterKubeConfig(ctx context.Context, platformClient platform.Client, globalFlags *flags.GlobalFlags, vCluster *platform.VirtualClusterInstanceProject) (*clientcmdapi.Config, error) {
 	if vCluster == nil || vCluster.Project == nil || vCluster.VirtualCluster == nil {
 		return nil, errors.New("invalid vcluster VirtualClusterInstanceProject object")
 	}
 
-	contextOptions, err := platform.CreateVirtualClusterInstanceOptions(ctx, platformClient, "", vCluster.Project.Name, vCluster.VirtualCluster, false)
+	contextOptions, err := platform.CreateVirtualClusterInstanceOptions(ctx, platformClient, globalFlags.Config, vCluster.Project.Name, vCluster.VirtualCluster, false)
 	if err != nil {
 		return nil, fmt.Errorf("prepare vCluster kube config: %w", err)
 	}
