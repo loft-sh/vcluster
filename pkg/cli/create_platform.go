@@ -145,9 +145,9 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	}
 	log.Donef("Successfully created the virtual cluster %s in project %s", virtualClusterName, options.Project)
 
-	if options.CreateContext {
+	if options.Connect {
 		// create kube context options
-		contextOptions, err := platform.CreateVirtualClusterInstanceOptions(ctx, platformClient, globalFlags.Config, options.Project, virtualClusterInstance, options.SwitchContext)
+		contextOptions, err := platform.CreateVirtualClusterInstanceOptions(ctx, platformClient, globalFlags.Config, options.Project, virtualClusterInstance, true)
 		if err != nil {
 			return err
 		}
@@ -164,7 +164,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	// check if we should connect to the vcluster or print the kubeconfig
 	if options.Connect || options.Print {
 		return ConnectPlatform(ctx, &ConnectOptions{
-			UpdateCurrent:         options.UpdateCurrent,
+			UpdateCurrent:         true,
 			Print:                 options.Print,
 			KubeConfigContextName: options.KubeConfigContextName,
 			KubeConfig:            "./kubeconfig.yaml",
