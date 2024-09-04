@@ -617,6 +617,17 @@
           "type": "object",
           "description": "NodeSelector is the node selector to use for coredns."
         },
+        "affinity": {
+          "type": "object",
+          "description": "Affinity is the affinity to apply to the pod."
+        },
+        "tolerations": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "Tolerations are the tolerations to apply to the pod."
+        },
         "resources": {
           "$ref": "#/$defs/Resources",
           "description": "Resources are the desired resources for coredns."
