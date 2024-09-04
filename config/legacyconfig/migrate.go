@@ -43,6 +43,9 @@ func migrateK8sAndEKS(oldValues string, newConfig *config.Config) error {
 	oldConfig := &LegacyK8s{}
 	err := oldConfig.UnmarshalYAMLStrict([]byte(oldValues))
 	if err != nil {
+		if err := errIfConfigIsAlreadyConverted(oldValues); err != nil {
+			return err
+		}
 		return fmt.Errorf("unmarshal legacy config: %w", err)
 	}
 
@@ -91,6 +94,9 @@ func migrateK3sAndK0s(distro, oldValues string, newConfig *config.Config) error 
 	oldConfig := &LegacyK0sAndK3s{}
 	err := oldConfig.UnmarshalYAMLStrict([]byte(oldValues))
 	if err != nil {
+		if err := errIfConfigIsAlreadyConverted(oldValues); err != nil {
+			return err
+		}
 		return fmt.Errorf("unmarshal legacy config: %w", err)
 	}
 
@@ -134,6 +140,14 @@ func migrateK3sAndK0s(distro, oldValues string, newConfig *config.Config) error 
 
 	// convert the rest
 	return convertBaseValues(oldConfig.BaseHelm, newConfig)
+}
+
+func errIfConfigIsAlreadyConverted(oldValues string) error {
+	currentConfig := &config.Config{}
+	if err := currentConfig.UnmarshalYAMLStrict([]byte(oldValues)); err == nil {
+		return fmt.Errorf("config is already in correct format")
+	}
+	return nil
 }
 
 func convertEtcd(oldConfig EtcdValues, newConfig *config.Config) error {

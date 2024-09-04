@@ -445,6 +445,50 @@ policies:
       podManagementPolicy: OrderedReady`,
 			ExpectedErr: "",
 		},
+		{
+			Name:   "k3s already migrated to correct format",
+			Distro: "k3s",
+			In: `sync:
+  fromHost:
+    nodes:
+      enabled: false
+  toHost:
+    serviceAccounts:
+      enabled: false
+controlPlane:
+  distro:
+    k3s:
+      enabled: true
+      image:
+        tag: v1.30.2-k3s2
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+
+`,
+			ExpectedErr: "migrate legacy k3s values: config is already in correct format",
+		},
+		{
+			Name:   "k8s already migrated to correct format",
+			Distro: "k8s",
+			In: `sync:
+  fromHost:
+    nodes:
+      enabled: false
+  toHost:
+    serviceAccounts:
+      enabled: false
+controlPlane:
+  distro:
+    k8s:
+      enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+
+`,
+			ExpectedErr: "migrate legacy k8s values: config is already in correct format",
+		},
 	}
 
 	for _, testCase := range testCases {
