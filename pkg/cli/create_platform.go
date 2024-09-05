@@ -612,7 +612,7 @@ func mergeValues(platformClient platform.Client, options *CreateOptions, log log
 	if err != nil {
 		return "", err
 	}
-	chartValues, err := vclusterconfig.GetExtraValues(chartOptions)
+	chartValues, err := vclusterconfig.GetExtraValues(chartOptions, options.ChartVersion)
 	if err != nil {
 		return "", err
 	}
