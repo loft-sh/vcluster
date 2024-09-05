@@ -58,6 +58,7 @@ type CreateOptions struct {
 	KubernetesVersion string
 
 	CreateNamespace bool
+	UpdateCurrent   bool
 	BackgroundProxy bool
 	Add             bool
 	Expose          bool
