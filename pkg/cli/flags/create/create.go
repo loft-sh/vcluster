@@ -19,6 +19,7 @@ func AddCommonFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 	cmd.Flags().StringArrayVarP(&options.Values, "values", "f", []string{}, "Path where to load extra helm values from")
 	cmd.Flags().StringArrayVar(&options.SetValues, "set", []string{}, "Set values for helm. E.g. --set 'persistence.enabled=true'")
 	cmd.Flags().BoolVar(&options.Print, "print", false, "If enabled, prints the context to the console")
+	cmd.Flags().BoolVar(&options.UpdateCurrent, "update-current", true, "If true updates the current kube config")
 	cmd.Flags().BoolVar(&options.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
 	cmd.Flags().BoolVar(&options.Connect, "connect", true, "If true will run vcluster connect directly after the vcluster was created")
 	cmd.Flags().BoolVar(&options.Upgrade, "upgrade", false, "If true will try to upgrade the vcluster instead of failing if it already exists")
@@ -26,6 +27,8 @@ func AddCommonFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 
 	_ = cmd.Flags().MarkHidden("distro")
 	_ = cmd.Flags().MarkDeprecated("distro", fmt.Sprintf("please specify the distro by setting %q accordingly via values.yaml file.", "controlPlane.distro"))
+	_ = cmd.Flags().MarkHidden("update-current")
+	_ = cmd.Flags().MarkDeprecated("update-current", fmt.Sprintf("please use %q.", "--connect"))
 }
 
 func AddHelmFlags(cmd *cobra.Command, options *cli.CreateOptions) {
