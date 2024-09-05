@@ -399,6 +399,7 @@ tests:
     set:
       integrations:
         externalSecrets:
+          enabled: true
           sync:
             clusterStores:
               enabled: true
