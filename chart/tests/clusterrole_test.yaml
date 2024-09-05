@@ -395,3 +395,22 @@ tests:
             apiGroups: [ "apiextensions.k8s.io" ]
             resources: [ "customresourcedefinitions" ]
             verbs: [ "get", "list", "watch" ]
+  - it: eso clusterstore sync
+    set:
+      integrations:
+        externalSecrets:
+          sync:
+            clusterStores:
+              enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "external-secrets.io" ]
+            resources: [ "clustersecretstores" ]
+            verbs: [ "get", "list", "watch" ]
