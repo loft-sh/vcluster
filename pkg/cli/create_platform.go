@@ -19,13 +19,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/kube"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
-	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
-	"github.com/mgutz/ansi"
 	"golang.org/x/mod/semver"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -144,22 +142,6 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 		return err
 	}
 	log.Donef("Successfully created the virtual cluster %s in project %s", virtualClusterName, options.Project)
-
-	if options.Connect {
-		// create kube context options
-		contextOptions, err := platform.CreateVirtualClusterInstanceOptions(ctx, platformClient, globalFlags.Config, options.Project, virtualClusterInstance, true)
-		if err != nil {
-			return err
-		}
-
-		// update kube config
-		err = kubeconfig.UpdateKubeConfig(contextOptions, cfg)
-		if err != nil {
-			return err
-		}
-
-		log.Donef("Successfully updated kube context to use virtual cluster %s in project %s", ansi.Color(virtualClusterName, "white+b"), ansi.Color(options.Project, "white+b"))
-	}
 
 	// check if we should connect to the vcluster or print the kubeconfig
 	if options.Connect || options.Print {
