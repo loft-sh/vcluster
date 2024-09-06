@@ -120,7 +120,6 @@ func addPlatformSchema(toSchema *jsonschema.Schema) error {
 			AdditionalProperties: nil,
 			Description:          externalConfigName + " holds external configuration",
 			Properties:           properties,
-			Ref:                  externalConfigRef,
 		}
 	} else {
 		externalConfigNode.Properties = properties
