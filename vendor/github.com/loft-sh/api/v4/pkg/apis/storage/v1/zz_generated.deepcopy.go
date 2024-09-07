@@ -1726,6 +1726,16 @@ func (in *DevPodWorkspaceTemplateDefinition) DeepCopyInto(out *DevPodWorkspaceTe
 		*out = new(SpaceTemplateDefinition)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.VirtualClusterTemplateRef != nil {
+		in, out := &in.VirtualClusterTemplateRef, &out.VirtualClusterTemplateRef
+		*out = new(TemplateRef)
+		**out = **in
+	}
+	if in.VirtualClusterTemplate != nil {
+		in, out := &in.VirtualClusterTemplate, &out.VirtualClusterTemplate
+		*out = new(VirtualClusterTemplateDefinition)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.WorkspaceEnv != nil {
 		in, out := &in.WorkspaceEnv, &out.WorkspaceEnv
 		*out = make(map[string]DevPodProviderOption, len(*in))
