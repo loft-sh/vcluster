@@ -8,6 +8,7 @@ WORKDIR /vcluster-dev
 ARG TARGETOS
 ARG TARGETARCH
 ARG BUILD_VERSION=dev
+# TODO https://docs.docker.com/build/building/secrets/#secret-mounts
 ARG TELEMETRY_PRIVATE_KEY=""
 ARG HELM_VERSION="v3.15.4"
 

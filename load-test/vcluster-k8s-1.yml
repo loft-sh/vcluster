@@ -1,16 +1,17 @@
-replicas: 1
-proxy:
+#replicas: 1
+integrations:
   metricsServer:
-    nodes:
-      enabled: true
-    pods:
-      enabled: true
-sync:
-  nodes:
     enabled: true
-    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster
-    # will sync all nodes instead of only the ones where some pods are running.
-    syncAllNodes: true
-monitoring:
+    nodes: true
+    pods: true
+
+#sync:
+#  nodes:
+#    enabled: false
+#    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster
+#    # will sync all nodes instead of only the ones where some pods are running.
+#    syncAllNodes: true
+
+controlPlane:
   serviceMonitor:
-    enabled: true
+    enabled: true # no matches for kind "ServiceMonitor" in version "monitoring.coreos.com/v1"
