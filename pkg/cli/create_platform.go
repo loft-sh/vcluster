@@ -147,7 +147,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 
 	if options.CreateContext {
 		// create kube context options
-		contextOptions, err := platform.CreateVirtualClusterInstanceOptions(ctx, platformClient, "", options.Project, virtualClusterInstance, options.SwitchContext)
+		contextOptions, err := platform.CreateVirtualClusterInstanceOptions(ctx, platformClient, globalFlags.Config, options.Project, virtualClusterInstance, options.SwitchContext)
 		if err != nil {
 			return err
 		}
