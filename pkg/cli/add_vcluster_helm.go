@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
@@ -36,43 +34,28 @@ func AddVClusterHelm(
 	ctx context.Context,
 	options *AddVClusterOptions,
 	globalFlags *flags.GlobalFlags,
-	vClusterName string,
+	args []string,
 	log log.Logger,
 ) error {
 	var vClusters []find.VCluster
+	if len(args) == 0 && !options.All {
+		return errors.New("empty vCluster name but no --all flag set, please either set vCluster name to add one cluster or set --all flag to add all of them")
+	}
 	if options.All {
 		log.Debugf("add vcluster called with --all flag")
-		kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-			clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
-				CurrentContext: globalFlags.Context,
-			})
-		hostClusterRestConfig, err := kubeClientConfig.ClientConfig()
+		log.Info("looking for vClusters in all namespaces")
+		vClustersInNamespace, err := find.ListVClusters(ctx, globalFlags.Context, "", "", log)
 		if err != nil {
 			return err
 		}
-		hostKubeClient, err := kubernetes.NewForConfig(hostClusterRestConfig)
-		if err != nil {
-			return err
-		}
-		namespaces, err := hostKubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		log.Debugf("looking for vclusters in %d namespaces", len(namespaces.Items))
-		for _, ns := range namespaces.Items {
-			log.Infof("looking for a vcluster in %s namespace", ns.GetName())
-			vClustersInNamespace, err := find.ListVClusters(ctx, globalFlags.Context, "", ns.GetName(), log)
-			if err != nil {
-				return err
-			}
-			if len(vClustersInNamespace) == 0 {
-				log.Infof("no vClusters found in context %s and namespace %s", globalFlags.Context, ns.GetName())
-				continue
-			}
+		if len(vClustersInNamespace) == 0 {
+			log.Infof("no vClusters found in context %s", globalFlags.Context)
+		} else {
 			vClusters = append(vClusters, vClustersInNamespace...)
 		}
 	} else {
 		// check if vCluster exists
+		vClusterName := args[0]
 		vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
 		if err != nil {
 			return err
@@ -94,39 +77,18 @@ func AddVClusterHelm(
 	if err != nil {
 		return err
 	}
-	addErr := &VClusterAddError{}
+	var addErrors []error
 	log.Debugf("trying to add %d vClusters to platform", len(vClusters))
 	for _, vCluster := range vClusters {
 		vCluster := vCluster
 		log.Infof("adding %s vCluster to platform", vCluster.Name)
-		addErr.addErr(vCluster.Name, addVClusterHelm(ctx, options, globalFlags, vCluster.Name, &vCluster, kubeClient, log))
+		err := addVClusterHelm(ctx, options, globalFlags, vCluster.Name, &vCluster, kubeClient, log)
+		if err != nil {
+			addErrors = append(addErrors, fmt.Errorf("cannot add %s: %w", vCluster.Name, err))
+		}
 	}
 
-	return addErr.CombinedError()
-}
-
-type VClusterAddError struct {
-	errs []error
-}
-
-func (vce *VClusterAddError) CombinedError() error {
-	if len(vce.errs) == 0 {
-		return nil
-	} else if len(vce.errs) == 1 {
-		return vce.errs[0]
-	}
-	errMsg := strings.Builder{}
-	for _, err := range vce.errs {
-		_, _ = errMsg.WriteString(err.Error() + "|")
-	}
-	return errors.New(errMsg.String())
-}
-
-func (vce *VClusterAddError) addErr(vClusterName string, err error) {
-	if err == nil {
-		return
-	}
-	vce.errs = append(vce.errs, fmt.Errorf("cannot add vcluster %s: %w", vClusterName, err))
+	return utilerrors.NewAggregate(addErrors)
 }
 
 func addVClusterHelm(

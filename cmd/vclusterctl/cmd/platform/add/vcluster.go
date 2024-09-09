@@ -31,7 +31,7 @@ Example:
 vcluster platform add vcluster my-vcluster --namespace vcluster-my-vcluster --project my-project --import-name my-vcluster
 
 Add all vClusters in the host cluster:
-vcluster platform add vcluster ignored --project my-project --all
+vcluster platform add vcluster --project my-project --all
 
 ###############################################
 
@@ -41,7 +41,7 @@ vcluster platform add vcluster ignored --project my-project --all
 		Use:   "vcluster",
 		Short: "Adds an existing vCluster to the vCluster platform",
 		Long:  description,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.RangeArgs(0, 1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd.Context(), args)
 		},
@@ -56,12 +56,12 @@ vcluster platform add vcluster ignored --project my-project --all
 	addCmd.Flags().BytesBase64Var(&cmd.CertificateAuthorityData, "ca-data", []byte{}, "additional, base64 encoded certificate authority data that will be passed to the platform secret")
 	// This is hidden until the platform side will be ready to use it
 	_ = addCmd.Flags().MarkHidden("ca-data")
-	addCmd.Flags().BoolVar(&cmd.All, "all", false, "all will try to add all vCluster found in all namespaces in the host cluster. If this flag is set, vcluster name argument is ignored")
+	addCmd.Flags().BoolVar(&cmd.All, "all", false, "all will try to add Virtual Cluster found in all namespaces in the host cluster. If this flag is set, any provided vCluster name argument is ignored")
 
 	return addCmd
 }
 
 // Run executes the functionality
 func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
-	return cli.AddVClusterHelm(ctx, &cmd.AddVClusterOptions, cmd.GlobalFlags, args[0], cmd.Log)
+	return cli.AddVClusterHelm(ctx, &cmd.AddVClusterOptions, cmd.GlobalFlags, args, cmd.Log)
 }
