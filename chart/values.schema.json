@@ -1527,8 +1527,15 @@
       "description": "Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig."
     },
     "ExternalConfig": {
+      "properties": {
+        "platform": {
+          "$ref": "#/$defs/PlatformConfig",
+          "type": "object",
+          "description": "platform holds platform configuration"
+        }
+      },
       "type": "object",
-      "description": "ExternalConfig holds external tool configuration"
+      "description": "ExternalConfig holds external configuration"
     },
     "ExternalEtcdHighAvailability": {
       "properties": {
@@ -2234,6 +2241,35 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "PlatformAPIKey": {
+      "properties": {
+        "secretName": {
+          "type": "string",
+          "description": "SecretName is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace\nwhere the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace."
+        },
+        "createRBAC": {
+          "type": "boolean",
+          "description": "CreateRBAC will automatically create the necessary RBAC roles and role bindings to allow vCluster to read the secret specified\nin the above namespace, if specified.\nThis defaults to true."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "PlatformAPIKey defines where to find the platform access key."
+    },
+    "PlatformConfig": {
+      "properties": {
+        "apiKey": {
+          "$ref": "#/$defs/PlatformAPIKey",
+          "description": "APIKey defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:\n* environment variable called LICENSE\n* secret specified under external.platform.apiKey.secretName\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
+        }
+      },
+      "type": "object",
+      "description": "PlatformConfig holds platform configuration"
     },
     "Plugin": {
       "properties": {
@@ -3503,10 +3539,7 @@
       "description": "Experimental features for vCluster. Configuration here might change, so be careful with this."
     },
     "external": {
-      "additionalProperties": {
-        "$ref": "#/$defs/ExternalConfig"
-      },
-      "type": "object",
+      "$ref": "#/$defs/ExternalConfig",
       "description": "External holds configuration for tools that are external to the vCluster."
     },
     "telemetry": {
