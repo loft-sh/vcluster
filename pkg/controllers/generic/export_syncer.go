@@ -307,3 +307,18 @@ func (f *exporter) TranslateMetadata(ctx *synccontext.SyncContext, vObj client.O
 func (f *exporter) objectMatches(obj client.Object) bool {
 	return f.selector == nil || f.selector.Matches(labels.Set(obj.GetLabels()))
 }
+
+var _ syncertypes.ObjectExcluder = &exporter{}
+
+func (f *exporter) ExcludeVirtual(vObj client.Object) bool {
+	return f.excludeObject(vObj)
+}
+
+func (f *exporter) ExcludePhysical(_ client.Object) bool {
+	return false
+}
+
+func (f *exporter) excludeObject(obj client.Object) bool {
+	matches := f.selector.Matches(labels.Set(obj.GetLabels()))
+	return !matches
+}
