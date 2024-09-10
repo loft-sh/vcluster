@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/store/verify"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -81,6 +82,13 @@ func (n *mapper) VirtualToHost(ctx *synccontext.SyncContext, req types.Namespace
 }
 
 func (n *mapper) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) (retName types.NamespacedName) {
+	if !verify.CheckHostObject(ctx, synccontext.Object{
+		GroupVersionKind: n.gvk,
+		NamespacedName:   req,
+	}) {
+		return types.NamespacedName{}
+	}
+
 	vName := TryToTranslateBackByAnnotations(ctx, req, pObj, n.gvk)
 	if vName.Name != "" {
 		return vName
@@ -272,5 +280,12 @@ func tryToFindHostNameShortInStore(ctx *synccontext.SyncContext, pName types.Nam
 }
 
 func (n *mapper) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
+	if !verify.CheckHostObject(ctx, synccontext.Object{
+		GroupVersionKind: n.gvk,
+		NamespacedName:   client.ObjectKeyFromObject(pObj),
+	}) {
+		return false, nil
+	}
+
 	return translate.Default.IsManaged(ctx, pObj), nil
 }

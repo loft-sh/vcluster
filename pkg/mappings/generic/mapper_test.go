@@ -335,7 +335,7 @@ func TestTryToTranslateBackByName(t *testing.T) {
 	secretMapping := synccontext.NameMapping{
 		GroupVersionKind: gvk,
 		VirtualName:      types.NamespacedName{Name: "virtual-name", Namespace: "virtual-namespace"},
-		HostName:         types.NamespacedName{Name: "host-name", Namespace: "host-namespace"},
+		HostName:         types.NamespacedName{Name: "host-name", Namespace: targetNamespace},
 	}
 	syncContext.Context = synccontext.WithMapping(syncContext.Context, secretMapping)
 	assert.Equal(t, TryToTranslateBackByName(syncContext, secretMapping.HostName, gvk).String(), types.NamespacedName{}.String())
@@ -352,7 +352,7 @@ func TestTryToTranslateBackByName(t *testing.T) {
 	assert.NilError(t, err)
 	vConfig.Experimental.MultiNamespaceMode.Enabled = true
 	req := types.NamespacedName{
-		Namespace: "test",
+		Namespace: targetNamespace,
 		Name:      "test",
 	}
 	assert.Equal(t, TryToTranslateBackByName(syncContext, req, gvk).String(), req.String())

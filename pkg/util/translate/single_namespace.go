@@ -9,7 +9,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/base36"
-	"github.com/loft-sh/vcluster/pkg/util/translate/pro"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -36,11 +35,6 @@ func (s *singleNamespace) SingleNamespaceTarget() bool {
 func (s *singleNamespace) HostName(ctx *synccontext.SyncContext, vName, vNamespace string) types.NamespacedName {
 	if vName == "" {
 		return types.NamespacedName{}
-	} else if pNamespace, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
-		return types.NamespacedName{
-			Name:      vName,
-			Namespace: pNamespace,
-		}
 	}
 
 	return types.NamespacedName{
@@ -52,11 +46,6 @@ func (s *singleNamespace) HostName(ctx *synccontext.SyncContext, vName, vNamespa
 func (s *singleNamespace) HostNameShort(ctx *synccontext.SyncContext, vName, vNamespace string) types.NamespacedName {
 	if vName == "" {
 		return types.NamespacedName{}
-	} else if pNamespace, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
-		return types.NamespacedName{
-			Name:      vName,
-			Namespace: pNamespace,
-		}
 	}
 
 	// we use base36 to avoid as much conflicts as possible
@@ -97,7 +86,7 @@ func (s *singleNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Ob
 	}
 
 	// if host namespace is mapped, we don't check for marker label
-	if _, ok := pro.HostNamespaceMatchesMapping(ctx, pObj.GetNamespace()); !ok && pObj.GetLabels()[MarkerLabel] != VClusterName {
+	if pObj.GetLabels()[MarkerLabel] != VClusterName {
 		return false
 	}
 
@@ -142,11 +131,7 @@ func (s *singleNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Ob
 	return true
 }
 
-func (s *singleNamespace) IsTargetedNamespace(ctx *synccontext.SyncContext, pNamespace string) bool {
-	if _, ok := pro.HostNamespaceMatchesMapping(ctx, pNamespace); ok {
-		return true
-	}
-
+func (s *singleNamespace) IsTargetedNamespace(_ *synccontext.SyncContext, pNamespace string) bool {
 	return pNamespace == s.targetNamespace
 }
 
@@ -162,13 +147,9 @@ func (s *singleNamespace) LabelsToTranslate() map[string]bool {
 	}
 }
 
-func (s *singleNamespace) HostNamespace(ctx *synccontext.SyncContext, vNamespace string) string {
+func (s *singleNamespace) HostNamespace(_ *synccontext.SyncContext, vNamespace string) string {
 	if vNamespace == "" {
 		return ""
-	}
-
-	if pNamespace, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
-		return pNamespace
 	}
 
 	return s.targetNamespace

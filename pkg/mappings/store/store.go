@@ -22,9 +22,17 @@ import (
 
 const GarbageCollectionInterval = time.Minute * 3
 
+type VerifyMapping func(mapping synccontext.NameMapping) bool
+
 func NewStore(ctx context.Context, cachedVirtualClient, cachedHostClient client.Client, backend Backend) (synccontext.MappingsStore, error) {
+	return NewStoreWithVerifyMapping(ctx, cachedVirtualClient, cachedHostClient, backend, nil)
+}
+
+func NewStoreWithVerifyMapping(ctx context.Context, cachedVirtualClient, cachedHostClient client.Client, backend Backend, verifyMapping VerifyMapping) (synccontext.MappingsStore, error) {
 	store := &Store{
 		backend: backend,
+
+		verifyMapping: verifyMapping,
 
 		sender: uuid.NewString(),
 
@@ -50,6 +58,8 @@ func NewStore(ctx context.Context, cachedVirtualClient, cachedHostClient client.
 
 type Store struct {
 	m sync.RWMutex
+
+	verifyMapping VerifyMapping
 
 	sender string
 
@@ -192,6 +202,11 @@ func (s *Store) start(ctx context.Context) error {
 	}
 
 	for _, mapping := range mappings {
+		// verify mapping if needed
+		if s.verifyMapping != nil && !s.verifyMapping(mapping.NameMapping) {
+			continue
+		}
+
 		oldMapping, ok := s.mappings[mapping.NameMapping]
 		if ok {
 			s.removeMapping(oldMapping)
@@ -226,6 +241,11 @@ func (s *Store) handleEvent(ctx context.Context, watchEvent BackendWatchResponse
 	for _, event := range watchEvent.Events {
 		// ignore events sent by us
 		if event.Mapping.Sender == s.sender {
+			continue
+		}
+
+		// verify mapping if needed
+		if s.verifyMapping != nil && !s.verifyMapping(event.Mapping.NameMapping) {
 			continue
 		}
 
@@ -342,6 +362,11 @@ func (s *Store) AddReference(ctx context.Context, nameMapping, belongsTo synccon
 	err := s.checkNameConflict(nameMapping)
 	if err != nil {
 		return err
+	}
+
+	// verify mapping if needed
+	if s.verifyMapping != nil && !s.verifyMapping(nameMapping) {
+		return nil
 	}
 
 	// check if there is already a mapping
