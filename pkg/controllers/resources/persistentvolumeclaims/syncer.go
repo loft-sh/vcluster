@@ -172,7 +172,11 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, event *
 	event.Host.Spec.Resources.Requests = event.Virtual.Spec.Resources.Requests
 
 	// change annotations
-	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
+	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual, s.excludedAnnotations...)
+	} else {
+		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
+	}
 
 	// check labels
 	if event.Source == synccontext.SyncEventSourceHost {

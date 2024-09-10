@@ -187,6 +187,21 @@ func TestRecorderMigrate(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Multi namespace mode - namespace mapper",
+
+			MultiNamespaceMode: true,
+
+			Object: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "host-namespace-1",
+					Annotations: map[string]string{
+						translate.NameAnnotation: "virtual-namespace-1",
+						translate.KindAnnotation: corev1.SchemeGroupVersion.WithKind("Namespace").String(),
+					},
+				},
+			},
+		},
 	}
 
 	for _, testCase := range testCases {

@@ -42,6 +42,7 @@ func TestSyncHostStorageClass(t *testing.T) {
 		Labels: map[string]string{
 			"vcluster.loft.sh/namespace": "test",
 		},
+		ResourceVersion: "999",
 	}
 
 	pObj := &storagev1.CSIStorageCapacity{
@@ -171,6 +172,7 @@ func TestSyncStorageClass(t *testing.T) {
 		Labels: map[string]string{
 			"vcluster.loft.sh/namespace": "test",
 		},
+		ResourceVersion: "999",
 	}
 
 	pObj := &storagev1.CSIStorageCapacity{

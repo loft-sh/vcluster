@@ -149,6 +149,7 @@ func TestSync(t *testing.T) {
 			Namespace: vObjectMeta.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
+			ExternalName:   "backwardExternal",
 			ClusterIP:      "123:123:123:123",
 			ExternalIPs:    []string{"123:221:123:221"},
 			LoadBalancerIP: "123:213:123:213",

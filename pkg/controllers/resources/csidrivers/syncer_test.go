@@ -25,7 +25,8 @@ func TestSync(t *testing.T) {
 		Name: "test-csidriver",
 	}
 	vObjectMeta := metav1.ObjectMeta{
-		Name: "test-csidriver",
+		Name:            "test-csidriver",
+		ResourceVersion: "999",
 	}
 
 	pObj := &storagev1.CSIDriver{

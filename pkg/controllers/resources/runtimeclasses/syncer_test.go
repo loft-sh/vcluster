@@ -23,6 +23,7 @@ func TestSync(t *testing.T) {
 			translate.UIDAnnotation:  "",
 			translate.KindAnnotation: nodev1.SchemeGroupVersion.WithKind("RuntimeClass").String(),
 		},
+		ResourceVersion: "999",
 	}
 
 	vObj := &nodev1.RuntimeClass{

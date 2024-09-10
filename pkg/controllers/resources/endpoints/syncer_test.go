@@ -27,8 +27,9 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 func TestExistingEndpoints(t *testing.T) {
 	vEndpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-endpoints",
-			Namespace: "test",
+			Name:            "test-endpoints",
+			Namespace:       "test",
+			ResourceVersion: "999",
 		},
 		Subsets: []corev1.EndpointSubset{
 			{
@@ -152,8 +153,9 @@ func TestSync(t *testing.T) {
 	}
 	syncedEndpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.HostName(nil, baseEndpoints.Name, baseEndpoints.Namespace).Name,
-			Namespace: "test",
+			ResourceVersion: "999",
+			Name:            translate.Default.HostName(nil, baseEndpoints.Name, baseEndpoints.Namespace).Name,
+			Namespace:       "test",
 			Annotations: map[string]string{
 				translate.NameAnnotation:          baseEndpoints.Name,
 				translate.NamespaceAnnotation:     baseEndpoints.Namespace,
