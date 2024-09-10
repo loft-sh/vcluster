@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"reflect"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -220,8 +222,20 @@ func (h *Patcher) patchWholeObject(ctx context.Context, obj client.Object) error
 		return err
 	}
 
-	logPatch(ctx, fmt.Sprintf("Apply %s patch", h.direction), obj, beforeObject, afterObject)
-	return h.client.Patch(ctx, afterObject, client.MergeFrom(beforeObject))
+	patchBytes, err := client.MergeFrom(beforeObject).Data(afterObject)
+	if err != nil {
+		return err
+	} else if string(patchBytes) == "{}" || len(patchBytes) == 0 {
+		return nil
+	}
+
+	err = applyPatch(obj, patchBytes)
+	if err != nil {
+		return fmt.Errorf("apply: %w", err)
+	}
+
+	logPatch(ctx, fmt.Sprintf("Update %s", h.direction), obj, patchBytes)
+	return h.client.Update(ctx, obj)
 }
 
 // patch issues a patch for metadata and spec.
@@ -234,8 +248,20 @@ func (h *Patcher) patch(ctx context.Context, obj client.Object) error {
 		return err
 	}
 
-	logPatch(ctx, fmt.Sprintf("Apply %s patch", h.direction), obj, beforeObject, afterObject)
-	return h.client.Patch(ctx, afterObject, client.MergeFrom(beforeObject))
+	patchBytes, err := client.MergeFrom(beforeObject).Data(afterObject)
+	if err != nil {
+		return err
+	} else if string(patchBytes) == "{}" || len(patchBytes) == 0 {
+		return nil
+	}
+
+	err = applyPatch(obj, patchBytes)
+	if err != nil {
+		return fmt.Errorf("apply: %w", err)
+	}
+
+	logPatch(ctx, fmt.Sprintf("Update %s", h.direction), obj, patchBytes)
+	return h.client.Update(ctx, obj)
 }
 
 // patchStatus issues a patch if the status has changed.
@@ -248,14 +274,26 @@ func (h *Patcher) patchStatus(ctx context.Context, obj client.Object) error {
 		return err
 	}
 
-	logPatch(ctx, fmt.Sprintf("Apply %s status patch", h.direction), obj, beforeObject, afterObject)
-	return h.client.Status().Patch(ctx, afterObject, client.MergeFrom(beforeObject))
+	patchBytes, err := client.MergeFrom(beforeObject).Data(afterObject)
+	if err != nil {
+		return err
+	} else if string(patchBytes) == "{}" || len(patchBytes) == 0 {
+		return nil
+	}
+
+	err = applyPatch(obj, patchBytes)
+	if err != nil {
+		return fmt.Errorf("apply: %w", err)
+	}
+
+	logPatch(ctx, fmt.Sprintf("Update status %s", h.direction), obj, patchBytes)
+	return h.client.Status().Update(ctx, obj)
 }
 
-func logPatch(ctx context.Context, patchMessage string, obj, beforeObject, afterObject client.Object) {
+func logPatch(ctx context.Context, patchMessage string, obj client.Object, patchBytes []byte) {
 	// log patch
-	patchBytes, _ := client.MergeFrom(beforeObject).Data(afterObject)
-	klog.FromContext(ctx).Info(patchMessage, "kind", obj.GetObjectKind().GroupVersionKind().Kind, "object", obj.GetNamespace()+"/"+obj.GetName(), "patch", string(patchBytes))
+	gvk, _ := apiutil.GVKForObject(obj, scheme.Scheme)
+	klog.FromContext(ctx).Info(patchMessage+" "+gvk.Kind+" "+obj.GetNamespace()+"/"+obj.GetName(), "patch", string(patchBytes))
 }
 
 // calculatePatch returns the before/after objects to be given in a controller-runtime patch, scoped down to the absolute necessary.
@@ -325,6 +363,36 @@ func (h *Patcher) calculateChanges(after client.Object) (map[string]bool, error)
 func checkNilObject(obj client.Object) error {
 	if obj == nil || (reflect.ValueOf(obj).IsValid() && reflect.ValueOf(obj).IsNil()) {
 		return errors.Errorf("expected non-nil object")
+	}
+
+	return nil
+}
+
+func applyPatch(obj client.Object, patchBytes []byte) error {
+	unstructuredMap, err := toUnstructured(obj)
+	if err != nil {
+		return fmt.Errorf("to unstructured: %w", err)
+	}
+
+	objBytes, err := json.Marshal(unstructuredMap.Object)
+	if err != nil {
+		return fmt.Errorf("marshal object: %w", err)
+	}
+
+	afterObjBytes, err := jsonpatch.MergePatch(objBytes, patchBytes)
+	if err != nil {
+		return fmt.Errorf("apply merge patch: %w", err)
+	}
+
+	afterObjMap := map[string]interface{}{}
+	err = json.Unmarshal(afterObjBytes, &afterObjMap)
+	if err != nil {
+		return fmt.Errorf("unmarshal applied object: %w", err)
+	}
+
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(afterObjMap, obj)
+	if err != nil {
+		return err
 	}
 
 	return nil

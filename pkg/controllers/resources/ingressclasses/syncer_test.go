@@ -21,6 +21,7 @@ func TestSync(t *testing.T) {
 			translate.UIDAnnotation:  "",
 			translate.KindAnnotation: networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
 		},
+		ResourceVersion: "999",
 	}
 
 	vObj := &networkingv1.IngressClass{

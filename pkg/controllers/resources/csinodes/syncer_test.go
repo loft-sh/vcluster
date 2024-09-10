@@ -22,7 +22,8 @@ func TestSync(t *testing.T) {
 		Name: "test-node",
 	}
 	vObjectMeta := metav1.ObjectMeta{
-		Name: "test-node",
+		Name:            "test-node",
+		ResourceVersion: "999",
 	}
 
 	vNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "test-node"}}

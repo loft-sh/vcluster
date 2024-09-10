@@ -119,6 +119,7 @@ func TestSync(t *testing.T) {
 			translate.MarkerLabel:    translate.VClusterName,
 			translate.NamespaceLabel: vObjectMeta.Namespace,
 		},
+		ResourceVersion: "999",
 	}
 	baseIngress := &networkingv1.Ingress{
 		ObjectMeta: vObjectMeta,
