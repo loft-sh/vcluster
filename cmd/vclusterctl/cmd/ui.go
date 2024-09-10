@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
@@ -63,10 +65,15 @@ func (cmd *UICmd) Run(ctx context.Context) error {
 		return fmt.Errorf("please login first using '%s' or start using '%s'", product.LoginCmd(), product.StartCmd())
 	}
 
+	// still open the UI
 	err = open.Run(url)
-	if err != nil {
-		return fmt.Errorf("error opening url: %w", err)
+	if errors.Is(err, exec.ErrNotFound) {
+		cmd.Log.Warnf("Couldn't open the login page in a browser. No browser found: %v", err)
+	} else if err != nil {
+		return fmt.Errorf("couldn't open the login page in a browser: %w", err)
 	}
+
+	cmd.Log.Infof("If the browser does not open automatically, please navigate to %s", url)
 
 	return nil
 }
