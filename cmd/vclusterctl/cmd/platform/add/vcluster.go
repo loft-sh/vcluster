@@ -30,7 +30,7 @@ Adds a vCluster to the vCluster platform.
 Example:
 vcluster platform add vcluster my-vcluster --namespace vcluster-my-vcluster --project my-project --import-name my-vcluster
 
-Add all vClusters in the host cluster:
+Add all vCluster instances in the host cluster:
 vcluster platform add vcluster --project my-project --all
 
 ###############################################

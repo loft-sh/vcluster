@@ -42,14 +42,13 @@ func AddVClusterHelm(
 		return errors.New("empty vCluster name but no --all flag set, please either set vCluster name to add one cluster or set --all flag to add all of them")
 	}
 	if options.All {
-		log.Debugf("add vcluster called with --all flag")
-		log.Info("looking for vClusters in all namespaces")
+		log.Info("looking for vCluster instances in all namespaces")
 		vClustersInNamespace, err := find.ListVClusters(ctx, globalFlags.Context, "", "", log)
 		if err != nil {
 			return err
 		}
 		if len(vClustersInNamespace) == 0 {
-			log.Infof("no vClusters found in context %s", globalFlags.Context)
+			log.Infof("no vCluster instances found in context %s", globalFlags.Context)
 		} else {
 			vClusters = append(vClusters, vClustersInNamespace...)
 		}
@@ -78,7 +77,7 @@ func AddVClusterHelm(
 		return err
 	}
 	var addErrors []error
-	log.Debugf("trying to add %d vClusters to platform", len(vClusters))
+	log.Debugf("trying to add %d vCluster instances to platform", len(vClusters))
 	for _, vCluster := range vClusters {
 		vCluster := vCluster
 		log.Infof("adding %s vCluster to platform", vCluster.Name)
