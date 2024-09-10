@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/mappings/store"
+	"github.com/loft-sh/vcluster/pkg/mappings/store/verify"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util"
@@ -50,7 +51,6 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 
 func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 	ctx := context.Background()
-	mappingsStore, _ := store.NewStore(ctx, vClient, pClient, store.NewMemoryBackend())
 
 	// create register context
 	translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
@@ -61,8 +61,11 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         testingutil.NewFakeManager(vClient),
 		PhysicalManager:        testingutil.NewFakeManager(pClient),
-		Mappings:               mappings.NewMappingsRegistry(mappingsStore),
 	}
+
+	// create new store
+	mappingsStore, _ := store.NewStoreWithVerifyMapping(ctx, vClient, pClient, store.NewMemoryBackend(), verify.NewVerifyMapping(registerCtx.ToSyncContext("verify-mapping")))
+	registerCtx.Mappings = mappings.NewMappingsRegistry(mappingsStore)
 
 	// make sure we do not ensure any CRDs
 	util.EnsureCRD = func(_ context.Context, _ *rest.Config, _ []byte, _ schema.GroupVersionKind) error {

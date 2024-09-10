@@ -8,7 +8,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"github.com/loft-sh/vcluster/pkg/util/translate/pro"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -88,11 +87,7 @@ func (s *multiNamespace) LabelsToTranslate() map[string]bool {
 	}
 }
 
-func (s *multiNamespace) IsTargetedNamespace(ctx *synccontext.SyncContext, pNamespace string) bool {
-	if _, ok := pro.HostNamespaceMatchesMapping(ctx, pNamespace); ok {
-		return true
-	}
-
+func (s *multiNamespace) IsTargetedNamespace(_ *synccontext.SyncContext, pNamespace string) bool {
 	return strings.HasPrefix(pNamespace, s.getNamespacePrefix()) && strings.HasSuffix(pNamespace, getNamespaceSuffix(s.currentNamespace, VClusterName))
 }
 
@@ -100,13 +95,9 @@ func (s *multiNamespace) getNamespacePrefix() string {
 	return "vcluster"
 }
 
-func (s *multiNamespace) HostNamespace(ctx *synccontext.SyncContext, vNamespace string) string {
+func (s *multiNamespace) HostNamespace(_ *synccontext.SyncContext, vNamespace string) string {
 	if vNamespace == "" {
 		return ""
-	}
-
-	if pNamespace, ok := pro.VirtualNamespaceMatchesMapping(ctx, vNamespace); ok {
-		return pNamespace
 	}
 
 	return hostNamespace(s.currentNamespace, vNamespace, s.getNamespacePrefix(), VClusterName)

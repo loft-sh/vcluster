@@ -13,9 +13,96 @@ import (
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
+
+func TestNamespaceMapperHostToVirtual(t *testing.T) {
+	type testCase struct {
+		Name string
+
+		MultiNamespaceMode bool
+
+		Object client.Object
+
+		ExpectedMapping types.NamespacedName
+	}
+	var testCases = []testCase{
+		{
+			Name: "Simple multi-namespace",
+
+			MultiNamespaceMode: true,
+
+			Object: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "host-namespace-1",
+					Annotations: map[string]string{
+						translate.NameAnnotation: "virtual-namespace-1",
+						translate.KindAnnotation: corev1.SchemeGroupVersion.WithKind("Namespace").String(),
+					},
+				},
+			},
+		},
+		{
+			Name: "Simple multi-namespace translated",
+
+			MultiNamespaceMode: true,
+
+			Object: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: translate.NewMultiNamespaceTranslator(testingutil.DefaultTestTargetNamespace).HostNamespace(nil, "virtual-namespace-1"),
+					Annotations: map[string]string{
+						translate.NameAnnotation: "virtual-namespace-1",
+						translate.KindAnnotation: corev1.SchemeGroupVersion.WithKind("Namespace").String(),
+					},
+				},
+			},
+
+			ExpectedMapping: types.NamespacedName{Name: "virtual-namespace-1"},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			storeBackend := store.NewMemoryBackend()
+			mappingsStore, err := store.NewStore(context.TODO(), nil, nil, storeBackend)
+			assert.NilError(t, err)
+
+			vConfig := testingutil.NewFakeConfig()
+			mappingsRegistry := mappings.NewMappingsRegistry(mappingsStore)
+			if testCase.MultiNamespaceMode {
+				translate.Default = translate.NewMultiNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
+				vConfig.Experimental.MultiNamespaceMode.Enabled = true
+			} else {
+				translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
+			}
+
+			// check recording
+			registerContext := &synccontext.RegisterContext{
+				Context:         context.TODO(),
+				Config:          vConfig,
+				Mappings:        mappingsRegistry,
+				PhysicalManager: testingutil.NewFakeManager(testingutil.NewFakeClient(scheme.Scheme)),
+				VirtualManager:  testingutil.NewFakeManager(testingutil.NewFakeClient(scheme.Scheme)),
+			}
+
+			// create namespace mapper
+			namespaceMapper, err := CreateNamespacesMapper(registerContext)
+			assert.NilError(t, err)
+			err = mappingsRegistry.AddMapper(namespaceMapper)
+			assert.NilError(t, err)
+
+			// create objects
+			err = registerContext.PhysicalManager.GetClient().Create(registerContext, testCase.Object)
+			assert.NilError(t, err)
+
+			// migrate
+			vName := namespaceMapper.HostToVirtual(registerContext.ToSyncContext("my-log"), client.ObjectKeyFromObject(testCase.Object), testCase.Object)
+			assert.Equal(t, vName.String(), testCase.ExpectedMapping.String())
+		})
+	}
+}
 
 func TestNamespaceMapperMigrate(t *testing.T) {
 	type testCase struct {
