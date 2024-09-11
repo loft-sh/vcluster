@@ -3,7 +3,9 @@ package platform
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/blang/semver"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
@@ -83,6 +85,15 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 			cmd.Version = latestVersion
 		}
 	}
+
+	// if < v4.0.0 then use ChartName loft
+	parsedVersion, err := semver.Parse(strings.TrimPrefix(cmd.Version, "v"))
+	if err != nil {
+		return fmt.Errorf("parse provided version %s: %w", cmd.Version, err)
+	} else if parsedVersion.LT(semver.MustParse("4.0.0-alpha.0")) && cmd.ChartName == "vcluster-platform" {
+		cmd.ChartName = "loft"
+	}
+
 	// make sure we are in the correct context
 	// first load the kube config
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
