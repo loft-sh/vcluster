@@ -78,7 +78,8 @@ func CheckForNewerVersion() (string, error) {
 		}
 
 		v := semver.MustParse(version)
-		if !found || latest.Version.Equals(v) {
+		// if latest not found or latest version found is less than or equal to the current version, do not upgrade
+		if !found || latest.Version.Compare(v) != 1 {
 			return
 		}
 
