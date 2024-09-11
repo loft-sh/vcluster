@@ -240,6 +240,8 @@ controlPlane:
        labels: {}
        annotations: {}
       nodeSelector: {}
+      affinity: {}
+      tolerations: []
       resources:
         limits:
           cpu: 1000m
