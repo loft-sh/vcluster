@@ -78,6 +78,7 @@ vcluster platform reset password --user admin
 	c.Flags().StringVar(&cmd.Password, "password", "", "The new password to use")
 	c.Flags().BoolVar(&cmd.Create, "create", false, "Creates the user if it does not exist")
 	c.Flags().BoolVar(&cmd.Force, "force", false, "If user had no password will create one")
+	c.Flags().StringVar(&cmd.Namespace, "namespace", "vcluster-platform", "The namespace to use")
 
 	return c
 }
@@ -117,7 +118,7 @@ func (cmd *PasswordCmd) Run() error {
 				},
 				PasswordRef: &storagev1.SecretRef{
 					SecretName:      "loft-password-" + random.String(5),
-					SecretNamespace: "loft",
+					SecretNamespace: cmd.Namespace,
 					Key:             "password",
 				},
 			},
@@ -138,7 +139,7 @@ func (cmd *PasswordCmd) Run() error {
 
 		user.Spec.PasswordRef = &storagev1.SecretRef{
 			SecretName:      "loft-password-" + random.String(5),
-			SecretNamespace: "loft",
+			SecretNamespace: cmd.Namespace,
 			Key:             "password",
 		}
 		user, err = managementClient.Loft().StorageV1().Users().Update(context.Background(), user, metav1.UpdateOptions{})
