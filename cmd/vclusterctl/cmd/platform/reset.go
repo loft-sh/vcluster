@@ -22,13 +22,13 @@ import (
 
 type PasswordCmd struct {
 	*flags.GlobalFlags
-
-	User     string
-	Password string
-	Create   bool
-	Force    bool
-
 	Log log.Logger
+
+	Namespace string
+	User      string
+	Password  string
+	Create    bool
+	Force     bool
 }
 
 func NewResetCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
