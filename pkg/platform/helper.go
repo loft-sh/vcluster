@@ -448,7 +448,7 @@ func SelectProjectCluster(ctx context.Context, client Client, project *managemen
 		return "", err
 	}
 
-	anyClusterOption := "Any Cluster [Loft Selects Cluster]"
+	anyClusterOption := "Any cluster [The platform will select a cluster for you]"
 	clusterNames := []string{}
 	for _, allowedCluster := range project.Spec.AllowedClusters {
 		if allowedCluster.Name == "*" {
