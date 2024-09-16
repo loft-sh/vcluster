@@ -52,6 +52,9 @@ const (
 	VClusterDeployConfigMapNamespace = "kube-system"
 )
 
+// default name for base64 bundle names when chart is not provided
+const defaultBundleName = "chart-bundle"
+
 type Deployer struct {
 	Log loghelper.Logger
 
@@ -341,7 +344,7 @@ func (r *Deployer) initiateUpgrade(ctx context.Context, chart vclusterconfig.Exp
 	if err != nil {
 		return err
 	} else if path == "" {
-		return fmt.Errorf("couldn't find chart")
+		return fmt.Errorf("couldn't find chart %q", chart.Chart.Name)
 	}
 
 	values := chart.Values
@@ -376,51 +379,35 @@ func (r *Deployer) initiateUpgrade(ctx context.Context, chart vclusterconfig.Exp
 	return nil
 }
 
-func getTarballPath(helmWorkDir, repo, name, version string) (tarballPath, tarballDir string) {
+// getTarballDir is the location the chart should be pulled to. Chart names can be unpredictable so the temporary directory should be unique
+func getTarballDir(helmWorkDir, repo, name, version string) (tarballDir string) {
 	var repoDir string
 	// hashing the name so that slashes in url characters and other unaccounted-for characters
-	// don't fail making the directory
-	if repo != "" {
-		repoDigest := sha256.Sum256([]byte(repo))
-		repoDir = hex.EncodeToString(repoDigest[0:])[0:10]
-	}
-	// empty repoDir is ignored
+	// don't fail when creating the directory
+	repoDigest := sha256.Sum256([]byte(repo + name + version))
+	repoDir = hex.EncodeToString(repoDigest[0:])[0:10]
 	tarballDir = filepath.Join(helmWorkDir, repoDir)
-	tarballPath = filepath.Join(tarballDir, fmt.Sprintf("%s-%s.tgz", name, version))
 
-	return tarballPath, tarballDir
+	return tarballDir
 }
 
 func (r *Deployer) findChart(chart vclusterconfig.ExperimentalDeployHelm) (string, error) {
-	tarballPath, tarballDir := getTarballPath(HelmWorkDir, chart.Chart.Repo, chart.Chart.Name, chart.Chart.Version)
+	tarballDir := getTarballDir(HelmWorkDir, chart.Chart.Repo, chart.Chart.Name, chart.Chart.Version)
+	r.Log.Debugf("tarballdir for chart: %q", tarballDir)
 	// if version specified, look for specific file
-	if chart.Chart.Version != "" {
-		pathsToTry := []string{tarballPath}
-		// try with alternate names as well
-		if chart.Chart.Version[0] != 'v' {
-			tarballPathWithV, _ := getTarballPath(HelmWorkDir, chart.Chart.Repo, chart.Chart.Name, fmt.Sprintf("v%s", chart.Chart.Version))
-			pathsToTry = append(pathsToTry, tarballPathWithV)
-		}
-		for _, path := range pathsToTry {
-			_, err := os.Stat(path)
-			if err == nil {
-				return path, nil
-			} else if !os.IsNotExist(err) {
-				return "", err
-			}
-		}
-		// if version not specified, look for any version
-	} else {
-		files, err := os.ReadDir(tarballDir)
-		if os.IsNotExist(err) {
-			return "", nil
-		} else if err != nil {
-			return "", err
-		}
-		for _, f := range files {
-			if strings.HasPrefix(f.Name(), chart.Chart.Name+"-") {
-				return filepath.Join(tarballDir, f.Name()), nil
-			}
+
+	files, err := os.ReadDir(tarballDir)
+	if os.IsNotExist(err) {
+		return "", nil
+	} else if err != nil {
+		return "", err
+	}
+	for _, f := range files {
+		name := f.Name()
+		r.Log.Debugf("checking %q is chart", name)
+		if strings.HasPrefix(f.Name(), chart.Chart.Name) || strings.HasPrefix(f.Name(), defaultBundleName) {
+			r.Log.Debugf("%q is chart", name)
+			return filepath.Join(tarballDir, f.Name()), nil
 		}
 	}
 
@@ -434,7 +421,7 @@ func (r *Deployer) initiateInstall(ctx context.Context, chart vclusterconfig.Exp
 	if err != nil {
 		return err
 	} else if path == "" {
-		return fmt.Errorf("couldn't find chart")
+		return fmt.Errorf("couldn't find chart: %q", chart.Chart.Name)
 	}
 
 	values := chart.Values
@@ -500,7 +487,7 @@ func (r *Deployer) pullChartArchive(ctx context.Context, chart vclusterconfig.Ex
 
 	// check if tarball exists
 	if tarballPath == "" {
-		tarballPath, tarballDir := getTarballPath(HelmWorkDir, chart.Chart.Repo, chart.Chart.Name, chart.Chart.Version)
+		tarballDir := getTarballDir(HelmWorkDir, chart.Chart.Repo, chart.Chart.Name, chart.Chart.Version)
 		err := os.MkdirAll(tarballDir, 0755)
 		if err != nil {
 			return err
@@ -511,7 +498,14 @@ func (r *Deployer) pullChartArchive(ctx context.Context, chart vclusterconfig.Ex
 				return err
 			}
 
-			err = os.WriteFile(tarballPath, bytes, 0666)
+			bundleName := chart.Chart.Name
+			if bundleName == "" {
+				bundleName = defaultBundleName
+			}
+
+			chartPath := filepath.Join(tarballDir, bundleName+".tar.gz")
+			r.Log.Debugf("writing bundle to tarball: %q", chartPath)
+			err = os.WriteFile(chartPath, bytes, 0666)
 			if err != nil {
 				return errors.Wrap(err, "write bundle to file")
 			}
