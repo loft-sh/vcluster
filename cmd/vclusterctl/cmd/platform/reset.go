@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/platform/random"
 	"github.com/pkg/errors"
@@ -79,7 +80,7 @@ vcluster platform reset password --user admin
 	c.Flags().StringVar(&cmd.Password, "password", "", "The new password to use")
 	c.Flags().BoolVar(&cmd.Create, "create", false, "Creates the user if it does not exist")
 	c.Flags().BoolVar(&cmd.Force, "force", false, "If user had no password will create one")
-	c.Flags().StringVar(&cmd.Namespace, "namespace", "vcluster-platform", "The namespace to use")
+	c.Flags().StringVar(&cmd.Namespace, "namespace", clihelper.DefaultPlatformNamespace, "The namespace to use")
 
 	return c
 }
@@ -105,6 +106,15 @@ func (cmd *PasswordCmd) Run() error {
 		// create user
 		if !cmd.Create {
 			return fmt.Errorf("user %s was not found, run with '--create' to create this user automatically", cmd.User)
+		}
+
+		if cmd.Namespace == "" {
+			namespace, err := clihelper.VClusterPlatformInstallationNamespace(context.Background())
+			if err != nil {
+				return fmt.Errorf("failed to find platform namespace")
+			}
+
+			cmd.Namespace = namespace
 		}
 
 		user, err = managementClient.Loft().StorageV1().Users().Create(context.Background(), &storagev1.User{

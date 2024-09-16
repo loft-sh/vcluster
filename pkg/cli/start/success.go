@@ -231,7 +231,7 @@ func (l *LoftStarter) waitForLoft(ctx context.Context) (*corev1.Pod, error) {
 	}
 
 	// ensure user admin secret is there
-	isNewPassword, err := clihelper.EnsureAdminPassword(ctx, l.KubeClient, l.RestConfig, l.Password, l.Log)
+	isNewPassword, err := clihelper.EnsureAdminPassword(ctx, l.KubeClient, l.RestConfig, l.Namespace, l.Password, l.Log)
 	if err != nil {
 		return nil, err
 	}
