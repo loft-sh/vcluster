@@ -1226,6 +1226,12 @@ type CoreDNSDeployment struct {
 	// NodeSelector is the node selector to use for coredns.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// Affinity is the affinity to apply to the pod.
+	Affinity map[string]interface{} `json:"affinity,omitempty"`
+
+	// Tolerations are the tolerations to apply to the pod.
+	Tolerations []map[string]interface{} `json:"tolerations,omitempty"`
+
 	// Resources are the desired resources for coredns.
 	Resources Resources `json:"resources,omitempty"`
 

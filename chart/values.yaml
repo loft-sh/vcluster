@@ -430,6 +430,10 @@ controlPlane:
         annotations: {}
       # NodeSelector is the node selector to use for coredns.
       nodeSelector: {}
+      # Affinity is the affinity to apply to the pod.
+      affinity: {}
+      # Tolerations are the tolerations to apply to the pod.
+      tolerations: []
       # Resources are the desired resources for coredns.
       resources:
         # Limits are resource limits for the container
