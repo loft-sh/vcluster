@@ -76,10 +76,8 @@ func CheckForNewerVersion() (string, error) {
 			errLatestVersion = err
 			return
 		}
-
-		v := semver.MustParse(version)
 		// if latest not found or latest version found is less than or equal to the current version, do not upgrade
-		if !found || latest.Version.Compare(v) != 1 {
+		if !found {
 			return
 		}
 
@@ -147,12 +145,26 @@ func Upgrade(flagVersion string, log log.Logger) error {
 		return nil
 	}
 
-	newerVersion, err := CheckForNewerVersion()
+	latestStable, err := CheckForNewerVersion()
 	if err != nil {
 		return err
 	}
-	if newerVersion == "" {
+	if latestStable == "" {
 		log.Infof("Current binary is the latest version: %s", version)
+		return nil
+	}
+
+	version = GetVersion()
+	semverCurrentVersion := semver.MustParse(version)
+	semverLatestStableVersion := semver.MustParse(latestStable)
+	cmp := semverLatestStableVersion.Compare(semverCurrentVersion)
+	if cmp == 0 {
+		log.Infof("Current binary is the latest version: %s", version)
+		return nil
+	} else if cmp == -1 {
+		command := fmt.Sprintf("%s upgrade --version %s", os.Args[0], latestStable)
+		log.Infof("Current binary version is newer than the latest stable version: %q", version)
+		log.Infof("To upgrade to latest stable use %q.", command)
 		return nil
 	}
 
