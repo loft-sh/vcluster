@@ -2,8 +2,11 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
+
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
@@ -24,31 +27,78 @@ type AddVClusterOptions struct {
 	AccessKey                string
 	Host                     string
 	CertificateAuthorityData []byte
+	All                      bool
 }
 
 func AddVClusterHelm(
 	ctx context.Context,
 	options *AddVClusterOptions,
 	globalFlags *flags.GlobalFlags,
-	vClusterName string,
+	args []string,
 	log log.Logger,
 ) error {
-	// check if vCluster exists
-	vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
+	var vClusters []find.VCluster
+	if len(args) == 0 && !options.All {
+		return errors.New("empty vCluster name but no --all flag set, please either set vCluster name to add one cluster or set --all flag to add all of them")
+	}
+	if options.All {
+		log.Info("looking for vCluster instances in all namespaces")
+		vClustersInNamespace, err := find.ListVClusters(ctx, globalFlags.Context, "", "", log)
+		if err != nil {
+			return err
+		}
+		if len(vClustersInNamespace) == 0 {
+			log.Infof("no vCluster instances found in context %s", globalFlags.Context)
+		} else {
+			vClusters = append(vClusters, vClustersInNamespace...)
+		}
+	} else {
+		// check if vCluster exists
+		vClusterName := args[0]
+		vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
+		if err != nil {
+			return err
+		}
+		vClusters = append(vClusters, *vCluster)
+	}
+
+	if len(vClusters) == 0 {
+		return nil
+	}
+
+	restConfig, err := vClusters[0].ClientFactory.ClientConfig()
 	if err != nil {
 		return err
 	}
 
 	// create kube client
-	restConfig, err := vCluster.ClientFactory.ClientConfig()
-	if err != nil {
-		return err
-	}
 	kubeClient, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return err
 	}
+	var addErrors []error
+	log.Debugf("trying to add %d vCluster instances to platform", len(vClusters))
+	for _, vCluster := range vClusters {
+		vCluster := vCluster
+		log.Infof("adding %s vCluster to platform", vCluster.Name)
+		err := addVClusterHelm(ctx, options, globalFlags, vCluster.Name, &vCluster, kubeClient, log)
+		if err != nil {
+			addErrors = append(addErrors, fmt.Errorf("cannot add %s: %w", vCluster.Name, err))
+		}
+	}
 
+	return utilerrors.NewAggregate(addErrors)
+}
+
+func addVClusterHelm(
+	ctx context.Context,
+	options *AddVClusterOptions,
+	globalFlags *flags.GlobalFlags,
+	vClusterName string,
+	vCluster *find.VCluster,
+	kubeClient *kubernetes.Clientset,
+	log log.Logger,
+) error {
 	snoozed := false
 	// If the vCluster was paused with the helm driver, adding it to the platform will only create the secret for registration
 	// which leads to confusing behavior for the user since they won't see the cluster in the platform UI until it is resumed.
@@ -89,7 +139,7 @@ func AddVClusterHelm(
 	}
 
 	// apply platform secret
-	err = platform.ApplyPlatformSecret(
+	err := platform.ApplyPlatformSecret(
 		ctx,
 		globalFlags.LoadedConfig(log),
 		kubeClient,
