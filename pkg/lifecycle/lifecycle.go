@@ -63,7 +63,7 @@ func DeletePods(ctx context.Context, kubeClient *kubernetes.Clientset, labelSele
 	}
 
 	if len(list.Items) > 0 {
-		log.Infof("Delete %d vcluster pods", len(list.Items))
+		log.Infof("Relaunching %d vcluster pods", len(list.Items))
 		for _, item := range list.Items {
 			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, item.Name, metav1.DeleteOptions{})
 
