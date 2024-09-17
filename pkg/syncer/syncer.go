@@ -181,13 +181,15 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 		// make sure the object uid matches
 		pAnnotations := pObj.GetAnnotations()
 		if !r.options.DisableUIDDeletion && pAnnotations[translate.UIDAnnotation] != "" && pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {
-			// requeue if object is already being deleted
-			if pObj.GetDeletionTimestamp() != nil {
-				return ctrl.Result{RequeueAfter: time.Second}, nil
-			}
+			if pAnnotations[translate.KindAnnotation] == "" || pAnnotations[translate.KindAnnotation] == r.syncer.GroupVersionKind().String() {
+				// requeue if object is already being deleted
+				if pObj.GetDeletionTimestamp() != nil {
+					return ctrl.Result{RequeueAfter: time.Second}, nil
+				}
 
-			// delete physical object
-			return DeleteHostObject(syncContext, pObj, "virtual object uid is different")
+				// delete physical object
+				return DeleteHostObject(syncContext, pObj, "virtual object uid is different")
+			}
 		}
 
 		return r.genericSyncer.Sync(syncContext, &synccontext.SyncEvent[client.Object]{
