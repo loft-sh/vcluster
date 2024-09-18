@@ -302,6 +302,8 @@ tests:
       integrations:
         externalSecrets:
           enabled: true
+          webhook:
+            enabled: false
     release:
       name: my-release
       namespace: my-namespace
@@ -400,6 +402,8 @@ tests:
       integrations:
         externalSecrets:
           enabled: true
+          webhook:
+            enabled: true
           sync:
             clusterStores:
               enabled: true
@@ -412,6 +416,12 @@ tests:
       - contains:
           path: rules
           content:
+            apiGroups: ["admissionregistration.k8s.io"]
+            resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+            verbs: ["get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
             apiGroups: [ "external-secrets.io" ]
             resources: [ "clustersecretstores" ]
-            verbs: [ "get", "list", "watch" ]
+            verbs: ["get", "list", "watch"]
