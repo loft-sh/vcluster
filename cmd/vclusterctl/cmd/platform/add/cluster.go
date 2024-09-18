@@ -29,16 +29,17 @@ import (
 type ClusterCmd struct {
 	Log log.Logger
 	*flags.GlobalFlags
-	Namespace        string
-	ServiceAccount   string
-	DisplayName      string
-	Context          string
-	Insecure         bool
-	Wait             bool
-	HelmChartPath    string
-	HelmChartVersion string
-	HelmSet          []string
-	HelmValues       []string
+	Namespace                string
+	ServiceAccount           string
+	DisplayName              string
+	Context                  string
+	Insecure                 bool
+	Wait                     bool
+	HelmChartPath            string
+	HelmChartVersion         string
+	HelmSet                  []string
+	HelmValues               []string
+	CertificateAuthorityData []byte
 }
 
 // NewClusterCmd creates a new command
@@ -79,6 +80,7 @@ vcluster platform add cluster my-cluster
 	c.Flags().StringArrayVar(&cmd.HelmSet, "helm-set", []string{}, "Extra helm values for the agent chart")
 	c.Flags().StringArrayVar(&cmd.HelmValues, "helm-values", []string{}, "Extra helm values for the agent chart")
 	c.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
+	c.Flags().BytesBase64Var(&cmd.CertificateAuthorityData, "ca-data", []byte{}, "additional, base64 encoded certificate authority data that will be passed to the platform secret")
 
 	return c
 }
@@ -86,7 +88,6 @@ vcluster platform add cluster my-cluster
 func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	// Get clusterName from command argument
 	clusterName := args[0]
-
 	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
 	if err != nil {
 		return fmt.Errorf("new client from path: %w", err)
@@ -186,8 +187,8 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		helmArgs = append(helmArgs, "--set", "insecureSkipVerify=true")
 	}
 
-	if accessKey.CaCert != "" {
-		helmArgs = append(helmArgs, "--set", "additionalCA="+accessKey.CaCert)
+	if len(cmd.CertificateAuthorityData) > 0 {
+		helmArgs = append(helmArgs, "--set", "additionalCA="+string(cmd.CertificateAuthorityData))
 	}
 
 	if cmd.Wait {
