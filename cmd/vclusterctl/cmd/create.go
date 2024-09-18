@@ -66,6 +66,10 @@ vcluster create test --namespace test
 
 // Run executes the functionality
 func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
+	if !cmd.UpdateCurrent {
+		cmd.log.Warnf("%q has no effect anymore. Please consider using %q", "--update-current=false", "--connect=false")
+	}
+
 	cfg := cmd.LoadedConfig(cmd.log)
 
 	// If driver has been passed as flag use it, otherwise read it from the config file
