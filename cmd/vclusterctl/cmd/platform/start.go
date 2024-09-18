@@ -64,7 +64,7 @@ before running this command:
 	startCmd.Flags().BoolVar(&cmd.ReuseValues, "reuse-values", true, "Reuse previous vCluster platform helm values on upgrade")
 	startCmd.Flags().BoolVar(&cmd.Upgrade, "upgrade", false, "If true, vCluster platform will try to upgrade the release")
 	startCmd.Flags().StringVar(&cmd.Email, "email", "", "The email to use for the installation")
-	startCmd.Flags().BoolVar(&cmd.Reset, "reset", false, "If true, an existing vCluster platform instance will be deleted before installing vCluster platform")
+	startCmd.Flags().BoolVar(&cmd.Reset, "reset", false, "If true, existing vCluster Platform resources, including the deployment, will be deleted before installing vCluster platform")
 	startCmd.Flags().BoolVar(&cmd.NoWait, "no-wait", false, "If true, vCluster platform will not wait after installing it")
 	startCmd.Flags().BoolVar(&cmd.NoPortForwarding, "no-port-forwarding", false, "If true, vCluster platform will not do port forwarding after installing it")
 	startCmd.Flags().BoolVar(&cmd.NoTunnel, "no-tunnel", false, "If true, vCluster platform will not create a loft.host tunnel for this installation")
