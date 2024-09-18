@@ -106,7 +106,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 
 	loftVersion, err := platformClient.Version()
 	if err != nil {
-		return fmt.Errorf("get loft version: %w", err)
+		return fmt.Errorf("get platform version: %w", err)
 	}
 
 	// TODO(ThomasK33): Eventually change this into an Apply instead of a Create call
@@ -254,7 +254,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		}
 	}
 
-	cmd.Log.Donef("Successfully added cluster %s to Loft", clusterName)
+	cmd.Log.Donef("Successfully added cluster %s to the platform", clusterName)
 
 	return nil
 }
