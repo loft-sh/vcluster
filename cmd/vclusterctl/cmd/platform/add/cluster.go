@@ -3,7 +3,6 @@ package add
 import (
 	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -220,28 +219,22 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("create kube client: %w", err)
 	}
 
-	errChan := make(chan error)
+	helmCmd := exec.CommandContext(ctx, "helm", helmArgs...)
 
-	go func() {
-		helmCmd := exec.CommandContext(ctx, "helm", helmArgs...)
+	helmCmd.Stdout = cmd.Log.Writer(logrus.DebugLevel, true)
+	helmCmd.Stderr = cmd.Log.Writer(logrus.DebugLevel, true)
+	helmCmd.Stdin = os.Stdin
 
-		helmCmd.Stdout = cmd.Log.Writer(logrus.DebugLevel, true)
-		helmCmd.Stderr = cmd.Log.Writer(logrus.DebugLevel, true)
-		helmCmd.Stdin = os.Stdin
+	cmd.Log.Info("Installing Loft agent...")
+	cmd.Log.Debugf("Running helm command: %v", helmCmd.Args)
 
-		cmd.Log.Info("Installing Loft agent...")
-		cmd.Log.Debugf("Running helm command: %v", helmCmd.Args)
-
-		err = helmCmd.Run()
-		if err != nil {
-			errChan <- fmt.Errorf("failed to install loft chart: %w", err)
-		}
-
-		close(errChan)
-	}()
+	err = helmCmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to install loft chart: %w", err)
+	}
 
 	_, err = clihelper.WaitForReadyLoftPod(ctx, clientset, namespace, cmd.Log)
-	if err = errors.Join(err, <-errChan); err != nil {
+	if err != nil {
 		return fmt.Errorf("wait for loft pod: %w", err)
 	}
 
