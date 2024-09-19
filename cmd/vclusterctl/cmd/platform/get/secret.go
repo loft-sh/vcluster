@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/pkg/errors"
@@ -111,7 +112,7 @@ func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 	case set.ProjectSecret:
 		namespace = projectutil.ProjectNamespace(cmd.Project)
 	case set.SharedSecret:
-		namespace, err = set.GetSharedSecretNamespace(cmd.Namespace)
+		namespace, err = clihelper.VClusterPlatformInstallationNamespace(ctx)
 		if err != nil {
 			return errors.Wrap(err, "get shared secrets namespace")
 		}

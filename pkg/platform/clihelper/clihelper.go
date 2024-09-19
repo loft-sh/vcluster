@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/transport/spdy"
 	"k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
@@ -55,6 +56,8 @@ var CriticalStatus = map[string]bool{
 const defaultReleaseName = "loft"
 
 const LoftRouterDomainSecret = "loft-router-domain"
+
+const DefaultPlatformNamespace = "vcluster-platform"
 
 const defaultTimeout = 10 * time.Minute
 
@@ -434,6 +437,15 @@ func IsLoftAlreadyInstalled(ctx context.Context, kubeClient kubernetes.Interface
 		return false, errors.New("nil kubeClient")
 	}
 
+	if namespace == "" {
+		var nsErr error
+		namespace, nsErr = VClusterPlatformInstallationNamespace(ctx)
+
+		if nsErr != nil {
+			return false, nil
+		}
+	}
+
 	_, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, defaultDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -444,6 +456,39 @@ func IsLoftAlreadyInstalled(ctx context.Context, kubeClient kubernetes.Interface
 	}
 
 	return true, nil
+}
+
+func VClusterPlatformInstallationNamespace(ctx context.Context) (string, error) {
+	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+
+	kubeConfig, err := kubeClientConfig.ClientConfig()
+	if err != nil {
+		return "", fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+	}
+
+	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return "", fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+	}
+
+	deployments, err := kubeClient.AppsV1().Deployments(metav1.NamespaceAll).List(ctx, metav1.ListOptions{
+		LabelSelector: "app=loft",
+	})
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return "", nil
+		}
+
+		return "", fmt.Errorf("error accessing kubernetes cluster: %w", err)
+	}
+
+	for _, deploy := range deployments.Items {
+		if deploy.Name == defaultDeploymentName {
+			return deploy.Namespace, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to find the namespace loft is installed in")
 }
 
 func UninstallLoft(ctx context.Context, kubeClient kubernetes.Interface, restConfig *rest.Config, kubeContext, namespace string, log log.Logger) error {
@@ -755,7 +800,7 @@ func getHelmWorkdir(chartName string) (string, error) {
 
 // Makes sure that admin user and password secret exists
 // Returns (true, nil) if everything is correct but password is different from parameter `password`
-func EnsureAdminPassword(ctx context.Context, kubeClient kubernetes.Interface, restConfig *rest.Config, password string, log log.Logger) (bool, error) {
+func EnsureAdminPassword(ctx context.Context, kubeClient kubernetes.Interface, restConfig *rest.Config, namespace, password string, log log.Logger) (bool, error) {
 	if restConfig == nil {
 		return false, errors.New("nil kubeClient")
 	}
@@ -783,7 +828,7 @@ func EnsureAdminPassword(ctx context.Context, kubeClient kubernetes.Interface, r
 				Groups:   []string{"system:masters"},
 				PasswordRef: &storagev1.SecretRef{
 					SecretName:      "loft-user-secret-admin",
-					SecretNamespace: "loft",
+					SecretNamespace: namespace,
 					Key:             "password",
 				},
 			},
