@@ -113,23 +113,12 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 	l.Log.Info(product.Replace("Welcome to Loft!"))
 	l.Log.Info(product.Replace("This installer will help you configure and deploy Loft."))
 
-	// make sure we are ready for installing
-	err = l.prepareInstall(ctx)
-	if err != nil {
-		return err
-	}
-
 	err = l.upgradeLoft()
 	if err != nil {
 		return err
 	}
 
 	return l.success(ctx)
-}
-
-func (l *LoftStarter) prepareInstall(ctx context.Context) error {
-	// delete admin user & secret
-	return clihelper.UninstallLoft(ctx, l.KubeClient, l.RestConfig, l.Context, l.Namespace, log.Discard)
 }
 
 func (l *LoftStarter) prepare() error {
