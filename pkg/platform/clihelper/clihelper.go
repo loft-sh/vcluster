@@ -492,6 +492,13 @@ func VClusterPlatformInstallationNamespace(ctx context.Context) (string, error) 
 }
 
 func UninstallLoft(ctx context.Context, kubeClient kubernetes.Interface, restConfig *rest.Config, kubeContext, namespace string, log log.Logger) error {
+	if kubeClient == nil {
+		return errors.New("nil kubeClient")
+	}
+	if restConfig == nil {
+		return errors.New("nil restConfig")
+	}
+
 	log.Infof("Uninstalling %s...", product.DisplayName())
 	releaseName := defaultReleaseName
 	deploy, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, defaultDeploymentName, metav1.GetOptions{})
@@ -877,6 +884,10 @@ func EnsureAdminPassword(ctx context.Context, kubeClient kubernetes.Interface, r
 }
 
 func IsLoftInstalledLocally(ctx context.Context, kubeClient kubernetes.Interface, namespace string) bool {
+	if kubeClient == nil {
+		panic("nil kubeClient")
+	}
+
 	_, err := kubeClient.NetworkingV1().Ingresses(namespace).Get(ctx, "loft-ingress", metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		_, err = kubeClient.NetworkingV1beta1().Ingresses(namespace).Get(ctx, "loft-ingress", metav1.GetOptions{})
