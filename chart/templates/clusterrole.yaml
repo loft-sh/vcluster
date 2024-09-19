@@ -112,7 +112,7 @@ rules:
     resources: ["nodes"]
     verbs: ["get", "list"]
   {{- end }}
-  {{- if and .Values.integrations.kubeVirt.enabled .Values.integrations.kubeVirt.webhook.enabled }}
+  {{- if or (and .Values.integrations.kubeVirt.enabled .Values.integrations.kubeVirt.webhook.enabled) (and .Values.integrations.externalSecrets.enabled .Values.integrations.externalSecrets.webhook.enabled )  }}
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
     verbs: ["get", "list", "watch"]
