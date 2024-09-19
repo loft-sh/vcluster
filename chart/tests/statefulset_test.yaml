@@ -549,16 +549,16 @@ tests:
         statefulSet:
           persistence:
             binariesVolume:
-            - name: binaries
-              persistentVolumeClaim:
-                claimName: my-pvc
+              - name: binaries
+                persistentVolumeClaim:
+                  claimName: my-pvc
     asserts:
       - contains:
           path: spec.template.spec.volumes
           content:
             name: binaries
             persistentVolumeClaim:
-                claimName: my-pvc
+              claimName: my-pvc
 
   - it: dataVolume - should set the specified data volume type correctly
     set:
@@ -751,7 +751,7 @@ tests:
       - equal:
           path: spec.template.spec.initContainers[3].image
           value: registry.k8s.io/kube-apiserver:v99914
-  
+
   - it: custom dnsPolicy
     set:
       controlPlane:
@@ -768,7 +768,7 @@ tests:
         statefulSet:
           dnsConfig:
             nameservers:
-            - 192.0.2.1    
+              - 192.0.2.1
             searches:
               - ns1.svc.cluster-domain.example
             options:
@@ -788,3 +788,36 @@ tests:
           path: spec.template.spec.dnsConfig.options[0].value
           value: "2"
 
+  - it: must use StatefulSet for embedded etcd
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            embedded:
+              enabled: true
+
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+
+  - it: must use StatefulSet for embedded etcd without persistence
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            embedded:
+              enabled: true
+        statefulSet:
+          persistence:
+            volumeClaim:
+              enabled: false
+            binariesVolume:
+              - name: binaries
+                emptyDir:
+                  medium: Memory
+
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet

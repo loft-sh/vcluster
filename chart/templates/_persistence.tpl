@@ -2,7 +2,7 @@
   ControlPlane Kind
 */}}
 {{- define "vcluster.kind" -}}
-{{ if include "vcluster.persistence.volumeClaim.enabled" . }}StatefulSet{{ else }}Deployment{{ end }}
+{{ if or (include "vcluster.persistence.volumeClaim.enabled" .) .Values.controlPlane.backingStore.etcd.embedded.enabled }}StatefulSet{{ else }}Deployment{{ end }}
 {{- end -}}
 
 {{/*
