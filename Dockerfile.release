@@ -1,15 +1,15 @@
 ARG KINE_VERSION="v0.12.2"
-FROM rancher/kine:${KINE_VERSION} as kine
+FROM rancher/kine:${KINE_VERSION} AS kine
 
 # Build the manager binary
-FROM alpine:3.20 as builder
+FROM alpine:3.20.2 AS builder
 
 WORKDIR /vcluster-dev
 
 ARG TARGETOS
 ARG TARGETARCH
 
-ARG HELM_VERSION="v3.13.3"
+ARG HELM_VERSION="v3.15.4"
 
 # Add curl
 RUN apk add --no-cache curl
@@ -18,7 +18,7 @@ RUN apk add --no-cache curl
 RUN curl -s https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz > helm3.tar.gz && tar -zxvf helm3.tar.gz linux-${TARGETARCH}/helm && chmod +x linux-${TARGETARCH}/helm && mv linux-${TARGETARCH}/helm /usr/local/bin/helm && rm helm3.tar.gz && rm -R linux-${TARGETARCH}
 
 # we use alpine for easier debugging
-FROM alpine:3.20
+FROM alpine:3.20.2
 
 # Set root path as working directory
 WORKDIR /

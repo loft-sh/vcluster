@@ -30,6 +30,7 @@ type ManagementV1Interface interface {
 	LicensesGetter
 	LicenseTokensGetter
 	LoftUpgradesGetter
+	OIDCClientsGetter
 	OwnedAccessKeysGetter
 	ProjectsGetter
 	ProjectSecretsGetter
@@ -45,6 +46,7 @@ type ManagementV1Interface interface {
 	SubjectAccessReviewsGetter
 	TasksGetter
 	TeamsGetter
+	TranslateVClusterResourceNamesGetter
 	UsersGetter
 	VirtualClusterInstancesGetter
 	VirtualClusterTemplatesGetter
@@ -127,6 +129,10 @@ func (c *ManagementV1Client) LoftUpgrades() LoftUpgradeInterface {
 	return newLoftUpgrades(c)
 }
 
+func (c *ManagementV1Client) OIDCClients() OIDCClientInterface {
+	return newOIDCClients(c)
+}
+
 func (c *ManagementV1Client) OwnedAccessKeys() OwnedAccessKeyInterface {
 	return newOwnedAccessKeys(c)
 }
@@ -185,6 +191,10 @@ func (c *ManagementV1Client) Tasks() TaskInterface {
 
 func (c *ManagementV1Client) Teams() TeamInterface {
 	return newTeams(c)
+}
+
+func (c *ManagementV1Client) TranslateVClusterResourceNames() TranslateVClusterResourceNameInterface {
+	return newTranslateVClusterResourceNames(c)
 }
 
 func (c *ManagementV1Client) Users() UserInterface {

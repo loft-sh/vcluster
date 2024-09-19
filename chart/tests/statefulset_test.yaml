@@ -586,10 +586,10 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.30.2
+          value: registry.k8s.io/kube-controller-manager:v1.30.4
       - equal:
           path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-apiserver:v1.30.2
+          value: registry.k8s.io/kube-apiserver:v1.30.4
 
   - it: k8s version sets image tag for apiServer and controllerManager
     set:
@@ -661,13 +661,13 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.30.2
+          value: registry.k8s.io/kube-controller-manager:v1.30.4
       - equal:
           path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-scheduler:v1.30.2
+          value: registry.k8s.io/kube-scheduler:v1.30.4
       - equal:
           path: spec.template.spec.initContainers[3].image
-          value: registry.k8s.io/kube-apiserver:v1.30.2
+          value: registry.k8s.io/kube-apiserver:v1.30.4
 
   - it: k8s version sets image tag for apiServer and controllerManager (virtual scheduler enabled)
     set:
@@ -751,7 +751,7 @@ tests:
       - equal:
           path: spec.template.spec.initContainers[3].image
           value: registry.k8s.io/kube-apiserver:v99914
-  
+
   - it: custom dnsPolicy
     set:
       controlPlane:
@@ -768,7 +768,7 @@ tests:
         statefulSet:
           dnsConfig:
             nameservers:
-            - 192.0.2.1    
+            - 192.0.2.1
             searches:
               - ns1.svc.cluster-domain.example
             options:
@@ -787,4 +787,3 @@ tests:
       - equal:
           path: spec.template.spec.dnsConfig.options[0].value
           value: "2"
-

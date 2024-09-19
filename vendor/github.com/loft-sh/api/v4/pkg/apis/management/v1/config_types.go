@@ -35,6 +35,7 @@ type ConfigStatus struct {
 	// +optional
 	Authentication Authentication `json:"auth,omitempty"`
 
+	// DEPRECATED: Use OIDC Client secrets instead.
 	// OIDC holds oidc provider relevant information
 	// +optional
 	OIDC *OIDC `json:"oidc,omitempty"`
@@ -66,6 +67,9 @@ type ConfigStatus struct {
 	// VaultIntegration holds the vault integration configuration
 	// +optional
 	VaultIntegration *storagev1.VaultIntegrationSpec `json:"vault,omitempty"`
+
+	// DisableLoftConfigEndpoint will disable setting config via the UI and config.management.loft.sh endpoint
+	DisableConfigEndpoint bool `json:"disableConfigEndpoint,omitempty"`
 }
 
 // Audit holds the audit configuration options for loft. Changing any options will require a loft restart
@@ -288,23 +292,7 @@ type OIDC struct {
 	WildcardRedirect bool `json:"wildcardRedirect,omitempty"`
 
 	// The clients that are allowed to request loft tokens
-	Clients []OIDCClient `json:"clients,omitempty"`
-}
-
-// OIDCClient holds information about a client
-type OIDCClient struct {
-	// The client name
-	Name string `json:"name,omitempty"`
-
-	// The client id of the client
-	ClientID string `json:"clientId,omitempty"`
-
-	// The client secret of the client
-	ClientSecret string `json:"clientSecret,omitempty"`
-
-	// A registered set of redirect URIs. When redirecting from dex to the client, the URI
-	// requested to redirect to MUST match one of these values, unless the client is "public".
-	RedirectURIs []string `json:"redirectURIs"`
+	Clients []OIDCClientSpec `json:"clients,omitempty"`
 }
 
 // Authentication holds authentication relevant information
@@ -327,6 +315,12 @@ type Authentication struct {
 	// Default behaviour is false, this means that teams will be created for new groups.
 	// +optional
 	DisableTeamCreation bool `json:"disableTeamCreation,omitempty"`
+
+	// DisableUserCreation prevents the SSO connectors from creating a new user on a users initial signin through sso.
+	// Default behaviour is false, this means that a new user object will be created once a user without
+	// a Kubernetes user object logs in.
+	// +optional
+	DisableUserCreation bool `json:"disableUserCreation,omitempty"`
 
 	// AccessKeyMaxTTLSeconds is the global maximum lifespan of an accesskey in seconds.
 	// Leaving it 0 or unspecified will disable it.

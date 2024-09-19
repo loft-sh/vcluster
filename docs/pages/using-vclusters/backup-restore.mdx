@@ -29,9 +29,9 @@ This should create a similar output to:
 Name:         <backup-name>
 Namespace:    velero
 Labels:       velero.io/storage-location=default
-Annotations:  velero.io/source-cluster-k8s-gitversion=v1.24.0
+Annotations:  velero.io/source-cluster-k8s-gitversion=v1.30.4
               velero.io/source-cluster-k8s-major-version=1
-              velero.io/source-cluster-k8s-minor-version=24
+              velero.io/source-cluster-k8s-minor-version=30
 
 Phase:  Completed
 
@@ -110,9 +110,9 @@ $ velero backup describe test1
 Name:         test1
 Namespace:    velero
 Labels:       velero.io/storage-location=default
-Annotations:  velero.io/source-cluster-k8s-gitversion=v1.25.0+k3s1
+Annotations:  velero.io/source-cluster-k8s-gitversion=v1.30.4+k3s1
               velero.io/source-cluster-k8s-major-version=1
-              velero.io/source-cluster-k8s-minor-version=25
+              velero.io/source-cluster-k8s-minor-version=30
 
 Phase:  Completed
 
@@ -130,4 +130,3 @@ Resources:
 
 ...
 ```
-

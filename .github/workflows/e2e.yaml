@@ -139,13 +139,13 @@ jobs:
           name: e2e-binaries
           path: ./test/*/*.test
           retention-days: 7
-  
+
   vcluster-install-delete:
     name: Install and delete virtual cluster
     needs:
       - build-and-push-syncer-image
       - build-vcluster-cli
-      
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -154,13 +154,13 @@ jobs:
       - uses: azure/setup-helm@v4
         name: Setup Helm
         with:
-          version: "v3.11.0"
+          version: "v3.15.4"
 
       - name: Set up kind k8s cluster
         uses: engineerd/setup-kind@v0.5.0
         with:
-          version: "v0.20.0"
-          image: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
+          version: "v0.24.0"
+          image: kindest/node:v1.30.4@sha256:976ea815844d5fa93be213437e3ff5754cd599b040946b5cca43ca45c2047114
 
       - name: Testing kind cluster set-up
         run: |
@@ -179,14 +179,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vcluster_syncer
-      
+
       - name: Setup environment
         run: |
-          
+
           kind load image-archive vcluster_syncer
-          
+
           chmod +x vcluster && sudo mv vcluster /usr/bin
-          
+
           sudo apt-get install -y sed
 
       - name: Run tests - install and delete virtual cluster using kubectl
@@ -194,11 +194,11 @@ jobs:
           set -x
 
           ./hack/vcluster-install-scripts/test-kubectl-install.sh
-      
+
       - name: Run tests - install and delete virtual cluster using helm
         run: |
           set -x
-          
+
           ./hack/vcluster-install-scripts/test-helm-install.sh
 
   download-latest-cli:
@@ -214,7 +214,7 @@ jobs:
           name: vcluster-current
           path: ./vcluster-current
           retention-days: 7
-  
+
   upgrade-test:
     name: test if we can upgrade from older version
     needs:
@@ -233,12 +233,12 @@ jobs:
       - uses: azure/setup-helm@v4
         name: Setup Helm
         with:
-          version: "v3.11.0"
+          version: "v3.15.4"
       - name: Set up kind k8s cluster
         uses: engineerd/setup-kind@v0.5.0
         with:
-          version: "v0.20.0"
-          image: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
+          version: "v0.24.0"
+          image: kindest/node:v1.30.4@sha256:976ea815844d5fa93be213437e3ff5754cd599b040946b5cca43ca45c2047114
 
       - name: Testing kind cluster set-up
         run: |
@@ -350,13 +350,13 @@ jobs:
       - uses: azure/setup-helm@v4
         name: Setup Helm
         with:
-          version: "v3.11.0"
+          version: "v3.15.4"
 
       - name: Set up kind k8s cluster
         uses: engineerd/setup-kind@v0.5.0
         with:
-          version: "v0.20.0"
-          image: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
+          version: "v0.24.0"
+          image: kindest/node:v1.30.4@sha256:976ea815844d5fa93be213437e3ff5754cd599b040946b5cca43ca45c2047114
 
       - name: Testing kind cluster set-up
         run: |
@@ -484,4 +484,3 @@ jobs:
           echo "======================================================================================================================"
           kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
           exit 1
-

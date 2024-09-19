@@ -1,3 +1,13 @@
+## v1.6.1
+
+BUGS:
+
+* Suppress spurious `os.ErrClosed` on plugin shutdown [[GH-299](https://github.com/hashicorp/go-plugin/pull/299)]
+
+ENHANCEMENTS:
+
+* deps: bump google.golang.org/grpc to v1.58.3 [[GH-296](https://github.com/hashicorp/go-plugin/pull/296)]
+
 ## v1.6.0
 
 CHANGES:
