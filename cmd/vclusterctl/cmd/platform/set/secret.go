@@ -13,6 +13,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
@@ -112,7 +113,7 @@ func (cmd *SecretCmd) Run(cobraCmd *cobra.Command, args []string) error {
 		namespace := projectutil.ProjectNamespace(cmd.Project)
 		return cmd.setProjectSecret(ctx, managementClient, args, namespace, secretName, keyName)
 	case SharedSecret:
-		namespace, err := GetSharedSecretNamespace(cmd.Namespace)
+		namespace, err := clihelper.VClusterPlatformInstallationNamespace(ctx)
 		if err != nil {
 			return errors.Wrap(err, "get shared secrets namespace")
 		}
@@ -257,12 +258,4 @@ func (cmd *SecretCmd) setSharedSecret(ctx context.Context, managementClient kube
 
 	cmd.log.Donef("Successfully set secret key %s.%s", secretName, keyName)
 	return nil
-}
-
-func GetSharedSecretNamespace(namespace string) (string, error) {
-	if namespace == "" {
-		namespace = "loft"
-	}
-
-	return namespace, nil
 }

@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/transport/spdy"
 	"k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
@@ -55,6 +56,8 @@ var CriticalStatus = map[string]bool{
 const defaultReleaseName = "loft"
 
 const LoftRouterDomainSecret = "loft-router-domain"
+
+const DefaultPlatformNamespace = "vcluster-platform"
 
 const defaultTimeout = 10 * time.Minute
 
@@ -135,6 +138,10 @@ func GetProKubeConfig(options kubeconfig.ContextOptions) (*clientcmdapi.Config, 
 }
 
 func GetLoftIngressHost(ctx context.Context, kubeClient kubernetes.Interface, namespace string) (string, error) {
+	if kubeClient == nil {
+		return "", errors.New("nil kubeClient")
+	}
+
 	ingress, err := kubeClient.NetworkingV1().Ingresses(namespace).Get(ctx, "loft-ingress", metav1.GetOptions{})
 	if err != nil {
 		ingress, err := kubeClient.NetworkingV1beta1().Ingresses(namespace).Get(ctx, "loft-ingress", metav1.GetOptions{})
@@ -235,6 +242,16 @@ func WaitForReadyLoftPod(ctx context.Context, kubeClient kubernetes.Interface, n
 }
 
 func StartPortForwarding(ctx context.Context, config *rest.Config, client kubernetes.Interface, pod *corev1.Pod, localPort string, log log.Logger) (chan struct{}, error) {
+	if config == nil {
+		return nil, errors.New("nil config")
+	}
+	if client == nil {
+		return nil, errors.New("nil client")
+	}
+	if pod == nil {
+		return nil, errors.New("nil pod")
+	}
+
 	log.WriteString(logrus.InfoLevel, "\n")
 	log.Infof("Starting port-forwarding to the %s pod", product.DisplayName())
 	execRequest := client.CoreV1().RESTClient().Post().
@@ -292,6 +309,10 @@ func StartPortForwarding(ctx context.Context, config *rest.Config, client kubern
 }
 
 func GetLoftDefaultPassword(ctx context.Context, kubeClient kubernetes.Interface, namespace string) (string, error) {
+	if kubeClient == nil {
+		return "", errors.New("nil kubeClient")
+	}
+
 	loftNamespace, err := kubeClient.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -412,6 +433,19 @@ func EnterHostNameQuestion(log log.Logger) (string, error) {
 }
 
 func IsLoftAlreadyInstalled(ctx context.Context, kubeClient kubernetes.Interface, namespace string) (bool, error) {
+	if kubeClient == nil {
+		return false, errors.New("nil kubeClient")
+	}
+
+	if namespace == "" {
+		var nsErr error
+		namespace, nsErr = VClusterPlatformInstallationNamespace(ctx)
+
+		if nsErr != nil {
+			return false, nil
+		}
+	}
+
 	_, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, defaultDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -422,6 +456,39 @@ func IsLoftAlreadyInstalled(ctx context.Context, kubeClient kubernetes.Interface
 	}
 
 	return true, nil
+}
+
+func VClusterPlatformInstallationNamespace(ctx context.Context) (string, error) {
+	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+
+	kubeConfig, err := kubeClientConfig.ClientConfig()
+	if err != nil {
+		return "", fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+	}
+
+	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return "", fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+	}
+
+	deployments, err := kubeClient.AppsV1().Deployments(metav1.NamespaceAll).List(ctx, metav1.ListOptions{
+		LabelSelector: "app=loft",
+	})
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return "", nil
+		}
+
+		return "", fmt.Errorf("error accessing kubernetes cluster: %w", err)
+	}
+
+	for _, deploy := range deployments.Items {
+		if deploy.Name == defaultDeploymentName {
+			return deploy.Namespace, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to find the namespace loft is installed in")
 }
 
 func UninstallLoft(ctx context.Context, kubeClient kubernetes.Interface, restConfig *rest.Config, kubeContext, namespace string, log log.Logger) error {
@@ -537,6 +604,10 @@ func deleteUser(ctx context.Context, restConfig *rest.Config, name string) error
 }
 
 func EnsureIngressController(ctx context.Context, kubeClient kubernetes.Interface, kubeContext string, log log.Logger) error {
+	if kubeClient == nil {
+		return errors.New("nil kubeClient")
+	}
+
 	// first create an ingress controller
 	const (
 		YesOption = "Yes"
@@ -591,6 +662,9 @@ func EnsureIngressController(ctx context.Context, kubeClient kubernetes.Interfac
 		if len(list.Items) == 1 {
 			secret := list.Items[0]
 			originalSecret := secret.DeepCopy()
+			if secret.Labels == nil {
+				secret.Labels = map[string]string{}
+			}
 			secret.Labels["loft.sh/app"] = "true"
 			if secret.Annotations == nil {
 				secret.Annotations = map[string]string{}
@@ -719,7 +793,14 @@ func getHelmWorkdir(chartName string) (string, error) {
 
 // Makes sure that admin user and password secret exists
 // Returns (true, nil) if everything is correct but password is different from parameter `password`
-func EnsureAdminPassword(ctx context.Context, kubeClient kubernetes.Interface, restConfig *rest.Config, password string, log log.Logger) (bool, error) {
+func EnsureAdminPassword(ctx context.Context, kubeClient kubernetes.Interface, restConfig *rest.Config, namespace, password string, log log.Logger) (bool, error) {
+	if restConfig == nil {
+		return false, errors.New("nil kubeClient")
+	}
+	if kubeClient == nil {
+		return false, errors.New("nil kubeClient")
+	}
+
 	loftClient, err := loftclientset.NewForConfig(restConfig)
 	if err != nil {
 		return false, err
@@ -740,7 +821,7 @@ func EnsureAdminPassword(ctx context.Context, kubeClient kubernetes.Interface, r
 				Groups:   []string{"system:masters"},
 				PasswordRef: &storagev1.SecretRef{
 					SecretName:      "loft-user-secret-admin",
-					SecretNamespace: "loft",
+					SecretNamespace: namespace,
 					Key:             "password",
 				},
 			},

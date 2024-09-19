@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -67,8 +68,10 @@ vcluster platform backup management
 		},
 	}
 
+	platformNamespace, _ := clihelper.VClusterPlatformInstallationNamespace(context.Background())
+
 	c.Flags().StringSliceVar(&cmd.Skip, "skip", []string{}, "What resources the backup should skip. Valid options are: users, teams, accesskeys, sharedsecrets, clusters and clusteraccounttemplates")
-	c.Flags().StringVar(&cmd.Namespace, "namespace", "vcluster-platform", product.Replace("The namespace vCluster platform was installed into"))
+	c.Flags().StringVar(&cmd.Namespace, "namespace", platformNamespace, product.Replace("The namespace vCluster platform was installed into"))
 	c.Flags().StringVar(&cmd.Filename, "filename", "backup.yaml", "The filename to write the backup to")
 	return c
 }
