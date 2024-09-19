@@ -121,13 +121,29 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 					User: user,
 					Team: team,
 				},
-				NetworkPeer: true,
-				Access:      getAccess(user, team),
+				NetworkPeer:         true,
+				ManagementNamespace: cmd.Namespace,
+				Access:              getAccess(user, team),
 			},
 		},
 	}, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create cluster: %w", err)
+	}
+
+	// get namespace to install if cluster already exists
+	if kerrors.IsAlreadyExists(err) {
+		cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(ctx, clusterName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("get cluster: %w", err)
+		}
+
+		cmd.Namespace = cluster.Spec.ManagementNamespace
+		if cmd.Namespace == "" {
+			cmd.Namespace = "loft" // since this is hardcoded in the platform at https://github.com/loft-sh/loft-enterprise/blob/b716f86a83d5f037ad993a0c3467b54393ef3b1f/pkg/util/agenthelper/helper.go#L9
+		}
+
+		cmd.Log.Infof("Using namespace %s because cluster already exists", cmd.Namespace)
 	}
 
 	accessKey, err := managementClient.Loft().ManagementV1().Clusters().GetAccessKey(ctx, clusterName, metav1.GetOptions{})
