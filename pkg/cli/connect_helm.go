@@ -97,7 +97,7 @@ func (cmd *connectHelm) connect(ctx context.Context, vCluster *find.VCluster, co
 	}
 
 	// retrieve vcluster kube config
-	kubeConfig, err := cmd.getVClusterKubeConfig(ctx, vCluster.Name, command)
+	kubeConfig, err := cmd.getVClusterKubeConfig(ctx, vCluster, command)
 	if err != nil {
 		return err
 	}
@@ -272,7 +272,7 @@ func (cmd *connectHelm) prepare(ctx context.Context, vCluster *find.VCluster) er
 	return nil
 }
 
-func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName string, command []string) (*clientcmdapi.Config, error) {
+func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vcluster *find.VCluster, command []string) (*clientcmdapi.Config, error) {
 	var err error
 	podName := cmd.PodName
 	if podName == "" {
@@ -280,7 +280,7 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 			// get vcluster pod name
 			var pods *corev1.PodList
 			pods, err = cmd.kubeClient.CoreV1().Pods(cmd.Namespace).List(ctx, metav1.ListOptions{
-				LabelSelector: "app=vcluster,release=" + vclusterName,
+				LabelSelector: "app=vcluster,release=" + vcluster.Name,
 			})
 			if err != nil {
 				return false, err
@@ -310,7 +310,7 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 	cmd.Log.Debugf("Successfully found vCluster pod for connecting %s", podName)
 
 	// get the kube config from the Secret
-	kubeConfig, err := clihelper.GetKubeConfig(ctx, cmd.kubeClient, vclusterName, cmd.Namespace, cmd.Log)
+	kubeConfig, err := clihelper.GetKubeConfig(ctx, cmd.kubeClient, vcluster.Name, cmd.Namespace, cmd.Log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse kube config: %w", err)
 	}
@@ -322,14 +322,14 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 	}
 
 	// exchange context name in virtual kube config
-	err = cmd.exchangeContextName(kubeConfig, vclusterName)
+	err = cmd.exchangeContextName(kubeConfig, vcluster.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	// check if the vcluster is exposed and set server
-	if vclusterName != "" && cmd.Server == "" && len(command) == 0 {
-		err = cmd.setServerIfExposed(ctx, vclusterName, kubeConfig)
+	if vcluster.Name != "" && cmd.Server == "" && len(command) == 0 {
+		err = cmd.setServerIfExposed(ctx, vcluster, kubeConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -338,7 +338,7 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 		if cmd.Server == "" && cmd.BackgroundProxy {
 			if localkubernetes.IsDockerInstalledAndUpAndRunning() {
 				// start background container
-				server, err := localkubernetes.CreateBackgroundProxyContainer(ctx, vclusterName, cmd.Namespace, cmd.kubeClientConfig, kubeConfig, cmd.LocalPort, cmd.Log)
+				server, err := localkubernetes.CreateBackgroundProxyContainer(ctx, vcluster.Name, cmd.Namespace, cmd.kubeClientConfig, kubeConfig, cmd.LocalPort, cmd.Log)
 				if err != nil {
 					cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
 					cmd.BackgroundProxy = false
@@ -419,12 +419,12 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 	return kubeConfig, nil
 }
 
-func (cmd *connectHelm) setServerIfExposed(ctx context.Context, vClusterName string, vClusterConfig *clientcmdapi.Config) error {
+func (cmd *connectHelm) setServerIfExposed(ctx context.Context, vcluster *find.VCluster, vClusterConfig *clientcmdapi.Config) error {
 	printedWaiting := false
 	err := wait.PollUntilContextTimeout(ctx, time.Second*2, time.Minute*5, true, func(ctx context.Context) (done bool, err error) {
 		// first check for load balancer service, look for the other service if it's not there
 		loadBalancerMissing := false
-		service, err := cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(ctx, vClusterName, metav1.GetOptions{})
+		service, err := cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(ctx, vcluster.ServiceName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				loadBalancerMissing = true
@@ -433,7 +433,7 @@ func (cmd *connectHelm) setServerIfExposed(ctx context.Context, vClusterName str
 			}
 		}
 		if loadBalancerMissing {
-			service, err = cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(ctx, vClusterName, metav1.GetOptions{})
+			service, err = cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(ctx, vcluster.ServiceName, metav1.GetOptions{})
 			if kerrors.IsNotFound(err) {
 				return true, nil
 			} else if err != nil {
@@ -446,7 +446,7 @@ func (cmd *connectHelm) setServerIfExposed(ctx context.Context, vClusterName str
 
 		// not a load balancer? Then don't wait
 		if service.Spec.Type == corev1.ServiceTypeNodePort {
-			server, err := localkubernetes.ExposeLocal(ctx, vClusterName, cmd.Namespace, &cmd.rawConfig, vClusterConfig, service, cmd.LocalPort, cmd.Log)
+			server, err := localkubernetes.ExposeLocal(ctx, vcluster.Name, cmd.Namespace, &cmd.rawConfig, vClusterConfig, service, cmd.LocalPort, cmd.Log)
 			if err != nil {
 				cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
 			}
@@ -476,7 +476,7 @@ func (cmd *connectHelm) setServerIfExposed(ctx context.Context, vClusterName str
 			return false, nil
 		}
 
-		cmd.Log.Infof("Using vcluster %s load balancer endpoint: %s", vClusterName, cmd.Server)
+		cmd.Log.Infof("Using vcluster %s load balancer endpoint: %s", vcluster.Name, cmd.Server)
 		return true, nil
 	})
 	if err != nil {

@@ -25,7 +25,8 @@ var (
 	NamespaceLabelPrefix = "vcluster.loft.sh/ns-label"
 
 	// VClusterName is the vcluster name, usually set at start time
-	VClusterName = "suffix"
+	VClusterName        = "suffix"
+	VClusterServiceName = "vcluster"
 
 	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
 	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"

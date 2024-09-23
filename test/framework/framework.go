@@ -24,10 +24,11 @@ import (
 )
 
 const (
-	PollTimeout              = time.Minute
-	DefaultVclusterName      = "vcluster"
-	DefaultVclusterNamespace = "vcluster"
-	DefaultClientTimeout     = 32 * time.Second // the default in client-go is 32
+	PollTimeout                = time.Minute
+	DefaultVclusterName        = "vcluster"
+	DefaultVclusterNamespace   = "vcluster"
+	DefaultVclusterServiceName = "vcluster"
+	DefaultClientTimeout       = 32 * time.Second // the default in client-go is 32
 )
 
 var DefaultFramework = &Framework{}
@@ -101,6 +102,10 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 	if ns == "" {
 		ns = DefaultVclusterNamespace
 	}
+	serviceName := os.Getenv("VCLUSTER_SERVICE_NAME")
+	if serviceName == "" {
+		serviceName = DefaultVclusterServiceName
+	}
 	timeoutEnvVar := os.Getenv("VCLUSTER_CLIENT_TIMEOUT")
 	var timeout time.Duration
 	timeoutInt, err := strconv.Atoi(timeoutEnvVar)
@@ -116,6 +121,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		suffix = "vcluster"
 	}
 	translate.VClusterName = suffix
+	translate.VClusterServiceName = serviceName
 
 	var multiNamespaceMode bool
 	if os.Getenv("MULTINAMESPACE_MODE") == "true" {

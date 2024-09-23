@@ -3,12 +3,15 @@ package config
 import (
 	"fmt"
 	"os"
+	"regexp"
 
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/yaml"
 )
+
+var digitsOnlyRegex = regexp.MustCompile("^[0-9]+$")
 
 func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, error) {
 	// check if name is empty
@@ -37,10 +40,18 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 	}
 
 	// build config
+
+	var svcName string
+	if digitsOnlyRegex.MatchString(name) {
+		svcName = fmt.Sprintf("vc-%s", name)
+	} else {
+		svcName = name
+	}
+
 	retConfig := &VirtualClusterConfig{
 		Config:              *rawConfig,
 		Name:                name,
-		ControlPlaneService: name,
+		ControlPlaneService: svcName,
 	}
 
 	// validate config

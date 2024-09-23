@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ template "vcluster.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
@@ -41,6 +41,6 @@ spec:
   {{- if and (not .Values.controlPlane.service.spec.selector) (not .Values.experimental.isolatedControlPlane.headless) }}
   selector:
     app: vcluster
-    release: {{ .Release.Name }}
+    release: {{ .Release.Name | quote }}
   {{- end }}
 {{- end }}
