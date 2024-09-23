@@ -25,6 +25,9 @@ const (
 func (t *translator) ensureMountPropagation(pPod *corev1.Pod) {
 	for i, container := range pPod.Spec.Containers {
 		for j, volumeMount := range container.VolumeMounts {
+			// handle scenarios where path ends with a /
+			volumeMount.MountPath = strings.TrimSuffix(volumeMount.MountPath, "/")
+
 			if volumeMount.MountPath == PodLoggingHostPath ||
 				volumeMount.MountPath == KubeletPodPath ||
 				volumeMount.MountPath == LogHostPath {
