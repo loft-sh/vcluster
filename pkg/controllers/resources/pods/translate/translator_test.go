@@ -1,6 +1,8 @@
 package translate
 
 import (
+	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
@@ -173,6 +175,9 @@ type translatePodAffinityTermTestCase struct {
 }
 
 func TestVolumeTranslation(t *testing.T) {
+	virtualPath := fmt.Sprintf(VirtualPathTemplate, testingutil.DefaultTestCurrentNamespace, testingutil.DefaultTestVClusterName)
+	hostToContainer := corev1.MountPropagationHostToContainer
+
 	testCases := []translatePodVolumesTestCase{
 		{
 			name: "ephemeral volume",
@@ -206,6 +211,70 @@ func TestVolumeTranslation(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:                   "hostpath mapper",
+			mountPhysicalHostPaths: true,
+			vPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-name",
+					Namespace: "test-ns",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "varlog",
+									MountPath: "/var/log/pods/",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "varlog",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/log/pods/",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedVolumes: []corev1.Volume{
+				{
+					Name: "varlog",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: virtualPath + "/log/pods",
+						},
+					},
+				},
+				{
+					Name: fmt.Sprintf("%s-%s", "varlog", PhysicalVolumeNameSuffix),
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: PodLoggingHostPath,
+						},
+					},
+				},
+			},
+			expectedVolumeMounts: []corev1.VolumeMount{
+				{
+					Name:             "varlog",
+					ReadOnly:         true,
+					MountPath:        "/var/log/pods/",
+					MountPropagation: &hostToContainer,
+				},
+				{
+					Name:      fmt.Sprintf("%s-%s", "varlog", PhysicalVolumeNameSuffix),
+					ReadOnly:  true,
+					MountPath: PhysicalPodLogVolumeMountPath,
+				},
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -215,23 +284,31 @@ func TestVolumeTranslation(t *testing.T) {
 			vClient := testingutil.NewFakeClient(scheme.Scheme)
 			registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
 			tr := &translator{
-				eventRecorder: fakeRecorder,
-				log:           loghelper.New("pods-syncer-translator-test"),
-				pClient:       pClient,
+				eventRecorder:          fakeRecorder,
+				log:                    loghelper.New("pods-syncer-translator-test"),
+				pClient:                pClient,
+				mountPhysicalHostPaths: testCase.mountPhysicalHostPaths,
+				virtualPodLogsPath:     filepath.Join(virtualPath, "log", "pods"),
 			}
 
 			pPod := testCase.vPod.DeepCopy()
 			err := tr.translateVolumes(registerCtx.ToSyncContext("pods-syncer-translator-test"), pPod, &testCase.vPod)
 			assert.NilError(t, err)
 			assert.Assert(t, cmp.DeepEqual(pPod.Spec.Volumes, testCase.expectedVolumes), "Unexpected translation of the Volumes in the '%s' test case", testCase.name)
+
+			if len(testCase.expectedVolumeMounts) > 0 {
+				assert.Assert(t, cmp.DeepEqual(pPod.Spec.Containers[0].VolumeMounts, testCase.expectedVolumeMounts), "Unexpected translation of the Volume Mounts in the '%s' test case", testCase.name)
+			}
 		})
 	}
 }
 
 type translatePodVolumesTestCase struct {
-	name            string
-	vPod            corev1.Pod
-	expectedVolumes []corev1.Volume
+	name                   string
+	vPod                   corev1.Pod
+	expectedVolumes        []corev1.Volume
+	expectedVolumeMounts   []corev1.VolumeMount
+	mountPhysicalHostPaths bool
 }
 
 func appendNamespacesToMatchExpressions(source *metav1.LabelSelector, namespaces ...string) *metav1.LabelSelector {
