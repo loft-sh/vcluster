@@ -14,8 +14,9 @@ import (
 func main() {
 	images := []string{}
 
-	// loft
+	// vCluster
 	images = append(images, "ghcr.io/loft-sh/vcluster:"+cleanTag(os.Args[1]))
+	images = append(images, "ghcr.io/loft-sh/vcluster-pro:"+cleanTag(os.Args[1]))
 	images = append(images, config.DefaultHostsRewriteImage)
 
 	// loop over k3s versions
