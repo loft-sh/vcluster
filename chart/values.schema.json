@@ -1840,11 +1840,11 @@
         },
         "max": {
           "type": "object",
-          "description": "Min are the min limits for the limit range"
+          "description": "Max are the max limits for the limit range"
         },
         "min": {
           "type": "object",
-          "description": "Max are the max limits for the limit range"
+          "description": "Min are the min limits for the limit range"
         },
         "annotations": {
           "additionalProperties": {
