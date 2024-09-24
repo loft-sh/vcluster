@@ -10,6 +10,7 @@ import (
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -177,6 +178,10 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
+
+				vName := syncer.HostToVirtual(syncCtx, types.NamespacedName{Name: pDynamic.Name}, pDynamic)
+				assert.Equal(t, vName.Name, pDynamic.Name)
+
 				_, err := syncer.SyncToVirtual(syncCtx, synccontext.NewSyncToVirtualEvent(pDynamic.DeepCopy()))
 				assert.NilError(t, err)
 			},

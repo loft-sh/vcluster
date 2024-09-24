@@ -37,7 +37,7 @@ func NewMapperWithObject(ctx *synccontext.RegisterContext, obj client.Object, tr
 	return newMapper(ctx, obj, true, translateName)
 }
 
-// NewMapperWithoutRecorder creates a new mapper with a recorder to store mappings in the mappings store
+// NewMapperWithoutRecorder creates a new mapper without a recorder to store mappings in the mappings store
 func NewMapperWithoutRecorder(ctx *synccontext.RegisterContext, obj client.Object, translateName PhysicalNameWithObjectFunc) (synccontext.Mapper, error) {
 	return newMapper(ctx, obj, false, translateName)
 }

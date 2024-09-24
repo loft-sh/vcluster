@@ -4,8 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -188,7 +190,10 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	syncertesting.RunTests(t, []*syncertesting.SyncTest{
+	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.ToHost.PersistentVolumes.Enabled = true
+		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*syncertesting.SyncTest{
 		{
 			Name:                 "Create Backward",
 			InitialVirtualState:  []runtime.Object{basePvc},
@@ -202,6 +207,10 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
+
+				vName := syncer.HostToVirtual(syncContext, types.NamespacedName{Name: basePPv.Name}, basePPv)
+				assert.Equal(t, vName.Name, baseVPv.Name)
+
 				_, err := syncer.SyncToVirtual(syncContext, synccontext.NewSyncToVirtualEvent(basePPv))
 				assert.NilError(t, err)
 			},
