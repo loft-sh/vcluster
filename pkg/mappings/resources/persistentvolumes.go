@@ -15,16 +15,36 @@ func CreatePersistentVolumesMapper(ctx *synccontext.RegisterContext) (synccontex
 		return generic.NewMirrorMapper(&corev1.PersistentVolume{})
 	}
 
-	return generic.NewMapperWithObject(ctx, &corev1.PersistentVolume{}, func(_ *synccontext.SyncContext, name, _ string, vObj client.Object) types.NamespacedName {
+	mapper, err := generic.NewMapperWithoutRecorder(ctx, &corev1.PersistentVolume{}, func(_ *synccontext.SyncContext, vName, _ string, vObj client.Object) types.NamespacedName {
 		if vObj == nil {
-			return types.NamespacedName{Name: name}
+			return types.NamespacedName{Name: vName}
 		}
 
 		vPv, ok := vObj.(*corev1.PersistentVolume)
 		if !ok || vPv.Annotations == nil || vPv.Annotations[constants.HostClusterPersistentVolumeAnnotation] == "" {
-			return types.NamespacedName{Name: translate.Default.HostNameCluster(name)}
+			return types.NamespacedName{Name: translate.Default.HostNameCluster(vName)}
 		}
 
 		return types.NamespacedName{Name: vPv.Annotations[constants.HostClusterPersistentVolumeAnnotation]}
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return generic.WithRecorder(&persistentVolumeMapper{
+		Mapper: mapper,
+	}), nil
+}
+
+type persistentVolumeMapper struct {
+	synccontext.Mapper
+}
+
+func (p *persistentVolumeMapper) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+	vName := p.Mapper.HostToVirtual(ctx, req, pObj)
+	if vName.Name != "" {
+		return vName
+	}
+
+	return types.NamespacedName{Name: req.Name}
 }

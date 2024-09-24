@@ -26,16 +26,36 @@ func CreateVolumeSnapshotContentsMapper(ctx *synccontext.RegisterContext) (syncc
 		return nil, err
 	}
 
-	return generic.NewMapperWithObject(ctx, &volumesnapshotv1.VolumeSnapshotContent{}, func(_ *synccontext.SyncContext, name, _ string, vObj client.Object) types.NamespacedName {
+	mapper, err := generic.NewMapperWithoutRecorder(ctx, &volumesnapshotv1.VolumeSnapshotContent{}, func(_ *synccontext.SyncContext, vName, _ string, vObj client.Object) types.NamespacedName {
 		if vObj == nil {
-			return types.NamespacedName{Name: name}
+			return types.NamespacedName{Name: vName}
 		}
 
 		vVSC, ok := vObj.(*volumesnapshotv1.VolumeSnapshotContent)
 		if !ok || vVSC.Annotations == nil || vVSC.Annotations[constants.HostClusterVSCAnnotation] == "" {
-			return types.NamespacedName{Name: translate.Default.HostNameCluster(name)}
+			return types.NamespacedName{Name: translate.Default.HostNameCluster(vName)}
 		}
 
 		return types.NamespacedName{Name: vVSC.Annotations[constants.HostClusterVSCAnnotation]}
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return generic.WithRecorder(&volumeSnapshotContentMapper{
+		Mapper: mapper,
+	}), nil
+}
+
+type volumeSnapshotContentMapper struct {
+	synccontext.Mapper
+}
+
+func (p *volumeSnapshotContentMapper) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {
+	vName := p.Mapper.HostToVirtual(ctx, req, pObj)
+	if vName.Name != "" {
+		return vName
+	}
+
+	return types.NamespacedName{Name: req.Name}
 }
