@@ -6,7 +6,7 @@ VCLUSTER_NAMESPACE="${VCLUSTER_NAMESPACE}"
 POLL_INTERVAL=10  
 MAX_WAIT_TIME=180 
 MANIFEST_FILE="vcluster-manifest.yaml"
-PATH_TO_VALUES_FILE="./test/commonValues.yaml"
+PATH_TO_VALUES_FILE="./test/functional_tests/commonValues.yaml"
 HELM_CHART_DIR="./chart"
 
 if [ -z "$VCLUSTER_NAME" ]; then
