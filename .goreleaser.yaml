@@ -9,6 +9,7 @@ before:
     - just clean-release
     - just copy-assets
     - just generate-vcluster-images {{ .Version }}
+    - just generate-matrix-specific-images {{ .Version }}
 
 source:
   format: tar.gz

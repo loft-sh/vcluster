@@ -1,6 +1,9 @@
 package constants
 
 var CoreDNSVersionMap = map[string]string{
+	"1.30": "coredns/coredns:1.11.3",
+	"1.29": "coredns/coredns:1.11.1",
+	"1.28": "coredns/coredns:1.10.1",
 	"1.27": "coredns/coredns:1.10.1",
 	"1.26": "coredns/coredns:1.9.3",
 	"1.25": "coredns/coredns:1.9.3",

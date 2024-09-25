@@ -70,6 +70,20 @@ copy-assets:
 generate-vcluster-images version="0.0.0":
   go run -mod vendor ./hack/assets/main.go {{ version }} > ./release/vcluster-images.txt
 
+# Generate versioned vCluster image files for multiple versions and distros
+[private]
+generate-matrix-specific-images version="0.0.0":
+  #!/usr/bin/env bash
+
+  distros=("k8s" "k3s" "k0s")
+  versions=("1.30" "1.29" "1.28")
+
+  for distro in "${distros[@]}"; do
+    for version in "${versions[@]}"; do
+      go run -mod vendor ./hack/assets/separate/main.go -kubernetes-distro=$distro -kubernetes-version=$version -vcluster-version={{ version }} > ./release/vcluster-images-$distro-$version.txt
+    done
+  done
+
 # Generate the CLI docs
 generate-cli-docs:
   go run -mod vendor -tags pro ./hack/docs/main.go
