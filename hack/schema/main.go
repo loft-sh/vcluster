@@ -11,7 +11,7 @@ import (
 	orderedmap "github.com/wk8/go-ordered-map/v2"
 
 	"github.com/invopop/jsonschema"
-	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/config/v0.21"
 	"gopkg.in/yaml.v3"
 )
 
