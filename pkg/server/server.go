@@ -31,6 +31,7 @@ import (
 	webhookinit "k8s.io/apiserver/pkg/admission/plugin/webhook/initializer"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/mutating"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/validating"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
 	unionauthentication "k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/authorization/union"
 	"k8s.io/apiserver/pkg/endpoints/filterlatency"
@@ -50,6 +51,9 @@ import (
 	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// ExtraAuthenticators are extra authenticators that should be added to the server
+var ExtraAuthenticators []authenticator.Request
 
 // Server is a http.Handler which proxies Kubernetes APIs to remote API server.
 type Server struct {
@@ -222,8 +226,15 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 		return err
 	}
 
-	// make sure the tokens are correctly authenticated
-	serverConfig.Authentication.Authenticator = unionauthentication.NewFailOnError(delegatingauthenticator.New(s.uncachedVirtualClient), serverConfig.Authentication.Authenticator)
+	// make sure the tokens are correctly authenticated. We use the following order:
+	// 1. try the service account token one first since it's cheap to check this.
+	// 2. try the extra authenticators like platform that might take longer
+	// 3. last is the certificate authenticator
+	authenticators := []authenticator.Request{}
+	authenticators = append(authenticators, delegatingauthenticator.New(s.uncachedVirtualClient))
+	authenticators = append(authenticators, ExtraAuthenticators...)
+	authenticators = append(authenticators, serverConfig.Authentication.Authenticator)
+	serverConfig.Authentication.Authenticator = unionauthentication.NewFailOnError(authenticators...)
 
 	// create server
 	klog.Info("Starting tls proxy server at " + address + ":" + strconv.Itoa(port))

@@ -2,14 +2,13 @@ package delegatingauthenticator
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/loft-sh/vcluster/pkg/authentication/bearertoken"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
-	"k8s.io/apiserver/pkg/authentication/request/bearertoken"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -50,7 +49,7 @@ func (d *delegatingAuthenticator) AuthenticateToken(ctx context.Context, token s
 	if err != nil {
 		return nil, false, err
 	} else if !tokReview.Status.Authenticated {
-		return nil, false, errors.New(tokReview.Status.Error)
+		return nil, false, nil
 	}
 
 	response := &authenticator.Response{
