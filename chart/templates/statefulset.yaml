@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: {{ include "vcluster.kind" . }}
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ .Release.Name | quote }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
@@ -21,13 +21,13 @@ spec:
   selector:
     matchLabels:
       app: vcluster
-      release: {{ .Release.Name }}
+      release: {{ .Release.Name | quote }}
   {{- if eq (include "vcluster.kind" .) "StatefulSet" }}
   {{- if ge (int .Capabilities.KubeVersion.Minor) 27 }}
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: {{ .Values.controlPlane.statefulSet.persistence.volumeClaim.retentionPolicy }}
   {{- end }}
-  serviceName: {{ .Release.Name }}-headless
+  serviceName: {{ template "vcluster.name" . }}-headless
   podManagementPolicy: {{ .Values.controlPlane.statefulSet.scheduling.podManagementPolicy }}
 {{ include "vcluster.persistence" . | indent 2 }}
   {{- else }}
@@ -51,7 +51,7 @@ spec:
       {{- end }}
       labels:
         app: vcluster
-        release: {{ .Release.Name }}
+        release: {{ .Release.Name | quote }}
         {{- if .Values.controlPlane.statefulSet.pods.labels }}
 {{ toYaml .Values.controlPlane.statefulSet.pods.labels | indent 8 }}
         {{- end }}
@@ -87,7 +87,7 @@ spec:
       dnsPolicy: {{ .Values.controlPlane.statefulSet.dnsPolicy }}
       {{- end }}
       {{- if .Values.controlPlane.statefulSet.dnsConfig }}
-      dnsConfig: 
+      dnsConfig:
 {{ toYaml .Values.controlPlane.statefulSet.dnsConfig | indent 8 }}
       {{- end }}
       {{- if .Values.controlPlane.advanced.serviceAccount.name }}

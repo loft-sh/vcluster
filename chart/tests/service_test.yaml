@@ -93,6 +93,16 @@ tests:
           path: spec.ports
           count: 2
 
+  - it: should prepend vc to service name when only digits are given
+    release:
+      name: 1234
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: vc-1234
+
   - it: isolated control plane
     release:
       name: my-release
