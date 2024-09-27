@@ -263,7 +263,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if err != nil {
 		return err
 	}
-	chartValues, err := config.GetExtraValues(chartOptions, options.ChartVersion)
+	chartValues, err := config.GetExtraValues(chartOptions)
 	if err != nil {
 		return err
 	}

@@ -8,13 +8,28 @@
 {{- end -}}
 {{- end -}}
 
+{{- define "vcluster.k8s.capabilities.version" -}}
+{{/* We need to workaround here for unit tests because Capabilities.KubeVersion.Version is not supported, so we use .Chart.Version */}}
+{{- if hasPrefix "test-" .Chart.Version -}}
+{{- regexFind "^v[0-9]+\\.[0-9]+\\.[0-9]+" (trimPrefix "test-" .Chart.Version) -}}
+{{- else -}}
+{{- regexFind "^v[0-9]+\\.[0-9]+\\.[0-9]+" .Capabilities.KubeVersion.Version -}}
+{{- end -}}
+{{- end -}}
+
 {{/* Bump $defaultTag value whenever k8s version is bumped */}}
 {{- define "vcluster.k8s.controllerManager.image.tag" -}}
 {{- $defaultTag := "v1.30.2" -}}
 {{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.controllerManager.image.tag $defaultTag) -}}
-{{ .Values.controlPlane.distro.k8s.version}}
+{{ .Values.controlPlane.distro.k8s.version }}
+{{- else -}}
+{{- if not (eq .Values.controlPlane.distro.k8s.controllerManager.image.tag $defaultTag) -}}
+{{ .Values.controlPlane.distro.k8s.controllerManager.image.tag }}
+{{- else if not (empty (include "vcluster.k8s.capabilities.version" .)) -}}
+{{ include "vcluster.k8s.capabilities.version" . }}
 {{- else -}}
 {{ .Values.controlPlane.distro.k8s.controllerManager.image.tag }}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 
@@ -24,7 +39,13 @@
 {{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.apiServer.image.tag $defaultTag) -}}
 {{ .Values.controlPlane.distro.k8s.version}}
 {{- else -}}
+{{- if not (eq .Values.controlPlane.distro.k8s.apiServer.image.tag $defaultTag) -}}
 {{ .Values.controlPlane.distro.k8s.apiServer.image.tag }}
+{{- else if not (empty (include "vcluster.k8s.capabilities.version" .)) -}}
+{{ include "vcluster.k8s.capabilities.version" . }}
+{{- else -}}
+{{ .Values.controlPlane.distro.k8s.apiServer.image.tag }}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 
@@ -35,7 +56,13 @@
 {{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.scheduler.image.tag $defaultTag) -}}
 {{ .Values.controlPlane.distro.k8s.version}}
 {{- else -}}
+{{- if not (eq .Values.controlPlane.distro.k8s.scheduler.image.tag $defaultTag) -}}
 {{ .Values.controlPlane.distro.k8s.scheduler.image.tag }}
+{{- else if not (empty (include "vcluster.k8s.capabilities.version" .)) -}}
+{{ include "vcluster.k8s.capabilities.version" . }}
+{{- else -}}
+{{ .Values.controlPlane.distro.k8s.scheduler.image.tag }}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 

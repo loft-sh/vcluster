@@ -578,6 +578,8 @@ tests:
               claimName: my-custom-pvc
 
   - it: k8s version not set, default tag images used for apiServer and controllerManager
+    chart:
+      version: "test-"
     set:
       controlPlane:
         distro:
@@ -590,6 +592,60 @@ tests:
       - equal:
           path: spec.template.spec.initContainers[2].image
           value: registry.k8s.io/kube-apiserver:v1.30.2
+
+  - it: k8s capabilities set
+    chart:
+      version: "test-v1.29.3"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].image
+          value: registry.k8s.io/kube-controller-manager:v1.29.3
+      - equal:
+          path: spec.template.spec.initContainers[2].image
+          value: registry.k8s.io/kube-apiserver:v1.29.3
+
+  - it: k8s capabilities orbstack
+    chart:
+      version: "test-v1.29.3+orb1"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].image
+          value: registry.k8s.io/kube-controller-manager:v1.29.3
+      - equal:
+          path: spec.template.spec.initContainers[2].image
+          value: registry.k8s.io/kube-apiserver:v1.29.3
+
+  - it: k8s capabilities invalid
+    chart:
+      version: "test-invalid"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].image
+          value: registry.k8s.io/kube-controller-manager:v1.30.2
+
+  - it: k8s capabilities incomplete
+    chart:
+      version: "test-v1.22"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].image
+          value: registry.k8s.io/kube-controller-manager:v1.30.2
+
+  - it: k8s capabilities incomplete 2
+    chart:
+      version: "test-1.22.11"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].image
+          value: registry.k8s.io/kube-controller-manager:v1.30.2
+
+  - it: k8s capabilities incomplete 2
+    chart:
+      version: "test-v1.22.33"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].image
+          value: registry.k8s.io/kube-controller-manager:v1.22.33
 
   - it: k8s version sets image tag for apiServer and controllerManager
     set:
@@ -650,6 +706,8 @@ tests:
           value: registry.k8s.io/kube-apiserver:v99914
 
   - it: k8s version not set, default tag images used for apiServer and controllerManager (virtual scheduler enabled)
+    chart:
+      version: "test-"
     set:
       controlPlane:
         distro:
