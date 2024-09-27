@@ -594,7 +594,7 @@ func mergeValues(platformClient platform.Client, options *CreateOptions, log log
 	if err != nil {
 		return "", err
 	}
-	chartValues, err := vclusterconfig.GetExtraValues(chartOptions, options.ChartVersion)
+	chartValues, err := vclusterconfig.GetExtraValues(chartOptions)
 	if err != nil {
 		return "", err
 	}
