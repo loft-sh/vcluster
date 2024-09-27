@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -243,6 +244,24 @@ func RunCommand(ctx context.Context, command []string, component string) error {
 	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 	cmd.Stdout = writer.Writer()
 	cmd.Stderr = writer.Writer()
+	cmd.Cancel = func() error {
+		err := cmd.Process.Signal(os.Interrupt)
+		if err != nil {
+			return fmt.Errorf("signal %s: %w", command[0], err)
+		}
+
+		state, err := cmd.Process.Wait()
+		if err == nil && state.Pid() > 0 {
+			time.Sleep(2 * time.Second)
+		}
+
+		err = cmd.Process.Kill()
+		if err != nil {
+			return fmt.Errorf("kill %s: %w", command[0], err)
+		}
+
+		return nil
+	}
 	err = cmd.Run()
 
 	// make sure we wait for scanner to be done

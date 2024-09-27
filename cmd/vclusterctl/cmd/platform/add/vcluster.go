@@ -34,7 +34,6 @@ Add all vCluster instances in the host cluster:
 vcluster platform add vcluster --project my-project --all
 
 ###############################################
-
 	`
 
 	addCmd := &cobra.Command{

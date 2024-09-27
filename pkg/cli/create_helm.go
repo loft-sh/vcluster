@@ -301,7 +301,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 
 	// create platform secret
 	if cmd.Add {
-		err = cmd.addVCluster(ctx, vClusterConfig)
+		err = cmd.addVCluster(ctx, vClusterName, vClusterConfig)
 		if err != nil {
 			return err
 		}
@@ -372,11 +372,11 @@ func (cmd *createHelm) parseVClusterYAML(chartValues string) (*config.Config, er
 	return vClusterConfig, nil
 }
 
-func (cmd *createHelm) addVCluster(ctx context.Context, vClusterConfig *config.Config) error {
+func (cmd *createHelm) addVCluster(ctx context.Context, name string, vClusterConfig *config.Config) error {
 	platformConfig, err := vClusterConfig.GetPlatformConfig()
 	if err != nil {
 		return fmt.Errorf("get platform config: %w", err)
-	} else if platformConfig.APIKey.SecretName != "" {
+	} else if platformConfig.APIKey.SecretName != "" || platformConfig.APIKey.Namespace != "" {
 		return nil
 	}
 
@@ -390,7 +390,7 @@ func (cmd *createHelm) addVCluster(ctx context.Context, vClusterConfig *config.C
 		return nil
 	}
 
-	err = platform.ApplyPlatformSecret(ctx, cmd.LoadedConfig(cmd.log), cmd.kubeClient, "", cmd.Namespace, cmd.Project, "", "", false, cmd.LoadedConfig(cmd.log).Platform.CertificateAuthorityData)
+	err = platform.ApplyPlatformSecret(ctx, cmd.LoadedConfig(cmd.log), cmd.kubeClient, "", name, cmd.Namespace, cmd.Project, "", "", false, cmd.LoadedConfig(cmd.log).Platform.CertificateAuthorityData, cmd.log)
 	if err != nil {
 		return fmt.Errorf("apply platform secret: %w", err)
 	}

@@ -144,12 +144,14 @@ func addVClusterHelm(
 		globalFlags.LoadedConfig(log),
 		kubeClient,
 		options.ImportName,
+		vCluster.Name,
 		vCluster.Namespace,
 		options.Project,
 		options.AccessKey,
 		options.Host,
 		options.Insecure,
 		options.CertificateAuthorityData,
+		log,
 	)
 	if err != nil {
 		return err
