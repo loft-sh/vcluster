@@ -24,6 +24,9 @@ type DriverType string
 type Platform struct {
 	metav1.TypeMeta `json:",inline"`
 
+	// VirtualClusterAccessKey will only be used as a fallback for older platforms and is deprecated.
+	VirtualClusterAccessKey string `json:"virtualClusterAccessKey,omitempty"`
+
 	// VirtualClusterAccessPointCertificates is a map of cached certificates for "access point" mode virtual clusters
 	VirtualClusterAccessPointCertificates map[string]VirtualClusterCertificatesEntry `json:"virtualClusterAccessPointCertificates,omitempty"`
 	// Host is the https endpoint of how to access loft
@@ -32,8 +35,6 @@ type Platform struct {
 	LastInstallContext string `json:"lastInstallContext,omitempty"`
 	// AccessKey is the access key for the given loft host
 	AccessKey string `json:"accesskey,omitempty"`
-	// VirtualClusterAccessKey is the access key for the given loft host to create virtual clusters
-	VirtualClusterAccessKey string `json:"virtualClusterAccessKey,omitempty"`
 	// Insecure specifies if the loft instance is insecure
 	Insecure bool `json:"insecure,omitempty"`
 	// CertificateAuthorityData is passed as certificate-authority-data to the platform config

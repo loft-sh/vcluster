@@ -19,6 +19,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/mitchellh/go-homedir"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -35,6 +36,14 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 		PersistentPreRun: func(_ *cobra.Command, _ []string) {
 			if len(os.Args) > 1 && os.Args[1] == "pro" {
 				log.GetInstance().Warnf("The \"vcluster pro\" command is deprecated, please use \"vcluster platform\" instead")
+			}
+
+			if globalFlags.Silent {
+				log.GetInstance().SetLevel(logrus.FatalLevel)
+			} else if globalFlags.Debug {
+				log.GetInstance().SetLevel(logrus.DebugLevel)
+			} else {
+				log.GetInstance().SetLevel(logrus.InfoLevel)
 			}
 		},
 	}
