@@ -25,8 +25,11 @@ var (
 type AccessKeyCmd struct {
 	*flags.GlobalFlags
 
-	Project               string
-	VirtualCluster        string
+	// deprecated: all of these flags are deprecated
+	Project string
+	// deprecated: all of these flags are deprecated
+	VirtualCluster string
+	// deprecated: all of these flags are deprecated
 	DirectClusterEndpoint bool
 
 	log log.Logger
@@ -73,14 +76,7 @@ func (cmd *AccessKeyCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	tokenFunc := getToken
-
-	if cmd.Project != "" && cmd.VirtualCluster != "" {
-		cmd.log.Debug("project and virtual cluster set, attempting fetch virtual cluster certificate data")
-		tokenFunc = getCertificate
-	}
-
-	return tokenFunc(cmd, platformClient)
+	return getToken(cmd, platformClient)
 }
 
 func getToken(_ *AccessKeyCmd, platformClient platform.Client) error {
@@ -107,37 +103,6 @@ func printToken(token string) error {
 		},
 		Status: &v1beta1.ExecCredentialStatus{
 			Token: token,
-		},
-	}
-
-	bytes, err := json.Marshal(response)
-	if err != nil {
-		return fmt.Errorf("json marshal: %w", err)
-	}
-
-	_, err = os.Stdout.Write(bytes)
-	return err
-}
-
-func getCertificate(cmd *AccessKeyCmd, platformClient platform.Client) error {
-	certificateData, keyData, err := platform.VirtualClusterAccessPointCertificate(platformClient, cmd.Project, cmd.VirtualCluster, false)
-	if err != nil {
-		return err
-	}
-
-	return printCertificate(certificateData, keyData)
-}
-
-func printCertificate(certificateData, keyData string) error {
-	// Print certificate-based exec credential to stdout
-	response := &v1beta1.ExecCredential{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ExecCredential",
-			APIVersion: v1beta1.SchemeGroupVersion.String(),
-		},
-		Status: &v1beta1.ExecCredentialStatus{
-			ClientCertificateData: certificateData,
-			ClientKeyData:         keyData,
 		},
 	}
 

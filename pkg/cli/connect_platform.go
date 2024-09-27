@@ -112,7 +112,7 @@ func (cmd *connectPlatform) getVClusterKubeConfig(ctx context.Context, platformC
 	}
 
 	// make sure access key is set
-	if contextOptions.Token == "" && len(contextOptions.ClientCertificateData) == 0 && len(contextOptions.ClientKeyData) == 0 {
+	if contextOptions.Token == "" {
 		contextOptions.Token = platformClient.Config().Platform.AccessKey
 	}
 

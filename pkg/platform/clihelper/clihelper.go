@@ -112,10 +112,8 @@ func GetProKubeConfig(options kubeconfig.ContextOptions) (*clientcmdapi.Config, 
 	cluster.InsecureSkipTLSVerify = options.InsecureSkipTLSVerify
 
 	authInfo := clientcmdapi.NewAuthInfo()
-	if options.Token != "" || options.ClientCertificateData != nil || options.ClientKeyData != nil {
+	if options.Token != "" {
 		authInfo.Token = options.Token
-		authInfo.ClientKeyData = options.ClientKeyData
-		authInfo.ClientCertificateData = options.ClientCertificateData
 	}
 
 	config := clientcmdapi.NewConfig()
