@@ -34,7 +34,6 @@ func New() *CLI {
 				Kind:       "Config",
 				APIVersion: "storage.loft.sh/v1",
 			},
-			VirtualClusterAccessPointCertificates: make(map[string]VirtualClusterCertificatesEntry),
 		},
 	}
 }

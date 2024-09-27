@@ -17,23 +17,18 @@ import (
 	"github.com/loft-sh/api/v4/pkg/clientset/versioned/scheme"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/util"
-	perrors "github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubectl/pkg/util/term"
-	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -690,44 +685,14 @@ func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, con
 		ConfigPath: config,
 		SetActive:  setActive,
 	}
-	if virtualClusterInstance.Status.VirtualCluster != nil && virtualClusterInstance.Status.VirtualCluster.AccessPoint.Ingress.Enabled {
-		kubeConfig, err := getVirtualClusterInstanceAccessConfig(ctx, client, virtualClusterInstance)
-		if err != nil {
-			return kubeconfig.ContextOptions{}, fmt.Errorf("retrieve kube config %w", err)
-		}
+	contextOptions.Server = client.Config().Platform.Host + "/kubernetes/project/" + projectName + "/virtualcluster/" + virtualClusterInstance.Name
+	contextOptions.InsecureSkipTLSVerify = client.Config().Platform.Insecure
 
-		// get server
-		for _, val := range kubeConfig.Clusters {
-			if val != nil {
-				contextOptions.Server = val.Server
-			}
-		}
-
-		if len(kubeConfig.AuthInfos) == 0 {
-			return kubeconfig.ContextOptions{}, errors.New("ingress access is configured but no credentials were present in the kubeconfig")
-		}
-		// find the first user and fill cert data with it
-		for _, v := range kubeConfig.AuthInfos {
-			contextOptions.ClientCertificateData = v.ClientCertificateData
-			contextOptions.ClientKeyData = v.ClientKeyData
-			break
-		}
-		if contextOptions.Server == "" {
-			return kubeconfig.ContextOptions{}, errors.New("could not determine server url")
-		}
-
-		contextOptions.InsecureSkipTLSVerify = true
-		contextOptions.VirtualClusterAccessPointEnabled = true
-	} else {
-		contextOptions.Server = client.Config().Platform.Host + "/kubernetes/project/" + projectName + "/virtualcluster/" + virtualClusterInstance.Name
-		contextOptions.InsecureSkipTLSVerify = client.Config().Platform.Insecure
-
-		data, err := RetrieveCaData(cluster)
-		if err != nil {
-			return kubeconfig.ContextOptions{}, err
-		}
-		contextOptions.CaData = data
+	data, err := RetrieveCaData(cluster)
+	if err != nil {
+		return kubeconfig.ContextOptions{}, err
 	}
+	contextOptions.CaData = data
 	return contextOptions, nil
 }
 
@@ -752,59 +717,6 @@ func CreateSpaceInstanceOptions(ctx context.Context, client Client, config strin
 	}
 	contextOptions.CaData = data
 	return contextOptions, nil
-}
-
-func VirtualClusterAccessPointCertificate(client Client, project, virtualCluster string, forceRefresh bool) (string, string, error) {
-	contextName := kubeconfig.VirtualClusterInstanceContextName(project, virtualCluster)
-
-	// see if we have stored cert data for this vci
-	now := metav1.Now()
-	cachedVirtualClusterAccessPointCertificate, ok := client.Config().Platform.VirtualClusterAccessPointCertificates[contextName]
-	if !forceRefresh && ok && cachedVirtualClusterAccessPointCertificate.LastRequested.Add(RefreshToken).After(now.Time) && cachedVirtualClusterAccessPointCertificate.ExpirationTime.After(now.Time) {
-		return cachedVirtualClusterAccessPointCertificate.CertificateData, cachedVirtualClusterAccessPointCertificate.KeyData, nil
-	}
-
-	// refresh token
-	managementClient, err := client.Management()
-	if err != nil {
-		return "", "", err
-	}
-
-	kubeConfigResponse, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(project)).GetKubeConfig(
-		context.Background(),
-		virtualCluster,
-		&managementv1.VirtualClusterInstanceKubeConfig{
-			Spec: managementv1.VirtualClusterInstanceKubeConfigSpec{
-				CertificateTTL: ptr.To[int32](86_400),
-			},
-		},
-		metav1.CreateOptions{},
-	)
-	if err != nil {
-		return "", "", perrors.Wrap(err, "fetch certificate data")
-	}
-
-	certificateData, keyData, err := getCertificateAndKeyDataFromKubeConfig(kubeConfigResponse.Status.KubeConfig)
-	if err != nil {
-		return "", "", err
-	}
-
-	if client.Config().Platform.VirtualClusterAccessPointCertificates == nil {
-		client.Config().Platform.VirtualClusterAccessPointCertificates = make(map[string]config.VirtualClusterCertificatesEntry)
-	}
-	client.Config().Platform.VirtualClusterAccessPointCertificates[contextName] = config.VirtualClusterCertificatesEntry{
-		CertificateData: certificateData,
-		KeyData:         keyData,
-		LastRequested:   now,
-		ExpirationTime:  now.Add(86_400 * time.Second),
-	}
-
-	err = client.Save()
-	if err != nil {
-		return "", "", perrors.Wrap(err, "save config")
-	}
-
-	return certificateData, keyData, nil
 }
 
 func ResolveVirtualClusterTemplate(
@@ -1258,57 +1170,6 @@ func wakeupVCluster(ctx context.Context, managementClient kube.Interface, virtua
 	}
 
 	return nil
-}
-
-func getCertificateAndKeyDataFromKubeConfig(config string) (string, string, error) {
-	clientCfg, err := clientcmd.NewClientConfigFromBytes([]byte(config))
-	if err != nil {
-		return "", "", err
-	}
-
-	apiCfg, err := clientCfg.RawConfig()
-	if err != nil {
-		return "", "", err
-	}
-
-	authInfo, ok := apiCfg.AuthInfos["vcluster"]
-	if !ok || authInfo == nil {
-		return "", "", errors.New("couldn't find vcluster auth infos")
-	}
-
-	return string(authInfo.ClientCertificateData), string(authInfo.ClientKeyData), nil
-}
-
-func getVirtualClusterInstanceAccessConfig(ctx context.Context, client Client, virtualClusterInstance *managementv1.VirtualClusterInstance) (clientcmdapi.Config, error) {
-	managementClient, err := client.Management()
-	if err != nil {
-		return clientcmdapi.Config{}, err
-	}
-
-	kubeConfig, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).GetKubeConfig(
-		ctx,
-		virtualClusterInstance.Name,
-		&managementv1.VirtualClusterInstanceKubeConfig{
-			Spec: managementv1.VirtualClusterInstanceKubeConfigSpec{},
-		},
-		metav1.CreateOptions{},
-	)
-	if err != nil {
-		return clientcmdapi.Config{}, err
-	}
-
-	// parse kube config string
-	clientCfg, err := clientcmd.NewClientConfigFromBytes([]byte(kubeConfig.Status.KubeConfig))
-	if err != nil {
-		return clientcmdapi.Config{}, err
-	}
-
-	apiCfg, err := clientCfg.RawConfig()
-	if err != nil {
-		return clientcmdapi.Config{}, err
-	}
-
-	return apiCfg, nil
 }
 
 func findProjectCluster(ctx context.Context, client Client, projectName, clusterName string) (*managementv1.Cluster, error) {
