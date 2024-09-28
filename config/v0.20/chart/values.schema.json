@@ -66,20 +66,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ClusterStoresSyncConfig": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if this option should be enabled."
-        },
-        "selector": {
-          "$ref": "#/$defs/LabelSelector",
-          "description": "Selector defines what cluster stores should be synced"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "ControlPlane": {
       "properties": {
         "distro": {
@@ -531,14 +517,6 @@
           },
           "type": "array",
           "description": "Env are additional environment variables for the statefulSet container."
-        },
-        "dnsPolicy": {
-          "type": "string",
-          "description": "Set DNS policy for the pod."
-        },
-        "dnsConfig": {
-          "$ref": "#/$defs/PodDNSConfig",
-          "description": "Specifies the DNS parameters of a pod."
         }
       },
       "additionalProperties": false,
@@ -630,17 +608,6 @@
           },
           "type": "object",
           "description": "NodeSelector is the node selector to use for coredns."
-        },
-        "affinity": {
-          "type": "object",
-          "description": "Affinity is the affinity to apply to the pod."
-        },
-        "tolerations": {
-          "items": {
-            "type": "object"
-          },
-          "type": "array",
-          "description": "Tolerations are the tolerations to apply to the pod."
         },
         "resources": {
           "$ref": "#/$defs/Resources",
@@ -1011,23 +978,6 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled defines if this option should be enabled."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "EnableSwitchWithTranslate": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if this option should be enabled."
-        },
-        "translate": {
-          "items": {
-            "$ref": "#/$defs/TranslatePatch"
-          },
-          "type": "array",
-          "description": "Translate the patch according to the given patches."
         }
       },
       "additionalProperties": false,
@@ -1452,6 +1402,13 @@
           "type": "boolean",
           "description": "SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection."
         },
+        "syncLabels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "SyncLabels are labels that should get not rewritten when syncing from the virtual cluster."
+        },
         "hostMetricsBindAddress": {
           "type": "string",
           "description": "HostMetricsBindAddress is the bind address for the local manager"
@@ -1618,43 +1575,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ExternalSecrets": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines whether the external secret integration is enabled or not"
-        },
-        "webhook": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "Webhook defines whether the host webhooks are reused or not"
-        },
-        "sync": {
-          "$ref": "#/$defs/ExternalSecretsSync",
-          "description": "Sync defines the syncing behavior for the integration"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster"
-    },
-    "ExternalSecretsSync": {
-      "properties": {
-        "externalSecrets": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "ExternalSecrets defines whether to sync external secrets or not"
-        },
-        "stores": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "Stores defines whether to sync stores or not"
-        },
-        "clusterStores": {
-          "$ref": "#/$defs/ClusterStoresSyncConfig",
-          "description": "ClusterStores defines whether to sync cluster stores or not"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "Hook": {
       "properties": {
         "apiVersion": {
@@ -1802,86 +1722,11 @@
         "metricsServer": {
           "$ref": "#/$defs/MetricsServer",
           "description": "MetricsServer reuses the metrics server from the host cluster within the vCluster."
-        },
-        "kubeVirt": {
-          "$ref": "#/$defs/KubeVirt",
-          "description": "KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster"
-        },
-        "externalSecrets": {
-          "$ref": "#/$defs/ExternalSecrets",
-          "description": "ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "Integrations holds config for vCluster integrations with other operators or tools running on the host cluster"
-    },
-    "KubeVirt": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled signals if the integration should be enabled"
-        },
-        "apiService": {
-          "$ref": "#/$defs/APIService",
-          "description": "APIService holds information about where to find the virt-api service. Defaults to virt-api/kubevirt."
-        },
-        "webhook": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "Webhook holds configuration for enabling the webhook within the vCluster"
-        },
-        "sync": {
-          "$ref": "#/$defs/KubeVirtSync",
-          "description": "Sync holds configuration on what resources to sync"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster"
-    },
-    "KubeVirtSync": {
-      "properties": {
-        "dataVolumes": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "If DataVolumes should get synced"
-        },
-        "virtualMachineInstanceMigrations": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "If VirtualMachineInstanceMigrations should get synced"
-        },
-        "virtualMachineInstances": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "If VirtualMachineInstances should get synced"
-        },
-        "virtualMachines": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "If VirtualMachines should get synced"
-        },
-        "virtualMachineClones": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "If VirtualMachineClones should get synced"
-        },
-        "virtualMachinePools": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "If VirtualMachinePools should get synced"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "KubeVirtSync are the crds that are supported by this integration"
-    },
-    "LabelSelector": {
-      "properties": {
-        "labels": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object",
-          "description": "Labels defines what labels should be looked for"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
     },
     "LabelsAndAnnotations": {
       "properties": {
@@ -2445,49 +2290,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "PodDNSConfig": {
-      "properties": {
-        "nameservers": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "A list of DNS name server IP addresses.\nThis will be appended to the base nameservers generated from DNSPolicy.\nDuplicated nameservers will be removed.\n+optional\n+listType=atomic"
-        },
-        "searches": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "A list of DNS search domains for host-name lookup.\nThis will be appended to the base search paths generated from DNSPolicy.\nDuplicated search paths will be removed.\n+optional\n+listType=atomic"
-        },
-        "options": {
-          "items": {
-            "$ref": "#/$defs/PodDNSConfigOption"
-          },
-          "type": "array",
-          "description": "A list of DNS resolver options.\nThis will be merged with the base options generated from DNSPolicy.\nDuplicated entries will be removed. Resolution options given in Options\nwill override those that appear in the base DNSPolicy.\n+optional\n+listType=atomic"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "PodDNSConfig defines the DNS parameters of a pod in addition to those generated from DNSPolicy."
-    },
-    "PodDNSConfigOption": {
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Required."
-        },
-        "value": {
-          "type": "string",
-          "description": "+optional"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "PodDNSConfigOption defines DNS resolver options of a pod."
-    },
     "Policies": {
       "properties": {
         "networkPolicy": {
@@ -2883,13 +2685,6 @@
         "all": {
           "type": "boolean",
           "description": "All defines if all resources of that type should get synced or only the necessary ones that are needed."
-        },
-        "translate": {
-          "items": {
-            "$ref": "#/$defs/TranslatePatch"
-          },
-          "type": "array",
-          "description": "Translate the patch according to the given patches."
         }
       },
       "additionalProperties": false,
@@ -2909,14 +2704,6 @@
           "$ref": "#/$defs/EnableSwitch",
           "description": "IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back."
         },
-        "runtimeClasses": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back."
-        },
-        "priorityClasses": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "PriorityClasses defines if priority classes classes should get synced from the host cluster to the virtual cluster, but not back."
-        },
         "storageClasses": {
           "$ref": "#/$defs/EnableAutoSwitch",
           "description": "StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
@@ -2932,23 +2719,6 @@
         "csiStorageCapacities": {
           "$ref": "#/$defs/EnableAutoSwitch",
           "description": "CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
-        },
-        "customResourceDefinitions": {
-          "additionalProperties": {
-            "$ref": "#/$defs/SyncFromHostCustomResourceDefinition"
-          },
-          "type": "object",
-          "description": "CustomResourceDefinitions defines what custom resource definitions should get synced read-only to the virtual cluster from the host cluster."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "SyncFromHostCustomResourceDefinition": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if this option should be enabled."
         }
       },
       "additionalProperties": false,
@@ -3020,13 +2790,6 @@
         "rewriteHosts": {
           "$ref": "#/$defs/SyncRewriteHosts",
           "description": "RewriteHosts is a special option needed to rewrite statefulset containers to allow the correct FQDN. virtual cluster will add\na small container to each stateful set pod that will initially rewrite the /etc/hosts file to match the FQDN expected by\nthe virtual cluster."
-        },
-        "translate": {
-          "items": {
-            "$ref": "#/$defs/TranslatePatch"
-          },
-          "type": "array",
-          "description": "Translate the patch according to the given patches."
         }
       },
       "additionalProperties": false,
@@ -3075,11 +2838,11 @@
           "description": "ConfigMaps defines if config maps created within the virtual cluster should get synced to the host cluster."
         },
         "ingresses": {
-          "$ref": "#/$defs/EnableSwitchWithTranslate",
+          "$ref": "#/$defs/EnableSwitch",
           "description": "Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster."
         },
         "services": {
-          "$ref": "#/$defs/EnableSwitchWithTranslate",
+          "$ref": "#/$defs/EnableSwitch",
           "description": "Services defines if services created within the virtual cluster should get synced to the host cluster."
         },
         "endpoints": {
@@ -3091,7 +2854,7 @@
           "description": "NetworkPolicies defines if network policies created within the virtual cluster should get synced to the host cluster."
         },
         "persistentVolumeClaims": {
-          "$ref": "#/$defs/EnableSwitchWithTranslate",
+          "$ref": "#/$defs/EnableSwitch",
           "description": "PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster."
         },
         "persistentVolumes": {
@@ -3117,30 +2880,6 @@
         "priorityClasses": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster."
-        },
-        "customResourceDefinitions": {
-          "additionalProperties": {
-            "$ref": "#/$defs/SyncToHostCustomResourceDefinition"
-          },
-          "type": "object",
-          "description": "CustomResourceDefinitions defines what custom resource definitions should get synced from the virtual cluster to the host cluster."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "SyncToHostCustomResourceDefinition": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if this option should be enabled."
-        },
-        "translate": {
-          "items": {
-            "$ref": "#/$defs/TranslatePatch"
-          },
-          "type": "array",
-          "description": "Translate the patch according to the given patches."
         }
       },
       "additionalProperties": false,
@@ -3167,115 +2906,6 @@
       },
       "additionalProperties": false,
       "type": "object"
-    },
-    "TranslatePatch": {
-      "oneOf": [
-        {
-          "required": [
-            "expression"
-          ],
-          "title": "expression"
-        },
-        {
-          "required": [
-            "reference"
-          ],
-          "title": "reference"
-        },
-        {
-          "required": [
-            "labels"
-          ],
-          "title": "labels"
-        }
-      ],
-      "properties": {
-        "path": {
-          "type": "string",
-          "description": "Path is the path within the patch to target. If the path is not found within the patch, the patch is not applied."
-        },
-        "expression": {
-          "$ref": "#/$defs/TranslatePatchExpression",
-          "description": "Expression transforms the value according to the given JavaScript expression."
-        },
-        "reference": {
-          "$ref": "#/$defs/TranslatePatchReference",
-          "description": "Reference treats the path value as a reference to another object and will rewrite it based on the chosen mode\nautomatically. In single-namespace mode this will translate the name to \"vxxxxxxxxx\" to avoid conflicts with\nother names, in multi-namespace mode this will not translate the name."
-        },
-        "labels": {
-          "$ref": "#/$defs/TranslatePatchLabels",
-          "description": "Labels treats the path value as a labels selector."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "TranslatePatchExpression": {
-      "oneOf": [
-        {
-          "required": [
-            "toHost"
-          ],
-          "title": "toHost"
-        },
-        {
-          "required": [
-            "fromHost"
-          ],
-          "title": "fromHost"
-        }
-      ],
-      "properties": {
-        "toHost": {
-          "type": "string",
-          "description": "ToHost is the expression to apply when retrieving a change from virtual to host."
-        },
-        "fromHost": {
-          "type": "string",
-          "description": "FromHost is the patch to apply when retrieving a change from host to virtual."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "TranslatePatchLabels": {
-      "properties": {},
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "TranslatePatchReference": {
-      "properties": {
-        "apiVersion": {
-          "type": "string",
-          "description": "APIVersion is the apiVersion of the referenced object."
-        },
-        "apiVersionPath": {
-          "type": "string",
-          "description": "APIVersionPath is optional relative path to use to determine the kind. If APIVersionPath is not found, will fallback to apiVersion."
-        },
-        "kind": {
-          "type": "string",
-          "description": "Kind is the kind of the referenced object."
-        },
-        "kindPath": {
-          "type": "string",
-          "description": "KindPath is the optional relative path to use to determine the kind. If KindPath is not found, will fallback to kind."
-        },
-        "namePath": {
-          "type": "string",
-          "description": "NamePath is the optional relative path to the reference name within the object."
-        },
-        "namespacePath": {
-          "type": "string",
-          "description": "NamespacePath is the optional relative path to the reference namespace within the object. If omitted or not found, namespacePath equals to the\nmetadata.namespace path of the object."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "apiVersion",
-        "kind"
-      ]
     },
     "ValidatingWebhook": {
       "properties": {

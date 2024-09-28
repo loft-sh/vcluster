@@ -102,10 +102,8 @@ sync:
     # IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
     ingressClasses:
       enabled: false
-    # RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
     runtimeClasses:
       enabled: false
-    # PriorityClasses defines if priority classes classes should get synced from the host cluster to the virtual cluster, but not back.
     priorityClasses:
       enabled: false
     # Nodes defines if nodes should get synced from the host cluster to the virtual cluster, but not back.
@@ -430,9 +428,7 @@ controlPlane:
         annotations: {}
       # NodeSelector is the node selector to use for coredns.
       nodeSelector: {}
-      # Affinity is the affinity to apply to the pod.
       affinity: {}
-      # Tolerations are the tolerations to apply to the pod.
       tolerations: []
       # Resources are the desired resources for coredns.
       resources:
@@ -653,55 +649,34 @@ integrations:
     nodes: true
     # Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
     pods: true
-  
-  # ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster
   externalSecrets:
-    # Enabled defines whether the external secret integration is enabled or not
     enabled: false
-    # Webhook defines whether the host webhooks are reused or not
     webhook:
       enabled: false
-    # Sync defines the syncing behavior for the integration
     sync:
-      # ExternalSecrets defines whether to sync external secrets or not
       externalSecrets:
         enabled: true
-      # Stores defines whether to sync stores or not
       stores:
         enabled: false
-      # ClusterStores defines whether to sync cluster stores or not
       clusterStores:
-        # Enabled defines if this option should be enabled.
         enabled: false
-        # Selector defines what cluster stores should be synced
         selector:
           labels: {}
-  
-  # KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
   kubeVirt:
-    # Enabled signals if the integration should be enabled
     enabled: false
-    # Webhook holds configuration for enabling the webhook within the vCluster
     webhook:
       enabled: true
-    # Sync holds configuration on what resources to sync
     sync:
-      # If DataVolumes should get synced
       dataVolumes:
         enabled: false
-      # If VirtualMachines should get synced
       virtualMachines:
         enabled: true
-      # If VirtualMachineInstances should get synced
       virtualMachineInstances:
         enabled: true
-      # If VirtualMachinePools should get synced
       virtualMachinePools:
         enabled: true
-      # If VirtualMachineClones should get synced
       virtualMachineClones:
         enabled: true
-      # If VirtualMachineInstanceMigrations should get synced
       virtualMachineInstanceMigrations:
         enabled: true
 
