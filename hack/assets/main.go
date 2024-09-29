@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	vclusterconfig "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config/v0.21"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/coredns"

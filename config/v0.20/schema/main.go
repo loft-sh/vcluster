@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/loft-sh/vcluster/config/v0.20"
 	"os"
 	"path/filepath"
 	"strings"
 
-	orderedmap "github.com/wk8/go-ordered-map/v2"
-
 	"github.com/invopop/jsonschema"
+	"github.com/loft-sh/vcluster/config/v0.20"
+	orderedmap "github.com/wk8/go-ordered-map/v2"
 	"gopkg.in/yaml.v3"
 )
 

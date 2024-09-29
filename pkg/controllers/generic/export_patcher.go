@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-	vclusterconfig "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config/v0.21"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patches"
 	patchesregex "github.com/loft-sh/vcluster/pkg/patches/regex"

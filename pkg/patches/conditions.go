@@ -1,7 +1,7 @@
 package patches
 
 import (
-	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/config/v0.21"
 	"github.com/pkg/errors"
 	"github.com/vmware-labs/yaml-jsonpath/pkg/yamlpath"
 	yaml "gopkg.in/yaml.v3"

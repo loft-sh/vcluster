@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/config/v0.21"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pkg/errors"

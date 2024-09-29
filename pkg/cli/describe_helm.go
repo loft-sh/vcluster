@@ -9,7 +9,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/config/v0.21"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

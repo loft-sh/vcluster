@@ -1,7 +1,7 @@
 package testing
 
 import (
-	vclusterconfig "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config/v0.21"
 	"github.com/loft-sh/vcluster/pkg/config"
 )
 

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"text/template"
 
-	vclusterconfig "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config/v0.21"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/util/commandwriter"

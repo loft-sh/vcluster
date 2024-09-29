@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	vconfig "github.com/loft-sh/vcluster/config"
+	vconfig "github.com/loft-sh/vcluster/config/v0.21"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	clientv3 "go.etcd.io/etcd/client/v3"

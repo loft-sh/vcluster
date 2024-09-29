@@ -3,7 +3,7 @@ package generic
 import (
 	"regexp"
 
-	vclusterconfig "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config/v0.21"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patches"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"

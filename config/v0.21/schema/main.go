@@ -4,15 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	config "github.com/loft-sh/vcluster/config/v0.20"
-	config2 "github.com/loft-sh/vcluster/config/v0.21"
 	"os"
 	"path/filepath"
 	"strings"
 
-	orderedmap "github.com/wk8/go-ordered-map/v2"
-
 	"github.com/invopop/jsonschema"
+	config "github.com/loft-sh/vcluster/config/v0.21"
+	orderedmap "github.com/wk8/go-ordered-map/v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -53,7 +51,7 @@ func main() {
 		panic(err)
 	}
 
-	generatedSchema := reflector.Reflect(&config2.Config{})
+	generatedSchema := reflector.Reflect(&config.Config{})
 	transformMapProperties(generatedSchema)
 	modifySchema(generatedSchema, cleanUp)
 	err = addPlatformSchema(generatedSchema)

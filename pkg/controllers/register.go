@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	vclusterconfig "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config/v0.21"
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
