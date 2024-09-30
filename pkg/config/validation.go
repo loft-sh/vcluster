@@ -8,7 +8,7 @@ import (
 	"slices"
 
 	"github.com/ghodss/yaml"
-	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/config/v0.21"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/validation"

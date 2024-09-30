@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	vclusterconfig "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config/v0.21"
 	"github.com/olekukonko/tablewriter"
 	"gopkg.in/yaml.v2"
 

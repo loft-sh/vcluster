@@ -1,7 +1,7 @@
 package pro
 
 import (
-	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/config/v0.21"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

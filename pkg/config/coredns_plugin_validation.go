@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	vclusterconfig "github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config/v0.21"
 )
 
 func validateMappings(resolveDNS []vclusterconfig.ResolveDNS) error {

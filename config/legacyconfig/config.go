@@ -1,7 +1,7 @@
 package legacyconfig
 
 import (
-	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/config/v0.21"
 )
 
 type LegacyK0sAndK3s struct {

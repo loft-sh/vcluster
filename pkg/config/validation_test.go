@@ -3,7 +3,7 @@ package config
 import (
 	"testing"
 
-	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/config/v0.21"
 )
 
 func Test(t *testing.T) {

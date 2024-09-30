@@ -3,8 +3,8 @@ package config
 import (
 	"strings"
 
-	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/config/legacyconfig"
+	"github.com/loft-sh/vcluster/config/v0.21"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"

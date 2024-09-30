@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/config/v0.21"
 	"sigs.k8s.io/yaml"
 )
 
