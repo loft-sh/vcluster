@@ -323,6 +323,10 @@ func (f *exporter) ExcludePhysical(_ client.Object) bool {
 }
 
 func (f *exporter) excludeObject(obj client.Object) bool {
+	if f.selector == nil {
+		return false
+	}
+
 	matches := f.selector.Matches(labels.Set(obj.GetLabels()))
 	return !matches
 }
