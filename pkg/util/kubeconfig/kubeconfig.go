@@ -31,6 +31,7 @@ const (
 	CADataSecretKey         = "certificate-authority"
 	CertificateSecretKey    = "client-certificate"
 	CertificateKeySecretKey = "client-key"
+	TokenSecretKey          = "token"
 )
 
 func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, secretName, secretNamespace string, config *clientcmdapi.Config, isRemote bool) error {
@@ -63,6 +64,7 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 		caData := clientConfig.CAData
 		cert := clientConfig.CertData
 		key := clientConfig.KeyData
+		token := clientConfig.BearerToken
 
 		kubeConfigSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -79,6 +81,7 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 			kubeConfigSecret.Data[CADataSecretKey] = caData
 			kubeConfigSecret.Data[CertificateSecretKey] = cert
 			kubeConfigSecret.Data[CertificateKeySecretKey] = key
+			kubeConfigSecret.Data[TokenSecretKey] = []byte(token)
 
 			// set owner reference
 			if !isRemote && translate.Owner != nil && translate.Owner.GetNamespace() == kubeConfigSecret.Namespace {

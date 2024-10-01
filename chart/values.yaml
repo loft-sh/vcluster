@@ -849,8 +849,21 @@ exportKubeConfig:
   # Override the default https://localhost:8443 and specify a custom hostname for the generated kubeconfig.
   server: ""
   
+  # If tls should get skipped for the server
+  insecure: false
+  
+  # ServiceAccount can be used to generate a service account token instead of the default certificates.
+  serviceAccount:
+    # Name of the service account to be used to generate a service account token instead of the default certificates.
+    name: ""
+    # Namespace of the service account to be used to generate a service account token instead of the default certificates.
+    # If omitted, will use the kube-system namespace.
+    namespace: ""
+    # ClusterRole to assign to the service account.
+    clusterRole: ""
+  
   # Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.
-  # If this is not defined, vCluster create it with `vc-NAME`. If you specify another name,
+  # If this is not defined, vCluster will create it with `vc-NAME`. If you specify another name,
   # vCluster creates the config in this other secret.
   secret:
     # Name is the name of the secret where the kubeconfig should get stored.

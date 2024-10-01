@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	"github.com/loft-sh/vcluster/pkg/util/serviceaccount"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -156,8 +157,14 @@ func (cmd *connectPlatform) getVClusterKubeConfig(ctx context.Context, platformC
 			return nil, fmt.Errorf("forward token is not enabled on the virtual cluster and hence you cannot authenticate with a service account token")
 		}
 
+		// init client
+		vKubeClient, serviceAccount, serviceAccountNamespace, err := getServiceAccountClientAndName(*kubeConfig, cmd.ConnectOptions)
+		if err != nil {
+			return nil, err
+		}
+
 		// create service account token
-		token, err := createServiceAccountToken(ctx, *kubeConfig, cmd.ConnectOptions, cmd.log)
+		token, err := serviceaccount.CreateServiceAccountToken(ctx, vKubeClient, serviceAccount, serviceAccountNamespace, cmd.ServiceAccountClusterRole, int64(cmd.ServiceAccountExpiration), cmd.log)
 		if err != nil {
 			return nil, err
 		}

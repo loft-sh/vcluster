@@ -240,11 +240,7 @@ func CreateVClusterKubeConfig(config *clientcmdapi.Config, options *config.Virtu
 			cluster.CertificateAuthorityData = o
 		}
 
-		if options.ExportKubeConfig.Server != "" {
-			cluster.Server = options.ExportKubeConfig.Server
-		} else {
-			cluster.Server = fmt.Sprintf("https://localhost:%d", options.ControlPlane.Proxy.Port)
-		}
+		cluster.Server = fmt.Sprintf("https://localhost:%d", options.ControlPlane.Proxy.Port)
 	}
 
 	// resolve auth info cert & key
@@ -271,6 +267,52 @@ func CreateVClusterKubeConfig(config *clientcmdapi.Config, options *config.Virtu
 
 			authInfo.ClientKey = ""
 			authInfo.ClientKeyData = o
+		}
+	}
+
+	// exchange context name
+	if options.ExportKubeConfig.Context != "" {
+		config.CurrentContext = options.ExportKubeConfig.Context
+		// update authInfo
+		for k, authInfo := range config.AuthInfos {
+			if authInfo == nil {
+				continue
+			}
+
+			config.AuthInfos[config.CurrentContext] = authInfo
+			if k != config.CurrentContext {
+				delete(config.AuthInfos, k)
+			}
+			break
+		}
+
+		// update cluster
+		for k, cluster := range config.Clusters {
+			if cluster == nil {
+				continue
+			}
+
+			config.Clusters[config.CurrentContext] = cluster
+			if k != config.CurrentContext {
+				delete(config.Clusters, k)
+			}
+			break
+		}
+
+		// update context
+		for k, context := range config.Contexts {
+			if context == nil {
+				continue
+			}
+
+			tmpCtx := context
+			tmpCtx.Cluster = config.CurrentContext
+			tmpCtx.AuthInfo = config.CurrentContext
+			config.Contexts[config.CurrentContext] = tmpCtx
+			if k != config.CurrentContext {
+				delete(config.Contexts, k)
+			}
+			break
 		}
 	}
 

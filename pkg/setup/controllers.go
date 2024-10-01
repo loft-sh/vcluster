@@ -10,20 +10,25 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/coredns"
+	"github.com/loft-sh/vcluster/pkg/log"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/util/serviceaccount"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -136,12 +141,15 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 
 	// write the kube config to secret
 	go func() {
-		wait.Until(func() {
-			err := WriteKubeConfigToSecret(controllerContext.Context, controllerContext.Config.ControlPlaneNamespace, controlPlaneClient, controllerContext.Config, controllerContext.VirtualRawConfig)
+		_ = wait.PollUntilContextCancel(controllerContext, time.Second*10, true, func(ctx context.Context) (bool, error) {
+			err := WriteKubeConfigToSecret(ctx, controllerContext.VirtualManager.GetConfig(), controllerContext.Config.ControlPlaneNamespace, controlPlaneClient, controllerContext.Config, controllerContext.VirtualRawConfig)
 			if err != nil {
 				klog.Errorf("Error writing kube config to secret: %v", err)
+				return false, nil
 			}
-		}, time.Minute, controllerContext.StopChan)
+
+			return true, nil
+		})
 	}()
 
 	// set leader
@@ -196,54 +204,52 @@ func SyncKubernetesService(ctx *synccontext.ControllerContext) error {
 	return nil
 }
 
-func WriteKubeConfigToSecret(ctx context.Context, currentNamespace string, currentNamespaceClient client.Client, options *config.VirtualClusterConfig, syncerConfig *clientcmdapi.Config) error {
+func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, currentNamespace string, currentNamespaceClient client.Client, options *config.VirtualClusterConfig, syncerConfig *clientcmdapi.Config) error {
 	syncerConfig, err := CreateVClusterKubeConfig(syncerConfig, options)
 	if err != nil {
 		return err
 	}
 
-	if options.ExportKubeConfig.Context != "" {
-		syncerConfig.CurrentContext = options.ExportKubeConfig.Context
-		// update authInfo
-		for k, authInfo := range syncerConfig.AuthInfos {
-			if authInfo == nil {
-				continue
-			}
-
-			syncerConfig.AuthInfos[syncerConfig.CurrentContext] = authInfo
-			if k != syncerConfig.CurrentContext {
-				delete(syncerConfig.AuthInfos, k)
-			}
-			break
-		}
-
-		// update cluster
-		for k, cluster := range syncerConfig.Clusters {
+	// should use special server?
+	if options.ExportKubeConfig.Server != "" {
+		// exchange kube config server & resolve certificate
+		for key, cluster := range syncerConfig.Clusters {
 			if cluster == nil {
 				continue
 			}
 
-			syncerConfig.Clusters[syncerConfig.CurrentContext] = cluster
-			if k != syncerConfig.CurrentContext {
-				delete(syncerConfig.Clusters, k)
+			syncerConfig.Clusters[key] = &clientcmdapi.Cluster{
+				Server:     options.ExportKubeConfig.Server,
+				Extensions: make(map[string]runtime.Object),
+
+				InsecureSkipTLSVerify: options.ExportKubeConfig.Insecure,
 			}
-			break
+		}
+	}
+
+	// should use service account token for secret?
+	if options.ExportKubeConfig.ServiceAccount.Name != "" {
+		serviceAccountNamespace := options.ExportKubeConfig.ServiceAccount.Namespace
+		if serviceAccountNamespace == "" {
+			serviceAccountNamespace = "kube-system"
 		}
 
-		// update context
-		for k, context := range syncerConfig.Contexts {
-			if context == nil {
-				continue
-			}
+		kubeClient, err := kubernetes.NewForConfig(virtualConfig)
+		if err != nil {
+			return fmt.Errorf("create kube client: %w", err)
+		}
 
-			tmpCtx := context
-			tmpCtx.Cluster = syncerConfig.CurrentContext
-			tmpCtx.AuthInfo = syncerConfig.CurrentContext
-			syncerConfig.Contexts[syncerConfig.CurrentContext] = tmpCtx
-			if k != syncerConfig.CurrentContext {
-				delete(syncerConfig.Contexts, k)
+		token, err := serviceaccount.CreateServiceAccountToken(ctx, kubeClient, options.ExportKubeConfig.ServiceAccount.Name, serviceAccountNamespace, options.ExportKubeConfig.ServiceAccount.ClusterRole, 0, log.NewFromExisting(klog.FromContext(ctx), "write-kube-context"))
+		if err != nil {
+			return fmt.Errorf("create service account token for export kube config: %w", err)
+		}
+
+		for k := range syncerConfig.AuthInfos {
+			syncerConfig.AuthInfos[k] = &clientcmdapi.AuthInfo{
+				Token:                token,
+				Extensions:           make(map[string]runtime.Object),
+				ImpersonateUserExtra: make(map[string][]string),
 			}
-			break
 		}
 	}
 
