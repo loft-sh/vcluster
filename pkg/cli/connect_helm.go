@@ -329,6 +329,7 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vcluster *fin
 
 	// check if the vcluster is exposed and set server
 	if vcluster.Name != "" && cmd.Server == "" && len(command) == 0 {
+		// check if local kubernetes / can be exposed
 		err = cmd.setServerIfExposed(ctx, vcluster, kubeConfig)
 		if err != nil {
 			return nil, err
@@ -338,14 +339,14 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vcluster *fin
 		if cmd.Server == "" && cmd.BackgroundProxy {
 			if localkubernetes.IsDockerInstalledAndUpAndRunning() {
 				// start background container
-				server, err := localkubernetes.CreateBackgroundProxyContainer(ctx, vcluster.Name, cmd.Namespace, cmd.kubeClientConfig, kubeConfig, cmd.LocalPort, cmd.Log)
+				cmd.Server, err = localkubernetes.CreateBackgroundProxyContainer(ctx, vcluster.Name, cmd.Namespace, cmd.kubeClientConfig, kubeConfig, cmd.LocalPort, cmd.Log)
 				if err != nil {
 					cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
 					cmd.BackgroundProxy = false
 				}
-				cmd.Server = server
 			} else {
 				cmd.Log.Debugf("Docker is not installed, so skip background proxy")
+				cmd.BackgroundProxy = false
 			}
 		}
 	}
@@ -445,15 +446,13 @@ func (cmd *connectHelm) setServerIfExposed(ctx context.Context, vcluster *find.V
 		}
 
 		// not a load balancer? Then don't wait
-		if service.Spec.Type == corev1.ServiceTypeNodePort {
-			server, err := localkubernetes.ExposeLocal(ctx, vcluster.Name, cmd.Namespace, &cmd.rawConfig, vClusterConfig, service, cmd.LocalPort, cmd.Log)
+		if service.Spec.Type != corev1.ServiceTypeLoadBalancer {
+			server, err := localkubernetes.ExposeLocal(ctx, &cmd.rawConfig, vClusterConfig, service)
 			if err != nil {
 				cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
 			}
 
 			cmd.Server = server
-			return true, nil
-		} else if service.Spec.Type != corev1.ServiceTypeLoadBalancer {
 			return true, nil
 		}
 

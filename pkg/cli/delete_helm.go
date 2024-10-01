@@ -285,11 +285,6 @@ func (cmd *deleteHelm) prepare(vCluster *find.VCluster) error {
 		return err
 	}
 
-	err = localkubernetes.CleanupLocal(vCluster.Name, vCluster.Namespace, &rawConfig, cmd.log)
-	if err != nil {
-		cmd.log.Warnf("error cleaning up: %v", err)
-	}
-
 	// construct proxy name
 	proxyName := find.VClusterConnectBackgroundProxyName(vCluster.Name, vCluster.Namespace, rawConfig.CurrentContext)
 	_ = localkubernetes.CleanupBackgroundProxy(proxyName, cmd.log)
