@@ -21,12 +21,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/portforward"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/loft-sh/vcluster/pkg/util/serviceaccount"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -402,7 +400,12 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vcluster *fin
 
 	// we want to use a service account token in the kube config
 	if cmd.ServiceAccount != "" {
-		token, err := createServiceAccountToken(ctx, *kubeConfig, cmd.ConnectOptions, cmd.Log)
+		vKubeClient, serviceAccount, serviceAccountNamespace, err := getServiceAccountClientAndName(*kubeConfig, cmd.ConnectOptions)
+		if err != nil {
+			return nil, err
+		}
+
+		token, err := serviceaccount.CreateServiceAccountToken(ctx, vKubeClient, serviceAccount, serviceAccountNamespace, cmd.ServiceAccountClusterRole, int64(cmd.ServiceAccountExpiration), cmd.Log)
 		if err != nil {
 			return nil, err
 		}
@@ -418,6 +421,29 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vcluster *fin
 	}
 
 	return kubeConfig, nil
+}
+
+func getServiceAccountClientAndName(kubeConfig clientcmdapi.Config, options *ConnectOptions) (kubernetes.Interface, string, string, error) {
+	vKubeClient, err := getLocalVClusterClient(kubeConfig, options)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	var (
+		serviceAccount          = options.ServiceAccount
+		serviceAccountNamespace = "kube-system"
+	)
+	if strings.Contains(options.ServiceAccount, "/") {
+		splitted := strings.Split(options.ServiceAccount, "/")
+		if len(splitted) != 2 {
+			return nil, "", "", fmt.Errorf("unexpected service account reference, expected ServiceAccountNamespace/ServiceAccountName")
+		}
+
+		serviceAccountNamespace = splitted[0]
+		serviceAccount = splitted[1]
+	}
+
+	return vKubeClient, serviceAccount, serviceAccountNamespace, nil
 }
 
 func (cmd *connectHelm) setServerIfExposed(ctx context.Context, vcluster *find.VCluster, vClusterConfig *clientcmdapi.Config) error {
@@ -666,145 +692,4 @@ func (cmd *connectHelm) waitForVCluster(ctx context.Context, vKubeConfig clientc
 	}
 
 	return nil
-}
-
-func createServiceAccountToken(ctx context.Context, vKubeConfig clientcmdapi.Config, options *ConnectOptions, log log.Logger) (string, error) {
-	vKubeClient, err := getLocalVClusterClient(vKubeConfig, options)
-	if err != nil {
-		return "", err
-	}
-
-	var (
-		serviceAccount          = options.ServiceAccount
-		serviceAccountNamespace = "kube-system"
-	)
-	if strings.Contains(options.ServiceAccount, "/") {
-		splitted := strings.Split(options.ServiceAccount, "/")
-		if len(splitted) != 2 {
-			return "", fmt.Errorf("unexpected service account reference, expected ServiceAccountNamespace/ServiceAccountName")
-		}
-
-		serviceAccountNamespace = splitted[0]
-		serviceAccount = splitted[1]
-	}
-
-	audiences := []string{"https://kubernetes.default.svc.cluster.local", "https://kubernetes.default.svc", "https://kubernetes.default"}
-	expirationSeconds := int64(10 * 365 * 24 * 60 * 60)
-	if options.ServiceAccountExpiration > 0 {
-		expirationSeconds = int64(options.ServiceAccountExpiration)
-	}
-	token := ""
-	log.Infof("Create service account token for %s/%s", serviceAccountNamespace, serviceAccount)
-	err = wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*3, false, func(ctx context.Context) (bool, error) {
-		// check if namespace exists
-		_, err := vKubeClient.CoreV1().Namespaces().Get(ctx, serviceAccountNamespace, metav1.GetOptions{})
-		if err != nil {
-			if kerrors.IsNotFound(err) || kerrors.IsForbidden(err) {
-				return false, err
-			}
-
-			return false, nil
-		}
-
-		// check if service account exists
-		_, err = vKubeClient.CoreV1().ServiceAccounts(serviceAccountNamespace).Get(ctx, serviceAccount, metav1.GetOptions{})
-		if err != nil {
-			if kerrors.IsNotFound(err) {
-				if serviceAccount == "default" {
-					return false, nil
-				}
-
-				if options.ServiceAccountClusterRole != "" {
-					// create service account
-					_, err = vKubeClient.CoreV1().ServiceAccounts(serviceAccountNamespace).Create(ctx, &corev1.ServiceAccount{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      serviceAccount,
-							Namespace: serviceAccountNamespace,
-						},
-					}, metav1.CreateOptions{})
-					if err != nil {
-						return false, err
-					}
-
-					log.Donef("Created service account %s/%s", serviceAccountNamespace, serviceAccount)
-				} else {
-					return false, err
-				}
-			} else if kerrors.IsForbidden(err) {
-				return false, err
-			} else {
-				return false, nil
-			}
-		}
-
-		// create service account cluster role binding
-		if options.ServiceAccountClusterRole != "" {
-			clusterRoleBindingName := translate.SafeConcatName("vcluster", "sa", serviceAccount, serviceAccountNamespace)
-			clusterRoleBinding, err := vKubeClient.RbacV1().ClusterRoleBindings().Get(ctx, clusterRoleBindingName, metav1.GetOptions{})
-			if err != nil {
-				if kerrors.IsNotFound(err) {
-					// create cluster role binding
-					_, err = vKubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: clusterRoleBindingName,
-						},
-						RoleRef: rbacv1.RoleRef{
-							APIGroup: rbacv1.SchemeGroupVersion.Group,
-							Kind:     "ClusterRole",
-							Name:     options.ServiceAccountClusterRole,
-						},
-						Subjects: []rbacv1.Subject{
-							{
-								Kind:      "ServiceAccount",
-								Name:      serviceAccount,
-								Namespace: serviceAccountNamespace,
-							},
-						},
-					}, metav1.CreateOptions{})
-					if err != nil {
-						return false, err
-					}
-
-					log.Donef("Created cluster role binding for cluster role %s", options.ServiceAccountClusterRole)
-				} else if kerrors.IsForbidden(err) {
-					return false, err
-				} else {
-					return false, nil
-				}
-			} else {
-				// if cluster role differs, recreate it
-				if clusterRoleBinding.RoleRef.Name != options.ServiceAccountClusterRole {
-					err = vKubeClient.RbacV1().ClusterRoleBindings().Delete(ctx, clusterRoleBindingName, metav1.DeleteOptions{})
-					if err != nil {
-						return false, err
-					}
-
-					log.Done("Recreate cluster role binding for service account")
-					// this will recreate the cluster role binding in the next iteration
-					return false, nil
-				}
-			}
-		}
-
-		// create service account token
-		result, err := vKubeClient.CoreV1().ServiceAccounts(serviceAccountNamespace).CreateToken(ctx, serviceAccount, &authenticationv1.TokenRequest{Spec: authenticationv1.TokenRequestSpec{
-			Audiences:         audiences,
-			ExpirationSeconds: &expirationSeconds,
-		}}, metav1.CreateOptions{})
-		if err != nil {
-			if kerrors.IsNotFound(err) || kerrors.IsForbidden(err) {
-				return false, err
-			}
-
-			return false, nil
-		}
-
-		token = result.Status.Token
-		return true, nil
-	})
-	if err != nil {
-		return "", fmt.Errorf("create service account token: %w", err)
-	}
-
-	return token, nil
 }

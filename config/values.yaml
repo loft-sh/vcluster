@@ -502,6 +502,11 @@ policies:
 exportKubeConfig:
   context: ""
   server: ""
+  insecure: false
+  serviceAccount:
+    name: ""
+    namespace: ""
+    clusterRole: ""
   secret:
     name: ""
     namespace: ""

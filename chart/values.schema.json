@@ -1513,9 +1513,17 @@
           "type": "string",
           "description": "Override the default https://localhost:8443 and specify a custom hostname for the generated kubeconfig."
         },
+        "insecure": {
+          "type": "boolean",
+          "description": "If tls should get skipped for the server"
+        },
+        "serviceAccount": {
+          "$ref": "#/$defs/ExportKubeConfigServiceAccount",
+          "description": "ServiceAccount can be used to generate a service account token instead of the default certificates."
+        },
         "secret": {
           "$ref": "#/$defs/ExportKubeConfigSecretReference",
-          "description": "Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.\nIf this is not defined, vCluster create it with `vc-NAME`. If you specify another name,\nvCluster creates the config in this other secret."
+          "description": "Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.\nIf this is not defined, vCluster will create it with `vc-NAME`. If you specify another name,\nvCluster creates the config in this other secret."
         }
       },
       "additionalProperties": false,
@@ -1536,6 +1544,24 @@
       "additionalProperties": false,
       "type": "object",
       "description": "Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig."
+    },
+    "ExportKubeConfigServiceAccount": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the service account to be used to generate a service account token instead of the default certificates."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace of the service account to be used to generate a service account token instead of the default certificates.\nIf omitted, will use the kube-system namespace."
+        },
+        "clusterRole": {
+          "type": "string",
+          "description": "ClusterRole to assign to the service account."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "ExternalConfig": {
       "properties": {

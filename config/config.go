@@ -353,15 +353,33 @@ func UnmarshalYAMLStrict(data []byte, i any) error {
 // ExportKubeConfig describes how vCluster should export the vCluster kubeconfig.
 type ExportKubeConfig struct {
 	// Context is the name of the context within the generated kubeconfig to use.
-	Context string `json:"context"`
+	Context string `json:"context,omitempty"`
 
 	// Override the default https://localhost:8443 and specify a custom hostname for the generated kubeconfig.
-	Server string `json:"server"`
+	Server string `json:"server,omitempty"`
+
+	// If tls should get skipped for the server
+	Insecure bool `json:"insecure,omitempty"`
+
+	// ServiceAccount can be used to generate a service account token instead of the default certificates.
+	ServiceAccount ExportKubeConfigServiceAccount `json:"serviceAccount,omitempty"`
 
 	// Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.
-	// If this is not defined, vCluster create it with `vc-NAME`. If you specify another name,
+	// If this is not defined, vCluster will create it with `vc-NAME`. If you specify another name,
 	// vCluster creates the config in this other secret.
 	Secret ExportKubeConfigSecretReference `json:"secret,omitempty"`
+}
+
+type ExportKubeConfigServiceAccount struct {
+	// Name of the service account to be used to generate a service account token instead of the default certificates.
+	Name string `json:"name,omitempty"`
+
+	// Namespace of the service account to be used to generate a service account token instead of the default certificates.
+	// If omitted, will use the kube-system namespace.
+	Namespace string `json:"namespace,omitempty"`
+
+	// ClusterRole to assign to the service account.
+	ClusterRole string `json:"clusterRole,omitempty"`
 }
 
 // Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.
