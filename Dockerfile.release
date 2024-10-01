@@ -20,6 +20,9 @@ RUN curl -s https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz 
 # we use alpine for easier debugging
 FROM alpine:3.20
 
+# install runtime dependencies
+RUN apk add --no-cache ca-certificates zstd tzdata
+
 # Set root path as working directory
 WORKDIR /
 
