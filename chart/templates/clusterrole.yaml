@@ -117,7 +117,7 @@ rules:
     resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
     verbs: ["get", "list", "watch"]
   {{- end }}
-  {{- if or .Values.integrations.kubeVirt.enabled .Values.integrations.externalSecrets.enabled .Values.sync.toHost.customResourceDefinitions .Values.sync.fromHost.customResourceDefinitions }}
+  {{- if or .Values.integrations.kubeVirt.enabled .Values.integrations.externalSecrets.enabled .Values.sync.toHost.customResources .Values.sync.fromHost.customResources }}
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "watch"]
@@ -127,7 +127,7 @@ rules:
     resources: ["clustersecretstores"]
     verbs: ["get", "list", "watch"]
   {{- end }}
-  {{- include "vcluster.customResourceDefinitions.clusterRoleExtraRules" . | indent 2 }}
+  {{- include "vcluster.customResources.clusterRoleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.clusterRoleExtraRules" . | indent 2 }}
   {{- include "vcluster.generic.clusterRoleExtraRules" . | indent 2 }}
   {{- include "vcluster.rbac.clusterRoleExtraRules" . | indent 2 }}

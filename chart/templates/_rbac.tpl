@@ -34,8 +34,8 @@
     (eq (toString .Values.sync.fromHost.csiDrivers.enabled) "true")
     (eq (toString .Values.sync.fromHost.csiStorageCapacities.enabled) "true")
     .Values.sync.fromHost.nodes.enabled
-    .Values.sync.toHost.customResourceDefinitions
-    .Values.sync.fromHost.customResourceDefinitions
+    .Values.sync.toHost.customResources
+    .Values.sync.fromHost.customResources
     .Values.integrations.kubeVirt.enabled
     .Values.integrations.externalSecrets.enabled
     (and .Values.integrations.metricsServer.enabled .Values.integrations.metricsServer.nodes)
@@ -128,9 +128,9 @@
 {{/*
   Role rules defined in generic syncer
 */}}
-{{- define "vcluster.customResourceDefinitions.roleExtraRules" -}}
-{{- if .Values.sync.toHost.customResourceDefinitions }}
-{{- range $crdName, $rule := .Values.sync.toHost.customResourceDefinitions }}
+{{- define "vcluster.customResources.roleExtraRules" -}}
+{{- if .Values.sync.toHost.customResources }}
+{{- range $crdName, $rule := .Values.sync.toHost.customResources }}
 {{- if $rule.enabled }}
 - resources: [ "{{ (splitn "." 2 $crdName)._0 }}" ]
   apiGroups: [ "{{ (splitn "." 2 $crdName)._1 }}" ]
@@ -143,9 +143,9 @@
 {{/*
   Cluster role rules defined in generic syncer
 */}}
-{{- define "vcluster.customResourceDefinitions.clusterRoleExtraRules" -}}
-{{- if .Values.sync.fromHost.customResourceDefinitions }}
-{{- range $crdName, $rule := .Values.sync.fromHost.customResourceDefinitions }}
+{{- define "vcluster.customResources.clusterRoleExtraRules" -}}
+{{- if .Values.sync.fromHost.customResources }}
+{{- range $crdName, $rule := .Values.sync.fromHost.customResources }}
 {{- if $rule.enabled }}
 - resources: [ "{{ (splitn "." 2 $crdName)._0 }}" ]
   apiGroups: [ "{{ (splitn "." 2 $crdName)._1 }}" ]
