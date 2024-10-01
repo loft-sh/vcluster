@@ -445,8 +445,9 @@ type SyncToHost struct {
 	// PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster.
 	PriorityClasses EnableSwitch `json:"priorityClasses,omitempty"`
 
-	// CustomResourceDefinitions defines what custom resource definitions should get synced from the virtual cluster to the host cluster.
-	CustomResourceDefinitions map[string]SyncToHostCustomResourceDefinition `json:"customResourceDefinitions,omitempty"`
+	// CustomResources defines what custom resources should get synced from the virtual cluster to the host cluster. vCluster will copy the definition automatically from host cluster to virtual cluster on startup.
+	// vCluster will also automatically add any required RBAC permissions to the vCluster role for this to work.
+	CustomResources map[string]SyncToHostCustomResource `json:"customResources,omitempty"`
 }
 
 type EnableSwitchWithTranslate struct {
@@ -485,11 +486,11 @@ type SyncFromHost struct {
 	// CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
 	CSIStorageCapacities EnableAutoSwitch `json:"csiStorageCapacities,omitempty"`
 
-	// CustomResourceDefinitions defines what custom resource definitions should get synced read-only to the virtual cluster from the host cluster.
-	CustomResourceDefinitions map[string]SyncFromHostCustomResourceDefinition `json:"customResourceDefinitions,omitempty"`
+	// CustomResources defines what custom resources should get synced read-only to the virtual cluster from the host cluster. vCluster will automatically add any required RBAC to the vCluster cluster role.
+	CustomResources map[string]SyncFromHostCustomResource `json:"customResources,omitempty"`
 }
 
-type SyncToHostCustomResourceDefinition struct {
+type SyncToHostCustomResource struct {
 	// Enabled defines if this option should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
@@ -544,7 +545,7 @@ type TranslatePatchExpression struct {
 	FromHost string `json:"fromHost,omitempty" jsonschema:"oneof_required=fromHost"`
 }
 
-type SyncFromHostCustomResourceDefinition struct {
+type SyncFromHostCustomResource struct {
 	// Enabled defines if this option should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 }

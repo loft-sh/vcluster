@@ -350,7 +350,7 @@ tests:
     set:
       sync:
         toHost:
-          customResourceDefinitions:
+          customResources:
             test.test-group:
               enabled: true
     release:
@@ -373,7 +373,7 @@ tests:
     set:
       sync:
         fromHost:
-          customResourceDefinitions:
+          customResources:
             test.test-group:
               enabled: true
     release:

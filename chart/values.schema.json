@@ -2959,18 +2959,18 @@
           "$ref": "#/$defs/EnableAutoSwitch",
           "description": "CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         },
-        "customResourceDefinitions": {
+        "customResources": {
           "additionalProperties": {
-            "$ref": "#/$defs/SyncFromHostCustomResourceDefinition"
+            "$ref": "#/$defs/SyncFromHostCustomResource"
           },
           "type": "object",
-          "description": "CustomResourceDefinitions defines what custom resource definitions should get synced read-only to the virtual cluster from the host cluster."
+          "description": "CustomResources defines what custom resources should get synced read-only to the virtual cluster from the host cluster. vCluster will automatically add any required RBAC to the vCluster cluster role."
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "SyncFromHostCustomResourceDefinition": {
+    "SyncFromHostCustomResource": {
       "properties": {
         "enabled": {
           "type": "boolean",
@@ -3144,18 +3144,18 @@
           "$ref": "#/$defs/EnableSwitch",
           "description": "PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster."
         },
-        "customResourceDefinitions": {
+        "customResources": {
           "additionalProperties": {
-            "$ref": "#/$defs/SyncToHostCustomResourceDefinition"
+            "$ref": "#/$defs/SyncToHostCustomResource"
           },
           "type": "object",
-          "description": "CustomResourceDefinitions defines what custom resource definitions should get synced from the virtual cluster to the host cluster."
+          "description": "CustomResources defines what custom resources should get synced from the virtual cluster to the host cluster. vCluster will copy the definition automatically from host cluster to virtual cluster on startup.\nvCluster will also automatically add any required RBAC permissions to the vCluster role for this to work."
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "SyncToHostCustomResourceDefinition": {
+    "SyncToHostCustomResource": {
       "properties": {
         "enabled": {
           "type": "boolean",

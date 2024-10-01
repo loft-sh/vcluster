@@ -266,7 +266,7 @@ tests:
     set:
       sync:
         toHost:
-          customResourceDefinitions:
+          customResources:
             test.my-group:
               enabled: false
             test.my-group-2:
@@ -302,7 +302,7 @@ tests:
     set:
       sync:
         toHost:
-          customResourceDefinitions:
+          customResources:
             test.my-group-2:
               enabled: true
               translate:
@@ -319,7 +319,7 @@ tests:
     set:
       sync:
         toHost:
-          customResourceDefinitions:
+          customResources:
             test.my-group-2:
               enabled: true
               translate:
