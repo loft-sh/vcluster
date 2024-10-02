@@ -889,9 +889,8 @@ tests:
               enabled: true
               translate:
                 - path: spec.dnsNames[*]
-                  expression:
-                    fromHost: "value.startsWith('www.') ? value.slice(4) : value"
-                    toHost: '"www."+value'
+                  expression: "value.startsWith('www.') ? value.slice(4) : value"
+                  reverseExpression: '"www."+value'
     asserts:
     - equal:
         path: kind
