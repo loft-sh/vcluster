@@ -503,15 +503,18 @@ type TranslatePatch struct {
 	Path string `json:"path,omitempty"`
 
 	// Expression transforms the value according to the given JavaScript expression.
-	Expression *TranslatePatchExpression `json:"expression,omitempty" jsonschema:"oneof_required=expression"`
+	Expression string `json:"expression,omitempty"`
+
+	// ReverseExpression transforms the value according to the given JavaScript expression.
+	ReverseExpression string `json:"reverseExpression,omitempty"`
 
 	// Reference treats the path value as a reference to another object and will rewrite it based on the chosen mode
 	// automatically. In single-namespace mode this will translate the name to "vxxxxxxxxx" to avoid conflicts with
 	// other names, in multi-namespace mode this will not translate the name.
-	Reference *TranslatePatchReference `json:"reference,omitempty" jsonschema:"oneof_required=reference"`
+	Reference *TranslatePatchReference `json:"reference,omitempty"`
 
 	// Labels treats the path value as a labels selector.
-	Labels *TranslatePatchLabels `json:"labels,omitempty" jsonschema:"oneof_required=labels"`
+	Labels *TranslatePatchLabels `json:"labels,omitempty"`
 }
 
 type TranslatePatchLabels struct{}
@@ -539,10 +542,10 @@ type TranslatePatchReference struct {
 
 type TranslatePatchExpression struct {
 	// ToHost is the expression to apply when retrieving a change from virtual to host.
-	ToHost string `json:"toHost,omitempty" jsonschema:"oneof_required=toHost"`
+	ToHost string `json:"toHost,omitempty"`
 
 	// FromHost is the patch to apply when retrieving a change from host to virtual.
-	FromHost string `json:"fromHost,omitempty" jsonschema:"oneof_required=fromHost"`
+	FromHost string `json:"fromHost,omitempty"`
 }
 
 type SyncFromHostCustomResource struct {

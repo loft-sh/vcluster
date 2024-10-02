@@ -307,8 +307,7 @@ tests:
               enabled: true
               translate:
                 - path: "test"
-                  expression:
-                    toHost: "test"
+                  expression: "test"
     release:
       name: my-release
       namespace: my-namespace

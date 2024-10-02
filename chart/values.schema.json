@@ -3195,34 +3195,18 @@
       "type": "object"
     },
     "TranslatePatch": {
-      "oneOf": [
-        {
-          "required": [
-            "expression"
-          ],
-          "title": "expression"
-        },
-        {
-          "required": [
-            "reference"
-          ],
-          "title": "reference"
-        },
-        {
-          "required": [
-            "labels"
-          ],
-          "title": "labels"
-        }
-      ],
       "properties": {
         "path": {
           "type": "string",
           "description": "Path is the path within the patch to target. If the path is not found within the patch, the patch is not applied."
         },
         "expression": {
-          "$ref": "#/$defs/TranslatePatchExpression",
+          "type": "string",
           "description": "Expression transforms the value according to the given JavaScript expression."
+        },
+        "reverseExpression": {
+          "type": "string",
+          "description": "ReverseExpression transforms the value according to the given JavaScript expression."
         },
         "reference": {
           "$ref": "#/$defs/TranslatePatchReference",
@@ -3231,34 +3215,6 @@
         "labels": {
           "$ref": "#/$defs/TranslatePatchLabels",
           "description": "Labels treats the path value as a labels selector."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "TranslatePatchExpression": {
-      "oneOf": [
-        {
-          "required": [
-            "toHost"
-          ],
-          "title": "toHost"
-        },
-        {
-          "required": [
-            "fromHost"
-          ],
-          "title": "fromHost"
-        }
-      ],
-      "properties": {
-        "toHost": {
-          "type": "string",
-          "description": "ToHost is the expression to apply when retrieving a change from virtual to host."
-        },
-        "fromHost": {
-          "type": "string",
-          "description": "FromHost is the patch to apply when retrieving a change from host to virtual."
         }
       },
       "additionalProperties": false,
