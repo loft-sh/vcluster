@@ -3237,20 +3237,6 @@
       "type": "object"
     },
     "TranslatePatchExpression": {
-      "oneOf": [
-        {
-          "required": [
-            "toHost"
-          ],
-          "title": "toHost"
-        },
-        {
-          "required": [
-            "fromHost"
-          ],
-          "title": "fromHost"
-        }
-      ],
       "properties": {
         "toHost": {
           "type": "string",

@@ -879,3 +879,20 @@ tests:
       - equal:
           path: kind
           value: StatefulSet
+
+  - it: sync custom resources
+    set:
+      sync:
+        toHost:
+          customResources:
+            test.cert-manager.io:
+              enabled: true
+              translate:
+                - path: spec.dnsNames[*]
+                  expression:
+                    fromHost: "value.startsWith('www.') ? value.slice(4) : value"
+                    toHost: '"www."+value'
+    asserts:
+    - equal:
+        path: kind
+        value: StatefulSet

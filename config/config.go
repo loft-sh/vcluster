@@ -539,10 +539,10 @@ type TranslatePatchReference struct {
 
 type TranslatePatchExpression struct {
 	// ToHost is the expression to apply when retrieving a change from virtual to host.
-	ToHost string `json:"toHost,omitempty" jsonschema:"oneof_required=toHost"`
+	ToHost string `json:"toHost,omitempty"`
 
 	// FromHost is the patch to apply when retrieving a change from host to virtual.
-	FromHost string `json:"fromHost,omitempty" jsonschema:"oneof_required=fromHost"`
+	FromHost string `json:"fromHost,omitempty"`
 }
 
 type SyncFromHostCustomResource struct {
