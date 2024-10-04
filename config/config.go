@@ -1090,7 +1090,17 @@ type Database struct {
 	Embedded DatabaseKine `json:"embedded,omitempty"`
 
 	// External defines that an external database should be used as the backend for the virtual cluster
-	External DatabaseKine `json:"external,omitempty"`
+	External ExternalDatabaseKine `json:"external,omitempty"`
+}
+
+type ExternalDatabaseKine struct {
+	DatabaseKine
+
+	// Connector specifies a secret located in a connected vCluster Platform that contains database server connection information
+	// to be used by Platform to create a database and database user for the vCluster.
+	// and non-privileged user. A kine endpoint should be created using the database and user on Platform registration.
+	// This is optional.
+	Connector string `json:"connector,omitempty"`
 }
 
 type DatabaseKine struct {
