@@ -887,11 +887,11 @@ tests:
           customResources:
             test.cert-manager.io:
               enabled: true
-              translate:
+              patches:
                 - path: spec.dnsNames[*]
                   expression: "value.startsWith('www.') ? value.slice(4) : value"
                   reverseExpression: '"www."+value'
     asserts:
-    - equal:
-        path: kind
-        value: StatefulSet
+      - equal:
+          path: kind
+          value: StatefulSet

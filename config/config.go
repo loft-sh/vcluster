@@ -413,10 +413,10 @@ type SyncToHost struct {
 	ConfigMaps SyncAllResource `json:"configMaps,omitempty"`
 
 	// Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster.
-	Ingresses EnableSwitchWithTranslate `json:"ingresses,omitempty"`
+	Ingresses EnableSwitchWithPatches `json:"ingresses,omitempty"`
 
 	// Services defines if services created within the virtual cluster should get synced to the host cluster.
-	Services EnableSwitchWithTranslate `json:"services,omitempty"`
+	Services EnableSwitchWithPatches `json:"services,omitempty"`
 
 	// Endpoints defines if endpoints created within the virtual cluster should get synced to the host cluster.
 	Endpoints EnableSwitch `json:"endpoints,omitempty"`
@@ -425,7 +425,7 @@ type SyncToHost struct {
 	NetworkPolicies EnableSwitch `json:"networkPolicies,omitempty"`
 
 	// PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster.
-	PersistentVolumeClaims EnableSwitchWithTranslate `json:"persistentVolumeClaims,omitempty"`
+	PersistentVolumeClaims EnableSwitchWithPatches `json:"persistentVolumeClaims,omitempty"`
 
 	// PersistentVolumes defines if persistent volumes created within the virtual cluster should get synced to the host cluster.
 	PersistentVolumes EnableSwitch `json:"persistentVolumes,omitempty"`
@@ -450,12 +450,12 @@ type SyncToHost struct {
 	CustomResources map[string]SyncToHostCustomResource `json:"customResources,omitempty"`
 }
 
-type EnableSwitchWithTranslate struct {
+type EnableSwitchWithPatches struct {
 	// Enabled defines if this option should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// Translate the patch according to the given patches.
-	Translate []TranslatePatch `json:"translate,omitempty"`
+	// Patches patch the resource according to the provided specification.
+	Patches []TranslatePatch `json:"patches,omitempty"`
 }
 
 type SyncFromHost struct {
@@ -494,8 +494,8 @@ type SyncToHostCustomResource struct {
 	// Enabled defines if this option should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// Translate the patch according to the given patches.
-	Translate []TranslatePatch `json:"translate,omitempty"`
+	// Patches patch the resource according to the provided specification.
+	Patches []TranslatePatch `json:"patches,omitempty"`
 }
 
 type TranslatePatch struct {
@@ -570,8 +570,8 @@ type SyncAllResource struct {
 	// All defines if all resources of that type should get synced or only the necessary ones that are needed.
 	All bool `json:"all,omitempty"`
 
-	// Translate the patch according to the given patches.
-	Translate []TranslatePatch `json:"translate,omitempty"`
+	// Patches patch the resource according to the provided specification.
+	Patches []TranslatePatch `json:"patches,omitempty"`
 }
 
 type SyncPods struct {
@@ -594,8 +594,8 @@ type SyncPods struct {
 	// the virtual cluster.
 	RewriteHosts SyncRewriteHosts `json:"rewriteHosts,omitempty"`
 
-	// Translate the patch according to the given patches.
-	Translate []TranslatePatch `json:"translate,omitempty"`
+	// Patches patch the resource according to the provided specification.
+	Patches []TranslatePatch `json:"patches,omitempty"`
 }
 
 type SyncRewriteHosts struct {

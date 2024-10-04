@@ -1016,18 +1016,18 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "EnableSwitchWithTranslate": {
+    "EnableSwitchWithPatches": {
       "properties": {
         "enabled": {
           "type": "boolean",
           "description": "Enabled defines if this option should be enabled."
         },
-        "translate": {
+        "patches": {
           "items": {
             "$ref": "#/$defs/TranslatePatch"
           },
           "type": "array",
-          "description": "Translate the patch according to the given patches."
+          "description": "Patches patch the resource according to the provided specification."
         }
       },
       "additionalProperties": false,
@@ -2910,12 +2910,12 @@
           "type": "boolean",
           "description": "All defines if all resources of that type should get synced or only the necessary ones that are needed."
         },
-        "translate": {
+        "patches": {
           "items": {
             "$ref": "#/$defs/TranslatePatch"
           },
           "type": "array",
-          "description": "Translate the patch according to the given patches."
+          "description": "Patches patch the resource according to the provided specification."
         }
       },
       "additionalProperties": false,
@@ -3047,12 +3047,12 @@
           "$ref": "#/$defs/SyncRewriteHosts",
           "description": "RewriteHosts is a special option needed to rewrite statefulset containers to allow the correct FQDN. virtual cluster will add\na small container to each stateful set pod that will initially rewrite the /etc/hosts file to match the FQDN expected by\nthe virtual cluster."
         },
-        "translate": {
+        "patches": {
           "items": {
             "$ref": "#/$defs/TranslatePatch"
           },
           "type": "array",
-          "description": "Translate the patch according to the given patches."
+          "description": "Patches patch the resource according to the provided specification."
         }
       },
       "additionalProperties": false,
@@ -3101,11 +3101,11 @@
           "description": "ConfigMaps defines if config maps created within the virtual cluster should get synced to the host cluster."
         },
         "ingresses": {
-          "$ref": "#/$defs/EnableSwitchWithTranslate",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster."
         },
         "services": {
-          "$ref": "#/$defs/EnableSwitchWithTranslate",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "Services defines if services created within the virtual cluster should get synced to the host cluster."
         },
         "endpoints": {
@@ -3117,7 +3117,7 @@
           "description": "NetworkPolicies defines if network policies created within the virtual cluster should get synced to the host cluster."
         },
         "persistentVolumeClaims": {
-          "$ref": "#/$defs/EnableSwitchWithTranslate",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster."
         },
         "persistentVolumes": {
@@ -3161,12 +3161,12 @@
           "type": "boolean",
           "description": "Enabled defines if this option should be enabled."
         },
-        "translate": {
+        "patches": {
           "items": {
             "$ref": "#/$defs/TranslatePatch"
           },
           "type": "array",
-          "description": "Translate the patch according to the given patches."
+          "description": "Patches patch the resource according to the provided specification."
         }
       },
       "additionalProperties": false,
