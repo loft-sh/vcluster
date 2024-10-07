@@ -159,6 +159,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		ConnectOptions: cli.ConnectOptions{
 			KubeConfig: vKubeconfigFile.Name(),
 			LocalPort:  14550, // choosing a port that usually should be unused
+		    BackgroundProxy: true,
 		},
 	}
 	err = connectCmd.Run(ctx, []string{name})
