@@ -311,7 +311,7 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 		// we can ignore this error for parent context, it just means that the kubeconfig set doesn't have parent config in it.
 		if isParentContext {
 			logger := log.GetInstance()
-			logger.Warn("parent context unreachable - No vclusters listed from parent context")
+			logger.Warn("parent context unreachable - No vClusters listed from parent context")
 			return vclusters, nil
 		}
 		return nil, errors.Wrap(err, "load kube config")
@@ -345,7 +345,9 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 
 			vCluster, err := getVCluster(ctx, &p, context, release, kubeClient, kubeClientConfig)
 			if err != nil {
-				return nil, err
+				logger := log.GetInstance()
+				logger.Debugf("Error getting vCluster %s: %v", release, err)
+				continue
 			}
 			vCluster.Context = context
 			vclusters = append(vclusters, vCluster)
@@ -363,9 +365,11 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 				continue
 			}
 
-			vCluster, err2 := getVCluster(ctx, &p, context, release, kubeClient, kubeClientConfig)
-			if err2 != nil {
-				return nil, err2
+			vCluster, err := getVCluster(ctx, &p, context, release, kubeClient, kubeClientConfig)
+			if err != nil {
+				logger := log.GetInstance()
+				logger.Debugf("Error getting vCluster %s: %v", release, err)
+				continue
 			}
 
 			vCluster.Context = context
