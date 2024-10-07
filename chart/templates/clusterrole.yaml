@@ -89,10 +89,12 @@ rules:
     resources: ["priorityclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
-  {{- if .Values.sync.toHost.volumeSnapshots.enabled }}
+  {{- if .Values.sync.fromHost.volumeSnapshotClasses.enabled }}
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotclasses"]
     verbs: ["get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.sync.toHost.volumeSnapshotContents.enabled }}
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotcontents"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]

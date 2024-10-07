@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
@@ -25,8 +26,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	return &csinodeSyncer{
-		Mapper: mapper,
-
+		Mapper:        mapper,
 		virtualClient: ctx.VirtualManager.GetClient(),
 	}, nil
 }
@@ -47,7 +47,7 @@ func (s *csinodeSyncer) Resource() client.Object {
 var _ syncertypes.Syncer = &csinodeSyncer{}
 
 func (s *csinodeSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*storagev1.CSINode](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 func (s *csinodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.CSINode]) (ctrl.Result, error) {
@@ -61,6 +61,13 @@ func (s *csinodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 	}
 
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
+
+	// Apply pro patches
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.CSINodes.Patches)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
+	}
+
 	ctx.Log.Infof("create CSINode %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
@@ -76,7 +83,7 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	}
 
 	// look up matching node name, delete csinode if not found
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.CSINodes.Patches))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

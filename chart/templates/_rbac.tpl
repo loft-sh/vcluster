@@ -25,7 +25,8 @@
     .Values.sync.toHost.persistentVolumes.enabled
     .Values.sync.toHost.priorityClasses.enabled
     .Values.sync.fromHost.priorityClasses.enabled
-    .Values.sync.toHost.volumeSnapshots.enabled
+    .Values.sync.toHost.volumeSnapshotContents.enabled
+    .Values.sync.fromHost.volumeSnapshotClasses.enabled
     .Values.controlPlane.advanced.virtualScheduler.enabled
     .Values.sync.fromHost.ingressClasses.enabled
     .Values.sync.fromHost.runtimeClasses.enabled

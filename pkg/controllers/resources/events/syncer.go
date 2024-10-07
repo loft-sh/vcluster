@@ -6,6 +6,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
@@ -47,7 +48,7 @@ func (s *eventSyncer) Name() string {
 var _ syncertypes.Syncer = &eventSyncer{}
 
 func (s *eventSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*corev1.Event](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 var _ syncertypes.OptionsProvider = &eventSyncer{}
@@ -69,7 +70,7 @@ func (s *eventSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontex
 }
 
 func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Event]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.Events.Patches))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -95,6 +96,12 @@ func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccon
 	err := s.translateEvent(ctx, event.Host, vObj)
 	if err != nil {
 		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
+	}
+
+	// Apply pro patches
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.Events.Patches)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
 
 	// make sure namespace is not being deleted

@@ -39,6 +39,8 @@ sync:
       enabled: false
     volumeSnapshots:
       enabled: false
+    volumeSnapshotContents:
+      enabled: false
     podDisruptionBudgets:
       enabled: false
     serviceAccounts:
@@ -72,6 +74,8 @@ sync:
       selector:
         all: false
         labels: {}
+    volumeSnapshotClasses:
+      enabled: false
 
 controlPlane:
   distro:
@@ -204,7 +208,7 @@ controlPlane:
               retentionPolicy: Retain
               size: 5Gi
               storageClass: ""
-              accessModes: [ "ReadWriteOnce" ]
+              accessModes: ["ReadWriteOnce"]
             volumeClaimTemplates: []
             addVolumes: []
             addVolumeMounts: []
@@ -237,8 +241,8 @@ controlPlane:
       image: ""
       replicas: 1
       pods:
-       labels: {}
-       annotations: {}
+        labels: {}
+        annotations: {}
       nodeSelector: {}
       affinity: {}
       tolerations: []
@@ -250,12 +254,12 @@ controlPlane:
           cpu: 20m
           memory: 64Mi
       topologySpreadConstraints:
-      - maxSkew: 1
-        topologyKey: kubernetes.io/hostname
-        whenUnsatisfiable: DoNotSchedule
-        labelSelector:
-          matchLabels:
-            k8s-app: kube-dns
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              k8s-app: kube-dns
 
   service:
     enabled: true
@@ -324,14 +328,14 @@ controlPlane:
         retentionPolicy: Retain
         size: 5Gi
         storageClass: ""
-        accessModes: [ "ReadWriteOnce" ]
+        accessModes: ["ReadWriteOnce"]
       volumeClaimTemplates: []
       addVolumeMounts: []
       addVolumes: []
       dataVolume: []
       binariesVolume:
-      - name: binaries
-        emptyDir: {}
+        - name: binaries
+          emptyDir: {}
 
     enableServiceLinks: true
 

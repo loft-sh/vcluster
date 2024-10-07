@@ -54,11 +54,10 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 type namespaceSyncer struct {
 	syncertypes.GenericTranslator
+
+	namespaceLabels            map[string]string
 	workloadServiceAccountName string
-
-	excludedAnnotations []string
-
-	namespaceLabels map[string]string
+	excludedAnnotations        []string
 }
 
 var _ syncertypes.Syncer = &namespaceSyncer{}

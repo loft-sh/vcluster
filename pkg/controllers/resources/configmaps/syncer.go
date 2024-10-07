@@ -48,7 +48,7 @@ type configMapSyncer struct {
 var _ syncertypes.Syncer = &configMapSyncer{}
 
 func (s *configMapSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*corev1.ConfigMap](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 var _ syncertypes.ControllerModifier = &configMapSyncer{}

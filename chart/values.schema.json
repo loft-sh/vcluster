@@ -989,7 +989,7 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "EnableAutoSwitch": {
+    "EnableAutoSwitchWithPatches": {
       "properties": {
         "enabled": {
           "oneOf": [
@@ -1001,6 +1001,13 @@
             }
           ],
           "description": "Enabled defines if this option should be enabled."
+        },
+        "patches": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "Patches patch the resource according to the provided specification."
         }
       },
       "additionalProperties": false,
@@ -2936,35 +2943,35 @@
           "description": "Nodes defines if nodes should get synced from the host cluster to the virtual cluster, but not back."
         },
         "events": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "Events defines if events should get synced from the host cluster to the virtual cluster, but not back."
         },
         "ingressClasses": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back."
         },
         "runtimeClasses": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back."
         },
         "priorityClasses": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "PriorityClasses defines if priority classes classes should get synced from the host cluster to the virtual cluster, but not back."
         },
         "storageClasses": {
-          "$ref": "#/$defs/EnableAutoSwitch",
+          "$ref": "#/$defs/EnableAutoSwitchWithPatches",
           "description": "StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         },
         "csiNodes": {
-          "$ref": "#/$defs/EnableAutoSwitch",
+          "$ref": "#/$defs/EnableAutoSwitchWithPatches",
           "description": "CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         },
         "csiDrivers": {
-          "$ref": "#/$defs/EnableAutoSwitch",
+          "$ref": "#/$defs/EnableAutoSwitchWithPatches",
           "description": "CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         },
         "csiStorageCapacities": {
-          "$ref": "#/$defs/EnableAutoSwitch",
+          "$ref": "#/$defs/EnableAutoSwitchWithPatches",
           "description": "CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled."
         },
         "customResources": {
@@ -2973,6 +2980,10 @@
           },
           "type": "object",
           "description": "CustomResources defines what custom resources should get synced read-only to the virtual cluster from the host cluster. vCluster will automatically add any required RBAC to the vCluster cluster role."
+        },
+        "volumeSnapshotClasses": {
+          "$ref": "#/$defs/EnableSwitchWithPatches",
+          "description": "VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster."
         }
       },
       "additionalProperties": false,
@@ -3029,6 +3040,13 @@
         "selector": {
           "$ref": "#/$defs/SyncNodeSelector",
           "description": "Selector can be used to define more granular what nodes should get synced from the host cluster to the virtual cluster."
+        },
+        "patches": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "Patches patch the resource according to the provided specification."
         }
       },
       "additionalProperties": false,
@@ -3124,11 +3142,11 @@
           "description": "Services defines if services created within the virtual cluster should get synced to the host cluster."
         },
         "endpoints": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "Endpoints defines if endpoints created within the virtual cluster should get synced to the host cluster."
         },
         "networkPolicies": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "NetworkPolicies defines if network policies created within the virtual cluster should get synced to the host cluster."
         },
         "persistentVolumeClaims": {
@@ -3136,27 +3154,31 @@
           "description": "PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster."
         },
         "persistentVolumes": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "PersistentVolumes defines if persistent volumes created within the virtual cluster should get synced to the host cluster."
         },
         "volumeSnapshots": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster."
         },
+        "volumeSnapshotContents": {
+          "$ref": "#/$defs/EnableSwitchWithPatches",
+          "description": "VolumeSnapshotContents defines if volume snapshot contents created within the virtual cluster should get synced to the host cluster."
+        },
         "storageClasses": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "StorageClasses defines if storage classes created within the virtual cluster should get synced to the host cluster."
         },
         "serviceAccounts": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "ServiceAccounts defines if service accounts created within the virtual cluster should get synced to the host cluster."
         },
         "podDisruptionBudgets": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "PodDisruptionBudgets defines if pod disruption budgets created within the virtual cluster should get synced to the host cluster."
         },
         "priorityClasses": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster."
         },
         "customResources": {

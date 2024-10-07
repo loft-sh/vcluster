@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
@@ -39,10 +40,9 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 type csistoragecapacitySyncer struct {
 	synccontext.Mapper
-
+	physicalClient              client.Client
 	storageClassSyncEnabled     bool
 	hostStorageClassSyncEnabled bool
-	physicalClient              client.Client
 }
 
 var _ syncertypes.Syncer = &csistoragecapacitySyncer{}
@@ -56,7 +56,7 @@ func (s *csistoragecapacitySyncer) Resource() client.Object {
 }
 
 func (s *csistoragecapacitySyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*storagev1.CSIStorageCapacity](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 func (s *csistoragecapacitySyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.CSIStorageCapacity]) (ctrl.Result, error) {
@@ -65,12 +65,18 @@ func (s *csistoragecapacitySyncer) SyncToVirtual(ctx *synccontext.SyncContext, e
 		return ctrl.Result{}, err
 	}
 
+	// Apply pro patches
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.CSIStorageCapacities.Patches)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
+	}
+
 	ctx.Log.Infof("create CSIStorageCapacity %s, because it does not exist in virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
 
 func (s *csistoragecapacitySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.CSIStorageCapacity]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.CSIStorageCapacities.Patches))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

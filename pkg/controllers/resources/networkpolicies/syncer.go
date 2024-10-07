@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
@@ -34,7 +35,7 @@ type networkPolicySyncer struct {
 var _ syncertypes.Syncer = &networkPolicySyncer{}
 
 func (s *networkPolicySyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*networkingv1.NetworkPolicy](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 func (s *networkPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*networkingv1.NetworkPolicy]) (ctrl.Result, error) {
@@ -42,11 +43,17 @@ func (s *networkPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
 	}
 
-	return syncer.CreateHostObject(ctx, event.Virtual, s.translate(ctx, event.Virtual), s.EventRecorder())
+	pObj := s.translate(ctx, event.Virtual)
+	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.NetworkPolicies.Patches)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return syncer.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
 }
 
 func (s *networkPolicySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*networkingv1.NetworkPolicy]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.NetworkPolicies.Patches))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

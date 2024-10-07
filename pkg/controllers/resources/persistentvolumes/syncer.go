@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
@@ -68,10 +69,8 @@ func mapPVCs(_ context.Context, obj client.Object) []reconcile.Request {
 
 type persistentVolumeSyncer struct {
 	syncertypes.GenericTranslator
-
+	virtualClient       client.Client
 	excludedAnnotations []string
-
-	virtualClient client.Client
 }
 
 var _ syncertypes.ControllerModifier = &persistentVolumeSyncer{}
@@ -89,7 +88,7 @@ func (s *persistentVolumeSyncer) Options() *syncertypes.Options {
 var _ syncertypes.Syncer = &persistentVolumeSyncer{}
 
 func (s *persistentVolumeSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*corev1.PersistentVolume](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.PersistentVolume]) (ctrl.Result, error) {
@@ -108,6 +107,12 @@ func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, event 
 	pPv, err := s.translate(ctx, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// Apply pro patches
+	err = pro.ApplyPatchesHostObject(ctx, nil, pPv, event.Virtual, ctx.Config.Sync.ToHost.PersistentVolumes.Patches)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
 
 	ctx.Log.Infof("create physical persistent volume %s, because there is a virtual persistent volume", pPv.Name)
@@ -175,7 +180,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 	}
 
 	// patch objects
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.PersistentVolumes.Patches))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -224,6 +229,11 @@ func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, eve
 	} else if sync {
 		// create the persistent volume
 		vObj := s.translateBackwards(event.Host, vPvc)
+		err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.PersistentVolumes.Patches)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
 		if vPvc != nil {
 			ctx.Log.Infof("create persistent volume %s, because it belongs to virtual pvc %s/%s and does not exist in virtual cluster", vObj.Name, vPvc.Namespace, vPvc.Name)
 		}
