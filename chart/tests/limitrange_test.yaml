@@ -68,3 +68,27 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+
+  - it: check disabled both false
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        limitRange:
+          enabled: true
+          min:
+            cpu: 1
+          max:
+            memory: 256Mi
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.limits[0].min.cpu
+          value: "1"
+      - equal:
+          path: spec.limits[0].max.memory
+          value: "256Mi"
+
+

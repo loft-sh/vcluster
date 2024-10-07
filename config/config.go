@@ -1603,6 +1603,12 @@ type LimitRange struct {
 	// DefaultRequest are the default request options for the limit range
 	DefaultRequest map[string]interface{} `json:"defaultRequest,omitempty"`
 
+	// Max are the max limits for the limit range
+	Max map[string]interface{} `json:"max,omitempty"`
+
+	// Min are the min limits for the limit range
+	Min map[string]interface{} `json:"min,omitempty"`
+
 	LabelsAndAnnotations `json:",inline"`
 }
 

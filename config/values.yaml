@@ -478,6 +478,8 @@ policies:
       ephemeral-storage: 3Gi
       memory: 128Mi
       cpu: 100m
+    min: {}
+    max: {}
 
   networkPolicy:
     enabled: false

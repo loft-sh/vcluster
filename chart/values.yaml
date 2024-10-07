@@ -805,6 +805,10 @@ policies:
       ephemeral-storage: 3Gi
       memory: 128Mi
       cpu: 100m
+    # Min are the min limits for the limit range
+    min: {}
+    # Max are the max limits for the limit range
+    max: {}
   
   # NetworkPolicy specifies network policy options.
   networkPolicy:

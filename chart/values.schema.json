@@ -1950,6 +1950,14 @@
           "type": "object",
           "description": "DefaultRequest are the default request options for the limit range"
         },
+        "max": {
+          "type": "object",
+          "description": "Max are the max limits for the limit range"
+        },
+        "min": {
+          "type": "object",
+          "description": "Min are the min limits for the limit range"
+        },
         "annotations": {
           "additionalProperties": {
             "type": "string"
