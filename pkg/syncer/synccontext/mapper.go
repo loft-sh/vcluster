@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -32,7 +33,7 @@ type MappingsRegistry interface {
 	Store() MappingsStore
 }
 
-type AddQueueFunc func(nameMapping NameMapping, queue workqueue.RateLimitingInterface)
+type AddQueueFunc func(nameMapping NameMapping, queue workqueue.TypedRateLimitingInterface[ctrl.Request])
 
 // MappingsStore holds logic to store and retrieve mappings
 type MappingsStore interface {

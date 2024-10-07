@@ -117,26 +117,26 @@ func (s *csistoragecapacitySyncer) ModifyController(ctx *synccontext.RegisterCon
 
 	syncContext := ctx.ToSyncContext("csi storage capacity syncer")
 	return builder.WatchesRawSource(source.Kind(allNSCache, s.Resource(), &handler.Funcs{
-		CreateFunc: func(_ context.Context, ce event.CreateEvent, rli workqueue.RateLimitingInterface) {
+		CreateFunc: func(_ context.Context, ce event.TypedCreateEvent[client.Object], rli workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 			obj := ce.Object
 			s.enqueuePhysical(syncContext, obj, rli)
 		},
-		UpdateFunc: func(_ context.Context, ue event.UpdateEvent, rli workqueue.RateLimitingInterface) {
+		UpdateFunc: func(_ context.Context, ue event.TypedUpdateEvent[client.Object], rli workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 			obj := ue.ObjectNew
 			s.enqueuePhysical(syncContext, obj, rli)
 		},
-		DeleteFunc: func(_ context.Context, de event.DeleteEvent, rli workqueue.RateLimitingInterface) {
+		DeleteFunc: func(_ context.Context, de event.TypedDeleteEvent[client.Object], rli workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 			obj := de.Object
 			s.enqueuePhysical(syncContext, obj, rli)
 		},
-		GenericFunc: func(_ context.Context, ge event.GenericEvent, rli workqueue.RateLimitingInterface) {
+		GenericFunc: func(_ context.Context, ge event.TypedGenericEvent[client.Object], rli workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 			obj := ge.Object
 			s.enqueuePhysical(syncContext, obj, rli)
 		},
 	})), nil
 }
 
-func (s *csistoragecapacitySyncer) enqueuePhysical(ctx *synccontext.SyncContext, obj client.Object, q workqueue.RateLimitingInterface) {
+func (s *csistoragecapacitySyncer) enqueuePhysical(ctx *synccontext.SyncContext, obj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 	if obj == nil {
 		return
 	}

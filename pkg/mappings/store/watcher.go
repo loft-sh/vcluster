@@ -6,13 +6,14 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"k8s.io/client-go/util/workqueue"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type watcher struct {
 	m sync.Mutex
 
 	addQueueFn synccontext.AddQueueFunc
-	queue      workqueue.RateLimitingInterface
+	queue      workqueue.TypedRateLimitingInterface[ctrl.Request]
 }
 
 func (w *watcher) Dispatch(nameMapping synccontext.NameMapping) {
@@ -26,7 +27,7 @@ func (w *watcher) Dispatch(nameMapping synccontext.NameMapping) {
 	w.addQueueFn(nameMapping, w.queue)
 }
 
-func (w *watcher) Start(_ context.Context, queue workqueue.RateLimitingInterface) error {
+func (w *watcher) Start(_ context.Context, queue workqueue.TypedRateLimitingInterface[ctrl.Request]) error {
 	w.m.Lock()
 	defer w.m.Unlock()
 
