@@ -2,6 +2,7 @@ package servicesync
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -22,6 +23,7 @@ import (
 )
 
 type ServiceSyncer struct {
+	Name        string
 	SyncContext *synccontext.SyncContext
 
 	SyncServices map[string]types.NamespacedName
@@ -50,7 +52,7 @@ func (e *ServiceSyncer) Register() error {
 		WithOptions(controller.Options{
 			CacheSyncTimeout: constants.DefaultCacheSyncTimeout,
 		}).
-		Named("servicesync").
+		Named(fmt.Sprintf("servicesyncer-%s", e.Name)).
 		For(&corev1.Service{}).
 		WatchesRawSource(source.Kind(e.To.GetCache(), &corev1.Service{}, handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, object *corev1.Service) []reconcile.Request {
 			if object == nil {
