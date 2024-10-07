@@ -551,6 +551,9 @@ type TranslatePatchExpression struct {
 type SyncFromHostCustomResource struct {
 	// Enabled defines if this option should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
+
+	// Patches patch the resource according to the provided specification.
+	Patches []TranslatePatch `json:"patches,omitempty"`
 }
 
 type EnableAutoSwitch struct {

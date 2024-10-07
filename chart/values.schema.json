@@ -2983,6 +2983,13 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled defines if this option should be enabled."
+        },
+        "patches": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "Patches patch the resource according to the provided specification."
         }
       },
       "additionalProperties": false,
