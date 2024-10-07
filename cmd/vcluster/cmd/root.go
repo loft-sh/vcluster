@@ -47,7 +47,8 @@ func RunRoot() {
 	// create a new command and execute
 	err = BuildRoot().ExecuteContext(ctx)
 	if err != nil {
-		klog.Fatal(err)
+		klog.FromContext(ctx).Error(err, "error")
+		os.Exit(1)
 	}
 }
 
