@@ -4,12 +4,14 @@ sync:
   toHost:
     # Services defines if services created within the virtual cluster should get synced to the host cluster.
     services:
+      # Enabled defines if this option should be enabled.
       enabled: true
     # Endpoints defines if endpoints created within the virtual cluster should get synced to the host cluster.
     endpoints:
       enabled: true
     # PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster.
     persistentVolumeClaims:
+      # Enabled defines if this option should be enabled.
       enabled: true
     # ConfigMaps defines if config maps created within the virtual cluster should get synced to the host cluster.
     configMaps:
@@ -55,6 +57,7 @@ sync:
               memory: 64Mi
     # Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster.
     ingresses:
+      # Enabled defines if this option should be enabled.
       enabled: false
     # PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster.
     priorityClasses:

@@ -75,7 +75,7 @@ func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccont
 	}
 
 	pObj := s.translate(ctx, event.Virtual)
-	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.Services.Translate)
+	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.Services.Patches)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -106,7 +106,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	}
 
 	// patch the service
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Services.Translate))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Services.Patches))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -178,7 +178,7 @@ func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 	}
 
 	vObj := s.translateToVirtual(ctx, event.Host)
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.Services.Translate)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.Services.Patches)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

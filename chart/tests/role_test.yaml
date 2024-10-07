@@ -17,9 +17,9 @@ tests:
       rbac:
         role:
           overwriteRules:
-            - apiGroups: [ "" ]
-              resources: [ "configmaps" ]
-              verbs: [ "create" ]
+            - apiGroups: [""]
+              resources: ["configmaps"]
+              verbs: ["create"]
     asserts:
       - hasDocuments:
           count: 1
@@ -30,9 +30,9 @@ tests:
           path: rules
           count: 1
           content:
-            apiGroups: [ "" ]
-            resources: [ "configmaps" ]
-            verbs: [ "create" ]
+            apiGroups: [""]
+            resources: ["configmaps"]
+            verbs: ["create"]
 
   - it: check plugin extra rules
     set:
@@ -41,17 +41,17 @@ tests:
           rbac:
             role:
               extraRules:
-                - apiGroups: [ "" ]
-                  resources: [ "test123" ]
-                  verbs: [ "test123" ]
+                - apiGroups: [""]
+                  resources: ["test123"]
+                  verbs: ["test123"]
       plugins:
         test:
           rbac:
             role:
               extraRules:
-              - apiGroups: [ "" ]
-                resources: [ "test" ]
-                verbs: [ "test" ]
+                - apiGroups: [""]
+                  resources: ["test"]
+                  verbs: ["test"]
     asserts:
       - hasDocuments:
           count: 1
@@ -62,16 +62,16 @@ tests:
           path: rules
           count: 1
           content:
-            apiGroups: [ "" ]
-            resources: [ "test123" ]
-            verbs: [ "test123" ]
+            apiGroups: [""]
+            resources: ["test123"]
+            verbs: ["test123"]
       - contains:
           path: rules
           count: 1
           content:
-            apiGroups: [ "" ]
-            resources: [ "test" ]
-            verbs: [ "test" ]
+            apiGroups: [""]
+            resources: ["test"]
+            verbs: ["test"]
 
   - it: check generic sync
     set:
@@ -79,9 +79,9 @@ tests:
         genericSync:
           role:
             extraRules:
-              - apiGroups: [ "" ]
-                resources: [ "test" ]
-                verbs: [ "test" ]
+              - apiGroups: [""]
+                resources: ["test"]
+                verbs: ["test"]
     asserts:
       - hasDocuments:
           count: 1
@@ -92,9 +92,9 @@ tests:
           path: rules
           count: 1
           content:
-            apiGroups: [ "" ]
-            resources: [ "test" ]
-            verbs: [ "test" ]
+            apiGroups: [""]
+            resources: ["test"]
+            verbs: ["test"]
 
   - it: check extra rules
     set:
@@ -114,9 +114,9 @@ tests:
           path: rules
           count: 1
           content:
-            apiGroups: [ "" ]
-            resources: [ "test" ]
-            verbs: [ "test" ]
+            apiGroups: [""]
+            resources: ["test"]
+            verbs: ["test"]
 
   - it: check defaults
     release:
@@ -171,9 +171,9 @@ tests:
       - contains:
           path: rules
           content:
-            apiGroups: [ "metrics.k8s.io" ]
-            resources: [ "pods" ]
-            verbs: [ "get", "list" ]
+            apiGroups: ["metrics.k8s.io"]
+            resources: ["pods"]
+            verbs: ["get", "list"]
 
   - it: external secret test
     set:
@@ -197,7 +197,8 @@ tests:
           content:
             apiGroups: ["external-secrets.io"]
             resources: ["externalsecrets"]
-            verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
   - it: external secret test store sync
     set:
       integrations:
@@ -222,7 +223,8 @@ tests:
           content:
             apiGroups: ["external-secrets.io"]
             resources: ["secretstores"]
-            verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
   - it: kubeVirt test
     set:
       integrations:
@@ -241,26 +243,38 @@ tests:
           path: rules
           content:
             apiGroups: ["kubevirt.io"]
-            resources: ["virtualmachines", "virtualmachines/status", "virtualmachineinstances", "virtualmachineinstances/status", "virtualmachineinstancemigrations", "virtualmachineinstancemigrations/status"]
-            verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+            resources:
+              [
+                "virtualmachines",
+                "virtualmachines/status",
+                "virtualmachineinstances",
+                "virtualmachineinstances/status",
+                "virtualmachineinstancemigrations",
+                "virtualmachineinstancemigrations/status",
+              ]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
       - contains:
           path: rules
           content:
-            apiGroups: [ "cdi.kubevirt.io" ]
-            resources: [ "datavolumes", "datavolumes/status" ]
-            verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+            apiGroups: ["cdi.kubevirt.io"]
+            resources: ["datavolumes", "datavolumes/status"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
       - contains:
           path: rules
           content:
-            apiGroups: [ "clone.kubevirt.io" ]
-            resources: [ "virtualmachineclones", "virtualmachineclones/status" ]
-            verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+            apiGroups: ["clone.kubevirt.io"]
+            resources: ["virtualmachineclones", "virtualmachineclones/status"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
       - contains:
           path: rules
           content:
-            apiGroups: [ "pool.kubevirt.io" ]
-            resources: [ "virtualmachinepools", "virtualmachinepools/status" ]
-            verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+            apiGroups: ["pool.kubevirt.io"]
+            resources: ["virtualmachinepools", "virtualmachinepools/status"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
 
   - it: crd sync
     set:
@@ -288,24 +302,26 @@ tests:
       - contains:
           path: rules
           content:
-            apiGroups: [ "my-group-2" ]
-            resources: [ "test" ]
-            verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+            apiGroups: ["my-group-2"]
+            resources: ["test"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
       - contains:
           path: rules
           content:
-            apiGroups: [ "my-group-3.com" ]
-            resources: [ "tests" ]
-            verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+            apiGroups: ["my-group-3.com"]
+            resources: ["tests"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
 
-  - it: translate
+  - it: patches
     set:
       sync:
         toHost:
           customResources:
             test.my-group-2:
               enabled: true
-              translate:
+              patches:
                 - path: "test"
                   expression: "test"
     release:
@@ -314,14 +330,14 @@ tests:
     asserts:
       - notFailedTemplate: {}
 
-  - it: translate 2
+  - it: patches 2
     set:
       sync:
         toHost:
           customResources:
             test.my-group-2:
               enabled: true
-              translate:
+              patches:
                 - path: "test"
                   reference:
                     apiVersion: "v1"
