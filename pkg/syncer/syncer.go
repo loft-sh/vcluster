@@ -398,7 +398,7 @@ func (r *SyncController) extractRequest(ctx *synccontext.SyncContext, req ctrl.R
 	return req, pReq, nil
 }
 
-func (r *SyncController) enqueueVirtual(_ context.Context, obj client.Object, q workqueue.RateLimitingInterface, isDelete bool) {
+func (r *SyncController) enqueueVirtual(_ context.Context, obj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request], isDelete bool) {
 	if obj == nil {
 		return
 	}
@@ -425,7 +425,7 @@ func (r *SyncController) enqueueVirtual(_ context.Context, obj client.Object, q 
 	})
 }
 
-func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object, q workqueue.RateLimitingInterface, isDelete bool) {
+func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request], isDelete bool) {
 	if obj == nil {
 		return
 	}

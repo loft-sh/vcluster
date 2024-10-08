@@ -156,14 +156,16 @@ func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
 		globalLocalManager.GetCache().WaitForCacheSync(ctx)
 
 		// register controller
+		name := "map-host-service-syncer"
 		controller := &servicesync.ServiceSyncer{
-			SyncContext:     ctx.ToRegisterContext().ToSyncContext("map-host-service-syncer"),
+			Name:            name,
+			SyncContext:     ctx.ToRegisterContext().ToSyncContext(name),
 			SyncServices:    mapping,
 			CreateNamespace: true,
 			CreateEndpoints: true,
 			From:            globalLocalManager,
 			To:              ctx.VirtualManager,
-			Log:             loghelper.New("map-host-service-syncer"),
+			Log:             loghelper.New(name),
 		}
 		err = controller.Register()
 		if err != nil {
@@ -176,14 +178,15 @@ func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
 		if err != nil {
 			return errors.Wrap(err, "parse physical service mapping")
 		}
-
+		name := "map-virtual-service-syncer"
 		controller := &servicesync.ServiceSyncer{
-			SyncContext:           ctx.ToRegisterContext().ToSyncContext("map-virtual-service-syncer"),
+			Name:                  name,
+			SyncContext:           ctx.ToRegisterContext().ToSyncContext(name),
 			SyncServices:          mapping,
 			IsVirtualToHostSyncer: true,
 			From:                  ctx.VirtualManager,
 			To:                    ctx.LocalManager,
-			Log:                   loghelper.New("map-virtual-service-syncer"),
+			Log:                   loghelper.New(name),
 		}
 
 		if ctx.Config.Experimental.MultiNamespaceMode.Enabled {

@@ -58,7 +58,7 @@ func (s *secretSyncer) Syncer() syncertypes.Sync[client.Object] {
 var _ syncertypes.ControllerModifier = &secretSyncer{}
 
 func (s *secretSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return builder.WatchesRawSource(ctx.Mappings.Store().Watch(s.GroupVersionKind(), func(nameMapping synccontext.NameMapping, queue workqueue.RateLimitingInterface) {
+	return builder.WatchesRawSource(ctx.Mappings.Store().Watch(s.GroupVersionKind(), func(nameMapping synccontext.NameMapping, queue workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 		queue.Add(reconcile.Request{NamespacedName: nameMapping.VirtualName})
 	})), nil
 }

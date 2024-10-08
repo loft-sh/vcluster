@@ -240,7 +240,7 @@ func createFakeNode(
 			BootID:                  newGUID(),
 			ContainerRuntimeVersion: "docker://19.3.12",
 			KernelVersion:           "4.19.76-fakelinux",
-			KubeProxyVersion:        FakeNodesVersion,
+			KubeProxyVersion:        FakeNodesVersion, //nolint:staticcheck //deprecated, but we should continue to use it until the api removes it
 			KubeletVersion:          FakeNodesVersion,
 			MachineID:               newGUID(),
 			SystemUUID:              newGUID(),

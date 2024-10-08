@@ -98,7 +98,7 @@ var (
 type fakeSource struct {
 	m sync.Mutex
 
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[ctrl.Request]
 }
 
 func (f *fakeSource) String() string {
@@ -112,7 +112,7 @@ func (f *fakeSource) Add(request reconcile.Request) {
 	f.queue.Add(request)
 }
 
-func (f *fakeSource) Start(_ context.Context, queue workqueue.RateLimitingInterface) error {
+func (f *fakeSource) Start(_ context.Context, queue workqueue.TypedRateLimitingInterface[ctrl.Request]) error {
 	f.m.Lock()
 	defer f.m.Unlock()
 

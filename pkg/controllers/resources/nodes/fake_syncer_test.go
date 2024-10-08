@@ -133,7 +133,7 @@ func TestFakeSync(t *testing.T) {
 				Architecture:            "amd64",
 				ContainerRuntimeVersion: "docker://19.3.12",
 				KernelVersion:           "4.19.76-fakelinux",
-				KubeProxyVersion:        "v1.16.6-beta.0",
+				KubeProxyVersion:        "v1.16.6-beta.0", //nolint:staticcheck //deprecated, but we should continue to use it until the api removes it
 				KubeletVersion:          "v1.16.6-beta.0",
 				OperatingSystem:         "linux",
 				OSImage:                 "Fake Kubernetes Image",
@@ -169,7 +169,7 @@ func TestFakeSync(t *testing.T) {
 						node.Status.NodeInfo.MachineID = fakeGUID
 						node.Status.NodeInfo.SystemUUID = fakeGUID
 						node.Status.NodeInfo.KernelVersion = fakeGUID
-						node.Status.NodeInfo.KubeProxyVersion = fakeGUID
+						node.Status.NodeInfo.KubeProxyVersion = fakeGUID //nolint:staticcheck //deprecated, but we should continue to use it until the api removes it
 						node.Status.NodeInfo.KubeletVersion = fakeGUID
 					}
 

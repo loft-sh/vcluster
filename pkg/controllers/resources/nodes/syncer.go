@@ -154,17 +154,17 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 		// the syncer is configured to update virtual node's .status.allocatable fields by summing the consumption of these pods
 		bld.WatchesRawSource(
 			source.Kind(podCache, &corev1.Pod{},
-				handler.TypedFuncs[*corev1.Pod]{
-					GenericFunc: func(_ context.Context, ev event.TypedGenericEvent[*corev1.Pod], q workqueue.RateLimitingInterface) {
+				handler.TypedFuncs[*corev1.Pod, ctrl.Request]{
+					GenericFunc: func(_ context.Context, ev event.TypedGenericEvent[*corev1.Pod], q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 						enqueueNonVClusterPod(nil, ev.Object, q)
 					},
-					CreateFunc: func(_ context.Context, ev event.TypedCreateEvent[*corev1.Pod], q workqueue.RateLimitingInterface) {
+					CreateFunc: func(_ context.Context, ev event.TypedCreateEvent[*corev1.Pod], q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 						enqueueNonVClusterPod(nil, ev.Object, q)
 					},
-					UpdateFunc: func(_ context.Context, ue event.TypedUpdateEvent[*corev1.Pod], q workqueue.RateLimitingInterface) {
+					UpdateFunc: func(_ context.Context, ue event.TypedUpdateEvent[*corev1.Pod], q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 						enqueueNonVClusterPod(ue.ObjectOld, ue.ObjectNew, q)
 					},
-					DeleteFunc: func(_ context.Context, ev event.TypedDeleteEvent[*corev1.Pod], q workqueue.RateLimitingInterface) {
+					DeleteFunc: func(_ context.Context, ev event.TypedDeleteEvent[*corev1.Pod], q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 						enqueueNonVClusterPod(nil, ev.Object, q)
 					},
 				}),
@@ -174,7 +174,7 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 }
 
 // only used when scheduler is enabled
-func enqueueNonVClusterPod(old, new client.Object, q workqueue.RateLimitingInterface) {
+func enqueueNonVClusterPod(old, new client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 	pod, ok := new.(*corev1.Pod)
 	if !ok {
 		klog.Errorf("invalid type passed to pod handler: %T", new)
