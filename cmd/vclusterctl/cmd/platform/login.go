@@ -96,14 +96,14 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 				insecureFlag = "--insecure"
 			}
 
-			err := cmd.printLoginDetails(ctx)
-			if err != nil {
-				cmd.Log.Fatalf("%s\n\nYou may need to log in again via: %s platform login %s %s\n", err.Error(), os.Args[0], cfg.Platform.Host, insecureFlag)
-			}
-
 			domain := cfg.Platform.Host
 			if domain == "" {
 				domain = "my-vcluster-platform.com"
+			}
+
+			err := cmd.printLoginDetails(ctx)
+			if err != nil {
+				cmd.Log.Fatalf("%s\n\nYou need to log in again via: %s platform login %s %s\n", err.Error(), os.Args[0], domain, insecureFlag)
 			}
 
 			cmd.Log.WriteString(logrus.InfoLevel, fmt.Sprintf("\nTo log in as a different user, run: %s platform login %s %s\n\n", os.Args[0], domain, insecureFlag))
