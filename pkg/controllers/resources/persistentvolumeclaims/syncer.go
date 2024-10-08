@@ -79,7 +79,7 @@ func (s *persistentVolumeClaimSyncer) Options() *syncertypes.Options {
 var _ syncertypes.Syncer = &persistentVolumeClaimSyncer{}
 
 func (s *persistentVolumeClaimSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*corev1.PersistentVolumeClaim](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.PersistentVolumeClaim]) (ctrl.Result, error) {

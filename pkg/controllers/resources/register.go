@@ -24,9 +24,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotclasses"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshotcontents"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots/volumesnapshots"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshotclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshotcontents"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -57,13 +57,13 @@ func getSyncers(ctx *synccontext.RegisterContext) []BuildController {
 		isEnabled(ctx.Config.Sync.ToHost.PriorityClasses.Enabled || ctx.Config.Sync.FromHost.PriorityClasses.Enabled, priorityclasses.New),
 		isEnabled(ctx.Config.Sync.ToHost.PodDisruptionBudgets.Enabled, poddisruptionbudgets.New),
 		isEnabled(ctx.Config.Sync.ToHost.NetworkPolicies.Enabled, networkpolicies.New),
-		isEnabled(ctx.Config.Sync.ToHost.VolumeSnapshots.Enabled, volumesnapshotclasses.New),
 		isEnabled(ctx.Config.Sync.ToHost.VolumeSnapshots.Enabled, volumesnapshots.New),
-		isEnabled(ctx.Config.Sync.ToHost.VolumeSnapshots.Enabled, volumesnapshotcontents.New),
+		isEnabled(ctx.Config.Sync.ToHost.VolumeSnapshotContents.Enabled, volumesnapshotcontents.New),
 		isEnabled(ctx.Config.Sync.ToHost.ServiceAccounts.Enabled, serviceaccounts.New),
 		isEnabled(ctx.Config.Sync.FromHost.CSINodes.Enabled == "true", csinodes.New),
 		isEnabled(ctx.Config.Sync.FromHost.CSIDrivers.Enabled == "true", csidrivers.New),
 		isEnabled(ctx.Config.Sync.FromHost.CSIStorageCapacities.Enabled == "true", csistoragecapacities.New),
+		isEnabled(ctx.Config.Sync.FromHost.VolumeSnapshotClasses.Enabled, volumesnapshotclasses.New),
 		isEnabled(ctx.Config.Experimental.MultiNamespaceMode.Enabled, namespaces.New),
 		persistentvolumes.New,
 		nodes.New,

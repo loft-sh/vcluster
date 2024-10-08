@@ -8,6 +8,7 @@ sync:
       enabled: true
     # Endpoints defines if endpoints created within the virtual cluster should get synced to the host cluster.
     endpoints:
+      # Enabled defines if this option should be enabled.
       enabled: true
     # PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster.
     persistentVolumeClaims:
@@ -61,30 +62,42 @@ sync:
       enabled: false
     # PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster.
     priorityClasses:
+      # Enabled defines if this option should be enabled.
       enabled: false
     # NetworkPolicies defines if network policies created within the virtual cluster should get synced to the host cluster.
     networkPolicies:
+      # Enabled defines if this option should be enabled.
       enabled: false
     # VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster.
     volumeSnapshots:
+      # Enabled defines if this option should be enabled.
+      enabled: false
+    # VolumeSnapshotContents defines if volume snapshot contents created within the virtual cluster should get synced to the host cluster.
+    volumeSnapshotContents:
+      # Enabled defines if this option should be enabled.
       enabled: false
     # PodDisruptionBudgets defines if pod disruption budgets created within the virtual cluster should get synced to the host cluster.
     podDisruptionBudgets:
+      # Enabled defines if this option should be enabled.
       enabled: false
     # ServiceAccounts defines if service accounts created within the virtual cluster should get synced to the host cluster.
     serviceAccounts:
+      # Enabled defines if this option should be enabled.
       enabled: false
     # StorageClasses defines if storage classes created within the virtual cluster should get synced to the host cluster.
     storageClasses:
+      # Enabled defines if this option should be enabled.
       enabled: false
     # PersistentVolumes defines if persistent volumes created within the virtual cluster should get synced to the host cluster.
     persistentVolumes:
+      # Enabled defines if this option should be enabled.
       enabled: false
   
   # Configure what resources vCluster should sync from the host cluster to the virtual cluster.
   fromHost:
     # Events defines if events should get synced from the host cluster to the virtual cluster, but not back.
     events:
+      # Enabled defines if this option should be enabled.
       enabled: true
     # CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
     csiDrivers:
@@ -104,12 +117,15 @@ sync:
       enabled: auto
     # IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
     ingressClasses:
+      # Enabled defines if this option should be enabled.
       enabled: false
     # RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
     runtimeClasses:
+      # Enabled defines if this option should be enabled.
       enabled: false
     # PriorityClasses defines if priority classes classes should get synced from the host cluster to the virtual cluster, but not back.
     priorityClasses:
+      # Enabled defines if this option should be enabled.
       enabled: false
     # Nodes defines if nodes should get synced from the host cluster to the virtual cluster, but not back.
     nodes:
@@ -124,6 +140,10 @@ sync:
         # All specifies if all nodes should get synced by vCluster from the host to the virtual cluster or only the ones where pods are assigned to.
         all: false
         labels: {}
+    # VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster.
+    volumeSnapshotClasses:
+      # Enabled defines if this option should be enabled.
+      enabled: false
 
 # Configure vCluster's control plane components and deployment.
 controlPlane:

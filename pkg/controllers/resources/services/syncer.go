@@ -49,10 +49,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 type serviceSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
-
+	serviceName         string
 	excludedAnnotations []string
-
-	serviceName string
 }
 
 var _ syncertypes.OptionsProvider = &serviceSyncer{}
@@ -66,7 +64,7 @@ func (s *serviceSyncer) Options() *syncertypes.Options {
 var _ syncertypes.Syncer = &serviceSyncer{}
 
 func (s *serviceSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*corev1.Service](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Service]) (ctrl.Result, error) {

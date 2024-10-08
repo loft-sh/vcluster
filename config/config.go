@@ -419,31 +419,34 @@ type SyncToHost struct {
 	Services EnableSwitchWithPatches `json:"services,omitempty"`
 
 	// Endpoints defines if endpoints created within the virtual cluster should get synced to the host cluster.
-	Endpoints EnableSwitch `json:"endpoints,omitempty"`
+	Endpoints EnableSwitchWithPatches `json:"endpoints,omitempty"`
 
 	// NetworkPolicies defines if network policies created within the virtual cluster should get synced to the host cluster.
-	NetworkPolicies EnableSwitch `json:"networkPolicies,omitempty"`
+	NetworkPolicies EnableSwitchWithPatches `json:"networkPolicies,omitempty"`
 
 	// PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster.
 	PersistentVolumeClaims EnableSwitchWithPatches `json:"persistentVolumeClaims,omitempty"`
 
 	// PersistentVolumes defines if persistent volumes created within the virtual cluster should get synced to the host cluster.
-	PersistentVolumes EnableSwitch `json:"persistentVolumes,omitempty"`
+	PersistentVolumes EnableSwitchWithPatches `json:"persistentVolumes,omitempty"`
 
 	// VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster.
-	VolumeSnapshots EnableSwitch `json:"volumeSnapshots,omitempty"`
+	VolumeSnapshots EnableSwitchWithPatches `json:"volumeSnapshots,omitempty"`
+
+	// VolumeSnapshotContents defines if volume snapshot contents created within the virtual cluster should get synced to the host cluster.
+	VolumeSnapshotContents EnableSwitchWithPatches `json:"volumeSnapshotContents,omitempty"`
 
 	// StorageClasses defines if storage classes created within the virtual cluster should get synced to the host cluster.
-	StorageClasses EnableSwitch `json:"storageClasses,omitempty"`
+	StorageClasses EnableSwitchWithPatches `json:"storageClasses,omitempty"`
 
 	// ServiceAccounts defines if service accounts created within the virtual cluster should get synced to the host cluster.
-	ServiceAccounts EnableSwitch `json:"serviceAccounts,omitempty"`
+	ServiceAccounts EnableSwitchWithPatches `json:"serviceAccounts,omitempty"`
 
 	// PodDisruptionBudgets defines if pod disruption budgets created within the virtual cluster should get synced to the host cluster.
-	PodDisruptionBudgets EnableSwitch `json:"podDisruptionBudgets,omitempty"`
+	PodDisruptionBudgets EnableSwitchWithPatches `json:"podDisruptionBudgets,omitempty"`
 
 	// PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster.
-	PriorityClasses EnableSwitch `json:"priorityClasses,omitempty"`
+	PriorityClasses EnableSwitchWithPatches `json:"priorityClasses,omitempty"`
 
 	// CustomResources defines what custom resources should get synced from the virtual cluster to the host cluster. vCluster will copy the definition automatically from host cluster to virtual cluster on startup.
 	// vCluster will also automatically add any required RBAC permissions to the vCluster role for this to work.
@@ -463,31 +466,34 @@ type SyncFromHost struct {
 	Nodes SyncNodes `json:"nodes,omitempty"`
 
 	// Events defines if events should get synced from the host cluster to the virtual cluster, but not back.
-	Events EnableSwitch `json:"events,omitempty"`
+	Events EnableSwitchWithPatches `json:"events,omitempty"`
 
 	// IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
-	IngressClasses EnableSwitch `json:"ingressClasses,omitempty"`
+	IngressClasses EnableSwitchWithPatches `json:"ingressClasses,omitempty"`
 
 	// RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
-	RuntimeClasses EnableSwitch `json:"runtimeClasses,omitempty"`
+	RuntimeClasses EnableSwitchWithPatches `json:"runtimeClasses,omitempty"`
 
 	// PriorityClasses defines if priority classes classes should get synced from the host cluster to the virtual cluster, but not back.
-	PriorityClasses EnableSwitch `json:"priorityClasses,omitempty"`
+	PriorityClasses EnableSwitchWithPatches `json:"priorityClasses,omitempty"`
 
 	// StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
-	StorageClasses EnableAutoSwitch `json:"storageClasses,omitempty"`
+	StorageClasses EnableAutoSwitchWithPatches `json:"storageClasses,omitempty"`
 
 	// CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
-	CSINodes EnableAutoSwitch `json:"csiNodes,omitempty"`
+	CSINodes EnableAutoSwitchWithPatches `json:"csiNodes,omitempty"`
 
 	// CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
-	CSIDrivers EnableAutoSwitch `json:"csiDrivers,omitempty"`
+	CSIDrivers EnableAutoSwitchWithPatches `json:"csiDrivers,omitempty"`
 
 	// CSIStorageCapacities defines if csi storage capacities should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
-	CSIStorageCapacities EnableAutoSwitch `json:"csiStorageCapacities,omitempty"`
+	CSIStorageCapacities EnableAutoSwitchWithPatches `json:"csiStorageCapacities,omitempty"`
 
 	// CustomResources defines what custom resources should get synced read-only to the virtual cluster from the host cluster. vCluster will automatically add any required RBAC to the vCluster cluster role.
 	CustomResources map[string]SyncFromHostCustomResource `json:"customResources,omitempty"`
+
+	// VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster.
+	VolumeSnapshotClasses EnableSwitchWithPatches `json:"volumeSnapshotClasses,omitempty"`
 }
 
 type SyncToHostCustomResource struct {
@@ -561,6 +567,14 @@ type EnableAutoSwitch struct {
 	Enabled StrBool `json:"enabled,omitempty" jsonschema:"oneof_type=string;boolean"`
 }
 
+type EnableAutoSwitchWithPatches struct {
+	// Enabled defines if this option should be enabled.
+	Enabled StrBool `json:"enabled,omitempty" jsonschema:"oneof_type=string;boolean"`
+
+	// Patches patch the resource according to the provided specification.
+	Patches []TranslatePatch `json:"patches,omitempty"`
+}
+
 type EnableSwitch struct {
 	// Enabled defines if this option should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
@@ -629,6 +643,9 @@ type SyncNodes struct {
 
 	// Selector can be used to define more granular what nodes should get synced from the host cluster to the virtual cluster.
 	Selector SyncNodeSelector `json:"selector,omitempty"`
+
+	// Patches patch the resource according to the provided specification.
+	Patches []TranslatePatch `json:"patches,omitempty"`
 }
 
 type SyncNodeSelector struct {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
@@ -103,7 +104,7 @@ func (s *nodeSyncer) Name() string {
 var _ syncertypes.Syncer = &nodeSyncer{}
 
 func (s *nodeSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*corev1.Node](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 var _ syncertypes.ControllerModifier = &nodeSyncer{}
@@ -284,7 +285,7 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncE
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 	}
 
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.Nodes.Patches))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -312,13 +313,21 @@ func (s *nodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccont
 	}
 
 	ctx.Log.Infof("create virtual node %s, because there is a virtual pod with that node", event.Host.Name)
-	err = ctx.VirtualClient.Create(ctx, &corev1.Node{
+	virtualNode := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        event.Host.Name,
 			Labels:      event.Host.Labels,
 			Annotations: event.Host.Annotations,
 		},
-	})
+	}
+
+	// Apply pro patches
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, virtualNode, event.Host, ctx.Config.Sync.FromHost.Nodes.Patches)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
+	}
+
+	err = ctx.VirtualClient.Create(ctx, virtualNode)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

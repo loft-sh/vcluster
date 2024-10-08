@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
@@ -43,11 +44,18 @@ func (s *volumeSnapshotClassSyncer) Resource() client.Object {
 var _ syncertypes.Syncer = &volumeSnapshotClassSyncer{}
 
 func (s *volumeSnapshotClassSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*volumesnapshotv1.VolumeSnapshotClass](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 func (s *volumeSnapshotClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*volumesnapshotv1.VolumeSnapshotClass]) (ctrl.Result, error) {
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name}, false)
+
+	// Apply pro patches
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.VolumeSnapshotClasses.Patches)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error applying pro patches: %w", err)
+	}
+
 	ctx.Log.Infof("create VolumeSnapshotClass %s, because it does not exist in the virtual cluster", vObj.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Create(ctx, vObj)
 }
@@ -65,7 +73,7 @@ func (s *volumeSnapshotClassSyncer) SyncToHost(ctx *synccontext.SyncContext, eve
 }
 
 func (s *volumeSnapshotClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*volumesnapshotv1.VolumeSnapshotClass]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.VolumeSnapshotClasses.Patches))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1 "k8s.io/api/core/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -39,7 +40,7 @@ type serviceAccountSyncer struct {
 var _ syncertypes.Syncer = &serviceAccountSyncer{}
 
 func (s *serviceAccountSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*corev1.ServiceAccount](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 func (s *serviceAccountSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.ServiceAccount]) (ctrl.Result, error) {
@@ -53,11 +54,17 @@ func (s *serviceAccountSyncer) SyncToHost(ctx *synccontext.SyncContext, event *s
 	pObj.Secrets = nil
 	pObj.AutomountServiceAccountToken = &[]bool{false}[0]
 	pObj.ImagePullSecrets = nil
+
+	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.ServiceAccounts.Patches)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("apply patches: %w", err)
+	}
+
 	return syncer.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
 }
 
 func (s *serviceAccountSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.ServiceAccount]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.ServiceAccounts.Patches))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -87,5 +94,10 @@ func (s *serviceAccountSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event
 	}
 
 	vObj := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.ServiceAccounts.Patches)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	return syncer.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder())
 }

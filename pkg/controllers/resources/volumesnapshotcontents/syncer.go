@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	translator2 "github.com/loft-sh/vcluster/pkg/syncer/translator"
@@ -48,7 +49,7 @@ type volumeSnapshotContentSyncer struct {
 var _ syncertypes.Syncer = &volumeSnapshotContentSyncer{}
 
 func (s *volumeSnapshotContentSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*volumesnapshotv1.VolumeSnapshotContent](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 func (s *volumeSnapshotContentSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*volumesnapshotv1.VolumeSnapshotContent]) (ctrl.Result, error) {
@@ -62,6 +63,11 @@ func (s *volumeSnapshotContentSyncer) SyncToVirtual(ctx *synccontext.SyncContext
 	}
 
 	vVSC := s.translateBackwards(event.Host, vVS)
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vVSC, event.Host, ctx.Config.Sync.ToHost.VolumeSnapshotContents.Patches)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	ctx.Log.Infof("create VolumeSnapshotContent %s, because it does not exist in the virtual cluster", vVSC.Name)
 	return ctrl.Result{}, s.virtualClient.Create(ctx, vVSC)
 }
@@ -80,8 +86,13 @@ func (s *volumeSnapshotContentSyncer) SyncToHost(ctx *synccontext.SyncContext, e
 	}
 
 	pVSC := s.translate(ctx, event.Virtual)
+	err := pro.ApplyPatchesHostObject(ctx, nil, pVSC, event.Virtual, ctx.Config.Sync.ToHost.VolumeSnapshotContents.Patches)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	ctx.Log.Infof("create host VolumeSnapshotContent %s, because there is a virtual VolumeSnapshotContent", pVSC.Name)
-	err := ctx.PhysicalClient.Create(ctx, pVSC)
+	err = ctx.PhysicalClient.Create(ctx, pVSC)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -157,7 +168,7 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, event *
 	}
 
 	// patch objects
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.VolumeSnapshotContents.Patches))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

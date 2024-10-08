@@ -42,7 +42,7 @@ type ingressSyncer struct {
 var _ syncertypes.Syncer = &ingressSyncer{}
 
 func (s *ingressSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*networkingv1.Ingress](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*networkingv1.Ingress]) (ctrl.Result, error) {
