@@ -98,7 +98,11 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 
 			err := cmd.printLoginDetails(ctx)
 			if err != nil {
-				cmd.Log.Fatalf("%s\n\nYou may need to log in again via: %s platform login %s %s\n", err.Error(), os.Args[0], cfg.Platform.Host, insecureFlag)
+				if cfg.Platform.Host == "" {
+					cmd.Log.Fatalf("%s\n\nSeems like you have not specified a host to login. You need to run: %s platform login [HOST]\n", err.Error(), os.Args[0])
+				} else {
+					cmd.Log.Fatalf("%s\n\nYou may need to log in again via: %s platform login %s %s\n", err.Error(), os.Args[0], cfg.Platform.Host, insecureFlag)
+				}
 			}
 
 			domain := cfg.Platform.Host
