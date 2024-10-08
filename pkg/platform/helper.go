@@ -34,8 +34,6 @@ import (
 
 var errNoClusterAccess = errors.New("the user has no access to any cluster")
 
-var waitDuration = 20 * time.Second
-
 type VirtualClusterInstanceProject struct {
 	VirtualCluster *managementv1.VirtualClusterInstance
 	Project        *managementv1.Project
@@ -148,110 +146,6 @@ func SelectSpaceTemplate(ctx context.Context, client Client, projectName, templa
 	}
 
 	return nil, fmt.Errorf("answer not found")
-}
-
-func SelectVirtualClusterInstance(ctx context.Context, client Client, virtualClusterName, projectName string, log log.Logger) (string, string, string, string, error) {
-	managementClient, err := client.Management()
-	if err != nil {
-		return "", "", "", "", err
-	}
-
-	// gather projects and virtual cluster instances to access
-	var projects []*managementv1.Project
-	if projectName != "" {
-		project, err := managementClient.Loft().ManagementV1().Projects().Get(ctx, projectName, metav1.GetOptions{})
-		if err != nil {
-			if kerrors.IsNotFound(err) {
-				return "", "", "", "", fmt.Errorf("couldn't find or access project %s", projectName)
-			}
-
-			return "", "", "", "", err
-		}
-
-		projects = append(projects, project)
-	} else {
-		projectsList, err := managementClient.Loft().ManagementV1().Projects().List(ctx, metav1.ListOptions{})
-		if err != nil || len(projectsList.Items) == 0 {
-			return "", "", "", "", fmt.Errorf("no projects found you have access to")
-		}
-
-		for _, p := range projectsList.Items {
-			proj := p
-			projects = append(projects, &proj)
-		}
-	}
-
-	// gather space instances in those projects
-	var virtualClusters []*VirtualClusterInstanceProject
-	for _, p := range projects {
-		if virtualClusterName != "" {
-			virtualClusterInstance, err := getProjectVirtualClusterInstance(ctx, managementClient, p, virtualClusterName)
-			if err != nil {
-				continue
-			}
-
-			virtualClusters = append(virtualClusters, virtualClusterInstance)
-		} else {
-			projectVirtualClusters, err := getProjectVirtualClusterInstances(ctx, managementClient, p)
-			if err != nil {
-				continue
-			}
-
-			virtualClusters = append(virtualClusters, projectVirtualClusters...)
-		}
-	}
-
-	// get unformatted options
-	var optionsUnformatted [][]string
-	for _, virtualCluster := range virtualClusters {
-		if virtualCluster == nil ||
-			virtualCluster.VirtualCluster == nil ||
-			virtualCluster.Project == nil {
-			continue
-		}
-
-		optionsUnformatted = append(optionsUnformatted, []string{"vcluster: " + clihelper.GetDisplayName(virtualCluster.VirtualCluster.Name, virtualCluster.VirtualCluster.Spec.DisplayName), "Project: " + clihelper.GetDisplayName(virtualCluster.Project.Name, virtualCluster.Project.Spec.DisplayName)})
-	}
-
-	// check if there are virtualclusters
-	if len(virtualClusters) == 0 {
-		if virtualClusterName != "" {
-			return "", "", "", "", fmt.Errorf("couldn't find or access virtual cluster %s", virtualClusterName)
-		}
-		return "", "", "", "", fmt.Errorf("couldn't find a virtual cluster you have access to")
-	} else if len(virtualClusters) == 1 {
-		vc := virtualClusters[0]
-		if vc.Project == nil || vc.VirtualCluster == nil {
-			return "", "", "", "", errors.New("virtual cluster instance object is missing project or virtual cluster infos")
-		}
-
-		return "", vc.Project.Name, "", vc.VirtualCluster.Name, nil
-	}
-
-	questionOptions := formatOptions("%s | %s", optionsUnformatted)
-	selectedOption, err := log.Question(&survey.QuestionOptions{
-		Question:     "Please choose a virtual cluster",
-		DefaultValue: questionOptions[0],
-		Options:      questionOptions,
-	})
-	if err != nil {
-		return "", "", "", "", err
-	}
-
-	for idx, s := range questionOptions {
-		if s == selectedOption {
-			vc := virtualClusters[idx]
-			if vc.Project == nil {
-				return "", "", "", "", errors.New("nil project")
-			}
-			if vc.VirtualCluster == nil {
-				return "", "", "", "", errors.New("nil virtual cluster")
-			}
-			return "", vc.Project.Name, "", vc.VirtualCluster.Name, nil
-		}
-	}
-
-	return "", "", "", "", errors.New("couldn't find answer")
 }
 
 func SelectSpaceInstance(ctx context.Context, client Client, spaceName, projectName string, log log.Logger) (string, string, string, error) {
@@ -623,9 +517,9 @@ func GetCurrentUser(ctx context.Context, managementClient kube.Interface) (*mana
 }
 
 func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, waitUntilReady bool, log log.Logger) (*managementv1.SpaceInstance, error) {
-	waitDuration := 20 * time.Second
+	pollInterval := min(clihelper.Timeout()/5, time.Second*40) // every 40 seconds or 5th of the total timeout
 	now := time.Now()
-	nextMessage := now.Add(waitDuration)
+	nextMessage := now.Add(pollInterval)
 	spaceInstance, err := managementClient.Loft().ManagementV1().SpaceInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -644,7 +538,7 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 		return spaceInstance, nil
 	}
 
-	warnCounter := 0
+	logged := false
 	return spaceInstance, wait.PollUntilContextTimeout(ctx, time.Second, clihelper.Timeout(), true, func(ctx context.Context) (bool, error) {
 		spaceInstance, err = managementClient.Loft().ManagementV1().SpaceInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -653,13 +547,13 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 
 		if spaceInstance.Status.Phase != storagev1.InstanceReady && spaceInstance.Status.Phase != storagev1.InstanceSleeping {
 			if time.Now().After(nextMessage) {
-				if warnCounter > 1 {
-					log.Warnf("Cannot reach space because: %s (%s). Loft will continue waiting, but this operation may timeout", spaceInstance.Status.Message, spaceInstance.Status.Reason)
+				if logged {
+					log.Infof("Cannot reach space because: %s (%s). Loft will continue waiting, but this operation may timeout", spaceInstance.Status.Message, spaceInstance.Status.Reason)
 				} else {
 					log.Info("Waiting for space to be available...")
 				}
-				nextMessage = time.Now().Add(waitDuration)
-				warnCounter++
+				nextMessage = time.Now().Add(pollInterval)
+				logged = true
 			}
 			return false, nil
 		}
@@ -1000,38 +894,11 @@ func ListVClusters(ctx context.Context, client Client, virtualClusterName, proje
 	return virtualClusters, nil
 }
 
-func WaitForVCluster(ctx context.Context, client Client, clusterName, spaceName, virtualClusterName string, log log.Logger) error {
-	vClusterClient, err := client.VirtualCluster(clusterName, spaceName, virtualClusterName)
-	if err != nil {
-		return err
-	}
-
-	now := time.Now()
-	nextMessage := now.Add(waitDuration)
-
-	warnCounter := 0
-
-	return wait.PollUntilContextTimeout(ctx, time.Second, clihelper.Timeout(), true, func(ctx context.Context) (bool, error) {
-		_, err = vClusterClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
-		if err != nil && time.Now().After(nextMessage) {
-			if warnCounter > 1 {
-				log.Warnf("Cannot reach virtual cluster because: %v. Loft will continue waiting, but this operation may timeout", err)
-			} else {
-				log.Info("Waiting for virtual cluster to be available...")
-			}
-
-			nextMessage = time.Now().Add(waitDuration)
-			warnCounter++
-			return false, nil
-		}
-
-		return err == nil, nil
-	})
-}
-
 func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, waitUntilReady bool, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
 	now := time.Now()
-	nextMessage := now.Add(waitDuration)
+	pollInterval := min(clihelper.Timeout()/5, time.Second*40) // every 40 seconds or 5th of the total timeout
+	nextMessage := now.Add(pollInterval)
+
 	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -1050,7 +917,7 @@ func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.In
 		return virtualClusterInstance, nil
 	}
 
-	warnCounter := 0
+	logged := false
 	return virtualClusterInstance, wait.PollUntilContextTimeout(ctx, time.Second, clihelper.Timeout(), true, func(ctx context.Context) (bool, error) {
 		virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -1059,13 +926,13 @@ func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.In
 
 		if virtualClusterInstance.Status.Phase != storagev1.InstanceReady && virtualClusterInstance.Status.Phase != storagev1.InstanceSleeping {
 			if time.Now().After(nextMessage) {
-				if warnCounter > 1 {
-					log.Warnf("Cannot reach virtual cluster because: %s (%s). Loft will continue waiting, but this operation may timeout", virtualClusterInstance.Status.Message, virtualClusterInstance.Status.Reason)
+				if logged {
+					log.Infof("Cannot reach virtual cluster because: %s (%s). Loft will continue waiting, but this operation may timeout", virtualClusterInstance.Status.Message, virtualClusterInstance.Status.Reason)
 				} else {
-					log.Info("Waiting for virtual cluster to be available...")
+					log.Infof("Waiting for virtual cluster %s to be available...", virtualClusterInstance.Name)
 				}
-				nextMessage = time.Now().Add(waitDuration)
-				warnCounter++
+				nextMessage = time.Now().Add(pollInterval)
+				logged = true
 			}
 			return false, nil
 		}
