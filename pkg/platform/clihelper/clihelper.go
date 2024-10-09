@@ -707,7 +707,6 @@ func UpgradeLoft(chartName, chartRepo, kubeContext, namespace string, extraArgs 
 		defaultReleaseName,
 		chartName,
 		"--install",
-		"--reuse-values",
 		"--create-namespace",
 		"--repository-config=''",
 		"--kube-context",
