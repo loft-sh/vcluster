@@ -23,7 +23,7 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 
 	// get Namespace resource in order to have access to its labels
 	vNamespace := &corev1.Namespace{}
-	err := t.vClient.Get(ctx, client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
+	err := t.vClient.Get(ctx, client.ObjectKey{Name: vPod.GetNamespace()}, vNamespace)
 	if err != nil {
 		return err
 	}
@@ -31,10 +31,11 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	// spec diff
 	t.calcSpecDiff(pPod, vPod)
 
-	// check pod and namespace labels
-	if event.Source == synccontext.SyncEventSourceHost {
+	switch event.Source {
+	case synccontext.SyncEventSourceHost:
 		vPod.Labels = translate.VirtualLabels(pPod, vPod)
-	} else {
+		vPod.Annotations = translate.VirtualAnnotations(pPod, vPod, GetExcludedAnnotations(pPod)...)
+	case synccontext.SyncEventSourceVirtual:
 		updatedLabels := translate.HostLabels(vPod, pPod)
 		if updatedLabels == nil {
 			updatedLabels = map[string]string{}
@@ -43,31 +44,32 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 			updatedLabels[translate.HostLabelNamespace(k)] = v
 		}
 		pPod.Labels = updatedLabels
-	}
 
-	// check annotations
-	updatedAnnotations := translate.HostAnnotations(vPod, pPod, GetExcludedAnnotations(pPod)...)
-	if updatedAnnotations == nil {
-		updatedAnnotations = map[string]string{}
-	}
-
-	// set owner references
-	updatedAnnotations[VClusterLabelsAnnotation] = LabelsAnnotation(vPod)
-	if len(vPod.OwnerReferences) > 0 {
-		ownerReferencesData, _ := json.Marshal(vPod.OwnerReferences)
-		updatedAnnotations[OwnerReferences] = string(ownerReferencesData)
-		for _, ownerReference := range vPod.OwnerReferences {
-			if ownerReference.APIVersion == appsv1.SchemeGroupVersion.String() && canAnnotateOwnerSetKind(ownerReference.Kind) {
-				updatedAnnotations[OwnerSetKind] = ownerReference.Kind
-				break
-			}
+		// check annotations
+		updatedAnnotations := translate.HostAnnotations(vPod, pPod, GetExcludedAnnotations(pPod)...)
+		if updatedAnnotations == nil {
+			updatedAnnotations = map[string]string{}
 		}
-	} else {
-		delete(updatedAnnotations, OwnerReferences)
-		delete(updatedAnnotations, OwnerSetKind)
+
+		// set owner references
+		updatedAnnotations[VClusterLabelsAnnotation] = LabelsAnnotation(vPod)
+		if len(vPod.OwnerReferences) > 0 {
+			ownerReferencesData, _ := json.Marshal(vPod.OwnerReferences)
+			updatedAnnotations[OwnerReferences] = string(ownerReferencesData)
+			for _, ownerReference := range vPod.OwnerReferences {
+				if ownerReference.APIVersion == appsv1.SchemeGroupVersion.String() && canAnnotateOwnerSetKind(ownerReference.Kind) {
+					updatedAnnotations[OwnerSetKind] = ownerReference.Kind
+					break
+				}
+			}
+		} else {
+			delete(updatedAnnotations, OwnerReferences)
+			delete(updatedAnnotations, OwnerSetKind)
+		}
+
+		pPod.Annotations = updatedAnnotations
 	}
 
-	pPod.Annotations = updatedAnnotations
 	return nil
 }
 

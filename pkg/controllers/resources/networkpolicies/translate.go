@@ -19,9 +19,6 @@ func (s *networkPolicySyncer) translateUpdate(pObj, vObj *networkingv1.NetworkPo
 	if translatedSpec := translateSpec(&vObj.Spec, vObj.GetNamespace()); translatedSpec != nil {
 		pObj.Spec = *translatedSpec
 	}
-
-	pObj.Annotations = translate.HostAnnotations(vObj, pObj)
-	pObj.Labels = translate.HostLabels(vObj, pObj)
 }
 
 func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *networkingv1.NetworkPolicySpec {

@@ -63,7 +63,7 @@ type namespaceSyncer struct {
 var _ syncertypes.Syncer = &namespaceSyncer{}
 
 func (s *namespaceSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*corev1.Namespace](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 func (s *namespaceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Namespace]) (ctrl.Result, error) {

@@ -80,7 +80,7 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 
 	event.TargetObject().Spec.IngressClassName = event.SourceObject().Spec.IngressClassName
 	event.Virtual.Status = event.Host.Status
-	s.translateUpdate(ctx, event.Host, event.Virtual)
+	s.translateUpdate(ctx, event.Source, event.Host, event.Virtual)
 	return ctrl.Result{}, nil
 }
 

@@ -14,8 +14,6 @@ func (s *pdbSyncer) translate(ctx *synccontext.SyncContext, vObj *policyv1.PodDi
 }
 
 func (s *pdbSyncer) translateUpdate(pObj, vObj *policyv1.PodDisruptionBudget) {
-	pObj.Annotations = translate.HostAnnotations(vObj, pObj)
-	pObj.Labels = translate.HostLabels(vObj, pObj)
 	pObj.Spec.MaxUnavailable = vObj.Spec.MaxUnavailable
 	pObj.Spec.MinAvailable = vObj.Spec.MinAvailable
 	pObj.Spec.Selector = translate.HostLabelSelector(vObj.Spec.Selector)

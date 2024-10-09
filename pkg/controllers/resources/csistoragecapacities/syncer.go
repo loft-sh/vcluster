@@ -147,7 +147,7 @@ func (s *csistoragecapacitySyncer) enqueuePhysical(ctx *synccontext.SyncContext,
 		return
 	}
 
-	name := s.Mapper.HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+	name := s.HostToVirtual(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 	if name.Name != "" && name.Namespace != "" {
 		q.Add(reconcile.Request{NamespacedName: name})
 	}

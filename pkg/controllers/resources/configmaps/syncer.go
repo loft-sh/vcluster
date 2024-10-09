@@ -60,10 +60,8 @@ func (s *configMapSyncer) ModifyController(ctx *synccontext.RegisterContext, bui
 }
 
 func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.ConfigMap]) (ctrl.Result, error) {
-	createNeeded, err := s.isConfigMapUsed(ctx, event.Virtual)
-	if err != nil {
-		return ctrl.Result{}, err
-	} else if !createNeeded {
+	createNeeded := s.isConfigMapUsed(ctx, event.Virtual)
+	if !createNeeded {
 		return ctrl.Result{}, nil
 	}
 
@@ -72,7 +70,7 @@ func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 	}
 
 	pObj := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name, Namespace: event.Virtual.Namespace}, event.Virtual))
-	err = pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.ConfigMaps.Patches)
+	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.ConfigMaps.Patches)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -87,14 +85,12 @@ func (s *configMapSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syn
 	}
 
 	vObj := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
-	createNeeded, err := s.isConfigMapUsed(ctx, vObj)
-	if err != nil {
-		return ctrl.Result{}, err
-	} else if !createNeeded {
+	createNeeded := s.isConfigMapUsed(ctx, vObj)
+	if !createNeeded {
 		return ctrl.Result{}, nil
 	}
 
-	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.ConfigMaps.Patches)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.ConfigMaps.Patches)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -103,12 +99,10 @@ func (s *configMapSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syn
 }
 
 func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.ConfigMap]) (_ ctrl.Result, retErr error) {
-	used, err := s.isConfigMapUsed(ctx, event.Virtual)
-	if err != nil {
-		return ctrl.Result{}, err
-	} else if !used {
+	used := s.isConfigMapUsed(ctx, event.Virtual)
+	if !used {
 		ctx.Log.Infof("delete physical config map %s/%s, because it is not used anymore", event.Host.GetNamespace(), event.Host.GetName())
-		err = ctx.PhysicalClient.Delete(ctx, event.Host)
+		err := ctx.PhysicalClient.Delete(ctx, event.Host)
 		if err != nil {
 			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", event.Host.GetNamespace(), event.Host.GetName(), err)
 			return ctrl.Result{}, err
@@ -131,13 +125,12 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 		}
 	}()
 
-	// check annotations & labels
-	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
-
-	// check labels
+	// bi-directional sync of annotations and labels
 	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual)
 		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
 	} else {
+		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
 		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 	}
 
@@ -147,11 +140,11 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 	return ctrl.Result{}, nil
 }
 
-func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj *corev1.ConfigMap) (bool, error) {
+func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj *corev1.ConfigMap) bool {
 	if vObj.Annotations[constants.SyncResourceAnnotation] == "true" {
-		return true, nil
+		return true
 	} else if ctx.Config.Sync.ToHost.ConfigMaps.All {
-		return true, nil
+		return true
 	}
 
 	// retrieve references for config map
@@ -163,5 +156,5 @@ func (s *configMapSyncer) isConfigMapUsed(ctx *synccontext.SyncContext, vObj *co
 		},
 	})
 
-	return len(references) > 0, nil
+	return len(references) > 0
 }

@@ -70,8 +70,8 @@ func (i *runtimeClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 		}
 	}()
 
-	event.Virtual.Annotations = event.Host.Annotations
-	event.Virtual.Labels = event.Host.Labels
+	event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual)
+	event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
 	event.Virtual.Handler = event.Host.Handler
 	event.Virtual.Overhead = event.Host.Overhead
 	event.Virtual.Scheduling = event.Host.Scheduling

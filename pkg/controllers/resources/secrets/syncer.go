@@ -52,7 +52,7 @@ type secretSyncer struct {
 var _ syncertypes.Syncer = &secretSyncer{}
 
 func (s *secretSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*corev1.Secret](s)
+	return syncer.ToGenericSyncer(s)
 }
 
 var _ syncertypes.ControllerModifier = &secretSyncer{}
@@ -128,13 +128,11 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Syn
 		event.TargetObject().Type = event.SourceObject().Type
 	}
 
-	// check annotations
-	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
-
-	// check labels
 	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual)
 		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
 	} else {
+		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
 		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 	}
 

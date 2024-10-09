@@ -81,8 +81,13 @@ func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 		}
 	}()
 
-	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
-	event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
+	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual, s.excludedAnnotations...)
+		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
+	} else {
+		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
+		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
+	}
 
 	// bidirectional sync
 	event.TargetObject().Provisioner = event.SourceObject().Provisioner

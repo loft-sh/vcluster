@@ -49,6 +49,16 @@ func TestSync(t *testing.T) {
 			constants.HostClusterPersistentVolumeAnnotation: "testpv",
 		},
 	}
+	backwardPvObjectMeta := metav1.ObjectMeta{
+		Name: "testpv",
+		Annotations: map[string]string{
+			constants.HostClusterPersistentVolumeAnnotation: "testpv",
+			translate.HostNameAnnotation:                    "testpv",
+			translate.KindAnnotation:                        "/v1, Kind=PersistentVolume",
+			translate.NameAnnotation:                        "testpv",
+			translate.UIDAnnotation:                         "",
+		},
+	}
 	basePvWithDelTSObjectMeta := metav1.ObjectMeta{
 		Name:              "testpv",
 		Finalizers:        []string{"kubernetes"},
@@ -86,7 +96,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 	backwardUpdatePPv := &corev1.PersistentVolume{
-		ObjectMeta: basePvObjectMeta,
+		ObjectMeta: backwardPvObjectMeta,
 		Spec: corev1.PersistentVolumeSpec{
 			ClaimRef:         basePPvcReference,
 			StorageClassName: "someStorageClass",
@@ -176,7 +186,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 	backwardRetainPPv := &corev1.PersistentVolume{
-		ObjectMeta: basePvObjectMeta,
+		ObjectMeta: backwardPvObjectMeta,
 		Spec: corev1.PersistentVolumeSpec{
 			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
 			ClaimRef: &corev1.ObjectReference{
@@ -190,10 +200,12 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+	createContext := func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 		vConfig.Sync.ToHost.PersistentVolumes.Enabled = true
 		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
-	}, []*syncertesting.SyncTest{
+	}
+
+	testCases := []*syncertesting.SyncTest{
 		{
 			Name:                 "Create Backward",
 			InitialVirtualState:  []runtime.Object{basePvc},
@@ -456,5 +468,11 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
-	})
+	}
+
+	for _, test := range testCases {
+		t.Run(test.Name, func(t *testing.T) {
+			test.Run(t, createContext)
+		})
+	}
 }
