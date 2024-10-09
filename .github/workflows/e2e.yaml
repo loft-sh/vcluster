@@ -103,7 +103,7 @@ jobs:
       - id: set-paths-matrix
         run: |
           set -x
-          sudo apt-get install -y jq
+          sudo apt-get install -y jq yq
           paths=$(ls -d ./test/e2e*)
           echo "matrix=$(printf '%s\n' "${paths}" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
     outputs:
@@ -139,13 +139,13 @@ jobs:
           name: e2e-binaries
           path: ./test/*/*.test
           retention-days: 7
-  
+
   vcluster-install-delete:
     name: Install and delete virtual cluster
     needs:
       - build-and-push-syncer-image
       - build-vcluster-cli
-      
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -179,14 +179,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vcluster_syncer
-      
+
       - name: Setup environment
         run: |
-          
+
           kind load image-archive vcluster_syncer
-          
+
           chmod +x vcluster && sudo mv vcluster /usr/bin
-          
+
           sudo apt-get install -y sed
 
       - name: Run tests - install and delete virtual cluster using kubectl
@@ -194,11 +194,11 @@ jobs:
           set -x
 
           ./hack/vcluster-install-scripts/test-kubectl-install.sh
-      
+
       - name: Run tests - install and delete virtual cluster using helm
         run: |
           set -x
-          
+
           ./hack/vcluster-install-scripts/test-helm-install.sh
 
   download-latest-cli:
@@ -214,7 +214,7 @@ jobs:
           name: vcluster-current
           path: ./vcluster-current
           retention-days: 7
-  
+
   upgrade-test:
     name: test if we can upgrade from older version
     needs:
@@ -273,12 +273,13 @@ jobs:
           chmod +x ./vcluster-current
 
           kind load image-archive vcluster_syncer
+          yq eval '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' > ./test/vcluster-current.yaml
 
           ./vcluster-current create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
           --create-namespace \
           --debug \
           --connect=false \
-          --distro=${{ matrix.distribution }}
+          -f ./test/vcluster-current.yaml
 
           ./hack/wait-for-pod.sh -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }}
 
@@ -289,8 +290,9 @@ jobs:
 
           sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" test/commonValues.yaml
           sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" test/commonValues.yaml
+          yq eval -i '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' test/commonValues.yaml
 
-          ./vcluster-dev/vcluster create vcluster --distro=${{ matrix.distribution }} \
+          ./vcluster-dev/vcluster create vcluster \
           --connect=false \
           --upgrade \
           --local-chart-dir ./chart \
@@ -411,6 +413,7 @@ jobs:
 
           sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
           sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
+          yq eval -i '.controlPlane.distro.${{ matrix.distribution }}.enabled = true'  ${{ matrix.test-suite-path }}/../commonValues.yaml
 
           kind load image-archive vcluster_syncer
 
@@ -420,7 +423,6 @@ jobs:
           --create-namespace \
           --debug \
           --connect=false \
-          --distro=${{ matrix.distribution }} \
           --local-chart-dir ./chart \
           -f ./test/commonValues.yaml \
           $haValues \

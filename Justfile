@@ -113,6 +113,7 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
 
   sed -i.bak "s|REPLACE_REPOSITORY_NAME|vcluster|g" dist/commonValues.yaml
   sed -i.bak "s|REPLACE_TAG_NAME|e2e-latest|g" dist/commonValues.yaml
+  yq eval -i '.controlPlane.distro.{{distribution}}.enabled = true' dist/commonValues.yaml
   rm dist/commonValues.yaml.bak
 
   sed -i.bak "s|kind-control-plane|vcluster-control-plane|g" dist/commonValues.yaml
@@ -123,7 +124,6 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
     --create-namespace \
     --debug \
     --connect=false \
-    --distro={{ distribution }} \
     --local-chart-dir ./chart/ \
     -f ./dist/commonValues.yaml \
     -f {{ path }}/values.yaml \
