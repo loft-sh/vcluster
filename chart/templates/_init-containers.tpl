@@ -19,7 +19,7 @@
 
 {{/* Bump $defaultTag value whenever k8s version is bumped */}}
 {{- define "vcluster.k8s.controllerManager.image.tag" -}}
-{{- $defaultTag := "v1.30.2" -}}
+{{- $defaultTag := "v1.31.1" -}}
 {{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.controllerManager.image.tag $defaultTag) -}}
 {{ .Values.controlPlane.distro.k8s.version }}
 {{- else -}}
@@ -35,7 +35,7 @@
 
 {{/* Bump $defaultTag value whenever k8s version is bumped */}}
 {{- define "vcluster.k8s.apiServer.image.tag" -}}
-{{- $defaultTag := "v1.30.2" -}}
+{{- $defaultTag := "v1.31.1" -}}
 {{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.apiServer.image.tag $defaultTag) -}}
 {{ .Values.controlPlane.distro.k8s.version}}
 {{- else -}}
@@ -52,7 +52,7 @@
 
 {{/* Bump $defaultTag value whenever k8s version is bumped */}}
 {{- define "vcluster.k8s.scheduler.image.tag" -}}
-{{- $defaultTag := "v1.30.2" -}}
+{{- $defaultTag := "v1.31.1" -}}
 {{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.scheduler.image.tag $defaultTag) -}}
 {{ .Values.controlPlane.distro.k8s.version}}
 {{- else -}}
