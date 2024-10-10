@@ -299,34 +299,15 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	}
 
 	// sync ephemeral containers
-	if syncEphemeralContainers(event.Virtual, event.Host) {
-		kubeIP, _, ptrServiceList, err := s.getK8sIPDNSIPServiceList(ctx, event.Virtual)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		// translate services to environment variables
-		serviceEnv := translatepods.ServicesToEnvironmentVariables(event.Virtual.Spec.EnableServiceLinks, ptrServiceList, kubeIP)
-		for i := range event.Virtual.Spec.EphemeralContainers {
-			envVar, envFrom, err := s.podTranslator.TranslateContainerEnv(ctx, event.Virtual.Spec.EphemeralContainers[i].Env, event.Virtual.Spec.EphemeralContainers[i].EnvFrom, event.Virtual, serviceEnv)
-			if err != nil {
-				return ctrl.Result{}, fmt.Errorf("translate container env: %w", err)
-			}
-			event.Virtual.Spec.EphemeralContainers[i].Env = envVar
-			event.Virtual.Spec.EphemeralContainers[i].EnvFrom = envFrom
-		}
-
-		// add ephemeralContainers subresource to physical pod
-		err = AddEphemeralContainer(ctx, s.physicalClusterClient, event.Host, event.Virtual)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
+	synced, err := s.syncEphemeralContainers(ctx, s.physicalClusterClient, event.Host, event.Virtual)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("sync ephemeral containers: %w", err)
+	} else if synced {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// set pod owner as sa token
-	err := setSATokenSecretAsOwner(ctx, ctx.PhysicalClient, event.Virtual, event.Host)
+	err = setSATokenSecretAsOwner(ctx, ctx.PhysicalClient, event.Virtual, event.Host)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -393,24 +374,6 @@ func setSATokenSecretAsOwner(ctx *synccontext.SyncContext, pClient client.Client
 	}
 
 	return nil
-}
-
-func syncEphemeralContainers(vPod *corev1.Pod, pPod *corev1.Pod) bool {
-	if vPod.Spec.EphemeralContainers == nil {
-		return false
-	}
-	if len(vPod.Spec.EphemeralContainers) != len(pPod.Spec.EphemeralContainers) {
-		return true
-	}
-	for i := range vPod.Spec.EphemeralContainers {
-		if vPod.Spec.EphemeralContainers[i].Image != pPod.Spec.EphemeralContainers[i].Image {
-			return true
-		}
-		if vPod.Spec.EphemeralContainers[i].Name != pPod.Spec.EphemeralContainers[i].Name {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *podSyncer) ensureNode(ctx *synccontext.SyncContext, pObj *corev1.Pod, vObj *corev1.Pod) (bool, error) {

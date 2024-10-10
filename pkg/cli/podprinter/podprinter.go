@@ -28,7 +28,7 @@ func (u *PodInfoPrinter) PrintPodInfo(pod *corev1.Pod, log log.Logger) {
 	if time.Since(u.LastWarning) > time.Second*10 {
 		status := find.GetPodStatus(pod)
 		if status != "Running" {
-			log.Warnf("vcluster is waiting, because vcluster pod %s has status: %s", pod.Name, status)
+			log.Infof("vcluster is waiting, because vcluster pod %s has status: %s", pod.Name, status)
 		}
 		u.LastWarning = time.Now()
 	}
