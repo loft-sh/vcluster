@@ -54,7 +54,7 @@ func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syn
 
 	newStorageClass := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name}, event.Virtual), s.excludedAnnotations...)
 
-	err := pro.ApplyPatchesHostObject(ctx, nil, newStorageClass, event.Virtual, ctx.Config.Sync.ToHost.StorageClasses.Patches)
+	err := pro.ApplyPatchesHostObject(ctx, nil, newStorageClass, event.Virtual, ctx.Config.Sync.ToHost.StorageClasses.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("apply patches: %w", err)
 	}
@@ -70,7 +70,7 @@ func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syn
 }
 
 func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.StorageClasses.Patches))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.StorageClasses.Patches, false))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

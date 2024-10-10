@@ -50,7 +50,7 @@ func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
 
 	// Apply pro patches
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.IngressClasses.Patches)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.IngressClasses.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
@@ -60,7 +60,7 @@ func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 }
 
 func (i *ingressClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*networkingv1.IngressClass]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.IngressClasses.Patches))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.IngressClasses.Patches, true))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

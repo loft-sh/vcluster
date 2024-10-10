@@ -45,7 +45,7 @@ func (s *pdbSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 
 	newPDB := s.translate(ctx, event.Virtual)
 
-	err := pro.ApplyPatchesHostObject(ctx, nil, newPDB, event.Virtual, ctx.Config.Sync.ToHost.PodDisruptionBudgets.Patches)
+	err := pro.ApplyPatchesHostObject(ctx, nil, newPDB, event.Virtual, ctx.Config.Sync.ToHost.PodDisruptionBudgets.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("apply patches: %w", err)
 	}
@@ -54,7 +54,7 @@ func (s *pdbSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 }
 
 func (s *pdbSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*policyv1.PodDisruptionBudget]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.PodDisruptionBudgets.Patches))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.PodDisruptionBudgets.Patches, false))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

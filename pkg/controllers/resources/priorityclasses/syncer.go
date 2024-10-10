@@ -57,7 +57,7 @@ func (s *priorityClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 
 	newPriorityClass := s.translate(ctx, event.Virtual)
 
-	err := pro.ApplyPatchesHostObject(ctx, nil, newPriorityClass, event.Virtual, ctx.Config.Sync.ToHost.PriorityClasses.Patches)
+	err := pro.ApplyPatchesHostObject(ctx, nil, newPriorityClass, event.Virtual, ctx.Config.Sync.ToHost.PriorityClasses.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("apply patches: %w", err)
 	}
@@ -80,13 +80,13 @@ func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 	}
 
 	if s.fromHost {
-		patch, err = patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.PriorityClasses.Patches))
+		patch, err = patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.PriorityClasses.Patches, true))
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 		}
 	}
 	if s.toHost {
-		patch, err = patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.PriorityClasses.Patches))
+		patch, err = patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.PriorityClasses.Patches, false))
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 		}
@@ -113,7 +113,7 @@ func (s *priorityClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event 
 	}
 
 	newVirtualPC := s.translateFromHost(ctx, event.Host)
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, newVirtualPC, event.Host, ctx.Config.Sync.FromHost.PriorityClasses.Patches)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, newVirtualPC, event.Host, ctx.Config.Sync.FromHost.PriorityClasses.Patches, true)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

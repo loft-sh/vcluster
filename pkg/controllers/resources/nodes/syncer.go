@@ -285,7 +285,7 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncE
 		return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 	}
 
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.Nodes.Patches))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.Nodes.Patches, true))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -322,7 +322,7 @@ func (s *nodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccont
 	}
 
 	// Apply pro patches
-	err = pro.ApplyPatchesVirtualObject(ctx, nil, virtualNode, event.Host, ctx.Config.Sync.FromHost.Nodes.Patches)
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, virtualNode, event.Host, ctx.Config.Sync.FromHost.Nodes.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}

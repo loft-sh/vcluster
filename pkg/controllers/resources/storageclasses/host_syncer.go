@@ -50,7 +50,7 @@ func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, eve
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name}, false)
 
 	// Apply pro patches
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.StorageClasses.Patches)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.StorageClasses.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
@@ -60,7 +60,7 @@ func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, eve
 }
 
 func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.StorageClasses.Patches))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.StorageClasses.Patches, true))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

@@ -44,7 +44,7 @@ func (s *networkPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 	}
 
 	pObj := s.translate(ctx, event.Virtual)
-	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.NetworkPolicies.Patches)
+	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.NetworkPolicies.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -53,7 +53,7 @@ func (s *networkPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 }
 
 func (s *networkPolicySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*networkingv1.NetworkPolicy]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.NetworkPolicies.Patches))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.NetworkPolicies.Patches, false))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

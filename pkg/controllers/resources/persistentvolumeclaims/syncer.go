@@ -101,7 +101,7 @@ func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, e
 		return ctrl.Result{}, err
 	}
 
-	err = pro.ApplyPatchesHostObject(ctx, nil, newPvc, event.Virtual, ctx.Config.Sync.ToHost.PersistentVolumeClaims.Patches)
+	err = pro.ApplyPatchesHostObject(ctx, nil, newPvc, event.Virtual, ctx.Config.Sync.ToHost.PersistentVolumeClaims.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -148,7 +148,7 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, event *
 	}
 
 	// patch objects
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.PersistentVolumeClaims.Patches))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.PersistentVolumeClaims.Patches, false))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -190,7 +190,7 @@ func (s *persistentVolumeClaimSyncer) SyncToVirtual(ctx *synccontext.SyncContext
 	}
 
 	vPvc := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host), s.excludedAnnotations...)
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vPvc, event.Host, ctx.Config.Sync.ToHost.PersistentVolumeClaims.Patches)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vPvc, event.Host, ctx.Config.Sync.ToHost.PersistentVolumeClaims.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
