@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	emailverifier "github.com/AfterShip/email-verifier"
 	"github.com/blang/semver"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
@@ -21,6 +22,10 @@ import (
 type StartCmd struct {
 	start.Options
 }
+
+var (
+	verifier = emailverifier.NewVerifier()
+)
 
 func NewStartCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &StartCmd{
@@ -87,6 +92,8 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 		}
 	}
 
+	cmd.Email = ensureEmailProvided(cmd.Email)
+
 	// if < v4.0.0 then use ChartName loft
 	parsedVersion, err := semver.Parse(strings.TrimPrefix(cmd.Version, "v"))
 	if err != nil {
@@ -141,4 +148,32 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 	}
 
 	return start.NewLoftStarter(cmd.Options).Start(ctx)
+}
+
+func ensureEmailProvided(email string) string {
+	for answerErr := validateEmail(email); answerErr != nil; {
+		email, answerErr = survey.NewSurvey().Question(&survey.QuestionOptions{
+			Question:       "Please specify an email address for the admin user",
+			ValidationFunc: validateEmail,
+		})
+	}
+
+	return email
+}
+
+func validateEmail(email string) error {
+	ret, err := verifier.Verify(email)
+	if err != nil {
+		return err
+	}
+
+	if ret.Disposable {
+		return fmt.Errorf(`disposable address "%s" not allowed`, email)
+	}
+
+	if !ret.HasMxRecords {
+		return fmt.Errorf(`address "%s" without MX record not allowed`, email)
+	}
+
+	return nil
 }
