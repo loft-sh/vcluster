@@ -1,3 +1,6 @@
+# github.com/AfterShip/email-verifier v1.4.1
+## explicit; go 1.22
+github.com/AfterShip/email-verifier
 # github.com/AlecAivazis/survey/v2 v2.3.7
 ## explicit; go 1.13
 github.com/AlecAivazis/survey/v2
@@ -305,6 +308,11 @@ github.com/hashicorp/golang-lru/v2/simplelru
 # github.com/hashicorp/yamux v0.1.1
 ## explicit; go 1.15
 github.com/hashicorp/yamux
+# github.com/hbollon/go-edlib v1.6.0
+## explicit; go 1.13
+github.com/hbollon/go-edlib
+github.com/hbollon/go-edlib/internal/orderedmap
+github.com/hbollon/go-edlib/internal/utils
 # github.com/imdario/mergo v0.3.16
 ## explicit; go 1.13
 github.com/imdario/mergo
