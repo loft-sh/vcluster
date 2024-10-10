@@ -51,7 +51,7 @@ func (s *volumeSnapshotClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, 
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name}, false)
 
 	// Apply pro patches
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.VolumeSnapshotClasses.Patches)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.VolumeSnapshotClasses.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying pro patches: %w", err)
 	}
@@ -73,7 +73,7 @@ func (s *volumeSnapshotClassSyncer) SyncToHost(ctx *synccontext.SyncContext, eve
 }
 
 func (s *volumeSnapshotClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*volumesnapshotv1.VolumeSnapshotClass]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.VolumeSnapshotClasses.Patches))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.VolumeSnapshotClasses.Patches, true))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

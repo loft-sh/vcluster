@@ -63,7 +63,7 @@ func (s *volumeSnapshotContentSyncer) SyncToVirtual(ctx *synccontext.SyncContext
 	}
 
 	vVSC := s.translateBackwards(event.Host, vVS)
-	err = pro.ApplyPatchesVirtualObject(ctx, nil, vVSC, event.Host, ctx.Config.Sync.ToHost.VolumeSnapshotContents.Patches)
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vVSC, event.Host, ctx.Config.Sync.ToHost.VolumeSnapshotContents.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -86,7 +86,7 @@ func (s *volumeSnapshotContentSyncer) SyncToHost(ctx *synccontext.SyncContext, e
 	}
 
 	pVSC := s.translate(ctx, event.Virtual)
-	err := pro.ApplyPatchesHostObject(ctx, nil, pVSC, event.Virtual, ctx.Config.Sync.ToHost.VolumeSnapshotContents.Patches)
+	err := pro.ApplyPatchesHostObject(ctx, nil, pVSC, event.Virtual, ctx.Config.Sync.ToHost.VolumeSnapshotContents.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -168,7 +168,7 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, event *
 	}
 
 	// patch objects
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.VolumeSnapshotContents.Patches))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.VolumeSnapshotContents.Patches, false))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

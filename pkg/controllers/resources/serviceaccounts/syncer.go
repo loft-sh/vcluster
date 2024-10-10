@@ -55,7 +55,7 @@ func (s *serviceAccountSyncer) SyncToHost(ctx *synccontext.SyncContext, event *s
 	pObj.AutomountServiceAccountToken = &[]bool{false}[0]
 	pObj.ImagePullSecrets = nil
 
-	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.ServiceAccounts.Patches)
+	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.ServiceAccounts.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("apply patches: %w", err)
 	}
@@ -64,7 +64,7 @@ func (s *serviceAccountSyncer) SyncToHost(ctx *synccontext.SyncContext, event *s
 }
 
 func (s *serviceAccountSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.ServiceAccount]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.ServiceAccounts.Patches))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.ServiceAccounts.Patches, false))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -95,7 +95,7 @@ func (s *serviceAccountSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event
 	}
 
 	vObj := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.ServiceAccounts.Patches)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.ServiceAccounts.Patches, false)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

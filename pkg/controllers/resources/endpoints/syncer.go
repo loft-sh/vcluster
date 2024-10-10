@@ -54,7 +54,7 @@ func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 	}
 
 	pObj := s.translate(ctx, event.Virtual)
-	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.Endpoints.Patches)
+	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.Endpoints.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -63,7 +63,7 @@ func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 }
 
 func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Endpoints]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Endpoints.Patches))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Endpoints.Patches, false))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}

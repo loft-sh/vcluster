@@ -70,7 +70,7 @@ func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 	}
 
 	pObj := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name, Namespace: event.Virtual.Namespace}, event.Virtual))
-	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.ConfigMaps.Patches)
+	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.ConfigMaps.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -90,7 +90,7 @@ func (s *configMapSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syn
 		return ctrl.Result{}, nil
 	}
 
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.ConfigMaps.Patches)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.ConfigMaps.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -111,7 +111,7 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 		return ctrl.Result{}, nil
 	}
 
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.ConfigMaps.Patches))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.ConfigMaps.Patches, false))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
