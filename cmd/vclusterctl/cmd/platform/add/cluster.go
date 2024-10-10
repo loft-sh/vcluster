@@ -234,13 +234,25 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("create kube client: %w", err)
 	}
 
+	agentAlreadyInstalled := true
+	_, err = clientset.AppsV1().Deployments(cmd.Namespace).Get(ctx, "loft", metav1.GetOptions{})
+	if err != nil {
+		cmd.Log.Debugf("Error retrieving deployment: %v", err)
+		agentAlreadyInstalled = false
+	}
+
 	helmCmd := exec.CommandContext(ctx, "helm", helmArgs...)
 
 	helmCmd.Stdout = cmd.Log.Writer(logrus.DebugLevel, true)
 	helmCmd.Stderr = cmd.Log.Writer(logrus.DebugLevel, true)
 	helmCmd.Stdin = os.Stdin
 
-	cmd.Log.Info("Installing Loft agent...")
+	if agentAlreadyInstalled {
+		cmd.Log.Info("Existing vCluster Platform agent found")
+		cmd.Log.Info("Upgrading vCluster Platform agent...")
+	} else {
+		cmd.Log.Info("Installing vCluster Platform agent...")
+	}
 	cmd.Log.Debugf("Running helm command: %v", helmCmd.Args)
 
 	err = helmCmd.Run()
@@ -268,7 +280,11 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		}
 	}
 
-	cmd.Log.Donef("Successfully added cluster %s to the platform", clusterName)
+	if !agentAlreadyInstalled {
+		cmd.Log.Donef("Successfully added cluster %s to the platform", clusterName)
+	} else {
+		cmd.Log.Donef("Successfully upgraded platform agent")
+	}
 
 	return nil
 }
