@@ -88,6 +88,14 @@ func TestSync(t *testing.T) {
 	pDynamicObjectMeta := metav1.ObjectMeta{
 		Name:            "snap-abcd",
 		ResourceVersion: "12345",
+		Annotations: map[string]string{
+			constants.HostClusterVSCAnnotation:     "snap-abcd",
+			translate.ManagedAnnotationsAnnotation: "vcluster.loft.sh/host-volumesnapshotcontent",
+			translate.HostNameAnnotation:           "snap-abcd",
+			translate.KindAnnotation:               "snapshot.storage.k8s.io/v1, Kind=VolumeSnapshotContent",
+			translate.NameAnnotation:               "snap-abcd",
+			translate.UIDAnnotation:                "",
+		},
 	}
 	pDynamic := &volumesnapshotv1.VolumeSnapshotContent{
 		ObjectMeta: pDynamicObjectMeta,
@@ -162,10 +170,12 @@ func TestSync(t *testing.T) {
 	vDeletingWithStatus := vDeletingWithOneFinalizer.DeepCopy()
 	vDeletingWithStatus.Status = pDeletingWithStatus.Status
 
-	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+	createContext := func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 		vConfig.Sync.ToHost.VolumeSnapshots.Enabled = true
 		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
-	}, []*syncertesting.SyncTest{
+	}
+
+	testCases := []*syncertesting.SyncTest{
 		{
 			Name:                 "Create dynamic VolumeSnapshotContent from host",
 			InitialVirtualState:  []runtime.Object{vVolumeSnapshot.DeepCopy()},
@@ -274,7 +284,8 @@ func TestSync(t *testing.T) {
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {}},
+				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {},
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(pPreProvisioned.DeepCopy(), vDeleting.DeepCopy()))
@@ -289,7 +300,8 @@ func TestSync(t *testing.T) {
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {}, // fakeClient seems to delete the object that has deletionTimestamp and no finalizers, so we will check its absence
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {}},
+				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {},
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vDeletingWithGCFinalizer.DeepCopy()))
@@ -304,7 +316,8 @@ func TestSync(t *testing.T) {
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {vDeletingWithOneFinalizer.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {pDeletingWithOneFinalizer.DeepCopy()}},
+				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {pDeletingWithOneFinalizer.DeepCopy()},
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(pDeletingWithOneFinalizer.DeepCopy(), vDeletingWithMoreFinalizers.DeepCopy()))
@@ -319,12 +332,19 @@ func TestSync(t *testing.T) {
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {vDeletingWithStatus.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {pDeletingWithStatus.DeepCopy()}},
+				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent"): {pDeletingWithStatus.DeepCopy()},
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(pDeletingWithStatus.DeepCopy(), vDeletingWithOneFinalizer.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
-	})
+	}
+
+	for _, test := range testCases {
+		t.Run(test.Name, func(t *testing.T) {
+			test.Run(t, createContext)
+		})
+	}
 }

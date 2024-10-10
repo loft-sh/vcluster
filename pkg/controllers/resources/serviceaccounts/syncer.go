@@ -77,10 +77,11 @@ func (s *serviceAccountSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 		}
 	}()
 
-	event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
 	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual)
 		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
 	} else {
+		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
 		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 	}
 

@@ -40,13 +40,18 @@ func (s *ingressSyncer) TranslateMetadataUpdate(ctx *synccontext.SyncContext, vO
 	return translate.HostAnnotations(vIngress, pObj), translate.HostLabels(vIngress, pObj)
 }
 
-func (s *ingressSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *networkingv1.Ingress) {
+func (s *ingressSyncer) translateUpdate(ctx *synccontext.SyncContext, source synccontext.SyncEventSource, pObj, vObj *networkingv1.Ingress) {
 	pObj.Spec = *translateSpec(ctx, vObj.Namespace, &vObj.Spec)
 
-	var translatedAnnotations map[string]string
-	translatedAnnotations, pObj.Labels = s.TranslateMetadataUpdate(ctx, vObj, pObj)
-	translatedAnnotations, _ = resources.TranslateIngressAnnotations(ctx, translatedAnnotations, vObj.Namespace)
-	pObj.Annotations = translatedAnnotations
+	if source == synccontext.SyncEventSourceHost {
+		vObj.Annotations = translate.VirtualAnnotations(pObj, vObj)
+		vObj.Labels = translate.VirtualLabels(pObj, vObj)
+	} else {
+		var translatedAnnotations map[string]string
+		translatedAnnotations, pObj.Labels = s.TranslateMetadataUpdate(ctx, vObj, pObj)
+		translatedAnnotations, _ = resources.TranslateIngressAnnotations(ctx, translatedAnnotations, vObj.Namespace)
+		pObj.Annotations = translatedAnnotations
+	}
 }
 
 func translateSpec(ctx *synccontext.SyncContext, namespace string, vIngressSpec *networkingv1.IngressSpec) *networkingv1.IngressSpec {

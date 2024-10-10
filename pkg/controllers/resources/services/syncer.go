@@ -133,21 +133,18 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	// update status
 	event.Virtual.Status = event.Host.Status
 
-	// check labels
 	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual, s.excludedAnnotations...)
 		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
 	} else {
+		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
 		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 	}
 
-	// check annotations
-	updatedAnnotations := translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
-
 	// remove the ServiceBlockDeletion annotation if it's not needed
 	if event.Virtual.Spec.ClusterIP == event.Host.Spec.ClusterIP {
-		delete(updatedAnnotations, ServiceBlockDeletion)
+		delete(event.Host.Annotations, ServiceBlockDeletion)
 	}
-	event.Host.Annotations = updatedAnnotations
 
 	// translate selector
 	if event.Source == synccontext.SyncEventSourceHost {

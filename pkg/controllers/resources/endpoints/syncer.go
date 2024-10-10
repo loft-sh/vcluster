@@ -82,6 +82,14 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 		return ctrl.Result{}, err
 	}
 
+	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual, s.excludedAnnotations...)
+		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
+	} else {
+		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
+		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
+	}
+
 	return ctrl.Result{}, nil
 }
 

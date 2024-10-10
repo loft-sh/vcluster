@@ -141,7 +141,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 	if event.Virtual.GetDeletionTimestamp() != nil {
 		if event.Host.GetDeletionTimestamp() == nil {
 			// check if the PV is dynamically provisioned and the reclaim policy is Delete
-			if !(event.Virtual.Spec.ClaimRef != nil && event.Virtual.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimDelete) {
+			if event.Virtual.Spec.ClaimRef == nil || event.Virtual.Spec.PersistentVolumeReclaimPolicy != corev1.PersistentVolumeReclaimDelete {
 				ctx.Log.Infof("delete physical persistent volume %s, because virtual persistent volume is deleted", event.Host.GetName())
 				err := ctx.PhysicalClient.Delete(ctx, event.Host)
 				if err != nil {
@@ -212,6 +212,13 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 	if event.Virtual.Annotations[constants.HostClusterPersistentVolumeAnnotation] == "" {
 		// TODO: translate the storage secrets
 		event.Host.Spec.StorageClassName = mappings.VirtualToHostName(ctx, event.Virtual.Spec.StorageClassName, "", mappings.StorageClasses())
+	}
+
+	// bi-directional sync of annotations and labels
+	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual, s.excludedAnnotations...)
+		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
+	} else {
 		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
 		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 	}

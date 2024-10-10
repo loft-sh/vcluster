@@ -49,8 +49,5 @@ func (s *endpointsSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vO
 	s.translateSpec(ctx, translated)
 	pObj.Subsets = translated.Subsets
 
-	// check annotations & labels
-	pObj.Annotations = translate.HostAnnotations(vObj, pObj, s.excludedAnnotations...)
-	pObj.Labels = translate.HostLabels(vObj, pObj)
 	return nil
 }

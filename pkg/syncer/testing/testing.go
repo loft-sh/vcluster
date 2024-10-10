@@ -52,7 +52,9 @@ func RunTests(t *testing.T, tests []*SyncTest) {
 
 func RunTestsWithContext(t *testing.T, createContext NewContextFunc, tests []*SyncTest) {
 	for _, test := range tests {
-		test.Run(t, createContext)
+		t.Run(test.Name, func(t *testing.T) {
+			test.Run(t, createContext)
+		})
 	}
 }
 

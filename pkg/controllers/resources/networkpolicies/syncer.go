@@ -67,6 +67,15 @@ func (s *networkPolicySyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 	}()
 
 	s.translateUpdate(event.Host, event.Virtual)
+
+	if event.Source == synccontext.SyncEventSourceHost {
+		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual)
+		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
+	} else {
+		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
+		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
+	}
+
 	return ctrl.Result{}, nil
 }
 
