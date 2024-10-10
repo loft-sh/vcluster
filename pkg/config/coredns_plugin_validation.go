@@ -18,6 +18,20 @@ func validateMappings(resolveDNS []vclusterconfig.ResolveDNS) error {
 			}
 		}
 		if mapping.Hostname != "" {
+			if strings.Count(mapping.Hostname, "*") > 1 {
+				return fmt.Errorf("error validating networking.resolveDNS[%d].hostname: can only contain a maximum of one wildcard, but got %s", i, mapping.Hostname)
+			} else if strings.Count(mapping.Hostname, "*") == 1 {
+				if mapping.Target.Hostname == "" {
+					return fmt.Errorf("error validating networking.resolveDNS[%d].hostname: when using wildcard hostname, target.hostname is required", i)
+				} else if strings.Count(mapping.Target.Hostname, "*") != 1 {
+					return fmt.Errorf("error validating networking.resolveDNS[%d].hostname: when using wildcard hostname, target.hostname needs to contain a single wildcard as well", i)
+				}
+
+				if !strings.HasPrefix(mapping.Hostname, "*") && !strings.HasSuffix(mapping.Hostname, "*") {
+					return fmt.Errorf("error validating networking.resolveDNS[%d].hostname: when using wildcard hostname, needs to be as a suffix or prefix, but got %s", i, mapping.Hostname)
+				}
+			}
+
 			options++
 		}
 		if mapping.Namespace != "" {
@@ -50,6 +64,12 @@ func validateTarget(target vclusterconfig.ResolveDNSTarget) error {
 	options := 0
 	if target.Hostname != "" {
 		options++
+
+		if strings.Count(target.Hostname, "*") > 1 {
+			return fmt.Errorf("target can only contain a maximum of one wildcard, but got %s", target.Hostname)
+		} else if strings.Count(target.Hostname, "*") == 1 && !strings.HasPrefix(target.Hostname, "*") && !strings.HasSuffix(target.Hostname, "*") {
+			return fmt.Errorf("when using wildcard hostname, needs to be as a suffix or prefix, but got %s", target.Hostname)
+		}
 	}
 	if target.IP != "" {
 		options++
