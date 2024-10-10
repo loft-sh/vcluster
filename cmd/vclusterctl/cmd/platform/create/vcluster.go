@@ -2,7 +2,7 @@ package create
 
 import (
 	"context"
-
+	"errors"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -39,12 +39,18 @@ Example:
 vcluster platform create vcluster test --namespace test
 #########################################################################
 	`,
-		Args: util.VClusterNameOnlyValidator,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			newArgs, err := util.PromptForMissingArgsIfInteractive(cmd.log, args, "vcluster name")
+			if err != nil && errors.Is(err, util.ErrNonInteractive) {
+				if err := util.VClusterNameOnlyValidator(cobraCmd, args); err != nil {
+					return err
+				}
+			}
+
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(cobraCmd.Context(), args)
+			return cmd.Run(cobraCmd.Context(), newArgs)
 		},
 	}
 
