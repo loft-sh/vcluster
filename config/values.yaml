@@ -162,6 +162,7 @@ controlPlane:
       external:
         enabled: false
         dataSource: ""
+        connector: ""
         certFile: ""
         keyFile: ""
         caFile: ""
