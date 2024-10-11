@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 )
 
@@ -156,6 +157,22 @@ func (f *Framework) WaitForService(serviceName string, ns string) error {
 			return false, err
 		}
 		return true, nil
+	})
+}
+
+// WaitForServiceToUpdate waits for a Kubernetes service to update by periodically fetching it using the provided client.
+// It compares the current resource version of the service to the specified version and returns when they are different.
+func (f *Framework) WaitForServiceToUpdate(client *kubernetes.Clientset, serviceName string, ns string, resourceVersion string) error {
+	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
+		svc, err := client.CoreV1().Services(ns).Get(ctx, serviceName, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+
+		return svc.ResourceVersion != resourceVersion, nil
 	})
 }
 
