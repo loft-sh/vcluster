@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/blang/semver"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
+	"github.com/loft-sh/vcluster/pkg/cli/email"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/start"
@@ -78,6 +80,10 @@ before running this command:
 }
 
 func (cmd *StartCmd) Run(ctx context.Context) error {
+	if err := cmd.ensureEmailWithDisclaimer(); err != nil {
+		return err
+	}
+
 	// get version to deploy
 	if cmd.Version == "latest" || cmd.Version == "" {
 		cmd.Version = platform.MinimumVersionTag
@@ -141,4 +147,45 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 	}
 
 	return start.NewLoftStarter(cmd.Options).Start(ctx)
+}
+
+func (cmd *StartCmd) ensureEmailWithDisclaimer() error {
+	fmt.Printf(`By providing your email, you accept our Terms of Service and Privacy Statement:
+Terms of Service: https://www.loft.sh/legal/terms
+Privacy Statement: https://www.loft.sh/legal/privacy
+`)
+	if !terminal.IsTerminalIn {
+		return validateEmail(cmd.Email)
+	}
+
+	var err error
+	if cmd.Email, err = promptForEmail(cmd.Email); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func promptForEmail(emailAddress string) (string, error) {
+	if err := validateEmail(emailAddress); err != nil {
+		return survey.NewSurvey().Question(&survey.QuestionOptions{
+			Question:       "Please specify an email address for the admin user",
+			ValidationFunc: validateEmail,
+		})
+	}
+
+	return emailAddress, nil
+}
+
+func validateEmail(emailAddress string) error {
+	if emailAddress == "" {
+		return fmt.Errorf("admin email address is required")
+	}
+
+	// 10 second timeout per ENG-4850
+	if err := email.Validate(emailAddress, email.WithCheckMXTimeout(time.Second*10)); err != nil {
+		return fmt.Errorf(`"%s" failed with error: "%w"`, emailAddress, err)
+	}
+
+	return nil
 }
