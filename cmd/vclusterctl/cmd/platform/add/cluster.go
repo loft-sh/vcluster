@@ -3,25 +3,26 @@ package add
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"time"
 
-	"github.com/loft-sh/log"
-	"github.com/sirupsen/logrus"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -60,12 +61,18 @@ Example:
 vcluster platform add cluster my-cluster
 ########################################################
 		`,
-		Args: cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			newArgs, err := util.PromptForArgs(cmd.Log, args, "cluster name")
+			if err != nil && errors.Is(err, util.ErrNonInteractive) {
+				if err := cobra.ExactArgs(1)(cobraCmd, args); err != nil {
+					return err
+				}
+			}
+
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 
-			return cmd.Run(cobraCmd.Context(), args)
+			return cmd.Run(cobraCmd.Context(), newArgs)
 		},
 	}
 
