@@ -588,10 +588,10 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.30.2
+          value: registry.k8s.io/kube-controller-manager:v1.31.1
       - equal:
           path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-apiserver:v1.30.2
+          value: registry.k8s.io/kube-apiserver:v1.31.1
 
   - it: k8s capabilities set
     chart:
@@ -621,7 +621,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.30.2
+          value: registry.k8s.io/kube-controller-manager:v1.31.1
 
   - it: k8s capabilities incomplete
     chart:
@@ -629,7 +629,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.30.2
+          value: registry.k8s.io/kube-controller-manager:v1.31.1
 
   - it: k8s capabilities incomplete 2
     chart:
@@ -637,7 +637,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.30.2
+          value: registry.k8s.io/kube-controller-manager:v1.31.1
 
   - it: k8s capabilities incomplete 2
     chart:
@@ -719,13 +719,13 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.30.2
+          value: registry.k8s.io/kube-controller-manager:v1.31.1
       - equal:
           path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-scheduler:v1.30.2
+          value: registry.k8s.io/kube-scheduler:v1.31.1
       - equal:
           path: spec.template.spec.initContainers[3].image
-          value: registry.k8s.io/kube-apiserver:v1.30.2
+          value: registry.k8s.io/kube-apiserver:v1.31.1
 
   - it: k8s version sets image tag for apiServer and controllerManager (virtual scheduler enabled)
     set:
