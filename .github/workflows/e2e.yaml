@@ -41,7 +41,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version-file: go.mod
       - name: Setup Just
         uses: extractions/setup-just@v2
       - name: Setup Syft
@@ -75,7 +75,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version-file: go.mod
       - name: Setup Just
         uses: extractions/setup-just@v2
       - name: Setup Syft
@@ -486,4 +486,3 @@ jobs:
           echo "======================================================================================================================"
           kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
           exit 1
-
