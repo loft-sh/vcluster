@@ -18,8 +18,11 @@ var (
 	VClusterNameOnlyUseLine string
 
 	VClusterNameOnlyValidator cobra.PositionalArgs
+)
 
-	ErrNonInteractive = errors.New("terminal is not interactive")
+var (
+	ErrNonInteractive   = errors.New("terminal is not interactive")
+	ErrTooManyArguments = errors.New("too many arguments specified")
 )
 
 func init() {
@@ -81,6 +84,9 @@ func PromptForArgs(l log.Logger, args []string, argNames ...string) ([]string, e
 	if !terminal.IsTerminalIn {
 		return args, ErrNonInteractive
 	}
+	if len(args) > len(argNames) {
+		return args, ErrTooManyArguments
+	}
 
 	if len(args) == len(argNames) {
 		return args, nil
@@ -90,7 +96,6 @@ func PromptForArgs(l log.Logger, args []string, argNames ...string) ([]string, e
 		answer, err := l.Question(&survey.QuestionOptions{
 			Question: fmt.Sprintf("Please specify %s", argNames[i]),
 		})
-
 		if err != nil {
 			return args, err
 		}

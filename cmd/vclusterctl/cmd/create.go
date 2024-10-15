@@ -47,8 +47,13 @@ vcluster create test --namespace test
 	`,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			newArgs, err := util.PromptForArgs(cmd.log, args, "vcluster name")
-			if err != nil && errors.Is(err, util.ErrNonInteractive) {
-				if err := util.VClusterNameOnlyValidator(cobraCmd, args); err != nil {
+			if err != nil {
+				switch {
+				case errors.Is(err, util.ErrNonInteractive):
+					if err := util.VClusterNameOnlyValidator(cobraCmd, args); err != nil {
+						return err
+					}
+				default:
 					return err
 				}
 			}
