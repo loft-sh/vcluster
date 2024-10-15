@@ -12,11 +12,13 @@ import (
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
@@ -157,20 +159,20 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		defer cancel()
 		_, err = watchtools.Until(ctx, svcList.ResourceVersion, w, func(event watch.Event) (bool, error) {
 			if svc, ok := event.Object.(*corev1.Service); ok {
-				found := svc.ObjectMeta.Name == testService.ObjectMeta.Name &&
-					svc.ObjectMeta.Namespace == ns &&
+				found := svc.Name == testService.Name &&
+					svc.Namespace == ns &&
 					svc.Labels["test-service-static"] == "true"
 				if !found {
-					f.Log.Infof("observed Service %v in namespace %v with labels: %v & ports %v", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace, svc.Labels, svc.Spec.Ports)
+					f.Log.Infof("observed Service %v in namespace %v with labels: %v & ports %v", svc.Name, svc.Namespace, svc.Labels, svc.Spec.Ports)
 					return false, nil
 				}
-				f.Log.Infof("Found Service %v in namespace %v with labels: %v & ports %v", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace, svc.Labels, svc.Spec.Ports)
+				f.Log.Infof("Found Service %v in namespace %v with labels: %v & ports %v", svc.Name, svc.Namespace, svc.Labels, svc.Spec.Ports)
 				return found, nil
 			}
 			f.Log.Infof("Observed event: %+v", event.Object)
 			return false, nil
 		})
-		framework.ExpectNoError(err, "Failed to locate Service %v in namespace %v", testService.ObjectMeta.Name, ns)
+		framework.ExpectNoError(err, "Failed to locate Service %v in namespace %v", testService.Name, ns)
 		f.Log.Infof("Service %s created", testSvcName)
 
 		ginkgo.By("Getting /status")
@@ -202,14 +204,14 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		defer cancel()
 		_, err = watchtools.Until(ctx, svcList.ResourceVersion, w, func(event watch.Event) (bool, error) {
 			if svc, ok := event.Object.(*corev1.Service); ok {
-				found := svc.ObjectMeta.Name == testService.ObjectMeta.Name &&
-					svc.ObjectMeta.Namespace == ns &&
+				found := svc.Name == testService.Name &&
+					svc.Namespace == ns &&
 					svc.Annotations["patchedstatus"] == "true"
 				if !found {
-					f.Log.Infof("observed Service %v in namespace %v with annotations: %v & LoadBalancer: %v", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace, svc.Annotations, svc.Status.LoadBalancer)
+					f.Log.Infof("observed Service %v in namespace %v with annotations: %v & LoadBalancer: %v", svc.Name, svc.Namespace, svc.Annotations, svc.Status.LoadBalancer)
 					return false, nil
 				}
-				f.Log.Infof("Found Service %v in namespace %v with annotations: %v & LoadBalancer: %v", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace, svc.Annotations, svc.Status.LoadBalancer)
+				f.Log.Infof("Found Service %v in namespace %v with annotations: %v & LoadBalancer: %v", svc.Name, svc.Namespace, svc.Annotations, svc.Status.LoadBalancer)
 				return found, nil
 			}
 			f.Log.Infof("Observed event: %+v", event.Object)
@@ -242,28 +244,28 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		defer cancel()
 		_, err = watchtools.Until(ctx, svcList.ResourceVersion, w, func(event watch.Event) (bool, error) {
 			if svc, ok := event.Object.(*corev1.Service); ok {
-				found := svc.ObjectMeta.Name == testService.ObjectMeta.Name &&
-					svc.ObjectMeta.Namespace == ns &&
+				found := svc.Name == testService.Name &&
+					svc.Namespace == ns &&
 					svc.Annotations["patchedstatus"] == "true"
 				if !found {
-					f.Log.Infof("Observed Service %v in namespace %v with annotations: %v & Conditions: %v", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace, svc.Annotations, svc.Status.LoadBalancer)
+					f.Log.Infof("Observed Service %v in namespace %v with annotations: %v & Conditions: %v", svc.Name, svc.Namespace, svc.Annotations, svc.Status.LoadBalancer)
 					return false, nil
 				}
 				for _, cond := range svc.Status.Conditions {
 					if cond.Type == "StatusUpdate" &&
 						cond.Reason == "E2E" &&
 						cond.Message == "Set from e2e test" {
-						f.Log.Infof("Found Service %v in namespace %v with annotations: %v & Conditions: %v", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace, svc.Annotations, svc.Status.Conditions)
+						f.Log.Infof("Found Service %v in namespace %v with annotations: %v & Conditions: %v", svc.Name, svc.Namespace, svc.Annotations, svc.Status.Conditions)
 						return found, nil
 					}
 				}
-				f.Log.Infof("Observed Service %v in namespace %v with annotations: %v & Conditions: %v", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace, svc.Annotations, svc.Status.LoadBalancer)
+				f.Log.Infof("Observed Service %v in namespace %v with annotations: %v & Conditions: %v", svc.Name, svc.Namespace, svc.Annotations, svc.Status.LoadBalancer)
 				return false, nil
 			}
 			f.Log.Infof("Observed event: %+v", event.Object)
 			return false, nil
 		})
-		framework.ExpectNoError(err, "failed to locate Service %v in namespace %v", testService.ObjectMeta.Name, ns)
+		framework.ExpectNoError(err, "failed to locate Service %v in namespace %v", testService.Name, ns)
 		f.Log.Infof("Service %s has service status updated", testSvcName)
 
 		ginkgo.By("patching the service")
@@ -283,20 +285,20 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		defer cancel()
 		_, err = watchtools.Until(ctx, svcList.ResourceVersion, w, func(event watch.Event) (bool, error) {
 			if svc, ok := event.Object.(*corev1.Service); ok {
-				found := svc.ObjectMeta.Name == testService.ObjectMeta.Name &&
-					svc.ObjectMeta.Namespace == ns &&
+				found := svc.Name == testService.Name &&
+					svc.Namespace == ns &&
 					svc.Labels["test-service"] == "patched"
 				if !found {
-					f.Log.Infof("observed Service %v in namespace %v with labels: %v", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace, svc.Labels)
+					f.Log.Infof("observed Service %v in namespace %v with labels: %v", svc.Name, svc.Namespace, svc.Labels)
 					return false, nil
 				}
-				f.Log.Infof("Found Service %v in namespace %v with labels: %v", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace, svc.Labels)
+				f.Log.Infof("Found Service %v in namespace %v with labels: %v", svc.Name, svc.Namespace, svc.Labels)
 				return found, nil
 			}
 			f.Log.Infof("Observed event: %+v", event.Object)
 			return false, nil
 		})
-		framework.ExpectNoError(err, "failed to locate Service %v in namespace %v", testService.ObjectMeta.Name, ns)
+		framework.ExpectNoError(err, "failed to locate Service %v in namespace %v", testService.Name, ns)
 		f.Log.Infof("Service %s patched", testSvcName)
 
 		// Delete service
@@ -309,14 +311,14 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 			switch event.Type {
 			case watch.Deleted:
 				if svc, ok := event.Object.(*corev1.Service); ok {
-					found := svc.ObjectMeta.Name == testService.ObjectMeta.Name &&
-						svc.ObjectMeta.Namespace == ns &&
+					found := svc.Name == testService.Name &&
+						svc.Namespace == ns &&
 						svc.Labels["test-service-static"] == "true"
 					if !found {
-						f.Log.Infof("observed Service %v in namespace %v with labels: %v & annotations: %v", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace, svc.Labels, svc.Annotations)
+						f.Log.Infof("observed Service %v in namespace %v with labels: %v & annotations: %v", svc.Name, svc.Namespace, svc.Labels, svc.Annotations)
 						return false, nil
 					}
-					f.Log.Infof("Found Service %v in namespace %v with labels: %v & annotations: %v", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace, svc.Labels, svc.Annotations)
+					f.Log.Infof("Found Service %v in namespace %v with labels: %v & annotations: %v", svc.Name, svc.Namespace, svc.Labels, svc.Annotations)
 					return found, nil
 				}
 			default:
@@ -324,7 +326,115 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 			}
 			return false, nil
 		})
-		framework.ExpectNoError(err, "failed to delete Service %v in namespace %v", testService.ObjectMeta.Name, ns)
+		framework.ExpectNoError(err, "failed to delete Service %v in namespace %v", testService.Name, ns)
 		f.Log.Infof("Service %s deleted", testSvcName)
+	})
+
+	ginkgo.It("should sync labels and annotation bidirectionally", func() {
+		service := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "myservice-with-annotations",
+				Namespace: ns,
+				Annotations: map[string]string{
+					"some-annotation": "that is set from the vCluster",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Type:      "ClusterIP",
+				ClusterIP: "None",
+			},
+		}
+
+		vService, err := f.VClusterClient.CoreV1().Services(ns).Create(f.Context, service, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+		err = f.WaitForService(vService.Name, vService.Namespace)
+		framework.ExpectNoError(err)
+
+		// get physical service
+		pServiceName := translate.Default.HostName(nil, vService.Name, vService.Namespace)
+
+		var pService *corev1.Service
+
+		// update physical service
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(context.Context) (bool, error) {
+			pService, err = f.HostClient.CoreV1().Services(pServiceName.Namespace).Get(f.Context, pServiceName.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+
+			if pService.Annotations == nil {
+				pService.Annotations = map[string]string{}
+			}
+			pService.Annotations["some-annotation"] += " and update from the host cluster"
+
+			if pService.Labels == nil {
+				pService.Labels = map[string]string{}
+			}
+			pService.Labels["host-cluster-label"] = "some_host_label_value"
+			pService, err = f.HostClient.CoreV1().Services(pServiceName.Namespace).Update(f.Context, pService, metav1.UpdateOptions{})
+			if err != nil {
+				if kerrors.IsConflict(err) {
+					return false, nil
+				}
+
+				return false, err
+			}
+
+			return true, nil
+		})
+		framework.ExpectNoError(err)
+
+		// wait for the change to be synced into the vCluster
+		err = f.WaitForServiceToUpdate(f.VClusterClient, vService.Name, vService.Namespace, vService.ResourceVersion)
+		framework.ExpectNoError(err)
+
+		// refetch the vCluster service object
+		vService, err = f.VClusterClient.CoreV1().Services(ns).Get(f.Context, vService.Name, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		// check that labels and annotations are the same
+		framework.ExpectEqual(vService.Annotations["some-annotation"], pService.Annotations["some-annotation"])
+		framework.ExpectEqual(vService.Labels["host-cluster-label"], pService.Labels["host-cluster-label"])
+
+		// update vCluster service
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(context.Context) (bool, error) {
+			vService, err = f.VClusterClient.CoreV1().Services(ns).Get(f.Context, service.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+
+			if vService.Annotations == nil {
+				vService.Annotations = map[string]string{}
+			}
+			vService.Annotations["some-annotation"] += " and another update from the vCluster"
+
+			if vService.Labels == nil {
+				vService.Labels = map[string]string{}
+			}
+			vService.Labels["vcluster-label"] = "some_vcluster_value"
+			vService, err = f.VClusterClient.CoreV1().Services(vService.Namespace).Update(f.Context, vService, metav1.UpdateOptions{})
+			if err != nil {
+				if kerrors.IsConflict(err) {
+					return false, nil
+				}
+
+				return false, err
+			}
+
+			return true, nil
+		})
+		framework.ExpectNoError(err)
+
+		// wait for the change to be synced into the host cluster
+		err = f.WaitForServiceToUpdate(f.HostClient, pService.Name, pService.Namespace, pService.ResourceVersion)
+		framework.ExpectNoError(err)
+
+		// refetch the host cluster service object
+		pService, err = f.HostClient.CoreV1().Services(pService.Namespace).Get(f.Context, pService.Name, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		// check that labels and annotations are the same
+		framework.ExpectEqual(vService.Annotations["some-annotation"], pService.Annotations["some-annotation"])
+		framework.ExpectEqual(vService.Labels["vcluster-label"], pService.Labels["vcluster-label"])
 	})
 })

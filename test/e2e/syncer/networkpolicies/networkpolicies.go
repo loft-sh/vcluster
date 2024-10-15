@@ -169,7 +169,6 @@ var _ = ginkgo.Describe("NetworkPolicies are created as expected", func() {
 		time.Sleep(time.Second * 10)
 		framework.DefaultFramework.TestServiceIsEventuallyUnreachable(curlPod, nginxService)
 	})
-
 })
 
 func updateNetworkPolicyWithRetryOnConflict(f *framework.Framework, networkPolicy *networkingv1.NetworkPolicy, mutator func(np *networkingv1.NetworkPolicy)) error {

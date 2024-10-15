@@ -89,7 +89,7 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 
 		// version 1.22 and lesser than that needs legacy flag enabled
 		if version != nil {
-			i, err := strconv.Atoi(strings.Replace(version.Minor, "+", "", -1))
+			i, err := strconv.Atoi(strings.ReplaceAll(version.Minor, "+", ""))
 			framework.ExpectNoError(err)
 			if i > 22 {
 				vpod.Spec.EphemeralContainers = []corev1.EphemeralContainer{{
@@ -211,7 +211,8 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 			},
 			Data: map[string]string{
 				cmKey: cmKeyValue,
-			}}, metav1.CreateOptions{})
+			},
+		}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		pod, err := f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
@@ -295,7 +296,8 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 			},
 			Data: map[string][]byte{
 				secretKey: []byte(secretKeyValue),
-			}}, metav1.CreateOptions{})
+			},
+		}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		pod, err := f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
@@ -549,5 +551,136 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 				}
 			}
 		}
+	})
+
+	ginkgo.It("should perform a bidirectional sync on labels and annotations", func() {
+		podName := "test-annotations"
+		vPod, err := f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: podName,
+				Annotations: map[string]string{
+					"vcluster-annotation": "from vCluster with love",
+				},
+				Labels: map[string]string{
+					"vcluster-specific-label": "with_its_value",
+				},
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		err = f.WaitForPodRunning(podName, ns)
+		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+
+		// get current physical Pod resource
+		pPodName := translate.Default.HostName(nil, vPod.Name, vPod.Namespace)
+		pPod, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(f.Context, pPodName.Name, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		// get current vCluster Pod resource
+		vPod, err = f.VClusterClient.CoreV1().Pods(ns).Get(f.Context, podName, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		// update host cluster pod with additional information
+		additionalLabelKey := "another-one"
+		additionalLabelValue := "good-syncer"
+		additionalAnnotationKey := "annotation-key"
+		additionalAnnotationValue := "annotation-value"
+
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(context.Context) (bool, error) {
+			if pPod.Labels == nil {
+				pPod.Labels = map[string]string{}
+			}
+			pPod.Labels[additionalLabelKey] = additionalLabelValue
+
+			if pPod.Annotations == nil {
+				pPod.Annotations = map[string]string{}
+			}
+			pPod.Annotations[additionalAnnotationKey] = additionalAnnotationValue
+
+			pPod, err = f.HostClient.CoreV1().Pods(pPod.Namespace).Update(f.Context, pPod, metav1.UpdateOptions{})
+			if err != nil {
+				if kerrors.IsConflict(err) {
+					return false, nil
+				}
+				return false, err
+			}
+
+			return true, nil
+		})
+		framework.ExpectNoError(err)
+
+		// wait for the syncer to update the pod
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
+			pod, err := f.VClusterClient.CoreV1().Pods(vPod.Namespace).Get(ctx, vPod.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+
+			return pod.ResourceVersion != vPod.ResourceVersion && pod.Annotations[additionalAnnotationKey] != "", nil
+		})
+		framework.ExpectNoError(err)
+
+		vPod, err = f.VClusterClient.CoreV1().Pods(vPod.Namespace).Get(f.Context, vPod.Name, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		framework.ExpectEqual(vPod.Annotations[additionalAnnotationKey], pPod.Annotations[additionalAnnotationKey])
+		framework.ExpectEqual(vPod.Labels[additionalLabelKey], pPod.Labels[additionalLabelKey])
+
+		// Update the vPod
+		pPod, err = f.HostClient.CoreV1().Pods(pPod.Namespace).Get(f.Context, pPod.Name, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		additionalLabelValueFromVCluster := "good-syncer-from-vcluster"
+		additionalAnnotationValueFromVCluster := "annotation-value-from-vcluster"
+
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(context.Context) (bool, error) {
+			if vPod.Labels == nil {
+				vPod.Labels = map[string]string{}
+			}
+			vPod.Labels[additionalLabelKey] = additionalLabelValueFromVCluster
+
+			if vPod.Annotations == nil {
+				vPod.Annotations = map[string]string{}
+			}
+			vPod.Annotations[additionalAnnotationKey] = additionalAnnotationValueFromVCluster
+
+			vPod, err = f.VClusterClient.CoreV1().Pods(vPod.Namespace).Update(f.Context, vPod, metav1.UpdateOptions{})
+			if err != nil {
+				if kerrors.IsConflict(err) {
+					return false, nil
+				}
+				return false, err
+			}
+
+			return true, nil
+		})
+		framework.ExpectNoError(err)
+
+		// wait for the syncer to update the pod
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
+			pod, err := f.HostClient.CoreV1().Pods(pPod.Namespace).Get(ctx, pPod.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+
+			return pod.ResourceVersion != pPod.ResourceVersion && pod.Annotations[additionalAnnotationKey] == additionalAnnotationValueFromVCluster, nil
+		})
+		framework.ExpectNoError(err)
+
+		pPod, err = f.HostClient.CoreV1().Pods(pPod.Namespace).Get(f.Context, pPod.Name, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		framework.ExpectEqual(vPod.Annotations[additionalAnnotationKey], pPod.Annotations[additionalAnnotationKey])
+		framework.ExpectEqual(vPod.Labels[additionalLabelKey], pPod.Labels[additionalLabelKey])
 	})
 })

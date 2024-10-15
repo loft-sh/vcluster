@@ -117,7 +117,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 
 	suffix := os.Getenv("VCLUSTER_SUFFIX")
 	if suffix == "" {
-		//TODO: maybe implement some autodiscovery of the suffix value that would work with dev and prod setups
+		// TODO: maybe implement some autodiscovery of the suffix value that would work with dev and prod setups
 		suffix = "vcluster"
 	}
 	translate.VClusterName = suffix
@@ -131,7 +131,7 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		translate.Default = translate.NewSingleNamespaceTranslator(ns)
 	}
 
-	l.Infof("Testing Vcluster named: %s in namespace: %s", name, ns)
+	l.Infof("Testing vCluster named: %s in namespace: %s", name, ns)
 
 	hostConfig, err := ctrl.GetConfig()
 	if err != nil {
