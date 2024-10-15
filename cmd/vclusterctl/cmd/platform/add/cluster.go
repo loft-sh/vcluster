@@ -63,8 +63,13 @@ vcluster platform add cluster my-cluster
 		`,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			newArgs, err := util.PromptForArgs(cmd.Log, args, "cluster name")
-			if err != nil && errors.Is(err, util.ErrNonInteractive) {
-				if err := cobra.ExactArgs(1)(cobraCmd, args); err != nil {
+			if err != nil {
+				switch {
+				case errors.Is(err, util.ErrNonInteractive):
+					if err := cobra.ExactArgs(1)(cobraCmd, args); err != nil {
+						return err
+					}
+				default:
 					return err
 				}
 			}
