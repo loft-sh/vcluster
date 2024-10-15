@@ -13,7 +13,7 @@ import (
 var volumeSnapshotClassesCRD string
 
 func CreateVolumeSnapshotClassesMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	if !ctx.Config.Sync.ToHost.VolumeSnapshots.Enabled {
+	if !ctx.Config.Sync.FromHost.VolumeSnapshotClasses.Enabled {
 		return generic.NewMirrorMapper(&volumesnapshotv1.VolumeSnapshotClass{})
 	}
 

@@ -32,10 +32,7 @@ func TestSync(t *testing.T) {
 	vMoreParamsVSC := vBaseVSC.DeepCopy()
 	vMoreParamsVSC.Parameters["additional"] = "param"
 
-	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
-		vConfig.Sync.ToHost.VolumeSnapshots.Enabled = true
-		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
-	}, []*syncertesting.SyncTest{
+	tests := []*syncertesting.SyncTest{
 		{
 			Name:                 "Create backward",
 			InitialVirtualState:  []runtime.Object{},
@@ -96,5 +93,13 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
-	})
+	}
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			test.Run(t, syncertesting.NewContextFunc(func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+				vConfig.Sync.ToHost.VolumeSnapshots.Enabled = true
+				return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+			}))
+		})
+	}
 }

@@ -105,10 +105,13 @@ func TestSync(t *testing.T) {
 	vWithStatus := vPVSourceSnapshot.DeepCopy()
 	vWithStatus.Status = pWithStatus.Status
 
-	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+	createContext := syncertesting.NewContextFunc(func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 		vConfig.Sync.ToHost.VolumeSnapshots.Enabled = true
+		vConfig.Sync.ToHost.VolumeSnapshotContents.Enabled = true
 		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
-	}, []*syncertesting.SyncTest{
+	})
+
+	tests := []*syncertesting.SyncTest{
 		{
 			Name:                 "Create with PersistentVolume source",
 			InitialVirtualState:  []runtime.Object{vPVSourceSnapshot.DeepCopy()},
@@ -229,12 +232,19 @@ func TestSync(t *testing.T) {
 				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshot"): {vDeletingSnapshot},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshot"): {}},
+				volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshot"): {},
+			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*volumeSnapshotSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pPVSourceSnapshot.DeepCopy(), vDeletingSnapshot))
 				assert.NilError(t, err)
 			},
 		},
-	})
+	}
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			test.Run(t, createContext)
+		})
+	}
 }

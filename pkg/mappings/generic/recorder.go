@@ -25,7 +25,7 @@ type recorder struct {
 }
 
 func (n *recorder) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.Mapper) error {
-	gvk := n.Mapper.GroupVersionKind()
+	gvk := n.GroupVersionKind()
 	listGvk := schema.GroupVersionKind{
 		Group:   gvk.Group,
 		Version: gvk.Version,

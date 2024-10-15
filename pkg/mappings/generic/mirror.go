@@ -35,7 +35,7 @@ func (n *mirrorMapper) Migrate(_ *synccontext.RegisterContext, _ synccontext.Map
 	return nil
 }
 
-func (n *mirrorMapper) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, _ client.Object) (retName types.NamespacedName) {
+func (n *mirrorMapper) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	pNamespace := req.Namespace
 	if pNamespace != "" {
 		pNamespace = translate.Default.HostNamespace(ctx, pNamespace)
@@ -47,7 +47,7 @@ func (n *mirrorMapper) VirtualToHost(ctx *synccontext.SyncContext, req types.Nam
 	}
 }
 
-func (n *mirrorMapper) HostToVirtual(_ *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) (retName types.NamespacedName) {
+func (n *mirrorMapper) HostToVirtual(_ *synccontext.SyncContext, req types.NamespacedName, pObj client.Object) types.NamespacedName {
 	if pObj != nil {
 		pAnnotations := pObj.GetAnnotations()
 		if pAnnotations != nil && pAnnotations[translate.NameAnnotation] != "" {
