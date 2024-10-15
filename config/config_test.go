@@ -143,8 +143,8 @@ controlPlane:
 
 func TestConfig_IsProFeatureEnabled(t *testing.T) {
 	tests := []struct {
-		name     string
 		config   *Config
+		name     string
 		expected bool
 	}{
 		{
@@ -366,6 +366,19 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 					"platform": map[string]interface{}{
 						"autoSleep": map[string]interface{}{
 							"afterInactivity": 300,
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Custom Resource Syncing is configured",
+			config: &Config{
+				Sync: Sync{
+					ToHost: SyncToHost{
+						CustomResources: map[string]SyncToHostCustomResource{
+							"demo": {},
 						},
 					},
 				},
