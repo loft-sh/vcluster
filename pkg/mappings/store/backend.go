@@ -17,14 +17,13 @@ type Backend interface {
 }
 
 type BackendWatchResponse struct {
+	Err    error
 	Events []*BackendWatchEvent
-
-	Err error
 }
 
 type BackendWatchEvent struct {
-	Type    BackendWatchEventType
 	Mapping *Mapping
+	Type    BackendWatchEventType
 }
 
 type BackendWatchEventType string

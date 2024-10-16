@@ -381,7 +381,13 @@ func initControllerContext(
 		Config:   vClusterOptions,
 	}
 
-	mappingStore, err := store.NewStoreWithVerifyMapping(ctx, virtualManager.GetClient(), localManager.GetClient(), store.NewEtcdBackend(etcdClient), verify.NewVerifyMapping(controllerContext.ToRegisterContext().ToSyncContext("verify-mapping")))
+	mappingStore, err := store.NewStoreWithVerifyMapping(
+		ctx,
+		virtualManager.GetClient(),
+		localManager.GetClient(),
+		store.NewEtcdBackend(etcdClient),
+		verify.NewVerifyMapping(controllerContext.ToRegisterContext().ToSyncContext("verify-mapping")),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("start mapping store: %w", err)
 	}

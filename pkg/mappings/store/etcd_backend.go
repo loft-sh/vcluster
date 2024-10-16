@@ -25,9 +25,9 @@ type etcdBackend struct {
 }
 
 func (m *etcdBackend) List(ctx context.Context) ([]*Mapping, error) {
-	mappings, err := m.etcdClient.List(ctx, mappingsPrefix, 0)
+	mappings, err := m.etcdClient.List(ctx, mappingsPrefix)
 	if err != nil {
-		return nil, fmt.Errorf("list mappings")
+		return nil, fmt.Errorf("etcd backend: list mappings: %w", err)
 	}
 
 	retMappings := make([]*Mapping, 0, len(mappings))
@@ -35,7 +35,7 @@ func (m *etcdBackend) List(ctx context.Context) ([]*Mapping, error) {
 		retMapping := &Mapping{}
 		err = json.Unmarshal(kv.Data, retMapping)
 		if err != nil {
-			return nil, fmt.Errorf("parse mapping %s: %w", string(kv.Key), err)
+			return nil, fmt.Errorf("etcd backend: parse mapping %s: %w", string(kv.Key), err)
 		}
 
 		retMappings = append(retMappings, retMapping)
@@ -46,32 +46,52 @@ func (m *etcdBackend) List(ctx context.Context) ([]*Mapping, error) {
 
 func (m *etcdBackend) Watch(ctx context.Context) <-chan BackendWatchResponse {
 	responseChan := make(chan BackendWatchResponse)
-	watchChan := m.etcdClient.Watch(ctx, mappingsPrefix, 0)
+	watchChan := m.etcdClient.Watch(ctx, mappingsPrefix)
 	go func() {
 		defer close(responseChan)
 
 		for event := range watchChan {
-			if event.Canceled {
+			switch {
+			case event.Canceled:
 				responseChan <- BackendWatchResponse{
 					Err: event.Err(),
 				}
-			} else if len(event.Events) > 0 {
+			case event.IsProgressNotify():
+				klog.FromContext(ctx).V(1).Info("received progress notify from etcd")
+			case len(event.Events) > 0:
 				retEvents := make([]*BackendWatchEvent, 0, len(event.Events))
 				for _, singleEvent := range event.Events {
 					var eventType BackendWatchEventType
-					if singleEvent.Type == mvccpb.PUT {
+					switch singleEvent.Type {
+					case mvccpb.PUT:
 						eventType = BackendWatchEventTypeUpdate
-					} else if singleEvent.Type == mvccpb.DELETE {
+					case mvccpb.DELETE:
 						eventType = BackendWatchEventTypeDelete
-					} else {
+					default:
 						continue
 					}
 
 					// parse mapping
 					retMapping := &Mapping{}
-					err := json.Unmarshal(singleEvent.Kv.Value, retMapping)
+
+					value := singleEvent.Kv.Value
+					if len(value) == 0 && singleEvent.Type == mvccpb.DELETE && singleEvent.PrevKv != nil {
+						value = singleEvent.PrevKv.Value
+					}
+
+					err := json.Unmarshal(value, retMapping)
 					if err != nil {
-						klog.FromContext(ctx).Info("Error decoding event", "key", string(singleEvent.Kv.Key), "error", err.Error())
+						klog.FromContext(ctx).Info(
+							"etcd backend: Error decoding event",
+							"key", string(singleEvent.Kv.Key),
+							"singleEventValue", string(singleEvent.Kv.Value),
+							"eventType", eventType,
+							"error", err.Error(),
+						)
+						// FIXME(ThomasK33): This leads to mapping leaks. Etcd might have
+						// already compacted the previous version. Thus we would never
+						// receive any information of the mapping that was deleted apart from its keys.
+						// And because there is no mapping, we are omitting deleting it from the mapping stores.
 						continue
 					}
 
@@ -101,7 +121,7 @@ func (m *etcdBackend) Save(ctx context.Context, mapping *Mapping) error {
 }
 
 func (m *etcdBackend) Delete(ctx context.Context, mapping *Mapping) error {
-	return m.etcdClient.Delete(ctx, mappingToKey(mapping), 0)
+	return m.etcdClient.Delete(ctx, mappingToKey(mapping))
 }
 
 func mappingToKey(mapping *Mapping) string {

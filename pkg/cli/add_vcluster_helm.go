@@ -79,7 +79,6 @@ func AddVClusterHelm(
 	var addErrors []error
 	log.Debugf("trying to add %d vCluster instances to platform", len(vClusters))
 	for _, vCluster := range vClusters {
-		vCluster := vCluster
 		log.Infof("adding %s vCluster to platform", vCluster.Name)
 		err := addVClusterHelm(ctx, options, globalFlags, vCluster.Name, &vCluster, kubeClient, log)
 		if err != nil {
@@ -131,7 +130,6 @@ func addVClusterHelm(
 
 				return !lifecycle.IsPaused(vCluster), nil
 			})
-
 			if err != nil {
 				return fmt.Errorf("error waiting for vCluster to wake up %w", err)
 			}
