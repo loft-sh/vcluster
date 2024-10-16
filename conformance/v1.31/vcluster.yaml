@@ -26,13 +26,6 @@ controlPlane:
   statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady
-    image:
-      registry: ""
-      repository: "vcluster"
-      tag: "dev-conf"
-    env:
-      - name: DEBUG
-        value: "true"
 
 networking:
   advanced:
