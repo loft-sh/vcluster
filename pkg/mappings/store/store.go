@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -167,12 +168,30 @@ func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMa
 	// set kind & apiVersion if unstructured
 	uObject, ok := obj.(*unstructured.Unstructured)
 	if ok {
-		uObject.SetKind(nameMapping.GroupVersionKind.Kind)
+		uObject.SetKind(nameMapping.Kind)
 		uObject.SetAPIVersion(nameMapping.GroupVersionKind.GroupVersion().String())
 	}
 
 	// check if virtual object exists
-	err = s.cachedVirtualClient.Get(ctx, nameMapping.VirtualName, obj.DeepCopyObject().(client.Object))
+	retriableErrors := func(env string) func(error) bool {
+		return func(err error) bool {
+			if kerrors.IsNotFound(err) {
+				return false
+			}
+
+			obj := obj.DeepCopyObject().(client.Object)
+			klog.FromContext(ctx).Info("failed to check if object exists in the "+env,
+				"namespace", obj.GetNamespace(),
+				"name", obj.GetName(),
+				"err", err,
+			)
+			return kerrors.IsTimeout(err) || kerrors.IsInternalError(err) || kerrors.IsServerTimeout(err)
+		}
+	}
+
+	err = retry.OnError(retry.DefaultBackoff, retriableErrors("virtual cluster"), func() error {
+		return s.cachedVirtualClient.Get(ctx, nameMapping.VirtualName, obj.DeepCopyObject().(client.Object))
+	})
 	if err == nil {
 		return true, nil
 	} else if !kerrors.IsNotFound(err) {
@@ -181,7 +200,9 @@ func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMa
 	}
 
 	// check if host object exists
-	err = s.cachedHostClient.Get(ctx, nameMapping.HostName, obj.DeepCopyObject().(client.Object))
+	err = retry.OnError(retry.DefaultBackoff, retriableErrors("host cluster"), func() error {
+		return s.cachedHostClient.Get(ctx, nameMapping.HostName, obj.DeepCopyObject().(client.Object))
+	})
 	if err == nil {
 		return true, nil
 	} else if !kerrors.IsNotFound(err) {
@@ -377,7 +398,7 @@ func (s *Store) AddReference(ctx context.Context, nameMapping, belongsTo synccon
 	}
 
 	// check if we need to add mapping
-	if mapping.NameMapping.Equals(nameMapping) {
+	if mapping.Equals(nameMapping) {
 		return nil
 	}
 

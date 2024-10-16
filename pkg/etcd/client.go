@@ -3,33 +3,27 @@ package etcd
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	vconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type Value struct {
-	Key      []byte
-	Data     []byte
-	Revision int64
+	Key  []byte
+	Data []byte
 }
 
-var (
-	ErrNotFound = errors.New("etcdwrapper: key not found")
-)
+var ErrNotFound = errors.New("etcdwrapper: key not found")
 
 type Client interface {
-	List(ctx context.Context, key string, rev int) ([]Value, error)
-	Watch(ctx context.Context, key string, rev int) clientv3.WatchChan
+	List(ctx context.Context, key string) ([]Value, error)
+	Watch(ctx context.Context, key string) clientv3.WatchChan
 	Get(ctx context.Context, key string) (Value, error)
 	Put(ctx context.Context, key string, value []byte) error
-	Create(ctx context.Context, key string, value []byte) error
-	Update(ctx context.Context, key string, revision int64, value []byte) error
-	Delete(ctx context.Context, key string, revision int64) error
-	Compact(ctx context.Context, revision int64) (int64, error)
+	Delete(ctx context.Context, key string) error
 	Close() error
 }
 
@@ -102,12 +96,12 @@ func New(ctx context.Context, certificates *Certificates, endpoints ...string) (
 	}, nil
 }
 
-func (c *client) Watch(ctx context.Context, key string, rev int) clientv3.WatchChan {
-	return c.c.Watch(ctx, key, clientv3.WithPrefix(), clientv3.WithRev(int64(rev)))
+func (c *client) Watch(ctx context.Context, key string) clientv3.WatchChan {
+	return c.c.Watch(ctx, key, clientv3.WithPrefix(), clientv3.WithPrevKV())
 }
 
-func (c *client) List(ctx context.Context, key string, rev int) ([]Value, error) {
-	resp, err := c.c.Get(ctx, key, clientv3.WithPrefix(), clientv3.WithRev(int64(rev)))
+func (c *client) List(ctx context.Context, key string) ([]Value, error) {
+	resp, err := c.c.Get(ctx, key, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -115,9 +109,8 @@ func (c *client) List(ctx context.Context, key string, rev int) ([]Value, error)
 	var vals []Value
 	for _, kv := range resp.Kvs {
 		vals = append(vals, Value{
-			Key:      kv.Key,
-			Data:     kv.Value,
-			Revision: kv.ModRevision,
+			Key:  kv.Key,
+			Data: kv.Value,
 		})
 	}
 
@@ -130,78 +123,38 @@ func (c *client) Get(ctx context.Context, key string) (Value, error) {
 		return Value{}, err
 	}
 
+	if len(resp.Kvs) == 0 {
+		return Value{}, ErrNotFound
+	}
+
 	if len(resp.Kvs) == 1 {
 		return Value{
-			Key:      resp.Kvs[0].Key,
-			Data:     resp.Kvs[0].Value,
-			Revision: resp.Kvs[0].ModRevision,
+			Key:  resp.Kvs[0].Key,
+			Data: resp.Kvs[0].Value,
 		}, nil
 	}
 
-	return Value{}, ErrNotFound
+	highestRevision := &mvccpb.KeyValue{ModRevision: -1}
+	for _, kv := range resp.Kvs {
+		if kv.ModRevision > highestRevision.ModRevision {
+			highestRevision = kv
+		}
+	}
+
+	return Value{
+		Key:  highestRevision.Key,
+		Data: highestRevision.Value,
+	}, nil
 }
 
 func (c *client) Put(ctx context.Context, key string, value []byte) error {
-	val, err := c.Get(ctx, key)
-	if err != nil && !errors.Is(err, ErrNotFound) {
-		return err
-	}
-	if val.Revision == 0 {
-		return c.Create(ctx, key, value)
-	}
-	return c.Update(ctx, key, val.Revision, value)
+	_, err := c.c.Put(ctx, key, string(value))
+	return err
 }
 
-func (c *client) Create(ctx context.Context, key string, value []byte) error {
-	resp, err := c.c.Txn(ctx).
-		If(clientv3.Compare(clientv3.ModRevision(key), "=", 0)).
-		Then(clientv3.OpPut(key, string(value))).
-		Commit()
-	if err != nil {
-		return err
-	}
-	if !resp.Succeeded {
-		return fmt.Errorf("key exists")
-	}
-	return nil
-}
-
-func (c *client) Update(ctx context.Context, key string, revision int64, value []byte) error {
-	resp, err := c.c.Txn(ctx).
-		If(clientv3.Compare(clientv3.ModRevision(key), "=", revision)).
-		Then(clientv3.OpPut(key, string(value))).
-		Else(clientv3.OpGet(key)).
-		Commit()
-	if err != nil {
-		return err
-	}
-	if !resp.Succeeded {
-		return fmt.Errorf("revision %d doesnt match", revision)
-	}
-	return nil
-}
-
-func (c *client) Delete(ctx context.Context, key string, revision int64) error {
-	resp, err := c.c.Txn(ctx).
-		If(clientv3.Compare(clientv3.ModRevision(key), "=", revision)).
-		Then(clientv3.OpDelete(key)).
-		Else(clientv3.OpGet(key)).
-		Commit()
-	if err != nil {
-		return err
-	}
-	if !resp.Succeeded {
-		return fmt.Errorf("revision %d doesnt match", revision)
-	}
-	return nil
-}
-
-func (c *client) Compact(ctx context.Context, revision int64) (int64, error) {
-	resp, err := c.c.Compact(ctx, revision)
-	if resp != nil {
-		return resp.Header.GetRevision(), err
-	}
-	return 0, err
+func (c *client) Delete(ctx context.Context, key string) error {
+	_, err := c.c.Delete(ctx, key)
+	return err
 }
 
 func (c *client) Close() error {

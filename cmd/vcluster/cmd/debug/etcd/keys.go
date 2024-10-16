@@ -47,7 +47,7 @@ func ExecuteKeys(ctx context.Context, options *KeysOptions) error {
 	}
 
 	// create new etcd backend & list mappings
-	keyValues, err := etcdClient.List(ctx, options.Prefix, 0)
+	keyValues, err := etcdClient.List(ctx, options.Prefix)
 	if err != nil {
 		return err
 	}

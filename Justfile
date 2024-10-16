@@ -161,3 +161,10 @@ gen-license-report:
   go-licenses save --save_path=./licenses --ignore github.com/loft-sh ./...
 
   cp -r ./licenses ./cmd/vclusterctl/cmd/credits
+
+build-dev-image tag="":
+  TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean
+
+  cp dist/vcluster_linux_$(go env GOARCH | sed s/amd64/amd64_v1/g)/vcluster ./vcluster
+  docker build -t vcluster:dev-{{tag}} -f Dockerfile.release --build-arg TARGETARCH=$(uname -m) --build-arg TARGETOS=linux .
+  rm ./vcluster
