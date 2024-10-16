@@ -172,6 +172,7 @@ func TestSync(t *testing.T) {
 
 	createContext := func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 		vConfig.Sync.ToHost.VolumeSnapshots.Enabled = true
+		vConfig.Sync.ToHost.VolumeSnapshotContents.Enabled = true
 		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
 	}
 

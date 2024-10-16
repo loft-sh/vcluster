@@ -20,9 +20,7 @@ var allowedPodSecurityStandards = map[string]bool{
 	"restricted": true,
 }
 
-var (
-	verbs = []string{"get", "list", "create", "update", "patch", "watch", "delete", "deletecollection"}
-)
+var verbs = []string{"get", "list", "create", "update", "patch", "watch", "delete", "deletecollection"}
 
 func ValidateConfigAndSetDefaults(config *VirtualClusterConfig) error {
 	// check the value of pod security standard
@@ -61,12 +59,24 @@ func ValidateConfigAndSetDefaults(config *VirtualClusterConfig) error {
 
 	// check if nodes controller needs to be enabled
 	if config.ControlPlane.Advanced.VirtualScheduler.Enabled && !config.Sync.FromHost.Nodes.Enabled {
-		return fmt.Errorf("sync.fromHost.nodes.enabled is false, but required if using virtual scheduler")
+		return errors.New("sync.fromHost.nodes.enabled is false, but required if using virtual scheduler")
 	}
 
 	// check if storage classes and host storage classes are enabled at the same time
 	if config.Sync.FromHost.StorageClasses.Enabled == "true" && config.Sync.ToHost.StorageClasses.Enabled {
-		return fmt.Errorf("you cannot enable both sync.fromHost.storageClasses.enabled and sync.toHost.storageClasses.enabled at the same time. Choose only one of them")
+		return errors.New("you cannot enable both sync.fromHost.storageClasses.enabled and sync.toHost.storageClasses.enabled at the same time. Choose only one of them")
+	}
+
+	if config.Sync.FromHost.PriorityClasses.Enabled && config.Sync.ToHost.PriorityClasses.Enabled {
+		return errors.New("cannot sync priorityclasses to and from host at the same time")
+	}
+
+	// volumesnapshots and volumesnapshotcontents are dependant on each other
+	if config.Sync.ToHost.VolumeSnapshotContents.Enabled && !config.Sync.ToHost.VolumeSnapshots.Enabled {
+		return errors.New("when syncing volume snapshots contents to the host, one must set sync.toHost.volumeSnapshots.enabled to true")
+	}
+	if config.Sync.ToHost.VolumeSnapshots.Enabled && !config.Sync.ToHost.VolumeSnapshotContents.Enabled {
+		return errors.New("when syncing volume snapshots to the host, one must set sync.toHost.volumeSnapshotContents.enabled to true")
 	}
 
 	// validate central admission control
@@ -122,13 +132,13 @@ func ValidateConfigAndSetDefaults(config *VirtualClusterConfig) error {
 
 func validateDistro(config *VirtualClusterConfig) error {
 	enabledDistros := 0
-	if config.Config.ControlPlane.Distro.K3S.Enabled {
+	if config.ControlPlane.Distro.K3S.Enabled {
 		enabledDistros++
 	}
-	if config.Config.ControlPlane.Distro.K0S.Enabled {
+	if config.ControlPlane.Distro.K0S.Enabled {
 		enabledDistros++
 	}
-	if config.Config.ControlPlane.Distro.K8S.Enabled {
+	if config.ControlPlane.Distro.K8S.Enabled {
 		enabledDistros++
 	}
 
