@@ -8,7 +8,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
-	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/store"
 	"github.com/loft-sh/vcluster/pkg/mappings/store/verify"
@@ -363,10 +362,10 @@ func initControllerContext(
 		return nil, err
 	}
 
-	etcdClient, err := etcd.NewFromConfig(ctx, vClusterOptions)
-	if err != nil {
-		return nil, fmt.Errorf("create etcd client: %w", err)
-	}
+	// etcdClient, err := etcd.NewFromConfig(ctx, vClusterOptions)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("create etcd client: %w", err)
+	// }
 
 	controllerContext := &synccontext.ControllerContext{
 		Context:               ctx,
@@ -381,12 +380,17 @@ func initControllerContext(
 		Config:   vClusterOptions,
 	}
 
-	mappingStore, err := store.NewStoreWithVerifyMapping(ctx, virtualManager.GetClient(), localManager.GetClient(), store.NewEtcdBackend(etcdClient), verify.NewVerifyMapping(controllerContext.ToRegisterContext().ToSyncContext("verify-mapping")))
+	// mappingStore, err := store.NewStoreWithVerifyMapping(ctx, virtualManager.GetClient(), localManager.GetClient(), store.NewEtcdBackend(etcdClient), verify.NewVerifyMapping(controllerContext.ToRegisterContext().ToSyncContext("verify-mapping")))
+	// if err != nil {
+	// 	return nil, fmt.Errorf("start mapping store: %w", err)
+	// }
+
+	inMemoryMappingStore, err := store.NewStoreWithVerifyMapping(ctx, virtualManager.GetClient(), localManager.GetClient(), store.NewMemoryBackend(), verify.NewVerifyMapping(controllerContext.ToRegisterContext().ToSyncContext("verify-mapping")))
 	if err != nil {
-		return nil, fmt.Errorf("start mapping store: %w", err)
+		return nil, fmt.Errorf("start in-memory mapping store: %w", err)
 	}
 
-	controllerContext.Mappings = mappings.NewMappingsRegistry(mappingStore)
+	controllerContext.Mappings = mappings.NewMappingsRegistry(inMemoryMappingStore)
 	return controllerContext, nil
 }
 
