@@ -340,7 +340,7 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
-	if len(c.Sync.ToHost.CustomResources) > 0 {
+	if len(c.Sync.ToHost.CustomResources) > 0 || len(c.Sync.FromHost.CustomResources) > 0 {
 		return true
 	}
 

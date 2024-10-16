@@ -373,11 +373,24 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "Custom Resource Syncing is configured",
+			name: "Custom Resource Syncing to host is configured",
 			config: &Config{
 				Sync: Sync{
 					ToHost: SyncToHost{
 						CustomResources: map[string]SyncToHostCustomResource{
+							"demo": {},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Custom Resource Syncing from host is configured",
+			config: &Config{
+				Sync: Sync{
+					FromHost: SyncFromHost{
+						CustomResources: map[string]SyncFromHostCustomResource{
 							"demo": {},
 						},
 					},
