@@ -219,10 +219,10 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 			}
 
 			syncerConfig.Clusters[key] = &clientcmdapi.Cluster{
-				Server:     options.ExportKubeConfig.Server,
-				Extensions: make(map[string]runtime.Object),
-
-				InsecureSkipTLSVerify: options.ExportKubeConfig.Insecure,
+				Server:                   options.ExportKubeConfig.Server,
+				Extensions:               make(map[string]runtime.Object),
+				CertificateAuthorityData: cluster.CertificateAuthorityData,
+				InsecureSkipTLSVerify:    options.ExportKubeConfig.Insecure,
 			}
 		}
 	}
