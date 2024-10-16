@@ -1,6 +1,9 @@
 name: E2E CI
 
 on:
+  push:
+    branches:
+      - main
   release:
     types: [created]
   pull_request:
