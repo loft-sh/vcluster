@@ -168,3 +168,18 @@ build-dev-image tag="":
   cp dist/vcluster_linux_$(go env GOARCH | sed s/amd64/amd64_v1/g)/vcluster ./vcluster
   docker build -t vcluster:dev-{{tag}} -f Dockerfile.release --build-arg TARGETARCH=$(uname -m) --build-arg TARGETOS=linux .
   rm ./vcluster
+
+run-conformance k8s_version="1.31.1" tag="conf": (build-dev-image tag)
+  minikube start --kubernetes-version {{ k8s_version }} --nodes=2
+  minikube addons enable metrics-server
+  minikube image load vcluster:dev-{{tag}}
+
+  vcluster create vcluster -n vcluster -f vcluster.yaml
+
+  sonobuoy run --mode=conformance-lite --level=debug
+
+conformance-status:
+  sonobuoy status
+
+conformance-logs:
+  sonobuoy logs

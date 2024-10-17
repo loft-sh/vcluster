@@ -238,13 +238,13 @@ func (s *Store) start(ctx context.Context) error {
 	}
 
 	go func() {
-		wait.Until(func() {
+		wait.UntilWithContext(ctx, func(ctx context.Context) {
 			for watchEvent := range s.backend.Watch(ctx) {
 				s.handleEvent(ctx, watchEvent)
 			}
 
 			klog.FromContext(ctx).Info("mapping store watch has ended")
-		}, time.Second, ctx.Done())
+		}, time.Second)
 	}()
 
 	return nil
@@ -253,6 +253,12 @@ func (s *Store) start(ctx context.Context) error {
 func (s *Store) handleEvent(ctx context.Context, watchEvent BackendWatchResponse) {
 	s.m.Lock()
 	defer s.m.Unlock()
+
+	klog.FromContext(ctx).V(1).Info(
+		"handling mapping store events",
+		"len", len(watchEvent.Events),
+		"err", watchEvent.Err,
+	)
 
 	if watchEvent.Err != nil {
 		klog.FromContext(ctx).Error(watchEvent.Err, "watch err in mappings store")
@@ -477,8 +483,8 @@ func (s *Store) DeleteMapping(ctx context.Context, nameMapping synccontext.NameM
 }
 
 func (s *Store) ReferencesTo(ctx context.Context, vObj synccontext.Object) []synccontext.NameMapping {
-	s.m.Lock()
-	defer s.m.Unlock()
+	s.m.RLock()
+	defer s.m.RUnlock()
 
 	retReferences := s.referencesTo(vObj)
 	klog.FromContext(ctx).V(1).Info("Found references for object", "object", vObj.String(), "references", len(retReferences))

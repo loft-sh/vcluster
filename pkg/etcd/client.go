@@ -3,6 +3,7 @@ package etcd
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	vconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -97,11 +98,11 @@ func New(ctx context.Context, certificates *Certificates, endpoints ...string) (
 }
 
 func (c *client) Watch(ctx context.Context, key string) clientv3.WatchChan {
-	return c.c.Watch(ctx, key, clientv3.WithPrefix(), clientv3.WithPrevKV())
+	return c.c.Watch(ctx, key, clientv3.WithPrefix(), clientv3.WithPrevKV(), clientv3.WithProgressNotify())
 }
 
 func (c *client) List(ctx context.Context, key string) ([]Value, error) {
-	resp, err := c.c.Get(ctx, key, clientv3.WithPrefix())
+	resp, err := c.c.Get(ctx, key, clientv3.WithPrefix(), clientv3.WithRev(0))
 	if err != nil {
 		return nil, err
 	}
@@ -118,9 +119,9 @@ func (c *client) List(ctx context.Context, key string) ([]Value, error) {
 }
 
 func (c *client) Get(ctx context.Context, key string) (Value, error) {
-	resp, err := c.c.Get(ctx, key)
+	resp, err := c.c.Get(ctx, key, clientv3.WithRev(0))
 	if err != nil {
-		return Value{}, err
+		return Value{}, fmt.Errorf("etcd get: %w", err)
 	}
 
 	if len(resp.Kvs) == 0 {
@@ -148,8 +149,14 @@ func (c *client) Get(ctx context.Context, key string) (Value, error) {
 }
 
 func (c *client) Put(ctx context.Context, key string, value []byte) error {
-	_, err := c.c.Put(ctx, key, string(value))
-	return err
+	_, err := c.Get(ctx, key)
+	if err == nil {
+		_, err := c.c.Put(ctx, key, string(value), clientv3.WithIgnoreLease())
+		return err
+	} else {
+		_, err := c.c.Put(ctx, key, string(value))
+		return err
+	}
 }
 
 func (c *client) Delete(ctx context.Context, key string) error {

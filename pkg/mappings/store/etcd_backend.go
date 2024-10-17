@@ -51,11 +51,14 @@ func (m *etcdBackend) Watch(ctx context.Context) <-chan BackendWatchResponse {
 		defer close(responseChan)
 
 		for event := range watchChan {
-			if event.Canceled {
+			switch {
+			case event.Canceled:
 				responseChan <- BackendWatchResponse{
 					Err: event.Err(),
 				}
-			} else if len(event.Events) > 0 {
+			case event.IsProgressNotify():
+				klog.FromContext(ctx).V(1).Info("received progress notify from etcd")
+			case len(event.Events) > 0:
 				retEvents := make([]*BackendWatchEvent, 0, len(event.Events))
 				for _, singleEvent := range event.Events {
 					var eventType BackendWatchEventType
@@ -70,7 +73,13 @@ func (m *etcdBackend) Watch(ctx context.Context) <-chan BackendWatchResponse {
 
 					// parse mapping
 					retMapping := &Mapping{}
-					err := json.Unmarshal(singleEvent.Kv.Value, retMapping)
+
+					value := singleEvent.Kv.Value
+					if len(value) == 0 && singleEvent.Type == mvccpb.DELETE && singleEvent.PrevKv != nil {
+						value = singleEvent.PrevKv.Value
+					}
+
+					err := json.Unmarshal(value, retMapping)
 					if err != nil {
 						klog.FromContext(ctx).Info(
 							"etcd backend: Error decoding event",
@@ -79,6 +88,10 @@ func (m *etcdBackend) Watch(ctx context.Context) <-chan BackendWatchResponse {
 							"eventType", eventType,
 							"error", err.Error(),
 						)
+						// FIXME(ThomasK33): This leads to mapping leaks. Etcd might have
+						// already compacted the previous version. Thus we would never
+						// receive any information of the mapping that was deleted apart from its keys.
+						// And because there is no mapping, we are ommitting deleting it from the mapping stores.
 						continue
 					}
 
