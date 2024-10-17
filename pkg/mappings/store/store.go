@@ -103,9 +103,6 @@ func (s *Store) StartGarbageCollection(ctx context.Context) {
 }
 
 func (s *Store) garbageCollectMappings(ctx context.Context) {
-	s.m.Lock()
-	defer s.m.Unlock()
-
 	startTime := time.Now()
 	klog.FromContext(ctx).V(1).Info("Start mappings garbage collection")
 	defer func() {
@@ -167,8 +164,7 @@ func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMa
 	// set kind & apiVersion if unstructured
 	uObject, ok := obj.(*unstructured.Unstructured)
 	if ok {
-		uObject.SetKind(nameMapping.GroupVersionKind.Kind)
-		uObject.SetAPIVersion(nameMapping.GroupVersionKind.GroupVersion().String())
+		uObject.SetGroupVersionKind(nameMapping.GroupVersionKind)
 	}
 
 	// check if virtual object exists
@@ -193,9 +189,6 @@ func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMa
 }
 
 func (s *Store) start(ctx context.Context) error {
-	s.m.Lock()
-	defer s.m.Unlock()
-
 	mappings, err := s.backend.List(ctx)
 	if err != nil {
 		return fmt.Errorf("list mappings: %w", err)
@@ -217,13 +210,21 @@ func (s *Store) start(ctx context.Context) error {
 	}
 
 	go func() {
-		wait.Until(func() {
-			for watchEvent := range s.backend.Watch(ctx) {
-				s.handleEvent(ctx, watchEvent)
-			}
+		w := s.backend.Watch(ctx)
+		for {
+			select {
+			case watchEvent, ok := <-w:
+				if !ok {
+					klog.FromContext(ctx).Info("mapping store watch has ended, restarting...")
+					w = s.backend.Watch(ctx)
+					continue
+				}
 
-			klog.FromContext(ctx).Info("mapping store watch has ended")
-		}, time.Second, ctx.Done())
+				s.handleEvent(ctx, watchEvent)
+			case <-ctx.Done():
+				return
+			}
+		}
 	}()
 
 	return nil
@@ -436,9 +437,6 @@ func (s *Store) DeleteMapping(ctx context.Context, nameMapping synccontext.NameM
 		return nil
 	}
 
-	s.m.Lock()
-	defer s.m.Unlock()
-
 	// check if there is already a mapping
 	mapping, ok := s.findMapping(nameMapping)
 	if !ok {
@@ -607,7 +605,10 @@ func (s *Store) addMapping(mapping *Mapping) {
 }
 
 func (s *Store) removeMapping(mapping *Mapping) {
+	s.m.Lock()
 	delete(s.mappings, mapping.NameMapping)
+	s.m.Unlock()
+
 	s.removeNameFromMaps(mapping, mapping.Virtual(), mapping.Host())
 	dispatchAll(s.watches[mapping.GroupVersionKind], mapping.NameMapping)
 

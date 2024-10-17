@@ -18,7 +18,8 @@ images:
     image: ${SYNCER_IMAGE}
     rebuildStrategy: ignoreContextChanges
     target: builder
-    buildKit: {}
+    buildKit:
+      preferMinikube: false
 
 # Deployment used for vcluster
 deployments:
@@ -162,6 +163,10 @@ pipelines:
 
       # Build the vcluster image
       build_images --all
+
+      echo "copying image to minikube"
+      minikube image load $(get_image "vcluster") --overwrite=false
+      echo "done copying image to minikube"
 
       # Deploy the vcluster
       if is_equal $(get_flag distro) k8s; then
