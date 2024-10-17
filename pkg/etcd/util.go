@@ -72,6 +72,11 @@ func getClientConfig(ctx context.Context, certificates *Certificates, endpoints 
 		DialTimeout: 5 * time.Second,
 
 		Logger: zap.L().Named("etcd-client"),
+
+		// DialOptions: []grpc.DialOption{
+		// 	grpc.WithDisableRetry(),
+		// },
+		// MaxUnaryRetries: 1,
 	}
 
 	if len(endpoints) > 0 {
