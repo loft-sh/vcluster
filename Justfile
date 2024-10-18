@@ -174,7 +174,7 @@ run-conformance k8s_version="1.31.1" mode="conformance-lite" tag="conf": (build-
   minikube addons enable metrics-server
   minikube image load vcluster:dev-{{tag}}
 
-  vcluster create vcluster -n vcluster -f vcluster.yaml
+  vcluster create vcluster -n vcluster -f ./conformance/v1.31/vcluster.yaml
 
   sonobuoy run --mode={{mode}} --level=debug
 
