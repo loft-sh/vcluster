@@ -39,12 +39,12 @@ func NewStoreWithVerifyMapping(ctx context.Context, cachedVirtualClient, cachedH
 		cachedVirtualClient: cachedVirtualClient,
 		cachedHostClient:    cachedHostClient,
 
-		mappings: make(map[synccontext.NameMapping]*Mapping),
+		mappings: &TypedSyncMap[synccontext.NameMapping, *Mapping]{},
 
-		hostToVirtualName: make(map[synccontext.Object]lookupName),
-		virtualToHostName: make(map[synccontext.Object]lookupName),
+		hostToVirtualName: &TypedSyncMap[synccontext.Object, lookupName]{},
+		virtualToHostName: &TypedSyncMap[synccontext.Object, lookupName]{},
 
-		watches: make(map[schema.GroupVersionKind][]*watcher),
+		watches: &TypedSyncMap[schema.GroupVersionKind, []*watcher]{},
 	}
 
 	// retrieve initial mappings from backend
@@ -56,8 +56,40 @@ func NewStoreWithVerifyMapping(ctx context.Context, cachedVirtualClient, cachedH
 	return store, nil
 }
 
+type TypedSyncMap[K comparable, V any] struct {
+	m sync.Map
+}
+
+func (t *TypedSyncMap[K, V]) Store(key K, value V) {
+	t.m.Store(key, value)
+}
+
+func (t *TypedSyncMap[K, V]) Load(key K) (V, bool) {
+	value, ok := t.m.Load(key)
+	if ok {
+		return value.(V), ok
+	}
+	var zero V
+	return zero, ok
+}
+
+func (t *TypedSyncMap[K, V]) Delete(key K) {
+	t.m.Delete(key)
+}
+
+func (t *TypedSyncMap[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
+	actualInterface, loaded := t.m.LoadOrStore(key, value)
+	return actualInterface.(V), loaded
+}
+
+func (t *TypedSyncMap[K, V]) Range(f func(key K, value V) bool) {
+	t.m.Range(func(key, value any) bool {
+		return f(key.(K), value.(V))
+	})
+}
+
 type Store struct {
-	m sync.RWMutex
+	//m sync.RWMutex
 
 	verifyMapping VerifyMapping
 
@@ -66,14 +98,15 @@ type Store struct {
 	cachedVirtualClient client.Client
 	cachedHostClient    client.Client
 
-	backend  Backend
-	mappings map[synccontext.NameMapping]*Mapping
+	backend Backend
+
+	mappings *TypedSyncMap[synccontext.NameMapping, *Mapping]
 
 	// maps Object -> Object
-	hostToVirtualName map[synccontext.Object]lookupName
-	virtualToHostName map[synccontext.Object]lookupName
+	hostToVirtualName *TypedSyncMap[synccontext.Object, lookupName]
+	virtualToHostName *TypedSyncMap[synccontext.Object, lookupName]
 
-	watches map[schema.GroupVersionKind][]*watcher
+	watches *TypedSyncMap[schema.GroupVersionKind, []*watcher]
 }
 
 type lookupName struct {
@@ -83,14 +116,12 @@ type lookupName struct {
 }
 
 func (s *Store) Watch(gvk schema.GroupVersionKind, addQueueFn synccontext.AddQueueFunc) source.Source {
-	s.m.Lock()
-	defer s.m.Unlock()
-
 	w := &watcher{
 		addQueueFn: addQueueFn,
 	}
 
-	s.watches[gvk] = append(s.watches[gvk], w)
+	lw, _ := s.watches.Load(gvk)
+	s.watches.Store(gvk, append(lw, w))
 	return w
 }
 
@@ -109,12 +140,14 @@ func (s *Store) garbageCollectMappings(ctx context.Context) {
 		klog.FromContext(ctx).V(1).Info("Garbage collection done", "took", time.Since(startTime).String())
 	}()
 
-	for _, mapping := range s.mappings {
+	s.mappings.Range(func(key synccontext.NameMapping, mapping *Mapping) bool {
 		err := s.garbageCollectMapping(ctx, mapping)
 		if err != nil {
 			klog.FromContext(ctx).Error(err, "Garbage collect mapping", "mapping", mapping.String())
 		}
-	}
+
+		return true
+	})
 }
 
 func (s *Store) garbageCollectMapping(ctx context.Context, mapping *Mapping) error {
@@ -200,7 +233,7 @@ func (s *Store) start(ctx context.Context) error {
 			continue
 		}
 
-		oldMapping, ok := s.mappings[mapping.NameMapping]
+		oldMapping, ok := s.mappings.Load(mapping.NameMapping)
 		if ok {
 			s.removeMapping(oldMapping)
 		}
@@ -231,9 +264,6 @@ func (s *Store) start(ctx context.Context) error {
 }
 
 func (s *Store) handleEvent(ctx context.Context, watchEvent BackendWatchResponse) {
-	s.m.Lock()
-	defer s.m.Unlock()
-
 	if watchEvent.Err != nil {
 		klog.FromContext(ctx).Error(watchEvent.Err, "watch err in mappings store")
 		return
@@ -253,7 +283,7 @@ func (s *Store) handleEvent(ctx context.Context, watchEvent BackendWatchResponse
 		klog.FromContext(ctx).V(1).Info("mapping store received event", "type", event.Type, "mapping", event.Mapping.String())
 
 		// remove mapping in any case
-		oldMapping, ok := s.mappings[event.Mapping.NameMapping]
+		oldMapping, ok := s.mappings.Load(event.Mapping.NameMapping)
 		if ok {
 			s.removeMapping(oldMapping)
 		}
@@ -271,10 +301,7 @@ func (s *Store) HasHostObject(ctx context.Context, pObj synccontext.Object) bool
 }
 
 func (s *Store) HostToVirtualName(_ context.Context, pObj synccontext.Object) (types.NamespacedName, bool) {
-	s.m.RLock()
-	defer s.m.RUnlock()
-
-	vObjLookup, ok := s.hostToVirtualName[pObj]
+	vObjLookup, ok := s.hostToVirtualName.Load(pObj)
 	return vObjLookup.Object.NamespacedName, ok
 }
 
@@ -284,10 +311,7 @@ func (s *Store) HasVirtualObject(ctx context.Context, vObj synccontext.Object) b
 }
 
 func (s *Store) VirtualToHostName(_ context.Context, vObj synccontext.Object) (types.NamespacedName, bool) {
-	s.m.RLock()
-	defer s.m.RUnlock()
-
-	pObjLookup, ok := s.virtualToHostName[vObj]
+	pObjLookup, ok := s.virtualToHostName.Load(vObj)
 	return pObjLookup.Object.NamespacedName, ok
 }
 
@@ -305,9 +329,6 @@ func (s *Store) DeleteReference(ctx context.Context, nameMapping, belongsTo sync
 	if nameMapping.Host().Empty() || nameMapping.Virtual().Empty() {
 		return nil
 	}
-
-	s.m.Lock()
-	defer s.m.Unlock()
 
 	// check if there is already a mapping
 	mapping, ok := s.findMapping(belongsTo)
@@ -337,7 +358,8 @@ func (s *Store) DeleteReference(ctx context.Context, nameMapping, belongsTo sync
 
 	// add to lookup maps
 	s.removeNameFromMaps(mapping, nameMapping.Virtual(), nameMapping.Host())
-	dispatchAll(s.watches[nameMapping.GroupVersionKind], nameMapping)
+	load, _ := s.watches.Load(nameMapping.GroupVersionKind)
+	dispatchAll(load, nameMapping)
 	return nil
 }
 
@@ -355,9 +377,6 @@ func (s *Store) AddReference(ctx context.Context, nameMapping, belongsTo synccon
 	if nameMapping.Host().Empty() || nameMapping.Virtual().Empty() {
 		return nil
 	}
-
-	s.m.Lock()
-	defer s.m.Unlock()
 
 	// check if there is already a conflicting mapping
 	err := s.checkNameConflict(nameMapping)
@@ -396,7 +415,8 @@ func (s *Store) AddReference(ctx context.Context, nameMapping, belongsTo synccon
 
 	// add to lookup maps
 	s.addNameToMaps(mapping, nameMapping.Virtual(), nameMapping.Host())
-	dispatchAll(s.watches[nameMapping.GroupVersionKind], nameMapping)
+	lw, _ := s.watches.Load(nameMapping.GroupVersionKind)
+	dispatchAll(lw, nameMapping)
 	return nil
 }
 
@@ -405,9 +425,6 @@ func (s *Store) SaveMapping(ctx context.Context, nameMapping synccontext.NameMap
 	if nameMapping.Empty() {
 		return nil
 	}
-
-	s.m.Lock()
-	defer s.m.Unlock()
 
 	// check if there is already a mapping
 	mapping, ok := s.findMapping(nameMapping)
@@ -454,9 +471,6 @@ func (s *Store) DeleteMapping(ctx context.Context, nameMapping synccontext.NameM
 }
 
 func (s *Store) ReferencesTo(ctx context.Context, vObj synccontext.Object) []synccontext.NameMapping {
-	s.m.Lock()
-	defer s.m.Unlock()
-
 	retReferences := s.referencesTo(vObj)
 	klog.FromContext(ctx).V(1).Info("Found references for object", "object", vObj.String(), "references", len(retReferences))
 	return retReferences
@@ -467,7 +481,7 @@ func (s *Store) referencesTo(vObj synccontext.Object) []synccontext.NameMapping 
 		return nil
 	}
 
-	hostNameLookup, ok := s.virtualToHostName[vObj]
+	hostNameLookup, ok := s.virtualToHostName.Load(vObj)
 	if !ok {
 		return nil
 	}
@@ -500,7 +514,7 @@ func (s *Store) findMapping(mapping synccontext.NameMapping) (*Mapping, bool) {
 	vObj, pObj := mapping.Virtual(), mapping.Host()
 	if vObj.Empty() {
 		// try to find by pObj
-		vObjLookup, ok := s.hostToVirtualName[pObj]
+		vObjLookup, ok := s.hostToVirtualName.Load(pObj)
 		if !ok {
 			return nil, false
 		}
@@ -508,7 +522,7 @@ func (s *Store) findMapping(mapping synccontext.NameMapping) (*Mapping, bool) {
 		vObj = vObjLookup.Object
 	} else if pObj.Empty() {
 		// try to find by vObj
-		pObjLookup, ok := s.virtualToHostName[vObj]
+		pObjLookup, ok := s.virtualToHostName.Load(vObj)
 		if !ok {
 			return nil, false
 		}
@@ -517,11 +531,11 @@ func (s *Store) findMapping(mapping synccontext.NameMapping) (*Mapping, bool) {
 	}
 
 	// just check for the mapping
-	retMapping, ok := s.mappings[synccontext.NameMapping{
+	retMapping, ok := s.mappings.Load(synccontext.NameMapping{
 		GroupVersionKind: mapping.GroupVersionKind,
 		VirtualName:      vObj.NamespacedName,
 		HostName:         pObj.NamespacedName,
-	}]
+	})
 	return retMapping, ok
 }
 
@@ -568,13 +582,13 @@ func (s *Store) createMapping(ctx context.Context, nameMapping, belongsTo syncco
 
 func (s *Store) checkNameConflict(nameMapping synccontext.NameMapping) error {
 	// check if the mapping is conflicting
-	vName, ok := s.hostToVirtualName[nameMapping.Host()]
+	vName, ok := s.hostToVirtualName.Load(nameMapping.Host())
 	if ok && !vName.Object.Equals(nameMapping.Virtual()) {
 		return fmt.Errorf("there is already another name mapping %s -> %s that conflicts with %s -> %s", nameMapping.Host().String(), vName.Object.String(), nameMapping.Host().String(), nameMapping.Virtual().String())
 	}
 
 	// check the other way around
-	pName, ok := s.virtualToHostName[nameMapping.Virtual()]
+	pName, ok := s.virtualToHostName.Load(nameMapping.Virtual())
 	if ok && !pName.Object.Equals(nameMapping.Host()) {
 		return fmt.Errorf("there is already another name mapping %s -> %s that conflicts with %s -> %s", nameMapping.Virtual().String(), pName.Object.String(), nameMapping.Virtual().String(), nameMapping.Host().String())
 	}
@@ -593,28 +607,30 @@ func (s *Store) addNameToMaps(mapping *Mapping, vObj, pObj synccontext.Object) {
 }
 
 func (s *Store) addMapping(mapping *Mapping) {
-	s.mappings[mapping.NameMapping] = mapping
+	s.mappings.Store(mapping.NameMapping, mapping)
 	s.addNameToMaps(mapping, mapping.Virtual(), mapping.Host())
-	dispatchAll(s.watches[mapping.GroupVersionKind], mapping.NameMapping)
+	lnm, _ := s.watches.Load(mapping.GroupVersionKind)
+	dispatchAll(lnm, mapping.NameMapping)
 
 	// add references
 	for _, reference := range mapping.References {
 		s.addNameToMaps(mapping, reference.Virtual(), reference.Host())
-		dispatchAll(s.watches[reference.GroupVersionKind], reference)
+		lr, _ := s.watches.Load(reference.GroupVersionKind)
+		dispatchAll(lr, reference)
 	}
 }
 
 func (s *Store) removeMapping(mapping *Mapping) {
-	s.m.Lock()
-	delete(s.mappings, mapping.NameMapping)
-	s.m.Unlock()
+	s.mappings.Delete(mapping.NameMapping)
 
 	s.removeNameFromMaps(mapping, mapping.Virtual(), mapping.Host())
-	dispatchAll(s.watches[mapping.GroupVersionKind], mapping.NameMapping)
+	lmw, _ := s.watches.Load(mapping.GroupVersionKind)
+	dispatchAll(lmw, mapping.NameMapping)
 
 	// delete references
 	for _, reference := range mapping.References {
 		s.removeNameFromMaps(mapping, reference.Virtual(), reference.Host())
-		dispatchAll(s.watches[reference.GroupVersionKind], reference)
+		lr, _ := s.watches.Load(reference.GroupVersionKind)
+		dispatchAll(lr, reference)
 	}
 }

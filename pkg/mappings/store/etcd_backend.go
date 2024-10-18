@@ -25,7 +25,7 @@ type etcdBackend struct {
 }
 
 func (m *etcdBackend) List(ctx context.Context) ([]*Mapping, error) {
-	mappings, err := m.etcdClient.List(ctx, mappingsPrefix, 0)
+	mappings, err := m.etcdClient.List(ctx, mappingsPrefix)
 	if err != nil {
 		return nil, fmt.Errorf("list mappings")
 	}
@@ -46,7 +46,7 @@ func (m *etcdBackend) List(ctx context.Context) ([]*Mapping, error) {
 
 func (m *etcdBackend) Watch(ctx context.Context) <-chan BackendWatchResponse {
 	responseChan := make(chan BackendWatchResponse)
-	watchChan := m.etcdClient.Watch(ctx, mappingsPrefix, 0)
+	watchChan := m.etcdClient.Watch(ctx, mappingsPrefix)
 	go func() {
 		defer close(responseChan)
 
@@ -101,7 +101,7 @@ func (m *etcdBackend) Save(ctx context.Context, mapping *Mapping) error {
 }
 
 func (m *etcdBackend) Delete(ctx context.Context, mapping *Mapping) error {
-	return m.etcdClient.Delete(ctx, mappingToKey(mapping), 0)
+	return m.etcdClient.Delete(ctx, mappingToKey(mapping))
 }
 
 func mappingToKey(mapping *Mapping) string {

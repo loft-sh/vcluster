@@ -45,42 +45,44 @@ func TestDeleteReference(t *testing.T) {
 	assert.NilError(t, err)
 	err = store.AddReference(ctx, otherSecretMapping, podMapping)
 	assert.NilError(t, err)
-	assert.Equal(t, 3, len(store.mappings))
-	assert.Equal(t, 4, len(store.hostToVirtualName))
-	assert.Equal(t, 4, len(store.virtualToHostName))
+	assert.Equal(t, 3, mlen(store.mappings))
+	assert.Equal(t, 4, mlen(store.hostToVirtualName))
+	assert.Equal(t, 4, mlen(store.virtualToHostName))
 	assert.Equal(t, 2, len(store.ReferencesTo(ctx, secretMapping.Virtual())))
 	assert.Equal(t, 1, len(store.ReferencesTo(ctx, otherSecretMapping.Virtual())))
 
 	err = store.DeleteReference(ctx, otherSecretMapping, podMapping)
 	assert.NilError(t, err)
-	assert.Equal(t, 1, len(store.mappings[podMapping].References))
-	assert.Equal(t, 3, len(store.mappings))
-	assert.Equal(t, 3, len(store.hostToVirtualName))
-	assert.Equal(t, 3, len(store.virtualToHostName))
+	loadRef, found := store.mappings.Load(podMapping)
+	assert.Check(t, found)
+	assert.Equal(t, 1, len(loadRef.References))
+	assert.Equal(t, 3, mlen(store.mappings))
+	assert.Equal(t, 3, mlen(store.hostToVirtualName))
+	assert.Equal(t, 3, mlen(store.virtualToHostName))
 	assert.Equal(t, 2, len(store.ReferencesTo(ctx, secretMapping.Virtual())))
 	assert.Equal(t, 0, len(store.ReferencesTo(ctx, otherSecretMapping.Virtual())))
 
 	err = store.DeleteMapping(ctx, podMapping)
 	assert.NilError(t, err)
-	assert.Equal(t, 2, len(store.mappings))
-	assert.Equal(t, 2, len(store.hostToVirtualName))
-	assert.Equal(t, 2, len(store.virtualToHostName))
+	assert.Equal(t, 2, mlen(store.mappings))
+	assert.Equal(t, 2, mlen(store.hostToVirtualName))
+	assert.Equal(t, 2, mlen(store.virtualToHostName))
 	assert.Equal(t, 1, len(store.ReferencesTo(ctx, secretMapping.Virtual())))
 	assert.Equal(t, 0, len(store.ReferencesTo(ctx, otherSecretMapping.Virtual())))
 
 	err = store.DeleteReference(ctx, secretMapping, otherPodMapping)
 	assert.NilError(t, err)
-	assert.Equal(t, 2, len(store.mappings))
-	assert.Equal(t, 2, len(store.hostToVirtualName))
-	assert.Equal(t, 2, len(store.virtualToHostName))
+	assert.Equal(t, 2, mlen(store.mappings))
+	assert.Equal(t, 2, mlen(store.hostToVirtualName))
+	assert.Equal(t, 2, mlen(store.virtualToHostName))
 	assert.Equal(t, 0, len(store.ReferencesTo(ctx, secretMapping.Virtual())))
 	assert.Equal(t, 0, len(store.ReferencesTo(ctx, otherSecretMapping.Virtual())))
 
 	err = store.DeleteMapping(ctx, secretMapping)
 	assert.NilError(t, err)
-	assert.Equal(t, 1, len(store.mappings))
-	assert.Equal(t, 1, len(store.hostToVirtualName))
-	assert.Equal(t, 1, len(store.virtualToHostName))
+	assert.Equal(t, 1, mlen(store.mappings))
+	assert.Equal(t, 1, mlen(store.hostToVirtualName))
+	assert.Equal(t, 1, mlen(store.virtualToHostName))
 	assert.Equal(t, 0, len(store.ReferencesTo(ctx, secretMapping.Virtual())))
 	assert.Equal(t, 0, len(store.ReferencesTo(ctx, otherSecretMapping.Virtual())))
 }
@@ -120,9 +122,9 @@ func TestWatching(t *testing.T) {
 
 	// wait for event to arrive
 	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
-		store.m.Lock()
-		defer store.m.Unlock()
-		return len(store.mappings) == 1 && len(store.hostToVirtualName) == 2 && len(store.virtualToHostName) == 2 && len(store.referencesTo(podMapping.Virtual())) == 1, nil
+		//store.m.Lock()
+		//defer store.m.Unlock()
+		return mlen(store.mappings) == 1 && mlen(store.hostToVirtualName) == 2 && mlen(store.virtualToHostName) == 2 && len(store.referencesTo(podMapping.Virtual())) == 1, nil
 	})
 	assert.NilError(t, err)
 
@@ -138,9 +140,9 @@ func TestWatching(t *testing.T) {
 
 	// wait for event to arrive
 	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
-		store.m.Lock()
-		defer store.m.Unlock()
-		return len(store.mappings) == 2 && len(store.hostToVirtualName) == 3 && len(store.virtualToHostName) == 3 && len(store.referencesTo(podMapping.Virtual())) == 2, nil
+		//store.m.Lock()
+		//defer store.m.Unlock()
+		return mlen(store.mappings) == 2 && mlen(store.hostToVirtualName) == 3 && mlen(store.virtualToHostName) == 3 && len(store.referencesTo(podMapping.Virtual())) == 2, nil
 	})
 	assert.NilError(t, err)
 
@@ -153,9 +155,9 @@ func TestWatching(t *testing.T) {
 
 	// wait for event to arrive
 	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
-		store.m.Lock()
-		defer store.m.Unlock()
-		return len(store.mappings) == 2 && len(store.hostToVirtualName) == 3 && len(store.virtualToHostName) == 3 && len(store.referencesTo(podMapping.Virtual())) == 1, nil
+		//store.m.Lock()
+		//defer store.m.Unlock()
+		return mlen(store.mappings) == 2 && mlen(store.hostToVirtualName) == 3 && mlen(store.virtualToHostName) == 3 && len(store.referencesTo(podMapping.Virtual())) == 1, nil
 	})
 	assert.NilError(t, err)
 
@@ -168,9 +170,9 @@ func TestWatching(t *testing.T) {
 
 	// wait for event to arrive
 	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
-		store.m.Lock()
-		defer store.m.Unlock()
-		return len(store.mappings) == 1 && len(store.hostToVirtualName) == 2 && len(store.virtualToHostName) == 2 && len(store.referencesTo(podMapping.Virtual())) == 1, nil
+		//store.m.Lock()
+		//defer store.m.Unlock()
+		return mlen(store.mappings) == 1 && mlen(store.hostToVirtualName) == 2 && mlen(store.virtualToHostName) == 2 && len(store.referencesTo(podMapping.Virtual())) == 1, nil
 	})
 	assert.NilError(t, err)
 
@@ -183,9 +185,9 @@ func TestWatching(t *testing.T) {
 
 	// wait for event to arrive
 	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
-		store.m.Lock()
-		defer store.m.Unlock()
-		return len(store.mappings) == 0 && len(store.hostToVirtualName) == 0 && len(store.virtualToHostName) == 0 && len(store.referencesTo(podMapping.Virtual())) == 0, nil
+		//store.m.Lock()
+		//defer store.m.Unlock()
+		return mlen(store.mappings) == 0 && mlen(store.hostToVirtualName) == 0 && mlen(store.virtualToHostName) == 0 && len(store.referencesTo(podMapping.Virtual())) == 0, nil
 	})
 	assert.NilError(t, err)
 }
@@ -208,9 +210,9 @@ func TestGarbageCollectMappings(t *testing.T) {
 	assert.NilError(t, err)
 	err = store.AddReference(ctx, podMapping, podMapping)
 	assert.NilError(t, err)
-	assert.Equal(t, 2, len(store.mappings))
-	assert.Equal(t, 2, len(store.hostToVirtualName))
-	assert.Equal(t, 2, len(store.virtualToHostName))
+	assert.Equal(t, 2, mlen(store.mappings))
+	assert.Equal(t, 2, mlen(store.hostToVirtualName))
+	assert.Equal(t, 2, mlen(store.virtualToHostName))
 	assert.Equal(t, 0, len(store.ReferencesTo(ctx, podMapping.Virtual())))
 	assert.Equal(t, 0, len(store.ReferencesTo(ctx, secretMapping.Virtual())))
 	err = store.AddReference(ctx, secretMapping, podMapping)
@@ -219,9 +221,9 @@ func TestGarbageCollectMappings(t *testing.T) {
 
 	// garbage collect mappings
 	store.garbageCollectMappings(context.TODO())
-	assert.Equal(t, 0, len(store.mappings))
-	assert.Equal(t, 0, len(store.hostToVirtualName))
-	assert.Equal(t, 0, len(store.virtualToHostName))
+	assert.Equal(t, 0, mlen(store.mappings))
+	assert.Equal(t, 0, mlen(store.hostToVirtualName))
+	assert.Equal(t, 0, mlen(store.virtualToHostName))
 
 	// record reference
 	err = store.AddReference(ctx, secretMapping, secretMapping)
@@ -233,16 +235,16 @@ func TestGarbageCollectMappings(t *testing.T) {
 	vPod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podMapping.VirtualName.Name, Namespace: podMapping.VirtualName.Namespace}}
 	err = vClient.Create(ctx, vPod)
 	assert.NilError(t, err)
-	assert.Equal(t, 2, len(store.mappings))
-	assert.Equal(t, 2, len(store.hostToVirtualName))
-	assert.Equal(t, 2, len(store.virtualToHostName))
+	assert.Equal(t, 2, mlen(store.mappings))
+	assert.Equal(t, 2, mlen(store.hostToVirtualName))
+	assert.Equal(t, 2, mlen(store.virtualToHostName))
 	assert.Equal(t, 1, len(store.ReferencesTo(ctx, secretMapping.Virtual())))
 
 	// garbage collect mappings
 	store.garbageCollectMappings(context.TODO())
-	assert.Equal(t, 1, len(store.mappings))
-	assert.Equal(t, 2, len(store.hostToVirtualName))
-	assert.Equal(t, 2, len(store.virtualToHostName))
+	assert.Equal(t, 1, mlen(store.mappings))
+	assert.Equal(t, 2, mlen(store.hostToVirtualName))
+	assert.Equal(t, 2, mlen(store.virtualToHostName))
 	assert.Equal(t, 1, len(store.ReferencesTo(ctx, secretMapping.Virtual())))
 
 	// make sure we cannot add a new conflicting mapping
@@ -262,9 +264,9 @@ func TestGarbageCollectMappings(t *testing.T) {
 
 	// garbage collect mappings
 	store.garbageCollectMappings(context.TODO())
-	assert.Equal(t, 0, len(store.mappings))
-	assert.Equal(t, 0, len(store.hostToVirtualName))
-	assert.Equal(t, 0, len(store.virtualToHostName))
+	assert.Equal(t, 0, mlen(store.mappings))
+	assert.Equal(t, 0, mlen(store.hostToVirtualName))
+	assert.Equal(t, 0, mlen(store.virtualToHostName))
 	assert.Equal(t, 0, len(store.ReferencesTo(ctx, secretMapping.Virtual())))
 }
 
@@ -322,9 +324,9 @@ func TestStore(t *testing.T) {
 	assert.Equal(t, false, ok)
 
 	// check inner structure of store
-	assert.Equal(t, 1, len(store.mappings))
-	assert.Equal(t, 1, len(store.hostToVirtualName))
-	assert.Equal(t, 1, len(store.virtualToHostName))
+	assert.Equal(t, 1, mlen(store.mappings))
+	assert.Equal(t, 1, mlen(store.hostToVirtualName))
+	assert.Equal(t, 1, mlen(store.virtualToHostName))
 
 	// make sure the mapping is not added
 	nameMapping := synccontext.NameMapping{
@@ -334,22 +336,22 @@ func TestStore(t *testing.T) {
 	}
 	err = store.AddReference(baseCtx, nameMapping, baseMapping)
 	assert.NilError(t, err)
-	assert.Equal(t, 1, len(store.mappings))
-	assert.Equal(t, 1, len(store.hostToVirtualName))
-	assert.Equal(t, 1, len(store.virtualToHostName))
+	assert.Equal(t, 1, mlen(store.mappings))
+	assert.Equal(t, 1, mlen(store.hostToVirtualName))
+	assert.Equal(t, 1, mlen(store.virtualToHostName))
 
 	// validate mapping itself
-	mapping, ok := store.mappings[nameMapping]
+	mapping, ok := store.mappings.Load(nameMapping)
 	assert.Equal(t, true, ok)
 	assert.Equal(t, 0, len(mapping.References))
 
 	// garbage collect mapping
 	store.garbageCollectMappings(context.TODO())
-	_, ok = store.mappings[nameMapping]
+	_, ok = store.mappings.Load(nameMapping)
 	assert.Equal(t, false, ok)
-	assert.Equal(t, 0, len(store.mappings))
-	assert.Equal(t, 0, len(store.hostToVirtualName))
-	assert.Equal(t, 0, len(store.virtualToHostName))
+	assert.Equal(t, 0, mlen(store.mappings))
+	assert.Equal(t, 0, mlen(store.hostToVirtualName))
+	assert.Equal(t, 0, mlen(store.virtualToHostName))
 }
 
 func TestRecordMapping(t *testing.T) {
@@ -383,7 +385,7 @@ func TestRecordMapping(t *testing.T) {
 		HostName:         host,
 	})
 	assert.NilError(t, err)
-	assert.Equal(t, 0, len(store.mappings))
+	assert.Equal(t, 0, mlen(store.mappings))
 }
 
 func NewRandomMapping(gvk schema.GroupVersionKind) synccontext.NameMapping {
@@ -398,4 +400,14 @@ func NewRandomMapping(gvk schema.GroupVersionKind) synccontext.NameMapping {
 			Namespace: random.String(32),
 		},
 	}
+}
+
+func mlen[K comparable, V any](t *TypedSyncMap[K, V]) int {
+	count := 0
+	t.m.Range(func(key, value any) bool {
+		count++
+		return true
+	})
+
+	return count
 }
