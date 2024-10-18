@@ -211,7 +211,7 @@ func RecordMapping(ctx *synccontext.SyncContext, pName, vName types.NamespacedNa
 		}
 
 		// record the reference
-		err := ctx.Mappings.Store().AddReference(ctx, synccontext.NameMapping{
+		err := ctx.Mappings.Store().AddReferenceAndSave(ctx, synccontext.NameMapping{
 			GroupVersionKind: gvk,
 
 			HostName:    pName,

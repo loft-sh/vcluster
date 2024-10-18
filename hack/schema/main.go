@@ -15,8 +15,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const OutFile = "chart/values.schema.json"
-const ValuesOutFile = "chart/values.yaml"
+const (
+	OutFile       = "chart/values.schema.json"
+	ValuesOutFile = "chart/values.yaml"
+)
 const (
 	defsPrefix         = "#/$defs/"
 	externalConfigName = "ExternalConfig"
@@ -100,7 +102,6 @@ func addPlatformSchema(toSchema *jsonschema.Schema) error {
 	}
 
 	for pair := platformConfigSchema.Properties.Oldest(); pair != nil; pair = pair.Next() {
-		pair := pair
 		platformNode.Properties.AddPairs(*pair)
 	}
 

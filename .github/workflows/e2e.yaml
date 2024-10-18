@@ -103,7 +103,7 @@ jobs:
       - id: set-paths-matrix
         run: |
           set -x
-          sudo apt-get install -y jq yq
+          sudo apt-get install -y jq
           paths=$(ls -d ./test/e2e*)
           echo "matrix=$(printf '%s\n' "${paths}" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
     outputs:
@@ -267,6 +267,9 @@ jobs:
       - name: install sed
         run: |
           sudo apt-get install -y sed
+
+      - name: Install yq@v4
+        run: go install github.com/mikefarah/yq/v4@latest
 
       - name: create vcluster with current cli
         run: |

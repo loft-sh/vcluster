@@ -14,22 +14,17 @@ import (
 type Value struct {
 	Key      []byte
 	Data     []byte
-	Revision int64
+	Modified int64
 }
 
-var (
-	ErrNotFound = errors.New("etcdwrapper: key not found")
-)
+var ErrNotFound = errors.New("etcdwrapper: key not found")
 
 type Client interface {
-	List(ctx context.Context, key string, rev int) ([]Value, error)
-	Watch(ctx context.Context, key string, rev int) clientv3.WatchChan
+	List(ctx context.Context, key string) ([]Value, error)
+	Watch(ctx context.Context, key string) clientv3.WatchChan
 	Get(ctx context.Context, key string) (Value, error)
 	Put(ctx context.Context, key string, value []byte) error
-	Create(ctx context.Context, key string, value []byte) error
-	Update(ctx context.Context, key string, revision int64, value []byte) error
-	Delete(ctx context.Context, key string, revision int64) error
-	Compact(ctx context.Context, revision int64) (int64, error)
+	Delete(ctx context.Context, key string) error
 	Close() error
 }
 
@@ -102,12 +97,12 @@ func New(ctx context.Context, certificates *Certificates, endpoints ...string) (
 	}, nil
 }
 
-func (c *client) Watch(ctx context.Context, key string, rev int) clientv3.WatchChan {
-	return c.c.Watch(ctx, key, clientv3.WithPrefix(), clientv3.WithRev(int64(rev)))
+func (c *client) Watch(ctx context.Context, key string) clientv3.WatchChan {
+	return c.c.Watch(ctx, key, clientv3.WithPrefix(), clientv3.WithPrevKV(), clientv3.WithProgressNotify())
 }
 
-func (c *client) List(ctx context.Context, key string, rev int) ([]Value, error) {
-	resp, err := c.c.Get(ctx, key, clientv3.WithPrefix(), clientv3.WithRev(int64(rev)))
+func (c *client) List(ctx context.Context, key string) ([]Value, error) {
+	resp, err := c.c.Get(ctx, key, clientv3.WithPrefix(), clientv3.WithRev(int64(0)))
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +112,7 @@ func (c *client) List(ctx context.Context, key string, rev int) ([]Value, error)
 		vals = append(vals, Value{
 			Key:      kv.Key,
 			Data:     kv.Value,
-			Revision: kv.ModRevision,
+			Modified: kv.ModRevision,
 		})
 	}
 
@@ -134,7 +129,7 @@ func (c *client) Get(ctx context.Context, key string) (Value, error) {
 		return Value{
 			Key:      resp.Kvs[0].Key,
 			Data:     resp.Kvs[0].Value,
-			Revision: resp.Kvs[0].ModRevision,
+			Modified: resp.Kvs[0].ModRevision,
 		}, nil
 	}
 
@@ -146,10 +141,10 @@ func (c *client) Put(ctx context.Context, key string, value []byte) error {
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return err
 	}
-	if val.Revision == 0 {
+	if val.Modified == 0 {
 		return c.Create(ctx, key, value)
 	}
-	return c.Update(ctx, key, val.Revision, value)
+	return c.Update(ctx, key, val.Modified, value)
 }
 
 func (c *client) Create(ctx context.Context, key string, value []byte) error {
@@ -161,8 +156,9 @@ func (c *client) Create(ctx context.Context, key string, value []byte) error {
 		return err
 	}
 	if !resp.Succeeded {
-		return fmt.Errorf("key exists")
+		return errors.New("key exists")
 	}
+
 	return nil
 }
 
@@ -178,30 +174,18 @@ func (c *client) Update(ctx context.Context, key string, revision int64, value [
 	if !resp.Succeeded {
 		return fmt.Errorf("revision %d doesnt match", revision)
 	}
+
 	return nil
 }
 
-func (c *client) Delete(ctx context.Context, key string, revision int64) error {
-	resp, err := c.c.Txn(ctx).
-		If(clientv3.Compare(clientv3.ModRevision(key), "=", revision)).
-		Then(clientv3.OpDelete(key)).
-		Else(clientv3.OpGet(key)).
+func (c *client) Delete(ctx context.Context, key string) error {
+	_, err := c.c.Txn(ctx).
+		Then(
+			clientv3.OpGet(key),
+			clientv3.OpDelete(key),
+		).
 		Commit()
-	if err != nil {
-		return err
-	}
-	if !resp.Succeeded {
-		return fmt.Errorf("revision %d doesnt match", revision)
-	}
-	return nil
-}
-
-func (c *client) Compact(ctx context.Context, revision int64) (int64, error) {
-	resp, err := c.c.Compact(ctx, revision)
-	if resp != nil {
-		return resp.Header.GetRevision(), err
-	}
-	return 0, err
+	return err
 }
 
 func (c *client) Close() error {
