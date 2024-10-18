@@ -169,7 +169,7 @@ build-dev-image tag="":
   docker build -t vcluster:dev-{{tag}} -f Dockerfile.release --build-arg TARGETARCH=$(uname -m) --build-arg TARGETOS=linux .
   rm ./vcluster
 
-run-conformance k8s_version="1.31.1" tag="conf" name="conf":
+run-conformance k8s_version="1.31.1" tag="conf" name="conformance":
   minikube start --kubernetes-version {{ k8s_version }} --nodes=2 -p {{ name }}
   minikube profile {{ name }}
   minikube addons enable metrics-server

@@ -2,7 +2,7 @@ package store
 
 import "github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 
-func removeMappingFromNameMap(lookupMap map[synccontext.Object]lookupName, mapping *Mapping, key synccontext.Object) {
+func (s *Store) removeMappingFromNameMap(lookupMap map[synccontext.Object]lookupName, mapping *Mapping, key synccontext.Object) {
 	newLookupName, ok := lookupMap[key]
 	if !ok {
 		return
@@ -16,15 +16,19 @@ func removeMappingFromNameMap(lookupMap map[synccontext.Object]lookupName, mappi
 		}
 	}
 	if len(newMappings) == 0 {
+		s.m.Lock()
 		delete(lookupMap, key)
+		s.m.Unlock()
 		return
 	}
 
 	newLookupName.Mappings = newMappings
+	s.m.Lock()
 	lookupMap[key] = newLookupName
+	s.m.Unlock()
 }
 
-func addMappingToNameMap(lookupMap map[synccontext.Object]lookupName, mapping *Mapping, key, other synccontext.Object) {
+func (s *Store) addMappingToNameMap(lookupMap map[synccontext.Object]lookupName, mapping *Mapping, key, other synccontext.Object) {
 	newLookupName, ok := lookupMap[key]
 	if !ok {
 		newLookupName = lookupName{
@@ -33,5 +37,7 @@ func addMappingToNameMap(lookupMap map[synccontext.Object]lookupName, mapping *M
 	}
 
 	newLookupName.Mappings = append(newLookupName.Mappings, mapping)
+	s.m.Lock()
 	lookupMap[key] = newLookupName
+	s.m.Unlock()
 }

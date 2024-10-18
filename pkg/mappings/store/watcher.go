@@ -17,13 +17,12 @@ type watcher struct {
 }
 
 func (w *watcher) Dispatch(nameMapping synccontext.NameMapping) {
-	w.m.Lock()
-	defer w.m.Unlock()
-
 	if w.queue == nil {
 		return
 	}
 
+	w.m.Lock()
+	defer w.m.Unlock()
 	w.addQueueFn(nameMapping, w.queue)
 }
 

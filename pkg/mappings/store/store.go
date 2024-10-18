@@ -32,8 +32,6 @@ func NewStoreWithVerifyMapping(ctx context.Context, cachedVirtualClient, cachedH
 	store := &Store{
 		backend: backend,
 
-		verifyMapping: verifyMapping,
-
 		sender: uuid.NewString(),
 
 		cachedVirtualClient: cachedVirtualClient,
@@ -45,6 +43,13 @@ func NewStoreWithVerifyMapping(ctx context.Context, cachedVirtualClient, cachedH
 		virtualToHostName: make(map[synccontext.Object]lookupName),
 
 		watches: make(map[schema.GroupVersionKind][]*watcher),
+	}
+
+	// Wrap verification in the store's mutex
+	store.verifyMapping = func(mapping synccontext.NameMapping) bool {
+		store.m.Lock()
+		defer store.m.Unlock()
+		return verifyMapping(mapping)
 	}
 
 	// retrieve initial mappings from backend
@@ -95,19 +100,16 @@ func (s *Store) Watch(gvk schema.GroupVersionKind, addQueueFn synccontext.AddQue
 }
 
 func (s *Store) StartGarbageCollection(ctx context.Context) {
-	go func() {
-		wait.Until(func() {
-			s.garbageCollectMappings(ctx)
-		}, GarbageCollectionInterval, ctx.Done())
-	}()
+	go wait.UntilWithContext(ctx, func(ctx context.Context) {
+		s.garbageCollectMappings(ctx)
+	}, GarbageCollectionInterval)
 }
 
 func (s *Store) garbageCollectMappings(ctx context.Context) {
-	startTime := time.Now()
 	klog.FromContext(ctx).V(1).Info("Start mappings garbage collection")
-	defer func() {
+	defer func(startTime time.Time) {
 		klog.FromContext(ctx).V(1).Info("Garbage collection done", "took", time.Since(startTime).String())
-	}()
+	}(time.Now())
 
 	for _, mapping := range s.mappings {
 		err := s.garbageCollectMapping(ctx, mapping)
@@ -180,7 +182,9 @@ func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMa
 	err = s.cachedHostClient.Get(ctx, nameMapping.HostName, obj.DeepCopyObject().(client.Object))
 	if err == nil {
 		return true, nil
-	} else if !kerrors.IsNotFound(err) {
+	}
+
+	if !kerrors.IsNotFound(err) {
 		// TODO: filter out other allowed errors here could be Forbidden, Type not found etc.
 		klog.FromContext(ctx).Info("Error retrieving host object", "hostObject", nameMapping.Host().String())
 	}
@@ -231,9 +235,6 @@ func (s *Store) start(ctx context.Context) error {
 }
 
 func (s *Store) handleEvent(ctx context.Context, watchEvent BackendWatchResponse) {
-	s.m.Lock()
-	defer s.m.Unlock()
-
 	if watchEvent.Err != nil {
 		klog.FromContext(ctx).Error(watchEvent.Err, "watch err in mappings store")
 		return
@@ -306,9 +307,6 @@ func (s *Store) DeleteReference(ctx context.Context, nameMapping, belongsTo sync
 		return nil
 	}
 
-	s.m.Lock()
-	defer s.m.Unlock()
-
 	// check if there is already a mapping
 	mapping, ok := s.findMapping(belongsTo)
 	if !ok {
@@ -355,9 +353,6 @@ func (s *Store) AddReference(ctx context.Context, nameMapping, belongsTo synccon
 	if nameMapping.Host().Empty() || nameMapping.Virtual().Empty() {
 		return nil
 	}
-
-	s.m.Lock()
-	defer s.m.Unlock()
 
 	// check if there is already a conflicting mapping
 	err := s.checkNameConflict(nameMapping)
@@ -406,9 +401,6 @@ func (s *Store) SaveMapping(ctx context.Context, nameMapping synccontext.NameMap
 		return nil
 	}
 
-	s.m.Lock()
-	defer s.m.Unlock()
-
 	// check if there is already a mapping
 	mapping, ok := s.findMapping(nameMapping)
 	if !ok {
@@ -422,6 +414,8 @@ func (s *Store) SaveMapping(ctx context.Context, nameMapping synccontext.NameMap
 
 	// save mapping
 	klog.FromContext(ctx).Info("Save object mappings in store", "mapping", mapping.String())
+	s.m.Lock()
+	defer s.m.Unlock()
 	err := s.backend.Save(ctx, mapping)
 	if err != nil {
 		return fmt.Errorf("save mapping %s: %w", mapping.NameMapping.String(), err)
@@ -517,6 +511,8 @@ func (s *Store) findMapping(mapping synccontext.NameMapping) (*Mapping, bool) {
 	}
 
 	// just check for the mapping
+	s.m.RLock()
+	defer s.m.RUnlock()
 	retMapping, ok := s.mappings[synccontext.NameMapping{
 		GroupVersionKind: mapping.GroupVersionKind,
 		VirtualName:      vObj.NamespacedName,
@@ -568,13 +564,17 @@ func (s *Store) createMapping(ctx context.Context, nameMapping, belongsTo syncco
 
 func (s *Store) checkNameConflict(nameMapping synccontext.NameMapping) error {
 	// check if the mapping is conflicting
+	s.m.RLock()
 	vName, ok := s.hostToVirtualName[nameMapping.Host()]
+	s.m.RUnlock()
 	if ok && !vName.Object.Equals(nameMapping.Virtual()) {
 		return fmt.Errorf("there is already another name mapping %s -> %s that conflicts with %s -> %s", nameMapping.Host().String(), vName.Object.String(), nameMapping.Host().String(), nameMapping.Virtual().String())
 	}
 
 	// check the other way around
+	s.m.RLock()
 	pName, ok := s.virtualToHostName[nameMapping.Virtual()]
+	s.m.RUnlock()
 	if ok && !pName.Object.Equals(nameMapping.Host()) {
 		return fmt.Errorf("there is already another name mapping %s -> %s that conflicts with %s -> %s", nameMapping.Virtual().String(), pName.Object.String(), nameMapping.Virtual().String(), nameMapping.Host().String())
 	}
@@ -583,17 +583,19 @@ func (s *Store) checkNameConflict(nameMapping synccontext.NameMapping) error {
 }
 
 func (s *Store) removeNameFromMaps(mapping *Mapping, vObj, pObj synccontext.Object) {
-	removeMappingFromNameMap(s.hostToVirtualName, mapping, pObj)
-	removeMappingFromNameMap(s.virtualToHostName, mapping, vObj)
+	s.removeMappingFromNameMap(s.hostToVirtualName, mapping, pObj)
+	s.removeMappingFromNameMap(s.virtualToHostName, mapping, vObj)
 }
 
 func (s *Store) addNameToMaps(mapping *Mapping, vObj, pObj synccontext.Object) {
-	addMappingToNameMap(s.hostToVirtualName, mapping, pObj, vObj)
-	addMappingToNameMap(s.virtualToHostName, mapping, vObj, pObj)
+	s.addMappingToNameMap(s.hostToVirtualName, mapping, pObj, vObj)
+	s.addMappingToNameMap(s.virtualToHostName, mapping, vObj, pObj)
 }
 
 func (s *Store) addMapping(mapping *Mapping) {
+	s.m.Lock()
 	s.mappings[mapping.NameMapping] = mapping
+	s.m.Unlock()
 	s.addNameToMaps(mapping, mapping.Virtual(), mapping.Host())
 	dispatchAll(s.watches[mapping.GroupVersionKind], mapping.NameMapping)
 
