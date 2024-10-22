@@ -68,10 +68,8 @@ vcluster platform backup management
 		},
 	}
 
-	platformNamespace, _ := clihelper.VClusterPlatformInstallationNamespace(context.Background())
-
 	c.Flags().StringSliceVar(&cmd.Skip, "skip", []string{}, "What resources the backup should skip. Valid options are: users, teams, accesskeys, sharedsecrets, clusters and clusteraccounttemplates")
-	c.Flags().StringVar(&cmd.Namespace, "namespace", platformNamespace, product.Replace("The namespace vCluster platform was installed into"))
+	c.Flags().StringVar(&cmd.Namespace, "namespace", "", product.Replace("The namespace vCluster platform was installed into"))
 	c.Flags().StringVar(&cmd.Filename, "filename", "backup.yaml", "The filename to write the backup to")
 	return c
 }
@@ -92,12 +90,18 @@ func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
 		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
-	isInstalled, err := clihelper.IsLoftAlreadyInstalled(cobraCmd.Context(), kubeClient, cmd.Namespace)
+	ctx := cobraCmd.Context()
+	ns, err := cmd.getNS(ctx)
+	if err != nil {
+		return err
+	}
+
+	isInstalled, err := clihelper.IsLoftAlreadyInstalled(cobraCmd.Context(), kubeClient, ns)
 	if err != nil {
 		return err
 	} else if !isInstalled {
 		answer, err := cmd.Log.Question(&survey.QuestionOptions{
-			Question:     fmt.Sprintf(product.Replace("Seems like vCluster platform was not installed into namespace %q, do you want to continue?"), cmd.Namespace),
+			Question:     fmt.Sprintf(product.Replace("Seems like vCluster platform was not installed into namespace %q, do you want to continue?"), ns),
 			DefaultValue: "Yes",
 			Options:      []string{"Yes", "No"},
 		})
@@ -106,7 +110,6 @@ func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
 		}
 	}
 
-	ctx := cobraCmd.Context()
 	client, err := clientpkg.New(kubeConfig, clientpkg.Options{Scheme: scheme})
 	if err != nil {
 		return err
@@ -132,4 +135,15 @@ func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
 
 	cmd.Log.Donef("Wrote backup to %s", cmd.Filename)
 	return nil
+}
+
+func (cmd *ManagementCmd) getNS(ctx context.Context) (string, error) {
+	if cmd.Namespace != "" {
+		return cmd.Namespace, nil
+	}
+	platformNamespace, err := clihelper.VClusterPlatformInstallationNamespace(ctx)
+	if err != nil {
+		return "", err
+	}
+	return platformNamespace, nil
 }
