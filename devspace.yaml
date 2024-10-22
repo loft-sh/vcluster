@@ -7,6 +7,7 @@ vars:
   DEVSPACE_FLAGS: "-n vcluster"
   SYNCER_IMAGE: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
   COMMON_VALUES: ./test/commonValues.yaml
+  CONFORMANCE_VALUES: ./test/conformanceValues.yaml
   PRO_VALUES: ./test/proValues.yaml
   VALUES_FILE: ./test/e2e/values.yaml
   RELEASE_NAME: "vcluster"
@@ -163,6 +164,10 @@ pipelines:
       # Build the vcluster image
       build_images --all
 
+      if $(is_in "test-conformance" "${DEVSPACE_PROFILES}"); then
+        minikube image load $(get_image "vcluster") --overwrite=false || true
+      fi
+
       # Deploy the vcluster
       if is_equal $(get_flag distro) k8s; then
         create_deployments vcluster-k8s
@@ -216,6 +221,17 @@ profiles:
             - ${COMMON_VALUES}
             - ${VALUES_FILE}
             - ${PRO_VALUES}
+  - name: test-conformance
+    patches:
+      - op: replace
+        path: images.vcluster.buildKit
+        value:
+          preferMinikube: false
+      - op: add
+        path: deployments.vcluster-k8s.helm
+        value:
+          valuesFiles:
+            - ${CONFORMANCE_VALUES}
 
 commands:
   # e.g. devspace run test k3s
