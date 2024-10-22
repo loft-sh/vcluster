@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -27,16 +28,19 @@ func (r *eventHandler) Create(ctx context.Context, evt event.CreateEvent, q work
 
 // Update is called in response to an update event -  e.g. Pod Updated.
 func (r *eventHandler) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+	klog.FromContext(ctx).Info("!!!update!!!", "name", evt.ObjectNew.GetName(), "namespace", evt.ObjectNew.GetNamespace(), "deletionTimestamp", evt.ObjectNew.GetDeletionTimestamp())
 	r.enqueue(ctx, evt.ObjectNew, q, false)
 }
 
 // Delete is called in response to a delete event - e.g. Pod Deleted.
 func (r *eventHandler) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+	klog.FromContext(ctx).Info("!!!delete!!!", "name", evt.Object.GetName(), "namespace", evt.Object.GetNamespace(), "deletionTimestamp", evt.Object.GetDeletionTimestamp())
 	r.enqueue(ctx, evt.Object, q, true)
 }
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile Autoscaling, or a Webhook.
 func (r *eventHandler) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+	klog.FromContext(ctx).Info("!!!generic!!!", "name", evt.Object.GetName(), "namespace", evt.Object.GetNamespace(), "deletionTimestamp", evt.Object.GetDeletionTimestamp())
 	r.enqueue(ctx, evt.Object, q, false)
 }

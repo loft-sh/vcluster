@@ -142,8 +142,10 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 	// same time.
 	//
 	// This is FIFO, we use a special mutex for this (fifomu.Mutex)
+	klog.FromContext(ctx).Info("!!!lock!!!!", "vReqString", vReq.String(), "pReqString", pReq.String())
 	r.locker.Lock(vReq.String())
 	defer func() {
+		klog.FromContext(ctx).Info("!!!unlock!!!!", "vReqString", vReq.String(), "pReqString", pReq.String())
 		_ = r.locker.Unlock(vReq.String())
 	}()
 
@@ -398,7 +400,7 @@ func (r *SyncController) extractRequest(ctx *synccontext.SyncContext, req ctrl.R
 	return req, pReq, nil
 }
 
-func (r *SyncController) enqueueVirtual(_ context.Context, obj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request], isDelete bool) {
+func (r *SyncController) enqueueVirtual(ctx context.Context, obj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request], isDelete bool) {
 	if obj == nil {
 		return
 	}

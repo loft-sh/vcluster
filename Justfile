@@ -169,9 +169,7 @@ build-dev-image tag="":
   docker build -t vcluster:dev-{{tag}} -f Dockerfile.release --build-arg TARGETARCH=$(uname -m) --build-arg TARGETOS=linux .
   rm ./vcluster
 
-run-conformance k8s_version="1.31.1" mode="conformance-lite" tag="conf": (build-dev-image tag)
-  minikube start --kubernetes-version {{k8s_version}} --nodes=2
-  minikube addons enable metrics-server
+run-conformance k8s_version="1.31.1" mode="conformance-lite" tag="conf": (create-conformance k8s_version) (build-dev-image tag)
   minikube image load vcluster:dev-{{tag}}
 
   vcluster create vcluster -n vcluster -f ./conformance/v1.31/vcluster.yaml
@@ -183,3 +181,15 @@ conformance-status:
 
 conformance-logs:
   sonobuoy logs
+
+dev-conformance *ARGS:
+  devspace dev --profile test-conformance --namespace vcluster {{ARGS}}
+
+create-conformance k8s_version="1.31.1":
+  minikube start --kubernetes-version {{k8s_version}} --nodes=2
+  minikube addons enable metrics-server
+
+delete-conformance:
+  minikube delete || true
+
+recreate-conformance: delete-conformance create-conformance
