@@ -190,6 +190,6 @@ create-conformance k8s_version="1.31.1":
   minikube addons enable metrics-server
 
 delete-conformance:
-  minikube delete || true
+  -minikube delete
 
 recreate-conformance: delete-conformance create-conformance
