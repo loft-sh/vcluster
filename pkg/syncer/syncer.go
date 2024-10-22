@@ -142,12 +142,15 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 	// same time.
 	//
 	// This is FIFO, we use a special mutex for this (fifomu.Mutex)
-	klog.FromContext(ctx).Info("!!!lock!!!!", "vReqString", vReq.String(), "pReqString", pReq.String())
-	r.locker.Lock(vReq.String())
-	defer func() {
-		klog.FromContext(ctx).Info("!!!unlock!!!!", "vReqString", vReq.String(), "pReqString", pReq.String())
-		_ = r.locker.Unlock(vReq.String())
-	}()
+	lockKey := vReq.String()
+	logger := klog.FromContext(ctx)
+
+	r.locker.Lock(lockKey)
+	logger.Info("!!!lock!!!!", "lockKey", lockKey)
+	defer func(log klog.Logger, lockKey string) {
+		_ = r.locker.Unlock(lockKey)
+		log.Info("!!!unlock!!!!", "lockKey", lockKey)
+	}(logger, lockKey)
 
 	// check if we should skip reconcile
 	lifecycle, ok := r.syncer.(syncertypes.Starter)
@@ -214,6 +217,16 @@ func (r *SyncController) Reconcile(ctx context.Context, origReq ctrl.Request) (_
 				// do not delete
 				return ctrl.Result{}, nil
 			}
+		}
+
+		if syncEventSource == synccontext.SyncEventSourceVirtual {
+			if syncEventType == synccontext.SyncEventTypeDelete {
+				// delete physical object
+				return DeleteHostObject(syncContext, pObj, "virtual object was deleted")
+			}
+
+			// do not sync to virtual
+			return ctrl.Result{}, nil
 		}
 
 		return r.genericSyncer.SyncToVirtual(syncContext, &synccontext.SyncToVirtualEvent[client.Object]{
@@ -400,7 +413,7 @@ func (r *SyncController) extractRequest(ctx *synccontext.SyncContext, req ctrl.R
 	return req, pReq, nil
 }
 
-func (r *SyncController) enqueueVirtual(ctx context.Context, obj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request], isDelete bool) {
+func (r *SyncController) enqueueVirtual(_ context.Context, obj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request], isDelete bool) {
 	if obj == nil {
 		return
 	}

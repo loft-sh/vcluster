@@ -349,16 +349,7 @@ func (s *podSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncconte
 		vPod.Spec.DeprecatedServiceAccount = ""
 	}
 
-	// Check if virtual pod is being deleted
-	err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Namespace: vPod.Namespace, Name: vPod.Name}, vPod)
-	if err != nil {
-		return ctrl.Result{}, err
-	} else if vPod.DeletionTimestamp != nil {
-		ctx.Log.Infof("skip creating virtual pod %s/%s, because the virtual pod has a deletion timestamp", vPod.Namespace, vPod.Name)
-		return
-	}
-
-	err = pro.ApplyPatchesVirtualObject(ctx, nil, vPod, event.Host, ctx.Config.Sync.ToHost.Pods.Patches, false)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vPod, event.Host, ctx.Config.Sync.ToHost.Pods.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
