@@ -107,11 +107,6 @@ func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 }
 
 func (s *priorityClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*schedulingv1.PriorityClass]) (_ ctrl.Result, retErr error) {
-	// virtual object is not here anymore, so we delete
-	if !s.fromHost || (event.IsDelete() && s.toHost) {
-		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
-	}
-
 	newVirtualPC := s.translateFromHost(ctx, event.Host)
 	err := pro.ApplyPatchesVirtualObject(ctx, nil, newVirtualPC, event.Host, ctx.Config.Sync.FromHost.PriorityClasses.Patches, true)
 	if err != nil {

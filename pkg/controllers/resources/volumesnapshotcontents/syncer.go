@@ -1,6 +1,7 @@
 package volumesnapshotcontents
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -201,7 +202,28 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, event *
 	return ctrl.Result{}, nil
 }
 
+func (s *volumeSnapshotContentSyncer) ShouldSyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*volumesnapshotv1.VolumeSnapshotContent]) bool {
+	pObj := event.Host
+	vName := mappings.HostToVirtual(ctx, pObj.Spec.VolumeSnapshotRef.Name, pObj.Spec.VolumeSnapshotRef.Namespace, nil, mappings.VolumeSnapshots())
+	if vName.Name == "" {
+		ctx.Context = context.WithValue(ctx, shouldSyncCtxKey(pObj), false)
+		return false
+	}
+
+	isManaged := translate.Default.IsManaged(ctx, pObj)
+	ctx.Context = context.WithValue(ctx, shouldSyncCtxKey(pObj), isManaged)
+	return isManaged
+}
+
+func shouldSyncCtxKey(vsc *volumesnapshotv1.VolumeSnapshotContent) string {
+	return fmt.Sprintf("pvc-%s-%s-should-sync", vsc.Namespace, vsc.Name)
+}
+
 func (s *volumeSnapshotContentSyncer) shouldSync(ctx *synccontext.SyncContext, pObj *volumesnapshotv1.VolumeSnapshotContent) (bool, *volumesnapshotv1.VolumeSnapshot, error) {
+	if shouldSyncCtxVal := ctx.Context.Value(shouldSyncCtxKey(pObj)); shouldSyncCtxVal != nil && shouldSyncCtxVal.(bool) == false {
+		return false, nil, nil
+	}
+
 	vName := mappings.HostToVirtual(ctx, pObj.Spec.VolumeSnapshotRef.Name, pObj.Spec.VolumeSnapshotRef.Namespace, nil, mappings.VolumeSnapshots())
 	if vName.Name == "" {
 		return false, nil, nil

@@ -41,6 +41,10 @@ type Sync[T client.Object] interface {
 	SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[T]) (ctrl.Result, error)
 }
 
+type GuardedToVirtualSync[T client.Object] interface {
+	ShouldSyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[T]) bool
+}
+
 type FakeSyncer interface {
 	Object
 

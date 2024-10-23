@@ -517,19 +517,23 @@ func jstring(v any) string {
 }
 
 func (r *SyncController) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[client.Object]) (ctrl.Result, error) {
+	vObj := event.Virtual
 	// make sure the object uid matches
-	pAnnotations := event.Host.GetAnnotations()
+
+	pObj := event.Host
+	
+	pAnnotations := pObj.GetAnnotations()
 	if !r.options.DisableUIDDeletion && pAnnotations[translate.UIDAnnotation] != "" && pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {
 		if pAnnotations[translate.KindAnnotation] == "" || pAnnotations[translate.KindAnnotation] == r.syncer.GroupVersionKind().String() {
 			// requeue if object is already being deleted
-			if event.Host.GetDeletionTimestamp() != nil {
+			if pObj.GetDeletionTimestamp() != nil {
 				return ctrl.Result{RequeueAfter: time.Second}, nil
 			}
 
 			logger := klog.FromContext(ctx)
-			logger.Info("😈 UID different!!", "host event", jstring(event.Host))
+			logger.Info("😈 UID different!!", "host event", jstring(pObj))
 			// delete physical object
-			return DeleteHostObject(ctx, event.Host, "virtual object uid is different")
+			return DeleteHostObject(ctx, pObj, "virtual object uid is different")
 		}
 	}
 
@@ -537,6 +541,12 @@ func (r *SyncController) Sync(ctx *synccontext.SyncContext, event *synccontext.S
 }
 
 func (r *SyncController) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[client.Object]) (ctrl.Result, error) {
+	if checker, ok := r.genericSyncer.(syncertypes.GuardedToVirtualSync[client.Object]); ok {
+		if checker.ShouldSyncToVirtual(ctx, event) {
+			return ctrl.Result{}, nil
+		}
+	}
+
 	if event.Source == synccontext.SyncEventSourceVirtual && event.IsDelete() {
 		if event.IsDelete() || event.Host.GetDeletionTimestamp() != nil {
 			// delete physical object

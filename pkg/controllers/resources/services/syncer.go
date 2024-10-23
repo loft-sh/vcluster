@@ -160,18 +160,18 @@ func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Serv
 	return vService.Spec.Type == corev1.ServiceTypeExternalName && pService.Spec.Type != vService.Spec.Type && pService.Spec.ClusterIP != ""
 }
 
-func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Service]) (ctrl.Result, error) {
+func (s *serviceSyncer) ShouldSyncToVirtual(_ *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Service]) bool {
 	// we have to delay deletion here if a vObj does not (yet) exist for a service that was just
 	// created, because vcluster intercepts those calls and first creates a service inside the host
 	// cluster and then inside the virtual cluster.
 	if event.Host.Annotations != nil && event.Host.Annotations[ServiceBlockDeletion] == "true" {
-		return ctrl.Result{Requeue: true}, nil
+		return false
 	}
 
-	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
-		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
-	}
+	return true
+}
 
+func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Service]) (ctrl.Result, error) {
 	vObj := s.translateToVirtual(ctx, event.Host)
 	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.Services.Patches, false)
 	if err != nil {
