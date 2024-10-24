@@ -5,8 +5,9 @@ import "sigs.k8s.io/controller-runtime/pkg/client"
 type SyncEventType string
 
 const (
-	SyncEventTypeUnknown SyncEventType = ""
-	SyncEventTypeDelete  SyncEventType = "Delete"
+	SyncEventTypeUnknown       SyncEventType = ""
+	SyncEventTypeDelete        SyncEventType = "Delete"
+	SyncEventTypePendingDelete SyncEventType = "PendingDelete"
 )
 
 type SyncEventSource string
