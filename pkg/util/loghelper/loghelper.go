@@ -1,9 +1,11 @@
 package loghelper
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -24,6 +26,19 @@ func New(name string) Logger {
 		ctrl.Log.WithName(name).WithCallDepth(1),
 	}
 }
+
+func NewFromContext(ctx context.Context) Logger {
+	if ctxLogger, err := logr.FromContext(ctx); err == nil {
+		return &logger{
+			ctxLogger,
+		}
+	}
+
+	return &logger{
+		klog.Background(),
+	}
+}
+
 func NewFromExisting(log logr.Logger, name string) Logger {
 	return &logger{
 		log.WithName(name).WithCallDepth(1),

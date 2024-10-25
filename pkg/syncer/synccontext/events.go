@@ -6,6 +6,8 @@ type SyncEventType string
 
 const (
 	SyncEventTypeUnknown       SyncEventType = ""
+	SyncEventTypeCreate        SyncEventType = "Create"
+	SyncEventTypeUpdate        SyncEventType = "Update"
 	SyncEventTypeDelete        SyncEventType = "Delete"
 	SyncEventTypePendingDelete SyncEventType = "PendingDelete"
 )

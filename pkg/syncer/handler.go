@@ -3,6 +3,7 @@ package syncer
 import (
 	"context"
 
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -10,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
-type enqueueFunc func(ctx context.Context, obj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request], isDelete, isPendingDelete bool)
+type enqueueFunc func(ctx context.Context, obj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request], eventType synccontext.SyncEventType)
 
 func newEventHandler(enqueue enqueueFunc) handler.EventHandler {
 	return &eventHandler{enqueue: enqueue}
@@ -22,21 +23,21 @@ type eventHandler struct {
 
 // Create is called in response to an create event - e.g. Pod Creation.
 func (r *eventHandler) Create(ctx context.Context, evt event.CreateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
-	r.enqueue(ctx, evt.Object, q, false, false)
+	r.enqueue(ctx, evt.Object, q, synccontext.SyncEventTypeCreate)
 }
 
 // Update is called in response to an update event -  e.g. Pod Updated.
 func (r *eventHandler) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
-	r.enqueue(ctx, evt.ObjectNew, q, false, !evt.ObjectNew.GetDeletionTimestamp().IsZero())
+	r.enqueue(ctx, evt.ObjectNew, q, synccontext.SyncEventTypeUpdate)
 }
 
 // Delete is called in response to a delete event - e.g. Pod Deleted.
 func (r *eventHandler) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
-	r.enqueue(ctx, evt.Object, q, true, false)
+	r.enqueue(ctx, evt.Object, q, synccontext.SyncEventTypeDelete)
 }
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile Autoscaling, or a Webhook.
 func (r *eventHandler) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
-	r.enqueue(ctx, evt.Object, q, false, !evt.Object.GetDeletionTimestamp().IsZero())
+	r.enqueue(ctx, evt.Object, q, synccontext.SyncEventTypeUnknown)
 }
