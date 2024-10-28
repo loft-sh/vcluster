@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,8 +27,6 @@ import (
 )
 
 const VirtualClusterSelector = "app=vcluster"
-
-var digitsOnlyRegex = regexp.MustCompile("^[0-9]+$")
 
 type VCluster struct {
 	ClientFactory clientcmd.ClientConfig `json:"-"`
@@ -453,7 +452,7 @@ func getService(ctx context.Context, client *kubernetes.Clientset, kubeClientCon
 	defer cancel()
 
 	var svcName string
-	if digitsOnlyRegex.MatchString(name) {
+	if config.DigitsPrefixRegex.MatchString(name) {
 		svcName = fmt.Sprintf("vc-%s", name)
 	} else {
 		svcName = name

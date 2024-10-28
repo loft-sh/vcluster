@@ -17,7 +17,7 @@
 {{- end -}}
 
 {{- define "vcluster.name" -}}
-{{- if regexMatch "^[0-9]+$" .Release.Name -}}
+{{- if regexMatch "^[0-9]+.*$" .Release.Name -}}
 {{- printf "vc-%s" .Release.Name -}}
 {{- else -}}
 {{- printf "%s" .Release.Name }}
