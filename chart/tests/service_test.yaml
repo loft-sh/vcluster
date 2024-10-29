@@ -103,6 +103,16 @@ tests:
           path: metadata.name
           value: vc-1234
 
+  - it: should prepend vc to service name when digits prefix is given
+    release:
+      name: 1234-foo
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: vc-1234-foo
+
   - it: isolated control plane
     release:
       name: my-release
