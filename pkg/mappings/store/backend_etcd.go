@@ -9,6 +9,9 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"go.etcd.io/etcd/api/v3/mvccpb"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 )
 
@@ -56,8 +59,6 @@ func (m *etcdBackend) Watch(ctx context.Context) <-chan BackendWatchResponse {
 				responseChan <- BackendWatchResponse{
 					Err: event.Err(),
 				}
-			case event.IsProgressNotify():
-				klog.FromContext(ctx).V(1).Info("received progress notify from etcd")
 			case len(event.Events) > 0:
 				retEvents := make([]*BackendWatchEvent, 0, len(event.Events))
 				for _, singleEvent := range event.Events {
@@ -88,10 +89,15 @@ func (m *etcdBackend) Watch(ctx context.Context) <-chan BackendWatchResponse {
 							"eventType", eventType,
 							"error", err.Error(),
 						)
-						// FIXME(ThomasK33): This leads to mapping leaks. Etcd might have
-						// already compacted the previous version. Thus we would never
-						// receive any information of the mapping that was deleted apart from its keys.
-						// And because there is no mapping, we are omitting deleting it from the mapping stores.
+
+						// we only send the reconstructed mapping to the consumer
+						if eventType == BackendWatchEventTypeDelete {
+							retEvents = append(retEvents, &BackendWatchEvent{
+								Type:    BackendWatchEventTypeDeleteReconstructed,
+								Mapping: reconstructNameMappingFromKey(string(singleEvent.Kv.Key)),
+							})
+						}
+
 						continue
 					}
 
@@ -122,6 +128,43 @@ func (m *etcdBackend) Save(ctx context.Context, mapping *Mapping) error {
 
 func (m *etcdBackend) Delete(ctx context.Context, mapping *Mapping) error {
 	return m.etcdClient.Delete(ctx, mappingToKey(mapping))
+}
+
+func reconstructNameMappingFromKey(key string) *Mapping {
+	retMapping := &Mapping{}
+	trimmedKey := strings.TrimPrefix(key, mappingsPrefix)
+	splittedKey := strings.Split(trimmedKey, "/")
+	if splittedKey[0] == "v1" {
+		retMapping.GroupVersionKind = corev1.SchemeGroupVersion.WithKind(splittedKey[1])
+		if len(splittedKey) == 4 {
+			retMapping.VirtualName = types.NamespacedName{
+				Namespace: splittedKey[2],
+				Name:      splittedKey[3],
+			}
+		} else {
+			retMapping.VirtualName = types.NamespacedName{
+				Name: splittedKey[2],
+			}
+		}
+	} else {
+		retMapping.GroupVersionKind = schema.GroupVersionKind{
+			Group:   splittedKey[0],
+			Version: splittedKey[1],
+			Kind:    splittedKey[2],
+		}
+		if len(splittedKey) == 5 {
+			retMapping.VirtualName = types.NamespacedName{
+				Namespace: splittedKey[3],
+				Name:      splittedKey[4],
+			}
+		} else {
+			retMapping.VirtualName = types.NamespacedName{
+				Name: splittedKey[3],
+			}
+		}
+	}
+
+	return retMapping
 }
 
 func mappingToKey(mapping *Mapping) string {

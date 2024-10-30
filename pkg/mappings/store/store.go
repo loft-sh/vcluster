@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -11,7 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -105,12 +104,6 @@ func (s *Store) StartGarbageCollection(ctx context.Context) {
 }
 
 func (s *Store) garbageCollectMappings(ctx context.Context) {
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	ctx, cancel := context.WithTimeoutCause(ctx, GarbageCollectionTimeout, errors.New("garbage collection timed out"))
-	defer cancel()
-
 	startTime := time.Now()
 	klog.FromContext(ctx).V(1).Info(
 		"start mappings garbage collection",
@@ -125,46 +118,44 @@ func (s *Store) garbageCollectMappings(ctx context.Context) {
 		)
 	}()
 
-	for _, mapping := range s.mappings {
-		select {
-		case <-ctx.Done():
-			klog.FromContext(ctx).V(1).Info(
-				"exiting garbage collection early",
-				"err", ctx.Err(),
-				"marker", "gc",
-			)
-			return
-		default:
-			klog.FromContext(ctx).V(1).Info(
-				"garbage collecting mapping",
-				"mapping", mapping.String(),
-				"marker", "gc",
-			)
+	// copy mappings
+	s.m.Lock()
+	existingObjects := map[synccontext.NameMapping]bool{}
+	for nameMapping := range s.mappings {
+		existingObjects[nameMapping] = false
+	}
+	s.m.Unlock()
 
-			err := s.garbageCollectMapping(ctx, mapping)
-			if err != nil {
-				klog.FromContext(ctx).Error(
-					err,
-					"garbage collect mapping",
-					"mapping", mapping.String(),
-					"marker", "gc",
-				)
-			}
+	// check if exists, this needs to be unlocked, as there are several
+	// calls to store within informer handlers that would otherwise deadlock
+	// the syncer if a garbage collection is ongoing
+	for nameMapping := range existingObjects {
+		// if object still exists we continue
+		if s.objectExists(ctx, nameMapping) {
+			continue
+		}
+
+		// otherwise garbage collect mapping
+		err := s.garbageCollectMapping(ctx, nameMapping)
+		if err != nil {
+			klog.FromContext(ctx).Error(
+				err,
+				"garbage collect mapping",
+				"mapping", nameMapping.String(),
+				"marker", "gc",
+			)
 		}
 	}
 }
 
-func (s *Store) garbageCollectMapping(ctx context.Context, mapping *Mapping) error {
-	klog.FromContext(ctx).V(1).Info(
-		"check object exists",
-		"name", mapping.NameMapping,
-		"marker", "gc",
-	)
-	// check if object exists
-	exists, err := s.objectExists(ctx, mapping.NameMapping)
-	if err != nil {
-		return err
-	} else if exists {
+func (s *Store) garbageCollectMapping(ctx context.Context, nameMapping synccontext.NameMapping) error {
+	// now delete those mappings whose objects are not found
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	// get mapping
+	mapping, ok := s.mappings[nameMapping]
+	if !ok {
 		return nil
 	}
 
@@ -174,7 +165,7 @@ func (s *Store) garbageCollectMapping(ctx context.Context, mapping *Mapping) err
 		"marker", "gc",
 	)
 	// delete the mapping
-	err = s.deleteMapping(ctx, mapping)
+	err := s.deleteMapping(ctx, mapping)
 	if err != nil {
 		return err
 	}
@@ -201,17 +192,30 @@ func (s *Store) deleteMapping(ctx context.Context, mapping *Mapping) error {
 	return nil
 }
 
-func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMapping) (bool, error) {
+func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMapping) bool {
 	// build the object we can query
-	_, err := scheme.Scheme.New(nameMapping.GroupVersionKind)
+	obj, err := scheme.Scheme.New(nameMapping.GroupVersionKind)
 	if err != nil {
 		if !runtime.IsNotRegisteredError(err) {
-			return false, fmt.Errorf("create object: %w", err)
+			klog.FromContext(ctx).Info(
+				"Error finding object type in schema",
+				"mapping", nameMapping.String(),
+				"err", err,
+				"marker", "gc",
+			)
+
+			return true
 		}
+
+		obj = &unstructured.Unstructured{}
 	}
 
-	mObject := &metav1.PartialObjectMetadata{}
-	mObject.SetGroupVersionKind(nameMapping.GroupVersionKind)
+	// set kind & apiVersion if unstructured
+	uObject, ok := obj.(*unstructured.Unstructured)
+	if ok {
+		uObject.SetKind(nameMapping.GroupVersionKind.Kind)
+		uObject.SetAPIVersion(nameMapping.GroupVersionKind.GroupVersion().String())
+	}
 
 	klog.FromContext(ctx).V(1).Info(
 		"virtual get",
@@ -220,9 +224,9 @@ func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMa
 	)
 
 	// check if virtual object exists
-	err = s.cachedVirtualClient.Get(ctx, nameMapping.VirtualName, mObject)
+	err = s.cachedVirtualClient.Get(ctx, nameMapping.VirtualName, obj.DeepCopyObject().(client.Object))
 	if err == nil {
-		return true, nil
+		return true
 	} else if !kerrors.IsNotFound(err) {
 		// TODO: filter out other allowed errors here could be Forbidden, Type not found etc.
 		klog.FromContext(ctx).Info(
@@ -238,7 +242,7 @@ func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMa
 		// In case of a transient error (server timeout or others)
 		// the GC should be able to figure out that it doesn't exist
 		// anymore on the next GC run.
-		return true, nil
+		return true
 	}
 
 	klog.FromContext(ctx).V(1).Info(
@@ -248,9 +252,9 @@ func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMa
 	)
 
 	// check if host object exists
-	err = s.cachedHostClient.Get(ctx, nameMapping.HostName, mObject)
+	err = s.cachedHostClient.Get(ctx, nameMapping.HostName, obj.DeepCopyObject().(client.Object))
 	if err == nil {
-		return true, nil
+		return true
 	} else if !kerrors.IsNotFound(err) {
 		// TODO: filter out other allowed errors here could be Forbidden, Type not found etc.
 		klog.FromContext(ctx).Info(
@@ -266,10 +270,10 @@ func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMa
 		// In case of a transient error (server timeout or others)
 		// the GC should be able to figure out that it doesn't exist
 		// anymore on the next GC run.
-		return true, nil
+		return true
 	}
 
-	return false, nil
+	return false
 }
 
 func (s *Store) start(ctx context.Context) error {
@@ -331,19 +335,20 @@ func (s *Store) handleEvent(ctx context.Context, watchEvent BackendWatchResponse
 		}
 
 		// verify mapping if needed
-		if s.verifyMapping != nil && !s.verifyMapping(event.Mapping.NameMapping) {
+		if event.Type == BackendWatchEventTypeUpdate && s.verifyMapping != nil && !s.verifyMapping(event.Mapping.NameMapping) {
 			continue
 		}
 
 		klog.FromContext(ctx).V(1).Info("mapping store received event", "type", event.Type, "mapping", event.Mapping.String())
 
-		// remove mapping in any case
-		oldMapping, ok := s.mappings[event.Mapping.NameMapping]
+		// remove mapping in any case, the mapping can be incomplete here for DeleteReconstructed events,
+		// so we need to find the mapping before deleting it.
+		oldMapping, ok := s.findMapping(event.Mapping.NameMapping)
 		if ok {
 			s.removeMapping(oldMapping)
 		}
 
-		// re-add mapping if its an update
+		// re-add mapping if it's an update
 		if event.Type == BackendWatchEventTypeUpdate {
 			s.addMapping(event.Mapping)
 		}

@@ -188,6 +188,39 @@ func TestWatching(t *testing.T) {
 		return len(store.mappings) == 0 && len(store.hostToVirtualName) == 0 && len(store.virtualToHostName) == 0 && len(store.referencesTo(podMapping.Virtual())) == 0, nil
 	})
 	assert.NilError(t, err)
+
+	// check save
+	err = backend.Save(ctx, &Mapping{
+		NameMapping: secretMapping,
+		Sender:      "doesnotexist",
+		References: []synccontext.NameMapping{
+			podMapping,
+		},
+	})
+	assert.NilError(t, err)
+
+	// wait for event to arrive
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
+		store.m.Lock()
+		defer store.m.Unlock()
+		return len(store.mappings) == 1 && len(store.hostToVirtualName) == 2 && len(store.virtualToHostName) == 2 && len(store.referencesTo(podMapping.Virtual())) == 1, nil
+	})
+	assert.NilError(t, err)
+
+	// check delete
+	err = backend.DeleteReconstructed(ctx, &Mapping{
+		NameMapping: secretMapping,
+		Sender:      "doesnotexist",
+	})
+	assert.NilError(t, err)
+
+	// wait for event to arrive
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*3, true, func(_ context.Context) (bool, error) {
+		store.m.Lock()
+		defer store.m.Unlock()
+		return len(store.mappings) == 0 && len(store.hostToVirtualName) == 0 && len(store.virtualToHostName) == 0 && len(store.referencesTo(podMapping.Virtual())) == 0, nil
+	})
+	assert.NilError(t, err)
 }
 
 func TestGarbageCollectMappings(t *testing.T) {
