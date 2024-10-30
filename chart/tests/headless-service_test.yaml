@@ -61,26 +61,6 @@ tests:
           path: metadata.namespace
           value: my-namespace
 
-  - it: should prepend vc to service name when only digits are given
-    release:
-      name: 1234
-    asserts:
-      - hasDocuments:
-          count: 1
-      - equal:
-          path: metadata.name
-          value: vc-1234-headless
-
-  - it: should prepend vc to service name when digits prefix is given
-    release:
-      name: 1234-foo
-    asserts:
-      - hasDocuments:
-          count: 1
-      - equal:
-          path: metadata.name
-          value: vc-1234-foo-headless
-
   - it: embedded-etcd
     set:
       controlPlane:

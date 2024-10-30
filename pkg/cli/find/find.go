@@ -10,7 +10,6 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -405,11 +404,6 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 		status = string(StatusUnknown)
 	}
 
-	service, err := getService(ctx, client, kubeClientConfig, namespace, release)
-	if err != nil {
-		return VCluster{}, err
-	}
-
 	switch vclusterObject := object.(type) {
 	case *appsv1.StatefulSet:
 		for _, container := range vclusterObject.Spec.Template.Spec.Containers {
@@ -436,7 +430,6 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 	return VCluster{
 		Name:          release,
 		Namespace:     namespace,
-		ServiceName:   service.Name,
 		Annotations:   object.GetAnnotations(),
 		Labels:        object.GetLabels(),
 		Status:        Status(status),
@@ -445,32 +438,6 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 		Version:       version,
 		ClientFactory: kubeClientConfig,
 	}, nil
-}
-
-func getService(ctx context.Context, client *kubernetes.Clientset, kubeClientConfig clientcmd.ClientConfig, namespace, name string) (*corev1.Service, error) {
-	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
-	defer cancel()
-
-	var svcName string
-	if config.DigitsPrefixRegex.MatchString(name) {
-		svcName = fmt.Sprintf("vc-%s", name)
-	} else {
-		svcName = name
-	}
-
-	service, err := client.CoreV1().Services(namespace).Get(ctx, svcName, metav1.GetOptions{})
-	if err != nil {
-		if kerrors.IsForbidden(err) {
-			// try the current namespace instead
-			if namespace, err = getAccessibleNS(kubeClientConfig); err != nil {
-				return nil, err
-			}
-			return client.CoreV1().Services(namespace).Get(ctx, svcName, metav1.GetOptions{})
-		}
-		return nil, err
-	}
-
-	return service, nil
 }
 
 func getPods(ctx context.Context, client *kubernetes.Clientset, kubeClientConfig clientcmd.ClientConfig, namespace, podSelector string) (*corev1.PodList, error) {

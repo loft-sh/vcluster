@@ -1,7 +1,6 @@
 package config
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/loft-sh/vcluster/config"
@@ -17,9 +16,6 @@ import (
 const (
 	DefaultHostsRewriteImage = "library/alpine:3.20"
 )
-
-// NOTE: This has to be in sync with the regex used in ./chart/templates/_helper.tpl
-var DigitsPrefixRegex = regexp.MustCompile("^[0-9]+.*$")
 
 // VirtualClusterConfig wraps the config and adds extra info such as name, serviceName and targetNamespace
 type VirtualClusterConfig struct {

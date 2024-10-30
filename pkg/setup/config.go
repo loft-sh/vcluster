@@ -26,7 +26,6 @@ func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterCo
 
 	// set global vCluster name
 	translate.VClusterName = vConfig.Name
-	translate.VClusterServiceName = vConfig.WorkloadService
 
 	// set workload namespace
 	err = os.Setenv("NAMESPACE", vConfig.WorkloadNamespace)
