@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
 	"github.com/loft-sh/vcluster/pkg/syncer"
@@ -45,12 +44,6 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 
 	// register controller that keeps CoreDNS NodeHosts config up to date
 	err = registerCoreDNSController(ctx)
-	if err != nil {
-		return err
-	}
-
-	// register init manifests configmap watcher controller
-	err = deploy.RegisterInitManifestsController(ctx)
 	if err != nil {
 		return err
 	}
