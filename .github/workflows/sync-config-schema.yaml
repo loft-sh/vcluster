@@ -2,46 +2,67 @@ name: Sync Config Schema
 on:
   release:
     types:
-      - published # this will run whenever a release (or pre-release is created)
-      - released # this will run when a (not-pre-)release is created or was changed from pre-release to a release
+      - released
+  workflow_dispatch:
+    inputs:
+      releaseTag:
+        description: 'Release tag in form vX.Y.Z'
+        required: true
+        type: string
 jobs:
   sync:
     runs-on: ubuntu-latest
     outputs:
-      latest_release_tag: ${{ steps.release.outputs.latest_release }}
-      is_latest_release: ${{ steps.release.outputs.is_latest_release }}
+      release_tag: ${{ steps.release.outputs.latest_release }}
+      skip_update: ${{ steps.release.outputs.skip_update }}
     steps:
+      # this is to support both manually trigger workflows, and automatically triggered on release creation
+      - name: Determine release tag
+        id: release
+        env:
+          MANUAL_TAG: ${{ inputs.releaseTag }}
+        run: |
+          if [[ -n "${MANUAL_TAG}" ]]; then
+            echo "Manually set tag: ${MANUAL_TAG}"
+            final_tag=${MANUAL_TAG}
+          else
+            echo "Tag from release event: ${{ github.event.release.tag_name }}"
+            final_tag=${{ github.event.release.tag_name }}
+          fi
+          echo "release_tag=${final_tag}" >> "$GITHUB_OUTPUT"
+          if [[ ${final_tag} == *"-beta."* || ${final_tag} == *"-alpha."* ]]; then
+            echo "skip_update=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip_update=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repo
+        if: ${{ steps.release.outputs.skip_update == 'false' }}
         uses: actions/checkout@v4
+        with:
+          fetch-tags: 'true'
+          ref: 'refs/tags/${{ steps.release.outputs.release_tag }}'
 
       - name: Configure git
-        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
+        if: ${{ steps.release.outputs.skip_update == 'false' }}
+        run: git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
         env:
           GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
 
       - name: Set up Go
+        if: ${{ steps.release.outputs.skip_update == 'false' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
-      - name: Get release info
-        id: release
+      - name: Skip updates on alpha or beta versions
+        if: ${{ steps.release.outputs.skip_update == 'true' }}
         run: |
-          RELEASE_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/latest")
+          echo "skipping updates in vcluster schema, because the tag is alpha/beta: ${{ steps.release.outputs.release_tag }}"
 
-          LATEST_RELEASE_NAME=$(echo "$RELEASE_JSON" | jq -r '.name')
-          IS_LATEST="false"
-          if [[ "${LATEST_RELEASE_NAME}" == "${{ github.event.release.tag_name }}" ]]; then
-            IS_LATEST="true"
-          fi
-          echo "Latest release name: $LATEST_RELEASE_NAME"
-          echo "Is latest release: $IS_LATEST"
-          echo "latest_release=$LATEST_RELEASE_NAME" >> "$GITHUB_OUTPUT"
-          echo "is_latest_release=$IS_LATEST" >> "$GITHUB_OUTPUT"
 
-      - name: Clone and update
-        if: ${{ steps.release.outputs.is_latest_release == 'true' }}
+      - name: Update vcluster schema in vcluster-config
+        if: ${{ steps.release.outputs.skip_update == 'false' }}
         run: |
           git clone --single-branch https://github.com/loft-sh/vcluster-config.git
 
@@ -63,6 +84,6 @@ jobs:
           echo "Changes detected"
 
           # commit changes
-          git commit -m "chore: sync vCluster config schema"
+          git commit -m "chore: sync values.schema.json to vCluster version ${{ steps.release.outputs.release_tag }}"
           git push -u origin -f main
-          echo "Pushed commit to main branch"
+          echo "vcluster-config values.schema.json updated to the version ${{ steps.release.outputs.release_tag }}"
