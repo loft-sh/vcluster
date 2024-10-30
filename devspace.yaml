@@ -10,7 +10,6 @@ vars:
   CONFORMANCE_VALUES: ./test/conformanceValues.yaml
   PRO_VALUES: ./test/proValues.yaml
   VALUES_FILE: ./test/e2e/values.yaml
-  RELEASE_NAME: "vcluster"
 
 # Images DevSpace will build for vcluster
 images:
@@ -25,7 +24,7 @@ images:
 deployments:
   vcluster-k8s:
     helm:
-      releaseName: ${RELEASE_NAME}
+      releaseName: vcluster
       chart:
         name: ./chart
       values:
@@ -53,7 +52,7 @@ deployments:
 
   vcluster-k3s:
     helm:
-      releaseName: ${RELEASE_NAME}
+      releaseName: vcluster
       chart:
         name: ./chart
       values:
@@ -81,7 +80,7 @@ deployments:
 
   vcluster-k0s:
     helm:
-      releaseName: ${RELEASE_NAME}
+      releaseName: vcluster
       chart:
         name: ./chart
       values:

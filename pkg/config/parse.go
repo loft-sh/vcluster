@@ -38,17 +38,10 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 
 	// build config
 
-	var svcName string
-	if DigitsPrefixRegex.MatchString(name) {
-		svcName = fmt.Sprintf("vc-%s", name)
-	} else {
-		svcName = name
-	}
-
 	retConfig := &VirtualClusterConfig{
 		Config:              *rawConfig,
 		Name:                name,
-		ControlPlaneService: svcName,
+		ControlPlaneService: name,
 	}
 
 	// validate config

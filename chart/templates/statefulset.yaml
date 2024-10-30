@@ -2,12 +2,12 @@
 apiVersion: apps/v1
 kind: {{ include "vcluster.kind" . }}
 metadata:
-  name: {{ .Release.Name | quote }}
+  name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    release: {{ .Release.Name }}
     heritage: "{{ .Release.Service }}"
   {{- if .Values.controlPlane.statefulSet.labels }}
 {{ toYaml .Values.controlPlane.statefulSet.labels | indent 4 }}
@@ -27,7 +27,7 @@ spec:
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: {{ .Values.controlPlane.statefulSet.persistence.volumeClaim.retentionPolicy }}
   {{- end }}
-  serviceName: {{ template "vcluster.name" . }}-headless
+  serviceName: {{ .Release.Name }}-headless
   podManagementPolicy: {{ .Values.controlPlane.statefulSet.scheduling.podManagementPolicy }}
 {{ include "vcluster.persistence" . | indent 2 }}
   {{- else }}
@@ -51,7 +51,7 @@ spec:
       {{- end }}
       labels:
         app: vcluster
-        release: {{ .Release.Name | quote }}
+        release: {{ .Release.Name }}
         {{- if .Values.controlPlane.statefulSet.pods.labels }}
 {{ toYaml .Values.controlPlane.statefulSet.pods.labels | indent 8 }}
         {{- end }}

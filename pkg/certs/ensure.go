@@ -107,7 +107,9 @@ func EnsureCerts(
 
 	ownerRef := []metav1.OwnerReference{}
 	if options.Experimental.SyncSettings.SetOwner {
-		controlPlaneService, err := currentNamespaceClient.CoreV1().Services(currentNamespace).Get(ctx, options.ControlPlaneService, metav1.GetOptions{})
+		// options.ServiceName gets rewritten to the workload service name so we use options.Name as the helm chart
+		// directly uses the release name for the service name
+		controlPlaneService, err := currentNamespaceClient.CoreV1().Services(currentNamespace).Get(ctx, options.Name, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("get vcluster service: %w", err)
 		}
