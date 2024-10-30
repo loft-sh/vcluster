@@ -29,6 +29,7 @@ type BackendWatchEvent struct {
 type BackendWatchEventType string
 
 const (
-	BackendWatchEventTypeUpdate BackendWatchEventType = "Update"
-	BackendWatchEventTypeDelete BackendWatchEventType = "Delete"
+	BackendWatchEventTypeUpdate              BackendWatchEventType = "Update"
+	BackendWatchEventTypeDelete              BackendWatchEventType = "Delete"
+	BackendWatchEventTypeDeleteReconstructed BackendWatchEventType = "DeleteReconstructed"
 )

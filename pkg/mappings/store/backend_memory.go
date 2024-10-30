@@ -107,3 +107,29 @@ func (m *memoryBackend) Delete(_ context.Context, mapping *Mapping) error {
 
 	return nil
 }
+
+func (m *memoryBackend) DeleteReconstructed(_ context.Context, mapping *Mapping) error {
+	m.m.Lock()
+	defer m.m.Unlock()
+
+	delete(m.mappings, mapping.NameMapping)
+	for _, watchChan := range m.watches {
+		go func(watchChan chan BackendWatchResponse) {
+			watchChan <- BackendWatchResponse{
+				Events: []*BackendWatchEvent{
+					{
+						Type: BackendWatchEventTypeDeleteReconstructed,
+						Mapping: &Mapping{
+							NameMapping: synccontext.NameMapping{
+								GroupVersionKind: mapping.GroupVersionKind,
+								VirtualName:      mapping.VirtualName,
+							},
+						},
+					},
+				},
+			}
+		}(watchChan)
+	}
+
+	return nil
+}
