@@ -704,7 +704,7 @@
           "description": "Embedded defines that an embedded database (sqlite) should be used as the backend for the virtual cluster"
         },
         "external": {
-          "$ref": "#/$defs/DatabaseKine",
+          "$ref": "#/$defs/ExternalDatabaseKine",
           "description": "External defines that an external database should be used as the backend for the virtual cluster"
         }
       },
@@ -1580,6 +1580,36 @@
       },
       "type": "object",
       "description": "ExternalConfig holds external configuration"
+    },
+    "ExternalDatabaseKine": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the database should be used."
+        },
+        "dataSource": {
+          "type": "string",
+          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format.\nThis is optional for the embedded database. Examples:\n* mysql: mysql://username:password@tcp(hostname:3306)/k3s\n* postgres: postgres://username:password@hostname:5432/k3s"
+        },
+        "keyFile": {
+          "type": "string",
+          "description": "KeyFile is the key file to use for the database. This is optional."
+        },
+        "certFile": {
+          "type": "string",
+          "description": "CertFile is the cert file to use for the database. This is optional."
+        },
+        "caFile": {
+          "type": "string",
+          "description": "CaFile is the ca file to use for the database. This is optional."
+        },
+        "connector": {
+          "type": "string",
+          "description": "Connector specifies a secret located in a connected vCluster Platform that contains database server connection information\nto be used by Platform to create a database and database user for the vCluster.\nand non-privileged user. A kine endpoint should be created using the database and user on Platform registration.\nThis is optional."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "ExternalEtcdHighAvailability": {
       "properties": {
