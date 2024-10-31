@@ -23,9 +23,12 @@ func RegisterInitManifestsController(controllerCtx *synccontext.ControllerContex
 		return err
 	}
 
-	helmBinaryPath, err := helmdownloader.GetHelmBinaryPath(controllerCtx, log.GetInstance())
-	if err != nil {
-		return err
+	var helmBinaryPath string
+	if controllerCtx != nil && controllerCtx.Config != nil && len(controllerCtx.Config.Experimental.Deploy.VCluster.Helm) > 0 {
+		helmBinaryPath, err = helmdownloader.GetHelmBinaryPath(controllerCtx, log.GetInstance())
+		if err != nil {
+			return err
+		}
 	}
 
 	controller := &Deployer{
