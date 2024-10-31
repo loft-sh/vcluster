@@ -31,6 +31,10 @@ func (l *LoftStarter) upgradeLoft() error {
 		extraArgs = append(extraArgs, "--set", "product="+l.Product)
 	}
 
+	if l.Email != "" {
+		extraArgs = append(extraArgs, "--set", "admin.email="+l.Email)
+	}
+
 	// Do not use --reuse-values if --reset flag is provided because this should be a new install and it will cause issues with `helm template`
 	if !l.Reset && l.ReuseValues {
 		extraArgs = append(extraArgs, "--reuse-values")
