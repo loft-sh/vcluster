@@ -79,14 +79,13 @@ func TestSync(t *testing.T) {
 			Name:      pObjectMeta.Name,
 			Namespace: pObjectMeta.Namespace,
 			Annotations: map[string]string{
-				translate.NameAnnotation:               vObjectMeta.Name,
-				translate.NamespaceAnnotation:          vObjectMeta.Namespace,
-				translate.UIDAnnotation:                "",
-				translate.KindAnnotation:               corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim").String(),
-				translate.HostNamespaceAnnotation:      pObjectMeta.Namespace,
-				translate.HostNameAnnotation:           pObjectMeta.Name,
-				translate.ManagedAnnotationsAnnotation: "otherAnnotationKey",
-				"otherAnnotationKey":                   "update this",
+				translate.NameAnnotation:          vObjectMeta.Name,
+				translate.NamespaceAnnotation:     vObjectMeta.Namespace,
+				translate.UIDAnnotation:           "",
+				translate.KindAnnotation:          corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim").String(),
+				translate.HostNamespaceAnnotation: pObjectMeta.Namespace,
+				translate.HostNameAnnotation:      pObjectMeta.Name,
+				"otherAnnotationKey":              "update this",
 			},
 			Labels: pObjectMeta.Labels,
 		},
@@ -186,7 +185,20 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, synccontext.NewSyncEvent(createdPvc.DeepCopy(), updatePvc.DeepCopy()))
+
+				pObjOld := createdPvc.DeepCopy()
+				pObj := createdPvc.DeepCopy()
+
+				vObjOld := updatePvc.DeepCopy()
+				vObjOld.ObjectMeta.SetAnnotations(nil)
+				vObj := updatePvc.DeepCopy()
+
+				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pObjOld,
+					pObj,
+					vObjOld,
+					vObj,
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -202,7 +214,12 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, synccontext.NewSyncEvent(createdPvc.DeepCopy(), basePvc.DeepCopy()))
+				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					createdPvc,
+					createdPvc.DeepCopy(),
+					basePvc,
+					basePvc.DeepCopy(),
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -234,7 +251,18 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, synccontext.NewSyncEvent(backwardUpdateAnnotationsPvc.DeepCopy(), basePvc.DeepCopy()))
+				pObjOld := backwardUpdateAnnotationsPvc
+				pObj := backwardUpdateAnnotationsPvc.DeepCopy()
+
+				vObjOld := basePvc
+				vObj := basePvc.DeepCopy()
+
+				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pObjOld,
+					pObj,
+					vObjOld,
+					vObj,
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -251,7 +279,18 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				syncer.(*persistentVolumeClaimSyncer).useFakePersistentVolumes = true
-				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, synccontext.NewSyncEvent(backwardUpdateStatusPvc.DeepCopy(), basePvc.DeepCopy()))
+
+				pObjOld := backwardUpdateStatusPvc.DeepCopy()
+				pObj := backwardUpdateStatusPvc.DeepCopy()
+				vObjOld := basePvc.DeepCopy()
+				vObj := basePvc.DeepCopy()
+
+				_, err := syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pObjOld,
+					pObj,
+					vObjOld,
+					vObj,
+				))
 				assert.NilError(t, err)
 			},
 		},

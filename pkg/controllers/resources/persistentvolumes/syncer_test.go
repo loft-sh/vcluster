@@ -199,6 +199,15 @@ func TestSync(t *testing.T) {
 			Phase: corev1.VolumeReleased,
 		},
 	}
+	capacityVPv := &corev1.PersistentVolume{
+		ObjectMeta: basePPv.ObjectMeta,
+		Spec: corev1.PersistentVolumeSpec{
+			Capacity: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("5Gi"),
+			},
+			ClaimRef: basePPv.Spec.ClaimRef,
+		},
+	}
 
 	createContext := func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 		vConfig.Sync.ToHost.PersistentVolumes.Enabled = true
@@ -274,9 +283,18 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				backwardUpdatePPv := backwardUpdatePPv.DeepCopy()
-				baseVPv := baseVPv.DeepCopy()
-				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(backwardUpdatePPv, baseVPv))
+
+				pObjOld := backwardUpdatePPv
+				pObj := backwardUpdatePPv.DeepCopy()
+				vObjOld := baseVPv
+				vObj := baseVPv.DeepCopy()
+
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEventWithOld(
+					pObjOld,
+					pObj,
+					vObjOld,
+					vObj,
+				))
 				assert.NilError(t, err)
 
 				err = syncContext.VirtualClient.Get(ctx, types.NamespacedName{Name: baseVPv.Name}, baseVPv)
@@ -285,7 +303,14 @@ func TestSync(t *testing.T) {
 				err = syncContext.PhysicalClient.Get(ctx, types.NamespacedName{Name: backwardUpdatePPv.Name}, backwardUpdatePPv)
 				assert.NilError(t, err)
 
-				_, err = syncer.Sync(syncContext, synccontext.NewSyncEvent(backwardUpdatePPv, baseVPv))
+				pObj2 := backwardUpdatePPv
+				vObj2 := baseVPv
+				_, err = syncer.Sync(syncContext, synccontext.NewSyncEventWithOld(
+					pObjOld,
+					pObj2,
+					vObjOld,
+					vObj2,
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -319,7 +344,18 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(basePPv, baseVPv))
+
+				pObjOld := basePPv
+				pObj := basePPv
+				vObjOld := baseVPv
+				vObj := baseVPv
+
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEventWithOld(
+					pObjOld,
+					pObj,
+					vObjOld,
+					vObj,
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -329,15 +365,7 @@ func TestSync(t *testing.T) {
 				&corev1.PersistentVolumeClaim{
 					ObjectMeta: basePvc.ObjectMeta,
 				},
-				&corev1.PersistentVolume{
-					ObjectMeta: baseVPv.ObjectMeta,
-					Spec: corev1.PersistentVolumeSpec{
-						Capacity: corev1.ResourceList{
-							corev1.ResourceStorage: resource.MustParse("5Gi"),
-						},
-						ClaimRef: baseVPv.Spec.ClaimRef,
-					},
-				},
+				capacityVPv,
 			},
 			InitialPhysicalState: []runtime.Object{
 				&corev1.PersistentVolume{
@@ -371,7 +399,7 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("PersistentVolume"): {
 					&corev1.PersistentVolume{
-						ObjectMeta: basePPv.ObjectMeta,
+						ObjectMeta: backwardPvObjectMeta,
 						Spec: corev1.PersistentVolumeSpec{
 							Capacity: corev1.ResourceList{
 								corev1.ResourceStorage: resource.MustParse("20Gi"),
@@ -384,15 +412,20 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
 
-				vPv := &corev1.PersistentVolume{}
-				err := syncContext.VirtualClient.Get(ctx, types.NamespacedName{Name: baseVPv.Name}, vPv)
+				vObjOld := capacityVPv
+
+				vObj := vObjOld.DeepCopy()
+				vObj.Spec.Capacity = corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse("20Gi"),
+				}
+
+				pObjOld := &corev1.PersistentVolume{}
+				err := syncContext.PhysicalClient.Get(ctx, types.NamespacedName{Name: basePPv.Name}, pObjOld)
 				assert.NilError(t, err)
 
-				pPv := &corev1.PersistentVolume{}
-				err = syncContext.PhysicalClient.Get(ctx, types.NamespacedName{Name: basePPv.Name}, pPv)
-				assert.NilError(t, err)
+				pObj := pObjOld.DeepCopy()
 
-				_, err = syncer.Sync(syncContext, synccontext.NewSyncEventWithOld(pPv, pPv, vPv, vPv))
+				_, err = syncer.Sync(syncContext, synccontext.NewSyncEventWithOld(pObjOld, pObj, vObjOld, vObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -408,9 +441,18 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				backwardRetainPPv := backwardRetainPPv.DeepCopy()
-				backwardRetainInitialVPv := backwardRetainInitialVPv.DeepCopy()
-				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(backwardRetainPPv, backwardRetainInitialVPv))
+
+				pObjOld := backwardRetainPPv
+				pObj := backwardRetainPPv.DeepCopy()
+				vObjOld := backwardRetainInitialVPv
+				vObj := backwardRetainInitialVPv.DeepCopy()
+
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEventWithOld(
+					pObjOld,
+					pObj,
+					vObjOld,
+					vObj,
+				))
 				assert.NilError(t, err)
 			},
 		},
