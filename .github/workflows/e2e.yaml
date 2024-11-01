@@ -157,7 +157,7 @@ jobs:
           version: "v3.11.0"
 
       - name: Set up kind k8s cluster
-        uses: engineerd/setup-kind@v0.5.0
+        uses: engineerd/setup-kind@v0.6.1
         with:
           version: "v0.20.0"
           image: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
@@ -235,7 +235,7 @@ jobs:
         with:
           version: "v3.11.0"
       - name: Set up kind k8s cluster
-        uses: engineerd/setup-kind@v0.5.0
+        uses: engineerd/setup-kind@v0.6.1
         with:
           version: "v0.20.0"
           image: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
@@ -358,7 +358,7 @@ jobs:
           version: "v3.11.0"
 
       - name: Set up kind k8s cluster
-        uses: engineerd/setup-kind@v0.5.0
+        uses: engineerd/setup-kind@v0.6.1
         with:
           version: "v0.20.0"
           image: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
