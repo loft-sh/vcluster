@@ -278,7 +278,12 @@ func TestSyncTable(t *testing.T) {
 			if tC.syncToHost {
 				_, err = syncer.(*podSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPodInitial.DeepCopy()))
 			} else {
-				_, err = syncer.(*podSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pPodInitial.DeepCopy(), vPodInitial.DeepCopy()))
+				_, err = syncer.(*podSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pPodInitial.DeepCopy(),
+					pPodInitial.DeepCopy(),
+					vPodInitial.DeepCopy(),
+					vPodInitial.DeepCopy(),
+				))
 			}
 			assert.NilError(t, err)
 
