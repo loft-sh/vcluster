@@ -39,6 +39,14 @@ type ingressSyncer struct {
 	syncertypes.Importer
 }
 
+var _ syncertypes.OptionsProvider = &ingressSyncer{}
+
+func (s *ingressSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		ObjectCaching: true,
+	}
+}
+
 var _ syncertypes.Syncer = &ingressSyncer{}
 
 func (s *ingressSyncer) Syncer() syncertypes.Sync[client.Object] {
@@ -46,8 +54,8 @@ func (s *ingressSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*networkingv1.Ingress]) (ctrl.Result, error) {
-	if event.IsDelete() {
-		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
+	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
 	pObj, err := s.translate(ctx, event.Virtual)
@@ -60,7 +68,7 @@ func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccont
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
+	return patcher.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder(), true)
 }
 
 func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*networkingv1.Ingress]) (_ ctrl.Result, retErr error) {
@@ -78,16 +86,21 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		}
 	}()
 
-	event.TargetObject().Spec.IngressClassName = event.SourceObject().Spec.IngressClassName
+	event.Virtual.Spec.IngressClassName, event.Host.Spec.IngressClassName = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.IngressClassName,
+		event.Virtual.Spec.IngressClassName,
+		event.HostOld.Spec.IngressClassName,
+		event.Host.Spec.IngressClassName,
+	)
 	event.Virtual.Status = event.Host.Status
-	s.translateUpdate(ctx, event.Source, event.Host, event.Virtual)
+	s.translateUpdate(ctx, event)
 	return ctrl.Result{}, nil
 }
 
 func (s *ingressSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*networkingv1.Ingress]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
-	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
-		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	if event.VirtualOld != nil || event.Host.DeletionTimestamp != nil {
+		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 
 	vIngress := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
@@ -96,5 +109,5 @@ func (s *ingressSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateVirtualObject(ctx, event.Host, vIngress, s.EventRecorder())
+	return patcher.CreateVirtualObject(ctx, event.Host, vIngress, s.EventRecorder(), true)
 }

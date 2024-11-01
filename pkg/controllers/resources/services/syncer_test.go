@@ -339,7 +339,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithSource(pServicePorts1.DeepCopy(), vServicePorts1.DeepCopy(), synccontext.SyncEventSourceHost))
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pServicePorts1.DeepCopy(), pServicePorts1.DeepCopy(), vServicePorts1.DeepCopy(), vServicePorts1.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -405,7 +405,7 @@ func TestSync(t *testing.T) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				baseService := baseService.DeepCopy()
 				updateBackwardSpecService := updateBackwardSpecService.DeepCopy()
-				_, err := syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithSource(updateBackwardSpecService, baseService, synccontext.SyncEventSourceHost))
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(updateBackwardSpecService, updateBackwardSpecService, baseService, baseService))
 				assert.NilError(t, err)
 
 				err = ctx.VirtualManager.GetClient().Get(ctx, types.NamespacedName{Namespace: baseService.Namespace, Name: baseService.Name}, baseService)
@@ -415,7 +415,7 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 
 				baseService.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName
-				_, err = syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithSource(updateBackwardSpecService.DeepCopy(), baseService.DeepCopy(), synccontext.SyncEventSourceHost))
+				_, err = syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(updateBackwardSpecService.DeepCopy(), updateBackwardSpecService.DeepCopy(), baseService.DeepCopy(), baseService.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -443,7 +443,7 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 
 				baseService.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName
-				_, err = syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithSource(updateBackwardSpecRecreateService.DeepCopy(), baseService.DeepCopy(), synccontext.SyncEventSourceHost))
+				_, err = syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(updateBackwardSpecRecreateService.DeepCopy(), updateBackwardSpecRecreateService.DeepCopy(), baseService.DeepCopy(), baseService.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},

@@ -19,6 +19,8 @@ type SyncContext struct {
 	PhysicalClient client.Client
 	VirtualClient  client.Client
 
+	ObjectCache *BidirectionalObjectCache
+
 	Mappings MappingsRegistry
 
 	CurrentNamespace       string

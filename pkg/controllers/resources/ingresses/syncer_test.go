@@ -211,7 +211,10 @@ func TestSync(t *testing.T) {
 				}
 				pIngress.ResourceVersion = "999"
 
-				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pIngress, &networkingv1.Ingress{
+				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pIngress, pIngress, &networkingv1.Ingress{
+					ObjectMeta: vObjectMeta,
+					Spec:       *vBaseSpec.DeepCopy(),
+				}, &networkingv1.Ingress{
 					ObjectMeta: vObjectMeta,
 					Spec:       *vBaseSpec.DeepCopy(),
 				}))
@@ -233,7 +236,7 @@ func TestSync(t *testing.T) {
 				vIngress := noUpdateIngress.DeepCopy()
 				vIngress.ResourceVersion = "999"
 
-				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEvent(createdIngress.DeepCopy(), vIngress))
+				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(createdIngress.DeepCopy(), createdIngress.DeepCopy(), vIngress, vIngress))
 				assert.NilError(t, err)
 			},
 		},
@@ -253,7 +256,7 @@ func TestSync(t *testing.T) {
 				vIngress := baseIngress.DeepCopy()
 				vIngress.ResourceVersion = "999"
 
-				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithSource(backwardUpdateIngress, vIngress, synccontext.SyncEventSourceHost))
+				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(backwardUpdateIngress, backwardUpdateIngress, vIngress, vIngress))
 				assert.NilError(t, err)
 
 				err = syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{Namespace: vIngress.Namespace, Name: vIngress.Name}, vIngress)
@@ -262,7 +265,7 @@ func TestSync(t *testing.T) {
 				err = syncCtx.PhysicalClient.Get(syncCtx, types.NamespacedName{Namespace: backwardUpdateIngress.Namespace, Name: backwardUpdateIngress.Name}, backwardUpdateIngress)
 				assert.NilError(t, err)
 
-				_, err = syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithSource(backwardUpdateIngress, vIngress, synccontext.SyncEventSourceHost))
+				_, err = syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(backwardUpdateIngress, backwardUpdateIngress, vIngress, vIngress))
 				assert.NilError(t, err)
 
 				err = syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{Namespace: vIngress.Namespace, Name: vIngress.Name}, vIngress)
@@ -271,7 +274,7 @@ func TestSync(t *testing.T) {
 				err = syncCtx.PhysicalClient.Get(syncCtx, types.NamespacedName{Namespace: backwardUpdateIngress.Namespace, Name: backwardUpdateIngress.Name}, backwardUpdateIngress)
 				assert.NilError(t, err)
 
-				_, err = syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithSource(backwardUpdateIngress, vIngress, synccontext.SyncEventSourceHost))
+				_, err = syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(backwardUpdateIngress, backwardUpdateIngress, vIngress, vIngress))
 				assert.NilError(t, err)
 			},
 		},
@@ -290,7 +293,7 @@ func TestSync(t *testing.T) {
 				pIngress.ResourceVersion = "999"
 
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
-				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pIngress, baseIngress.DeepCopy()))
+				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pIngress, pIngress, baseIngress.DeepCopy(), baseIngress.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -366,7 +369,7 @@ func TestSync(t *testing.T) {
 				err = syncCtx.PhysicalClient.Get(syncCtx, types.NamespacedName{Name: createdIngress.Name, Namespace: createdIngress.Namespace}, pIngress)
 				assert.NilError(t, err)
 
-				_, err = syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pIngress, vIngress))
+				_, err = syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pIngress, pIngress, vIngress, vIngress))
 				assert.NilError(t, err)
 			},
 		},
@@ -445,7 +448,7 @@ func TestSync(t *testing.T) {
 				err = syncCtx.PhysicalClient.Get(syncCtx, types.NamespacedName{Name: createdIngress.Name, Namespace: createdIngress.Namespace}, pIngress)
 				assert.NilError(t, err)
 
-				_, err = syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pIngress, vIngress))
+				_, err = syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pIngress, pIngress, vIngress, vIngress))
 				assert.NilError(t, err)
 			},
 		},

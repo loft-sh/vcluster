@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	appsv1 "k8s.io/api/apps/v1"
@@ -13,7 +14,12 @@ import (
 
 func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error {
 	// sync conditions
-	event.TargetObject().Status.Conditions = event.SourceObject().Status.Conditions
+	event.Virtual.Status.Conditions, event.Host.Status.Conditions = patcher.CopyBidirectional(
+		event.VirtualOld.Status.Conditions,
+		event.Virtual.Status.Conditions,
+		event.HostOld.Status.Conditions,
+		event.Host.Status.Conditions,
+	)
 
 	// has status changed?
 	vPod := event.Virtual
@@ -31,43 +37,50 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	// spec diff
 	t.calcSpecDiff(pPod, vPod)
 
-	switch event.Source {
-	case synccontext.SyncEventSourceHost:
-		vPod.Labels = translate.VirtualLabels(pPod, vPod)
-		vPod.Annotations = translate.VirtualAnnotations(pPod, vPod, GetExcludedAnnotations(pPod)...)
-	case synccontext.SyncEventSourceVirtual:
-		updatedLabels := translate.HostLabels(vPod, pPod)
-		if updatedLabels == nil {
-			updatedLabels = map[string]string{}
-		}
-		for k, v := range vNamespace.GetLabels() {
-			updatedLabels[translate.HostLabelNamespace(k)] = v
-		}
-		pPod.Labels = updatedLabels
+	// bi-directionally sync labels & annotations
+	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(
+		event,
+		GetExcludedAnnotations(pPod)...,
+	)
 
-		// check annotations
-		updatedAnnotations := translate.HostAnnotations(vPod, pPod, GetExcludedAnnotations(pPod)...)
-		if updatedAnnotations == nil {
-			updatedAnnotations = map[string]string{}
+	// exclude namespace labels
+	excludeLabelsFn := func(key string, value interface{}) (string, interface{}) {
+		if strings.HasPrefix(key, translate.NamespaceLabelPrefix) {
+			return "", nil
 		}
 
-		// set owner references
-		updatedAnnotations[VClusterLabelsAnnotation] = LabelsAnnotation(vPod)
-		if len(vPod.OwnerReferences) > 0 {
-			ownerReferencesData, _ := json.Marshal(vPod.OwnerReferences)
-			updatedAnnotations[OwnerReferences] = string(ownerReferencesData)
-			for _, ownerReference := range vPod.OwnerReferences {
-				if ownerReference.APIVersion == appsv1.SchemeGroupVersion.String() && canAnnotateOwnerSetKind(ownerReference.Kind) {
-					updatedAnnotations[OwnerSetKind] = ownerReference.Kind
-					break
-				}
+		return key, value
+	}
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdateFunction(
+		event,
+		excludeLabelsFn,
+		excludeLabelsFn,
+	)
+
+	// update namespace labels
+	for key := range event.Host.Labels {
+		if strings.HasPrefix(key, translate.NamespaceLabelPrefix) {
+			delete(event.Host.Labels, key)
+		}
+	}
+	for k, v := range vNamespace.GetLabels() {
+		event.Host.Labels[translate.HostLabelNamespace(k)] = v
+	}
+
+	// update pod annotations
+	event.Host.Annotations[VClusterLabelsAnnotation] = LabelsAnnotation(vPod)
+	if len(vPod.OwnerReferences) > 0 {
+		ownerReferencesData, _ := json.Marshal(vPod.OwnerReferences)
+		event.Host.Annotations[OwnerReferences] = string(ownerReferencesData)
+		for _, ownerReference := range vPod.OwnerReferences {
+			if ownerReference.APIVersion == appsv1.SchemeGroupVersion.String() && canAnnotateOwnerSetKind(ownerReference.Kind) {
+				event.Host.Annotations[OwnerSetKind] = ownerReference.Kind
+				break
 			}
-		} else {
-			delete(updatedAnnotations, OwnerReferences)
-			delete(updatedAnnotations, OwnerSetKind)
 		}
-
-		pPod.Annotations = updatedAnnotations
+	} else {
+		delete(event.Host.Annotations, OwnerReferences)
+		delete(event.Host.Annotations, OwnerSetKind)
 	}
 
 	return nil
