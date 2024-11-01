@@ -78,12 +78,16 @@ func (s *mockSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 
 	// check data
-	event.Virtual.Data, event.Host.Data = patcher.CopyBidirectional(
-		event.VirtualOld.Data,
-		event.Virtual.Data,
-		event.HostOld.Data,
-		event.Host.Data,
-	)
+	//event.Virtual.Data, event.Host.Data = patcher.CopyBidirectional(
+	//	event.VirtualOld.Data,
+	//	event.Virtual.Data,
+	//	event.HostOld.Data,
+	//	event.Host.Data,
+	//)
+
+	if err := patcher.CopyBidirectionalFields(event, "Data"); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }

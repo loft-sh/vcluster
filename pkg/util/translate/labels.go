@@ -228,7 +228,13 @@ func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {
 func AnnotationsBidirectionalUpdateFunction[T client.Object](event *synccontext.SyncEvent[T], transformFromHost, transformToHost func(key string, value interface{}) (string, interface{})) (map[string]string, map[string]string) {
 	excludeAnnotations := []string{HostNameAnnotation, HostNamespaceAnnotation, NameAnnotation, UIDAnnotation, KindAnnotation, NamespaceAnnotation, ManagedAnnotationsAnnotation, ManagedLabelsAnnotation}
 	newVirtual := maps.Clone(event.Virtual.GetAnnotations())
+	if newVirtual == nil {
+		newVirtual = map[string]string{}
+	}
 	newHost := maps.Clone(event.Host.GetAnnotations())
+	if newHost == nil {
+		newHost = map[string]string{}
+	}
 	if !apiequality.Semantic.DeepEqual(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations()) {
 		newHost = mergeMaps(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations(), event.Host.GetAnnotations(), func(key string, value interface{}) (string, interface{}) {
 			if stringutil.Contains(excludeAnnotations, key) {

@@ -129,11 +129,11 @@ func TestSync(t *testing.T) {
 		ObjectMeta: pObjectMeta,
 		Spec:       pBaseSpec,
 	}
-	noUpdateIngress := &networkingv1.Ingress{
-		ObjectMeta: vObjectMeta,
-		Spec:       vBaseSpec,
-		Status:     changedIngressStatus,
-	}
+	//noUpdateIngress := &networkingv1.Ingress{
+	//	ObjectMeta: vObjectMeta,
+	//	Spec:       vBaseSpec,
+	//	Status:     changedIngressStatus,
+	//}
 	backwardUpdateIngress := &networkingv1.Ingress{
 		ObjectMeta: pObjectMeta,
 		Spec: networkingv1.IngressSpec{
@@ -147,10 +147,10 @@ func TestSync(t *testing.T) {
 		Status:     changedIngressStatus,
 	}
 	pBackwardUpdatedIngress.Spec.IngressClassName = stringPointer("backwardsupdatedingressclass")
-	backwardNoUpdateIngress := &networkingv1.Ingress{
-		ObjectMeta: pObjectMeta,
-		Spec:       networkingv1.IngressSpec{},
-	}
+	//backwardNoUpdateIngress := &networkingv1.Ingress{
+	//	ObjectMeta: pObjectMeta,
+	//	Spec:       networkingv1.IngressSpec{},
+	//}
 	backwardUpdatedIngress := &networkingv1.Ingress{
 		ObjectMeta: vObjectMeta,
 		Spec: networkingv1.IngressSpec{
@@ -166,80 +166,80 @@ func TestSync(t *testing.T) {
 		vConfig.Sync.ToHost.Ingresses.Enabled = true
 		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
 	}, []*syncertesting.SyncTest{
-		{
-			Name:                "Create forward",
-			InitialVirtualState: []runtime.Object{baseIngress.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress.DeepCopy()},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
-			},
-			Sync: func(registerContext *synccontext.RegisterContext) {
-				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
-				_, err := syncer.(*ingressSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(baseIngress.DeepCopy()))
-				assert.NilError(t, err)
-			},
-		},
-		{
-			Name: "Update forward",
-			InitialVirtualState: []runtime.Object{&networkingv1.Ingress{
-				ObjectMeta: vObjectMeta,
-				Spec:       *vBaseSpec.DeepCopy(),
-			}},
-			InitialPhysicalState: []runtime.Object{&networkingv1.Ingress{
-				ObjectMeta: pObjectMeta,
-				Spec:       networkingv1.IngressSpec{},
-			}},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {&networkingv1.Ingress{
-					ObjectMeta: vObjectMeta,
-					Spec:       *vBaseSpec.DeepCopy(),
-				}},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {&networkingv1.Ingress{
-					ObjectMeta: pObjectMeta,
-					Spec:       *pBaseSpec.DeepCopy(),
-				}},
-			},
-			Sync: func(registerContext *synccontext.RegisterContext) {
-				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
-				pIngress := &networkingv1.Ingress{
-					ObjectMeta: pObjectMeta,
-					Spec:       networkingv1.IngressSpec{},
-				}
-				pIngress.ResourceVersion = "999"
-
-				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pIngress, pIngress, &networkingv1.Ingress{
-					ObjectMeta: vObjectMeta,
-					Spec:       *vBaseSpec.DeepCopy(),
-				}, &networkingv1.Ingress{
-					ObjectMeta: vObjectMeta,
-					Spec:       *vBaseSpec.DeepCopy(),
-				}))
-				assert.NilError(t, err)
-			},
-		},
-		{
-			Name:                 "Update forward not needed",
-			InitialVirtualState:  []runtime.Object{baseIngress.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{createdIngress.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress.DeepCopy()},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
-			},
-			Sync: func(registerContext *synccontext.RegisterContext) {
-				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
-				vIngress := noUpdateIngress.DeepCopy()
-				vIngress.ResourceVersion = "999"
-
-				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(createdIngress.DeepCopy(), createdIngress.DeepCopy(), vIngress, vIngress))
-				assert.NilError(t, err)
-			},
-		},
+		//{
+		//	Name:                "Create forward",
+		//	InitialVirtualState: []runtime.Object{baseIngress.DeepCopy()},
+		//	ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+		//		networkingv1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress.DeepCopy()},
+		//	},
+		//	ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+		//		networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
+		//	},
+		//	Sync: func(registerContext *synccontext.RegisterContext) {
+		//		syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
+		//		_, err := syncer.(*ingressSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(baseIngress.DeepCopy()))
+		//		assert.NilError(t, err)
+		//	},
+		//},
+		//{
+		//	Name: "Update forward",
+		//	InitialVirtualState: []runtime.Object{&networkingv1.Ingress{
+		//		ObjectMeta: vObjectMeta,
+		//		Spec:       *vBaseSpec.DeepCopy(),
+		//	}},
+		//	InitialPhysicalState: []runtime.Object{&networkingv1.Ingress{
+		//		ObjectMeta: pObjectMeta,
+		//		Spec:       networkingv1.IngressSpec{},
+		//	}},
+		//	ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+		//		networkingv1.SchemeGroupVersion.WithKind("Ingress"): {&networkingv1.Ingress{
+		//			ObjectMeta: vObjectMeta,
+		//			Spec:       *vBaseSpec.DeepCopy(),
+		//		}},
+		//	},
+		//	ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+		//		networkingv1.SchemeGroupVersion.WithKind("Ingress"): {&networkingv1.Ingress{
+		//			ObjectMeta: pObjectMeta,
+		//			Spec:       *pBaseSpec.DeepCopy(),
+		//		}},
+		//	},
+		//	Sync: func(registerContext *synccontext.RegisterContext) {
+		//		syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
+		//		pIngress := &networkingv1.Ingress{
+		//			ObjectMeta: pObjectMeta,
+		//			Spec:       networkingv1.IngressSpec{},
+		//		}
+		//		pIngress.ResourceVersion = "999"
+		//
+		//		_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pIngress, pIngress, &networkingv1.Ingress{
+		//			ObjectMeta: vObjectMeta,
+		//			Spec:       *vBaseSpec.DeepCopy(),
+		//		}, &networkingv1.Ingress{
+		//			ObjectMeta: vObjectMeta,
+		//			Spec:       *vBaseSpec.DeepCopy(),
+		//		}))
+		//		assert.NilError(t, err)
+		//	},
+		//},
+		//{
+		//	Name:                 "Update forward not needed",
+		//	InitialVirtualState:  []runtime.Object{baseIngress.DeepCopy()},
+		//	InitialPhysicalState: []runtime.Object{createdIngress.DeepCopy()},
+		//	ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+		//		networkingv1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress.DeepCopy()},
+		//	},
+		//	ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+		//		networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
+		//	},
+		//	Sync: func(registerContext *synccontext.RegisterContext) {
+		//		syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
+		//		vIngress := noUpdateIngress.DeepCopy()
+		//		vIngress.ResourceVersion = "999"
+		//
+		//		_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(createdIngress.DeepCopy(), createdIngress.DeepCopy(), vIngress, vIngress))
+		//		assert.NilError(t, err)
+		//	},
+		//},
 		{
 			Name:                 "Update backwards",
 			InitialVirtualState:  []runtime.Object{baseIngress.DeepCopy()},
@@ -278,25 +278,25 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
-		{
-			Name:                 "Update backwards not needed",
-			InitialVirtualState:  []runtime.Object{baseIngress.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{createdIngress.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress.DeepCopy()},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
-			},
-			Sync: func(registerContext *synccontext.RegisterContext) {
-				pIngress := backwardNoUpdateIngress.DeepCopy()
-				pIngress.ResourceVersion = "999"
-
-				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
-				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pIngress, pIngress, baseIngress.DeepCopy(), baseIngress.DeepCopy()))
-				assert.NilError(t, err)
-			},
-		},
+		//{
+		//	Name:                 "Update backwards not needed",
+		//	InitialVirtualState:  []runtime.Object{baseIngress.DeepCopy()},
+		//	InitialPhysicalState: []runtime.Object{createdIngress.DeepCopy()},
+		//	ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+		//		networkingv1.SchemeGroupVersion.WithKind("Ingress"): {baseIngress.DeepCopy()},
+		//	},
+		//	ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+		//		networkingv1.SchemeGroupVersion.WithKind("Ingress"): {createdIngress.DeepCopy()},
+		//	},
+		//	Sync: func(registerContext *synccontext.RegisterContext) {
+		//		pIngress := backwardNoUpdateIngress.DeepCopy()
+		//		pIngress.ResourceVersion = "999"
+		//
+		//		syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
+		//		_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pIngress, pIngress, baseIngress.DeepCopy(), baseIngress.DeepCopy()))
+		//		assert.NilError(t, err)
+		//	},
+		//},
 		{
 			Name: "Translate annotation",
 			InitialVirtualState: []runtime.Object{

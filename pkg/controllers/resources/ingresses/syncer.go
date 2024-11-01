@@ -86,12 +86,17 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		}
 	}()
 
-	event.Virtual.Spec.IngressClassName, event.Host.Spec.IngressClassName = patcher.CopyBidirectional(
-		event.VirtualOld.Spec.IngressClassName,
-		event.Virtual.Spec.IngressClassName,
-		event.HostOld.Spec.IngressClassName,
-		event.Host.Spec.IngressClassName,
-	)
+	//event.Virtual.Spec.IngressClassName, event.Host.Spec.IngressClassName = patcher.CopyBidirectional(
+	//	event.VirtualOld.Spec.IngressClassName,
+	//	event.Virtual.Spec.IngressClassName,
+	//	event.HostOld.Spec.IngressClassName,
+	//	event.Host.Spec.IngressClassName,
+	//)
+
+	if err := patcher.CopyBidirectionalFields(event, "Spec.IngressClassName"); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	event.Virtual.Status = event.Host.Status
 	s.translateUpdate(ctx, event)
 	return ctrl.Result{}, nil

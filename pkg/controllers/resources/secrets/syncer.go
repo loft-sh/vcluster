@@ -129,12 +129,9 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Syn
 
 	// check secret type
 	if event.Virtual.Type != event.Host.Type && event.Virtual.Type != corev1.SecretTypeServiceAccountToken && event.Host.Type != corev1.SecretTypeServiceAccountToken {
-		event.Virtual.Type, event.Host.Type = patcher.CopyBidirectional(
-			event.VirtualOld.Type,
-			event.Virtual.Type,
-			event.HostOld.Type,
-			event.Host.Type,
-		)
+		if err := patcher.CopyBidirectionalFields(event, "Type"); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// bi-directional sync of annotations and labels
