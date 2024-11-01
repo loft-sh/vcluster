@@ -127,7 +127,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.(*secretSyncer).Sync(syncContext, synccontext.NewSyncEvent(syncedSecret, updatedSecret))
+				_, err := syncer.(*secretSyncer).Sync(syncContext, synccontext.NewSyncEventWithOld(syncedSecret, syncedSecret, updatedSyncedSecret, updatedSecret))
 				assert.NilError(t, err)
 			},
 		},
