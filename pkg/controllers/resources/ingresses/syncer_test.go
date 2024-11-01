@@ -346,7 +346,6 @@ func TestSync(t *testing.T) {
 							Annotations: map[string]string{
 								"nginx.ingress.kubernetes.io/auth-secret":     translate.Default.HostName(nil, "my-secret", baseIngress.Namespace).Name,
 								"nginx.ingress.kubernetes.io/auth-tls-secret": createdIngress.Namespace + "/" + translate.Default.HostName(nil, "my-secret", baseIngress.Namespace).Name,
-								"vcluster.loft.sh/managed-annotations":        "nginx.ingress.kubernetes.io/auth-secret\nnginx.ingress.kubernetes.io/auth-tls-secret",
 								"vcluster.loft.sh/object-name":                baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":           baseIngress.Namespace,
 								translate.UIDAnnotation:                       "",
@@ -422,7 +421,6 @@ func TestSync(t *testing.T) {
 							Namespace: createdIngress.Namespace,
 							Labels:    createdIngress.Labels,
 							Annotations: map[string]string{
-								"vcluster.loft.sh/managed-annotations":                           "alb.ingress.kubernetes.io/actions.ssl-redirect-x-test-x-suffix\nalb.ingress.kubernetes.io/actions.testservice-x-test-x-suffix\nnginx.ingress.kubernetes.io/auth-secret",
 								"nginx.ingress.kubernetes.io/auth-secret":                        translate.Default.HostName(nil, "my-secret", baseIngress.Namespace).Name,
 								"vcluster.loft.sh/object-name":                                   baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":                              baseIngress.Namespace,

@@ -329,10 +329,10 @@ func LabelsBidirectionalUpdateMaps(virtualOld, virtual, hostOld, host map[string
 	return LabelsBidirectionalUpdateFunctionMaps(virtualOld, virtual, hostOld, host, excludeFn, excludeFn)
 }
 
-func mergeMaps(beforeMap, afterMap, targetMap map[string]string, transformKey func(key string, value interface{}) (string, interface{})) map[string]string {
-	retMap := maps.Clone(targetMap)
-	if retMap == nil {
-		retMap = map[string]string{}
+func mergeMaps(beforeMap, afterMap, targetMap map[string]string, transformKey func(key string, value interface{}) (string, interface{})) (retMap map[string]string) {
+	// If the target map is empty merge with an empty before map to get all the changes
+	if retMap = maps.Clone(targetMap); retMap == nil {
+		return mergeMaps(map[string]string{}, afterMap, map[string]string{}, transformKey)
 	}
 
 	// get diff map
