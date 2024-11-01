@@ -42,6 +42,14 @@ type endpointsSyncer struct {
 	excludedAnnotations []string
 }
 
+var _ syncertypes.OptionsProvider = &endpointsSyncer{}
+
+func (s *endpointsSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		ObjectCaching: true,
+	}
+}
+
 var _ syncertypes.Syncer = &endpointsSyncer{}
 
 func (s *endpointsSyncer) Syncer() syncertypes.Sync[client.Object] {
@@ -49,8 +57,8 @@ func (s *endpointsSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Endpoints]) (ctrl.Result, error) {
-	if event.IsDelete() {
-		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
+	if event.HostOld != nil {
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
 	pObj := s.translate(ctx, event.Virtual)
@@ -59,7 +67,7 @@ func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
+	return patcher.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder(), false)
 }
 
 func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Endpoints]) (_ ctrl.Result, retErr error) {
@@ -82,20 +90,16 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 		return ctrl.Result{}, err
 	}
 
-	if event.Source == synccontext.SyncEventSourceHost {
-		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual, s.excludedAnnotations...)
-		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
-	} else {
-		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
-		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
-	}
+	// bi-directional sync of annotations and labels
+	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event, s.excludedAnnotations...)
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 
 	return ctrl.Result{}, nil
 }
 
 func (s *endpointsSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Endpoints]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
-	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 }
 
 var _ syncertypes.Starter = &endpointsSyncer{}

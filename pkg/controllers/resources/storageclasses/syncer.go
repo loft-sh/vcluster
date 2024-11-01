@@ -41,6 +41,14 @@ type storageClassSyncer struct {
 	excludedAnnotations []string
 }
 
+var _ syncertypes.OptionsProvider = &storageClassSyncer{}
+
+func (s *storageClassSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		ObjectCaching: true,
+	}
+}
+
 var _ syncertypes.Syncer = &storageClassSyncer{}
 
 func (s *storageClassSyncer) Syncer() syncertypes.Sync[client.Object] {
@@ -48,8 +56,8 @@ func (s *storageClassSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
-	if event.IsDelete() {
-		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
+	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
 	newStorageClass := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name}, event.Virtual), s.excludedAnnotations...)
@@ -59,14 +67,7 @@ func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syn
 		return ctrl.Result{}, fmt.Errorf("apply patches: %w", err)
 	}
 
-	ctx.Log.Infof("create physical storage class %s", newStorageClass.Name)
-	err = ctx.PhysicalClient.Create(ctx, newStorageClass)
-	if err != nil {
-		ctx.Log.Infof("error syncing %s to physical cluster: %v", event.Virtual.Name, err)
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
+	return patcher.CreateHostObject(ctx, event.Virtual, newStorageClass, nil, false)
 }
 
 func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
@@ -81,27 +82,58 @@ func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 		}
 	}()
 
-	if event.Source == synccontext.SyncEventSourceHost {
-		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual, s.excludedAnnotations...)
-		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
-	} else {
-		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
-		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
-	}
+	// bi-directional sync of annotations and labels
+	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event, s.excludedAnnotations...)
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 
 	// bidirectional sync
-	event.TargetObject().Provisioner = event.SourceObject().Provisioner
-	event.TargetObject().Parameters = event.SourceObject().Parameters
-	event.TargetObject().ReclaimPolicy = event.SourceObject().ReclaimPolicy
-	event.TargetObject().MountOptions = event.SourceObject().MountOptions
-	event.TargetObject().AllowVolumeExpansion = event.SourceObject().AllowVolumeExpansion
-	event.TargetObject().VolumeBindingMode = event.SourceObject().VolumeBindingMode
-	event.TargetObject().AllowedTopologies = event.SourceObject().AllowedTopologies
+	event.Virtual.Provisioner, event.Host.Provisioner = patcher.CopyBidirectional(
+		event.VirtualOld.Provisioner,
+		event.Virtual.Provisioner,
+		event.HostOld.Provisioner,
+		event.Host.Provisioner,
+	)
+	event.Virtual.Parameters, event.Host.Parameters = patcher.CopyBidirectional(
+		event.VirtualOld.Parameters,
+		event.Virtual.Parameters,
+		event.HostOld.Parameters,
+		event.Host.Parameters,
+	)
+	event.Virtual.ReclaimPolicy, event.Host.ReclaimPolicy = patcher.CopyBidirectional(
+		event.VirtualOld.ReclaimPolicy,
+		event.Virtual.ReclaimPolicy,
+		event.HostOld.ReclaimPolicy,
+		event.Host.ReclaimPolicy,
+	)
+	event.Virtual.MountOptions, event.Host.MountOptions = patcher.CopyBidirectional(
+		event.VirtualOld.MountOptions,
+		event.Virtual.MountOptions,
+		event.HostOld.MountOptions,
+		event.Host.MountOptions,
+	)
+	event.Virtual.AllowVolumeExpansion, event.Host.AllowVolumeExpansion = patcher.CopyBidirectional(
+		event.VirtualOld.AllowVolumeExpansion,
+		event.Virtual.AllowVolumeExpansion,
+		event.HostOld.AllowVolumeExpansion,
+		event.Host.AllowVolumeExpansion,
+	)
+	event.Virtual.VolumeBindingMode, event.Host.VolumeBindingMode = patcher.CopyBidirectional(
+		event.VirtualOld.VolumeBindingMode,
+		event.Virtual.VolumeBindingMode,
+		event.HostOld.VolumeBindingMode,
+		event.Host.VolumeBindingMode,
+	)
+	event.Virtual.AllowedTopologies, event.Host.AllowedTopologies = patcher.CopyBidirectional(
+		event.VirtualOld.AllowedTopologies,
+		event.Virtual.AllowedTopologies,
+		event.HostOld.AllowedTopologies,
+		event.Host.AllowedTopologies,
+	)
 
 	return ctrl.Result{}, nil
 }
 
 func (s *storageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
-	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 }

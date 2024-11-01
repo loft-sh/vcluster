@@ -46,6 +46,14 @@ type volumeSnapshotContentSyncer struct {
 	virtualClient client.Client
 }
 
+var _ syncertypes.OptionsProvider = &volumeSnapshotContentSyncer{}
+
+func (s *volumeSnapshotContentSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		ObjectCaching: true,
+	}
+}
+
 var _ syncertypes.Syncer = &volumeSnapshotContentSyncer{}
 
 func (s *volumeSnapshotContentSyncer) Syncer() syncertypes.Sync[client.Object] {
@@ -68,12 +76,11 @@ func (s *volumeSnapshotContentSyncer) SyncToVirtual(ctx *synccontext.SyncContext
 		return ctrl.Result{}, err
 	}
 
-	ctx.Log.Infof("create VolumeSnapshotContent %s, because it does not exist in the virtual cluster", vVSC.Name)
-	return ctrl.Result{}, s.virtualClient.Create(ctx, vVSC)
+	return patcher.CreateVirtualObject(ctx, event.Host, vVSC, nil, true)
 }
 
 func (s *volumeSnapshotContentSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*volumesnapshotv1.VolumeSnapshotContent]) (ctrl.Result, error) {
-	if event.IsDelete() || event.Virtual.DeletionTimestamp != nil || (event.Virtual.Annotations != nil && event.Virtual.Annotations[constants.HostClusterVSCAnnotation] != "") {
+	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil || (event.Virtual.Annotations != nil && event.Virtual.Annotations[constants.HostClusterVSCAnnotation] != "") {
 		if len(event.Virtual.Finalizers) > 0 {
 			// delete the finalizer here so that the object can be deleted
 			event.Virtual.Finalizers = []string{}
@@ -81,8 +88,7 @@ func (s *volumeSnapshotContentSyncer) SyncToHost(ctx *synccontext.SyncContext, e
 			return ctrl.Result{}, s.virtualClient.Update(ctx, event.Virtual)
 		}
 
-		ctx.Log.Infof("remove virtual VolumeSnapshotContent %s, because object should get deleted", event.Virtual.Name)
-		return ctrl.Result{}, s.virtualClient.Delete(ctx, event.Virtual)
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "object should get deleted")
 	}
 
 	pVSC := s.translate(ctx, event.Virtual)
@@ -91,21 +97,14 @@ func (s *volumeSnapshotContentSyncer) SyncToHost(ctx *synccontext.SyncContext, e
 		return ctrl.Result{}, err
 	}
 
-	ctx.Log.Infof("create host VolumeSnapshotContent %s, because there is a virtual VolumeSnapshotContent", pVSC.Name)
-	err = ctx.PhysicalClient.Create(ctx, pVSC)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
+	return patcher.CreateHostObject(ctx, event.Virtual, pVSC, nil, true)
 }
 
 func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*volumesnapshotv1.VolumeSnapshotContent]) (_ ctrl.Result, retErr error) {
 	// check if objects are getting deleted
 	if event.Virtual.GetDeletionTimestamp() != nil {
 		if event.Host.GetDeletionTimestamp() == nil {
-			ctx.Log.Infof("delete host VolumeSnapshotContent %s, because virtual VolumeSnapshotContent is being deleted", event.Host.Name)
-			err := ctx.PhysicalClient.Delete(ctx, event.Host)
+			_, err := patcher.DeleteHostObject(ctx, event.Host, event.Virtual, "virtual VolumeSnapshotContent is being deleted")
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -127,7 +126,9 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, event *
 			if err != nil {
 				return ctrl.Result{}, err
 			}
+			ctx.ObjectCache.Virtual().Put(updated)
 		}
+
 		if !equality.Semantic.DeepEqual(event.Virtual.Status, event.Host.Status) {
 			updated := event.Virtual.DeepCopy()
 			updated.Status = event.Host.Status.DeepCopy()
@@ -136,7 +137,9 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, event *
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
+			ctx.ObjectCache.Virtual().Put(updated)
 		}
+
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -156,15 +159,10 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, event *
 			return ctrl.Result{}, nil
 		}
 
-		ctx.Log.Infof("delete physical VolumeSnapshotContent %s, because virtual VolumeSnapshotContent is being deleted", event.Host.Name)
-		err := ctx.PhysicalClient.Delete(ctx, event.Host, &client.DeleteOptions{
+		return patcher.DeleteHostObjectWithOptions(ctx, event.Host, event.Virtual, "virtual VolumeSnapshotContent is being deleted", &client.DeleteOptions{
 			GracePeriodSeconds: event.Virtual.DeletionGracePeriodSeconds,
 			Preconditions:      metav1.NewUIDPreconditions(string(event.Host.UID)),
 		})
-		if kerrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
 	}
 
 	// patch objects
@@ -190,13 +188,9 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, event *
 		event.Host.Spec.VolumeSnapshotClassName = event.Virtual.Spec.VolumeSnapshotClassName
 	}
 
-	if event.Source == synccontext.SyncEventSourceHost {
-		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual)
-		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
-	} else {
-		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
-		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
-	}
+	// bi-directional sync of annotations and labels
+	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event)
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 
 	return ctrl.Result{}, nil
 }

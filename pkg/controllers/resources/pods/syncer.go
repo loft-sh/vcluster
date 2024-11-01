@@ -122,6 +122,14 @@ type podSyncer struct {
 	podSecurityStandard string
 }
 
+var _ syncertypes.OptionsProvider = &podSyncer{}
+
+func (s *podSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		ObjectCaching: true,
+	}
+}
+
 var _ syncertypes.ControllerModifier = &podSyncer{}
 
 func (s *podSyncer) ModifyController(registerContext *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
@@ -161,16 +169,11 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 	// in some scenarios it is possible that the pod was already started and the physical pod
 	// was deleted without vcluster's knowledge. In this case we are deleting the virtual pod
 	// as well, to avoid conflicts with nodes if we would resync the same pod to the host cluster again.
-	if event.IsDelete() || event.Virtual.DeletionTimestamp != nil || event.Virtual.Status.StartTime != nil {
+	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil || event.Virtual.Status.StartTime != nil {
 		// delete pod immediately
-		ctx.Log.Infof("delete pod %s/%s immediately, because it is being deleted & there is no physical pod", event.Virtual.Namespace, event.Virtual.Name)
-		err := ctx.VirtualClient.Delete(ctx, event.Virtual, &client.DeleteOptions{
+		return patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.HostOld, "pod is being deleted & there is no physical pod", &client.DeleteOptions{
 			GracePeriodSeconds: &zero,
 		})
-		if kerrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
 	}
 
 	// validate virtual pod before syncing it to the host cluster
@@ -230,7 +233,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateHostObject(ctx, event.Virtual, pPod, s.EventRecorder())
+	return patcher.CreateHostObject(ctx, event.Virtual, pPod, s.EventRecorder(), true)
 }
 
 func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) (_ ctrl.Result, retErr error) {
@@ -242,28 +245,23 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 				gracePeriod = *event.Virtual.Spec.TerminationGracePeriodSeconds
 			}
 
-			ctx.Log.Infof("delete virtual pod %s/%s, because the physical pod is being deleted", event.Virtual.Namespace, event.Virtual.Name)
-			if err := ctx.VirtualClient.Delete(ctx, event.Virtual, &client.DeleteOptions{GracePeriodSeconds: &gracePeriod}); err != nil {
+			_, err := patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.Host, "physical pod is being deleted", &client.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+			if err != nil {
 				return ctrl.Result{}, err
 			}
 		} else if *event.Virtual.DeletionGracePeriodSeconds != *event.Host.DeletionGracePeriodSeconds {
-			ctx.Log.Infof("delete virtual pPod %s/%s with grace period seconds %v", event.Virtual.Namespace, event.Virtual.Name, *event.Host.DeletionGracePeriodSeconds)
-			if err := ctx.VirtualClient.Delete(ctx, event.Virtual, &client.DeleteOptions{GracePeriodSeconds: event.Host.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(event.Virtual.UID))}); err != nil {
+			_, err := patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.Host, fmt.Sprintf("with grace period seconds %v", *event.Host.DeletionGracePeriodSeconds), &client.DeleteOptions{GracePeriodSeconds: event.Host.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(event.Virtual.UID))})
+			if err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 
 		return ctrl.Result{}, nil
 	} else if event.Virtual.DeletionTimestamp != nil {
-		ctx.Log.Infof("delete physical pod %s/%s, because virtual pod is being deleted", event.Host.Namespace, event.Host.Name)
-		err := ctx.PhysicalClient.Delete(ctx, event.Host, &client.DeleteOptions{
+		return patcher.DeleteHostObjectWithOptions(ctx, event.Host, event.Virtual, "virtual pod is being deleted", &client.DeleteOptions{
 			GracePeriodSeconds: event.Virtual.DeletionGracePeriodSeconds,
 			Preconditions:      metav1.NewUIDPreconditions(string(event.Host.UID)),
 		})
-		if kerrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
 	}
 
 	// make sure node exists for pod
@@ -279,13 +277,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		}
 	} else if event.Host.Spec.NodeName != "" && event.Virtual.Spec.NodeName != "" && event.Host.Spec.NodeName != event.Virtual.Spec.NodeName {
 		// if physical pod nodeName is different from virtual pod nodeName, we delete the virtual one
-		ctx.Log.Infof("delete virtual pod %s/%s, because node name is different between the two", event.Virtual.Namespace, event.Virtual.Name)
-		err := ctx.VirtualClient.Delete(ctx, event.Virtual, &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{}, nil
+		return patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.Host, "node name is different between the two", &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
 	}
 
 	// validate virtual pod before syncing it to the host cluster
@@ -337,9 +329,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 }
 
 func (s *podSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Pod]) (_ ctrl.Result, retErr error) {
-	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
+	if event.VirtualOld != nil || event.Host.DeletionTimestamp != nil {
 		// virtual object is not here anymore, so we delete
-		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 
 	vPod := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.GetName(), Namespace: event.Host.GetNamespace()}, event.Host))
@@ -354,7 +346,7 @@ func (s *podSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncconte
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateVirtualObject(ctx, event.Host, vPod, s.EventRecorder())
+	return patcher.CreateVirtualObject(ctx, event.Host, vPod, s.EventRecorder(), true)
 }
 
 func setSATokenSecretAsOwner(ctx *synccontext.SyncContext, pClient client.Client, vObj, pObj *corev1.Pod) error {
@@ -379,8 +371,7 @@ func setSATokenSecretAsOwner(ctx *synccontext.SyncContext, pClient client.Client
 func (s *podSyncer) ensureNode(ctx *synccontext.SyncContext, pObj *corev1.Pod, vObj *corev1.Pod) (bool, error) {
 	if vObj.Spec.NodeName != pObj.Spec.NodeName && vObj.Spec.NodeName != "" {
 		// node of virtual and physical pod are different, we delete the virtual pod to try to recover from this state
-		ctx.Log.Infof("delete virtual pod %s/%s, because virtual and physical pods have different assigned nodes", vObj.Namespace, vObj.Name)
-		err := ctx.VirtualClient.Delete(ctx, vObj)
+		_, err := patcher.DeleteVirtualObject(ctx, vObj, pObj, "virtual and physical pods have different assigned nodes")
 		if err != nil {
 			return false, err
 		}
@@ -434,8 +425,8 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 	}
 
 	// wait until cache is updated
+	vPod := &corev1.Pod{}
 	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*50, time.Second*2, true, func(syncContext context.Context) (done bool, err error) {
-		vPod := &corev1.Pod{}
 		err = ctx.VirtualClient.Get(syncContext, types.NamespacedName{Namespace: vObj.Namespace, Name: vObj.Name}, vPod)
 		if err != nil {
 			if kerrors.IsNotFound(err) {
@@ -447,5 +438,10 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 
 		return vPod.Spec.NodeName != "", nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	ctx.ObjectCache.Virtual().Put(vPod)
+	return nil
 }

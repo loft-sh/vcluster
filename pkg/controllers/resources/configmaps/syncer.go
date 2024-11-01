@@ -45,6 +45,14 @@ type configMapSyncer struct {
 	syncertypes.Importer
 }
 
+var _ syncertypes.OptionsProvider = &configMapSyncer{}
+
+func (s *configMapSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		ObjectCaching: true,
+	}
+}
+
 var _ syncertypes.Syncer = &configMapSyncer{}
 
 func (s *configMapSyncer) Syncer() syncertypes.Sync[client.Object] {
@@ -65,8 +73,8 @@ func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 		return ctrl.Result{}, nil
 	}
 
-	if event.IsDelete() || event.Virtual.DeletionTimestamp != nil {
-		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
+	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
 	pObj := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name, Namespace: event.Virtual.Namespace}, event.Virtual))
@@ -75,13 +83,13 @@ func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
+	return patcher.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder(), false)
 }
 
 func (s *configMapSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.ConfigMap]) (_ ctrl.Result, retErr error) {
-	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
+	if event.VirtualOld != nil || event.Host.DeletionTimestamp != nil {
 		// virtual object is not here anymore, so we delete
-		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 
 	vObj := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
@@ -95,7 +103,7 @@ func (s *configMapSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syn
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder())
+	return patcher.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder(), false)
 }
 
 func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.ConfigMap]) (_ ctrl.Result, retErr error) {
@@ -111,13 +119,13 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 		return ctrl.Result{}, nil
 	}
 
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.ConfigMaps.Patches, false))
+	patchHelper, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.ConfigMaps.Patches, false))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 
 	defer func() {
-		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
+		if err := patchHelper.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 		if retErr != nil {
@@ -126,17 +134,19 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 	}()
 
 	// bi-directional sync of annotations and labels
-	if event.Source == synccontext.SyncEventSourceHost {
-		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual)
-		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
-	} else {
-		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
-		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
-	}
+	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event)
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 
 	// bidirectional sync
-	event.TargetObject().Data = event.SourceObject().Data
-	event.TargetObject().BinaryData = event.SourceObject().BinaryData
+	event.Virtual.Data, event.Host.Data, err = patcher.MergeBidirectional(event.VirtualOld.Data, event.Virtual.Data, event.HostOld.Data, event.Host.Data)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	event.Virtual.BinaryData, event.Host.BinaryData, err = patcher.MergeBidirectional(event.VirtualOld.BinaryData, event.Virtual.BinaryData, event.HostOld.BinaryData, event.Host.BinaryData)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
 }
 

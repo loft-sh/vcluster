@@ -1,24 +1,13 @@
 package patcher
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"reflect"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/pro"
-	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/klog/v2"
+	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 type Option interface {
@@ -98,15 +87,10 @@ func (h *SyncerPatcher) Patch(ctx *synccontext.SyncContext, pObj, vObj client.Ob
 // Patcher is a utility for ensuring the proper patching of objects.
 type Patcher struct {
 	client       client.Client
-	gvk          schema.GroupVersionKind
 	beforeObject client.Object
-	before       *unstructured.Unstructured
-	after        *unstructured.Unstructured
 
 	vObj client.Object
 	pObj client.Object
-
-	changes map[string]bool
 
 	direction string
 
@@ -119,27 +103,12 @@ type Patcher struct {
 // NewPatcher returns an initialized Patcher.
 func NewPatcher(obj client.Object, crClient client.Client, options ...Option) (*Patcher, error) {
 	// Return early if the object is nil.
-	if err := checkNilObject(obj); err != nil {
-		return nil, err
-	}
-
-	// Get the GroupVersionKind of the object,
-	// used to validate against later on.
-	gvk, err := apiutil.GVKForObject(obj, crClient.Scheme())
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert the object to unstructured to compare against our before copy.
-	unstructuredObj, err := toUnstructured(obj)
-	if err != nil {
-		return nil, err
+	if clienthelper.IsNilObject(obj) {
+		return nil, fmt.Errorf("expected non-nil objet")
 	}
 
 	patcher := &Patcher{
 		client:       crClient,
-		gvk:          gvk,
-		before:       unstructuredObj,
 		beforeObject: obj.DeepCopyObject().(client.Object),
 	}
 
@@ -153,8 +122,8 @@ func NewPatcher(obj client.Object, crClient client.Client, options ...Option) (*
 // Patch will attempt to patch the given object, including its status.
 func (h *Patcher) Patch(ctx *synccontext.SyncContext, obj client.Object) error {
 	// Return early if the object is nil.
-	if err := checkNilObject(obj); err != nil {
-		return err
+	if clienthelper.IsNilObject(obj) {
+		return fmt.Errorf("expected non-nil object")
 	}
 
 	// apply translate patches if wanted
@@ -173,229 +142,10 @@ func (h *Patcher) Patch(ctx *synccontext.SyncContext, obj client.Object) error {
 		}
 	}
 
-	// Get the GroupVersionKind of the object that we want to patch.
-	gvk, err := apiutil.GVKForObject(obj, h.client.Scheme())
-	if err != nil {
-		return err
-	} else if gvk != h.gvk {
-		return errors.Errorf("unmatched GroupVersionKind, expected %q got %q", h.gvk, gvk)
+	direction := synccontext.SyncVirtualToHost
+	if h.direction == "virtual" {
+		direction = synccontext.SyncHostToVirtual
 	}
 
-	// Convert the object to unstructured to compare against our before copy.
-	h.after, err = toUnstructured(obj)
-	if err != nil {
-		return err
-	}
-
-	// Calculate and store the top-level field changes (e.g. "metadata", "spec", "status") we have before/after.
-	h.changes, err = h.calculateChanges(obj)
-	if err != nil {
-		return err
-	}
-
-	// Issue patches and return errors in an aggregate.
-	var errs []error
-
-	// check if status is there
-	if h.NoStatusSubResource {
-		if err := h.patchWholeObject(ctx, obj); err != nil {
-			errs = append(errs, err)
-		}
-	} else {
-		if err := h.patch(ctx, obj); err != nil {
-			errs = append(errs, err)
-		}
-
-		if err := h.patchStatus(ctx, obj); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	return utilerrors.NewAggregate(errs)
-}
-
-// patchWholeObject issues a patch for metadata, spec and status.
-func (h *Patcher) patchWholeObject(ctx context.Context, obj client.Object) error {
-	if !h.shouldPatch(nil, nil) {
-		return nil
-	}
-	beforeObject, afterObject, err := h.calculatePatch(obj, nil, nil)
-	if err != nil {
-		return err
-	}
-
-	patchBytes, err := client.MergeFrom(beforeObject).Data(afterObject)
-	if err != nil {
-		return err
-	} else if string(patchBytes) == "{}" || len(patchBytes) == 0 {
-		return nil
-	}
-
-	err = applyPatch(obj, patchBytes)
-	if err != nil {
-		return fmt.Errorf("apply: %w", err)
-	}
-
-	logPatch(ctx, fmt.Sprintf("Update %s", h.direction), obj, patchBytes)
-	return h.client.Update(ctx, obj)
-}
-
-// patch issues a patch for metadata and spec.
-func (h *Patcher) patch(ctx context.Context, obj client.Object) error {
-	if !h.shouldPatch(nil, statusKey) {
-		return nil
-	}
-	beforeObject, afterObject, err := h.calculatePatch(obj, nil, statusKey)
-	if err != nil {
-		return err
-	}
-
-	patchBytes, err := client.MergeFrom(beforeObject).Data(afterObject)
-	if err != nil {
-		return err
-	} else if string(patchBytes) == "{}" || len(patchBytes) == 0 {
-		return nil
-	}
-
-	err = applyPatch(obj, patchBytes)
-	if err != nil {
-		return fmt.Errorf("apply: %w", err)
-	}
-
-	logPatch(ctx, fmt.Sprintf("Update %s", h.direction), obj, patchBytes)
-	return h.client.Update(ctx, obj)
-}
-
-// patchStatus issues a patch if the status has changed.
-func (h *Patcher) patchStatus(ctx context.Context, obj client.Object) error {
-	if !h.shouldPatch(statusKey, nil) {
-		return nil
-	}
-	beforeObject, afterObject, err := h.calculatePatch(obj, statusKey, nil)
-	if err != nil {
-		return err
-	}
-
-	patchBytes, err := client.MergeFrom(beforeObject).Data(afterObject)
-	if err != nil {
-		return err
-	} else if string(patchBytes) == "{}" || len(patchBytes) == 0 {
-		return nil
-	}
-
-	err = applyPatch(obj, patchBytes)
-	if err != nil {
-		return fmt.Errorf("apply: %w", err)
-	}
-
-	logPatch(ctx, fmt.Sprintf("Update status %s", h.direction), obj, patchBytes)
-	return h.client.Status().Update(ctx, obj)
-}
-
-func logPatch(ctx context.Context, patchMessage string, obj client.Object, patchBytes []byte) {
-	// log patch
-	gvk, _ := apiutil.GVKForObject(obj, scheme.Scheme)
-	klog.FromContext(ctx).Info(patchMessage+" "+gvk.Kind+" "+obj.GetNamespace()+"/"+obj.GetName(), "patch", string(patchBytes))
-}
-
-// calculatePatch returns the before/after objects to be given in a controller-runtime patch, scoped down to the absolute necessary.
-func (h *Patcher) calculatePatch(afterObj client.Object, include, exclude map[string]bool) (client.Object, client.Object, error) {
-	// Get a shallow unsafe copy of the before/after object in unstructured form.
-	before := unsafeUnstructuredCopy(h.before, include, exclude)
-	after := unsafeUnstructuredCopy(h.after, include, exclude)
-
-	// We've now applied all modifications to local unstructured objects,
-	// make copies of the original objects and convert them back.
-	beforeObj := h.beforeObject.DeepCopyObject().(client.Object)
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(before.Object, beforeObj); err != nil {
-		return nil, nil, err
-	}
-	afterObj = afterObj.DeepCopyObject().(client.Object)
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(after.Object, afterObj); err != nil {
-		return nil, nil, err
-	}
-	return beforeObj, afterObj, nil
-}
-
-func (h *Patcher) shouldPatch(include, exclude map[string]bool) bool {
-	// Ranges over the keys of the unstructured object, think of this as the very top level of an object
-	// when submitting a yaml to kubectl or a client.
-	// These would be keys like `apiVersion`, `kind`, `metadata`, `spec`, `status`, etc.
-	for key := range h.changes {
-		// exclude
-		if len(exclude) > 0 && exclude[key] {
-			continue
-		}
-
-		// include
-		if len(include) > 0 && !include[key] {
-			continue
-		}
-
-		return true
-	}
-
-	return false
-}
-
-// calculate changes tries to build a patch from the before/after objects we have
-// and store in a map which top-level fields (e.g. `metadata`, `spec`, `status`, etc.) have changed.
-func (h *Patcher) calculateChanges(after client.Object) (map[string]bool, error) {
-	// Calculate patch data.
-	patch := client.MergeFrom(h.beforeObject)
-	diff, err := patch.Data(after)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to calculate patch data")
-	}
-
-	// Unmarshal patch data into a local map.
-	patchDiff := map[string]interface{}{}
-	if err := json.Unmarshal(diff, &patchDiff); err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal patch data into a map")
-	}
-
-	// Return the map.
-	res := make(map[string]bool, len(patchDiff))
-	for key := range patchDiff {
-		res[key] = true
-	}
-	return res, nil
-}
-
-func checkNilObject(obj client.Object) error {
-	if obj == nil || (reflect.ValueOf(obj).IsValid() && reflect.ValueOf(obj).IsNil()) {
-		return errors.Errorf("expected non-nil object")
-	}
-
-	return nil
-}
-
-func applyPatch(obj client.Object, patchBytes []byte) error {
-	unstructuredMap, err := toUnstructured(obj)
-	if err != nil {
-		return fmt.Errorf("to unstructured: %w", err)
-	}
-
-	objBytes, err := json.Marshal(unstructuredMap.Object)
-	if err != nil {
-		return fmt.Errorf("marshal object: %w", err)
-	}
-
-	afterObjBytes, err := jsonpatch.MergePatch(objBytes, patchBytes)
-	if err != nil {
-		return fmt.Errorf("apply merge patch: %w", err)
-	}
-
-	afterObjMap := map[string]interface{}{}
-	err = json.Unmarshal(afterObjBytes, &afterObjMap)
-	if err != nil {
-		return fmt.Errorf("unmarshal applied object: %w", err)
-	}
-
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(afterObjMap, obj)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return ApplyObject(ctx, h.beforeObject, obj, direction, !h.NoStatusSubResource)
 }

@@ -107,6 +107,12 @@ func HostAnnotations(vObj, pObj client.Object, excluded ...string) map[string]st
 	}
 
 	retMap := applyAnnotations(vObj.GetAnnotations(), toAnnotations, excluded...)
+	addHostAnnotations(retMap, vObj, pObj)
+
+	return retMap
+}
+
+func addHostAnnotations(retMap map[string]string, vObj, pObj client.Object) {
 	retMap[NameAnnotation] = vObj.GetName()
 	retMap[UIDAnnotation] = string(vObj.GetUID())
 	if pObj != nil {
@@ -125,8 +131,6 @@ func HostAnnotations(vObj, pObj client.Object, excluded ...string) map[string]st
 	if err == nil {
 		retMap[KindAnnotation] = gvk.String()
 	}
-
-	return retMap
 }
 
 func GetOwnerReference(object client.Object) []metav1.OwnerReference {

@@ -1,6 +1,7 @@
 package priorityclasses
 
 import (
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -28,26 +29,33 @@ func (s *priorityClassSyncer) translateFromHost(ctx *synccontext.SyncContext, pO
 }
 
 func (s *priorityClassSyncer) translateUpdate(event *synccontext.SyncEvent[*schedulingv1.PriorityClass]) {
-	targetObject := event.TargetObject()
-	sourceObject := event.SourceObject()
-	pObj := event.Host
-	vObj := event.Virtual
+	if s.fromHost {
+		event.Virtual.PreemptionPolicy = event.Host.PreemptionPolicy
+		event.Virtual.Description = event.Host.Description
+		event.Virtual.Annotations = event.Host.Annotations
+		event.Virtual.Labels = event.Host.Labels
+	} else if s.toHost {
+		// bi-directional
+		event.Virtual.PreemptionPolicy, event.Host.PreemptionPolicy = patcher.CopyBidirectional(
+			event.VirtualOld.PreemptionPolicy,
+			event.Virtual.PreemptionPolicy,
+			event.HostOld.PreemptionPolicy,
+			event.Host.PreemptionPolicy,
+		)
+		event.Virtual.Description, event.Host.Description = patcher.CopyBidirectional(
+			event.VirtualOld.Description,
+			event.Virtual.Description,
+			event.HostOld.Description,
+			event.Host.Description,
+		)
+		event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event)
+		event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 
-	targetObject.PreemptionPolicy = sourceObject.PreemptionPolicy
-	targetObject.Description = sourceObject.Description
-
-	switch event.Source {
-	case synccontext.SyncEventSourceVirtual:
-		// check metadata
-		pObj.Annotations = translate.HostAnnotations(vObj, pObj)
-		pObj.Labels = translate.HostLabels(vObj, pObj)
-		translatedValue := vObj.Value
+		// copy from virtual -> host
+		translatedValue := event.Virtual.Value
 		if translatedValue > 1000000000 {
 			translatedValue = 1000000000
 		}
-		pObj.Value = translatedValue
-	case synccontext.SyncEventSourceHost:
-		vObj.Annotations = translate.VirtualAnnotations(pObj, vObj)
-		vObj.Labels = translate.VirtualLabels(pObj, vObj)
+		event.Host.Value = translatedValue
 	}
 }
