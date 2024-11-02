@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -89,8 +90,8 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 
 	// check if recreating service is necessary
 	if event.Virtual.Spec.ClusterIP != event.Host.Spec.ClusterIP {
+		event.Virtual.Spec = event.Host.Spec
 		event.Virtual.Spec.ClusterIPs = nil
-		event.Virtual.Spec.ClusterIP = event.Host.Spec.ClusterIP
 		ctx.Log.Infof("recreating virtual service %s/%s, because cluster ip differs %s != %s", event.Virtual.Namespace, event.Virtual.Name, event.Host.Spec.ClusterIP, event.Virtual.Spec.ClusterIP)
 
 		// recreate the new service with the correct cluster ip
@@ -124,12 +125,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		event.HostOld.Spec.ExternalIPs,
 		event.Host.Spec.ExternalIPs,
 	)
-	event.Virtual.Spec.LoadBalancerIP, event.Host.Spec.LoadBalancerIP = patcher.CopyBidirectional(
-		event.VirtualOld.Spec.LoadBalancerIP,
-		event.Virtual.Spec.LoadBalancerIP,
-		event.HostOld.Spec.LoadBalancerIP,
-		event.Host.Spec.LoadBalancerIP,
-	)
+
 	event.Virtual.Spec.Ports, event.Host.Spec.Ports = patcher.CopyBidirectional(
 		event.VirtualOld.Spec.Ports,
 		event.Virtual.Spec.Ports,
@@ -142,18 +138,9 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		event.HostOld.Spec.PublishNotReadyAddresses,
 		event.Host.Spec.PublishNotReadyAddresses,
 	)
-	event.Virtual.Spec.Type, event.Host.Spec.Type = patcher.CopyBidirectional(
-		event.VirtualOld.Spec.Type,
-		event.Virtual.Spec.Type,
-		event.HostOld.Spec.Type,
-		event.Host.Spec.Type,
-	)
-	event.Virtual.Spec.ExternalName, event.Host.Spec.ExternalName = patcher.CopyBidirectional(
-		event.VirtualOld.Spec.ExternalName,
-		event.Virtual.Spec.ExternalName,
-		event.HostOld.Spec.ExternalName,
-		event.Host.Spec.ExternalName,
-	)
+
+	setFieldsForServiceType(event)
+
 	event.Virtual.Spec.ExternalTrafficPolicy, event.Host.Spec.ExternalTrafficPolicy = patcher.CopyBidirectional(
 		event.VirtualOld.Spec.ExternalTrafficPolicy,
 		event.Virtual.Spec.ExternalTrafficPolicy,
@@ -198,14 +185,47 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	}
 
 	// translate selector
-	event.Virtual.Spec.Selector, event.Host.Spec.Selector = translate.LabelsBidirectionalUpdateMaps(
-		event.VirtualOld.Spec.Selector,
-		event.Virtual.Spec.Selector,
-		event.HostOld.Spec.Selector,
-		event.Host.Spec.Selector,
-	)
+	// TODO: ryan - convert to bidirectional
+	if !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Selector, event.Virtual.Spec.Selector) {
+		event.Host.Spec.Selector = translate.HostLabelsMap(event.Virtual.Spec.Selector, event.Host.Spec.Selector, event.Virtual.Namespace, false)
+	} else {
+		event.Virtual.Spec.Selector = translate.VirtualLabelsMap(event.Host.Spec.Selector, event.Virtual.Spec.Selector)
+	}
 
 	return ctrl.Result{}, nil
+}
+
+// Remove any fields that
+func setFieldsForServiceType(event *synccontext.SyncEvent[*corev1.Service]) {
+	event.Virtual.Spec.Type, event.Host.Spec.Type = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.Type,
+		event.Virtual.Spec.Type,
+		event.HostOld.Spec.Type,
+		event.Host.Spec.Type,
+	)
+
+	if event.Host.Spec.Type == corev1.ServiceTypeNodePort {
+		event.Host.Spec.ExternalName = ""
+		event.Host.Spec.LoadBalancerIP = ""
+		event.Host.Spec.LoadBalancerClass = nil
+	} else if event.Virtual.Spec.Type == corev1.ServiceTypeNodePort {
+		event.Virtual.Spec.ExternalName = ""
+		event.Virtual.Spec.LoadBalancerIP = ""
+		event.Virtual.Spec.LoadBalancerClass = nil
+	} else {
+		event.Virtual.Spec.ExternalName, event.Host.Spec.ExternalName = patcher.CopyBidirectional(
+			event.VirtualOld.Spec.ExternalName,
+			event.Virtual.Spec.ExternalName,
+			event.HostOld.Spec.ExternalName,
+			event.Host.Spec.ExternalName,
+		)
+		event.Virtual.Spec.LoadBalancerIP, event.Host.Spec.LoadBalancerIP = patcher.CopyBidirectional(
+			event.VirtualOld.Spec.LoadBalancerIP,
+			event.Virtual.Spec.LoadBalancerIP,
+			event.HostOld.Spec.LoadBalancerIP,
+			event.Host.Spec.LoadBalancerIP,
+		)
+	}
 }
 
 func isSwitchingFromExternalName(pService *corev1.Service, vService *corev1.Service) bool {

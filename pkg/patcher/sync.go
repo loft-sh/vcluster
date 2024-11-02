@@ -12,9 +12,9 @@ import (
 func CopyBidirectional[T any](virtualOld, virtual, hostOld, host T) (T, T) {
 	newVirtual := virtual
 	newHost := host
-	if generics.IsNil(host) || !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
+	if generics.IsNilOrEmpty(host) || !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
 		newHost = virtual
-	} else if generics.IsNil(virtual) || !apiequality.Semantic.DeepEqual(hostOld, host) {
+	} else if generics.IsNilOrEmpty(virtual) || !apiequality.Semantic.DeepEqual(hostOld, host) {
 		newVirtual = host
 	}
 
@@ -26,9 +26,9 @@ func MergeBidirectional[T any](virtualOld, virtual, hostOld, host T) (T, T, erro
 
 	newVirtual := virtual
 	newHost := host
-	if generics.IsNil(host) || !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
+	if generics.IsNilOrEmpty(host) || !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
 		newHost, err = MergeChangesInto(virtualOld, virtual, host)
-	} else if generics.IsNil(virtual) || !apiequality.Semantic.DeepEqual(hostOld, host) {
+	} else if generics.IsNilOrEmpty(virtual) || !apiequality.Semantic.DeepEqual(hostOld, host) {
 		newVirtual, err = MergeChangesInto(hostOld, host, virtual)
 	}
 
@@ -36,7 +36,7 @@ func MergeBidirectional[T any](virtualOld, virtual, hostOld, host T) (T, T, erro
 }
 
 func MergeChangesInto[T any](oldValue, newValue, outValue T) (T, error) {
-	if generics.IsNil(outValue) {
+	if generics.IsNilOrEmpty(outValue) {
 		return newValue, nil
 	}
 

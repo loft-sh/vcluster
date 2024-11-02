@@ -1,11 +1,11 @@
 package translate
 
 import (
-	"github.com/loft-sh/vcluster/pkg/util/generics"
 	"maps"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/generics"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -229,14 +229,14 @@ func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {
 func AnnotationsBidirectionalUpdateFunction[T client.Object](event *synccontext.SyncEvent[T], transformFromHost, transformToHost func(key string, value interface{}) (string, interface{})) (map[string]string, map[string]string) {
 	excludeAnnotations := []string{HostNameAnnotation, HostNamespaceAnnotation, NameAnnotation, UIDAnnotation, KindAnnotation, NamespaceAnnotation, ManagedAnnotationsAnnotation, ManagedLabelsAnnotation}
 	newVirtual := maps.Clone(event.Virtual.GetAnnotations())
-	if newVirtual == nil {
+	if generics.IsNilOrEmpty(newVirtual) {
 		newVirtual = map[string]string{}
 	}
 	newHost := maps.Clone(event.Host.GetAnnotations())
-	if newHost == nil {
+	if generics.IsNilOrEmpty(newHost) {
 		newHost = map[string]string{}
 	}
-	if generics.IsNil(event.Host.GetAnnotations()) || !apiequality.Semantic.DeepEqual(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations()) {
+	if generics.IsNilOrEmpty(newHost) || !apiequality.Semantic.DeepEqual(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations()) {
 		newHost = mergeMaps(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations(), event.Host.GetAnnotations(), func(key string, value interface{}) (string, interface{}) {
 			if stringutil.Contains(excludeAnnotations, key) {
 				return "", nil
@@ -246,7 +246,7 @@ func AnnotationsBidirectionalUpdateFunction[T client.Object](event *synccontext.
 
 			return transformToHost(key, value)
 		})
-	} else if generics.IsNil(event.Virtual.GetAnnotations()) || !apiequality.Semantic.DeepEqual(event.HostOld.GetAnnotations(), event.Host.GetAnnotations()) {
+	} else if generics.IsNilOrEmpty(newVirtual) || !apiequality.Semantic.DeepEqual(event.HostOld.GetAnnotations(), event.Host.GetAnnotations()) {
 		newVirtual = mergeMaps(event.HostOld.GetAnnotations(), event.Host.GetAnnotations(), event.Virtual.GetAnnotations(), func(key string, value interface{}) (string, interface{}) {
 			if stringutil.Contains(excludeAnnotations, key) {
 				return "", nil
@@ -282,7 +282,7 @@ func LabelsBidirectionalUpdateFunction[T client.Object](event *synccontext.SyncE
 func LabelsBidirectionalUpdateFunctionMaps(virtualOld, virtual, hostOld, host map[string]string, transformFromHost, transformToHost func(key string, value interface{}) (string, interface{})) (map[string]string, map[string]string) {
 	newVirtual := virtual
 	newHost := host
-	if !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
+	if generics.IsNilOrEmpty(newVirtual) || !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
 		newHost = mergeMaps(virtualOld, virtual, host, func(key string, value interface{}) (string, interface{}) {
 			key = HostLabel(key)
 			if transformToHost == nil {
@@ -291,7 +291,7 @@ func LabelsBidirectionalUpdateFunctionMaps(virtualOld, virtual, hostOld, host ma
 
 			return transformToHost(key, value)
 		})
-	} else if !apiequality.Semantic.DeepEqual(hostOld, host) {
+	} else if generics.IsNilOrEmpty(newVirtual) || !apiequality.Semantic.DeepEqual(hostOld, host) {
 		newVirtual = mergeMaps(hostOld, host, virtual, func(key string, value interface{}) (string, interface{}) {
 			key, _ = VirtualLabel(key)
 			if transformFromHost == nil {
