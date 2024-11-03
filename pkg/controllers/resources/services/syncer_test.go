@@ -6,17 +6,14 @@ import (
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
-	"gotest.tools/assert"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"k8s.io/apimachinery/pkg/types"
-
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-
+	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestSync(t *testing.T) {
@@ -66,12 +63,12 @@ func TestSync(t *testing.T) {
 		Type:                     corev1.ServiceTypeNodePort,
 		ExternalTrafficPolicy:    corev1.ServiceExternalTrafficPolicyTypeLocal,
 		SessionAffinity:          corev1.ServiceAffinityClientIP,
-		LoadBalancerSourceRanges: []string{"backwardRange"},
 		SessionAffinityConfig: &corev1.SessionAffinityConfig{
 			ClientIP: &corev1.ClientIPConfig{},
 		},
 		HealthCheckNodePort: 112,
 	}
+
 	updateForwardService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        vObjectMeta.Name,
@@ -116,9 +113,8 @@ func TestSync(t *testing.T) {
 			Annotations: pObjectMeta.Annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			ExternalName:   "backwardExternal",
-			ExternalIPs:    []string{"123:221:123:221"},
-			LoadBalancerIP: "123:213:123:213",
+			Type:         corev1.ServiceTypeExternalName,
+			ExternalName: "backwardExternal",
 		},
 	}
 	updatedBackwardSpecService := &corev1.Service{
@@ -127,9 +123,8 @@ func TestSync(t *testing.T) {
 			Namespace: vObjectMeta.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
-			ExternalName:   "backwardExternal",
-			ExternalIPs:    []string{"123:221:123:221"},
-			LoadBalancerIP: "123:213:123:213",
+			Type:         corev1.ServiceTypeExternalName,
+			ExternalName: "backwardExternal",
 		},
 	}
 	updateBackwardSpecRecreateService := &corev1.Service{
@@ -257,8 +252,7 @@ func TestSync(t *testing.T) {
 	vServiceClusterIPFromExternal := &corev1.Service{
 		ObjectMeta: vObjectMeta,
 		Spec: corev1.ServiceSpec{
-			ExternalName: "test.com",
-			Type:         corev1.ServiceTypeClusterIP,
+			Type: corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{
 				{
 					Name: "http",
@@ -277,9 +271,8 @@ func TestSync(t *testing.T) {
 	pServiceClusterIPFromExternal := &corev1.Service{
 		ObjectMeta: pObjectMeta,
 		Spec: corev1.ServiceSpec{
-			ExternalName: "test.com",
-			Type:         corev1.ServiceTypeClusterIP,
-			Ports:        vServiceClusterIPFromExternal.Spec.Ports,
+			Type:  corev1.ServiceTypeClusterIP,
+			Ports: vServiceClusterIPFromExternal.Spec.Ports,
 		},
 	}
 	selectorKey := "test"

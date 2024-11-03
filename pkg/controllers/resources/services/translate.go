@@ -50,3 +50,73 @@ func StripNodePorts(vObj *corev1.Service) {
 		vObj.Spec.Ports[i].NodePort = 0
 	}
 }
+
+// AlignSpecWithServiceType removes any fields that are invalid for the specific service type
+func AlignSpecWithServiceType(svc *corev1.Service) {
+	if svc == nil || svc.Spec.Type == "" {
+		return
+	}
+
+	// Default to ClusterIP if type is not specified
+	if svc.Spec.Type == "" {
+		svc.Spec.Type = corev1.ServiceTypeClusterIP
+	}
+
+	switch svc.Spec.Type {
+	case corev1.ServiceTypeClusterIP:
+		cleanClusterIPFields(svc)
+	case corev1.ServiceTypeNodePort:
+		cleanNodePortFields(svc)
+	case corev1.ServiceTypeLoadBalancer:
+		cleanLoadBalancerFields(svc)
+	case corev1.ServiceTypeExternalName:
+		cleanExternalNameFields(svc)
+	}
+}
+
+func cleanClusterIPFields(svc *corev1.Service) {
+	// Clear fields not valid for ClusterIP
+	svc.Spec.ExternalTrafficPolicy = ""
+	svc.Spec.HealthCheckNodePort = 0
+	svc.Spec.LoadBalancerIP = ""
+	svc.Spec.LoadBalancerSourceRanges = nil
+	svc.Spec.LoadBalancerClass = nil
+	svc.Spec.ExternalName = ""
+	svc.Spec.ExternalIPs = nil
+	svc.Spec.AllocateLoadBalancerNodePorts = nil
+}
+
+func cleanNodePortFields(svc *corev1.Service) {
+	// NodePort can have all ClusterIP fields plus some additional ones
+	// Clear fields not valid for NodePort
+	svc.Spec.LoadBalancerIP = ""
+	svc.Spec.LoadBalancerSourceRanges = nil
+	svc.Spec.LoadBalancerClass = nil
+	svc.Spec.ExternalName = ""
+}
+
+func cleanLoadBalancerFields(svc *corev1.Service) {
+	// LoadBalancer can have all NodePort fields plus some additional ones
+	// Only need to clear ExternalName as it inherits from NodePort
+	svc.Spec.ExternalName = ""
+}
+
+func cleanExternalNameFields(svc *corev1.Service) {
+	// ExternalName services should only have metadata, type, and externalName
+	svc.Spec.Ports = nil
+	svc.Spec.Selector = nil
+	svc.Spec.ClusterIP = ""
+	svc.Spec.ExternalIPs = nil
+	svc.Spec.LoadBalancerIP = ""
+	svc.Spec.LoadBalancerSourceRanges = nil
+	svc.Spec.LoadBalancerClass = nil
+	svc.Spec.ExternalTrafficPolicy = ""
+	svc.Spec.HealthCheckNodePort = 0
+	svc.Spec.PublishNotReadyAddresses = false
+	svc.Spec.SessionAffinity = ""
+	svc.Spec.SessionAffinityConfig = nil
+	svc.Spec.IPFamilies = nil
+	svc.Spec.IPFamilyPolicy = nil
+	svc.Spec.AllocateLoadBalancerNodePorts = nil
+	svc.Spec.InternalTrafficPolicy = nil
+}
