@@ -104,7 +104,6 @@ func cleanLoadBalancerFields(svc *corev1.Service) {
 func cleanExternalNameFields(svc *corev1.Service) {
 	// ExternalName services should only have metadata, type, and externalName
 	svc.Spec.Ports = nil
-	svc.Spec.Selector = nil
 	svc.Spec.ClusterIP = ""
 	svc.Spec.ExternalIPs = nil
 	svc.Spec.LoadBalancerIP = ""
