@@ -391,6 +391,9 @@ func TestReconcile(t *testing.T) {
 						Namespace: namespaceInVClusterA,
 						UID:       "123",
 					},
+					Data: map[string][]byte{
+						"datakey1": []byte("datavalue1"),
+					},
 				},
 			},
 

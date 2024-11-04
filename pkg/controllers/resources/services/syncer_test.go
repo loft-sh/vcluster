@@ -280,12 +280,6 @@ func TestSync(t *testing.T) {
 		ObjectMeta: vObjectMeta,
 		Spec: corev1.ServiceSpec{
 			ExternalName: "test.com",
-			Ports: []corev1.ServicePort{
-				{
-					Name: "http",
-					Port: 80,
-				},
-			},
 		},
 	}
 	vServiceNodePortFromExternal := &corev1.Service{
@@ -451,8 +445,9 @@ func TestSync(t *testing.T) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				pObj := updateBackwardSpecRecreateService.DeepCopy()
 				vObj := baseService.DeepCopy()
-				_, err := syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(baseService.DeepCopy(), pObj, vObj, vObj))
+				result, err := syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(baseService.DeepCopy(), pObj, vObj, vObj))
 				assert.NilError(t, err)
+				assert.Equal(t, result.Requeue, true)
 
 				err = ctx.VirtualManager.GetClient().Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: vObj.Name}, vObj)
 				assert.NilError(t, err)
@@ -461,7 +456,7 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 
 				pObj.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName
-				_, err = syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pObj.DeepCopy(), pObj.DeepCopy(), vObj.DeepCopy(), vObj.DeepCopy()))
+				_, err = syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(baseService.DeepCopy(), pObj.DeepCopy(), vObj.DeepCopy(), vObj.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},

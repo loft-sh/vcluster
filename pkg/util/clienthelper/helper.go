@@ -120,7 +120,7 @@ func NewImpersonatingClient(config *rest.Config, mapper meta.RESTMapper, user us
 	return client.New(restConfig, client.Options{Scheme: scheme, Mapper: mapper})
 }
 
-func IsNilObject(obj client.Object) bool {
+func IsNilObject(obj any) bool {
 	if obj == nil || (reflect.ValueOf(obj).IsValid() && reflect.ValueOf(obj).IsNil()) {
 		return true
 	}

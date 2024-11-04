@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/util/generics"
-
 	jsonpatch "github.com/evanphx/json-patch/v5"
+	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 )
 
@@ -37,7 +36,7 @@ func MergeBidirectional[T any](virtualOld, virtual, hostOld, host T) (T, T, erro
 }
 
 func MergeChangesInto[T any](oldValue, newValue, outValue T) (T, error) {
-	if generics.IsNilOrEmpty(outValue) {
+	if clienthelper.IsNilObject(outValue) {
 		return newValue, nil
 	}
 

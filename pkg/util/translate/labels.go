@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"github.com/loft-sh/vcluster/pkg/util/generics"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -229,11 +228,8 @@ func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {
 func AnnotationsBidirectionalUpdateFunction[T client.Object](event *synccontext.SyncEvent[T], transformFromHost, transformToHost func(key string, value interface{}) (string, interface{})) (map[string]string, map[string]string) {
 	excludeAnnotations := []string{HostNameAnnotation, HostNamespaceAnnotation, NameAnnotation, UIDAnnotation, KindAnnotation, NamespaceAnnotation, ManagedAnnotationsAnnotation, ManagedLabelsAnnotation}
 	newVirtual := maps.Clone(event.Virtual.GetAnnotations())
-	if generics.IsNilOrEmpty(newVirtual) {
-		newVirtual = map[string]string{}
-	}
 	newHost := maps.Clone(event.Host.GetAnnotations())
-	if generics.IsNilOrEmpty(newHost) {
+	if newHost == nil {
 		newHost = map[string]string{}
 	}
 	if !apiequality.Semantic.DeepEqual(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations()) {
@@ -331,9 +327,7 @@ func LabelsBidirectionalUpdateMaps(virtualOld, virtual, hostOld, host map[string
 
 func mergeMaps(beforeMap, afterMap, targetMap map[string]string, transformKey func(key string, value interface{}) (string, interface{})) (retMap map[string]string) {
 	// If the target map is empty merge with an empty before map to get all the changes
-	if retMap = maps.Clone(targetMap); retMap == nil {
-		return mergeMaps(map[string]string{}, afterMap, map[string]string{}, transformKey)
-	}
+	retMap = maps.Clone(targetMap)
 
 	// get diff map
 	diffMap := map[string]interface{}{}
@@ -371,6 +365,9 @@ func mergeMaps(beforeMap, afterMap, targetMap map[string]string, transformKey fu
 	}
 
 	// apply diff map
+	if retMap == nil {
+		retMap = map[string]string{}
+	}
 	for k, v := range diffMap {
 		if v == nil {
 			delete(retMap, k)
