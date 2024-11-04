@@ -225,7 +225,12 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(pDynamic.DeepCopy(), vDynamic.DeepCopy()))
+				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pDynamic.DeepCopy(),
+					pDynamic.DeepCopy(),
+					vDynamic.DeepCopy(),
+					vDynamic.DeepCopy(),
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -241,7 +246,12 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(pDynamic.DeepCopy(), vInvalidMutation.DeepCopy()))
+				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pDynamic.DeepCopy(),
+					pDynamic.DeepCopy(),
+					vDynamic.DeepCopy(),
+					vInvalidMutation.DeepCopy(),
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -257,7 +267,12 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(pWithStatus.DeepCopy(), vWithGCFinalizer.DeepCopy()))
+				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pWithStatus.DeepCopy(),
+					pWithStatus.DeepCopy(),
+					vWithGCFinalizer.DeepCopy(),
+					vWithGCFinalizer.DeepCopy(),
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -273,7 +288,12 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(pModifiedDeletionPolicy.DeepCopy(), vModifiedDeletionPolicy.DeepCopy()))
+				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pPreProvisioned.DeepCopy(),
+					pModifiedDeletionPolicy.DeepCopy(),
+					vModifiedDeletionPolicy.DeepCopy(),
+					vModifiedDeletionPolicy.DeepCopy(),
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -289,7 +309,12 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(pPreProvisioned.DeepCopy(), vDeleting.DeepCopy()))
+				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pPreProvisioned.DeepCopy(),
+					pPreProvisioned.DeepCopy(),
+					vDeleting.DeepCopy(),
+					vDeleting.DeepCopy(),
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -321,7 +346,12 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(pDeletingWithOneFinalizer.DeepCopy(), vDeletingWithMoreFinalizers.DeepCopy()))
+				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pDeletingWithOneFinalizer.DeepCopy(),
+					pDeletingWithOneFinalizer.DeepCopy(),
+					vDeletingWithMoreFinalizers.DeepCopy(),
+					vDeletingWithMoreFinalizers.DeepCopy(),
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -337,7 +367,12 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(pDeletingWithStatus.DeepCopy(), vDeletingWithOneFinalizer.DeepCopy()))
+				_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pDeletingWithStatus.DeepCopy(),
+					pDeletingWithStatus.DeepCopy(),
+					vDeletingWithOneFinalizer.DeepCopy(),
+					vDeletingWithOneFinalizer.DeepCopy(),
+				))
 				assert.NilError(t, err)
 			},
 		},

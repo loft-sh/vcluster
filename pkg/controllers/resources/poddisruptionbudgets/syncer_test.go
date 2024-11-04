@@ -116,7 +116,12 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*pdbSyncer).Sync(syncCtx, synccontext.NewSyncEvent(hostClusterSyncedPDB.DeepCopy(), vclusterUpdatedPDB.DeepCopy()))
+				_, err := syncer.(*pdbSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					hostClusterSyncedPDB.DeepCopy(),
+					hostClusterSyncedPDB.DeepCopy(),
+					vclusterUpdatedPDB.DeepCopy(),
+					vclusterUpdatedPDB.DeepCopy(),
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -136,7 +141,12 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*pdbSyncer).Sync(syncCtx, synccontext.NewSyncEvent(hostClusterSyncedPDB.DeepCopy(), vclusterUpdatedSelectorPDB.DeepCopy()))
+				_, err := syncer.(*pdbSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					hostClusterSyncedPDB.DeepCopy(),
+					hostClusterSyncedPDB.DeepCopy(),
+					vclusterUpdatedSelectorPDB.DeepCopy(),
+					vclusterUpdatedSelectorPDB.DeepCopy(),
+				))
 				assert.NilError(t, err)
 			},
 		},

@@ -256,7 +256,7 @@ func TestSync(t *testing.T) {
 				vIngress := baseIngress.DeepCopy()
 				vIngress.ResourceVersion = "999"
 
-				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(backwardUpdateIngress, backwardUpdateIngress, vIngress, vIngress))
+				_, err := syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(baseIngress.DeepCopy(), backwardUpdateIngress, vIngress, vIngress))
 				assert.NilError(t, err)
 
 				err = syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{Namespace: vIngress.Namespace, Name: vIngress.Name}, vIngress)
@@ -346,7 +346,6 @@ func TestSync(t *testing.T) {
 							Annotations: map[string]string{
 								"nginx.ingress.kubernetes.io/auth-secret":     translate.Default.HostName(nil, "my-secret", baseIngress.Namespace).Name,
 								"nginx.ingress.kubernetes.io/auth-tls-secret": createdIngress.Namespace + "/" + translate.Default.HostName(nil, "my-secret", baseIngress.Namespace).Name,
-								"vcluster.loft.sh/managed-annotations":        "nginx.ingress.kubernetes.io/auth-secret\nnginx.ingress.kubernetes.io/auth-tls-secret",
 								"vcluster.loft.sh/object-name":                baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":           baseIngress.Namespace,
 								translate.UIDAnnotation:                       "",
@@ -369,7 +368,7 @@ func TestSync(t *testing.T) {
 				err = syncCtx.PhysicalClient.Get(syncCtx, types.NamespacedName{Name: createdIngress.Name, Namespace: createdIngress.Namespace}, pIngress)
 				assert.NilError(t, err)
 
-				_, err = syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pIngress, pIngress, vIngress, vIngress))
+				_, err = syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pIngress, pIngress, baseIngress.DeepCopy(), vIngress))
 				assert.NilError(t, err)
 			},
 		},
@@ -422,7 +421,6 @@ func TestSync(t *testing.T) {
 							Namespace: createdIngress.Namespace,
 							Labels:    createdIngress.Labels,
 							Annotations: map[string]string{
-								"vcluster.loft.sh/managed-annotations":                           "alb.ingress.kubernetes.io/actions.ssl-redirect-x-test-x-suffix\nalb.ingress.kubernetes.io/actions.testservice-x-test-x-suffix\nnginx.ingress.kubernetes.io/auth-secret",
 								"nginx.ingress.kubernetes.io/auth-secret":                        translate.Default.HostName(nil, "my-secret", baseIngress.Namespace).Name,
 								"vcluster.loft.sh/object-name":                                   baseIngress.Name,
 								"vcluster.loft.sh/object-namespace":                              baseIngress.Namespace,
@@ -448,7 +446,7 @@ func TestSync(t *testing.T) {
 				err = syncCtx.PhysicalClient.Get(syncCtx, types.NamespacedName{Name: createdIngress.Name, Namespace: createdIngress.Namespace}, pIngress)
 				assert.NilError(t, err)
 
-				_, err = syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pIngress, pIngress, vIngress, vIngress))
+				_, err = syncer.(*ingressSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pIngress, pIngress, baseIngress.DeepCopy(), vIngress))
 				assert.NilError(t, err)
 			},
 		},

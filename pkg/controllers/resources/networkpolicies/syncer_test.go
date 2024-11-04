@@ -249,11 +249,8 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
-			Name: "Update forward",
-			InitialVirtualState: []runtime.Object{&networkingv1.NetworkPolicy{
-				ObjectMeta: vObjectMeta,
-				Spec:       vBaseSpec,
-			}},
+			Name:                "Update forward",
+			InitialVirtualState: []runtime.Object{vBaseNetworkPolicy.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{&networkingv1.NetworkPolicy{
 				ObjectMeta: pObjectMeta,
 				Spec:       networkingv1.NetworkPolicySpec{},
@@ -269,16 +266,22 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				pNetworkPolicy := &networkingv1.NetworkPolicy{
+				pNetworkPolicyOld := &networkingv1.NetworkPolicy{
 					ObjectMeta: pObjectMeta,
 					Spec:       networkingv1.NetworkPolicySpec{},
 				}
+				pNetworkPolicy := pNetworkPolicyOld.DeepCopy()
 				pNetworkPolicy.ResourceVersion = "999"
 
-				_, err := syncer.(*networkPolicySyncer).Sync(syncCtx, synccontext.NewSyncEvent(pNetworkPolicy, &networkingv1.NetworkPolicy{
-					ObjectMeta: vObjectMeta,
-					Spec:       vBaseSpec,
-				}))
+				vNetworkPolicyOld := vBaseNetworkPolicy
+				vNetworkPolicy := vNetworkPolicyOld.DeepCopy()
+
+				_, err := syncer.(*networkPolicySyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pNetworkPolicyOld,
+					pNetworkPolicy,
+					vNetworkPolicyOld,
+					vNetworkPolicy,
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -294,10 +297,20 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+
+				vNetworkPolicyOld := vBaseNetworkPolicy.DeepCopy()
 				vNetworkPolicy := vBaseNetworkPolicy.DeepCopy()
 				vNetworkPolicy.ResourceVersion = "999"
 
-				_, err := syncer.(*networkPolicySyncer).Sync(syncCtx, synccontext.NewSyncEvent(pBaseNetworkPolicy.DeepCopy(), vNetworkPolicy))
+				pNetworkPolicyOld := pBaseNetworkPolicy.DeepCopy()
+				pNetworkPolicy := pBaseNetworkPolicy.DeepCopy()
+
+				_, err := syncer.(*networkPolicySyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pNetworkPolicyOld,
+					pNetworkPolicy,
+					vNetworkPolicyOld,
+					vNetworkPolicy,
+				))
 				assert.NilError(t, err)
 			},
 		},

@@ -422,6 +422,9 @@ func TestReconcile(t *testing.T) {
 							Namespace: namespaceInVClusterA,
 							UID:       "123",
 						},
+						Data: map[string][]byte{
+							"datakey1": []byte("datavalue1"),
+						},
 					},
 				},
 			},
@@ -445,6 +448,9 @@ func TestReconcile(t *testing.T) {
 							Labels: map[string]string{
 								translate.NamespaceLabel: namespaceInVClusterA,
 							},
+						},
+						Data: map[string][]byte{
+							"datakey1": []byte("datavalue1"),
 						},
 					},
 				},

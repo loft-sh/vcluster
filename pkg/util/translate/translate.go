@@ -104,6 +104,9 @@ func HostAnnotations(vObj, pObj client.Object, excluded ...string) map[string]st
 	toAnnotations := map[string]string{}
 	if pObj != nil {
 		toAnnotations = pObj.GetAnnotations()
+		if toAnnotations == nil {
+			toAnnotations = map[string]string{}
+		}
 	}
 
 	retMap := applyAnnotations(vObj.GetAnnotations(), toAnnotations, excluded...)

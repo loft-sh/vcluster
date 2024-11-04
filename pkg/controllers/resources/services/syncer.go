@@ -15,6 +15,7 @@ import (
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
@@ -109,6 +110,9 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
+		AlignSpecWithServiceType(event.Virtual)
+		AlignSpecWithServiceType(event.Host)
+
 		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
@@ -117,12 +121,25 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		}
 	}()
 
+	event.Virtual.Spec.Type, event.Host.Spec.Type = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.Type,
+		event.Virtual.Spec.Type,
+		event.HostOld.Spec.Type,
+		event.Host.Spec.Type,
+	)
+
 	// update spec bidirectionally
 	event.Virtual.Spec.ExternalIPs, event.Host.Spec.ExternalIPs = patcher.CopyBidirectional(
 		event.VirtualOld.Spec.ExternalIPs,
 		event.Virtual.Spec.ExternalIPs,
 		event.HostOld.Spec.ExternalIPs,
 		event.Host.Spec.ExternalIPs,
+	)
+	event.Virtual.Spec.ExternalName, event.Host.Spec.ExternalName = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.ExternalName,
+		event.Virtual.Spec.ExternalName,
+		event.HostOld.Spec.ExternalName,
+		event.Host.Spec.ExternalName,
 	)
 	event.Virtual.Spec.LoadBalancerIP, event.Host.Spec.LoadBalancerIP = patcher.CopyBidirectional(
 		event.VirtualOld.Spec.LoadBalancerIP,
@@ -141,18 +158,6 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		event.Virtual.Spec.PublishNotReadyAddresses,
 		event.HostOld.Spec.PublishNotReadyAddresses,
 		event.Host.Spec.PublishNotReadyAddresses,
-	)
-	event.Virtual.Spec.Type, event.Host.Spec.Type = patcher.CopyBidirectional(
-		event.VirtualOld.Spec.Type,
-		event.Virtual.Spec.Type,
-		event.HostOld.Spec.Type,
-		event.Host.Spec.Type,
-	)
-	event.Virtual.Spec.ExternalName, event.Host.Spec.ExternalName = patcher.CopyBidirectional(
-		event.VirtualOld.Spec.ExternalName,
-		event.Virtual.Spec.ExternalName,
-		event.HostOld.Spec.ExternalName,
-		event.Host.Spec.ExternalName,
 	)
 	event.Virtual.Spec.ExternalTrafficPolicy, event.Host.Spec.ExternalTrafficPolicy = patcher.CopyBidirectional(
 		event.VirtualOld.Spec.ExternalTrafficPolicy,
@@ -190,7 +195,6 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 
 	// bi-directional sync of annotations and labels
 	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event, s.excludedAnnotations...)
-	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 
 	// remove the ServiceBlockDeletion annotation if it's not needed
 	if event.Virtual.Spec.ClusterIP == event.Host.Spec.ClusterIP {
@@ -198,12 +202,12 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	}
 
 	// translate selector
-	event.Virtual.Spec.Selector, event.Host.Spec.Selector = translate.LabelsBidirectionalUpdateMaps(
-		event.VirtualOld.Spec.Selector,
-		event.Virtual.Spec.Selector,
-		event.HostOld.Spec.Selector,
-		event.Host.Spec.Selector,
-	)
+	// TODO: ryan - convert to bidirectional
+	if !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Selector, event.Virtual.Spec.Selector) {
+		event.Host.Spec.Selector = translate.HostLabelsMap(event.Virtual.Spec.Selector, event.Host.Spec.Selector, event.Virtual.Namespace, false)
+	} else {
+		event.Virtual.Spec.Selector = translate.VirtualLabelsMap(event.Host.Spec.Selector, event.Virtual.Spec.Selector)
+	}
 
 	return ctrl.Result{}, nil
 }

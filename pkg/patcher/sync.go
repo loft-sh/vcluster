@@ -3,6 +3,7 @@ package patcher
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/util/generics"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -11,9 +12,9 @@ import (
 func CopyBidirectional[T any](virtualOld, virtual, hostOld, host T) (T, T) {
 	newVirtual := virtual
 	newHost := host
-	if !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
+	if generics.IsNilOrEmpty(host) || !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
 		newHost = virtual
-	} else if !apiequality.Semantic.DeepEqual(hostOld, host) {
+	} else if generics.IsNilOrEmpty(virtual) || !apiequality.Semantic.DeepEqual(hostOld, host) {
 		newVirtual = host
 	}
 
@@ -25,9 +26,9 @@ func MergeBidirectional[T any](virtualOld, virtual, hostOld, host T) (T, T, erro
 
 	newVirtual := virtual
 	newHost := host
-	if !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
+	if generics.IsNilOrEmpty(host) || !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
 		newHost, err = MergeChangesInto(virtualOld, virtual, host)
-	} else if !apiequality.Semantic.DeepEqual(hostOld, host) {
+	} else if generics.IsNilOrEmpty(virtual) || !apiequality.Semantic.DeepEqual(hostOld, host) {
 		newVirtual, err = MergeChangesInto(hostOld, host, virtual)
 	}
 
@@ -35,6 +36,10 @@ func MergeBidirectional[T any](virtualOld, virtual, hostOld, host T) (T, T, erro
 }
 
 func MergeChangesInto[T any](oldValue, newValue, outValue T) (T, error) {
+	if generics.IsNilOrEmpty(outValue) {
+		return newValue, nil
+	}
+
 	var ret T
 	oldValueBytes, err := json.Marshal(oldValue)
 	if err != nil {
@@ -49,9 +54,6 @@ func MergeChangesInto[T any](oldValue, newValue, outValue T) (T, error) {
 	outBytes, err := json.Marshal(outValue)
 	if err != nil {
 		return ret, fmt.Errorf("marshal out value: %w", err)
-	}
-	if string(outBytes) == "null" {
-		outBytes = []byte("{}")
 	}
 
 	patchBytes, err := jsonpatch.CreateMergePatch(oldValueBytes, newValueBytes)
