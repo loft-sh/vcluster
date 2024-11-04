@@ -76,7 +76,7 @@ func (cmd *LogoutCmd) Run(ctx context.Context) error {
 			return fmt.Errorf("save config: %w", err)
 		}
 
-		cmd.Log.Donef(product.Replace("Successfully logged out of loft instance %s"), ansi.Color(configHost, "white+b"))
+		cmd.Log.Donef(product.Replace("Successfully logged out of vcluster platform instance %s"), ansi.Color(configHost, "white+b"))
 	}
 
 	return use.SwitchDriver(ctx, cfg, string(config.HelmDriver), cmd.Log)

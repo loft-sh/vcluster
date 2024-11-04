@@ -57,10 +57,12 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	}
 
 	startCmd := NewStartCmd(globalFlags)
+	destroyCmd := NewDestroyCmd(globalFlags)
 	loginCmd := NewCobraLoginCmd(globalFlags)
 	logoutCmd := NewLogoutCobraCmd(globalFlags)
 
 	platformCmd.AddCommand(startCmd)
+	platformCmd.AddCommand(destroyCmd)
 	platformCmd.AddCommand(NewResetCmd(globalFlags))
 	platformCmd.AddCommand(add.NewAddCmd(globalFlags))
 	platformCmd.AddCommand(NewAccessKeyCmd(globalFlags))

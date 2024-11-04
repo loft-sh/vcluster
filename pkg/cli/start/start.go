@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 
+	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
@@ -15,25 +16,43 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/util/term"
 )
 
-// Options holds the cmd flags
+var (
+	scheme = runtime.NewScheme()
+
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = storagev1.AddToScheme(scheme)
+)
+
 type Options struct {
 	*flags.GlobalFlags
+	// for logging
+	CommandName string
+	Log         log.Logger
 	// Will be filled later
-	KubeClient       kubernetes.Interface
-	Log              log.Logger
-	RestConfig       *rest.Config
-	Context          string
+	KubeClient kubernetes.Interface
+	RestConfig *rest.Config
+
+	// cli options common to both start and destroy
+	Context   string
+	Namespace string
+}
+
+// StartOptions holds the cmd flags
+type StartOptions struct { //nolint:revive // linter suggests renaming to options which already exists
+	Options
+	// cli options
 	Values           string
 	LocalPort        string
 	Version          string
 	DockerImage      string
-	Namespace        string
 	Password         string
 	Host             string
 	Email            string
@@ -52,14 +71,14 @@ type Options struct {
 	Docker           bool
 }
 
-func NewLoftStarter(options Options) *LoftStarter {
+func NewLoftStarter(options StartOptions) *LoftStarter {
 	return &LoftStarter{
-		Options: options,
+		StartOptions: options,
 	}
 }
 
 type LoftStarter struct {
-	Options
+	StartOptions
 }
 
 // Start executes the functionality "loft start"
@@ -74,7 +93,7 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 		l.LocalPort = "9898"
 	}
 
-	err := l.prepare()
+	err := l.Prepare()
 	if err != nil {
 		return err
 	}
@@ -121,7 +140,8 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 	return l.success(ctx)
 }
 
-func (l *LoftStarter) prepare() error {
+// Prepare initializes clients, verifies the existense of binaries, and ensures we are starting with the right kube context
+func (l *Options) Prepare() error {
 	platformClient := platform.NewClientFromConfig(l.LoadedConfig(l.Log))
 
 	platformConfig := platformClient.Config().Platform
@@ -141,7 +161,7 @@ func (l *LoftStarter) prepare() error {
 		contextToLoad = l.Context
 	} else if platformConfig.LastInstallContext != "" && platformConfig.LastInstallContext != contextToLoad {
 		contextToLoad, err = l.Log.Question(&survey.QuestionOptions{
-			Question:     product.Replace("Seems like you try to use 'loft start' with a different kubernetes context than before. Please choose which kubernetes context you want to use"),
+			Question:     product.Replace(fmt.Sprintf("Seems like you try to use 'loft %s' with a different kubernetes context than before. Please choose which kubernetes context you want to use", l.CommandName)),
 			DefaultValue: contextToLoad,
 			Options:      []string{contextToLoad, platformConfig.LastInstallContext},
 		})

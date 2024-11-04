@@ -21,19 +21,23 @@ import (
 )
 
 type StartCmd struct {
-	start.Options
+	start.StartOptions
 }
 
 func NewStartCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+	name := "start"
 	cmd := &StartCmd{
-		Options: start.Options{
-			GlobalFlags: globalFlags,
-			Log:         log.GetInstance(),
+		StartOptions: start.StartOptions{
+			Options: start.Options{
+				CommandName: name,
+				GlobalFlags: globalFlags,
+				Log:         log.GetInstance(),
+			},
 		},
 	}
 
 	startCmd := &cobra.Command{
-		Use:   "start",
+		Use:   name,
 		Short: "Start a vCluster platform instance and connect via port-forwarding",
 		Long: `########################################################
 ############# vcluster platform start ##################
@@ -146,7 +150,7 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 		}
 	}
 
-	return start.NewLoftStarter(cmd.Options).Start(ctx)
+	return start.NewLoftStarter(cmd.StartOptions).Start(ctx)
 }
 
 func (cmd *StartCmd) ensureEmailWithDisclaimer() error {
