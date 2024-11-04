@@ -59,12 +59,7 @@ func (s *eventSyncer) Options() *syncertypes.Options {
 	}
 }
 
-func (s *eventSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Event]) (ctrl.Result, error) {
-	// check if delete event
-	if event.IsDelete() {
-		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host event was deleted")
-	}
-
+func (s *eventSyncer) SyncToHost(_ *synccontext.SyncContext, _ *synccontext.SyncToHostEvent[*corev1.Event]) (ctrl.Result, error) {
 	// just ignore, Kubernetes will clean them up
 	return ctrl.Result{}, nil
 }

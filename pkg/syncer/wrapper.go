@@ -22,11 +22,10 @@ type toSyncer[T client.Object] struct {
 
 func (t *toSyncer[T]) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[client.Object]) (ctrl.Result, error) {
 	hostConverted, _ := event.Host.(T)
-
+	virtualOldConverted, _ := event.VirtualOld.(T)
 	return t.syncer.SyncToVirtual(ctx, &synccontext.SyncToVirtualEvent[T]{
-		Type:   event.Type,
-		Source: event.Source,
-		Host:   hostConverted,
+		VirtualOld: virtualOldConverted,
+		Host:       hostConverted,
 	})
 }
 
@@ -37,11 +36,13 @@ func (t *toSyncer[T]) Sync(ctx *synccontext.SyncContext, event *synccontext.Sync
 		return reconcile.Result{}, errors.New("syncer: type assertion failed")
 	}
 
+	hostOldConverted, _ := event.HostOld.(T)
+	virtualOldConverted, _ := event.VirtualOld.(T)
 	return t.syncer.Sync(ctx, &synccontext.SyncEvent[T]{
-		Type:    event.Type,
-		Source:  event.Source,
-		Host:    hostConverted,
-		Virtual: virtualConverted,
+		HostOld:    hostOldConverted,
+		Host:       hostConverted,
+		VirtualOld: virtualOldConverted,
+		Virtual:    virtualConverted,
 	})
 }
 
@@ -51,9 +52,9 @@ func (t *toSyncer[T]) SyncToHost(ctx *synccontext.SyncContext, event *synccontex
 		return reconcile.Result{}, errors.New("syncer: type assertion failed")
 	}
 
+	hostOldConverted, _ := event.HostOld.(T)
 	return t.syncer.SyncToHost(ctx, &synccontext.SyncToHostEvent[T]{
-		Type:    event.Type,
-		Source:  event.Source,
+		HostOld: hostOldConverted,
 		Virtual: virtualConverted,
 	})
 }

@@ -16,7 +16,6 @@ import (
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
-	"github.com/loft-sh/vcluster/pkg/util/fifolocker"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -60,7 +59,7 @@ func (s *mockSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext
 		return ctrl.Result{}, errors.New("naive translate create failed")
 	}
 
-	return CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
+	return patcher.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder(), false)
 }
 
 // Sync is called to sync a virtual object with a physical object
@@ -79,14 +78,19 @@ func (s *mockSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
 
 	// check data
-	event.TargetObject().Data = event.SourceObject().Data
+	event.Virtual.Data, event.Host.Data = patcher.CopyBidirectional(
+		event.VirtualOld.Data,
+		event.Virtual.Data,
+		event.HostOld.Data,
+		event.Host.Data,
+	)
 
 	return ctrl.Result{}, nil
 }
 
 func (s *mockSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Secret]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
-	return DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 }
 
 var _ syncertypes.Syncer = &mockSyncer{}
@@ -387,6 +391,9 @@ func TestReconcile(t *testing.T) {
 						Namespace: namespaceInVClusterA,
 						UID:       "123",
 					},
+					Data: map[string][]byte{
+						"datakey1": []byte("datavalue1"),
+					},
 				},
 			},
 
@@ -418,6 +425,9 @@ func TestReconcile(t *testing.T) {
 							Namespace: namespaceInVClusterA,
 							UID:       "123",
 						},
+						Data: map[string][]byte{
+							"datakey1": []byte("datavalue1"),
+						},
 					},
 				},
 			},
@@ -442,6 +452,9 @@ func TestReconcile(t *testing.T) {
 								translate.NamespaceLabel: namespaceInVClusterA,
 							},
 						},
+						Data: map[string][]byte{
+							"datakey1": []byte("datavalue1"),
+						},
 					},
 				},
 			},
@@ -451,9 +464,7 @@ func TestReconcile(t *testing.T) {
 			Syncer: NewMockSyncer,
 
 			EnqueueObjs: []types.NamespacedName{
-				toHostRequest(reconcile.Request{
-					NamespacedName: types.NamespacedName{Name: "abc", Namespace: testingutil.DefaultTestTargetNamespace},
-				}).NamespacedName,
+				{Name: "abc", Namespace: testingutil.DefaultTestTargetNamespace},
 			},
 
 			CreateVirtualObjects: []client.Object{
@@ -569,7 +580,7 @@ func TestReconcile(t *testing.T) {
 			virtualClient: vClient,
 			options:       options,
 
-			locker: fifolocker.New(),
+			objectCache: synccontext.NewBidirectionalObjectCache(syncer.Resource()),
 		}
 
 		// create objects

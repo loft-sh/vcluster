@@ -50,18 +50,3 @@ func Uncompress(s string) (string, error) {
 
 	return string(decompressed), nil
 }
-
-func UncompressBytes(raw []byte) (string, error) {
-	rdata := bytes.NewReader(raw)
-	r, err := gzip.NewReader(rdata)
-	if err != nil {
-		return "", err
-	}
-
-	decompressed, err := io.ReadAll(r)
-	if err != nil {
-		return "", err
-	}
-
-	return string(decompressed), nil
-}

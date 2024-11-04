@@ -213,7 +213,12 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*endpointsSyncer).Sync(syncCtx, synccontext.NewSyncEvent(syncedEndpoints, updatedEndpoints))
+				_, err := syncer.(*endpointsSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					syncedEndpoints,
+					syncedEndpoints,
+					baseEndpoints,
+					updatedEndpoints,
+				))
 				assert.NilError(t, err)
 			},
 		},

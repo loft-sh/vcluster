@@ -49,6 +49,14 @@ type secretSyncer struct {
 	syncertypes.Importer
 }
 
+var _ syncertypes.OptionsProvider = &secretSyncer{}
+
+func (s *secretSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		ObjectCaching: true,
+	}
+}
+
 var _ syncertypes.Syncer = &secretSyncer{}
 
 func (s *secretSyncer) Syncer() syncertypes.Sync[client.Object] {
@@ -72,8 +80,8 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncconte
 	}
 
 	// delete if the host object was deleted
-	if event.IsDelete() || event.Virtual.DeletionTimestamp != nil {
-		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was delete")
+	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was delete")
 	}
 
 	// translate secret
@@ -87,7 +95,7 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncconte
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateHostObject(ctx, event.Virtual, newSecret, s.EventRecorder())
+	return patcher.CreateHostObject(ctx, event.Virtual, newSecret, s.EventRecorder(), false)
 }
 
 func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Secret]) (_ ctrl.Result, retErr error) {
@@ -95,14 +103,7 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Syn
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !used {
-		ctx.Log.Infof("delete physical secret %s/%s, because it is not used anymore", event.Host.Namespace, event.Host.Name)
-		err = ctx.PhysicalClient.Delete(ctx, event.Host)
-		if err != nil {
-			ctx.Log.Infof("error deleting physical object %s/%s in physical cluster: %v", event.Host.Namespace, event.Host.Name, err)
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{}, nil
+		return patcher.DeleteHostObject(ctx, event.Host, event.Virtual, "secret is not used anymore")
 	}
 
 	// patch objects
@@ -120,29 +121,33 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Syn
 		}
 	}()
 
-	// check data
-	event.TargetObject().Data = event.SourceObject().Data
+	// bidirectional sync
+	event.Virtual.Data, event.Host.Data, err = patcher.MergeBidirectional(event.VirtualOld.Data, event.Virtual.Data, event.HostOld.Data, event.Host.Data)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// check secret type
-	if event.Virtual.Type != event.Host.Type && event.Virtual.Type != corev1.SecretTypeServiceAccountToken {
-		event.TargetObject().Type = event.SourceObject().Type
+	if event.Virtual.Type != event.Host.Type && event.Virtual.Type != corev1.SecretTypeServiceAccountToken && event.Host.Type != corev1.SecretTypeServiceAccountToken {
+		event.Virtual.Type, event.Host.Type = patcher.CopyBidirectional(
+			event.VirtualOld.Type,
+			event.Virtual.Type,
+			event.HostOld.Type,
+			event.Host.Type,
+		)
 	}
 
-	if event.Source == synccontext.SyncEventSourceHost {
-		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual)
-		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
-	} else {
-		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
-		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
-	}
+	// bi-directional sync of annotations and labels
+	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event)
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 
 	return ctrl.Result{}, nil
 }
 
 func (s *secretSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Secret]) (_ ctrl.Result, retErr error) {
-	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
+	if event.VirtualOld != nil || event.Host.DeletionTimestamp != nil {
 		// virtual object is not here anymore, so we delete
-		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 
 	vObj := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
@@ -158,7 +163,7 @@ func (s *secretSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncco
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder())
+	return patcher.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder(), false)
 }
 
 func (s *secretSyncer) isSecretUsed(ctx *synccontext.SyncContext, secret *corev1.Secret) (bool, error) {

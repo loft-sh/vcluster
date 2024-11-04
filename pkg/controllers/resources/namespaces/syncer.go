@@ -96,7 +96,7 @@ func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 
 func (s *namespaceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Namespace]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
-	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	return patcher.DeleteHostObject(ctx, event.Host, nil, "virtual object was deleted")
 }
 
 func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncContext, pNamespace string) error {

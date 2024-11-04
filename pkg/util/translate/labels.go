@@ -1,8 +1,12 @@
 package translate
 
 import (
+	"maps"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/stringutil"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -219,4 +223,159 @@ func MergeLabelSelectors(elems ...*metav1.LabelSelector) *metav1.LabelSelector {
 		out.MatchExpressions = append(out.MatchExpressions, selector.MatchExpressions...)
 	}
 	return out
+}
+
+func AnnotationsBidirectionalUpdateFunction[T client.Object](event *synccontext.SyncEvent[T], transformFromHost, transformToHost func(key string, value interface{}) (string, interface{})) (map[string]string, map[string]string) {
+	excludeAnnotations := []string{HostNameAnnotation, HostNamespaceAnnotation, NameAnnotation, UIDAnnotation, KindAnnotation, NamespaceAnnotation, ManagedAnnotationsAnnotation, ManagedLabelsAnnotation}
+	newVirtual := maps.Clone(event.Virtual.GetAnnotations())
+	newHost := maps.Clone(event.Host.GetAnnotations())
+	if newHost == nil {
+		newHost = map[string]string{}
+	}
+	if !apiequality.Semantic.DeepEqual(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations()) {
+		newHost = mergeMaps(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations(), event.Host.GetAnnotations(), func(key string, value interface{}) (string, interface{}) {
+			if stringutil.Contains(excludeAnnotations, key) {
+				return "", nil
+			} else if transformToHost == nil {
+				return key, value
+			}
+
+			return transformToHost(key, value)
+		})
+	} else if !apiequality.Semantic.DeepEqual(event.HostOld.GetAnnotations(), event.Host.GetAnnotations()) {
+		newVirtual = mergeMaps(event.HostOld.GetAnnotations(), event.Host.GetAnnotations(), event.Virtual.GetAnnotations(), func(key string, value interface{}) (string, interface{}) {
+			if stringutil.Contains(excludeAnnotations, key) {
+				return "", nil
+			} else if transformFromHost == nil {
+				return key, value
+			}
+
+			return transformFromHost(key, value)
+		})
+	}
+
+	// add the regular annotations to the host annotations
+	addHostAnnotations(newHost, event.Virtual, event.Host)
+	return newVirtual, newHost
+}
+
+func AnnotationsBidirectionalUpdate[T client.Object](event *synccontext.SyncEvent[T], excludedAnnotations ...string) (map[string]string, map[string]string) {
+	excludeFn := func(key string, value interface{}) (string, interface{}) {
+		if stringutil.Contains(excludedAnnotations, key) {
+			return "", nil
+		}
+
+		return key, value
+	}
+
+	return AnnotationsBidirectionalUpdateFunction(event, excludeFn, excludeFn)
+}
+
+func LabelsBidirectionalUpdateFunction[T client.Object](event *synccontext.SyncEvent[T], transformFromHost, transformToHost func(key string, value interface{}) (string, interface{})) (map[string]string, map[string]string) {
+	return LabelsBidirectionalUpdateFunctionMaps(event.VirtualOld.GetLabels(), event.Virtual.GetLabels(), event.HostOld.GetLabels(), event.Host.GetLabels(), transformFromHost, transformToHost)
+}
+
+func LabelsBidirectionalUpdateFunctionMaps(virtualOld, virtual, hostOld, host map[string]string, transformFromHost, transformToHost func(key string, value interface{}) (string, interface{})) (map[string]string, map[string]string) {
+	newVirtual := virtual
+	newHost := host
+	if !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
+		newHost = mergeMaps(virtualOld, virtual, host, func(key string, value interface{}) (string, interface{}) {
+			key = HostLabel(key)
+			if transformToHost == nil {
+				return key, value
+			}
+
+			return transformToHost(key, value)
+		})
+	} else if !apiequality.Semantic.DeepEqual(hostOld, host) {
+		newVirtual = mergeMaps(hostOld, host, virtual, func(key string, value interface{}) (string, interface{}) {
+			key, _ = VirtualLabel(key)
+			if transformFromHost == nil {
+				return key, value
+			}
+
+			return transformFromHost(key, value)
+		})
+	}
+
+	return newVirtual, newHost
+}
+
+func LabelsBidirectionalUpdate[T client.Object](event *synccontext.SyncEvent[T], excludedLabels ...string) (map[string]string, map[string]string) {
+	excludeFn := func(key string, value interface{}) (string, interface{}) {
+		if stringutil.Contains(excludedLabels, key) {
+			return "", nil
+		}
+
+		return key, value
+	}
+
+	return LabelsBidirectionalUpdateFunction(event, excludeFn, excludeFn)
+}
+
+func LabelsBidirectionalUpdateMaps(virtualOld, virtual, hostOld, host map[string]string, excludedLabels ...string) (map[string]string, map[string]string) {
+	excludeFn := func(key string, value interface{}) (string, interface{}) {
+		if stringutil.Contains(excludedLabels, key) {
+			return "", nil
+		}
+
+		return key, value
+	}
+
+	return LabelsBidirectionalUpdateFunctionMaps(virtualOld, virtual, hostOld, host, excludeFn, excludeFn)
+}
+
+func mergeMaps(beforeMap, afterMap, targetMap map[string]string, transformKey func(key string, value interface{}) (string, interface{})) (retMap map[string]string) {
+	// If the target map is empty merge with an empty before map to get all the changes
+	retMap = maps.Clone(targetMap)
+
+	// get diff map
+	diffMap := map[string]interface{}{}
+	for k, v := range beforeMap {
+		afterV, ok := afterMap[k]
+		if ok && afterV != v {
+			diffMap[k] = afterV
+		} else if !ok {
+			diffMap[k] = nil
+		}
+	}
+	for k, v := range afterMap {
+		_, ok := beforeMap[k]
+		if !ok {
+			diffMap[k] = v
+		}
+	}
+
+	// no changes, early return
+	if len(diffMap) == 0 {
+		return retMap
+	}
+
+	// transform keys in diffMap
+	for k, v := range diffMap {
+		newKey, newValue := transformKey(k, v)
+		if newKey == "" {
+			delete(diffMap, k)
+		} else if newKey != k {
+			diffMap[newKey] = newValue
+			delete(diffMap, k)
+		} else {
+			diffMap[newKey] = newValue
+		}
+	}
+
+	// apply diff map
+	if retMap == nil {
+		retMap = map[string]string{}
+	}
+	for k, v := range diffMap {
+		if v == nil {
+			delete(retMap, k)
+			continue
+		}
+
+		retMap[k] = v.(string)
+	}
+
+	return retMap
 }

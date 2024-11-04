@@ -77,6 +77,9 @@ type Options struct {
 	IsClusterScopedCRD bool
 
 	SkipMappingsRecording bool
+
+	// ObjectCaching enables an object cache that allows to view the old object states
+	ObjectCaching bool
 }
 
 type OptionsProvider interface {

@@ -42,6 +42,14 @@ type volumeSnapshotSyncer struct {
 	syncertypes.GenericTranslator
 }
 
+var _ syncertypes.OptionsProvider = &volumeSnapshotSyncer{}
+
+func (s *volumeSnapshotSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		ObjectCaching: true,
+	}
+}
+
 var _ syncertypes.Syncer = &volumeSnapshotSyncer{}
 
 func (s *volumeSnapshotSyncer) Syncer() syncertypes.Sync[client.Object] {
@@ -49,14 +57,20 @@ func (s *volumeSnapshotSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*volumesnapshotv1.VolumeSnapshot]) (ctrl.Result, error) {
-	if event.IsDelete() || event.Virtual.DeletionTimestamp != nil {
+	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
 		// delete volume snapshot immediately
 		if len(event.Virtual.GetFinalizers()) > 0 || (event.Virtual.GetDeletionGracePeriodSeconds() != nil && *event.Virtual.GetDeletionGracePeriodSeconds() > 0) {
 			event.Virtual.SetFinalizers([]string{})
 			event.Virtual.SetDeletionGracePeriodSeconds(&zero)
-			return ctrl.Result{}, ctx.VirtualClient.Update(ctx, event.Virtual)
+			err := ctx.VirtualClient.Update(ctx, event.Virtual)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			ctx.ObjectCache.Virtual().Put(event.Virtual)
 		}
-		return ctrl.Result{}, nil
+
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
 	pObj, err := s.translate(ctx, event.Virtual)
@@ -69,20 +83,18 @@ func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, event *s
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
+	return patcher.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder(), true)
 }
 
 func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*volumesnapshotv1.VolumeSnapshot]) (_ ctrl.Result, retErr error) {
 	if event.Host.DeletionTimestamp != nil {
 		if event.Virtual.DeletionTimestamp == nil {
-			ctx.Log.Infof("delete virtual volume snapshot %s/%s, because the physical volume snapshot is being deleted", event.Virtual.Namespace, event.Virtual.Name)
-			err := ctx.VirtualClient.Delete(ctx, event.Virtual, &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
+			_, err := patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.Host, "physical volume snapshot is being deleted", &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 		} else if *event.Virtual.DeletionGracePeriodSeconds != *event.Host.DeletionGracePeriodSeconds {
-			ctx.Log.Infof("delete virtual volume snapshot %s/%s with grace period seconds %v", event.Virtual.Namespace, event.Virtual.Name, *event.Host.DeletionGracePeriodSeconds)
-			err := ctx.VirtualClient.Delete(ctx, event.Virtual, &client.DeleteOptions{GracePeriodSeconds: event.Host.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(event.Virtual.UID))})
+			_, err := patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.Host, fmt.Sprintf("with grace period seconds %v", *event.Host.DeletionGracePeriodSeconds), &client.DeleteOptions{GracePeriodSeconds: event.Host.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(event.Virtual.UID))})
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -103,7 +115,10 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 			if err != nil {
 				return ctrl.Result{}, err
 			}
+
+			ctx.ObjectCache.Virtual().Put(updated)
 		}
+
 		if !equality.Semantic.DeepEqual(event.Virtual.Status, event.Host.Status) {
 			updated := event.Virtual.DeepCopy()
 			updated.Status = event.Host.Status.DeepCopy()
@@ -112,16 +127,19 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
+
+			ctx.ObjectCache.Virtual().Put(updated)
 		}
+
 		return ctrl.Result{}, nil
 	} else if event.Virtual.DeletionTimestamp != nil {
 		if event.Host.DeletionTimestamp == nil {
-			ctx.Log.Infof("delete physical volume snapshot %s/%s, because virtual volume snapshot is being deleted", event.Host.Namespace, event.Host.Name)
-			return ctrl.Result{}, ctx.PhysicalClient.Delete(ctx, event.Host, &client.DeleteOptions{
+			return patcher.DeleteHostObjectWithOptions(ctx, event.Host, event.Virtual, "virtual volume snapshot is being deleted", &client.DeleteOptions{
 				GracePeriodSeconds: event.Virtual.DeletionGracePeriodSeconds,
 				Preconditions:      metav1.NewUIDPreconditions(string(event.Host.UID)),
 			})
 		}
+
 		return ctrl.Result{}, nil
 	}
 
@@ -149,19 +167,14 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 	// forward update
 	event.Host.Spec.VolumeSnapshotClassName = event.Virtual.Spec.VolumeSnapshotClassName
 
-	// check if metadata changed
-	if event.Source == synccontext.SyncEventSourceHost {
-		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual)
-		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
-	} else {
-		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host)
-		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
-	}
+	// bi-directional sync of annotations and labels
+	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event)
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 
 	return ctrl.Result{}, nil
 }
 
 func (s *volumeSnapshotSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*volumesnapshotv1.VolumeSnapshot]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
-	return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 }

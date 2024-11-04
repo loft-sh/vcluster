@@ -1,7 +1,6 @@
 package services
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -16,6 +15,7 @@ import (
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
@@ -58,6 +58,7 @@ var _ syncertypes.OptionsProvider = &serviceSyncer{}
 func (s *serviceSyncer) Options() *syncertypes.Options {
 	return &syncertypes.Options{
 		DisableUIDDeletion: true,
+		ObjectCaching:      true,
 	}
 }
 
@@ -68,8 +69,8 @@ func (s *serviceSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Service]) (ctrl.Result, error) {
-	if event.IsDelete() || event.Virtual.DeletionTimestamp != nil {
-		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
+	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
 	pObj := s.translate(ctx, event.Virtual)
@@ -78,7 +79,7 @@ func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccont
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder())
+	return patcher.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder(), true)
 }
 
 func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Service]) (_ ctrl.Result, retErr error) {
@@ -117,29 +118,81 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		}
 	}()
 
+	event.Virtual.Spec.Type, event.Host.Spec.Type = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.Type,
+		event.Virtual.Spec.Type,
+		event.HostOld.Spec.Type,
+		event.Host.Spec.Type,
+	)
+
 	// update spec bidirectionally
-	event.TargetObject().Spec.ExternalIPs = event.SourceObject().Spec.ExternalIPs
-	event.TargetObject().Spec.LoadBalancerIP = event.SourceObject().Spec.LoadBalancerIP
-	event.TargetObject().Spec.Ports = event.SourceObject().Spec.Ports
-	event.TargetObject().Spec.PublishNotReadyAddresses = event.SourceObject().Spec.PublishNotReadyAddresses
-	event.TargetObject().Spec.Type = event.SourceObject().Spec.Type
-	event.TargetObject().Spec.ExternalName = event.SourceObject().Spec.ExternalName
-	event.TargetObject().Spec.ExternalTrafficPolicy = event.SourceObject().Spec.ExternalTrafficPolicy
-	event.TargetObject().Spec.SessionAffinity = event.SourceObject().Spec.SessionAffinity
-	event.TargetObject().Spec.SessionAffinityConfig = event.SourceObject().Spec.SessionAffinityConfig
-	event.TargetObject().Spec.LoadBalancerSourceRanges = event.SourceObject().Spec.LoadBalancerSourceRanges
-	event.TargetObject().Spec.HealthCheckNodePort = event.SourceObject().Spec.HealthCheckNodePort
+	event.Virtual.Spec.ExternalIPs, event.Host.Spec.ExternalIPs = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.ExternalIPs,
+		event.Virtual.Spec.ExternalIPs,
+		event.HostOld.Spec.ExternalIPs,
+		event.Host.Spec.ExternalIPs,
+	)
+	event.Virtual.Spec.ExternalName, event.Host.Spec.ExternalName = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.ExternalName,
+		event.Virtual.Spec.ExternalName,
+		event.HostOld.Spec.ExternalName,
+		event.Host.Spec.ExternalName,
+	)
+	event.Virtual.Spec.LoadBalancerIP, event.Host.Spec.LoadBalancerIP = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.LoadBalancerIP,
+		event.Virtual.Spec.LoadBalancerIP,
+		event.HostOld.Spec.LoadBalancerIP,
+		event.Host.Spec.LoadBalancerIP,
+	)
+	event.Virtual.Spec.Ports, event.Host.Spec.Ports = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.Ports,
+		event.Virtual.Spec.Ports,
+		event.HostOld.Spec.Ports,
+		event.Host.Spec.Ports,
+	)
+	event.Virtual.Spec.PublishNotReadyAddresses, event.Host.Spec.PublishNotReadyAddresses = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.PublishNotReadyAddresses,
+		event.Virtual.Spec.PublishNotReadyAddresses,
+		event.HostOld.Spec.PublishNotReadyAddresses,
+		event.Host.Spec.PublishNotReadyAddresses,
+	)
+	event.Virtual.Spec.ExternalTrafficPolicy, event.Host.Spec.ExternalTrafficPolicy = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.ExternalTrafficPolicy,
+		event.Virtual.Spec.ExternalTrafficPolicy,
+		event.HostOld.Spec.ExternalTrafficPolicy,
+		event.Host.Spec.ExternalTrafficPolicy,
+	)
+	event.Virtual.Spec.SessionAffinity, event.Host.Spec.SessionAffinity = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.SessionAffinity,
+		event.Virtual.Spec.SessionAffinity,
+		event.HostOld.Spec.SessionAffinity,
+		event.Host.Spec.SessionAffinity,
+	)
+	event.Virtual.Spec.SessionAffinityConfig, event.Host.Spec.SessionAffinityConfig = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.SessionAffinityConfig,
+		event.Virtual.Spec.SessionAffinityConfig,
+		event.HostOld.Spec.SessionAffinityConfig,
+		event.Host.Spec.SessionAffinityConfig,
+	)
+	event.Virtual.Spec.LoadBalancerSourceRanges, event.Host.Spec.LoadBalancerSourceRanges = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.LoadBalancerSourceRanges,
+		event.Virtual.Spec.LoadBalancerSourceRanges,
+		event.HostOld.Spec.LoadBalancerSourceRanges,
+		event.Host.Spec.LoadBalancerSourceRanges,
+	)
+	event.Virtual.Spec.HealthCheckNodePort, event.Host.Spec.HealthCheckNodePort = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.HealthCheckNodePort,
+		event.Virtual.Spec.HealthCheckNodePort,
+		event.HostOld.Spec.HealthCheckNodePort,
+		event.Host.Spec.HealthCheckNodePort,
+	)
 
 	// update status
 	event.Virtual.Status = event.Host.Status
 
-	if event.Source == synccontext.SyncEventSourceHost {
-		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual, s.excludedAnnotations...)
-		event.Virtual.Labels = translate.VirtualLabels(event.Host, event.Virtual)
-	} else {
-		event.Host.Annotations = translate.HostAnnotations(event.Virtual, event.Host, s.excludedAnnotations...)
-		event.Host.Labels = translate.HostLabels(event.Virtual, event.Host)
-	}
+	// bi-directional sync of annotations and labels
+	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event, s.excludedAnnotations...)
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 
 	// remove the ServiceBlockDeletion annotation if it's not needed
 	if event.Virtual.Spec.ClusterIP == event.Host.Spec.ClusterIP {
@@ -147,10 +200,11 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	}
 
 	// translate selector
-	if event.Source == synccontext.SyncEventSourceHost {
-		event.Virtual.Spec.Selector = translate.VirtualLabelsMap(event.Host.Spec.Selector, event.Virtual.Spec.Selector)
-	} else {
+	// TODO: ryan - convert to bidirectional
+	if !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Selector, event.Virtual.Spec.Selector) {
 		event.Host.Spec.Selector = translate.HostLabelsMap(event.Virtual.Spec.Selector, event.Host.Spec.Selector, event.Virtual.Namespace, false)
+	} else {
+		event.Virtual.Spec.Selector = translate.VirtualLabelsMap(event.Host.Spec.Selector, event.Virtual.Spec.Selector)
 	}
 
 	return ctrl.Result{}, nil
@@ -168,8 +222,8 @@ func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if event.IsDelete() || event.Host.DeletionTimestamp != nil {
-		return syncer.DeleteHostObject(ctx, event.Host, "virtual object was deleted")
+	if event.VirtualOld != nil || event.Host.DeletionTimestamp != nil {
+		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 
 	vObj := s.translateToVirtual(ctx, event.Host)
@@ -178,10 +232,10 @@ func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 		return ctrl.Result{}, err
 	}
 
-	return syncer.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder())
+	return patcher.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder(), true)
 }
 
-func recreateService(ctx context.Context, virtualClient client.Client, vService *corev1.Service) error {
+func recreateService(ctx *synccontext.SyncContext, virtualClient client.Client, vService *corev1.Service) error {
 	// delete & create with correct ClusterIP
 	err := virtualClient.Delete(ctx, vService)
 	if err != nil && !kerrors.IsNotFound(err) {
@@ -189,6 +243,7 @@ func recreateService(ctx context.Context, virtualClient client.Client, vService 
 	}
 
 	// make sure we don't set the resource version during create
+	ctx.ObjectCache.Virtual().Delete(vService)
 	vService = vService.DeepCopy()
 	vService.ResourceVersion = ""
 	vService.UID = ""
@@ -202,6 +257,7 @@ func recreateService(ctx context.Context, virtualClient client.Client, vService 
 		return err
 	}
 
+	ctx.ObjectCache.Virtual().Put(vService)
 	return nil
 }
 

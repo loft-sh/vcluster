@@ -64,7 +64,7 @@ func (s *podSyncer) syncEphemeralContainers(ctx *synccontext.SyncContext, physic
 
 	// do the actual update
 	ctx.Log.Infof("Update ephemeral containers for pod %s/%s", physicalPod.Namespace, physicalPod.Name)
-	_, err = physicalClusterClient.CoreV1().Pods(physicalPod.Namespace).UpdateEphemeralContainers(ctx, physicalPod.Name, physicalPod, metav1.UpdateOptions{})
+	updatedPod, err := physicalClusterClient.CoreV1().Pods(physicalPod.Namespace).UpdateEphemeralContainers(ctx, physicalPod.Name, physicalPod, metav1.UpdateOptions{})
 	if err != nil {
 		// The api-server will return a 404 when the EphemeralContainers feature is disabled because the `/ephemeralcontainers` subresource
 		// is missing. Unlike the 404 returned by a missing physicalPod, the status details will be empty.
@@ -75,5 +75,6 @@ func (s *podSyncer) syncEphemeralContainers(ctx *synccontext.SyncContext, physic
 		return false, fmt.Errorf("update ephemeral containers: %w", err)
 	}
 
+	ctx.ObjectCache.Host().Put(updatedPod)
 	return true, nil
 }

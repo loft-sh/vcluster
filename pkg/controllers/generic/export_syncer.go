@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
+	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
@@ -143,8 +144,8 @@ func (f *exporter) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.S
 	}
 
 	// delete object if host was deleted
-	if event.IsDelete() {
-		return syncer.DeleteVirtualObject(ctx, event.Virtual, "host object was deleted")
+	if event.Virtual.GetDeletionTimestamp() != nil {
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
 	// apply object to physical cluster
@@ -279,7 +280,7 @@ func (f *exporter) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontex
 	}
 
 	// delete physical object because virtual one is missing
-	return syncer.DeleteHostObject(ctx, event.Host, fmt.Sprintf("delete physical %s because virtual is missing", event.Host.GetName()))
+	return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, fmt.Sprintf("delete physical %s because virtual is missing", event.Host.GetName()))
 }
 
 func (f *exporter) Name() string {
