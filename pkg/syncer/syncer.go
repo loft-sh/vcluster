@@ -204,6 +204,15 @@ func (r *SyncController) Reconcile(ctx context.Context, vReq ctrl.Request) (_ ct
 }
 
 func (r *SyncController) getObjects(ctx *synccontext.SyncContext, vReq ctrl.Request) (vObjOld, vObj, pObjOld, pObj client.Object, err error) {
+	if ds, ok := r.syncer.(syncertypes.DirectionalSyncer); ok && ds.Direction() == synccontext.SyncHostToVirtual {
+		pObj := r.syncer.Resource()
+		if err := r.physicalClient.Get(ctx, vReq.NamespacedName, pObj); err != nil {
+			return nil, nil, nil, nil, err
+		}
+
+		return nil, nil, nil, pObj, nil
+	}
+
 	// get virtual object
 	exclude, vObj, err := r.getVirtualObject(ctx, vReq.NamespacedName)
 	if err != nil {
@@ -353,6 +362,13 @@ func (r *SyncController) enqueueVirtual(_ context.Context, obj client.Object, q 
 		return
 	}
 
+	// No need to enqueue a virtual request if we only sync to virtual
+	if ds, ok := r.syncer.(syncertypes.DirectionalSyncer); ok {
+		if ds.Direction() == synccontext.SyncHostToVirtual {
+			return
+		}
+	}
+
 	// add a new request for the virtual object
 	q.Add(reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -393,6 +409,12 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 		if !imported {
 			return
 		}
+	}
+
+	// Enqueue the physical request as is if this syncer only works Host -> virtual
+	if ds, ok := r.syncer.(syncertypes.DirectionalSyncer); ok && ds.Direction() == synccontext.SyncHostToVirtual {
+		q.Add(reconcile.Request{pReq})
+		return
 	}
 
 	// add a new request for the host object

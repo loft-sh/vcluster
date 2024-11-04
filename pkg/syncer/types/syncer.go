@@ -24,6 +24,10 @@ type Syncer interface {
 	Syncer() Sync[client.Object]
 }
 
+type DirectionalSyncer interface {
+	Direction() synccontext.SyncDirection
+}
+
 type Importer interface {
 	// Import imports the given host object into the virtual cluster
 	Import(ctx *synccontext.SyncContext, pObj client.Object) (bool, error)

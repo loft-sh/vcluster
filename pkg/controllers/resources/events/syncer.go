@@ -5,7 +5,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
-	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -13,7 +12,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -46,6 +44,7 @@ func (s *eventSyncer) Name() string {
 }
 
 var _ syncertypes.Syncer = &eventSyncer{}
+var _ syncertypes.DirectionalSyncer = &eventSyncer{}
 
 func (s *eventSyncer) Syncer() syncertypes.Sync[client.Object] {
 	return syncer.ToGenericSyncer(s)
@@ -64,23 +63,12 @@ func (s *eventSyncer) SyncToHost(_ *synccontext.SyncContext, _ *synccontext.Sync
 	return ctrl.Result{}, nil
 }
 
+// Direction ensures we only sync events from the host cluster to the virtual cluster.
+func (s *eventSyncer) Direction() synccontext.SyncDirection {
+	return synccontext.SyncHostToVirtual
+}
+
 func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Event]) (_ ctrl.Result, retErr error) {
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.Events.Patches, true))
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
-	}
-	defer func() {
-		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
-			retErr = utilerrors.NewAggregate([]error{retErr, err})
-		}
-	}()
-
-	// update event
-	err = s.translateEvent(ctx, event.Host, event.Virtual)
-	if err != nil {
-		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
-	}
-
 	return ctrl.Result{}, nil
 }
 
