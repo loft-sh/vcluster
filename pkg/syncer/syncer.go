@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -24,7 +26,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) (*SyncController, error) {
@@ -49,6 +50,8 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 		config: ctx.Config,
 
 		mappings: ctx.Mappings,
+
+		hostNameRequestLookup: map[ctrl.Request]ctrl.Request{},
 
 		log:            loghelper.New(syncer.Name()),
 		vEventRecorder: ctx.VirtualManager.GetEventRecorderFor(syncer.Name() + "-syncer"),
@@ -82,6 +85,9 @@ type SyncController struct {
 
 	mappings synccontext.MappingsRegistry
 
+	hostNameRequestLookupLock sync.Mutex
+	hostNameRequestLookup     map[ctrl.Request]ctrl.Request
+
 	log            loghelper.Logger
 	vEventRecorder record.EventRecorder
 
@@ -108,7 +114,15 @@ func (r *SyncController) newSyncContext(ctx context.Context, logName string) *sy
 	}
 }
 
-func (r *SyncController) Reconcile(ctx context.Context, vReq ctrl.Request) (_ ctrl.Result, retErr error) {
+func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) (_ ctrl.Result, retErr error) {
+	// extract request
+	r.hostNameRequestLookupLock.Lock()
+	pReq, ok := r.hostNameRequestLookup[vReq]
+	if ok {
+		delete(r.hostNameRequestLookup, vReq)
+	}
+	r.hostNameRequestLookupLock.Unlock()
+
 	// create sync context
 	syncContext := r.newSyncContext(ctx, vReq.Name)
 	defer func() {
@@ -128,7 +142,7 @@ func (r *SyncController) Reconcile(ctx context.Context, vReq ctrl.Request) (_ ct
 	}
 
 	// retrieve the objects
-	vObjOld, vObj, pObjOld, pObj, err := r.getObjects(syncContext, vReq)
+	vObjOld, vObj, pObjOld, pObj, err := r.getObjects(syncContext, vReq, pReq)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -203,7 +217,7 @@ func (r *SyncController) Reconcile(ctx context.Context, vReq ctrl.Request) (_ ct
 	return ctrl.Result{}, nil
 }
 
-func (r *SyncController) getObjects(ctx *synccontext.SyncContext, vReq ctrl.Request) (vObjOld, vObj, pObjOld, pObj client.Object, err error) {
+func (r *SyncController) getObjects(ctx *synccontext.SyncContext, vReq, pReq ctrl.Request) (vObjOld, vObj, pObjOld, pObj client.Object, err error) {
 	// get virtual object
 	exclude, vObj, err := r.getVirtualObject(ctx, vReq.NamespacedName)
 	if err != nil {
@@ -212,9 +226,13 @@ func (r *SyncController) getObjects(ctx *synccontext.SyncContext, vReq ctrl.Requ
 		return nil, nil, nil, nil, nil
 	}
 
+	// make sure physical name is there
+	if pReq.Name == "" {
+		pReq.NamespacedName = r.syncer.VirtualToHost(ctx, vReq.NamespacedName, vObj)
+	}
+
 	// get physical object
-	pReq := r.syncer.VirtualToHost(ctx, vReq.NamespacedName, vObj)
-	exclude, pObj, err = r.getPhysicalObject(ctx, pReq, vObj)
+	exclude, pObj, err = r.getPhysicalObject(ctx, pReq.NamespacedName)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	} else if exclude {
@@ -233,7 +251,7 @@ func (r *SyncController) getObjects(ctx *synccontext.SyncContext, vReq ctrl.Requ
 			vObjOld = vObj
 		}
 
-		pObjOld, ok = r.objectCache.Host().Get(pReq)
+		pObjOld, ok = r.objectCache.Host().Get(pReq.NamespacedName)
 		if !ok && pObj != nil {
 			// only add to cache if it's not deleting
 			if pObj.GetDeletionTimestamp() == nil {
@@ -272,7 +290,7 @@ func (r *SyncController) getVirtualObject(ctx context.Context, req types.Namespa
 	return false, vObj, nil
 }
 
-func (r *SyncController) getPhysicalObject(ctx *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) (bool, client.Object, error) {
+func (r *SyncController) getPhysicalObject(ctx *synccontext.SyncContext, req types.NamespacedName) (bool, client.Object, error) {
 	// we don't have an object to retrieve
 	if req.Name == "" {
 		return true, nil, nil
@@ -292,7 +310,7 @@ func (r *SyncController) getPhysicalObject(ctx *synccontext.SyncContext, req typ
 	// check if we should skip resource
 	// this is to distinguish generic and plugin syncers with the core syncers
 	if pObj != nil {
-		excluded, err := r.excludePhysical(ctx, pObj, vObj)
+		excluded, err := r.excludePhysical(ctx, pObj)
 		if err != nil {
 			return false, nil, err
 		} else if excluded {
@@ -303,22 +321,16 @@ func (r *SyncController) getPhysicalObject(ctx *synccontext.SyncContext, req typ
 	return false, pObj, nil
 }
 
-func (r *SyncController) excludePhysical(ctx *synccontext.SyncContext, pObj, vObj client.Object) (bool, error) {
-	excluder, excluderOk := r.syncer.(syncertypes.ObjectExcluder)
+func (r *SyncController) excludePhysical(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
 	isManaged, err := r.syncer.IsManaged(ctx, pObj)
 	if err != nil {
 		return false, fmt.Errorf("failed to check if physical object is managed: %w", err)
 	} else if !isManaged {
-		if !excluderOk && vObj != nil {
-			msg := fmt.Sprintf("conflict: cannot sync virtual object %s/%s as unmanaged physical object %s/%s exists with desired name", vObj.GetNamespace(), vObj.GetName(), pObj.GetNamespace(), pObj.GetName())
-			r.vEventRecorder.Eventf(vObj, "Warning", "SyncError", msg)
-			return false, errors.New(msg)
-		}
-
 		return true, nil
 	}
 
-	if excluderOk {
+	excluder, ok := r.syncer.(syncertypes.ObjectExcluder)
+	if ok {
 		return excluder.ExcludePhysical(pObj), nil
 	}
 
@@ -353,12 +365,9 @@ func (r *SyncController) enqueueVirtual(_ context.Context, obj client.Object, q 
 		return
 	}
 
-	// add a new request for the virtual object
+	// build the request
 	q.Add(reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: obj.GetNamespace(),
-			Name:      obj.GetName(),
-		},
+		NamespacedName: client.ObjectKeyFromObject(obj),
 	})
 }
 
@@ -366,9 +375,6 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 	if obj == nil {
 		return
 	}
-
-	// add object to cache if it's not there yet
-	pReq := client.ObjectKeyFromObject(obj)
 
 	// sync context
 	syncContext := r.newSyncContext(ctx, obj.GetName())
@@ -395,12 +401,14 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 		}
 	}
 
-	// add a new request for the host object
-	vReq := r.syncer.HostToVirtual(syncContext, pReq, obj)
+	// build the request
+	pReq := reconcile.Request{NamespacedName: client.ObjectKeyFromObject(obj)}
+	vReq := reconcile.Request{NamespacedName: r.syncer.HostToVirtual(syncContext, pReq.NamespacedName, obj)}
 	if vReq.Name != "" {
-		q.Add(reconcile.Request{
-			NamespacedName: vReq,
-		})
+		r.hostNameRequestLookupLock.Lock()
+		r.hostNameRequestLookup[vReq] = pReq
+		r.hostNameRequestLookupLock.Unlock()
+		q.Add(vReq)
 	}
 }
 

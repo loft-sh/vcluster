@@ -26,15 +26,11 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 	return &eventSyncer{
 		Mapper: mapper,
-
-		hostClient: ctx.PhysicalManager.GetClient(),
 	}, nil
 }
 
 type eventSyncer struct {
 	synccontext.Mapper
-
-	hostClient client.Client
 }
 
 func (s *eventSyncer) Resource() client.Object {
