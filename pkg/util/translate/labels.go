@@ -236,7 +236,7 @@ func AnnotationsBidirectionalUpdateFunction[T client.Object](event *synccontext.
 	if generics.IsNilOrEmpty(newHost) {
 		newHost = map[string]string{}
 	}
-	if generics.IsNilOrEmpty(newHost) || !apiequality.Semantic.DeepEqual(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations()) {
+	if !apiequality.Semantic.DeepEqual(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations()) {
 		newHost = mergeMaps(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations(), event.Host.GetAnnotations(), func(key string, value interface{}) (string, interface{}) {
 			if stringutil.Contains(excludeAnnotations, key) {
 				return "", nil
@@ -246,7 +246,7 @@ func AnnotationsBidirectionalUpdateFunction[T client.Object](event *synccontext.
 
 			return transformToHost(key, value)
 		})
-	} else if generics.IsNilOrEmpty(newVirtual) || !apiequality.Semantic.DeepEqual(event.HostOld.GetAnnotations(), event.Host.GetAnnotations()) {
+	} else if !apiequality.Semantic.DeepEqual(event.HostOld.GetAnnotations(), event.Host.GetAnnotations()) {
 		newVirtual = mergeMaps(event.HostOld.GetAnnotations(), event.Host.GetAnnotations(), event.Virtual.GetAnnotations(), func(key string, value interface{}) (string, interface{}) {
 			if stringutil.Contains(excludeAnnotations, key) {
 				return "", nil
@@ -282,7 +282,7 @@ func LabelsBidirectionalUpdateFunction[T client.Object](event *synccontext.SyncE
 func LabelsBidirectionalUpdateFunctionMaps(virtualOld, virtual, hostOld, host map[string]string, transformFromHost, transformToHost func(key string, value interface{}) (string, interface{})) (map[string]string, map[string]string) {
 	newVirtual := virtual
 	newHost := host
-	if generics.IsNilOrEmpty(newVirtual) || !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
+	if !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
 		newHost = mergeMaps(virtualOld, virtual, host, func(key string, value interface{}) (string, interface{}) {
 			key = HostLabel(key)
 			if transformToHost == nil {
@@ -291,7 +291,7 @@ func LabelsBidirectionalUpdateFunctionMaps(virtualOld, virtual, hostOld, host ma
 
 			return transformToHost(key, value)
 		})
-	} else if generics.IsNilOrEmpty(newVirtual) || !apiequality.Semantic.DeepEqual(hostOld, host) {
+	} else if !apiequality.Semantic.DeepEqual(hostOld, host) {
 		newVirtual = mergeMaps(hostOld, host, virtual, func(key string, value interface{}) (string, interface{}) {
 			key, _ = VirtualLabel(key)
 			if transformFromHost == nil {
