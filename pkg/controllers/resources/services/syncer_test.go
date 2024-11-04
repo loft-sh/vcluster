@@ -276,6 +276,18 @@ func TestSync(t *testing.T) {
 		},
 	}
 	selectorKey := "test"
+	vServiceNodePortFromExternalBefore := &corev1.Service{
+		ObjectMeta: vObjectMeta,
+		Spec: corev1.ServiceSpec{
+			ExternalName: "test.com",
+			Ports: []corev1.ServicePort{
+				{
+					Name: "http",
+					Port: 80,
+				},
+			},
+		},
+	}
 	vServiceNodePortFromExternal := &corev1.Service{
 		ObjectMeta: vObjectMeta,
 		Spec: corev1.ServiceSpec{
@@ -574,7 +586,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				vObjOld := baseService.DeepCopy()
+				vObjOld := vServiceNodePortFromExternalBefore.DeepCopy()
 				vObjNew := vServiceClusterIPFromExternal.DeepCopy()
 				pObj := pServiceExternal.DeepCopy()
 
@@ -596,7 +608,7 @@ func TestSync(t *testing.T) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				pObjOld := pServiceExternal.DeepCopy()
 				pObjNew := pServiceExternal.DeepCopy()
-				vObjOld := baseService.DeepCopy()
+				vObjOld := vServiceNodePortFromExternalBefore.DeepCopy()
 				vObjNew := vServiceNodePortFromExternal.DeepCopy()
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pObjOld, pObjNew, vObjOld, vObjNew))
 				assert.NilError(t, err)

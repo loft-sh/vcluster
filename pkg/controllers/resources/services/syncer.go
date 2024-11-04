@@ -110,9 +110,6 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 	defer func() {
-		AlignSpecWithServiceType(event.Virtual)
-		AlignSpecWithServiceType(event.Host)
-
 		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
@@ -195,6 +192,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 
 	// bi-directional sync of annotations and labels
 	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event, s.excludedAnnotations...)
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 
 	// remove the ServiceBlockDeletion annotation if it's not needed
 	if event.Virtual.Spec.ClusterIP == event.Host.Spec.ClusterIP {

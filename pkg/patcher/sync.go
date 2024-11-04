@@ -3,6 +3,7 @@ package patcher
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/loft-sh/vcluster/pkg/util/generics"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
