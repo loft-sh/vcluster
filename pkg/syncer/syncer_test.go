@@ -572,6 +572,8 @@ func TestReconcile(t *testing.T) {
 			vEventRecorder: &testingutil.FakeEventRecorder{},
 			physicalClient: pClient,
 
+			hostNameRequestLookup: map[ctrl.Request]ctrl.Request{},
+
 			currentNamespace:       fakeContext.CurrentNamespace,
 			currentNamespaceClient: fakeContext.CurrentNamespaceClient,
 

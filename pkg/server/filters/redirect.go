@@ -98,18 +98,21 @@ func callAdmissionWebhooks(req *http.Request, info *request.RequestInfo, paramet
 				kind = corev1.SchemeGroupVersion.WithKind("PodExecOptions")
 				opts = &corev1.PodExecOptions{}
 				if err := parameterCodec.DecodeParameters(req.URL.Query(), corev1.SchemeGroupVersion, opts); err != nil {
+					klog.Infof("Error decoding exec parameters %s: %v", req.URL.Query(), err)
 					return err
 				}
 			} else if info.Subresource == "attach" {
 				kind = corev1.SchemeGroupVersion.WithKind("PodAttachOptions")
 				opts = &corev1.PodAttachOptions{}
 				if err := parameterCodec.DecodeParameters(req.URL.Query(), corev1.SchemeGroupVersion, opts); err != nil {
+					klog.Infof("Error decoding attach parameters %s: %v", req.URL.Query(), err)
 					return err
 				}
 			} else if info.Subresource == "portforward" {
 				kind = corev1.SchemeGroupVersion.WithKind("PodPortForwardOptions")
 				opts = &corev1.PodPortForwardOptions{}
 				if err := parameterCodec.DecodeParameters(req.URL.Query(), corev1.SchemeGroupVersion, opts); err != nil {
+					klog.Infof("Error decoding portforward parameters %s: %v", req.URL.Query(), err)
 					return err
 				}
 			}
@@ -119,6 +122,8 @@ func callAdmissionWebhooks(req *http.Request, info *request.RequestInfo, paramet
 				klog.Infof("Admission validate failed for %s: %v", info.Path, err)
 				return err
 			}
+
+			klog.V(1).Info("Allowed pod request", "subresource", info.Subresource, "path", info.Path)
 		}
 	}
 
