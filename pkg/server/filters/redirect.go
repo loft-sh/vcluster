@@ -120,7 +120,7 @@ func callAdmissionWebhooks(req *http.Request, info *request.RequestInfo, paramet
 			err := validatingAdmission.Validate(req.Context(), admission.NewAttributesRecord(opts, nil, kind, info.Namespace, info.Name, corev1.SchemeGroupVersion.WithResource(info.Resource), info.Subresource, admission.Connect, nil, false, userInfo), NewFakeObjectInterfaces(uncachedVirtualClient.Scheme(), uncachedVirtualClient.RESTMapper()))
 			if err != nil {
 				klog.Infof("Admission validate failed for %s: %v", info.Path, err)
-				return err
+				return kerrors.NewForbidden(corev1.SchemeGroupVersion.WithResource(info.Resource+"/"+info.Subresource).GroupResource(), info.Name, err)
 			}
 
 			klog.V(1).Info("Allowed pod request", "subresource", info.Subresource, "path", info.Path)

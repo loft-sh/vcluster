@@ -116,24 +116,15 @@ func (r *SyncController) newSyncContext(ctx context.Context, logName string) *sy
 
 func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) (res ctrl.Result, retErr error) {
 	// extract request
-	r.hostNameRequestLookupLock.Lock()
-	pReq, ok := r.hostNameRequestLookup[vReq]
+	pReq, ok := r.getHostRequest(vReq)
 	if ok {
-		delete(r.hostNameRequestLookup, vReq)
-
 		// put this into the cache again if we requeue
 		defer func() {
 			if res.Requeue || res.RequeueAfter > 0 || retErr != nil {
-				r.hostNameRequestLookupLock.Lock()
-				_, ok := r.hostNameRequestLookup[vReq]
-				if !ok {
-					r.hostNameRequestLookup[vReq] = pReq
-				}
-				r.hostNameRequestLookupLock.Unlock()
+				r.setHostRequest(vReq, pReq)
 			}
 		}()
 	}
-	r.hostNameRequestLookupLock.Unlock()
 
 	// create sync context
 	syncContext := r.newSyncContext(ctx, vReq.Name)
@@ -158,6 +149,11 @@ func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	defer func() {
+		if !res.Requeue && res.RequeueAfter == 0 && retErr == nil {
+			r.updateObjectCache(vObjOld, vObj, pObjOld, pObj)
+		}
+	}()
 
 	// check if the resource version is correct
 	if pObjOld != nil && pObj != nil && newerResourceVersion(pObjOld, pObj) {
@@ -417,9 +413,7 @@ func (r *SyncController) enqueuePhysical(ctx context.Context, obj client.Object,
 	pReq := reconcile.Request{NamespacedName: client.ObjectKeyFromObject(obj)}
 	vReq := reconcile.Request{NamespacedName: r.syncer.HostToVirtual(syncContext, pReq.NamespacedName, obj)}
 	if vReq.Name != "" {
-		r.hostNameRequestLookupLock.Lock()
-		r.hostNameRequestLookup[vReq] = pReq
-		r.hostNameRequestLookupLock.Unlock()
+		r.setHostRequest(vReq, pReq)
 		q.Add(vReq)
 	}
 }
@@ -458,6 +452,45 @@ func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
 
 	_, err := r.Build(ctx)
 	return err
+}
+
+func (r *SyncController) updateObjectCache(vObjOld, vObj, pObjOld, pObj client.Object) {
+	if r.objectCache == nil {
+		return
+	}
+
+	if vObjOld != nil && vObj != nil && newerResourceVersion(vObj, vObjOld) {
+		newVObjOld, ok := r.objectCache.Virtual().Get(client.ObjectKeyFromObject(vObj))
+		if ok && newVObjOld.GetResourceVersion() == vObjOld.GetResourceVersion() {
+			r.objectCache.Virtual().Put(vObj)
+		}
+	}
+
+	if pObjOld != nil && pObj != nil && newerResourceVersion(pObj, pObjOld) {
+		newPObjOld, ok := r.objectCache.Host().Get(client.ObjectKeyFromObject(pObj))
+		if ok && newPObjOld.GetResourceVersion() == pObjOld.GetResourceVersion() {
+			r.objectCache.Host().Put(pObj)
+		}
+	}
+}
+
+func (r *SyncController) setHostRequest(vReq, pReq reconcile.Request) {
+	r.hostNameRequestLookupLock.Lock()
+	defer r.hostNameRequestLookupLock.Unlock()
+
+	r.hostNameRequestLookup[vReq] = pReq
+}
+
+func (r *SyncController) getHostRequest(vReq reconcile.Request) (reconcile.Request, bool) {
+	r.hostNameRequestLookupLock.Lock()
+	defer r.hostNameRequestLookupLock.Unlock()
+
+	pReq, ok := r.hostNameRequestLookup[vReq]
+	if ok {
+		delete(r.hostNameRequestLookup, vReq)
+	}
+
+	return pReq, ok
 }
 
 func newerResourceVersion(oldObject, newObject client.Object) bool {
