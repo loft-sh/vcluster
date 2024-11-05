@@ -176,6 +176,14 @@ func ApplyObject(ctx *synccontext.SyncContext, beforeObject, afterObject client.
 
 func ApplyObjectPatch(ctx *synccontext.SyncContext, objPatch patch.Patch, obj client.Object, direction synccontext.SyncDirection, hasStatus bool) error {
 	if objPatch.IsEmpty() {
+		if ctx.ObjectCache != nil {
+			if direction == synccontext.SyncHostToVirtual {
+				ctx.ObjectCache.Virtual().Put(obj)
+			} else if direction == synccontext.SyncVirtualToHost {
+				ctx.ObjectCache.Host().Put(obj)
+			}
+		}
+
 		return nil
 	}
 

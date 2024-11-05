@@ -217,12 +217,6 @@ func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMa
 		uObject.SetAPIVersion(nameMapping.GroupVersionKind.GroupVersion().String())
 	}
 
-	klog.FromContext(ctx).V(1).Info(
-		"virtual get",
-		"name", nameMapping.VirtualName,
-		"marker", "gc",
-	)
-
 	// check if virtual object exists
 	err = s.cachedVirtualClient.Get(ctx, nameMapping.VirtualName, obj.DeepCopyObject().(client.Object))
 	if err == nil {
@@ -244,12 +238,6 @@ func (s *Store) objectExists(ctx context.Context, nameMapping synccontext.NameMa
 		// anymore on the next GC run.
 		return true
 	}
-
-	klog.FromContext(ctx).V(1).Info(
-		"host get",
-		"name", nameMapping.HostName,
-		"marker", "gc",
-	)
 
 	// check if host object exists
 	err = s.cachedHostClient.Get(ctx, nameMapping.HostName, obj.DeepCopyObject().(client.Object))

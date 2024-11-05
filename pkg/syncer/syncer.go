@@ -114,12 +114,24 @@ func (r *SyncController) newSyncContext(ctx context.Context, logName string) *sy
 	}
 }
 
-func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) (_ ctrl.Result, retErr error) {
+func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) (res ctrl.Result, retErr error) {
 	// extract request
 	r.hostNameRequestLookupLock.Lock()
 	pReq, ok := r.hostNameRequestLookup[vReq]
 	if ok {
 		delete(r.hostNameRequestLookup, vReq)
+
+		// put this into the cache again if we requeue
+		defer func() {
+			if res.Requeue || res.RequeueAfter > 0 || retErr != nil {
+				r.hostNameRequestLookupLock.Lock()
+				_, ok := r.hostNameRequestLookup[vReq]
+				if !ok {
+					r.hostNameRequestLookup[vReq] = pReq
+				}
+				r.hostNameRequestLookupLock.Unlock()
+			}
+		}()
 	}
 	r.hostNameRequestLookupLock.Unlock()
 
