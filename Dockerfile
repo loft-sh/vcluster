@@ -1,4 +1,4 @@
-ARG KINE_VERSION="v0.13.1"
+ARG KINE_VERSION="v0.13.2"
 FROM rancher/kine:${KINE_VERSION} as kine
 
 # Build program
@@ -9,7 +9,7 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG BUILD_VERSION=dev
 ARG TELEMETRY_PRIVATE_KEY=""
-ARG HELM_VERSION="v3.13.3"
+ARG HELM_VERSION="v3.16.2"
 
 # Install kubectl for development
 RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl && chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl
