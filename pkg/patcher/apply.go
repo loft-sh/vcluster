@@ -30,9 +30,6 @@ func CreateVirtualObject(ctx *synccontext.SyncContext, pObj, vObj client.Object,
 		namespaceName = pObj.GetNamespace() + "/" + pObj.GetName()
 	}
 
-	if ctx.ObjectCache != nil {
-		ctx.ObjectCache.Host().Put(pObj.DeepCopyObject().(client.Object))
-	}
 	err = ApplyObject(ctx, nil, vObj, synccontext.SyncHostToVirtual, hasStatus)
 	if err != nil {
 		ctx.Log.Infof("error syncing %s %s to virtual cluster: %v", gvk.Kind, namespaceName, err)
@@ -57,9 +54,6 @@ func CreateHostObject(ctx *synccontext.SyncContext, vObj, pObj client.Object, ev
 		namespaceName = vObj.GetNamespace() + "/" + vObj.GetName()
 	}
 
-	if ctx.ObjectCache != nil {
-		ctx.ObjectCache.Virtual().Put(vObj.DeepCopyObject().(client.Object))
-	}
 	err = ApplyObject(ctx, nil, pObj, synccontext.SyncVirtualToHost, hasStatus)
 	if err != nil {
 		ctx.Log.Infof("error syncing %s %s to host cluster: %v", gvk.Kind, namespaceName, err)
@@ -176,14 +170,6 @@ func ApplyObject(ctx *synccontext.SyncContext, beforeObject, afterObject client.
 
 func ApplyObjectPatch(ctx *synccontext.SyncContext, objPatch patch.Patch, obj client.Object, direction synccontext.SyncDirection, hasStatus bool) error {
 	if objPatch.IsEmpty() {
-		if ctx.ObjectCache != nil {
-			if direction == synccontext.SyncHostToVirtual {
-				ctx.ObjectCache.Virtual().Put(obj)
-			} else if direction == synccontext.SyncVirtualToHost {
-				ctx.ObjectCache.Host().Put(obj)
-			}
-		}
-
 		return nil
 	}
 
