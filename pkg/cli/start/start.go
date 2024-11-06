@@ -161,7 +161,7 @@ func (l *Options) Prepare() error {
 		contextToLoad = l.Context
 	} else if platformConfig.LastInstallContext != "" && platformConfig.LastInstallContext != contextToLoad {
 		contextToLoad, err = l.Log.Question(&survey.QuestionOptions{
-			Question:     product.Replace(fmt.Sprintf("Seems like you try to use 'loft %s' with a different kubernetes context than before. Please choose which kubernetes context you want to use", l.CommandName)),
+			Question:     product.Replace(fmt.Sprintf("Seems like you try to use 'vcluster %s' with a different kubernetes context than before. Please choose which kubernetes context you want to use", l.CommandName)),
 			DefaultValue: contextToLoad,
 			Options:      []string{contextToLoad, platformConfig.LastInstallContext},
 		})
@@ -182,7 +182,7 @@ func (l *Options) Prepare() error {
 	// test for helm and kubectl
 	_, err = exec.LookPath("helm")
 	if err != nil {
-		return fmt.Errorf("seems like helm is not installed. Helm is required for the installation of loft. Please visit https://helm.sh/docs/intro/install/ for install instructions")
+		return fmt.Errorf("seems like helm is not installed. Helm is required for the installation of vCluster Platform. Please visit https://helm.sh/docs/intro/install/ for install instructions")
 	}
 
 	output, err := exec.Command("helm", "version").CombinedOutput()
@@ -192,7 +192,7 @@ func (l *Options) Prepare() error {
 
 	_, err = exec.LookPath("kubectl")
 	if err != nil {
-		return fmt.Errorf("seems like kubectl is not installed. Kubectl is required for the installation of loft. Please visit https://kubernetes.io/docs/tasks/tools/install-kubectl/ for install instructions")
+		return fmt.Errorf("seems like kubectl is not installed. Kubectl is required for the installation of vCluster Platform. Please visit https://kubernetes.io/docs/tasks/tools/install-kubectl/ for install instructions")
 	}
 
 	output, err = exec.Command("kubectl", "version", "--context", contextToLoad).CombinedOutput()

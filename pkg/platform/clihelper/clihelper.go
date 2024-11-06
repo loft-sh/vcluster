@@ -469,7 +469,7 @@ func IsLoftAlreadyInstalled(ctx context.Context, kubeClient kubernetes.Interface
 	return true, nil
 }
 
-var ErrPlatformNamespaceNotFound = errors.New("loft installation namespace not found")
+var ErrPlatformNamespaceNotFound = errors.New("vCluster Platform installation namespace not found")
 
 func VClusterPlatformInstallationNamespace(ctx context.Context) (string, error) {
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})

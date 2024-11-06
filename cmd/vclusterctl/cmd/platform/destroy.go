@@ -30,12 +30,12 @@ func NewDestroyCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	destroyCmd := &cobra.Command{
 		Use:   "destroy",
-		Short: "Destroy a vCluster platform instance",
+		Short: "Destroy a vCluster Platform instance",
 		Long: `########################################################
 ############# vcluster platform destroy ##################
 ########################################################
 
-Destroys a vCluster platform instance in your Kubernetes cluster.
+Destroys a vCluster Platform instance in your Kubernetes cluster.
 
 Please make sure you meet the following requirements
 before running this command:
@@ -55,7 +55,7 @@ VirtualClusterInstances managed with driver helm will be deleted, but the underl
 	}
 
 	destroyCmd.Flags().StringVar(&cmd.Context, "context", "", "The kube context to use for installation")
-	destroyCmd.Flags().StringVar(&cmd.Namespace, "namespace", "", "The namespace vCluster platform is installed in")
+	destroyCmd.Flags().StringVar(&cmd.Namespace, "namespace", "", "The namespace vCluster Platform is installed in")
 	destroyCmd.Flags().BoolVar(&cmd.DeleteNamespace, "delete-namespace", true, "Whether to delete the namespace or not")
 	destroyCmd.Flags().BoolVar(&cmd.IgnoreNotFound, "ignore-not-found", false, "Exit successfully if platform installation is not found")
 	destroyCmd.Flags().BoolVar(&cmd.Force, "force", false, "Try uninstalling even if the platform is not installed. '--namespace' is required if true")
@@ -78,7 +78,7 @@ func (cmd *DestroyCmd) Run(ctx context.Context) error {
 				cmd.Log.Info("no platform installation found")
 				return nil
 			}
-			return fmt.Errorf("vCluster platform may not be installed: %w", err)
+			return fmt.Errorf("vCluster Platform may not be installed: %w", err)
 		}
 		cmd.Log.Infof("found platform installation in namespace %q", namespace)
 		cmd.Namespace = namespace
@@ -86,7 +86,7 @@ func (cmd *DestroyCmd) Run(ctx context.Context) error {
 
 	found, err := clihelper.IsLoftAlreadyInstalled(ctx, cmd.KubeClient, cmd.Namespace)
 	if err != nil {
-		return fmt.Errorf("vCluster platform may not be installed: %w", err)
+		return fmt.Errorf("vCluster Platform may not be installed: %w", err)
 	}
 	shouldForce := cmd.Force && cmd.Namespace != ""
 	if !found && !shouldForce {
