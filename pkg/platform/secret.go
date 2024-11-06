@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -302,7 +303,7 @@ func createWithName(ctx context.Context, managementClient kube.Interface, projec
 					VirtualClusterCommonSpec: storagev1.VirtualClusterCommonSpec{
 						HelmRelease: storagev1.VirtualClusterHelmRelease{
 							Chart: storagev1.VirtualClusterHelmChart{
-								Version: "0.0.0",
+								Version: upgrade.GetVersion(),
 							},
 						},
 					},
