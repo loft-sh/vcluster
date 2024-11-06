@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,7 +22,7 @@ const (
 )
 
 func (s *ingressSyncer) translate(ctx *synccontext.SyncContext, vIngress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
-	newIngress := translate.HostMetadata(vIngress, s.VirtualToHost(ctx, types.NamespacedName{Name: vIngress.Name, Namespace: vIngress.Namespace}, vIngress))
+	newIngress := translate.HostMetadata(vIngress, s.VirtualToHost(ctx, types.NamespacedName{Name: vIngress.Name, Namespace: vIngress.Namespace}, vIngress), s.excludedAnnotations...)
 	newIngress.Spec = *translateSpec(ctx, vIngress.Namespace, &vIngress.Spec)
 	newIngress.Annotations = updateAnnotations(ctx, newIngress.Annotations, vIngress.Namespace)
 	return newIngress, nil
@@ -42,6 +43,9 @@ func (s *ingressSyncer) translateUpdate(ctx *synccontext.SyncContext, event *syn
 			if strings.HasPrefix(key, AlbActionsAnnotation) || strings.HasPrefix(key, AlbConditionAnnotation) {
 				return "", nil
 			}
+			if stringutil.Contains(s.excludedAnnotations, key) {
+				return "", nil
+			}
 			return key, value
 		},
 		func(key string, value interface{}) (string, interface{}) {
@@ -49,6 +53,10 @@ func (s *ingressSyncer) translateUpdate(ctx *synccontext.SyncContext, event *syn
 			strValue, ok := value.(string)
 			if !ok {
 				return key, value
+			}
+			// we ignore excluded annotations
+			if stringutil.Contains(s.excludedAnnotations, key) {
+				return "", nil
 			}
 
 			// translate the annotation
