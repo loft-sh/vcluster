@@ -3,6 +3,7 @@ package ingresses
 import (
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -31,12 +32,17 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &ingressSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "ingress", &networkingv1.Ingress{}, mapper),
 		Importer:          pro.NewImporter(mapper),
+
+		// exclude "field.cattle.io/publicEndpoints" annotation used by Rancher, similar to service syncer
+		excludedAnnotations: []string{services.RancherPublicEndpointsAnnotation},
 	}, nil
 }
 
 type ingressSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
+
+	excludedAnnotations []string
 }
 
 var _ syncertypes.OptionsProvider = &ingressSyncer{}
@@ -103,7 +109,7 @@ func (s *ingressSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 
-	vIngress := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
+	vIngress := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host), s.excludedAnnotations...)
 	err := pro.ApplyPatchesVirtualObject(ctx, nil, vIngress, event.Host, ctx.Config.Sync.ToHost.Ingresses.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err

@@ -23,7 +23,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var ServiceBlockDeletion = "vcluster.loft.sh/block-deletion"
+var (
+	ServiceBlockDeletion             = "vcluster.loft.sh/block-deletion"
+	RancherPublicEndpointsAnnotation = "field.cattle.io/publicEndpoints"
+)
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := ctx.Mappings.ByGVK(mappings.Services())
@@ -39,7 +42,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		Importer:          pro.NewImporter(mapper),
 
 		excludedAnnotations: []string{
-			"field.cattle.io/publicEndpoints",
+			RancherPublicEndpointsAnnotation,
 		},
 
 		serviceName: ctx.Config.WorkloadService,
