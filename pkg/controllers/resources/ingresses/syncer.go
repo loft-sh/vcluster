@@ -3,6 +3,7 @@ package ingresses
 import (
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/types"
@@ -14,8 +15,9 @@ import (
 )
 
 func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	excludedAnnotations := []string{services.RancherPublicEndpointsAnnotation}
 	return &ingressSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "ingress", &networkingv1.Ingress{}),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "ingress", &networkingv1.Ingress{}, excludedAnnotations...),
 	}, nil
 }
 
