@@ -18,14 +18,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var ServiceBlockDeletion = "vcluster.loft.sh/block-deletion"
+var (
+	ServiceBlockDeletion             = "vcluster.loft.sh/block-deletion"
+	RancherPublicEndpointsAnnotation = "field.cattle.io/publicEndpoints"
+)
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &serviceSyncer{
 		// exclude "field.cattle.io/publicEndpoints" annotation used by Rancher,
 		// because if it is also installed in the host cluster, it will be
 		// overriding it, which would cause endless updates back and forth.
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}, "field.cattle.io/publicEndpoints"),
+		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "service", &corev1.Service{}, RancherPublicEndpointsAnnotation),
 
 		serviceName: ctx.Config.WorkloadService,
 	}, nil
