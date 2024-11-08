@@ -270,7 +270,6 @@ func recreatePersistentVolumeClaim(ctx *synccontext.SyncContext, virtualClient c
 	}
 
 	// make sure we don't set the resource version during create
-	ctx.ObjectCache.Virtual().Delete(vPVC)
 	vPVC = vPVC.DeepCopy()
 	vPVC.ResourceVersion = ""
 	vPVC.UID = ""
@@ -285,6 +284,5 @@ func recreatePersistentVolumeClaim(ctx *synccontext.SyncContext, virtualClient c
 		return nil, errors.Wrap(err, "create pvc")
 	}
 
-	ctx.ObjectCache.Virtual().Put(vPVC)
 	return vPVC, nil
 }

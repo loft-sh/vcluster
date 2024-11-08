@@ -126,7 +126,6 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, event *
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-			ctx.ObjectCache.Virtual().Put(updated)
 		}
 
 		if !equality.Semantic.DeepEqual(event.Virtual.Status, event.Host.Status) {
@@ -137,7 +136,6 @@ func (s *volumeSnapshotContentSyncer) Sync(ctx *synccontext.SyncContext, event *
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
-			ctx.ObjectCache.Virtual().Put(updated)
 		}
 
 		return ctrl.Result{RequeueAfter: time.Second}, nil
