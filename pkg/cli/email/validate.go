@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -29,16 +28,10 @@ type (
 	Option func(config *optConfig)
 )
 
-const (
-	PortSMTP           = 25
-	PortSMTPSubmission = 587
-)
-
 var (
 	// rfc5322: https://stackoverflow.com/a/201378/5405453.
 	rfc5322            = "(?i)(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9]))\\.){3}(?:(2(5[0-5]|[0-4][0-9])|1[0-9][0-9]|[1-9]?[0-9])|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])"
 	validRfc5322Regexp = regexp.MustCompile(fmt.Sprintf("^%s*$", rfc5322))
-	smtpPorts          = []int{PortSMTPSubmission, PortSMTP}
 )
 
 // Validate validates the email address is RFC5322
@@ -119,8 +112,6 @@ func WithCheckMXTimeout(duration time.Duration) Option {
 	}
 }
 
-// checkMXRecords tries to make a connection with one of the MX records for the given domain
-// times out after the given duration.
 func checkMXRecords(domain string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -130,48 +121,9 @@ func checkMXRecords(domain string, timeout time.Duration) error {
 		return err
 	}
 
-	checkCount := len(records) * len(smtpPorts)
-	errc := make(chan error, checkCount)
-	wg := sync.WaitGroup{}
-	wg.Add(checkCount)
-
-	// Fire off a go routine for each record and SMTP port
-	// The first to return a nil error will return success
-	go func() {
-		defer close(errc)
-		for _, record := range records {
-			for _, port := range smtpPorts {
-				go func() {
-					defer wg.Done()
-					errc <- tryDial(ctx, fmt.Sprintf("%s:%d", record.Host, port))
-				}()
-			}
-		}
-		wg.Wait()
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return errors.New("timed out trying to verify email address server")
-		case err, ok := <-errc:
-			if ok && err == nil {
-				cancel()
-				return nil
-			}
-		}
+	if len(records) > 0 {
+		return nil
 	}
-}
 
-func tryDial(ctx context.Context, addr string) error {
-	// Using a net.Dialer instead of smtp.Dial to pass our context
-	var d net.Dialer
-	client, connectErr := d.DialContext(ctx, "tcp", addr)
-
-	if connectErr != nil {
-		return connectErr
-	}
-	defer client.Close()
-
-	return nil
+	return fmt.Errorf("no MX records found for %s", domain)
 }
