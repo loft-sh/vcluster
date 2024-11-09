@@ -3025,6 +3025,10 @@
           "type": "boolean",
           "description": "Enabled defines if this option should be enabled."
         },
+        "scope": {
+          "type": "string",
+          "description": "Scope defines the scope of the resource"
+        },
         "patches": {
           "items": {
             "$ref": "#/$defs/TranslatePatch"
@@ -3034,7 +3038,11 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "enabled",
+        "scope"
+      ]
     },
     "SyncNodeSelector": {
       "properties": {
@@ -3228,6 +3236,10 @@
           "type": "boolean",
           "description": "Enabled defines if this option should be enabled."
         },
+        "scope": {
+          "type": "string",
+          "description": "Scope defines the scope of the resource. If undefined, will use Namespaced. Currently only Namespaced is supported."
+        },
         "patches": {
           "items": {
             "$ref": "#/$defs/TranslatePatch"
@@ -3237,7 +3249,10 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "enabled"
+      ]
     },
     "Telemetry": {
       "properties": {
@@ -3285,7 +3300,10 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "path"
+      ]
     },
     "TranslatePatchLabels": {
       "properties": {},
