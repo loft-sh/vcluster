@@ -22,14 +22,14 @@ var allowedPodSecurityStandards = map[string]bool{
 
 var verbs = []string{"get", "list", "create", "update", "patch", "watch", "delete", "deletecollection"}
 
-func ValidateConfigAndSetDefaults(config *VirtualClusterConfig) error {
+func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	// check the value of pod security standard
-	if config.Policies.PodSecurityStandard != "" && !allowedPodSecurityStandards[config.Policies.PodSecurityStandard] {
-		return fmt.Errorf("invalid argument enforce-pod-security-standard=%s, must be one of: privileged, baseline, restricted", config.Policies.PodSecurityStandard)
+	if vConfig.Policies.PodSecurityStandard != "" && !allowedPodSecurityStandards[vConfig.Policies.PodSecurityStandard] {
+		return fmt.Errorf("invalid argument enforce-pod-security-standard=%s, must be one of: privileged, baseline, restricted", vConfig.Policies.PodSecurityStandard)
 	}
 
 	// parse tolerations
-	for _, t := range config.Sync.ToHost.Pods.EnforceTolerations {
+	for _, t := range vConfig.Sync.ToHost.Pods.EnforceTolerations {
 		_, err := toleration.ParseToleration(t)
 		if err != nil {
 			return err
@@ -37,73 +37,90 @@ func ValidateConfigAndSetDefaults(config *VirtualClusterConfig) error {
 	}
 
 	// check if enable scheduler works correctly
-	if config.ControlPlane.Advanced.VirtualScheduler.Enabled && !config.Sync.FromHost.Nodes.Selector.All && len(config.Sync.FromHost.Nodes.Selector.Labels) == 0 {
-		config.Sync.FromHost.Nodes.Selector.All = true
+	if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled && !vConfig.Sync.FromHost.Nodes.Selector.All && len(vConfig.Sync.FromHost.Nodes.Selector.Labels) == 0 {
+		vConfig.Sync.FromHost.Nodes.Selector.All = true
 	}
 
 	// enable additional controllers required for scheduling with storage
-	if config.ControlPlane.Advanced.VirtualScheduler.Enabled && config.Sync.ToHost.PersistentVolumeClaims.Enabled {
-		if config.Sync.FromHost.CSINodes.Enabled == "auto" {
-			config.Sync.FromHost.CSINodes.Enabled = "true"
+	if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled && vConfig.Sync.ToHost.PersistentVolumeClaims.Enabled {
+		if vConfig.Sync.FromHost.CSINodes.Enabled == "auto" {
+			vConfig.Sync.FromHost.CSINodes.Enabled = "true"
 		}
-		if config.Sync.FromHost.CSIStorageCapacities.Enabled == "auto" {
-			config.Sync.FromHost.CSIStorageCapacities.Enabled = "true"
+		if vConfig.Sync.FromHost.CSIStorageCapacities.Enabled == "auto" {
+			vConfig.Sync.FromHost.CSIStorageCapacities.Enabled = "true"
 		}
-		if config.Sync.FromHost.CSIDrivers.Enabled == "auto" {
-			config.Sync.FromHost.CSIDrivers.Enabled = "true"
+		if vConfig.Sync.FromHost.CSIDrivers.Enabled == "auto" {
+			vConfig.Sync.FromHost.CSIDrivers.Enabled = "true"
 		}
-		if config.Sync.FromHost.StorageClasses.Enabled == "auto" && !config.Sync.ToHost.StorageClasses.Enabled {
-			config.Sync.FromHost.StorageClasses.Enabled = "true"
+		if vConfig.Sync.FromHost.StorageClasses.Enabled == "auto" && !vConfig.Sync.ToHost.StorageClasses.Enabled {
+			vConfig.Sync.FromHost.StorageClasses.Enabled = "true"
+		}
+	}
+
+	// check if embedded database and multiple replicas
+	if vConfig.Config.BackingStoreType() == config.StoreTypeEmbeddedDatabase && vConfig.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 {
+		return fmt.Errorf("embedded database is not supported with multiple replicas")
+	}
+
+	// check if custom resources have correct scope
+	for key, customResource := range vConfig.Sync.ToHost.CustomResources {
+		if customResource.Scope != "" && customResource.Scope != config.ScopeNamespaced {
+			return fmt.Errorf("unsupported scope %s for sync.toHost.customResources['%s'].scope. Only 'Namespaced' is allowed", customResource.Scope, key)
+		}
+	}
+	for key, customResource := range vConfig.Sync.FromHost.CustomResources {
+		if customResource.Scope != "" && customResource.Scope != config.ScopeCluster {
+			return fmt.Errorf("unsupported scope %s for sync.fromHost.customResources['%s'].scope. Only 'Cluster' is allowed", customResource.Scope, key)
 		}
 	}
 
 	// check if nodes controller needs to be enabled
-	if config.ControlPlane.Advanced.VirtualScheduler.Enabled && !config.Sync.FromHost.Nodes.Enabled {
+	if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled && !vConfig.Sync.FromHost.Nodes.Enabled {
 		return errors.New("sync.fromHost.nodes.enabled is false, but required if using virtual scheduler")
 	}
 
 	// check if storage classes and host storage classes are enabled at the same time
-	if config.Sync.FromHost.StorageClasses.Enabled == "true" && config.Sync.ToHost.StorageClasses.Enabled {
+	if vConfig.Sync.FromHost.StorageClasses.Enabled == "true" && vConfig.Sync.ToHost.StorageClasses.Enabled {
 		return errors.New("you cannot enable both sync.fromHost.storageClasses.enabled and sync.toHost.storageClasses.enabled at the same time. Choose only one of them")
 	}
 
-	if config.Sync.FromHost.PriorityClasses.Enabled && config.Sync.ToHost.PriorityClasses.Enabled {
+	if vConfig.Sync.FromHost.PriorityClasses.Enabled && vConfig.Sync.ToHost.PriorityClasses.Enabled {
 		return errors.New("cannot sync priorityclasses to and from host at the same time")
 	}
 
 	// volumesnapshots and volumesnapshotcontents are dependant on each other
-	if config.Sync.ToHost.VolumeSnapshotContents.Enabled && !config.Sync.ToHost.VolumeSnapshots.Enabled {
+	if vConfig.Sync.ToHost.VolumeSnapshotContents.Enabled && !vConfig.Sync.ToHost.VolumeSnapshots.Enabled {
 		return errors.New("when syncing volume snapshots contents to the host, one must set sync.toHost.volumeSnapshots.enabled to true")
 	}
-	if config.Sync.ToHost.VolumeSnapshots.Enabled && !config.Sync.ToHost.VolumeSnapshotContents.Enabled {
+	if vConfig.Sync.ToHost.VolumeSnapshots.Enabled && !vConfig.Sync.ToHost.VolumeSnapshotContents.Enabled {
 		return errors.New("when syncing volume snapshots to the host, one must set sync.toHost.volumeSnapshotContents.enabled to true")
 	}
 
 	// validate central admission control
-	err := validateCentralAdmissionControl(config)
+	err := validateCentralAdmissionControl(vConfig)
 	if err != nil {
 		return err
 	}
 
 	// validate generic sync config
-	err = validateGenericSyncConfig(config.Experimental.GenericSync)
+	err = validateGenericSyncConfig(vConfig.Experimental.GenericSync)
 	if err != nil {
 		return fmt.Errorf("validate experimental.genericSync")
 	}
 
 	// validate distro
-	err = validateDistro(config)
+	err = validateDistro(vConfig)
 	if err != nil {
 		return err
 	}
 
-	err = validateK0sAndNoExperimentalKubeconfig(config)
+	err = validateK0sAndNoExperimentalKubeconfig(vConfig)
 	if err != nil {
 		return err
 	}
 
 	// check deny proxy requests
-	for _, c := range config.Experimental.DenyProxyRequests {
+	for _, c := range vConfig.Experimental.DenyProxyRequests {
 		err := validateCheck(c)
 		if err != nil {
 			return err
@@ -111,18 +128,18 @@ func ValidateConfigAndSetDefaults(config *VirtualClusterConfig) error {
 	}
 
 	// check resolve dns
-	err = validateMappings(config.Networking.ResolveDNS)
+	err = validateMappings(vConfig.Networking.ResolveDNS)
 	if err != nil {
 		return err
 	}
 
 	// set service name
-	if config.ControlPlane.Advanced.WorkloadServiceAccount.Name == "" {
-		config.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + config.Name
+	if vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name == "" {
+		vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + vConfig.Name
 	}
 
 	// pro validate config
-	err = ProValidateConfig(config)
+	err = ProValidateConfig(vConfig)
 	if err != nil {
 		return err
 	}
