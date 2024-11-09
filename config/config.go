@@ -502,15 +502,25 @@ type SyncFromHost struct {
 
 type SyncToHostCustomResource struct {
 	// Enabled defines if this option should be enabled.
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled,omitempty" jsonschema:"required"`
+
+	// Scope defines the scope of the resource. If undefined, will use Namespaced. Currently only Namespaced is supported.
+	Scope Scope `json:"scope,omitempty"`
 
 	// Patches patch the resource according to the provided specification.
 	Patches []TranslatePatch `json:"patches,omitempty"`
 }
 
+type Scope string
+
+const (
+	ScopeNamespaced Scope = "Namespaced"
+	ScopeCluster    Scope = "Cluster"
+)
+
 type TranslatePatch struct {
 	// Path is the path within the patch to target. If the path is not found within the patch, the patch is not applied.
-	Path string `json:"path,omitempty"`
+	Path string `json:"path,omitempty" jsonschema:"required"`
 
 	// Expression transforms the value according to the given JavaScript expression.
 	Expression string `json:"expression,omitempty"`
@@ -550,17 +560,12 @@ type TranslatePatchReference struct {
 	NamespacePath string `json:"namespacePath,omitempty"`
 }
 
-type TranslatePatchExpression struct {
-	// ToHost is the expression to apply when retrieving a change from virtual to host.
-	ToHost string `json:"toHost,omitempty"`
-
-	// FromHost is the patch to apply when retrieving a change from host to virtual.
-	FromHost string `json:"fromHost,omitempty"`
-}
-
 type SyncFromHostCustomResource struct {
 	// Enabled defines if this option should be enabled.
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled,omitempty" jsonschema:"required"`
+
+	// Scope defines the scope of the resource
+	Scope Scope `json:"scope,omitempty" jsonschema:"required"`
 
 	// Patches patch the resource according to the provided specification.
 	Patches []TranslatePatch `json:"patches,omitempty"`

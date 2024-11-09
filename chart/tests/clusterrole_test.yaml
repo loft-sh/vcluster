@@ -376,6 +376,7 @@ tests:
           customResources:
             test.test-group:
               enabled: true
+              scope: Cluster
     release:
       name: my-release
       namespace: my-namespace
