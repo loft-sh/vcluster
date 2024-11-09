@@ -442,6 +442,5 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 		return err
 	}
 
-	ctx.ObjectCache.Virtual().Put(vPod)
 	return nil
 }
