@@ -210,24 +210,23 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 		return err
 	}
 
-	// should use special server?
+	var customSyncerConfig *clientcmdapi.Config
 	if options.ExportKubeConfig.Server != "" {
-		// exchange kube config server & resolve certificate
-		for key, cluster := range syncerConfig.Clusters {
-			if cluster == nil {
-				continue
-			}
-
-			syncerConfig.Clusters[key] = &clientcmdapi.Cluster{
-				Server:                   options.ExportKubeConfig.Server,
-				Extensions:               make(map[string]runtime.Object),
-				CertificateAuthorityData: cluster.CertificateAuthorityData,
-				InsecureSkipTLSVerify:    options.ExportKubeConfig.Insecure,
+		// Create a deep copy of syncerConfig to modify the server for the additional secret
+		customSyncerConfig = syncerConfig.DeepCopy()
+		for key, cluster := range customSyncerConfig.Clusters {
+			if cluster != nil {
+				customSyncerConfig.Clusters[key] = &clientcmdapi.Cluster{
+					Server:                   options.ExportKubeConfig.Server,
+					Extensions:               make(map[string]runtime.Object),
+					CertificateAuthorityData: cluster.CertificateAuthorityData,
+					InsecureSkipTLSVerify:    options.ExportKubeConfig.Insecure,
+				}
 			}
 		}
 	}
 
-	// should use service account token for secret?
+	// Apply service account token if specified
 	if options.ExportKubeConfig.ServiceAccount.Name != "" {
 		serviceAccountNamespace := options.ExportKubeConfig.ServiceAccount.Namespace
 		if serviceAccountNamespace == "" {
@@ -244,32 +243,40 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 			return fmt.Errorf("create service account token for export kube config: %w", err)
 		}
 
-		for k := range syncerConfig.AuthInfos {
-			syncerConfig.AuthInfos[k] = &clientcmdapi.AuthInfo{
-				Token:                token,
-				Extensions:           make(map[string]runtime.Object),
-				ImpersonateUserExtra: make(map[string][]string),
-			}
+		// Apply the token to both syncerConfig and customSyncerConfig (if it exists)
+		applyAuthToken(syncerConfig, token)
+		if customSyncerConfig != nil {
+			applyAuthToken(customSyncerConfig, token)
 		}
 	}
 
-	// check if we need to write the kubeconfig secrete to the default location as well
+	// Write the additional secret if specified
 	if options.ExportKubeConfig.Secret.Name != "" {
-		// which namespace should we create the additional secret in?
 		secretNamespace := options.ExportKubeConfig.Secret.Namespace
 		if secretNamespace == "" {
 			secretNamespace = currentNamespace
 		}
 
-		// write the extra secret
-		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, options.ExportKubeConfig.Secret.Name, secretNamespace, syncerConfig, options.Experimental.IsolatedControlPlane.KubeConfig != "")
+		// Use customSyncerConfig for the additional secret if it was modified, else syncerConfig
+		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, options.ExportKubeConfig.Secret.Name, secretNamespace, customSyncerConfig, options.Experimental.IsolatedControlPlane.KubeConfig != "")
 		if err != nil {
 			return fmt.Errorf("creating %s secret in the %s ns failed: %w", options.ExportKubeConfig.Secret.Name, secretNamespace, err)
 		}
 	}
 
-	// write the default Secret
+	// Write the default secret using syncerConfig, which retains the original Server value
 	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, syncerConfig, options.Experimental.IsolatedControlPlane.KubeConfig != "")
+}
+
+// applyAuthToken sets the provided token in all AuthInfos of the given config
+func applyAuthToken(config *clientcmdapi.Config, token string) {
+	for k := range config.AuthInfos {
+		config.AuthInfos[k] = &clientcmdapi.AuthInfo{
+			Token:                token,
+			Extensions:           make(map[string]runtime.Object),
+			ImpersonateUserExtra: make(map[string][]string),
+		}
+	}
 }
 
 func MigrateMappers(ctx *synccontext.RegisterContext, syncers []syncertypes.Object) error {
