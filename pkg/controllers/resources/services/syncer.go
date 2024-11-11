@@ -243,7 +243,6 @@ func recreateService(ctx *synccontext.SyncContext, virtualClient client.Client, 
 	}
 
 	// make sure we don't set the resource version during create
-	ctx.ObjectCache.Virtual().Delete(vService)
 	vService = vService.DeepCopy()
 	vService.ResourceVersion = ""
 	vService.UID = ""
@@ -257,7 +256,6 @@ func recreateService(ctx *synccontext.SyncContext, virtualClient client.Client, 
 		return err
 	}
 
-	ctx.ObjectCache.Virtual().Put(vService)
 	return nil
 }
 

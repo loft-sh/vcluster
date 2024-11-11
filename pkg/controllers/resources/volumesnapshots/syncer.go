@@ -66,8 +66,6 @@ func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, event *s
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-
-			ctx.ObjectCache.Virtual().Put(event.Virtual)
 		}
 
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
@@ -115,8 +113,6 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-
-			ctx.ObjectCache.Virtual().Put(updated)
 		}
 
 		if !equality.Semantic.DeepEqual(event.Virtual.Status, event.Host.Status) {
@@ -127,8 +123,6 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
-
-			ctx.ObjectCache.Virtual().Put(updated)
 		}
 
 		return ctrl.Result{}, nil
