@@ -8,6 +8,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers"
+	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/coredns"
 	"github.com/loft-sh/vcluster/pkg/log"
@@ -37,6 +38,12 @@ import (
 func StartControllers(controllerContext *synccontext.ControllerContext, syncers []syncertypes.Object) error {
 	// exchange control plane client
 	controlPlaneClient, err := pro.ExchangeControlPlaneClient(controllerContext)
+	if err != nil {
+		return err
+	}
+
+	// register init manifests configmap watcher controller
+	err = deploy.RegisterInitManifestsController(controllerContext)
 	if err != nil {
 		return err
 	}

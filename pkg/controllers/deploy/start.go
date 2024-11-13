@@ -1,6 +1,7 @@
 package deploy
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/log"
@@ -31,22 +32,32 @@ func RegisterInitManifestsController(controllerCtx *synccontext.ControllerContex
 		}
 	}
 
-	controller := &Deployer{
+	deployer := &Deployer{
 		Log:            loghelper.New("init-manifests-controller"),
 		VirtualManager: controllerCtx.VirtualManager,
 
 		HelmClient: helm.NewClient(&vConfigRaw, log.GetInstance(), helmBinaryPath),
 	}
 
+	// deploy manifests
+	err = deployer.DeployInitManifests(controllerCtx, controllerCtx.Config)
+	if err != nil {
+		return fmt.Errorf("error deploying experimental.deploy.vCluster.manifests: %w", err)
+	}
+
+	// deploy helm charts
 	go func() {
 		for {
-			result, err := controller.Apply(controllerCtx, controllerCtx.Config)
+			// deploy helm charts
+			err := deployer.DeployHelmCharts(controllerCtx, controllerCtx.Config)
 			if err != nil {
-				klog.Errorf("Error deploying manifests: %v", err)
+				klog.Errorf("Error deploying experimental.deploy.vCluster.helm: %v", err)
 				time.Sleep(time.Second * 10)
-			} else if !result.Requeue {
-				break
+				continue
 			}
+
+			// exit loop
+			break
 		}
 	}()
 
