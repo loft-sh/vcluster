@@ -174,6 +174,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 			"--namespace", namespace,
 			"--set", "agentOnly=true",
 			"--set", "image=" + cmp.Or(os.Getenv("DEVELOPMENT_IMAGE"), "ghcr.io/loft-sh/enterprise:release-test"),
+			"--set", "env.AGENT_IMAGE=" + cmp.Or(os.Getenv("AGENT_IMAGE"), os.Getenv("DEVELOPMENT_IMAGE"), "ghcr.io/loft-sh/enterprise:release-test"),
 		}
 	} else {
 		if cmd.HelmChartPath != "" {
