@@ -8,6 +8,7 @@ linters:
     - tagalign
     - asciicheck
     - bidichk
+    - copyloopvar
     - decorder
     - dupl
     - durationcheck
@@ -15,7 +16,6 @@ linters:
     - errname
     - errorlint
     - exhaustive
-    - exportloopref
     - ginkgolinter
     - gocheckcompilerdirectives
     - gofmt

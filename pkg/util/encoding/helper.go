@@ -31,7 +31,7 @@ func Convert(from runtime.Object, to runtime.Object) error {
 }
 
 // ConvertList converts the objects from the from list and puts them into the to list
-func ConvertList(fromList runtime.Object, toList runtime.Object, new rest.Storage) error {
+func ConvertList(fromList runtime.Object, toList runtime.Object, storage rest.Storage) error {
 	list, err := meta.ExtractList(fromList)
 	if err != nil {
 		return err
@@ -39,7 +39,7 @@ func ConvertList(fromList runtime.Object, toList runtime.Object, new rest.Storag
 
 	newItems := []runtime.Object{}
 	for _, item := range list {
-		newItem := new.New()
+		newItem := storage.New()
 		err = Convert(item, newItem)
 		if err != nil {
 			return err
