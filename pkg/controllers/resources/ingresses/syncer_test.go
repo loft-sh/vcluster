@@ -434,6 +434,81 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
+		{
+			Name: "Exclude Rancher managed annotations from syncing",
+			InitialVirtualState: []runtime.Object{
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      baseIngress.Name,
+						Namespace: baseIngress.Namespace,
+						Labels:    baseIngress.Labels,
+						Annotations: map[string]string{
+							"nginx.ingress.kubernetes.io/auth-secret":     "my-secret",
+							"nginx.ingress.kubernetes.io/auth-tls-secret": baseIngress.Namespace + "/my-secret",
+							"field.cattle.io/publicEndpoints":             `[{"addresses":["192.168.0.10"],"port":80,"protocol":"HTTP","serviceName":"default:nginx","ingressName":"default:test-ingress","hostname":"my-ingress-endpoint.com","path":"/","allNodes":false}]`,
+						},
+					},
+				},
+			},
+			InitialPhysicalState: []runtime.Object{
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      createdIngress.Name,
+						Namespace: createdIngress.Namespace,
+						Labels:    createdIngress.Labels,
+					},
+				},
+			},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {
+					&networkingv1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      baseIngress.Name,
+							Namespace: baseIngress.Namespace,
+							Labels:    baseIngress.Labels,
+							Annotations: map[string]string{
+								"nginx.ingress.kubernetes.io/auth-secret":     "my-secret",
+								"nginx.ingress.kubernetes.io/auth-tls-secret": baseIngress.Namespace + "/my-secret",
+								"field.cattle.io/publicEndpoints":             `[{"addresses":["192.168.0.10"],"port":80,"protocol":"HTTP","serviceName":"default:nginx","ingressName":"default:test-ingress","hostname":"my-ingress-endpoint.com","path":"/","allNodes":false}]`,
+							},
+						},
+					},
+				},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				networkingv1.SchemeGroupVersion.WithKind("Ingress"): {
+					&networkingv1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      createdIngress.Name,
+							Namespace: createdIngress.Namespace,
+							Labels:    createdIngress.Labels,
+							Annotations: map[string]string{
+								"nginx.ingress.kubernetes.io/auth-secret":     translate.Default.PhysicalName("my-secret", baseIngress.Namespace),
+								"nginx.ingress.kubernetes.io/auth-tls-secret": createdIngress.Namespace + "/" + translate.Default.PhysicalName("my-secret", baseIngress.Namespace),
+								"vcluster.loft.sh/managed-annotations":        "nginx.ingress.kubernetes.io/auth-secret\nnginx.ingress.kubernetes.io/auth-tls-secret",
+								"vcluster.loft.sh/object-name":                baseIngress.Name,
+								"vcluster.loft.sh/object-namespace":           baseIngress.Namespace,
+								translate.UIDAnnotation:                       "",
+							},
+						},
+					},
+				},
+			},
+			Sync: func(registerContext *synccontext.RegisterContext) {
+				syncCtx, syncer := generictesting.FakeStartSyncer(t, registerContext, NewSyncer)
+
+				vIngress := &networkingv1.Ingress{}
+				err := syncCtx.VirtualClient.Get(syncCtx.Context, types.NamespacedName{Name: baseIngress.Name, Namespace: baseIngress.Namespace}, vIngress)
+				assert.NilError(t, err)
+
+				pIngress := &networkingv1.Ingress{}
+				err = syncCtx.PhysicalClient.Get(syncCtx.Context, types.NamespacedName{Name: createdIngress.Name, Namespace: createdIngress.Namespace}, pIngress)
+				assert.NilError(t, err)
+
+				_, err = syncer.(*ingressSyncer).Sync(syncCtx, pIngress, vIngress)
+				assert.NilError(t, err)
+			},
+		},
 	})
 }
 
