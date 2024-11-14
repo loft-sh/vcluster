@@ -199,6 +199,34 @@ tests:
             resources: ["externalsecrets"]
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - it: certManager enabled
+    set:
+      integrations:
+        certManager:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["cert-manager.io"]
+            resources: ["issuers"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["cert-manager.io"]
+            resources: ["certificates"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
   - it: external secret test store sync
     set:
       integrations:
