@@ -1204,7 +1204,7 @@
       "properties": {
         "deploy": {
           "$ref": "#/$defs/ExperimentalDeploy",
-          "description": "Deploy allows you to configure manifests and Helm charts to deploy within the virtual cluster."
+          "description": "Deploy allows you to configure manifests and Helm charts to deploy within the host or virtual cluster."
         },
         "syncSettings": {
           "$ref": "#/$defs/ExperimentalSyncSettings",
@@ -1321,11 +1321,11 @@
       "properties": {
         "manifests": {
           "type": "string",
-          "description": "Manifests are raw Kubernetes manifests that should get applied within the virtual cluster."
+          "description": "Manifests are raw Kubernetes manifests that should get applied within the host cluster."
         },
         "manifestsTemplate": {
           "type": "string",
-          "description": "ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster."
+          "description": "ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the host cluster."
         }
       },
       "additionalProperties": false,

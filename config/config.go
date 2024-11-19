@@ -1879,7 +1879,7 @@ type Telemetry struct {
 }
 
 type Experimental struct {
-	// Deploy allows you to configure manifests and Helm charts to deploy within the virtual cluster.
+	// Deploy allows you to configure manifests and Helm charts to deploy within the host or virtual cluster.
 	Deploy ExperimentalDeploy `json:"deploy,omitempty"`
 
 	// SyncSettings are advanced settings for the syncer controller.
@@ -1963,10 +1963,10 @@ type ExperimentalDeploy struct {
 }
 
 type ExperimentalDeployHost struct {
-	// Manifests are raw Kubernetes manifests that should get applied within the virtual cluster.
+	// Manifests are raw Kubernetes manifests that should get applied within the host cluster.
 	Manifests string `json:"manifests,omitempty"`
 
-	// ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the virtual cluster.
+	// ManifestsTemplate is a Kubernetes manifest template that will be rendered with vCluster values before applying it within the host cluster.
 	ManifestsTemplate string `json:"manifestsTemplate,omitempty"`
 }
 
