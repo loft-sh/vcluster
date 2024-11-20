@@ -129,6 +129,10 @@ func Namespaces() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("Namespace")
 }
 
+func NetworkingPolicies() schema.GroupVersionKind {
+	return networkingv1.SchemeGroupVersion.WithKind("NetworkPolicy")
+}
+
 func Ingresses() schema.GroupVersionKind {
 	return networkingv1.SchemeGroupVersion.WithKind("Ingress")
 }
