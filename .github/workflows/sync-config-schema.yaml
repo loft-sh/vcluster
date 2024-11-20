@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.release.outputs.latest_release }}
-      skip_update: ${{ steps.release.outputs.skip_update }}
+      update_main: ${{ steps.release.outputs.update_main }}
     steps:
       # this is to support both manually trigger workflows, and automatically triggered on release creation
       - name: Determine release tag
@@ -31,38 +31,89 @@ jobs:
           fi
           echo "release_tag=${final_tag}" >> "$GITHUB_OUTPUT"
           if [[ ${final_tag} == *"-beta."* || ${final_tag} == *"-alpha."* ]]; then
-            echo "skip_update=true" >> "$GITHUB_OUTPUT"
+            echo "update_main=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip_update=false" >> "$GITHUB_OUTPUT"
+            echo "update_main=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout repo
-        if: ${{ steps.release.outputs.skip_update == 'false' }}
+        if: ${{ steps.release.outputs.update_main == 'false' }}
         uses: actions/checkout@v4
         with:
           fetch-tags: 'true'
           ref: 'refs/tags/${{ steps.release.outputs.release_tag }}'
 
       - name: Configure git
-        if: ${{ steps.release.outputs.skip_update == 'false' }}
+        if: ${{ steps.release.outputs.update_main == 'false' }}
         run: git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
         env:
           GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
 
       - name: Set up Go
-        if: ${{ steps.release.outputs.skip_update == 'false' }}
+        if: ${{ steps.release.outputs.update_main == 'false' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
-      - name: Skip updates on alpha or beta versions
-        if: ${{ steps.release.outputs.skip_update == 'true' }}
+      - name: Update main docs version on alpha or beta versions
+        if: ${{ steps.release.outputs.update_main == 'true' }}
         run: |
-          echo "skipping updates in vcluster schema, because the tag is alpha/beta: ${{ steps.release.outputs.release_tag }}"
+          # clone vcluster-config and vcluster-docs
+          git clone --single-branch https://github.com/loft-sh/vcluster-docs.git
+          git clone --single-branch https://github.com/loft-sh/vcluster-config.git
+
+
+          # generate vcluster.schema.json based on the current platform.schema.json in vcluster-config
+          # and values.schema.json from alpha / beta release
+          cp chart/values.schema.json vcluster-config/values.schema.json
+          cd vcluster-config/
+          go mod tidy
+          go mod vendor
+
+          go run ./hack/main.go
+
+          # copy generated vcluster.schema.json to the docs
+          cd ../
+          mkdir -p vcluster-docs/configsrc/main/
+          cp config/values.yaml vcluster-docs/configsrc/main/default_values.yaml
+          cp vcluster-config/vcluster.schema.json vcluster-docs/configsrc/main/vcluster.schema.json
+
+          # generate vCluster partials in docs
+          cd vcluster-docs/
+
+          branch_name="generate-partials-for-main"
+          git switch -c ${branch_name}
+
+          # generate vcluster partials for main version
+          go run hack/vcluster/partials/main.go "configsrc/vcluster/main" "vcluster/_partials/config"
+
+
+          # set git info
+          git config --global user.name "Loft Bot"
+          git config --global user.email 'loft-bot@users.noreply.github.com'
+
+
+          git add --all
+
+          # if there are no changes, exit early
+          if git diff-index --quiet HEAD --; then
+            exit 0
+          fi
+
+          # set git info
+          git config --global user.name "Loft Bot"
+          git config --global user.email 'loft-bot@users.noreply.github.com'
+          echo "Changes detected"
+
+          # create a PR in vcluster-docs with generated partials
+          git commit -m "chore: generate vCluster partials for main version based on values.schema.json in vCluster ${{ steps.release.outputs.release_tag }}"
+          git push -u origin -f ${branch_name}
+          gh pr create --fill
+          echo "Create PR in vcluster-docs"
 
 
       - name: Update vcluster schema in vcluster-config
-        if: ${{ steps.release.outputs.skip_update == 'false' }}
+        if: ${{ steps.release.outputs.update_main == 'false' }}
         run: |
           git clone --single-branch https://github.com/loft-sh/vcluster-config.git
 
