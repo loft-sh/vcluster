@@ -2,11 +2,13 @@ package config
 
 import (
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/invopop/jsonschema"
 	"sigs.k8s.io/yaml"
@@ -74,6 +76,9 @@ type Config struct {
 
 	// Plugin specifies which vCluster plugins to enable. Use "plugins" instead. Do not use this option anymore.
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
+
+	// SleepMode holds the native sleep mode configuration for Pro clusters
+	SleepMode *SleepMode `json:"sleepMode,omitempty"`
 }
 
 // Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
@@ -2314,4 +2319,70 @@ func addProToJSONSchema(base *jsonschema.Schema, t reflect.Type) {
 		}
 		central.Extras["pro"] = true
 	}
+}
+
+// SleepMode holds configuration for native/workload only sleep mode
+type SleepMode struct {
+	// Enabled toggles the sleep mode functionality, allowing for disabling sleep mode without removing other config
+	Enabled bool `json:"enabled,omitempty"`
+	// Timezone represents the timezone a sleep schedule should run against, defaulting to UTC if unset
+	TimeZone string `json:"timeZone,omitempty"`
+	// AutoSleep holds autoSleep details
+	AutoSleep SleepModeAutoSleep `json:"autoSleep,omitempty"`
+}
+
+// SleepModeAutoSleep holds configuration for allowing a vCluster to sleep its workloads
+// automatically
+type SleepModeAutoSleep struct {
+	// AfterInactivity represents how long a vCluster can be idle before workloads are automaticaly put to sleep
+	AfterInactivity Duration `json:"afterInactivity,omitempty"`
+
+	// Schedule represents a cron schedule for when to sleep workloads
+	Schedule string `json:"schedule,omitempty"`
+
+	// Wakeup holds configuration for waking the vCluster on a schedule rather than waiting for some activity.
+	Wakeup AutoWakeup `json:"wakeup,omitempty"`
+
+	// Exclude holds configuration for labels that, if present, will prevent a workload from going to sleep
+	Exclude AutoSleepExclusion `json:"exclude,omitempty"`
+}
+
+// Duration allows for automatic Marshalling from strings like "1m" to a time.Duration
+type Duration time.Duration
+
+// MarshalJSON implements Marshaler
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(time.Duration(d).String())
+}
+
+// UnmarshalJSON implements Marshaler
+func (d *Duration) UnmarshalJSON(b []byte) error {
+	var v interface{}
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	switch value := v.(type) {
+	case float64:
+		*d = Duration(time.Duration(value))
+		return nil
+	case string:
+		tmp, err := time.ParseDuration(value)
+		if err != nil {
+			return err
+		}
+		*d = Duration(tmp)
+		return nil
+	default:
+		return errors.New("invalid duration")
+	}
+}
+
+// AutoWakeup holds the cron schedule to wake workloads automatically
+type AutoWakeup struct {
+	Schedule string `json:"schedule,omitempty"`
+}
+
+// AutoSleepExclusion holds conifiguration for excluding workloads from sleeping by label(s)
+type AutoSleepExclusion struct {
+	Selector LabelSelector `json:"selector,omitempty"`
 }

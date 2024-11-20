@@ -32,6 +32,26 @@
       "type": "object",
       "description": "APIServiceService holds the service name and namespace of the host apiservice."
     },
+    "AutoSleepExclusion": {
+      "properties": {
+        "selector": {
+          "$ref": "#/$defs/LabelSelector"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "AutoSleepExclusion holds conifiguration for excluding workloads from sleeping by label(s)"
+    },
+    "AutoWakeup": {
+      "properties": {
+        "schedule": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "AutoWakeup holds the cron schedule to wake workloads automatically"
+    },
     "BackingStore": {
       "properties": {
         "etcd": {
@@ -2913,6 +2933,48 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "SleepMode": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled toggles the sleep mode functionality, allowing for disabling sleep mode without removing other config"
+        },
+        "timeZone": {
+          "type": "string",
+          "description": "Timezone represents the timezone a sleep schedule should run against, defaulting to UTC if unset"
+        },
+        "autoSleep": {
+          "$ref": "#/$defs/SleepModeAutoSleep",
+          "description": "AutoSleep holds autoSleep details"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SleepMode holds configuration for native/workload only sleep mode"
+    },
+    "SleepModeAutoSleep": {
+      "properties": {
+        "afterInactivity": {
+          "type": "integer",
+          "description": "AfterInactivity represents how long a vCluster can be idle before workloads are automaticaly put to sleep"
+        },
+        "schedule": {
+          "type": "string",
+          "description": "Schedule represents a cron schedule for when to sleep workloads"
+        },
+        "wakeup": {
+          "$ref": "#/$defs/AutoWakeup",
+          "description": "Wakeup holds configuration for waking the vCluster on a schedule rather than waiting for some activity."
+        },
+        "exclude": {
+          "$ref": "#/$defs/AutoSleepExclusion",
+          "description": "Exclude holds configuration for labels that, if present, will prevent a workload from going to sleep"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SleepModeAutoSleep holds configuration for allowing a vCluster to sleep its workloads automatically"
+    },
     "StatefulSetImage": {
       "properties": {
         "registry": {
@@ -3653,6 +3715,10 @@
         "$ref": "#/$defs/Plugin"
       },
       "description": "Plugin specifies which vCluster plugins to enable. Use \"plugins\" instead. Do not use this option anymore."
+    },
+    "sleepMode": {
+      "$ref": "#/$defs/SleepMode",
+      "description": "SleepMode holds the native sleep mode configuration for Pro clusters"
     }
   },
   "additionalProperties": false,
