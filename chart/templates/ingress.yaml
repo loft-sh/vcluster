@@ -18,8 +18,8 @@ metadata:
 {{ toYaml .Values.controlPlane.ingress.labels | indent 4 }}
   {{- end }}
 spec:
-  {{- if .Values.controlPlane.ingress.spec }}
-{{ toYaml .Values.controlPlane.ingress.spec | indent 2 }}
+  {{- with .Values.controlPlane.ingress.spec }}
+  {{- tpl (toYaml .) $ | nindent 2 }}
   {{- end }}
   {{- if not .Values.controlPlane.ingress.spec.rules }}
   rules:
