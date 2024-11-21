@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
@@ -76,7 +75,7 @@ func (cmd *LogoutCmd) Run(ctx context.Context) error {
 			return fmt.Errorf("save config: %w", err)
 		}
 
-		cmd.Log.Donef(product.Replace("Successfully logged out of loft instance %s"), ansi.Color(configHost, "white+b"))
+		cmd.Log.Donef("Successfully logged out of vCluster Palatform instance %s", ansi.Color(configHost, "white+b"))
 	}
 
 	return use.SwitchDriver(ctx, cfg, string(config.HelmDriver), cmd.Log)

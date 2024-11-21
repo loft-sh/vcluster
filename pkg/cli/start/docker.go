@@ -215,7 +215,7 @@ func (l *LoftStarter) prepareDocker() error {
 	// test for helm and kubectl
 	_, err := exec.LookPath("docker")
 	if err != nil {
-		return fmt.Errorf("seems like docker is not installed. Docker is required for the installation of loft. Please visit https://docs.docker.com/engine/install/ for install instructions")
+		return fmt.Errorf("seems like docker is not installed. Docker is required for the installation of vCluster Platform. Please visit https://docs.docker.com/engine/install/ for install instructions")
 	}
 
 	output, err := exec.Command("docker", "ps").CombinedOutput()
