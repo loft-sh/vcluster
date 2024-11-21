@@ -57,6 +57,8 @@ jobs:
 
       - name: Update main docs version on alpha or beta versions
         if: ${{ steps.release.outputs.update_main == 'true' }}
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
         run: |
           # clone vcluster-config and vcluster-docs
           git clone --single-branch https://github.com/loft-sh/vcluster-docs.git
@@ -85,6 +87,8 @@ jobs:
           git switch -c ${branch_name}
 
           # generate vcluster partials for main version
+          go mod tidy
+          go mod vendor
           go run hack/vcluster/partials/main.go "configsrc/vcluster/main" "vcluster/_partials/config"
 
 
@@ -106,7 +110,7 @@ jobs:
           echo "Changes detected"
 
           # create a PR in vcluster-docs with generated partials
-          git commit -m "chore: generate vCluster partials for main version based on values.schema.json in vCluster ${{ steps.release.outputs.release_tag }}"
+          git commit -m "chore: generate vCluster partials for main version based on values.schema.json in vCluster ${RELEASE_TAG}"
           git push -u origin -f ${branch_name}
           gh pr create --fill
           echo "Create PR in vcluster-docs"
