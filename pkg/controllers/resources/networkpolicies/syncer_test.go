@@ -3,8 +3,10 @@ package networkpolicies
 import (
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	"k8s.io/utils/ptr"
 
@@ -217,7 +219,10 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	syncertesting.RunTests(t, []*syncertesting.SyncTest{
+	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.ToHost.NetworkPolicies.Enabled = true
+		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*syncertesting.SyncTest{
 		{
 			Name:                "Create forward",
 			InitialVirtualState: []runtime.Object{vBaseNetworkPolicy.DeepCopy()},

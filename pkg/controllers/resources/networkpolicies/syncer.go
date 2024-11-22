@@ -3,7 +3,7 @@ package networkpolicies
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/mappings/generic"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
@@ -18,7 +18,7 @@ import (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
-	mapper, err := generic.NewMapper(ctx, &networkingv1.NetworkPolicy{}, translate.Default.HostName)
+	mapper, err := ctx.Mappings.ByGVK(mappings.NetworkingPolicies())
 	if err != nil {
 		return nil, err
 	}
