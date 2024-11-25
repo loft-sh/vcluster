@@ -782,5 +782,5 @@ func mergeResources(defaultResources, userResources []string) []string {
 		retResources = append(retResources, resource)
 	}
 
-	return nil
+	return retResources
 }
