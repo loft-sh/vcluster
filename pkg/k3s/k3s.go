@@ -54,7 +54,7 @@ func StartK3S(ctx context.Context, vConfig *config.VirtualClusterConfig, service
 			var etcdEndpoint string
 			if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Service.Enabled {
 				etcdEndpoint = "https://" + vConfig.Name + "-etcd:2379"
-			} else if vConfig.ControlPlane.BackingStore.Etcd.Deploy.HeadlessService.Enabled {
+			} else {
 				etcdEndpoint = "https://" + vConfig.Name + "-etcd-headless:2379"
 			}
 

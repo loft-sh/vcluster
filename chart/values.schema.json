@@ -1079,10 +1079,6 @@
     },
     "EtcdDeployHeadlessService": {
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the etcd headless service should be deployed"
-        },
         "annotations": {
           "additionalProperties": {
             "type": "string"
