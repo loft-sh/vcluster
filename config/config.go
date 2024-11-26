@@ -91,6 +91,43 @@ type Integrations struct {
 
 	// ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster
 	ExternalSecrets ExternalSecrets `json:"externalSecrets,omitempty"`
+
+	// CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster.
+	// - Certificates and Issuers will be synced from the virtual cluster to the host cluster.
+	// - ClusterIssuers will be synced from the host cluster to the virtual cluster.
+	CertManager CertManager `json:"certManager,omitempty"`
+}
+
+// CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster
+type CertManager struct {
+	EnableSwitch
+
+	// Sync contains advanced configuration for syncing cert-manager resources.
+	Sync CertManagerSync `json:"sync,omitempty"`
+}
+
+type CertManagerSync struct {
+	ToHost   CertManagerSyncToHost   `json:"toHost,omitempty"`
+	FromHost CertManagerSyncFromHost `json:"fromHost,omitempty"`
+}
+
+type CertManagerSyncToHost struct {
+	// Certificates defines if certificates should get synced from the virtual cluster to the host cluster.
+	Certificates EnableSwitch `json:"certificates,omitempty"`
+
+	// Issuers defines if issuers should get synced from the virtual cluster to the host cluster.
+	Issuers EnableSwitch `json:"issuers,omitempty"`
+}
+
+type CertManagerSyncFromHost struct {
+	// ClusterIssuers defines if (and which) cluster issuers should get synced from the host cluster to the virtual cluster.
+	ClusterIssuers ClusterIssuersSyncConfig `json:"clusterIssuers,omitempty"`
+}
+
+type ClusterIssuersSyncConfig struct {
+	EnableSwitch
+	// Selector defines what cluster issuers should be imported.
+	Selector LabelSelector `json:"selector,omitempty"`
 }
 
 // ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster
@@ -1619,21 +1656,6 @@ type ResourceQuota struct {
 	Scopes []string `json:"scopes,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
-}
-
-type LabelSelectorRequirement struct {
-	// key is the label key that the selector applies to.
-	Key string `json:"key"`
-
-	// operator represents a key's relationship to a set of values.
-	// Valid operators are In, NotIn, Exists and DoesNotExist.
-	Operator string `json:"operator"`
-
-	// values is an array of string values. If the operator is In or NotIn,
-	// the values array must be non-empty. If the operator is Exists or DoesNotExist,
-	// the values array must be empty. This array is replaced during a strategic
-	// merge patch.
-	Values []string `json:"values,omitempty"`
 }
 
 type LimitRange struct {

@@ -9,6 +9,8 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 )
 
+// CopyBidirectional determines whether the change is in the virtual or host object by seeing what changed between "old" and "new" for each.
+// It then mutates the changed object to match the unchanged object.
 func CopyBidirectional[T any](virtualOld, virtual, hostOld, host T) (T, T) {
 	newVirtual := virtual
 	newHost := host
@@ -21,20 +23,25 @@ func CopyBidirectional[T any](virtualOld, virtual, hostOld, host T) (T, T) {
 	return newVirtual, newHost
 }
 
+// MergeBidirectional determines whether the change is in the virtual or host object by seeing what changed between "old" and "new" for each.
+// It then merges the changes from the changed object into the unchanged object by marshalling them and using a json merge patch on the unchanged object.
 func MergeBidirectional[T any](virtualOld, virtual, hostOld, host T) (T, T, error) {
 	var err error
 
 	newVirtual := virtual
 	newHost := host
 	if !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
+		// virtual object changed, merge changes into host
 		newHost, err = MergeChangesInto(virtualOld, virtual, host)
 	} else if !apiequality.Semantic.DeepEqual(hostOld, host) {
+		// host object changed, merge changes into virtual
 		newVirtual, err = MergeChangesInto(hostOld, host, virtual)
 	}
 
 	return newVirtual, newHost, err
 }
 
+// MergeChangesInto merges changes from "newValue" into "outValue" based on the changes between "oldValue" and "newValue".
 func MergeChangesInto[T any](oldValue, newValue, outValue T) (T, error) {
 	if clienthelper.IsNilObject(outValue) {
 		return newValue, nil

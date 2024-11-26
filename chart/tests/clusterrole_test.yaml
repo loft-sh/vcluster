@@ -345,7 +345,26 @@ tests:
             apiGroups: ["admissionregistration.k8s.io"]
             resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
             verbs: ["get", "list", "watch"]
-
+  - it: certManger enabled
+    set:
+      integrations:
+        certManager:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 2
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["cert-manager.io"]
+            resources: ["clusterissuers"]
+            verbs: ["get", "list", "watch"]
   - it: crd sync to host
     set:
       sync:

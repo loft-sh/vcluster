@@ -423,6 +423,19 @@ integrations:
         enabled: true
       virtualMachineInstanceMigrations:
         enabled: true
+  certManager:
+    enabled: false
+    sync:
+      toHost:
+        certificates:
+          enabled: true
+        issuers:
+          enabled: true
+      fromHost:
+        clusterIssuers:
+          enabled: true
+          selector:
+            labels: {}
 
 rbac:
   role:

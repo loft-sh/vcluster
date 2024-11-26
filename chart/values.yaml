@@ -732,6 +732,30 @@ integrations:
       # If VirtualMachineInstanceMigrations should get synced
       virtualMachineInstanceMigrations:
         enabled: true
+  
+  # CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster.
+  # - Certificates and Issuers will be synced from the virtual cluster to the host cluster.
+  # - ClusterIssuers will be synced from the host cluster to the virtual cluster.
+  certManager:
+    # Enabled defines if this option should be enabled.
+    enabled: false
+    # Sync contains advanced configuration for syncing cert-manager resources.
+    sync:
+      toHost:
+        # Certificates defines if certificates should get synced from the virtual cluster to the host cluster.
+        certificates:
+          enabled: true
+        # Issuers defines if issuers should get synced from the virtual cluster to the host cluster.
+        issuers:
+          enabled: true
+      fromHost:
+        # ClusterIssuers defines if (and which) cluster issuers should get synced from the host cluster to the virtual cluster.
+        clusterIssuers:
+          # Enabled defines if this option should be enabled.
+          enabled: true
+          # Selector defines what cluster issuers should be imported.
+          selector:
+            labels: {}
 
 # RBAC options for the virtual cluster.
 rbac:

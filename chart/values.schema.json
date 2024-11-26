@@ -86,6 +86,71 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CertManager": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "sync": {
+          "$ref": "#/$defs/CertManagerSync",
+          "description": "Sync contains advanced configuration for syncing cert-manager resources."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster"
+    },
+    "CertManagerSync": {
+      "properties": {
+        "toHost": {
+          "$ref": "#/$defs/CertManagerSyncToHost"
+        },
+        "fromHost": {
+          "$ref": "#/$defs/CertManagerSyncFromHost"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CertManagerSyncFromHost": {
+      "properties": {
+        "clusterIssuers": {
+          "$ref": "#/$defs/ClusterIssuersSyncConfig",
+          "description": "ClusterIssuers defines if (and which) cluster issuers should get synced from the host cluster to the virtual cluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CertManagerSyncToHost": {
+      "properties": {
+        "certificates": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "Certificates defines if certificates should get synced from the virtual cluster to the host cluster."
+        },
+        "issuers": {
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "Issuers defines if issuers should get synced from the virtual cluster to the host cluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ClusterIssuersSyncConfig": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "selector": {
+          "$ref": "#/$defs/LabelSelector",
+          "description": "Selector defines what cluster issuers should be imported."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ClusterStoresSyncConfig": {
       "properties": {
         "enabled": {
@@ -1893,6 +1958,10 @@
         "externalSecrets": {
           "$ref": "#/$defs/ExternalSecrets",
           "description": "ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster"
+        },
+        "certManager": {
+          "$ref": "#/$defs/CertManager",
+          "description": "CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster.\n- Certificates and Issuers will be synced from the virtual cluster to the host cluster.\n- ClusterIssuers will be synced from the host cluster to the virtual cluster."
         }
       },
       "additionalProperties": false,

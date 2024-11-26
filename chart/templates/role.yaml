@@ -106,6 +106,18 @@ rules:
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
   {{- end }}
+  {{- if .Values.integrations.certManager.enabled }}
+  {{- if .Values.integrations.certManager.sync.toHost.certificates.enabled }}
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.integrations.certManager.sync.toHost.issuers.enabled }}
+  - apiGroups: ["cert-manager.io"]
+    resources: ["issuers"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- end }}
   {{- include "vcluster.customResources.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.generic.roleExtraRules" . | indent 2 }}
