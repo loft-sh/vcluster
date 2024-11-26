@@ -59,7 +59,7 @@ func NewFromConfig(ctx context.Context, vConfig *config.VirtualClusterConfig) (C
 			etcdEndpoints = "https://127.0.0.1:2379"
 		} else if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Service.Enabled {
 			etcdEndpoints = "https://" + vConfig.Name + "-etcd:2379"
-		} else if vConfig.ControlPlane.BackingStore.Etcd.Deploy.HeadlessService.Enabled {
+		} else {
 			etcdEndpoints = "https://" + vConfig.Name + "-etcd-headless:2379"
 		}
 	} else if vConfig.Distro() == vconfig.K8SDistro {
