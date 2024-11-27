@@ -364,6 +364,25 @@ tests:
           path: spec.template.spec.volumes
           count: 8
 
+  - it: add templated volumes
+    set:
+      controlPlane:
+        distro:
+          k3s:
+            enabled: true
+        statefulSet:
+          persistence:
+            addVolumes:
+              - name: '{{ .Release.Name }}-myVolume'
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: RELEASE-NAME-myVolume
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 8
+
   - it: enable k8s
     set:
       controlPlane:
