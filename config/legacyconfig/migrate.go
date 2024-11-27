@@ -154,7 +154,6 @@ func convertEtcd(oldConfig EtcdValues, newConfig *config.Config) error {
 	if oldConfig.Disabled {
 		newConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Enabled = false
 		newConfig.ControlPlane.BackingStore.Etcd.Deploy.Service.Enabled = false
-		newConfig.ControlPlane.BackingStore.Etcd.Deploy.HeadlessService.Enabled = false
 	}
 	if oldConfig.ImagePullPolicy != "" {
 		newConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.ImagePullPolicy = oldConfig.ImagePullPolicy

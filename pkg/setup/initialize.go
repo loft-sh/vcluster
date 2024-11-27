@@ -61,7 +61,11 @@ func initialize(ctx context.Context, parentCtx context.Context, options *config.
 	// migrate from
 	migrateFrom := ""
 	if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled && options.ControlPlane.BackingStore.Etcd.Embedded.MigrateFromDeployedEtcd {
-		migrateFrom = "https://" + options.Name + "-etcd:2379"
+		if options.ControlPlane.BackingStore.Etcd.Deploy.Service.Enabled {
+			migrateFrom = "https://" + options.Name + "-etcd:2379"
+		} else {
+			migrateFrom = "https://" + options.Name + "-etcd-headless:2379"
+		}
 	}
 
 	// retrieve service cidr
@@ -228,6 +232,7 @@ func GenerateCerts(ctx context.Context, currentNamespaceClient kubernetes.Interf
 	etcdSans := []string{
 		"localhost",
 		etcdService,
+		etcdService + "-headless",
 		etcdService + "." + currentNamespace,
 		etcdService + "." + currentNamespace + ".svc",
 	}

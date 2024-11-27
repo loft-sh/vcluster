@@ -1217,9 +1217,6 @@ type EtcdDeployService struct {
 }
 
 type EtcdDeployHeadlessService struct {
-	// Enabled defines if the etcd headless service should be deployed
-	Enabled bool `json:"enabled,omitempty"`
-
 	// Annotations are extra annotations for the external etcd headless service
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
