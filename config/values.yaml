@@ -214,7 +214,6 @@ controlPlane:
           enabled: true
           annotations: {}
         headlessService:
-          enabled: true
           annotations: {}
 
   proxy:

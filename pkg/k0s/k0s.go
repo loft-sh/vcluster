@@ -68,7 +68,7 @@ spec:
       externalCluster:
         {{- if .Values.controlPlane.backingStore.etcd.deploy.service.enabled }}
         endpoints: ["{{ .Release.Name }}-etcd:2379"]
-        {{- else if .Values.controlPlane.backingStore.etcd.deploy.headlessService.enabled }}
+        {{- else }}
 		endpoints: ["{{ .Release.Name }}-etcd-headless:2379"]
         {{- end }}
         caFile: /data/k0s/pki/etcd/ca.crt
@@ -103,7 +103,7 @@ func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.Vi
 		var etcdEndpoint string
 		if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Service.Enabled {
 			etcdEndpoint = "https://" + vConfig.Name + "-etcd:2379"
-		} else if vConfig.ControlPlane.BackingStore.Etcd.Deploy.HeadlessService.Enabled {
+		} else {
 			etcdEndpoint = "https://" + vConfig.Name + "-etcd-headless:2379"
 		}
 

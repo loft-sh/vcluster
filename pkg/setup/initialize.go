@@ -63,7 +63,7 @@ func initialize(ctx context.Context, parentCtx context.Context, options *config.
 	if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled && options.ControlPlane.BackingStore.Etcd.Embedded.MigrateFromDeployedEtcd {
 		if options.ControlPlane.BackingStore.Etcd.Deploy.Service.Enabled {
 			migrateFrom = "https://" + options.Name + "-etcd:2379"
-		} else if options.ControlPlane.BackingStore.Etcd.Deploy.HeadlessService.Enabled {
+		} else {
 			migrateFrom = "https://" + options.Name + "-etcd-headless:2379"
 		}
 	}
