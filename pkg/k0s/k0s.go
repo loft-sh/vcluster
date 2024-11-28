@@ -66,7 +66,11 @@ spec:
   storage:
     etcd:
       externalCluster:
+        {{- if .Values.controlPlane.backingStore.etcd.deploy.service.enabled }}
         endpoints: ["{{ .Release.Name }}-etcd:2379"]
+        {{- else }}
+        endpoints: ["{{ .Release.Name }}-etcd-headless:2379"]
+        {{- end }}
         caFile: /data/k0s/pki/etcd/ca.crt
         etcdPrefix: "/registry"
         clientCertFile: /data/k0s/pki/apiserver-etcd-client.crt
@@ -96,11 +100,18 @@ func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.Vi
 
 	// wait until etcd is up and running
 	if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled {
+		var etcdEndpoint string
+		if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Service.Enabled {
+			etcdEndpoint = "https://" + vConfig.Name + "-etcd:2379"
+		} else {
+			etcdEndpoint = "https://" + vConfig.Name + "-etcd-headless:2379"
+		}
+
 		err := etcd.WaitForEtcd(ctx, &etcd.Certificates{
 			CaCert:     "/data/k0s/pki/etcd/ca.crt",
 			ServerCert: "/data/k0s/pki/apiserver-etcd-client.crt",
 			ServerKey:  "/data/k0s/pki/apiserver-etcd-client.key",
-		}, "https://"+vConfig.Name+"-etcd:2379")
+		}, etcdEndpoint)
 		if err != nil {
 			return err
 		}
