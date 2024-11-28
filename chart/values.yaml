@@ -390,7 +390,6 @@ controlPlane:
           annotations: {}
         # HeadlessService holds options for the external etcd headless service.
         headlessService:
-          enabled: true
           annotations: {}
   
   # Proxy defines options for the virtual cluster control plane proxy that is used to do authentication and intercept requests.

@@ -86,8 +86,10 @@ func StartK8S(
 
 		if vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			etcdEndpoints = "https://127.0.0.1:2379"
-		} else {
+		} else if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Service.Enabled {
 			etcdEndpoints = "https://" + vConfig.Name + "-etcd:2379"
+		} else {
+			etcdEndpoints = "https://" + vConfig.Name + "-etcd-headless:2379"
 		}
 	}
 
