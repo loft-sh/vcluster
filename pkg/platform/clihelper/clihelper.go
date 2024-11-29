@@ -67,8 +67,10 @@ var defaultDeploymentName = "loft"
 
 var DefaultClusterRoles = []string{
 	"loft-agent-cluster",
-	"loft-runnner-cluster",
+	"loft-runner-cluster",
 	"loft-vcluster-cluster",
+	"loft-cluster-authenticated",
+	"loft-management-authenticated",
 }
 
 func Timeout() time.Duration {

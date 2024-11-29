@@ -152,22 +152,6 @@ func Destroy(ctx context.Context, opts DeleteOptions) error {
 		return err
 	}
 
-	for _, name := range clihelper.DefaultClusterRoles {
-		name := name + "-binding"
-		opts.Log.Infof("deleting clusterrolebinding %q", name)
-		err := opts.KubeClient.RbacV1().ClusterRoleBindings().Delete(ctx, name+"-binding", metav1.DeleteOptions{})
-		if err != nil && !kerrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete clusterrole: %w", err)
-		}
-	}
-	for _, name := range clihelper.DefaultClusterRoles {
-		opts.Log.Infof("deleting clusterrole %q", name)
-		err := opts.KubeClient.RbacV1().ClusterRoles().Delete(ctx, name, metav1.DeleteOptions{})
-		if err != nil && !kerrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete clusterrole: %w", err)
-		}
-	}
-
 	opts.Log.Info("deleting CRDS")
 	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: backoffFactor, Cap: time.Duration(opts.TimeoutMinutes) * time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
 		list, err := apiextensionclientset.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
@@ -233,6 +217,22 @@ func Destroy(ctx context.Context, opts DeleteOptions) error {
 		})
 		if err != nil {
 			return err
+		}
+	}
+
+	for _, name := range clihelper.DefaultClusterRoles {
+		name := name + "-binding"
+		opts.Log.Infof("deleting clusterrolebinding %q", name)
+		err := opts.KubeClient.RbacV1().ClusterRoleBindings().Delete(ctx, name, metav1.DeleteOptions{})
+		if err != nil && !kerrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete clusterrole: %w", err)
+		}
+	}
+	for _, name := range clihelper.DefaultClusterRoles {
+		opts.Log.Infof("deleting clusterrole %q", name)
+		err := opts.KubeClient.RbacV1().ClusterRoles().Delete(ctx, name, metav1.DeleteOptions{})
+		if err != nil && !kerrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete clusterrole: %w", err)
 		}
 	}
 
