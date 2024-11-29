@@ -39,7 +39,7 @@ func NewDestroyCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 Destroys a vCluster Platform instance in your Kubernetes cluster.
 
-Important: This action is done against the cluster the the kube-context is pointing to, and not the vCluster Platform instance that is logged in.
+IMPORTANT: This action is done against the cluster the the kube-context is pointing to, and not the vCluster Platform instance that is logged in.
 It does not require logging in to vCluster Platform. 
 
 Please make sure you meet the following requirements
@@ -121,5 +121,17 @@ func (cmd *DestroyCmd) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to destroy platform: %w", err)
 	}
+
+	cmd.Log.Infof("deleting platform config at %q", cmd.Config)
+	cliConfig := cmd.LoadedConfig(cmd.Log)
+	err = cliConfig.Delete()
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) && cmd.IgnoreNotFound {
+			cmd.Log.Info("no platform config detected")
+			return nil
+		}
+		return fmt.Errorf("failed to delete platform config: %w", err)
+	}
+
 	return nil
 }

@@ -157,6 +157,10 @@ func (c *client) Save() error {
 	return c.config.Save()
 }
 
+func (c *client) Delete() error {
+	return c.config.Delete()
+}
+
 func (c *client) ManagementConfig() (*rest.Config, error) {
 	return c.restConfig("/kubernetes/management")
 }

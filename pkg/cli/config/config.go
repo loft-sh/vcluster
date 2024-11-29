@@ -1,7 +1,9 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -51,6 +53,45 @@ func (c *CLI) Save() error {
 	}
 
 	return Write(path, c)
+}
+
+func (c *CLI) Delete() error {
+	if c == nil || c.path == "" {
+		return errors.New("nil config path")
+	}
+
+	file, err := os.Open(c.path)
+	if err != nil {
+		return fmt.Errorf("failed to load vcluster configuration file from %q : %w", c.path, err)
+	}
+	stat, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to load vcluster configuration file from %q: %w", c.path, err)
+	}
+	if stat.IsDir() {
+		return fmt.Errorf("failed to load vcluster configuration file %q", c.path)
+	}
+	defer file.Close()
+
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		return fmt.Errorf("read all: %w", err)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(fileBytes))
+	decoder.DisallowUnknownFields()
+	tryRead := &CLI{}
+	err = decoder.Decode(tryRead)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshall vcluster configuration from %q: %w", c.path, err)
+	}
+
+	// delete file at path
+	err = os.Remove(c.path)
+	if err != nil {
+		return fmt.Errorf("failed to delete configuration file at %q: %w", c.path, err)
+	}
+	return nil
 }
 
 // Read returns the current config by trying to read it from the given config path.
