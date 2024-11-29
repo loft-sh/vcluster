@@ -93,7 +93,7 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 		l.LocalPort = "9898"
 	}
 
-	err := l.Prepare()
+	err := l.Prepare(false)
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,7 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 }
 
 // Prepare initializes clients, verifies the existense of binaries, and ensures we are starting with the right kube context
-func (l *Options) Prepare() error {
+func (l *Options) Prepare(cliNonInteractive bool) error {
 	platformClient := platform.NewClientFromConfig(l.LoadedConfig(l.Log))
 
 	platformConfig := platformClient.Config().Platform
@@ -160,15 +160,18 @@ func (l *Options) Prepare() error {
 	if l.Context != "" {
 		contextToLoad = l.Context
 	} else if platformConfig.LastInstallContext != "" && platformConfig.LastInstallContext != contextToLoad {
-		contextToLoad, err = l.Log.Question(&survey.QuestionOptions{
-			Question:     product.Replace(fmt.Sprintf("Seems like you try to use 'vcluster %s' with a different kubernetes context than before. Please choose which kubernetes context you want to use", l.CommandName)),
-			DefaultValue: contextToLoad,
-			Options:      []string{contextToLoad, platformConfig.LastInstallContext},
-		})
-		if err != nil {
-			return err
+		if !cliNonInteractive {
+			contextToLoad, err = l.Log.Question(&survey.QuestionOptions{
+				Question:     product.Replace(fmt.Sprintf("Seems like you try to use 'vcluster %s' with a different kubernetes context than before. Please choose which kubernetes context you want to use", l.CommandName)),
+				DefaultValue: contextToLoad,
+				Options:      []string{contextToLoad, platformConfig.LastInstallContext},
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
+
 	l.Context = contextToLoad
 
 	platformConfig.LastInstallContext = contextToLoad

@@ -73,6 +73,7 @@ type DeleteOptions struct {
 	DeleteNamespace bool
 	IgnoreNotFound  bool
 	Force           bool
+	NonInteractive  bool
 	TimeoutMinutes  int
 }
 
