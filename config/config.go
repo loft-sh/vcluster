@@ -2367,11 +2367,15 @@ type SleepModeAutoSleep struct {
 }
 
 // Duration allows for automatic Marshalling from strings like "1m" to a time.Duration
-type Duration time.Duration
+type Duration string
 
 // MarshalJSON implements Marshaler
 func (d Duration) MarshalJSON() ([]byte, error) {
-	return json.Marshal(time.Duration(d).String())
+	dur, err := time.ParseDuration(string(d))
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(dur.String())
 }
 
 // UnmarshalJSON implements Marshaler
@@ -2380,20 +2384,18 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &v); err != nil {
 		return err
 	}
-	switch value := v.(type) {
-	case float64:
-		*d = Duration(time.Duration(value))
-		return nil
-	case string:
-		tmp, err := time.ParseDuration(value)
-		if err != nil {
-			return err
-		}
-		*d = Duration(tmp)
-		return nil
-	default:
+
+	sval, ok := v.(string)
+	if !ok {
 		return errors.New("invalid duration")
 	}
+
+	_, err := time.ParseDuration(sval)
+	if err != nil {
+		return err
+	}
+	*d = Duration(sval)
+	return nil
 }
 
 // AutoWakeup holds the cron schedule to wake workloads automatically

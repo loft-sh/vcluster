@@ -3020,7 +3020,7 @@
     "SleepModeAutoSleep": {
       "properties": {
         "afterInactivity": {
-          "type": "integer",
+          "type": "string",
           "description": "AfterInactivity represents how long a vCluster can be idle before workloads are automaticaly put to sleep"
         },
         "schedule": {
