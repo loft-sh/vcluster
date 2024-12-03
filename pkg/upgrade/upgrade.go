@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/loft-sh/log"
@@ -125,7 +126,7 @@ func Upgrade(flagVersion string, log log.Logger) error {
 		return fmt.Errorf("failed to initialize updater: %w", err)
 	}
 	if flagVersion != "" {
-		release, found, err := updater.DetectVersion(githubSlug, flagVersion)
+		release, found, err := DetectVersion(githubSlug, flagVersion)
 		if err != nil {
 			return errors.Wrap(err, "find version")
 		} else if !found {
@@ -173,4 +174,44 @@ func Upgrade(flagVersion string, log log.Logger) error {
 	}
 
 	return nil
+}
+
+func DetectVersion(slug string, version string) (*selfupdate.Release, bool, error) {
+	var (
+		release *selfupdate.Release
+		found   bool
+		err     error
+	)
+
+	repo := strings.Split(slug, "/")
+	if len(repo) != 2 || repo[0] == "" || repo[1] == "" {
+		return nil, false, fmt.Errorf("invalid slug format. It should be 'owner/name': %s", slug)
+	}
+
+	githubRelease, err := fetchReleaseByTag(repo[0], repo[1], version)
+	if err != nil {
+		return nil, false, fmt.Errorf("repository or release not found: %w", err)
+	}
+
+	asset, semVer, found, err := findAssetFromRelease(githubRelease)
+	if !found {
+		return nil, false, fmt.Errorf("release asset not found: %w", err)
+	}
+
+	publishedAt := githubRelease.GetPublishedAt().Time
+	release = &selfupdate.Release{
+		Version:           semVer,
+		AssetURL:          asset.GetBrowserDownloadURL(),
+		AssetByteSize:     asset.GetSize(),
+		AssetID:           asset.GetID(),
+		ValidationAssetID: -1,
+		URL:               githubRelease.GetHTMLURL(),
+		ReleaseNotes:      githubRelease.GetBody(),
+		Name:              githubRelease.GetName(),
+		PublishedAt:       &publishedAt,
+		RepoOwner:         repo[0],
+		RepoName:          repo[1],
+	}
+
+	return release, true, nil
 }
