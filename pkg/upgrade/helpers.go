@@ -16,9 +16,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func fetchReleaseByTag(owner, repo, tag string) (*github.RepositoryRelease, error) {
+func fetchReleaseByTag(ctx context.Context, owner, repo, tag string) (*github.RepositoryRelease, error) {
 	var (
-		ctx   = context.Background()
 		token string
 		hc    *http.Client
 
