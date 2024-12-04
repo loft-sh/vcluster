@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
@@ -116,7 +117,7 @@ func NewerVersionAvailable() string {
 }
 
 // Upgrade downloads the latest release from github and replaces vcluster if a new version is found
-func Upgrade(flagVersion string, log log.Logger) error {
+func Upgrade(ctx context.Context, flagVersion string, log log.Logger) error {
 	updater, err := selfupdate.NewUpdater(selfupdate.Config{
 		Filters: []string{"vcluster"},
 	})
@@ -124,7 +125,7 @@ func Upgrade(flagVersion string, log log.Logger) error {
 		return fmt.Errorf("failed to initialize updater: %w", err)
 	}
 	if flagVersion != "" {
-		release, found, err := DetectVersion(githubSlug, flagVersion)
+		release, found, err := DetectVersion(ctx, githubSlug, flagVersion)
 		if err != nil {
 			return errors.Wrap(err, "find version")
 		} else if !found {
@@ -188,7 +189,7 @@ func Upgrade(flagVersion string, log log.Logger) error {
 	return nil
 }
 
-func DetectVersion(slug string, version string) (*selfupdate.Release, bool, error) {
+func DetectVersion(ctx context.Context, slug string, version string) (*selfupdate.Release, bool, error) {
 	var (
 		release *selfupdate.Release
 		found   bool
@@ -200,7 +201,7 @@ func DetectVersion(slug string, version string) (*selfupdate.Release, bool, erro
 		return nil, false, fmt.Errorf("invalid slug format. It should be 'owner/name': %s", slug)
 	}
 
-	githubRelease, err := fetchReleaseByTag(repo[0], repo[1], version)
+	githubRelease, err := fetchReleaseByTag(ctx, repo[0], repo[1], version)
 	if err != nil {
 		return nil, false, fmt.Errorf("repository or release not found: %w", err)
 	}
