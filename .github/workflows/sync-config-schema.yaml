@@ -44,8 +44,11 @@ jobs:
           ref: 'refs/tags/${{ steps.release.outputs.release_tag }}'
 
       - name: Configure git
-        if: ${{ steps.release.outputs.update_main == 'false' }}
-        run: git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
+        run: |
+          git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
+          # set git info
+          git config --global user.name "Loft Bot"
+          git config --global user.email 'loft-bot@users.noreply.github.com'
         env:
           GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
 
@@ -59,11 +62,11 @@ jobs:
         if: ${{ steps.release.outputs.update_main == 'true' }}
         env:
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
         run: |
           # clone vcluster-config and vcluster-docs
           git clone --single-branch https://github.com/loft-sh/vcluster-docs.git
           git clone --single-branch https://github.com/loft-sh/vcluster-config.git
-
 
           # generate vcluster.schema.json based on the current platform.schema.json in vcluster-config
           # and values.schema.json from alpha / beta release
@@ -91,11 +94,9 @@ jobs:
           go mod vendor
           go run hack/vcluster/partials/main.go "configsrc/vcluster/main" "vcluster/_partials/config"
 
-
           # set git info
           git config --global user.name "Loft Bot"
           git config --global user.email 'loft-bot@users.noreply.github.com'
-
 
           git add --all
 
@@ -103,28 +104,34 @@ jobs:
           if git diff-index --quiet HEAD --; then
             exit 0
           fi
-
-          # set git info
-          git config --global user.name "Loft Bot"
-          git config --global user.email 'loft-bot@users.noreply.github.com'
           echo "Changes detected"
 
           # create a PR in vcluster-docs with generated partials
           git commit -m "chore: generate vCluster partials for main version based on values.schema.json in vCluster ${RELEASE_TAG}"
           git push -u origin -f ${branch_name}
-          gh pr create --fill
+          gh pr create --fill --head ${branch_name}
           echo "Create PR in vcluster-docs"
 
 
       - name: Update vcluster schema in vcluster-config
         if: ${{ steps.release.outputs.update_main == 'false' }}
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
         run: |
           git clone --single-branch https://github.com/loft-sh/vcluster-config.git
 
           # copy generated schema from vcluster chart values to vcluster-config
           cp chart/values.schema.json vcluster-config/values.schema.json
+          cp -R config/. vcluster-config/config/
 
           cd vcluster-config
+
+          # We have to replace our config dependency so that we do not introduce vcluster as a whole as transitive dependecy.
+          find ./config/legacyconfig -type f -exec sed -i "s#github.com/loft-sh/vcluster/config#github.com/loft-sh/vcluster-config/config#g" {} +
+
+          # Align deps, if there have been any relevant changes in vcluster.
+          go mod tidy
+          go mod vendor
 
           git add --all
 
@@ -132,13 +139,9 @@ jobs:
           if git diff-index --quiet HEAD --; then
             exit 0
           fi
-
-          # set git info
-          git config --global user.name "Loft Bot"
-          git config --global user.email 'loft-bot@users.noreply.github.com'
           echo "Changes detected"
 
           # commit changes
-          git commit -m "chore: sync values.schema.json to vCluster version ${{ steps.release.outputs.release_tag }}"
+          git commit -m "chore: sync config/*.go and values.schema.json to vCluster version ${{ steps.release.outputs.release_tag }}"
           git push -u origin -f main
           echo "vcluster-config values.schema.json updated to the version ${{ steps.release.outputs.release_tag }}"
