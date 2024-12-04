@@ -131,7 +131,7 @@ spec:
           emptyDir: {}
         {{- end }}
         {{- if .Values.controlPlane.statefulSet.persistence.addVolumes }}
-{{ toYaml .Values.controlPlane.statefulSet.persistence.addVolumes | indent 8 }}
+{{ tpl (toYaml .Values.controlPlane.statefulSet.persistence.addVolumes) $ | indent 8 }}
         {{- end }}
       {{- if (not .Values.experimental.syncSettings.disableSync) }}
       initContainers:
