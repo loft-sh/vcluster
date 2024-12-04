@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/pkg/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -33,7 +34,7 @@ const (
 
 var Owner client.Object
 
-func CopyObjectWithName[T client.Object](obj T, name types.NamespacedName, setOwner bool) T {
+func CopyObjectWithName[T client.Object](obj T, name types.NamespacedName, setOwner bool, excludedAnnotations ...string) T {
 	target := obj.DeepCopyObject().(T)
 
 	// reset metadata & translate name and namespace
@@ -48,21 +49,33 @@ func CopyObjectWithName[T client.Object](obj T, name types.NamespacedName, setOw
 		}
 	}
 
+	stripExcludedAnnotations(target, excludedAnnotations...)
 	return target
 }
 
 func HostMetadata[T client.Object](vObj T, name types.NamespacedName, excludedAnnotations ...string) T {
-	pObj := CopyObjectWithName(vObj, name, true)
+	pObj := CopyObjectWithName(vObj, name, true, excludedAnnotations...)
+	stripExcludedAnnotations(vObj, excludedAnnotations...)
 	pObj.SetAnnotations(HostAnnotations(vObj, pObj, excludedAnnotations...))
 	pObj.SetLabels(HostLabels(vObj, nil))
 	return pObj
 }
 
 func VirtualMetadata[T client.Object](pObj T, name types.NamespacedName, excludedAnnotations ...string) T {
-	vObj := CopyObjectWithName(pObj, name, false)
+	vObj := CopyObjectWithName(pObj, name, false, excludedAnnotations...)
 	vObj.SetAnnotations(VirtualAnnotations(pObj, nil, excludedAnnotations...))
 	vObj.SetLabels(VirtualLabels(pObj, nil))
 	return vObj
+}
+
+func stripExcludedAnnotations(obj client.Object, excludedAnnotations ...string) {
+	annotations := obj.GetAnnotations()
+	for k := range annotations {
+		if stringutil.Contains(excludedAnnotations, k) {
+			delete(annotations, k)
+		}
+	}
+	obj.SetAnnotations(annotations)
 }
 
 func VirtualAnnotations(pObj, vObj client.Object, excluded ...string) map[string]string {
