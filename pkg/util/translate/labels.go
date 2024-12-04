@@ -232,7 +232,7 @@ func AnnotationsBidirectionalUpdateFunction[T client.Object](event *synccontext.
 	if newHost == nil {
 		newHost = map[string]string{}
 	}
-	if !apiequality.Semantic.DeepEqual(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations()) {
+	if !maps.Equal(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations()) {
 		newHost = mergeMaps(event.VirtualOld.GetAnnotations(), event.Virtual.GetAnnotations(), event.Host.GetAnnotations(), func(key string, value interface{}) (string, interface{}) {
 			if stringutil.Contains(excludeAnnotations, key) {
 				return "", nil
@@ -242,7 +242,7 @@ func AnnotationsBidirectionalUpdateFunction[T client.Object](event *synccontext.
 
 			return transformToHost(key, value)
 		})
-	} else if !apiequality.Semantic.DeepEqual(event.HostOld.GetAnnotations(), event.Host.GetAnnotations()) {
+	} else if !maps.Equal(event.HostOld.GetAnnotations(), event.Host.GetAnnotations()) {
 		newVirtual = mergeMaps(event.HostOld.GetAnnotations(), event.Host.GetAnnotations(), event.Virtual.GetAnnotations(), func(key string, value interface{}) (string, interface{}) {
 			if stringutil.Contains(excludeAnnotations, key) {
 				return "", nil
