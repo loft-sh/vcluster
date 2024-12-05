@@ -50,7 +50,7 @@ before running this command:
 2. Helm v3 must be installed
 
 
-VirtualClusterInstances managed with driver helm will be deleted, but the underlying virtual cluster will not be uninstalled
+VirtualClusterInstances managed with driver helm will be deleted, but the underlying virtual cluster will not be uninstalled.
 
 ########################################################
 	`,
@@ -69,7 +69,8 @@ VirtualClusterInstances managed with driver helm will be deleted, but the underl
 	destroyCmd.Flags().BoolVar(&cmd.IgnoreNotFound, "ignore-not-found", false, "Exit successfully if platform installation is not found")
 	destroyCmd.Flags().BoolVar(&cmd.Force, "force", false, "Try uninstalling even if the platform is not installed. '--namespace' is required if true")
 	destroyCmd.Flags().BoolVar(&cmd.NonInteractive, "non-interactive", false, "Will not prompt for confirmation")
-	destroyCmd.Flags().IntVar(&cmd.TimeoutMinutes, "timeout-minutes", 5, "How long to try deleting the platform before giving up")
+	destroyCmd.Flags().IntVar(&cmd.TimeoutMinutes, "timeout-minutes", 5, "How long to try deleting the platform before giving up. May increase when removing finalizers if --remove-finalizers is used")
+	destroyCmd.Flags().BoolVar(&cmd.ForceRemoveFinalizers, "force-remove-finalizers", false, "IMPORTANT! Removing finalizers may cause unintended behaviours like leaving resources behind, but will ensure the platform is uninstalled.")
 
 	return destroyCmd
 }
@@ -110,7 +111,7 @@ func (cmd *DestroyCmd) Run(ctx context.Context) error {
 	if terminal.IsTerminalIn {
 		deleteOpt := "delete"
 		out, err := cmd.Log.Question(&survey.QuestionOptions{
-			Question: fmt.Sprintf("IMPORTANT! You are destroy the vCluster Platform in the namespace %q.\nThis may result in data loss. Please ensure your kube-context is pointed at the right cluster.\n Please type %q to continue:", cmd.Namespace, deleteOpt),
+			Question: fmt.Sprintf("IMPORTANT! You are destroying the vCluster Platform installation in the namespace %q.\nThis may result in data loss. Please ensure your kube-context is pointed at the right cluster.\n Please type %q to continue:", cmd.Namespace, deleteOpt),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to prompt for confirmation: %w", err)
@@ -118,6 +119,19 @@ func (cmd *DestroyCmd) Run(ctx context.Context) error {
 		if out != deleteOpt {
 			cmd.Log.Info("destroy cancelled")
 			return nil
+		}
+		if cmd.ForceRemoveFinalizers {
+			forceRemoveOpt := "force-remove"
+			out, err := cmd.Log.Question(&survey.QuestionOptions{
+				Question: fmt.Sprintf("IMPORTANT! You have selected the --force-remove-finalizers option. Please ensure you understand the consequences. Removing finalizers may cause unintended behaviours like leaving resources behind, but will ensure the platform is uninstalled. To confirm, please type %q", forceRemoveOpt),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to prompt for confirmation: %w", err)
+			}
+			if out != forceRemoveOpt {
+				cmd.Log.Info("destroy cancelled")
+				return nil
+			}
 		}
 	}
 
