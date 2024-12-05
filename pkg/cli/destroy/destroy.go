@@ -2,11 +2,13 @@ package destroy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
 	"time"
 
+	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/start"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
@@ -14,7 +16,9 @@ import (
 	apiextensionsv1clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
@@ -32,6 +36,7 @@ var resourceOrder = []string{
 	// templates
 	"virtualclustertemplates",
 	"devpodenvironmenttemplates",
+	"devpodworkspacepresets",
 	"devpodworkspacetemplates",
 	"clusterroletemplates",
 	"spacetemplates",
@@ -70,17 +75,26 @@ var legacyResources = []string{
 type DeleteOptions struct {
 	start.Options
 	// cli options
-	DeleteNamespace bool
-	IgnoreNotFound  bool
-	Force           bool
-	NonInteractive  bool
-	TimeoutMinutes  int
+	DeleteNamespace       bool
+	IgnoreNotFound        bool
+	Force                 bool
+	ForceRemoveFinalizers bool
+	NonInteractive        bool
+	TimeoutMinutes        int
 }
 
 var backoffFactor = 1.2
 
-func Destroy(ctx context.Context, opts DeleteOptions) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Duration(opts.TimeoutMinutes)*time.Minute)
+func Destroy(ctxWithoutTimeout context.Context, opts DeleteOptions) error {
+	err := destroy(ctxWithoutTimeout, opts)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("timed out: %w", err)
+	}
+	return err
+}
+
+func destroy(ctxWithoutTimeout context.Context, opts DeleteOptions) error {
+	ctx, cancel := context.WithTimeout(ctxWithoutTimeout, time.Duration(opts.TimeoutMinutes)*time.Minute)
 	defer cancel()
 
 	// create time.Duration(opts.TimeoutMinutes) * time.Minutea dynamic client
@@ -140,11 +154,13 @@ func Destroy(ctx context.Context, opts DeleteOptions) error {
 			}
 			continue
 		}
-		// list and delete all resources
-		err = deleteAllResourcesAndWait(ctx, dynamicClient, opts.Log, opts.TimeoutMinutes, "storage.loft.sh", "v1", resourceName)
+		// list and delete all resources. If times out because of resources, the timeout will be repeated and new context will be created
+		ctx, cancel, err = deleteAllResourcesAndWait(ctxWithoutTimeout, ctx, dynamicClient, opts.Log, opts.ForceRemoveFinalizers, opts.TimeoutMinutes, "storage.loft.sh", "v1", resourceName)
+		defer cancel()
 		if err != nil {
 			return fmt.Errorf("failed to delete resource %q: %w", resourceName, err)
 		}
+		defer cancel()
 	}
 
 	// helm uninstall and others
@@ -240,38 +256,101 @@ func Destroy(ctx context.Context, opts DeleteOptions) error {
 	return nil
 }
 
-func deleteAllResourcesAndWait(ctx context.Context, dynamicClient dynamic.Interface, log log.Logger, timeoutMinutes int, group, version, resource string) error {
+func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Context, dynamicClient dynamic.Interface, log log.Logger, deleteFinalizers bool, timeoutMinutes int, group, version, resource string) (context.Context, context.CancelFunc, error) {
 	gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
-	err := wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: backoffFactor, Cap: time.Duration(timeoutMinutes) * time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
-		log.Debugf("checking all %q", resource)
 
-		resourceClient := dynamicClient.Resource(gvr)
-		list, err := resourceClient.List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return false, err
-		}
-		if len(list.Items) == 0 {
-			return true, nil
-		}
-		for _, object := range list.Items {
-			if !object.GetDeletionTimestamp().IsZero() {
-				return false, nil
+	//  function to poll with wait.ExponentialBackoffWithContext
+	deleteAndWait := func(deleteFinalizers bool) func(ctx context.Context) (bool, error) {
+		// log each key as waiting only once on the info levell, and continue logging on the debug level
+		loggedDeletion := sets.New[string]()
+		infofOnceThenDebugf := func(str string, args ...interface{}) {
+			logLine := fmt.Sprintf(str, args...)
+			if loggedDeletion.Has(logLine) {
+				log.Debug(logLine)
+				return
 			}
-			if object.GetNamespace() == "" {
-				log.Infof("deleting %v: %v", resource, object.GetName())
-			} else {
-				log.Infof("deleting %v: %v/%v", resource, object.GetNamespace(), object.GetName())
-			}
-			err := resourceClient.Namespace(object.GetNamespace()).Delete(ctx, object.GetName(), metav1.DeleteOptions{})
-			if err != nil && !kerrors.IsNotFound(err) {
+			log.Info(logLine)
+			loggedDeletion.Insert(logLine)
+		}
+
+		return func(ctx context.Context) (bool, error) {
+			infofOnceThenDebugf("checking all %q", resource)
+
+			// fetch all
+			resourceClient := dynamicClient.Resource(gvr)
+			list, err := resourceClient.List(ctx, metav1.ListOptions{})
+			if err != nil {
 				return false, err
 			}
+			// succeed when all resources are deleted
+			if len(list.Items) == 0 {
+				return true, nil
+			}
+
+			isVCluster := resource == "virtualclusterinstances"
+
+			// delete all resources and log deleting resources
+			for _, object := range list.Items {
+				// get namespaced name
+				namespacedName := object.GetName()
+				namespace := object.GetNamespace()
+				if namespace != "" {
+					namespacedName += "/" + namespace
+				}
+				isExternalVCluster := false
+				if isVCluster {
+					//convert unstructured to VirtualClusterInstance
+					virtualClusterInstance := &storagev1.VirtualClusterInstance{}
+					err = runtime.DefaultUnstructuredConverter.FromUnstructured(object.Object, &virtualClusterInstance)
+					if err != nil {
+						log.Warnf("couldn't cast %q object %q to VirtualClusterInstance: %v", resource, namespacedName, err)
+					}
+					isExternalVCluster = virtualClusterInstance.Spec.External
+				}
+				// delete object if not already deleted
+				if object.GetDeletionTimestamp().IsZero() {
+					if !isExternalVCluster {
+						log.Infof("deleting %v: %q", resource, namespacedName)
+					} else {
+						log.Infof("deleting externally deployed %v, the virtual cluster itself will remain: %q", resource, namespacedName)
+					}
+					err := resourceClient.Namespace(object.GetNamespace()).Delete(ctx, object.GetName(), metav1.DeleteOptions{})
+					if kerrors.IsNotFound(err) {
+						continue
+					} else if err != nil {
+						return false, err
+					}
+				} else {
+					infofOnceThenDebugf("deleted resource found, waiting for cleanup: %v", object.GetName())
+				}
+				// object exists and delete command succeeded
+				if deleteFinalizers {
+					log.Infof("removing finalizers from %v: %q", resource, namespacedName)
+					_, err = resourceClient.Namespace(object.GetNamespace()).Patch(ctx, object.GetName(), types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`), metav1.PatchOptions{})
+					if err != nil && !kerrors.IsNotFound(err) {
+						return false, err
+					}
+				}
+			}
+			return false, nil
 		}
-		return false, nil
-	})
-	if err != nil {
-		return err
+	}
+	err := wait.ExponentialBackoffWithContext(ctxWithDeadLine, wait.Backoff{Duration: time.Second, Factor: backoffFactor, Cap: time.Duration(timeoutMinutes) * time.Minute, Steps: math.MaxInt32}, deleteAndWait(false))
+	if !errors.Is(err, context.DeadlineExceeded) {
+		// return the err unless timed out. If timed out, remove finalizers and retry
+		return ctxWithDeadLine, func() {}, err
 	}
 
-	return nil
+	// the timeout is hit, begin removing finalizers and rety
+	if !deleteFinalizers {
+		return ctxWithDeadLine, func() {}, fmt.Errorf("timed out waiting for %q to be deleted", resource)
+	}
+	// new context now that the old deadline is exceeded
+	ctx, cancel := context.WithTimeout(ctxWithoutDeadline, time.Duration(timeoutMinutes)*time.Minute)
+	log.Warn("operation timed out. Removing finalizers from stuck resources, resetting timeout")
+	err = wait.ExponentialBackoffWithContext(ctxWithoutDeadline, wait.Backoff{Duration: time.Second, Factor: backoffFactor, Cap: time.Duration(timeoutMinutes) * time.Minute, Steps: math.MaxInt32}, deleteAndWait(true))
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ctx, cancel, fmt.Errorf("timed out waiting for %q to be deleted", resource)
+	}
+	return ctx, cancel, err
 }
