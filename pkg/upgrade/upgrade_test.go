@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -75,7 +76,8 @@ func TestUpgrade(t *testing.T) {
 	defer func() { version = versionBackup }()
 
 	// Newest version already reached
-	err = Upgrade("", log.GetInstance())
+	ctx := context.Background()
+	err = Upgrade(ctx, "", log.GetInstance())
 	assert.Equal(t, false, err != nil, "Upgrade returned error if newest version already reached")
 	err = logFile.Close()
 	if err != nil {
@@ -91,6 +93,6 @@ func TestUpgrade(t *testing.T) {
 	githubSlugBackup := githubSlug
 	githubSlug = ""
 	defer func() { githubSlug = githubSlugBackup }()
-	err = Upgrade("", log.GetInstance())
+	err = Upgrade(ctx, "", log.GetInstance())
 	assert.Equal(t, true, err != nil, "No error returned if DetectLatest returns one.")
 }
