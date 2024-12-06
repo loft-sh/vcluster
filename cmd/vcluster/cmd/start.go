@@ -81,24 +81,15 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	}()
 
 	// initialize feature gate from environment
-	err = pro.LicenseInit(ctx, vConfig)
-	if err != nil {
-		return fmt.Errorf("init license: %w", err)
-	}
-
-	// set features for plugins to recognize
-	plugin.DefaultManager.SetProFeatures(pro.LicenseFeatures())
-
-	// connect to vCluster platform if configured
-	startPlatformServersAndControllers, err := pro.ConnectToPlatform(ctx, vConfig)
-	if err != nil {
-		return fmt.Errorf("connect to platform: %w", err)
-	}
+	pro.LicenseInit(ctx, vConfig)
 
 	err = setup.Initialize(ctx, vConfig)
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
+
+	// set features for plugins to recognize
+	plugin.DefaultManager.SetProFeatures(pro.LicenseFeatures())
 
 	// build controller context
 	controllerCtx, err := setup.NewControllerContext(ctx, vConfig)
@@ -106,9 +97,10 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		return fmt.Errorf("create controller context: %w", err)
 	}
 
-	err = startPlatformServersAndControllers(controllerCtx.VirtualManager)
+	// start license loader
+	err = pro.LicenseStart(controllerCtx)
 	if err != nil {
-		return fmt.Errorf("start platform controllers: %w", err)
+		return fmt.Errorf("start license loader: %w", err)
 	}
 
 	// start integrations
