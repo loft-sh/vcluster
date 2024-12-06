@@ -10,6 +10,8 @@ import (
 
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/start"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -155,7 +157,7 @@ func destroy(ctxWithoutTimeout context.Context, opts DeleteOptions) error {
 			continue
 		}
 		// list and delete all resources. If times out because of resources, the timeout will be repeated and new context will be created
-		ctx, cancel, err = deleteAllResourcesAndWait(ctxWithoutTimeout, ctx, dynamicClient, opts.Log, opts.ForceRemoveFinalizers, opts.TimeoutMinutes, "storage.loft.sh", "v1", resourceName)
+		ctx, cancel, err = deleteAllResourcesAndWait(ctxWithoutTimeout, ctx, dynamicClient, opts.Log, opts.NonInteractive, opts.ForceRemoveFinalizers, opts.TimeoutMinutes, "storage.loft.sh", "v1", resourceName)
 		defer cancel()
 		if err != nil {
 			return fmt.Errorf("failed to delete resource %q: %w", resourceName, err)
@@ -256,12 +258,12 @@ func destroy(ctxWithoutTimeout context.Context, opts DeleteOptions) error {
 	return nil
 }
 
-func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Context, dynamicClient dynamic.Interface, log log.Logger, deleteFinalizers bool, timeoutMinutes int, group, version, resource string) (context.Context, context.CancelFunc, error) {
+func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Context, dynamicClient dynamic.Interface, log log.Logger, nonInteractive bool, deleteFinalizers bool, timeoutMinutes int, group, version, resource string) (context.Context, context.CancelFunc, error) {
 	gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
 
 	//  function to poll with wait.ExponentialBackoffWithContext
 	deleteAndWait := func(deleteFinalizers bool) func(ctx context.Context) (bool, error) {
-		// log each key as waiting only once on the info levell, and continue logging on the debug level
+		// log each key as waiting only once on the info level, and continue logging on the debug level
 		loggedDeletion := sets.New[string]()
 		infofOnceThenDebugf := func(str string, args ...interface{}) {
 			logLine := fmt.Sprintf(str, args...)
@@ -298,15 +300,41 @@ func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Conte
 					namespacedName += "/" + namespace
 				}
 				isExternalVCluster := false
+				virtualClusterInstance := &storagev1.VirtualClusterInstance{}
 				if isVCluster {
 					//convert unstructured to VirtualClusterInstance
-					virtualClusterInstance := &storagev1.VirtualClusterInstance{}
 					err = runtime.DefaultUnstructuredConverter.FromUnstructured(object.Object, &virtualClusterInstance)
 					if err != nil {
 						log.Warnf("couldn't cast %q object %q to VirtualClusterInstance: %v", resource, namespacedName, err)
 					}
 					isExternalVCluster = virtualClusterInstance.Spec.External
 				}
+				if isExternalVCluster && virtualClusterInstance.Status.VirtualCluster != nil {
+					vConfig := &config.Config{}
+					err = config.UnmarshalYAMLStrict([]byte(virtualClusterInstance.Status.VirtualCluster.HelmRelease.Values), vConfig)
+					if err != nil {
+						return false, fmt.Errorf("failed to unmarshal virtual cluster config for %v %q: %w", resource, namespacedName, err)
+					}
+					if !nonInteractive {
+						if vConfig.ControlPlane.BackingStore.Database.External.Enabled && vConfig.ControlPlane.BackingStore.Database.External.Connector != "" {
+							yesOpt := "yes"
+							noOpt := "no"
+							out, err := log.Question(&survey.QuestionOptions{
+								Options:  []string{yesOpt, noOpt},
+								Question: fmt.Sprintf("IMPORTANT! You are removing an externally deployed virtual cluster %q from the platform.\n It will not be destroyed as the deployment is managed externally, but its connection to its database will be removed.\nDo you want to continue?", namespacedName),
+							})
+							if err != nil {
+								return false, fmt.Errorf("failed to prompt for confirmation: %w", err)
+							}
+							if out != yesOpt {
+								return false, fmt.Errorf("destroy cancelled during prompt")
+							}
+						}
+					} else {
+						log.Warnf("removing an externally deployed virtual cluster %q from the platform. It will not be destroyed as the deployment is managed externally, but its connection to its database will be removed.", namespacedName)
+					}
+				}
+
 				// delete object if not already deleted
 				if object.GetDeletionTimestamp().IsZero() {
 					if !isExternalVCluster {

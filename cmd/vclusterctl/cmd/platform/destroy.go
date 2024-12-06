@@ -107,7 +107,7 @@ func (cmd *DestroyCmd) Run(ctx context.Context) error {
 	if !cmd.NonInteractive {
 		deleteOpt := "delete"
 		out, err := cmd.Log.Question(&survey.QuestionOptions{
-			Question: fmt.Sprintf("IMPORTANT! You are destroying the vCluster Platform installation in the namespace %q.\nThis may result in data loss. Please ensure your kube-context is pointed at the right cluster.\n Please type %q to continue:", cmd.Namespace, deleteOpt),
+			Question: fmt.Sprintf("IMPORTANT! You are destroying the vCluster Platform installation in the namespace %q.\n  This may result in data loss.\n  Externally deployed virtual clusters depending on an external database connection will be irrecoverable after the platform is destroyed.\n  Please ensure your kube-context is pointed at the right cluster.\nPlease type %q to continue:", cmd.Namespace, deleteOpt),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to prompt for confirmation: %w", err)
