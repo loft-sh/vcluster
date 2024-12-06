@@ -111,7 +111,7 @@ tests:
               name: coredns
               namespace: kube-system
               labels:
-                k8s-app: kube-dns
+                k8s-app: vcluster-kube-dns
                 kubernetes.io/name: "CoreDNS"
             spec:
               replicas: 1
@@ -121,11 +121,11 @@ tests:
                   maxUnavailable: 1
               selector:
                 matchLabels:
-                  k8s-app: kube-dns
+                  k8s-app: vcluster-kube-dns
               template:
                 metadata:
                   labels:
-                    k8s-app: kube-dns
+                    k8s-app: vcluster-kube-dns
                 spec:
                   priorityClassName: ""
                   serviceAccountName: coredns
@@ -134,7 +134,7 @@ tests:
                   topologySpreadConstraints:
                     - labelSelector:
                         matchLabels:
-                          k8s-app: kube-dns
+                          k8s-app: vcluster-kube-dns
                       maxSkew: 1
                       topologyKey: kubernetes.io/hostname
                       whenUnsatisfiable: DoNotSchedule
@@ -212,13 +212,13 @@ tests:
                 prometheus.io/port: "9153"
                 prometheus.io/scrape: "true"
               labels:
-                k8s-app: kube-dns
+                k8s-app: vcluster-kube-dns
                 kubernetes.io/cluster-service: "true"
                 kubernetes.io/name: "CoreDNS"
             spec:
               type: ClusterIP
               selector:
-                k8s-app: kube-dns
+                k8s-app: vcluster-kube-dns
               ports:
                 - name: dns
                   port: 53
@@ -316,7 +316,7 @@ tests:
                 prometheus.io/port: "9153"
                 prometheus.io/scrape: "true"
               labels:
-                k8s-app: kube-dns
+                k8s-app: vcluster-kube-dns
                 kubernetes.io/cluster-service: "true"
                 kubernetes.io/name: "CoreDNS"
             spec:
@@ -441,7 +441,7 @@ tests:
               name: coredns
               namespace: kube-system
               labels:
-                k8s-app: kube-dns
+                k8s-app: vcluster-kube-dns
                 kubernetes.io/name: "CoreDNS"
             spec:
               replicas: 1
@@ -451,11 +451,11 @@ tests:
                   maxUnavailable: 1
               selector:
                 matchLabels:
-                  k8s-app: kube-dns
+                  k8s-app: vcluster-kube-dns
               template:
                 metadata:
                   labels:
-                    k8s-app: kube-dns
+                    k8s-app: vcluster-kube-dns
                 spec:
                   priorityClassName: ""
                   serviceAccountName: coredns
@@ -478,7 +478,7 @@ tests:
                   topologySpreadConstraints:
                     - labelSelector:
                         matchLabels:
-                          k8s-app: kube-dns
+                          k8s-app: vcluster-kube-dns
                       maxSkew: 1
                       topologyKey: kubernetes.io/hostname
                       whenUnsatisfiable: DoNotSchedule
@@ -556,13 +556,13 @@ tests:
                 prometheus.io/port: "9153"
                 prometheus.io/scrape: "true"
               labels:
-                k8s-app: kube-dns
+                k8s-app: vcluster-kube-dns
                 kubernetes.io/cluster-service: "true"
                 kubernetes.io/name: "CoreDNS"
             spec:
               type: ClusterIP
               selector:
-                k8s-app: kube-dns
+                k8s-app: vcluster-kube-dns
               ports:
                 - name: dns
                   port: 53

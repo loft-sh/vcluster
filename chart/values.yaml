@@ -478,7 +478,7 @@ controlPlane:
           whenUnsatisfiable: DoNotSchedule
           labelSelector:
             matchLabels:
-              k8s-app: kube-dns
+              k8s-app: vcluster-kube-dns
   
   # Service defines options for vCluster service deployed by Helm.
   service:

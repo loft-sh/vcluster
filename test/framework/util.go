@@ -354,7 +354,7 @@ func (f *Framework) CreateEgressNetworkPolicyForDNS(ctx context.Context, ns stri
 					},
 					To: []networkingv1.NetworkPolicyPeer{
 						{
-							PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{"k8s-app": "kube-dns"}},
+							PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{"k8s-app": "vcluster-kube-dns"}},
 							NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"kubernetes.io/metadata.name": "kube-system"}},
 						},
 					},
