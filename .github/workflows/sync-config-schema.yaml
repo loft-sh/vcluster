@@ -14,7 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.release.outputs.latest_release }}
-      update_main: ${{ steps.release.outputs.update_main }}
+      is_alpha_version: ${{ steps.release.outputs.is_alpha_version }} # on alpha version we won't sync docs and config
+      is_stable_version: ${{ steps.release.outputs.is_stable_version }} # on stable versions we will sync config, and CI in vcluster-config will sync docs
     steps:
       # this is to support both manually trigger workflows, and automatically triggered on release creation
       - name: Determine release tag
@@ -30,20 +31,33 @@ jobs:
             final_tag=${{ github.event.release.tag_name }}
           fi
           echo "release_tag=${final_tag}" >> "$GITHUB_OUTPUT"
-          if [[ ${final_tag} == *"-beta."* || ${final_tag} == *"-alpha."* ]]; then
-            echo "update_main=true" >> "$GITHUB_OUTPUT"
+          if [[ ${final_tag} == *"-alpha."* ]]; then
+            echo "is_alpha_version=true" >> "$GITHUB_OUTPUT"
+            echo "is_stable_version=false" >> "$GITHUB_OUTPUT"
           else
-            echo "update_main=false" >> "$GITHUB_OUTPUT"
+            echo "is_alpha_version=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ ${final_tag} == *"-beta."* || ${final_tag} == *"-rc"* ]]; then
+            echo "is_stable_version=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_stable_version=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Skip sync on alpha
+        if: ${{ steps.release.outputs.is_alpha_version == 'true' }}
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+        run: echo "skipping sync because release ${RELEASE_TAG} is alpha"
+
       - name: Checkout repo
-        if: ${{ steps.release.outputs.update_main == 'false' }}
+        if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
         uses: actions/checkout@v4
         with:
           fetch-tags: 'true'
           ref: 'refs/tags/${{ steps.release.outputs.release_tag }}'
 
       - name: Configure git
+        if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
         run: |
           git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
           # set git info
@@ -53,13 +67,14 @@ jobs:
           GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
 
       - name: Set up Go
-        if: ${{ steps.release.outputs.update_main == 'false' }}
+        if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
-      - name: Update main docs version on alpha or beta versions
-        if: ${{ steps.release.outputs.update_main == 'true' }}
+      - name: Update main docs version on beta or rc versions
+        # update docs "main" version only on beta or -rc
+        if: ${{ steps.release.outputs.is_stable_version == 'false' && steps.release.outputs.is_alpha_version == 'false' }}
         env:
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
           GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
@@ -114,9 +129,11 @@ jobs:
 
 
       - name: Update vcluster schema in vcluster-config
-        if: ${{ steps.release.outputs.update_main == 'false' }}
+        # update only on beta, -rc and stable versions
+        if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
         env:
           GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
         run: |
           git clone --single-branch https://github.com/loft-sh/vcluster-config.git
 
@@ -142,6 +159,6 @@ jobs:
           echo "Changes detected"
 
           # commit changes
-          git commit -m "chore: sync config/*.go and values.schema.json to vCluster version ${{ steps.release.outputs.release_tag }}"
+          git commit -m "chore: sync config/*.go and values.schema.json to vCluster version ${RELEASE_TAG}"
           git push -u origin -f main
-          echo "vcluster-config values.schema.json updated to the version ${{ steps.release.outputs.release_tag }}"
+          echo "vcluster-config values.schema.json updated to the version ${RELEASE_TAG}"
