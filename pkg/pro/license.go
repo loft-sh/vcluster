@@ -8,7 +8,9 @@ import (
 )
 
 // LicenseInit is used to initialize the license loader
-var LicenseInit = func(_ context.Context, _ *config.VirtualClusterConfig) {}
+var LicenseInit = func(_ context.Context, _ *config.VirtualClusterConfig) error {
+	return nil
+}
 
 // LicenseStart is used to start license loader
 var LicenseStart = func(_ *synccontext.ControllerContext) error {
@@ -16,4 +18,6 @@ var LicenseStart = func(_ *synccontext.ControllerContext) error {
 }
 
 // LicenseFeatures returns a map of featureName: enabled / disabled
-var LicenseFeatures func() map[string]bool
+var LicenseFeatures = func() map[string]bool {
+	return make(map[string]bool)
+}
