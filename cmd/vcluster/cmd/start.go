@@ -81,7 +81,9 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	}()
 
 	// initialize feature gate from environment
-	pro.LicenseInit(ctx, vConfig)
+	if err := pro.LicenseInit(ctx, vConfig); err != nil {
+		return fmt.Errorf("license init: %w", err)
+	}
 
 	err = setup.Initialize(ctx, vConfig)
 	if err != nil {
