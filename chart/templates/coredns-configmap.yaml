@@ -35,7 +35,7 @@ data:
 {{ toYaml .Values.controlPlane.coredns.service.annotations | indent 8 }}
         {{- end }}
       labels:
-        k8s-app: kube-dns
+        k8s-app: vcluster-kube-dns
         kubernetes.io/cluster-service: "true"
         kubernetes.io/name: "CoreDNS"
         {{- if .Values.controlPlane.coredns.service.labels }}
@@ -126,7 +126,7 @@ data:
 {{ toYaml .Values.controlPlane.coredns.deployment.annotations | indent 8 }}
       {{- end }}
       labels:
-        k8s-app: kube-dns
+        k8s-app: vcluster-kube-dns
         kubernetes.io/name: "CoreDNS"
         {{- if .Values.controlPlane.coredns.deployment.labels }}
 {{ toYaml .Values.controlPlane.coredns.deployment.labels | indent 8 }}
@@ -139,7 +139,7 @@ data:
           maxUnavailable: 1
       selector:
         matchLabels:
-          k8s-app: kube-dns
+          k8s-app: vcluster-kube-dns
       template:
         metadata:
           {{- if .Values.controlPlane.coredns.deployment.pods.annotations }}
@@ -147,7 +147,7 @@ data:
 {{ toYaml .Values.controlPlane.coredns.deployment.pods.annotations | indent 12 }}
           {{- end }}
           labels:
-            k8s-app: kube-dns
+            k8s-app: vcluster-kube-dns
           {{- if .Values.controlPlane.coredns.deployment.pods.labels }}
 {{ toYaml .Values.controlPlane.coredns.deployment.pods.labels | indent 12 }}
           {{- end }}
@@ -258,7 +258,7 @@ data:
 {{ toYaml .Values.controlPlane.coredns.service.annotations | indent 8 }}
         {{- end }}
       labels:
-        k8s-app: kube-dns
+        k8s-app: vcluster-kube-dns
         kubernetes.io/cluster-service: "true"
         kubernetes.io/name: "CoreDNS"
         {{- if .Values.controlPlane.coredns.service.labels }}
@@ -268,7 +268,7 @@ data:
 {{ toYaml .Values.controlPlane.coredns.service.spec | indent 6 }}
       {{- if not .Values.controlPlane.coredns.service.spec.selector }}
       selector:
-        k8s-app: kube-dns
+        k8s-app: vcluster-kube-dns
       {{- end }}
       {{- if not .Values.controlPlane.coredns.service.spec.ports }}
       ports:
