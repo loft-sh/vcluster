@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/authentication/delegatingauthenticator"
+	"github.com/loft-sh/vcluster/pkg/authentication/platformauthenticator"
 	"github.com/loft-sh/vcluster/pkg/authorization/allowall"
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/impersonationauthorizer"
@@ -51,9 +52,6 @@ import (
 	aggregatorapiserver "k8s.io/kube-aggregator/pkg/apiserver"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-// ExtraAuthenticators are extra authenticators that should be added to the server
-var ExtraAuthenticators []authenticator.Request
 
 // Server is a http.Handler which proxies Kubernetes APIs to remote API server.
 type Server struct {
@@ -232,7 +230,7 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 	// 3. last is the certificate authenticator
 	authenticators := []authenticator.Request{}
 	authenticators = append(authenticators, delegatingauthenticator.New(s.uncachedVirtualClient))
-	authenticators = append(authenticators, ExtraAuthenticators...)
+	authenticators = append(authenticators, platformauthenticator.Default)
 	authenticators = append(authenticators, serverConfig.Authentication.Authenticator)
 	serverConfig.Authentication.Authenticator = unionauthentication.NewFailOnError(authenticators...)
 
