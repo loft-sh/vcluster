@@ -219,9 +219,15 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 				},
 			},
 			Spec: corev1.ServiceSpec{
-				Ports:     fromService.Spec.Ports,
-				ClusterIP: corev1.ClusterIPNone,
+				Ports: fromService.Spec.Ports,
 			},
+		}
+
+		// Check if ClusterIP is not "None"
+		if fromService.Spec.ClusterIP != corev1.ClusterIPNone {
+			toService.Spec.ClusterIP = fromService.Spec.ClusterIP
+		} else {
+			toService.Spec.ClusterIP = corev1.ClusterIPNone
 		}
 
 		if e.IsVirtualToHostSyncer {
