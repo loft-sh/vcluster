@@ -22,6 +22,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	CertSecretLabelAppKey     = "app"
+	CertSecretLabelAppValue   = "vcluster"
+	CertSecretLabelReleaseKey = "release"
+)
+
 func EnsureCerts(
 	ctx context.Context,
 	serviceCIDR string,
@@ -131,6 +137,10 @@ func EnsureCerts(
 			Name:            secretName,
 			Namespace:       currentNamespace,
 			OwnerReferences: ownerRef,
+			Labels: map[string]string{
+				CertSecretLabelAppKey:     CertSecretLabelAppValue,
+				CertSecretLabelReleaseKey: currentNamespace,
+			},
 		},
 		Data: map[string][]byte{},
 	}
