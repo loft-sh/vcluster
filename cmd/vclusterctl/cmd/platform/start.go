@@ -154,6 +154,10 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 }
 
 func (cmd *StartCmd) ensureEmailWithDisclaimer() error {
+	if cmd.Upgrade {
+		return nil
+	}
+
 	fmt.Printf(`By providing your email, you accept our Terms of Service and Privacy Statement:
 Terms of Service: https://www.loft.sh/legal/terms
 Privacy Statement: https://www.loft.sh/legal/privacy
