@@ -26,15 +26,18 @@ import (
 )
 
 const (
-	DefaultSecretPrefix     = "vc-"
-	KubeconfigSecretKey     = "config"
-	CADataSecretKey         = "certificate-authority"
-	CertificateSecretKey    = "client-certificate"
-	CertificateKeySecretKey = "client-key"
-	TokenSecretKey          = "token"
+	DefaultSecretPrefix             = "vc-"
+	KubeconfigSecretKey             = "config"
+	CADataSecretKey                 = "certificate-authority"
+	CertificateSecretKey            = "client-certificate"
+	CertificateKeySecretKey         = "client-key"
+	TokenSecretKey                  = "token"
+	KubeConfigSecretLabelAppKey     = "app"
+	KubeConfigSecretLabelAppValue   = "vcluster"
+	KubeConfigSecretVclusterNameKey = "vcluster-name"
 )
 
-func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, secretName, secretNamespace string, config *clientcmdapi.Config, isRemote bool) error {
+func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, secretName, secretNamespace string, config *clientcmdapi.Config, isRemote bool, vClusterName string) error {
 	out, err := clientcmd.Write(*config)
 	if err != nil {
 		return err
@@ -70,6 +73,10 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
 				Namespace: secretNamespace,
+				Labels: map[string]string{
+					KubeConfigSecretLabelAppKey:     KubeConfigSecretLabelAppValue,
+					KubeConfigSecretVclusterNameKey: vClusterName,
+				},
 			},
 		}
 		result, err := controllerutil.CreateOrPatch(ctx, currentNamespaceClient, kubeConfigSecret, func() error {
