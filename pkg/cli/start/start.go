@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
@@ -93,15 +94,11 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 		l.LocalPort = "9898"
 	}
 
-	err := l.Prepare(false)
-	if err != nil {
-		return err
-	}
 	l.Log.WriteString(logrus.InfoLevel, "\n")
 
 	// Uninstall already existing Loft instance
 	if l.Reset {
-		err = clihelper.UninstallLoft(ctx, l.KubeClient, l.RestConfig, l.Context, l.Namespace, l.Log)
+		err := clihelper.UninstallLoft(ctx, l.KubeClient, l.RestConfig, l.Context, l.Namespace, l.Log)
 		if err != nil {
 			return err
 		}
@@ -141,7 +138,7 @@ func (l *LoftStarter) Start(ctx context.Context) error {
 }
 
 // Prepare initializes clients, verifies the existense of binaries, and ensures we are starting with the right kube context
-func (l *Options) Prepare(cliNonInteractive bool) error {
+func (l *Options) Prepare() error {
 	platformClient := platform.NewClientFromConfig(l.LoadedConfig(l.Log))
 
 	platformConfig := platformClient.Config().Platform
@@ -160,7 +157,7 @@ func (l *Options) Prepare(cliNonInteractive bool) error {
 	if l.Context != "" {
 		contextToLoad = l.Context
 	} else if platformConfig.LastInstallContext != "" && platformConfig.LastInstallContext != contextToLoad {
-		if !cliNonInteractive {
+		if terminal.IsTerminalIn {
 			contextToLoad, err = l.Log.Question(&survey.QuestionOptions{
 				Question:     product.Replace(fmt.Sprintf("Seems like you try to use 'vcluster %s' with a different kubernetes context than before. Please choose which kubernetes context you want to use", l.CommandName)),
 				DefaultValue: contextToLoad,

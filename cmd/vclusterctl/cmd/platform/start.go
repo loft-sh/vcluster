@@ -17,6 +17,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -84,10 +85,6 @@ before running this command:
 }
 
 func (cmd *StartCmd) Run(ctx context.Context) error {
-	if err := cmd.ensureEmailWithDisclaimer(); err != nil {
-		return err
-	}
-
 	// get version to deploy
 	if cmd.Version == "latest" || cmd.Version == "" {
 		cmd.Version = platform.MinimumVersionTag
@@ -150,10 +147,30 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 		}
 	}
 
+	if err := cmd.StartOptions.Prepare(); err != nil {
+		return err
+	}
+
+	if err := cmd.ensureEmailWithDisclaimer(ctx, cmd.KubeClient, cmd.Namespace); err != nil {
+		return err
+	}
+
 	return start.NewLoftStarter(cmd.StartOptions).Start(ctx)
 }
 
-func (cmd *StartCmd) ensureEmailWithDisclaimer() error {
+func (cmd *StartCmd) ensureEmailWithDisclaimer(ctx context.Context, kc kubernetes.Interface, namespace string) error {
+	if cmd.Upgrade {
+		isInstalled, err := clihelper.IsLoftAlreadyInstalled(ctx, kc, namespace)
+
+		if err != nil {
+			return err
+		}
+
+		if isInstalled {
+			return nil
+		}
+	}
+
 	fmt.Printf(`By providing your email, you accept our Terms of Service and Privacy Statement:
 Terms of Service: https://www.loft.sh/legal/terms
 Privacy Statement: https://www.loft.sh/legal/privacy

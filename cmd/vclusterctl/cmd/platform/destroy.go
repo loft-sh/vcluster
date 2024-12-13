@@ -8,6 +8,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/pkg/cli/destroy"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/start"
@@ -40,7 +41,7 @@ func NewDestroyCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 Destroys a vCluster Platform instance in your Kubernetes cluster.
 
 IMPORTANT: This action is done against the cluster the the kube-context is pointing to, and not the vCluster Platform instance that is logged in.
-It does not require logging in to vCluster Platform. 
+It does not require logging in to vCluster Platform.
 
 Please make sure you meet the following requirements
 before running this command:
@@ -55,6 +56,9 @@ VirtualClusterInstances managed with driver helm will be deleted, but the underl
 	`,
 		Args: cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
+			if cmd.NonInteractive {
+				terminal.IsTerminalIn = false
+			}
 			return cmd.Run(cobraCmd.Context())
 		},
 	}
@@ -72,7 +76,7 @@ VirtualClusterInstances managed with driver helm will be deleted, but the underl
 
 func (cmd *DestroyCmd) Run(ctx context.Context) error {
 	// initialise clients, verify binaries exist, sanity-check context
-	err := cmd.Options.Prepare(cmd.NonInteractive)
+	err := cmd.Options.Prepare()
 	if err != nil {
 		return fmt.Errorf("failed to prepare clients: %w", err)
 	}
@@ -103,7 +107,7 @@ func (cmd *DestroyCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("platform not installed in namespace %q", cmd.Namespace)
 	}
 
-	if !cmd.NonInteractive {
+	if terminal.IsTerminalIn {
 		deleteOpt := "delete"
 		out, err := cmd.Log.Question(&survey.QuestionOptions{
 			Question: fmt.Sprintf("IMPORTANT! You are destroy the vCluster Platform in the namespace %q.\nThis may result in data loss. Please ensure your kube-context is pointed at the right cluster.\n Please type %q to continue:", cmd.Namespace, deleteOpt),
