@@ -596,16 +596,6 @@ api:
         - -v=4
       enabled: true
   statefulSet:
-	affinity:
-	  podAntiAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-                - key: app
-                  operator: In
-                  values:
-                    - vcluster
-            topologyKey: "kubernetes.io/hostname"
     highAvailability:
       replicas: 3
     persistence:
@@ -617,17 +607,27 @@ api:
         cpu: "8"
         memory: 10Gi
     scheduling:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - vcluster
+            topologyKey: kubernetes.io/hostname
       podManagementPolicy: OrderedReady
 policies:
   limitRange:
     default:
       cpu: 512m
+      ephemeral-storage: null
       memory: 2Gi
-	  ephemeral-storage: null
     defaultRequest:
       cpu: 24m
+      ephemeral-storage: null
       memory: 32Mi
-	  ephemeral-storage: null
     enabled: true
   podSecurityStandard: baseline
   resourceQuota:
@@ -636,9 +636,9 @@ policies:
       limits.cpu: 256
       limits.memory: 1Ti
       requests.cpu: 120
+      requests.ephemeral-storage: null
       requests.memory: 128Gi
       requests.storage: 10Ti
-	  requests.ephemeral-storage: null
 sync:
   fromHost:
     nodes:
@@ -653,18 +653,20 @@ sync:
 	}
 
 	for _, testCase := range testCases {
-		out, err := MigrateLegacyConfig(testCase.Distro, testCase.In)
-		if err != nil {
-			if testCase.ExpectedErr != "" && testCase.ExpectedErr == err.Error() {
-				continue
+		t.Run(testCase.Name, func(t *testing.T) {
+			out, err := MigrateLegacyConfig(testCase.Distro, testCase.In)
+			if err != nil {
+				if testCase.ExpectedErr != "" && testCase.ExpectedErr == err.Error() {
+					return
+				}
+
+				t.Fatalf("Test case %s failed with: %v", testCase.Name, err)
 			}
 
-			t.Fatalf("Test case %s failed with: %v", testCase.Name, err)
-		}
-
-		if strings.TrimSpace(testCase.Expected) != strings.TrimSpace(out) {
-			t.Log(out)
-		}
-		assert.Equal(t, strings.TrimSpace(testCase.Expected), strings.TrimSpace(out), testCase.Name)
+			if strings.TrimSpace(testCase.Expected) != strings.TrimSpace(out) {
+				t.Log(out)
+			}
+			assert.Equal(t, strings.TrimSpace(testCase.Expected), strings.TrimSpace(out), testCase.Name)
+		})
 	}
 }
