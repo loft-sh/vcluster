@@ -12,14 +12,6 @@ import (
 // ErrUnsupportedType is returned if the type is not implemented
 var ErrUnsupportedType = errors.New("unsupported type")
 
-// includeNilValuesForKeys prevents removing certain keys with null values.
-// This is useful when default value for a given field is not nil, user set this field for null in oldConfig,
-// and we want to keep this field as null in the newConfig.
-var includeNilValuesForKeys = map[string]struct{}{
-	"ephemeral-storage":          {},
-	"requests.ephemeral-storage": {},
-}
-
 func Diff(fromConfig *Config, toConfig *Config) (string, error) {
 	// convert to map[string]interface{}
 	fromRaw := map[string]interface{}{}
@@ -120,12 +112,7 @@ func prune(in interface{}) interface{} {
 
 		for k, v := range inType {
 			inType[k] = prune(v)
-			_, ok := includeNilValuesForKeys[k]
-			if inType[k] == nil && !ok {
-				delete(inType, k)
-			}
 		}
-
 		if len(inType) == 0 {
 			return nil
 		}
