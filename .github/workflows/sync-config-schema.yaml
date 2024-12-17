@@ -94,9 +94,9 @@ jobs:
 
           # copy generated vcluster.schema.json to the docs
           cd ../
-          mkdir -p vcluster-docs/configsrc/main/
-          cp config/values.yaml vcluster-docs/configsrc/main/default_values.yaml
-          cp vcluster-config/vcluster.schema.json vcluster-docs/configsrc/main/vcluster.schema.json
+          mkdir -p vcluster-docs/configsrc/vcluster/main/
+          cp config/values.yaml vcluster-docs/configsrc/vcluster/main/default_values.yaml
+          cp vcluster-config/vcluster.schema.json vcluster-docs/configsrc/vcluster/main/vcluster.schema.json
 
           # generate vCluster partials in docs
           cd vcluster-docs/
