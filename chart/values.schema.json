@@ -1315,6 +1315,10 @@
           "type": "array",
           "description": "DenyProxyRequests denies certain requests in the vCluster proxy.",
           "pro": true
+        },
+        "sleepMode": {
+          "$ref": "#/$defs/SleepMode",
+          "description": "SleepMode holds the native sleep mode configuration for Pro clusters"
         }
       },
       "additionalProperties": false,
@@ -3780,10 +3784,6 @@
         "$ref": "#/$defs/Plugin"
       },
       "description": "Plugin specifies which vCluster plugins to enable. Use \"plugins\" instead. Do not use this option anymore."
-    },
-    "sleepMode": {
-      "$ref": "#/$defs/SleepMode",
-      "description": "SleepMode holds the native sleep mode configuration for Pro clusters"
     }
   },
   "additionalProperties": false,
