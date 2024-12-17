@@ -88,8 +88,16 @@ func ConnectHelm(ctx context.Context, options *ConnectOptions, globalFlags *flag
 }
 
 func (cmd *connectHelm) connect(ctx context.Context, vCluster *find.VCluster, command []string) error {
+	currentContext, _, err := find.CurrentContext()
+	if err != nil {
+		return err
+	}
+	if currentContext == find.VClusterContextName(vCluster.Name, vCluster.Namespace, vCluster.Context) {
+		return fmt.Errorf("already connected to vcluster %q", vCluster.Name)
+	}
+
 	// prepare clients and find vcluster
-	err := cmd.prepare(ctx, vCluster)
+	err = cmd.prepare(ctx, vCluster)
 	if err != nil {
 		return err
 	}
