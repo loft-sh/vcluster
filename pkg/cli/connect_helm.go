@@ -93,7 +93,8 @@ func (cmd *connectHelm) connect(ctx context.Context, vCluster *find.VCluster, co
 		return err
 	}
 	if currentContext == find.VClusterContextName(vCluster.Name, vCluster.Namespace, vCluster.Context) {
-		return fmt.Errorf("already connected to vcluster %q", vCluster.Name)
+		cmd.Log.Infof("already connected to vcluster %q", vCluster.Name)
+		return nil
 	}
 
 	// prepare clients and find vcluster
