@@ -76,8 +76,8 @@ jobs:
         # update docs "main" version only on beta or -rc
         if: ${{ steps.release.outputs.is_stable_version == 'false' && steps.release.outputs.is_alpha_version == 'false' }}
         env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
-          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
         run: |
           # clone vcluster-config and vcluster-docs
           git clone --single-branch https://github.com/loft-sh/vcluster-docs.git
@@ -132,7 +132,7 @@ jobs:
         # update only on beta, -rc and stable versions
         if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
         env:
-          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
         run: |
           git clone --single-branch https://github.com/loft-sh/vcluster-config.git
