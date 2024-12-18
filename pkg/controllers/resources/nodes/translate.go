@@ -203,23 +203,15 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 			pods -= nonVClusterPods
 			if pods > 0 {
 				translatedStatus.Allocatable[corev1.ResourcePods] = *resource.NewQuantity(pods, resource.DecimalSI)
-			} else {
-				translatedStatus.Allocatable[corev1.ResourcePods] = *resource.NewQuantity(0, resource.DecimalSI)
 			}
 			if cpu > 0 {
 				translatedStatus.Allocatable[corev1.ResourceCPU] = *resource.NewMilliQuantity(cpu, resource.DecimalSI)
-			} else {
-				translatedStatus.Allocatable[corev1.ResourceCPU] = *resource.NewMilliQuantity(0, resource.DecimalSI)
 			}
 			if memory > 0 {
 				translatedStatus.Allocatable[corev1.ResourceMemory] = *resource.NewQuantity(memory, resource.BinarySI)
-			} else {
-				translatedStatus.Allocatable[corev1.ResourceMemory] = *resource.NewQuantity(0, resource.BinarySI)
 			}
 			if storageEphemeral > 0 {
 				translatedStatus.Allocatable[corev1.ResourceEphemeralStorage] = *resource.NewQuantity(storageEphemeral, resource.BinarySI)
-			} else {
-				translatedStatus.Allocatable[corev1.ResourceEphemeralStorage] = *resource.NewQuantity(0, resource.BinarySI)
 			}
 		}
 
