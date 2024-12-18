@@ -274,13 +274,14 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 	}
 
 	newConfig.Networking.Advanced.FallbackHostCluster = oldConfig.FallbackHostDNS
+
 	newConfig.ControlPlane.StatefulSet.Labels = oldConfig.Labels
 	newConfig.ControlPlane.StatefulSet.Annotations = oldConfig.Annotations
 	newConfig.ControlPlane.StatefulSet.Pods.Labels = oldConfig.PodLabels
 	newConfig.ControlPlane.StatefulSet.Pods.Annotations = oldConfig.PodAnnotations
 	newConfig.ControlPlane.StatefulSet.Scheduling.Tolerations = oldConfig.Tolerations
 	newConfig.ControlPlane.StatefulSet.Scheduling.NodeSelector = oldConfig.NodeSelector
-	newConfig.ControlPlane.StatefulSet.Scheduling.Affinity = oldConfig.Affinity
+	newConfig.ControlPlane.StatefulSet.Scheduling.Affinity = mergeMaps(newConfig.ControlPlane.StatefulSet.Scheduling.Affinity, oldConfig.Affinity)
 	newConfig.ControlPlane.StatefulSet.Scheduling.PriorityClassName = oldConfig.PriorityClassName
 
 	newConfig.Networking.ReplicateServices.FromHost = oldConfig.MapServices.FromHost
