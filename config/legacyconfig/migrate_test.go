@@ -28,10 +28,7 @@ func TestMigration(t *testing.T) {
       enabled: true
   statefulSet:
     scheduling:
-      podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null`,
+      podManagementPolicy: OrderedReady`,
 		},
 		{
 			Name:   "k3s with deprecated serviceCIDR",
@@ -45,10 +42,7 @@ serviceCIDR: 10.96.0.0/16
       enabled: true
   statefulSet:
     scheduling:
-      podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null`,
+      podManagementPolicy: OrderedReady`,
 		},
 		{
 			Name:   "Simple k0s",
@@ -59,10 +53,7 @@ external:
       enabled: true
   statefulSet:
     scheduling:
-      podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null`,
+      podManagementPolicy: OrderedReady`,
 		},
 		{
 			Name:   "Plugin k3s",
@@ -77,14 +68,8 @@ external:
   statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null
 plugin:
   test:
-    rbac:
-      clusterRole: null
-      role: null
     version: v2`,
 		},
 		{
@@ -104,9 +89,6 @@ plugin:
   statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null
 sync:
   fromHost:
     ingressClasses:
@@ -161,10 +143,7 @@ experimental:
       kind: Secret
     version: v1beta1
   multiNamespaceMode:
-    enabled: true
-external:
-  platform:
-    apiKey: null`,
+    enabled: true`,
 		},
 		{
 			Name:   "persistence false",
@@ -181,10 +160,7 @@ external:
       volumeClaim:
         enabled: false
     scheduling:
-      podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null`,
+      podManagementPolicy: OrderedReady`,
 		},
 		{
 			Name:   "vcluster env",
@@ -202,10 +178,7 @@ external:
         value: postgres://username:password@hostname:5432/k3s
   statefulSet:
     scheduling:
-      podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null`,
+      podManagementPolicy: OrderedReady`,
 		},
 		{
 			Name:   "high availability",
@@ -234,10 +207,7 @@ coredns:
     highAvailability:
       replicas: 3
     scheduling:
-      podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null`,
+      podManagementPolicy: OrderedReady`,
 		},
 		{
 			Name:   "fallback host dns",
@@ -251,9 +221,6 @@ pro: true`,
   statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null
 networking:
   advanced:
     fallbackHostCluster: true
@@ -278,9 +245,6 @@ pro: true`,
   statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null
 policies:
   limitRange:
     enabled: true
@@ -309,9 +273,6 @@ policies:
   statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null
 sync:
   fromHost:
     nodes:
@@ -336,10 +297,7 @@ sync:
     enabled: true
   statefulSet:
     scheduling:
-      podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null`,
+      podManagementPolicy: OrderedReady`,
 		},
 		{
 			Name:   "embedded etcd",
@@ -356,10 +314,7 @@ external:
       enabled: true
   statefulSet:
     scheduling:
-      podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null`,
+      podManagementPolicy: OrderedReady`,
 		},
 		{
 			Name:   "scheduler",
@@ -381,9 +336,6 @@ external:
   statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null
 sync:
   fromHost:
     csiNodes:
@@ -412,10 +364,7 @@ syncer:
       repository: loft-sh/test
       tag: abc
     scheduling:
-      podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null`,
+      podManagementPolicy: OrderedReady`,
 		},
 		{
 			Name:   "binariesVolume",
@@ -437,10 +386,7 @@ external:
         persistentVolumeClaim:
           claimName: my-pvc
     scheduling:
-      podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null`,
+      podManagementPolicy: OrderedReady`,
 			ExpectedErr: "",
 		},
 		{
@@ -463,9 +409,6 @@ external:
   statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null
 policies:
   limitRange:
     enabled: true
@@ -498,10 +441,7 @@ policies:
       limits:
         memory: 10Gi
     scheduling:
-      podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null`,
+      podManagementPolicy: OrderedReady`,
 			ExpectedErr: "",
 		},
 		{
@@ -522,9 +462,7 @@ controlPlane:
         tag: v1.30.2-k3s2
   statefulSet:
     scheduling:
-      podManagementPolicy: OrderedReady
-
-`,
+      podManagementPolicy: OrderedReady`,
 			ExpectedErr: "migrate legacy k3s values: config is already in correct format",
 		},
 		{
@@ -543,9 +481,7 @@ controlPlane:
       enabled: true
   statefulSet:
     scheduling:
-      podManagementPolicy: OrderedReady
-
-`,
+      podManagementPolicy: OrderedReady`,
 			ExpectedErr: "migrate legacy k8s values: config is already in correct format",
 		},
 		{
@@ -677,9 +613,6 @@ api:
                 - vcluster
             topologyKey: kubernetes.io/hostname
       podManagementPolicy: OrderedReady
-external:
-  platform:
-    apiKey: null
 policies:
   limitRange:
     default:

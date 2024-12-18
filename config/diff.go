@@ -112,10 +112,16 @@ func prune(in interface{}) interface{} {
 
 		for k, v := range inType {
 			inType[k] = prune(v)
+			// delete key only if original value was not nil (but for example empty map),
+			// otherwise we want to keep null as a value
+			if inType[k] == nil && v != nil {
+				delete(inType, k)
+			}
 		}
 		if len(inType) == 0 {
 			return nil
 		}
+
 		return inType
 	default:
 		return in
