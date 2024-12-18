@@ -297,8 +297,7 @@ sync:
     enabled: true
   statefulSet:
     scheduling:
-      podManagementPolicy: OrderedReady
-`,
+      podManagementPolicy: OrderedReady`,
 		},
 		{
 			Name:   "embedded etcd",
@@ -463,9 +462,7 @@ controlPlane:
         tag: v1.30.2-k3s2
   statefulSet:
     scheduling:
-      podManagementPolicy: OrderedReady
-
-`,
+      podManagementPolicy: OrderedReady`,
 			ExpectedErr: "migrate legacy k3s values: config is already in correct format",
 		},
 		{
@@ -484,26 +481,195 @@ controlPlane:
       enabled: true
   statefulSet:
     scheduling:
-      podManagementPolicy: OrderedReady
-
-`,
+      podManagementPolicy: OrderedReady`,
 			ExpectedErr: "migrate legacy k8s values: config is already in correct format",
+		},
+		{
+			Name:   "statefulset affinity added",
+			Distro: "k8s",
+			In: `isolation:
+  # nodeProxyPermission:
+  #  enabled: true
+  enabled: true
+  podSecurityStandard: baseline
+  resourceQuota:
+    enabled: true
+    quota:
+      count/endpoints: null
+      count/pods: null
+      count/services: null
+      count/configmaps: null
+      count/secrets: null
+      count/persistentvolumeclaims: null
+      limits.cpu: 256
+      limits.memory: 1Ti
+      requests.storage: 10Ti
+      requests.ephemeral-storage: null
+      requests.memory: 128Gi
+      requests.cpu: 120
+      services.loadbalancers: null
+      services.nodeports: null
+  limitRange:
+    enabled: true
+    defaultRequest:
+      cpu: 24m
+      memory: 32Mi
+      ephemeral-storage: null
+    default:
+      ephemeral-storage: null
+      memory: 2Gi
+      cpu: 512m
+    # max:
+    #  cpu: 32
+    #  memory: 64Gi
+    #  ephemeral-storage: 512Gi
+  networkPolicy:
+    enabled: false
+storage:
+  className: px-pool
+sync:
+  secrets:
+    enabled: true
+  nodes:
+    enabled: true
+  networkpolicies:
+    enabled: true
+  hoststorageclasses:
+    enabled: true
+# enableHA: true
+embeddedEtcd:
+  enabled: true
+syncer:
+  resources:
+    limits:
+      cpu: '8'
+      ephemeral-storage: 8Gi
+      memory: 10Gi
+  # extraArgs:
+  #  - '--sync-labels=namespace,aussiebb.io/,..aussiebb.io/'
+  replicas: 3
+  labels:
+    aussiebb.io/profile: "true"
+  storage:
+    size: 50Gi
+    className: px-pool-etcd
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - vcluster
+          topologyKey: "kubernetes.io/hostname"
+coredns:
+  replicas: 3
+  resources:
+    limits:
+      cpu: '2'
+      memory: '1Gi'
+api:
+  extraArgs:
+    - "-v=4"`,
+			Expected: `controlPlane:
+  backingStore:
+    etcd:
+      embedded:
+        enabled: true
+  coredns:
+    deployment:
+      replicas: 3
+      resources:
+        limits:
+          cpu: "2"
+          memory: 1Gi
+  distro:
+    k8s:
+      apiServer:
+        extraArgs:
+        - -v=4
+      enabled: true
+  statefulSet:
+    highAvailability:
+      replicas: 3
+    persistence:
+      volumeClaim:
+        size: 50Gi
+        storageClass: px-pool-etcd
+    resources:
+      limits:
+        cpu: "8"
+        memory: 10Gi
+    scheduling:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - vcluster
+            topologyKey: kubernetes.io/hostname
+      podManagementPolicy: OrderedReady
+policies:
+  limitRange:
+    default:
+      cpu: 512m
+      ephemeral-storage: null
+      memory: 2Gi
+    defaultRequest:
+      cpu: 24m
+      ephemeral-storage: null
+      memory: 32Mi
+    enabled: true
+  podSecurityStandard: baseline
+  resourceQuota:
+    enabled: true
+    quota:
+      count/configmaps: null
+      count/endpoints: null
+      count/persistentvolumeclaims: null
+      count/pods: null
+      count/secrets: null
+      count/services: null
+      limits.cpu: 256
+      limits.memory: 1Ti
+      requests.cpu: 120
+      requests.ephemeral-storage: null
+      requests.memory: 128Gi
+      requests.storage: 10Ti
+      services.loadbalancers: null
+      services.nodeports: null
+sync:
+  fromHost:
+    nodes:
+      enabled: true
+    storageClasses:
+      enabled: true
+  toHost:
+    networkPolicies:
+      enabled: true`,
+			ExpectedErr: "",
 		},
 	}
 
 	for _, testCase := range testCases {
-		out, err := MigrateLegacyConfig(testCase.Distro, testCase.In)
-		if err != nil {
-			if testCase.ExpectedErr != "" && testCase.ExpectedErr == err.Error() {
-				continue
+		t.Run(testCase.Name, func(t *testing.T) {
+			out, err := MigrateLegacyConfig(testCase.Distro, testCase.In)
+			if err != nil {
+				if testCase.ExpectedErr != "" && testCase.ExpectedErr == err.Error() {
+					return
+				}
+
+				t.Fatalf("Test case %s failed with: %v", testCase.Name, err)
 			}
 
-			t.Fatalf("Test case %s failed with: %v", testCase.Name, err)
-		}
-
-		if strings.TrimSpace(testCase.Expected) != strings.TrimSpace(out) {
-			t.Log(out)
-		}
-		assert.Equal(t, strings.TrimSpace(testCase.Expected), strings.TrimSpace(out), testCase.Name)
+			if strings.TrimSpace(testCase.Expected) != strings.TrimSpace(out) {
+				t.Log(out)
+			}
+			assert.Equal(t, strings.TrimSpace(testCase.Expected), strings.TrimSpace(out), testCase.Name)
+		})
 	}
 }
