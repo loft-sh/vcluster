@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
+	resourceutil "k8s.io/kubectl/pkg/util/resource"
 )
 
 var (
@@ -165,10 +166,12 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 	if s.enableScheduler {
 		// calculate what's really allocatable
 		if translatedStatus.Allocatable != nil {
-			cpu := translatedStatus.Allocatable.Cpu().MilliValue()
-			memory := translatedStatus.Allocatable.Memory().Value()
-			storageEphemeral := translatedStatus.Allocatable.StorageEphemeral().Value()
-			pods := translatedStatus.Allocatable.Pods().Value()
+			allocatable := map[corev1.ResourceName]int64{
+				corev1.ResourceCPU:              translatedStatus.Allocatable.Cpu().MilliValue(),
+				corev1.ResourceMemory:           translatedStatus.Allocatable.Memory().Value(),
+				corev1.ResourceEphemeralStorage: translatedStatus.Allocatable.StorageEphemeral().Value(),
+				corev1.ResourcePods:             translatedStatus.Allocatable.Pods().Value(),
+			}
 
 			var nonVClusterPods int64
 			podList := &corev1.PodList{}
@@ -187,31 +190,33 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 						// count pods that are not synced by this vcluster
 						nonVClusterPods++
 					}
-					for _, container := range pod.Spec.InitContainers {
-						cpu -= container.Resources.Requests.Cpu().MilliValue()
-						memory -= container.Resources.Requests.Memory().Value()
-						storageEphemeral -= container.Resources.Requests.StorageEphemeral().Value()
-					}
-					for _, container := range pod.Spec.Containers {
-						cpu -= container.Resources.Requests.Cpu().MilliValue()
-						memory -= container.Resources.Requests.Memory().Value()
-						storageEphemeral -= container.Resources.Requests.StorageEphemeral().Value()
+
+					reqs, _ := resourceutil.PodRequestsAndLimits(&pod)
+
+					for _, resName := range []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory, corev1.ResourceEphemeralStorage} {
+						if req, ok := reqs[resName]; ok {
+							if resName == corev1.ResourceCPU {
+								allocatable[resName] -= req.MilliValue()
+							} else {
+								allocatable[resName] -= req.Value()
+							}
+						}
 					}
 				}
 			}
 
-			pods -= nonVClusterPods
-			if pods > 0 {
-				translatedStatus.Allocatable[corev1.ResourcePods] = *resource.NewQuantity(pods, resource.DecimalSI)
+			allocatable[corev1.ResourcePods] -= nonVClusterPods
+			if allocatable[corev1.ResourcePods] > 0 {
+				translatedStatus.Allocatable[corev1.ResourcePods] = *resource.NewQuantity(allocatable[corev1.ResourcePods], resource.DecimalSI)
 			}
-			if cpu > 0 {
-				translatedStatus.Allocatable[corev1.ResourceCPU] = *resource.NewMilliQuantity(cpu, resource.DecimalSI)
+			if allocatable[corev1.ResourceCPU] > 0 {
+				translatedStatus.Allocatable[corev1.ResourceCPU] = *resource.NewMilliQuantity(allocatable[corev1.ResourceCPU], resource.DecimalSI)
 			}
-			if memory > 0 {
-				translatedStatus.Allocatable[corev1.ResourceMemory] = *resource.NewQuantity(memory, resource.BinarySI)
+			if allocatable[corev1.ResourceMemory] > 0 {
+				translatedStatus.Allocatable[corev1.ResourceMemory] = *resource.NewQuantity(allocatable[corev1.ResourceMemory], resource.BinarySI)
 			}
-			if storageEphemeral > 0 {
-				translatedStatus.Allocatable[corev1.ResourceEphemeralStorage] = *resource.NewQuantity(storageEphemeral, resource.BinarySI)
+			if allocatable[corev1.ResourceEphemeralStorage] > 0 {
+				translatedStatus.Allocatable[corev1.ResourceEphemeralStorage] = *resource.NewQuantity(allocatable[corev1.ResourceEphemeralStorage], resource.BinarySI)
 			}
 		}
 
