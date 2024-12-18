@@ -88,17 +88,13 @@ func ConnectHelm(ctx context.Context, options *ConnectOptions, globalFlags *flag
 }
 
 func (cmd *connectHelm) connect(ctx context.Context, vCluster *find.VCluster, command []string) error {
-	currentContext, _, err := find.CurrentContext()
-	if err != nil {
-		return err
-	}
-	if currentContext == find.VClusterContextName(vCluster.Name, vCluster.Namespace, vCluster.Context) {
+	if connected, _ := checkIfAlreadyConnected(ctx, vCluster); connected {
 		cmd.Log.Infof("already connected to vcluster %q", vCluster.Name)
 		return nil
 	}
 
 	// prepare clients and find vcluster
-	err = cmd.prepare(ctx, vCluster)
+	err := cmd.prepare(ctx, vCluster)
 	if err != nil {
 		return err
 	}
@@ -701,4 +697,29 @@ func (cmd *connectHelm) waitForVCluster(ctx context.Context, vKubeConfig clientc
 	}
 
 	return nil
+}
+
+func checkIfAlreadyConnected(ctx context.Context, vCluster *find.VCluster) (bool, error) {
+	currentContext, _, err := find.CurrentContext()
+	if err != nil {
+		return false, err
+	}
+	if currentContext == find.VClusterContextName(vCluster.Name, vCluster.Namespace, vCluster.Context) {
+		kubeConfig, err := vCluster.ClientFactory.ClientConfig()
+		if err != nil {
+			return false, err
+		}
+
+		vKubeClient, err := kubernetes.NewForConfig(kubeConfig)
+		if err != nil {
+			return false, err
+		}
+
+		_, err = vKubeClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	return false, nil
 }
