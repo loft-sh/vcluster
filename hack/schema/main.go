@@ -239,6 +239,12 @@ func getReflector() (*jsonschema.Reflector, error) {
 	}
 	r.CommentMap = commentMap
 
+	for k, comment := range commentMap {
+		if strings.Contains(comment, "<") || strings.Contains(comment, ">") {
+			return nil, fmt.Errorf("comment for %s (%s) contains '<' or '>', please remove it because it will break docs generation", k, comment)
+		}
+	}
+
 	return r, nil
 }
 
