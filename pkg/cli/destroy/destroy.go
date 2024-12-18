@@ -315,13 +315,14 @@ func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Conte
 					if err != nil {
 						return false, fmt.Errorf("failed to unmarshal virtual cluster config for %v %q: %w", resource, namespacedName, err)
 					}
-					if !nonInteractive {
-						if vConfig.ControlPlane.BackingStore.Database.External.Enabled && vConfig.ControlPlane.BackingStore.Database.External.Connector != "" {
+					if vConfig.ControlPlane.BackingStore.Database.External.Connector != "" {
+						log.Warnf("IMPORTANT! You are removing an externally deployed virtual cluster %q from the platform.\n It will not be destroyed as the deployment is managed externally, but its database will be removed rendering it inoperable.", namespacedName)
+						if !nonInteractive {
 							yesOpt := "yes"
 							noOpt := "no"
 							out, err := log.Question(&survey.QuestionOptions{
 								Options:  []string{yesOpt, noOpt},
-								Question: fmt.Sprintf("IMPORTANT! You are removing an externally deployed virtual cluster %q from the platform.\n It will not be destroyed as the deployment is managed externally, but its connection to its database will be removed.\nDo you want to continue?", namespacedName),
+								Question: "Do you want to continue?",
 							})
 							if err != nil {
 								return false, fmt.Errorf("failed to prompt for confirmation: %w", err)
