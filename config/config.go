@@ -1004,8 +1004,8 @@ type DistroK8s struct {
 	// controlPlane.distro.k8s.scheduler.image.tag
 	//(or controlPlane.distro.k8s.controllerManager.image.tag or controlPlane.distro.k8s.apiServer.image.tag)
 	// is set to v1.31.0,
-	// value from controlPlane.distro.k8s.<controlPlane-component>.image.tag will be used
-	// (where <controlPlane-component is apiServer, controllerManager and scheduler).
+	// value from controlPlane.distro.k8s.(controlPlane-component).image.tag will be used
+	// (where controlPlane-component is apiServer, controllerManager and scheduler).
 	Version string `json:"version,omitempty"`
 
 	// APIServer holds configuration specific to starting the api server.
