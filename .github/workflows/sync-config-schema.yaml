@@ -135,8 +135,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
         run: |
+          rm -rf vcluster-config/ || true
           git clone --single-branch https://github.com/loft-sh/vcluster-config.git
-
           # copy generated schema from vcluster chart values to vcluster-config
           cp chart/values.schema.json vcluster-config/values.schema.json
           cp -R config/. vcluster-config/config/
