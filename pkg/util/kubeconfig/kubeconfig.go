@@ -32,6 +32,9 @@ const (
 	CertificateSecretKey    = "client-certificate"
 	CertificateKeySecretKey = "client-key"
 	TokenSecretKey          = "token"
+	KubeConfigSecretLabelAppKey     = "app"
+	KubeConfigSecretLabelAppValue   = "vcluster"
+	KubeConfigSecretLabelReleaseKey = "release"
 )
 
 func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, secretName, secretNamespace string, config *clientcmdapi.Config, isRemote bool) error {
@@ -70,6 +73,10 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
 				Namespace: secretNamespace,
+				Labels: map[string]string{
+					KubeConfigSecretLabelAppKey:     KubeConfigSecretLabelAppValue,
+					KubeConfigSecretLabelReleaseKey: secretNamespace,
+				},
 			},
 		}
 		result, err := controllerutil.CreateOrPatch(ctx, currentNamespaceClient, kubeConfigSecret, func() error {
