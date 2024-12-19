@@ -715,7 +715,11 @@ func checkIfAlreadyConnected(ctx context.Context, vCluster *find.VCluster) (bool
 			return false, err
 		}
 
-		_, err = vKubeClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
+		timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		// Use the timeout context in the Get call
+		_, err = vKubeClient.CoreV1().ServiceAccounts("default").Get(timeoutCtx, "default", metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
