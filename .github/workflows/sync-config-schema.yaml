@@ -13,7 +13,7 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     outputs:
-      release_tag: ${{ steps.release.outputs.latest_release }}
+      release_tag: ${{ steps.release.outputs.release_tag }}
       is_alpha_version: ${{ steps.release.outputs.is_alpha_version }} # on alpha version we won't sync docs and config
       is_stable_version: ${{ steps.release.outputs.is_stable_version }} # on stable versions we will sync config, and CI in vcluster-config will sync docs
     steps:
