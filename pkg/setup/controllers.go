@@ -265,14 +265,14 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 		}
 
 		// Use customSyncerConfig for the additional secret if it was modified, else syncerConfig
-		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, options.ExportKubeConfig.Secret.Name, secretNamespace, customSyncerConfig, options.Experimental.IsolatedControlPlane.KubeConfig != "")
+		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, options.ExportKubeConfig.Secret.Name, secretNamespace, customSyncerConfig, options.Experimental.IsolatedControlPlane.KubeConfig != "", options.Name)
 		if err != nil {
 			return fmt.Errorf("creating %s secret in the %s ns failed: %w", options.ExportKubeConfig.Secret.Name, secretNamespace, err)
 		}
 	}
 
 	// Write the default secret using syncerConfig, which retains the original Server value
-	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, syncerConfig, options.Experimental.IsolatedControlPlane.KubeConfig != "")
+	return kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, syncerConfig, options.Experimental.IsolatedControlPlane.KubeConfig != "", options.Name)
 }
 
 // applyAuthToken sets the provided token in all AuthInfos of the given config
