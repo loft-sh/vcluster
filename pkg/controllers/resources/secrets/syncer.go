@@ -81,7 +81,7 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncconte
 
 	// delete if the host object was deleted
 	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
-		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was delete")
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
 	// translate secret

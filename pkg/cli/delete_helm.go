@@ -118,6 +118,11 @@ func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.
 	}
 	cmd.log.Donef("Successfully deleted virtual cluster %s in namespace %s", vClusterName, cmd.Namespace)
 
+	// delete priorityclasses
+	if err = deletePriorityClasses(ctx, cmd, vClusterName); err != nil {
+		return err
+	}
+
 	// try to delete the vCluster in the platform
 	if vClusterService != nil {
 		cmd.log.Debugf("deleting vcluster in platform")
@@ -359,4 +364,24 @@ func deleteContext(kubeConfig *clientcmdapi.Config, kubeContext string, otherCon
 	}
 
 	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), *kubeConfig, false)
+}
+
+func deletePriorityClasses(ctx context.Context, cmd deleteHelm, vClusterName string) error {
+	priorityClasses, err := cmd.kubeClient.SchedulingV1().PriorityClasses().List(ctx, metav1.ListOptions{
+		LabelSelector: translate.MarkerLabel + "=" + translate.SafeConcatName(cmd.Namespace, "x", vClusterName),
+	})
+	if err != nil && !kerrors.IsForbidden(err) {
+		return fmt.Errorf("list priorityClasses: %w", err)
+	}
+
+	if priorityClasses != nil && len(priorityClasses.Items) > 0 {
+		for _, pc := range priorityClasses.Items {
+			err = cmd.kubeClient.SchedulingV1().PriorityClasses().Delete(ctx, pc.Name, metav1.DeleteOptions{})
+			if err != nil && !kerrors.IsNotFound(err) {
+				return fmt.Errorf("delete priorityClass: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
