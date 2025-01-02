@@ -167,7 +167,7 @@ func CreateBackgroundProxyContainer(ctx context.Context, vClusterName, vClusterN
 		return "", errors.Errorf("error starting background proxy: %s %v", string(out), err)
 	}
 	server := fmt.Sprintf("https://127.0.0.1:%v", localPort)
-	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, time.Second*60, true, func(ctx context.Context) (bool, error) {
+	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, time.Second*7, true, func(ctx context.Context) (bool, error) {
 		err = testConnectionWithServer(ctx, vRawConfig, server)
 		if err != nil {
 			return false, nil
