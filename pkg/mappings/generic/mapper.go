@@ -108,6 +108,12 @@ func TryToTranslateBackByAnnotations(ctx *synccontext.SyncContext, req types.Nam
 		return types.NamespacedName{}
 	}
 
+	// exclude objects that are from other vClusters
+	markerLabel := pObj.GetLabels()[translate.MarkerLabel]
+	if markerLabel != "" && markerLabel != translate.VClusterName {
+		return types.NamespacedName{}
+	}
+
 	// make sure kind matches
 	gvk, ok := pAnnotations[translate.KindAnnotation]
 	if ok && objectGvk.String() != gvk {
