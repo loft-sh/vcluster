@@ -194,19 +194,29 @@ func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) 
 			}
 		}
 
-		return r.genericSyncer.Sync(syncContext, &synccontext.SyncEvent[client.Object]{
+		result, err := r.genericSyncer.Sync(syncContext, &synccontext.SyncEvent[client.Object]{
 			VirtualOld: vObjOld,
 			Virtual:    vObj,
 
 			HostOld: pObjOld,
 			Host:    pObj,
 		})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("sync: %w", err)
+		}
+
+		return result, nil
 	} else if vObj != nil {
-		return r.genericSyncer.SyncToHost(syncContext, &synccontext.SyncToHostEvent[client.Object]{
+		result, err := r.genericSyncer.SyncToHost(syncContext, &synccontext.SyncToHostEvent[client.Object]{
 			HostOld: pObjOld,
 
 			Virtual: vObj,
 		})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("sync to host: %w", err)
+		}
+
+		return result, nil
 	} else if pObj != nil {
 		if pObj.GetAnnotations() != nil {
 			if shouldSkip, ok := pObj.GetAnnotations()[translate.SkipBackSyncInMultiNamespaceMode]; ok && shouldSkip == "true" {
@@ -215,11 +225,16 @@ func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) 
 			}
 		}
 
-		return r.genericSyncer.SyncToVirtual(syncContext, &synccontext.SyncToVirtualEvent[client.Object]{
+		result, err := r.genericSyncer.SyncToVirtual(syncContext, &synccontext.SyncToVirtualEvent[client.Object]{
 			VirtualOld: vObjOld,
 
 			Host: pObj,
 		})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("sync to virtual: %w", err)
+		}
+
+		return result, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -252,11 +267,16 @@ func (r *SyncController) getObjects(ctx *synccontext.SyncContext, vReq, pReq ctr
 		var ok bool
 		vObjOld, ok = r.objectCache.Virtual().Get(vReq.NamespacedName)
 		if !ok && vObj != nil {
+			// for upgrading from pre-0.21 clusters we want to re-sync labels for the new objects initially once
+			// since we changed label prefixes so this is required to make sure all labels are initially synced
+			// from virtual to host correctly.
+			vObjOld = vObj.DeepCopyObject().(client.Object)
+			vObjOld.SetLabels(nil)
+
 			// only add to cache if it's not deleting
 			if vObj.GetDeletionTimestamp() == nil {
-				r.objectCache.Virtual().Put(vObj)
+				r.objectCache.Virtual().Put(vObjOld)
 			}
-			vObjOld = vObj
 		}
 
 		pObjOld, ok = r.objectCache.Host().Get(pReq.NamespacedName)
