@@ -3,9 +3,14 @@ package localkubernetes
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
+	"runtime"
+	"slices"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/loft-sh/log"
@@ -146,10 +151,37 @@ func CreateBackgroundProxyContainer(ctx context.Context, vClusterName, vClusterN
 	// check if the background proxy container for this vcluster is running and then remove it.
 	_ = CleanupBackgroundProxy(proxyName, log)
 
+	// get ips to try to connect to
+	dockerMachineIPs := []string{
+		"127.0.0.1",
+	}
+	if runtime.GOOS != "linux" {
+		output, err := exec.Command("docker", "run", "--network=host", "--rm", "alpine", "sh", "-c", "ifconfig | grep 'inet addr:' | sed 's/.*inet addr:\\([^ ]*\\).*/\\1/'").CombinedOutput()
+		if err != nil {
+			log.Warnf("Couldn't find network config for docker machine: %s %v", string(output), err)
+		}
+		for _, ip := range strings.Split(string(output), "\n") {
+			ip = strings.TrimSpace(ip)
+			if net.ParseIP(ip) != nil && !slices.Contains(dockerMachineIPs, ip) {
+				dockerMachineIPs = append(dockerMachineIPs, ip)
+			}
+		}
+
+		// since the vCluster certificate is only signed for 127.0.0.1 we need to make sure we use insecure here
+		if len(dockerMachineIPs) > 1 {
+			for k := range vRawConfig.Clusters {
+				vRawConfig.Clusters[k].CertificateAuthority = ""
+				vRawConfig.Clusters[k].CertificateAuthorityData = nil
+				vRawConfig.Clusters[k].InsecureSkipTLSVerify = true
+			}
+		}
+	}
+
 	// build the command
 	cmd := exec.Command(
 		"docker",
 		"run",
+		"--rm",
 		"-d",
 		"-v", fmt.Sprintf("%v:%v", kubeConfigPath, "/kube-config"),
 		fmt.Sprintf("--name=%s", proxyName),
@@ -157,6 +189,7 @@ func CreateBackgroundProxyContainer(ctx context.Context, vClusterName, vClusterN
 		"bitnami/kubectl:1.29",
 		"port-forward",
 		"svc/"+vClusterName,
+		"--address=0.0.0.0",
 		strconv.Itoa(localPort)+":443",
 		"--kubeconfig", "/kube-config",
 		"-n", vClusterNamespace,
@@ -166,16 +199,37 @@ func CreateBackgroundProxyContainer(ctx context.Context, vClusterName, vClusterN
 	if err != nil {
 		return "", errors.Errorf("error starting background proxy: %s %v", string(out), err)
 	}
-	server := fmt.Sprintf("https://127.0.0.1:%v", localPort)
-	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, time.Second*7, true, func(ctx context.Context) (bool, error) {
-		err = testConnectionWithServer(ctx, vRawConfig, server)
-		if err != nil {
-			return false, nil
+
+	server := ""
+	serverMutex := sync.Mutex{}
+	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, time.Second*10, true, func(ctx context.Context) (bool, error) {
+		// try all ips in parallel
+		waitGroup := sync.WaitGroup{}
+		for _, ip := range dockerMachineIPs {
+			waitGroup.Add(1)
+			go func() {
+				defer waitGroup.Done()
+
+				testServer := fmt.Sprintf("https://%s:%v", ip, localPort)
+				err := testConnectionWithServer(ctx, vRawConfig, testServer)
+				if err == nil {
+					serverMutex.Lock()
+					if server == "" {
+						server = testServer
+					}
+					serverMutex.Unlock()
+				} else {
+					log.Debugf("Attempted to connect to %s: %v", testServer, err)
+				}
+			}()
 		}
-		return true, nil
+
+		// wait until we are done
+		waitGroup.Wait()
+		return server != "", nil
 	})
 	if waitErr != nil {
-		return "", fmt.Errorf("test connection: %w %w", waitErr, err)
+		return "", errors.New("test connection for background proxy failed")
 	}
 
 	return server, nil
