@@ -419,6 +419,25 @@ func TestSync(t *testing.T) {
 	maps.Copy(pPodWithLabels.Labels, convertLabelKeyWithPrefix(testLabels))
 	pPodWithLabels.Annotations[podtranslate.VClusterLabelsAnnotation] = podtranslate.LabelsAnnotation(vPodWithLabels)
 
+	testNodeName := "test123"
+	pVclusterNodeService := pVclusterService.DeepCopy()
+	pVclusterNodeService.Name = translate.SafeConcatName(generictesting.DefaultTestVclusterName, "node", testNodeName)
+
+	pPodFakeKubelet := pPodBase.DeepCopy()
+	pPodFakeKubelet.Spec.NodeName = testNodeName
+
+	vPodWithHostIP := vPodWithNodeName.DeepCopy()
+	vPodWithHostIP.Status.HostIP = pVclusterService.Spec.ClusterIP
+	vPodWithHostIP.Status.HostIPs = []corev1.HostIP{
+		{IP: pVclusterService.Spec.ClusterIP},
+	}
+
+	testNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNodeName,
+		},
+	}
+
 	generictesting.RunTests(t, []*generictesting.SyncTest{
 		{
 			Name:                 "Delete virtual pod",
@@ -554,6 +573,21 @@ func TestSync(t *testing.T) {
 				ctx.Options.SyncLabels = []string{syncLabelsWildcard}
 				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncToHost(syncCtx, vPodWithLabels.DeepCopy())
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Fake Kubelet enabled with Node sync",
+			InitialVirtualState:  []runtime.Object{testNode.DeepCopy(), vPodWithNodeName},
+			InitialPhysicalState: []runtime.Object{testNode.DeepCopy(), pVclusterNodeService.DeepCopy(), pPodFakeKubelet.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodWithHostIP},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Options.SyncAllNodes = true
+				ctx.Options.FakeKubeletIPs = true
+				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).Sync(synccontext, pPodFakeKubelet.DeepCopy(), vPodWithNodeName)
 				assert.NilError(t, err)
 			},
 		},
