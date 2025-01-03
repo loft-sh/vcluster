@@ -232,7 +232,7 @@ func (c *client) Config() *config.CLI {
 
 func verifyHost(host string) error {
 	if !strings.HasPrefix(host, "https") {
-		return fmt.Errorf("cannot log into a non https loft instance '%s', please make sure you have TLS enabled", host)
+		return fmt.Errorf("cannot log into a non https vCluster platform instance '%s', please make sure you have TLS enabled", host)
 	}
 
 	return nil
@@ -347,7 +347,7 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 		if errors.As(err, &urlError) && urlError != nil {
 			var err x509.UnknownAuthorityError
 			if errors.As(urlError.Err, &err) {
-				return fmt.Errorf("unsafe login endpoint '%s', if you wish to login into an insecure loft endpoint run with the '--insecure' flag", c.config.Platform.Host)
+				return fmt.Errorf("unsafe login endpoint '%s', if you wish to login into an insecure vCluster platform endpoint run with the '--insecure' flag", c.config.Platform.Host)
 			}
 		}
 
