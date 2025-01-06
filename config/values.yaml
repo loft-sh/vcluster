@@ -5,6 +5,8 @@ sync:
   toHost:
     services:
       enabled: true
+      # selector defines the label and expression based filtering before syncing the services to the host cluster.
+      selector: {}
     endpoints:
       enabled: true
     persistentVolumeClaims:

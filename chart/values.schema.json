@@ -1114,6 +1114,10 @@
           "type": "boolean",
           "description": "Enabled defines if this option should be enabled."
         },
+        "selector": {
+          "$ref": "#/$defs/SyncSelector",
+          "description": "Selector defines the labelSelector based filtering for syncing the resources to the host cluster."
+        },
         "patches": {
           "items": {
             "$ref": "#/$defs/TranslatePatch"
@@ -2030,6 +2034,24 @@
           },
           "type": "object",
           "description": "Labels defines what labels should be looked for"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "LabelSelectorRequirement": {
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "operator": {
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
@@ -3283,6 +3305,24 @@
         "resources": {
           "$ref": "#/$defs/Resources",
           "description": "Resources are the resources that should be assigned to the init container for each stateful set init container."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SyncSelector": {
+      "properties": {
+        "matchLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "matchExpressions": {
+          "items": {
+            "$ref": "#/$defs/LabelSelectorRequirement"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,

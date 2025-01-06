@@ -6,6 +6,8 @@ sync:
     services:
       # Enabled defines if this option should be enabled.
       enabled: true
+      # Selector defines the labelSelector based filtering for syncing the resources to the host cluster.
+      selector: {}
     # Endpoints defines if endpoints created within the virtual cluster should get synced to the host cluster.
     endpoints:
       # Enabled defines if this option should be enabled.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"regexp"
 	"strings"
@@ -500,8 +501,16 @@ type EnableSwitchWithPatches struct {
 	// Enabled defines if this option should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
+	// Selector defines the labelSelector based filtering for syncing the resources to the host cluster.
+	Selector *SyncSelector `json:"selector,omitempty"`
+
 	// Patches patch the resource according to the provided specification.
 	Patches []TranslatePatch `json:"patches,omitempty"`
+}
+
+type SyncSelector struct {
+	MatchLabels      map[string]string                 `json:"matchLabels,omitempty"`
+	MatchExpressions []metav1.LabelSelectorRequirement `json:"matchExpressions,omitempty"`
 }
 
 type SyncFromHost struct {
