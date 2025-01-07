@@ -67,10 +67,68 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		if customResource.Scope != "" && customResource.Scope != config.ScopeNamespaced {
 			return fmt.Errorf("unsupported scope %s for sync.toHost.customResources['%s'].scope. Only 'Namespaced' is allowed", customResource.Scope, key)
 		}
+		err := validatePatches(patchesValidation{basePath: "sync.toHost.customResources." + key, patches: customResource.Patches})
+		if err != nil {
+			return err
+		}
 	}
 	for key, customResource := range vConfig.Sync.FromHost.CustomResources {
 		if customResource.Scope != "" && customResource.Scope != config.ScopeCluster {
 			return fmt.Errorf("unsupported scope %s for sync.fromHost.customResources['%s'].scope. Only 'Cluster' is allowed", customResource.Scope, key)
+		}
+		err := validatePatches(patchesValidation{basePath: "sync.fromHost.customResources." + key, patches: customResource.Patches})
+		if err != nil {
+			return err
+		}
+	}
+
+	// validate sync patches
+	err := validatePatches(
+		patchesValidation{basePath: "sync.toHost.configMaps", patches: vConfig.Sync.ToHost.ConfigMaps.Patches},
+		patchesValidation{basePath: "sync.toHost.secrets", patches: vConfig.Sync.ToHost.Secrets.Patches},
+		patchesValidation{basePath: "sync.toHost.endpoints", patches: vConfig.Sync.ToHost.Endpoints.Patches},
+		patchesValidation{basePath: "sync.toHost.services", patches: vConfig.Sync.ToHost.Services.Patches},
+		patchesValidation{basePath: "sync.toHost.pods", patches: vConfig.Sync.ToHost.Pods.Patches},
+		patchesValidation{basePath: "sync.toHost.serviceAccounts", patches: vConfig.Sync.ToHost.ServiceAccounts.Patches},
+		patchesValidation{basePath: "sync.toHost.ingresses", patches: vConfig.Sync.ToHost.Ingresses.Patches},
+		patchesValidation{basePath: "sync.toHost.networkPolicies", patches: vConfig.Sync.ToHost.NetworkPolicies.Patches},
+		patchesValidation{basePath: "sync.toHost.persistentVolumeClaims", patches: vConfig.Sync.ToHost.PersistentVolumeClaims.Patches},
+		patchesValidation{basePath: "sync.toHost.persistentVolumes", patches: vConfig.Sync.ToHost.PersistentVolumes.Patches},
+		patchesValidation{basePath: "sync.toHost.podDisruptionBudgets", patches: vConfig.Sync.ToHost.PodDisruptionBudgets.Patches},
+		patchesValidation{basePath: "sync.toHost.priorityClasses", patches: vConfig.Sync.ToHost.PriorityClasses.Patches},
+		patchesValidation{basePath: "sync.toHost.storageClasses", patches: vConfig.Sync.ToHost.StorageClasses.Patches},
+		patchesValidation{basePath: "sync.toHost.volumeSnapshots", patches: vConfig.Sync.ToHost.VolumeSnapshots.Patches},
+		patchesValidation{basePath: "sync.toHost.volumeSnapshotContents", patches: vConfig.Sync.ToHost.VolumeSnapshotContents.Patches},
+		patchesValidation{basePath: "sync.fromHost.nodes", patches: vConfig.Sync.FromHost.Nodes.Patches},
+		patchesValidation{basePath: "sync.fromHost.storageClasses", patches: vConfig.Sync.FromHost.StorageClasses.Patches},
+		patchesValidation{basePath: "sync.fromHost.priorityClasses", patches: vConfig.Sync.FromHost.PriorityClasses.Patches},
+		patchesValidation{basePath: "sync.fromHost.ingressClasses", patches: vConfig.Sync.FromHost.IngressClasses.Patches},
+		patchesValidation{basePath: "sync.fromHost.runtimeClasses", patches: vConfig.Sync.FromHost.RuntimeClasses.Patches},
+		patchesValidation{basePath: "sync.fromHost.csiDrivers", patches: vConfig.Sync.FromHost.CSIDrivers.Patches},
+		patchesValidation{basePath: "sync.fromHost.csiNodes", patches: vConfig.Sync.FromHost.CSINodes.Patches},
+		patchesValidation{basePath: "sync.fromHost.csiStorageCapacities", patches: vConfig.Sync.FromHost.CSIStorageCapacities.Patches},
+		patchesValidation{basePath: "sync.fromHost.events", patches: vConfig.Sync.FromHost.Events.Patches},
+		patchesValidation{basePath: "sync.fromHost.volumeSnapshotClasses", patches: vConfig.Sync.FromHost.VolumeSnapshotClasses.Patches},
+	)
+	if err != nil {
+		return err
+	}
+
+	// disallow old and new generic sync to be used together
+	if len(vConfig.Sync.ToHost.CustomResources) > 0 || len(vConfig.Sync.FromHost.CustomResources) > 0 {
+		// check if generic sync exports are used
+		if len(vConfig.Experimental.GenericSync.Exports) > 0 {
+			return errors.New("experimental.genericSync.exports is not allowed when using sync.toHost.customResources or sync.fromHost.customResources")
+		}
+
+		// check if generic sync imports are used
+		if len(vConfig.Experimental.GenericSync.Imports) > 0 {
+			return errors.New("experimental.genericSync.imports is not allowed when using sync.toHost.customResources or sync.fromHost.customResources")
+		}
+
+		// check if hooks are used
+		if vConfig.Experimental.GenericSync.Hooks != nil && (len(vConfig.Experimental.GenericSync.Hooks.HostToVirtual) > 0 || len(vConfig.Experimental.GenericSync.Hooks.VirtualToHost) > 0) {
+			return errors.New("experimental.genericSync.hooks is not allowed when using sync.toHost.customResources or sync.fromHost.customResources. Please use sync.*.patches.expression instead")
 		}
 	}
 
@@ -97,7 +155,7 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	}
 
 	// validate central admission control
-	err := validateCentralAdmissionControl(vConfig)
+	err = validateCentralAdmissionControl(vConfig)
 	if err != nil {
 		return err
 	}
@@ -142,6 +200,37 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	err = ProValidateConfig(vConfig)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+type patchesValidation struct {
+	basePath string
+	patches  []config.TranslatePatch
+}
+
+func validatePatches(patchesValidation ...patchesValidation) error {
+	for _, p := range patchesValidation {
+		patches := p.patches
+		basePath := p.basePath
+		for idx, patch := range patches {
+			used := 0
+			if patch.Expression != "" || patch.ReverseExpression != "" {
+				used++
+			}
+			if patch.Labels != nil {
+				used++
+			}
+			if patch.Reference != nil {
+				used++
+			}
+			if used > 1 {
+				return fmt.Errorf("%s.patches[%d] can only use one of: expression, labels or reference", basePath, idx)
+			} else if used == 0 {
+				return fmt.Errorf("%s.patches[%d] need to use one of: expression, labels or reference", basePath, idx)
+			}
+		}
 	}
 
 	return nil
