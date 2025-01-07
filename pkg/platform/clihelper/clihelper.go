@@ -165,7 +165,7 @@ func GetLoftIngressHost(ctx context.Context, kubeClient kubernetes.Interface, na
 		}
 	}
 
-	return "", fmt.Errorf(product.Replace("couldn't find any host in loft ingress '%s/loft-ingress', please make sure you have not changed any deployed resources"), namespace)
+	return "", fmt.Errorf("couldn't find any host in loft ingress '%s/loft-ingress', please make sure you have not changed any deployed resources", namespace)
 }
 
 func WaitForReadyLoftPod(ctx context.Context, kubeClient kubernetes.Interface, namespace string, log log.Logger) (*corev1.Pod, error) {
