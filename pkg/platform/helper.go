@@ -15,6 +15,7 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/clientset/versioned/scheme"
+	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
@@ -578,7 +579,7 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 		if spaceInstance.Status.Phase != storagev1.InstanceReady && spaceInstance.Status.Phase != storagev1.InstanceSleeping {
 			if time.Now().After(nextMessage) {
 				if logged {
-					log.Infof("Cannot reach space because: %s (%s). Loft will continue waiting, but this operation may timeout", spaceInstance.Status.Message, spaceInstance.Status.Reason)
+					log.Infof(product.Replace("Cannot reach space because: %s (%s). Loft will continue waiting, but this operation may timeout"), spaceInstance.Status.Message, spaceInstance.Status.Reason)
 				} else {
 					log.Info("Waiting for space to be available...")
 				}
@@ -975,7 +976,7 @@ func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.In
 		if virtualClusterInstance.Status.Phase != storagev1.InstanceReady && virtualClusterInstance.Status.Phase != storagev1.InstanceSleeping {
 			if time.Now().After(nextMessage) {
 				if logged {
-					log.Infof("Cannot reach virtual cluster because: %s (%s). Loft will continue waiting, but this operation may timeout", virtualClusterInstance.Status.Message, virtualClusterInstance.Status.Reason)
+					log.Infof(product.Replace("Cannot reach virtual cluster because: %s (%s). Loft will continue waiting, but this operation may timeout"), virtualClusterInstance.Status.Message, virtualClusterInstance.Status.Reason)
 				} else {
 					log.Info("Waiting for virtual cluster to be available...")
 				}
