@@ -580,7 +580,6 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 			if time.Now().After(nextMessage) {
 				if logged {
 					log.Infof(product.Replace("Cannot reach space because: %s (%s). Loft will continue waiting, but this operation may timeout"), spaceInstance.Status.Message, spaceInstance.Status.Reason)
-
 				} else {
 					log.Info("Waiting for space to be available...")
 				}
