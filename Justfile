@@ -15,7 +15,7 @@ _default:
 
 # Build the vcluster binary
 build-snapshot:
-  TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean --single-target
+  TELEMETRY_PRIVATE_KEY="" goreleaser build --id vcluster --snapshot --clean
 
 # Build the vcluster release binary in snapshot mode
 release-snapshot: gen-license-report
