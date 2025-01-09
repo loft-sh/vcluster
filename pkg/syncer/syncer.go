@@ -134,6 +134,12 @@ func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) 
 		}
 	}()
 
+	// debug log request
+	klog.FromContext(ctx).V(1).Info("Reconcile started")
+	defer func() {
+		klog.FromContext(ctx).V(1).Info("Reconcile ended")
+	}()
+
 	// check if we should skip reconcile
 	lifecycle, ok := r.syncer.(syncertypes.Starter)
 	if ok {
@@ -272,6 +278,7 @@ func (r *SyncController) getObjects(ctx *synccontext.SyncContext, vReq, pReq ctr
 			// from virtual to host correctly.
 			vObjOld = vObj.DeepCopyObject().(client.Object)
 			vObjOld.SetLabels(nil)
+			vObjOld.SetResourceVersion("1")
 
 			// only add to cache if it's not deleting
 			if vObj.GetDeletionTimestamp() == nil {
