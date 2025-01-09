@@ -29,6 +29,8 @@ func AddCommonFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 	_ = cmd.Flags().MarkDeprecated("distro", fmt.Sprintf("please specify the distro by setting %q accordingly via values.yaml file.", "controlPlane.distro"))
 	_ = cmd.Flags().MarkHidden("update-current")
 	_ = cmd.Flags().MarkDeprecated("update-current", fmt.Sprintf("please use %q.", "--connect"))
+	_ = cmd.Flags().MarkHidden("kubernetes-version")
+	_ = cmd.Flags().MarkDeprecated("kubernetes-version", fmt.Sprintf("please specify the kubernetes version by setting %q accordingly via values.yaml file.", "controlPlane.distro.k8s.version"))
 }
 
 func AddHelmFlags(cmd *cobra.Command, options *cli.CreateOptions) {

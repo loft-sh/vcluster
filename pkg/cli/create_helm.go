@@ -263,6 +263,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if err != nil {
 		return err
 	}
+
 	chartValues, err := config.GetExtraValues(chartOptions)
 	if err != nil {
 		return err
@@ -723,10 +724,6 @@ func (cmd *createHelm) getKubernetesVersion() (*version.Info, error) {
 		}
 
 		majorMinorVer := semver.MajorMinor(cmd.KubernetesVersion)
-
-		if splittedVersion := strings.Split(cmd.KubernetesVersion, "."); len(splittedVersion) > 2 {
-			cmd.log.Warnf("currently we only support major.minor version (%s) and not the patch version (%s)", majorMinorVer, cmd.KubernetesVersion)
-		}
 
 		parsedVersion, err := config.ParseKubernetesVersionInfo(majorMinorVer)
 		if err != nil {
