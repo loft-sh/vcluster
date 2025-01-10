@@ -509,7 +509,10 @@ type EnableSwitchWithPatches struct {
 }
 
 type SyncSelector struct {
-	MatchLabels      map[string]string                 `json:"matchLabels,omitempty"`
+	// MatchLabels are the labels to select the object from.
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+
+	// MatchExpressions is a list of label selector requirements which supports operators such as In, NotIn, Exists and DoesNotExist.
 	MatchExpressions []metav1.LabelSelectorRequirement `json:"matchExpressions,omitempty"`
 }
 

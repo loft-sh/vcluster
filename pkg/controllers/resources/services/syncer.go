@@ -3,8 +3,6 @@ package services
 import (
 	"errors"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -78,33 +76,18 @@ func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccont
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
-	// fetch the selector present in the config.
-	configLabelSelector := ctx.Config.Sync.ToHost.Services.Selector
-	var selector labels.Selector
-	var err error
-	if configLabelSelector != nil {
-		// form labelSelector from selector provided in the config
-		labelSelector := &metav1.LabelSelector{
-			MatchLabels:      configLabelSelector.MatchLabels,
-			MatchExpressions: configLabelSelector.MatchExpressions,
-		}
-		selector, err = metav1.LabelSelectorAsSelector(labelSelector)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	// check whether the service labels match with the label selector provided in the vcluster config.
+	validated, err := ValidateServiceBeforeSync(ctx, event.Virtual.GetLabels())
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to validate the service labels: %w", err)
+	}
+	// cancel sync operation if the validation fails i.e. there is a mismatch in the labels.
+	if !validated {
+		ctx.Log.Infof("The labels of the service %s don't match against the selector provided in the config", event.Virtual.Name)
+		return ctrl.Result{}, nil
 	}
 
 	pObj := s.translate(ctx, event.Virtual)
-
-	// fetch the labels of the input service and if they match with config selector
-	// then continue with the sync operation else return.
-	serviceLabels := pObj.GetLabels()
-	if serviceLabels != nil {
-		if !selector.Matches(labels.Set(serviceLabels)) {
-			ctx.Log.Infof("The labels of the service %s don't match with the labelSelector provided, hence the sync operation is cancelled", pObj.Name)
-			return ctrl.Result{}, nil
-		}
-	}
 
 	err = pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.Services.Patches, false)
 	if err != nil {

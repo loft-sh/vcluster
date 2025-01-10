@@ -216,14 +216,24 @@ func createService(ctx *synccontext.SyncContext, req *http.Request, decoder enco
 	}
 	newService.Annotations[services.ServiceBlockDeletion] = "true"
 	newService.Spec.Selector = translate.HostLabelsMap(vService.Spec.Selector, nil, vService.Namespace, false)
-	err = ctx.PhysicalClient.Create(req.Context(), newService)
-	if err != nil {
-		klog.Infof("Error creating service in physical cluster: %v", err)
-		if kerrors.IsAlreadyExists(err) {
-			return nil, kerrors.NewAlreadyExists(corev1.Resource("services"), vService.Name)
-		}
 
+	// create the service on the host cluster if the labels successfully match with the config's label selector
+	validated, err := services.ValidateServiceBeforeSync(ctx, vService.GetLabels())
+	if err != nil {
+		klog.Errorf("Failed to validate the service labels: %v", err)
 		return nil, err
+	}
+	if validated {
+		err = ctx.PhysicalClient.Create(req.Context(), newService)
+		if err != nil {
+			klog.Infof("Error creating service in physical cluster: %v", err)
+			if kerrors.IsAlreadyExists(err) {
+				return nil, kerrors.NewAlreadyExists(corev1.Resource("services"), vService.Name)
+			}
+			return nil, err
+		}
+	} else {
+		klog.Infof("The labels of the service %s don't match against the selector provided in the config", vService.Name)
 	}
 
 	vService.Spec.ClusterIP = newService.Spec.ClusterIP
