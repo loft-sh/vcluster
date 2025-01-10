@@ -83,7 +83,7 @@ func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccont
 	}
 	// cancel sync operation if the validation fails i.e. there is a mismatch in the labels.
 	if !validated {
-		ctx.Log.Infof("The labels of the service %s don't match against the selector provided in the config", event.Virtual.Name)
+		ctx.Log.Debugf("The labels of the service %s don't match against the selector provided in the config", event.Virtual.Name)
 		return ctrl.Result{}, nil
 	}
 
