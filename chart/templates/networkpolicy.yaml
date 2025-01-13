@@ -94,6 +94,12 @@ spec:
               kubernetes.io/metadata.name: 'kube-system'
           podSelector:
             matchLabels:
+              k8s-app: kube-dns
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: 'kube-system'
+          podSelector:
+            matchLabels:
               k8s-app: vcluster-kube-dns
         {{- if .Values.policies.networkPolicy.outgoingConnections.platform }}
         - podSelector:
