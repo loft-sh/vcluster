@@ -85,7 +85,7 @@ func DetectClusterType(config *clientcmdapi.Config) ClusterType {
 	}
 
 	minikubeDir := filepath.Join(homedir, ".minikube")
-	if cl != nil && cl.CertificateAuthority != "" &&
+	if cl.CertificateAuthority != "" &&
 		strings.HasPrefix(cl.CertificateAuthority, minikubeDir+string(filepath.Separator)) {
 		return ClusterTypeMinikube
 	}
