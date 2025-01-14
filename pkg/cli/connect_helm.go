@@ -345,6 +345,7 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 				cmd.Server, err = localkubernetes.CreateBackgroundProxyContainer(ctx, vclusterName, cmd.Namespace, cmd.kubeClientConfig, kubeConfig, cmd.LocalPort, cmd.Log)
 				if err != nil {
 					cmd.Log.Warnf("Error exposing local vcluster, will fallback to port-forwarding: %v", err)
+					cmd.Log.Warnf("Please ensure you have host networking enabled for Docker Desktop.")
 					cmd.BackgroundProxy = false
 				}
 			} else {
