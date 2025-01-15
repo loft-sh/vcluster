@@ -43,14 +43,13 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, err
 	}
 
-	storageClassesEnabled := ctx.Config.Sync.ToHost.StorageClasses.Enabled
 	return &persistentVolumeClaimSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 
 		excludedAnnotations: []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation},
 
-		storageClassesEnabled:    storageClassesEnabled,
+		storageClassesEnabled:    ctx.Config.Sync.ToHost.StorageClasses.Enabled,
 		schedulerEnabled:         ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 		useFakePersistentVolumes: !ctx.Config.Sync.ToHost.PersistentVolumes.Enabled,
 	}, nil
