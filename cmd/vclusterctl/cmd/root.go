@@ -11,7 +11,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/mitchellh/go-homedir"
 
+	"github.com/go-logr/logr"
 	"github.com/loft-sh/log"
+	loftlogr "github.com/loft-sh/log/logr"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/convert"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/credits"
 	cmdplatform "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform"
@@ -26,6 +28,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // NewRootCmd returns a new root command
@@ -80,8 +83,21 @@ func Execute() {
 		log.Fatalf("error building root: %+v\n", err)
 	}
 
+	// set global logger
+	logger, err := loftlogr.NewLoggerWithOptions(
+		loftlogr.WithOptionsFromEnv(),
+		loftlogr.WithComponentName("vcluster"),
+		loftlogr.WithGlobalZap(true),
+		loftlogr.WithGlobalKlog(true),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ctrl.SetLogger(logger)
+	ctx := logr.NewContext(context.Background(), logger)
+
 	// Execute command
-	err = rootCmd.ExecuteContext(context.Background())
+	err = rootCmd.ExecuteContext(ctx)
 	recordAndFlush(err, log, globalFlags)
 	if err != nil {
 		if globalFlags != nil && globalFlags.Debug {
