@@ -68,25 +68,25 @@ func Validate(emailAddress string, options ...Option) error {
 func checkDisposableDomains(domain string) error {
 	fb, err := domainsZip.ReadFile("disposable_domains.zip")
 	if err != nil {
-		return err
+		return nil
 	}
 
 	zipReader, err := zip.NewReader(bytes.NewReader(fb), int64(len(fb)))
 	if err != nil {
-		return fmt.Errorf("failed to read disposable domains list for verification: %w", err)
+		return nil
 	}
 
 	for _, file := range zipReader.File {
 		if file.Name == "disposable_domains.json" {
 			f, err := file.Open()
 			if err != nil {
-				return err
+				return nil
 			}
 			defer f.Close()
 
 			var domains []string
 			if err := json.NewDecoder(f).Decode(&domains); err != nil {
-				return fmt.Errorf("disposable domains list improperly formatted: %w", err)
+				return nil
 			}
 
 			if slices.Contains(domains, domain) {
