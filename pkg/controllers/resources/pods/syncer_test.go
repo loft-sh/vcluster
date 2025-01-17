@@ -425,6 +425,10 @@ func TestSync(t *testing.T) {
 
 	pPodFakeKubelet := pPodBase.DeepCopy()
 	pPodFakeKubelet.Spec.NodeName = testNodeName
+	pPodFakeKubelet.Status.HostIP = "3.3.3.3"
+	pPodFakeKubelet.Status.HostIPs = []corev1.HostIP{
+		{IP: "3.3.3.3"},
+	}
 
 	vPodWithHostIP := vPodWithNodeName.DeepCopy()
 	vPodWithHostIP.Status.HostIP = pVclusterService.Spec.ClusterIP
@@ -578,7 +582,7 @@ func TestSync(t *testing.T) {
 		},
 		{
 			Name:                 "Fake Kubelet enabled with Node sync",
-			InitialVirtualState:  []runtime.Object{testNode.DeepCopy(), vPodWithNodeName},
+			InitialVirtualState:  []runtime.Object{testNode.DeepCopy(), vPodWithNodeName, vNamespace.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{testNode.DeepCopy(), pVclusterNodeService.DeepCopy(), pPodFakeKubelet.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodWithHostIP},

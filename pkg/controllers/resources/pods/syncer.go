@@ -220,9 +220,21 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object)
 		}
 	}
 
-	// if scheduler is enabled we only sync if the pod has a node name
-	if s.enableScheduler && pPod.Spec.NodeName == "" {
-		return ctrl.Result{}, nil
+	if s.enableScheduler {
+		// if scheduler is enabled we only sync if the pod has a node name
+		if pPod.Spec.NodeName == "" {
+			return ctrl.Result{}, nil
+		}
+
+		if s.fakeKubeletIPs {
+			nodeIP, err := s.getNodeIP(ctx, pPod.Spec.NodeName)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			pPod.Annotations[translatepods.HostIPAnnotation] = nodeIP
+			pPod.Annotations[translatepods.HostIPsAnnotation] = nodeIP
+		}
 	}
 
 	return s.SyncToHostCreate(ctx, vPod, pPod)
@@ -292,7 +304,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	// has status changed?
 	strippedPod := stripHostRewriteContainer(pPod)
 	strippedPod = stripInjectedSidecarContainers(vPod, pPod, strippedPod)
-	if s.fakeKubeletIPs {
+	if s.fakeKubeletIPs && strippedPod.Status.HostIP != "" {
 		strippedPod, err = s.rewriteFakeHostIPAddresses(ctx, strippedPod)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -332,7 +344,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 		// translate services to environment variables
 		serviceEnv := translatepods.ServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, ptrServiceList, kubeIP)
 		for i := range vPod.Spec.EphemeralContainers {
-			envVar, envFrom := translatepods.ContainerEnv(vPod.Spec.EphemeralContainers[i].Env, vPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv)
+			envVar, envFrom := translatepods.ContainerEnv(vPod.Spec.EphemeralContainers[i].Env, vPod.Spec.EphemeralContainers[i].EnvFrom, vPod, serviceEnv, s.fakeKubeletIPs, s.enableScheduler)
 			vPod.Spec.EphemeralContainers[i].Env = envVar
 			vPod.Spec.EphemeralContainers[i].EnvFrom = envFrom
 		}
