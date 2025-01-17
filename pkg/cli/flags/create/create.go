@@ -15,7 +15,6 @@ func AddCommonFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 	cmd.Flags().StringVar(&options.ChartVersion, "chart-version", upgrade.GetVersion(), "The virtual cluster chart version to use (e.g. v0.9.1)")
 	cmd.Flags().StringVar(&options.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
 	cmd.Flags().StringVar(&options.ChartRepo, "chart-repo", constants.LoftChartRepo, "The virtual cluster chart repo to use")
-	cmd.Flags().StringVar(&options.KubernetesVersion, "kubernetes-version", "", "The kubernetes version to use (e.g. v1.20). Patch versions are not supported")
 	cmd.Flags().StringArrayVarP(&options.Values, "values", "f", []string{}, "Path where to load extra helm values from")
 	cmd.Flags().StringArrayVar(&options.SetValues, "set", []string{}, "Set values for helm. E.g. --set 'persistence.enabled=true'")
 	cmd.Flags().BoolVar(&options.Print, "print", false, "If enabled, prints the context to the console")

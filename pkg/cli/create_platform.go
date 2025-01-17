@@ -24,7 +24,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
-	"golang.org/x/mod/semver"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -569,9 +568,6 @@ func validateTemplateOptions(options *CreateOptions) error {
 	if len(options.Values) > 0 {
 		return fmt.Errorf("cannot use --values because the vcluster is using a template. Please use --params instead")
 	}
-	if options.KubernetesVersion != "" {
-		return fmt.Errorf("cannot use --kubernetes-version because the vcluster is using a template")
-	}
 	if options.Distro != "" && options.Distro != "k8s" {
 		return fmt.Errorf("cannot use --distro because the vcluster is using a template")
 	}
@@ -657,28 +653,6 @@ func toChartOptions(platformClient platform.Client, options *CreateOptions, log 
 	}
 
 	kubernetesVersion := vclusterconfig.KubernetesVersion{}
-	if options.KubernetesVersion != "" {
-		if options.KubernetesVersion[0] != 'v' {
-			options.KubernetesVersion = "v" + options.KubernetesVersion
-		}
-
-		if !semver.IsValid(options.KubernetesVersion) {
-			return nil, fmt.Errorf("please use valid semantic versioning format, e.g. vX.X")
-		}
-
-		majorMinorVer := semver.MajorMinor(options.KubernetesVersion)
-		if splittedVersion := strings.Split(options.KubernetesVersion, "."); len(splittedVersion) > 2 {
-			log.Warnf("currently we only support major.minor version (%s) and not the patch version (%s)", majorMinorVer, options.KubernetesVersion)
-		}
-
-		parsedVersion, err := vclusterconfig.ParseKubernetesVersionInfo(majorMinorVer)
-		if err != nil {
-			return nil, err
-		}
-
-		kubernetesVersion.Major = parsedVersion.Major
-		kubernetesVersion.Minor = parsedVersion.Minor
-	}
 
 	// use default version if its development
 	if options.ChartVersion == upgrade.DevelopmentVersion {

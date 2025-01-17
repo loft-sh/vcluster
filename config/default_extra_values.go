@@ -176,21 +176,3 @@ func addCommonReleaseValues(config *Config, options *ExtraValuesOptions) {
 		}
 	}
 }
-
-func ParseKubernetesVersionInfo(versionStr string) (*KubernetesVersion, error) {
-	if versionStr[0] == 'v' {
-		versionStr = versionStr[1:]
-	}
-
-	splittedVersion := strings.Split(versionStr, ".")
-	if len(splittedVersion) != 2 && len(splittedVersion) != 3 {
-		return nil, fmt.Errorf("unrecognized kubernetes version %s, please use format vX.X", versionStr)
-	}
-
-	major := splittedVersion[0]
-	minor := splittedVersion[1]
-	return &KubernetesVersion{
-		Major: major,
-		Minor: minor,
-	}, nil
-}
