@@ -173,18 +173,9 @@ func applyK8SExtraValues(vConfig *Config, options *ExtraValuesOptions) error {
 		return err
 	}
 
-	// get etcd image
-	etcdImage, err := getImageByVersion(options.KubernetesVersion, K8SEtcdVersionMap)
-	if err != nil {
-		return err
-	}
-
 	// build values
 	if apiImage != "" {
 		vConfig.ControlPlane.Distro.K8S.Version = parseImage(apiImage).Tag
-	}
-	if etcdImage != "" {
-		vConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Image = parseImage(etcdImage)
 	}
 
 	return nil
