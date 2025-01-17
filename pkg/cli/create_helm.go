@@ -710,37 +710,9 @@ func (cmd *createHelm) createNamespace(ctx context.Context) error {
 }
 
 func (cmd *createHelm) getKubernetesVersion() (*version.Info, error) {
-	var (
-		kubernetesVersion *version.Info
-		err               error
-	)
-	if cmd.KubernetesVersion != "" {
-		if cmd.KubernetesVersion[0] != 'v' {
-			cmd.KubernetesVersion = "v" + cmd.KubernetesVersion
-		}
-
-		if !semver.IsValid(cmd.KubernetesVersion) {
-			return nil, fmt.Errorf("please use valid semantic versioning format, e.g. vX.X")
-		}
-
-		majorMinorVer := semver.MajorMinor(cmd.KubernetesVersion)
-
-		parsedVersion, err := config.ParseKubernetesVersionInfo(majorMinorVer)
-		if err != nil {
-			return nil, err
-		}
-
-		kubernetesVersion = &version.Info{
-			Major: parsedVersion.Major,
-			Minor: parsedVersion.Minor,
-		}
-	}
-
-	if kubernetesVersion == nil {
-		kubernetesVersion, err = cmd.kubeClient.ServerVersion()
-		if err != nil {
-			return nil, err
-		}
+	kubernetesVersion, err := cmd.kubeClient.ServerVersion()
+	if err != nil {
+		return nil, err
 	}
 
 	return kubernetesVersion, nil
