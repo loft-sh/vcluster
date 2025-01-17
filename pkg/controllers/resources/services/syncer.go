@@ -76,8 +76,20 @@ func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccont
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
+	// check whether the service labels match with the label selector provided in the vcluster config.
+	validated, err := ValidateServiceBeforeSync(ctx, event.Virtual.GetLabels())
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to validate the service labels: %w", err)
+	}
+	// cancel sync operation if the validation fails i.e. there is a mismatch in the labels.
+	if !validated {
+		ctx.Log.Debugf("The labels of the service %s don't match against the selector provided in the config", event.Virtual.Name)
+		return ctrl.Result{}, nil
+	}
+
 	pObj := s.translate(ctx, event.Virtual)
-	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.Services.Patches, false)
+
+	err = pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.Services.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

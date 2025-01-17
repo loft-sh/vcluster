@@ -3,6 +3,7 @@ package services
 import (
 	"testing"
 
+	virutalconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
@@ -52,6 +53,35 @@ func TestSync(t *testing.T) {
 	}
 	createdByServerService := createdService.DeepCopy()
 	createdByServerService.Annotations[ServiceBlockDeletion] = "true"
+
+	createForwardWithSelectorEnabled := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vObjectMeta.Name,
+			Namespace: vObjectMeta.Namespace,
+			Labels: map[string]string{
+				"app":            "dev-testing",
+				"export-service": "true",
+			},
+		},
+	}
+	createdForwardWithSelectorEnabled := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        pObjectMeta.Name,
+			Namespace:   pObjectMeta.Namespace,
+			Annotations: pObjectMeta.Annotations,
+			Labels: map[string]string{
+				translate.NamespaceLabel: vObjectMeta.Namespace,
+				translate.MarkerLabel:    translate.VClusterName,
+				"app":                    "dev-testing",
+				"export-service":         "true",
+			},
+		},
+	}
+	virtualConfigServiceSelector := metav1.LabelSelectorRequirement{
+		Key:      "export-service",
+		Operator: metav1.LabelSelectorOpNotIn,
+		Values:   []string{"false"},
+	}
 	updateForwardSpec := corev1.ServiceSpec{
 		Ports: []corev1.ServicePort{
 			{
@@ -322,6 +352,46 @@ func TestSync(t *testing.T) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				baseService := baseService.DeepCopy()
 				_, err := syncer.(*serviceSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(baseService))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                "Create Forward With Selector Enabled",
+			InitialVirtualState: []runtime.Object{createForwardWithSelectorEnabled.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {createForwardWithSelectorEnabled.DeepCopy()},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {createdForwardWithSelectorEnabled.DeepCopy()},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				syncCtx.Config.Sync.ToHost.Services.Selector = &virutalconfig.SyncSelector{
+					MatchLabels:      map[string]string{"app": "dev-testing"},
+					MatchExpressions: []metav1.LabelSelectorRequirement{virtualConfigServiceSelector},
+				}
+				_, err := syncer.(*serviceSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(createForwardWithSelectorEnabled.DeepCopy()))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                "Create Forward Rejected due to Selector Mismatch",
+			InitialVirtualState: []runtime.Object{createForwardWithSelectorEnabled.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {createForwardWithSelectorEnabled.DeepCopy()},
+			},
+			// Expect the service to NOT sync to the host cluster.
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+
+				// modify the selector in virtualConfig to cause mismatch with service labels
+				virtualConfigServiceSelector.Operator = metav1.LabelSelectorOpIn
+				syncCtx.Config.Sync.ToHost.Services.Selector = &virutalconfig.SyncSelector{
+					MatchLabels:      map[string]string{"app": "dev-testing"},
+					MatchExpressions: []metav1.LabelSelectorRequirement{virtualConfigServiceSelector},
+				}
+				_, err := syncer.(*serviceSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(createForwardWithSelectorEnabled.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},

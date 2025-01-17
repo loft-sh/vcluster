@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/invopop/jsonschema"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -500,8 +501,19 @@ type EnableSwitchWithPatches struct {
 	// Enabled defines if this option should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
+	// Selector defines the labelSelector based filtering for syncing the resources to the host cluster.
+	Selector *SyncSelector `json:"selector,omitempty"`
+
 	// Patches patch the resource according to the provided specification.
 	Patches []TranslatePatch `json:"patches,omitempty"`
+}
+
+type SyncSelector struct {
+	// MatchLabels are the labels to select the object from.
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+
+	// MatchExpressions is a list of label selector requirements which supports operators such as In, NotIn, Exists and DoesNotExist.
+	MatchExpressions []metav1.LabelSelectorRequirement `json:"matchExpressions,omitempty"`
 }
 
 type SyncFromHost struct {
