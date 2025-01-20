@@ -20,6 +20,7 @@ sync:
       translateImage: {}
       enforceTolerations: []
       useSecretsForSATokens: false
+      runtimeClassName: ""
       rewriteHosts:
         enabled: true
         initContainer:
