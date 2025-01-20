@@ -19,11 +19,12 @@ package cache
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 	"sort"
 	"time"
 
-	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -222,12 +223,25 @@ type Options struct {
 	// DefaultNamespaces.
 	DefaultUnsafeDisableDeepCopy *bool
 
+	// DefaultEnableWatchBookmarks requests watch events with type "BOOKMARK".
+	// Servers that do not implement bookmarks may ignore this flag and
+	// bookmarks are sent at the server's discretion. Clients should not
+	// assume bookmarks are returned at any specific interval, nor may they
+	// assume the server will send any BOOKMARK event during a session.
+	//
+	// This will be used for all object types, unless it is set in ByObject or
+	// DefaultNamespaces.
+	//
+	// Defaults to true.
+	DefaultEnableWatchBookmarks *bool
+
 	// ByObject restricts the cache's ListWatch to the desired fields per GVK at the specified object.
 	// If unset, this will fall through to the Default* settings.
 	ByObject map[client.Object]ByObject
 
-	// newInformer allows overriding of NewSharedIndexInformer for testing.
-	newInformer *func(toolscache.ListerWatcher, runtime.Object, time.Duration, toolscache.Indexers) toolscache.SharedIndexInformer
+	// NewInformer allows overriding of NewSharedIndexInformer, for example for testing
+	// or if someone wants to write their own Informer.
+	NewInformer func(toolscache.ListerWatcher, runtime.Object, time.Duration, toolscache.Indexers) toolscache.SharedIndexInformer
 }
 
 // ByObject offers more fine-grained control over the cache's ListWatch by object.
@@ -272,6 +286,15 @@ type ByObject struct {
 	// Be very careful with this, when enabled you must DeepCopy any object before mutating it,
 	// otherwise you will mutate the object in the cache.
 	UnsafeDisableDeepCopy *bool
+
+	// EnableWatchBookmarks requests watch events with type "BOOKMARK".
+	// Servers that do not implement bookmarks may ignore this flag and
+	// bookmarks are sent at the server's discretion. Clients should not
+	// assume bookmarks are returned at any specific interval, nor may they
+	// assume the server will send any BOOKMARK event during a session.
+	//
+	// Defaults to true.
+	EnableWatchBookmarks *bool
 }
 
 // Config describes all potential options for a given watch.
@@ -298,6 +321,15 @@ type Config struct {
 	// UnsafeDisableDeepCopy specifies if List and Get requests against the
 	// cache should not DeepCopy. A nil value allows to default this.
 	UnsafeDisableDeepCopy *bool
+
+	// EnableWatchBookmarks requests watch events with type "BOOKMARK".
+	// Servers that do not implement bookmarks may ignore this flag and
+	// bookmarks are sent at the server's discretion. Clients should not
+	// assume bookmarks are returned at any specific interval, nor may they
+	// assume the server will send any BOOKMARK event during a session.
+	//
+	// Defaults to true.
+	EnableWatchBookmarks *bool
 }
 
 // NewCacheFunc - Function for creating a new cache from the options and a rest config.
@@ -367,6 +399,7 @@ func optionDefaultsToConfig(opts *Options) Config {
 		FieldSelector:         opts.DefaultFieldSelector,
 		Transform:             opts.DefaultTransform,
 		UnsafeDisableDeepCopy: opts.DefaultUnsafeDisableDeepCopy,
+		EnableWatchBookmarks:  opts.DefaultEnableWatchBookmarks,
 	}
 }
 
@@ -376,6 +409,7 @@ func byObjectToConfig(byObject ByObject) Config {
 		FieldSelector:         byObject.Field,
 		Transform:             byObject.Transform,
 		UnsafeDisableDeepCopy: byObject.UnsafeDisableDeepCopy,
+		EnableWatchBookmarks:  byObject.EnableWatchBookmarks,
 	}
 }
 
@@ -398,7 +432,8 @@ func newCache(restConfig *rest.Config, opts Options) newCacheFunc {
 				Transform:             config.Transform,
 				WatchErrorHandler:     opts.DefaultWatchErrorHandler,
 				UnsafeDisableDeepCopy: ptr.Deref(config.UnsafeDisableDeepCopy, false),
-				NewInformer:           opts.newInformer,
+				EnableWatchBookmarks:  ptr.Deref(config.EnableWatchBookmarks, true),
+				NewInformer:           opts.NewInformer,
 			}),
 			readerFailOnMissingInformer: opts.ReaderFailOnMissingInformer,
 		}
@@ -465,7 +500,7 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 			if namespace == metav1.NamespaceAll {
 				config.FieldSelector = fields.AndSelectors(
 					appendIfNotNil(
-						namespaceAllSelector(maps.Keys(byObject.Namespaces)),
+						namespaceAllSelector(slices.Collect(maps.Keys(byObject.Namespaces))),
 						config.FieldSelector,
 					)...,
 				)
@@ -482,6 +517,7 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 			byObject.Field = defaultedConfig.FieldSelector
 			byObject.Transform = defaultedConfig.Transform
 			byObject.UnsafeDisableDeepCopy = defaultedConfig.UnsafeDisableDeepCopy
+			byObject.EnableWatchBookmarks = defaultedConfig.EnableWatchBookmarks
 		}
 
 		opts.ByObject[obj] = byObject
@@ -495,7 +531,7 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 		if namespace == metav1.NamespaceAll {
 			cfg.FieldSelector = fields.AndSelectors(
 				appendIfNotNil(
-					namespaceAllSelector(maps.Keys(opts.DefaultNamespaces)),
+					namespaceAllSelector(slices.Collect(maps.Keys(opts.DefaultNamespaces))),
 					cfg.FieldSelector,
 				)...,
 			)
@@ -523,7 +559,9 @@ func defaultConfig(toDefault, defaultFrom Config) Config {
 	if toDefault.UnsafeDisableDeepCopy == nil {
 		toDefault.UnsafeDisableDeepCopy = defaultFrom.UnsafeDisableDeepCopy
 	}
-
+	if toDefault.EnableWatchBookmarks == nil {
+		toDefault.EnableWatchBookmarks = defaultFrom.EnableWatchBookmarks
+	}
 	return toDefault
 }
 
