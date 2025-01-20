@@ -23,6 +23,7 @@ const (
 
 // K3SVersionMap holds the supported k3s versions
 var K3SVersionMap = map[string]string{
+	"1.32": "rancher/k3s:v1.32.0-k3s1",
 	"1.31": "rancher/k3s:v1.31.1-k3s1",
 	"1.30": "rancher/k3s:v1.30.2-k3s1",
 	"1.29": "rancher/k3s:v1.29.6-k3s1",
@@ -32,6 +33,7 @@ var K3SVersionMap = map[string]string{
 
 // K0SVersionMap holds the supported k0s versions
 var K0SVersionMap = map[string]string{
+	"1.32": "k0sproject/k0s:v1.32.0-k0s.0",
 	"1.31": "k0sproject/k0s:v1.30.2-k0s.0",
 	"1.30": "k0sproject/k0s:v1.30.2-k0s.0",
 	"1.29": "k0sproject/k0s:v1.29.6-k0s.0",
@@ -41,6 +43,7 @@ var K0SVersionMap = map[string]string{
 
 // K8SAPIVersionMap holds the supported k8s api servers
 var K8SAPIVersionMap = map[string]string{
+	"1.32": "registry.k8s.io/kube-apiserver:v1.32.0",
 	"1.31": "registry.k8s.io/kube-apiserver:v1.31.1",
 	"1.30": "registry.k8s.io/kube-apiserver:v1.30.2",
 	"1.29": "registry.k8s.io/kube-apiserver:v1.29.6",
@@ -50,6 +53,7 @@ var K8SAPIVersionMap = map[string]string{
 
 // K8SControllerVersionMap holds the supported k8s controller managers
 var K8SControllerVersionMap = map[string]string{
+	"1.32": "registry.k8s.io/kube-controller-manager:v1.32.0",
 	"1.31": "registry.k8s.io/kube-controller-manager:v1.31.1",
 	"1.30": "registry.k8s.io/kube-controller-manager:v1.30.2",
 	"1.29": "registry.k8s.io/kube-controller-manager:v1.29.6",
@@ -59,6 +63,7 @@ var K8SControllerVersionMap = map[string]string{
 
 // K8SSchedulerVersionMap holds the supported k8s schedulers
 var K8SSchedulerVersionMap = map[string]string{
+	"1.32": "registry.k8s.io/kube-scheduler:v1.32.0",
 	"1.31": "registry.k8s.io/kube-scheduler:v1.31.1",
 	"1.30": "registry.k8s.io/kube-scheduler:v1.30.2",
 	"1.29": "registry.k8s.io/kube-scheduler:v1.29.6",
@@ -68,6 +73,7 @@ var K8SSchedulerVersionMap = map[string]string{
 
 // K8SEtcdVersionMap holds the supported etcd
 var K8SEtcdVersionMap = map[string]string{
+	"1.32": "registry.k8s.io/etcd:3.5.16-0",
 	"1.31": "registry.k8s.io/etcd:3.5.15-0",
 	"1.30": "registry.k8s.io/etcd:3.5.13-0",
 	"1.29": "registry.k8s.io/etcd:3.5.10-0",
