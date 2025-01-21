@@ -325,6 +325,11 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 		return nil, err
 	}
 
+	// add runtime class name
+	if ctx.Config.Sync.ToHost.Pods.RuntimeClassName != "" {
+		pPod.Spec.RuntimeClassName = &ctx.Config.Sync.ToHost.Pods.RuntimeClassName
+	}
+
 	// translate topology spread constraints
 	if t.enableScheduler {
 		pPod.Spec.TopologySpreadConstraints = nil
