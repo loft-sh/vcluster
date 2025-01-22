@@ -34,7 +34,7 @@ jobs:
           ESCAPED_CONTENT="${ESCAPED_CONTENT#\"}"
           ESCAPED_CONTENT=$(echo "$ESCAPED_CONTENT" | sed 's/[\/&]/\\&/g')
 
-          # sourcePullRequest is an actual variable, but the PR description is not provided byt the action or the CLI.
+          # sourcePullRequest is an actual variable, but the PR description is not provided by the action or the CLI.
           # Instead we are using it as a substitution target and replacing it with the markdown content.
           sed -i "s/{{sourcePullRequest}}/$ESCAPED_CONTENT/g" .backportrc.json
 
