@@ -304,6 +304,8 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		return ctrl.Result{}, err
 	}
 
+	event.Host.Status.QOSClass = event.VirtualOld.Status.QOSClass
+
 	// patch objects
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Pods.Patches, false))
 	if err != nil {
