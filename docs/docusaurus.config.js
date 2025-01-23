@@ -66,6 +66,13 @@ module.exports = {
       links: [],
       copyright: `Copyright © ${new Date().getFullYear()} <a href="https://loft.sh/">Loft Labs, Inc.</a>`,
     },
+    announcementBar: {
+      id: 'version-info',
+      content: '<strong>You are viewing docs for <code>vCluster</code> v0.19. <a href="https://www.vcluster.com/docs" target="_blank">See latest releases.</a></strong>',
+      backgroundColor: '#3c7a89',
+      textColor: '#ffffff',
+      isCloseable: true,
+    },
   },
   presets: [
     [
