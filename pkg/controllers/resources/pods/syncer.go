@@ -2,7 +2,9 @@ package pods
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -15,6 +17,7 @@ import (
 
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -80,6 +83,7 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 
 		serviceName:     ctx.Config.WorkloadService,
 		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		fakeKubeletIPs:  ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 
 		virtualClusterClient:  virtualClusterClient,
 		physicalClusterClient: physicalClusterClient,
@@ -97,6 +101,7 @@ type podSyncer struct {
 
 	serviceName     string
 	enableScheduler bool
+	fakeKubeletIPs  bool
 
 	podTranslator         translatepods.Translator
 	virtualClusterClient  kubernetes.Interface
@@ -210,17 +215,32 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, vObj client.Object)
 		}
 	}
 
-	// if scheduler is enabled we only sync if the pod has a node name
-	if s.enableScheduler && pPod.Spec.NodeName == "" {
-		return ctrl.Result{}, nil
+	if s.enableScheduler {
+		// if scheduler is enabled we only sync if the pod has a node name
+		if pPod.Spec.NodeName == "" {
+			return ctrl.Result{}, nil
+		}
+
+		if s.fakeKubeletIPs {
+			nodeIP, err := s.getNodeIP(ctx, pPod.Spec.NodeName)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			pPod.Annotations[translatepods.HostIPAnnotation] = nodeIP
+			pPod.Annotations[translatepods.HostIPsAnnotation] = nodeIP
+		}
 	}
 
 	return s.SyncToHostCreate(ctx, vPod, pPod)
 }
 
 func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	vPod := vObj.(*corev1.Pod)
-	pPod := pObj.(*corev1.Pod)
+	var (
+		vPod = vObj.(*corev1.Pod)
+		pPod = pObj.(*corev1.Pod)
+		err  error
+	)
 
 	// should pod get deleted?
 	if pPod.DeletionTimestamp != nil {
@@ -279,9 +299,15 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj 
 	// has status changed?
 	strippedPod := stripHostRewriteContainer(pPod)
 	strippedPod = stripInjectedSidecarContainers(vPod, pPod, strippedPod)
+	if s.fakeKubeletIPs && strippedPod.Status.HostIP != "" {
+		strippedPod, err = s.rewriteFakeHostIPAddresses(ctx, strippedPod)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	// update readiness gates & sync status virtual -> physical
-	strippedPod, err := UpdateConditions(ctx, strippedPod, vPod)
+	strippedPod, err = UpdateConditions(ctx, strippedPod, vPod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -487,4 +513,30 @@ func stripInjectedSidecarContainers(vPod, pPod, strippedPod *corev1.Pod) *corev1
 	strippedPod.Status.ContainerStatuses = newContainerStatuses
 
 	return strippedPod
+}
+
+func (s *podSyncer) rewriteFakeHostIPAddresses(ctx *synccontext.SyncContext, strippedPod *corev1.Pod) (*corev1.Pod, error) {
+	nodeIP, err := s.getNodeIP(ctx, strippedPod.Spec.NodeName)
+	if err != nil {
+		return strippedPod, err
+	}
+
+	strippedPod.Status.HostIP = nodeIP
+	strippedPod.Status.HostIPs = []corev1.HostIP{
+		{IP: nodeIP},
+	}
+
+	return strippedPod, nil
+}
+
+func (s *podSyncer) getNodeIP(ctx *synccontext.SyncContext, name string) (string, error) {
+	serviceName := translate.SafeConcatName(translate.VClusterName, "node", strings.ReplaceAll(name, ".", "-"))
+
+	nodeService := &corev1.Service{}
+	err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Name: serviceName, Namespace: ctx.CurrentNamespace}, nodeService)
+	if err != nil && !kerrors.IsNotFound(err) {
+		return "", fmt.Errorf("list services: %w", err)
+	}
+
+	return nodeService.Spec.ClusterIP, nil
 }
