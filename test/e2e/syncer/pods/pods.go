@@ -80,6 +80,8 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		pod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(podName, ns), metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
+		// ignore HostIP differences
+		resetHostIP(vpod, pod)
 		framework.ExpectEqual(vpod.Status, pod.Status)
 
 		// check for ephemeralContainers subResource
@@ -137,6 +139,9 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectNoError(err)
 		pod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(f.Context, translate.Default.PhysicalName(podName, ns), metav1.GetOptions{})
 		framework.ExpectNoError(err)
+
+		// ignore HostIP differences
+		resetHostIP(vpod, pod)
 		framework.ExpectEqual(vpod.Status, pod.Status)
 
 		// check for conditions
@@ -542,3 +547,8 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		}
 	})
 })
+
+func resetHostIP(vpod, pod *corev1.Pod) {
+	vpod.Status.HostIP, pod.Status.HostIP = "", ""
+	vpod.Status.HostIPs, pod.Status.HostIPs = nil, nil
+}
