@@ -23,6 +23,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -252,6 +253,23 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		} else if *event.Virtual.DeletionGracePeriodSeconds != *event.Host.DeletionGracePeriodSeconds {
 			_, err := patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.Host, fmt.Sprintf("with grace period seconds %v", *event.Host.DeletionGracePeriodSeconds), &client.DeleteOptions{GracePeriodSeconds: event.Host.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(event.Virtual.UID))})
 			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		// propogate pod status changes from host cluster to vcluster when the host pod
+		// is being deleted. We need this because there is a possibility that pod is owned
+		// by a controller which wants the pod status to be either succeded or failed before
+		// deleting it. But because these status changes are not propogated
+		// to vcluster pod when the host pod is being deleted, vcluster pod's status still
+		// shows as running, hence it cannot be deleted until it has failed or succeeded. This
+		// results in dangling pods on vcluster
+		if !equality.Semantic.DeepEqual(event.Virtual.Status, event.Host.Status) {
+			updated := event.Virtual.DeepCopy()
+			updated.Status = *event.Host.Status.DeepCopy()
+			ctx.Log.Infof("update virtual pod %s, because status has changed", event.Virtual.Name)
+			err := ctx.VirtualClient.Status().Update(ctx, updated)
+			if err != nil && !kerrors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
 		}
