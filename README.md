@@ -32,7 +32,8 @@ Deploy your first virtual cluster with minimal effort:
 brew install loft-sh/tap/vcluster
 vcluster create my-vcluster --namespace team-x
 ```
-https://github.com/user-attachments/assets/bf8d060b-b5ec-477a-b1a8-11522f67a3f1
+
+https://github.com/user-attachments/assets/d97c21ae-5d23-499c-a1e8-e8d784493be4
 
 For detailed steps, visit our [Quickstart Documentation](https://www.vcluster.com/docs/get-started).
 
