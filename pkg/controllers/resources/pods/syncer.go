@@ -322,6 +322,10 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		return ctrl.Result{}, err
 	}
 
+	// ignore the QOSClass field while updating pod status when there is a
+	// mismatch in this field value on vcluster and host. This field
+	// has become immutable from k8s 1.32 version and patch fails if
+	// syncer tries to update this field.
 	event.Host.Status.QOSClass = event.VirtualOld.Status.QOSClass
 
 	// patch objects
