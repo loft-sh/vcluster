@@ -16,7 +16,7 @@
 
 <div align="center">
 
-### **[Website](https://www.vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/get-started/)** • **[Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Twitter](https://twitter.com/loft_sh)** • **[Slack](https://slack.loft.sh/)**
+### **[Website](https://www.vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/get-started/)** • **[Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Twitter](https://x.com/vcluster)** • **[Slack](https://slack.loft.sh/)**
 
 </div>
 
@@ -163,15 +163,15 @@ We're glad to see vCluster being adopted by organizations around the world! Belo
 - **[Coreweave](https://www.coreweave.com/blog/coreweave-and-loft-labs-leverage-vcluster-in-kubernetes-at-scale)**: CoreWeave and Loft Labs Leverage vCluster to Run Virtual Clusters in Kubernetes at Scale.
 - **[Trade Connectors](https://www.vcluster.com/case-studies/trade-connectors)**: Trade Connectors Optimized Kubernetes Cost with Multi-Tenancy from vCluster.
 - **[Scanmetrics](https://www.vcluster.com/case-studies/scanmetrix)**: Scanmetrix Achieved 99% Faster Customer Deployments with vCluster
-- **[Adobe](https://www.adobe.com/)**: Enhancing development environments with virtual clusters.
-- **[Codefresh](https://codefresh.io/)**: Simplifying CI/CD pipelines with vCluster.
+- **[Adobe](https://www.youtube.com/watch?v=p8BluR5WT5w)**: Enhancing development environments with virtual clusters.
+- **[Codefresh](https://www.loft.sh/blog/how-codefresh-uses-vcluster-to-provide-hosted-argo-cd)**: Codefresh uses vCluster to provide hosted ArgoCD.
 - **ABBYY**
 - **Lintasarta**
 - **Precisely**
 - **Aera**
 - **Shipwire**
 
-Are you using vCluster? We'd love to hear your story! Please [open a pull request](https://github.com/your-repo/pulls) to add your name here, or [contact us](mailto:contact@vcluster.com).
+Are you using vCluster? We'd love to hear your story! Please [open a pull request](https://github.com/loft-sh/vcluster/pulls) to add your name here, or [contact us](contact@loft.sh).
 
 ---
 
