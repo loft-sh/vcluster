@@ -412,6 +412,10 @@ jobs:
             kubectl apply -f ${{ matrix.test-suite-path }}/role.yaml
           fi
 
+          if [ ${{ matrix.test-suite-path }} == "./test/e2e" ]; then
+            kubectl create namespace foobar
+          fi
+
           sudo apt-get install -y sed
 
           sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml

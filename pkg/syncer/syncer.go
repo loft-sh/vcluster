@@ -40,7 +40,15 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 		objectCache = synccontext.NewBidirectionalObjectCache(syncer.Resource().DeepCopyObject().(client.Object))
 	}
 
-	return &SyncController{
+	uncachedPhysicalClient, err := client.New(ctx.Config.WorkloadConfig, client.Options{
+		Scheme: ctx.PhysicalManager.GetClient().Scheme(),
+		Mapper: ctx.PhysicalManager.GetClient().RESTMapper(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to create uncached physical client: %w", err)
+	}
+
+	syncController := &SyncController{
 		syncer: syncer,
 
 		objectCache: objectCache,
@@ -53,16 +61,19 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 
 		hostNameRequestLookup: map[ctrl.Request]ctrl.Request{},
 
-		log:            loghelper.New(syncer.Name()),
-		vEventRecorder: ctx.VirtualManager.GetEventRecorderFor(syncer.Name() + "-syncer"),
-		physicalClient: ctx.PhysicalManager.GetClient(),
+		log:                    loghelper.New(syncer.Name()),
+		vEventRecorder:         ctx.VirtualManager.GetEventRecorderFor(syncer.Name() + "-syncer"),
+		physicalClient:         ctx.PhysicalManager.GetClient(),
+		unCachedPhysicalClient: uncachedPhysicalClient,
 
 		currentNamespace:       ctx.CurrentNamespace,
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
 
 		virtualClient: ctx.VirtualManager.GetClient(),
 		options:       options,
-	}, nil
+	}
+
+	return syncController, nil
 }
 
 func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) error {
@@ -93,6 +104,8 @@ type SyncController struct {
 
 	physicalClient client.Client
 
+	unCachedPhysicalClient client.Client
+
 	currentNamespace       string
 	currentNamespaceClient client.Client
 
@@ -101,7 +114,7 @@ type SyncController struct {
 }
 
 func (r *SyncController) newSyncContext(ctx context.Context, logName string) *synccontext.SyncContext {
-	return &synccontext.SyncContext{
+	syncCtx := &synccontext.SyncContext{
 		Context:                ctx,
 		Config:                 r.config,
 		Log:                    loghelper.NewFromExisting(r.log.Base(), logName),
@@ -112,6 +125,12 @@ func (r *SyncController) newSyncContext(ctx context.Context, logName string) *sy
 		VirtualClient:          r.virtualClient,
 		Mappings:               r.mappings,
 	}
+	if r.options.UsesCustomPhysicalCache {
+		klog.FromContext(ctx).Info("setting physical client to uncached")
+		syncCtx.PhysicalClient = r.unCachedPhysicalClient
+		r.physicalClient = r.unCachedPhysicalClient
+	}
+	return syncCtx
 }
 
 func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) (res ctrl.Result, retErr error) {
@@ -453,8 +472,12 @@ func (r *SyncController) Build(ctx *synccontext.RegisterContext) (controller.Con
 			CacheSyncTimeout:        constants.DefaultCacheSyncTimeout,
 		}).
 		Named(r.syncer.Name()).
-		Watches(r.syncer.Resource(), newEventHandler(r.enqueueVirtual)).
-		WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), r.syncer.Resource(), newEventHandler(r.enqueuePhysical)))
+		Watches(r.syncer.Resource(), newEventHandler(r.enqueueVirtual))
+
+	// if r.options.UsesCustomPhysicalCache is set, it's up to syncer to set watchers in the host
+	if !r.options.UsesCustomPhysicalCache {
+		controllerBuilder.WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), r.syncer.Resource(), newEventHandler(r.enqueuePhysical)))
+	}
 
 	// should add extra stuff?
 	modifier, isControllerModifier := r.syncer.(syncertypes.ControllerModifier)

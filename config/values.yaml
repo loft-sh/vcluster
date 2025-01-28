@@ -54,6 +54,10 @@ sync:
   fromHost:
     events:
       enabled: true
+    configMaps:
+      enabled: false
+      selector:
+        mappings: {}
     csiDrivers:
       enabled: auto
     csiNodes:

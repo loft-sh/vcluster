@@ -80,6 +80,11 @@ type Options struct {
 
 	// ObjectCaching enables an object cache that allows to view the old object states
 	ObjectCaching bool
+
+	// UsesCustomPhysicalCache - false by default.
+	// If set, syncer won't watch for resources in the vCluster namespace in the host cluster.
+	// Use it to override host cluster watches in the syncer ModifyController() function.
+	UsesCustomPhysicalCache bool
 }
 
 type OptionsProvider interface {

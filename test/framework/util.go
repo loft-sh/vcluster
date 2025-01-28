@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -15,6 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/utils/ptr"
 )
 
@@ -362,4 +365,36 @@ func (f *Framework) CreateEgressNetworkPolicyForDNS(ctx context.Context, ns stri
 			},
 		},
 	}, metav1.CreateOptions{})
+}
+
+func (f *Framework) ExecCommandInThePod(podName, podNamespace string, command []string) (string, error) {
+	req := f.VClusterClient.CoreV1().RESTClient().Post().Resource("pods").Name(podName).
+		Namespace(podNamespace).SubResource("exec")
+	option := &corev1.PodExecOptions{
+		Command: command,
+		Stdin:   false,
+		Stdout:  true,
+		Stderr:  true,
+		TTY:     true,
+	}
+	req.VersionedParams(
+		option,
+		scheme.ParameterCodec,
+	)
+	exec, err := remotecommand.NewSPDYExecutor(f.VClusterConfig, "POST", req.URL())
+	if err != nil {
+		return "", err
+	}
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	err = exec.StreamWithContext(f.Context, remotecommand.StreamOptions{
+		Stdout: stdout,
+		Stderr: stderr,
+	})
+	if err != nil {
+		return stderr.String(), err
+	}
+
+	return stdout.String(), nil
 }
