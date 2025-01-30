@@ -82,9 +82,8 @@ func (s *serviceSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.
 	// check annotations
 	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
 	// remove the ServiceBlockDeletion annotation if it's not needed
-	if vObj.Spec.ClusterIP == pObj.Spec.ClusterIP {
-		delete(updatedAnnotations, ServiceBlockDeletion)
-	}
+	delete(updatedAnnotations, ServiceBlockDeletion)
+
 	if !equality.Semantic.DeepEqual(updatedAnnotations, pObj.Annotations) || !equality.Semantic.DeepEqual(updatedLabels, pObj.Labels) {
 		updated = translator.NewIfNil(updated, pObj)
 		updated.Annotations = updatedAnnotations
