@@ -124,8 +124,8 @@ func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, pObj client.
 	// created, because vcluster intercepts those calls and first creates a service inside the host
 	// cluster and then inside the virtual cluster.
 	pService := pObj.(*corev1.Service)
-	if pService.Annotations != nil && pService.Annotations[ServiceBlockDeletion] == "true" {
-		return ctrl.Result{Requeue: true}, nil
+	if pService.Annotations != nil && pService.Annotations[ServiceBlockDeletion] == "true" && time.Since(pService.CreationTimestamp.Time) < 2*time.Minute {
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	return syncer.DeleteObject(ctx, pObj, "virtual object was deleted")
