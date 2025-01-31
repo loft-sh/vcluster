@@ -198,9 +198,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 
 	// remove the ServiceBlockDeletion annotation if it's not needed
-	if event.Virtual.Spec.ClusterIP == event.Host.Spec.ClusterIP {
-		delete(event.Host.Annotations, ServiceBlockDeletion)
-	}
+	delete(event.Host.Annotations, ServiceBlockDeletion)
 
 	// translate selector
 	if !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Selector, event.Virtual.Spec.Selector) {
@@ -220,8 +218,8 @@ func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 	// we have to delay deletion here if a vObj does not (yet) exist for a service that was just
 	// created, because vcluster intercepts those calls and first creates a service inside the host
 	// cluster and then inside the virtual cluster.
-	if event.Host.Annotations != nil && event.Host.Annotations[ServiceBlockDeletion] == "true" {
-		return ctrl.Result{Requeue: true}, nil
+	if event.Host.Annotations != nil && event.Host.Annotations[ServiceBlockDeletion] == "true" && time.Since(event.Host.CreationTimestamp.Time) < 2*time.Minute {
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	if event.VirtualOld != nil || event.Host.DeletionTimestamp != nil {
