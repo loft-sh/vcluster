@@ -203,10 +203,9 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	}
 
 	// translate selector
-	// TODO: ryan - convert to bidirectional
-	if !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Selector, event.Virtual.Spec.Selector) || apiequality.Semantic.DeepEqual(event.HostOld.Spec.Selector, event.Host.Spec.Selector) {
+	if !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Selector, event.Virtual.Spec.Selector) {
 		event.Host.Spec.Selector = translate.HostLabelsMap(event.Virtual.Spec.Selector, event.Host.Spec.Selector, event.Virtual.Namespace, false)
-	} else {
+	} else if !apiequality.Semantic.DeepEqual(event.HostOld.Spec.Selector, event.Host.Spec.Selector) {
 		event.Virtual.Spec.Selector = translate.VirtualLabelsMap(event.Host.Spec.Selector, event.Virtual.Spec.Selector)
 	}
 
