@@ -60,7 +60,7 @@ func (s *configMapFromHostSyncer) SyncToHost(ctx *synccontext.SyncContext, event
 func (s *configMapFromHostSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.ConfigMap]) (_ ctrl.Result, retErr error) {
 	klog.FromContext(ctx).Info("Sync called")
 
-	patchHelper, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.ConfigMaps.Patches, false))
+	patchHelper, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.ConfigMaps.Patches, false))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -91,7 +91,7 @@ func (s *configMapFromHostSyncer) SyncToVirtual(ctx *synccontext.SyncContext, ev
 
 	vObj := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
 
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.ConfigMaps.Patches, false)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.ConfigMaps.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
