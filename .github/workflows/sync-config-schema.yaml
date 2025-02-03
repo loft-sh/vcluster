@@ -2,7 +2,7 @@ name: Sync Config Schema
 on:
   release:
     types:
-      - released
+      - published
   workflow_dispatch:
     inputs:
       releaseTag:
