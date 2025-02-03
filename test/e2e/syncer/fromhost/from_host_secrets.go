@@ -11,70 +11,70 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", ginkgo.Ordered, func() {
 	var (
 		f                   *framework.Framework
-		configMap1          *corev1.ConfigMap
-		configMap2          *corev1.ConfigMap
+		configMap1          *corev1.Secret
+		configMap2          *corev1.Secret
 		cm1Name             = "dummy"
-		cm1HostNamespace    = "from-host-sync-test"
-		cmsVirtualNamespace = "barfoo"
+		cm1HostNamespace    = "from-host-sync-test-2"
+		cmsVirtualNamespace = "barfoo2"
 		cm2HostNamespace    = "default"
-		cm2HostName         = "my-cm"
-		cm2VirtualName      = "cm-my"
+		cm2HostName         = "my-secret"
+		cm2VirtualName      = "secret-my"
 		podName             = "my-pod"
 	)
 
 	ginkgo.BeforeAll(func() {
 		f = framework.DefaultFramework
-		configMap1 = &corev1.ConfigMap{
+		configMap1 = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cm1Name,
 				Namespace: cm1HostNamespace,
 			},
-			Data: map[string]string{
-				"BOO_BAR":     "hello-world",
-				"ANOTHER_ENV": "another-hello-world",
+			Data: map[string][]byte{
+				"BOO_BAR":     []byte("hello-world"),
+				"ANOTHER_ENV": []byte("another-hello-world"),
 			},
 		}
-		configMap2 = &corev1.ConfigMap{
+		configMap2 = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cm2HostName,
 				Namespace: cm2HostNamespace,
 			},
-			Data: map[string]string{
-				"ENV_FROM_DEFAULT_NS":         "one",
-				"ANOTHER_ENV_FROM_DEFAULT_NS": "two",
+			Data: map[string][]byte{
+				"ENV_FROM_DEFAULT_NS":         []byte("one"),
+				"ANOTHER_ENV_FROM_DEFAULT_NS": []byte("two"),
 			},
 		}
 
 	})
 
 	ginkgo.AfterAll(func() {
-		framework.ExpectNoError(f.HostClient.CoreV1().ConfigMaps(configMap1.GetNamespace()).Delete(f.Context, configMap1.GetName(), metav1.DeleteOptions{}))
-		framework.ExpectNoError(f.HostClient.CoreV1().ConfigMaps(configMap2.GetNamespace()).Delete(f.Context, configMap2.GetName(), metav1.DeleteOptions{}))
+		framework.ExpectNoError(f.HostClient.CoreV1().Secrets(configMap1.GetNamespace()).Delete(f.Context, configMap1.GetName(), metav1.DeleteOptions{}))
+		framework.ExpectNoError(f.HostClient.CoreV1().Secrets(configMap2.GetNamespace()).Delete(f.Context, configMap2.GetName(), metav1.DeleteOptions{}))
 
 		framework.ExpectNoError(f.VClusterClient.CoreV1().Pods(cmsVirtualNamespace).Delete(f.Context, podName, metav1.DeleteOptions{}))
 		// verify whether config maps got deleted from virtual too
-		_, err := f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Get(f.Context, cm1Name, metav1.GetOptions{})
+		_, err := f.VClusterClient.CoreV1().Secrets(cmsVirtualNamespace).Get(f.Context, cm1Name, metav1.GetOptions{})
 		framework.ExpectError(err, "expected config map to be deleted")
-		_, err = f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Get(f.Context, cm2VirtualName, metav1.GetOptions{})
+		_, err = f.VClusterClient.CoreV1().Secrets(cmsVirtualNamespace).Get(f.Context, cm2VirtualName, metav1.GetOptions{})
 		framework.ExpectError(err, "expected config map to be deleted")
 
 		framework.ExpectNoError(f.HostClient.CoreV1().Namespaces().Delete(f.Context, cm1HostNamespace, metav1.DeleteOptions{}))
 	})
 
-	ginkgo.It("create config maps in host", func() {
-		_, err := f.HostClient.CoreV1().ConfigMaps(configMap1.GetNamespace()).Create(f.Context, configMap1, metav1.CreateOptions{})
+	ginkgo.It("create secrets in host", func() {
+		_, err := f.HostClient.CoreV1().Secrets(configMap1.GetNamespace()).Create(f.Context, configMap1, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
-		_, err = f.HostClient.CoreV1().ConfigMaps(configMap2.GetNamespace()).Create(f.Context, configMap2, metav1.CreateOptions{})
+		_, err = f.HostClient.CoreV1().Secrets(configMap2.GetNamespace()).Create(f.Context, configMap2, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	})
 
-	ginkgo.It("update in host config map should get synced to virtual", func() {
-		freshHostConfigMap, err := f.HostClient.CoreV1().ConfigMaps(configMap1.GetNamespace()).Get(f.Context, configMap1.GetName(), metav1.GetOptions{})
+	ginkgo.It("update in host secret should get synced to virtual", func() {
+		freshHostConfigMap, err := f.HostClient.CoreV1().Secrets(configMap1.GetNamespace()).Get(f.Context, configMap1.GetName(), metav1.GetOptions{})
 		framework.ExpectNoError(err)
-		freshHostConfigMap.Data["UPDATED_ENV"] = "one"
+		freshHostConfigMap.Data["UPDATED_ENV"] = []byte("one")
 		if freshHostConfigMap.Labels == nil {
 			freshHostConfigMap.Labels = make(map[string]string, 1)
 		}
@@ -83,14 +83,14 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 			freshHostConfigMap.Annotations = make(map[string]string, 1)
 		}
 		freshHostConfigMap.Annotations["updated-annotation"] = "updated-value"
-		_, err = f.HostClient.CoreV1().ConfigMaps(freshHostConfigMap.GetNamespace()).Update(f.Context, freshHostConfigMap, metav1.UpdateOptions{})
+		_, err = f.HostClient.CoreV1().Secrets(freshHostConfigMap.GetNamespace()).Update(f.Context, freshHostConfigMap, metav1.UpdateOptions{})
 		framework.ExpectNoError(err)
 		gomega.Eventually(func() bool {
-			updatedCm1, err := f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Get(f.Context, cm1Name, metav1.GetOptions{})
+			updatedCm1, err := f.VClusterClient.CoreV1().Secrets(cmsVirtualNamespace).Get(f.Context, cm1Name, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
-			return updatedCm1.Data["UPDATED_ENV"] == "one" && updatedCm1.Labels["updated-label"] == "updated-value" && updatedCm1.Annotations["updated-annotation"] == "updated-value"
+			return string(updatedCm1.Data["UPDATED_ENV"]) == "one" && updatedCm1.Labels["updated-label"] == "updated-value" && updatedCm1.Annotations["updated-annotation"] == "updated-value"
 
 		}).
 			WithPolling(time.Second).
@@ -98,7 +98,7 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 			Should(gomega.BeTrue())
 	})
 
-	ginkgo.It("synced config maps can be used as env source for pod", func() {
+	ginkgo.It("synced secret can be used as env source for pod", func() {
 		optional := false
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -114,7 +114,7 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 						SecurityContext: f.GetDefaultSecurityContext(),
 						EnvFrom: []corev1.EnvFromSource{
 							{
-								ConfigMapRef: &corev1.ConfigMapEnvSource{
+								SecretRef: &corev1.SecretEnvSource{
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: cm1Name,
 									},
@@ -122,7 +122,7 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 								},
 							},
 							{
-								ConfigMapRef: &corev1.ConfigMapEnvSource{
+								SecretRef: &corev1.SecretEnvSource{
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: cm2VirtualName,
 									},

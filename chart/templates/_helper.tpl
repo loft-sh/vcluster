@@ -19,6 +19,7 @@
 {{- define "extractNamespacesFromHostMappings" -}}
 {{- $root := index . 0 -}}
 {{- $mappings := index . 1 -}}
+{{- $kind := index . 2 -}}
 {{- $namespaces := list -}}
 {{- range $key, $val := $mappings -}}
   {{- $sourceNs := splitList "/" $key | first -}}
@@ -33,22 +34,22 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: vc-{{ $root.Release.Name }}-from-host
+  name: vc-{{ $root.Release.Name }}-{{ $kind }}-from-host
   namespace: {{ $namespace }}
 rules:
   - apiGroups: [""]
-    resources: ["configmaps"]
+    resources: [{{ $kind | quote }}]
     verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: vc-{{ $root.Release.Name }}-from-host
+  name: vc-{{ $root.Release.Name }}-{{ $kind }}-from-host
   namespace: {{ $namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: vc-{{ $root.Release.Name }}-from-host
+  name: vc-{{ $root.Release.Name }}-{{ $kind }}-from-host
 subjects:
   - kind: ServiceAccount
     {{- if $root.Values.controlPlane.advanced.serviceAccount.name }}
