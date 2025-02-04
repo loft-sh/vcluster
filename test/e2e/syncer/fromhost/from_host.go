@@ -17,7 +17,7 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 		configMap1          *corev1.ConfigMap
 		configMap2          *corev1.ConfigMap
 		cm1Name             = "dummy"
-		cm1HostNamespace    = "foobar"
+		cm1HostNamespace    = "from-host-sync-test"
 		cmsVirtualNamespace = "barfoo"
 		cm2HostNamespace    = "default"
 		cm2HostName         = "my-cm"

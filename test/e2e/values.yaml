@@ -38,5 +38,5 @@ sync:
       enabled: true
       selector:
         mappings:
-          "foobar/*": "barfoo/*"
+          "from-host-sync-test/*": "barfoo/*"
           "default/my-cm": "barfoo/cm-my"

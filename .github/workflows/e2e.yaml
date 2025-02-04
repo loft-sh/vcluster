@@ -413,7 +413,7 @@ jobs:
           fi
 
           if [ ${{ matrix.test-suite-path }} == "./test/e2e" ]; then
-            kubectl create namespace foobar
+            kubectl create namespace from-host-sync-test
           fi
 
           sudo apt-get install -y sed
