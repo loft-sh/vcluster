@@ -239,6 +239,9 @@ spec:
           {{- if or (not .Values.scheduler.disabled) .Values.sync.nodes.enableScheduler }}
           - --enable-scheduler
           {{- end }}
+          {{- if and .Values.sync.nodes.enabled .Values.sync.nodes.syncNodeChanges }}
+          - --sync-node-changes=true
+          {{- end }}
           {{- if .Values.defaultImageRegistry }}
           - --default-image-registry={{ .Values.defaultImageRegistry }}
           {{- end }}

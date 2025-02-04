@@ -245,6 +245,9 @@ spec:
           {{- if .Values.sync.nodes.syncAllNodes }}
           - --sync-all-nodes
           {{- end }}
+          {{- if and .Values.sync.nodes.enabled .Values.sync.nodes.syncNodeChanges }}
+          - --sync-node-changes=true
+          {{- end }}
           {{- if .Values.isolation.enabled }}
           - --enforce-pod-security-standard={{ .Values.isolation.podSecurityStandard }}
           {{- end}}
