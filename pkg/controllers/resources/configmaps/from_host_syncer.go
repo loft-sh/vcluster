@@ -18,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	toolscache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -136,6 +137,16 @@ func (s *configMapFromHostSyncer) ModifyController(ctx *synccontext.RegisterCont
 		cache.Options{
 			Mapper:            ctx.PhysicalManager.GetRESTMapper(),
 			DefaultNamespaces: hostNamespacesToWatch,
+			DefaultWatchErrorHandler: func(r *toolscache.Reflector, err error) {
+				if kerrors.IsForbidden(err) {
+					klog.FromContext(ctx).Error(err,
+						"trying to watch on a namespace that does not exists / have no permissions. "+
+							"This may likely happen in vCluster Role & RoleBinding got deleted from this namespace. "+
+							"Please either re-create it or remove the namespace from mappings in the vcluster.yaml")
+				} else {
+					toolscache.DefaultWatchErrorHandler(r, err)
+				}
+			},
 		},
 	)
 	if err != nil {
