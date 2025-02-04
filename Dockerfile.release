@@ -1,4 +1,4 @@
-ARG KINE_VERSION="v0.13.5"
+ARG KINE_VERSION="v0.13.8"
 FROM rancher/kine:${KINE_VERSION} AS kine
 
 # Build the manager binary
@@ -9,7 +9,7 @@ WORKDIR /vcluster-dev
 ARG TARGETOS
 ARG TARGETARCH
 
-ARG HELM_VERSION="v3.16.2"
+ARG HELM_VERSION="v3.17.0"
 
 # Add curl
 RUN apk add --no-cache curl
