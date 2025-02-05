@@ -37,7 +37,6 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 	}
 
 	// build config
-
 	retConfig := &VirtualClusterConfig{
 		Config:              *rawConfig,
 		Name:                name,
