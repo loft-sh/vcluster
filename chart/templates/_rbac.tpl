@@ -41,7 +41,8 @@
     .Values.integrations.externalSecrets.enabled
     (and .Values.integrations.certManager.enabled .Values.integrations.certManager.sync.fromHost.clusterIssuers.enabled)
     (and .Values.integrations.metricsServer.enabled .Values.integrations.metricsServer.nodes)
-    .Values.experimental.multiNamespaceMode.enabled -}}
+    .Values.experimental.multiNamespaceMode.enabled
+    .Values.sync.fromHost.configMaps.enabled -}}
 {{- true -}}
 {{- end -}}
 {{- end -}}
@@ -213,3 +214,44 @@
 {{- define "vcluster.rbac.platformRoleBindingName" -}}
 {{- printf "vc-%s-v-%s-platform-role-binding" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+
+{{/*
+  Cluster role rules needed for fromHost sync (containing namespaces + configmaps/secret/other core resources)
+*/}}
+{{- define "vcluster.rbac.rulesForFromHostSyncerForGivenKind" -}}
+{{- $root := index . 0 -}}
+{{- $mappings := index . 1 -}}
+{{- $kind := index . 2 -}}
+{{- if and $root.Values.sync.fromHost.configMaps.enabled $mappings -}}
+{{- $namespaces := list -}}
+{{- $objNames := list -}}
+{{- $addResourceNames := true -}}
+{{- range $key, $val := $mappings -}}
+  {{- $sourceNs := splitList "/" $key | first -}}
+  {{- $sourceObjName := splitList "/" $key | last }}
+  {{- if eq $sourceNs "*" -}}
+    {{- $namespaces = append $namespaces (quote $root.Release.Namespace) -}}
+  {{- else -}}
+    {{- $namespaces = append $namespaces (quote $sourceNs) -}}
+  {{- end -}}
+  {{- if eq $sourceObjName "*" -}}
+  	{{- $addResourceNames = false -}}
+  {{- else -}}
+  	{{- $objNames = append $objNames (quote $sourceObjName) -}}
+  {{- end -}}
+{{- end -}}
+{{- $objList := $objNames | uniq | sortAlpha -}}
+{{- $nsList := $namespaces | uniq | sortAlpha -}}
+- apiGroups: [""]
+  resources: [ "namespaces" ]
+  resourceNames: [ {{ join "," $nsList }} ]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: [ {{ $kind | quote }} ]
+  verbs: ["get", "list", "watch"]
+{{- if $addResourceNames }}
+  resourceNames: [ {{ join "," $objList }} ]
+{{- end }}
+{{- end }}
+{{- end }}
+

@@ -1,7 +1,0 @@
-{{- if .Values.sync.fromHost.configMaps.enabled -}}
-{{- with .Values.sync.fromHost.configMaps.selector -}}
-{{- if .mappings -}}
-{{- include "extractNamespacesFromHostMappings" (list $ .mappings)  -}}
-{{- end }}
-{{- end }}
-{{- end }}
