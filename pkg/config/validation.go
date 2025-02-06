@@ -600,7 +600,7 @@ func validateFromHostSyncMappings(s config.EnableSwitchWithResourcesMappings, re
 	}
 	for key, value := range s.Selector.Mappings {
 		if !strings.Contains(key, "/") && key != constants.VClusterNamespaceInHostMappingSpecialCharacter {
-			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has key in invalid format: %s (expected NAMESPACE_NAME/NAME or NAMESPACE_NAME/*)", resourceNamePlural, key)
+			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has key in invalid format: %s (expected NAMESPACE_NAME/NAME, NAMESPACE_NAME/*, /NAME or \"\")", resourceNamePlural, key)
 		}
 		if !strings.Contains(value, "/") && key != constants.VClusterNamespaceInHostMappingSpecialCharacter {
 			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has value in invalid format: %s (expected NAMESPACE_NAME/NAME or NAMESPACE_NAME/* or NAMESPACE if key is \"\")", resourceNamePlural, value)
