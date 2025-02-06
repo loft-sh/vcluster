@@ -110,7 +110,7 @@ type client struct {
 func (c *client) RefreshSelf(ctx context.Context) error {
 	managementClient, err := c.Management()
 	if err != nil {
-		return fmt.Errorf("create mangement client: %w", err)
+		return fmt.Errorf("create management client: %w", err)
 	}
 
 	c.self, err = managementClient.Loft().ManagementV1().Selves().Create(ctx, &managementv1.Self{}, metav1.CreateOptions{})
