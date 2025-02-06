@@ -275,9 +275,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 			}
 		}
 
-		// propogate pod status changes from host cluster to vcluster when the host pod
+		// propagate pod status changes from host cluster to vcluster when the host pod
 		// is being deleted. We need this because there is a possibility that pod is owned
-		// by a controller which wants the pod status to be either succeded or failed before
+		// by a controller which wants the pod status to be either succeeded or failed before
 		// deleting it. But because these status changes are not propogated
 		// to vcluster pod when the host pod is being deleted, vcluster pod's status still
 		// shows as running, hence it cannot be deleted until it has failed or succeeded. This
