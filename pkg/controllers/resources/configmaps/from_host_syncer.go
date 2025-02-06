@@ -190,5 +190,9 @@ func (s *configMapFromHostSyncer) enqueuePhysical(ctx *synccontext.SyncContext, 
 
 func (s *configMapFromHostSyncer) shouldSync(ctx *synccontext.SyncContext, obj client.Object) (types.NamespacedName, bool) {
 	hostName, hostNs := obj.GetName(), obj.GetNamespace()
+	if _, ok := obj.GetLabels()[translate.MarkerLabel]; ok {
+		// do not sync objects that were synced from virtual to host already
+		return types.NamespacedName{}, false
+	}
 	return matchesHostObject(hostName, hostNs, ctx.Config.Sync.FromHost.ConfigMaps.Selector.Mappings, ctx.Config.ControlPlaneNamespace, s.skipFuncs...)
 }

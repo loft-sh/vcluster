@@ -124,12 +124,26 @@ func TestMatches(t *testing.T) {
 			noMatchExpected: true,
 			expectedVirtual: types.NamespacedName{Name: "", Namespace: ""}, // no match
 		},
+		{
+			name: "kube-root-ca.crt skipped",
+			mappings: map[string]string{
+				"":              "my-ns",
+				"my-ns/*":       "my-ns-2/*",
+				"my-ns-2/my-cm": "my-ns-2/my-cm",
+			},
+			hostName:        "kube-root-ca.crt",
+			hostNs:          "ingress-nginx",
+			virtualName:     "",
+			virtualNs:       "",
+			noMatchExpected: true,
+			expectedVirtual: types.NamespacedName{Name: "", Namespace: ""}, // no match
+		},
 	}
 
 	t.Run("match host", func(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				got, _ := matchesHostObject(tc.hostName, tc.hostNs, tc.mappings, "vcluster")
+				got, _ := matchesHostObject(tc.hostName, tc.hostNs, tc.mappings, "vcluster", skipKubeRootCaConfigMap)
 				if got.Name == tc.virtualName && got.Namespace == tc.virtualNs {
 					return
 				}
