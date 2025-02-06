@@ -469,6 +469,8 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 		}
 	}
 
+	opts.ByObject = maps.Clone(opts.ByObject)
+	opts.DefaultNamespaces = maps.Clone(opts.DefaultNamespaces)
 	for obj, byObject := range opts.ByObject {
 		isNamespaced, err := apiutil.IsObjectNamespaced(obj, opts.Scheme, opts.Mapper)
 		if err != nil {
@@ -480,6 +482,8 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 
 		if isNamespaced && byObject.Namespaces == nil {
 			byObject.Namespaces = maps.Clone(opts.DefaultNamespaces)
+		} else {
+			byObject.Namespaces = maps.Clone(byObject.Namespaces)
 		}
 
 		// Default the namespace-level configs first, because they need to use the undefaulted type-level config
@@ -487,7 +491,6 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 		for namespace, config := range byObject.Namespaces {
 			// 1. Default from the undefaulted type-level config
 			config = defaultConfig(config, byObjectToConfig(byObject))
-
 			// 2. Default from the namespace-level config. This was defaulted from the global default config earlier, but
 			//    might not have an entry for the current namespace.
 			if defaultNamespaceSettings, hasDefaultNamespace := opts.DefaultNamespaces[namespace]; hasDefaultNamespace {

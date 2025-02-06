@@ -85,10 +85,10 @@ func (m *defaultQueueMetrics[T]) get(item T) {
 		return
 	}
 
+	m.depth.Dec()
+
 	m.mapLock.Lock()
 	defer m.mapLock.Unlock()
-
-	m.depth.Dec()
 
 	m.processingStartTimes[item] = m.clock.Now()
 	if startTime, exists := m.addTimes[item]; exists {

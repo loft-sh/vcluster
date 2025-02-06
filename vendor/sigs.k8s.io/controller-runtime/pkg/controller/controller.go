@@ -202,6 +202,7 @@ func NewTypedUnmanaged[request comparable](name string, mgr manager.Manager, opt
 		options.NewQueue = func(controllerName string, rateLimiter workqueue.TypedRateLimiter[request]) workqueue.TypedRateLimitingInterface[request] {
 			if ptr.Deref(mgr.GetControllerOptions().UsePriorityQueue, false) {
 				return priorityqueue.New(controllerName, func(o *priorityqueue.Opts[request]) {
+					o.Log = mgr.GetLogger().WithValues("controller", controllerName)
 					o.RateLimiter = rateLimiter
 				})
 			}

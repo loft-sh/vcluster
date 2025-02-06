@@ -183,7 +183,7 @@ controlPlane:
           # Repository is the repository of the container image, e.g. my-repo/my-image
           repository: kube-apiserver
           # Tag is the tag of the container image, e.g. latest
-          tag: "v1.32.0"
+          tag: "v1.32.1"
       # ControllerManager holds configuration specific to starting the controller manager.
       controllerManager:
         enabled: true
@@ -201,7 +201,7 @@ controlPlane:
           # Repository is the repository of the container image, e.g. my-repo/my-image
           repository: "kube-controller-manager"
           # Tag is the tag of the container image, e.g. latest
-          tag: "v1.32.0"
+          tag: "v1.32.1"
       # Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
       scheduler:
         # Command is the command to start the distro binary. This will override the existing command.
@@ -218,7 +218,7 @@ controlPlane:
           # Repository is the repository of the container image, e.g. my-repo/my-image
           repository: "kube-scheduler"
           # Tag is the tag of the container image, e.g. latest
-          tag: "v1.32.0"
+          tag: "v1.32.1"
       # Env are extra environment variables to use for the main container and NOT the init container.
       env: []
       # Security options can be used for the distro init container
@@ -249,7 +249,7 @@ controlPlane:
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "rancher/k3s"
         # Tag is the tag of the container image, e.g. latest
-        tag: "v1.32.0-k3s1"
+        tag: "v1.32.1-k3s1"
       # Security options can be used for the distro init container
       securityContext: {}
       # Resources for the distro init container
