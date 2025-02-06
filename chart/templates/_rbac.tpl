@@ -218,7 +218,7 @@
 {{/*
   Cluster role rules needed for fromHost sync (containing namespaces + configmaps/secret/other core resources)
 */}}
-{{- define "vcluster.rbac.rulesForFromHostSyncerForGivenKind" -}}
+{{- define "vcluster.rbac.rulesForFromHostSyncerForGivenCoreResource" -}}
 {{- $root := index . 0 -}}
 {{- $mappings := index . 1 -}}
 {{- $kind := index . 2 -}}
