@@ -529,7 +529,10 @@ type FromHostSelector struct {
 	//   "foo/my-object": "foo/my-virtual-object"
 	// 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
 	// mappings:
-	//   "*": "my-virtual-namespace/*"
+	//   "": "my-virtual-namespace/*"
+	// 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+	// mappings:
+	//   "/my-object": "my-virtual-namespace/my-object"
 	Mappings map[string]string `json:"mappings,omitempty"`
 }
 

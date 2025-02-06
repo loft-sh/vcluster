@@ -18,7 +18,7 @@ func TestParseHostNamespacesFromMappings(t *testing.T) {
 			name:       "one namespace and wildcards",
 			vClusterNs: "vcluster",
 			mappings: map[string]string{
-				"*":           "target/",
+				"":            "target/",
 				"my-ns/my-cm": "target2/my-cm",
 				"my-ns-2/*":   "target3/*",
 			},
@@ -102,7 +102,7 @@ func TestMatches(t *testing.T) {
 		{
 			name: "all from vCluster host namespace to another namespace in virtual",
 			mappings: map[string]string{
-				"*": "my-ns/my-cm",
+				"": "my-ns",
 			},
 			hostName:        "my-cm",
 			hostNs:          "vcluster",
@@ -113,7 +113,7 @@ func TestMatches(t *testing.T) {
 		{
 			name: "no match",
 			mappings: map[string]string{
-				"*":             "my-ns/my-cm",
+				"":              "my-ns",
 				"my-ns/*":       "my-ns-2/*",
 				"my-ns-2/my-cm": "my-ns-2/my-cm",
 			},

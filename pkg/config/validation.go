@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
+
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
@@ -597,14 +599,14 @@ func validateFromHostSyncMappings(s config.EnableSwitchWithResourcesMappings, re
 		return fmt.Errorf("config.sync.fromHost.%s.mappings are empty", resourceNamePlural)
 	}
 	for key, value := range s.Selector.Mappings {
-		if !strings.Contains(key, "/") && key != "*" {
+		if !strings.Contains(key, "/") && key != constants.VClusterNamespaceInHostMappingSpecialCharacter {
 			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has key in invalid format: %s (expected NAMESPACE_NAME/NAME or NAMESPACE_NAME/*)", resourceNamePlural, key)
 		}
-		if !strings.Contains(value, "/") && key != "*" {
-			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has value in invalid format: %s (expected NAMESPACE_NAME/NAME or NAMESPACE_NAME/* or NAMESPACE if key is \"*\")", resourceNamePlural, value)
+		if !strings.Contains(value, "/") && key != constants.VClusterNamespaceInHostMappingSpecialCharacter {
+			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has value in invalid format: %s (expected NAMESPACE_NAME/NAME or NAMESPACE_NAME/* or NAMESPACE if key is \"\")", resourceNamePlural, value)
 		}
 		if key == "*" && strings.Contains(value, "/") && !strings.HasSuffix(value, "/*") {
-			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has key \"*\" that matches vCluster host namespace but the value is not in NAMESPACE_NAME or NAMESPACE_NAME/* format (value: %s)", resourceNamePlural, value)
+			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has key \"\" that matches vCluster host namespace but the value is not in NAMESPACE_NAME or NAMESPACE_NAME/* format (value: %s)", resourceNamePlural, value)
 		}
 		if strings.HasSuffix(key, "/*") && !strings.HasSuffix(value, "/*") {
 			return fmt.Errorf(

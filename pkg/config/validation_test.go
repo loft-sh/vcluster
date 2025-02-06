@@ -134,7 +134,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 	}
 	expectErr := func(t *testing.T, err error) {
 		if err == nil {
-			t.Errorf("expected errpr got nil")
+			t.Errorf("expected error got nil")
 		}
 	}
 	cases := []struct {
@@ -161,7 +161,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 				Enabled: true,
 				Selector: config.FromHostSelector{
 					Mappings: map[string]string{
-						"*":             "barfoo/*",
+						"":              "barfoo/*",
 						"default/my-cm": "barfoo/cm-my",
 					},
 				},
@@ -174,7 +174,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 				Enabled: true,
 				Selector: config.FromHostSelector{
 					Mappings: map[string]string{
-						"*":             "barfoo",
+						"":              "barfoo",
 						"default/my-cm": "barfoo/cm-my",
 					},
 				},
@@ -182,16 +182,29 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: noErr,
 		},
 		{
-			name: "invalid config",
+			name: "valid config 4",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
 					Mappings: map[string]string{
-						"*": "barfoo/",
+						"/my-cm":        "barfoo/my-cm",
+						"default/my-cm": "barfoo/cm-my",
 					},
 				},
 			},
-			expectErr: expectErr,
+			expectErr: noErr,
+		},
+		{
+			name: "valid config 5",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"": "barfoo/",
+					},
+				},
+			},
+			expectErr: noErr,
 		},
 		{
 			name: "invalid config 2",

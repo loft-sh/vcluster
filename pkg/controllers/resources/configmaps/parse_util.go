@@ -3,6 +3,8 @@ package configmaps
 import (
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
@@ -10,7 +12,7 @@ import (
 func parseHostNamespacesFromMappings(mappings map[string]string, vClusterNs string) []string {
 	ret := make([]string, 0)
 	for host := range mappings {
-		if host == "*" {
+		if host == constants.VClusterNamespaceInHostMappingSpecialCharacter {
 			ret = append(ret, vClusterNs)
 		}
 		parts := strings.Split(host, "/")
@@ -47,7 +49,6 @@ func matchesHostObject(hostName, hostNamespace string, resourceMappings map[stri
 
 	key := hostNamespace + "/" + hostName
 	matchesAllKeyInNamespaceKey := hostNamespace + "/*"
-	matchesAllKey := "*"
 
 	// first, let's try matching by namespace/name
 	if virtual, ok := resourceMappings[key]; ok {
@@ -71,12 +72,16 @@ func matchesHostObject(hostName, hostNamespace string, resourceMappings map[stri
 		}
 	}
 
-	// last chance, if user specified "*": <namespace>/*
-	if virtual, ok := resourceMappings[matchesAllKey]; ok {
+	// last chance, if user specified "": <namespace>/*
+	if virtual, ok := resourceMappings[constants.VClusterNamespaceInHostMappingSpecialCharacter]; ok {
 		if vClusterHostNamespace == hostNamespace {
 			virtualParts := strings.Split(virtual, "/")
 			if len(virtualParts) == 2 {
 				return types.NamespacedName{Namespace: virtualParts[0], Name: hostName}, true
+			} else if !strings.Contains(virtual, "/") {
+				// then the mapping is "": "virtual-namespace" where "" means vCluster host namespace
+				// in this case, we want to return virtual-namespace/hostName
+				return types.NamespacedName{Namespace: virtual, Name: hostName}, true
 			}
 		}
 	}
@@ -105,5 +110,12 @@ func matchesVirtualObject(virtualNs, virtualName string, virtualToHost map[strin
 			return types.NamespacedName{Namespace: hostParts[0], Name: virtualName}, true
 		}
 	}
+
+	// check if object's namespace is a target namespace for vCluster host namespace,
+	// then return vCluster host namespace + object name
+	if host, ok := virtualToHost[virtualNs]; ok && host == constants.VClusterNamespaceInHostMappingSpecialCharacter {
+		return types.NamespacedName{Namespace: vClusterHostNamespace, Name: virtualName}, true
+	}
+
 	return types.NamespacedName{}, false
 }

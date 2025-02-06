@@ -229,7 +229,7 @@
 {{- range $key, $val := $mappings -}}
   {{- $sourceNs := splitList "/" $key | first -}}
   {{- $sourceObjName := splitList "/" $key | last }}
-  {{- if eq $sourceNs "*" -}}
+  {{- if eq $sourceNs "" -}}
     {{- $namespaces = append $namespaces (quote $root.Release.Namespace) -}}
   {{- else -}}
     {{- $namespaces = append $namespaces (quote $sourceNs) -}}

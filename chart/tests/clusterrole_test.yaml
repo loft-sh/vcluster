@@ -463,7 +463,7 @@ tests:
             enabled: true
             selector:
               mappings:
-                "*": "my-ns/*"
+                "": "my-ns/*"
                 my-ns/*: "my-ns-2/*"
     asserts:
       - hasDocuments:
