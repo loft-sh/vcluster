@@ -41,7 +41,7 @@ func NewFromHostTranslatorForGVK(ctx *synccontext.RegisterContext, gvk schema.Gr
 		virtualToHost:  virtualToHost,
 		hostToVirtual:  hostToVirtual,
 		namespace:      ctx.Config.ControlPlaneNamespace,
-		translatorName: strings.ToLower(gvk.Kind) + "from-host-translator",
+		translatorName: "from-host-" + strings.ToLower(gvk.Kind),
 		skipFuncs:      skipFuncs,
 	}, nil
 }

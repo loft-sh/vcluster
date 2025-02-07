@@ -6,15 +6,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
-
-	"github.com/loft-sh/vcluster/pkg/syncer/translator"
-
+	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/k0s"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
@@ -42,35 +42,38 @@ type FromHostSyncer interface {
 	SyncToHost(vOjb, pObj client.Object)
 	GetProPatches(ctx *synccontext.SyncContext) []config.TranslatePatch
 	GetMappings(ctx *synccontext.SyncContext) map[string]string
-	syncertypes.ObjectExcluder
 }
 
-func NewFromHost(_ *synccontext.RegisterContext, fromHost FromHostSyncer, translator syncertypes.FromConfigTranslator, skipFuncs ...translator.ShouldSkipHostObjectFunc) (syncertypes.Object, error) {
-	return &configMapFromHostSyncer{
+func NewFromHost(ctx *synccontext.RegisterContext, fromHost FromHostSyncer, translator syncertypes.FromConfigTranslator, skipFuncs ...translator.ShouldSkipHostObjectFunc) (syncertypes.Object, error) {
+	s := &genericFromHostSyncer{
 		FromHostSyncer:       fromHost,
 		FromConfigTranslator: translator,
 		skipFuncs:            skipFuncs,
-	}, nil
+	}
+	virtualToExclude := s.checkExperimentalDeployConfig(ctx)
+	s.virtualObjectsToExclude = virtualToExclude
+	return s, nil
 }
 
-type configMapFromHostSyncer struct {
+type genericFromHostSyncer struct {
 	syncertypes.FromConfigTranslator
 	FromHostSyncer
-	skipFuncs []translator.ShouldSkipHostObjectFunc
+	skipFuncs               []translator.ShouldSkipHostObjectFunc
+	virtualObjectsToExclude map[string]bool
 }
 
-func (s *configMapFromHostSyncer) Options() *syncertypes.Options {
+func (s *genericFromHostSyncer) Options() *syncertypes.Options {
 	return &syncertypes.Options{
 		UsesCustomPhysicalCache: true,
 	}
 }
 
-func (s *configMapFromHostSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[client.Object]) (ctrl.Result, error) {
+func (s *genericFromHostSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[client.Object]) (ctrl.Result, error) {
 	klog.FromContext(ctx).Info("SyncToHost called")
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 }
 
-func (s *configMapFromHostSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[client.Object]) (_ ctrl.Result, retErr error) {
+func (s *genericFromHostSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[client.Object]) (_ ctrl.Result, retErr error) {
 	klog.FromContext(ctx).Info("Sync called")
 
 	patchHelper, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(s.GetProPatches(ctx), false))
@@ -93,7 +96,7 @@ func (s *configMapFromHostSyncer) Sync(ctx *synccontext.SyncContext, event *sync
 	return ctrl.Result{}, nil
 }
 
-func (s *configMapFromHostSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[client.Object]) (ctrl.Result, error) {
+func (s *genericFromHostSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[client.Object]) (ctrl.Result, error) {
 	klog.FromContext(ctx).Info("SyncToVirtual called")
 	if event.VirtualOld != nil || event.Host.GetDeletionTimestamp() != nil {
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
@@ -128,15 +131,15 @@ func (s *configMapFromHostSyncer) SyncToVirtual(ctx *synccontext.SyncContext, ev
 	return patcher.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder(), false)
 }
 
-func (s *configMapFromHostSyncer) Syncer() syncertypes.Sync[client.Object] {
+func (s *genericFromHostSyncer) Syncer() syncertypes.Sync[client.Object] {
 	return syncer.ToGenericSyncer(s)
 }
 
-var _ syncertypes.Syncer = &configMapFromHostSyncer{}
+var _ syncertypes.Syncer = &genericFromHostSyncer{}
 
-var _ syncertypes.OptionsProvider = &configMapFromHostSyncer{}
+var _ syncertypes.OptionsProvider = &genericFromHostSyncer{}
 
-func (s *configMapFromHostSyncer) ModifyController(ctx *synccontext.RegisterContext, b *builder.Builder) (*builder.Builder, error) {
+func (s *genericFromHostSyncer) ModifyController(ctx *synccontext.RegisterContext, b *builder.Builder) (*builder.Builder, error) {
 	// the default cache is configured to look at only the target namespaces, create an event source from
 	// a cache that watches all namespaces
 	hostNamespacesToWatch := getHostNamespacesAndConfig(s.GetMappings(ctx.ToSyncContext("configmap-from-host-syncer")), ctx.Config.ControlPlaneNamespace)
@@ -188,7 +191,19 @@ func (s *configMapFromHostSyncer) ModifyController(ctx *synccontext.RegisterCont
 	})), nil
 }
 
-func (s *configMapFromHostSyncer) enqueuePhysical(ctx *synccontext.SyncContext, obj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+func (s *genericFromHostSyncer) ExcludeVirtual(vObj client.Object) bool {
+	_, found := s.virtualObjectsToExclude[vObj.GetNamespace()+"/"+vObj.GetName()]
+	if found {
+		klog.Infof("excluding virtual object (%s/%s) from %s because it is part of experimental.deploy manifests", vObj.GetName(), vObj.GetNamespace(), s.Name())
+	}
+	return found
+}
+
+func (s *genericFromHostSyncer) ExcludePhysical(_ client.Object) bool {
+	return false
+}
+
+func (s *genericFromHostSyncer) enqueuePhysical(ctx *synccontext.SyncContext, obj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 	if obj == nil {
 		return
 	}
@@ -197,13 +212,85 @@ func (s *configMapFromHostSyncer) enqueuePhysical(ctx *synccontext.SyncContext, 
 	}
 }
 
-func (s *configMapFromHostSyncer) shouldSync(_ *synccontext.SyncContext, obj client.Object) (types.NamespacedName, bool) {
+func (s *genericFromHostSyncer) shouldSync(_ *synccontext.SyncContext, obj client.Object) (types.NamespacedName, bool) {
 	hostName, hostNs := obj.GetName(), obj.GetNamespace()
 	if _, ok := obj.GetLabels()[translate.MarkerLabel]; ok {
 		// do not sync objects that were synced from virtual to host already
 		return types.NamespacedName{}, false
 	}
 	return s.MatchesHostObject(hostName, hostNs)
+}
+
+func (s *genericFromHostSyncer) checkExperimentalDeployConfig(ctx *synccontext.RegisterContext) map[string]bool {
+	// (Pawel): this is needed, because when user sets:
+	// sync.toHost.(configMaps/secrets).enabled = true
+	// sync.toHost.(configMaps/secrets).all = true
+	// sync.fromHost.(configMaps/secrets).enabled = true
+	// sync.fromHost.(configMaps/secrets).mappings: (mapping from vCluster host namespace to NAMESPACE_A)
+	// experimental.deploy.vCluster.manifests: (manifest for (config map / secret) in NAMESPACE_A)
+	// then, fromHost syncer will enqueue (config map/ secret) coming from experimental.deploy.vCluster.manifests
+	// syncer will try to call SyncToHost, as physical object does not exist
+	// fromHostSyncer.SyncToHost will delete virtual object, which is not wanted and expected by user.
+	// Therefore, we need to exclude objects from experimental.deploy.vCluster.(manifests/manifestsTemplate)
+	// in the genericFromHostSyncer.
+	deploy := ctx.Config.Experimental.Deploy
+	if deploy.VCluster.Manifests == "" && deploy.VCluster.ManifestsTemplate == "" {
+		return nil
+	}
+	virtualConfigMapsToSkip := make(map[string]bool)
+	if strings.Contains(deploy.VCluster.Manifests, "---") {
+		for _, manifest := range strings.Split(deploy.VCluster.Manifests, "---") {
+			configMapKey, found := s.processManifest(manifest)
+			if found {
+				virtualConfigMapsToSkip[configMapKey] = true
+			}
+		}
+	} else {
+		configMapKey, found := s.processManifest(deploy.VCluster.Manifests)
+		if found {
+			virtualConfigMapsToSkip[configMapKey] = true
+		}
+	}
+
+	if strings.Contains(deploy.VCluster.ManifestsTemplate, "---") {
+		for _, manifest := range strings.Split(deploy.VCluster.ManifestsTemplate, "---") {
+			configMapKey, found := s.processTemplate(manifest, &ctx.Config.Config, ctx.Config.Name, ctx.Config.WorkloadTargetNamespace)
+			if found {
+				virtualConfigMapsToSkip[configMapKey] = true
+			}
+		}
+	} else {
+		configMapKey, found := s.processTemplate(deploy.VCluster.ManifestsTemplate, &ctx.Config.Config, ctx.Config.Name, ctx.Config.WorkloadTargetNamespace)
+		if found {
+			virtualConfigMapsToSkip[configMapKey] = true
+		}
+	}
+	return virtualConfigMapsToSkip
+}
+
+func (s *genericFromHostSyncer) processManifest(manifest string) (string, bool) {
+	manifest = strings.TrimSpace(manifest)
+	if manifest == "" {
+		return "", false
+	}
+	obj := s.Resource()
+	err := yaml.Unmarshal([]byte(manifest), obj)
+	if err != nil {
+		return "", false
+	}
+	name, ns := obj.GetName(), obj.GetNamespace()
+	if ns == "" {
+		ns = "default"
+	}
+	return ns + "/" + name, true
+}
+
+func (s *genericFromHostSyncer) processTemplate(manifest string, vConfig *config.Config, name, targetNs string) (string, bool) {
+	templatedManifests, err := k0s.ExecTemplate(manifest, name, targetNs, vConfig)
+	if err != nil {
+		return "", false
+	}
+	return s.processManifest(string(templatedManifests))
 }
 
 func parseHostNamespacesFromMappings(mappings map[string]string, vClusterNs string) []string {
