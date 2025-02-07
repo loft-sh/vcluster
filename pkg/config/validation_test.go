@@ -242,6 +242,19 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			},
 			expectErr: expectErr,
 		},
+		{
+			name: "invalid config 5",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/my-cm": "barfoo/my-cm",
+						"*":             "barfoo2/*",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
 	}
 
 	for _, tc := range cases {

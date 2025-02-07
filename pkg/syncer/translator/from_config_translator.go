@@ -3,6 +3,8 @@ package translator
 import (
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
+
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	corev1 "k8s.io/api/core/v1"
@@ -22,6 +24,8 @@ type fromHostTranslate struct {
 	skipFuncs      []ShouldSkipHostObjectFunc
 }
 
+// ShouldSkipHostObjectFunc takes object's host name and namespace
+// and returns true if object should be skipped in the from host sync.
 type ShouldSkipHostObjectFunc func(hostName, hostNamespace string) bool
 
 func NewFromHostTranslatorForGVK(ctx *synccontext.RegisterContext, gvk schema.GroupVersionKind, mappings map[string]string, skipFuncs ...ShouldSkipHostObjectFunc) (syncer.FromConfigTranslator, error) {
@@ -65,13 +69,13 @@ func (c *fromHostTranslate) GroupVersionKind() schema.GroupVersionKind {
 	return c.gvk
 }
 
-func (c *fromHostTranslate) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
+func (c *fromHostTranslate) VirtualToHost(_ *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	vName, vNs := req.Name, req.Namespace
 	nn, _ := matchesVirtualObject(vNs, vName, c.virtualToHost, c.namespace)
 	return nn
 }
 
-func (c *fromHostTranslate) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
+func (c *fromHostTranslate) HostToVirtual(_ *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	nn, ok := matchesHostObject(req.Name, req.Namespace, c.hostToVirtual, c.namespace, c.skipFuncs...)
 	if !ok {
 		return types.NamespacedName{}
@@ -79,7 +83,7 @@ func (c *fromHostTranslate) HostToVirtual(ctx *synccontext.SyncContext, req type
 	return nn
 }
 
-func (c *fromHostTranslate) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
+func (c *fromHostTranslate) IsManaged(_ *synccontext.SyncContext, pObj client.Object) (bool, error) {
 	hostName, hostNs := pObj.GetName(), pObj.GetNamespace()
 	_, managed := matchesHostObject(hostName, hostNs, c.hostToVirtual, c.namespace, c.skipFuncs...)
 	return managed, nil
@@ -105,7 +109,6 @@ func matchesHostObject(hostName, hostNamespace string, resourceMappings map[stri
 
 	key := hostNamespace + "/" + hostName
 	matchesAllKeyInNamespaceKey := hostNamespace + "/*"
-	matchesAllKey := "*"
 
 	// first, let's try matching by namespace/name
 	if virtual, ok := resourceMappings[key]; ok {
@@ -129,12 +132,16 @@ func matchesHostObject(hostName, hostNamespace string, resourceMappings map[stri
 		}
 	}
 
-	// last chance, if user specified "*": <namespace>/*
-	if virtual, ok := resourceMappings[matchesAllKey]; ok {
+	// last chance, if user specified "": <namespace>/*
+	if virtual, ok := resourceMappings[constants.VClusterNamespaceInHostMappingSpecialCharacter]; ok {
 		if vClusterHostNamespace == hostNamespace {
 			virtualParts := strings.Split(virtual, "/")
 			if len(virtualParts) == 2 {
 				return types.NamespacedName{Namespace: virtualParts[0], Name: hostName}, true
+			} else if !strings.Contains(virtual, "/") {
+				// then the mapping is "": "virtual-namespace" where "" means vCluster host namespace
+				// in this case, we want to return virtual-namespace/hostName
+				return types.NamespacedName{Namespace: virtual, Name: hostName}, true
 			}
 		}
 	}
@@ -163,5 +170,12 @@ func matchesVirtualObject(virtualNs, virtualName string, virtualToHost map[strin
 			return types.NamespacedName{Namespace: hostParts[0], Name: virtualName}, true
 		}
 	}
+
+	// check if object's namespace is a target namespace for vCluster host namespace,
+	// then return vCluster host namespace + object name
+	if host, ok := virtualToHost[virtualNs]; ok && host == constants.VClusterNamespaceInHostMappingSpecialCharacter {
+		return types.NamespacedName{Namespace: vClusterHostNamespace, Name: virtualName}, true
+	}
+
 	return types.NamespacedName{}, false
 }

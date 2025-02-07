@@ -47,3 +47,11 @@ func (s *syncToHostSecretSyncer) GetProPatches(ctx *synccontext.SyncContext) []c
 func (s *syncToHostSecretSyncer) GetMappings(ctx *synccontext.SyncContext) map[string]string {
 	return ctx.Config.Sync.FromHost.Secrets.Selector.Mappings
 }
+
+func (s *syncToHostSecretSyncer) ExcludeVirtual(_ client.Object) bool {
+	return false
+}
+
+func (s *syncToHostSecretSyncer) ExcludePhysical(_ client.Object) bool {
+	return false
+}

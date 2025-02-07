@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
+
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 
 	"github.com/loft-sh/vcluster/config"
@@ -40,10 +42,10 @@ type FromHostSyncer interface {
 	SyncToHost(vOjb, pObj client.Object)
 	GetProPatches(ctx *synccontext.SyncContext) []config.TranslatePatch
 	GetMappings(ctx *synccontext.SyncContext) map[string]string
+	syncertypes.ObjectExcluder
 }
 
 func NewFromHost(_ *synccontext.RegisterContext, fromHost FromHostSyncer, translator syncertypes.FromConfigTranslator, skipFuncs ...translator.ShouldSkipHostObjectFunc) (syncertypes.Object, error) {
-
 	return &configMapFromHostSyncer{
 		FromHostSyncer:       fromHost,
 		FromConfigTranslator: translator,
@@ -197,13 +199,17 @@ func (s *configMapFromHostSyncer) enqueuePhysical(ctx *synccontext.SyncContext, 
 
 func (s *configMapFromHostSyncer) shouldSync(_ *synccontext.SyncContext, obj client.Object) (types.NamespacedName, bool) {
 	hostName, hostNs := obj.GetName(), obj.GetNamespace()
+	if _, ok := obj.GetLabels()[translate.MarkerLabel]; ok {
+		// do not sync objects that were synced from virtual to host already
+		return types.NamespacedName{}, false
+	}
 	return s.MatchesHostObject(hostName, hostNs)
 }
 
 func parseHostNamespacesFromMappings(mappings map[string]string, vClusterNs string) []string {
 	ret := make([]string, 0)
 	for host := range mappings {
-		if host == "*" {
+		if host == constants.VClusterNamespaceInHostMappingSpecialCharacter {
 			ret = append(ret, vClusterNs)
 		}
 		parts := strings.Split(host, "/")
