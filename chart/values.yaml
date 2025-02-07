@@ -120,7 +120,10 @@ sync:
         #   "foo/my-object": "foo/my-virtual-object"
         # 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
         # mappings:
-        #   "*": "my-virtual-namespace/*"
+        #   "": "my-virtual-namespace/*"
+        # 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+        # mappings:
+        #   "/my-object": "my-virtual-namespace/my-object"
         mappings: {}
     # CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
     csiDrivers:
@@ -169,7 +172,10 @@ sync:
         #   "foo/my-object": "foo/my-virtual-object"
         # 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
         # mappings:
-        #   "*": "my-virtual-namespace/*"
+        #   "": "my-virtual-namespace/*"
+        # 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+        # mappings:
+        #   "/my-object": "my-virtual-namespace/my-object"
         mappings: {}
     # Nodes defines if nodes should get synced from the host cluster to the virtual cluster, but not back.
     nodes:

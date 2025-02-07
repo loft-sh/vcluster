@@ -1,4 +1,4 @@
-ARG KINE_VERSION="v0.13.5"
+ARG KINE_VERSION="v0.13.8"
 FROM rancher/kine:${KINE_VERSION} as kine
 
 # Build program
@@ -9,7 +9,7 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG BUILD_VERSION=dev
 ARG TELEMETRY_PRIVATE_KEY=""
-ARG HELM_VERSION="v3.16.2"
+ARG HELM_VERSION="v3.17.0"
 
 # Install kubectl for development
 RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl && chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl
@@ -57,7 +57,7 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
 ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go", "start"]
 
 # we use alpine for easier debugging
-FROM alpine:3.20
+FROM alpine:3.21
 
 # install runtime dependencies
 RUN apk add --no-cache ca-certificates zstd tzdata

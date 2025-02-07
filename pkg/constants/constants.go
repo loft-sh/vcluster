@@ -7,4 +7,8 @@ const (
 
 	// DefaultVClusterConfigLocation is the default location of the vCluster config within the container
 	DefaultVClusterConfigLocation = "/var/vcluster/config.yaml"
+
+	// VClusterNamespaceInHostMappingSpecialCharacter is an empty string that mean vCluster host namespace
+	// in the config.sync.fromHost.*.selector.mappings
+	VClusterNamespaceInHostMappingSpecialCharacter = ""
 )
