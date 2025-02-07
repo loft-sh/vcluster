@@ -545,3 +545,104 @@ tests:
             resourceNames: [ "my-cm", "my-cm-2" ]
             resources: [ "configmaps" ]
             verbs: [ "get", "list", "watch" ]
+
+  - it: fromHost sync secrets disabled
+    set:
+      sync:
+        fromHost:
+          secrets:
+            enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: fromHost sync secrets enabled with wildcard namespace
+    set:
+      sync:
+        fromHost:
+          secrets:
+            enabled: true
+            selector:
+              mappings:
+                "": "my-ns/*"
+                my-ns/*: "my-ns-2/*"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 2
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resourceNames: ["NAMESPACE", "my-ns"]
+            resources: [ "namespaces" ]
+            verbs: [ "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "secrets" ]
+            verbs: [ "get", "list", "watch" ]
+
+  - it: fromHost sync secrets enabled with wildcard name
+    set:
+      sync:
+        fromHost:
+          secrets:
+            enabled: true
+            selector:
+              mappings:
+                "my-ns/*": "my-ns-4/*"
+                my-ns-2/*: "my-ns-3/*"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 2
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resourceNames: ["my-ns", "my-ns-2"]
+            resources: [ "namespaces" ]
+            verbs: [ "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "secrets" ]
+            verbs: [ "get", "list", "watch" ]
+
+  - it: fromHost sync secrets enabled without wildcards
+    set:
+      sync:
+        fromHost:
+          secrets:
+            enabled: true
+            selector:
+              mappings:
+                "my-ns/my-secret": "my-ns-2/my-secret-2"
+                my-ns-3/my-secret-2: "my-ns-4/my-secret-4"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 2
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resourceNames: [ "my-ns", "my-ns-3" ]
+            resources: [ "namespaces" ]
+            verbs: [ "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resourceNames: [ "my-secret", "my-secret-2" ]
+            resources: [ "secrets" ]
+            verbs: [ "get", "list", "watch" ]
