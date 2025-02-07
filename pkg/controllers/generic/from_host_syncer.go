@@ -69,12 +69,12 @@ func (s *genericFromHostSyncer) Options() *syncertypes.Options {
 }
 
 func (s *genericFromHostSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[client.Object]) (ctrl.Result, error) {
-	klog.FromContext(ctx).Info("SyncToHost called")
+	klog.FromContext(ctx).V(1).Info("SyncToHost called")
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 }
 
 func (s *genericFromHostSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[client.Object]) (_ ctrl.Result, retErr error) {
-	klog.FromContext(ctx).Info("Sync called")
+	klog.FromContext(ctx).V(1).Info("Sync called")
 
 	patchHelper, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(s.GetProPatches(ctx), false))
 	if err != nil {
@@ -97,7 +97,7 @@ func (s *genericFromHostSyncer) Sync(ctx *synccontext.SyncContext, event *syncco
 }
 
 func (s *genericFromHostSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[client.Object]) (ctrl.Result, error) {
-	klog.FromContext(ctx).Info("SyncToVirtual called")
+	klog.FromContext(ctx).V(1).Info("SyncToVirtual called")
 	if event.VirtualOld != nil || event.Host.GetDeletionTimestamp() != nil {
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
