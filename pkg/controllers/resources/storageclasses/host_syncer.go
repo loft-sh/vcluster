@@ -32,6 +32,10 @@ type hostStorageClassSyncer struct {
 	synccontext.Mapper
 }
 
+func (s *hostStorageClassSyncer) UseUncachedPhysicalClient() bool {
+	return false
+}
+
 func (s *hostStorageClassSyncer) Name() string {
 	return "host-storageclass"
 }

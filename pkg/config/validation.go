@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
+	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/constants"
 
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/config"
@@ -109,6 +112,7 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		patchesValidation{basePath: "sync.fromHost.csiStorageCapacities", patches: vConfig.Sync.FromHost.CSIStorageCapacities.Patches},
 		patchesValidation{basePath: "sync.fromHost.events", patches: vConfig.Sync.FromHost.Events.Patches},
 		patchesValidation{basePath: "sync.fromHost.volumeSnapshotClasses", patches: vConfig.Sync.FromHost.VolumeSnapshotClasses.Patches},
+		patchesValidation{basePath: "sync.fromHost.configMaps", patches: vConfig.Sync.FromHost.ConfigMaps.Patches},
 	)
 	if err != nil {
 		return err
@@ -187,6 +191,12 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 
 	// check resolve dns
 	err = validateMappings(vConfig.Networking.ResolveDNS)
+	if err != nil {
+		return err
+	}
+
+	// check sync.fromHost.configMaps.selector.mappings
+	err = validateFromHostSyncMappings(vConfig.Sync.FromHost.ConfigMaps, "configMaps")
 	if err != nil {
 		return err
 	}
@@ -577,6 +587,34 @@ func validateK0sAndNoExperimentalKubeconfig(c *VirtualClusterConfig) error {
 	empty := config.VirtualClusterKubeConfig{}
 	if virtualclusterconfig != empty {
 		return errors.New("config.experimental.VirtualClusterConfig cannot be set for k0s")
+	}
+	return nil
+}
+
+func validateFromHostSyncMappings(s config.EnableSwitchWithResourcesMappings, resourceNamePlural string) error {
+	if !s.Enabled {
+		return nil
+	}
+	if len(s.Selector.Mappings) == 0 {
+		return fmt.Errorf("config.sync.fromHost.%s.mappings are empty", resourceNamePlural)
+	}
+	for key, value := range s.Selector.Mappings {
+		if !strings.Contains(key, "/") && key != constants.VClusterNamespaceInHostMappingSpecialCharacter {
+			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has key in invalid format: %s (expected NAMESPACE_NAME/NAME, NAMESPACE_NAME/*, /NAME or \"\")", resourceNamePlural, key)
+		}
+		if !strings.Contains(value, "/") && key != constants.VClusterNamespaceInHostMappingSpecialCharacter {
+			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has value in invalid format: %s (expected NAMESPACE_NAME/NAME or NAMESPACE_NAME/* or NAMESPACE if key is \"\")", resourceNamePlural, value)
+		}
+		if key == "*" && strings.Contains(value, "/") && !strings.HasSuffix(value, "/*") {
+			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has key \"\" that matches vCluster host namespace but the value is not in NAMESPACE_NAME or NAMESPACE_NAME/* format (value: %s)", resourceNamePlural, value)
+		}
+		if strings.HasSuffix(key, "/*") && !strings.HasSuffix(value, "/*") {
+			return fmt.Errorf(
+				"config.sync.fromHost.%s.selector.mappings has key that matches all objects in the namespace: %s "+
+					"but value does not: %s. Please make sure that value for this key is in the format of NAMESPACE_NAME/*",
+				resourceNamePlural, key, value,
+			)
+		}
 	}
 	return nil
 }

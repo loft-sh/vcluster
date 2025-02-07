@@ -228,6 +228,8 @@ func TestController(t *testing.T) {
 		syncer, err := NewMockSyncer(fakeContext)
 		assert.NilError(t, err)
 
+		assert.Check(t, fakeContext.Config.WorkloadConfig != nil)
+
 		syncController, err := NewSyncController(fakeContext, syncer)
 		assert.NilError(t, err)
 

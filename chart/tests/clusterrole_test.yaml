@@ -445,3 +445,103 @@ tests:
             apiGroups: [ "external-secrets.io" ]
             resources: [ "clustersecretstores" ]
             verbs: ["get", "list", "watch"]
+  - it: fromHost sync configmaps disabled
+    set:
+      sync:
+        fromHost:
+          configMaps:
+            enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: fromHost sync configmaps enabled with wildcard namespace
+    set:
+      sync:
+        fromHost:
+          configMaps:
+            enabled: true
+            selector:
+              mappings:
+                "": "my-ns/*"
+                my-ns/*: "my-ns-2/*"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 2
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resourceNames: ["NAMESPACE", "my-ns"]
+            resources: [ "namespaces" ]
+            verbs: [ "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "configmaps" ]
+            verbs: [ "get", "list", "watch" ]
+
+  - it: fromHost sync configmaps enabled with wildcard name
+    set:
+      sync:
+        fromHost:
+          configMaps:
+            enabled: true
+            selector:
+              mappings:
+                "my-ns/*": "my-ns-4/*"
+                my-ns-2/*: "my-ns-3/*"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 2
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resourceNames: ["my-ns", "my-ns-2"]
+            resources: [ "namespaces" ]
+            verbs: [ "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "configmaps" ]
+            verbs: [ "get", "list", "watch" ]
+
+  - it: fromHost sync configmaps enabled without wildcards
+    set:
+      sync:
+        fromHost:
+          configMaps:
+            enabled: true
+            selector:
+              mappings:
+                "my-ns/my-cm": "my-ns-2/my-cm-2"
+                my-ns-3/my-cm-2: "my-ns-4/my-cm4"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 2
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resourceNames: [ "my-ns", "my-ns-3" ]
+            resources: [ "namespaces" ]
+            verbs: [ "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resourceNames: [ "my-cm", "my-cm-2" ]
+            resources: [ "configmaps" ]
+            verbs: [ "get", "list", "watch" ]

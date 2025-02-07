@@ -3,6 +3,7 @@ package testing
 import (
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"k8s.io/client-go/rest"
 )
 
 const (
@@ -34,5 +35,10 @@ func NewFakeConfig() *config.VirtualClusterConfig {
 		panic(err.Error())
 	}
 
+	// SyncController builder expects non-nil WorkloadConfig
+	vConfig.WorkloadConfig = &rest.Config{
+		Host:    "",
+		APIPath: "",
+	}
 	return vConfig
 }

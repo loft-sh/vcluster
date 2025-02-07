@@ -125,3 +125,129 @@ func mutHook(clientCfg config.ValidatingWebhookClientConfig) config.MutatingWebh
 	}
 	return hook
 }
+
+func TestValidateFromHostSyncMappings(t *testing.T) {
+	noErr := func(t *testing.T, err error) {
+		if err != nil {
+			t.Errorf("expected err to be nil but got %v", err)
+		}
+	}
+	expectErr := func(t *testing.T, err error) {
+		if err == nil {
+			t.Errorf("expected error got nil")
+		}
+	}
+	cases := []struct {
+		name      string
+		cmConfig  config.EnableSwitchWithResourcesMappings
+		expectErr func(t *testing.T, err error)
+	}{
+		{
+			name: "valid config",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"from-host-sync-test/*": "barfoo/*",
+						"default/my-cm":         "barfoo/cm-my",
+					},
+				},
+			},
+			expectErr: noErr,
+		},
+		{
+			name: "valid config 2",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"":              "barfoo/*",
+						"default/my-cm": "barfoo/cm-my",
+					},
+				},
+			},
+			expectErr: noErr,
+		},
+		{
+			name: "valid config 3",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"":              "barfoo",
+						"default/my-cm": "barfoo/cm-my",
+					},
+				},
+			},
+			expectErr: noErr,
+		},
+		{
+			name: "valid config 4",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"/my-cm":        "barfoo/my-cm",
+						"default/my-cm": "barfoo/cm-my",
+					},
+				},
+			},
+			expectErr: noErr,
+		},
+		{
+			name: "valid config 5",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"": "barfoo/",
+					},
+				},
+			},
+			expectErr: noErr,
+		},
+		{
+			name: "invalid config 2",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default": "barfoo/cm-my",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "invalid config 3",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/my-cm": "barfoo",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "invalid config 4",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/my-cm": "barfoo",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateFromHostSyncMappings(tc.cmConfig, "configMaps")
+			tc.expectErr(t, err)
+		})
+	}
+}

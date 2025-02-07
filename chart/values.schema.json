@@ -1125,6 +1125,27 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "EnableSwitchWithResourcesMappings": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "patches": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "Patches patch the resource according to the provided specification."
+        },
+        "selector": {
+          "$ref": "#/$defs/FromHostSelector",
+          "description": "Selector for Namespace and Object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Etcd": {
       "properties": {
         "embedded": {
@@ -1798,6 +1819,19 @@
         "clusterStores": {
           "$ref": "#/$defs/ClusterStoresSyncConfig",
           "description": "ClusterStores defines whether to sync cluster stores or not"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "FromHostSelector": {
+      "properties": {
+        "mappings": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Mappings is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.\nThere are several wildcards supported:\n1. To match all objects in host namespace and sync them to different namespace in vCluster:\nmappings:\n  \"foo/*\": \"foo-in-virtual/*\"\n2. To match specific object in the host namespace and sync it to the same namespace with the same name:\nmappings:\n  \"foo/my-object\": \"foo/my-object\"\n3. To match specific object in the host namespace and sync it to the same namespace with different name:\nmappings:\n  \"foo/my-object\": \"foo/my-virtual-object\"\n4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nmappings:\n  \"\": \"my-virtual-namespace/*\"\n5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nmappings:\n  \"/my-object\": \"my-virtual-namespace/my-object\""
         }
       },
       "additionalProperties": false,
@@ -3145,6 +3179,10 @@
         "volumeSnapshotClasses": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster."
+        },
+        "configMaps": {
+          "$ref": "#/$defs/EnableSwitchWithResourcesMappings",
+          "description": "ConfigMaps defines if config maps in the host should get synced to the virtual cluster."
         }
       },
       "additionalProperties": false,

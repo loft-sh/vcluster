@@ -32,3 +32,12 @@ experimental:
             name: fluent-bit
             namespace: fluent-bit
           timeout: "50s"
+sync:
+  fromHost:
+    configMaps:
+      enabled: true
+      selector:
+        mappings:
+          "from-host-sync-test/*": "barfoo/*"
+          "default/my-cm": "barfoo/cm-my"
+          "": "my-new-ns"

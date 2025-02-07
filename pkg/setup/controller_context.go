@@ -122,6 +122,7 @@ func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 	if len(defaultNamespaces) == 0 {
 		return cache.Options{DefaultNamespaces: nil}
 	}
+
 	return cache.Options{DefaultNamespaces: defaultNamespaces}
 }
 
