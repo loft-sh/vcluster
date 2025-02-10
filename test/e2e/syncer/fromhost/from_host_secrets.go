@@ -13,34 +13,34 @@ import (
 
 var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", ginkgo.Ordered, func() {
 	var (
-		f                   *framework.Framework
-		configMap1          *corev1.Secret
-		configMap2          *corev1.Secret
-		cm1Name             = "dummy"
-		cm1HostNamespace    = "from-host-sync-test-2"
-		cmsVirtualNamespace = "barfoo2"
-		cm2HostNamespace    = "default"
-		cm2HostName         = "my-secret"
-		cm2VirtualName      = "secret-my"
-		podName             = "my-pod"
+		f                       *framework.Framework
+		secret1                 *corev1.Secret
+		secret2                 *corev1.Secret
+		secret1Name             = "dummy"
+		secret1HostNamespace    = "from-host-sync-test-2"
+		secretsVirtualNamespace = "barfoo2"
+		secret2HostNamespace    = "default"
+		secret2HostName         = "my-secret"
+		secret2VirtualName      = "secret-my"
+		podName                 = "my-pod"
 	)
 
 	ginkgo.BeforeAll(func() {
 		f = framework.DefaultFramework
-		configMap1 = &corev1.Secret{
+		secret1 = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cm1Name,
-				Namespace: cm1HostNamespace,
+				Name:      secret1Name,
+				Namespace: secret1HostNamespace,
 			},
 			Data: map[string][]byte{
 				"BOO_BAR":     []byte("hello-world"),
 				"ANOTHER_ENV": []byte("another-hello-world"),
 			},
 		}
-		configMap2 = &corev1.Secret{
+		secret2 = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cm2HostName,
-				Namespace: cm2HostNamespace,
+				Name:      secret2HostName,
+				Namespace: secret2HostNamespace,
 			},
 			Data: map[string][]byte{
 				"ENV_FROM_DEFAULT_NS":         []byte("one"),
@@ -51,42 +51,42 @@ var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", gi
 	})
 
 	ginkgo.AfterAll(func() {
-		framework.ExpectNoError(f.HostClient.CoreV1().Secrets(configMap1.GetNamespace()).Delete(f.Context, configMap1.GetName(), metav1.DeleteOptions{}))
-		framework.ExpectNoError(f.HostClient.CoreV1().Secrets(configMap2.GetNamespace()).Delete(f.Context, configMap2.GetName(), metav1.DeleteOptions{}))
+		framework.ExpectNoError(f.HostClient.CoreV1().Secrets(secret1.GetNamespace()).Delete(f.Context, secret1.GetName(), metav1.DeleteOptions{}))
+		framework.ExpectNoError(f.HostClient.CoreV1().Secrets(secret2.GetNamespace()).Delete(f.Context, secret2.GetName(), metav1.DeleteOptions{}))
 
-		framework.ExpectNoError(f.VClusterClient.CoreV1().Pods(cmsVirtualNamespace).Delete(f.Context, podName, metav1.DeleteOptions{}))
-		// verify whether config maps got deleted from virtual too
-		_, err := f.VClusterClient.CoreV1().Secrets(cmsVirtualNamespace).Get(f.Context, cm1Name, metav1.GetOptions{})
-		framework.ExpectError(err, "expected config map to be deleted")
-		_, err = f.VClusterClient.CoreV1().Secrets(cmsVirtualNamespace).Get(f.Context, cm2VirtualName, metav1.GetOptions{})
-		framework.ExpectError(err, "expected config map to be deleted")
+		framework.ExpectNoError(f.VClusterClient.CoreV1().Pods(secretsVirtualNamespace).Delete(f.Context, podName, metav1.DeleteOptions{}))
+		// verify whether secrets got deleted from virtual too
+		_, err := f.VClusterClient.CoreV1().Secrets(secretsVirtualNamespace).Get(f.Context, secret1Name, metav1.GetOptions{})
+		framework.ExpectError(err, "expected secret to be deleted")
+		_, err = f.VClusterClient.CoreV1().Secrets(secretsVirtualNamespace).Get(f.Context, secret2VirtualName, metav1.GetOptions{})
+		framework.ExpectError(err, "expected secret to be deleted")
 
-		framework.ExpectNoError(f.HostClient.CoreV1().Namespaces().Delete(f.Context, cm1HostNamespace, metav1.DeleteOptions{}))
+		framework.ExpectNoError(f.HostClient.CoreV1().Namespaces().Delete(f.Context, secret1HostNamespace, metav1.DeleteOptions{}))
 	})
 
 	ginkgo.It("create secrets in host", func() {
-		_, err := f.HostClient.CoreV1().Secrets(configMap1.GetNamespace()).Create(f.Context, configMap1, metav1.CreateOptions{})
+		_, err := f.HostClient.CoreV1().Secrets(secret1.GetNamespace()).Create(f.Context, secret1, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
-		_, err = f.HostClient.CoreV1().Secrets(configMap2.GetNamespace()).Create(f.Context, configMap2, metav1.CreateOptions{})
+		_, err = f.HostClient.CoreV1().Secrets(secret2.GetNamespace()).Create(f.Context, secret2, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("update in host secret should get synced to virtual", func() {
-		freshHostConfigMap, err := f.HostClient.CoreV1().Secrets(configMap1.GetNamespace()).Get(f.Context, configMap1.GetName(), metav1.GetOptions{})
+		freshHostSecret, err := f.HostClient.CoreV1().Secrets(secret1.GetNamespace()).Get(f.Context, secret1.GetName(), metav1.GetOptions{})
 		framework.ExpectNoError(err)
-		freshHostConfigMap.Data["UPDATED_ENV"] = []byte("one")
-		if freshHostConfigMap.Labels == nil {
-			freshHostConfigMap.Labels = make(map[string]string, 1)
+		freshHostSecret.Data["UPDATED_ENV"] = []byte("one")
+		if freshHostSecret.Labels == nil {
+			freshHostSecret.Labels = make(map[string]string, 1)
 		}
-		freshHostConfigMap.Labels["updated-label"] = "updated-value"
-		if freshHostConfigMap.Annotations == nil {
-			freshHostConfigMap.Annotations = make(map[string]string, 1)
+		freshHostSecret.Labels["updated-label"] = "updated-value"
+		if freshHostSecret.Annotations == nil {
+			freshHostSecret.Annotations = make(map[string]string, 1)
 		}
-		freshHostConfigMap.Annotations["updated-annotation"] = "updated-value"
-		_, err = f.HostClient.CoreV1().Secrets(freshHostConfigMap.GetNamespace()).Update(f.Context, freshHostConfigMap, metav1.UpdateOptions{})
+		freshHostSecret.Annotations["updated-annotation"] = "updated-value"
+		_, err = f.HostClient.CoreV1().Secrets(freshHostSecret.GetNamespace()).Update(f.Context, freshHostSecret, metav1.UpdateOptions{})
 		framework.ExpectNoError(err)
 		gomega.Eventually(func() bool {
-			updatedCm1, err := f.VClusterClient.CoreV1().Secrets(cmsVirtualNamespace).Get(f.Context, cm1Name, metav1.GetOptions{})
+			updatedCm1, err := f.VClusterClient.CoreV1().Secrets(secretsVirtualNamespace).Get(f.Context, secret1Name, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
@@ -103,7 +103,7 @@ var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", gi
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      podName,
-				Namespace: cmsVirtualNamespace,
+				Namespace: secretsVirtualNamespace,
 			},
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
@@ -116,7 +116,7 @@ var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", gi
 							{
 								SecretRef: &corev1.SecretEnvSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: cm1Name,
+										Name: secret1Name,
 									},
 									Optional: &optional,
 								},
@@ -124,7 +124,7 @@ var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", gi
 							{
 								SecretRef: &corev1.SecretEnvSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: cm2VirtualName,
+										Name: secret2VirtualName,
 									},
 									Optional: &optional,
 								},

@@ -236,7 +236,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 				Enabled: true,
 				Selector: config.FromHostSelector{
 					Mappings: map[string]string{
-						"default/my-cm": "barfoo",
+						"default/*": "barfoo",
 					},
 				},
 			},

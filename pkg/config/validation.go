@@ -614,7 +614,7 @@ func validateFromHostSyncMappings(s config.EnableSwitchWithResourcesMappings, re
 		if !strings.Contains(value, "/") && key != constants.VClusterNamespaceInHostMappingSpecialCharacter {
 			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has value in invalid format: %s (expected NAMESPACE_NAME/NAME or NAMESPACE_NAME/* or NAMESPACE if key is \"\")", resourceNamePlural, value)
 		}
-		if key == "*" && strings.Contains(value, "/") && !strings.HasSuffix(value, "/*") {
+		if strings.Contains(key, "*") && strings.Contains(value, "/") && !strings.HasSuffix(value, "/*") {
 			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has key \"\" that matches vCluster host namespace but the value is not in NAMESPACE_NAME or NAMESPACE_NAME/* format (value: %s)", resourceNamePlural, value)
 		}
 		if strings.HasSuffix(key, "/*") && !strings.HasSuffix(value, "/*") {

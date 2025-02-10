@@ -75,7 +75,7 @@ sync:
     secrets:
       enabled: false
       selector:
-        mappings: { }
+        mappings: {}
     nodes:
       enabled: false
       syncBackChanges: false
