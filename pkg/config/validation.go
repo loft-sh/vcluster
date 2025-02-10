@@ -113,6 +113,7 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		patchesValidation{basePath: "sync.fromHost.events", patches: vConfig.Sync.FromHost.Events.Patches},
 		patchesValidation{basePath: "sync.fromHost.volumeSnapshotClasses", patches: vConfig.Sync.FromHost.VolumeSnapshotClasses.Patches},
 		patchesValidation{basePath: "sync.fromHost.configMaps", patches: vConfig.Sync.FromHost.ConfigMaps.Patches},
+		patchesValidation{basePath: "sync.fromHost.secrets", patches: vConfig.Sync.FromHost.Secrets.Patches},
 	)
 	if err != nil {
 		return err
@@ -624,6 +625,37 @@ func validateFromHostSyncMappings(s config.EnableSwitchWithResourcesMappings, re
 				resourceNamePlural, key, value,
 			)
 		}
+		hostRef := strings.Split(key, "/")
+		virtualRef := strings.Split(value, "/")
+		if key != "" && len(hostRef) > 0 {
+			errs := validation.ValidateNamespaceName(hostRef[0], false)
+			if len(errs) > 0 && hostRef[0] != "" {
+				return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed host namespace is not valid namespace name %s", resourceNamePlural, errs)
+			}
+			if err := validateFromHostSyncMappingObjectName(hostRef, resourceNamePlural); err != nil {
+				return err
+			}
+		}
+		if len(virtualRef) > 0 {
+			errs := validation.ValidateNamespaceName(virtualRef[0], false)
+			if len(errs) > 0 {
+				return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed virtual namespace is not valid namespace name %s", resourceNamePlural, errs)
+			}
+			if err := validateFromHostSyncMappingObjectName(virtualRef, resourceNamePlural); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateFromHostSyncMappingObjectName(objRef []string, resourceNamePlural string) error {
+	var errs []string
+	if len(objRef) == 2 && objRef[1] != "" && objRef[1] != "*" {
+		errs = validation.NameIsDNSLabel(objRef[1], false)
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed object name from key (%s) is not valid name %s", resourceNamePlural, strings.Join(objRef, "/"), errs)
 	}
 	return nil
 }

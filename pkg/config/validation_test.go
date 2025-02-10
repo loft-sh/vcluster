@@ -255,6 +255,90 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			},
 			expectErr: expectErr,
 		},
+		{
+			name: "invalid config 6",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/_not_valid_obj_name": "barfoo/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "invalid config 7",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"_not-Valid_namespace_name/my-cm": "barfoo/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "invalid config 8",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/my-cm": "barfoo/_not_valid_obj_name",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "invalid config 9",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/my-cm": "_not_valid_ns66_name/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "invalid config 10",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"/my-cm": "_not_valid_ns66_name/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "invalid config 11",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"/_not_valid_obj_name": "default/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "invalid config 12",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"": "!66_not_valid_ns/*",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
 	}
 
 	for _, tc := range cases {
