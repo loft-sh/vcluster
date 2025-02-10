@@ -185,7 +185,7 @@ controlPlane:
           image:
             registry: "registry.k8s.io"
             repository: "etcd"
-            tag: "3.5.15-0"
+            tag: "3.5.18-0"
           imagePullPolicy: ""
           extraArgs: []
           env: []
