@@ -164,7 +164,7 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 	}
 
 	// merge values
-	helmValues, err := mergeValues(platformClient, options, log)
+	helmValues, err := mergeValues(platformClient, options)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +263,7 @@ func upgradeWithoutTemplate(ctx context.Context, platformClient platform.Client,
 	}
 
 	// merge values
-	helmValues, err := mergeValues(platformClient, options, log)
+	helmValues, err := mergeValues(platformClient, options)
 	if err != nil {
 		return nil, err
 	}
@@ -584,9 +584,9 @@ func validateTemplateOptions(options *CreateOptions) error {
 	return nil
 }
 
-func mergeValues(platformClient platform.Client, options *CreateOptions, log log.Logger) (string, error) {
+func mergeValues(platformClient platform.Client, options *CreateOptions) (string, error) {
 	// merge values
-	chartOptions, err := toChartOptions(platformClient, options, log)
+	chartOptions, err := toChartOptions(platformClient, options)
 	if err != nil {
 		return "", err
 	}
@@ -647,7 +647,7 @@ func parseString(str string) (map[string]interface{}, error) {
 	return out, nil
 }
 
-func toChartOptions(platformClient platform.Client, options *CreateOptions, log log.Logger) (*vclusterconfig.ExtraValuesOptions, error) {
+func toChartOptions(platformClient platform.Client, options *CreateOptions) (*vclusterconfig.ExtraValuesOptions, error) {
 	if !util.Contains(options.Distro, AllowedDistros) {
 		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", options.Distro, strings.Join(AllowedDistros, ", "))
 	}
