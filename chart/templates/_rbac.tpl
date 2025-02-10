@@ -250,7 +250,10 @@
   verbs: ["get", "list", "watch"]
 - apiGroups: [""]
   resources: [ {{ $kind | quote }} ]
-  verbs: ["get", "list", "watch"]
+  verbs: ["list", "watch"]
+- apiGroups: [""]
+  resources: [ {{ $kind | quote }} ]
+  verbs: ["get"]
 {{- if $addResourceNames }}
   resourceNames: [ {{ join "," $objList }} ]
 {{- end }}

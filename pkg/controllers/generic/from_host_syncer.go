@@ -153,8 +153,7 @@ func (s *genericFromHostSyncer) ModifyController(ctx *synccontext.RegisterContex
 				if kerrors.IsForbidden(err) {
 					klog.FromContext(ctx).Error(err,
 						"trying to watch on a namespace that does not exists / have no permissions. "+
-							"This may likely happen in vCluster Role & RoleBinding got deleted from this namespace. "+
-							"Please either re-create it or remove the namespace from mappings in the vcluster.yaml")
+							"Please either re-create it or remove the namespace from mappings in the vcluster.yaml and restart vCluster.")
 				} else {
 					toolscache.DefaultWatchErrorHandler(r, err)
 				}

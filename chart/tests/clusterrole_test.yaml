@@ -470,7 +470,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 3
       - contains:
           path: rules
           content:
@@ -483,7 +483,13 @@ tests:
           content:
             apiGroups: [ "" ]
             resources: [ "configmaps" ]
-            verbs: [ "get", "list", "watch" ]
+            verbs: [ "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "configmaps" ]
+            verbs: [ "get" ]
 
   - it: fromHost sync configmaps enabled with wildcard name
     set:
@@ -500,7 +506,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 3
       - contains:
           path: rules
           content:
@@ -513,7 +519,13 @@ tests:
           content:
             apiGroups: [ "" ]
             resources: [ "configmaps" ]
-            verbs: [ "get", "list", "watch" ]
+            verbs: [ "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "configmaps" ]
+            verbs: [ "get" ]
 
   - it: fromHost sync configmaps enabled without wildcards
     set:
@@ -530,7 +542,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 3
       - contains:
           path: rules
           content:
@@ -542,9 +554,15 @@ tests:
           path: rules
           content:
             apiGroups: [ "" ]
+            resources: [ "configmaps" ]
+            verbs: [ "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
             resourceNames: [ "my-cm", "my-cm-2" ]
             resources: [ "configmaps" ]
-            verbs: [ "get", "list", "watch" ]
+            verbs: [ "get"]
 
   - it: fromHost sync secrets disabled
     set:
@@ -571,7 +589,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 3
       - contains:
           path: rules
           content:
@@ -584,7 +602,13 @@ tests:
           content:
             apiGroups: [ "" ]
             resources: [ "secrets" ]
-            verbs: [ "get", "list", "watch" ]
+            verbs: [ "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "secrets" ]
+            verbs: [ "get"]
 
   - it: fromHost sync secrets enabled with wildcard name
     set:
@@ -601,7 +625,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 3
       - contains:
           path: rules
           content:
@@ -614,7 +638,13 @@ tests:
           content:
             apiGroups: [ "" ]
             resources: [ "secrets" ]
-            verbs: [ "get", "list", "watch" ]
+            verbs: [ "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "secrets" ]
+            verbs: [ "get" ]
 
   - it: fromHost sync secrets enabled without wildcards
     set:
@@ -631,7 +661,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 3
       - contains:
           path: rules
           content:
@@ -643,6 +673,12 @@ tests:
           path: rules
           content:
             apiGroups: [ "" ]
+            resources: [ "secrets" ]
+            verbs: [ "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
             resourceNames: [ "my-secret", "my-secret-2" ]
             resources: [ "secrets" ]
-            verbs: [ "get", "list", "watch" ]
+            verbs: [ "get" ]
