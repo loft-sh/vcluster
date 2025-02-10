@@ -494,6 +494,11 @@ func (r *SyncController) Build(ctx *synccontext.RegisterContext) (controller.Con
 
 func (r *SyncController) Register(ctx *synccontext.RegisterContext) error {
 	if r.objectCache != nil {
+		if r.options.UsesCustomPhysicalCache {
+			r.objectCache.SetPhysicalClient(r.unCachedPhysicalClient)
+		} else {
+			r.objectCache.SetPhysicalClient(r.physicalClient)
+		}
 		err := r.objectCache.Start(ctx)
 		if err != nil {
 			return fmt.Errorf("start object cache: %w", err)

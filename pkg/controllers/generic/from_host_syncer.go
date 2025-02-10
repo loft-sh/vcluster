@@ -138,6 +138,8 @@ var _ syncertypes.Syncer = &genericFromHostSyncer{}
 
 var _ syncertypes.OptionsProvider = &genericFromHostSyncer{}
 
+var _ syncertypes.ControllerModifier = &genericFromHostSyncer{}
+
 func (s *genericFromHostSyncer) ModifyController(ctx *synccontext.RegisterContext, b *builder.Builder) (*builder.Builder, error) {
 	// the default cache is configured to look at only the target namespaces, create an event source from
 	// a cache that watches all namespaces
