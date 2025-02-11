@@ -237,33 +237,21 @@ func (s *genericFromHostSyncer) checkExperimentalDeployConfig(ctx *synccontext.R
 		return nil
 	}
 	virtualConfigMapsToSkip := make(map[string]bool)
-	if strings.Contains(deploy.VCluster.Manifests, "---") {
-		for _, manifest := range strings.Split(deploy.VCluster.Manifests, "---") {
-			configMapKey, found := s.processManifest(manifest)
-			if found {
-				virtualConfigMapsToSkip[configMapKey] = true
-			}
-		}
-	} else {
-		configMapKey, found := s.processManifest(deploy.VCluster.Manifests)
+
+	for _, manifest := range strings.Split(deploy.VCluster.Manifests, "---") {
+		configMapKey, found := s.processManifest(manifest)
 		if found {
 			virtualConfigMapsToSkip[configMapKey] = true
 		}
 	}
 
-	if strings.Contains(deploy.VCluster.ManifestsTemplate, "---") {
-		for _, manifest := range strings.Split(deploy.VCluster.ManifestsTemplate, "---") {
-			configMapKey, found := s.processTemplate(manifest, &ctx.Config.Config, ctx.Config.Name, ctx.Config.WorkloadTargetNamespace)
-			if found {
-				virtualConfigMapsToSkip[configMapKey] = true
-			}
-		}
-	} else {
-		configMapKey, found := s.processTemplate(deploy.VCluster.ManifestsTemplate, &ctx.Config.Config, ctx.Config.Name, ctx.Config.WorkloadTargetNamespace)
+	for _, manifest := range strings.Split(deploy.VCluster.ManifestsTemplate, "---") {
+		configMapKey, found := s.processTemplate(manifest, &ctx.Config.Config, ctx.Config.Name, ctx.Config.WorkloadTargetNamespace)
 		if found {
 			virtualConfigMapsToSkip[configMapKey] = true
 		}
 	}
+
 	return virtualConfigMapsToSkip
 }
 

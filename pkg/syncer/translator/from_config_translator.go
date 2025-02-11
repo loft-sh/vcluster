@@ -28,9 +28,8 @@ type fromHostTranslate struct {
 // and returns true if object should be skipped in the from host sync.
 type ShouldSkipHostObjectFunc func(hostName, hostNamespace string) bool
 
-func NewFromHostTranslatorForGVK(ctx *synccontext.RegisterContext, gvk schema.GroupVersionKind, mappings map[string]string, skipFuncs ...ShouldSkipHostObjectFunc) (syncer.FromConfigTranslator, error) {
-	hostToVirtual := mappings
-	virtualToHost := make(map[string]string, len(mappings))
+func NewFromHostTranslatorForGVK(ctx *synccontext.RegisterContext, gvk schema.GroupVersionKind, hostToVirtual map[string]string, skipFuncs ...ShouldSkipHostObjectFunc) (syncer.FromConfigTranslator, error) {
+	virtualToHost := make(map[string]string, len(hostToVirtual))
 	for host, virtual := range hostToVirtual {
 		virtualToHost[virtual] = host
 	}
@@ -112,10 +111,8 @@ func matchesHostObject(hostName, hostNamespace string, resourceMappings map[stri
 
 	// first, let's try matching by namespace/name
 	if virtual, ok := resourceMappings[key]; ok {
-		virtualParts := strings.Split(virtual, "/")
-		if len(virtualParts) == 2 {
-			ns := virtualParts[0]
-			name := virtualParts[1]
+		ns, name, found := strings.Cut(virtual, "/")
+		if found && name != "" {
 			if name == "*" {
 				name = hostName
 			}
@@ -125,9 +122,8 @@ func matchesHostObject(hostName, hostNamespace string, resourceMappings map[stri
 
 	// second, by namespace/*
 	if virtual, ok := resourceMappings[matchesAllKeyInNamespaceKey]; ok {
-		virtualParts := strings.Split(virtual, "/")
-		if len(virtualParts) == 2 {
-			ns := virtualParts[0]
+		ns, _, found := strings.Cut(virtual, "/")
+		if found {
 			return types.NamespacedName{Namespace: ns, Name: hostName}, true
 		}
 	}
@@ -135,9 +131,9 @@ func matchesHostObject(hostName, hostNamespace string, resourceMappings map[stri
 	// last chance, if user specified "": <namespace>/*
 	if virtual, ok := resourceMappings[constants.VClusterNamespaceInHostMappingSpecialCharacter]; ok {
 		if vClusterHostNamespace == hostNamespace {
-			virtualParts := strings.Split(virtual, "/")
-			if len(virtualParts) == 2 {
-				return types.NamespacedName{Namespace: virtualParts[0], Name: hostName}, true
+			ns, name, found := strings.Cut(virtual, "/")
+			if found && name != "" {
+				return types.NamespacedName{Namespace: ns, Name: hostName}, true
 			} else if !strings.Contains(virtual, "/") {
 				// then the mapping is "": "virtual-namespace" where "" means vCluster host namespace
 				// in this case, we want to return virtual-namespace/hostName
@@ -157,17 +153,17 @@ func matchesVirtualObject(virtualNs, virtualName string, virtualToHost map[strin
 		if host == "*" {
 			return types.NamespacedName{Namespace: vClusterHostNamespace, Name: virtualName}, false
 		}
-		hostParts := strings.Split(host, "/")
-		if len(hostParts) == 2 {
-			return types.NamespacedName{Namespace: hostParts[0], Name: hostParts[1]}, true
+		ns, name, found := strings.Cut(host, "/")
+		if found && name != "" {
+			return types.NamespacedName{Namespace: ns, Name: name}, true
 		}
 	}
 
 	// check if object's namespace is listed
 	if host, ok := virtualToHost[virtualAllInNamespaceKey]; ok {
-		hostParts := strings.Split(host, "/")
-		if len(hostParts) == 2 {
-			return types.NamespacedName{Namespace: hostParts[0], Name: virtualName}, true
+		ns, _, found := strings.Cut(host, "/")
+		if found {
+			return types.NamespacedName{Namespace: ns, Name: virtualName}, true
 		}
 	}
 
