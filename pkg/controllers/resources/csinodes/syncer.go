@@ -2,7 +2,6 @@ package csinodes
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -98,21 +97,23 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	event.Virtual.Annotations = event.Host.Annotations
 	event.Virtual.Labels = event.Host.Labels
 	event.Host.Spec.DeepCopyInto(&event.Virtual.Spec)
+
+	// Set the marker of managed-by vcluster so that
+	// we skip deleting the nodes which are not managed
+	// by vcluster in `SyncToHost` function
 	if len(event.Virtual.Labels) == 0 {
 		event.Virtual.Labels = map[string]string{}
 	}
-	event.Virtual.Labels[translate.ManagedCSINodeLabel] = "true"
+	event.Virtual.Labels[translate.MarkerLabel] = translate.MarkerLabelValue
+
 	return ctrl.Result{}, nil
 }
 
 func (s *csinodeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.CSINode]) (ctrl.Result, error) {
 	if event.HostOld == nil {
-		ManagedCSINodeLabelsExists := event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.ManagedCSINodeLabel] != ""
-		if !ManagedCSINodeLabelsExists {
-			// Delaying the deletion
-			if time.Since(event.Virtual.CreationTimestamp.Time) < 30*time.Second {
-				return ctrl.Result{RequeueAfter: time.Second * 2}, nil
-			}
+		ManagedByLabelDoesNotExist := event.Virtual.GetLabels() == nil || (event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.MarkerLabel] != translate.MarkerLabelValue)
+		if ManagedByLabelDoesNotExist {
+			return ctrl.Result{}, nil
 		}
 	}
 	ctx.Log.Infof("delete virtual CSINode %s, because physical object is missing", event.Virtual.Name)

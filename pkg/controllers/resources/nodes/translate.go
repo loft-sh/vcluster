@@ -110,6 +110,11 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		annotations["cluster-autoscaler.kubernetes.io/scale-down-disabled"] = "true"
 	}
 
+	// Set the marker of managed-by vcluster so that
+	// we skip deleting the nodes which are not managed
+	// by vcluster in `SyncToHost` function
+	labels[translate.MarkerLabel] = translate.MarkerLabelValue
+
 	// set annotations, spec & labels
 	vNode.Spec = *translatedSpec
 	vNode.Annotations = annotations
