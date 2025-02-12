@@ -75,7 +75,7 @@ var _ = ginkgo.Describe("plugin", func() {
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test123",
-				Namespace: f.VclusterNamespace,
+				Namespace: f.VClusterNamespace,
 				Annotations: map[string]string{
 					"vcluster.loft.sh/import": "test/test",
 				},

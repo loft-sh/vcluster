@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/loft-sh/log/logr/zapr"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -21,21 +23,23 @@ import (
 	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/file"
+	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
 	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/grpclog"
 	"k8s.io/klog/v2"
 )
 
 type Storage interface {
 	Target() string
-	PutObject(body io.Reader) error
-	GetObject() (io.ReadCloser, error)
+	PutObject(ctx context.Context, body io.Reader) error
+	GetObject(ctx context.Context) (io.ReadCloser, error)
 }
 
 type SnapshotOptions struct {
-	S3   s3.Options
-	File file.Options
+	Snapshot snapshot.Options
 
 	Compress bool
 	Storage  string
@@ -49,15 +53,14 @@ func NewSnapshotCommand() *cobra.Command {
 	if err != nil {
 		klog.Warningf("Error parsing environment variables: %v", err)
 	} else {
-		options.S3 = envOptions.S3
-		options.File = envOptions.File
+		options.Snapshot = *envOptions
 	}
 
 	cmd := &cobra.Command{
 		Use:   "snapshot",
 		Short: "snapshot a vCluster",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return options.Run(cmd.Context())
 		},
 	}
@@ -68,8 +71,7 @@ func NewSnapshotCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&options.Compress, "compress", false, "If the snapshot should be compressed")
 
 	// add storage flags
-	file.AddFileFlags(cmd.Flags(), &options.File)
-	s3.AddS3Flags(cmd.Flags(), &options.S3)
+	snapshot.AddFlags(cmd.Flags(), &options.Snapshot)
 	return cmd
 }
 
@@ -81,7 +83,7 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	}
 
 	// make sure to validate options
-	err = validateOptions(vConfig, o.Storage, &o.S3, &o.File)
+	err = validateOptions(vConfig, o.Storage, &o.Snapshot)
 	if err != nil {
 		return err
 	}
@@ -93,7 +95,7 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	}
 
 	// create store
-	objectStore, err := createStore(ctx, o.Storage, &o.S3, &o.File)
+	objectStore, err := createStore(ctx, o.Storage, &o.Snapshot)
 	if err != nil {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
@@ -119,7 +121,7 @@ func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Cli
 	defer writer.Close()
 	go func() {
 		defer reader.Close()
-		errChan <- objectStore.PutObject(reader)
+		errChan <- objectStore.PutObject(ctx, reader)
 	}()
 
 	// start listing the keys
@@ -127,7 +129,7 @@ func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Cli
 
 	// optionally compress
 	gzipWriter := io.WriteCloser(writer)
-	if o.Compress {
+	if o.Compress || o.Storage == "oci" {
 		gzipWriter = gzip.NewWriter(writer)
 		defer gzipWriter.Close()
 	}
@@ -179,21 +181,11 @@ func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Cli
 	}
 }
 
-func validateOptions(vConfig *config.VirtualClusterConfig, storage string, s3Options *s3.Options, fileOptions *file.Options) error {
+func validateOptions(vConfig *config.VirtualClusterConfig, storage string, options *snapshot.Options) error {
 	// storage needs to be either s3 or file
-	if storage == "s3" {
-		if s3Options.Key == "" {
-			return fmt.Errorf("--s3-key must be specified")
-		}
-		if s3Options.Bucket == "" {
-			return fmt.Errorf("--s3-bucket must be specified")
-		}
-	} else if storage == "file" {
-		if fileOptions.Path == "" {
-			return fmt.Errorf("--file-path must be specified")
-		}
-	} else {
-		return fmt.Errorf("--storage must be either 's3' or 'file'")
+	err := snapshot.Validate(storage, options)
+	if err != nil {
+		return err
 	}
 
 	// only support k3s and k8s distro
@@ -225,6 +217,11 @@ func newEtcdClient(ctx context.Context, vConfig *config.VirtualClusterConfig, st
 				return nil, fmt.Errorf("start external database backing store: %w", err)
 			}
 		}
+	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeExternalEtcd {
+		_, err := generateCertificates(ctx, vConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get certificates: %w", err)
+		}
 	}
 
 	// create the etcd client
@@ -241,7 +238,10 @@ func isEtcdReachable(ctx context.Context, endpoint string, certificates *etcd.Ce
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	etcdClient, err := etcd.GetEtcdClient(ctx, certificates, endpoint)
+	zapLog := zap.NewNop()
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
+	ctx = logr.NewContext(ctx, zapr.NewLoggerWithOptions(zapLog))
+	etcdClient, err := etcd.GetEtcdClient(ctx, zapLog, certificates, endpoint)
 	if err == nil {
 		defer func() {
 			_ = etcdClient.Close()
@@ -297,34 +297,10 @@ func startEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClust
 
 	// embedded etcd
 	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
-		var err error
 		klog.FromContext(ctx).Info("Starting embedded etcd...")
-
-		// init the clients
-		vConfig.ControlPlaneConfig, vConfig.ControlPlaneNamespace, vConfig.ControlPlaneService, vConfig.WorkloadConfig, vConfig.WorkloadNamespace, vConfig.WorkloadService, err = pro.GetRemoteClient(vConfig)
+		certificatesDir, err := generateCertificates(ctx, vConfig)
 		if err != nil {
-			return err
-		}
-		err = setup.InitClients(vConfig)
-		if err != nil {
-			return err
-		}
-
-		// retrieve service cidr
-		serviceCIDR := vConfig.ServiceCIDR
-		if serviceCIDR == "" {
-			var warning string
-			serviceCIDR, warning = servicecidr.GetServiceCIDR(ctx, vConfig.WorkloadClient, vConfig.WorkloadNamespace)
-			if warning != "" {
-				klog.Warning(warning)
-			}
-		}
-
-		// generate etcd certificates
-		certificatesDir := "/data/pki"
-		err = setup.GenerateCerts(ctx, vConfig.ControlPlaneClient, vConfig.Name, vConfig.ControlPlaneNamespace, serviceCIDR, certificatesDir, vConfig)
-		if err != nil {
-			return err
+			return fmt.Errorf("failed to get certificates: %w", err)
 		}
 
 		// we need to run this with the parent ctx as otherwise this context
@@ -346,17 +322,52 @@ func startEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClust
 	return nil
 }
 
-func createStore(ctx context.Context, storage string, s3Options *s3.Options, fileOptions *file.Options) (Storage, error) {
+func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterConfig) (string, error) {
+	var err error
+
+	// init the clients
+	vConfig.ControlPlaneConfig, vConfig.ControlPlaneNamespace, vConfig.ControlPlaneService, vConfig.WorkloadConfig, vConfig.WorkloadNamespace, vConfig.WorkloadService, err = pro.GetRemoteClient(vConfig)
+	if err != nil {
+		return "", err
+	}
+	err = setup.InitClients(vConfig)
+	if err != nil {
+		return "", err
+	}
+
+	// retrieve service cidr
+	serviceCIDR := vConfig.ServiceCIDR
+	if serviceCIDR == "" {
+		var warning string
+		serviceCIDR, warning = servicecidr.GetServiceCIDR(ctx, vConfig.WorkloadClient, vConfig.WorkloadNamespace)
+		if warning != "" {
+			klog.Warning(warning)
+		}
+	}
+
+	// generate etcd certificates
+	certificatesDir := "/data/pki"
+	err = setup.GenerateCerts(ctx, vConfig.ControlPlaneClient, vConfig.Name, vConfig.ControlPlaneNamespace, serviceCIDR, certificatesDir, vConfig)
+	if err != nil {
+		return "", err
+	}
+
+	return certificatesDir, nil
+}
+
+func createStore(ctx context.Context, storage string, options *snapshot.Options) (Storage, error) {
 	if storage == "s3" {
-		objectStore := s3.NewObjectStore(klog.FromContext(ctx))
-		err := objectStore.Init(s3Options)
+		objectStore := s3.NewStore(klog.FromContext(ctx))
+		err := objectStore.Init(&options.S3)
 		if err != nil {
 			return nil, fmt.Errorf("failed to init s3 object store: %w", err)
 		}
 
 		return objectStore, nil
 	} else if storage == "file" {
-		return file.NewFileStore(fileOptions), nil
+		return file.NewStore(&options.File), nil
+	} else if storage == "oci" {
+		return oci.NewStore(&options.OCI), nil
 	}
 
 	return nil, fmt.Errorf("unknown storage: %s", storage)

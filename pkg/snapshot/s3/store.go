@@ -24,7 +24,6 @@ import (
 	"io"
 	"os"
 	"slices"
-	"sort"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
@@ -38,26 +37,26 @@ import (
 )
 
 type Options struct {
-	Region    string `json:"s3-region"`
-	Bucket    string `json:"s3-bucket"`
-	Key       string `json:"s3-key"`
-	Profile   string `json:"s3-profile"`
-	S3URL     string `json:"s3-url"`
-	PublicURL string `json:"s3-public-url"`
-	KmsKeyID  string `json:"s3-kms-key-id"`
-	Tagging   string `json:"s3-tagging"`
+	Region    string `json:"region"`
+	Bucket    string `json:"bucket"`
+	Key       string `json:"key"`
+	Profile   string `json:"profile"`
+	S3URL     string `json:"url"`
+	PublicURL string `json:"public-url"`
+	KmsKeyID  string `json:"kms-key-id"`
+	Tagging   string `json:"tagging"`
 
-	S3ForcePathStyle      bool `json:"s3-force-path-style"`
-	InsecureSkipTLSVerify bool `json:"s3-insecure-skip-tls-verify"`
+	S3ForcePathStyle      bool `json:"force-path-style"`
+	InsecureSkipTLSVerify bool `json:"insecure-skip-tls-verify"`
 
-	CustomerKeyEncryptionFile string `json:"s3-custom-key-encryption-file"`
-	CredentialsFile           string `json:"s3-credentials-file"`
-	ServerSideEncryption      string `json:"s3-server-side-encryption"`
-	CaCert                    string `json:"s3-ca-cert"`
-	ChecksumAlgorithm         string `json:"s3-checksum-algorithm"`
+	CustomerKeyEncryptionFile string `json:"custom-key-encryption-file"`
+	CredentialsFile           string `json:"credentials-file"`
+	ServerSideEncryption      string `json:"server-side-encryption"`
+	CaCert                    string `json:"ca-cert"`
+	ChecksumAlgorithm         string `json:"checksum-algorithm"`
 }
 
-func AddS3Flags(fs *pflag.FlagSet, s3Options *Options) {
+func AddFlags(fs *pflag.FlagSet, s3Options *Options) {
 	fs.StringVar(&s3Options.Region, "s3-region", s3Options.Region, "The s3 region to use")
 	fs.StringVar(&s3Options.Key, "s3-key", s3Options.Key, "The key where to save the snapshot in the bucket")
 	fs.StringVar(&s3Options.Bucket, "s3-bucket", s3Options.Bucket, "The s3 bucket to use")
@@ -96,13 +95,12 @@ type ObjectStore struct {
 	kmsKeyID             string
 	sseCustomerKey       string
 	sseCustomerKeyMd5    string
-	signatureVersion     string
 	serverSideEncryption string
 	tagging              string
 	checksumAlg          string
 }
 
-func NewObjectStore(logger logr.Logger) *ObjectStore {
+func NewStore(logger logr.Logger) *ObjectStore {
 	return &ObjectStore{log: logger}
 }
 
@@ -219,7 +217,7 @@ func (o *ObjectStore) Target() string {
 	return "s3://" + o.bucket + "/" + o.key
 }
 
-func (o *ObjectStore) PutObject(body io.Reader) error {
+func (o *ObjectStore) PutObject(ctx context.Context, body io.Reader) error {
 	input := &s3.PutObjectInput{
 		Bucket:  aws.String(o.bucket),
 		Key:     aws.String(o.key),
@@ -247,44 +245,11 @@ func (o *ObjectStore) PutObject(body io.Reader) error {
 		input.ChecksumAlgorithm = types.ChecksumAlgorithm(o.checksumAlg)
 	}
 
-	_, err := o.s3Uploader.Upload(context.Background(), input)
-
+	_, err := o.s3Uploader.Upload(ctx, input)
 	return errors.Wrapf(err, "error putting object %s", o.key)
 }
 
-// ObjectExists checks if there is an object with the given key in the object storage bucket.
-func (o *ObjectStore) ObjectExists() (bool, error) {
-	log := o.log.WithValues("bucket", o.bucket, "key", o.key)
-	input := &s3.HeadObjectInput{
-		Bucket: aws.String(o.bucket),
-		Key:    aws.String(o.key),
-	}
-
-	if o.sseCustomerKey != "" {
-		input.SSECustomerAlgorithm = aws.String("AES256")
-		input.SSECustomerKey = &o.sseCustomerKey
-		input.SSECustomerKeyMD5 = &o.sseCustomerKeyMd5
-	}
-
-	log.V(1).Info("Checking if object exists")
-	if _, err := o.s3.HeadObject(context.Background(), input); err != nil {
-		log.V(1).Info("Checking for AWS specific error information")
-		var ne *types.NotFound
-		if errors.As(err, &ne) {
-			log.WithValues(
-				"code", ne.ErrorCode(),
-				"message", ne.ErrorMessage(),
-			).V(1).Info("Object doesn't exist - got not found")
-			return false, nil
-		}
-		return false, errors.WithStack(err)
-	}
-
-	log.V(1).Info("Object exists")
-	return true, nil
-}
-
-func (o *ObjectStore) GetObject() (io.ReadCloser, error) {
+func (o *ObjectStore) GetObject(ctx context.Context) (io.ReadCloser, error) {
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(o.bucket),
 		Key:    aws.String(o.key),
@@ -296,66 +261,10 @@ func (o *ObjectStore) GetObject() (io.ReadCloser, error) {
 		input.SSECustomerKeyMD5 = &o.sseCustomerKeyMd5
 	}
 
-	output, err := o.s3.GetObject(context.Background(), input)
+	output, err := o.s3.GetObject(ctx, input)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting object %s", o.key)
 	}
 
 	return output.Body, nil
-}
-
-func (o *ObjectStore) ListCommonPrefixes(bucket, prefix, delimiter string) ([]string, error) {
-	input := &s3.ListObjectsV2Input{
-		Bucket:    aws.String(bucket),
-		Prefix:    aws.String(prefix),
-		Delimiter: aws.String(delimiter),
-	}
-	var ret []string
-	p := s3.NewListObjectsV2Paginator(o.s3, input)
-	for p.HasMorePages() {
-		page, err := p.NextPage(context.Background())
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-		for _, prefix := range page.CommonPrefixes {
-			ret = append(ret, *prefix.Prefix)
-		}
-	}
-	return ret, nil
-}
-
-func (o *ObjectStore) ListObjects(bucket, prefix string) ([]string, error) {
-	input := &s3.ListObjectsV2Input{
-		Bucket: aws.String(bucket),
-		Prefix: aws.String(prefix),
-	}
-
-	var ret []string
-	p := s3.NewListObjectsV2Paginator(o.s3, input)
-	for p.HasMorePages() {
-		page, err := p.NextPage(context.Background())
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-		for _, obj := range page.Contents {
-			ret = append(ret, *obj.Key)
-		}
-	}
-	// ensure that returned objects are in a consistent order so that the deletion logic deletes the objects before
-	// the pseudo-folder prefix object for s3 providers (such as Quobyte) that return the pseudo-folder as an object.
-	// See https://github.com/vmware-tanzu/velero/pull/999
-	sort.Sort(sort.Reverse(sort.StringSlice(ret)))
-
-	return ret, nil
-}
-
-func (o *ObjectStore) DeleteObject(bucket, key string) error {
-	input := &s3.DeleteObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-	}
-
-	_, err := o.s3.DeleteObject(context.Background(), input)
-
-	return errors.Wrapf(err, "error deleting object %s", key)
 }

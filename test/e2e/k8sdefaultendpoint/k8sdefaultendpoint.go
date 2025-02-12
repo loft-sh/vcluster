@@ -27,7 +27,7 @@ var _ = ginkgo.Describe("map default/kubernetes endpoint to physical vcluster en
 		ctx := f.Context
 
 		waitErr := wait.PollUntilContextTimeout(ctx, time.Millisecond*500, framework.PollTimeout*2, true, func(ctx context.Context) (done bool, err error) {
-			hostClusterEndpoint, err := f.HostClient.CoreV1().Endpoints(f.VclusterNamespace).Get(ctx, "vcluster", v1.GetOptions{})
+			hostClusterEndpoint, err := f.HostClient.CoreV1().Endpoints(f.VClusterNamespace).Get(ctx, "vcluster", v1.GetOptions{})
 			if err != nil {
 				return false, err
 			}

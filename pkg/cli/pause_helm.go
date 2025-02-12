@@ -50,7 +50,7 @@ func PauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, vClust
 		return err
 	}
 
-	err = lifecycle.DeletePods(ctx, kubeClient, "vcluster.loft.sh/managed-by="+vCluster.Name, vCluster.Namespace, log)
+	err = lifecycle.DeletePods(ctx, kubeClient, "vcluster.loft.sh/managed-by="+vCluster.Name, vCluster.Namespace)
 	if err != nil {
 		return fmt.Errorf("delete vcluster workloads: %w", err)
 	}

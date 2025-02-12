@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 )
 
 type Value struct {
@@ -96,7 +97,7 @@ func New(ctx context.Context, certificates *Certificates, endpoints ...string) (
 		return nil, err
 	}
 
-	etcdClient, err := GetEtcdClient(ctx, certificates, endpoints...)
+	etcdClient, err := GetEtcdClient(ctx, zap.L().Named("etcd-client"), certificates, endpoints...)
 	if err != nil {
 		return nil, err
 	}
