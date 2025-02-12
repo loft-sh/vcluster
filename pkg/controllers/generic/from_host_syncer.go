@@ -104,14 +104,9 @@ func (s *genericFromHostSyncer) SyncToVirtual(ctx *synccontext.SyncContext, even
 
 	vObj := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.GetName(), Namespace: event.Host.GetNamespace()}, event.Host))
 
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, s.GetProPatches(ctx), false)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// make sure namespace exists
 	namespace := &corev1.Namespace{}
-	err = ctx.VirtualClient.Get(ctx, client.ObjectKey{Name: vObj.GetNamespace()}, namespace)
+	err := ctx.VirtualClient.Get(ctx, client.ObjectKey{Name: vObj.GetNamespace()}, namespace)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true},
@@ -121,11 +116,15 @@ func (s *genericFromHostSyncer) SyncToVirtual(ctx *synccontext.SyncContext, even
 					},
 				)
 		}
-
 		return ctrl.Result{}, err
 	} else if namespace.DeletionTimestamp != nil {
 		// cannot create events in terminating namespaces, requeue to re-create namespaces later
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, s.GetProPatches(ctx), false)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return patcher.CreateVirtualObject(ctx, event.Host, vObj, s.EventRecorder(), false)

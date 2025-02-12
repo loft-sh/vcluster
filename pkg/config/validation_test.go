@@ -207,7 +207,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: noErr,
 		},
 		{
-			name: "invalid config 2",
+			name: "(invalid) host namespace mapped to object",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -219,7 +219,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 3",
+			name: "(invalid) host object mapped to namespace",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -231,7 +231,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 4",
+			name: "(invalid) wildcard used in host but not in virtual",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -243,7 +243,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 5",
+			name: "(invalid) '*' is not valid key",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -256,7 +256,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 6",
+			name: "(invalid) host object name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -268,7 +268,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 7",
+			name: "(invalid) host namespace name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -280,7 +280,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 8",
+			name: "(invalid) virtual object name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -292,7 +292,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 9",
+			name: "(invalid) map from host object, but virtual namespace name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -304,7 +304,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 10",
+			name: "(invalid) map from host vcluster namespace, but virtual namespace name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -316,7 +316,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 11",
+			name: "(invalid) host name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -328,7 +328,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 12",
+			name: "(invalid) virtual namespace name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
