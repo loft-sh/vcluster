@@ -2,6 +2,7 @@ package csinodes
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -97,10 +98,23 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	event.Virtual.Annotations = event.Host.Annotations
 	event.Virtual.Labels = event.Host.Labels
 	event.Host.Spec.DeepCopyInto(&event.Virtual.Spec)
+	if len(event.Virtual.Labels) == 0 {
+		event.Virtual.Labels = map[string]string{}
+	}
+	event.Virtual.Labels[translate.ManagedCSINodeLabel] = "true"
 	return ctrl.Result{}, nil
 }
 
 func (s *csinodeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.CSINode]) (ctrl.Result, error) {
+	if event.HostOld == nil {
+		ManagedCSINodeLabelsExists := event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.ManagedCSINodeLabel] != ""
+		if !ManagedCSINodeLabelsExists {
+			// Delaying the deletion
+			if time.Since(event.Virtual.CreationTimestamp.Time) < 30*time.Second {
+				return ctrl.Result{RequeueAfter: time.Second * 2}, nil
+			}
+		}
+	}
 	ctx.Log.Infof("delete virtual CSINode %s, because physical object is missing", event.Virtual.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 }

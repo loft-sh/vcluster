@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -32,6 +33,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
+
+// Default grace period in seconds
+var minimumGracePeriodInSeconds int64 = 30
 
 func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice.Provider) (syncertypes.Object, error) {
 	var nodeSelector labels.Selector
@@ -272,6 +276,16 @@ func registerIndices(ctx *synccontext.RegisterContext) error {
 }
 
 func (s *nodeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Node]) (ctrl.Result, error) {
+	if event.HostOld == nil {
+		fakeNodeLabelExists := event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.ManagedFakeNodeLabel] != ""
+		ManagedLabelsAnnotationExists := event.Virtual.GetAnnotations() != nil && event.Virtual.GetAnnotations()[translate.ManagedLabelsAnnotation] != ""
+		if !fakeNodeLabelExists && !ManagedLabelsAnnotationExists {
+			// Delaying the deletion
+			if time.Since(event.Virtual.CreationTimestamp.Time) < 30*time.Second {
+				return ctrl.Result{RequeueAfter: time.Second * 2}, nil
+			}
+		}
+	}
 	ctx.Log.Infof("delete virtual node %s, because it is not needed anymore", event.Virtual.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 }

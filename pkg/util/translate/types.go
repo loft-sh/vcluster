@@ -29,6 +29,8 @@ var (
 
 	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
 	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"
+	ManagedFakeNodeLabel         = "vcluster.loft.sh/fake-node"
+	ManagedCSINodeLabel          = "vcluster.loft.sh/csi-node"
 )
 
 var Default Translator = &singleNamespace{}
