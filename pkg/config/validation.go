@@ -113,7 +113,6 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		patchesValidation{basePath: "sync.fromHost.events", patches: vConfig.Sync.FromHost.Events.Patches},
 		patchesValidation{basePath: "sync.fromHost.volumeSnapshotClasses", patches: vConfig.Sync.FromHost.VolumeSnapshotClasses.Patches},
 		patchesValidation{basePath: "sync.fromHost.configMaps", patches: vConfig.Sync.FromHost.ConfigMaps.Patches},
-		patchesValidation{basePath: "sync.fromHost.secrets", patches: vConfig.Sync.FromHost.Secrets.Patches},
 	)
 	if err != nil {
 		return err
@@ -198,12 +197,6 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 
 	// check sync.fromHost.configMaps.selector.mappings
 	err = validateFromHostSyncMappings(vConfig.Sync.FromHost.ConfigMaps, "configMaps")
-	if err != nil {
-		return err
-	}
-
-	// check sync.fromHost.secret.selector.mappings
-	err = validateFromHostSyncMappings(vConfig.Sync.FromHost.Secrets, "secrets")
 	if err != nil {
 		return err
 	}
@@ -612,7 +605,7 @@ func validateFromHostSyncMappings(s config.EnableSwitchWithResourcesMappings, re
 		if !strings.Contains(value, "/") && key != constants.VClusterNamespaceInHostMappingSpecialCharacter {
 			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has value in invalid format: %s (expected NAMESPACE_NAME/NAME or NAMESPACE_NAME/* or NAMESPACE if key is \"\")", resourceNamePlural, value)
 		}
-		if strings.Contains(key, "*") && strings.Contains(value, "/") && !strings.HasSuffix(value, "/*") {
+		if key == "*" && strings.Contains(value, "/") && !strings.HasSuffix(value, "/*") {
 			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has key \"\" that matches vCluster host namespace but the value is not in NAMESPACE_NAME or NAMESPACE_NAME/* format (value: %s)", resourceNamePlural, value)
 		}
 		if strings.HasSuffix(key, "/*") && !strings.HasSuffix(value, "/*") {
@@ -622,37 +615,6 @@ func validateFromHostSyncMappings(s config.EnableSwitchWithResourcesMappings, re
 				resourceNamePlural, key, value,
 			)
 		}
-		hostRef := strings.Split(key, "/")
-		virtualRef := strings.Split(value, "/")
-		if key != "" && len(hostRef) > 0 {
-			errs := validation.ValidateNamespaceName(hostRef[0], false)
-			if len(errs) > 0 && hostRef[0] != "" {
-				return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed host namespace is not valid namespace name %s", resourceNamePlural, errs)
-			}
-			if err := validateFromHostSyncMappingObjectName(hostRef, resourceNamePlural); err != nil {
-				return err
-			}
-		}
-		if len(virtualRef) > 0 {
-			errs := validation.ValidateNamespaceName(virtualRef[0], false)
-			if len(errs) > 0 {
-				return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed virtual namespace is not valid namespace name %s", resourceNamePlural, errs)
-			}
-			if err := validateFromHostSyncMappingObjectName(virtualRef, resourceNamePlural); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func validateFromHostSyncMappingObjectName(objRef []string, resourceNamePlural string) error {
-	var errs []string
-	if len(objRef) == 2 && objRef[1] != "" && objRef[1] != "*" {
-		errs = validation.NameIsDNSLabel(objRef[1], false)
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed object name from key (%s) is not valid name %s", resourceNamePlural, strings.Join(objRef, "/"), errs)
 	}
 	return nil
 }
