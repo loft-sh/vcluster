@@ -572,6 +572,9 @@ type SyncFromHost struct {
 
 	// ConfigMaps defines if config maps in the host should get synced to the virtual cluster.
 	ConfigMaps EnableSwitchWithResourcesMappings `json:"configMaps,omitempty"`
+
+	// Secrets defines if secrets in the host should get synced to the virtual cluster.
+	Secrets EnableSwitchWithResourcesMappings `json:"secrets,omitempty"`
 }
 
 type SyncToHostCustomResource struct {

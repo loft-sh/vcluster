@@ -207,7 +207,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: noErr,
 		},
 		{
-			name: "invalid config 2",
+			name: "(invalid) host namespace mapped to object",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -219,7 +219,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 3",
+			name: "(invalid) host object mapped to namespace",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -231,12 +231,109 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 4",
+			name: "(invalid) wildcard used in host but not in virtual",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
 					Mappings: map[string]string{
-						"default/my-cm": "barfoo",
+						"default/*": "barfoo",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) '*' is not valid key",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/my-cm": "barfoo/my-cm",
+						"*":             "barfoo2/*",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) host object name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/_not_valid_obj_name": "barfoo/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) host namespace name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"_not-Valid_namespace_name/my-cm": "barfoo/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) virtual object name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/my-cm": "barfoo/_not_valid_obj_name",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) map from host object, but virtual namespace name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/my-cm": "_not_valid_ns66_name/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) map from host vcluster namespace, but virtual namespace name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"/my-cm": "_not_valid_ns66_name/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) host name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"/_not_valid_obj_name": "default/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) virtual namespace name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"": "!66_not_valid_ns/*",
 					},
 				},
 			},

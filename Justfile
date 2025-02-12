@@ -120,6 +120,8 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
   rm dist/commonValues.yaml.bak
 
   kubectl create namespace from-host-sync-test
+  kubectl create namespace from-host-sync-test-2
+
   ./dist/vcluster-cli_$(go env GOOS)_$(go env GOARCH | sed s/amd64/amd64_v1/g)/vcluster \
     create vcluster -n vcluster \
     --create-namespace \
