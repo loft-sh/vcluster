@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/loft-sh/log/logr/zapr"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -24,6 +26,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/grpclog"
 	"k8s.io/klog/v2"
 )
 
@@ -241,7 +245,10 @@ func isEtcdReachable(ctx context.Context, endpoint string, certificates *etcd.Ce
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	etcdClient, err := etcd.GetEtcdClient(ctx, certificates, endpoint)
+	zapLog := zap.NewNop()
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
+	ctx = logr.NewContext(ctx, zapr.NewLoggerWithOptions(zapLog))
+	etcdClient, err := etcd.GetEtcdClient(ctx, zapLog, certificates, endpoint)
 	if err == nil {
 		defer func() {
 			_ = etcdClient.Close()

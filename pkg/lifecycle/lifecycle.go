@@ -57,14 +57,13 @@ func PauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name, 
 }
 
 // DeletePods deletes all pods associated with a running vcluster
-func DeletePods(ctx context.Context, kubeClient *kubernetes.Clientset, labelSelector, namespace string, log log.BaseLogger) error {
+func DeletePods(ctx context.Context, kubeClient *kubernetes.Clientset, labelSelector, namespace string) error {
 	list, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return err
 	}
 
 	if len(list.Items) > 0 {
-		log.Infof("Relaunching %d vcluster pods", len(list.Items))
 		for _, item := range list.Items {
 			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, item.Name, metav1.DeleteOptions{})
 			if err != nil {

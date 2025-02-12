@@ -16,6 +16,7 @@ import (
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	// Enable cloud provider auth
+	_ "github.com/loft-sh/vcluster/test/e2e/snapshot"
 	_ "github.com/loft-sh/vcluster/test/e2e_target_namespace/targetnamespace"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	// Register tests
