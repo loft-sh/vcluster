@@ -171,14 +171,18 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 	})
 
 	ginkgo.It("Delete configmap in vCluster should be sync again by host", func() {
+		oldConfigMap, _ := f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Get(f.Context, cm2VirtualName, metav1.GetOptions{})
+
+		uidBeforeDeletion := oldConfigMap.UID
+
 		framework.ExpectNoError(f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Delete(f.Context, cm2VirtualName, metav1.DeleteOptions{}))
 
 		gomega.Eventually(func() bool {
-			defaultCmValues, err := f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Get(f.Context, cm2VirtualName, metav1.GetOptions{})
+			newConfigMap, err := f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Get(f.Context, cm2VirtualName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}
-			return defaultCmValues.Data["ENV_FROM_DEFAULT_NS"] == "one" && defaultCmValues.Data["ANOTHER_ENV_FROM_DEFAULT_NS"] == "two"
+			return newConfigMap.Data["ENV_FROM_DEFAULT_NS"] == "one" && newConfigMap.Data["ANOTHER_ENV_FROM_DEFAULT_NS"] == "two" && uidBeforeDeletion != newConfigMap.UID
 		}).
 			WithPolling(time.Second).
 			WithTimeout(framework.PollTimeout).
