@@ -104,14 +104,14 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	if len(event.Virtual.Labels) == 0 {
 		event.Virtual.Labels = map[string]string{}
 	}
-	event.Virtual.Labels[translate.MarkerLabel] = translate.MarkerLabelValue
+	event.Virtual.Labels[translate.MarkerLabel] = translate.VClusterName
 
 	return ctrl.Result{}, nil
 }
 
 func (s *csinodeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.CSINode]) (ctrl.Result, error) {
 	if event.HostOld == nil {
-		ManagedByLabelDoesNotExist := event.Virtual.GetLabels() == nil || (event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.MarkerLabel] != translate.MarkerLabelValue)
+		ManagedByLabelDoesNotExist := event.Virtual.GetLabels() == nil || (event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.MarkerLabel] != translate.VClusterName)
 		if ManagedByLabelDoesNotExist {
 			return ctrl.Result{}, nil
 		}

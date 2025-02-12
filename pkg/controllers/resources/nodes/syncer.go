@@ -273,7 +273,7 @@ func registerIndices(ctx *synccontext.RegisterContext) error {
 
 func (s *nodeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Node]) (ctrl.Result, error) {
 	if event.HostOld == nil {
-		ManagedByLabelDoesNotExist := event.Virtual.GetLabels() == nil || (event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.MarkerLabel] != translate.MarkerLabelValue)
+		ManagedByLabelDoesNotExist := event.Virtual.GetLabels() == nil || (event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.MarkerLabel] != translate.VClusterName)
 		if ManagedByLabelDoesNotExist {
 			return ctrl.Result{}, nil
 		}

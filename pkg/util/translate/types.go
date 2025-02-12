@@ -29,7 +29,6 @@ var (
 
 	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
 	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"
-	MarkerLabelValue             = "vcluster"
 )
 
 var Default Translator = &singleNamespace{}
