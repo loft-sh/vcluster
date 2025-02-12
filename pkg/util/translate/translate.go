@@ -149,6 +149,37 @@ func addHostAnnotations(retMap map[string]string, vObj, pObj client.Object) {
 	}
 }
 
+func ShouldDeleteHostObject(pObj client.Object) bool {
+	// if host object is deleting we should delete it
+	if pObj.GetDeletionTimestamp() != nil {
+		return true
+	}
+
+	// if host object was synced before we should delete it as well
+	annotations := pObj.GetAnnotations()
+
+	// if kind annotation doesn't match we don't delete
+	gvk, err := apiutil.GVKForObject(pObj, scheme.Scheme)
+	if annotations[KindAnnotation] == "" || err != nil || gvk.String() != annotations[KindAnnotation] {
+		return false
+	}
+
+	// if host object annotations don't match we don't delete
+	if annotations[NameAnnotation] == "" || annotations[HostNameAnnotation] == "" || annotations[HostNameAnnotation] != pObj.GetName() {
+		return false
+	}
+
+	// check namespace
+	if pObj.GetNamespace() != "" {
+		if annotations[NamespaceAnnotation] == "" || annotations[HostNamespaceAnnotation] == "" || annotations[HostNamespaceAnnotation] != pObj.GetNamespace() {
+			return false
+		}
+	}
+
+	// delete object because it was clearly synced
+	return true
+}
+
 func GetOwnerReference(object client.Object) []metav1.OwnerReference {
 	if Owner == nil || Owner.GetName() == "" || Owner.GetUID() == "" {
 		return nil
