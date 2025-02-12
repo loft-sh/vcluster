@@ -41,6 +41,7 @@ sync:
           "from-host-sync-test/*": "barfoo/*"
           "default/my-cm": "barfoo/cm-my"
           "": "default"
+          "": "my-new-ns"
     secrets:
       enabled: true
       selector:
