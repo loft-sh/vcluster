@@ -1,6 +1,7 @@
 package fromhost
 
 import (
+	"reflect"
 	"strings"
 	"time"
 
@@ -71,8 +72,40 @@ var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", gi
 		framework.ExpectNoError(err)
 	})
 
+	ginkgo.It("Secrets are synced to virtual", func() {
+		gomega.Eventually(func() bool {
+			virtual1, err := f.VClusterClient.CoreV1().Secrets(secretsVirtualNamespace).Get(f.Context, secret1Name, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+			if !reflect.DeepEqual(virtual1.Data, secret1.Data) {
+				f.Log.Errorf("expected %#v in virtual.Data got %#v", secret1.Data, virtual1.Data)
+				return false
+			}
+			return true
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout / 4).
+			Should(gomega.BeTrue())
+
+		gomega.Eventually(func() bool {
+			virtual2, err := f.VClusterClient.CoreV1().Secrets(secretsVirtualNamespace).Get(f.Context, secret2VirtualName, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+			if !reflect.DeepEqual(virtual2.Data, secret2.Data) {
+				f.Log.Errorf("expected %#v in virtual.Data got %#v", secret2.Data, virtual2.Data)
+				return false
+			}
+			return true
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout / 4).
+			Should(gomega.BeTrue())
+	})
+
 	ginkgo.It("update in host secret should get synced to virtual", func() {
-		freshHostSecret, err := f.HostClient.CoreV1().Secrets(secret1.GetNamespace()).Get(f.Context, secret1.GetName(), metav1.GetOptions{})
+		freshHostSecret, err := f.HostClient.CoreV1().Secrets(secret1.GetNamespace()).Get(f.Context, secret1Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		freshHostSecret.Data["UPDATED_ENV"] = []byte("one")
 		if freshHostSecret.Labels == nil {

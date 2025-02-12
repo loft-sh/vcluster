@@ -15,10 +15,11 @@ import (
 type ControllerContext struct {
 	context.Context
 
-	LocalManager          ctrl.Manager
-	VirtualManager        ctrl.Manager
-	VirtualRawConfig      *clientcmdapi.Config
-	VirtualClusterVersion *version.Info
+	LocalManager               ctrl.Manager
+	LocalMultiNamespaceManager ctrl.Manager
+	VirtualManager             ctrl.Manager
+	VirtualRawConfig           *clientcmdapi.Config
+	VirtualClusterVersion      *version.Info
 
 	WorkloadNamespaceClient client.Client
 
@@ -48,8 +49,9 @@ type RegisterContext struct {
 
 	Mappings MappingsRegistry
 
-	VirtualManager  ctrl.Manager
-	PhysicalManager ctrl.Manager
+	VirtualManager                ctrl.Manager
+	PhysicalManager               ctrl.Manager
+	PhysicalMultiNamespaceManager ctrl.Manager
 }
 
 type Filter func(http.Handler, *ControllerContext) http.Handler
@@ -67,6 +69,8 @@ func (c *ControllerContext) ToRegisterContext() *RegisterContext {
 
 		VirtualManager:  c.VirtualManager,
 		PhysicalManager: c.LocalManager,
+
+		PhysicalMultiNamespaceManager: c.LocalMultiNamespaceManager,
 
 		Mappings: c.Mappings,
 	}

@@ -1,6 +1,7 @@
 package translator
 
 import (
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -29,7 +30,7 @@ type fromHostTranslate struct {
 // and returns true if object should be skipped in the from host sync.
 type ShouldSkipHostObjectFunc func(hostName, hostNamespace string) bool
 
-func NewFromHostTranslatorForGVK(ctx *synccontext.RegisterContext, gvk schema.GroupVersionKind, hostToVirtual map[string]string, skipFuncs ...ShouldSkipHostObjectFunc) (syncer.FromConfigTranslator, error) {
+func NewFromHostTranslatorForGVK(ctx *synccontext.RegisterContext, gvk schema.GroupVersionKind, hostToVirtual map[string]string, skipFuncs ...ShouldSkipHostObjectFunc) (syncer.GenericTranslator, error) {
 	virtualToHost := make(map[string]string, len(hostToVirtual))
 	for host, virtual := range hostToVirtual {
 		virtualToHost[virtual] = host
@@ -88,19 +89,15 @@ func (c *fromHostTranslate) HostToVirtual(_ *synccontext.SyncContext, req types.
 
 func (c *fromHostTranslate) IsManaged(_ *synccontext.SyncContext, pObj client.Object) (bool, error) {
 	hostName, hostNs := pObj.GetName(), pObj.GetNamespace()
+	if _, ok := pObj.GetLabels()[translate.MarkerLabel]; ok {
+		return false, nil
+	}
 	_, managed := matchesHostObject(hostName, hostNs, c.hostToVirtual, c.namespace, c.skipFuncs...)
 	return managed, nil
 }
 
 func (c *fromHostTranslate) EventRecorder() record.EventRecorder {
 	return c.eventRecorder
-}
-
-func (c *fromHostTranslate) MatchesHostObject(hostName, hostNamespace string) (types.NamespacedName, bool) {
-	return matchesHostObject(hostName, hostNamespace, c.hostToVirtual, c.namespace, c.skipFuncs...)
-}
-func (c *fromHostTranslate) MatchesVirtualObject(virtualName, virtualNamespace string) (types.NamespacedName, bool) {
-	return matchesVirtualObject(virtualNamespace, virtualName, c.virtualToHost, c.namespace)
 }
 
 func matchesHostObject(hostName, hostNamespace string, resourceMappings map[string]string, vClusterHostNamespace string, skippers ...ShouldSkipHostObjectFunc) (types.NamespacedName, bool) {

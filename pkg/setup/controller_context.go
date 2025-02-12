@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
+
+	vclusterconfig "github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes"
@@ -19,11 +23,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
 	"github.com/pkg/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	toolscache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
@@ -91,8 +97,53 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 		return nil, err
 	}
 
+	multiNsCacheConfig := getLocalCacheOptionsForMultiNsCache(options)
+	var localMultiNamespaceManager ctrl.Manager
+
+	// this means we need to start another manager
+	if len(multiNsCacheConfig.DefaultNamespaces) > 0 {
+		logNs := make([]string, 0, len(multiNsCacheConfig.DefaultNamespaces))
+		for k, _ := range multiNsCacheConfig.DefaultNamespaces {
+			logNs = append(logNs, k)
+		}
+		klog.FromContext(ctx).Info("Setting up local multiNamespace manager for", "namespaces", logNs)
+		wrapNewCache := cache.NewCacheFunc(func(config *rest.Config, opts cache.Options) (cache.Cache, error) {
+			return cache.New(
+				localManager.GetConfig(),
+				cache.Options{
+					Mapper:            localManager.GetRESTMapper(),
+					DefaultNamespaces: multiNsCacheConfig.DefaultNamespaces,
+					DefaultWatchErrorHandler: func(r *toolscache.Reflector, err error) {
+						if kerrors.IsForbidden(err) {
+							klog.FromContext(ctx).Error(err,
+								"trying to watch on a namespace that does not exists / have no permissions. "+
+									"Please either re-create it or remove the namespace from mappings in the vcluster.yaml and restart vCluster.")
+						} else {
+							toolscache.DefaultWatchErrorHandler(r, err)
+						}
+					},
+				},
+			)
+		})
+		localMultiNamespaceManager, err = NewLocalManager(options.WorkloadConfig, ctrl.Options{
+			Scheme: scheme.Scheme,
+			Metrics: metricsserver.Options{
+				BindAddress: "0",
+			},
+			PprofBindAddress: "0",
+			LeaderElection:   false,
+			NewCache:         wrapNewCache,
+			NewClient:        pro.NewVirtualClient(options),
+			WebhookServer:    nil,
+		})
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
 	// init controller context
-	controllerContext, err := initControllerContext(ctx, localManager, virtualClusterManager, virtualRawConfig, options)
+	controllerContext, err := initControllerContext(ctx, localManager, localMultiNamespaceManager, virtualClusterManager, virtualRawConfig, options)
 	if err != nil {
 		return nil, fmt.Errorf("init controller context: %w", err)
 	}
@@ -124,6 +175,66 @@ func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 	}
 
 	return cache.Options{DefaultNamespaces: defaultNamespaces}
+}
+
+func getLocalCacheOptionsForMultiNsCache(options *config.VirtualClusterConfig) cache.Options {
+	// is multi namespace mode?
+	defaultNamespaces := make(map[string]cache.Config)
+
+	if options.Sync.FromHost.ConfigMaps.Enabled {
+		configMapNamespaces := parseHostNamespacesFromMappings(options.Sync.FromHost.ConfigMaps.Selector.Mappings, options.ControlPlaneNamespace)
+		for _, ns := range configMapNamespaces {
+			defaultNamespaces[ns] = cache.Config{
+				LabelSelector:         nil,
+				FieldSelector:         nil,
+				Transform:             nil,
+				UnsafeDisableDeepCopy: nil,
+			}
+		}
+	}
+
+	if options.Sync.FromHost.Secrets.Enabled {
+		secretsNamespaces := getHostNamespacesAndConfig(options.Sync.FromHost.Secrets.Selector.Mappings, options.ControlPlaneNamespace)
+		for k, v := range secretsNamespaces {
+			defaultNamespaces[k] = v
+		}
+	}
+
+	for _, customResourceConfig := range options.Sync.FromHost.CustomResources {
+		if customResourceConfig.Enabled && customResourceConfig.Scope == vclusterconfig.ScopeNamespaced {
+			crdNamespaces := getHostNamespacesAndConfig(customResourceConfig.Selector.Mappings, options.ControlPlaneNamespace)
+			for k, v := range crdNamespaces {
+				defaultNamespaces[k] = v
+			}
+		}
+	}
+
+	return cache.Options{DefaultNamespaces: defaultNamespaces}
+}
+
+func parseHostNamespacesFromMappings(mappings map[string]string, vClusterNs string) []string {
+	ret := make([]string, 0)
+	for host := range mappings {
+		if host == constants.VClusterNamespaceInHostMappingSpecialCharacter {
+			ret = append(ret, vClusterNs)
+		}
+		parts := strings.Split(host, "/")
+		if len(parts) != 2 {
+			continue
+		}
+		hostNs := parts[0]
+		ret = append(ret, hostNs)
+	}
+	return ret
+}
+
+func getHostNamespacesAndConfig(mappings map[string]string, vClusterNs string) map[string]cache.Config {
+	namespaces := parseHostNamespacesFromMappings(mappings, vClusterNs)
+	ret := make(map[string]cache.Config, len(namespaces))
+	for _, ns := range namespaces {
+		ret[ns] = cache.Config{}
+	}
+	return ret
 }
 
 func startPlugins(ctx context.Context, virtualConfig *rest.Config, virtualRawConfig *clientcmdapi.Config, options *config.VirtualClusterConfig) error {
@@ -323,6 +434,7 @@ func CreateVClusterKubeConfig(config *clientcmdapi.Config, options *config.Virtu
 func initControllerContext(
 	ctx context.Context,
 	localManager,
+	localMultiNamespaceManager,
 	virtualManager ctrl.Manager,
 	virtualRawConfig *clientcmdapi.Config,
 	vClusterOptions *config.VirtualClusterConfig,
@@ -370,8 +482,9 @@ func initControllerContext(
 	}
 
 	controllerContext := &synccontext.ControllerContext{
-		Context:               ctx,
-		LocalManager:          localManager,
+		Context:      ctx,
+		LocalManager: localManager,
+
 		VirtualManager:        virtualManager,
 		VirtualRawConfig:      virtualRawConfig,
 		VirtualClusterVersion: virtualClusterVersion,
@@ -380,6 +493,10 @@ func initControllerContext(
 
 		StopChan: stopChan,
 		Config:   vClusterOptions,
+	}
+
+	if localMultiNamespaceManager != nil {
+		controllerContext.LocalMultiNamespaceManager = localMultiNamespaceManager
 	}
 
 	mappingStore, err := store.NewStoreWithVerifyMapping(
