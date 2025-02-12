@@ -8,9 +8,8 @@ import (
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
+	// Enable cloud provider aut
 	// Enable cloud provider auth
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
@@ -18,17 +17,9 @@ import (
 	_ "github.com/loft-sh/vcluster/test/e2e_generic/clusterscope"
 )
 
-var (
-	scheme = runtime.NewScheme()
-)
-
-func init() {
-	_ = clientgoscheme.AddToScheme(scheme)
-}
-
 func TestRunE2ETests(t *testing.T) {
 	gomega.RegisterFailHandler(ginkgo.Fail)
-	err := framework.CreateFramework(context.Background(), scheme)
+	err := framework.CreateFramework(context.Background())
 	if err != nil {
 		log.GetInstance().Fatalf("Error setting up framework: %v", err)
 	}

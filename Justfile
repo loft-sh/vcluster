@@ -1,48 +1,31 @@
 set positional-arguments
 
-[private]
-alias align := check-structalign
-
 timestamp := `date +%s`
 
-alias c := create
-alias d := delete
+GOOS := env("GOOS", `go env GOOS`)
+GOARCH := env("GOARCH", `go env GOARCH`)
+GOBIN := env("GOBIN", `go env GOPATH`+"/bin")
+
+DIST_FOLDER := if GOARCH == "amd64" { "dist/vcluster_linux_amd64_v1" } else if GOARCH == "arm64" { "dist/vcluster_linux_arm64_v8.0" } else { "unknown" }
+DIST_FOLDER_CLI := if GOARCH == "amd64" { "dist/vcluster-cli_" + GOOS + "_amd64_v1" } else if GOARCH == "arm64" { "dist/vcluster-cli_" + GOOS + "_arm64_v8.0" } else { "unknown" }
 
 _default:
   @just --list
 
 # --- Build ---
 
-# Build the vcluster binary
+# Build the vcluster-cli binary
+build-cli-snapshot:
+  goreleaser build --id vcluster-cli --single-target --snapshot --clean
+  mv {{DIST_FOLDER_CLI}}/vcluster {{GOBIN}}/vcluster
+
+# Build the vcluster binary (we force linux here to allow building on mac os or windows)
 build-snapshot:
-  TELEMETRY_PRIVATE_KEY="" goreleaser build --id vcluster --snapshot --clean
-
-# Build the vcluster release binary in snapshot mode
-release-snapshot: gen-license-report
-  TELEMETRY_PRIVATE_KEY="" goreleaser release --snapshot --clean
-
-# --- Code quality ---
-
-# Run golangci-lint for all packages
-lint *ARGS:
-  [ -f ./custom-gcl ] || golangci-lint custom
-  ./custom-gcl cache clean
-  ./custom-gcl run {{ARGS}}
-
-# Check struct memory alignment and print potential improvements
-[no-exit-message]
-check-structalign *ARGS:
-  go run github.com/dkorunic/betteralign/cmd/betteralign@latest {{ARGS}} ./...
+  GOOS=linux goreleaser build --id vcluster --single-target --snapshot --clean
+  cp Dockerfile.release {{DIST_FOLDER}}/Dockerfile
+  cd {{DIST_FOLDER}} && docker build . -t ghcr.io/loft-sh/vcluster:dev-next
 
 # --- Kind ---
-
-# Create a kubernetes cluster using the specified distro
-create distro="kind":
-  just create-{{distro}}
-
-# Create a kubernetes cluster for the specified distro
-delete distro="kind":
-  just delete-{{distro}}
 
 # Create a local kind cluster
 create-kind:
@@ -192,6 +175,6 @@ create-conformance k8s_version="1.31.1":
   minikube addons enable metrics-server
 
 delete-conformance:
-  -minikube delete
+  minikube delete
 
 recreate-conformance: delete-conformance create-conformance

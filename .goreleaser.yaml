@@ -4,12 +4,11 @@ project_name: vcluster
 
 before:
   hooks:
-    - go mod tidy
-    - just embed-chart {{ .Version }}
-    - just clean-release
-    - just copy-assets
-    - just generate-vcluster-images {{ .Version }}
-    - just generate-matrix-specific-images {{ .Version }}
+    - '{{ if not .IsSnapshot }}just embed-chart {{ .Version }}{{ else }}echo "Skipping embed-chart"{{ end }}'
+    - '{{ if not .IsSnapshot }}just clean-release{{ else }}echo "Skipping clean-release"{{ end }}'
+    - '{{ if not .IsSnapshot }}just copy-assets{{ else }}echo "Skipping copy-assets"{{ end }}'
+    - '{{ if not .IsSnapshot }}just generate-vcluster-images {{ .Version }}{{ else }}echo "Skipping generate-vcluster-images"{{ end }}'
+    - '{{ if not .IsSnapshot }}just generate-matrix-specific-images {{ .Version }}{{ else }}echo "Skipping generate-matrix-specific-images"{{ end }}'
 
 source:
   format: tar.gz
@@ -36,7 +35,7 @@ builds:
     ldflags:
       - -s -w
       - -X github.com/loft-sh/vcluster/pkg/telemetry.SyncerVersion={{.Version}}
-      - -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey={{.Env.TELEMETRY_PRIVATE_KEY}}
+      - -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey={{ with index .Env "TELEMETRY_PRIVATE_KEY" }}{{ . }}{{ end }}
 
   - id: vcluster-cli
     env:
@@ -49,14 +48,7 @@ builds:
     goarch:
       - amd64
       - arm64
-      - arm
-    goarm:
-      - "6"
     ignore:
-      - goos: darwin
-        goarch: arm
-      - goos: windows
-        goarch: arm
       - goos: windows
         goarch: arm64
     binary: vcluster
@@ -72,7 +64,7 @@ builds:
       - -s -w
       - -X main.version={{.Version}}
       - -X github.com/loft-sh/vcluster/pkg/telemetry.SyncerVersion={{.Version}}
-      - -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey={{.Env.TELEMETRY_PRIVATE_KEY}}
+      - -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey={{ with index .Env "TELEMETRY_PRIVATE_KEY" }}{{ . }}{{ end }}
 
 archives:
   - id: vcluster_cli_archives
