@@ -15,19 +15,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
-	"github.com/loft-sh/vcluster/pkg/snapshot/file"
-	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
+	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
 
 type RestoreOptions struct {
-	S3   s3.Options
-	File file.Options
-
-	Compress bool
-	Storage  string
-	Config   string
+	Snapshot snapshot.Options
 }
 
 func NewRestoreCommand() *cobra.Command {
@@ -36,38 +30,32 @@ func NewRestoreCommand() *cobra.Command {
 	if err != nil {
 		klog.Warningf("Error parsing environment variables: %v", err)
 	} else {
-		options.S3 = envOptions.S3
-		options.File = envOptions.File
+		options.Snapshot = *envOptions
 	}
 
 	cmd := &cobra.Command{
 		Use:   "restore",
 		Short: "restore a vCluster",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return options.Run(cmd.Context())
 		},
 	}
 
-	cmd.Flags().StringVar(&options.Config, "config", constants.DefaultVClusterConfigLocation, "The path where to find the vCluster config to load")
-	cmd.Flags().StringVar(&options.Storage, "storage", "s3", "The storage to backup to. Can be either s3 or file")
-	cmd.Flags().BoolVar(&options.Compress, "compress", false, "If the backup should be compressed")
-
 	// add storage flags
-	file.AddFileFlags(cmd.Flags(), &options.File)
-	s3.AddS3Flags(cmd.Flags(), &options.S3)
+	snapshot.AddFlags(cmd.Flags(), &options.Snapshot)
 	return cmd
 }
 
 func (o *RestoreOptions) Run(ctx context.Context) error {
 	// parse vCluster config
-	vConfig, err := config.ParseConfig(o.Config, os.Getenv("VCLUSTER_NAME"), nil)
+	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
 		return err
 	}
 
 	// make sure to validate options
-	err = validateOptions(vConfig, o.Storage, &o.S3, &o.File)
+	err = validateOptions(vConfig, &o.Snapshot)
 	if err != nil {
 		return err
 	}
@@ -79,33 +67,32 @@ func (o *RestoreOptions) Run(ctx context.Context) error {
 	}
 
 	// create store
-	objectStore, err := createStore(ctx, o.Storage, &o.S3, &o.File)
+	objectStore, err := createStore(ctx, &o.Snapshot)
 	if err != nil {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
 
 	// now stream objects from object store to etcd
-	reader, err := objectStore.GetObject()
+	reader, err := objectStore.GetObject(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get backup: %w", err)
 	}
 	defer reader.Close()
 
+	// print log message that we start restoring
+	klog.Infof("Start restoring etcd snapshot from %s...", objectStore.Target())
+
 	// optionally decompress
-	gzipReader := reader
-	if o.Compress {
-		gzipReader, err = gzip.NewReader(reader)
-		if err != nil {
-			return fmt.Errorf("failed to create gzip reader: %w", err)
-		}
-		defer gzipReader.Close()
+	gzipReader, err := gzip.NewReader(reader)
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader: %w", err)
 	}
+	defer gzipReader.Close()
 
 	// create a new tar reader
 	tarReader := tar.NewReader(gzipReader)
 
 	// now restore each key value
-	klog.FromContext(ctx).Info("Start restoring etcd snapshot...")
 	restoredKeys := 0
 	for {
 		// read from archive

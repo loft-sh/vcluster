@@ -20,7 +20,7 @@ import (
 )
 
 // PauseVCluster pauses a running vcluster
-func PauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name, namespace string, log log.BaseLogger) error {
+func PauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name, namespace string, scaleDownEtcd bool, log log.BaseLogger) error {
 	// scale down vcluster itself
 	labelSelector := "app=vcluster,release=" + name
 	found, err := scaleDownStatefulSet(ctx, kubeClient, labelSelector, namespace, log)
@@ -47,9 +47,11 @@ func PauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name, 
 		}
 
 		// scale down etcd
-		_, err = scaleDownStatefulSet(ctx, kubeClient, "app=vcluster-etcd,release="+name, namespace, log)
-		if err != nil {
-			return err
+		if scaleDownEtcd {
+			_, err = scaleDownStatefulSet(ctx, kubeClient, "app=vcluster-etcd,release="+name, namespace, log)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -57,14 +59,13 @@ func PauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name, 
 }
 
 // DeletePods deletes all pods associated with a running vcluster
-func DeletePods(ctx context.Context, kubeClient *kubernetes.Clientset, labelSelector, namespace string, log log.BaseLogger) error {
+func DeletePods(ctx context.Context, kubeClient *kubernetes.Clientset, labelSelector, namespace string) error {
 	list, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return err
 	}
 
 	if len(list.Items) > 0 {
-		log.Infof("Relaunching %d vcluster pods", len(list.Items))
 		for _, item := range list.Items {
 			err = kubeClient.CoreV1().Pods(namespace).Delete(ctx, item.Name, metav1.DeleteOptions{})
 			if err != nil {

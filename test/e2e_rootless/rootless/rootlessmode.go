@@ -12,7 +12,7 @@ import (
 var _ = ginkgo.Describe("Rootless mode", func() {
 	f := framework.DefaultFramework
 	ginkgo.It("run vcluster in rootless mode", func() {
-		pods, err := f.HostClient.CoreV1().Pods(f.VclusterNamespace).List(f.Context, metav1.ListOptions{
+		pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
 			LabelSelector: "app=vcluster",
 		})
 		framework.ExpectNoError(err)
@@ -25,7 +25,7 @@ var _ = ginkgo.Describe("Rootless mode", func() {
 		stdout, stderr, err := podhelper.ExecBuffered(
 			f.Context,
 			f.HostConfig,
-			f.VclusterNamespace,
+			f.VClusterNamespace,
 			vclusterPod,
 			"syncer",
 			cmd,

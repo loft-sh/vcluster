@@ -75,6 +75,7 @@ var _ = ginkgo.Describe("CoreDNS resolves host names correctly", func() {
 			framework.ExpectEqual(string(stdoutBuffer), "ok")
 		}
 	})
+
 	ginkgo.It("Test coredns uses pinned image version", func() {
 		coreDNSName, coreDNSNamespace := "coredns", "kube-system"
 		coreDNSDeployment, err := f.VClusterClient.AppsV1().Deployments(coreDNSNamespace).Get(f.Context, coreDNSName, metav1.GetOptions{})

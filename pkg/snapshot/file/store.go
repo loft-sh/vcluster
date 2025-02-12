@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -9,15 +10,15 @@ import (
 )
 
 type Options struct {
-	Path string `json:"file-path"`
+	Path string `json:"path,omitempty"`
 }
 
-func AddFileFlags(fs *pflag.FlagSet, fileOptions *Options) {
+func AddFlags(fs *pflag.FlagSet, fileOptions *Options) {
 	// file options
 	fs.StringVar(&fileOptions.Path, "file-path", fileOptions.Path, "The file path to write the snapshot to")
 }
 
-func NewFileStore(options *Options) *Store {
+func NewStore(options *Options) *Store {
 	return &Store{
 		path: options.Path,
 	}
@@ -31,11 +32,11 @@ func (s *Store) Target() string {
 	return "file://" + s.path
 }
 
-func (s *Store) GetObject() (io.ReadCloser, error) {
+func (s *Store) GetObject(_ context.Context) (io.ReadCloser, error) {
 	return os.Open(s.path)
 }
 
-func (s *Store) PutObject(body io.Reader) error {
+func (s *Store) PutObject(_ context.Context, body io.Reader) error {
 	err := os.MkdirAll(filepath.Dir(s.path), 0755)
 	if err != nil {
 		return err

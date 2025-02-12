@@ -39,18 +39,23 @@ func PauseHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName
 	return nil
 }
 
-func PauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) error {
+func PauseVCluster(
+	ctx context.Context,
+	kubeClient *kubernetes.Clientset,
+	vCluster *find.VCluster,
+	log log.Logger,
+) error {
 	if vCluster.IsSleeping() {
 		log.Infof("vcluster %s/%s is already sleeping", vCluster.Namespace, vCluster.Name)
 		return nil
 	}
 
-	err := lifecycle.PauseVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, log)
+	err := lifecycle.PauseVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log)
 	if err != nil {
 		return err
 	}
 
-	err = lifecycle.DeletePods(ctx, kubeClient, "vcluster.loft.sh/managed-by="+vCluster.Name, vCluster.Namespace, log)
+	err = lifecycle.DeletePods(ctx, kubeClient, "vcluster.loft.sh/managed-by="+vCluster.Name, vCluster.Namespace)
 	if err != nil {
 		return fmt.Errorf("delete vcluster workloads: %w", err)
 	}

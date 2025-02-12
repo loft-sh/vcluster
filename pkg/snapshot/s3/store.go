@@ -24,10 +24,10 @@ import (
 	"io"
 	"os"
 	"slices"
-	"sort"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -38,26 +38,56 @@ import (
 )
 
 type Options struct {
-	Region    string `json:"s3-region"`
-	Bucket    string `json:"s3-bucket"`
-	Key       string `json:"s3-key"`
-	Profile   string `json:"s3-profile"`
-	S3URL     string `json:"s3-url"`
-	PublicURL string `json:"s3-public-url"`
-	KmsKeyID  string `json:"s3-kms-key-id"`
-	Tagging   string `json:"s3-tagging"`
+	SkipClientCredentials bool `json:"skip-client-credentials,omitempty"`
 
-	S3ForcePathStyle      bool `json:"s3-force-path-style"`
-	InsecureSkipTLSVerify bool `json:"s3-insecure-skip-tls-verify"`
+	AccessKeyID     string `json:"access-key-id,omitempty"`
+	SecretAccessKey string `json:"secret-access-key,omitempty"`
+	SessionToken    string `json:"session-token,omitempty"`
 
-	CustomerKeyEncryptionFile string `json:"s3-custom-key-encryption-file"`
-	CredentialsFile           string `json:"s3-credentials-file"`
-	ServerSideEncryption      string `json:"s3-server-side-encryption"`
-	CaCert                    string `json:"s3-ca-cert"`
-	ChecksumAlgorithm         string `json:"s3-checksum-algorithm"`
+	Region    string `json:"region,omitempty"`
+	Bucket    string `json:"bucket,omitempty"`
+	Key       string `json:"key,omitempty"`
+	Profile   string `json:"profile,omitempty"`
+	S3URL     string `json:"url,omitempty"`
+	PublicURL string `json:"public-url,omitempty"`
+	KmsKeyID  string `json:"kms-key-id,omitempty"`
+	Tagging   string `json:"tagging,omitempty"`
+
+	S3ForcePathStyle      bool `json:"force-path-style,omitempty"`
+	InsecureSkipTLSVerify bool `json:"insecure-skip-tls-verify,omitempty"`
+
+	CustomerKeyEncryptionFile string `json:"custom-key-encryption-file,omitempty"`
+	CredentialsFile           string `json:"credentials-file,omitempty"`
+	ServerSideEncryption      string `json:"server-side-encryption,omitempty"`
+	CaCert                    string `json:"ca-cert,omitempty"`
+	ChecksumAlgorithm         string `json:"checksum-algorithm,omitempty"`
 }
 
-func AddS3Flags(fs *pflag.FlagSet, s3Options *Options) {
+func (o *Options) FillCredentials(isClient bool) {
+	if (isClient && o.SkipClientCredentials) || o.Bucket == "" || o.AccessKeyID != "" {
+		return
+	}
+
+	defaultConfig, err := awsconfig.LoadDefaultConfig(context.Background())
+	if err != nil {
+		return
+	}
+
+	credentials, err := defaultConfig.Credentials.Retrieve(context.Background())
+	if err != nil {
+		return
+	}
+
+	o.AccessKeyID = credentials.AccessKeyID
+	o.SecretAccessKey = credentials.SecretAccessKey
+	o.SessionToken = credentials.SessionToken
+}
+
+func AddFlags(fs *pflag.FlagSet, s3Options *Options) {
+	fs.StringVar(&s3Options.AccessKeyID, "s3-access-key-id", s3Options.AccessKeyID, "AWS access key id")
+	fs.StringVar(&s3Options.SecretAccessKey, "s3-secret-access-key", s3Options.SecretAccessKey, "AWS secret access key")
+	fs.StringVar(&s3Options.SessionToken, "s3-session-token", s3Options.SessionToken, "AWS session token")
+	fs.BoolVar(&s3Options.SkipClientCredentials, "s3-skip-client-credentials", s3Options.SkipClientCredentials, "If true will not try to use the local aws credentials")
 	fs.StringVar(&s3Options.Region, "s3-region", s3Options.Region, "The s3 region to use")
 	fs.StringVar(&s3Options.Key, "s3-key", s3Options.Key, "The key where to save the snapshot in the bucket")
 	fs.StringVar(&s3Options.Bucket, "s3-bucket", s3Options.Bucket, "The s3 bucket to use")
@@ -92,21 +122,30 @@ type ObjectStore struct {
 	s3Uploader *manager.Uploader
 	bucket     string
 	key        string
+	region     string
 
 	kmsKeyID             string
 	sseCustomerKey       string
 	sseCustomerKeyMd5    string
-	signatureVersion     string
 	serverSideEncryption string
 	tagging              string
 	checksumAlg          string
 }
 
-func NewObjectStore(logger logr.Logger) *ObjectStore {
+func NewStore(logger logr.Logger) *ObjectStore {
 	return &ObjectStore{log: logger}
 }
 
 func (o *ObjectStore) Init(config *Options) error {
+	if config.AccessKeyID != "" {
+		_ = os.Setenv("AWS_ACCESS_KEY_ID", config.AccessKeyID)
+	}
+	if config.SecretAccessKey != "" {
+		_ = os.Setenv("AWS_SECRET_ACCESS_KEY", config.SecretAccessKey)
+	}
+	if config.SessionToken != "" {
+		_ = os.Setenv("AWS_SESSION_TOKEN", config.SessionToken)
+	}
 	cfg, err := newConfigBuilder(o.log).WithRegion(config.Region).
 		WithProfile(config.Profile).
 		WithCredentialsFile(config.CredentialsFile).
@@ -141,6 +180,7 @@ func (o *ObjectStore) Init(config *Options) error {
 	}
 	o.s3 = client
 	o.s3Uploader = manager.NewUploader(client)
+	o.region = config.Region
 	o.kmsKeyID = config.KmsKeyID
 	o.serverSideEncryption = config.ServerSideEncryption
 	o.tagging = config.Tagging
@@ -216,14 +256,18 @@ func readCustomerKey(customerKeyEncryptionFile string) (string, error) {
 }
 
 func (o *ObjectStore) Target() string {
-	return "s3://" + o.bucket + "/" + o.key
+	target := "s3://" + o.bucket + "/" + o.key
+	if o.region != "" {
+		target += "?region=" + o.region
+	}
+	return target
 }
 
-func (o *ObjectStore) PutObject(body io.Reader) error {
+func (o *ObjectStore) PutObject(ctx context.Context, body io.Reader) error {
 	input := &s3.PutObjectInput{
 		Bucket:  aws.String(o.bucket),
 		Key:     aws.String(o.key),
-		Body:    body,
+		Body:    &wrapper{body},
 		Tagging: aws.String(o.tagging),
 	}
 
@@ -247,44 +291,11 @@ func (o *ObjectStore) PutObject(body io.Reader) error {
 		input.ChecksumAlgorithm = types.ChecksumAlgorithm(o.checksumAlg)
 	}
 
-	_, err := o.s3Uploader.Upload(context.Background(), input)
-
+	_, err := o.s3Uploader.Upload(ctx, input)
 	return errors.Wrapf(err, "error putting object %s", o.key)
 }
 
-// ObjectExists checks if there is an object with the given key in the object storage bucket.
-func (o *ObjectStore) ObjectExists() (bool, error) {
-	log := o.log.WithValues("bucket", o.bucket, "key", o.key)
-	input := &s3.HeadObjectInput{
-		Bucket: aws.String(o.bucket),
-		Key:    aws.String(o.key),
-	}
-
-	if o.sseCustomerKey != "" {
-		input.SSECustomerAlgorithm = aws.String("AES256")
-		input.SSECustomerKey = &o.sseCustomerKey
-		input.SSECustomerKeyMD5 = &o.sseCustomerKeyMd5
-	}
-
-	log.V(1).Info("Checking if object exists")
-	if _, err := o.s3.HeadObject(context.Background(), input); err != nil {
-		log.V(1).Info("Checking for AWS specific error information")
-		var ne *types.NotFound
-		if errors.As(err, &ne) {
-			log.WithValues(
-				"code", ne.ErrorCode(),
-				"message", ne.ErrorMessage(),
-			).V(1).Info("Object doesn't exist - got not found")
-			return false, nil
-		}
-		return false, errors.WithStack(err)
-	}
-
-	log.V(1).Info("Object exists")
-	return true, nil
-}
-
-func (o *ObjectStore) GetObject() (io.ReadCloser, error) {
+func (o *ObjectStore) GetObject(ctx context.Context) (io.ReadCloser, error) {
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(o.bucket),
 		Key:    aws.String(o.key),
@@ -296,7 +307,7 @@ func (o *ObjectStore) GetObject() (io.ReadCloser, error) {
 		input.SSECustomerKeyMD5 = &o.sseCustomerKeyMd5
 	}
 
-	output, err := o.s3.GetObject(context.Background(), input)
+	output, err := o.s3.GetObject(ctx, input)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting object %s", o.key)
 	}
@@ -304,58 +315,7 @@ func (o *ObjectStore) GetObject() (io.ReadCloser, error) {
 	return output.Body, nil
 }
 
-func (o *ObjectStore) ListCommonPrefixes(bucket, prefix, delimiter string) ([]string, error) {
-	input := &s3.ListObjectsV2Input{
-		Bucket:    aws.String(bucket),
-		Prefix:    aws.String(prefix),
-		Delimiter: aws.String(delimiter),
-	}
-	var ret []string
-	p := s3.NewListObjectsV2Paginator(o.s3, input)
-	for p.HasMorePages() {
-		page, err := p.NextPage(context.Background())
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-		for _, prefix := range page.CommonPrefixes {
-			ret = append(ret, *prefix.Prefix)
-		}
-	}
-	return ret, nil
-}
-
-func (o *ObjectStore) ListObjects(bucket, prefix string) ([]string, error) {
-	input := &s3.ListObjectsV2Input{
-		Bucket: aws.String(bucket),
-		Prefix: aws.String(prefix),
-	}
-
-	var ret []string
-	p := s3.NewListObjectsV2Paginator(o.s3, input)
-	for p.HasMorePages() {
-		page, err := p.NextPage(context.Background())
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-		for _, obj := range page.Contents {
-			ret = append(ret, *obj.Key)
-		}
-	}
-	// ensure that returned objects are in a consistent order so that the deletion logic deletes the objects before
-	// the pseudo-folder prefix object for s3 providers (such as Quobyte) that return the pseudo-folder as an object.
-	// See https://github.com/vmware-tanzu/velero/pull/999
-	sort.Sort(sort.Reverse(sort.StringSlice(ret)))
-
-	return ret, nil
-}
-
-func (o *ObjectStore) DeleteObject(bucket, key string) error {
-	input := &s3.DeleteObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-	}
-
-	_, err := o.s3.DeleteObject(context.Background(), input)
-
-	return errors.Wrapf(err, "error deleting object %s", key)
+// this is required because os pipes cause trouble with aws uploader
+type wrapper struct {
+	io.Reader
 }

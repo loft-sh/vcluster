@@ -27,7 +27,8 @@ type Certificates struct {
 func WaitForEtcd(parentCtx context.Context, certificates *Certificates, endpoints ...string) error {
 	var err error
 	waitErr := wait.PollUntilContextTimeout(parentCtx, time.Second, waitForClientTimeout, true, func(ctx context.Context) (bool, error) {
-		etcdClient, err := GetEtcdClient(ctx, certificates, endpoints...)
+		var etcdClient *clientv3.Client
+		etcdClient, err = GetEtcdClient(ctx, zap.L().Named("wait-for-etcd"), certificates, endpoints...)
 		if err == nil {
 			defer func() {
 				_ = etcdClient.Close()
@@ -54,8 +55,8 @@ func WaitForEtcd(parentCtx context.Context, certificates *Certificates, endpoint
 // If the runtime config does not list any endpoints, the default endpoint is used.
 // The returned client should be closed when no longer needed, in order to avoid leaking GRPC
 // client goroutines.
-func GetEtcdClient(ctx context.Context, certificates *Certificates, endpoints ...string) (*clientv3.Client, error) {
-	cfg, err := getClientConfig(ctx, certificates, endpoints...)
+func GetEtcdClient(ctx context.Context, log *zap.Logger, certificates *Certificates, endpoints ...string) (*clientv3.Client, error) {
+	cfg, err := getClientConfig(ctx, log, certificates, endpoints...)
 	if err != nil {
 		return nil, err
 	}
@@ -65,13 +66,13 @@ func GetEtcdClient(ctx context.Context, certificates *Certificates, endpoints ..
 
 // getClientConfig generates an etcd client config connected to the specified endpoints.
 // If no endpoints are provided, getEndpoints is called to provide defaults.
-func getClientConfig(ctx context.Context, certificates *Certificates, endpoints ...string) (*clientv3.Config, error) {
+func getClientConfig(ctx context.Context, log *zap.Logger, certificates *Certificates, endpoints ...string) (*clientv3.Config, error) {
 	config := &clientv3.Config{
 		Endpoints:   endpoints,
 		Context:     ctx,
 		DialTimeout: 5 * time.Second,
 
-		Logger: zap.L().Named("etcd-client"),
+		Logger: log,
 	}
 
 	if len(endpoints) > 0 {
