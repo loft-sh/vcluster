@@ -280,7 +280,6 @@ func (s *nodeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext
 	}
 	ctx.Log.Infof("delete virtual node %s, because it is not needed anymore", event.Virtual.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
-
 }
 
 func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Node]) (_ ctrl.Result, retErr error) {
