@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -56,7 +57,10 @@ func (c *fromHostTranslate) Resource() client.Object {
 	case "Secret":
 		return &corev1.Secret{}
 	default:
-		return nil
+		obj := &unstructured.Unstructured{}
+		obj.SetKind(c.gvk.Kind)
+		obj.SetAPIVersion(c.gvk.GroupVersion().String())
+		return obj
 	}
 }
 

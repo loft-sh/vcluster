@@ -3208,6 +3208,10 @@
           },
           "type": "array",
           "description": "Patches patch the resource according to the provided specification."
+        },
+        "selector": {
+          "$ref": "#/$defs/FromHostSelector",
+          "description": "Selector for Namespace and Object"
         }
       },
       "additionalProperties": false,

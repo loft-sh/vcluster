@@ -28,7 +28,12 @@ type BidirectionalObjectCache struct {
 	vCache *ObjectCache
 	pCache *ObjectCache
 
-	obj client.Object
+	obj            client.Object
+	physicalClient client.Client
+}
+
+func (o *BidirectionalObjectCache) SetPhysicalClient(client client.Client) {
+	o.physicalClient = client
 }
 
 func (o *BidirectionalObjectCache) Virtual() *ObjectCache {
@@ -58,7 +63,7 @@ func (o *BidirectionalObjectCache) Start(ctx *RegisterContext) error {
 			o.pCache.cache.Range(func(key, _ any) bool {
 				// check physical object
 				pName := key.(types.NamespacedName)
-				if objectExists(ctx, ctx.PhysicalManager.GetClient(), pName, o.obj.DeepCopyObject().(client.Object)) {
+				if objectExists(ctx, o.physicalClient, pName, o.obj.DeepCopyObject().(client.Object)) {
 					return true
 				}
 

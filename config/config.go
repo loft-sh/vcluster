@@ -646,6 +646,9 @@ type SyncFromHostCustomResource struct {
 
 	// Patches patch the resource according to the provided specification.
 	Patches []TranslatePatch `json:"patches,omitempty"`
+
+	// Selector for Namespace and Object
+	Selector FromHostSelector `json:"selector,omitempty"`
 }
 
 type EnableAutoSwitch struct {
