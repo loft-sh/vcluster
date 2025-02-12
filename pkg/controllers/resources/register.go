@@ -2,6 +2,7 @@ package resources
 
 import (
 	"fmt"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csidrivers"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csinodes"

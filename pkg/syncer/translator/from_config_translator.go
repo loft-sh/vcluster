@@ -1,8 +1,9 @@
 package translator
 
 import (
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 
