@@ -16,12 +16,16 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 		f                   *framework.Framework
 		configMap1          *corev1.ConfigMap
 		configMap2          *corev1.ConfigMap
+		configMap3          *corev1.ConfigMap
 		cm1Name             = "dummy"
 		cm1HostNamespace    = "from-host-sync-test"
 		cmsVirtualNamespace = "barfoo"
 		cm2HostNamespace    = "default"
 		cm2HostName         = "my-cm"
 		cm2VirtualName      = "cm-my"
+		cm3Name             = "from-vcluster-ns"
+		cm3HostNamespace    = "vcluster"
+		cm3virtualNamespace = "my-new-ns"
 		podName             = "my-pod"
 	)
 
@@ -45,6 +49,16 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 			Data: map[string]string{
 				"ENV_FROM_DEFAULT_NS":         "one",
 				"ANOTHER_ENV_FROM_DEFAULT_NS": "two",
+			},
+		}
+		configMap3 = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cm3Name,
+				Namespace: cm3HostNamespace,
+			},
+			Data: map[string]string{
+				"VAL1": "abcdef",
+				"VAL2": "defgh",
 			},
 		}
 
@@ -156,4 +170,57 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 		gomega.Expect(envs["ENV_FROM_DEFAULT_NS"]).To(gomega.Equal("one"))
 	})
 
+	ginkgo.It("Delete configmap in vCluster should be sync again by host", func() {
+		framework.ExpectNoError(f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Delete(f.Context, cm2VirtualName, metav1.DeleteOptions{}))
+
+		gomega.Eventually(func() bool {
+			defaultCmValues, err := f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Get(f.Context, cm2VirtualName, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+			return defaultCmValues.Data["ENV_FROM_DEFAULT_NS"] == "one" && defaultCmValues.Data["ANOTHER_ENV_FROM_DEFAULT_NS"] == "two"
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeTrue())
+	})
+
+	ginkgo.It("confimap edited in vCluster should be overwritten by host", func() {
+		vClusterMap, err := f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Get(f.Context, cm2VirtualName, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		vClusterMap.Data = make(map[string]string, 1)
+
+		vClusterMap.Data["new-value"] = "will-be-overwritten"
+
+		_, err = f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Update(f.Context, vClusterMap, metav1.UpdateOptions{})
+		framework.ExpectNoError(err)
+
+		gomega.Eventually(func() bool {
+			defaultCmValues, err := f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Get(f.Context, cm2VirtualName, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+			return defaultCmValues.Data["ENV_FROM_DEFAULT_NS"] == "one" && defaultCmValues.Data["ANOTHER_ENV_FROM_DEFAULT_NS"] == "two"
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeTrue())
+	})
+
+	ginkgo.It("Syncs all ConfigMaps from vCluster's host namespace to my-new-ns in vCluster", func() {
+		_, err := f.HostClient.CoreV1().ConfigMaps(configMap3.GetNamespace()).Create(f.Context, configMap3, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		gomega.Eventually(func() bool {
+			defaultCmValues, err := f.VClusterClient.CoreV1().ConfigMaps(cm3virtualNamespace).Get(f.Context, cm3Name, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+			return defaultCmValues.Data["VAL1"] == "abcdef" && defaultCmValues.Data["VAL2"] == "defgh"
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeTrue())
+	})
 })
