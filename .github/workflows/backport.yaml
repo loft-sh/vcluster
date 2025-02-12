@@ -16,7 +16,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install GH CLI
-        uses: dev-hanz-ops/install-gh-cli-action@v0.2.0
+        uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
 
       - name: Fetch PR description and update backportrc
         env:

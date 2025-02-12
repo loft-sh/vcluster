@@ -101,6 +101,30 @@ sync:
     events:
       # Enabled defines if this option should be enabled.
       enabled: true
+    # ConfigMaps defines if config maps in the host should get synced to the virtual cluster.
+    configMaps:
+      # Enabled defines if this option should be enabled.
+      enabled: false
+      # Selector for Namespace and Object
+      selector:
+        # Mappings is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
+        # There are several wildcards supported:
+        # 1. To match all objects in host namespace and sync them to different namespace in vCluster:
+        # mappings:
+        #   "foo/*": "foo-in-virtual/*"
+        # 2. To match specific object in the host namespace and sync it to the same namespace with the same name:
+        # mappings:
+        #   "foo/my-object": "foo/my-object"
+        # 3. To match specific object in the host namespace and sync it to the same namespace with different name:
+        # mappings:
+        #   "foo/my-object": "foo/my-virtual-object"
+        # 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+        # mappings:
+        #   "": "my-virtual-namespace/*"
+        # 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+        # mappings:
+        #   "/my-object": "my-virtual-namespace/my-object"
+        mappings: {}
     # CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
     csiDrivers:
       # Enabled defines if this option should be enabled.
@@ -129,6 +153,30 @@ sync:
     priorityClasses:
       # Enabled defines if this option should be enabled.
       enabled: false
+    # Secrets defines if secrets in the host should get synced to the virtual cluster.
+    secrets:
+      # Enabled defines if this option should be enabled.
+      enabled: false
+      # Selector for Namespace and Object
+      selector:
+        # Mappings is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
+        # There are several wildcards supported:
+        # 1. To match all objects in host namespace and sync them to different namespace in vCluster:
+        # mappings:
+        #   "foo/*": "foo-in-virtual/*"
+        # 2. To match specific object in the host namespace and sync it to the same namespace with the same name:
+        # mappings:
+        #   "foo/my-object": "foo/my-object"
+        # 3. To match specific object in the host namespace and sync it to the same namespace with different name:
+        # mappings:
+        #   "foo/my-object": "foo/my-virtual-object"
+        # 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+        # mappings:
+        #   "": "my-virtual-namespace/*"
+        # 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+        # mappings:
+        #   "/my-object": "my-virtual-namespace/my-object"
+        mappings: {}
     # Nodes defines if nodes should get synced from the host cluster to the virtual cluster, but not back.
     nodes:
       # Enabled specifies if syncing real nodes should be enabled. If this is disabled, vCluster will create fake nodes instead.

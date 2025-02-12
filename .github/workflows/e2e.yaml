@@ -45,7 +45,7 @@ jobs:
       - name: Setup Just
         uses: extractions/setup-just@v2
       - name: Setup Syft
-        uses: anchore/sbom-action/download-syft@v0.17.8
+        uses: anchore/sbom-action/download-syft@v0.18.0
       - name: Setup GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -79,7 +79,7 @@ jobs:
       - name: Setup Just
         uses: extractions/setup-just@v2
       - name: Setup Syft
-        uses: anchore/sbom-action/download-syft@v0.17.8
+        uses: anchore/sbom-action/download-syft@v0.18.0
       - name: Setup GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -410,6 +410,11 @@ jobs:
 
           if [ ${{ matrix.test-suite-path }} == "./test/e2e_target_namespace" ]; then
             kubectl apply -f ${{ matrix.test-suite-path }}/role.yaml
+          fi
+
+          if [ ${{ matrix.test-suite-path }} == "./test/e2e" ]; then
+            kubectl create namespace from-host-sync-test
+            kubectl create namespace from-host-sync-test-2
           fi
 
           sudo apt-get install -y sed

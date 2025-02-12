@@ -9,6 +9,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csistoragecapacities"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/events"
+	fromhostconfigmaps "github.com/loft-sh/vcluster/pkg/controllers/resources/fromhost/configmaps"
+	fromhostsecrets "github.com/loft-sh/vcluster/pkg/controllers/resources/fromhost/secrets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingressclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
@@ -44,6 +46,8 @@ func getSyncers(ctx *synccontext.RegisterContext) []BuildController {
 	return append([]BuildController{
 		isEnabled(ctx.Config.Sync.ToHost.Services.Enabled, services.New),
 		isEnabled(ctx.Config.Sync.ToHost.ConfigMaps.Enabled, configmaps.New),
+		isEnabled(ctx.Config.Sync.FromHost.ConfigMaps.Enabled, fromhostconfigmaps.NewFromHost),
+		isEnabled(ctx.Config.Sync.FromHost.Secrets.Enabled, fromhostsecrets.NewFromHost),
 		isEnabled(ctx.Config.Sync.ToHost.Secrets.Enabled, secrets.New),
 		isEnabled(ctx.Config.Sync.ToHost.Endpoints.Enabled, endpoints.New),
 		isEnabled(ctx.Config.Sync.ToHost.Pods.Enabled, pods.New),

@@ -54,6 +54,10 @@ sync:
   fromHost:
     events:
       enabled: true
+    configMaps:
+      enabled: false
+      selector:
+        mappings: {}
     csiDrivers:
       enabled: auto
     csiNodes:
@@ -68,6 +72,10 @@ sync:
       enabled: false
     priorityClasses:
       enabled: false
+    secrets:
+      enabled: false
+      selector:
+        mappings: {}
     nodes:
       enabled: false
       syncBackChanges: false

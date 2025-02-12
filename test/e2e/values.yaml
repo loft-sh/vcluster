@@ -32,3 +32,18 @@ experimental:
             name: fluent-bit
             namespace: fluent-bit
           timeout: "50s"
+sync:
+  fromHost:
+    configMaps:
+      enabled: true
+      selector:
+        mappings:
+          "from-host-sync-test/*": "barfoo/*"
+          "default/my-cm": "barfoo/cm-my"
+          "": "default"
+    secrets:
+      enabled: true
+      selector:
+        mappings:
+          "from-host-sync-test-2/dummy": "barfoo2/dummy"
+          "default/my-secret": "barfoo2/secret-my"

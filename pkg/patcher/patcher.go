@@ -55,8 +55,9 @@ func NewSyncerPatcher(ctx *synccontext.SyncContext, pObj, vObj client.Object, op
 }
 
 type SyncerPatcher struct {
-	vPatcher *Patcher
-	pPatcher *Patcher
+	vPatcher      *Patcher
+	pPatcher      *Patcher
+	skipHostPatch bool
 }
 
 // Patch will attempt to patch the given object, including its status.
@@ -71,13 +72,19 @@ func (h *SyncerPatcher) Patch(ctx *synccontext.SyncContext, pObj, vObj client.Ob
 	if err != nil {
 		return fmt.Errorf("patch virtual object: %w", err)
 	}
-
+	if h.skipHostPatch {
+		return nil
+	}
 	err = h.pPatcher.Patch(ctx, pObj)
 	if err != nil {
 		return fmt.Errorf("patch host object: %w", err)
 	}
 
 	return nil
+}
+
+func (h *SyncerPatcher) SkipHostPatch() {
+	h.skipHostPatch = true
 }
 
 // Patcher is a utility for ensuring the proper patching of objects.
