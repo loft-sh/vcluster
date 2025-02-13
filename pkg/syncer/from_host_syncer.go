@@ -95,8 +95,8 @@ func (s *genericFromHostSyncer) Sync(ctx *synccontext.SyncContext, event *syncco
 
 func (s *genericFromHostSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[client.Object]) (ctrl.Result, error) {
 	klog.FromContext(ctx).V(1).Info("SyncToVirtual called")
-	if event.VirtualOld != nil || event.Host.GetDeletionTimestamp() != nil {
-		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
+	if event.VirtualOld != nil && event.Host.GetDeletionTimestamp() != nil {
+		return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, "host object was deleted")
 	}
 
 	vObj := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.GetName(), Namespace: event.Host.GetNamespace()}, event.Host))
@@ -107,11 +107,11 @@ func (s *genericFromHostSyncer) SyncToVirtual(ctx *synccontext.SyncContext, even
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true},
-				ctx.VirtualClient.Create(
+				client.IgnoreAlreadyExists(ctx.VirtualClient.Create(
 					ctx, &corev1.Namespace{
 						ObjectMeta: metav1.ObjectMeta{Name: vObj.GetNamespace()},
 					},
-				)
+				))
 		}
 		return ctrl.Result{}, err
 	} else if namespace.DeletionTimestamp != nil {
