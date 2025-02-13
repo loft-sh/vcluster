@@ -304,12 +304,14 @@ func TestSyncBothExist(t *testing.T) {
 			}
 
 			if tC.virtualNodeExists {
-				node := initialVNode.DeepCopy()
 				if len(tC.virtualInitialAnnotations) > 0 {
-					node.Annotations = tC.virtualInitialAnnotations
+					// Since we pass initialVNode to syncer.Sync, we should
+					// update the initialVNode to have annnotations as per
+					// the test case
+					initialVNode.Annotations = tC.virtualInitialAnnotations
 				}
 
-				initialObjects = append(initialObjects, node)
+				initialObjects = append(initialObjects, initialVNode)
 			}
 
 			physical.Labels = tC.hostLabel
