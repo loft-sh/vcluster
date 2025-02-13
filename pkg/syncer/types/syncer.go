@@ -80,11 +80,6 @@ type Options struct {
 
 	// ObjectCaching enables an object cache that allows to view the old object states
 	ObjectCaching bool
-
-	// UsesCustomPhysicalCache - false by default.
-	// If set, syncer won't watch for resources in the vCluster namespace in the host cluster.
-	// Use it to override host cluster watches in the syncer ModifyController() function.
-	UsesCustomPhysicalCache bool
 }
 
 type OptionsProvider interface {
@@ -95,4 +90,11 @@ type OptionsProvider interface {
 type ObjectExcluder interface {
 	ExcludeVirtual(vObj client.Object) bool
 	ExcludePhysical(vObj client.Object) bool
+}
+
+// ManagerProvider allows you to change fields in the RegisterContext for particular syncer.
+// E.g. fromHostSyncer uses it to change default ctx.PhysicalManager to the custom one that watches for multiple
+// namespaces in the host.
+type ManagerProvider interface {
+	ConfigureAndStartManager(ctx *synccontext.RegisterContext) (*synccontext.RegisterContext, error)
 }

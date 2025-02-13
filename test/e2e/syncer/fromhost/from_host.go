@@ -1,6 +1,7 @@
 package fromhost
 
 import (
+	"reflect"
 	"strings"
 	"time"
 
@@ -69,6 +70,38 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 		framework.ExpectNoError(err)
 		_, err = f.HostClient.CoreV1().ConfigMaps(configMap2.GetNamespace()).Create(f.Context, configMap2, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
+	})
+
+	ginkgo.It("ConfigMaps are synced to virtual", func() {
+		gomega.Eventually(func() bool {
+			virtual1, err := f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Get(f.Context, cm1Name, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+			if !reflect.DeepEqual(virtual1.Data, configMap1.Data) {
+				f.Log.Errorf("expected %#v in virtual.Data got %#v", configMap1.Data, virtual1.Data)
+				return false
+			}
+			return true
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout / 4).
+			Should(gomega.BeTrue())
+
+		gomega.Eventually(func() bool {
+			virtual2, err := f.VClusterClient.CoreV1().ConfigMaps(cmsVirtualNamespace).Get(f.Context, cm2VirtualName, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+			if !reflect.DeepEqual(virtual2.Data, configMap2.Data) {
+				f.Log.Errorf("expected %#v in virtual.Data got %#v", configMap2.Data, virtual2.Data)
+				return false
+			}
+			return true
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout / 4).
+			Should(gomega.BeTrue())
 	})
 
 	ginkgo.It("update in host config map should get synced to virtual", func() {

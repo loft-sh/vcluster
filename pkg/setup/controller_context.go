@@ -370,8 +370,9 @@ func initControllerContext(
 	}
 
 	controllerContext := &synccontext.ControllerContext{
-		Context:               ctx,
-		LocalManager:          localManager,
+		Context:      ctx,
+		LocalManager: localManager,
+
 		VirtualManager:        virtualManager,
 		VirtualRawConfig:      virtualRawConfig,
 		VirtualClusterVersion: virtualClusterVersion,

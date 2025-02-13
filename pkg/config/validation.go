@@ -75,14 +75,8 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 			return err
 		}
 	}
-	for key, customResource := range vConfig.Sync.FromHost.CustomResources {
-		if customResource.Scope != "" && customResource.Scope != config.ScopeCluster {
-			return fmt.Errorf("unsupported scope %s for sync.fromHost.customResources['%s'].scope. Only 'Cluster' is allowed", customResource.Scope, key)
-		}
-		err := validatePatches(patchesValidation{basePath: "sync.fromHost.customResources." + key, patches: customResource.Patches})
-		if err != nil {
-			return err
-		}
+	if err := validateFromHostSyncCustomResources(vConfig.Sync.FromHost.CustomResources); err != nil {
+		return err
 	}
 
 	// validate sync patches
@@ -614,6 +608,25 @@ func validateFromHostSyncMappings(s config.EnableSwitchWithResourcesMappings, re
 					"but value does not: %s. Please make sure that value for this key is in the format of NAMESPACE_NAME/*",
 				resourceNamePlural, key, value,
 			)
+		}
+	}
+	return nil
+}
+
+func validateFromHostSyncCustomResources(customResources map[string]config.SyncFromHostCustomResource) error {
+	for key, customResource := range customResources {
+		if customResource.Scope != "" && customResource.Scope != config.ScopeCluster && customResource.Scope != config.ScopeNamespaced {
+			return fmt.Errorf("unsupported scope %s for sync.fromHost.customResources['%s'].scope. Only 'Cluster' and 'Namespaced' are allowed", customResource.Scope, key)
+		}
+		if len(customResource.Selector.Mappings) > 0 && customResource.Scope != config.ScopeNamespaced {
+			return fmt.Errorf(".selector.mappings are only supported for sync.fromHost.customResources['%s'] with scope 'Namespaced'", key)
+		}
+		if customResource.Scope == config.ScopeNamespaced && len(customResource.Selector.Mappings) == 0 {
+			return fmt.Errorf(".selector.mappings is required for Namespaced scope sync.fromHost.customResources['%s']", key)
+		}
+		err := validatePatches(patchesValidation{basePath: "sync.fromHost.customResources." + key, patches: customResource.Patches})
+		if err != nil {
+			return err
 		}
 	}
 	return nil
