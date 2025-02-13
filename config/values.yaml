@@ -72,10 +72,6 @@ sync:
       enabled: false
     priorityClasses:
       enabled: false
-    secrets:
-      enabled: false
-      selector:
-        mappings: {}
     nodes:
       enabled: false
       syncBackChanges: false
@@ -83,6 +79,10 @@ sync:
       selector:
         all: false
         labels: {}
+    secrets:
+      enabled: false
+      selector:
+        mappings: {}
     volumeSnapshotClasses:
       enabled: false
 

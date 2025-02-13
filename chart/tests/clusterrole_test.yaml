@@ -445,6 +445,7 @@ tests:
             apiGroups: [ "external-secrets.io" ]
             resources: [ "clustersecretstores" ]
             verbs: ["get", "list", "watch"]
+
   - it: fromHost sync configmaps disabled
     set:
       sync:

@@ -153,6 +153,19 @@ sync:
     priorityClasses:
       # Enabled defines if this option should be enabled.
       enabled: false
+    # Nodes defines if nodes should get synced from the host cluster to the virtual cluster, but not back.
+    nodes:
+      # Enabled specifies if syncing real nodes should be enabled. If this is disabled, vCluster will create fake nodes instead.
+      enabled: false
+      # SyncBackChanges enables syncing labels and taints from the virtual cluster to the host cluster. If this is enabled someone within the virtual cluster will be able to change the labels and taints of the host cluster node.
+      syncBackChanges: false
+      # ClearImageStatus will erase the image status when syncing a node. This allows to hide images that are pulled by the node.
+      clearImageStatus: false
+      # Selector can be used to define more granular what nodes should get synced from the host cluster to the virtual cluster.
+      selector:
+        # All specifies if all nodes should get synced by vCluster from the host to the virtual cluster or only the ones where pods are assigned to.
+        all: false
+        labels: {}
     # Secrets defines if secrets in the host should get synced to the virtual cluster.
     secrets:
       # Enabled defines if this option should be enabled.
@@ -177,19 +190,6 @@ sync:
         # mappings:
         #   "/my-object": "my-virtual-namespace/my-object"
         mappings: {}
-    # Nodes defines if nodes should get synced from the host cluster to the virtual cluster, but not back.
-    nodes:
-      # Enabled specifies if syncing real nodes should be enabled. If this is disabled, vCluster will create fake nodes instead.
-      enabled: false
-      # SyncBackChanges enables syncing labels and taints from the virtual cluster to the host cluster. If this is enabled someone within the virtual cluster will be able to change the labels and taints of the host cluster node.
-      syncBackChanges: false
-      # ClearImageStatus will erase the image status when syncing a node. This allows to hide images that are pulled by the node.
-      clearImageStatus: false
-      # Selector can be used to define more granular what nodes should get synced from the host cluster to the virtual cluster.
-      selector:
-        # All specifies if all nodes should get synced by vCluster from the host to the virtual cluster or only the ones where pods are assigned to.
-        all: false
-        labels: {}
     # VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster.
     volumeSnapshotClasses:
       # Enabled defines if this option should be enabled.

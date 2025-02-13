@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic"
+	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
@@ -25,7 +25,7 @@ func NewFromHost(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	if err != nil {
 		return nil, err
 	}
-	return generic.NewFromHost(ctx, fromHostSyncer, fromConfigTranslator, skipKubeRootCaConfigMap)
+	return syncer.NewFromHost(ctx, fromHostSyncer, fromConfigTranslator, skipKubeRootCaConfigMap)
 }
 
 func skipKubeRootCaConfigMap(hostName, _ string) bool {
