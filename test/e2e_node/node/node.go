@@ -3,6 +3,7 @@ package node
 import (
 	"reflect"
 
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -26,6 +27,11 @@ var _ = ginkgo.Describe("Node sync", func() {
 
 		virtualNodeLabels := make(map[string]map[string]string)
 		for _, node := range virtualNodes.Items {
+			// marker label is only present on virtual node, hence
+			// match the labels excluding the marker label
+			if label := node.Labels[translate.MarkerLabel]; label == translate.VClusterName {
+				delete(node.Labels, translate.MarkerLabel)
+			}
 			virtualNodeLabels[node.Name] = node.Labels
 		}
 
