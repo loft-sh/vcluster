@@ -42,8 +42,7 @@
     (and .Values.integrations.certManager.enabled .Values.integrations.certManager.sync.fromHost.clusterIssuers.enabled)
     (and .Values.integrations.metricsServer.enabled .Values.integrations.metricsServer.nodes)
     .Values.experimental.multiNamespaceMode.enabled
-    .Values.sync.fromHost.configMaps.enabled
-    .Values.sync.fromHost.secrets.enabled -}}
+    .Values.sync.fromHost.configMaps.enabled -}}
 {{- true -}}
 {{- end -}}
 {{- end -}}
@@ -223,8 +222,7 @@
 {{- $root := index . 0 -}}
 {{- $mappings := index . 1 -}}
 {{- $kind := index . 2 -}}
-{{- $enabled := index . 3 -}}
-{{- if and $enabled $mappings -}}
+{{- if and $root.Values.sync.fromHost.configMaps.enabled $mappings -}}
 {{- $namespaces := list -}}
 {{- $objNames := list -}}
 {{- $addResourceNames := true -}}
@@ -250,10 +248,7 @@
   verbs: ["get", "list", "watch"]
 - apiGroups: [""]
   resources: [ {{ $kind | quote }} ]
-  verbs: ["list", "watch"]
-- apiGroups: [""]
-  resources: [ {{ $kind | quote }} ]
-  verbs: ["get"]
+  verbs: ["get", "list", "watch"]
 {{- if $addResourceNames }}
   resourceNames: [ {{ join "," $objList }} ]
 {{- end }}
