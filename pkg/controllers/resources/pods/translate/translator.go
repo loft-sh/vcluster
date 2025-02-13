@@ -174,15 +174,26 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 	pPod.Spec.AutomountServiceAccountToken = &False
 	pPod.Spec.EnableServiceLinks = &False
 
-	// check if priority classes are enabled
-	if !t.hostPriorityClassesSyncEnabled && !t.priorityClassesSyncEnabled {
-		pPod.Spec.PriorityClassName = ""
-		pPod.Spec.Priority = nil
-	} else if t.priorityClassesSyncEnabled && pPod.Spec.PriorityClassName != "" {
+	// by default the priority class would be synced as-is to the host
+	// this will readily work when config.Sync.FromHost.PriorityClasses.Enabled is true
+	// however, in case when config.Sync.ToHost.PriorityClasses.Enabled is true, we
+	// need to translate the priorityClassName before syncing to host
+	if t.priorityClassesSyncEnabled && pPod.Spec.PriorityClassName != "" {
 		pPod.Spec.PriorityClassName = mappings.VirtualToHostName(ctx, pPod.Spec.PriorityClassName, "", mappings.PriorityClasses())
 		if pPod.Spec.Priority != nil && *pPod.Spec.Priority > maxPriority {
 			pPod.Spec.Priority = &maxPriority
 		}
+	} else if !t.priorityClassesSyncEnabled && !t.hostPriorityClassesSyncEnabled {
+		// reset the priorityClassName when both fromHost & toHost sync are disabled
+		pPod.Spec.PriorityClassName = ""
+		pPod.Spec.Priority = nil
+	}
+
+	// if the Config.Sync.ToHost.Pods.PriorityClassName is specified and priorityClassName is unset on the pod
+	// we set it accordingly
+	if ctx.Config.Sync.ToHost.Pods.PriorityClassName != "" && pPod.Spec.PriorityClassName == "" {
+		pPod.Spec.PriorityClassName = ctx.Config.Sync.ToHost.Pods.PriorityClassName
+		pPod.Spec.Priority = nil
 	}
 
 	// Add an annotation for namespace, name and uid
