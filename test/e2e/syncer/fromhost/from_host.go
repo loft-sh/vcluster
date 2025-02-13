@@ -205,7 +205,8 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 			if err != nil {
 				return false
 			}
-			return defaultCmValues.Data["ENV_FROM_DEFAULT_NS"] == "one" && defaultCmValues.Data["ANOTHER_ENV_FROM_DEFAULT_NS"] == "two"
+			_, updatedExist := defaultCmValues.Data["new-value"]
+			return defaultCmValues.Data["ENV_FROM_DEFAULT_NS"] == "one" && defaultCmValues.Data["ANOTHER_ENV_FROM_DEFAULT_NS"] == "two" && !updatedExist
 		}).
 			WithPolling(time.Second).
 			WithTimeout(framework.PollTimeout).
