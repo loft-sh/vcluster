@@ -139,6 +139,8 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				return fmt.Errorf("there is already a virtual cluster in namespace %s", cmd.Namespace)
 			}
 		}
+	} else {
+		cmd.log.Warn("Creation of multiple vclusters within the same namespace will be deprecated soon.")
 	}
 
 	err = cmd.prepare(ctx, vClusterName)
