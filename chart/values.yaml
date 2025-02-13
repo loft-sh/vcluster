@@ -38,6 +38,8 @@ sync:
       useSecretsForSATokens: false
       # RuntimeClassName is the runtime class to set for synced pods.
       runtimeClassName: ""
+      # PriorityClassName is the priority class to set for synced pods.
+      priorityClassName: ""
       # RewriteHosts is a special option needed to rewrite statefulset containers to allow the correct FQDN. virtual cluster will add
       # a small container to each stateful set pod that will initially rewrite the /etc/hosts file to match the FQDN expected by
       # the virtual cluster.

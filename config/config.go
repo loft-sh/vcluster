@@ -698,6 +698,9 @@ type SyncPods struct {
 	// RuntimeClassName is the runtime class to set for synced pods.
 	RuntimeClassName string `json:"runtimeClassName,omitempty"`
 
+	// PriorityClassName is the priority class to set for synced pods.
+	PriorityClassName string `json:"priorityClassName,omitempty"`
+
 	// RewriteHosts is a special option needed to rewrite statefulset containers to allow the correct FQDN. virtual cluster will add
 	// a small container to each stateful set pod that will initially rewrite the /etc/hosts file to match the FQDN expected by
 	// the virtual cluster.

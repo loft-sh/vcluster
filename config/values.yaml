@@ -21,6 +21,7 @@ sync:
       enforceTolerations: []
       useSecretsForSATokens: false
       runtimeClassName: ""
+      priorityClassName: ""
       rewriteHosts:
         enabled: true
         initContainer:

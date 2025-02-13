@@ -3295,6 +3295,10 @@
           "type": "string",
           "description": "RuntimeClassName is the runtime class to set for synced pods."
         },
+        "priorityClassName": {
+          "type": "string",
+          "description": "PriorityClassName is the priority class to set for synced pods."
+        },
         "rewriteHosts": {
           "$ref": "#/$defs/SyncRewriteHosts",
           "description": "RewriteHosts is a special option needed to rewrite statefulset containers to allow the correct FQDN. virtual cluster will add\na small container to each stateful set pod that will initially rewrite the /etc/hosts file to match the FQDN expected by\nthe virtual cluster."
