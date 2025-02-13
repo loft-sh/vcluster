@@ -102,10 +102,11 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		overrideHostsImage:     ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image,
 		overrideHostsResources: resourceRequirements,
 
-		serviceAccountsEnabled: ctx.Config.Sync.ToHost.ServiceAccounts.Enabled,
-		priorityClassesEnabled: ctx.Config.Sync.ToHost.PriorityClasses.Enabled,
-		enableScheduler:        ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
-		fakeKubeletIPs:         ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
+		serviceAccountsEnabled:         ctx.Config.Sync.ToHost.ServiceAccounts.Enabled,
+		hostPriorityClassesSyncEnabled: ctx.Config.Sync.FromHost.PriorityClasses.Enabled,
+		priorityClassesSyncEnabled:     ctx.Config.Sync.ToHost.PriorityClasses.Enabled,
+		enableScheduler:                ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		fakeKubeletIPs:                 ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 
 		mountPhysicalHostPaths: ctx.Config.ControlPlane.HostPathMapper.Enabled && !ctx.Config.ControlPlane.HostPathMapper.Central,
 
@@ -128,16 +129,17 @@ type translator struct {
 	// this is needed for host path mapper (legacy)
 	mountPhysicalHostPaths bool
 
-	serviceAccountsEnabled       bool
-	serviceAccountSecretsEnabled bool
-	clusterDomain                string
-	serviceAccount               string
-	overrideHosts                bool
-	overrideHostsImage           string
-	overrideHostsResources       corev1.ResourceRequirements
-	priorityClassesEnabled       bool
-	enableScheduler              bool
-	fakeKubeletIPs               bool
+	serviceAccountsEnabled         bool
+	serviceAccountSecretsEnabled   bool
+	clusterDomain                  string
+	serviceAccount                 string
+	overrideHosts                  bool
+	overrideHostsImage             string
+	overrideHostsResources         corev1.ResourceRequirements
+	hostPriorityClassesSyncEnabled bool
+	priorityClassesSyncEnabled     bool
+	enableScheduler                bool
+	fakeKubeletIPs                 bool
 
 	virtualLogsPath       string
 	virtualPodLogsPath    string
@@ -173,10 +175,10 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 	pPod.Spec.EnableServiceLinks = &False
 
 	// check if priority classes are enabled
-	if !t.priorityClassesEnabled {
+	if !t.hostPriorityClassesSyncEnabled && !t.priorityClassesSyncEnabled {
 		pPod.Spec.PriorityClassName = ""
 		pPod.Spec.Priority = nil
-	} else if pPod.Spec.PriorityClassName != "" {
+	} else if t.priorityClassesSyncEnabled && pPod.Spec.PriorityClassName != "" {
 		pPod.Spec.PriorityClassName = mappings.VirtualToHostName(ctx, pPod.Spec.PriorityClassName, "", mappings.PriorityClasses())
 		if pPod.Spec.Priority != nil && *pPod.Spec.Priority > maxPriority {
 			pPod.Spec.Priority = &maxPriority
