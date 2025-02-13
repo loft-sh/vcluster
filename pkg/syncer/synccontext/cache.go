@@ -24,7 +24,6 @@ func NewBidirectionalObjectCache(obj client.Object, mapper Mapper) *Bidirectiona
 
 		mapper: mapper,
 	}
-
 }
 
 type BidirectionalObjectCache struct {
