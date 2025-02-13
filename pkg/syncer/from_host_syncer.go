@@ -152,27 +152,28 @@ func (s *genericFromHostSyncer) ConfigureAndStartManager(ctx *synccontext.Regist
 	if !createCustomManager {
 		return ctx, nil
 	}
+	newCtx := *ctx
 
 	logNs := make([]string, 0, len(multiNsCacheConfig.DefaultNamespaces))
 	for k := range multiNsCacheConfig.DefaultNamespaces {
 		logNs = append(logNs, k)
 	}
-	klog.FromContext(ctx).Info("Setting up custom physical multi-namespace manager for", "namespaces", logNs, "syncer", s.Name())
-	localMultiNamespaceManager, err := ctrl.NewManager(ctx.Config.WorkloadConfig, ctrl.Options{
+	klog.FromContext(newCtx).Info("Setting up custom physical multi-namespace manager for", "namespaces", logNs, "syncer", s.Name())
+	localMultiNamespaceManager, err := ctrl.NewManager(newCtx.Config.WorkloadConfig, ctrl.Options{
 		Scheme: scheme.Scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
 		},
 		PprofBindAddress: "0",
 		LeaderElection:   false,
-		NewClient:        pro.NewVirtualClient(ctx.Config),
+		NewClient:        pro.NewVirtualClient(newCtx.Config),
 		WebhookServer:    nil,
 		Cache: cache.Options{
-			Mapper:            ctx.PhysicalManager.GetRESTMapper(),
+			Mapper:            newCtx.PhysicalManager.GetRESTMapper(),
 			DefaultNamespaces: multiNsCacheConfig.DefaultNamespaces,
 			DefaultWatchErrorHandler: func(r *toolscache.Reflector, err error) {
 				if kerrors.IsForbidden(err) {
-					klog.FromContext(ctx).Error(err,
+					klog.FromContext(newCtx).Error(err,
 						"trying to watch on a namespace that does not exists / have no permissions. "+
 							"Please either re-create it or remove the namespace from mappings in the vcluster.yaml and restart vCluster.")
 				} else {
@@ -182,21 +183,20 @@ func (s *genericFromHostSyncer) ConfigureAndStartManager(ctx *synccontext.Regist
 		},
 	})
 	if err != nil {
-		return ctx, fmt.Errorf("unable to create custom physical manager for syncer %s: %w", s.Name(), err)
+		return nil, fmt.Errorf("unable to create custom physical manager for syncer %s: %w", s.Name(), err)
 	}
 
 	go func() {
-		err := localMultiNamespaceManager.Start(ctx)
+		err := localMultiNamespaceManager.Start(newCtx)
 		if err != nil {
 			panic(err)
 		}
 	}()
 
-	if synced := localMultiNamespaceManager.GetCache().WaitForCacheSync(ctx.Context); !synced {
-		klog.FromContext(ctx).Error(err, "cache was not synced")
+	if synced := localMultiNamespaceManager.GetCache().WaitForCacheSync(newCtx); !synced {
+		klog.FromContext(newCtx).Error(err, "cache was not synced")
 		return ctx, fmt.Errorf("cache was not synced for custom physical manager for %s syncer", s.Name())
 	}
-	newCtx := *ctx
 	newCtx.PhysicalManager = localMultiNamespaceManager
 	return &newCtx, nil
 }
