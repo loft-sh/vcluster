@@ -584,7 +584,7 @@ func TestReconcile(t *testing.T) {
 			virtualClient: vClient,
 			options:       options,
 
-			objectCache: synccontext.NewBidirectionalObjectCache(syncer.Resource(), pClient),
+			objectCache: synccontext.NewBidirectionalObjectCache(syncer.Resource()),
 		}
 
 		// create objects

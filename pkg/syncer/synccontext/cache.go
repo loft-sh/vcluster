@@ -15,11 +15,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-func NewBidirectionalObjectCache(obj client.Object, physicalClient client.Client) *BidirectionalObjectCache {
+func NewBidirectionalObjectCache(obj client.Object) *BidirectionalObjectCache {
 	return &BidirectionalObjectCache{
-		vCache:         newObjectCache(),
-		pCache:         newObjectCache(),
-		physicalClient: physicalClient,
+		vCache: newObjectCache(),
+		pCache: newObjectCache(),
 
 		obj: obj,
 	}
@@ -28,8 +27,6 @@ func NewBidirectionalObjectCache(obj client.Object, physicalClient client.Client
 type BidirectionalObjectCache struct {
 	vCache *ObjectCache
 	pCache *ObjectCache
-
-	physicalClient client.Client
 
 	obj client.Object
 }
@@ -61,8 +58,7 @@ func (o *BidirectionalObjectCache) Start(ctx *RegisterContext) error {
 			o.pCache.cache.Range(func(key, _ any) bool {
 				// check physical object
 				pName := key.(types.NamespacedName)
-				//
-				if objectExists(ctx, o.physicalClient, pName, o.obj.DeepCopyObject().(client.Object)) {
+				if objectExists(ctx, ctx.PhysicalManager.GetClient(), pName, o.obj.DeepCopyObject().(client.Object)) {
 					return true
 				}
 

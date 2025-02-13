@@ -35,14 +35,12 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 		options = optionsProvider.Options()
 	}
 
-	physicalClient := ctx.PhysicalManager.GetClient()
-
 	var objectCache *synccontext.BidirectionalObjectCache
 	if options.ObjectCaching {
-		objectCache = synccontext.NewBidirectionalObjectCache(syncer.Resource().DeepCopyObject().(client.Object), physicalClient)
+		objectCache = synccontext.NewBidirectionalObjectCache(syncer.Resource().DeepCopyObject().(client.Object))
 	}
 
-	syncController := &SyncController{
+	return &SyncController{
 		syncer: syncer,
 
 		objectCache: objectCache,
@@ -57,16 +55,14 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 
 		log:            loghelper.New(syncer.Name()),
 		vEventRecorder: ctx.VirtualManager.GetEventRecorderFor(syncer.Name() + "-syncer"),
-		physicalClient: physicalClient,
+		physicalClient: ctx.PhysicalManager.GetClient(),
 
 		currentNamespace:       ctx.CurrentNamespace,
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
 
 		virtualClient: ctx.VirtualManager.GetClient(),
 		options:       options,
-	}
-
-	return syncController, nil
+	}, nil
 }
 
 func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) error {

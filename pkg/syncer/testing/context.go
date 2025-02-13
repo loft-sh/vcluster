@@ -49,7 +49,7 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 	// check if object cache is needed
 	optionsProvider, ok := object.(syncer.OptionsProvider)
 	if ok && optionsProvider.Options().ObjectCaching {
-		syncCtx.ObjectCache = synccontext.NewBidirectionalObjectCache(object.Resource(), ctx.PhysicalManager.GetClient())
+		syncCtx.ObjectCache = synccontext.NewBidirectionalObjectCache(object.Resource())
 	}
 
 	syncCtx.Log = loghelper.NewFromExisting(log.NewLog(0), object.Name())
