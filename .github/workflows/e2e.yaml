@@ -414,7 +414,6 @@ jobs:
 
           if [ ${{ matrix.test-suite-path }} == "./test/e2e" ]; then
             kubectl create namespace from-host-sync-test
-            kubectl create namespace from-host-sync-test-2
           fi
 
           sudo apt-get install -y sed
