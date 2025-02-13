@@ -20,10 +20,9 @@ func NewFromHost(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	if err != nil {
 		return nil, fmt.Errorf("retrieve GVK for object failed: %w", err)
 	}
-	syncCtx := ctx.ToSyncContext("from-host-secret-syncer")
 	fromHostSyncer := &syncToHostSecretSyncer{}
 	fromConfigTranslator, err := translator.NewFromHostTranslatorForGVK(
-		ctx, gvk, fromHostSyncer.GetMappings(syncCtx),
+		ctx, gvk, fromHostSyncer.GetMappings(ctx.Config.Config),
 	)
 	if err != nil {
 		return nil, err
@@ -33,7 +32,7 @@ func NewFromHost(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 type syncToHostSecretSyncer struct{}
 
-func (s *syncToHostSecretSyncer) SyncToHost(vObj, pObj client.Object) {
+func (s *syncToHostSecretSyncer) CopyHostObjectToVirtual(vObj, pObj client.Object) {
 	vCm := vObj.(*corev1.Secret)
 	hostCopy := pObj.(*corev1.Secret).DeepCopy()
 	vCm.SetAnnotations(hostCopy.GetAnnotations())
@@ -41,12 +40,12 @@ func (s *syncToHostSecretSyncer) SyncToHost(vObj, pObj client.Object) {
 	vCm.Data = hostCopy.Data
 }
 
-func (s *syncToHostSecretSyncer) GetProPatches(ctx *synccontext.SyncContext) []config.TranslatePatch {
-	return ctx.Config.Sync.FromHost.Secrets.Patches
+func (s *syncToHostSecretSyncer) GetProPatches(cfg config.Config) []config.TranslatePatch {
+	return cfg.Sync.FromHost.Secrets.Patches
 }
 
-func (s *syncToHostSecretSyncer) GetMappings(ctx *synccontext.SyncContext) map[string]string {
-	return ctx.Config.Sync.FromHost.Secrets.Selector.Mappings
+func (s *syncToHostSecretSyncer) GetMappings(cfg config.Config) map[string]string {
+	return cfg.Sync.FromHost.Secrets.Selector.Mappings
 }
 
 func (s *syncToHostSecretSyncer) ExcludeVirtual(_ client.Object) bool {

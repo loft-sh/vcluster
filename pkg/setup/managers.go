@@ -46,16 +46,6 @@ func StartManagers(ctx *synccontext.RegisterContext) ([]syncertypes.Object, erro
 		}
 	}()
 
-	// start the local multi namespace manager
-	if ctx.PhysicalMultiNamespaceManager != nil {
-		go func() {
-			err := ctx.PhysicalMultiNamespaceManager.Start(ctx)
-			if err != nil {
-				panic(err)
-			}
-		}()
-	}
-
 	// start the virtual cluster manager
 	go func() {
 		err := ctx.VirtualManager.Start(ctx)
@@ -68,9 +58,6 @@ func StartManagers(ctx *synccontext.RegisterContext) ([]syncertypes.Object, erro
 	klog.FromContext(ctx).Info("Starting local & virtual managers...")
 	ctx.PhysicalManager.GetCache().WaitForCacheSync(ctx)
 	ctx.VirtualManager.GetCache().WaitForCacheSync(ctx)
-	if ctx.PhysicalMultiNamespaceManager != nil {
-		ctx.PhysicalMultiNamespaceManager.GetCache().WaitForCacheSync(ctx)
-	}
 	klog.FromContext(ctx).Info("Successfully started local & virtual manager")
 
 	return syncers, nil

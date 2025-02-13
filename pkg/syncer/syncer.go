@@ -37,10 +37,6 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 
 	physicalClient := ctx.PhysicalManager.GetClient()
 
-	if options.UsesCustomPhysicalCache && ctx.PhysicalMultiNamespaceManager != nil {
-		physicalClient = ctx.PhysicalMultiNamespaceManager.GetClient()
-	}
-
 	var objectCache *synccontext.BidirectionalObjectCache
 	if options.ObjectCaching {
 		objectCache = synccontext.NewBidirectionalObjectCache(syncer.Resource().DeepCopyObject().(client.Object), physicalClient)
@@ -74,6 +70,16 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 }
 
 func RegisterSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Syncer) error {
+	customManagerProvider, ok := syncer.(syncertypes.ManagerProvider)
+	if ok {
+		// if syncer needs a custom physical manager, ctx.PhysicalManager will get exchanged here
+		var err error
+		ctx, err = customManagerProvider.ConfigureAndStartManager(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	controller, err := NewSyncController(ctx, syncer)
 	if err != nil {
 		return err
@@ -462,15 +468,8 @@ func (r *SyncController) Build(ctx *synccontext.RegisterContext) (controller.Con
 			CacheSyncTimeout:        constants.DefaultCacheSyncTimeout,
 		}).
 		Named(r.syncer.Name()).
-		Watches(r.syncer.Resource(), newEventHandler(r.enqueueVirtual))
-
-	// if r.options.UsesCustomPhysicalCache is set, we will use ctx.PhysicalMultiNamespaceManager's Cache
-	if r.options.UsesCustomPhysicalCache {
-		klog.FromContext(ctx).Info("using physical multi namespace manager cache for syncer", "syncer", r.syncer.Name())
-		controllerBuilder.WatchesRawSource(source.Kind(ctx.PhysicalMultiNamespaceManager.GetCache(), r.syncer.Resource(), newEventHandler(r.enqueuePhysical)))
-	} else {
-		controllerBuilder.WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), r.syncer.Resource(), newEventHandler(r.enqueuePhysical)))
-	}
+		Watches(r.syncer.Resource(), newEventHandler(r.enqueueVirtual)).
+		WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), r.syncer.Resource(), newEventHandler(r.enqueuePhysical)))
 
 	// should add extra stuff?
 	modifier, isControllerModifier := r.syncer.(syncertypes.ControllerModifier)

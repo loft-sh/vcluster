@@ -19,9 +19,8 @@ func NewFromHost(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	if err != nil {
 		return nil, fmt.Errorf("retrieve GVK for object failed: %w", err)
 	}
-	syncCtx := ctx.ToSyncContext("from-host-configmap-syncer")
 	fromHostSyncer := &syncToHostConfigMapSyncer{}
-	fromConfigTranslator, err := translator.NewFromHostTranslatorForGVK(ctx, gvk, fromHostSyncer.GetMappings(syncCtx), skipKubeRootCaConfigMap)
+	fromConfigTranslator, err := translator.NewFromHostTranslatorForGVK(ctx, gvk, fromHostSyncer.GetMappings(ctx.Config.Config), skipKubeRootCaConfigMap)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +33,7 @@ func skipKubeRootCaConfigMap(hostName, _ string) bool {
 
 type syncToHostConfigMapSyncer struct{}
 
-func (s *syncToHostConfigMapSyncer) SyncToHost(vObj, pObj client.Object) {
+func (s *syncToHostConfigMapSyncer) CopyHostObjectToVirtual(vObj, pObj client.Object) {
 	vCm := vObj.(*corev1.ConfigMap)
 	hostCopy := pObj.(*corev1.ConfigMap).DeepCopy()
 	vCm.SetAnnotations(hostCopy.GetAnnotations())
@@ -42,10 +41,10 @@ func (s *syncToHostConfigMapSyncer) SyncToHost(vObj, pObj client.Object) {
 	vCm.Data = hostCopy.Data
 }
 
-func (s *syncToHostConfigMapSyncer) GetProPatches(ctx *synccontext.SyncContext) []config.TranslatePatch {
-	return ctx.Config.Sync.FromHost.ConfigMaps.Patches
+func (s *syncToHostConfigMapSyncer) GetProPatches(cfg config.Config) []config.TranslatePatch {
+	return cfg.Sync.FromHost.ConfigMaps.Patches
 }
 
-func (s *syncToHostConfigMapSyncer) GetMappings(ctx *synccontext.SyncContext) map[string]string {
-	return ctx.Config.Sync.FromHost.ConfigMaps.Selector.Mappings
+func (s *syncToHostConfigMapSyncer) GetMappings(cfg config.Config) map[string]string {
+	return cfg.Sync.FromHost.ConfigMaps.Selector.Mappings
 }
