@@ -3,6 +3,10 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/strvals"
@@ -80,4 +84,37 @@ func applySetValues(rawConfig []byte, setValues []string) ([]byte, error) {
 	}
 
 	return rawConfig, nil
+}
+
+func GetLocalCacheOptionsFromConfigMappings(mappings map[string]string, vClusterNamespace string) (cache.Options, bool) {
+	defaultNamespaces := make(map[string]cache.Config)
+	namespaces := parseHostNamespacesFromMappings(mappings, vClusterNamespace)
+	if len(namespaces) == 1 {
+		for _, k := range namespaces {
+			if k == vClusterNamespace {
+				// then there is no need to create custom manager
+				return cache.Options{}, false
+			}
+		}
+	}
+	for _, ns := range namespaces {
+		defaultNamespaces[ns] = cache.Config{}
+	}
+	return cache.Options{DefaultNamespaces: defaultNamespaces}, true
+}
+
+func parseHostNamespacesFromMappings(mappings map[string]string, vClusterNs string) []string {
+	ret := make([]string, 0)
+	for host := range mappings {
+		if host == constants.VClusterNamespaceInHostMappingSpecialCharacter {
+			ret = append(ret, vClusterNs)
+		}
+		parts := strings.Split(host, "/")
+		if len(parts) != 2 {
+			continue
+		}
+		hostNs := parts[0]
+		ret = append(ret, hostNs)
+	}
+	return ret
 }

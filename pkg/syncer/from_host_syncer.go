@@ -2,31 +2,26 @@ package syncer
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/scheme"
-
 	"github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/klog/v2"
-
 	toolscache "k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
-
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
@@ -148,43 +143,14 @@ func (s *genericFromHostSyncer) ExcludePhysical(obj client.Object) bool {
 
 func (s *genericFromHostSyncer) ConfigureAndStartManager(ctx *synccontext.RegisterContext) (*synccontext.RegisterContext, error) {
 	mappings := s.GetMappings(ctx.Config.Config)
-	multiNsCacheConfig, createCustomManager := getLocalCacheOptions(mappings, ctx.Config.ControlPlaneNamespace)
-	if !createCustomManager {
+	localMultiNamespaceManager, skipCustomManagerCreation, err := ConfigureNewLocalManager(ctx, mappings, s.Name())
+	if err != nil {
+		return nil, err
+	}
+	if skipCustomManagerCreation {
 		return ctx, nil
 	}
 	newCtx := *ctx
-
-	logNs := make([]string, 0, len(multiNsCacheConfig.DefaultNamespaces))
-	for k := range multiNsCacheConfig.DefaultNamespaces {
-		logNs = append(logNs, k)
-	}
-	klog.FromContext(newCtx).Info("Setting up custom physical multi-namespace manager for", "namespaces", logNs, "syncer", s.Name())
-	localMultiNamespaceManager, err := ctrl.NewManager(newCtx.Config.WorkloadConfig, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
-		PprofBindAddress: "0",
-		LeaderElection:   false,
-		NewClient:        pro.NewVirtualClient(newCtx.Config),
-		WebhookServer:    nil,
-		Cache: cache.Options{
-			Mapper:            newCtx.PhysicalManager.GetRESTMapper(),
-			DefaultNamespaces: multiNsCacheConfig.DefaultNamespaces,
-			DefaultWatchErrorHandler: func(r *toolscache.Reflector, err error) {
-				if kerrors.IsForbidden(err) {
-					klog.FromContext(newCtx).Error(err,
-						"trying to watch on a namespace that does not exists / have no permissions. "+
-							"Please either re-create it or remove the namespace from mappings in the vcluster.yaml and restart vCluster.")
-				} else {
-					toolscache.DefaultWatchErrorHandler(r, err)
-				}
-			},
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to create custom physical manager for syncer %s: %w", s.Name(), err)
-	}
 
 	go func() {
 		err := localMultiNamespaceManager.Start(newCtx)
@@ -194,42 +160,56 @@ func (s *genericFromHostSyncer) ConfigureAndStartManager(ctx *synccontext.Regist
 	}()
 
 	if synced := localMultiNamespaceManager.GetCache().WaitForCacheSync(newCtx); !synced {
-		klog.FromContext(newCtx).Error(err, "cache was not synced")
-		return ctx, fmt.Errorf("cache was not synced for custom physical manager for %s syncer", s.Name())
+		return nil, fmt.Errorf("cache was not synced for custom physical manager for %s syncer", s.Name())
 	}
+
 	newCtx.PhysicalManager = localMultiNamespaceManager
 	return &newCtx, nil
 }
 
-func getLocalCacheOptions(mappings map[string]string, vClusterNamespace string) (cache.Options, bool) {
-	defaultNamespaces := make(map[string]cache.Config)
-	namespaces := parseHostNamespacesFromMappings(mappings, vClusterNamespace)
-	if len(namespaces) == 1 {
-		for _, k := range namespaces {
-			if k == vClusterNamespace {
-				// then there is no need to create custom manager
-				return cache.Options{}, false
-			}
-		}
+func ConfigureNewLocalManager(ctx *synccontext.RegisterContext, mappings map[string]string, syncerName string) (ctrl.Manager, bool, error) {
+	multiNsCacheConfig, customManagerNeeded := vclusterconfig.GetLocalCacheOptionsFromConfigMappings(mappings, ctx.Config.ControlPlaneNamespace)
+	if !customManagerNeeded {
+		return nil, true, nil
 	}
-	for _, ns := range namespaces {
-		defaultNamespaces[ns] = cache.Config{}
+	logNs := make([]string, 0, len(multiNsCacheConfig.DefaultNamespaces))
+	for k := range multiNsCacheConfig.DefaultNamespaces {
+		logNs = append(logNs, k)
 	}
-	return cache.Options{DefaultNamespaces: defaultNamespaces}, true
+	klog.FromContext(ctx).Info("Setting up custom physical multi-namespace manager for", "namespaces", logNs, "syncer", syncerName)
+	localMultiNamespaceManager, err := ctrl.NewManager(ctx.Config.WorkloadConfig, GetOptionsForMultiNamespaceManager(ctx, multiNsCacheConfig))
+	if err != nil {
+		return nil, false, fmt.Errorf("unable to create custom physical manager for syncer %s: %w", syncerName, err)
+	}
+	return localMultiNamespaceManager, false, nil
 }
 
-func parseHostNamespacesFromMappings(mappings map[string]string, vClusterNs string) []string {
-	ret := make([]string, 0)
-	for host := range mappings {
-		if host == constants.VClusterNamespaceInHostMappingSpecialCharacter {
-			ret = append(ret, vClusterNs)
-		}
-		parts := strings.Split(host, "/")
-		if len(parts) != 2 {
-			continue
-		}
-		hostNs := parts[0]
-		ret = append(ret, hostNs)
+func GetOptionsForMultiNamespaceManager(ctx *synccontext.RegisterContext, options cache.Options) ctrl.Options {
+	return ctrl.Options{
+		Scheme: scheme.Scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+		PprofBindAddress: "0",
+		LeaderElection:   false,
+		NewClient:        pro.NewVirtualClient(ctx.Config),
+		WebhookServer:    nil,
+		Cache: cache.Options{
+			Mapper:                   ctx.PhysicalManager.GetRESTMapper(),
+			DefaultNamespaces:        options.DefaultNamespaces,
+			DefaultWatchErrorHandler: additionalPermissionMissingHandler(ctx),
+		},
 	}
-	return ret
+}
+
+func additionalPermissionMissingHandler(ctx *synccontext.RegisterContext) func(r *toolscache.Reflector, err error) {
+	return func(r *toolscache.Reflector, err error) {
+		if kerrors.IsForbidden(err) {
+			klog.FromContext(ctx).Error(err,
+				"trying to watch on a namespace that does not exists / have no permissions. "+
+					"Please either re-create it or remove the namespace from mappings in the vcluster.yaml and restart vCluster.")
+		} else {
+			toolscache.DefaultWatchErrorHandler(r, err)
+		}
+	}
 }
