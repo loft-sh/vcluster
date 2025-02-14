@@ -14,27 +14,24 @@ import (
 	"time"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
+	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 )
 
 type Options struct {
-	// command options
-	Command   []string
-	Namespace string
-	VCluster  string
-	PodSpec   *corev1.PodSpec
-
-	// user-defined options
+	Exec             bool
 	Mounts           []string
 	Env              []string
 	Image            string
@@ -42,7 +39,10 @@ type Options struct {
 	ImagePullSecrets []string
 }
 
-func AddFlags(fs *pflag.FlagSet, podOptions *Options) {
+func AddFlags(fs *pflag.FlagSet, podOptions *Options, isRestore bool) {
+	if !isRestore {
+		fs.BoolVar(&podOptions.Exec, "pod-exec", podOptions.Exec, "Instead of creating a pod, exec into the vCluster container")
+	}
 	fs.StringVar(&podOptions.Image, "pod-image", podOptions.Image, "Image to use for the created pod")
 	fs.StringVar(&podOptions.ServiceAccount, "pod-service-account", podOptions.ServiceAccount, "Service account to use for the created pod")
 	fs.StringArrayVar(&podOptions.Mounts, "pod-mount", nil, "Additional mounts for the created pod. Use form <type>:<name>/<key>:<mount>. Supported types are: pvc, secret, configmap. E.g.: pvc:my-pvc:/path-in-pod or secret:my-secret/my-key:/path-in-pod")
@@ -50,18 +50,81 @@ func AddFlags(fs *pflag.FlagSet, podOptions *Options) {
 	fs.StringArrayVar(&podOptions.ImagePullSecrets, "pod-image-pull-secret", nil, "Additional pull secrets for the created pod")
 }
 
+func SnapshotExec(
+	ctx context.Context,
+	kubeConfig *rest.Config,
+	command []string,
+	vCluster *find.VCluster,
+	podOptions *Options,
+	snapshotOptions *snapshot.Options,
+) error {
+	// get target pod
+	var targetPod *corev1.Pod
+	for _, pod := range vCluster.Pods {
+		if vCluster.StatefulSet != nil && strings.HasSuffix(pod.Name, "-0") {
+			targetPod = &pod
+			break
+		} else if vCluster.Deployment != nil {
+			targetPod = &pod
+			break
+		}
+	}
+	if targetPod == nil {
+		return fmt.Errorf("couldn't find a running pod for vCluster %s", vCluster.Name)
+	}
+
+	// build env variables
+	optionsString, err := toOptionsString(snapshotOptions)
+	if err != nil {
+		return err
+	}
+	envVariables := append([]string{
+		"VCLUSTER_STORAGE_OPTIONS=" + optionsString,
+		"POD_NAME=" + vCluster.Name + "-0",
+	}, podOptions.Env...)
+
+	// run the command
+	return podhelper.ExecStream(ctx, kubeConfig, &podhelper.ExecStreamOptions{
+		Pod:       targetPod.Name,
+		Namespace: vCluster.Namespace,
+		Container: "syncer",
+		Command:   []string{"sh", "-c", fmt.Sprintf("%s %s", strings.Join(envVariables, " "), strings.Join(command, " "))},
+		Stdout:    os.Stdout,
+		Stderr:    os.Stdout,
+	})
+}
+
 func RunSnapshotPod(
 	ctx context.Context,
+	kubeConfig *rest.Config,
 	kubeClient *kubernetes.Clientset,
-	options *Options,
+	command []string,
+	vCluster *find.VCluster,
+	podOptions *Options,
 	snapshotOptions *snapshot.Options,
 	log log.Logger,
 ) error {
+	// should exec?
+	if podOptions.Exec {
+		return SnapshotExec(ctx, kubeConfig, command, vCluster, podOptions, snapshotOptions)
+	}
+
+	// if k0s we error out
+	for _, pod := range vCluster.Pods {
+		for _, container := range pod.Spec.InitContainers {
+			if strings.Contains(container.Image, "k0s") {
+				return fmt.Errorf("snapshot via separate pod is not supported for k0s distro, please use --pod-exec instead")
+			}
+		}
+	}
+
 	// create snapshot pod
 	snapshotPod, err := CreateSnapshotPod(
 		ctx,
 		kubeClient,
-		options,
+		command,
+		vCluster,
+		podOptions,
 		snapshotOptions,
 		log,
 	)
@@ -138,12 +201,24 @@ func RunSnapshotPod(
 func CreateSnapshotPod(
 	ctx context.Context,
 	kubeClient *kubernetes.Clientset,
-	options *Options,
+	command []string,
+	vCluster *find.VCluster,
+	podOptions *Options,
 	snapshotOptions *snapshot.Options,
 	log log.Logger,
 ) (*corev1.Pod, error) {
+	// get pod spec
+	var podSpec *corev1.PodSpec
+	if vCluster.StatefulSet != nil {
+		podSpec = &vCluster.StatefulSet.Spec.Template.Spec
+	} else if vCluster.Deployment != nil {
+		podSpec = &vCluster.Deployment.Spec.Template.Spec
+	} else {
+		return nil, fmt.Errorf("vCluster %s has no StatefulSet or Deployment", vCluster.Name)
+	}
+
 	var syncerContainer *corev1.Container
-	for _, container := range options.PodSpec.Containers {
+	for _, container := range podSpec.Containers {
 		if container.Name == "syncer" {
 			syncerContainer = &container
 			break
@@ -171,7 +246,7 @@ func CreateSnapshotPod(
 	})
 	env = append(env, corev1.EnvVar{
 		Name:  "POD_NAME",
-		Value: options.VCluster + "-0",
+		Value: vCluster.Name + "-0",
 	})
 
 	// add debug
@@ -183,32 +258,32 @@ func CreateSnapshotPod(
 	}
 
 	// parse extra volumes
-	extraVolumes, extraVolumeMounts, err := parseExtraVolumes(options.Mounts)
+	extraVolumes, extraVolumeMounts, err := parseExtraVolumes(podOptions.Mounts)
 	if err != nil {
 		return nil, fmt.Errorf("parsing extra volumes: %w", err)
 	}
 
 	// parse extra env
-	extraEnv, err := parseExtraEnv(options.Env)
+	extraEnv, err := parseExtraEnv(podOptions.Env)
 	if err != nil {
 		return nil, fmt.Errorf("parsing extra env: %w", err)
 	}
 
 	// image
 	image := syncerContainer.Image
-	if options.Image != "" {
-		image = options.Image
+	if podOptions.Image != "" {
+		image = podOptions.Image
 	}
 
 	// service account
-	serviceAccount := options.PodSpec.ServiceAccountName
-	if options.ServiceAccount != "" {
-		serviceAccount = options.ServiceAccount
+	serviceAccount := podSpec.ServiceAccountName
+	if podOptions.ServiceAccount != "" {
+		serviceAccount = podOptions.ServiceAccount
 	}
 
 	// image pull secrets
-	imagePullSecrets := options.PodSpec.ImagePullSecrets
-	for _, secret := range options.ImagePullSecrets {
+	imagePullSecrets := podSpec.ImagePullSecrets
+	for _, secret := range podOptions.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: secret})
 	}
 
@@ -216,7 +291,7 @@ func CreateSnapshotPod(
 	newPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vcluster-snapshot-",
-			Namespace:    options.Namespace,
+			Namespace:    vCluster.Namespace,
 			Labels: map[string]string{
 				"app": "vcluster-snapshot",
 			},
@@ -225,17 +300,17 @@ func CreateSnapshotPod(
 			RestartPolicy:                 corev1.RestartPolicyNever,
 			ServiceAccountName:            serviceAccount,
 			TerminationGracePeriodSeconds: ptr.To(int64(1)),
-			NodeSelector:                  options.PodSpec.NodeSelector,
-			Affinity:                      options.PodSpec.Affinity,
-			Tolerations:                   options.PodSpec.Tolerations,
-			SecurityContext:               options.PodSpec.SecurityContext,
+			NodeSelector:                  podSpec.NodeSelector,
+			Affinity:                      podSpec.Affinity,
+			Tolerations:                   podSpec.Tolerations,
+			SecurityContext:               podSpec.SecurityContext,
 			ImagePullSecrets:              imagePullSecrets,
-			Volumes:                       append(options.PodSpec.Volumes, extraVolumes...),
+			Volumes:                       append(podSpec.Volumes, extraVolumes...),
 			Containers: []corev1.Container{
 				{
 					Name:            "snapshot",
 					Image:           image,
-					Command:         options.Command,
+					Command:         command,
 					SecurityContext: syncerContainer.SecurityContext,
 					Env:             append(env, extraEnv...),
 					EnvFrom:         syncerContainer.EnvFrom,
@@ -261,7 +336,7 @@ func CreateSnapshotPod(
 					Name: volumeMount.Name,
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "data-" + options.VCluster + "-0",
+							ClaimName: "data-" + vCluster.Name + "-0",
 						},
 					},
 				})
@@ -270,8 +345,8 @@ func CreateSnapshotPod(
 	}
 
 	// create the pod
-	log.Infof("Starting snapshot pod for vCluster %s/%s...", options.Namespace, options.VCluster)
-	newPod, err = kubeClient.CoreV1().Pods(options.Namespace).Create(ctx, newPod, metav1.CreateOptions{})
+	log.Infof("Starting snapshot pod for vCluster %s/%s...", vCluster.Namespace, vCluster.Name)
+	newPod, err = kubeClient.CoreV1().Pods(vCluster.Namespace).Create(ctx, newPod, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("creating pod: %w", err)
 	}

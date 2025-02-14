@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -27,12 +28,13 @@ var _ = ginkgo.Describe("Snapshot VCluster", func() {
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(true, len(pods.Items) > 0)
 
-		// skip if k0s
+		// skip restore if k0s
+		isK0s := false
 		for _, pod := range pods.Items {
 			for _, container := range pod.Spec.InitContainers {
 				if strings.Contains(container.Image, "k0s") {
-					ginkgo.Skip("snapshot is not supported for k0s")
-					return
+					isK0s = true
+					break
 				}
 			}
 		}
@@ -83,6 +85,25 @@ var _ = ginkgo.Describe("Snapshot VCluster", func() {
 		framework.ExpectNoError(err)
 
 		ginkgo.By("Snapshot vcluster")
+		if isK0s {
+			cmd := exec.Command(
+				"vcluster",
+				"snapshot",
+				f.VClusterName,
+				"file:///tmp/snapshot.tar",
+				"-n", f.VClusterNamespace,
+				"--pod-exec",
+			)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			err = cmd.Run()
+			framework.ExpectNoError(err)
+
+			fmt.Println("Skip restore because this is unsupported in k0s")
+			return
+		}
+
+		// regular snapshot
 		cmd := exec.Command(
 			"vcluster",
 			"snapshot",

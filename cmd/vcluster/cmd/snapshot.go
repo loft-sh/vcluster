@@ -71,7 +71,7 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	}
 
 	// make sure to validate options
-	err = validateOptions(vConfig, &o.Snapshot)
+	err = validateOptions(vConfig, &o.Snapshot, false)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Cli
 	}
 }
 
-func validateOptions(vConfig *config.VirtualClusterConfig, options *snapshot.Options) error {
+func validateOptions(vConfig *config.VirtualClusterConfig, options *snapshot.Options, isRestore bool) error {
 	// storage needs to be either s3 or file
 	err := snapshot.Validate(options)
 	if err != nil {
@@ -174,7 +174,7 @@ func validateOptions(vConfig *config.VirtualClusterConfig, options *snapshot.Opt
 	}
 
 	// only support k3s and k8s distro
-	if vConfig.Distro() != vclusterconfig.K8SDistro && vConfig.Distro() != vclusterconfig.K3SDistro {
+	if isRestore && vConfig.Distro() != vclusterconfig.K8SDistro && vConfig.Distro() != vclusterconfig.K3SDistro {
 		return fmt.Errorf("unsupported distro: %s", vConfig.Distro())
 	}
 
@@ -193,7 +193,7 @@ func newEtcdClient(ctx context.Context, vConfig *config.VirtualClusterConfig, is
 			if err != nil {
 				return nil, fmt.Errorf("start embedded backing store: %w", err)
 			}
-		} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd && !isRestore && !isEtcdReachable(ctx, etcdEndpoint, etcdCertificates) { // this is needed for embedded etcd
+		} else if !isRestore && vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd && !isEtcdReachable(ctx, etcdEndpoint, etcdCertificates) { // this is needed for embedded etcd
 			etcdEndpoint = "https://" + vConfig.Name + "-0." + vConfig.Name + "-headless:2379"
 		}
 	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeExternalDatabase {
@@ -248,6 +248,21 @@ func startExternalDatabaseBackingStore(ctx context.Context, vConfig *config.Virt
 	kineAddress := constants.K8sKineEndpoint
 	if vConfig.Distro() == vclusterconfig.K3SDistro {
 		kineAddress = constants.K3sKineEndpoint
+	}
+
+	// make sure to start license if using a connector
+	if vConfig.ControlPlane.BackingStore.Database.External.Connector != "" {
+		// make sure clients and config are correctly initialized
+		_, err := generateCertificates(ctx, vConfig)
+		if err != nil {
+			return fmt.Errorf("failed to get certificates: %w", err)
+		}
+
+		// license init
+		err = pro.LicenseInit(ctx, vConfig)
+		if err != nil {
+			return fmt.Errorf("failed to get license: %w", err)
+		}
 	}
 
 	// call out to the pro code

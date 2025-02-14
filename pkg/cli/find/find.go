@@ -391,7 +391,7 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 	version := ""
 	pods := []corev1.Pod{}
 
-	if object.GetAnnotations() != nil && object.GetAnnotations()[constants.PausedAnnotation] == "true" {
+	if object.GetAnnotations() != nil && object.GetAnnotations()[constants.PausedAnnotation(false)] == "true" {
 		status = string(StatusPaused)
 	} else {
 		releaseName = "release=" + release
@@ -593,5 +593,5 @@ func isPaused(v client.Object) bool {
 	annotations := v.GetAnnotations()
 	labels := v.GetLabels()
 
-	return annotations[constants.PausedAnnotation] == "true" || labels[sleepmode.Label] == "true"
+	return annotations[constants.PausedAnnotation(false)] == "true" || labels[sleepmode.Label] == "true"
 }

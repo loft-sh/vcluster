@@ -50,7 +50,7 @@ func PauseVCluster(
 		return nil
 	}
 
-	err := lifecycle.PauseVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log)
+	err := lifecycle.PauseVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, false, log)
 	if err != nil {
 		return err
 	}
