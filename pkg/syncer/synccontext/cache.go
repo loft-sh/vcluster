@@ -15,18 +15,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-func NewBidirectionalObjectCache(obj client.Object) *BidirectionalObjectCache {
+func NewBidirectionalObjectCache(obj client.Object, mapper Mapper) *BidirectionalObjectCache {
 	return &BidirectionalObjectCache{
 		vCache: newObjectCache(),
 		pCache: newObjectCache(),
 
 		obj: obj,
+
+		mapper: mapper,
 	}
 }
 
 type BidirectionalObjectCache struct {
 	vCache *ObjectCache
 	pCache *ObjectCache
+
+	mapper Mapper
 
 	obj client.Object
 }
@@ -45,15 +49,9 @@ func (o *BidirectionalObjectCache) Start(ctx *RegisterContext) error {
 		return fmt.Errorf("gvk for object: %w", err)
 	}
 
-	mapper, err := ctx.Mappings.ByGVK(gvk)
-	if err != nil {
-		return fmt.Errorf("mapper for gvk %s couldn't be found", gvk.String())
-	}
-
 	go func() {
 		wait.Until(func() {
 			syncContext := ctx.ToSyncContext("bidirectional-object-cache")
-
 			// clear up host cache
 			o.pCache.cache.Range(func(key, _ any) bool {
 				// check physical object
@@ -63,7 +61,7 @@ func (o *BidirectionalObjectCache) Start(ctx *RegisterContext) error {
 				}
 
 				// check virtual object
-				vName := mapper.HostToVirtual(syncContext, pName, nil)
+				vName := o.mapper.HostToVirtual(syncContext, pName, nil)
 				if vName.Name == "" {
 					o.pCache.cache.Delete(key)
 					klog.FromContext(syncContext).V(1).Info("Delete from host cache", "gvk", gvk.String(), "key", pName.String())
@@ -88,7 +86,7 @@ func (o *BidirectionalObjectCache) Start(ctx *RegisterContext) error {
 				}
 
 				// check host object
-				pName := mapper.VirtualToHost(syncContext, vName, nil)
+				pName := o.mapper.VirtualToHost(syncContext, vName, nil)
 				if pName.Name == "" {
 					o.vCache.cache.Delete(key)
 					klog.FromContext(syncContext).V(1).Info("Delete from virtual cache", "gvk", gvk.String(), "key", vName.String())
