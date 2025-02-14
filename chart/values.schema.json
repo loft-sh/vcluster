@@ -3838,6 +3838,10 @@
         "$ref": "#/$defs/Plugin"
       },
       "description": "Plugin specifies which vCluster plugins to enable. Use \"plugins\" instead. Do not use this option anymore."
+    },
+    "reuseNamespace": {
+      "type": "boolean",
+      "description": "ReuseNamespace is a flag to control the decision of reusing the same namespace while creating vclusters using methods\nother than cli such as helm. This flag will immediately have a deprecation warning since this feature is going to be deprecated soon."
     }
   },
   "additionalProperties": false,
