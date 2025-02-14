@@ -1036,3 +1036,7 @@ experimental:
 telemetry:
   # Enabled specifies that the telemetry for the vCluster control plane should be enabled.
   enabled: true
+
+# ReuseNamespace is a flag to control the decision of reusing the same namespace while creating vclusters using methods
+# other than cli such as helm. This flag will immediately have a deprecation warning since this feature is going to be deprecated soon.
+reuseNamespace: false
