@@ -24,7 +24,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -274,25 +273,6 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 				return ctrl.Result{}, err
 			}
 		}
-
-		// propagate pod status changes from host cluster to vcluster when the host pod
-		// is being deleted. We need this because there is a possibility that pod is owned
-		// by a controller which wants the pod status to be either succeeded or failed before
-		// deleting it. But because these status changes are not propogated
-		// to vcluster pod when the host pod is being deleted, vcluster pod's status still
-		// shows as running, hence it cannot be deleted until it has failed or succeeded. This
-		// results in dangling pods on vcluster
-		if !equality.Semantic.DeepEqual(event.Virtual.Status, event.Host.Status) {
-			updated := event.Virtual.DeepCopy()
-			updated.Status = *event.Host.Status.DeepCopy()
-			ctx.Log.Infof("update virtual pod %s, because status has changed", event.Virtual.Name)
-			err := ctx.VirtualClient.Status().Update(ctx, updated)
-			if err != nil && !kerrors.IsNotFound(err) {
-				return ctrl.Result{}, err
-			}
-		}
-
-		return ctrl.Result{}, nil
 	} else if event.Virtual.DeletionTimestamp != nil {
 		return patcher.DeleteHostObjectWithOptions(ctx, event.Host, event.Virtual, "virtual pod is being deleted", &client.DeleteOptions{
 			GracePeriodSeconds: event.Virtual.DeletionGracePeriodSeconds,
@@ -346,12 +326,6 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	// ignore the QOSClass field while updating pod status when there is a
-	// mismatch in this field value on vcluster and host. This field
-	// has become immutable from k8s 1.32 version and patch fails if
-	// syncer tries to update this field.
-	event.Host.Status.QOSClass = event.VirtualOld.Status.QOSClass
 
 	// patch objects
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Pods.Patches, false))
