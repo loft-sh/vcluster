@@ -111,8 +111,7 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 
 func (s *csinodeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.CSINode]) (ctrl.Result, error) {
 	if event.HostOld == nil {
-		ManagedByLabelDoesNotExist := event.Virtual.GetLabels() == nil || (event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.MarkerLabel] != translate.VClusterName)
-		if ManagedByLabelDoesNotExist {
+		if event.Virtual.GetLabels() == nil || (event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.MarkerLabel] != translate.VClusterName) {
 			return ctrl.Result{}, nil
 		}
 	}
