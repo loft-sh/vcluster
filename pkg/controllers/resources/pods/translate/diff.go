@@ -20,18 +20,23 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	// syncer tries to update this field.
 	event.Host.Status.QOSClass = event.VirtualOld.Status.QOSClass
 
-	// sync conditions
-	event.Virtual.Status.Conditions, event.Host.Status.Conditions = patcher.CopyBidirectional(
-		event.VirtualOld.Status.Conditions,
-		event.Virtual.Status.Conditions,
-		event.HostOld.Status.Conditions,
-		event.Host.Status.Conditions,
-	)
+	if event.Host.DeletionTimestamp == nil {
+		// sync bidirectional only when host is not being deleted, else just copy status from host
+		// to virtual
+		// sync conditions
+		event.Virtual.Status.Conditions, event.Host.Status.Conditions = patcher.CopyBidirectional(
+			event.VirtualOld.Status.Conditions,
+			event.Virtual.Status.Conditions,
+			event.HostOld.Status.Conditions,
+			event.Host.Status.Conditions,
+		)
+	}
 
 	// has status changed?
 	vPod := event.Virtual
 	pPod := event.Host
 	vPod.Status = *pPod.Status.DeepCopy()
+
 	stripInjectedSidecarContainers(vPod, pPod)
 
 	// get Namespace resource in order to have access to its labels

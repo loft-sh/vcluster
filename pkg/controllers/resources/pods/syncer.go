@@ -255,6 +255,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	var (
 		err error
 	)
+
 	// should pod get deleted?
 	if event.Host.DeletionTimestamp != nil {
 		if event.Virtual.DeletionTimestamp == nil {
@@ -280,51 +281,53 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		})
 	}
 
-	// make sure node exists for pod
-	if event.Host.Spec.NodeName != "" {
-		requeue, err := s.ensureNode(ctx, event.Host, event.Virtual)
-		if kerrors.IsConflict(err) {
-			ctx.Log.Debugf("conflict binding virtual pod %s/%s", event.Virtual.Namespace, event.Virtual.Name)
-			return ctrl.Result{Requeue: true}, nil
-		} else if err != nil {
-			return ctrl.Result{}, err
-		} else if requeue {
+	if event.Host.DeletionTimestamp == nil {
+		// make sure node exists for pod
+		if event.Host.Spec.NodeName != "" {
+			requeue, err := s.ensureNode(ctx, event.Host, event.Virtual)
+			if kerrors.IsConflict(err) {
+				ctx.Log.Debugf("conflict binding virtual pod %s/%s", event.Virtual.Namespace, event.Virtual.Name)
+				return ctrl.Result{Requeue: true}, nil
+			} else if err != nil {
+				return ctrl.Result{}, err
+			} else if requeue {
+				return ctrl.Result{Requeue: true}, nil
+			}
+		} else if event.Host.Spec.NodeName != "" && event.Virtual.Spec.NodeName != "" && event.Host.Spec.NodeName != event.Virtual.Spec.NodeName {
+			// if physical pod nodeName is different from virtual pod nodeName, we delete the virtual one
+			return patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.Host, "node name is different between the two", &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
+		}
+
+		if s.fakeKubeletIPs && event.Host.Status.HostIP != "" {
+			err = s.rewriteFakeHostIPAddresses(ctx, event.Host)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		// validate virtual pod before syncing it to the host cluster
+		if s.podSecurityStandard != "" {
+			valid, err := s.isPodSecurityStandardsValid(ctx, event.Virtual, ctx.Log)
+			if err != nil {
+				return ctrl.Result{}, err
+			} else if !valid {
+				return ctrl.Result{}, nil
+			}
+		}
+
+		// sync ephemeral containers
+		synced, err := s.syncEphemeralContainers(ctx, s.physicalClusterClient, event.Host, event.Virtual)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("sync ephemeral containers: %w", err)
+		} else if synced {
 			return ctrl.Result{Requeue: true}, nil
 		}
-	} else if event.Host.Spec.NodeName != "" && event.Virtual.Spec.NodeName != "" && event.Host.Spec.NodeName != event.Virtual.Spec.NodeName {
-		// if physical pod nodeName is different from virtual pod nodeName, we delete the virtual one
-		return patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.Host, "node name is different between the two", &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
-	}
 
-	if s.fakeKubeletIPs && event.Host.Status.HostIP != "" {
-		err = s.rewriteFakeHostIPAddresses(ctx, event.Host)
+		// set pod owner as sa token
+		err = setSATokenSecretAsOwner(ctx, ctx.PhysicalClient, event.Virtual, event.Host)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-	}
-
-	// validate virtual pod before syncing it to the host cluster
-	if s.podSecurityStandard != "" {
-		valid, err := s.isPodSecurityStandardsValid(ctx, event.Virtual, ctx.Log)
-		if err != nil {
-			return ctrl.Result{}, err
-		} else if !valid {
-			return ctrl.Result{}, nil
-		}
-	}
-
-	// sync ephemeral containers
-	synced, err := s.syncEphemeralContainers(ctx, s.physicalClusterClient, event.Host, event.Virtual)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("sync ephemeral containers: %w", err)
-	} else if synced {
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	// set pod owner as sa token
-	err = setSATokenSecretAsOwner(ctx, ctx.PhysicalClient, event.Virtual, event.Host)
-	if err != nil {
-		return ctrl.Result{}, err
 	}
 
 	// patch objects
