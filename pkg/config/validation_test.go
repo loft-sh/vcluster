@@ -251,3 +251,97 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateFromHostSyncCustomResources(t *testing.T) {
+	noErrExpected := func(t *testing.T, err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+	expectErr := func(errMsg string) func(t *testing.T, err error) {
+		return func(t *testing.T, err error) {
+			t.Helper()
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if err.Error() != errMsg {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		}
+	}
+
+	cases := []struct {
+		name                        string
+		customResourcesFromHostSync map[string]config.SyncFromHostCustomResource
+		checkErr                    func(t *testing.T, err error)
+	}{
+		{
+			name: "valid cluster scope crd config",
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"clusterissuers.cert-manager.io": {
+					Enabled: true,
+					Scope:   config.ScopeCluster,
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "invalid cluster scope crd config with mappings",
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"clusterissuers.cert-manager.io": {
+					Enabled: true,
+					Scope:   config.ScopeCluster,
+					Selector: config.FromHostSelector{
+						Mappings: map[string]string{
+							"": "default",
+						},
+					},
+				},
+			},
+			checkErr: expectErr(".selector.mappings are only supported for sync.fromHost.customResources['clusterissuers.cert-manager.io'] with scope 'Namespaced'"),
+		},
+		{
+			name: "valid namespaced scope crd config with mappings",
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"certificaterequests.cert-manager.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+					Selector: config.FromHostSelector{
+						Mappings: map[string]string{
+							"": "default",
+						},
+					},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "invalid namespaced scope crd config without mappings",
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"certificaterequests.cert-manager.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			checkErr: expectErr(".selector.mappings is required for Namespaced scope sync.fromHost.customResources['certificaterequests.cert-manager.io']"),
+		},
+		{
+			name: "invalid scope for crd config",
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"certificaterequests.cert-manager.io": {
+					Enabled: true,
+					Scope:   "dummy",
+				},
+			},
+			checkErr: expectErr("unsupported scope dummy for sync.fromHost.customResources['certificaterequests.cert-manager.io'].scope. Only 'Cluster' and 'Namespaced' are allowed"),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateFromHostSyncCustomResources(tc.customResourcesFromHostSync)
+			tc.checkErr(t, err)
+		})
+	}
+}
