@@ -17,12 +17,15 @@ var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", gi
 		f                       *framework.Framework
 		secret1                 *corev1.Secret
 		secret2                 *corev1.Secret
+		secret3                 *corev1.Secret
 		secret1Name             = "dummy"
 		secret1HostNamespace    = "from-host-sync-test-2"
 		secretsVirtualNamespace = "barfoo2"
 		secret2HostNamespace    = "default"
 		secret2HostName         = "my-secret"
 		secret2VirtualName      = "secret-my"
+		secret3HostName         = "my-secret-in-default-ns"
+		secret3VirtualName      = "secret-from-default-ns"
 		podName                 = "my-pod"
 	)
 
@@ -48,12 +51,23 @@ var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", gi
 				"ANOTHER_ENV_FROM_DEFAULT_NS": []byte("two"),
 			},
 		}
+		secret3 = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secret3HostName,
+				Namespace: f.VclusterNamespace,
+			},
+			Data: map[string][]byte{
+				"dummy":   []byte("one"),
+				"dummy-2": []byte("two"),
+			},
+		}
 
 	})
 
 	ginkgo.AfterAll(func() {
 		framework.ExpectNoError(f.HostClient.CoreV1().Secrets(secret1.GetNamespace()).Delete(f.Context, secret1.GetName(), metav1.DeleteOptions{}))
 		framework.ExpectNoError(f.HostClient.CoreV1().Secrets(secret2.GetNamespace()).Delete(f.Context, secret2.GetName(), metav1.DeleteOptions{}))
+		framework.ExpectNoError(f.HostClient.CoreV1().Secrets(secret3.GetNamespace()).Delete(f.Context, secret3.GetName(), metav1.DeleteOptions{}))
 
 		framework.ExpectNoError(f.VClusterClient.CoreV1().Pods(secretsVirtualNamespace).Delete(f.Context, podName, metav1.DeleteOptions{}))
 		// verify whether secrets got deleted from virtual too
@@ -69,6 +83,8 @@ var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", gi
 		_, err := f.HostClient.CoreV1().Secrets(secret1.GetNamespace()).Create(f.Context, secret1, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 		_, err = f.HostClient.CoreV1().Secrets(secret2.GetNamespace()).Create(f.Context, secret2, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+		_, err = f.HostClient.CoreV1().Secrets(secret3.GetNamespace()).Create(f.Context, secret3, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 	})
 
@@ -95,6 +111,21 @@ var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", gi
 			}
 			if !reflect.DeepEqual(virtual2.Data, secret2.Data) {
 				f.Log.Errorf("expected %#v in virtual.Data got %#v", secret2.Data, virtual2.Data)
+				return false
+			}
+			return true
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout / 4).
+			Should(gomega.BeTrue())
+
+		gomega.Eventually(func() bool {
+			virtual3, err := f.VClusterClient.CoreV1().Secrets(secretsVirtualNamespace).Get(f.Context, secret3VirtualName, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+			if !reflect.DeepEqual(virtual3.Data, secret3.Data) {
+				f.Log.Errorf("expected %#v in virtual.Data got %#v", secret3.Data, virtual3.Data)
 				return false
 			}
 			return true
