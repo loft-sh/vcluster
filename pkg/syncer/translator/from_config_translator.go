@@ -3,12 +3,10 @@ package translator
 import (
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/util/translate"
-
 	"github.com/loft-sh/vcluster/pkg/constants"
-
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -143,6 +141,18 @@ func matchesHostObject(hostName, hostNamespace string, resourceMappings map[stri
 			}
 		}
 	}
+
+	// third, by /object-name (then
+	if hostNamespace == vClusterHostNamespace {
+		if val, ok := resourceMappings["/"+hostName]; ok {
+			ns, name, found := strings.Cut(val, "/")
+			if !found {
+				// this should never happen
+				return types.NamespacedName{}, false
+			}
+			return types.NamespacedName{Namespace: ns, Name: name}, true
+		}
+	}
 	return types.NamespacedName{}, false
 }
 
@@ -157,6 +167,9 @@ func matchesVirtualObject(virtualNs, virtualName string, virtualToHost map[strin
 		}
 		ns, name, found := strings.Cut(host, "/")
 		if found && name != "" {
+			if ns == "" {
+				ns = vClusterHostNamespace
+			}
 			return types.NamespacedName{Namespace: ns, Name: name}, true
 		}
 	}

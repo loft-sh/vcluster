@@ -5,12 +5,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-
 	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/strvals"
+	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/pkg/errors"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/yaml"
 )
 
@@ -113,8 +113,15 @@ func parseHostNamespacesFromMappings(mappings map[string]string, vClusterNs stri
 		if len(parts) != 2 {
 			continue
 		}
+
+		if parts[0] == "" {
+			// this means that the mapping key is e.g. "/my-cm-1",
+			// then, we should append virtual cluster namespace
+			ret = append(ret, vClusterNs)
+			continue
+		}
 		hostNs := parts[0]
 		ret = append(ret, hostNs)
 	}
-	return ret
+	return stringutil.RemoveDuplicates(ret)
 }
