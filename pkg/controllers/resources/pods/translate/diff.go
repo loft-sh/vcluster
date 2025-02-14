@@ -32,6 +32,7 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	vPod := event.Virtual
 	pPod := event.Host
 	vPod.Status = *pPod.Status.DeepCopy()
+
 	stripInjectedSidecarContainers(vPod, pPod)
 
 	// get Namespace resource in order to have access to its labels
