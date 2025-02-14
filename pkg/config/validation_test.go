@@ -207,7 +207,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: noErr,
 		},
 		{
-			name: "invalid config 2",
+			name: "(invalid) host namespace mapped to object",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -219,7 +219,7 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 3",
+			name: "(invalid) host object mapped to namespace",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
@@ -231,12 +231,109 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: expectErr,
 		},
 		{
-			name: "invalid config 4",
+			name: "(invalid) wildcard used in host but not in virtual",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
 				Selector: config.FromHostSelector{
 					Mappings: map[string]string{
-						"default/my-cm": "barfoo",
+						"default/*": "barfoo",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) '*' is not valid key",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/my-cm": "barfoo/my-cm",
+						"*":             "barfoo2/*",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) host object name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/_not_valid_obj_name": "barfoo/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) host namespace name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"_not-Valid_namespace_name/my-cm": "barfoo/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) virtual object name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/my-cm": "barfoo/_not_valid_obj_name",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) map from host object, but virtual namespace name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"default/my-cm": "_not_valid_ns66_name/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) map from host vcluster namespace, but virtual namespace name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"/my-cm": "_not_valid_ns66_name/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) host name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"/_not_valid_obj_name": "default/my-cm",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) virtual namespace name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"": "!66_not_valid_ns/*",
 					},
 				},
 			},
@@ -335,6 +432,81 @@ func TestValidateFromHostSyncCustomResources(t *testing.T) {
 				},
 			},
 			checkErr: expectErr("unsupported scope dummy for sync.fromHost.customResources['certificaterequests.cert-manager.io'].scope. Only 'Cluster' and 'Namespaced' are allowed"),
+		},
+		{
+			name: "invalid namespace for crd config",
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"certificaterequests.cert-manager.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+					Selector: config.FromHostSelector{
+						Mappings: map[string]string{
+							"_s66/my": "default/my-cr",
+						},
+					},
+				},
+			},
+			checkErr: expectErr("config.sync.fromHost.certificaterequests.cert-manager.io.selector.mappings parsed host namespace is not valid namespace name [a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')]"),
+		},
+		{
+			name: "invalid name for crd config",
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"certificaterequests.cert-manager.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+					Selector: config.FromHostSelector{
+						Mappings: map[string]string{
+							"/_s66": "default/my-cr",
+						},
+					},
+				},
+			},
+			checkErr: expectErr("config.sync.fromHost.certificaterequests.cert-manager.io.selector.mappings parsed object name from key (/_s66) is not valid name [a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')]"),
+		},
+		{
+			name: "invalid virtual namespace for crd config",
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"certificaterequests.cert-manager.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+					Selector: config.FromHostSelector{
+						Mappings: map[string]string{
+							"default/my-cr": "_s66/my",
+						},
+					},
+				},
+			},
+			checkErr: expectErr("config.sync.fromHost.certificaterequests.cert-manager.io.selector.mappings parsed virtual namespace is not valid namespace name [a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')]"),
+		},
+		{
+			name: "invalid virtual name for crd config",
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"certificaterequests.cert-manager.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+					Selector: config.FromHostSelector{
+						Mappings: map[string]string{
+							"default/my-cr": "/_s66",
+						},
+					},
+				},
+			},
+			checkErr: expectErr("config.sync.fromHost.certificaterequests.cert-manager.io.selector.mappings parsed virtual namespace is not valid namespace name [a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')]"),
+		},
+		{
+			name: "invalid virtual entry in crd config",
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"certificaterequests.cert-manager.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+					Selector: config.FromHostSelector{
+						Mappings: map[string]string{
+							"default/my-cr": "default/my/s66",
+						},
+					},
+				},
+			},
+			checkErr: expectErr("config.sync.fromHost.certificaterequests.cert-manager.io.selector.mappings has key:value pair in invalid format: default/my-cr:default/my/s66 (expected NAMESPACE_NAME/NAME, NAMESPACE_NAME/*, /NAME or \"\")"),
 		},
 	}
 
