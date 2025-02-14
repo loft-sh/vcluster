@@ -76,6 +76,10 @@ type Config struct {
 
 	// Plugin specifies which vCluster plugins to enable. Use "plugins" instead. Do not use this option anymore.
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
+
+	// ReuseNamespace is a flag to control the decision of reusing the same namespace while creating vclusters using methods
+	// other than cli such as helm. This flag will immediately have a deprecation warning since this feature is going to be deprecated soon.
+	ReuseNamespace bool `json:"reuseNamespace,omitempty"`
 }
 
 // Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
