@@ -574,3 +574,5 @@ experimental:
 
 telemetry:
   enabled: true
+
+reuseNamespace: false
