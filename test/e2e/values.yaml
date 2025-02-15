@@ -42,6 +42,9 @@ sync:
           "default/my.cm": "barfoo/cm-my"
           "": "my-new-ns"
           "/my-cm-4": "barfoo/my-cm-4"
+          "/specific-cm": "my-virtual-namespace/specific-cm"
+          "my-ns/to-be-deleted": "my-ns/to-be-deleted"
+          "same-ns/*": "same-ns/*"
     secrets:
       enabled: true
       mappings:
