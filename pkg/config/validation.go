@@ -75,14 +75,8 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 			return err
 		}
 	}
-	for key, customResource := range vConfig.Sync.FromHost.CustomResources {
-		if customResource.Scope != "" && customResource.Scope != config.ScopeCluster {
-			return fmt.Errorf("unsupported scope %s for sync.fromHost.customResources['%s'].scope. Only 'Cluster' is allowed", customResource.Scope, key)
-		}
-		err := validatePatches(patchesValidation{basePath: "sync.fromHost.customResources." + key, patches: customResource.Patches})
-		if err != nil {
-			return err
-		}
+	if err := validateFromHostSyncCustomResources(vConfig.Sync.FromHost.CustomResources); err != nil {
+		return err
 	}
 
 	// validate sync patches
@@ -197,6 +191,11 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 
 	// check sync.fromHost.configMaps.selector.mappings
 	err = validateFromHostSyncMappings(vConfig.Sync.FromHost.ConfigMaps, "configMaps")
+	if err != nil {
+		return err
+	}
+
+	err = validateFromHostSyncMappings(vConfig.Sync.FromHost.Secrets, "secrets")
 	if err != nil {
 		return err
 	}
@@ -615,6 +614,74 @@ func validateFromHostSyncMappings(s config.EnableSwitchWithResourcesMappings, re
 				resourceNamePlural, key, value,
 			)
 		}
+		if err := validateFromHostMappingEntry(key, value, resourceNamePlural); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateFromHostMappingEntry(key, value, resourceNamePlural string) error {
+	if strings.Count(key, "/") > 1 || strings.Count(value, "/") > 1 {
+		return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has key:value pair in invalid format: %s:%s (expected NAMESPACE_NAME/NAME, NAMESPACE_NAME/*, /NAME or \"\")", resourceNamePlural, key, value)
+	}
+	hostRef := strings.Split(key, "/")
+	virtualRef := strings.Split(value, "/")
+	if key != "" && len(hostRef) > 0 {
+		errs := validation.ValidateNamespaceName(hostRef[0], false)
+		if len(errs) > 0 && hostRef[0] != "" {
+			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed host namespace is not valid namespace name %s", resourceNamePlural, errs)
+		}
+		if err := validateFromHostSyncMappingObjectName(hostRef, resourceNamePlural); err != nil {
+			return err
+		}
+	}
+	if len(virtualRef) > 0 {
+		errs := validation.ValidateNamespaceName(virtualRef[0], false)
+		if len(errs) > 0 {
+			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed virtual namespace is not valid namespace name %s", resourceNamePlural, errs)
+		}
+		if err := validateFromHostSyncMappingObjectName(virtualRef, resourceNamePlural); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateFromHostSyncCustomResources(customResources map[string]config.SyncFromHostCustomResource) error {
+	for key, customResource := range customResources {
+		if customResource.Scope != "" && customResource.Scope != config.ScopeCluster && customResource.Scope != config.ScopeNamespaced {
+			return fmt.Errorf("unsupported scope %s for sync.fromHost.customResources['%s'].scope. Only 'Cluster' and 'Namespaced' are allowed", customResource.Scope, key)
+		}
+		if len(customResource.Selector.Mappings) > 0 && customResource.Scope != config.ScopeNamespaced {
+			return fmt.Errorf(".selector.mappings are only supported for sync.fromHost.customResources['%s'] with scope 'Namespaced'", key)
+		}
+		if customResource.Scope == config.ScopeNamespaced && len(customResource.Selector.Mappings) == 0 {
+			return fmt.Errorf(".selector.mappings is required for Namespaced scope sync.fromHost.customResources['%s']", key)
+		}
+		err := validatePatches(patchesValidation{basePath: "sync.fromHost.customResources." + key, patches: customResource.Patches})
+		if err != nil {
+			return err
+		}
+
+		if customResource.Scope == config.ScopeNamespaced {
+			for host, virtual := range customResource.Selector.Mappings {
+				if err := validateFromHostMappingEntry(host, virtual, key); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func validateFromHostSyncMappingObjectName(objRef []string, resourceNamePlural string) error {
+	var errs []string
+	if len(objRef) == 2 && objRef[1] != "" && objRef[1] != "*" {
+		errs = validation.NameIsDNSLabel(objRef[1], false)
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed object name from key (%s) is not valid name %s", resourceNamePlural, strings.Join(objRef, "/"), errs)
 	}
 	return nil
 }

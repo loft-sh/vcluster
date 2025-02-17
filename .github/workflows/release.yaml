@@ -76,24 +76,6 @@ jobs:
           pattern: "release/*"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Trigger docs-runme workflow
-        uses: actions/github-script@v7
-        continue-on-error: true
-        with:
-          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
-          script: |
-            const version = '${{ steps.get_version.outputs.release_version }}';
-            const response = await github.rest.actions.createWorkflowDispatch({
-              owner: 'loft-sh',
-              repo: 'vcluster-docs',
-              workflow_id: 'e2e-examples.yml',
-              ref: 'main',
-              inputs: {
-                version: version
-              }
-            });
-              console.log(response);
-
       - name: Trigger cli-docs workflow
         uses: actions/github-script@v7
         continue-on-error: true
@@ -105,29 +87,11 @@ jobs:
             const response = await github.rest.actions.createWorkflowDispatch({
               owner: 'loft-sh',
               repo: 'vcluster-docs',
-              workflow_id: 'cluster-docs.yaml',
+              workflow_id: 'cli-docs.yaml',
               ref: 'main',
               inputs: {
                 version,
                 ref,
-              }
-            });
-            console.log(response);
-
-      - name: Trigger CAPVC workflow
-        uses: actions/github-script@v7
-        continue-on-error: true
-        with:
-          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
-          script: |
-            const version = '${{ steps.get_version.outputs.release_version }}';
-            const response = await github.rest.actions.createWorkflowDispatch({
-              owner: 'loft-sh',
-              repo: 'cluster-api-provider-vcluster',
-              workflow_id: 'bump-vcluster.yaml',
-              ref: 'main',
-              inputs: {
-                version: version
               }
             });
             console.log(response);

@@ -165,7 +165,7 @@ func updateNode(ctx context.Context, decoder encoding.Decoder, localClient clien
 	}
 
 	// now let's wait for the virtual node to update
-	err = wait.PollUntilContextTimeout(ctx, time.Second*4, time.Millisecond*200, true, func(ctx context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*200, time.Second*4, true, func(ctx context.Context) (bool, error) {
 		updatedNode := &corev1.Node{}
 		err := virtualClient.Get(ctx, client.ObjectKey{Name: vNode.Name}, updatedNode)
 		if err != nil {

@@ -102,8 +102,7 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
   echo "Execute test suites ({{ distribution }}, {{ path }}, {{ multinamespace }})"
 
   TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean
-
-  cp dist/vcluster_linux_$(go env GOARCH | sed s/amd64/amd64_v1/g)/vcluster ./vcluster
+  cp dist/vcluster_linux_$(go env GOARCH | sed s/amd64/amd64_v1/g | sed s/arm64/arm64_v8.0/g)/vcluster ./vcluster
   docker build -t vcluster:e2e-latest -f Dockerfile.release --build-arg TARGETARCH=$(uname -m) --build-arg TARGETOS=linux .
   rm ./vcluster
 
@@ -120,7 +119,8 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
   rm dist/commonValues.yaml.bak
 
   kubectl create namespace from-host-sync-test
-  ./dist/vcluster-cli_$(go env GOOS)_$(go env GOARCH | sed s/amd64/amd64_v1/g)/vcluster \
+  kubectl create namespace from-host-sync-test-2
+  ./dist/vcluster-cli_$(go env GOOS)_$(go env GOARCH | sed s/amd64/amd64_v1/g | sed s/arm64/arm64_v8.0/g)/vcluster \
     create vcluster -n vcluster \
     --create-namespace \
     --debug \

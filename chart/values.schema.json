@@ -3183,6 +3183,10 @@
         "configMaps": {
           "$ref": "#/$defs/EnableSwitchWithResourcesMappings",
           "description": "ConfigMaps defines if config maps in the host should get synced to the virtual cluster."
+        },
+        "secrets": {
+          "$ref": "#/$defs/EnableSwitchWithResourcesMappings",
+          "description": "Secrets defines if secrets in the host should get synced to the virtual cluster."
         }
       },
       "additionalProperties": false,
@@ -3204,6 +3208,10 @@
           },
           "type": "array",
           "description": "Patches patch the resource according to the provided specification."
+        },
+        "selector": {
+          "$ref": "#/$defs/FromHostSelector",
+          "description": "Selector for Namespace and Object"
         }
       },
       "additionalProperties": false,

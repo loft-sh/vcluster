@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"k8s.io/client-go/util/retry"
+
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/k3s"
@@ -12,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 )
 

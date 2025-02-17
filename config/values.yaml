@@ -79,6 +79,10 @@ sync:
       selector:
         all: false
         labels: {}
+    secrets:
+      enabled: false
+      selector:
+        mappings: {}
     volumeSnapshotClasses:
       enabled: false
 

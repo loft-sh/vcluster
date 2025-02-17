@@ -3,10 +3,14 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/strvals"
+	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/pkg/errors"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/yaml"
 )
 
@@ -80,4 +84,44 @@ func applySetValues(rawConfig []byte, setValues []string) ([]byte, error) {
 	}
 
 	return rawConfig, nil
+}
+
+func GetLocalCacheOptionsFromConfigMappings(mappings map[string]string, vClusterNamespace string) (cache.Options, bool) {
+	defaultNamespaces := make(map[string]cache.Config)
+	namespaces := parseHostNamespacesFromMappings(mappings, vClusterNamespace)
+	if len(namespaces) == 1 {
+		for _, k := range namespaces {
+			if k == vClusterNamespace {
+				// then there is no need to create custom manager
+				return cache.Options{}, false
+			}
+		}
+	}
+	for _, ns := range namespaces {
+		defaultNamespaces[ns] = cache.Config{}
+	}
+	return cache.Options{DefaultNamespaces: defaultNamespaces}, true
+}
+
+func parseHostNamespacesFromMappings(mappings map[string]string, vClusterNs string) []string {
+	ret := make([]string, 0)
+	for host := range mappings {
+		if host == constants.VClusterNamespaceInHostMappingSpecialCharacter {
+			ret = append(ret, vClusterNs)
+		}
+		parts := strings.Split(host, "/")
+		if len(parts) != 2 {
+			continue
+		}
+
+		if parts[0] == "" {
+			// this means that the mapping key is e.g. "/my-cm-1",
+			// then, we should append virtual cluster namespace
+			ret = append(ret, vClusterNs)
+			continue
+		}
+		hostNs := parts[0]
+		ret = append(ret, hostNs)
+	}
+	return stringutil.RemoveDuplicates(ret)
 }
