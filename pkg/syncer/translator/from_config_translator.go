@@ -128,6 +128,18 @@ func matchesHostObject(hostName, hostNamespace string, resourceMappings map[stri
 		}
 	}
 
+	// third, by /object-name (then
+	if hostNamespace == vClusterHostNamespace {
+		if val, ok := resourceMappings["/"+hostName]; ok {
+			ns, name, found := strings.Cut(val, "/")
+			if !found {
+				// this should never happen
+				return types.NamespacedName{}, false
+			}
+			return types.NamespacedName{Namespace: ns, Name: name}, true
+		}
+	}
+
 	// last chance, if user specified "": <namespace>/*
 	if virtual, ok := resourceMappings[constants.VClusterNamespaceInHostMappingSpecialCharacter]; ok {
 		if vClusterHostNamespace == hostNamespace {
@@ -142,17 +154,6 @@ func matchesHostObject(hostName, hostNamespace string, resourceMappings map[stri
 		}
 	}
 
-	// third, by /object-name (then
-	if hostNamespace == vClusterHostNamespace {
-		if val, ok := resourceMappings["/"+hostName]; ok {
-			ns, name, found := strings.Cut(val, "/")
-			if !found {
-				// this should never happen
-				return types.NamespacedName{}, false
-			}
-			return types.NamespacedName{Namespace: ns, Name: name}, true
-		}
-	}
 	return types.NamespacedName{}, false
 }
 

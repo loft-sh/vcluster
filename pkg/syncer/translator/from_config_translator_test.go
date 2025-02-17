@@ -127,6 +127,23 @@ func TestMatches(t *testing.T) {
 			vClusterHostNamespace: "ns1",
 			expectedVirtual:       types.NamespacedName{Name: "my-cm-2", Namespace: "my-ns-2"},
 		},
+		{
+			name: "vcluster's namespace match all but for several configmaps, sync to another namespace",
+			mappings: map[string]string{
+				"from-host-sync-test/*": "barfoo/*",
+				"default/my-cm":         "barfoo/cm-my",
+				"":                      "my-new-ns",
+				"my-ns-4/*":             "my-ns-4/*",
+				"/my-cm-5":              "my-virtual-namespace/my-cm-5",
+				"/my-cm-6":              "my-virtual-namespace6/my-cm-6",
+			},
+			hostName:              "my-cm-6",
+			hostNs:                "vcluster",
+			virtualName:           "my-cm-6",
+			virtualNs:             "my-virtual-namespace6",
+			vClusterHostNamespace: "vcluster",
+			expectedVirtual:       types.NamespacedName{Name: "my-cm-6", Namespace: "my-virtual-namespace6"},
+		},
 	}
 
 	t.Run("match host", func(t *testing.T) {
