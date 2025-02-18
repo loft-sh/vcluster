@@ -6,6 +6,8 @@ import (
 	"os"
 	"runtime/debug"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/integrations"
@@ -18,6 +20,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -83,6 +89,21 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	// initialize feature gate from environment
 	if err := pro.LicenseInit(ctx, vConfig); err != nil {
 		return fmt.Errorf("license init: %w", err)
+	}
+
+	// check if there are existing vclusters in the current namespace. This can be achieved by listing the vcluster services
+	vclusterServices, err := listVclusterServices(ctx, vConfig.ControlPlaneClient, vConfig.ControlPlaneNamespace)
+	if err != nil {
+		return err
+	}
+
+	// add a deprecation warning if reuseNamespace flag is being set to true
+	if !vConfig.ReuseNamespace {
+		if len(vclusterServices) > 0 {
+			return fmt.Errorf("there is already a virtual cluster in the current namespace %s", vConfig.ControlPlaneNamespace)
+		}
+	} else {
+		logrus.Warnf("Creation of multiple vclusters within the same namespace will be deprecated soon.")
 	}
 
 	err = setup.Initialize(ctx, vConfig)
@@ -164,4 +185,19 @@ func StartLeaderElection(ctx *synccontext.ControllerContext, startLeading func()
 	}
 
 	return nil
+}
+
+func listVclusterServices(ctx context.Context, client kubernetes.Interface, currentNamespace string) ([]corev1.Service, error) {
+	// vcluster service will have the label "app"="vcluster"
+	labelSelector := labels.SelectorFromSet(map[string]string{
+		"app": "vcluster",
+	})
+	services, err := client.CoreV1().Services(currentNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector.String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return services.Items, nil
 }
