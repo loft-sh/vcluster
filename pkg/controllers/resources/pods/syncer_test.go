@@ -5,6 +5,7 @@ import (
 	"maps"
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -616,6 +617,34 @@ func TestSync(t *testing.T) {
 		},
 	}
 
+	priorityClassName := "high-priority"
+	vPodWithoutPriorityClass := &corev1.Pod{
+		ObjectMeta: vObjectMeta,
+		Spec:       corev1.PodSpec{},
+	}
+	vPodWithPriorityClass := &corev1.Pod{
+		ObjectMeta: vObjectMeta,
+		Spec: corev1.PodSpec{
+			PriorityClassName: priorityClassName,
+		},
+	}
+	pPodWithPriorityClass := &corev1.Pod{
+		ObjectMeta: pObjectMeta,
+		Spec: corev1.PodSpec{
+			AutomountServiceAccountToken: ptr.To(false),
+			EnableServiceLinks:           ptr.To(false),
+			HostAliases: []corev1.HostAlias{{
+				IP:        pVclusterService.Spec.ClusterIP,
+				Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
+			}},
+			Hostname:           vPodWithPriorityClass.Name,
+			ServiceAccountName: "vc-workload-vcluster",
+			PriorityClassName:  priorityClassName,
+		},
+	}
+	pPodWithTranslatedPriorityClass := pPodWithPriorityClass.DeepCopy()
+	pPodWithTranslatedPriorityClass.Spec.PriorityClassName = "vcluster-high-priority-x-test-x-vcluster"
+
 	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                 "Map hostpaths",
@@ -646,6 +675,54 @@ func TestSync(t *testing.T) {
 				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = true
 				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).Sync(syncContext, synccontext.NewSyncEventWithOld(pPodFakeKubelet, pPodFakeKubelet, vPodWithNodeName, vPodWithNodeName))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "From Host PriorityClasses sync enabled",
+			InitialVirtualState:  []runtime.Object{vPodWithPriorityClass, vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodWithPriorityClass},
+			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.FromHost.PriorityClasses.Enabled = true
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(vPodWithPriorityClass))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "To Host PriorityClasses sync enabled",
+			InitialVirtualState:  []runtime.Object{vPodWithPriorityClass, vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodWithTranslatedPriorityClass},
+			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.ToHost.PriorityClasses.Enabled = true
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(vPodWithPriorityClass))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "To Host Pods.PriorityClassName set",
+			InitialVirtualState:  []runtime.Object{vPodWithoutPriorityClass, vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodWithPriorityClass},
+			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.ToHost.Pods.PriorityClassName = priorityClassName
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(vPodWithoutPriorityClass))
 				assert.NilError(t, err)
 			},
 		},
