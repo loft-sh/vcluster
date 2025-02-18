@@ -97,10 +97,24 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	event.Virtual.Annotations = event.Host.Annotations
 	event.Virtual.Labels = event.Host.Labels
 	event.Host.Spec.DeepCopyInto(&event.Virtual.Spec)
+
+	// Set the marker of managed-by vcluster so that
+	// we skip deleting the nodes which are not managed
+	// by vcluster in `SyncToHost` function
+	if len(event.Virtual.Labels) == 0 {
+		event.Virtual.Labels = map[string]string{}
+	}
+	event.Virtual.Labels[translate.MarkerLabel] = translate.VClusterName
+
 	return ctrl.Result{}, nil
 }
 
 func (s *csinodeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.CSINode]) (ctrl.Result, error) {
+	if event.HostOld == nil {
+		if event.Virtual.GetLabels() == nil || (event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.MarkerLabel] != translate.VClusterName) {
+			return ctrl.Result{}, nil
+		}
+	}
 	ctx.Log.Infof("delete virtual CSINode %s, because physical object is missing", event.Virtual.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 }

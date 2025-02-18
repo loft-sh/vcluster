@@ -32,6 +32,7 @@ import (
 	// Using v4 to match upstream
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	appsv1 "k8s.io/api/apps/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -68,16 +69,23 @@ type versionedTracker struct {
 }
 
 type fakeClient struct {
-	tracker               versionedTracker
-	scheme                *runtime.Scheme
+	// trackerWriteLock must be acquired before writing to
+	// the tracker or performing reads that affect a following
+	// write.
+	trackerWriteLock sync.Mutex
+	tracker          versionedTracker
+
+	schemeWriteLock sync.Mutex
+	scheme          *runtime.Scheme
+
 	restMapper            meta.RESTMapper
 	withStatusSubresource sets.Set[schema.GroupVersionKind]
 
 	// indexes maps each GroupVersionKind (GVK) to the indexes registered for that GVK.
 	// The inner map maps from index name to IndexerFunc.
 	indexes map[schema.GroupVersionKind]map[string]client.IndexerFunc
-
-	schemeWriteLock sync.Mutex
+	// indexesLock must be held when accessing indexes.
+	indexesLock sync.RWMutex
 }
 
 var _ client.WithWatch = &fakeClient{}
@@ -467,6 +475,11 @@ func (t versionedTracker) updateObject(gvr schema.GroupVersionResource, obj runt
 		switch {
 		case allowsUnconditionalUpdate(gvk):
 			accessor.SetResourceVersion(oldAccessor.GetResourceVersion())
+			// This is needed because if the patch explicitly sets the RV to null, the client-go reaction we use
+			// to apply it and whose output we process here will have it unset. It is not clear why the Kubernetes
+			// apiserver accepts such a patch, but it does so we just copy that behavior.
+			// Kubernetes apiserver behavior can be checked like this:
+			// `kubectl patch configmap foo --patch '{"metadata":{"annotations":{"foo":"bar"},"resourceVersion":null}}' -v=9`
 		case bytes.
 			Contains(debug.Stack(), []byte("sigs.k8s.io/controller-runtime/pkg/client/fake.(*fakeClient).Patch")):
 			// We apply patches using a client-go reaction that ends up calling the trackers Update. As we can't change
@@ -508,7 +521,10 @@ func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj client.O
 		return err
 	}
 
-	if _, isUnstructured := obj.(runtime.Unstructured); isUnstructured {
+	_, isUnstructured := obj.(runtime.Unstructured)
+	_, isPartialObject := obj.(*metav1.PartialObjectMetadata)
+
+	if isUnstructured || isPartialObject {
 		gvk, err := apiutil.GVKForObject(obj, c.scheme)
 		if err != nil {
 			return err
@@ -585,21 +601,31 @@ func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...cl
 		return err
 	}
 	zero(obj)
-	if err := json.Unmarshal(j, obj); err != nil {
+	objCopy := obj.DeepCopyObject().(client.ObjectList)
+	if err := json.Unmarshal(j, objCopy); err != nil {
 		return err
 	}
 
-	if listOpts.LabelSelector == nil && listOpts.FieldSelector == nil {
-		return nil
+	if _, isUnstructured := obj.(runtime.Unstructured); isUnstructured {
+		ta, err := meta.TypeAccessor(obj)
+		if err != nil {
+			return err
+		}
+		ta.SetKind(originalKind)
+		ta.SetAPIVersion(gvk.GroupVersion().String())
 	}
 
-	// If we're here, either a label or field selector are specified (or both), so before we return
-	// the list we must filter it. If both selectors are set, they are ANDed.
-	objs, err := meta.ExtractList(obj)
+	objs, err := meta.ExtractList(objCopy)
 	if err != nil {
 		return err
 	}
 
+	if listOpts.LabelSelector == nil && listOpts.FieldSelector == nil {
+		return meta.SetList(obj, objs)
+	}
+
+	// If we're here, either a label or field selector are specified (or both), so before we return
+	// the list we must filter it. If both selectors are set, they are ANDed.
 	filteredList, err := c.filterList(objs, gvk, listOpts.LabelSelector, listOpts.FieldSelector)
 	if err != nil {
 		return err
@@ -634,10 +660,11 @@ func (c *fakeClient) filterList(list []runtime.Object, gvk schema.GroupVersionKi
 func (c *fakeClient) filterWithFields(list []runtime.Object, gvk schema.GroupVersionKind, fs fields.Selector) ([]runtime.Object, error) {
 	requiresExact := selector.RequiresExactMatch(fs)
 	if !requiresExact {
-		return nil, fmt.Errorf("field selector %s is not in one of the two supported forms \"key==val\" or \"key=val\"",
-			fs)
+		return nil, fmt.Errorf(`field selector %s is not in one of the two supported forms "key==val" or "key=val"`, fs)
 	}
 
+	c.indexesLock.RLock()
+	defer c.indexesLock.RUnlock()
 	// Field selection is mimicked via indexes, so there's no sane answer this function can give
 	// if there are no indexes registered for the GroupVersionKind of the objects in the list.
 	indexes := c.indexes[gvk]
@@ -729,6 +756,8 @@ func (c *fakeClient) Create(ctx context.Context, obj client.Object, opts ...clie
 		accessor.SetDeletionTimestamp(nil)
 	}
 
+	c.trackerWriteLock.Lock()
+	defer c.trackerWriteLock.Unlock()
 	return c.tracker.Create(gvr, obj, accessor.GetNamespace())
 }
 
@@ -750,6 +779,8 @@ func (c *fakeClient) Delete(ctx context.Context, obj client.Object, opts ...clie
 		}
 	}
 
+	c.trackerWriteLock.Lock()
+	defer c.trackerWriteLock.Unlock()
 	// Check the ResourceVersion if that Precondition was specified.
 	if delOptions.Preconditions != nil && delOptions.Preconditions.ResourceVersion != nil {
 		name := accessor.GetName()
@@ -772,7 +803,7 @@ func (c *fakeClient) Delete(ctx context.Context, obj client.Object, opts ...clie
 		}
 	}
 
-	return c.deleteObject(gvr, accessor)
+	return c.deleteObjectLocked(gvr, accessor)
 }
 
 func (c *fakeClient) DeleteAllOf(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error {
@@ -789,6 +820,9 @@ func (c *fakeClient) DeleteAllOf(ctx context.Context, obj client.Object, opts ..
 			return nil
 		}
 	}
+
+	c.trackerWriteLock.Lock()
+	defer c.trackerWriteLock.Unlock()
 
 	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
 	o, err := c.tracker.List(gvr, gvk, dcOptions.Namespace)
@@ -809,7 +843,7 @@ func (c *fakeClient) DeleteAllOf(ctx context.Context, obj client.Object, opts ..
 		if err != nil {
 			return err
 		}
-		err = c.deleteObject(gvr, accessor)
+		err = c.deleteObjectLocked(gvr, accessor)
 		if err != nil {
 			return err
 		}
@@ -839,6 +873,9 @@ func (c *fakeClient) update(obj client.Object, isStatus bool, opts ...client.Upd
 	if err != nil {
 		return err
 	}
+
+	c.trackerWriteLock.Lock()
+	defer c.trackerWriteLock.Unlock()
 	return c.tracker.update(gvr, obj, accessor.GetNamespace(), isStatus, false, *updateOptions.AsUpdateOptions())
 }
 
@@ -874,6 +911,8 @@ func (c *fakeClient) patch(obj client.Object, patch client.Patch, opts ...client
 		return err
 	}
 
+	c.trackerWriteLock.Lock()
+	defer c.trackerWriteLock.Unlock()
 	oldObj, err := c.tracker.Get(gvr, accessor.GetNamespace(), accessor.GetName())
 	if err != nil {
 		return err
@@ -1002,6 +1041,8 @@ func dryPatch(action testing.PatchActionImpl, tracker testing.ObjectTracker) (ru
 		}
 	case types.ApplyPatchType:
 		return nil, errors.New("apply patches are not supported in the fake client. Follow https://github.com/kubernetes/kubernetes/issues/115598 for the current status")
+	case types.ApplyCBORPatchType:
+		return nil, errors.New("apply CBOR patches are not supported in the fake client")
 	default:
 		return nil, fmt.Errorf("%s PatchType is not supported", action.GetPatchType())
 	}
@@ -1082,7 +1123,7 @@ func (c *fakeClient) SubResource(subResource string) client.SubResourceClient {
 	return &fakeSubResourceClient{client: c, subResource: subResource}
 }
 
-func (c *fakeClient) deleteObject(gvr schema.GroupVersionResource, accessor metav1.Object) error {
+func (c *fakeClient) deleteObjectLocked(gvr schema.GroupVersionResource, accessor metav1.Object) error {
 	old, err := c.tracker.Get(gvr, accessor.GetNamespace(), accessor.GetName())
 	if err == nil {
 		oldAccessor, err := meta.Accessor(old)
@@ -1125,7 +1166,7 @@ func (sw *fakeSubResourceClient) Get(ctx context.Context, obj, subResource clien
 		}
 		scale, isScale := subResource.(*autoscalingv1.Scale)
 		if !isScale {
-			return apierrors.NewBadRequest(fmt.Sprintf("expected Scale, got %t", subResource))
+			return apierrors.NewBadRequest(fmt.Sprintf("expected Scale, got %T", subResource))
 		}
 		scaleOut, err := extractScale(obj)
 		if err != nil {
@@ -1146,13 +1187,26 @@ func (sw *fakeSubResourceClient) Create(ctx context.Context, obj client.Object, 
 			_, isEviction = subResource.(*policyv1.Eviction)
 		}
 		if !isEviction {
-			return apierrors.NewBadRequest(fmt.Sprintf("got invalid type %t, expected Eviction", subResource))
+			return apierrors.NewBadRequest(fmt.Sprintf("got invalid type %T, expected Eviction", subResource))
 		}
 		if _, isPod := obj.(*corev1.Pod); !isPod {
 			return apierrors.NewNotFound(schema.GroupResource{}, "")
 		}
 
 		return sw.client.Delete(ctx, obj)
+	case "token":
+		tokenRequest, isTokenRequest := subResource.(*authenticationv1.TokenRequest)
+		if !isTokenRequest {
+			return apierrors.NewBadRequest(fmt.Sprintf("got invalid type %T, expected TokenRequest", subResource))
+		}
+		if _, isServiceAccount := obj.(*corev1.ServiceAccount); !isServiceAccount {
+			return apierrors.NewNotFound(schema.GroupResource{}, "")
+		}
+
+		tokenRequest.Status.Token = "fake-token"
+		tokenRequest.Status.ExpirationTimestamp = metav1.Date(6041, 1, 1, 0, 0, 0, 0, time.UTC)
+
+		return sw.client.Get(ctx, client.ObjectKeyFromObject(obj), obj)
 	default:
 		return fmt.Errorf("fakeSubResourceWriter does not support create for %s", sw.subResource)
 	}
@@ -1164,7 +1218,7 @@ func (sw *fakeSubResourceClient) Update(ctx context.Context, obj client.Object, 
 
 	switch sw.subResource {
 	case subResourceScale:
-		if err := sw.client.Get(ctx, client.ObjectKeyFromObject(obj), obj); err != nil {
+		if err := sw.client.Get(ctx, client.ObjectKeyFromObject(obj), obj.DeepCopyObject().(client.Object)); err != nil {
 			return err
 		}
 		if updateOptions.SubResourceBody == nil {
@@ -1173,7 +1227,7 @@ func (sw *fakeSubResourceClient) Update(ctx context.Context, obj client.Object, 
 
 		scale, isScale := updateOptions.SubResourceBody.(*autoscalingv1.Scale)
 		if !isScale {
-			return apierrors.NewBadRequest(fmt.Sprintf("expected Scale, got %t", updateOptions.SubResourceBody))
+			return apierrors.NewBadRequest(fmt.Sprintf("expected Scale, got %T", updateOptions.SubResourceBody))
 		}
 		if err := applyScale(obj, scale); err != nil {
 			return err
@@ -1485,5 +1539,39 @@ func applyScale(obj client.Object, scale *autoscalingv1.Scale) error {
 		// TODO: CRDs https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#scale-subresource
 		return fmt.Errorf("unimplemented scale subresource for resource %T", obj)
 	}
+	return nil
+}
+
+// AddIndex adds an index to a fake client. It will panic if used with a client that is not a fake client.
+// It will error if there is already an index for given object with the same name as field.
+//
+// It can be used to test code that adds indexes to the cache at runtime.
+func AddIndex(c client.Client, obj runtime.Object, field string, extractValue client.IndexerFunc) error {
+	fakeClient, isFakeClient := c.(*fakeClient)
+	if !isFakeClient {
+		panic("AddIndex can only be used with a fake client")
+	}
+	fakeClient.indexesLock.Lock()
+	defer fakeClient.indexesLock.Unlock()
+
+	if fakeClient.indexes == nil {
+		fakeClient.indexes = make(map[schema.GroupVersionKind]map[string]client.IndexerFunc, 1)
+	}
+
+	gvk, err := apiutil.GVKForObject(obj, fakeClient.scheme)
+	if err != nil {
+		return fmt.Errorf("failed to get gvk for %T: %w", obj, err)
+	}
+
+	if fakeClient.indexes[gvk] == nil {
+		fakeClient.indexes[gvk] = make(map[string]client.IndexerFunc, 1)
+	}
+
+	if fakeClient.indexes[gvk][field] != nil {
+		return fmt.Errorf("index %s already exists", field)
+	}
+
+	fakeClient.indexes[gvk][field] = extractValue
+
 	return nil
 }

@@ -272,6 +272,11 @@ func registerIndices(ctx *synccontext.RegisterContext) error {
 }
 
 func (s *nodeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Node]) (ctrl.Result, error) {
+	if event.HostOld == nil {
+		if event.Virtual.GetLabels() == nil || (event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.MarkerLabel] != translate.VClusterName) {
+			return ctrl.Result{}, nil
+		}
+	}
 	ctx.Log.Infof("delete virtual node %s, because it is not needed anymore", event.Virtual.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 }
@@ -301,6 +306,15 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	}
 
 	s.translateUpdateBackwards(event.Host, event.Virtual)
+
+	// Set the marker of managed-by vcluster so that
+	// we skip deleting the nodes which are not managed
+	// by vcluster in `SyncToHost` function
+	if len(event.Virtual.Labels) == 0 {
+		event.Virtual.Labels = map[string]string{}
+	}
+	event.Virtual.Labels[translate.MarkerLabel] = translate.VClusterName
+
 	return ctrl.Result{}, nil
 }
 
