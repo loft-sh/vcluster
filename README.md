@@ -170,7 +170,7 @@ We're glad to see vCluster being adopted by organizations around the world! Belo
 - **Precisely**
 - **Shipwire**
 
-Are you using vCluster? We'd love to hear your story! Please [open a pull request](https://github.com/loft-sh/vcluster/pulls) to add your name here, or [contact us](contact@loft.sh).
+Are you using vCluster? We'd love to hear your story! Please [open a pull request](https://github.com/loft-sh/vcluster/pulls) to add your name here, or [contact us](mailto:contact@loft.sh).
 
 ---
 
