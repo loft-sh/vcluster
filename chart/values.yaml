@@ -330,7 +330,7 @@ controlPlane:
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "k0sproject/k0s"
         # Tag is the tag of the container image, e.g. latest
-        tag: "v1.30.2-k0s.0"
+        tag: "v1.32.1-k0s.0"
       # Security options can be used for the distro init container
       securityContext: {}
       # Resources for the distro init container
