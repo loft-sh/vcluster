@@ -3841,7 +3841,7 @@
     },
     "reuseNamespace": {
       "type": "boolean",
-      "description": "ReuseNamespace is a flag to control the decision of reusing the same namespace while creating vclusters using methods\nother than cli such as helm. This flag will immediately have a deprecation warning since this feature is going to be deprecated soon."
+      "description": "ReuseNamespace allows reusing the same namespace to create multiple vClusters.\nThis flag is deprecated, as this scenario will be removed entirely in upcoming releases."
     }
   },
   "additionalProperties": false,
