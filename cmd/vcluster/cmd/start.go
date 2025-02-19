@@ -97,13 +97,11 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		return err
 	}
 
-	// add a deprecation warning if reuseNamespace flag is being set to true
-	if !vConfig.ReuseNamespace {
-		if len(vclusterServices) > 0 {
-			return fmt.Errorf("there is already a virtual cluster in the current namespace %s", vConfig.ControlPlaneNamespace)
-		}
-	} else {
-		logrus.Warnf("Creation of multiple vclusters within the same namespace will be deprecated soon.")
+	// add a note for setting reuse-namespace config in v0.24 and a deprecation warning for multiple vcluster creation scenario
+	if len(vclusterServices) > 0 {
+		logrus.Warnf("Please note that in next release i.e. v0.24, for creating multiple vclusters within the " +
+			"same namespace, it'll be mandatory to set 'reuse-namespace=true' in vcluster config. " +
+			"This config and the scenario of creating multiple vclusters in the same namespace will be deprecated soon.")
 	}
 
 	err = setup.Initialize(ctx, vConfig)
