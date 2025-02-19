@@ -6,8 +6,7 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/sirupsen/logrus"
-
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/integrations"
@@ -97,11 +96,12 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		return err
 	}
 
+	logger := log.GetInstance()
 	// add a note for setting reuse-namespace config in v0.24 and a deprecation warning for multiple vcluster creation scenario
 	if len(vclusterServices) > 0 {
-		logrus.Warnf("Please note that in next release i.e. v0.24, for creating multiple vclusters within the " +
+		logger.Warnf("Please note that in next release i.e. v0.24, for creating multiple vclusters within the " +
 			"same namespace, it'll be mandatory to set 'reuse-namespace=true' in vcluster config. " +
-			"This config and the scenario of creating multiple vclusters in the same namespace will be deprecated soon.")
+			"This config and the scenario of creating multiple vclusters in the same namespace is deprecated and will be removed soon.")
 	}
 
 	err = setup.Initialize(ctx, vConfig)
