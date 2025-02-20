@@ -45,7 +45,7 @@ func (s *syncToHostSecretSyncer) GetProPatches(cfg config.Config) []config.Trans
 }
 
 func (s *syncToHostSecretSyncer) GetMappings(cfg config.Config) map[string]string {
-	return cfg.Sync.FromHost.Secrets.Selector.Mappings
+	return cfg.Sync.FromHost.Secrets.Mappings.ByName
 }
 
 func (s *syncToHostSecretSyncer) ExcludeVirtual(_ client.Object) bool {

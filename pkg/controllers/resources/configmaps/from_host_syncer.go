@@ -46,5 +46,5 @@ func (s *syncToHostConfigMapSyncer) GetProPatches(cfg config.Config) []config.Tr
 }
 
 func (s *syncToHostConfigMapSyncer) GetMappings(cfg config.Config) map[string]string {
-	return cfg.Sync.FromHost.ConfigMaps.Selector.Mappings
+	return cfg.Sync.FromHost.ConfigMaps.Mappings.ByName
 }
