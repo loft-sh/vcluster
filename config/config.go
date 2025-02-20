@@ -515,29 +515,29 @@ type EnableSwitchWithResourcesMappings struct {
 	// Patches patch the resource according to the provided specification.
 	Patches []TranslatePatch `json:"patches,omitempty"`
 
-	// Selector for Namespace and Object
-	Selector FromHostSelector `json:"selector,omitempty"`
+	// Mappings for Namespace and Object
+	Mappings FromHostMappings `json:"mappings,omitempty"`
 }
 
-type FromHostSelector struct {
-	// Mappings is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
+type FromHostMappings struct {
+	// ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
 	// There are several wildcards supported:
 	// 1. To match all objects in host namespace and sync them to different namespace in vCluster:
-	// mappings:
+	// byName:
 	//   "foo/*": "foo-in-virtual/*"
 	// 2. To match specific object in the host namespace and sync it to the same namespace with the same name:
-	// mappings:
+	// byName:
 	//   "foo/my-object": "foo/my-object"
 	// 3. To match specific object in the host namespace and sync it to the same namespace with different name:
-	// mappings:
+	// byName:
 	//   "foo/my-object": "foo/my-virtual-object"
 	// 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
-	// mappings:
+	// byName:
 	//   "": "my-virtual-namespace/*"
 	// 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
-	// mappings:
+	// byName:
 	//   "/my-object": "my-virtual-namespace/my-object"
-	Mappings map[string]string `json:"mappings,omitempty"`
+	ByName map[string]string `json:"byName,omitempty"`
 }
 
 type SyncFromHost struct {
@@ -651,8 +651,8 @@ type SyncFromHostCustomResource struct {
 	// Patches patch the resource according to the provided specification.
 	Patches []TranslatePatch `json:"patches,omitempty"`
 
-	// Selector for Namespace and Object
-	Selector FromHostSelector `json:"selector,omitempty"`
+	// Mappings for Namespace and Object
+	Mappings FromHostMappings `json:"mappings,omitempty"`
 }
 
 type EnableAutoSwitch struct {
