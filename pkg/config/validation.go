@@ -678,7 +678,7 @@ func validateFromHostSyncCustomResources(customResources map[string]config.SyncF
 func validateFromHostSyncMappingObjectName(objRef []string, resourceNamePlural string) error {
 	var errs []string
 	if len(objRef) == 2 && objRef[1] != "" && objRef[1] != "*" {
-		errs = validation.NameIsDNSLabel(objRef[1], false)
+		errs = validation.NameIsDNSSubdomain(objRef[1], false)
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed object name from key (%s) is not valid name %s", resourceNamePlural, strings.Join(objRef, "/"), errs)

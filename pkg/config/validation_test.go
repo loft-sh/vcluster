@@ -207,6 +207,42 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			expectErr: noErr,
 		},
 		{
+			name: "valid config: dot in the object name",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"my-ns/my-cm": "barfoor/my.cm",
+					},
+				},
+			},
+			expectErr: noErr,
+		},
+		{
+			name: "valid config: dot in the host object name",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"my-ns/my.cm": "barfoor/my-cm",
+					},
+				},
+			},
+			expectErr: noErr,
+		},
+		{
+			name: "valid config: dots in object names",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"my-ns/my.cm": "barfoor/my.cm",
+					},
+				},
+			},
+			expectErr: noErr,
+		},
+		{
 			name: "(invalid) host namespace mapped to object",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
@@ -339,6 +375,30 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			},
 			expectErr: expectErr,
 		},
+		{
+			name: "(invalid) virtual namespace name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"my.ns/host-obj": "valid/valid",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
+		{
+			name: "(invalid) virtual namespace name is not valid DNS1123Label",
+			cmConfig: config.EnableSwitchWithResourcesMappings{
+				Enabled: true,
+				Selector: config.FromHostSelector{
+					Mappings: map[string]string{
+						"in.valid/host-obj": "in.valid/valid",
+					},
+				},
+			},
+			expectErr: expectErr,
+		},
 	}
 
 	for _, tc := range cases {
@@ -461,7 +521,7 @@ func TestValidateFromHostSyncCustomResources(t *testing.T) {
 					},
 				},
 			},
-			checkErr: expectErr("config.sync.fromHost.certificaterequests.cert-manager.io.selector.mappings parsed object name from key (/_s66) is not valid name [a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')]"),
+			checkErr: expectErr("config.sync.fromHost.certificaterequests.cert-manager.io.selector.mappings parsed object name from key (/_s66) is not valid name [a lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*')]"),
 		},
 		{
 			name: "invalid virtual namespace for crd config",
