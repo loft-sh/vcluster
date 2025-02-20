@@ -134,8 +134,8 @@ rules:
     resources: ["clusterissuers"]
     verbs: ["get", "list", "watch"]
   {{- end }}
-  {{- include "vcluster.rbac.rulesForFromHostSyncerForGivenCoreResource" (list $ .Values.sync.fromHost.configMaps.selector.mappings "configmaps" .Values.sync.fromHost.configMaps.enabled ) | nindent 2 }}
-  {{- include "vcluster.rbac.rulesForFromHostSyncerForGivenCoreResource" (list $ .Values.sync.fromHost.secrets.selector.mappings "secrets" .Values.sync.fromHost.secrets.enabled ) | nindent 2 }}
+  {{- include "vcluster.rbac.rulesForFromHostSyncerForGivenCoreResource" (list $ .Values.sync.fromHost.configMaps.mappings.byName "configmaps" .Values.sync.fromHost.configMaps.enabled ) | nindent 2 }}
+  {{- include "vcluster.rbac.rulesForFromHostSyncerForGivenCoreResource" (list $ .Values.sync.fromHost.secrets.mappings.byName "secrets" .Values.sync.fromHost.secrets.enabled ) | nindent 2 }}
   {{- include "vcluster.customResources.clusterRoleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.clusterRoleExtraRules" . | indent 2 }}
   {{- include "vcluster.generic.clusterRoleExtraRules" . | indent 2 }}

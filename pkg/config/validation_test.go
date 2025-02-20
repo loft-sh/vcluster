@@ -146,8 +146,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "valid config",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"from-host-sync-test/*": "barfoo/*",
 						"default/my-cm":         "barfoo/cm-my",
 					},
@@ -159,8 +159,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "valid config 2",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"":              "barfoo/*",
 						"default/my-cm": "barfoo/cm-my",
 					},
@@ -172,8 +172,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "valid config 3",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"":              "barfoo",
 						"default/my-cm": "barfoo/cm-my",
 					},
@@ -185,8 +185,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "valid config 4",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"/my-cm":        "barfoo/my-cm",
 						"default/my-cm": "barfoo/cm-my",
 					},
@@ -198,8 +198,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "valid config 5",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"": "barfoo/",
 					},
 				},
@@ -210,8 +210,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) host namespace mapped to object",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"default": "barfoo/cm-my",
 					},
 				},
@@ -222,8 +222,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) host object mapped to namespace",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"default/my-cm": "barfoo",
 					},
 				},
@@ -234,8 +234,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) wildcard used in host but not in virtual",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"default/*": "barfoo",
 					},
 				},
@@ -246,8 +246,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) '*' is not valid key",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"default/my-cm": "barfoo/my-cm",
 						"*":             "barfoo2/*",
 					},
@@ -259,8 +259,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) host object name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"default/_not_valid_obj_name": "barfoo/my-cm",
 					},
 				},
@@ -271,8 +271,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) host namespace name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"_not-Valid_namespace_name/my-cm": "barfoo/my-cm",
 					},
 				},
@@ -283,8 +283,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) virtual object name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"default/my-cm": "barfoo/_not_valid_obj_name",
 					},
 				},
@@ -295,8 +295,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) map from host object, but virtual namespace name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"default/my-cm": "_not_valid_ns66_name/my-cm",
 					},
 				},
@@ -307,8 +307,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) map from host vcluster namespace, but virtual namespace name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"/my-cm": "_not_valid_ns66_name/my-cm",
 					},
 				},
@@ -319,8 +319,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) host name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"/_not_valid_obj_name": "default/my-cm",
 					},
 				},
@@ -331,8 +331,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) virtual namespace name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"": "!66_not_valid_ns/*",
 					},
 				},
@@ -389,8 +389,8 @@ func TestValidateFromHostSyncCustomResources(t *testing.T) {
 				"clusterissuers.cert-manager.io": {
 					Enabled: true,
 					Scope:   config.ScopeCluster,
-					Selector: config.FromHostSelector{
-						Mappings: map[string]string{
+					Mappings: config.FromHostMappings{
+						ByName: map[string]string{
 							"": "default",
 						},
 					},
@@ -404,8 +404,8 @@ func TestValidateFromHostSyncCustomResources(t *testing.T) {
 				"certificaterequests.cert-manager.io": {
 					Enabled: true,
 					Scope:   config.ScopeNamespaced,
-					Selector: config.FromHostSelector{
-						Mappings: map[string]string{
+					Mappings: config.FromHostMappings{
+						ByName: map[string]string{
 							"": "default",
 						},
 					},
@@ -439,8 +439,8 @@ func TestValidateFromHostSyncCustomResources(t *testing.T) {
 				"certificaterequests.cert-manager.io": {
 					Enabled: true,
 					Scope:   config.ScopeNamespaced,
-					Selector: config.FromHostSelector{
-						Mappings: map[string]string{
+					Mappings: config.FromHostMappings{
+						ByName: map[string]string{
 							"_s66/my": "default/my-cr",
 						},
 					},
@@ -454,8 +454,8 @@ func TestValidateFromHostSyncCustomResources(t *testing.T) {
 				"certificaterequests.cert-manager.io": {
 					Enabled: true,
 					Scope:   config.ScopeNamespaced,
-					Selector: config.FromHostSelector{
-						Mappings: map[string]string{
+					Mappings: config.FromHostMappings{
+						ByName: map[string]string{
 							"/_s66": "default/my-cr",
 						},
 					},
@@ -469,8 +469,8 @@ func TestValidateFromHostSyncCustomResources(t *testing.T) {
 				"certificaterequests.cert-manager.io": {
 					Enabled: true,
 					Scope:   config.ScopeNamespaced,
-					Selector: config.FromHostSelector{
-						Mappings: map[string]string{
+					Mappings: config.FromHostMappings{
+						ByName: map[string]string{
 							"default/my-cr": "_s66/my",
 						},
 					},
@@ -484,8 +484,8 @@ func TestValidateFromHostSyncCustomResources(t *testing.T) {
 				"certificaterequests.cert-manager.io": {
 					Enabled: true,
 					Scope:   config.ScopeNamespaced,
-					Selector: config.FromHostSelector{
-						Mappings: map[string]string{
+					Mappings: config.FromHostMappings{
+						ByName: map[string]string{
 							"default/my-cr": "/_s66",
 						},
 					},
@@ -499,8 +499,8 @@ func TestValidateFromHostSyncCustomResources(t *testing.T) {
 				"certificaterequests.cert-manager.io": {
 					Enabled: true,
 					Scope:   config.ScopeNamespaced,
-					Selector: config.FromHostSelector{
-						Mappings: map[string]string{
+					Mappings: config.FromHostMappings{
+						ByName: map[string]string{
 							"default/my-cr": "default/my/s66",
 						},
 					},

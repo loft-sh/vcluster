@@ -1138,7 +1138,7 @@
           "type": "array",
           "description": "Patches patch the resource according to the provided specification."
         },
-        "selector": {
+        "mappings": {
           "$ref": "#/$defs/FromHostSelector",
           "description": "Selector for Namespace and Object"
         }
@@ -1826,7 +1826,7 @@
     },
     "FromHostSelector": {
       "properties": {
-        "mappings": {
+        "byName": {
           "additionalProperties": {
             "type": "string"
           },
@@ -3209,7 +3209,7 @@
           "type": "array",
           "description": "Patches patch the resource according to the provided specification."
         },
-        "selector": {
+        "mappings": {
           "$ref": "#/$defs/FromHostSelector",
           "description": "Selector for Namespace and Object"
         }
