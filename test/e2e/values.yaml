@@ -39,7 +39,7 @@ sync:
       selector:
         mappings:
           "from-host-sync-test/*": "barfoo/*"
-          "default/my-cm": "barfoo/cm-my"
+          "default/my.cm": "barfoo/cm-my"
           "": "my-new-ns"
           "/my-cm-4": "barfoo/my-cm-4"
     secrets:
