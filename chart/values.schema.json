@@ -237,6 +237,10 @@
         "globalMetadata": {
           "$ref": "#/$defs/ControlPlaneGlobalMetadata",
           "description": "GlobalMetadata is metadata that will be added to all resources deployed by Helm."
+        },
+        "reuseNamespace": {
+          "type": "boolean",
+          "description": "ReuseNamespace allows reusing the same namespace to create multiple vClusters.\nThis flag is deprecated, as this scenario will be removed entirely in upcoming releases."
         }
       },
       "additionalProperties": false,
@@ -3838,10 +3842,6 @@
         "$ref": "#/$defs/Plugin"
       },
       "description": "Plugin specifies which vCluster plugins to enable. Use \"plugins\" instead. Do not use this option anymore."
-    },
-    "reuseNamespace": {
-      "type": "boolean",
-      "description": "ReuseNamespace allows reusing the same namespace to create multiple vClusters.\nThis flag is deprecated, as this scenario will be removed entirely in upcoming releases."
     }
   },
   "additionalProperties": false,
