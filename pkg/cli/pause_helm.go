@@ -30,27 +30,41 @@ func PauseHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName
 		return err
 	}
 
-	if vCluster.IsSleeping() {
-		log.Infof("vcluster %s/%s is already sleeping", globalFlags.Namespace, vClusterName)
-		return nil
-	}
-
-	err = lifecycle.PauseVCluster(ctx, kubeClient, vClusterName, globalFlags.Namespace, log)
+	err = PauseVCluster(ctx, kubeClient, vCluster, log)
 	if err != nil {
 		return err
 	}
 
-	err = lifecycle.DeletePods(ctx, kubeClient, "vcluster.loft.sh/managed-by="+vClusterName, globalFlags.Namespace, log)
+	log.Donef("Successfully paused vcluster %s/%s", globalFlags.Namespace, vClusterName)
+	return nil
+}
+
+func PauseVCluster(
+	ctx context.Context,
+	kubeClient *kubernetes.Clientset,
+	vCluster *find.VCluster,
+	log log.Logger,
+) error {
+	if vCluster.IsSleeping() {
+		log.Infof("vcluster %s/%s is already sleeping", vCluster.Namespace, vCluster.Name)
+		return nil
+	}
+
+	err := lifecycle.PauseVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, false, log)
+	if err != nil {
+		return err
+	}
+
+	err = lifecycle.DeletePods(ctx, kubeClient, "vcluster.loft.sh/managed-by="+vCluster.Name, vCluster.Namespace)
 	if err != nil {
 		return fmt.Errorf("delete vcluster workloads: %w", err)
 	}
 
-	err = lifecycle.DeleteMultiNamespaceVClusterWorkloads(ctx, kubeClient, vClusterName, globalFlags.Namespace, log)
+	err = lifecycle.DeleteMultiNamespaceVClusterWorkloads(ctx, kubeClient, vCluster.Name, vCluster.Namespace, log)
 	if err != nil {
 		return fmt.Errorf("delete vcluster multinamespace workloads: %w", err)
 	}
 
-	log.Donef("Successfully paused vcluster %s/%s", globalFlags.Namespace, vClusterName)
 	return nil
 }
 

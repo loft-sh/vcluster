@@ -157,7 +157,8 @@ func addVClusterHelm(
 
 	// restart vCluster
 	if options.Restart {
-		err = lifecycle.DeletePods(ctx, kubeClient, "app=vcluster,release="+vCluster.Name, vCluster.Namespace, log)
+		log.Infof("Restarting vCluster")
+		err = lifecycle.DeletePods(ctx, kubeClient, "app=vcluster,release="+vCluster.Name, vCluster.Namespace)
 		if err != nil {
 			return fmt.Errorf("delete vcluster workloads: %w", err)
 		}

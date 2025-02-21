@@ -3,6 +3,9 @@ controlPlane:
   statefulSet:
     highAvailability:
       replicas: 3
+      leaseDuration: 15
+      renewDeadline: 10
+      retryPeriod: 5
 
   # Scale up etcd
   backingStore:

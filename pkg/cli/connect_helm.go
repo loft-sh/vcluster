@@ -266,7 +266,7 @@ func (cmd *connectHelm) prepare(ctx context.Context, vCluster *find.VCluster) er
 	// resume vCluster if necessary
 	if vCluster.Status == find.StatusPaused {
 		cmd.Log.Infof("Resume vcluster %s...", vCluster.Name)
-		err = lifecycle.ResumeVCluster(ctx, cmd.kubeClient, vCluster.Name, cmd.Namespace, cmd.Log)
+		err = lifecycle.ResumeVCluster(ctx, cmd.kubeClient, vCluster.Name, cmd.Namespace, false, cmd.Log)
 		if err != nil {
 			return fmt.Errorf("resume vcluster: %w", err)
 		}

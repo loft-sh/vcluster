@@ -93,9 +93,9 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 
 	// check if recreating service is necessary
 	if event.Virtual.Spec.ClusterIP != event.Host.Spec.ClusterIP {
+		ctx.Log.Infof("recreating virtual service %s/%s, because cluster ip differs %s != %s", event.Virtual.Namespace, event.Virtual.Name, event.Host.Spec.ClusterIP, event.Virtual.Spec.ClusterIP)
 		event.Virtual.Spec.ClusterIPs = nil
 		event.Virtual.Spec.ClusterIP = event.Host.Spec.ClusterIP
-		ctx.Log.Infof("recreating virtual service %s/%s, because cluster ip differs %s != %s", event.Virtual.Namespace, event.Virtual.Name, event.Host.Spec.ClusterIP, event.Virtual.Spec.ClusterIP)
 
 		// recreate the new service with the correct cluster ip
 		err := recreateService(ctx, ctx.VirtualClient, event.Virtual)
@@ -222,7 +222,7 @@ func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	if event.VirtualOld != nil || event.Host.DeletionTimestamp != nil {
+	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(event.Host) {
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 
@@ -239,6 +239,7 @@ func recreateService(ctx *synccontext.SyncContext, virtualClient client.Client, 
 	// delete & create with correct ClusterIP
 	err := virtualClient.Delete(ctx, vService)
 	if err != nil && !kerrors.IsNotFound(err) {
+		klog.Errorf("error deleting virtual service: %s/%s: %v", vService.Namespace, vService.Name, err)
 		return err
 	}
 
