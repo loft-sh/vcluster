@@ -146,7 +146,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			}
 		}
 	} else {
-		cmd.log.Warn("Creation of multiple vClusters within the same namespace is deprecated and will be removed soon.")
+		cmd.log.Warn("Creation of multiple virtual clusters within the same namespace is deprecated and will be removed soon.")
 	}
 
 	err = cmd.prepare(ctx, vClusterName)
