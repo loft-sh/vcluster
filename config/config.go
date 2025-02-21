@@ -1464,10 +1464,6 @@ type ControlPlaneAdvanced struct {
 
 	// GlobalMetadata is metadata that will be added to all resources deployed by Helm.
 	GlobalMetadata ControlPlaneGlobalMetadata `json:"globalMetadata,omitempty"`
-
-	// ReuseNamespace allows reusing the same namespace to create multiple vClusters.
-	// This flag is deprecated, as this scenario will be removed entirely in upcoming releases.
-	ReuseNamespace bool `json:"reuseNamespace,omitempty"`
 }
 
 type ControlPlaneHeadlessService struct {
@@ -1974,6 +1970,10 @@ type Experimental struct {
 
 	// SleepMode holds the native sleep mode configuration for Pro clusters
 	SleepMode *SleepMode `json:"sleepMode,omitempty"`
+
+	// ReuseNamespace allows reusing the same namespace to create multiple vClusters.
+	// This flag is deprecated, as this scenario will be removed entirely in upcoming releases.
+	ReuseNamespace bool `json:"reuseNamespace,omitempty"`
 }
 
 func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
