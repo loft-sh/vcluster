@@ -210,8 +210,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "valid config: dot in the object name",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"my-ns/my-cm": "barfoor/my.cm",
 					},
 				},
@@ -222,8 +222,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "valid config: dot in the host object name",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"my-ns/my.cm": "barfoor/my-cm",
 					},
 				},
@@ -234,8 +234,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "valid config: dots in object names",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"my-ns/my.cm": "barfoor/my.cm",
 					},
 				},
@@ -379,8 +379,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) virtual namespace name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"my.ns/host-obj": "valid/valid",
 					},
 				},
@@ -391,8 +391,8 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 			name: "(invalid) virtual namespace name is not valid DNS1123Label",
 			cmConfig: config.EnableSwitchWithResourcesMappings{
 				Enabled: true,
-				Selector: config.FromHostSelector{
-					Mappings: map[string]string{
+				Mappings: config.FromHostMappings{
+					ByName: map[string]string{
 						"in.valid/host-obj": "in.valid/valid",
 					},
 				},
