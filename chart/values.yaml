@@ -721,9 +721,6 @@ controlPlane:
     # GlobalMetadata is metadata that will be added to all resources deployed by Helm.
     globalMetadata:
       annotations: {}
-    # ReuseNamespace allows reusing the same namespace to create multiple vClusters.
-    # This flag is deprecated, as this scenario will be removed entirely in upcoming releases.
-    reuseNamespace: false
 
 # Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
 integrations:
@@ -1034,6 +1031,10 @@ experimental:
       extraRules: []
     role:
       extraRules: []
+  
+  # ReuseNamespace allows reusing the same namespace to create multiple vClusters.
+  # This flag is deprecated, as this scenario will be removed entirely in upcoming releases.
+  reuseNamespace: false
 
 # Configuration related to telemetry gathered about vCluster usage.
 telemetry:

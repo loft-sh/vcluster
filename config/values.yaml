@@ -397,8 +397,6 @@ controlPlane:
     globalMetadata:
       annotations: {}
 
-    reuseNamespace: false
-
 integrations:
   metricsServer:
     enabled: false
@@ -573,6 +571,8 @@ experimental:
       extraRules: []
     role:
       extraRules: []
+
+  reuseNamespace: false
 
 telemetry:
   enabled: true

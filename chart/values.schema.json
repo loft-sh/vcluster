@@ -237,10 +237,6 @@
         "globalMetadata": {
           "$ref": "#/$defs/ControlPlaneGlobalMetadata",
           "description": "GlobalMetadata is metadata that will be added to all resources deployed by Helm."
-        },
-        "reuseNamespace": {
-          "type": "boolean",
-          "description": "ReuseNamespace allows reusing the same namespace to create multiple vClusters.\nThis flag is deprecated, as this scenario will be removed entirely in upcoming releases."
         }
       },
       "additionalProperties": false,
@@ -1344,6 +1340,10 @@
         "sleepMode": {
           "$ref": "#/$defs/SleepMode",
           "description": "SleepMode holds the native sleep mode configuration for Pro clusters"
+        },
+        "reuseNamespace": {
+          "type": "boolean",
+          "description": "ReuseNamespace allows reusing the same namespace to create multiple vClusters.\nThis flag is deprecated, as this scenario will be removed entirely in upcoming releases."
         }
       },
       "additionalProperties": false,
