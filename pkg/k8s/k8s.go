@@ -128,8 +128,8 @@ func StartK8S(
 				args = append(args, "--service-account-signing-key-file=/data/pki/sa.key")
 				args = append(args, "--tls-cert-file=/data/pki/apiserver.crt")
 				args = append(args, "--tls-private-key-file=/data/pki/apiserver.key")
-				args = append(args, "--watch-cache=false")
 				args = append(args, "--endpoint-reconciler-type=none")
+				args = append(args, "--profiling=false")
 			}
 
 			// add extra args
