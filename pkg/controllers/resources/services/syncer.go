@@ -200,10 +200,12 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	// remove the ServiceBlockDeletion annotation if it's not needed
 	delete(event.Host.Annotations, ServiceBlockDeletion)
 
-	// translate selector
-	if !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Selector, event.Virtual.Spec.Selector) {
+	// the logic here is that when the virtual object has changed we sync the labels to the host. If the host object has changed and the virtual object has not, we sync the labels to the virtual cluster.
+	// If nothing has changed, we make sure to sync the labels from the virtual cluster to the host. This is necessary because earlier versions of vCluster did sync the labels differently and rewrote them
+	// so we need to make sure those are always correctly synced.
+	if !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Selector, event.Virtual.Spec.Selector) || apiequality.Semantic.DeepEqual(event.HostOld.Spec.Selector, event.Host.Spec.Selector) {
 		event.Host.Spec.Selector = translate.HostLabelsMap(event.Virtual.Spec.Selector, event.Host.Spec.Selector, event.Virtual.Namespace, false)
-	} else if !apiequality.Semantic.DeepEqual(event.HostOld.Spec.Selector, event.Host.Spec.Selector) {
+	} else {
 		event.Virtual.Spec.Selector = translate.VirtualLabelsMap(event.Host.Spec.Selector, event.Virtual.Spec.Selector)
 	}
 
