@@ -76,10 +76,6 @@ type Config struct {
 
 	// Plugin specifies which vCluster plugins to enable. Use "plugins" instead. Do not use this option anymore.
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
-
-	// ReuseNamespace allows reusing the same namespace to create multiple vClusters.
-	// This flag is deprecated, as this scenario will be removed entirely in upcoming releases.
-	ReuseNamespace bool `json:"reuseNamespace,omitempty"`
 }
 
 // Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
@@ -1468,6 +1464,10 @@ type ControlPlaneAdvanced struct {
 
 	// GlobalMetadata is metadata that will be added to all resources deployed by Helm.
 	GlobalMetadata ControlPlaneGlobalMetadata `json:"globalMetadata,omitempty"`
+
+	// ReuseNamespace allows reusing the same namespace to create multiple vClusters.
+	// This flag is deprecated, as this scenario will be removed entirely in upcoming releases.
+	ReuseNamespace bool `json:"reuseNamespace,omitempty"`
 }
 
 type ControlPlaneHeadlessService struct {
