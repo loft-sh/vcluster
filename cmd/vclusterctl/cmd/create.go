@@ -68,7 +68,7 @@ vcluster create test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
 	cobraCmd.Flags().BoolVar(&cmd.reuseNamespace, "reuse-namespace", false, "Allows to create multiple virtual clusters in a single namespace")
 	cobraCmd.Flag("reuse-namespace").Hidden = true
-	_ = cobraCmd.Flags().MarkDeprecated("reuse-namespace", "creation of multiple vclusters within the same namespace will be deprecated soon.")
+	_ = cobraCmd.Flags().MarkDeprecated("reuse-namespace", "creation of multiple virtual clusters within the same namespace will be deprecated soon.")
 
 	create.AddCommonFlags(cobraCmd, &cmd.CreateOptions)
 	create.AddHelmFlags(cobraCmd, &cmd.CreateOptions)
