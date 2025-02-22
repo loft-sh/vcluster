@@ -216,6 +216,30 @@ var _ = ginkgo.Describe("Snapshot VCluster", func() {
 			WithTimeout(framework.PollTimeout).
 			Should(gomega.Equal(1))
 
+		// wait until all vCluster replicas are running
+		gomega.Eventually(func() error {
+			pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
+				LabelSelector: "app=vcluster,release=" + f.VClusterName,
+			})
+			framework.ExpectNoError(err)
+
+			for _, pod := range pods.Items {
+				if len(pod.Status.ContainerStatuses) == 0 {
+					return fmt.Errorf("pod %s has no container status", pod.Name)
+				}
+
+				for _, container := range pod.Status.ContainerStatuses {
+					if container.State.Running == nil || !container.Ready {
+						return fmt.Errorf("pod %s container %s is not running", pod.Name, container.Name)
+					}
+				}
+			}
+
+			return nil
+		}).WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.Succeed())
+
 		// refresh the connection
 		err = f.RefreshVirtualClient()
 		framework.ExpectNoError(err)

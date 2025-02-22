@@ -103,6 +103,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				int(options.ControlPlane.StatefulSet.HighAvailability.Replicas),
 				migrateFrom,
 				true,
+				options.ControlPlane.StatefulSet.Scheduling.PodManagementPolicy != "Parallel",
 			)
 			if err != nil {
 				return fmt.Errorf("start embedded etcd: %w", err)
@@ -152,6 +153,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				int(options.ControlPlane.StatefulSet.HighAvailability.Replicas),
 				migrateFrom,
 				true,
+				options.ControlPlane.StatefulSet.Scheduling.PodManagementPolicy != "Parallel",
 			)
 			if err != nil {
 				return fmt.Errorf("start embedded etcd: %w", err)
@@ -188,6 +190,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				int(options.ControlPlane.StatefulSet.HighAvailability.Replicas),
 				migrateFrom,
 				true,
+				options.ControlPlane.StatefulSet.Scheduling.PodManagementPolicy != "Parallel",
 			)
 			if err != nil {
 				return fmt.Errorf("start embedded etcd: %w", err)

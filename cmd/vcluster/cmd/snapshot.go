@@ -316,6 +316,7 @@ func startEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClust
 			1, // this needs to be 1 or otherwise etcd will try to wait for the other replicas
 			"",
 			false,
+			false,
 		)
 		if err != nil {
 			return fmt.Errorf("start embedded etcd: %w", err)
