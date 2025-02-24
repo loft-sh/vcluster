@@ -1,8 +1,8 @@
 ARG KINE_VERSION="v0.13.8"
-FROM rancher/kine:${KINE_VERSION} as kine
+FROM rancher/kine:${KINE_VERSION} AS kine
 
 # Build program
-FROM golang:1.23 as builder
+FROM golang:1.23 AS builder
 
 WORKDIR /vcluster-dev
 ARG TARGETOS
@@ -34,8 +34,8 @@ COPY cmd/vclusterctl cmd/vclusterctl
 COPY pkg/ pkg/
 COPY config/ config/
 
-ENV GO111MODULE on
-ENV DEBUG true
+ENV GO111MODULE=on
+ENV DEBUG=true
 
 # create and set GOCACHE now, this should slightly speed up the first build inside of the container
 # also create /.config folder for GOENV, as dlv needs to write there when starting debugging
@@ -44,7 +44,7 @@ ENV GOCACHE=/.cache
 ENV GOENV=/.config
 
 # Set home to "/" in order to for kubectl to automatically pick up vcluster kube config
-ENV HOME /
+ENV HOME=/
 
 # Build cmd
 RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
