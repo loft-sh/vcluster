@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/integrations"
@@ -19,10 +20,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -53,8 +50,9 @@ func NewStartCommand() *cobra.Command {
 }
 
 func ExecuteStart(ctx context.Context, options *StartOptions) error {
+	vClusterName := os.Getenv("VCLUSTER_NAME")
 	// parse vCluster config
-	vConfig, err := config.ParseConfig(options.Config, os.Getenv("VCLUSTER_NAME"), options.SetValues)
+	vConfig, err := config.ParseConfig(options.Config, vClusterName, options.SetValues)
 	if err != nil {
 		return err
 	}
@@ -90,15 +88,21 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		return fmt.Errorf("license init: %w", err)
 	}
 
-	// check if there are existing vclusters in the current namespace. This can be achieved by listing the vcluster services
-	vclusterServices, err := listVclusterServices(ctx, vConfig.ControlPlaneClient, vConfig.ControlPlaneNamespace)
+	logger := log.GetInstance()
+	// check if there are existing vClusters in the current namespace
+	vClusters, err := find.ListVClusters(ctx, "", "", vConfig.ControlPlaneNamespace, logger)
 	if err != nil {
 		return err
 	}
-
-	logger := log.GetInstance()
-	// add a note for setting reuse-namespace config in v0.24 and a deprecation warning for multiple vcluster creation scenario
-	if len(vclusterServices) > 0 {
+	var vClusterExists bool
+	for _, v := range vClusters {
+		if v.Namespace == vConfig.ControlPlaneNamespace && v.Name != vClusterName {
+			vClusterExists = true
+			break
+		}
+	}
+	// add a note for setting reuse-namespace config in v0.24 and a deprecation warning for multiple vCluster creation scenario
+	if vClusterExists {
 		logger.Warnf("Please note that in next release i.e. v0.24, for creating multiple virtual clusters within the " +
 			"same namespace, it'll be mandatory to set 'reuse-namespace=true' in vcluster config. " +
 			"This config and the scenario of creating multiple virtual clusters in the same namespace is deprecated and will be removed soon.")
@@ -183,19 +187,4 @@ func StartLeaderElection(ctx *synccontext.ControllerContext, startLeading func()
 	}
 
 	return nil
-}
-
-func listVclusterServices(ctx context.Context, client kubernetes.Interface, currentNamespace string) ([]corev1.Service, error) {
-	// vcluster service will have the label "app"="vcluster"
-	labelSelector := labels.SelectorFromSet(map[string]string{
-		"app": "vcluster",
-	})
-	services, err := client.CoreV1().Services(currentNamespace).List(ctx, metav1.ListOptions{
-		LabelSelector: labelSelector.String(),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return services.Items, nil
 }
