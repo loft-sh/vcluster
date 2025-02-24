@@ -113,7 +113,7 @@ jobs:
         uses: loft-sh/github-actions/.github/actions/release-notification@v1
         with:
           version: ${{ needs.publish.outputs.version }}
-          previous_tag: ${{ needs.publish.outputs.previous_stable_version }}
+          previous_tag: ${{ needs.publish.outputs.previous_tag }}
           target_repo: 'loft-sh/vcluster'
           product: 'vCluster'
           webhook_url: ${{ secrets.SLACK_WEBHOOK_URL_PRODUCT_RELEASES }}
