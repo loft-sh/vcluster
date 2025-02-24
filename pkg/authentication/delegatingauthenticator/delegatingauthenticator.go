@@ -13,8 +13,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	cacheTime = 5 * time.Second
+)
+
 func New(client client.Client) authenticator.Request {
-	cache, _ := lru.New[string, cacheEntry](256)
+	cache, _ := lru.New[string, cacheEntry](512)
 	return bearertoken.New(&delegatingAuthenticator{
 		client: client,
 		cache:  cache,
@@ -63,7 +67,7 @@ func (d *delegatingAuthenticator) AuthenticateToken(ctx context.Context, token s
 	}
 	d.cache.Add(token, cacheEntry{
 		response: response,
-		exp:      now.Add(time.Second * 5),
+		exp:      now.Add(cacheTime),
 	})
 	return response, true, nil
 }
