@@ -3,8 +3,8 @@ package impersonationauthorizer
 import (
 	"context"
 
+	delegatingauthorizer "github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
-
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -14,16 +14,26 @@ import (
 func New(client client.Client) authorizer.Authorizer {
 	return &impersonationAuthorizer{
 		client: client,
+
+		cache: delegatingauthorizer.NewCache(),
 	}
 }
 
 type impersonationAuthorizer struct {
 	client client.Client
+
+	cache *delegatingauthorizer.Cache
 }
 
 func (i *impersonationAuthorizer) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	if a.GetVerb() != "impersonate" || !a.IsResourceRequest() {
 		return authorizer.DecisionNoOpinion, "", nil
+	}
+
+	// check if in cache
+	authorized, reason, exists := i.cache.Get(a)
+	if exists {
+		return authorized, reason, nil
 	}
 
 	// check if request is allowed in the target cluster
@@ -48,9 +58,8 @@ func (i *impersonationAuthorizer) Authorize(ctx context.Context, a authorizer.At
 	err = i.client.Create(ctx, accessReview)
 	if err != nil {
 		return authorizer.DecisionDeny, "", err
-	}
-
-	if accessReview.Status.Allowed && !accessReview.Status.Denied {
+	} else if accessReview.Status.Allowed && !accessReview.Status.Denied {
+		i.cache.Set(a, authorizer.DecisionAllow, "")
 		return authorizer.DecisionAllow, "", nil
 	}
 

@@ -28,6 +28,8 @@ func New(delegatingClient client.Client, resources []GroupVersionResourceVerb, n
 
 		nonResources: nonResources,
 		resources:    resources,
+
+		cache: NewCache(),
 	}
 }
 
@@ -36,11 +38,19 @@ type delegatingAuthorizer struct {
 
 	nonResources []PathVerb
 	resources    []GroupVersionResourceVerb
+
+	cache *Cache
 }
 
 func (l *delegatingAuthorizer) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	if !applies(a, l.resources, l.nonResources) {
 		return authorizer.DecisionNoOpinion, "", nil
+	}
+
+	// check if in cache
+	authorized, reason, exists := l.cache.Get(a)
+	if exists {
+		return authorized, reason, nil
 	}
 
 	// check if request is allowed in the target cluster
@@ -73,6 +83,7 @@ func (l *delegatingAuthorizer) Authorize(ctx context.Context, a authorizer.Attri
 	if err != nil {
 		return authorizer.DecisionDeny, "", err
 	} else if accessReview.Status.Allowed && !accessReview.Status.Denied {
+		l.cache.Set(a, authorizer.DecisionAllow, "")
 		return authorizer.DecisionAllow, "", nil
 	}
 

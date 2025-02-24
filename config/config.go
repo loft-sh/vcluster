@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -333,6 +334,10 @@ func ValidateStoreAndDistroChanges(currentStoreType, previousStoreType StoreType
 }
 
 func (c *Config) IsProFeatureEnabled() bool {
+	if os.Getenv("SKIP_VALIDATE_PRO_FEATURES") == "true" {
+		return false
+	}
+
 	if len(c.Networking.ResolveDNS) > 0 {
 		return true
 	}
