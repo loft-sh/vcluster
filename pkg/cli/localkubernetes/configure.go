@@ -30,7 +30,7 @@ func (c ClusterType) LocalKubernetes() bool {
 
 func ExposeLocal(ctx context.Context, rawConfig *clientcmdapi.Config, vRawConfig *clientcmdapi.Config, service *corev1.Service) (string, error) {
 	// Timeout to wait for connection before falling back to port-forwarding
-	timeout := time.Second * 30
+	timeout := time.Second * 5
 	clusterType := DetectClusterType(rawConfig)
 	switch clusterType {
 	case ClusterTypeOrbstack:
