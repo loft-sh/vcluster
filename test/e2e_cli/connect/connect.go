@@ -70,7 +70,7 @@ var _ = ginkgo.Describe("Connect to vCluster", func() {
 
 	ginkgo.It("should fail saying the client timeout exceeded", func() {
 		connectCmd := cmd.NewConnectCmd(&flags.GlobalFlags{})
-		connectCmd.SetArgs([]string{f.VclusterName})
+		connectCmd.SetArgs([]string{f.VClusterName})
 		err := connectCmd.Flags().Set("kube-config", f.VClusterKubeConfigFile.Name())
 		framework.ExpectNoError(err)
 		err = connectCmd.Flags().Set("server", "testdomain.org")
