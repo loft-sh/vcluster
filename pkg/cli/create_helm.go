@@ -142,7 +142,8 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if !reuseNamespace {
 		for _, v := range vClusters {
 			if v.Namespace == cmd.Namespace && v.Name != vClusterName {
-				return fmt.Errorf("there is already a virtual cluster in namespace %s", cmd.Namespace)
+				return fmt.Errorf("there is already a virtual cluster in namespace %s. To create multiple virtual clusters "+
+					"within the same namespace, it is mandatory to set the 'reuse-namespace' flag as true", cmd.Namespace)
 			}
 		}
 	} else {
