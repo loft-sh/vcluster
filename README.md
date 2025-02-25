@@ -136,6 +136,7 @@ For detailed steps, visit our [Quickstart Documentation](https://www.vcluster.co
 | TechWorld with Nana 2021 | Nana | Build your Self-Service Kubernetes Platform with Virtual Clusters  | [Watch Here](https://www.youtube.com/watch?v=tt7hope6zU0)
 | Kubesimplify 2021 | Saiyam Pathak and Lukas Gentele | Let's Learn vCluster| [Watch Here](https://www.youtube.com/watch?v=I4mztvnRCjs&t=1s) |
 | Rawkode 2021 | David and Lukas | Hands on Introduction to vCluster | [Watch Here](https://www.youtube.com/watch?v=IMdMvn2_LeI) | 
+| Cloud Native Islamabad 2022 |  Engin Diri | K8s Cluster Vending Machine With vCluster | [Watch Here](https://www.youtube.com/watch?v=GkaqN8urStg)
 
 Explore more vCluster tips on our [Youtube Channel](https://www.youtube.com/@vcluster) and [Blogs](https://loft.sh/blog).
 
