@@ -108,3 +108,6 @@ issues:
 
   exclude-dirs:
     - licenses
+
+  exclude:
+    - "SA1019: (.+)ExportKubeConfig.Secret is deprecated: Use AdditionalSecrets instead."
