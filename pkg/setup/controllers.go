@@ -317,7 +317,7 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 		// write the extra secret
 		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, additionalSecret.Name, secretNamespace, additionalKubeConfig, isIsolatedControlPlaneKubeConfigSet)
 		if err != nil {
-			return fmt.Errorf("creating additional secret %s in the %s ns failed: %w", options.ExportKubeConfig.Secret.Name, secretNamespace, err)
+			return fmt.Errorf("creating additional secret %s in the %s ns failed: %w", additionalSecret.Name, secretNamespace, err)
 		}
 	}
 
