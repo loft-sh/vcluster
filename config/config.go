@@ -2404,6 +2404,8 @@ type SleepMode struct {
 	TimeZone string `json:"timeZone,omitempty"`
 	// AutoSleep holds autoSleep details
 	AutoSleep SleepModeAutoSleep `json:"autoSleep,omitempty"`
+	// AutoWakeup holds configuration for waking the vCluster on a schedule rather than waiting for some activity.
+	AutoWakeup AutoWakeup `json:"autoWakeup,omitempty"`
 }
 
 // SleepModeAutoSleep holds configuration for allowing a vCluster to sleep its workloads
@@ -2414,9 +2416,6 @@ type SleepModeAutoSleep struct {
 
 	// Schedule represents a cron schedule for when to sleep workloads
 	Schedule string `json:"schedule,omitempty"`
-
-	// Wakeup holds configuration for waking the vCluster on a schedule rather than waiting for some activity.
-	Wakeup AutoWakeup `json:"wakeup,omitempty"`
 
 	// Exclude holds configuration for labels that, if present, will prevent a workload from going to sleep
 	Exclude AutoSleepExclusion `json:"exclude,omitempty"`

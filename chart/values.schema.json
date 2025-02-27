@@ -3049,6 +3049,10 @@
         "autoSleep": {
           "$ref": "#/$defs/SleepModeAutoSleep",
           "description": "AutoSleep holds autoSleep details"
+        },
+        "autoWakeup": {
+          "$ref": "#/$defs/AutoWakeup",
+          "description": "AutoWakeup holds configuration for waking the vCluster on a schedule rather than waiting for some activity."
         }
       },
       "additionalProperties": false,
@@ -3064,10 +3068,6 @@
         "schedule": {
           "type": "string",
           "description": "Schedule represents a cron schedule for when to sleep workloads"
-        },
-        "wakeup": {
-          "$ref": "#/$defs/AutoWakeup",
-          "description": "Wakeup holds configuration for waking the vCluster on a schedule rather than waiting for some activity."
         },
         "exclude": {
           "$ref": "#/$defs/AutoSleepExclusion",
