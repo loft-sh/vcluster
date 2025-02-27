@@ -123,7 +123,7 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 		nodeSelector = strings.Join(selectors, ",")
 	}
 
-	return &legacyconfig.LegacyVirtualClusterOptions{
+	legacyOptions := &legacyconfig.LegacyVirtualClusterOptions{
 		ProOptions: legacyconfig.LegacyVirtualClusterProOptions{
 			RemoteKubeConfig:      v.Experimental.IsolatedControlPlane.KubeConfig,
 			RemoteNamespace:       v.Experimental.IsolatedControlPlane.Namespace,
@@ -140,10 +140,6 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 		RequestHeaderCaCert:         v.VirtualClusterKubeConfig().RequestHeaderCACert,
 		ClientCaCert:                v.VirtualClusterKubeConfig().ClientCACert,
 		KubeConfigPath:              v.VirtualClusterKubeConfig().KubeConfig,
-		KubeConfigContextName:       v.ExportKubeConfig.Context,
-		KubeConfigSecret:            v.ExportKubeConfig.Secret.Name,
-		KubeConfigSecretNamespace:   v.ExportKubeConfig.Secret.Namespace,
-		KubeConfigServer:            v.ExportKubeConfig.Server,
 		Tolerations:                 v.Sync.ToHost.Pods.EnforceTolerations,
 		BindAddress:                 v.ControlPlane.Proxy.BindAddress,
 		Port:                        v.ControlPlane.Proxy.Port,
@@ -180,7 +176,21 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 		ProxyMetricsServer:          v.Integrations.MetricsServer.Enabled,
 
 		DeprecatedSyncNodeChanges: v.Sync.FromHost.Nodes.SyncBackChanges,
-	}, nil
+	}
+
+	additionalSecrets := v.ExportKubeConfig.GetAdditionalSecrets()
+	if len(additionalSecrets) > 0 {
+		// Here we take values from the first additional secret. There are 2 scenarios:
+		// 1. If ExportKubeConfig.Secret is specified, here we use that Secret. This is the same behavior
+		//    as when ExportKubeConfig.AdditionalSecrets did not exist.
+		// 2. If ExportKubeConfig.AdditionalSecrets is specified, here we use the first additional secret.
+		legacyOptions.KubeConfigContextName = additionalSecrets[0].Context
+		legacyOptions.KubeConfigSecret = additionalSecrets[0].Name
+		legacyOptions.KubeConfigSecretNamespace = additionalSecrets[0].Namespace
+		legacyOptions.KubeConfigServer = additionalSecrets[0].Server
+	}
+
+	return legacyOptions, nil
 }
 
 // DisableMissingAPIs checks if the  apis are enabled, if any are missing, disable the syncer and print a log
