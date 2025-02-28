@@ -424,7 +424,7 @@ type ExportKubeConfig struct {
 // GetAdditionalSecrets returns the secrets config from the AdditionalSecrets, and Secret property
 // is ignored.
 func (e *ExportKubeConfig) GetAdditionalSecrets() []ExportKubeConfigAdditionalSecretReference {
-	if e.Secret.Name != "" {
+	if e.Secret != (ExportKubeConfigSecretReference{}) {
 		return []ExportKubeConfigAdditionalSecretReference{
 			{
 				ExportKubeConfigProperties: e.ExportKubeConfigProperties,
