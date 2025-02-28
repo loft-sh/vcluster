@@ -308,16 +308,21 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 			return fmt.Errorf("failed to create kubeconfig that is exported to the additional kubeconfig secret: %w", err)
 		}
 
-		// which namespace should we create the additional secret in?
+		// if the additional secret name is not specified, fallback to the default secret name
+		secretName := additionalSecret.Name
+		if secretName == "" {
+			secretName = kubeconfig.GetDefaultSecretName(translate.VClusterName)
+		}
+		// if the additional secret namespace is not specified, fallback to the current namespace
 		secretNamespace := additionalSecret.Namespace
 		if secretNamespace == "" {
 			secretNamespace = currentNamespace
 		}
 
-		// write the extra secret
-		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, additionalSecret.Name, secretNamespace, additionalKubeConfig, isIsolatedControlPlaneKubeConfigSet)
+		// write the additional kubeconfig secret
+		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, secretName, secretNamespace, additionalKubeConfig, isIsolatedControlPlaneKubeConfigSet)
 		if err != nil {
-			return fmt.Errorf("creating additional secret %s in the %s ns failed: %w", additionalSecret.Name, secretNamespace, err)
+			return fmt.Errorf("creating additional secret %s in the %s ns failed: %w", secretName, secretNamespace, err)
 		}
 	}
 
