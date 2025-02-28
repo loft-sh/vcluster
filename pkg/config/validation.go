@@ -8,13 +8,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
-
 	"github.com/ghodss/yaml"
-	"github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/validation"
+
+	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/util/toleration"
 )
 
 var allowedPodSecurityStandards = map[string]bool{
@@ -692,9 +692,13 @@ func validateFromHostSyncMappingObjectName(objRef []string, resourceNamePlural s
 	return nil
 }
 
+const (
+	exportKubeConfigBothSecretAndAdditionalSecretsSetError = "exportKubeConfig.Secret and exportKubeConfig.AdditionalSecrets cannot be set at the same time"
+)
+
 func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
 	if exportKubeConfig.Secret.IsSet() && len(exportKubeConfig.AdditionalSecrets) > 0 {
-		return fmt.Errorf("exportKubeConfig.Secret and exportKubeConfig.AdditionalSecrets cannot be set at the same time")
+		return fmt.Errorf(exportKubeConfigBothSecretAndAdditionalSecretsSetError)
 	}
 	for _, additionalSecret := range exportKubeConfig.AdditionalSecrets {
 		if additionalSecret.Name == "" && additionalSecret.Namespace == "" {
