@@ -110,4 +110,4 @@ issues:
     - licenses
 
   exclude:
-    - "SA1019: (.+)ExportKubeConfig.Secret is deprecated: Use AdditionalSecrets instead."
+    - "SA1019: (.+)Secret is deprecated: Use AdditionalSecrets instead."
