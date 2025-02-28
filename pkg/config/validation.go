@@ -205,6 +205,12 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + vConfig.Name
 	}
 
+	// check config for exporting kubeconfig Secrets
+	err = validateExportKubeConfig(vConfig.ExportKubeConfig)
+	if err != nil {
+		return err
+	}
+
 	// pro validate config
 	err = ProValidateConfig(vConfig)
 	if err != nil {
@@ -682,6 +688,18 @@ func validateFromHostSyncMappingObjectName(objRef []string, resourceNamePlural s
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed object name from key (%s) is not valid name %s", resourceNamePlural, strings.Join(objRef, "/"), errs)
+	}
+	return nil
+}
+
+func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
+	if exportKubeConfig.Secret.IsSet() && len(exportKubeConfig.AdditionalSecrets) > 0 {
+		return fmt.Errorf("exportKubeConfig.Secret and exportKubeConfig.AdditionalSecrets cannot be set at the same time")
+	}
+	for _, additionalSecret := range exportKubeConfig.AdditionalSecrets {
+		if additionalSecret.Name == "" && additionalSecret.Namespace == "" {
+			return fmt.Errorf("additional secret must have name and/or namespace set")
+		}
 	}
 	return nil
 }

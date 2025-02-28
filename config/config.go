@@ -424,7 +424,7 @@ type ExportKubeConfig struct {
 // GetAdditionalSecrets returns the secrets config from the AdditionalSecrets, and Secret property
 // is ignored.
 func (e *ExportKubeConfig) GetAdditionalSecrets() []ExportKubeConfigAdditionalSecretReference {
-	if e.Secret != (ExportKubeConfigSecretReference{}) {
+	if e.Secret.IsSet() {
 		return []ExportKubeConfigAdditionalSecretReference{
 			{
 				ExportKubeConfigProperties: e.ExportKubeConfigProperties,
@@ -473,6 +473,11 @@ type ExportKubeConfigSecretReference struct {
 	// Namespace where vCluster should store the kubeconfig secret. If this is not equal to the namespace
 	// where you deployed vCluster, you need to make sure vCluster has access to this other namespace.
 	Namespace string `json:"namespace,omitempty"`
+}
+
+// IsSet checks if at least one ExportKubeConfigSecretReference property is set.
+func (s *ExportKubeConfigSecretReference) IsSet() bool {
+	return *s != (ExportKubeConfigSecretReference{})
 }
 
 // ExportKubeConfigAdditionalSecretReference defines the additional host cluster secret in which
