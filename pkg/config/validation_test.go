@@ -577,3 +577,60 @@ func TestValidateFromHostSyncCustomResources(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateExportKubeConfig(t *testing.T) {
+	cases := []struct {
+		name     string
+		exportKubeConfig config.ExportKubeConfig
+		expectedError    string
+	} {
+		{
+			name: "Setting only exportKubeConfig.secret is valid",
+			exportKubeConfig: config.ExportKubeConfig{
+				Secret: config.ExportKubeConfigSecretReference{
+					Name: "my-secret",
+				},
+			},
+		},
+		{
+			name: "Setting only exportKubeConfig.additionalSecrets is valid",
+			exportKubeConfig: config.ExportKubeConfig{
+				AdditionalSecrets: []config.ExportKubeConfigAdditionalSecretReference{
+					{
+						Name: "my-secret",
+					},
+				},
+			},
+		},
+		{
+			name: "Setting both exportKubeConfig.secret and exportKubeConfig.additionalSecrets is not valid",
+			exportKubeConfig: config.ExportKubeConfig{
+				Secret: config.ExportKubeConfigSecretReference{
+					Name: "my-secret-1",
+				},
+				AdditionalSecrets: []config.ExportKubeConfigAdditionalSecretReference{
+					{
+						Name: "my-secret-2",
+					},
+				},
+			},
+			expectedError: exportKubeConfigBothSecretAndAdditionalSecretsSetError,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actualError := validateExportKubeConfig(tc.exportKubeConfig)
+			if tc.expectedError == "" && actualError != nil {
+				t.Errorf("expected validation to pass, but got error: %v", actualError)
+			}
+			if tc.expectedError != "" {
+				if actualError == nil {
+					t.Errorf("expected validation to fail with error %q, but it passed", tc.expectedError)
+				} else if actualError.Error() != tc.expectedError {
+					t.Errorf("expected to get error %q, but instead got other error: %v", tc.expectedError, actualError)
+				}
+			}
+		})
+	}
+}
