@@ -75,7 +75,7 @@ rules:
     verbs: ["get", "watch", "list"]
   {{- end }}
   {{- if .Values.sync.fromHost.runtimeClasses.enabled }}
-  - apiGroups: ["nodes.k8s.io"]
+  - apiGroups: ["node.k8s.io"]
     resources: ["runtimeclasses"]
     verbs: ["get", "watch", "list"]
   {{- end }}
