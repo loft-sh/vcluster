@@ -105,7 +105,7 @@ func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 
 func (s *ingressSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*networkingv1.Ingress]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
-	if event.VirtualOld != nil || event.Host.DeletionTimestamp != nil {
+	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(event.Host) {
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 

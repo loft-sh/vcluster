@@ -6,6 +6,8 @@ import (
 	"os"
 	"runtime/debug"
 
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/integrations"
@@ -48,8 +50,9 @@ func NewStartCommand() *cobra.Command {
 }
 
 func ExecuteStart(ctx context.Context, options *StartOptions) error {
+	vClusterName := os.Getenv("VCLUSTER_NAME")
 	// parse vCluster config
-	vConfig, err := config.ParseConfig(options.Config, os.Getenv("VCLUSTER_NAME"), options.SetValues)
+	vConfig, err := config.ParseConfig(options.Config, vClusterName, options.SetValues)
 	if err != nil {
 		return err
 	}
@@ -83,6 +86,26 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	// initialize feature gate from environment
 	if err := pro.LicenseInit(ctx, vConfig); err != nil {
 		return fmt.Errorf("license init: %w", err)
+	}
+
+	logger := log.GetInstance()
+	// check if there are existing vClusters in the current namespace
+	vClusters, err := find.ListVClusters(ctx, "", "", vConfig.ControlPlaneNamespace, logger)
+	if err != nil {
+		return err
+	}
+	var vClusterExists bool
+	for _, v := range vClusters {
+		if v.Namespace == vConfig.ControlPlaneNamespace && v.Name != vClusterName {
+			vClusterExists = true
+			break
+		}
+	}
+	// add a note for setting reuse-namespace config in v0.24 and a deprecation warning for multiple vCluster creation scenario
+	if vClusterExists {
+		logger.Warnf("Please note that in next release i.e. v0.24, for creating multiple virtual clusters within the " +
+			"same namespace, it'll be mandatory to set 'reuse-namespace=true' in vcluster config. " +
+			"This config and the scenario of creating multiple virtual clusters in the same namespace is deprecated and will be removed soon.")
 	}
 
 	err = setup.Initialize(ctx, vConfig)

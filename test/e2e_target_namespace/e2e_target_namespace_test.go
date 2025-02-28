@@ -8,31 +8,12 @@ import (
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	// Enable cloud provider auth
 	_ "github.com/loft-sh/vcluster/test/e2e_target_namespace/targetnamespace"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	// Register tests
 )
-
-var (
-	scheme = runtime.NewScheme()
-)
-
-func init() {
-	_ = clientgoscheme.AddToScheme(scheme)
-	// API extensions are not in the above scheme set,
-	// and must thus be added separately.
-	_ = apiextensionsv1beta1.AddToScheme(scheme)
-	_ = apiextensionsv1.AddToScheme(scheme)
-	_ = apiregistrationv1.AddToScheme(scheme)
-}
 
 // TestRunE2ETargetNamespaceTests checks configuration parameters (specified through flags) and then runs
 // E2E tests using the Ginkgo runner.
@@ -41,7 +22,7 @@ func init() {
 // This function is called on each Ginkgo node in parallel mode.
 func TestRunE2ETargetNamespaceTests(t *testing.T) {
 	gomega.RegisterFailHandler(ginkgo.Fail)
-	err := framework.CreateFramework(context.Background(), scheme)
+	err := framework.CreateFramework(context.Background())
 	if err != nil {
 		log.GetInstance().Fatalf("Error setting up framework: %v", err)
 	}

@@ -8,8 +8,10 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -25,6 +27,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/embed"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/snapshot"
+	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util"
@@ -33,6 +37,7 @@ import (
 	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/version"
@@ -63,6 +68,7 @@ type CreateOptions struct {
 	Add             bool
 	Expose          bool
 	ExposeLocal     bool
+	Restore         string
 	Connect         bool
 	Upgrade         bool
 
@@ -128,17 +134,19 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if err != nil {
 		return err
 	}
-	vclusters, err := find.ListVClusters(ctx, cmd.Context, "", cmd.Namespace, log)
+	vClusters, err := find.ListVClusters(ctx, cmd.Context, "", cmd.Namespace, log)
 	if err != nil {
 		return err
 	}
 
 	if !reuseNamespace {
-		for _, v := range vclusters {
+		for _, v := range vClusters {
 			if v.Namespace == cmd.Namespace && v.Name != vClusterName {
 				return fmt.Errorf("there is already a virtual cluster in namespace %s", cmd.Namespace)
 			}
 		}
+	} else {
+		cmd.log.Warn("Creation of multiple virtual clusters within the same namespace is deprecated and will be removed soon.")
 	}
 
 	err = cmd.prepare(ctx, vClusterName)
@@ -154,6 +162,13 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	// check if vcluster already exists
 	if !cmd.Upgrade {
 		if isVClusterDeployed(release) {
+			if cmd.Restore != "" {
+				log.Infof("Restore vCluster %s...", vClusterName)
+				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshot.Options{}, &pod.Options{}, log)
+				if err != nil {
+					return fmt.Errorf("restore vCluster %s: %w", vClusterName, err)
+				}
+			}
 			if cmd.Connect {
 				return ConnectHelm(ctx, &ConnectOptions{
 					BackgroundProxy:       cmd.BackgroundProxy,
@@ -528,6 +543,50 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 		cmd.log.Infof("Create vcluster %s...", vClusterName)
 	}
 
+	// if restore we deploy a resource quota to prevent other pods from starting
+	if cmd.Restore != "" {
+		// this is required or otherwise vCluster pods would start which we don't want when restoring
+		_, err = cmd.kubeClient.CoreV1().ResourceQuotas(cmd.Namespace).Create(ctx, &corev1.ResourceQuota{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      RestoreResourceQuota,
+				Namespace: cmd.Namespace,
+			},
+			Spec: corev1.ResourceQuotaSpec{
+				Hard: corev1.ResourceList{
+					corev1.ResourcePods: resource.MustParse("0"),
+				},
+			},
+		}, metav1.CreateOptions{})
+		if err != nil && !kerrors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create vcluster restore resource quota: %w", err)
+		}
+
+		// create interrupt channel
+		sigint := make(chan os.Signal, 1)
+		defer func() {
+			// make sure we won't interfere with interrupts anymore
+			signal.Stop(sigint)
+
+			// delete the resource quota when we are done
+			_ = cmd.kubeClient.CoreV1().ResourceQuotas(cmd.Namespace).Delete(ctx, RestoreResourceQuota, metav1.DeleteOptions{})
+		}()
+
+		// also delete on interrupt
+		go func() {
+			// interrupt signal sent from terminal
+			signal.Notify(sigint, os.Interrupt)
+			// sigterm signal sent from kubernetes
+			signal.Notify(sigint, syscall.SIGTERM)
+
+			// wait until we get killed
+			<-sigint
+
+			// cleanup resource quota
+			_ = cmd.kubeClient.CoreV1().ResourceQuotas(cmd.Namespace).Delete(ctx, RestoreResourceQuota, metav1.DeleteOptions{})
+			os.Exit(1)
+		}()
+	}
+
 	// we have to upgrade / install the chart
 	err = helm.NewClient(&cmd.rawConfig, cmd.log, helmExecutablePath).Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
 		CreateNamespace: cmd.CreateNamespace,
@@ -542,6 +601,15 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 	})
 	if err != nil {
 		return err
+	}
+
+	// now restore if wanted
+	if cmd.Restore != "" {
+		cmd.log.Infof("Restore vCluster %s...", vClusterName)
+		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshot.Options{}, &pod.Options{}, cmd.log)
+		if err != nil {
+			return fmt.Errorf("restore vCluster %s: %w", vClusterName, err)
+		}
 	}
 
 	return nil

@@ -12,18 +12,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Test fromHost sync of configmaps", ginkgo.Ordered, func() {
 	var (
 		f                   *framework.Framework
 		configMap1          *corev1.ConfigMap
 		configMap2          *corev1.ConfigMap
 		configMap3          *corev1.ConfigMap
 		configMap4          *corev1.ConfigMap
+		configMap5          *corev1.ConfigMap
+		configMap6          *corev1.ConfigMap
+		configMap7          *corev1.ConfigMap
 		cm1Name             = "dummy"
 		cm1HostNamespace    = "from-host-sync-test"
 		cmsVirtualNamespace = "barfoo"
 		cm2HostNamespace    = "default"
-		cm2HostName         = "my-cm"
+		cm2HostName         = "my.cm"
 		cm2VirtualName      = "cm-my"
 		cm3Name             = "from-vcluster-ns"
 		cm3HostNamespace    = "vcluster"
@@ -31,6 +34,13 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 		cm4Name             = "my-cm-4"
 		cm4HostNamespace    = "vcluster"
 		podName             = "my-pod"
+		cm5Name             = "specific-cm"
+		cm5HostNamespace    = "vcluster"
+		cm5virtualNamespace = "my-virtual-namespace"
+		cm6Name             = "to-be-deleted"
+		cm6Namespace        = "my-ns"
+		cm7Name             = "cm-same-ns"
+		cm7Namespace        = "same-ns"
 	)
 
 	ginkgo.BeforeAll(func() {
@@ -65,7 +75,6 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 				"VAL2": "defgh",
 			},
 		}
-
 		configMap4 = &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cm4Name,
@@ -74,6 +83,34 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 			Data: map[string]string{
 				"VAL3": "ghijkl",
 				"VAL4": "defg",
+			},
+		}
+		configMap5 = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cm5Name,
+				Namespace: cm5HostNamespace,
+			},
+			Data: map[string]string{
+				"key5": "value5",
+				"key6": "value6",
+			},
+		}
+		configMap6 = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cm6Name,
+				Namespace: cm6Namespace,
+			},
+			Data: map[string]string{
+				"key6": "value6",
+			},
+		}
+		configMap7 = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cm7Name,
+				Namespace: cm7Namespace,
+			},
+			Data: map[string]string{
+				"key7": "value7",
 			},
 		}
 
@@ -295,4 +332,77 @@ var _ = ginkgo.Describe("ConfigMaps are synced to host and can be used in Pods",
 			WithTimeout(framework.PollTimeout).
 			Should(gomega.BeTrue())
 	})
+
+	ginkgo.It("Sync specific config maps from host namespace to a different namespace in vCluster", func() {
+		_, err := f.HostClient.CoreV1().ConfigMaps(configMap5.GetNamespace()).Create(f.Context, configMap5, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		gomega.Eventually(func() bool {
+			cmValues, err := f.VClusterClient.CoreV1().ConfigMaps(cm5virtualNamespace).Get(f.Context, cm5Name, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+			return cmValues.Data["key6"] == "value6" && cmValues.Data["key5"] == "value5"
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeTrue())
+	})
+
+	ginkgo.It("Delete configmap in Host, configmap in vCluster is also deleted", func() {
+		_, err := f.HostClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: cm6Namespace}}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		_, err = f.HostClient.CoreV1().ConfigMaps(configMap6.GetNamespace()).Create(f.Context, configMap6, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		gomega.Eventually(func() bool {
+			cmValues, err := f.VClusterClient.CoreV1().ConfigMaps(cm6Namespace).Get(f.Context, cm6Name, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+			return cmValues.Data["key6"] == "value6"
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeTrue())
+
+		framework.ExpectNoError(f.HostClient.CoreV1().ConfigMaps(configMap6.GetNamespace()).Delete(f.Context, configMap6.GetName(), metav1.DeleteOptions{}))
+		gomega.Eventually(func() bool {
+			_, err := f.VClusterClient.CoreV1().ConfigMaps(cm6Namespace).Get(f.Context, cm6Name, metav1.GetOptions{})
+			return err != nil
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeTrue())
+
+		_, err = f.VClusterClient.CoreV1().ConfigMaps(cm6Namespace).Get(f.Context, cm6Name, metav1.GetOptions{})
+		framework.ExpectError(err)
+
+		framework.ExpectNoError(f.HostClient.CoreV1().Namespaces().Delete(f.Context, cm6Namespace, metav1.DeleteOptions{}))
+	})
+
+	ginkgo.It("Sync all config maps from host namespaces to the same namespace in vCluster", func() {
+		_, err := f.HostClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: cm7Namespace}}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		_, err = f.HostClient.CoreV1().ConfigMaps(configMap7.GetNamespace()).Create(f.Context, configMap7, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		gomega.Eventually(func() bool {
+			cmValues, err := f.VClusterClient.CoreV1().ConfigMaps(cm7Namespace).Get(f.Context, cm7Name, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+			return cmValues.Data["key7"] == "value7"
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeTrue())
+
+		framework.ExpectNoError(f.HostClient.CoreV1().ConfigMaps(configMap7.GetNamespace()).Delete(f.Context, configMap7.GetName(), metav1.DeleteOptions{}))
+
+		framework.ExpectNoError(f.HostClient.CoreV1().Namespaces().Delete(f.Context, cm7Namespace, metav1.DeleteOptions{}))
+	})
+
 })

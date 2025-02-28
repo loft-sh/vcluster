@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 )
 
 type Value struct {
@@ -21,10 +22,12 @@ var ErrNotFound = errors.New("etcdwrapper: key not found")
 
 type Client interface {
 	List(ctx context.Context, key string) ([]Value, error)
+	ListStream(ctx context.Context, key string) <-chan *ValueOrError
 	Watch(ctx context.Context, key string) clientv3.WatchChan
 	Get(ctx context.Context, key string) (Value, error)
 	Put(ctx context.Context, key string, value []byte) error
 	Delete(ctx context.Context, key string) error
+	DeletePrefix(ctx context.Context, prefix string) error
 	Close() error
 }
 
@@ -32,7 +35,7 @@ type client struct {
 	c *clientv3.Client
 }
 
-func NewFromConfig(ctx context.Context, vConfig *config.VirtualClusterConfig) (Client, error) {
+func GetEtcdEndpoint(vConfig *config.VirtualClusterConfig) (string, *Certificates) {
 	// start kine embedded or external
 	var (
 		etcdEndpoints    string
@@ -80,6 +83,11 @@ func NewFromConfig(ctx context.Context, vConfig *config.VirtualClusterConfig) (C
 		}
 	}
 
+	return etcdEndpoints, etcdCertificates
+}
+
+func NewFromConfig(ctx context.Context, vConfig *config.VirtualClusterConfig) (Client, error) {
+	etcdEndpoints, etcdCertificates := GetEtcdEndpoint(vConfig)
 	return New(ctx, etcdCertificates, etcdEndpoints)
 }
 
@@ -89,7 +97,7 @@ func New(ctx context.Context, certificates *Certificates, endpoints ...string) (
 		return nil, err
 	}
 
-	etcdClient, err := GetEtcdClient(ctx, certificates, endpoints...)
+	etcdClient, err := GetEtcdClient(ctx, zap.L().Named("etcd-client"), certificates, endpoints...)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +105,61 @@ func New(ctx context.Context, certificates *Certificates, endpoints ...string) (
 	return &client{
 		c: etcdClient,
 	}, nil
+}
+
+type ValueOrError struct {
+	Value Value
+	Error error
+}
+
+func (c *client) ListStream(ctx context.Context, key string) <-chan *ValueOrError {
+	retChan := make(chan *ValueOrError, 1000)
+
+	originalKey := key
+	go func() {
+		defer close(retChan)
+
+		first := true
+		for {
+			options := []clientv3.OpOption{clientv3.WithRev(0), clientv3.WithLimit(1000)}
+			if first {
+				options = append(options, clientv3.WithPrefix())
+			} else {
+				options = append(options, clientv3.WithRange(string(getPrefix([]byte(originalKey)))))
+			}
+
+			resp, err := c.c.Get(
+				ctx,
+				key,
+				options...,
+			)
+			if err != nil {
+				retChan <- &ValueOrError{Error: err}
+				return
+			} else if len(resp.Kvs) == 0 {
+				return
+			}
+
+			for _, kv := range resp.Kvs {
+				retChan <- &ValueOrError{
+					Value: Value{
+						Key:      kv.Key,
+						Data:     kv.Value,
+						Modified: kv.ModRevision,
+					},
+				}
+
+				key = string(kv.Key)
+				first = false
+			}
+
+			if !resp.More {
+				break
+			}
+		}
+	}()
+
+	return retChan
 }
 
 func (c *client) Watch(ctx context.Context, key string) clientv3.WatchChan {
@@ -190,6 +253,26 @@ func (c *client) Delete(ctx context.Context, key string) error {
 	return err
 }
 
+func (c *client) DeletePrefix(ctx context.Context, prefix string) error {
+	_, err := c.c.Delete(ctx, prefix, clientv3.WithPrefix(), clientv3.WithRev(int64(0)))
+	return err
+}
+
 func (c *client) Close() error {
 	return c.c.Close()
+}
+
+func getPrefix(key []byte) []byte {
+	end := make([]byte, len(key))
+	copy(end, key)
+	for i := len(end) - 1; i >= 0; i-- {
+		if end[i] < 0xff {
+			end[i] = end[i] + 1
+			end = end[:i+1]
+			return end
+		}
+	}
+	// next prefix does not exist (e.g., 0xffff);
+	// default to WithFromKey policy
+	return []byte{0}
 }

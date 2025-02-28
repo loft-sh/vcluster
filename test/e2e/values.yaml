@@ -36,16 +36,19 @@ sync:
   fromHost:
     configMaps:
       enabled: true
-      selector:
-        mappings:
+      mappings:
+        byName:
           "from-host-sync-test/*": "barfoo/*"
-          "default/my-cm": "barfoo/cm-my"
+          "default/my.cm": "barfoo/cm-my"
           "": "my-new-ns"
           "/my-cm-4": "barfoo/my-cm-4"
+          "/specific-cm": "my-virtual-namespace/specific-cm"
+          "my-ns/to-be-deleted": "my-ns/to-be-deleted"
+          "same-ns/*": "same-ns/*"
     secrets:
       enabled: true
-      selector:
-        mappings:
+      mappings:
+        byName:
           "from-host-sync-test-2/dummy": "barfoo2/dummy"
           "default/my-secret": "barfoo2/secret-my"
           "/my-secret-in-default-ns": "barfoo2/secret-from-default-ns"

@@ -29,6 +29,9 @@ const VirtualClusterSelector = "app=vcluster"
 
 type VCluster struct {
 	ClientFactory clientcmd.ClientConfig `json:"-"`
+	Pods          []corev1.Pod           `json:"-"`
+	Deployment    *appsv1.Deployment     `json:"-"`
+	StatefulSet   *appsv1.StatefulSet    `json:"-"`
 	Created       metav1.Time
 	Name          string
 	Namespace     string
@@ -347,6 +350,7 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 				logger.Debugf("Error getting vCluster %s: %v", release, err)
 				continue
 			}
+			vCluster.StatefulSet = &p
 			vCluster.Context = context
 			vclusters = append(vclusters, vCluster)
 		}
@@ -370,6 +374,7 @@ func findInContext(ctx context.Context, context, name, namespace string, timeout
 				continue
 			}
 
+			vCluster.Deployment = &p
 			vCluster.Context = context
 			vclusters = append(vclusters, vCluster)
 		}
@@ -384,19 +389,21 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 	releaseName := ""
 	status := ""
 	version := ""
+	pods := []corev1.Pod{}
 
-	if object.GetAnnotations() != nil && object.GetAnnotations()[constants.PausedAnnotation] == "true" {
+	if object.GetAnnotations() != nil && object.GetAnnotations()[constants.PausedAnnotation(false)] == "true" {
 		status = string(StatusPaused)
 	} else {
 		releaseName = "release=" + release
 	}
 
 	if status == "" {
-		pods, err := getPods(ctx, client, kubeClientConfig, namespace, releaseName)
+		podList, err := getPods(ctx, client, kubeClientConfig, namespace, releaseName)
 		if err != nil {
 			return VCluster{}, err
 		}
-		for _, pod := range pods.Items {
+		pods = podList.Items
+		for _, pod := range podList.Items {
 			status = GetPodStatus(&pod)
 		}
 	}
@@ -437,6 +444,7 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 		Context:       context,
 		Version:       version,
 		ClientFactory: kubeClientConfig,
+		Pods:          pods,
 	}, nil
 }
 
@@ -585,5 +593,5 @@ func isPaused(v client.Object) bool {
 	annotations := v.GetAnnotations()
 	labels := v.GetLabels()
 
-	return annotations[constants.PausedAnnotation] == "true" || labels[sleepmode.Label] == "true"
+	return annotations[constants.PausedAnnotation(false)] == "true" || labels[sleepmode.Label] == "true"
 }

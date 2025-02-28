@@ -594,10 +594,10 @@ func validateFromHostSyncMappings(s config.EnableSwitchWithResourcesMappings, re
 	if !s.Enabled {
 		return nil
 	}
-	if len(s.Selector.Mappings) == 0 {
+	if len(s.Mappings.ByName) == 0 {
 		return fmt.Errorf("config.sync.fromHost.%s.mappings are empty", resourceNamePlural)
 	}
-	for key, value := range s.Selector.Mappings {
+	for key, value := range s.Mappings.ByName {
 		if !strings.Contains(key, "/") && key != constants.VClusterNamespaceInHostMappingSpecialCharacter {
 			return fmt.Errorf("config.sync.fromHost.%s.selector.mappings has key in invalid format: %s (expected NAMESPACE_NAME/NAME, NAMESPACE_NAME/*, /NAME or \"\")", resourceNamePlural, key)
 		}
@@ -653,10 +653,10 @@ func validateFromHostSyncCustomResources(customResources map[string]config.SyncF
 		if customResource.Scope != "" && customResource.Scope != config.ScopeCluster && customResource.Scope != config.ScopeNamespaced {
 			return fmt.Errorf("unsupported scope %s for sync.fromHost.customResources['%s'].scope. Only 'Cluster' and 'Namespaced' are allowed", customResource.Scope, key)
 		}
-		if len(customResource.Selector.Mappings) > 0 && customResource.Scope != config.ScopeNamespaced {
+		if len(customResource.Mappings.ByName) > 0 && customResource.Scope != config.ScopeNamespaced {
 			return fmt.Errorf(".selector.mappings are only supported for sync.fromHost.customResources['%s'] with scope 'Namespaced'", key)
 		}
-		if customResource.Scope == config.ScopeNamespaced && len(customResource.Selector.Mappings) == 0 {
+		if customResource.Scope == config.ScopeNamespaced && len(customResource.Mappings.ByName) == 0 {
 			return fmt.Errorf(".selector.mappings is required for Namespaced scope sync.fromHost.customResources['%s']", key)
 		}
 		err := validatePatches(patchesValidation{basePath: "sync.fromHost.customResources." + key, patches: customResource.Patches})
@@ -665,7 +665,7 @@ func validateFromHostSyncCustomResources(customResources map[string]config.SyncF
 		}
 
 		if customResource.Scope == config.ScopeNamespaced {
-			for host, virtual := range customResource.Selector.Mappings {
+			for host, virtual := range customResource.Mappings.ByName {
 				if err := validateFromHostMappingEntry(host, virtual, key); err != nil {
 					return err
 				}
@@ -678,7 +678,7 @@ func validateFromHostSyncCustomResources(customResources map[string]config.SyncF
 func validateFromHostSyncMappingObjectName(objRef []string, resourceNamePlural string) error {
 	var errs []string
 	if len(objRef) == 2 && objRef[1] != "" && objRef[1] != "*" {
-		errs = validation.NameIsDNSLabel(objRef[1], false)
+		errs = validation.NameIsDNSSubdomain(objRef[1], false)
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed object name from key (%s) is not valid name %s", resourceNamePlural, strings.Join(objRef, "/"), errs)

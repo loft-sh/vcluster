@@ -1138,9 +1138,9 @@
           "type": "array",
           "description": "Patches patch the resource according to the provided specification."
         },
-        "selector": {
-          "$ref": "#/$defs/FromHostSelector",
-          "description": "Selector for Namespace and Object"
+        "mappings": {
+          "$ref": "#/$defs/FromHostMappings",
+          "description": "Mappings for Namespace and Object"
         }
       },
       "additionalProperties": false,
@@ -1337,9 +1337,9 @@
           "description": "DenyProxyRequests denies certain requests in the vCluster proxy.",
           "pro": true
         },
-        "sleepMode": {
-          "$ref": "#/$defs/SleepMode",
-          "description": "SleepMode holds the native sleep mode configuration for Pro clusters"
+        "reuseNamespace": {
+          "type": "boolean",
+          "description": "ReuseNamespace allows reusing the same namespace to create multiple vClusters.\nThis flag is deprecated, as this scenario will be removed entirely in upcoming releases."
         }
       },
       "additionalProperties": false,
@@ -1824,14 +1824,14 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "FromHostSelector": {
+    "FromHostMappings": {
       "properties": {
-        "mappings": {
+        "byName": {
           "additionalProperties": {
             "type": "string"
           },
           "type": "object",
-          "description": "Mappings is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.\nThere are several wildcards supported:\n1. To match all objects in host namespace and sync them to different namespace in vCluster:\nmappings:\n  \"foo/*\": \"foo-in-virtual/*\"\n2. To match specific object in the host namespace and sync it to the same namespace with the same name:\nmappings:\n  \"foo/my-object\": \"foo/my-object\"\n3. To match specific object in the host namespace and sync it to the same namespace with different name:\nmappings:\n  \"foo/my-object\": \"foo/my-virtual-object\"\n4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nmappings:\n  \"\": \"my-virtual-namespace/*\"\n5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nmappings:\n  \"/my-object\": \"my-virtual-namespace/my-object\""
+          "description": "ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.\nThere are several wildcards supported:\n1. To match all objects in host namespace and sync them to different namespace in vCluster:\nbyName:\n  \"foo/*\": \"foo-in-virtual/*\"\n2. To match specific object in the host namespace and sync it to the same namespace with the same name:\nbyName:\n  \"foo/my-object\": \"foo/my-object\"\n3. To match specific object in the host namespace and sync it to the same namespace with different name:\nbyName:\n  \"foo/my-object\": \"foo/my-virtual-object\"\n4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nbyName:\n  \"\": \"my-virtual-namespace/*\"\n5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nbyName:\n  \"/my-object\": \"my-virtual-namespace/my-object\""
         }
       },
       "additionalProperties": false,
@@ -3049,6 +3049,10 @@
         "autoSleep": {
           "$ref": "#/$defs/SleepModeAutoSleep",
           "description": "AutoSleep holds autoSleep details"
+        },
+        "autoWakeup": {
+          "$ref": "#/$defs/AutoWakeup",
+          "description": "AutoWakeup holds configuration for waking the vCluster on a schedule rather than waiting for some activity."
         }
       },
       "additionalProperties": false,
@@ -3064,10 +3068,6 @@
         "schedule": {
           "type": "string",
           "description": "Schedule represents a cron schedule for when to sleep workloads"
-        },
-        "wakeup": {
-          "$ref": "#/$defs/AutoWakeup",
-          "description": "Wakeup holds configuration for waking the vCluster on a schedule rather than waiting for some activity."
         },
         "exclude": {
           "$ref": "#/$defs/AutoSleepExclusion",
@@ -3209,9 +3209,9 @@
           "type": "array",
           "description": "Patches patch the resource according to the provided specification."
         },
-        "selector": {
-          "$ref": "#/$defs/FromHostSelector",
-          "description": "Selector for Namespace and Object"
+        "mappings": {
+          "$ref": "#/$defs/FromHostMappings",
+          "description": "Mappings for Namespace and Object"
         }
       },
       "additionalProperties": false,
@@ -3838,6 +3838,10 @@
         "$ref": "#/$defs/Plugin"
       },
       "description": "Plugin specifies which vCluster plugins to enable. Use \"plugins\" instead. Do not use this option anymore."
+    },
+    "sleepMode": {
+      "$ref": "#/$defs/SleepMode",
+      "description": "SleepMode holds the native sleep mode configuration for Pro clusters"
     }
   },
   "additionalProperties": false,

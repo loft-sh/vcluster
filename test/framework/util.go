@@ -254,6 +254,7 @@ func (f *Framework) CreateCurlPod(ns string) (*corev1.Pod, error) {
 	return f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "curl"},
 		Spec: corev1.PodSpec{
+			TerminationGracePeriodSeconds: ptr.To(int64(1)),
 			Containers: []corev1.Container{
 				{
 					Name:            "curl",

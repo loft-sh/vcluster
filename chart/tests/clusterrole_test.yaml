@@ -462,8 +462,8 @@ tests:
         fromHost:
           configMaps:
             enabled: true
-            selector:
-              mappings:
+            mappings:
+              byName:
                 "": "my-ns/*"
                 my-ns/*: "my-ns-2/*"
     asserts:
@@ -498,8 +498,8 @@ tests:
         fromHost:
           configMaps:
             enabled: true
-            selector:
-              mappings:
+            mappings:
+              byName:
                 "my-ns/*": "my-ns-4/*"
                 my-ns-2/*: "my-ns-3/*"
     asserts:
@@ -534,8 +534,8 @@ tests:
         fromHost:
           configMaps:
             enabled: true
-            selector:
-              mappings:
+            mappings:
+              byName:
                 "my-ns/my-cm": "my-ns-2/my-cm-2"
                 my-ns-3/my-cm-2: "my-ns-4/my-cm4"
     asserts:
@@ -581,8 +581,8 @@ tests:
         fromHost:
           secrets:
             enabled: true
-            selector:
-              mappings:
+            mappings:
+              byName:
                 "": "my-ns/*"
                 my-ns/*: "my-ns-2/*"
     asserts:
@@ -617,8 +617,8 @@ tests:
         fromHost:
           secrets:
             enabled: true
-            selector:
-              mappings:
+            mappings:
+              byName:
                 "my-ns/*": "my-ns-4/*"
                 my-ns-2/*: "my-ns-3/*"
     asserts:
@@ -653,8 +653,8 @@ tests:
         fromHost:
           secrets:
             enabled: true
-            selector:
-              mappings:
+            mappings:
+              byName:
                 "my-ns/my-secret": "my-ns-2/my-secret-2"
                 my-ns-3/my-secret-2: "my-ns-4/my-secret-4"
     asserts:

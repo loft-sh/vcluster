@@ -50,7 +50,7 @@ var _ = ginkgo.Describe("Target Namespace", func() {
 		framework.ExpectNoError(err)
 
 		p, err := f.HostClient.CoreV1().Pods("vcluster-workload").List(f.Context, metav1.ListOptions{
-			LabelSelector: "vcluster.loft.sh/managed-by=" + f.VclusterName,
+			LabelSelector: "vcluster.loft.sh/managed-by=" + f.VClusterName,
 		})
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(true, len(p.Items) > 0)

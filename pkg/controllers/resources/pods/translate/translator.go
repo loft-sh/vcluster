@@ -174,6 +174,8 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 	pPod.Spec.AutomountServiceAccountToken = &False
 	pPod.Spec.EnableServiceLinks = &False
 
+	allPriorityClassesSyncingDisabled := !t.priorityClassesSyncEnabled && !t.hostPriorityClassesSyncEnabled
+
 	// by default the priority class would be synced as-is to the host
 	// this will readily work when config.Sync.FromHost.PriorityClasses.Enabled is true
 	// however, in case when config.Sync.ToHost.PriorityClasses.Enabled is true, we
@@ -183,7 +185,7 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 		if pPod.Spec.Priority != nil && *pPod.Spec.Priority > maxPriority {
 			pPod.Spec.Priority = &maxPriority
 		}
-	} else if !t.priorityClassesSyncEnabled && !t.hostPriorityClassesSyncEnabled {
+	} else if allPriorityClassesSyncingDisabled {
 		// reset the priorityClassName when both fromHost & toHost sync are disabled
 		pPod.Spec.PriorityClassName = ""
 		pPod.Spec.Priority = nil

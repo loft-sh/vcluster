@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -76,6 +77,9 @@ type Config struct {
 
 	// Plugin specifies which vCluster plugins to enable. Use "plugins" instead. Do not use this option anymore.
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
+
+	// SleepMode holds the native sleep mode configuration for Pro clusters
+	SleepMode *SleepMode `json:"sleepMode,omitempty"`
 }
 
 // Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
@@ -333,6 +337,10 @@ func ValidateStoreAndDistroChanges(currentStoreType, previousStoreType StoreType
 }
 
 func (c *Config) IsProFeatureEnabled() bool {
+	if os.Getenv("SKIP_VALIDATE_PRO_FEATURES") == "true" {
+		return false
+	}
+
 	if len(c.Networking.ResolveDNS) > 0 {
 		return true
 	}
@@ -511,29 +519,29 @@ type EnableSwitchWithResourcesMappings struct {
 	// Patches patch the resource according to the provided specification.
 	Patches []TranslatePatch `json:"patches,omitempty"`
 
-	// Selector for Namespace and Object
-	Selector FromHostSelector `json:"selector,omitempty"`
+	// Mappings for Namespace and Object
+	Mappings FromHostMappings `json:"mappings,omitempty"`
 }
 
-type FromHostSelector struct {
-	// Mappings is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
+type FromHostMappings struct {
+	// ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
 	// There are several wildcards supported:
 	// 1. To match all objects in host namespace and sync them to different namespace in vCluster:
-	// mappings:
+	// byName:
 	//   "foo/*": "foo-in-virtual/*"
 	// 2. To match specific object in the host namespace and sync it to the same namespace with the same name:
-	// mappings:
+	// byName:
 	//   "foo/my-object": "foo/my-object"
 	// 3. To match specific object in the host namespace and sync it to the same namespace with different name:
-	// mappings:
+	// byName:
 	//   "foo/my-object": "foo/my-virtual-object"
 	// 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
-	// mappings:
+	// byName:
 	//   "": "my-virtual-namespace/*"
 	// 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
-	// mappings:
+	// byName:
 	//   "/my-object": "my-virtual-namespace/my-object"
-	Mappings map[string]string `json:"mappings,omitempty"`
+	ByName map[string]string `json:"byName,omitempty"`
 }
 
 type SyncFromHost struct {
@@ -647,8 +655,8 @@ type SyncFromHostCustomResource struct {
 	// Patches patch the resource according to the provided specification.
 	Patches []TranslatePatch `json:"patches,omitempty"`
 
-	// Selector for Namespace and Object
-	Selector FromHostSelector `json:"selector,omitempty"`
+	// Mappings for Namespace and Object
+	Mappings FromHostMappings `json:"mappings,omitempty"`
 }
 
 type EnableAutoSwitch struct {
@@ -1968,8 +1976,9 @@ type Experimental struct {
 	// DenyProxyRequests denies certain requests in the vCluster proxy.
 	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" product:"pro"`
 
-	// SleepMode holds the native sleep mode configuration for Pro clusters
-	SleepMode *SleepMode `json:"sleepMode,omitempty"`
+	// ReuseNamespace allows reusing the same namespace to create multiple vClusters.
+	// This flag is deprecated, as this scenario will be removed entirely in upcoming releases.
+	ReuseNamespace bool `json:"reuseNamespace,omitempty"`
 }
 
 func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
@@ -2395,6 +2404,8 @@ type SleepMode struct {
 	TimeZone string `json:"timeZone,omitempty"`
 	// AutoSleep holds autoSleep details
 	AutoSleep SleepModeAutoSleep `json:"autoSleep,omitempty"`
+	// AutoWakeup holds configuration for waking the vCluster on a schedule rather than waiting for some activity.
+	AutoWakeup AutoWakeup `json:"autoWakeup,omitempty"`
 }
 
 // SleepModeAutoSleep holds configuration for allowing a vCluster to sleep its workloads
@@ -2405,9 +2416,6 @@ type SleepModeAutoSleep struct {
 
 	// Schedule represents a cron schedule for when to sleep workloads
 	Schedule string `json:"schedule,omitempty"`
-
-	// Wakeup holds configuration for waking the vCluster on a schedule rather than waiting for some activity.
-	Wakeup AutoWakeup `json:"wakeup,omitempty"`
 
 	// Exclude holds configuration for labels that, if present, will prevent a workload from going to sleep
 	Exclude AutoSleepExclusion `json:"exclude,omitempty"`

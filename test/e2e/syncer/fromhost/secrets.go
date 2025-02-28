@@ -54,7 +54,7 @@ var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", gi
 		secret3 = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secret3HostName,
-				Namespace: f.VclusterNamespace,
+				Namespace: f.VClusterNamespace,
 			},
 			Data: map[string][]byte{
 				"dummy":   []byte("one"),

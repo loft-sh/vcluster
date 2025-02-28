@@ -10,6 +10,10 @@ jobs:
     name: Publish vcluster
     runs-on: ubuntu-22.04
 
+    outputs:
+      release_version: ${{ steps.get_version.outputs.release_version }}
+      previous_tag: ${{ steps.get_version.outputs.previous_tag }}
+
     permissions:
       id-token: write # This is the key for OIDC cosign!
       packages: write
@@ -116,3 +120,18 @@ jobs:
           CHART_MUSEUM_URL: "https://charts.loft.sh/"
           CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
           CHART_MUSEUM_PASSWORD: ${{ secrets.CHART_MUSEUM_PASSWORD }}
+  # The workflow will only trigger on non-draft releases
+  # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#release
+  notify_release:
+    needs:
+      - publish
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Notify \#product-releases Slack channel
+        uses: loft-sh/github-actions/.github/actions/release-notification@v1
+        with:
+          version: ${{ needs.publish.outputs.version }}
+          previous_tag: ${{ needs.publish.outputs.previous_tag }}
+          target_repo: 'loft-sh/vcluster'
+          product: 'vCluster'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL_PRODUCT_RELEASES }}

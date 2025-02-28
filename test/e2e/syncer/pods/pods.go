@@ -83,6 +83,12 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 
 		// ignore HostIP differences
 		resetHostIP(vpod, pod)
+
+		// Since k8s 1.32, status.QOSClass field has become immutable,
+		// hence we have stopeed syncing it. So ignore
+		// the differences in the status.QOSClass field
+		ignoreQOSClassDiff(vpod, pod)
+
 		framework.ExpectEqual(vpod.Status, pod.Status)
 
 		// check for ephemeralContainers subResource
@@ -144,6 +150,12 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 
 		// ignore HostIP differences
 		resetHostIP(vpod, pod)
+
+		// Since k8s 1.32, status.QOSClass field has become immutable,
+		// hence we have stopeed syncing it. So ignore
+		// the differences in the status.QOSClass field
+		ignoreQOSClassDiff(vpod, pod)
+
 		framework.ExpectEqual(vpod.Status, pod.Status)
 
 		// check for conditions
@@ -693,4 +705,8 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 func resetHostIP(vpod, pod *corev1.Pod) {
 	vpod.Status.HostIP, pod.Status.HostIP = "", ""
 	vpod.Status.HostIPs, pod.Status.HostIPs = nil, nil
+}
+
+func ignoreQOSClassDiff(vpod, pod *corev1.Pod) {
+	pod.Status.QOSClass = vpod.Status.QOSClass
 }

@@ -159,8 +159,8 @@ jobs:
       - name: Set up kind k8s cluster
         uses: engineerd/setup-kind@v0.5.0
         with:
-          version: "v0.20.0"
-          image: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
+          version: "v0.26.0"
+          image: kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
 
       - name: Testing kind cluster set-up
         run: |
@@ -237,8 +237,8 @@ jobs:
       - name: Set up kind k8s cluster
         uses: engineerd/setup-kind@v0.5.0
         with:
-          version: "v0.20.0"
-          image: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
+          version: "v0.26.0"
+          image: kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
 
       - name: Testing kind cluster set-up
         run: |
@@ -360,8 +360,8 @@ jobs:
       - name: Set up kind k8s cluster
         uses: engineerd/setup-kind@v0.5.0
         with:
-          version: "v0.20.0"
-          image: kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e
+          version: "v0.26.0"
+          image: kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
 
       - name: Testing kind cluster set-up
         run: |

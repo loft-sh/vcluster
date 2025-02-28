@@ -278,7 +278,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		// propagate pod status changes from host cluster to vcluster when the host pod
 		// is being deleted. We need this because there is a possibility that pod is owned
 		// by a controller which wants the pod status to be either succeeded or failed before
-		// deleting it. But because these status changes are not propogated
+		// deleting it. But because these status changes are not propagated
 		// to vcluster pod when the host pod is being deleted, vcluster pod's status still
 		// shows as running, hence it cannot be deleted until it has failed or succeeded. This
 		// results in dangling pods on vcluster
@@ -347,6 +347,16 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		return ctrl.Result{}, err
 	}
 
+	// ignore the QOSClass field while updating pod status when there is a
+	// mismatch in this field value on vcluster and host. This field
+	// has become immutable from k8s 1.32 version and patch fails if
+	// syncer tries to update this field.
+	// This needs to be done before patch object is created when
+	// NewSyncerPatcher() is called so that there are no
+	// differences found in host QOSClass and virtual QOSClass and
+	// a patch event for this field is not created
+	event.Host.Status.QOSClass = event.VirtualOld.Status.QOSClass
+
 	// patch objects
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Pods.Patches, false))
 	if err != nil {
@@ -372,7 +382,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 }
 
 func (s *podSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Pod]) (_ ctrl.Result, retErr error) {
-	if event.VirtualOld != nil || event.Host.DeletionTimestamp != nil {
+	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(event.Host) {
 		// virtual object is not here anymore, so we delete
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}

@@ -107,26 +107,26 @@ sync:
     configMaps:
       # Enabled defines if this option should be enabled.
       enabled: false
-      # Selector for Namespace and Object
-      selector:
-        # Mappings is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
+      # Mappings for Namespace and Object
+      mappings:
+        # ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
         # There are several wildcards supported:
         # 1. To match all objects in host namespace and sync them to different namespace in vCluster:
-        # mappings:
+        # byName:
         #   "foo/*": "foo-in-virtual/*"
         # 2. To match specific object in the host namespace and sync it to the same namespace with the same name:
-        # mappings:
+        # byName:
         #   "foo/my-object": "foo/my-object"
         # 3. To match specific object in the host namespace and sync it to the same namespace with different name:
-        # mappings:
+        # byName:
         #   "foo/my-object": "foo/my-virtual-object"
         # 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
-        # mappings:
+        # byName:
         #   "": "my-virtual-namespace/*"
         # 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
-        # mappings:
+        # byName:
         #   "/my-object": "my-virtual-namespace/my-object"
-        mappings: {}
+        byName: {}
     # CSIDrivers defines if csi drivers should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
     csiDrivers:
       # Enabled defines if this option should be enabled.
@@ -172,26 +172,26 @@ sync:
     secrets:
       # Enabled defines if this option should be enabled.
       enabled: false
-      # Selector for Namespace and Object
-      selector:
-        # Mappings is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
+      # Mappings for Namespace and Object
+      mappings:
+        # ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
         # There are several wildcards supported:
         # 1. To match all objects in host namespace and sync them to different namespace in vCluster:
-        # mappings:
+        # byName:
         #   "foo/*": "foo-in-virtual/*"
         # 2. To match specific object in the host namespace and sync it to the same namespace with the same name:
-        # mappings:
+        # byName:
         #   "foo/my-object": "foo/my-object"
         # 3. To match specific object in the host namespace and sync it to the same namespace with different name:
-        # mappings:
+        # byName:
         #   "foo/my-object": "foo/my-virtual-object"
         # 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
-        # mappings:
+        # byName:
         #   "": "my-virtual-namespace/*"
         # 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
-        # mappings:
+        # byName:
         #   "/my-object": "my-virtual-namespace/my-object"
-        mappings: {}
+        byName: {}
     # VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster.
     volumeSnapshotClasses:
       # Enabled defines if this option should be enabled.
@@ -1031,6 +1031,10 @@ experimental:
       extraRules: []
     role:
       extraRules: []
+  
+  # ReuseNamespace allows reusing the same namespace to create multiple vClusters.
+  # This flag is deprecated, as this scenario will be removed entirely in upcoming releases.
+  reuseNamespace: false
 
 # Configuration related to telemetry gathered about vCluster usage.
 telemetry:

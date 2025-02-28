@@ -161,6 +161,7 @@ spec:
               scheme: HTTPS
             failureThreshold: 60
             initialDelaySeconds: 60
+            timeoutSeconds: 3
             periodSeconds: 2
           {{- end }}
           {{- if .Values.controlPlane.statefulSet.probes.readinessProbe.enabled }}
@@ -170,6 +171,7 @@ spec:
               port: 8443
               scheme: HTTPS
             failureThreshold: 60
+            timeoutSeconds: 3
             periodSeconds: 2
           {{- end }}
           {{- if .Values.controlPlane.statefulSet.probes.startupProbe.enabled }}
@@ -179,6 +181,7 @@ spec:
               port: 8443
               scheme: HTTPS
             failureThreshold: 300
+            timeoutSeconds: 3
             periodSeconds: 6
           {{- end }}
           {{- if .Values.controlPlane.statefulSet.security.containerSecurityContext }}

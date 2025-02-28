@@ -33,7 +33,7 @@ var K3SVersionMap = map[string]string{
 
 // K0SVersionMap holds the supported k0s versions
 var K0SVersionMap = map[string]string{
-	"1.32": "k0sproject/k0s:v1.32.1-k0s.0",
+	"1.32": "k0sproject/k0s:v1.30.2-k0s.0",
 	"1.31": "k0sproject/k0s:v1.30.2-k0s.0",
 	"1.30": "k0sproject/k0s:v1.30.2-k0s.0",
 	"1.29": "k0sproject/k0s:v1.29.6-k0s.0",

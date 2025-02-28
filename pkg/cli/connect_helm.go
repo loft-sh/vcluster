@@ -105,6 +105,14 @@ func (cmd *connectHelm) connect(ctx context.Context, vCluster *find.VCluster, co
 		return err
 	}
 
+	if !cmd.ConnectOptions.Print {
+		// check if vcluster is ready
+		err = cmd.waitForVCluster(ctx, *kubeConfig, cmd.errorChan)
+		if err != nil {
+			return fmt.Errorf("failed connecting to vcluster, verify connection arguments: %w ", err)
+		}
+	}
+
 	// check if we should execute command
 	if len(command) > 0 {
 		if !cmd.portForwarding {
@@ -266,7 +274,7 @@ func (cmd *connectHelm) prepare(ctx context.Context, vCluster *find.VCluster) er
 	// resume vCluster if necessary
 	if vCluster.Status == find.StatusPaused {
 		cmd.Log.Infof("Resume vcluster %s...", vCluster.Name)
-		err = lifecycle.ResumeVCluster(ctx, cmd.kubeClient, vCluster.Name, cmd.Namespace, cmd.Log)
+		err = lifecycle.ResumeVCluster(ctx, cmd.kubeClient, vCluster.Name, cmd.Namespace, false, cmd.Log)
 		if err != nil {
 			return fmt.Errorf("resume vcluster: %w", err)
 		}
@@ -650,12 +658,14 @@ func getLocalVClusterConfig(vKubeConfig clientcmdapi.Config, options *ConnectOpt
 	vKubeConfig = *vKubeConfig.DeepCopy()
 
 	// update vCluster server address in case of OSS vClusters only
-	if options.LocalPort != 0 {
-		for _, cluster := range vKubeConfig.Clusters {
-			if cluster == nil {
-				continue
+	if options.Server == "" {
+		if options.LocalPort != 0 {
+			for _, cluster := range vKubeConfig.Clusters {
+				if cluster == nil {
+					continue
+				}
+				cluster.Server = "https://localhost:" + strconv.Itoa(options.LocalPort)
 			}
-			cluster.Server = "https://localhost:" + strconv.Itoa(options.LocalPort)
 		}
 	}
 
@@ -689,6 +699,9 @@ func (cmd *connectHelm) waitForVCluster(ctx context.Context, vKubeConfig clientc
 		default:
 			// check if service account exists
 			_, err = vKubeClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
+			if err != nil {
+				cmd.Log.Debugf("failed to list default service account %v", err)
+			}
 			return err == nil, nil
 		}
 	})

@@ -126,7 +126,7 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
-			Name: "Update Host Cluster PodDisruptionBudget's Selector",
+			Name: "Update Host Cluster PodDisruptionBudget's ByName",
 			InitialVirtualState: []runtime.Object{
 				vclusterUpdatedSelectorPDB.DeepCopy(),
 			},

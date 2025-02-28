@@ -13,12 +13,6 @@ import (
 )
 
 func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error {
-	// ignore the QOSClass field while updating pod status when there is a
-	// mismatch in this field value on vcluster and host. This field
-	// has become immutable from k8s 1.32 version and patch fails if
-	// syncer tries to update this field.
-	event.Host.Status.QOSClass = event.VirtualOld.Status.QOSClass
-
 	// sync conditions
 	event.Virtual.Status.Conditions, event.Host.Status.Conditions = patcher.CopyBidirectional(
 		event.VirtualOld.Status.Conditions,

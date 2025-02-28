@@ -32,65 +32,10 @@ func StartK8S(
 ) error {
 	eg := &errgroup.Group{}
 
-	// start kine embedded or external
-	var (
-		etcdEndpoints    string
-		etcdCertificates *etcd.Certificates
-	)
-	if vConfig.EmbeddedDatabase() {
-		dataSource := vConfig.ControlPlane.BackingStore.Database.External.DataSource
-		if dataSource == "" {
-			dataSource = "sqlite:///data/state.db?_journal=WAL&cache=shared&_busy_timeout=30000"
-		}
-
-		// start embedded mode
-		go func() {
-			args := []string{}
-			args = append(args, "/usr/local/bin/kine")
-			args = append(args, "--endpoint="+dataSource)
-			args = append(args, "--ca-file="+vConfig.ControlPlane.BackingStore.Database.External.CaFile)
-			args = append(args, "--key-file="+vConfig.ControlPlane.BackingStore.Database.External.KeyFile)
-			args = append(args, "--cert-file="+vConfig.ControlPlane.BackingStore.Database.External.CertFile)
-			args = append(args, "--metrics-bind-address=0")
-			args = append(args, "--listen-address="+constants.K8sKineEndpoint)
-
-			// now start kine
-			err := RunCommand(ctx, args, "kine")
-			if err != nil {
-				klog.Fatal("could not run kine", err)
-			}
-		}()
-
-		etcdEndpoints = constants.K8sKineEndpoint
-	} else if vConfig.ControlPlane.BackingStore.Database.External.Enabled {
-		// we check for an empty datasource string here because the platform connect
-		// process may overwrite an empty datasource string with a platform supplied
-		// one. At this point the platform connect process is assumed to have happened.
-		if vConfig.ControlPlane.BackingStore.Database.External.DataSource == "" {
-			return fmt.Errorf("external datasource cannot be empty if external database is enabled")
-		}
-
-		// call out to the pro code
-		var err error
-		etcdEndpoints, etcdCertificates, err = pro.ConfigureExternalDatabase(ctx, vConfig)
-		if err != nil {
-			return fmt.Errorf("configure external database: %w", err)
-		}
-	} else {
-		// embedded or deployed etcd
-		etcdCertificates = &etcd.Certificates{
-			CaCert:     "/data/pki/etcd/ca.crt",
-			ServerCert: "/data/pki/apiserver-etcd-client.crt",
-			ServerKey:  "/data/pki/apiserver-etcd-client.key",
-		}
-
-		if vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
-			etcdEndpoints = "https://127.0.0.1:2379"
-		} else if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Service.Enabled {
-			etcdEndpoints = "https://" + vConfig.Name + "-etcd:2379"
-		} else {
-			etcdEndpoints = "https://" + vConfig.Name + "-etcd-headless:2379"
-		}
+	// start the backing store
+	etcdEndpoints, etcdCertificates, err := StartBackingStore(ctx, vConfig)
+	if err != nil {
+		return err
 	}
 
 	// start api server first
@@ -134,8 +79,8 @@ func StartK8S(
 				args = append(args, "--service-account-signing-key-file=/data/pki/sa.key")
 				args = append(args, "--tls-cert-file=/data/pki/apiserver.crt")
 				args = append(args, "--tls-private-key-file=/data/pki/apiserver.key")
-				args = append(args, "--watch-cache=false")
 				args = append(args, "--endpoint-reconciler-type=none")
+				args = append(args, "--profiling=false")
 			}
 
 			// add extra args
@@ -153,7 +98,7 @@ func StartK8S(
 	}
 
 	// wait for api server to be up as otherwise controller and scheduler might fail
-	err := waitForAPI(ctx)
+	err = waitForAPI(ctx)
 	if err != nil {
 		return fmt.Errorf("waited until timeout for the api to be up: %w", err)
 	}
@@ -238,6 +183,87 @@ func StartK8S(
 		return nil
 	}
 	return err
+}
+
+func StartKine(ctx context.Context, dataSource, listenAddress string, certificates *etcd.Certificates) {
+	// start embedded mode
+	go func() {
+		args := []string{}
+		args = append(args, "/usr/local/bin/kine")
+		args = append(args, "--endpoint="+dataSource)
+		if certificates != nil {
+			if certificates.CaCert != "" {
+				args = append(args, "--ca-file="+certificates.CaCert)
+			}
+			if certificates.ServerKey != "" {
+				args = append(args, "--key-file="+certificates.ServerKey)
+			}
+			if certificates.ServerCert != "" {
+				args = append(args, "--cert-file="+certificates.ServerCert)
+			}
+		}
+		args = append(args, "--metrics-bind-address=0")
+		args = append(args, "--listen-address="+listenAddress)
+
+		// now start kine
+		err := RunCommand(ctx, args, "kine")
+		if err != nil {
+			klog.Fatal("could not run kine", err)
+		}
+	}()
+}
+
+func StartBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig) (string, *etcd.Certificates, error) {
+	// start kine embedded or external
+	var (
+		etcdEndpoints    string
+		etcdCertificates *etcd.Certificates
+	)
+	if vConfig.EmbeddedDatabase() {
+		dataSource := vConfig.ControlPlane.BackingStore.Database.External.DataSource
+		if dataSource == "" {
+			dataSource = fmt.Sprintf("sqlite://%s?_journal=WAL&cache=shared&_busy_timeout=30000", constants.K8sSqliteDatabase)
+		}
+
+		StartKine(ctx, dataSource, constants.K8sKineEndpoint, &etcd.Certificates{
+			CaCert:     vConfig.ControlPlane.BackingStore.Database.Embedded.CaFile,
+			ServerKey:  vConfig.ControlPlane.BackingStore.Database.Embedded.KeyFile,
+			ServerCert: vConfig.ControlPlane.BackingStore.Database.Embedded.CertFile,
+		})
+
+		etcdEndpoints = constants.K8sKineEndpoint
+	} else if vConfig.ControlPlane.BackingStore.Database.External.Enabled {
+		// we check for an empty datasource string here because the platform connect
+		// process may overwrite an empty datasource string with a platform supplied
+		// one. At this point the platform connect process is assumed to have happened.
+		if vConfig.ControlPlane.BackingStore.Database.External.DataSource == "" {
+			return "", nil, fmt.Errorf("external datasource cannot be empty if external database is enabled")
+		}
+
+		// call out to the pro code
+		var err error
+		etcdEndpoints, etcdCertificates, err = pro.ConfigureExternalDatabase(ctx, constants.K8sKineEndpoint, vConfig, true)
+		if err != nil {
+			return "", nil, fmt.Errorf("configure external database: %w", err)
+		}
+	} else {
+		// embedded or deployed etcd
+		etcdCertificates = &etcd.Certificates{
+			CaCert:     "/data/pki/etcd/ca.crt",
+			ServerCert: "/data/pki/apiserver-etcd-client.crt",
+			ServerKey:  "/data/pki/apiserver-etcd-client.key",
+		}
+
+		if vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
+			etcdEndpoints = "https://127.0.0.1:2379"
+		} else if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Service.Enabled {
+			etcdEndpoints = "https://" + vConfig.Name + "-etcd:2379"
+		} else {
+			etcdEndpoints = "https://" + vConfig.Name + "-etcd-headless:2379"
+		}
+	}
+
+	return etcdEndpoints, etcdCertificates, nil
 }
 
 func RunCommand(ctx context.Context, command []string, component string) error {

@@ -32,7 +32,7 @@ var _ = ginkgo.Describe("Connect to vCluster", func() {
 		err = connectCmd.Flags().Set("kube-config", kcfgFile.Name())
 		framework.ExpectNoError(err)
 
-		connectCmd.SetArgs([]string{f.VclusterName})
+		connectCmd.SetArgs([]string{f.VClusterName})
 
 		err = connectCmd.Execute()
 		framework.ExpectNoError(err)
@@ -42,7 +42,7 @@ var _ = ginkgo.Describe("Connect to vCluster", func() {
 		kcfgFile, err := os.CreateTemp("", "kubeconfig")
 		framework.ExpectNoError(err)
 		// vcluster CLI has to be in $PATH
-		connectCmd := exec.Command("vcluster", "connect", "-n", f.VclusterNamespace, "--print", f.VclusterName)
+		connectCmd := exec.Command("vcluster", "connect", "-n", f.VClusterNamespace, "--print", f.VClusterName)
 		kubeConfigBytes, err := connectCmd.Output()
 		framework.ExpectNoError(err)
 		_, err = kcfgFile.Write(kubeConfigBytes)
@@ -62,9 +62,20 @@ var _ = ginkgo.Describe("Connect to vCluster", func() {
 
 	ginkgo.It("should connect to an OSS vcluster and execute a command", func() {
 		connectCmd := cmd.NewConnectCmd(&flags.GlobalFlags{})
-		connectCmd.SetArgs([]string{f.VclusterName, "--", "kubectl", "get", "ns"})
+		connectCmd.SetArgs([]string{f.VClusterName, "--", "kubectl", "get", "ns"})
 
 		err := connectCmd.Execute()
 		framework.ExpectNoError(err)
+	})
+
+	ginkgo.It("should fail saying the client timeout exceeded", func() {
+		connectCmd := cmd.NewConnectCmd(&flags.GlobalFlags{})
+		connectCmd.SetArgs([]string{f.VClusterName})
+		err := connectCmd.Flags().Set("kube-config", f.VClusterKubeConfigFile.Name())
+		framework.ExpectNoError(err)
+		err = connectCmd.Flags().Set("server", "testdomain.org")
+		framework.ExpectNoError(err)
+		err = connectCmd.Execute()
+		framework.ExpectError(err)
 	})
 })
