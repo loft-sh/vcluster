@@ -29,11 +29,11 @@ func TestExportKubeConfig(t *testing.T) {
 	}
 
 	cases := []struct {
-		name     string
-		syncerConfig clientcmdapi.Config
-		options CreateKubeConfigOptions
+		name               string
+		syncerConfig       clientcmdapi.Config
+		options            CreateKubeConfigOptions
 		expectedKubeConfig clientcmdapi.Config
-	} {
+	}{
 		{
 			name: "Export default kubeconfig",
 			syncerConfig: clientcmdapi.Config{
@@ -146,7 +146,7 @@ func TestExportKubeConfig(t *testing.T) {
 				},
 				Clusters: map[string]*clientcmdapi.Cluster{
 					exportedTestContext: {
-						Server: exportedTestServer,
+						Server:     exportedTestServer,
 						Extensions: map[string]runtime.Object{},
 					},
 				},
@@ -165,7 +165,7 @@ func TestExportKubeConfig(t *testing.T) {
 			ctx := context.Background()
 			virtualConfig := &rest.Config{}
 
-			kubeConfigResult, err := CreateVClusterKubeConfigForExport(ctx,virtualConfig, &tc.syncerConfig, tc.options)
+			kubeConfigResult, err := CreateVClusterKubeConfigForExport(ctx, virtualConfig, &tc.syncerConfig, tc.options)
 			if err != nil {
 				t.Errorf("Unexpected error when creating kubeconfig for export: %v", err)
 			}

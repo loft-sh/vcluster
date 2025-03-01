@@ -580,10 +580,10 @@ func TestValidateFromHostSyncCustomResources(t *testing.T) {
 
 func TestValidateExportKubeConfig(t *testing.T) {
 	cases := []struct {
-		name     string
+		name             string
 		exportKubeConfig config.ExportKubeConfig
 		expectedError    string
-	} {
+	}{
 		{
 			name: "Setting only exportKubeConfig.secret is valid",
 			exportKubeConfig: config.ExportKubeConfig{
@@ -642,7 +642,7 @@ func TestValidateExportKubeConfig(t *testing.T) {
 					{
 						ExportKubeConfigProperties: config.ExportKubeConfigProperties{
 							Context: "my-context",
-							Server: "my-server",
+							Server:  "my-server",
 						},
 					},
 				},
