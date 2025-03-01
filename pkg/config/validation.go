@@ -698,10 +698,12 @@ const (
 )
 
 func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
+	// You cannot set both Secret and AdditionalSecrets at the same time.
 	if exportKubeConfig.Secret.IsSet() && len(exportKubeConfig.AdditionalSecrets) > 0 {
 		return fmt.Errorf(exportKubeConfigBothSecretAndAdditionalSecretsSetError)
 	}
 	for _, additionalSecret := range exportKubeConfig.AdditionalSecrets {
+		// You must set at least Name or Namespace for every additional kubeconfig secret.
 		if additionalSecret.Name == "" && additionalSecret.Namespace == "" {
 			return fmt.Errorf(exportKubeConfigAdditionalSecretWithoutNameAndNamespace)
 		}
