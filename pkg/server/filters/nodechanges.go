@@ -142,6 +142,7 @@ func updateNode(ctx context.Context, decoder encoding.Decoder, localClient clien
 	newNode := pNode.DeepCopy()
 	newNode.Labels = vNode.Labels
 	newNode.Spec.Taints = vNode.Spec.Taints
+	newNode.Spec.Unschedulable = vNode.Spec.Unschedulable
 	newNode.Status.Capacity = vNode.Status.Capacity
 
 	// if there are no changes, just return the provided object
