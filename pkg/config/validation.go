@@ -694,6 +694,7 @@ func validateFromHostSyncMappingObjectName(objRef []string, resourceNamePlural s
 
 const (
 	exportKubeConfigBothSecretAndAdditionalSecretsSetError = "exportKubeConfig.Secret and exportKubeConfig.AdditionalSecrets cannot be set at the same time"
+	exportKubeConfigAdditionalSecretWithoutNameAndNamespace = "additional secret must have name and/or namespace set"
 )
 
 func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
@@ -702,7 +703,7 @@ func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
 	}
 	for _, additionalSecret := range exportKubeConfig.AdditionalSecrets {
 		if additionalSecret.Name == "" && additionalSecret.Namespace == "" {
-			return fmt.Errorf("additional secret must have name and/or namespace set")
+			return fmt.Errorf(exportKubeConfigAdditionalSecretWithoutNameAndNamespace)
 		}
 	}
 	return nil

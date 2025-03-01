@@ -593,11 +593,21 @@ func TestValidateExportKubeConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "Setting only exportKubeConfig.additionalSecrets is valid",
+			name: "Setting only exportKubeConfig.additionalSecrets with name is valid",
 			exportKubeConfig: config.ExportKubeConfig{
 				AdditionalSecrets: []config.ExportKubeConfigAdditionalSecretReference{
 					{
 						Name: "my-secret",
+					},
+				},
+			},
+		},
+		{
+			name: "Setting only exportKubeConfig.additionalSecrets with namespace is valid",
+			exportKubeConfig: config.ExportKubeConfig{
+				AdditionalSecrets: []config.ExportKubeConfigAdditionalSecretReference{
+					{
+						Namespace: "my-namespace",
 					},
 				},
 			},
@@ -615,6 +625,29 @@ func TestValidateExportKubeConfig(t *testing.T) {
 				},
 			},
 			expectedError: exportKubeConfigBothSecretAndAdditionalSecretsSetError,
+		},
+		{
+			name: "Setting empty additional secret is not valid",
+			exportKubeConfig: config.ExportKubeConfig{
+				AdditionalSecrets: []config.ExportKubeConfigAdditionalSecretReference{
+					{},
+				},
+			},
+			expectedError: exportKubeConfigAdditionalSecretWithoutNameAndNamespace,
+		},
+		{
+			name: "Setting non-empty additional secret, but without Name and Namespace, is not valid",
+			exportKubeConfig: config.ExportKubeConfig{
+				AdditionalSecrets: []config.ExportKubeConfigAdditionalSecretReference{
+					{
+						ExportKubeConfigProperties: config.ExportKubeConfigProperties{
+							Context: "my-context",
+							Server: "my-server",
+						},
+					},
+				},
+			},
+			expectedError: exportKubeConfigAdditionalSecretWithoutNameAndNamespace,
 		},
 	}
 
