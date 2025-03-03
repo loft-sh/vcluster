@@ -125,13 +125,27 @@ jobs:
   notify_release:
     needs:
       - publish
+      - publish-chart
     runs-on: ubuntu-22.04
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: get_base_branch
+        name: Get base branch for tag
+        run: |
+          RELEASE_VERSION=${{ needs.publish.outputs.release_version }}
+          TAG_COMMIT=$(git rev-list -n 1 "$RELEASE_VERSION")
+          BASE_BRANCH=$(git branch -r --contains "$TAG_COMMIT" | grep -v HEAD | sed -e 's/^[[:space:]]*//' -e 's/^origin\///' | head -n 1 || echo "main")
+          echo "base_branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "Base branch for $RELEASE_VERSION: $BASE_BRANCH"
       - name: Notify \#product-releases Slack channel
         uses: loft-sh/github-actions/.github/actions/release-notification@v1
         with:
-          version: ${{ needs.publish.outputs.version }}
+          version: ${{ needs.publish.outputs.release_version }}
           previous_tag: ${{ needs.publish.outputs.previous_tag }}
+          changes: 'See changelog link below'
           target_repo: 'loft-sh/vcluster'
           product: 'vCluster'
+          base_branch: ${{ steps.get_base_branch.outputs.base_branch }}
           webhook_url: ${{ secrets.SLACK_WEBHOOK_URL_PRODUCT_RELEASES }}
