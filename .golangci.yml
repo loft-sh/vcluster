@@ -109,5 +109,10 @@ issues:
   exclude-dirs:
     - licenses
 
-  exclude:
-    - "SA1019: (.+)Secret is deprecated: Use AdditionalSecrets instead."
+  exclude-rules:
+    # We are still using the deprecated exportKubeConfig.Secret field in a couple of places in code (as the support for
+    # exportKubeConfig.secret config is still not entirely removed).
+    - path: config/config.go
+      text: "SA1019: (.+)Secret is deprecated: Use AdditionalSecrets instead."
+    - path: pkg/config/validation.go
+      text: "SA1019: (.+)Secret is deprecated: Use AdditionalSecrets instead."
