@@ -68,7 +68,16 @@ func GetEtcdEndpoint(vConfig *config.VirtualClusterConfig) (string, *Certificate
 	} else if vConfig.Distro() == vconfig.K8SDistro {
 		etcdEndpoints = constants.K8sKineEndpoint
 	} else if vConfig.Distro() == vconfig.K3SDistro {
-		etcdEndpoints = constants.K3sKineEndpoint
+		if vConfig.ControlPlane.BackingStore.Etcd.External.Enabled {
+			etcdEndpoints = vConfig.ControlPlane.BackingStore.Etcd.External.Service
+			etcdCertificates = &Certificates{
+				CaCert:     vConfig.ControlPlane.BackingStore.Etcd.External.Certificate.CaFile,
+				ServerCert: vConfig.ControlPlane.BackingStore.Etcd.External.Certificate.CrtFile,
+				ServerKey:  vConfig.ControlPlane.BackingStore.Etcd.External.Certificate.KeyFile,
+			}
+		} else {
+			etcdEndpoints = constants.K3sKineEndpoint
+		}
 	} else if vConfig.Distro() == vconfig.K0SDistro {
 		if (vConfig.ControlPlane.BackingStore.Database.Embedded.Enabled && vConfig.ControlPlane.BackingStore.Database.Embedded.DataSource != "") ||
 			vConfig.ControlPlane.BackingStore.Database.External.Enabled {
