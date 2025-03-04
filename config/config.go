@@ -1279,12 +1279,33 @@ type Etcd struct {
 
 	// Deploy defines to use an external etcd that is deployed by the helm chart
 	Deploy EtcdDeploy `json:"deploy,omitempty"`
+
+	//External defines to use external etcd
+	External EtcdExternal `json:"external,omitempty"`
 }
 
 func (e Etcd) JSONSchemaExtend(base *jsonschema.Schema) {
 	addProToJSONSchema(base, reflect.TypeOf(e))
 }
 
+type EtcdExternal struct {
+
+	// Enabled defines if the external etcd should be used.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Service holds options for the external etcd service
+	Service string `json:"service,omitempty"`
+
+	// Certificate defines tls for external etcd server
+	Certificate Certificate `json:"tls,omitempty"`
+}
+
+// Certificate defines tls
+type Certificate struct {
+	CaFile  string `json:"caFile,omitempty"`
+	CrtFile string `json:"certFile,omitempty"`
+	KeyFile string `json:"keyFile,omitempty"`
+}
 type EtcdEmbedded struct {
 	// Enabled defines if the embedded etcd should be used.
 	Enabled bool `json:"enabled,omitempty" product:"pro"`
