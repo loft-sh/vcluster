@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/loft-sh/vcluster/config"
@@ -582,7 +583,7 @@ func TestValidateExportKubeConfig(t *testing.T) {
 	cases := []struct {
 		name             string
 		exportKubeConfig config.ExportKubeConfig
-		expectedError    string
+		expectedError    error
 	}{
 		{
 			name: "Setting only exportKubeConfig.secret is valid",
@@ -624,7 +625,7 @@ func TestValidateExportKubeConfig(t *testing.T) {
 					},
 				},
 			},
-			expectedError: exportKubeConfigBothSecretAndAdditionalSecretsSetError,
+			expectedError: errExportKubeConfigBothSecretAndAdditionalSecretsSet,
 		},
 		{
 			name: "Setting empty additional secret is not valid",
@@ -633,7 +634,7 @@ func TestValidateExportKubeConfig(t *testing.T) {
 					{},
 				},
 			},
-			expectedError: exportKubeConfigAdditionalSecretWithoutNameAndNamespace,
+			expectedError: errExportKubeConfigAdditionalSecretWithoutNameAndNamespace,
 		},
 		{
 			name: "Setting non-empty additional secret, but without Name and Namespace, is not valid",
@@ -647,20 +648,20 @@ func TestValidateExportKubeConfig(t *testing.T) {
 					},
 				},
 			},
-			expectedError: exportKubeConfigAdditionalSecretWithoutNameAndNamespace,
+			expectedError: errExportKubeConfigAdditionalSecretWithoutNameAndNamespace,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualError := validateExportKubeConfig(tc.exportKubeConfig)
-			if tc.expectedError == "" && actualError != nil {
+			if tc.expectedError == nil && actualError != nil {
 				t.Errorf("expected validation to pass, but got error: %v", actualError)
 			}
-			if tc.expectedError != "" {
+			if tc.expectedError != nil {
 				if actualError == nil {
 					t.Errorf("expected validation to fail with error %q, but it passed", tc.expectedError)
-				} else if actualError.Error() != tc.expectedError {
+				} else if !errors.Is(actualError, tc.expectedError) {
 					t.Errorf("expected to get error %q, but instead got other error: %v", tc.expectedError, actualError)
 				}
 			}
