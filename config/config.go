@@ -403,6 +403,41 @@ func UnmarshalYAMLStrict(data []byte, i any) error {
 
 // ExportKubeConfig describes how vCluster should export the vCluster kubeconfig.
 type ExportKubeConfig struct {
+	ExportKubeConfigProperties
+
+	// Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.
+	// If this is not defined, vCluster will create it with `vc-NAME`. If you specify another name,
+	// vCluster creates the config in this other secret.
+	//
+	// Deprecated: Use AdditionalSecrets instead.
+	Secret ExportKubeConfigSecretReference `json:"secret,omitempty"`
+
+	// AdditionalSecrets specifies the additional host cluster secrets in which vCluster will store the
+	// generated virtual cluster kubeconfigs.
+	AdditionalSecrets []ExportKubeConfigAdditionalSecretReference `json:"additionalSecrets,omitempty"`
+}
+
+// GetAdditionalSecrets returns optional additional kubeconfig Secrets.
+//
+// If the deprecated Secret property is set, GetAdditionalSecrets only returns that secret, and
+// AdditionalSecrets is ignored. On the other hand, if the AdditionalSecrets property is set,
+// GetAdditionalSecrets returns the secrets config from the AdditionalSecrets, and Secret property
+// is ignored.
+func (e *ExportKubeConfig) GetAdditionalSecrets() []ExportKubeConfigAdditionalSecretReference {
+	if e.Secret.IsSet() {
+		return []ExportKubeConfigAdditionalSecretReference{
+			{
+				ExportKubeConfigProperties: e.ExportKubeConfigProperties,
+				Namespace:                  e.Secret.Namespace,
+				Name:                       e.Secret.Name,
+			},
+		}
+	}
+
+	return e.AdditionalSecrets
+}
+
+type ExportKubeConfigProperties struct {
 	// Context is the name of the context within the generated kubeconfig to use.
 	Context string `json:"context,omitempty"`
 
@@ -414,11 +449,6 @@ type ExportKubeConfig struct {
 
 	// ServiceAccount can be used to generate a service account token instead of the default certificates.
 	ServiceAccount ExportKubeConfigServiceAccount `json:"serviceAccount,omitempty"`
-
-	// Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.
-	// If this is not defined, vCluster will create it with `vc-NAME`. If you specify another name,
-	// vCluster creates the config in this other secret.
-	Secret ExportKubeConfigSecretReference `json:"secret,omitempty"`
 }
 
 type ExportKubeConfigServiceAccount struct {
@@ -441,6 +471,24 @@ type ExportKubeConfigSecretReference struct {
 	Name string `json:"name,omitempty"`
 
 	// Namespace where vCluster should store the kubeconfig secret. If this is not equal to the namespace
+	// where you deployed vCluster, you need to make sure vCluster has access to this other namespace.
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// IsSet checks if at least one ExportKubeConfigSecretReference property is set.
+func (s *ExportKubeConfigSecretReference) IsSet() bool {
+	return *s != (ExportKubeConfigSecretReference{})
+}
+
+// ExportKubeConfigAdditionalSecretReference defines the additional host cluster secret in which
+// vCluster stores the generated virtual cluster kubeconfigs.
+type ExportKubeConfigAdditionalSecretReference struct {
+	ExportKubeConfigProperties
+
+	// Name is the name of the secret where the kubeconfig is stored.
+	Name string `json:"name,omitempty"`
+
+	// Namespace where vCluster stores the kubeconfig secret. If this is not equal to the namespace
 	// where you deployed vCluster, you need to make sure vCluster has access to this other namespace.
 	Namespace string `json:"namespace,omitempty"`
 }

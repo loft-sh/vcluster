@@ -8,13 +8,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
-
 	"github.com/ghodss/yaml"
-	"github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/validation"
+
+	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/util/toleration"
 )
 
 var allowedPodSecurityStandards = map[string]bool{
@@ -203,6 +203,12 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	// set service name
 	if vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name == "" {
 		vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + vConfig.Name
+	}
+
+	// check config for exporting kubeconfig Secrets
+	err = validateExportKubeConfig(vConfig.ExportKubeConfig)
+	if err != nil {
+		return err
 	}
 
 	// pro validate config
@@ -682,6 +688,25 @@ func validateFromHostSyncMappingObjectName(objRef []string, resourceNamePlural s
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("config.sync.fromHost.%s.selector.mappings parsed object name from key (%s) is not valid name %s", resourceNamePlural, strings.Join(objRef, "/"), errs)
+	}
+	return nil
+}
+
+var (
+	errExportKubeConfigBothSecretAndAdditionalSecretsSet       = errors.New("exportKubeConfig.Secret and exportKubeConfig.AdditionalSecrets cannot be set at the same time")
+	errExportKubeConfigAdditionalSecretWithoutNameAndNamespace = errors.New("additional secret must have name and/or namespace set")
+)
+
+func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
+	// You cannot set both Secret and AdditionalSecrets at the same time.
+	if exportKubeConfig.Secret.IsSet() && len(exportKubeConfig.AdditionalSecrets) > 0 {
+		return errExportKubeConfigBothSecretAndAdditionalSecretsSet
+	}
+	for _, additionalSecret := range exportKubeConfig.AdditionalSecrets {
+		// You must set at least Name or Namespace for every additional kubeconfig secret.
+		if additionalSecret.Name == "" && additionalSecret.Namespace == "" {
+			return errExportKubeConfigAdditionalSecretWithoutNameAndNamespace
+		}
 	}
 	return nil
 }

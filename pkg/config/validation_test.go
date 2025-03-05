@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/loft-sh/vcluster/config"
@@ -574,6 +575,96 @@ func TestValidateFromHostSyncCustomResources(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := validateFromHostSyncCustomResources(tc.customResourcesFromHostSync)
 			tc.checkErr(t, err)
+		})
+	}
+}
+
+func TestValidateExportKubeConfig(t *testing.T) {
+	cases := []struct {
+		name             string
+		exportKubeConfig config.ExportKubeConfig
+		expectedError    error
+	}{
+		{
+			name: "Setting only exportKubeConfig.secret is valid",
+			exportKubeConfig: config.ExportKubeConfig{
+				Secret: config.ExportKubeConfigSecretReference{
+					Name: "my-secret",
+				},
+			},
+		},
+		{
+			name: "Setting only exportKubeConfig.additionalSecrets with name is valid",
+			exportKubeConfig: config.ExportKubeConfig{
+				AdditionalSecrets: []config.ExportKubeConfigAdditionalSecretReference{
+					{
+						Name: "my-secret",
+					},
+				},
+			},
+		},
+		{
+			name: "Setting only exportKubeConfig.additionalSecrets with namespace is valid",
+			exportKubeConfig: config.ExportKubeConfig{
+				AdditionalSecrets: []config.ExportKubeConfigAdditionalSecretReference{
+					{
+						Namespace: "my-namespace",
+					},
+				},
+			},
+		},
+		{
+			name: "Setting both exportKubeConfig.secret and exportKubeConfig.additionalSecrets is not valid",
+			exportKubeConfig: config.ExportKubeConfig{
+				Secret: config.ExportKubeConfigSecretReference{
+					Name: "my-secret-1",
+				},
+				AdditionalSecrets: []config.ExportKubeConfigAdditionalSecretReference{
+					{
+						Name: "my-secret-2",
+					},
+				},
+			},
+			expectedError: errExportKubeConfigBothSecretAndAdditionalSecretsSet,
+		},
+		{
+			name: "Setting empty additional secret is not valid",
+			exportKubeConfig: config.ExportKubeConfig{
+				AdditionalSecrets: []config.ExportKubeConfigAdditionalSecretReference{
+					{},
+				},
+			},
+			expectedError: errExportKubeConfigAdditionalSecretWithoutNameAndNamespace,
+		},
+		{
+			name: "Setting non-empty additional secret, but without Name and Namespace, is not valid",
+			exportKubeConfig: config.ExportKubeConfig{
+				AdditionalSecrets: []config.ExportKubeConfigAdditionalSecretReference{
+					{
+						ExportKubeConfigProperties: config.ExportKubeConfigProperties{
+							Context: "my-context",
+							Server:  "my-server",
+						},
+					},
+				},
+			},
+			expectedError: errExportKubeConfigAdditionalSecretWithoutNameAndNamespace,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actualError := validateExportKubeConfig(tc.exportKubeConfig)
+			if tc.expectedError == nil && actualError != nil {
+				t.Errorf("expected validation to pass, but got error: %v", actualError)
+			}
+			if tc.expectedError != nil {
+				if actualError == nil {
+					t.Errorf("expected validation to fail with error %q, but it passed", tc.expectedError)
+				} else if !errors.Is(actualError, tc.expectedError) {
+					t.Errorf("expected to get error %q, but instead got other error: %v", tc.expectedError, actualError)
+				}
+			}
 		})
 	}
 }
