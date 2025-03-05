@@ -65,6 +65,13 @@ func GetEtcdEndpoint(vConfig *config.VirtualClusterConfig) (string, *Certificate
 		} else {
 			etcdEndpoints = "https://" + vConfig.Name + "-etcd-headless:2379"
 		}
+	} else if vConfig.ControlPlane.BackingStore.Etcd.External.Enabled {
+		etcdEndpoints = vConfig.ControlPlane.BackingStore.Etcd.External.Service
+		etcdCertificates = &Certificates{
+			CaCert:     vConfig.ControlPlane.BackingStore.Etcd.External.Certificate.CaFile,
+			ServerCert: vConfig.ControlPlane.BackingStore.Etcd.External.Certificate.CrtFile,
+			ServerKey:  vConfig.ControlPlane.BackingStore.Etcd.External.Certificate.KeyFile,
+		}
 	} else if vConfig.Distro() == vconfig.K8SDistro {
 		etcdEndpoints = constants.K8sKineEndpoint
 	} else if vConfig.Distro() == vconfig.K3SDistro {
