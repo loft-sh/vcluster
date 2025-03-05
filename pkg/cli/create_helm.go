@@ -289,6 +289,12 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		return err
 	}
 
+	// multiple vCluster creation inside same ns should fail if `reuseNamespace` is not set as true in vCluster config
+	if reuseNamespace && !vClusterConfig.Experimental.ReuseNamespace {
+		return fmt.Errorf("there is already a virtual cluster in namespace %s; to create multiple virtual clusters "+
+			"within the same namespace, please set 'reuse-namespace' to true in vCluster config", cmd.Namespace)
+	}
+
 	if vClusterConfig.Experimental.IsolatedControlPlane.Headless {
 		cmd.Connect = false
 	}
