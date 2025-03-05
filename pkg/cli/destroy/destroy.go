@@ -332,7 +332,7 @@ func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Conte
 							}
 						}
 					} else {
-						log.Warnf("removing an externally deployed virtual cluster %q from the platform. It will not be destroyed as the deployment is managed externally, but its connection to its database will be removed.", namespacedName)
+						log.Warnf("removing an externally deployed virtual cluster %q from the platform. It will not be destroyed as the deployment is managed externally.", namespacedName)
 					}
 				}
 
