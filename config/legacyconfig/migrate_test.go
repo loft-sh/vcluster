@@ -653,6 +653,80 @@ sync:
       enabled: true`,
 			ExpectedErr: "",
 		},
+		{
+			Name:   "export kubeconfig with custom context and server",
+			Distro: "k8s",
+			In: `syncer:
+  extraArgs:
+  - --kube-config-context-name=my-context
+  - --out-kube-config-server=https://my-vcluster.example.com`,
+			Expected: `controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+  distro:
+    k8s:
+      enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+exportKubeConfig:
+  context: my-context
+  server: https://my-vcluster.example.com`,
+		},
+		{
+			Name:   "export additional kubeconfig secret",
+			Distro: "k8s",
+			In: `syncer:
+  extraArgs:
+  - --out-kube-config-secret=my-secret
+  - --out-kube-config-secret-namespace=my-namespace`,
+			Expected: `controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+  distro:
+    k8s:
+      enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+exportKubeConfig:
+  additionalSecrets:
+  - name: my-secret
+    namespace: my-namespace`,
+		},
+		{
+			Name:   "export additional kubeconfig secret with custom context and server",
+			Distro: "k8s",
+			In: `syncer:
+  extraArgs:
+  - --kube-config-context-name=my-context
+  - --out-kube-config-server=https://my-vcluster.example.com
+  - --out-kube-config-secret=my-secret
+  - --out-kube-config-secret-namespace=my-namespace`,
+			Expected: `controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+  distro:
+    k8s:
+      enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+exportKubeConfig:
+  additionalSecrets:
+  - context: my-context
+    name: my-secret
+    namespace: my-namespace
+    server: https://my-vcluster.example.com
+  context: my-context
+  server: https://my-vcluster.example.com`,
+		},
 	}
 
 	for _, testCase := range testCases {
