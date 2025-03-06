@@ -137,7 +137,7 @@ func (f *Framework) WaitForInitManifestConfigMapCreation(configMapName, ns strin
 }
 
 func (f *Framework) WaitForServiceAccount(saName string, ns string) error {
-	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextTimeout(f.Context, 5*time.Second, 2*PollTimeout, true, func(ctx context.Context) (bool, error) {
 		_, err := f.VClusterClient.CoreV1().ServiceAccounts(ns).Get(ctx, saName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {

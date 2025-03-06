@@ -69,6 +69,10 @@ var _ = ginkgo.Describe("Persistent volume synced from host cluster", func() {
 
 		framework.ExpectNoError(err)
 
+		// Wait for the default service account to be created so the pod can use it
+		err = f.WaitForServiceAccount("default", ns)
+		framework.ExpectNoError(err)
+
 		// add a pod bound to the volume as by default storage class on kind is configured with
 		// volume binding mode as WaitForFirstConsumer
 		_, err = f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
