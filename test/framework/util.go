@@ -225,7 +225,16 @@ func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) e
 }
 
 func (f *Framework) DeleteTestNamespace(ns string, waitUntilDeleted bool) error {
-	err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, ns, metav1.DeleteOptions{})
+	var propagationPolicy metav1.DeletionPropagation
+	if waitUntilDeleted {
+		propagationPolicy = metav1.DeletePropagationForeground
+	} else {
+		propagationPolicy = metav1.DeletePropagationBackground
+	}
+	deleteOptions := metav1.DeleteOptions{
+		PropagationPolicy: &propagationPolicy,
+	}
+	err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, ns, deleteOptions)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil
