@@ -401,6 +401,8 @@ controlPlane:
             tag: "3.5.17-0"
           # ImagePullPolicy is the pull policy for the external etcd image
           imagePullPolicy: ""
+          # Snapshot count passed to the etcd's `snapshot-count` command
+          snapshotCount: 10000
           # ExtraArgs are appended to the etcd command.
           extraArgs: []
           # Env are extra environment variables

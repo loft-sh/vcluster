@@ -157,7 +157,7 @@ spec:
           - '--peer-client-cert-auth=true'
           - '--peer-key-file=/run/config/pki/etcd-peer.key'
           - '--peer-trusted-ca-file=/run/config/pki/etcd-ca.crt'
-          - '--snapshot-count=10000'
+          - '--snapshot-count={{ .Values.controlPlane.backingStore.etcd.deploy.statefulSet.snapshotCount }}'
           - '--trusted-ca-file=/run/config/pki/etcd-ca.crt'
           {{- range $f := $externalEtcd.extraArgs }}
           - {{ $f | quote }}
