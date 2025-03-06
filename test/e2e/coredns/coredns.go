@@ -2,12 +2,14 @@ package coredns
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/loft-sh/vcluster/pkg/coredns"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -38,9 +40,13 @@ var _ = ginkgo.Describe("CoreDNS resolves host names correctly", func() {
 	})
 
 	ginkgo.AfterEach(func() {
-		// delete test namespace
-		err := f.DeleteTestNamespace(ns, false)
-		framework.ExpectNoError(err)
+		// delete test namespace (retry few times, as the client may time out sometimes when deleting a namespace)
+		gomega.Eventually(func() error {
+			return f.DeleteTestNamespace(ns, false)
+		}).
+			WithPolling(time.Second).
+			WithTimeout(3 * framework.PollTimeout).
+			Should(gomega.Succeed())
 	})
 
 	ginkgo.It("Test Service is reachable via it's hostname", func() {
