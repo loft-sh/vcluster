@@ -38,7 +38,6 @@ var _ = ginkgo.Describe("CoreDNS resolves host names correctly", func() {
 
 	ginkgo.AfterEach(func() {
 		// delete test namespace
-
 		err := f.DeleteTestNamespace(ns, false)
 		framework.ExpectNoError(err)
 	})

@@ -225,12 +225,11 @@ func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) e
 }
 
 func (f *Framework) DeleteTestNamespace(ns string, waitUntilDeleted bool) error {
-	var propagationPolicy metav1.DeletionPropagation
-	if waitUntilDeleted {
-		propagationPolicy = metav1.DeletePropagationForeground
-	} else {
-		propagationPolicy = metav1.DeletePropagationBackground
-	}
+	// Always delete in the background. The vCluster client timeout is set to 32 seconds, so deleting
+	// in the foreground may cause timeouts in delete requests, which will cause e2e tests to fail.
+	// If you need a blocking/foreground deletion call, you can set waitUntilDeleted to true, which
+	// will result in polling below, where we check if the namespace is deleted.
+	propagationPolicy := metav1.DeletePropagationBackground
 	deleteOptions := metav1.DeleteOptions{
 		PropagationPolicy: &propagationPolicy,
 	}
