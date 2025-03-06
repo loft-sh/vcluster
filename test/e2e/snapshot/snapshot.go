@@ -12,7 +12,7 @@ import (
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	apps "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,12 +77,12 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 		},
 	}
 
-	deploymentToRestore := &apps.Deployment{
+	deploymentToRestore := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "deployment-restore",
 			Labels: map[string]string{"snapshot": "restore"},
 		},
-		Spec: apps.DeploymentSpec{
+		Spec: appsv1.DeploymentSpec{
 			Replicas: intRef(1),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
