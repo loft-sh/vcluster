@@ -1156,6 +1156,10 @@
         "deploy": {
           "$ref": "#/$defs/EtcdDeploy",
           "description": "Deploy defines to use an external etcd that is deployed by the helm chart"
+        },
+          "external": {
+          "$ref": "#/$defs/EtcdExternal",
+          "description": "External defines to use an external etcd"
         }
       },
       "additionalProperties": false,
@@ -1178,6 +1182,33 @@
         "headlessService": {
           "$ref": "#/$defs/EtcdDeployHeadlessService",
           "description": "HeadlessService holds options for the external etcd headless service."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EtcdExternal": {
+      "properties": {
+        "service": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "tls": {
+          "properties": {
+            "caFile": {
+              "type": "string"
+            },
+            "certFile": {
+              "type": "string"
+            },
+            "keyFile": {
+              "type": "string"
+            }
+          },
+          "type": "object",
+          "description": "TLS"
         }
       },
       "additionalProperties": false,
