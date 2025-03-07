@@ -34,6 +34,8 @@ experimental:
           timeout: "50s"
 sync:
   fromHost:
+    runtimeClasses:
+      enabled: true
     configMaps:
       enabled: true
       mappings:
