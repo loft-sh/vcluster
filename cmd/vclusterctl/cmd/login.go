@@ -28,7 +28,7 @@ func NewLoginCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	description := `########################################################
 #################### vcluster login ####################
 ########################################################
-Login into vCluster platform
+This command is deprecated. Use "vcluster platform login" instead.
 
 Example:
 vcluster login https://my-vcluster-platform.com
