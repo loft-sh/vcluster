@@ -1,21 +1,14 @@
-package file
+package container
 
 import (
 	"context"
 	"io"
 	"os"
 	"path/filepath"
-
-	"github.com/spf13/pflag"
 )
 
 type Options struct {
 	Path string `json:"path,omitempty"`
-}
-
-func AddFlags(fs *pflag.FlagSet, fileOptions *Options) {
-	// file options
-	fs.StringVar(&fileOptions.Path, "file-path", fileOptions.Path, "The file path to write the snapshot to")
 }
 
 func NewStore(options *Options) *Store {
@@ -29,7 +22,7 @@ type Store struct {
 }
 
 func (s *Store) Target() string {
-	return "file://" + s.path
+	return "container://" + s.path
 }
 
 func (s *Store) GetObject(_ context.Context) (io.ReadCloser, error) {

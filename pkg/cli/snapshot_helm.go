@@ -6,9 +6,11 @@ import (
 	"strings"
 
 	"github.com/blang/semver/v4"
+	"github.com/ghodss/yaml"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"k8s.io/client-go/kubernetes"
@@ -17,14 +19,33 @@ import (
 
 var minSnapshotVersion = "0.23.0-alpha.8"
 
-func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshot *snapshot.Options, podOptions *pod.Options, log log.Logger) error {
+func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger) error {
 	// init kube client and vCluster
-	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshot, log)
+	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log)
 	if err != nil {
 		return err
 	}
 
-	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot"}, vCluster, podOptions, snapshot, log)
+	// get vCluster release
+	vClusterRelease, err := helm.NewSecrets(kubeClient).Get(ctx, vCluster.Name, vCluster.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get vCluster release: %w", err)
+	}
+
+	// set helm release
+	if vClusterRelease != nil && vClusterRelease.Chart != nil && vClusterRelease.Chart.Metadata != nil {
+		values, _ := yaml.Marshal(vClusterRelease.Config)
+		snapshotOpts.Release = &snapshot.HelmRelease{
+			ReleaseName:      vClusterRelease.Name,
+			ReleaseNamespace: vClusterRelease.Namespace,
+			ChartName:        vClusterRelease.Chart.Metadata.Name,
+			ChartVersion:     vClusterRelease.Chart.Metadata.Version,
+			Values:           values,
+		}
+	}
+
+	// run snapshot pod
+	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot"}, vCluster, podOptions, snapshotOpts, log)
 }
 
 func fillSnapshotOptions(snapshotURL string, snapshotOptions *snapshot.Options) error {
@@ -55,15 +76,12 @@ func initSnapshotCommand(
 	snapshotOptions *snapshot.Options,
 	log log.Logger,
 ) (*find.VCluster, *kubernetes.Clientset, *rest.Config, error) {
-	if len(args) != 1 && len(args) != 2 {
-		return nil, nil, nil, fmt.Errorf("unexpected amount of arguments: %d, need either 1 argument or 2", len(args))
+	if len(args) != 2 {
+		return nil, nil, nil, fmt.Errorf("unexpected amount of arguments: %d, need exactly 2 arguments. E.g. vcluster [snapshot|restore] my-vcluster s3://my-bucket/my-key", len(args))
 	}
 
 	// parse snapshot url
-	snapshotURL := ""
-	if len(args) == 2 {
-		snapshotURL = args[1]
-	}
+	snapshotURL := args[1]
 	err := fillSnapshotOptions(snapshotURL, snapshotOptions)
 	if err != nil {
 		return nil, nil, nil, err

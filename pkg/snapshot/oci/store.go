@@ -11,7 +11,6 @@ import (
 	remotev1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/spf13/pflag"
 	oras "oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content/file"
 	orasremote "oras.land/oras-go/v2/registry/remote"
@@ -50,14 +49,6 @@ func (o *Options) FillCredentials(isClient bool) {
 			o.Password = credentials.Secret
 		}
 	}
-}
-
-func AddFlags(fs *pflag.FlagSet, options *Options) {
-	// file options
-	fs.StringVar(&options.Repository, "oci-repository", options.Repository, "The repository of the snapshot. E.g. ghcr.io/my-user/my-repo")
-	fs.StringVar(&options.Username, "oci-username", options.Username, "The username to authenticate with")
-	fs.StringVar(&options.Password, "oci-password", options.Password, "The password to authenticate with")
-	fs.BoolVar(&options.SkipClientCredentials, "oci-skip-client-credentials", options.SkipClientCredentials, "If true will not try to use the local oci credentials")
 }
 
 func NewStore(options *Options) *Store {

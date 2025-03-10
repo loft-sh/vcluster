@@ -90,7 +90,7 @@ var _ = ginkgo.Describe("Snapshot VCluster", func() {
 				"vcluster",
 				"snapshot",
 				f.VClusterName,
-				"file:///tmp/snapshot.tar",
+				"container:///tmp/snapshot.tar",
 				"-n", f.VClusterNamespace,
 				"--pod-exec",
 			)
@@ -108,7 +108,7 @@ var _ = ginkgo.Describe("Snapshot VCluster", func() {
 			"vcluster",
 			"snapshot",
 			f.VClusterName,
-			"file:///snapshot-pvc/snapshot.tar",
+			"container:///snapshot-pvc/snapshot.tar",
 			"-n", f.VClusterNamespace,
 			"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
 		)
@@ -159,7 +159,7 @@ var _ = ginkgo.Describe("Snapshot VCluster", func() {
 			"vcluster",
 			"restore",
 			f.VClusterName,
-			"file:///snapshot-pvc/snapshot.tar",
+			"container:///snapshot-pvc/snapshot.tar",
 			"-n", f.VClusterNamespace,
 			"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
 		)

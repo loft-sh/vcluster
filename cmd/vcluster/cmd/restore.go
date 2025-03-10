@@ -10,19 +10,32 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
+	"github.com/loft-sh/vcluster/pkg/mappings/store"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/runtime/serializer/protobuf"
 	"k8s.io/klog/v2"
 )
 
 type RestoreOptions struct {
 	Snapshot snapshot.Options
+
+	NewVCluster bool
 }
+
+var (
+	podGVK = corev1.SchemeGroupVersion.WithKind("Pod")
+)
 
 func NewRestoreCommand() *cobra.Command {
 	options := &RestoreOptions{}
@@ -42,12 +55,15 @@ func NewRestoreCommand() *cobra.Command {
 		},
 	}
 
-	// add storage flags
-	snapshot.AddFlags(cmd.Flags(), &options.Snapshot)
+	cmd.Flags().BoolVar(&options.NewVCluster, "new-vcluster", false, "Restore a new vCluster from snapshot instead of restoring into an existing vCluster")
 	return cmd
 }
 
 func (o *RestoreOptions) Run(ctx context.Context) error {
+	// create decoder and encoder
+	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
+	encoder := protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
+
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
@@ -67,7 +83,7 @@ func (o *RestoreOptions) Run(ctx context.Context) error {
 	}
 
 	// create store
-	objectStore, err := createStore(ctx, &o.Snapshot)
+	objectStore, err := snapshot.CreateStore(ctx, &o.Snapshot)
 	if err != nil {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
@@ -103,6 +119,26 @@ func (o *RestoreOptions) Run(ctx context.Context) error {
 			break
 		}
 
+		// transform value if we are restoring to a new vCluster
+		if o.NewVCluster {
+			// skip mappings
+			splitKey := strings.Split(string(key), "/")
+			if strings.HasPrefix(string(key), store.MappingsPrefix) {
+				continue
+			} else if len(splitKey) == 5 && splitKey[2] == "configmaps" && splitKey[4] == "kube-root-ca.crt" {
+				// we will get separate certificates, so we need to skip these
+				continue
+			}
+
+			// transform pods
+			if strings.HasPrefix(string(key), "/registry/pods/") {
+				value, err = transformPod(value, decoder, encoder)
+				if err != nil {
+					return fmt.Errorf("transform value: %w", err)
+				}
+			}
+		}
+
 		// write the value to etcd
 		klog.V(1).Infof("Restore key %s", string(key))
 		err = etcdClient.Put(ctx, string(key), value)
@@ -120,6 +156,30 @@ func (o *RestoreOptions) Run(ctx context.Context) error {
 	klog.Infof("Successfully restored snapshot from %s", objectStore.Target())
 
 	return nil
+}
+
+func transformPod(value []byte, decoder runtime.Decoder, encoder runtime.Encoder) ([]byte, error) {
+	// decode value
+	obj := &corev1.Pod{}
+	_, _, err := decoder.Decode(value, &podGVK, obj)
+	if err != nil {
+		return nil, fmt.Errorf("decode value: %w", err)
+	} else if obj.DeletionTimestamp != nil {
+		return value, nil
+	}
+
+	// make sure to delete nodename & status or otherwise vCluster will delete the pod on start
+	obj.Spec.NodeName = ""
+	obj.Status = corev1.PodStatus{}
+
+	// encode value
+	buf := &bytes.Buffer{}
+	err = encoder.Encode(obj, buf)
+	if err != nil {
+		return nil, fmt.Errorf("encode value: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }
 
 func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterConfig) (etcd.Client, error) {
