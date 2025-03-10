@@ -20,21 +20,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
-	"github.com/loft-sh/vcluster/pkg/snapshot/file"
-	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
-	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/grpclog"
 	"k8s.io/klog/v2"
 )
-
-type Storage interface {
-	Target() string
-	PutObject(ctx context.Context, body io.Reader) error
-	GetObject(ctx context.Context) (io.ReadCloser, error)
-}
 
 type SnapshotOptions struct {
 	Snapshot snapshot.Options
@@ -58,8 +49,6 @@ func NewSnapshotCommand() *cobra.Command {
 		},
 	}
 
-	// add storage flags
-	snapshot.AddFlags(cmd.Flags(), &options.Snapshot)
 	return cmd
 }
 
@@ -83,7 +72,7 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	}
 
 	// create store
-	objectStore, err := createStore(ctx, &o.Snapshot)
+	objectStore, err := snapshot.CreateStore(ctx, &o.Snapshot)
 	if err != nil {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
@@ -99,7 +88,7 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	return nil
 }
 
-func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore Storage) error {
+func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore snapshot.Storage) error {
 	// now stream objects from etcd to object store
 	errChan := make(chan error)
 	reader, writer, err := os.Pipe()
@@ -122,6 +111,19 @@ func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Cli
 	// create a new tar write
 	tarWriter := tar.NewWriter(gzipWriter)
 	defer tarWriter.Close()
+
+	// write the vCluster config as first thing
+	if o.Snapshot.Release != nil {
+		releaseBytes, err := json.Marshal(o.Snapshot.Release)
+		if err != nil {
+			return fmt.Errorf("failed to marshal vCluster release: %w", err)
+		}
+
+		err = writeKeyValue(tarWriter, []byte(snapshot.SnapshotReleaseKey), releaseBytes)
+		if err != nil {
+			return fmt.Errorf("failed to snapshot vCluster release: %w", err)
+		}
+	}
 
 	// now write the snapshot
 	backedUpKeys := 0
@@ -357,24 +359,6 @@ func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterCon
 	}
 
 	return certificatesDir, nil
-}
-
-func createStore(ctx context.Context, options *snapshot.Options) (Storage, error) {
-	if options.Type == "s3" {
-		objectStore := s3.NewStore(klog.FromContext(ctx))
-		err := objectStore.Init(&options.S3)
-		if err != nil {
-			return nil, fmt.Errorf("failed to init s3 object store: %w", err)
-		}
-
-		return objectStore, nil
-	} else if options.Type == "file" {
-		return file.NewStore(&options.File), nil
-	} else if options.Type == "oci" {
-		return oci.NewStore(&options.OCI), nil
-	}
-
-	return nil, fmt.Errorf("unknown storage: %s", options.Type)
 }
 
 func writeKeyValue(tarWriter *tar.Writer, key, value []byte) error {

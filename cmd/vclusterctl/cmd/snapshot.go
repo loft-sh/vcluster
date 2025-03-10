@@ -41,8 +41,8 @@ Example:
 vcluster snapshot my-vcluster oci://ghcr.io/my-user/my-repo:my-tag
 # Snapshot to s3 bucket
 vcluster snapshot my-vcluster s3://my-bucket/my-bucket-key
-# Snapshot to vCluster pvc
-vcluster snapshot my-vcluster file:///data/my-local-snapshot.tar.gz
+# Snapshot to vCluster container filesystem
+vcluster snapshot my-vcluster container:///data/my-local-snapshot.tar.gz
 #######################################################
 	`,
 		Args:              nameValidator,
@@ -53,7 +53,6 @@ vcluster snapshot my-vcluster file:///data/my-local-snapshot.tar.gz
 	}
 
 	// add storage flags
-	snapshot.AddFlags(cobraCmd.Flags(), &cmd.Snapshot)
 	pod.AddFlags(cobraCmd.Flags(), &cmd.Pod, false)
 	return cobraCmd
 }

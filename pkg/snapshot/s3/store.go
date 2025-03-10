@@ -32,7 +32,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/go-logr/logr"
-	"github.com/spf13/pflag"
 
 	"github.com/pkg/errors"
 )
@@ -81,27 +80,6 @@ func (o *Options) FillCredentials(isClient bool) {
 	o.AccessKeyID = credentials.AccessKeyID
 	o.SecretAccessKey = credentials.SecretAccessKey
 	o.SessionToken = credentials.SessionToken
-}
-
-func AddFlags(fs *pflag.FlagSet, s3Options *Options) {
-	fs.StringVar(&s3Options.AccessKeyID, "s3-access-key-id", s3Options.AccessKeyID, "AWS access key id")
-	fs.StringVar(&s3Options.SecretAccessKey, "s3-secret-access-key", s3Options.SecretAccessKey, "AWS secret access key")
-	fs.StringVar(&s3Options.SessionToken, "s3-session-token", s3Options.SessionToken, "AWS session token")
-	fs.BoolVar(&s3Options.SkipClientCredentials, "s3-skip-client-credentials", s3Options.SkipClientCredentials, "If true will not try to use the local aws credentials")
-	fs.StringVar(&s3Options.Region, "s3-region", s3Options.Region, "The s3 region to use")
-	fs.StringVar(&s3Options.Key, "s3-key", s3Options.Key, "The key where to save the snapshot in the bucket")
-	fs.StringVar(&s3Options.Bucket, "s3-bucket", s3Options.Bucket, "The s3 bucket to use")
-	fs.StringVar(&s3Options.Profile, "s3-profile", s3Options.Profile, "The aws profile to use")
-	fs.StringVar(&s3Options.S3URL, "s3-url", s3Options.S3URL, "The s3 url to use")
-	fs.StringVar(&s3Options.PublicURL, "s3-public-url", s3Options.PublicURL, "The s3 public url to use")
-	fs.StringVar(&s3Options.KmsKeyID, "s3-kms-key-id", s3Options.KmsKeyID, "The s3 kms key id to use")
-	fs.StringVar(&s3Options.Tagging, "s3-tags", s3Options.Tagging, "The s3 tags to use")
-	fs.BoolVar(&s3Options.S3ForcePathStyle, "s3-force-path-style", s3Options.S3ForcePathStyle, "If s3 path style should be forced")
-	fs.BoolVar(&s3Options.InsecureSkipTLSVerify, "s3-insecure-skip-tls-verify", s3Options.InsecureSkipTLSVerify, "If s3 connection should be insecure")
-	fs.StringVar(&s3Options.CredentialsFile, "s3-credentials-file", s3Options.CredentialsFile, "The credentials file to use when connecting to s3")
-	fs.StringVar(&s3Options.CaCert, "s3-ca-cert", s3Options.CaCert, "The ca cert to use when connecting to s3")
-	fs.StringVar(&s3Options.ChecksumAlgorithm, "s3-checksum-algorithm", s3Options.ChecksumAlgorithm, "The checksum algorithm to use")
-	fs.StringVar(&s3Options.ServerSideEncryption, "s3-server-side-encryption", s3Options.ServerSideEncryption, "The server side encryption that is used")
 }
 
 type s3Interface interface {

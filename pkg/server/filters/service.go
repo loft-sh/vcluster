@@ -146,7 +146,7 @@ func updateService(ctx *synccontext.SyncContext, req *http.Request, decoder enco
 	// okay now we have to change the physical service
 	pService := &corev1.Service{}
 	pServiceName := mappings.VirtualToHost(ctx, oldVService.Name, oldVService.Namespace, mappings.Services())
-	err = ctx.PhysicalClient.Get(ctx, client.ObjectKey{Namespace: pServiceName.Namespace, Name: pServiceName.Name}, pService)
+	err = ctx.PhysicalClient.Get(ctx, pServiceName, pService)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil, kerrors.NewNotFound(corev1.Resource("services"), oldVService.Name)
