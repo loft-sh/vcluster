@@ -15,7 +15,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var mappingsPrefix = "/vcluster/mappings/"
+var MappingsPrefix = "/vcluster/mappings/"
 
 func NewEtcdBackend(etcdClient etcd.Client) Backend {
 	return &etcdBackend{
@@ -28,7 +28,7 @@ type etcdBackend struct {
 }
 
 func (m *etcdBackend) List(ctx context.Context) ([]*Mapping, error) {
-	mappings, err := m.etcdClient.List(ctx, mappingsPrefix)
+	mappings, err := m.etcdClient.List(ctx, MappingsPrefix)
 	if err != nil {
 		return nil, fmt.Errorf("etcd backend: list mappings: %w", err)
 	}
@@ -49,7 +49,7 @@ func (m *etcdBackend) List(ctx context.Context) ([]*Mapping, error) {
 
 func (m *etcdBackend) Watch(ctx context.Context) <-chan BackendWatchResponse {
 	responseChan := make(chan BackendWatchResponse)
-	watchChan := m.etcdClient.Watch(ctx, mappingsPrefix)
+	watchChan := m.etcdClient.Watch(ctx, MappingsPrefix)
 	go func() {
 		defer close(responseChan)
 
@@ -132,7 +132,7 @@ func (m *etcdBackend) Delete(ctx context.Context, mapping *Mapping) error {
 
 func reconstructNameMappingFromKey(key string) *Mapping {
 	retMapping := &Mapping{}
-	trimmedKey := strings.TrimPrefix(key, mappingsPrefix)
+	trimmedKey := strings.TrimPrefix(key, MappingsPrefix)
 	splittedKey := strings.Split(trimmedKey, "/")
 	if splittedKey[0] == "v1" {
 		retMapping.GroupVersionKind = corev1.SchemeGroupVersion.WithKind(splittedKey[1])
@@ -173,5 +173,5 @@ func mappingToKey(mapping *Mapping) string {
 		nameNamespace = mapping.VirtualName.Namespace + "/" + nameNamespace
 	}
 
-	return path.Join(mappingsPrefix, mapping.GroupVersion().String(), strings.ToLower(mapping.Kind), nameNamespace)
+	return path.Join(MappingsPrefix, mapping.GroupVersion().String(), strings.ToLower(mapping.Kind), nameNamespace)
 }

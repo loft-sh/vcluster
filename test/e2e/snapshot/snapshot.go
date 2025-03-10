@@ -185,12 +185,30 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 		framework.ExpectNoError(err)
 
 		ginkgo.By("Snapshot vcluster")
+		if isK0s {
+			cmd := exec.Command(
+				"vcluster",
+				"snapshot",
+				f.VClusterName,
+				"container:///tmp/snapshot.tar",
+				"-n", f.VClusterNamespace,
+				"--pod-exec",
+			)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			err = cmd.Run()
+			framework.ExpectNoError(err)
+
+			fmt.Println("Skip restore because this is unsupported in k0s")
+			return
+		}
+
 		// regular snapshot
 		cmd := exec.Command(
 			"vcluster",
 			"snapshot",
 			f.VClusterName,
-			"file:///snapshot-pvc/snapshot.tar",
+			"container:///snapshot-pvc/snapshot.tar",
 			"-n", f.VClusterNamespace,
 			"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
 		)
@@ -262,7 +280,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 			"vcluster",
 			"restore",
 			f.VClusterName,
-			"file:///snapshot-pvc/snapshot.tar",
+			"container:///snapshot-pvc/snapshot.tar",
 			"-n", f.VClusterNamespace,
 			"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
 		)

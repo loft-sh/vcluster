@@ -41,19 +41,18 @@ Example:
 vcluster restore my-vcluster oci://ghcr.io/my-user/my-repo:my-tag
 # Restore from s3 bucket
 vcluster restore my-vcluster s3://my-bucket/my-bucket-key
-# Restore from vCluster pvc
-vcluster restore my-vcluster file:///data/my-local-snapshot.tar.gz
+# Restore from vCluster container filesystem
+vcluster restore my-vcluster container:///data/my-local-snapshot.tar.gz
 #######################################################
 	`,
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.Restore(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, &cmd.Pod, cmd.Log)
+			return cli.Restore(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, &cmd.Pod, false, cmd.Log)
 		},
 	}
 
 	// add storage flags
-	snapshot.AddFlags(cobraCmd.Flags(), &cmd.Snapshot)
 	pod.AddFlags(cobraCmd.Flags(), &cmd.Pod, true)
 	return cobraCmd
 }

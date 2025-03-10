@@ -18,11 +18,6 @@ on:
       - "manifests/**"
   workflow_dispatch:
 
-permissions:
-  id-token: write # Needed for docker login
-  packages: write
-  contents: write
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -156,12 +151,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
       - uses: azure/setup-helm@v4
         name: Setup Helm
         with:
@@ -172,18 +161,6 @@ jobs:
         with:
           version: "v0.26.0"
           image: kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
-
-      - name: Create Kubernetes Secret for Docker Hub
-        run: |
-          kubectl create secret docker-registry dockerhub-secret \
-          --docker-server=https://index.docker.io/v1/ \
-          --docker-username=${{ secrets.DOCKER_USERNAME }} \
-          --docker-password=${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Patch default service account to use the secret
-        run: |
-          kubectl patch serviceaccount default \
-          -p '{"imagePullSecrets": [{"name": "dockerhub-secret"}]}'
 
       - name: Testing kind cluster set-up
         run: |
@@ -253,12 +230,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
       - uses: azure/setup-helm@v4
         name: Setup Helm
         with:
@@ -268,18 +239,6 @@ jobs:
         with:
           version: "v0.26.0"
           image: kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
-
-      - name: Create Kubernetes Secret for Docker Hub
-        run: |
-          kubectl create secret docker-registry dockerhub-secret \
-          --docker-server=https://index.docker.io/v1/ \
-          --docker-username=${{ secrets.DOCKER_USERNAME }} \
-          --docker-password=${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Patch default service account to use the secret
-        run: |
-          kubectl patch serviceaccount default \
-          -p '{"imagePullSecrets": [{"name": "dockerhub-secret"}]}'
 
       - name: Testing kind cluster set-up
         run: |
@@ -393,12 +352,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
       - uses: azure/setup-helm@v4
         name: Setup Helm
         with:
@@ -409,18 +362,6 @@ jobs:
         with:
           version: "v0.26.0"
           image: kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
-
-      - name: Create Kubernetes Secret for Docker Hub
-        run: |
-          kubectl create secret docker-registry dockerhub-secret \
-          --docker-server=https://index.docker.io/v1/ \
-          --docker-username=${{ secrets.DOCKER_USERNAME }} \
-          --docker-password=${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Patch default service account to use the secret
-        run: |
-          kubectl patch serviceaccount default \
-          -p '{"imagePullSecrets": [{"name": "dockerhub-secret"}]}'
 
       - name: Testing kind cluster set-up
         run: |

@@ -1,10 +1,15 @@
 package cli
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -164,7 +169,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		if isVClusterDeployed(release) {
 			if cmd.Restore != "" {
 				log.Infof("Restore vCluster %s...", vClusterName)
-				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshot.Options{}, &pod.Options{}, log)
+				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshot.Options{}, &pod.Options{}, false, log)
 				if err != nil {
 					return fmt.Errorf("restore vCluster %s: %w", vClusterName, err)
 				}
@@ -233,6 +238,18 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 
 	// build extra values
 	var newExtraValues []string
+
+	// get config from snapshot
+	restoreValuesFile, err := cmd.getVClusterConfigFromSnapshot(ctx)
+	if err != nil {
+		log.Warnf("get vCluster config from snapshot: %w", err)
+	} else if restoreValuesFile != "" {
+		defer os.Remove(restoreValuesFile)
+		cmd.log.Info("Using vCluster config from snapshot")
+		newExtraValues = append(newExtraValues, restoreValuesFile)
+	}
+
+	// get config from values files
 	for _, value := range cmd.Values {
 		// ignore decoding errors and treat it as non-base64 string
 		decodedString, err := getBase64DecodedString(value)
@@ -241,25 +258,13 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			continue
 		}
 
-		// write a temporary values file
-		tempFile, err := os.CreateTemp("", "")
-		tempValuesFile := tempFile.Name()
+		// write the decoded string to a temp file
+		tempValuesFile, err := writeTempFile([]byte(decodedString))
 		if err != nil {
-			return fmt.Errorf("create temp values file: %w", err)
+			return fmt.Errorf("write temp values file: %w", err)
 		}
-		defer func(name string) {
-			_ = os.Remove(name)
-		}(tempValuesFile)
+		defer os.Remove(tempValuesFile)
 
-		_, err = tempFile.Write([]byte(decodedString))
-		if err != nil {
-			return fmt.Errorf("write values to temp values file: %w", err)
-		}
-
-		err = tempFile.Close()
-		if err != nil {
-			return fmt.Errorf("close temp values file: %w", err)
-		}
 		// setting new file to extraValues slice to process it further.
 		newExtraValues = append(newExtraValues, tempValuesFile)
 	}
@@ -594,7 +599,8 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 	}
 
 	// we have to upgrade / install the chart
-	err = helm.NewClient(&cmd.rawConfig, cmd.log, helmExecutablePath).Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
+	helmClient := helm.NewClient(&cmd.rawConfig, cmd.log, helmExecutablePath)
+	err = helmClient.Upgrade(ctx, vClusterName, cmd.Namespace, helm.UpgradeOptions{
 		CreateNamespace: cmd.CreateNamespace,
 		Chart:           cmd.ChartName,
 		Repo:            cmd.ChartRepo,
@@ -612,8 +618,14 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 	// now restore if wanted
 	if cmd.Restore != "" {
 		cmd.log.Infof("Restore vCluster %s...", vClusterName)
-		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshot.Options{}, &pod.Options{}, cmd.log)
+		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshot.Options{}, &pod.Options{}, true, cmd.log)
 		if err != nil {
+			// delete the vcluster if the restore failed
+			deleteErr := helmClient.Delete(vClusterName, cmd.Namespace)
+			if deleteErr != nil {
+				cmd.log.Errorf("Failed to delete vcluster %s: %v", vClusterName, deleteErr)
+			}
+
 			return fmt.Errorf("restore vCluster %s: %w", vClusterName, err)
 		}
 	}
@@ -789,4 +801,95 @@ func (cmd *createHelm) getKubernetesVersion() (*version.Info, error) {
 	}
 
 	return kubernetesVersion, nil
+}
+
+func writeTempFile(data []byte) (string, error) {
+	// write a temporary values file
+	tempFile, err := os.CreateTemp("", "")
+	tempValuesFile := tempFile.Name()
+	if err != nil {
+		return "", fmt.Errorf("create temp values file: %w", err)
+	}
+
+	_, err = tempFile.Write(data)
+	if err != nil {
+		_ = os.Remove(tempValuesFile)
+		return "", fmt.Errorf("write values to temp values file: %w", err)
+	}
+
+	err = tempFile.Close()
+	if err != nil {
+		_ = os.Remove(tempValuesFile)
+		return "", fmt.Errorf("close temp values file: %w", err)
+	}
+
+	return tempValuesFile, nil
+}
+
+func (cmd *createHelm) getVClusterConfigFromSnapshot(ctx context.Context) (string, error) {
+	if cmd.Restore == "" {
+		return "", nil
+	}
+
+	snapshotOptions := &snapshot.Options{}
+	err := snapshot.Parse(cmd.Restore, snapshotOptions)
+	if err != nil {
+		return "", fmt.Errorf("parse snapshot: %w", err)
+	}
+
+	objectStore, err := snapshot.CreateStore(ctx, snapshotOptions)
+	if err != nil {
+		return "", fmt.Errorf("create snapshot store: %w", err)
+	}
+
+	reader, err := objectStore.GetObject(ctx)
+	if err != nil {
+		return "", fmt.Errorf("get snapshot object: %w", err)
+	}
+
+	// read the first tar entry
+	gzipReader, err := gzip.NewReader(reader)
+	if err != nil {
+		return "", fmt.Errorf("create gzip reader: %w", err)
+	}
+	defer gzipReader.Close()
+
+	// create a new tar reader
+	tarReader := tar.NewReader(gzipReader)
+
+	// read the vCluster config
+	header, err := tarReader.Next()
+	if err != nil {
+		return "", err
+	}
+
+	buf := &bytes.Buffer{}
+	_, err = io.Copy(buf, tarReader)
+	if err != nil {
+		return "", err
+	}
+
+	// no vCluster config in the snapshot
+	if header.Name != snapshot.SnapshotReleaseKey {
+		return "", nil
+	}
+
+	// unmarshal the release
+	release := &snapshot.HelmRelease{}
+	err = json.Unmarshal(buf.Bytes(), release)
+	if err != nil {
+		return "", fmt.Errorf("unmarshal vCluster release: %w", err)
+	}
+
+	// set chart version
+	if release.ChartVersion != "" && (cmd.ChartVersion == "" || cmd.ChartVersion == upgrade.GetVersion()) {
+		cmd.ChartVersion = release.ChartVersion
+	}
+
+	// write the values to a temp file
+	if len(release.Values) > 0 {
+		return writeTempFile(release.Values)
+	}
+
+	return "", nil
 }

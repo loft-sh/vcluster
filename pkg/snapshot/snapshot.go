@@ -1,30 +1,71 @@
 package snapshot
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"path"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/snapshot/file"
+	"github.com/loft-sh/vcluster/pkg/snapshot/container"
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
 	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
-	"github.com/spf13/pflag"
+	"k8s.io/klog/v2"
+)
+
+const (
+	// SnapshotReleaseKey stores info about the vCluster helm release
+	SnapshotReleaseKey = "/vcluster/snapshot/release"
 )
 
 type Options struct {
 	Type string `json:"type,omitempty"`
 
-	S3   s3.Options   `json:"s3"`
-	File file.Options `json:"file"`
-	OCI  oci.Options  `json:"oci"`
+	S3        s3.Options        `json:"s3"`
+	Container container.Options `json:"container"`
+	OCI       oci.Options       `json:"oci"`
+
+	Release *HelmRelease `json:"release,omitempty"`
 }
 
-func AddFlags(flagSet *pflag.FlagSet, opts *Options) {
-	flagSet.StringVar(&opts.Type, "type", opts.Type, "The type of storage to snapshot / restore from. Can be either file, oci or s3")
-	s3.AddFlags(flagSet, &opts.S3)
-	file.AddFlags(flagSet, &opts.File)
-	oci.AddFlags(flagSet, &opts.OCI)
+type HelmRelease struct {
+	ReleaseName      string `json:"releaseName"`
+	ReleaseNamespace string `json:"releaseNamespace"`
+
+	ChartName    string `json:"chartName"`
+	ChartVersion string `json:"chartVersion"`
+
+	Values []byte `json:"values"`
+}
+
+type VClusterConfig struct {
+	ChartVersion string `json:"chartVersion"`
+	Values       string `json:"values"`
+}
+
+type Storage interface {
+	Target() string
+	PutObject(ctx context.Context, body io.Reader) error
+	GetObject(ctx context.Context) (io.ReadCloser, error)
+}
+
+func CreateStore(ctx context.Context, options *Options) (Storage, error) {
+	if options.Type == "s3" {
+		objectStore := s3.NewStore(klog.FromContext(ctx))
+		err := objectStore.Init(&options.S3)
+		if err != nil {
+			return nil, fmt.Errorf("failed to init s3 object store: %w", err)
+		}
+
+		return objectStore, nil
+	} else if options.Type == "container" {
+		return container.NewStore(&options.Container), nil
+	} else if options.Type == "oci" {
+		return oci.NewStore(&options.OCI), nil
+	}
+
+	return nil, fmt.Errorf("unknown storage: %s", options.Type)
 }
 
 func Parse(snapshotURL string, options *Options) error {
@@ -33,8 +74,8 @@ func Parse(snapshotURL string, options *Options) error {
 		return fmt.Errorf("error parsing snapshotURL %s: %w", snapshotURL, err)
 	}
 
-	if parsedURL.Scheme != "s3" && parsedURL.Scheme != "file" && parsedURL.Scheme != "oci" {
-		return fmt.Errorf("scheme needs to be 'oci', 's3' or 'file'")
+	if parsedURL.Scheme != "s3" && parsedURL.Scheme != "container" && parsedURL.Scheme != "oci" {
+		return fmt.Errorf("scheme needs to be 'oci', 's3' or 'container'")
 	}
 	options.Type = parsedURL.Scheme
 
@@ -59,7 +100,7 @@ func Parse(snapshotURL string, options *Options) error {
 			options.S3.Profile = parsedURL.Query().Get("profile")
 		}
 		if parsedURL.Query().Get("tagging") != "" {
-			options.S3.Profile = parsedURL.Query().Get("tagging")
+			options.S3.Tagging = parsedURL.Query().Get("tagging")
 		}
 		if parsedURL.Query().Get("access-key-id") != "" {
 			options.S3.AccessKeyID = parsedURL.Query().Get("access-key-id")
@@ -70,13 +111,46 @@ func Parse(snapshotURL string, options *Options) error {
 		if parsedURL.Query().Get("session-token") != "" {
 			options.S3.SessionToken = parsedURL.Query().Get("session-token")
 		}
-	case "file":
+		if parsedURL.Query().Get("skip-client-credentials") != "" {
+			options.S3.SkipClientCredentials = parsedURL.Query().Get("skip-client-credentials") == "true"
+		}
+		if parsedURL.Query().Get("credentials-file") != "" {
+			options.S3.CredentialsFile = parsedURL.Query().Get("credentials-file")
+		}
+		if parsedURL.Query().Get("ca-cert") != "" {
+			options.S3.CaCert = parsedURL.Query().Get("ca-cert")
+		}
+		if parsedURL.Query().Get("checksum-algorithm") != "" {
+			options.S3.ChecksumAlgorithm = parsedURL.Query().Get("checksum-algorithm")
+		}
+		if parsedURL.Query().Get("server-side-encryption") != "" {
+			options.S3.ServerSideEncryption = parsedURL.Query().Get("server-side-encryption")
+		}
+		if parsedURL.Query().Get("kms-key-id") != "" {
+			options.S3.KmsKeyID = parsedURL.Query().Get("kms-key-id")
+		}
+		if parsedURL.Query().Get("public-url") != "" {
+			options.S3.PublicURL = parsedURL.Query().Get("public-url")
+		}
+		if parsedURL.Query().Get("insecure-skip-tls-verify") != "" {
+			options.S3.InsecureSkipTLSVerify = parsedURL.Query().Get("insecure-skip-tls-verify") == "true"
+		}
+		if parsedURL.Query().Get("custom-key-encryption-file") != "" {
+			options.S3.CustomerKeyEncryptionFile = parsedURL.Query().Get("custom-key-encryption-file")
+		}
+		if parsedURL.Query().Get("force-path-style") != "" {
+			options.S3.S3ForcePathStyle = parsedURL.Query().Get("force-path-style") == "true"
+		}
+		if parsedURL.Query().Get("s3-url") != "" {
+			options.S3.S3URL = parsedURL.Query().Get("s3-url")
+		}
+	case "container":
 		if parsedURL.Host != "" {
-			return fmt.Errorf("relative paths are not supported for file snapshots")
+			return fmt.Errorf("relative paths are not supported for container snapshots")
 		} else if parsedURL.Path == "" {
 			return fmt.Errorf("couldn't find path for url")
 		}
-		options.File.Path = parsedURL.Path
+		options.Container.Path = parsedURL.Path
 	case "oci":
 		if parsedURL.Path == "" {
 			return fmt.Errorf("unexpected format, need oci://my-registry.com/my-repo")
@@ -94,6 +168,9 @@ func Parse(snapshotURL string, options *Options) error {
 		if parsedURL.Query().Get("password") != "" {
 			options.OCI.Password = parsedURL.Query().Get("password")
 		}
+		if parsedURL.Query().Get("skip-client-credentials") != "" {
+			options.OCI.SkipClientCredentials = parsedURL.Query().Get("skip-client-credentials") == "true"
+		}
 	}
 
 	return nil
@@ -101,25 +178,23 @@ func Parse(snapshotURL string, options *Options) error {
 
 func Validate(options *Options) error {
 	// storage needs to be either s3 or file
-	if options.Type == "" {
-		return fmt.Errorf("--type is required")
-	} else if options.Type == "s3" {
+	if options.Type == "s3" {
 		if options.S3.Key == "" {
-			return fmt.Errorf("--s3-key must be specified")
+			return fmt.Errorf("key must be specified via s3://BUCKET/KEY")
 		}
 		if options.S3.Bucket == "" {
-			return fmt.Errorf("--s3-bucket must be specified")
+			return fmt.Errorf("bucket must be specified via s3://BUCKET/KEY")
 		}
-	} else if options.Type == "file" {
-		if options.File.Path == "" {
-			return fmt.Errorf("--file-path must be specified")
+	} else if options.Type == "container" {
+		if options.Container.Path == "" {
+			return fmt.Errorf("path must be specified via container:///PATH")
 		}
 	} else if options.Type == "oci" {
 		if options.OCI.Repository == "" {
-			return fmt.Errorf("--oci-repository must be specified")
+			return fmt.Errorf("repository must be specified via oci://repository")
 		}
 	} else {
-		return fmt.Errorf("--type must be either 'file', 'oci' or 's3'")
+		return fmt.Errorf("type must be either 'container', 'oci' or 's3'")
 	}
 
 	return nil
