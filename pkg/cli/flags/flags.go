@@ -1,9 +1,11 @@
 package flags
 
 import (
+	"fmt"
+
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
-
+	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
 )
 
@@ -38,4 +40,21 @@ func SetGlobalFlags(flags *flag.FlagSet, log log.Logger) *GlobalFlags {
 	flags.StringVar(&globalFlags.LogOutput, "log-output", "plain", "The log format to use. Can be either plain, raw or json")
 
 	return globalFlags
+}
+
+// ChangedFlags checks if the given flags have been changed and returns a map indicating the change.
+func ChangedFlags(cmd *cobra.Command, flagNames []string) map[string]bool {
+	if cmd == nil {
+		return nil
+	}
+
+	flags := make(map[string]bool)
+
+	for _, f := range flagNames {
+		if cmd.Flags().Changed(f) {
+			flags[fmt.Sprintf("--%s", f)] = true
+		}
+	}
+
+	return flags
 }
