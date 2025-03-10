@@ -144,21 +144,12 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 			}
 		}
 
-		// create a pvc we will use to store the snapshot
-		pvc := &corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "snapshot-pvc",
-				Namespace: f.VClusterNamespace,
-			},
-			Spec: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: resource.MustParse("5Gi"),
-					},
-				},
-			},
-		}
+		ginkgo.AfterAll(func() {
+			// delete the snapshot pvc
+			err = f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(f.Context, pvc.Name, metav1.DeleteOptions{})
+			framework.ExpectNoError(err)
+		})
+
 		_, err = f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(f.Context, pvc, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
@@ -302,10 +293,6 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 		})
 		framework.ExpectNoError(err)
 
-		// delete the snapshot pvc
-		err = f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(f.Context, pvc.Name, metav1.DeleteOptions{})
-		framework.ExpectNoError(err)
-
 		// check for the service getting deleted
 		gomega.Eventually(func() int {
 			services, err := f.HostClient.CoreV1().Services(vClusterDefaultNamespace).List(f.Context, metav1.ListOptions{
@@ -355,10 +342,8 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 		// refresh the connection
 		err = f.RefreshVirtualClient()
 		framework.ExpectNoError(err)
-	})
 
-	ginkgo.It("Should override by snapshot objects created after snapshot", func() {
-
+		//check after restore configmap is deleted
 		gomega.Eventually(func() error {
 			_, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=delete",
@@ -372,6 +357,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 			WithTimeout(framework.PollTimeout).
 			Should(gomega.Succeed())
 
+		//check after restore not snapshoted secret is deleted
 		gomega.Eventually(func() error {
 			_, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=delete",
@@ -384,10 +370,9 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 		}).WithPolling(time.Second).
 			WithTimeout(framework.PollTimeout).
 			Should(gomega.Succeed())
-
 	})
 
-	ginkgo.It("Should contain previously created objects", func() {
+	ginkgo.It("Check if expected resources are available after restore", func() {
 		gomega.Eventually(func() map[string]string {
 			configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=restore",
