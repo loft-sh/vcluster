@@ -151,6 +151,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check Docker Hub rate limit
+        run: |
+          echo 'Checking as anonymous:'
+          ./hack/check-dockerhub-ratelimit.sh
+          echo #####################################
+          echo 'Checking with user:'
+          ./hack/check-dockerhub-ratelimit.sh "${{ secrets.DOCKER_USERNAME }}" "${{ secrets.DOCKER_PASSWORD }}"
+
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
@@ -179,6 +187,15 @@ jobs:
         run: |
           kubectl patch serviceaccount default \
           -p '{"imagePullSecrets": [{"name": "dockerhub-secret"}]}'
+
+      - name: Check secret and service account
+        run: |
+          echo Secrets:
+          kubectl get secret -A
+          echo Service accounts:
+          kubectl get serviceaccounts -A
+          echo Description of default serviceaccount
+          kubectl describe serviceaccounts default -n default
 
       - name: Testing kind cluster set-up
         run: |
@@ -248,6 +265,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check Docker Hub rate limit
+        run: |
+          echo 'Checking as anonymous:'
+          ./hack/check-dockerhub-ratelimit.sh
+          echo #####################################
+          echo 'Checking with user:'
+          ./hack/check-dockerhub-ratelimit.sh "${{ secrets.DOCKER_USERNAME }}" "${{ secrets.DOCKER_PASSWORD }}"
+
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
@@ -275,6 +300,15 @@ jobs:
         run: |
           kubectl patch serviceaccount default \
           -p '{"imagePullSecrets": [{"name": "dockerhub-secret"}]}'
+
+      - name: Check secret and service account
+        run: |
+          echo Secrets:
+          kubectl get secret -A
+          echo Service accounts:
+          kubectl get serviceaccounts -A
+          echo Description of default serviceaccount
+          kubectl describe serviceaccounts default -n default
 
       - name: Testing kind cluster set-up
         run: |
@@ -388,6 +422,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check Docker Hub rate limit
+        run: |
+          echo 'Checking as anonymous:'
+          ./hack/check-dockerhub-ratelimit.sh
+          echo #####################################
+          echo 'Checking with user:'
+          ./hack/check-dockerhub-ratelimit.sh "${{ secrets.DOCKER_USERNAME }}" "${{ secrets.DOCKER_PASSWORD }}"
+
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
@@ -416,6 +458,15 @@ jobs:
         run: |
           kubectl patch serviceaccount default \
           -p '{"imagePullSecrets": [{"name": "dockerhub-secret"}]}'
+
+      - name: Check secret and service account
+        run: |
+          echo Secrets:
+          kubectl get secret -A
+          echo Service accounts:
+          kubectl get serviceaccounts -A
+          echo Description of default serviceaccount
+          kubectl describe serviceaccounts default -n default
 
       - name: Testing kind cluster set-up
         run: |
@@ -518,6 +569,15 @@ jobs:
           fi
           kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
           exit 1
+
+      - name: Check secret and service account
+        run: |
+          echo Secrets:
+          kubectl get secret -A
+          echo Service accounts:
+          kubectl get serviceaccounts -A
+          echo Description of default serviceaccount
+          kubectl describe serviceaccounts default -n default
 
       # Skips NetworkPolicy tests because they require network plugin with support (e.g. Calico)
       - name: Execute e2e tests
