@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"cmp"
-	"context"
 	"fmt"
+	"strings"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
@@ -47,7 +47,7 @@ vcluster delete test --namespace test
 		Aliases:           []string{"rm"},
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd.Context(), args)
+			return cmd.Run(cobraCmd, args)
 		},
 	}
 
@@ -61,7 +61,7 @@ vcluster delete test --namespace test
 }
 
 // Run executes the functionality
-func (cmd *DeleteCmd) Run(ctx context.Context, args []string) error {
+func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	cfg := cmd.LoadedConfig(cmd.log)
 
 	// If driver has been passed as flag use it, otherwise read it from the config file
@@ -69,6 +69,8 @@ func (cmd *DeleteCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return fmt.Errorf("parse driver type: %w", err)
 	}
+
+	ctx := cobraCmd.Context()
 
 	// check if there is a platform client or we skip the info message
 	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
@@ -78,6 +80,19 @@ func (cmd *DeleteCmd) Run(ctx context.Context, args []string) error {
 
 	if driverType == config.PlatformDriver {
 		return cli.DeletePlatform(ctx, platformClient, &cmd.DeleteOptions, args[0], cmd.log)
+	}
+
+	// log error if platform flags have been set when using driver helm
+	var fs []string
+	pfs := flagsdelete.ChangedPlatformFlags(cobraCmd)
+	for pf, changed := range pfs {
+		if changed {
+			fs = append(fs, pf)
+		}
+	}
+
+	if len(fs) > 0 {
+		cmd.log.Fatalf("Following platform flags have been set, which won't have any effect when using driver type %s: %s", config.HelmDriver, strings.Join(fs, ", "))
 	}
 
 	return cli.DeleteHelm(ctx, platformClient, &cmd.DeleteOptions, cmd.GlobalFlags, args[0], cmd.log)

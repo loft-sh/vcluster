@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	logutil "github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -200,7 +201,8 @@ func (f *Framework) RefreshVirtualClient() error {
 
 	// vKubeConfigFile removal is done in the Framework.Cleanup() which gets called in ginkgo's AfterSuite()
 	connectCmd := cmd.ConnectCmd{
-		Log: f.Log,
+		CobraCmd: &cobra.Command{},
+		Log:      f.Log,
 		GlobalFlags: &flags.GlobalFlags{
 			Namespace: f.VClusterNamespace,
 			Debug:     true,
