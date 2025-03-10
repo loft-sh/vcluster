@@ -18,6 +18,11 @@ on:
       - "manifests/**"
   workflow_dispatch:
 
+permissions:
+  id-token: write # Needed for docker login
+  packages: write
+  contents: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
