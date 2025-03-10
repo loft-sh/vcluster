@@ -2,12 +2,21 @@ package legacyconfig
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/loft-sh/vcluster/config"
 	"sigs.k8s.io/yaml"
+)
+
+const (
+	kubeConfigContextFlag                   = "kube-config-context-name"
+	kubeConfigServerFlag                    = "out-kube-config-server"
+	kubeConfigAdditionalSecretNameFlag      = "out-kube-config-secret"
+	kubeConfigAdditionalSecretNamespaceFlag = "out-kube-config-secret-namespace"
 )
 
 func MigrateLegacyConfig(distro, oldValues string) (string, error) {
@@ -743,6 +752,14 @@ func convertSyncerExtraArgs(extraArgs []string, newConfig *config.Config) error 
 	var err error
 	var flag, value string
 
+	allExportKubeConfigFlags := []string{
+		kubeConfigContextFlag,
+		kubeConfigServerFlag,
+		kubeConfigAdditionalSecretNameFlag,
+		kubeConfigAdditionalSecretNamespaceFlag,
+	}
+	usedExportKubeConfigFlags := map[string]string{}
+
 	for {
 		flag, value, extraArgs, err = nextFlagValue(extraArgs)
 		if err != nil {
@@ -751,16 +768,33 @@ func convertSyncerExtraArgs(extraArgs []string, newConfig *config.Config) error 
 			break
 		}
 
+		// We save all flags related to exporting kubeconfig, as we have to check them together, in order to correctly
+		// set the new exportKubeConfig config.
+		if slices.Contains(allExportKubeConfigFlags, flag) {
+			usedExportKubeConfigFlags[flag] = value
+			continue
+		}
+
 		err = migrateFlag(flag, value, newConfig)
 		if err != nil {
 			return fmt.Errorf("migrate extra syncer flag --%s: %w", flag, err)
 		}
 	}
 
+	// Migrate all flags that are related to exporting kubeconfig.
+	err = migrateExportKubeConfigFlags(usedExportKubeConfigFlags, &newConfig.ExportKubeConfig)
+	if err != nil {
+		return fmt.Errorf("failed to migrate flags used for exporting kubeconfig: %w", err)
+	}
+
 	return nil
 }
 
 func migrateFlag(key, value string, newConfig *config.Config) error {
+	if newConfig == nil {
+		return errors.New("newConfig is not set")
+	}
+
 	switch key {
 	case "pro-license-secret":
 		return fmt.Errorf("cannot be used directly, use proLicenseSecret value")
@@ -798,11 +832,6 @@ func migrateFlag(key, value string, newConfig *config.Config) error {
 		return fmt.Errorf("cannot be used directly")
 	case "enforce-mutating-hook":
 		return fmt.Errorf("cannot be used directly")
-	case "kube-config-context-name":
-		if value == "" {
-			return fmt.Errorf("value is missing")
-		}
-		newConfig.ExportKubeConfig.Context = value
 	case "sync":
 		return fmt.Errorf("cannot be used directly, use the sync.*.enabled options instead")
 	case "request-header-ca-cert":
@@ -836,24 +865,6 @@ func migrateFlag(key, value string, newConfig *config.Config) error {
 		}
 
 		newConfig.ControlPlane.Proxy.ExtraSANs = append(newConfig.ControlPlane.Proxy.ExtraSANs, strings.Split(value, ",")...)
-	case "out-kube-config-secret":
-		if value == "" {
-			return fmt.Errorf("value is missing")
-		}
-
-		newConfig.ExportKubeConfig.Secret.Name = value
-	case "out-kube-config-secret-namespace":
-		if value == "" {
-			return fmt.Errorf("value is missing")
-		}
-
-		newConfig.ExportKubeConfig.Secret.Namespace = value
-	case "out-kube-config-server":
-		if value == "" {
-			return fmt.Errorf("value is missing")
-		}
-
-		newConfig.ExportKubeConfig.Server = value
 	case "target-namespace":
 		if value == "" {
 			return fmt.Errorf("value is missing")
@@ -1043,6 +1054,69 @@ func migrateFlag(key, value string, newConfig *config.Config) error {
 		}
 	default:
 		return fmt.Errorf("flag %s does not exist", key)
+	}
+
+	return nil
+}
+
+// migrateExportKubeConfigFlags migrates 'kube-config-context-name', 'out-kube-config-server', 'out-kube-config-secret'
+// and 'out-kube-config-secret-namespace' flags.
+//
+// The migration is done in the following way:
+//   - 'kube-config-context-name' and 'out-kube-config-server', if set, are always migrated into ExportKubeConfig.Context
+//     and ExportKubeConfig.Server config properties, respectively.
+//   - 'out-kube-config-secret' and 'out-kube-config-secret-namespace', if set, are migrated as the first additional
+//     secret in the new ExportKubeConfig.AdditionalSecrets config. When this first additional kubeconfig secret config
+//     is created, it also gets Context and Server properties from 'kube-config-context-name' and 'out-kube-config-server'.
+//     This is done in order to preserve the previous behavior where the additional kubeconfig Secret, specified in
+//     ExportKubeConfig.Secret, used context and server values from ExportKubeConfig.Context and ExportKubeConfig.Server.
+func migrateExportKubeConfigFlags(exportKubeConfigFlags map[string]string, exportKubeConfig *config.ExportKubeConfig) error {
+	if exportKubeConfig == nil {
+		return errors.New("exportKubeConfig is not set")
+	}
+
+	ensureAdditionalSecretIsSet := func() {
+		if len(exportKubeConfig.AdditionalSecrets) == 0 {
+			exportKubeConfig.AdditionalSecrets = []config.ExportKubeConfigAdditionalSecretReference{{}}
+		}
+	}
+
+	// We will set the additional secret only if the additional secret name and/or namespace flags are set.
+	var setAdditionalSecret bool
+	if secretName, ok := exportKubeConfigFlags[kubeConfigAdditionalSecretNameFlag]; ok {
+		if secretName == "" {
+			return fmt.Errorf("%s flag value is missing", kubeConfigAdditionalSecretNameFlag)
+		}
+		ensureAdditionalSecretIsSet()
+		exportKubeConfig.AdditionalSecrets[0].Name = secretName
+		setAdditionalSecret = true
+	}
+	if secretNamespace, ok := exportKubeConfigFlags[kubeConfigAdditionalSecretNamespaceFlag]; ok {
+		if secretNamespace == "" {
+			return fmt.Errorf("%s flag value is missing", kubeConfigAdditionalSecretNamespaceFlag)
+		}
+		ensureAdditionalSecretIsSet()
+		exportKubeConfig.AdditionalSecrets[0].Namespace = secretNamespace
+		setAdditionalSecret = true
+	}
+
+	if context, ok := exportKubeConfigFlags[kubeConfigContextFlag]; ok {
+		if context == "" {
+			return fmt.Errorf("%s flag value is missing", kubeConfigContextFlag)
+		}
+		exportKubeConfig.Context = context
+		if setAdditionalSecret {
+			exportKubeConfig.AdditionalSecrets[0].Context = context
+		}
+	}
+	if server, ok := exportKubeConfigFlags[kubeConfigServerFlag]; ok {
+		if server == "" {
+			return fmt.Errorf("%s flag value is missing", kubeConfigServerFlag)
+		}
+		exportKubeConfig.Server = server
+		if setAdditionalSecret {
+			exportKubeConfig.AdditionalSecrets[0].Server = server
+		}
 	}
 
 	return nil

@@ -972,6 +972,8 @@ exportKubeConfig:
   # Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.
   # If this is not defined, vCluster will create it with `vc-NAME`. If you specify another name,
   # vCluster creates the config in this other secret.
+
+  # Deprecated: Use AdditionalSecrets instead.
   secret:
     # Name is the name of the secret where the kubeconfig should get stored.
     name: ""

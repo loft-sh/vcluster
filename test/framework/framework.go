@@ -28,6 +28,8 @@ const (
 	DefaultVClusterName      = "vcluster"
 	DefaultVClusterNamespace = "vcluster"
 	DefaultClientTimeout     = 32 * time.Second // the default in client-go is 32
+	DefaultClientBurst       = 100              // the default in client-go is 10 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
+	DefaultClientQPS         = 50               // the default in client-go is 5 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
 )
 
 var DefaultFramework = &Framework{}
@@ -81,6 +83,12 @@ type Framework struct {
 	// ClientTimeout value used in the clients
 	ClientTimeout time.Duration
 
+	// ClientBurst value used in the clients
+	ClientBurst int
+
+	// ClientQPS value used in the clients
+	ClientQPS float32
+
 	// MultiNamespaceMode denotes whether the multi namespace mode is enabled for the virtualcluster
 	MultiNamespaceMode bool
 }
@@ -107,6 +115,20 @@ func CreateFramework(ctx context.Context) error {
 		timeout = DefaultClientTimeout
 	}
 
+	clientBurstEnvVar := os.Getenv("VCLUSTER_CLIENT_BURST")
+	var clientBurst int
+	clientBurst, err = strconv.Atoi(clientBurstEnvVar)
+	if err != nil {
+		clientBurst = DefaultClientBurst
+	}
+
+	clientQPSEnvVar := os.Getenv("VCLUSTER_CLIENT_QPS")
+	var clientQPS int
+	clientQPS, err = strconv.Atoi(clientQPSEnvVar)
+	if err != nil {
+		clientQPS = DefaultClientQPS
+	}
+
 	suffix := os.Getenv("VCLUSTER_SUFFIX")
 	if suffix == "" {
 		// TODO: maybe implement some autodiscovery of the suffix value that would work with dev and prod setups
@@ -128,6 +150,8 @@ func CreateFramework(ctx context.Context) error {
 		return err
 	}
 	hostConfig.Timeout = timeout
+	hostConfig.Burst = clientBurst
+	hostConfig.QPS = float32(clientQPS)
 
 	hostClient, err := kubernetes.NewForConfig(hostConfig)
 	if err != nil {
@@ -150,6 +174,8 @@ func CreateFramework(ctx context.Context) error {
 		HostCRClient:       hostCRClient,
 		Log:                l,
 		ClientTimeout:      timeout,
+		ClientBurst:        clientBurst,
+		ClientQPS:          float32(clientQPS),
 		MultiNamespaceMode: multiNamespaceMode,
 	}
 
@@ -204,6 +230,8 @@ func (f *Framework) RefreshVirtualClient() error {
 			return false, err
 		}
 		vClusterConfig.Timeout = f.ClientTimeout
+		vClusterConfig.Burst = f.ClientBurst
+		vClusterConfig.QPS = f.ClientQPS
 
 		// create kubernetes client using the config retry in case port forwarding is not ready yet
 		vClusterClient, err = kubernetes.NewForConfig(vClusterConfig)

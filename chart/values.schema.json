@@ -1636,12 +1636,50 @@
         },
         "secret": {
           "$ref": "#/$defs/ExportKubeConfigSecretReference",
-          "description": "Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.\nIf this is not defined, vCluster will create it with `vc-NAME`. If you specify another name,\nvCluster creates the config in this other secret."
+          "description": "Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.\nIf this is not defined, vCluster will create it with `vc-NAME`. If you specify another name,\nvCluster creates the config in this other secret.\n\nDeprecated: Use AdditionalSecrets instead."
+        },
+        "additionalSecrets": {
+          "items": {
+            "$ref": "#/$defs/ExportKubeConfigAdditionalSecretReference"
+          },
+          "type": "array",
+          "description": "AdditionalSecrets specifies the additional host cluster secrets in which vCluster will store the\ngenerated virtual cluster kubeconfigs."
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "ExportKubeConfig describes how vCluster should export the vCluster kubeconfig."
+    },
+    "ExportKubeConfigAdditionalSecretReference": {
+      "properties": {
+        "context": {
+          "type": "string",
+          "description": "Context is the name of the context within the generated kubeconfig to use."
+        },
+        "server": {
+          "type": "string",
+          "description": "Override the default https://localhost:8443 and specify a custom hostname for the generated kubeconfig."
+        },
+        "insecure": {
+          "type": "boolean",
+          "description": "If tls should get skipped for the server"
+        },
+        "serviceAccount": {
+          "$ref": "#/$defs/ExportKubeConfigServiceAccount",
+          "description": "ServiceAccount can be used to generate a service account token instead of the default certificates."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name is the name of the secret where the kubeconfig is stored."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace where vCluster stores the kubeconfig secret. If this is not equal to the namespace\nwhere you deployed vCluster, you need to make sure vCluster has access to this other namespace."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ExportKubeConfigAdditionalSecretReference defines the additional host cluster secret in which vCluster stores the generated virtual cluster kubeconfigs."
     },
     "ExportKubeConfigSecretReference": {
       "properties": {
