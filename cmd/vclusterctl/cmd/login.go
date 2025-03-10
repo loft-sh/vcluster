@@ -26,13 +26,13 @@ func NewLoginCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	cmd := platformcli.NewLoginCmd(globalFlags)
 
 	description := `########################################################
-#################### vcluster login ####################
+#################### vcluster platform login ####################
 ########################################################
 Login into vCluster platform
 
 Example:
-vcluster login https://my-vcluster-platform.com
-vcluster login https://my-vcluster-platform.com --access-key myaccesskey
+vcluster platform login https://my-vcluster-platform.com
+vcluster platform login https://my-vcluster-platform.com --access-key myaccesskey
 ########################################################
 	`
 
@@ -42,7 +42,7 @@ vcluster login https://my-vcluster-platform.com --access-key myaccesskey
 		Long:  description,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			log.GetInstance().Warnf("\"vcluster login\" is deprecated, please use \"vcluster platform login\" instead")
+			log.GetInstance().Warnf("\"vcluster platform login\" is deprecated, please use \"vcluster platform login\" instead")
 			// Check for newer version
 			upgrade.PrintNewerVersionWarning()
 

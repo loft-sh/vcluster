@@ -1,6 +1,6 @@
 ---
-title: "vcluster login --help"
-sidebar_label: vcluster login
+title: "vcluster platform login --help"
+sidebar_label: vcluster platform login
 ---
 
 
@@ -9,18 +9,18 @@ Login to a vCluster.Pro instance
 ## Synopsis
 
 ```
-vcluster login [VCLUSTER_PRO_HOST] [flags]
+vcluster platform login [VCLUSTER_PRO_HOST] [flags]
 ```
 
 ```
 ########################################################
-#################### vcluster login ####################
+#################### vcluster platform login ####################
 ########################################################
 Login into vCluster.Pro
 
 Example:
-vcluster login https://my-vcluster-pro.com
-vcluster login https://my-vcluster-pro.com --access-key myaccesskey
+vcluster platform login https://my-vcluster-pro.com
+vcluster platform login https://my-vcluster-pro.com --access-key myaccesskey
 ########################################################
 ```
 
