@@ -144,12 +144,6 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 			}
 		}
 
-		ginkgo.AfterAll(func() {
-			// delete the snapshot pvc
-			err = f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(f.Context, pvc.Name, metav1.DeleteOptions{})
-			framework.ExpectNoError(err)
-		})
-
 		_, err = f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(f.Context, pvc, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
@@ -217,6 +211,12 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 		err = f.VClusterClient.AppsV1().Deployments(defaultNamespace).Delete(f.Context, deploymentToRestore.Name, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 
+	})
+
+	ginkgo.AfterAll(func() {
+		// delete the snapshot pvc
+		err := f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(f.Context, pvc.Name, metav1.DeleteOptions{})
+		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("Restore should overwrite data", func() {
