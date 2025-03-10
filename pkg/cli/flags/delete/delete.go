@@ -5,8 +5,13 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
 )
+
+const FlagNameProject = "project"
+
+var platformFlags = []string{FlagNameProject}
 
 func AddCommonFlags(cmd *cobra.Command, options *cli.DeleteOptions) {
 	cmd.Flags().BoolVar(&options.Wait, "wait", true, "If enabled, vcluster will wait until the vcluster is deleted")
@@ -24,5 +29,9 @@ func AddHelmFlags(cmd *cobra.Command, options *cli.DeleteOptions) {
 func AddPlatformFlags(cmd *cobra.Command, options *cli.DeleteOptions, prefixes ...string) {
 	prefix := strings.Join(prefixes, "")
 
-	cmd.Flags().StringVar(&options.Project, "project", "", fmt.Sprintf("%sThe vCluster platform project to use", prefix))
+	cmd.Flags().StringVar(&options.Project, FlagNameProject, "", fmt.Sprintf("%sThe vCluster platform project to use", prefix))
+}
+
+func ChangedPlatformFlags(cmd *cobra.Command) map[string]bool {
+	return flags.ChangedFlags(cmd, platformFlags)
 }

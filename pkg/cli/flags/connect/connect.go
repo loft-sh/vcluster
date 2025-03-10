@@ -5,9 +5,14 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/spf13/cobra"
 )
+
+const FlagNameProject = "project"
+
+var platformFlags = []string{FlagNameProject}
 
 func AddCommonFlags(cmd *cobra.Command, options *cli.ConnectOptions) {
 	cmd.Flags().StringVar(&options.KubeConfigContextName, "kube-config-context-name", "", "If set, will override the context name of the generated virtual cluster kube config with this name")
@@ -34,5 +39,9 @@ func AddCommonFlags(cmd *cobra.Command, options *cli.ConnectOptions) {
 func AddPlatformFlags(cmd *cobra.Command, options *cli.ConnectOptions, prefixes ...string) {
 	prefix := strings.Join(prefixes, "")
 
-	cmd.Flags().StringVar(&options.Project, "project", "", fmt.Sprintf("%sThe platform project the vCluster is in", prefix))
+	cmd.Flags().StringVar(&options.Project, FlagNameProject, "", fmt.Sprintf("%sThe platform project the vCluster is in", prefix))
+}
+
+func ChangedPlatformFlags(cmd *cobra.Command) map[string]bool {
+	return flags.ChangedFlags(cmd, platformFlags)
 }
