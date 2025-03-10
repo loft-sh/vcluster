@@ -1238,6 +1238,10 @@
           "type": "array",
           "description": "Env are extra environment variables"
         },
+        "snapshotCount": {
+          "type": "integer",
+          "description": "Snapshot count passed to the etcd's `snapshot-count` command."
+        },
         "extraArgs": {
           "items": {
             "type": "string"
