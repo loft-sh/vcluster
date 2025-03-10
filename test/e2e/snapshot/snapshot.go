@@ -112,13 +112,32 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 		},
 	}
 
+	serviceToRestore := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "snapshot-restore",
+			Namespace: defaultNamespace,
+			Labels: map[string]string{
+				"snapshot": "restore",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name: "https",
+					Port: 443,
+				},
+			},
+			Type: corev1.ServiceTypeClusterIP,
+		},
+	}
+
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "snapshot-pvc",
 			Namespace: f.VClusterNamespace,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: resource.MustParse("5Gi"),
@@ -151,25 +170,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 			vClusterDefaultNamespace = translate.NewMultiNamespaceTranslator(f.VClusterNamespace).HostNamespace(nil, defaultNamespace)
 		}
 
-		// now create a service that should be there when we restore again
-		_, err = f.VClusterClient.CoreV1().Services(defaultNamespace).Create(f.Context, &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "snapshot-restore",
-				Namespace: defaultNamespace,
-				Labels: map[string]string{
-					"snapshot": "restore",
-				},
-			},
-			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{
-						Name: "https",
-						Port: 443,
-					},
-				},
-				Type: corev1.ServiceTypeClusterIP,
-			},
-		}, metav1.CreateOptions{})
+		_, err = f.VClusterClient.CoreV1().Services(defaultNamespace).Create(f.Context, serviceToRestore, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		// now create a configmap that should be there when we restore again
@@ -185,25 +186,6 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 		framework.ExpectNoError(err)
 
 		ginkgo.By("Snapshot vcluster")
-		if isK0s {
-			cmd := exec.Command(
-				"vcluster",
-				"snapshot",
-				f.VClusterName,
-				"container:///tmp/snapshot.tar",
-				"-n", f.VClusterNamespace,
-				"--pod-exec",
-			)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err = cmd.Run()
-			framework.ExpectNoError(err)
-
-			fmt.Println("Skip restore because this is unsupported in k0s")
-			return
-		}
-
-		// regular snapshot
 		cmd := exec.Command(
 			"vcluster",
 			"snapshot",
@@ -238,11 +220,11 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 	})
 
 	ginkgo.It("Restore should overwrite data", func() {
-		// now delete the service
+		// now delete the serviceToRestore
 		err := f.VClusterClient.CoreV1().Services(defaultNamespace).Delete(f.Context, "snapshot-restore", metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 
-		// now create a service that should not be there when we restore
+		// now create a serviceToRestore that should not be there when we restore
 		_, err = f.VClusterClient.CoreV1().Services(defaultNamespace).Create(f.Context, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "snapshot-delete",
@@ -263,7 +245,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 		}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		// check for the service getting deleted
+		// check for the serviceToRestore getting deleted
 		gomega.Eventually(func() int {
 			services, err := f.HostClient.CoreV1().Services(vClusterDefaultNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=delete",
@@ -311,7 +293,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 		})
 		framework.ExpectNoError(err)
 
-		// check for the service getting deleted
+		// check for the serviceToRestore getting deleted
 		gomega.Eventually(func() int {
 			services, err := f.HostClient.CoreV1().Services(vClusterDefaultNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=delete",
@@ -322,7 +304,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 			WithTimeout(framework.PollTimeout).
 			Should(gomega.Equal(0))
 
-		// check for the service getting created
+		// check for the serviceToRestore getting created
 		gomega.Eventually(func() int {
 			services, err := f.HostClient.CoreV1().Services(vClusterDefaultNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=restore",
