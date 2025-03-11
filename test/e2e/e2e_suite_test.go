@@ -25,6 +25,7 @@ import (
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/networkpolicies"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pods"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pvc"
+	_ "github.com/loft-sh/vcluster/test/e2e/syncer/runtimeclass"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/services"
 	_ "github.com/loft-sh/vcluster/test/e2e/webhook"
 )
