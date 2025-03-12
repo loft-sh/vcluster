@@ -133,6 +133,11 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		return fmt.Errorf("start license loader: %w", err)
 	}
 
+	err = pro.CheckFeatures(controllerCtx)
+	if err != nil {
+		return fmt.Errorf("pro features check: %w", err)
+	}
+
 	// start integrations
 	err = integrations.StartIntegrations(controllerCtx)
 	if err != nil {
