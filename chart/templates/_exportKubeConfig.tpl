@@ -12,7 +12,7 @@
 {{- $additionalSecretsSet = gt (len .Values.exportKubeConfig.additionalSecrets) 0 }}
 {{- end }}
 {{- if and $secretSet $additionalSecretsSet }}
-{{- fail "exportKubeConfig.Secret and exportKubeConfig.AdditionalSecrets cannot be set at the same time" }}
+{{- fail "exportKubeConfig.secret and exportKubeConfig.additionalSecrets cannot be set at the same time" }}
 {{- end }}
 {{- /*
   Verify that additional secrets have name or namespace set.
