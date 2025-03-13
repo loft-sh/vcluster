@@ -52,7 +52,6 @@ var resourceOrder = []string{
 	"runners",
 	"clusters",
 	"clusteraccesses",
-	"networkpeers",
 
 	// access
 	"teams",
@@ -62,6 +61,10 @@ var resourceOrder = []string{
 	"localclusteraccesses",
 	"localteams",
 	"localusers",
+
+	// since accessKeys is the owner of networkpeer so ideally networkpeer would be deleted right after it
+	// via cascade deletion, still keeping it here as a fail-safe
+	"networkpeers",
 }
 
 // things listed here should also be included in resourceOrder
