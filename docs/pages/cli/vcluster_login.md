@@ -4,7 +4,7 @@ sidebar_label: vcluster platform login
 ---
 
 
-Login to a vCluster.Pro instance
+Log in to a vCluster.Pro instance
 
 ## Synopsis
 
@@ -16,7 +16,7 @@ vcluster platform login [VCLUSTER_PRO_HOST] [flags]
 ########################################################
 #################### vcluster platform login ####################
 ########################################################
-Login into vCluster.Pro
+Log in to vCluster.Pro
 
 Example:
 vcluster platform login https://my-vcluster-pro.com
