@@ -156,6 +156,7 @@ func NewServer(ctx *synccontext.ControllerContext, requestHeaderCaFile, clientCa
 
 	h = filters.WithServiceCreateRedirect(h, registerCtx, uncachedLocalClient, uncachedVirtualClient)
 	h = filters.WithRedirect(h, registerCtx, uncachedVirtualClient, admissionHandler, s.redirectResources)
+	h = filters.WithK8sMetrics(h, registerCtx)
 	h = filters.WithMetricsProxy(h, registerCtx)
 
 	// inject apis
