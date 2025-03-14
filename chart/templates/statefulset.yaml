@@ -119,10 +119,6 @@ spec:
         - name: coredns
           configMap:
             name: vc-coredns-{{ .Release.Name }}
-        # - name: custom-config-volume
-        #   configMap:
-        #     name: coredns-custom
-        #     optional: true
         {{- end }}
         {{- if .Values.controlPlane.statefulSet.persistence.dataVolume }}
 {{ toYaml .Values.controlPlane.statefulSet.persistence.dataVolume | indent 8 }}
