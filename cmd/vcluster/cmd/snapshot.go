@@ -316,6 +316,7 @@ func startEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClust
 			vConfig.ControlPlaneNamespace,
 			certificatesDir,
 			1, // this needs to be 1 or otherwise etcd will try to wait for the other replicas
+			vConfig.ControlPlane.BackingStore.Etcd.Embedded.SnapshotCount,
 			"",
 			false,
 			false,
