@@ -29,10 +29,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const initializeTimeout = 5 * time.Minute
+
 // Initialize creates the required secrets and configmaps for the control plane to start
 func Initialize(ctx context.Context, options *config.VirtualClusterConfig) error {
 	// Ensure that service CIDR range is written into the expected location
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(waitCtx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, initializeTimeout, true, func(waitCtx context.Context) (bool, error) {
 		err := initialize(waitCtx, options)
 		if err != nil {
 			klog.Errorf("error initializing service cidr, certs and token: %v", err)
@@ -52,6 +54,9 @@ func Initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 
 // initialize creates the required secrets and configmaps for the control plane to start
 func initialize(ctx context.Context, options *config.VirtualClusterConfig) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	distro := options.Distro()
 
 	// migrate from
@@ -68,7 +73,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 	serviceCIDR := options.ServiceCIDR
 	if serviceCIDR == "" {
 		var warning string
-		serviceCIDR, warning = servicecidr.GetServiceCIDR(ctx, options.WorkloadClient, options.WorkloadNamespace)
+		serviceCIDR, warning = servicecidr.GetServiceCIDR(timeoutCtx, options.WorkloadClient, options.WorkloadNamespace)
 		if warning != "" {
 			klog.Warning(warning)
 		}
@@ -88,7 +93,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 
 		// create certificates if they are not there yet
 		certificatesDir := "/data/k0s/pki"
-		err = GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options)
+		err = GenerateCerts(timeoutCtx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options)
 		if err != nil {
 			return err
 		}
@@ -122,21 +127,21 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		}()
 
 		// try to update the certs secret with the k0s certificates
-		err = UpdateSecretWithK0sCerts(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options.Name)
+		err = UpdateSecretWithK0sCerts(timeoutCtx, options.ControlPlaneClient, options.ControlPlaneNamespace, options.Name)
 		if err != nil {
 			cancel()
 			return err
 		}
 	case vclusterconfig.K3SDistro:
 		// its k3s, let's create the token secret
-		k3sToken, err := k3s.EnsureK3SToken(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options.Name, options)
+		k3sToken, err := k3s.EnsureK3SToken(timeoutCtx, options.ControlPlaneClient, options.ControlPlaneNamespace, options.Name, options)
 		if err != nil {
 			return err
 		}
 
 		// generate etcd certificates
 		certificatesDir := "/data/pki"
-		err = GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options)
+		err = GenerateCerts(timeoutCtx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options)
 		if err != nil {
 			return err
 		}
@@ -173,7 +178,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		// try to generate k8s certificates
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == "/data/pki" {
-			err := GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options)
+			err := GenerateCerts(timeoutCtx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options)
 			if err != nil {
 				return err
 			}
@@ -217,7 +222,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == "/data/pki" {
 			// generate k8s certificates
-			err := GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options)
+			err := GenerateCerts(timeoutCtx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options)
 			if err != nil {
 				return err
 			}
