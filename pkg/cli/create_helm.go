@@ -228,6 +228,8 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			if err := currentVClusterConfig.UnmarshalYAMLStrict([]byte(migratedValues)); err != nil {
 				return err
 			}
+		} else if err := confirmExperimental(currentVClusterConfig, currentValues, log); err != nil {
+			return err
 		}
 		// TODO end
 	}
@@ -360,6 +362,35 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				"- Use `vcluster connect %s --namespace %s -- kubectl get ns` to run a command directly within the vcluster",
 			verb, vClusterName, cmd.Namespace, vClusterName, cmd.Namespace, vClusterName, cmd.Namespace,
 		)
+	}
+
+	return nil
+}
+
+func confirmExperimental(currentVClusterConfig *config.Config, currentValues string, log log.Logger) error {
+	if err := currentVClusterConfig.UnmarshalYAMLStrict([]byte(currentValues)); err != nil {
+		warning := config.ExperimentalWarning(log, []byte(currentValues))
+		if warning == "" {
+			warning = "The current configuration is not compatible with the version you're upgrading to."
+		}
+
+		log.Warn(warning)
+		if terminal.IsTerminalIn {
+			answer, qErr := log.Question(&survey.QuestionOptions{
+				Question:     "Formly experimental features that aren't manually migrated will be lost. Would you like to proceed?",
+				DefaultValue: "no",
+				Options:      []string{"no", "yes, I'll update my configuration later"},
+			})
+			if qErr != nil {
+				return qErr
+			}
+
+			if answer == "no" {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
 	return nil
