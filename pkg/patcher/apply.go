@@ -19,6 +19,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
+const (
+	SyncDirectionLabel = "vcluster.loft.sh/sync-direction"
+)
+
 func CreateVirtualObject(ctx *synccontext.SyncContext, pObj, vObj client.Object, eventRecorder record.EventRecorder, hasStatus bool) (ctrl.Result, error) {
 	gvk, err := apiutil.GVKForObject(vObj, scheme.Scheme)
 	if err != nil {
@@ -147,6 +151,12 @@ func deleteObject(ctx *synccontext.SyncContext, obj client.Object, reason string
 }
 
 func ApplyObject(ctx *synccontext.SyncContext, beforeObject, afterObject client.Object, direction synccontext.SyncDirection, hasStatus bool) error {
+	labels := afterObject.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[SyncDirectionLabel] = string(direction)
+	afterObject.SetLabels(labels)
 	var (
 		objPatch patch.Patch
 		err      error
