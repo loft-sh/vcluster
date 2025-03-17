@@ -50,15 +50,13 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 
 func fillSnapshotOptions(snapshotURL string, snapshotOptions *snapshot.Options) error {
 	// parse snapshot url
-	if snapshotURL != "" {
-		err := snapshot.Parse(snapshotURL, snapshotOptions)
-		if err != nil {
-			return fmt.Errorf("parse snapshot url: %w", err)
-		}
+	err := snapshot.Parse(snapshotURL, snapshotOptions)
+	if err != nil {
+		return fmt.Errorf("parse snapshot url: %w", err)
 	}
 
 	// storage needs to be either s3 or file
-	err := snapshot.Validate(snapshotOptions)
+	err = snapshot.Validate(snapshotOptions)
 	if err != nil {
 		return fmt.Errorf("validate: %w", err)
 	}
@@ -81,8 +79,7 @@ func initSnapshotCommand(
 	}
 
 	// parse snapshot url
-	snapshotURL := args[1]
-	err := fillSnapshotOptions(snapshotURL, snapshotOptions)
+	err := fillSnapshotOptions(args[1], snapshotOptions)
 	if err != nil {
 		return nil, nil, nil, err
 	}

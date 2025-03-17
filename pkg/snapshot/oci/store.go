@@ -28,10 +28,11 @@ const (
 
 type Options struct {
 	Repository string `json:"repository,omitempty"`
-	Username   string `json:"username,omitempty"`
-	Password   string `json:"password,omitempty"`
 
-	SkipClientCredentials bool `json:"skip-client-credentials,omitempty"`
+	Username string `json:"username,omitempty" url:"username"`
+	Password string `json:"password,omitempty" url:"password,base64"`
+
+	SkipClientCredentials bool `json:"skip-client-credentials,omitempty" url:"skip-client-credentials"`
 }
 
 func (o *Options) FillCredentials(isClient bool) {

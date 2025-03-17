@@ -236,13 +236,17 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	var newExtraValues []string
 
 	// get config from snapshot
-	restoreValuesFile, err := cmd.getVClusterConfigFromSnapshot(ctx)
-	if err != nil {
-		log.Warnf("get vCluster config from snapshot: %w", err)
-	} else if restoreValuesFile != "" {
-		defer os.Remove(restoreValuesFile)
-		cmd.log.Info("Using vCluster config from snapshot")
-		newExtraValues = append(newExtraValues, restoreValuesFile)
+	if len(cmd.Values) == 0 && len(cmd.SetValues) == 0 {
+		restoreValuesFile, err := cmd.getVClusterConfigFromSnapshot(ctx)
+		if err != nil {
+			log.Warnf("get vCluster config from snapshot: %w", err)
+		} else if restoreValuesFile != "" {
+			defer os.Remove(restoreValuesFile)
+			cmd.log.Info("Using vCluster config from snapshot")
+			newExtraValues = append(newExtraValues, restoreValuesFile)
+		}
+	} else if cmd.Restore != "" {
+		cmd.log.Warnf("Skipping config from snapshot because --values or --set flag is used")
 	}
 
 	// get config from values files
