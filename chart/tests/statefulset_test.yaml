@@ -914,3 +914,25 @@ tests:
       - equal:
           path: kind
           value: StatefulSet
+
+  - it: fails when you set both exportKubeConfig.secret and exportKubeConfig.additionalSecrets
+    set:
+      exportKubeConfig:
+        secret:
+          name: my-secret
+        additionalSecrets:
+          - name: another-secret
+    asserts:
+      - failedTemplate:
+          errorMessage: "exportKubeConfig.secret and exportKubeConfig.additionalSecrets cannot be set at the same time"
+
+  - it: fails when additional secret does not have at least name or namespace
+    set:
+      exportKubeConfig:
+        additionalSecrets:
+          - name: my-secret
+            context: my-context
+          - server: my-server
+    asserts:
+      - failedTemplate:
+          errorMessage: "additional secret must have name and/or namespace set, found: {\"server\":\"my-server\"}"
