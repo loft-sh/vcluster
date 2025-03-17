@@ -258,7 +258,7 @@ func CreateSnapshotPod(
 	}
 
 	// parse extra volumes
-	extraVolumes, extraVolumeMounts, err := parseExtraVolumes(podOptions.Mounts)
+	extraVolumes, extraVolumeMounts, err := parseExtraVolumes(ctx, kubeClient, vCluster, podOptions.Mounts)
 	if err != nil {
 		return nil, fmt.Errorf("parsing extra volumes: %w", err)
 	}
@@ -390,7 +390,7 @@ func parseExtraEnv(env []string) ([]corev1.EnvVar, error) {
 	return extraEnv, nil
 }
 
-func parseExtraVolumes(volumes []string) ([]corev1.Volume, []corev1.VolumeMount, error) {
+func parseExtraVolumes(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, volumes []string) ([]corev1.Volume, []corev1.VolumeMount, error) {
 	extraVolumes := make([]corev1.Volume, 0, len(volumes))
 	extraVolumeMounts := make([]corev1.VolumeMount, 0, len(volumes))
 	for idx, volume := range volumes {
@@ -417,6 +417,12 @@ func parseExtraVolumes(volumes []string) ([]corev1.Volume, []corev1.VolumeMount,
 				return nil, nil, fmt.Errorf("invalid name format: %s, expected type:name:path", name)
 			}
 
+			// check if the pvc exists
+			_, err := kubeClient.CoreV1().PersistentVolumeClaims(vCluster.Namespace).Get(ctx, volumeSplit[1], metav1.GetOptions{})
+			if err != nil {
+				return nil, nil, fmt.Errorf("pvc %s not found", volumeSplit[1])
+			}
+
 			extraVolumes = append(extraVolumes, corev1.Volume{
 				Name: volumeName,
 				VolumeSource: corev1.VolumeSource{
@@ -426,6 +432,12 @@ func parseExtraVolumes(volumes []string) ([]corev1.Volume, []corev1.VolumeMount,
 				},
 			})
 		case "secret":
+			// check if the secret exists
+			_, err := kubeClient.CoreV1().Secrets(vCluster.Namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return nil, nil, fmt.Errorf("secret %s not found", name)
+			}
+
 			extraVolumes = append(extraVolumes, corev1.Volume{
 				Name: volumeName,
 				VolumeSource: corev1.VolumeSource{
@@ -436,6 +448,12 @@ func parseExtraVolumes(volumes []string) ([]corev1.Volume, []corev1.VolumeMount,
 				},
 			})
 		case "configmap":
+			// check if the configmap exists
+			_, err := kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return nil, nil, fmt.Errorf("configmap %s not found", name)
+			}
+
 			extraVolumes = append(extraVolumes, corev1.Volume{
 				Name: volumeName,
 				VolumeSource: corev1.VolumeSource{

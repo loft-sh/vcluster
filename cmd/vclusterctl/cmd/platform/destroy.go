@@ -69,7 +69,7 @@ VirtualClusterInstances managed with driver helm will be deleted, but the underl
 	destroyCmd.Flags().BoolVar(&cmd.IgnoreNotFound, "ignore-not-found", false, "Exit successfully if platform installation is not found")
 	destroyCmd.Flags().BoolVar(&cmd.Force, "force", false, "Try uninstalling even if the platform is not installed. '--namespace' is required if true")
 	destroyCmd.Flags().BoolVar(&cmd.NonInteractive, "non-interactive", false, "Will not prompt for confirmation")
-	destroyCmd.Flags().IntVar(&cmd.TimeoutMinutes, "timeout-minutes", 5, "How long to try deleting the platform before giving up. May increase when removing finalizers if --remove-finalizers is used")
+	destroyCmd.Flags().IntVar(&cmd.TimeoutMinutes, "timeout-minutes", 5, "How long to try deleting the platform before giving up. May increase when removing finalizers if --force-remove-finalizers is used")
 	destroyCmd.Flags().BoolVar(&cmd.ForceRemoveFinalizers, "force-remove-finalizers", false, "IMPORTANT! Removing finalizers may cause unintended behaviours like leaving resources behind, but will ensure the platform is uninstalled.")
 
 	return destroyCmd

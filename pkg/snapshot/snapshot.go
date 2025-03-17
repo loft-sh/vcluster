@@ -10,6 +10,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/snapshot/container"
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
+	"github.com/loft-sh/vcluster/pkg/snapshot/options"
 	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
 	"k8s.io/klog/v2"
 )
@@ -68,7 +69,7 @@ func CreateStore(ctx context.Context, options *Options) (Storage, error) {
 	return nil, fmt.Errorf("unknown storage: %s", options.Type)
 }
 
-func Parse(snapshotURL string, options *Options) error {
+func Parse(snapshotURL string, snapshotOptions *Options) error {
 	parsedURL, err := url.Parse(snapshotURL)
 	if err != nil {
 		return fmt.Errorf("error parsing snapshotURL %s: %w", snapshotURL, err)
@@ -77,10 +78,10 @@ func Parse(snapshotURL string, options *Options) error {
 	if parsedURL.Scheme != "s3" && parsedURL.Scheme != "container" && parsedURL.Scheme != "oci" {
 		return fmt.Errorf("scheme needs to be 'oci', 's3' or 'container'")
 	}
-	options.Type = parsedURL.Scheme
+	snapshotOptions.Type = parsedURL.Scheme
 
 	// depending on the type we parse differently
-	switch options.Type {
+	switch snapshotOptions.Type {
 	case "s3":
 		// Zonal: https://BUCKET.s3express-euw1-az1.REGION.amazonaws.com/KEY
 		// Global: https://BUCKET.s3.REGION.amazonaws.com/KEY
@@ -91,58 +92,11 @@ func Parse(snapshotURL string, options *Options) error {
 			return fmt.Errorf("bucket key is missing from url, expected format: s3://BUCKET/KEY")
 		}
 
-		options.S3.Bucket = parsedURL.Host
-		options.S3.Key = strings.TrimPrefix(parsedURL.Path, "/")
-		if parsedURL.Query().Get("region") != "" {
-			options.S3.Region = parsedURL.Query().Get("region")
-		}
-		if parsedURL.Query().Get("profile") != "" {
-			options.S3.Profile = parsedURL.Query().Get("profile")
-		}
-		if parsedURL.Query().Get("tagging") != "" {
-			options.S3.Tagging = parsedURL.Query().Get("tagging")
-		}
-		if parsedURL.Query().Get("access-key-id") != "" {
-			options.S3.AccessKeyID = parsedURL.Query().Get("access-key-id")
-		}
-		if parsedURL.Query().Get("secret-access-key") != "" {
-			options.S3.SecretAccessKey = parsedURL.Query().Get("secret-access-key")
-		}
-		if parsedURL.Query().Get("session-token") != "" {
-			options.S3.SessionToken = parsedURL.Query().Get("session-token")
-		}
-		if parsedURL.Query().Get("skip-client-credentials") != "" {
-			options.S3.SkipClientCredentials = parsedURL.Query().Get("skip-client-credentials") == "true"
-		}
-		if parsedURL.Query().Get("credentials-file") != "" {
-			options.S3.CredentialsFile = parsedURL.Query().Get("credentials-file")
-		}
-		if parsedURL.Query().Get("ca-cert") != "" {
-			options.S3.CaCert = parsedURL.Query().Get("ca-cert")
-		}
-		if parsedURL.Query().Get("checksum-algorithm") != "" {
-			options.S3.ChecksumAlgorithm = parsedURL.Query().Get("checksum-algorithm")
-		}
-		if parsedURL.Query().Get("server-side-encryption") != "" {
-			options.S3.ServerSideEncryption = parsedURL.Query().Get("server-side-encryption")
-		}
-		if parsedURL.Query().Get("kms-key-id") != "" {
-			options.S3.KmsKeyID = parsedURL.Query().Get("kms-key-id")
-		}
-		if parsedURL.Query().Get("public-url") != "" {
-			options.S3.PublicURL = parsedURL.Query().Get("public-url")
-		}
-		if parsedURL.Query().Get("insecure-skip-tls-verify") != "" {
-			options.S3.InsecureSkipTLSVerify = parsedURL.Query().Get("insecure-skip-tls-verify") == "true"
-		}
-		if parsedURL.Query().Get("custom-key-encryption-file") != "" {
-			options.S3.CustomerKeyEncryptionFile = parsedURL.Query().Get("custom-key-encryption-file")
-		}
-		if parsedURL.Query().Get("force-path-style") != "" {
-			options.S3.S3ForcePathStyle = parsedURL.Query().Get("force-path-style") == "true"
-		}
-		if parsedURL.Query().Get("s3-url") != "" {
-			options.S3.S3URL = parsedURL.Query().Get("s3-url")
+		snapshotOptions.S3.Bucket = parsedURL.Host
+		snapshotOptions.S3.Key = strings.TrimPrefix(parsedURL.Path, "/")
+		err = options.PopulateStructFromMap(&snapshotOptions.S3, parsedURL.Query(), true)
+		if err != nil {
+			return fmt.Errorf("error parsing options: %w", err)
 		}
 	case "container":
 		if parsedURL.Host != "" {
@@ -150,26 +104,21 @@ func Parse(snapshotURL string, options *Options) error {
 		} else if parsedURL.Path == "" {
 			return fmt.Errorf("couldn't find path for url")
 		}
-		options.Container.Path = parsedURL.Path
+		snapshotOptions.Container.Path = parsedURL.Path
 	case "oci":
 		if parsedURL.Path == "" {
 			return fmt.Errorf("unexpected format, need oci://my-registry.com/my-repo")
 		} else if parsedURL.Host == "" {
 			return fmt.Errorf("unexpected format, need oci://my-registry.com/my-repo")
 		}
-		options.OCI.Repository = path.Join(parsedURL.Host, parsedURL.Path)
+		snapshotOptions.OCI.Repository = path.Join(parsedURL.Host, parsedURL.Path)
 		if parsedURL.User != nil {
-			options.OCI.Username = parsedURL.User.Username()
-			options.OCI.Password, _ = parsedURL.User.Password()
+			snapshotOptions.OCI.Username = parsedURL.User.Username()
+			snapshotOptions.OCI.Password, _ = parsedURL.User.Password()
 		}
-		if parsedURL.Query().Get("username") != "" {
-			options.OCI.Username = parsedURL.Query().Get("username")
-		}
-		if parsedURL.Query().Get("password") != "" {
-			options.OCI.Password = parsedURL.Query().Get("password")
-		}
-		if parsedURL.Query().Get("skip-client-credentials") != "" {
-			options.OCI.SkipClientCredentials = parsedURL.Query().Get("skip-client-credentials") == "true"
+		err = options.PopulateStructFromMap(&snapshotOptions.OCI, parsedURL.Query(), true)
+		if err != nil {
+			return fmt.Errorf("error parsing options: %w", err)
 		}
 	}
 

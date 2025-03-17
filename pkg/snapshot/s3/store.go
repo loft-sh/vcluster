@@ -37,29 +37,30 @@ import (
 )
 
 type Options struct {
-	SkipClientCredentials bool `json:"skip-client-credentials,omitempty"`
+	Bucket string `json:"bucket,omitempty"`
+	Key    string `json:"key,omitempty"`
 
-	AccessKeyID     string `json:"access-key-id,omitempty"`
-	SecretAccessKey string `json:"secret-access-key,omitempty"`
-	SessionToken    string `json:"session-token,omitempty"`
+	SkipClientCredentials bool `json:"skip-client-credentials,omitempty" url:"skip-client-credentials"`
 
-	Region    string `json:"region,omitempty"`
-	Bucket    string `json:"bucket,omitempty"`
-	Key       string `json:"key,omitempty"`
-	Profile   string `json:"profile,omitempty"`
-	S3URL     string `json:"url,omitempty"`
-	PublicURL string `json:"public-url,omitempty"`
-	KmsKeyID  string `json:"kms-key-id,omitempty"`
-	Tagging   string `json:"tagging,omitempty"`
+	AccessKeyID     string `json:"access-key-id,omitempty" url:"access-key-id,base64"`
+	SecretAccessKey string `json:"secret-access-key,omitempty" url:"secret-access-key,base64"`
+	SessionToken    string `json:"session-token,omitempty" url:"session-token,base64"`
 
-	S3ForcePathStyle      bool `json:"force-path-style,omitempty"`
-	InsecureSkipTLSVerify bool `json:"insecure-skip-tls-verify,omitempty"`
+	Region    string `json:"region,omitempty" url:"region"`
+	Profile   string `json:"profile,omitempty" url:"profile"`
+	S3URL     string `json:"url,omitempty" url:"url,base64"`
+	PublicURL string `json:"public-url,omitempty" url:"public-url,base64"`
+	KmsKeyID  string `json:"kms-key-id,omitempty" url:"kms-key-id,base64"`
+	Tagging   string `json:"tagging,omitempty" url:"tagging,base64"`
 
-	CustomerKeyEncryptionFile string `json:"custom-key-encryption-file,omitempty"`
-	CredentialsFile           string `json:"credentials-file,omitempty"`
-	ServerSideEncryption      string `json:"server-side-encryption,omitempty"`
-	CaCert                    string `json:"ca-cert,omitempty"`
-	ChecksumAlgorithm         string `json:"checksum-algorithm,omitempty"`
+	S3ForcePathStyle      bool `json:"force-path-style,omitempty" url:"force-path-style"`
+	InsecureSkipTLSVerify bool `json:"insecure-skip-tls-verify,omitempty" url:"insecure-skip-tls-verify"`
+
+	CustomerKeyEncryptionFile string `json:"custom-key-encryption-file,omitempty" url:"custom-key-encryption-file,base64"`
+	CredentialsFile           string `json:"credentials-file,omitempty" url:"credentials-file,base64"`
+	ServerSideEncryption      string `json:"server-side-encryption,omitempty" url:"server-side-encryption,base64"`
+	CaCert                    string `json:"ca-cert,omitempty" url:"ca-cert,base64"`
+	ChecksumAlgorithm         string `json:"checksum-algorithm,omitempty" url:"checksum-algorithm"`
 }
 
 func (o *Options) FillCredentials(isClient bool) {

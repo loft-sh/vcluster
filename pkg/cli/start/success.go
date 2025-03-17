@@ -225,7 +225,7 @@ func (l *LoftStarter) printVClusterProGettingStarted(url string) {
 		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster platform add vcluster` to add an existing virtual cluster to a vCluster platform instance\n")
 	} else {
 		l.Log.Warnf("You are not logged into vCluster Platform yet, please run the below command to log into the vCluster Platform instance")
-		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster login "+url+"` to log into the vCluster Platform instance\n")
+		l.Log.WriteString(logrus.InfoLevel, "- Use `vcluster platform login "+url+"` to log into the vCluster Platform instance\n")
 	}
 }
 
