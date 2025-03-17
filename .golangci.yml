@@ -33,7 +33,6 @@ linters:
     - sloglint
     - staticcheck
     - stylecheck
-    - tagalign
     - typecheck
     - unconvert
     - unused

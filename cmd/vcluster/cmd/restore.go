@@ -129,13 +129,13 @@ func (o *RestoreOptions) Run(ctx context.Context) error {
 				// we will get separate certificates, so we need to skip these
 				continue
 			}
+		}
 
-			// transform pods
-			if strings.HasPrefix(string(key), "/registry/pods/") {
-				value, err = transformPod(value, decoder, encoder)
-				if err != nil {
-					return fmt.Errorf("transform value: %w", err)
-				}
+		// transform pods to make sure they are not deleted on start
+		if strings.HasPrefix(string(key), "/registry/pods/") {
+			value, err = transformPod(value, decoder, encoder)
+			if err != nil {
+				return fmt.Errorf("transform value: %w", err)
 			}
 		}
 
