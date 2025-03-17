@@ -217,6 +217,9 @@ var _ = ginkgo.Describe("Test fromHost sync of configmaps", ginkgo.Ordered, func
 	})
 
 	ginkgo.It("synced config maps can be used as env source for pod", func() {
+		// make sure that default service account exists before creating a pod.
+		// this is purely to avoid test flakes.
+		framework.ExpectNoError(f.WaitForServiceAccount("default", cmsVirtualNamespace))
 		optional := false
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{

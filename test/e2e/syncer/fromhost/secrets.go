@@ -163,6 +163,9 @@ var _ = ginkgo.Describe("Secrets are synced to host and can be used in Pods", gi
 	})
 
 	ginkgo.It("synced secret can be used as env source for pod", func() {
+		// make sure that default service account exists before creating a pod.
+		// this is purely to avoid test flakes.
+		framework.ExpectNoError(f.WaitForServiceAccount("default", secretsVirtualNamespace))
 		optional := false
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
