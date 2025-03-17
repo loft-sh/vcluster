@@ -1288,9 +1288,6 @@ type EtcdEmbedded struct {
 
 	// MigrateFromDeployedEtcd signals that vCluster should migrate from the deployed external etcd to embedded etcd.
 	MigrateFromDeployedEtcd bool `json:"migrateFromDeployedEtcd,omitempty"`
-
-	// SnapshotCount defines the number of snapshots to keep for the embedded etcd. Defaults to 10000 if less than 1.
-	SnapshotCount int `json:"snapshotCount,omitempty"`
 }
 
 func (e EtcdEmbedded) JSONSchemaExtend(base *jsonschema.Schema) {
