@@ -155,8 +155,14 @@ func ApplyObject(ctx *synccontext.SyncContext, beforeObject, afterObject client.
 	if labels == nil {
 		labels = map[string]string{}
 	}
-	labels[SyncDirectionLabel] = string(direction)
-	afterObject.SetLabels(labels)
+	if _, ok := labels[SyncDirectionLabel]; !ok {
+		// Set vcluster.loft.sh/sync-direction label only if it was not already set.
+		// In some cases, resources that were synced from host to virtual get synced back from virtual
+		// to host again. By ensuring that we are never overwriting the vcluster.loft.sh/sync-direction
+		// label, we preserve the information about the original sync direction.
+		labels[SyncDirectionLabel] = string(direction)
+		afterObject.SetLabels(labels)
+	}
 	var (
 		objPatch patch.Patch
 		err      error
