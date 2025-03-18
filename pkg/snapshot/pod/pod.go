@@ -344,6 +344,35 @@ func CreateSnapshotPod(
 		}
 	}
 
+	// check if we need to error because we write the snapshot to a temporary directory
+	if snapshotOptions != nil && snapshotOptions.Type == "container" && snapshotOptions.Container.Path != "" {
+		// check if there is a mount at that path
+		found := false
+		for _, volumeMount := range newPod.Spec.Containers[0].VolumeMounts {
+			isPvc := false
+			for _, volume := range newPod.Spec.Volumes {
+				if volume.Name == volumeMount.Name {
+					if volume.VolumeSource.PersistentVolumeClaim != nil {
+						isPvc = true
+						break
+					}
+				}
+			}
+			if !isPvc {
+				continue
+			}
+
+			if strings.HasPrefix(snapshotOptions.Container.Path, volumeMount.MountPath) {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return nil, fmt.Errorf("container snapshot path %s is not persisted, taking a snapshot on this path has no effect since it will write the snapshot to a temporary filesystem", snapshotOptions.Container.Path)
+		}
+	}
+
 	// create the pod
 	log.Infof("Starting snapshot pod for vCluster %s/%s...", vCluster.Namespace, vCluster.Name)
 	newPod, err = kubeClient.CoreV1().Pods(vCluster.Namespace).Create(ctx, newPod, metav1.CreateOptions{})
