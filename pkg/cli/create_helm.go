@@ -228,8 +228,12 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			if err := currentVClusterConfig.UnmarshalYAMLStrict([]byte(migratedValues)); err != nil {
 				return err
 			}
-		} else if err := confirmExperimental(currentVClusterConfig, currentValues, log); err != nil {
-			return err
+		}
+
+		if len(cmd.Values) == 0 {
+			if err := confirmExperimental(currentVClusterConfig, currentValues, log); err != nil {
+				return err
+			}
 		}
 		// TODO end
 	}
