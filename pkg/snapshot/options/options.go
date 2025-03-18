@@ -67,9 +67,9 @@ func PopulateStructFromMap(ptr interface{}, m map[string][]string, strict bool) 
 					if err != nil {
 						return fmt.Errorf("failed to decode base64 for field %s: %w", fieldType.Name, err)
 					}
-					result[idx] = string(decodedBytes)
+					result[idx] = strings.TrimSpace(string(decodedBytes))
 				} else {
-					result[idx] = val
+					result[idx] = strings.TrimSpace(val)
 				}
 			}
 			f.Set(reflect.ValueOf(result))
@@ -83,12 +83,12 @@ func PopulateStructFromMap(ptr interface{}, m map[string][]string, strict bool) 
 			if err != nil {
 				return fmt.Errorf("failed to decode base64 for field %s: %w", fieldType.Name, err)
 			}
-			value = string(decodedBytes)
+			value = strings.TrimSpace(string(decodedBytes))
 		}
 
 		switch f.Kind() {
 		case reflect.String:
-			f.SetString(value)
+			f.SetString(strings.TrimSpace(value))
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			iVal, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
