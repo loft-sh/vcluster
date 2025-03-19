@@ -36,8 +36,6 @@ type syncToHostConfigMapSyncer struct{}
 func (s *syncToHostConfigMapSyncer) CopyHostObjectToVirtual(vObj, pObj client.Object) {
 	vCm := vObj.(*corev1.ConfigMap)
 	hostCopy := pObj.(*corev1.ConfigMap).DeepCopy()
-	vCm.SetAnnotations(hostCopy.GetAnnotations())
-	vCm.SetLabels(hostCopy.Labels)
 	vCm.Data = hostCopy.Data
 }
 

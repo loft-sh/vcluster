@@ -35,8 +35,6 @@ type syncToHostSecretSyncer struct{}
 func (s *syncToHostSecretSyncer) CopyHostObjectToVirtual(vObj, pObj client.Object) {
 	vCm := vObj.(*corev1.Secret)
 	hostCopy := pObj.(*corev1.Secret).DeepCopy()
-	vCm.SetAnnotations(hostCopy.GetAnnotations())
-	vCm.SetLabels(hostCopy.Labels)
 	vCm.Data = hostCopy.Data
 }
 
