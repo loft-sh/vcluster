@@ -63,9 +63,13 @@ func HostMetadata[T client.Object](vObj T, name types.NamespacedName, excludedAn
 
 func VirtualMetadata[T client.Object](pObj T, name types.NamespacedName, excludedAnnotations ...string) T {
 	vObj := CopyObjectWithName(pObj, name, false, excludedAnnotations...)
+	OverwriteVirtualMetadata(pObj, vObj)
+	return vObj
+}
+
+func OverwriteVirtualMetadata[T client.Object](pObj, vObj T, excludedAnnotations ...string) {
 	vObj.SetAnnotations(VirtualAnnotations(pObj, nil, excludedAnnotations...))
 	vObj.SetLabels(VirtualLabels(pObj, nil))
-	return vObj
 }
 
 func stripExcludedAnnotations(obj client.Object, excludedAnnotations ...string) {
@@ -237,7 +241,7 @@ func exists(a []string, k string) bool {
 	return false
 }
 
-// ResetObjectMetadata resets the objects metadata except name, namespace and annotations
+// ResetObjectMetadata resets the objects metadata except name, namespace, annotations and labels
 func ResetObjectMetadata(obj metav1.Object) {
 	obj.SetGenerateName("")
 	obj.SetSelfLink("")

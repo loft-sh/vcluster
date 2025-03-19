@@ -84,6 +84,7 @@ func (s *genericFromHostSyncer) Sync(ctx *synccontext.SyncContext, event *syncco
 	}()
 
 	s.FromHostSyncer.CopyHostObjectToVirtual(event.Virtual, event.Host)
+	translate.OverwriteVirtualMetadata(event.Host, event.Virtual)
 
 	return ctrl.Result{}, nil
 }
