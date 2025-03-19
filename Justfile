@@ -150,7 +150,7 @@ gen-license-report:
 build-dev-image tag="":
   TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean
 
-  cp dist/vcluster_linux_$(go env GOARCH | sed s/amd64/amd64_v1/g)/vcluster ./vcluster
+  cp dist/vcluster_linux_$(go env GOARCH | sed s/amd64/amd64_v1/g | sed s/arm64/arm64_v8.0/g)/vcluster ./vcluster
   docker build -t vcluster:dev-{{tag}} -f Dockerfile.release --build-arg TARGETARCH=$(uname -m) --build-arg TARGETOS=linux .
   rm ./vcluster
 
