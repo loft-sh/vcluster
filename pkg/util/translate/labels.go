@@ -11,6 +11,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	SyncDirectionLabel = "vcluster.loft.sh/sync-direction"
+)
+
 func IsTranslatedLabel(label string) (string, bool) {
 	for k := range Default.LabelsToTranslate() {
 		if convertLabelKeyWithPrefix(LabelPrefix, k) == label {
@@ -184,9 +188,10 @@ func VirtualLabels(pObj, vObj client.Object) map[string]string {
 		vLabels = vObj.GetLabels()
 	}
 	retLabels := VirtualLabelsMap(pLabels, vLabels)
-	if len(retLabels) == 0 {
-		return nil
+	if retLabels == nil {
+		retLabels = map[string]string{}
 	}
+	retLabels[SyncDirectionLabel] = string(synccontext.SyncHostToVirtual)
 	return retLabels
 }
 

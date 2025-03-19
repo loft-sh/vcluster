@@ -19,10 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-const (
-	SyncDirectionLabel = "vcluster.loft.sh/sync-direction"
-)
-
 func CreateVirtualObject(ctx *synccontext.SyncContext, pObj, vObj client.Object, eventRecorder record.EventRecorder, hasStatus bool) (ctrl.Result, error) {
 	gvk, err := apiutil.GVKForObject(vObj, scheme.Scheme)
 	if err != nil {
@@ -151,18 +147,6 @@ func deleteObject(ctx *synccontext.SyncContext, obj client.Object, reason string
 }
 
 func ApplyObject(ctx *synccontext.SyncContext, beforeObject, afterObject client.Object, direction synccontext.SyncDirection, hasStatus bool) error {
-	labels := afterObject.GetLabels()
-	if labels == nil {
-		labels = map[string]string{}
-	}
-	if _, ok := labels[SyncDirectionLabel]; !ok {
-		// Set vcluster.loft.sh/sync-direction label only if it was not already set.
-		// In some cases, resources that were synced from host to virtual get synced back from virtual
-		// to host again. By ensuring that we are never overwriting the vcluster.loft.sh/sync-direction
-		// label, we preserve the information about the original sync direction.
-		labels[SyncDirectionLabel] = string(direction)
-		afterObject.SetLabels(labels)
-	}
 	var (
 		objPatch patch.Patch
 		err      error

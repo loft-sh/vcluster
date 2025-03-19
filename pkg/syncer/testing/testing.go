@@ -7,10 +7,10 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -229,7 +229,7 @@ func stripObject(obj runtime.Object) runtime.Object {
 	l := accessor.GetLabels()
 	if l != nil {
 		delete(l, "vcluster.loft.sh/managed-by")
-		delete(l, patcher.SyncDirectionLabel)
+		delete(l, translate.SyncDirectionLabel)
 	}
 	if len(l) == 0 {
 		accessor.SetLabels(nil)
