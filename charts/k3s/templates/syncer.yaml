@@ -214,6 +214,15 @@ spec:
           {{- end }}
           {{- if .Values.sync.nodes.enableScheduler }}
           - --enable-scheduler
+          {{- if .Values.sync.nodes.reservedResources.cpu }}
+          - --reserved-resource-cpu={{ .Values.sync.nodes.reservedResources.cpu }}
+          {{- end }}
+          {{- if .Values.sync.nodes.reservedResources.memory }}
+          - --reserved-resource-memory={{ .Values.sync.nodes.reservedResources.memory }}
+          {{- end }}
+          {{- if .Values.sync.nodes.reservedResources.ephemeralStorage }}
+          - --reserved-resource-ephemeral-storage={{ .Values.sync.nodes.reservedResources.ephemeralStorage }}
+          {{- end }}
           {{- end }}
           {{- if and .Values.sync.nodes.enabled .Values.sync.nodes.syncNodeChanges }}
           - --sync-node-changes=true

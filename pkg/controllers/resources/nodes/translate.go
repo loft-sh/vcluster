@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -9,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
@@ -178,38 +180,79 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 	if s.enableScheduler {
 		// calculate what's really allocatable
 		if translatedStatus.Allocatable != nil {
-			allocatable := map[corev1.ResourceName]int64{
-				corev1.ResourceCPU:              translatedStatus.Allocatable.Cpu().MilliValue(),
-				corev1.ResourceMemory:           translatedStatus.Allocatable.Memory().Value(),
-				corev1.ResourceEphemeralStorage: translatedStatus.Allocatable.StorageEphemeral().Value(),
-				corev1.ResourcePods:             translatedStatus.Allocatable.Pods().Value(),
+			var (
+				nonVClusterPods int64
+				allocatable     = map[corev1.ResourceName]int64{
+					corev1.ResourceCPU:              translatedStatus.Allocatable.Cpu().MilliValue(),
+					corev1.ResourceMemory:           translatedStatus.Allocatable.Memory().Value(),
+					corev1.ResourceEphemeralStorage: translatedStatus.Allocatable.StorageEphemeral().Value(),
+					corev1.ResourcePods:             translatedStatus.Allocatable.Pods().Value(),
+				}
+			)
+
+			unmanagedPods := &corev1.PodList{}
+			err := s.unmanagedPodCache.List(ctx.Context, unmanagedPods, client.MatchingFields{constants.IndexRunningNonVClusterPodsByNode: pNode.Name})
+			if err != nil {
+				return nil, fmt.Errorf("error listing unmanaged pods: %w", err)
 			}
 
-			var nonVClusterPods int64
-			podList := &corev1.PodList{}
-			err := s.unmanagedPodCache.List(ctx.Context, podList, client.MatchingFields{constants.IndexRunningNonVClusterPodsByNode: pNode.Name})
+			for _, pod := range unmanagedPods.Items {
+				if !translate.Default.IsManaged(&pod) {
+					// count pods that are not synced by this vcluster
+					nonVClusterPods++
+				}
+
+				reqs, _ := resourceutil.PodRequestsAndLimits(&pod)
+				updateAllocatable(reqs, allocatable)
+			}
+
+			managedPods := &corev1.PodList{}
+			err = s.managedPodCache.List(ctx.Context, managedPods, client.MatchingFields{constants.IndexByAssigned: pNode.Name})
 			if err != nil {
-				klog.Errorf("Error listing pods: %v", err)
-			} else {
-				for _, pod := range podList.Items {
-					if !translate.Default.IsManaged(&pod) {
-						// count pods that are not synced by this vcluster
-						nonVClusterPods++
-					}
+				return nil, fmt.Errorf("error listing managed pods: %w", err)
+			}
 
-					reqs, _ := resourceutil.PodRequestsAndLimits(&pod)
+			for _, pod := range managedPods.Items {
+				// skip single container pods
+				if len(pod.Spec.InitContainers)+len(pod.Spec.Containers) == 1 {
+					continue
+				}
 
-					for _, resName := range []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory, corev1.ResourceEphemeralStorage} {
-						if req, ok := reqs[resName]; ok {
-							if resName == corev1.ResourceCPU {
-								allocatable[resName] -= req.MilliValue()
-							} else {
-								allocatable[resName] -= req.Value()
-							}
-						}
-					}
+				reqs, err := s.ManagedPodRequestsAndLimits(ctx, &pod)
+				if err != nil {
+					return nil, err
+				}
+
+				updateAllocatable(reqs, allocatable)
+			}
+
+			reservedReqs := corev1.ResourceList{}
+			if s.reservedResourceCPU != "" {
+				cpu, err := resource.ParseQuantity(s.reservedResourceCPU)
+				if err != nil {
+					klog.Errorf("error parsing reservedResource cpu: %v", err)
+				} else {
+					reservedReqs[corev1.ResourceCPU] = cpu
 				}
 			}
+			if s.reservedResourceMemory != "" {
+				memory, err := resource.ParseQuantity(s.reservedResourceMemory)
+				if err != nil {
+					klog.Errorf("error parsing reservedResource memory: %v", err)
+				} else {
+					reservedReqs[corev1.ResourceMemory] = memory
+				}
+			}
+			if s.reservedResourceEphemeralStorage != "" {
+				ephemeralStorage, err := resource.ParseQuantity(s.reservedResourceEphemeralStorage)
+				if err != nil {
+					klog.Errorf("error parsing reservedResource ephemeral storage: %v", err)
+				} else {
+					reservedReqs[corev1.ResourceEphemeralStorage] = ephemeralStorage
+				}
+			}
+
+			updateAllocatable(reservedReqs, allocatable)
 
 			allocatable[corev1.ResourcePods] -= nonVClusterPods
 			if allocatable[corev1.ResourcePods] > 0 {
@@ -330,4 +373,99 @@ nextTaint:
 	}
 
 	return filtered
+}
+
+func (s *nodeSyncer) ManagedPodRequestsAndLimits(ctx *synccontext.SyncContext, pod *corev1.Pod) (corev1.ResourceList, error) {
+	reqs := corev1.ResourceList{}
+
+	virtualPod := &corev1.Pod{}
+	err := ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.DeepCopy().Annotations[translate.NamespaceAnnotation], Name: pod.DeepCopy().Annotations[translate.NameAnnotation]}, virtualPod)
+	if err != nil {
+		return reqs, err
+	}
+
+	virtualPodContainerStatuses := map[string]struct{}{}
+	for _, cs := range [][]corev1.ContainerStatus{virtualPod.Status.ContainerStatuses, virtualPod.Status.InitContainerStatuses} {
+		for i := range cs {
+			virtualPodContainerStatuses[cs[i].Name] = struct{}{}
+		}
+	}
+
+	podContainerStatuses := map[string]corev1.ContainerStatus{}
+	for _, cs := range [][]corev1.ContainerStatus{pod.Status.ContainerStatuses, pod.Status.InitContainerStatuses} {
+		for i := range cs {
+			podContainerStatuses[cs[i].Name] = cs[i]
+		}
+	}
+
+	for _, containers := range [][]corev1.Container{pod.Spec.Containers, pod.Spec.InitContainers} {
+		for _, container := range containers {
+			containerReqs := container.Resources.Requests
+			_, found := virtualPodContainerStatuses[container.Name]
+			if found {
+				continue
+			}
+
+			if cs, ok := podContainerStatuses[container.Name]; ok {
+				if cs.State.Running == nil {
+					continue
+				}
+
+				if pod.Status.Resize == corev1.PodResizeStatusInfeasible {
+					containerReqs = cs.AllocatedResources.DeepCopy()
+				} else {
+					containerReqs = maxOf(container.Resources.Requests, cs.AllocatedResources)
+				}
+			}
+
+			addResourceList(reqs, containerReqs)
+		}
+	}
+
+	return reqs, nil
+}
+
+// addResourceList adds the resources in newList to list
+func addResourceList(list, newList corev1.ResourceList) {
+	for name, quantity := range newList {
+		if value, ok := list[name]; !ok {
+			list[name] = quantity.DeepCopy()
+		} else {
+			value.Add(quantity)
+			list[name] = value
+		}
+	}
+}
+
+// maxOf returns the result of maxOf(a, b) for each named resource and is only used if we can't
+// accumulate into an existing resource list
+func maxOf(a corev1.ResourceList, b corev1.ResourceList) corev1.ResourceList {
+	result := corev1.ResourceList{}
+	for key, value := range a {
+		if other, found := b[key]; found {
+			if value.Cmp(other) <= 0 {
+				result[key] = other.DeepCopy()
+				continue
+			}
+		}
+		result[key] = value.DeepCopy()
+	}
+	for key, value := range b {
+		if _, found := result[key]; !found {
+			result[key] = value.DeepCopy()
+		}
+	}
+	return result
+}
+
+func updateAllocatable(reqs corev1.ResourceList, allocatable map[corev1.ResourceName]int64) {
+	for _, resName := range []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory, corev1.ResourceEphemeralStorage} {
+		if req, ok := reqs[resName]; ok {
+			if resName == corev1.ResourceCPU {
+				allocatable[resName] -= req.MilliValue()
+			} else {
+				allocatable[resName] -= req.Value()
+			}
+		}
+	}
 }

@@ -74,3 +74,26 @@ tests:
           content:
             name: data
             emptyDir: {}
+
+  - it: should parse reservedResources correctly when virtual scheduler is enabled
+    set:
+      sync:
+        nodes:
+          enableScheduler: true
+          reservedResources:
+            cpu: "100m"
+            memory: "256Mi"
+            ephemeralStorage: "512Mi"
+    
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--reserved-resource-cpu=100m"
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--reserved-resource-memory=256Mi"
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--reserved-resource-ephemeral-storage=512Mi"
