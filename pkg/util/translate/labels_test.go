@@ -133,11 +133,11 @@ func TestAnnotationsSync(t *testing.T) {
 }
 func TestVirtualLabels(t *testing.T) {
 	testCases := []struct {
-		name     string
-		hostLabels map[string]string
-		virtualLabels map[string]string
+		name                  string
+		hostLabels            map[string]string
+		virtualLabels         map[string]string
 		expectedVirtualLabels map[string]string
-	} {
+	}{
 		{
 			name: "Host object labels are copied to the virtual resource",
 			hostLabels: map[string]string{
@@ -146,12 +146,12 @@ func TestVirtualLabels(t *testing.T) {
 			virtualLabels: map[string]string{},
 			expectedVirtualLabels: map[string]string{
 				"example.com/hello": "world",
-				SyncDirectionLabel: string(synccontext.SyncHostToVirtual),
+				SyncDirectionLabel:  string(synccontext.SyncHostToVirtual),
 			},
 		},
 		{
-			name: "Sync direction label is set on the virtual resource",
-			hostLabels: map[string]string{},
+			name:          "Sync direction label is set on the virtual resource",
+			hostLabels:    map[string]string{},
 			virtualLabels: map[string]string{},
 			expectedVirtualLabels: map[string]string{
 				SyncDirectionLabel: string(synccontext.SyncHostToVirtual),
