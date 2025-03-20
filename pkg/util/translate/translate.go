@@ -252,6 +252,37 @@ func ResetObjectMetadata(obj metav1.Object) {
 	obj.SetManagedFields(nil)
 }
 
+type ApplyMetadataOptions struct {
+	ExcludeAnnotations []string
+}
+
+// ApplyVirtualMetadata copies metadata from the host resource to the virtual resource.
+//
+// The following annotations are not copied from the host resource:
+//  - vcluster.loft.sh/managed-annotations
+//  - vcluster.loft.sh/managed-labels
+//
+// In addition to copying the annotations from the host resource, this function also sets multiple vCluster annotations
+// on the virtual resource:
+//  - vcluster.loft.sh/object-host-name: host resource name, so you can easily identify from which host resource the
+//    virtual resource was created;
+//  - vcluster.loft.sh/object-host-namespace: host resource namespace (if the resource is namespaced).
+//
+// It also sets the following labels on the virtual resource:
+//  - vcluster.loft.sh/managed-by: vCluster name, so you can know that the resource is managed by vCluster.
+//
+// When this function exists, virtual resource has annotations and labels maps created, even if they are empty.
+func ApplyVirtualMetadata(pObj client.Object, vObj client.Object, options ApplyMetadataOptions) {
+	labels, annotations := ApplyMetadata(pObj.GetAnnotations(), vObj.GetAnnotations(), pObj.GetLabels(), vObj.GetLabels(), options.ExcludeAnnotations...)
+	labels[MarkerLabel] = VClusterName
+	annotations[HostNameAnnotation] = pObj.GetName()
+	if pObj.GetNamespace() != "" {
+		annotations[HostNamespaceAnnotation] = pObj.GetNamespace()
+	}
+	vObj.SetAnnotations(annotations)
+	vObj.SetLabels(labels)
+}
+
 func ApplyMetadata(fromAnnotations map[string]string, toAnnotations map[string]string, fromLabels map[string]string, toLabels map[string]string, excludeAnnotations ...string) (labels map[string]string, annotations map[string]string) {
 	mergedAnnotations := applyAnnotations(fromAnnotations, toAnnotations, excludeAnnotations...)
 	return applyLabels(fromLabels, toLabels, mergedAnnotations)
@@ -284,7 +315,7 @@ func applyLabels(fromLabels map[string]string, toLabels map[string]string, toAnn
 
 	mergedLabels, managedKeys := applyMaps(fromLabels, toLabels, ApplyMapsOptions{
 		ManagedKeys: strings.Split(toAnnotations[ManagedLabelsAnnotation], "\n"),
-		ExcludeKeys: []string{ManagedAnnotationsAnnotation, ManagedLabelsAnnotation},
+		ExcludeKeys: []string{ManagedAnnotationsAnnotation, ManagedLabelsAnnotation, MarkerLabel},
 	})
 	mergedAnnotations := map[string]string{}
 	for k, v := range toAnnotations {
@@ -300,7 +331,12 @@ func applyLabels(fromLabels map[string]string, toLabels map[string]string, toAnn
 }
 
 type ApplyMapsOptions struct {
+	// ManagedKeys are annotations or labels that are managed by the vcluster. These are copied only from the source map,
+	// and values in the destination map are overwritten or ignored.
 	ManagedKeys []string
+
+	// ExcludeKeys are annotations or labels that are not copied from the source to the destination. The destination's
+	// annotations and labels with these keys are preserved, if they are set.
 	ExcludeKeys []string
 }
 
