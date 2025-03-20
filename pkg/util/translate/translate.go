@@ -259,17 +259,17 @@ type ApplyMetadataOptions struct {
 // ApplyVirtualMetadata copies metadata from the host resource to the virtual resource.
 //
 // The following annotations are not copied from the host resource:
-//  - vcluster.loft.sh/managed-annotations
-//  - vcluster.loft.sh/managed-labels
+//   - vcluster.loft.sh/managed-annotations
+//   - vcluster.loft.sh/managed-labels
 //
 // In addition to copying the annotations from the host resource, this function also sets multiple vCluster annotations
 // on the virtual resource:
-//  - vcluster.loft.sh/object-host-name: host resource name, so you can easily identify from which host resource the
-//    virtual resource was created;
-//  - vcluster.loft.sh/object-host-namespace: host resource namespace (if the resource is namespaced).
+//   - vcluster.loft.sh/object-host-name: host resource name, so you can easily identify from which host resource the
+//     virtual resource was created;
+//   - vcluster.loft.sh/object-host-namespace: host resource namespace (if the resource is namespaced).
 //
 // It also sets the following labels on the virtual resource:
-//  - vcluster.loft.sh/managed-by: vCluster name, so you can know that the resource is managed by vCluster.
+//   - vcluster.loft.sh/managed-by: vCluster name, so you can know that the resource is managed by vCluster.
 //
 // When this function exists, virtual resource has annotations and labels maps created, even if they are empty.
 func ApplyVirtualMetadata(pObj client.Object, vObj client.Object, options ApplyMetadataOptions) {
