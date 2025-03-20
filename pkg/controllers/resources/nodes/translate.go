@@ -26,8 +26,10 @@ var (
 func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.Node) {
 	// merge labels & taints
 	translatedSpec := pNode.Spec.DeepCopy()
-	excludeAnnotations := []string{TaintsAnnotation, RancherAgentPodRequestsAnnotation, RancherAgentPodLimitsAnnotation}
-	labels, annotations := translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels, excludeAnnotations...)
+	applyMetadataOptions := translate.ApplyMetadataOptions{
+		ExcludeAnnotations: []string{TaintsAnnotation, RancherAgentPodRequestsAnnotation, RancherAgentPodLimitsAnnotation},
+	}
+	translate.ApplyVirtualMetadata(pNode, vNode, applyMetadataOptions)
 
 	// merge taints together
 	oldPhysical := []string{}
@@ -90,13 +92,10 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	if err != nil {
 		klog.Errorf("error encoding taints: %v", err)
 	} else {
-		if annotations == nil {
-			annotations = map[string]string{}
-		}
 		if len(physical) > 0 {
-			annotations[TaintsAnnotation] = string(out)
+			vNode.Annotations[TaintsAnnotation] = string(out)
 		} else {
-			delete(annotations, TaintsAnnotation)
+			delete(vNode.Annotations, TaintsAnnotation)
 		}
 	}
 
@@ -108,13 +107,11 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	// add annotation to prevent scale down of node by cluster-autoscaler
 	// the env var NODE_NAME is set when only one replica of vcluster is running
 	if nodeName, set := os.LookupEnv("NODE_NAME"); set && nodeName == pNode.Name {
-		annotations["cluster-autoscaler.kubernetes.io/scale-down-disabled"] = "true"
+		vNode.Annotations["cluster-autoscaler.kubernetes.io/scale-down-disabled"] = "true"
 	}
 
 	// set annotations, spec & labels
 	vNode.Spec = *translatedSpec
-	vNode.Annotations = annotations
-	vNode.Labels = labels
 }
 
 // translateUpdateStatus translates the node's status.
