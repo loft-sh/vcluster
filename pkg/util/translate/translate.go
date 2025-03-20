@@ -253,6 +253,7 @@ func ResetObjectMetadata(obj metav1.Object) {
 }
 
 type ApplyMetadataOptions struct {
+	SetHostNameAndNamespaceAnnotations bool
 	ExcludeAnnotations []string
 }
 
@@ -275,9 +276,11 @@ type ApplyMetadataOptions struct {
 func ApplyVirtualMetadata(pObj client.Object, vObj client.Object, options ApplyMetadataOptions) {
 	labels, annotations := ApplyMetadata(pObj.GetAnnotations(), vObj.GetAnnotations(), pObj.GetLabels(), vObj.GetLabels(), options.ExcludeAnnotations...)
 	labels[MarkerLabel] = VClusterName
-	annotations[HostNameAnnotation] = pObj.GetName()
-	if pObj.GetNamespace() != "" {
-		annotations[HostNamespaceAnnotation] = pObj.GetNamespace()
+	if options.SetHostNameAndNamespaceAnnotations {
+		annotations[HostNameAnnotation] = pObj.GetName()
+		if pObj.GetNamespace() != "" {
+			annotations[HostNamespaceAnnotation] = pObj.GetNamespace()
+		}
 	}
 	vObj.SetAnnotations(annotations)
 	vObj.SetLabels(labels)
