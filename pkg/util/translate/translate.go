@@ -254,7 +254,7 @@ func ResetObjectMetadata(obj metav1.Object) {
 
 type ApplyMetadataOptions struct {
 	SetHostNameAndNamespaceAnnotations bool
-	ExcludeAnnotations []string
+	ExcludeAnnotations                 []string
 }
 
 // SyncHostMetadataToVirtual copies metadata from the host resource to the virtual resource.
