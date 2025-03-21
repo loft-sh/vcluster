@@ -84,6 +84,10 @@ func (s *genericFromHostSyncer) Sync(ctx *synccontext.SyncContext, event *syncco
 	}()
 
 	s.FromHostSyncer.CopyHostObjectToVirtual(event.Virtual, event.Host)
+	applyMetadataOptions := translate.ApplyMetadataOptions{
+		SetHostNameAndNamespaceAnnotations: true,
+	}
+	translate.SyncHostMetadataToVirtual(event.Host, event.Virtual, applyMetadataOptions)
 
 	return ctrl.Result{}, nil
 }
