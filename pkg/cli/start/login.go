@@ -95,9 +95,10 @@ func (l *LoftStarter) loginViaCLI(url string) error {
 	}
 
 	// log into loft
-	loginClient := platform.NewLoginClientFromConfig(l.LoadedConfig(l.Log))
+	config := l.LoadedConfig(l.Log)
+	loginClient := platform.NewLoginClientFromConfig(config)
 	url = strings.TrimSuffix(url, "/")
-	err = loginClient.LoginWithAccessKey(url, accessKey.AccessKey, true)
+	err = loginClient.LoginWithAccessKey(url, accessKey.AccessKey, config.Platform.Insecure)
 	if err != nil {
 		return err
 	}
