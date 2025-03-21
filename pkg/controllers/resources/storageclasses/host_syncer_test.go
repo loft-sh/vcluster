@@ -84,17 +84,28 @@ func TestFromHostSync(t *testing.T) {
 		},
 		{
 			Name:                 "Sync host changes to virtual",
-			InitialPhysicalState: []runtime.Object{pObjectUpdated.DeepCopy()},
-			InitialVirtualState:  []runtime.Object{vObject.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pObjectUpdated.DeepCopy()}, // host resource has been updated
+			InitialVirtualState:  []runtime.Object{vObject.DeepCopy()},        // virtual resource has old values
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				storagev1.SchemeGroupVersion.WithKind("StorageClass"): {pObjectUpdated},
+				storagev1.SchemeGroupVersion.WithKind("StorageClass"): {pObjectUpdated}, // host resource did not change
 			},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				storagev1.SchemeGroupVersion.WithKind("StorageClass"): {vObjectUpdated},
+				storagev1.SchemeGroupVersion.WithKind("StorageClass"): {vObjectUpdated}, // virtual resource has been updated after syncing
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncerCtx, syncer := newFakeSyncer(t, ctx)
 				_, err := syncer.Sync(syncerCtx, synccontext.NewSyncEvent(pObjectUpdated, vObject.DeepCopy()))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Delete virtual resources after host resource has been deleted",
+			InitialPhysicalState: []runtime.Object{},                             // host resource has been deleted
+			InitialVirtualState:  []runtime.Object{vObject.DeepCopy()},           // virtual resource exists, since it was previously synced
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{}, // virtual resource has been deleted after syncing
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncerCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.SyncToHost(syncerCtx, synccontext.NewSyncToHostEvent(vObject.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
