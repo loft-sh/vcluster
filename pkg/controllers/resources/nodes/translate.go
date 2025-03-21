@@ -226,32 +226,32 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 				updateAllocatable(reqs, allocatable)
 			}
 
+			// Deduct Reserved resource from the allocatable capacity
 			reservedReqs := corev1.ResourceList{}
 			if s.reservedResourceCPU != "" {
 				cpu, err := resource.ParseQuantity(s.reservedResourceCPU)
 				if err != nil {
-					klog.Errorf("error parsing reservedResource cpu: %v", err)
-				} else {
-					reservedReqs[corev1.ResourceCPU] = cpu
+					return nil, fmt.Errorf("error parsing reservedResource cpu: %w", err)
 				}
+
+				reservedReqs[corev1.ResourceCPU] = cpu
 			}
 			if s.reservedResourceMemory != "" {
 				memory, err := resource.ParseQuantity(s.reservedResourceMemory)
 				if err != nil {
-					klog.Errorf("error parsing reservedResource memory: %v", err)
-				} else {
-					reservedReqs[corev1.ResourceMemory] = memory
+					return nil, fmt.Errorf("error parsing reservedResource memory: %w", err)
 				}
+
+				reservedReqs[corev1.ResourceMemory] = memory
 			}
 			if s.reservedResourceEphemeralStorage != "" {
 				ephemeralStorage, err := resource.ParseQuantity(s.reservedResourceEphemeralStorage)
 				if err != nil {
-					klog.Errorf("error parsing reservedResource ephemeral storage: %v", err)
-				} else {
-					reservedReqs[corev1.ResourceEphemeralStorage] = ephemeralStorage
+					return nil, fmt.Errorf("error parsing reservedResource ephemeral storage: %w", err)
 				}
-			}
 
+				reservedReqs[corev1.ResourceEphemeralStorage] = ephemeralStorage
+			}
 			updateAllocatable(reservedReqs, allocatable)
 
 			allocatable[corev1.ResourcePods] -= nonVClusterPods
@@ -379,11 +379,12 @@ func (s *nodeSyncer) ManagedPodRequestsAndLimits(ctx *synccontext.SyncContext, p
 	reqs := corev1.ResourceList{}
 
 	virtualPod := &corev1.Pod{}
-	err := ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.DeepCopy().Annotations[translate.NamespaceAnnotation], Name: pod.DeepCopy().Annotations[translate.NameAnnotation]}, virtualPod)
+	err := ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Namespace: pod.Annotations[translate.NamespaceAnnotation], Name: pod.Annotations[translate.NameAnnotation]}, virtualPod)
 	if err != nil {
-		return reqs, err
+		return reqs, fmt.Errorf("error getting virtual pod: %w", err)
 	}
 
+	// build a map of virtual & physical pod container statuses
 	virtualPodContainerStatuses := map[string]struct{}{}
 	for _, cs := range [][]corev1.ContainerStatus{virtualPod.Status.ContainerStatuses, virtualPod.Status.InitContainerStatuses} {
 		for i := range cs {
@@ -401,12 +402,17 @@ func (s *nodeSyncer) ManagedPodRequestsAndLimits(ctx *synccontext.SyncContext, p
 	for _, containers := range [][]corev1.Container{pod.Spec.Containers, pod.Spec.InitContainers} {
 		for _, container := range containers {
 			containerReqs := container.Resources.Requests
+
+			// check if the current container exists in the virtual pod status map
 			_, found := virtualPodContainerStatuses[container.Name]
 			if found {
 				continue
 			}
 
+			// if it is not found, it means it is an container injected on the host pod
+			// and it needs to be considered in the pod's allocated resources
 			if cs, ok := podContainerStatuses[container.Name]; ok {
+				//skip if it is not in running state
 				if cs.State.Running == nil {
 					continue
 				}
@@ -458,6 +464,7 @@ func maxOf(a corev1.ResourceList, b corev1.ResourceList) corev1.ResourceList {
 	return result
 }
 
+// updateAllocatable deducts the supplied resource and updates the allocatable capacity
 func updateAllocatable(reqs corev1.ResourceList, allocatable map[corev1.ResourceName]int64) {
 	for _, resName := range []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory, corev1.ResourceEphemeralStorage} {
 		if req, ok := reqs[resName]; ok {

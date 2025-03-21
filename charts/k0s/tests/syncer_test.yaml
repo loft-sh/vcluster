@@ -72,7 +72,7 @@ tests:
           reservedResources:
             cpu: "100m"
             memory: "256Mi"
-            ephemeralStorage: "512Mi"
+            ephemeral-storage: "512Mi"
     
     asserts:
       - hasDocuments:

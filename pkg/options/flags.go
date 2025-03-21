@@ -28,9 +28,9 @@ func AddFlags(flags *pflag.FlagSet, options *VirtualClusterOptions) {
 
 	flags.BoolVar(&options.SyncAllNodes, "sync-all-nodes", false, "If enabled and --fake-nodes is false, the virtual cluster will sync all nodes instead of only the needed ones")
 	flags.BoolVar(&options.EnableScheduler, "enable-scheduler", false, "If enabled, will expect a scheduler running in the virtual cluster")
-	flags.StringVar(&options.ReservedResourceCPU, "reserved-resource-cpu", "", "The amount of a cpu resource to be reserved/subtracted from the allocatable resource on the virtual node.")
-	flags.StringVar(&options.ReservedResourceMemory, "reserved-resource-memory", "", "The amount of a memory resource to be reserved/subtracted from the allocatable resource on the virtual node.")
-	flags.StringVar(&options.ReservedResourceEphemeralStorage, "reserved-resource-ephemeral-storage", "", "The amount of a ephemeral storage resource to be reserved/subtracted from the allocatable resource on the virtual node.")
+	flags.StringVar(&options.ReservedResourceCPU, "reserved-resource-cpu", "", "The amount of cpu resource to be reserved/subtracted from the allocatable resource capacity on the virtual node.")
+	flags.StringVar(&options.ReservedResourceMemory, "reserved-resource-memory", "", "The amount of memory resource to be reserved/subtracted from the allocatable resource capacity on the virtual node.")
+	flags.StringVar(&options.ReservedResourceEphemeralStorage, "reserved-resource-ephemeral-storage", "", "The amount of ephemeral-storage resource to be reserved/subtracted from the allocatable resource capacity on the virtual node.")
 	flags.BoolVar(&options.DisableFakeKubelets, "disable-fake-kubelets", false, "If disabled, the virtual cluster will not create fake kubelet endpoints to support metrics-servers")
 	flags.BoolVar(&options.FakeKubeletIPs, "fake-kubelet-ips", true, "If enabled, virtual cluster will assign fake ips of type NodeInternalIP to fake the kubelets")
 	flags.BoolVar(&options.ClearNodeImages, "node-clear-image-status", false, "If enabled, when syncing real nodes, the status.images data will be removed from the vcluster nodes")
