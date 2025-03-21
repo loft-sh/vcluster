@@ -54,7 +54,10 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 	}
 
 	return &nodeSyncer{
-		enableScheduler: ctx.Options.EnableScheduler,
+		enableScheduler:                  ctx.Options.EnableScheduler,
+		reservedResourceCPU:              ctx.Options.ReservedResourceCPU,
+		reservedResourceMemory:           ctx.Options.ReservedResourceMemory,
+		reservedResourceEphemeralStorage: ctx.Options.ReservedResourceEphemeralStorage,
 
 		enforceNodeSelector: ctx.Options.EnforceNodeSelector,
 		nodeSelector:        nodeSelector,
@@ -70,17 +73,21 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 }
 
 type nodeSyncer struct {
-	nodeSelector        labels.Selector
-	physicalClient      client.Client
-	virtualClient       client.Client
-	unmanagedPodCache   client.Reader
-	nodeServiceProvider nodeservice.Provider
-	enforcedTolerations []*corev1.Toleration
-	enableScheduler     bool
-	clearImages         bool
-	enforceNodeSelector bool
-	useFakeKubelets     bool
-	fakeKubeletIPs      bool
+	nodeSelector                     labels.Selector
+	physicalClient                   client.Client
+	virtualClient                    client.Client
+	managedPodCache                  client.Reader
+	unmanagedPodCache                client.Reader
+	nodeServiceProvider              nodeservice.Provider
+	enforcedTolerations              []*corev1.Toleration
+	enableScheduler                  bool
+	reservedResourceCPU              string
+	reservedResourceMemory           string
+	reservedResourceEphemeralStorage string
+	clearImages                      bool
+	enforceNodeSelector              bool
+	useFakeKubelets                  bool
+	fakeKubeletIPs                   bool
 }
 
 func (s *nodeSyncer) Resource() client.Object {
@@ -100,7 +107,7 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 			return bld, fmt.Errorf("constructing label selector for non-vcluster pods: %w", err)
 		}
 		// create a pod cache containing pods from all namespaces for calculating the correct node resources
-		podCache, err := cache.New(ctx.PhysicalManager.GetConfig(), cache.Options{
+		unmanagedPodCache, err := cache.New(ctx.PhysicalManager.GetConfig(), cache.Options{
 			Scheme: ctx.PhysicalManager.GetScheme(),
 			Mapper: ctx.PhysicalManager.GetRESTMapper(),
 			// omits pods managed by the vcluster
@@ -110,7 +117,7 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 			return nil, errors.Wrap(err, "create cache")
 		}
 		// add index for pod by node
-		err = podCache.IndexField(ctx.Context, &corev1.Pod{}, constants.IndexRunningNonVClusterPodsByNode, func(object client.Object) []string {
+		err = unmanagedPodCache.IndexField(ctx.Context, &corev1.Pod{}, constants.IndexRunningNonVClusterPodsByNode, func(object client.Object) []string {
 			pPod := object.(*corev1.Pod)
 			// we ignore all non-running pods and the ones that are part of the current vcluster
 			// to later calculate the status.allocatable part of the nodes correctly
@@ -125,41 +132,88 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 		if err != nil {
 			return nil, errors.Wrap(err, "index pod by node")
 		}
+
+		managedSelector, err := labels.NewRequirement(translate.MarkerLabel, selection.Equals, []string{translate.VClusterName})
+		if err != nil {
+			return bld, fmt.Errorf("constructing label selector for vcluster managed pods: %w", err)
+		}
+		// create a pod cache containing pods managed by the current vCluster
+		managedPodCache, err := cache.New(ctx.PhysicalManager.GetConfig(), cache.Options{
+			Scheme: ctx.PhysicalManager.GetScheme(),
+			Mapper: ctx.PhysicalManager.GetRESTMapper(),
+			// only select pods managed by the vcluster
+			DefaultLabelSelector: labels.NewSelector().Add(*managedSelector),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "create cache")
+		}
+		// add index for pod by node
+		err = managedPodCache.IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(object client.Object) []string {
+			pPod := object.(*corev1.Pod)
+			// we ignore all non-running pods and the ones not assigned to a node
+			if pPod.Status.Phase == corev1.PodSucceeded || pPod.Status.Phase == corev1.PodFailed {
+				return []string{}
+			} else if pPod.Spec.NodeName == "" {
+				return []string{}
+			}
+
+			return []string{pPod.Spec.NodeName}
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "index pod by node")
+		}
+
 		go func() {
-			err := podCache.Start(ctx.Context)
+			err := unmanagedPodCache.Start(ctx.Context)
 			if err != nil {
-				klog.Fatalf("error starting pod cache: %v", err)
+				klog.Fatalf("error starting unmanaged pod cache: %v", err)
 			}
 		}()
 
-		podCache.WaitForCacheSync(ctx.Context)
-		s.unmanagedPodCache = podCache
+		go func() {
+			err := managedPodCache.Start(ctx.Context)
+			if err != nil {
+				klog.Fatalf("error starting managed pod cache: %v", err)
+			}
+		}()
+
+		unmanagedPodCache.WaitForCacheSync(ctx.Context)
+		s.unmanagedPodCache = unmanagedPodCache
+
+		managedPodCache.WaitForCacheSync(ctx.Context)
+		s.managedPodCache = managedPodCache
 
 		// enqueues nodes based on pod phase changes if the scheduler is enabled
 		// the syncer is configured to update virtual node's .status.allocatable fields by summing the consumption of these pods
-		bld.WatchesRawSource(
-			source.Kind(podCache, &corev1.Pod{}),
-			handler.Funcs{
-				GenericFunc: func(_ context.Context, ev event.GenericEvent, q workqueue.RateLimitingInterface) {
-					enqueueNonVclusterPod(nil, ev.Object, q)
-				},
-				CreateFunc: func(_ context.Context, ev event.CreateEvent, q workqueue.RateLimitingInterface) {
-					enqueueNonVclusterPod(nil, ev.Object, q)
-				},
-				UpdateFunc: func(_ context.Context, ue event.UpdateEvent, q workqueue.RateLimitingInterface) {
-					enqueueNonVclusterPod(ue.ObjectOld, ue.ObjectNew, q)
-				},
-				DeleteFunc: func(_ context.Context, ev event.DeleteEvent, q workqueue.RateLimitingInterface) {
-					enqueueNonVclusterPod(nil, ev.Object, q)
-				},
+		handlerFuncs := handler.Funcs{
+			GenericFunc: func(_ context.Context, ev event.GenericEvent, q workqueue.RateLimitingInterface) {
+				enqueuePod(nil, ev.Object, q)
 			},
+			CreateFunc: func(_ context.Context, ev event.CreateEvent, q workqueue.RateLimitingInterface) {
+				enqueuePod(nil, ev.Object, q)
+			},
+			UpdateFunc: func(_ context.Context, ue event.UpdateEvent, q workqueue.RateLimitingInterface) {
+				enqueuePod(ue.ObjectOld, ue.ObjectNew, q)
+			},
+			DeleteFunc: func(_ context.Context, ev event.DeleteEvent, q workqueue.RateLimitingInterface) {
+				enqueuePod(nil, ev.Object, q)
+			},
+		}
+
+		bld.WatchesRawSource(
+			source.Kind(unmanagedPodCache, &corev1.Pod{}),
+			handlerFuncs,
+		)
+		bld.WatchesRawSource(
+			source.Kind(managedPodCache, &corev1.Pod{}),
+			handlerFuncs,
 		)
 	}
 	return modifyController(ctx, s.nodeServiceProvider, bld)
 }
 
 // only used when scheduler is enabled
-func enqueueNonVclusterPod(old, newObj client.Object, q workqueue.RateLimitingInterface) {
+func enqueuePod(old, newObj client.Object, q workqueue.RateLimitingInterface) {
 	pod, ok := newObj.(*corev1.Pod)
 	if !ok {
 		klog.Errorf("invalid type passed to pod handler: %T", newObj)

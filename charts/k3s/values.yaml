@@ -82,6 +82,15 @@ sync:
     # from within the virtual cluster. This is useful if you would like to
     # taint, drain and label nodes from within the virtual cluster
     enableScheduler: false
+    # The amount of a particular resource type to be reserved/subtracted from the
+    # allocatable resource on the virtual node. This is to account for additional
+    # resource requirement in case of sidecar container(s) injected via mutating
+    # webhooks when workloads are synced from virtual to host.
+    # This will take effect only when the virtual scheduler is enabled.
+    reservedResources:
+      cpu: ""
+      memory: ""
+      ephemeralStorage: ""
     # DEPRECATED: use enable scheduler instead
     # syncNodeChanges allows vcluster user edits of the nodes to be synced down to the host nodes.
     # Write permissions on node resource will be given to the vcluster.
