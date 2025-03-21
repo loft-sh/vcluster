@@ -257,7 +257,7 @@ type ApplyMetadataOptions struct {
 	ExcludeAnnotations []string
 }
 
-// ApplyVirtualMetadata copies metadata from the host resource to the virtual resource.
+// SyncHostMetadataToVirtual copies metadata from the host resource to the virtual resource.
 //
 // The following annotations are not copied from the host resource:
 //   - vcluster.loft.sh/managed-annotations
@@ -273,7 +273,7 @@ type ApplyMetadataOptions struct {
 //   - vcluster.loft.sh/managed-by: vCluster name, so you can know that the resource is managed by vCluster.
 //
 // When this function exists, virtual resource has annotations and labels maps created, even if they are empty.
-func ApplyVirtualMetadata(pObj client.Object, vObj client.Object, options ApplyMetadataOptions) {
+func SyncHostMetadataToVirtual(pObj client.Object, vObj client.Object, options ApplyMetadataOptions) {
 	labels, annotations := ApplyMetadata(pObj.GetAnnotations(), vObj.GetAnnotations(), pObj.GetLabels(), vObj.GetLabels(), options.ExcludeAnnotations...)
 	labels[MarkerLabel] = VClusterName
 	if options.SetHostNameAndNamespaceAnnotations {

@@ -29,7 +29,7 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	applyMetadataOptions := translate.ApplyMetadataOptions{
 		ExcludeAnnotations: []string{TaintsAnnotation, RancherAgentPodRequestsAnnotation, RancherAgentPodLimitsAnnotation},
 	}
-	translate.ApplyVirtualMetadata(pNode, vNode, applyMetadataOptions)
+	translate.SyncHostMetadataToVirtual(pNode, vNode, applyMetadataOptions)
 
 	// merge taints together
 	oldPhysical := []string{}

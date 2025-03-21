@@ -75,7 +75,7 @@ func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 	}()
 
 	// check if there is a change
-	translate.ApplyVirtualMetadata(event.Host, event.Virtual, translate.ApplyMetadataOptions{})
+	translate.SyncHostMetadataToVirtual(event.Host, event.Virtual, translate.ApplyMetadataOptions{})
 	event.Virtual.Provisioner = event.Host.Provisioner
 	event.Virtual.Parameters = event.Host.Parameters
 	event.Virtual.ReclaimPolicy = event.Host.ReclaimPolicy
