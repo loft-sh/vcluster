@@ -48,17 +48,28 @@ func TestFromHostSync(t *testing.T) {
 			Annotations: map[string]string{
 				"example.com/annotation-a":             "test-1",
 				"example.com/annotation-b":             "test-2",
-				translate.ManagedAnnotationsAnnotation: strings.Join(slices.Collect(maps.Keys(pObject.Annotations)), "\n"),
-				translate.ManagedLabelsAnnotation:      strings.Join(slices.Collect(maps.Keys(pObject.Labels)), "\n"),
+				translate.ManagedAnnotationsAnnotation: managedKeysValue(pObject.Annotations),
+				translate.ManagedLabelsAnnotation:      managedKeysValue(pObject.Labels),
 			},
 		},
 		Provisioner: "my-provisioner",
 	}
+	pObjectUpdated := pObject.DeepCopy()
+	pObjectUpdated.Labels["example.com/label-c"] = "test-3"
+	pObjectUpdated.Parameters = map[string]string{
+		"test": "value",
+	}
+	vObjectUpdated := vObject.DeepCopy()
+	vObjectUpdated.Labels["example.com/label-c"] = "test-3"
+	vObjectUpdated.Annotations[translate.ManagedLabelsAnnotation] = managedKeysValue(pObjectUpdated.Labels)
+	vObjectUpdated.Parameters = map[string]string{
+		"test": "value",
+	}
 
 	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
-			Name:                 "Sync host to virtual",
-			InitialPhysicalState: []runtime.Object{pObject},
+			Name:                 "Sync new host resource to virtual",
+			InitialPhysicalState: []runtime.Object{pObject.DeepCopy()},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				storagev1.SchemeGroupVersion.WithKind("StorageClass"): {pObject},
 			},
@@ -71,10 +82,30 @@ func TestFromHostSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
+		{
+			Name:                 "Sync host changes to virtual",
+			InitialPhysicalState: []runtime.Object{pObjectUpdated.DeepCopy()},
+			InitialVirtualState:  []runtime.Object{vObject.DeepCopy()},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				storagev1.SchemeGroupVersion.WithKind("StorageClass"): {pObjectUpdated},
+			},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				storagev1.SchemeGroupVersion.WithKind("StorageClass"): {vObjectUpdated},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncerCtx, syncer := newFakeSyncer(t, ctx)
+				_, err := syncer.Sync(syncerCtx, synccontext.NewSyncEvent(pObjectUpdated, vObject.DeepCopy()))
+				assert.NilError(t, err)
+			},
+		},
 	})
 }
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *hostStorageClassSyncer) {
 	syncContext, object := syncertesting.FakeStartSyncer(t, ctx, NewHostStorageClassSyncer)
 	return syncContext, object.(*hostStorageClassSyncer)
+}
+
+func managedKeysValue(m map[string]string) string {
+	return strings.Join(slices.Sorted(maps.Keys(m)), "\n")
 }
