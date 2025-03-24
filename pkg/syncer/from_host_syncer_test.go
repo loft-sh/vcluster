@@ -155,7 +155,13 @@ func managedKeysValue(m map[string]string) string {
 	return strings.Join(slices.Sorted(maps.Keys(m)), "\n")
 }
 
-// fakeFromHostSyncer is a simple FromHostSyncer test implementation.
+// fakeFromHostSyncer is a simple FromHostSyncer test implementation. It mimics
+// a ConfigMap FromHost syncer, but it doesn't sync any ConfigMap data from host
+// to virtual, since the genericFromHostSyncer tests do not care how kind-specific
+// sync is working.
+//
+// The only important func below is GetMappings, because it specifies how host
+// resources are named after being synced to virtual.
 type fakeFromHostSyncer struct{}
 
 func NewFakeFromHostSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
