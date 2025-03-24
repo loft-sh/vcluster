@@ -84,10 +84,7 @@ func (s *genericFromHostSyncer) Sync(ctx *synccontext.SyncContext, event *syncco
 	}()
 
 	s.FromHostSyncer.CopyHostObjectToVirtual(event.Virtual, event.Host)
-	applyMetadataOptions := translate.ApplyMetadataOptions{
-		SetHostNameAndNamespaceAnnotations: true,
-	}
-	translate.SyncHostMetadataToVirtual(event.Host, event.Virtual, applyMetadataOptions)
+	translate.SyncHostMetadataToVirtual(event.Host, event.Virtual, translate.ApplyMetadataOptions{})
 
 	return ctrl.Result{}, nil
 }
@@ -99,6 +96,7 @@ func (s *genericFromHostSyncer) SyncToVirtual(ctx *synccontext.SyncContext, even
 	}
 
 	vObj := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.GetName(), Namespace: event.Host.GetNamespace()}, event.Host))
+	translate.SyncHostMetadataToVirtual(event.Host, vObj, translate.ApplyMetadataOptions{})
 
 	// make sure namespace exists
 	namespace := &corev1.Namespace{}
