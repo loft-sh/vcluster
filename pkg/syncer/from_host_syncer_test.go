@@ -135,6 +135,19 @@ func TestFromHostSyncer(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
+		{
+			Name:                 "Delete virtual resources after host resource has been deleted",
+			InitialPhysicalState: []runtime.Object{},                             // host resource has been deleted
+			InitialVirtualState:  []runtime.Object{vObject.DeepCopy()},           // virtual resource exists, since it was previously synced
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{}, // virtual resource has been deleted after syncing
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncerCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, NewFakeFromHostSyncer)
+				fromHostSyncer := syncer.(*genericFromHostSyncer)
+				syncToHostEvent := synccontext.NewSyncToHostEvent(client.Object(vObject.DeepCopy()))
+				_, err := fromHostSyncer.SyncToHost(syncerCtx, syncToHostEvent)
+				assert.NilError(t, err)
+			},
+		},
 	})
 }
 
