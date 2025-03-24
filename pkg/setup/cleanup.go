@@ -15,7 +15,7 @@ import (
 func deletePreviouslySyncedResources(ctx *synccontext.ControllerContext) error {
 	err := deletePreviouslySyncedServices(ctx)
 	if err != nil {
-		return fmt.Errorf("error ocurred when trying to delete previously synced services: %w", err)
+		return fmt.Errorf("failed to delete previously synced services: %w", err)
 	}
 	return nil
 }
@@ -47,7 +47,7 @@ func deletePreviouslySyncedServices(ctx *synccontext.ControllerContext) error {
 		logger.Info("deleting previously synced service", "name", service.Name, "namespace", service.Namespace)
 		err = virtualClient.Delete(ctx, &service)
 		if err != nil {
-			return fmt.Errorf("failed to delete previously synced service: %v", err)
+			return fmt.Errorf("failed to delete previously synced service: %w", err)
 		}
 		logger.Info("deleted previously synced service", "name", service.Name, "namespace", service.Namespace)
 	}
