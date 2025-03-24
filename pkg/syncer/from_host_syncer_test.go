@@ -80,15 +80,15 @@ func TestFromHostSyncer(t *testing.T) {
 	pObjectUpdated := pObject.DeepCopy()
 	pObjectUpdated.Labels["example.com/label-b"] = "updated-test-2"
 	pObjectUpdated.Labels["example.com/label-c"] = "new-test-3"
-	pObjectUpdated.Labels["example.com/annotation-a"] = "updated-test-1"
-	pObjectUpdated.Labels["example.com/annotation-c"] = "new-test-3"
+	pObjectUpdated.Annotations["example.com/annotation-a"] = "updated-test-1"
+	pObjectUpdated.Annotations["example.com/annotation-c"] = "new-test-3"
 
 	// Virtual object after syncing the updated physical object.
 	vObjectUpdated := vObject.DeepCopy()
 	vObjectUpdated.Labels["example.com/label-b"] = "updated-test-2"
 	vObjectUpdated.Labels["example.com/label-c"] = "new-test-3"
-	vObjectUpdated.Labels["example.com/annotation-a"] = "updated-test-1"
-	vObjectUpdated.Labels["example.com/annotation-c"] = "new-test-3"
+	vObjectUpdated.Annotations["example.com/annotation-a"] = "updated-test-1"
+	vObjectUpdated.Annotations["example.com/annotation-c"] = "new-test-3"
 	vObjectUpdated.Annotations[translate.ManagedAnnotationsAnnotation] = managedKeysValue(pObjectUpdated.Annotations)
 	vObjectUpdated.Annotations[translate.ManagedLabelsAnnotation] = managedKeysValue(pObjectUpdated.Labels)
 
@@ -114,6 +114,24 @@ func TestFromHostSyncer(t *testing.T) {
 
 				// Second call creates the virtual resource.
 				_, err = fromHostSyncer.SyncToVirtual(syncerCtx, syncToVirtualEvent)
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Sync updated host resource to virtual",
+			InitialPhysicalState: []runtime.Object{pObjectUpdated.DeepCopy()},
+			InitialVirtualState:  []runtime.Object{vObject.DeepCopy()},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("ConfigMap"): {pObjectUpdated},
+			},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("ConfigMap"): {vObjectUpdated},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncerCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, NewFakeFromHostSyncer)
+				fromHostSyncer := syncer.(*genericFromHostSyncer)
+				syncEvent := synccontext.NewSyncEvent(client.Object(pObjectUpdated.DeepCopy()), client.Object(vObject.DeepCopy()))
+				_, err := fromHostSyncer.Sync(syncerCtx, syncEvent)
 				assert.NilError(t, err)
 			},
 		},
