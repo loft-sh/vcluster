@@ -8,6 +8,7 @@ profile.out
 /vcluster
 /zzz
 /cmd/vclusterctl/__debug_bin
+/main
 /release
 /cmd/vclusterctl/cmd/charts/
 /pkg/embed/chart/vcluster-*
