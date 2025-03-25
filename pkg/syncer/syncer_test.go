@@ -207,6 +207,7 @@ func TestController(t *testing.T) {
 								translate.HostNamespaceAnnotation: testingutil.DefaultTestTargetNamespace,
 							},
 							Labels: map[string]string{
+								translate.MarkerLabel:    translate.VClusterName,
 								translate.NamespaceLabel: namespaceInVClusterA,
 							},
 						},
@@ -368,6 +369,7 @@ func TestReconcile(t *testing.T) {
 								translate.HostNameAnnotation:      translator.HostName(nil, "a", namespaceInVClusterA).Name,
 							},
 							Labels: map[string]string{
+								translate.MarkerLabel:    translate.VClusterName,
 								translate.NamespaceLabel: namespaceInVClusterA,
 							},
 						},
@@ -451,6 +453,7 @@ func TestReconcile(t *testing.T) {
 								translate.HostNamespaceAnnotation: testingutil.DefaultTestTargetNamespace,
 							},
 							Labels: map[string]string{
+								translate.MarkerLabel:    translate.VClusterName,
 								translate.NamespaceLabel: namespaceInVClusterA,
 							},
 						},

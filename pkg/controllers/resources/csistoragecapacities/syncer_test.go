@@ -40,6 +40,7 @@ func TestSyncHostStorageClass(t *testing.T) {
 			translate.HostNamespaceAnnotation: "kube-system",
 		},
 		Labels: map[string]string{
+			translate.MarkerLabel:        translate.VClusterName,
 			"vcluster.loft.sh/namespace": "test",
 		},
 		ResourceVersion: "999",
@@ -170,6 +171,7 @@ func TestSyncStorageClass(t *testing.T) {
 			translate.HostNamespaceAnnotation: "kube-system",
 		},
 		Labels: map[string]string{
+			translate.MarkerLabel:        translate.VClusterName,
 			"vcluster.loft.sh/namespace": "test",
 		},
 		ResourceVersion: "999",

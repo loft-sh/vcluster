@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -76,8 +77,14 @@ func TestSync(t *testing.T) {
 		},
 	}
 
+	var vObjUpdatedMeta metav1.ObjectMeta
+	vObjectMeta.DeepCopyInto(&vObjUpdatedMeta)
+	if vObjUpdatedMeta.Labels == nil {
+		vObjUpdatedMeta.Labels = map[string]string{}
+	}
+	vObjUpdatedMeta.Labels[translate.MarkerLabel] = translate.VClusterName
 	vObjUpdated := &storagev1.CSINode{
-		ObjectMeta: vObjectMeta,
+		ObjectMeta: vObjUpdatedMeta,
 		Spec: storagev1.CSINodeSpec{
 			Drivers: []storagev1.CSINodeDriver{
 				{

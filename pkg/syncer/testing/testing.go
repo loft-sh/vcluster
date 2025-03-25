@@ -225,14 +225,6 @@ func stripObject(obj runtime.Object) runtime.Object {
 		accessor.SetAnnotations(nil)
 	}
 
-	l := accessor.GetLabels()
-	if l != nil {
-		delete(l, "vcluster.loft.sh/managed-by")
-	}
-	if len(l) == 0 {
-		accessor.SetLabels(nil)
-	}
-
 	_, ok := newObj.(*unstructured.Unstructured)
 	if !ok {
 		typeAccessor, err := meta.TypeAccessor(newObj)

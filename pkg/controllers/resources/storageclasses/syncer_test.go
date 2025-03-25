@@ -32,7 +32,7 @@ func TestSync(t *testing.T) {
 			Name:            translate.Default.HostNameCluster(vObjectMeta.Name),
 			ResourceVersion: syncertesting.FakeClientResourceVersion,
 			Labels: map[string]string{
-				translate.MarkerLabel: translate.VClusterName,
+				translate.MarkerLabel: translate.SafeConcatName(testingutil.DefaultTestTargetNamespace, "x", translate.VClusterName),
 			},
 			Annotations: map[string]string{
 				translate.NameAnnotation:     "testsc",
@@ -54,7 +54,7 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: translate.Default.HostNameCluster(vObjectMeta.Name),
 			Labels: map[string]string{
-				translate.MarkerLabel: translate.VClusterName,
+				translate.MarkerLabel: translate.SafeConcatName(testingutil.DefaultTestTargetNamespace, "x", translate.VClusterName),
 			},
 			Annotations: map[string]string{
 				translate.NameAnnotation:     "testsc",
