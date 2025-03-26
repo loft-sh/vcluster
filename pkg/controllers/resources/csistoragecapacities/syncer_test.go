@@ -27,19 +27,32 @@ func TestSyncHostStorageClass(t *testing.T) {
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      "test-csistoragecapacity",
 		Namespace: "test",
+		Annotations: map[string]string{
+			"test-annotation-1": "hello-1",
+			"test-annotation-2": "hello-2",
+		},
+		Labels: map[string]string{
+			"test-label-1": "hello-1",
+			"test-label-2": "hello-2",
+		},
 	}
 	vObjectMeta := metav1.ObjectMeta{
 		Name:      "test-csistoragecapacity-x-test",
 		Namespace: "kube-system",
 		Annotations: map[string]string{
-			translate.NameAnnotation:          "test-csistoragecapacity",
-			translate.NamespaceAnnotation:     "test",
-			translate.UIDAnnotation:           "",
-			translate.KindAnnotation:          storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity").String(),
-			translate.HostNameAnnotation:      "test-csistoragecapacity-x-test",
-			translate.HostNamespaceAnnotation: "kube-system",
+			"test-annotation-1":                    "hello-1",
+			"test-annotation-2":                    "hello-2",
+			translate.ManagedAnnotationsAnnotation: translate.ManagedKeysValue(pObjectMeta.Annotations),
+			translate.NameAnnotation:               "test-csistoragecapacity",
+			translate.NamespaceAnnotation:          "test",
+			translate.UIDAnnotation:                "",
+			translate.KindAnnotation:               storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity").String(),
+			translate.HostNameAnnotation:           "test-csistoragecapacity-x-test",
+			translate.HostNamespaceAnnotation:      "kube-system",
 		},
 		Labels: map[string]string{
+			"test-label-1":               "hello-1",
+			"test-label-2":               "hello-2",
 			translate.MarkerLabel:        translate.VClusterName,
 			"vcluster.loft.sh/namespace": "test",
 		},
@@ -158,19 +171,32 @@ func TestSyncStorageClass(t *testing.T) {
 	pObjectMeta := metav1.ObjectMeta{
 		Name:      "test-csistoragecapacity",
 		Namespace: "test",
+		Annotations: map[string]string{
+			"test-annotation-1": "hello-1",
+			"test-annotation-2": "hello-2",
+		},
+		Labels: map[string]string{
+			"test-label-1": "hello-1",
+			"test-label-2": "hello-2",
+		},
 	}
 	vObjectMeta := metav1.ObjectMeta{
 		Name:      "test-csistoragecapacity-x-test",
 		Namespace: "kube-system",
 		Annotations: map[string]string{
-			translate.NameAnnotation:          "test-csistoragecapacity",
-			translate.NamespaceAnnotation:     "test",
-			translate.UIDAnnotation:           "",
-			translate.KindAnnotation:          storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity").String(),
-			translate.HostNameAnnotation:      "test-csistoragecapacity-x-test",
-			translate.HostNamespaceAnnotation: "kube-system",
+			"test-annotation-1":                    "hello-1",
+			"test-annotation-2":                    "hello-2",
+			translate.ManagedAnnotationsAnnotation: translate.ManagedKeysValue(pObjectMeta.Annotations),
+			translate.NameAnnotation:               "test-csistoragecapacity",
+			translate.NamespaceAnnotation:          "test",
+			translate.UIDAnnotation:                "",
+			translate.KindAnnotation:               storagev1.SchemeGroupVersion.WithKind("CSIStorageCapacity").String(),
+			translate.HostNameAnnotation:           "test-csistoragecapacity-x-test",
+			translate.HostNamespaceAnnotation:      "kube-system",
 		},
 		Labels: map[string]string{
+			"test-label-1":               "hello-1",
+			"test-label-2":               "hello-2",
 			translate.MarkerLabel:        translate.VClusterName,
 			"vcluster.loft.sh/namespace": "test",
 		},
