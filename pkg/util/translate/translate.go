@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -534,4 +536,10 @@ func KindExists(config *rest.Config, groupVersionKind schema.GroupVersionKind) (
 	}
 
 	return metav1.APIResource{}, kerrors.NewNotFound(schema.GroupResource{Group: groupVersionKind.Group}, groupVersionKind.Kind)
+}
+
+// ManagedKeysValue returns all map keys concatenated (and sorted) into a multi-line string (with
+// one key per line).
+func ManagedKeysValue(m map[string]string) string {
+	return strings.Join(slices.Sorted(maps.Keys(m)), "\n")
 }

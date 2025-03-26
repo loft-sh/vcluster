@@ -48,6 +48,7 @@ func (i *ingressClassSyncer) Syncer() syncertypes.Sync[client.Object] {
 
 func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*networkingv1.IngressClass]) (ctrl.Result, error) {
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
+	translate.SyncHostMetadataToVirtual(event.Host, vObj, translate.ApplyMetadataOptions{})
 
 	// Apply pro patches
 	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.IngressClasses.Patches, true)
@@ -71,8 +72,7 @@ func (i *ingressClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 	}()
 
 	// cast objects
-	event.Virtual.Annotations = event.Host.Annotations
-	event.Virtual.Labels = event.Host.Labels
+	translate.SyncHostMetadataToVirtual(event.Host, event.Virtual, translate.ApplyMetadataOptions{})
 	event.Virtual.Spec.Controller = event.Host.Spec.Controller
 	event.Virtual.Spec.Parameters = event.Host.Spec.Parameters
 	return ctrl.Result{}, nil

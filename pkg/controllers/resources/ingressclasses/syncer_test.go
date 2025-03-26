@@ -14,12 +14,29 @@ import (
 )
 
 func TestSync(t *testing.T) {
+	const resourceName = "test-ingc"
+
+	pObj := &networkingv1.IngressClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: resourceName,
+			Annotations: map[string]string{
+				translate.NameAnnotation: resourceName,
+				translate.UIDAnnotation:  "",
+				translate.KindAnnotation: networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
+			},
+		},
+		Spec: networkingv1.IngressClassSpec{
+			Controller: "test-controller",
+		},
+	}
+
 	vObjectMeta := metav1.ObjectMeta{
-		Name: "test-ingc",
+		Name: resourceName,
 		Annotations: map[string]string{
-			translate.NameAnnotation: "test-ingc",
-			translate.UIDAnnotation:  "",
-			translate.KindAnnotation: networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
+			translate.NameAnnotation:               resourceName,
+			translate.UIDAnnotation:                "",
+			translate.KindAnnotation:               networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
+			translate.ManagedAnnotationsAnnotation: translate.ManagedKeysValue(pObj.Annotations),
 		},
 		Labels: map[string]string{
 			translate.MarkerLabel: translate.VClusterName,
@@ -31,35 +48,6 @@ func TestSync(t *testing.T) {
 		ObjectMeta: vObjectMeta,
 		Spec: networkingv1.IngressClassSpec{
 			Controller: "test-controller",
-		},
-	}
-
-	pObj := &networkingv1.IngressClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: vObjectMeta.Name,
-			Labels: map[string]string{
-				translate.MarkerLabel: translate.VClusterName,
-			},
-			Annotations: map[string]string{
-				translate.NameAnnotation: "test-ingc",
-				translate.UIDAnnotation:  "",
-				translate.KindAnnotation: networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
-			},
-		},
-		Spec: networkingv1.IngressClassSpec{
-			Controller: "test-controller",
-		},
-	}
-
-	vObjUpdated := &networkingv1.IngressClass{
-		ObjectMeta: vObjectMeta,
-		Spec: networkingv1.IngressClassSpec{
-			Controller: "test-controller",
-			Parameters: &networkingv1.IngressClassParametersReference{
-				APIGroup: strRef("test-group"),
-				Kind:     "test-kind",
-				Name:     "test-ingc-param",
-			},
 		},
 	}
 
@@ -75,6 +63,18 @@ func TestSync(t *testing.T) {
 				translate.KindAnnotation: networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
 			},
 		},
+		Spec: networkingv1.IngressClassSpec{
+			Controller: "test-controller",
+			Parameters: &networkingv1.IngressClassParametersReference{
+				APIGroup: strRef("test-group"),
+				Kind:     "test-kind",
+				Name:     "test-ingc-param",
+			},
+		},
+	}
+
+	vObjUpdated := &networkingv1.IngressClass{
+		ObjectMeta: vObjectMeta,
 		Spec: networkingv1.IngressClassSpec{
 			Controller: "test-controller",
 			Parameters: &networkingv1.IngressClassParametersReference{
