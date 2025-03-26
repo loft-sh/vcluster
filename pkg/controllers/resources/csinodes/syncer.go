@@ -61,6 +61,7 @@ func (s *csinodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 	}
 
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
+	translate.SyncHostMetadataToVirtual(event.Host, vObj, translate.ApplyMetadataOptions{})
 
 	// Apply pro patches
 	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.CSINodes.Patches, true)
@@ -94,18 +95,8 @@ func (s *csinodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	}()
 
 	// check if there is a change
-	event.Virtual.Annotations = event.Host.Annotations
-	event.Virtual.Labels = event.Host.Labels
+	translate.SyncHostMetadataToVirtual(event.Host, event.Virtual, translate.ApplyMetadataOptions{})
 	event.Host.Spec.DeepCopyInto(&event.Virtual.Spec)
-
-	// Set the marker of managed-by vcluster so that
-	// we skip deleting the nodes which are not managed
-	// by vcluster in `SyncToHost` function
-	if len(event.Virtual.Labels) == 0 {
-		event.Virtual.Labels = map[string]string{}
-	}
-	event.Virtual.Labels[translate.MarkerLabel] = translate.VClusterName
-
 	return ctrl.Result{}, nil
 }
 

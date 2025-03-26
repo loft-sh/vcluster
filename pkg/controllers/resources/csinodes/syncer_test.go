@@ -19,18 +19,20 @@ import (
 const kind = "CSINode"
 
 func TestSync(t *testing.T) {
-	pObjectMeta := metav1.ObjectMeta{
-		Name: "test-node",
-	}
-	vObjectMeta := metav1.ObjectMeta{
-		Name:            "test-node",
-		ResourceVersion: "999",
-	}
-
 	vNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "test-node"}}
 
 	pObj := &storagev1.CSINode{
-		ObjectMeta: pObjectMeta,
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-node",
+			Annotations: map[string]string{
+				"test-annotation-1": "hello-1",
+				"test-annotation-2": "hello-2",
+			},
+			Labels: map[string]string{
+				"test-label-1": "hello-1",
+				"test-label-2": "hello-2",
+			},
+		},
 		Spec: storagev1.CSINodeSpec{
 			Drivers: []storagev1.CSINodeDriver{
 				{
@@ -44,7 +46,21 @@ func TestSync(t *testing.T) {
 	}
 
 	vObj := &storagev1.CSINode{
-		ObjectMeta: vObjectMeta,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "test-node",
+			ResourceVersion: "999",
+			Annotations: map[string]string{
+				"test-annotation-1":                    "hello-1",
+				"test-annotation-2":                    "hello-2",
+				translate.ManagedAnnotationsAnnotation: translate.ManagedKeysValue(pObj.Annotations),
+				translate.ManagedLabelsAnnotation:      translate.ManagedKeysValue(pObj.Labels),
+			},
+			Labels: map[string]string{
+				"test-label-1":        "hello-1",
+				"test-label-2":        "hello-2",
+				translate.MarkerLabel: translate.VClusterName,
+			},
+		},
 		Spec: storagev1.CSINodeSpec{
 			Drivers: []storagev1.CSINodeDriver{
 				{
@@ -58,7 +74,7 @@ func TestSync(t *testing.T) {
 	}
 
 	pObjUpdated := &storagev1.CSINode{
-		ObjectMeta: pObjectMeta,
+		ObjectMeta: pObj.ObjectMeta,
 		Spec: storagev1.CSINodeSpec{
 			Drivers: []storagev1.CSINodeDriver{
 				{
@@ -77,14 +93,8 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	var vObjUpdatedMeta metav1.ObjectMeta
-	vObjectMeta.DeepCopyInto(&vObjUpdatedMeta)
-	if vObjUpdatedMeta.Labels == nil {
-		vObjUpdatedMeta.Labels = map[string]string{}
-	}
-	vObjUpdatedMeta.Labels[translate.MarkerLabel] = translate.VClusterName
 	vObjUpdated := &storagev1.CSINode{
-		ObjectMeta: vObjUpdatedMeta,
+		ObjectMeta: vObj.ObjectMeta,
 		Spec: storagev1.CSINodeSpec{
 			Drivers: []storagev1.CSINodeDriver{
 				{
