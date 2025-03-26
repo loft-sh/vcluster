@@ -48,6 +48,7 @@ func (s *csidriverSyncer) Syncer() syncertypes.Sync[client.Object] {
 
 func (s *csidriverSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.CSIDriver]) (ctrl.Result, error) {
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
+	translate.SyncHostMetadataToVirtual(event.Host, vObj, translate.ApplyMetadataOptions{})
 
 	// Apply pro patches
 	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.CSIDrivers.Patches, true)
@@ -71,8 +72,7 @@ func (s *csidriverSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 	}()
 
 	// check if there is a change
-	event.Virtual.Annotations = event.Host.Annotations
-	event.Virtual.Labels = event.Host.Labels
+	translate.SyncHostMetadataToVirtual(event.Host, event.Virtual, translate.ApplyMetadataOptions{})
 	event.Host.Spec.DeepCopyInto(&event.Virtual.Spec)
 	return ctrl.Result{}, nil
 }

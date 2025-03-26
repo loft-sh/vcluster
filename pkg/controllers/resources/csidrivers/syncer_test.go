@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,10 +24,29 @@ var (
 func TestSync(t *testing.T) {
 	pObjectMeta := metav1.ObjectMeta{
 		Name: "test-csidriver",
+		Annotations: map[string]string{
+			"test-annotation-1": "hello-1",
+			"test-annotation-2": "hello-2",
+		},
+		Labels: map[string]string{
+			"test-label-1": "hello-1",
+			"test-label-2": "hello-2",
+		},
 	}
 	vObjectMeta := metav1.ObjectMeta{
 		Name:            "test-csidriver",
 		ResourceVersion: "999",
+		Annotations: map[string]string{
+			"test-annotation-1":                    "hello-1",
+			"test-annotation-2":                    "hello-2",
+			translate.ManagedAnnotationsAnnotation: translate.ManagedKeysValue(pObjectMeta.Annotations),
+			translate.ManagedLabelsAnnotation:      translate.ManagedKeysValue(pObjectMeta.Labels),
+		},
+		Labels: map[string]string{
+			"test-label-1":        "hello-1",
+			"test-label-2":        "hello-2",
+			translate.MarkerLabel: translate.VClusterName,
+		},
 	}
 
 	pObj := &storagev1.CSIDriver{
@@ -78,7 +98,7 @@ func TestSync(t *testing.T) {
 	}
 
 	vObjUpdated := &storagev1.CSIDriver{
-		ObjectMeta: pObjectMeta,
+		ObjectMeta: vObjectMeta,
 		Spec: storagev1.CSIDriverSpec{
 			AttachRequired:       boolRef(false),
 			PodInfoOnMount:       boolRef(true),
