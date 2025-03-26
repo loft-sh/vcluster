@@ -103,7 +103,7 @@ func DeleteMultiNamespaceVClusterWorkloads(ctx context.Context, client *kubernet
 
 		for _, pod := range podList.Items {
 			err := client.CoreV1().Pods(ns.Name).Delete(ctx, pod.Name, metav1.DeleteOptions{})
-			if err != nil {
+			if err != nil && !kerrors.IsNotFound(err) {
 				return errors.Wrapf(err, "error deleting pod %s/%s", ns.Name, pod.Name)
 			}
 		}

@@ -202,7 +202,7 @@ jobs:
           ./hack/vcluster-install-scripts/test-helm-install.sh
 
   download-latest-cli:
-    name: Execute test suites
+    name: Download the latest vCluster cli
     runs-on: ubuntu-latest
     steps:
       - name: download current cli

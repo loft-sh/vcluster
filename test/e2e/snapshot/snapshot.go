@@ -14,6 +14,7 @@ import (
 	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -418,9 +419,63 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 		}).WithPolling(time.Second).
 			WithTimeout(framework.PollTimeout * 2).
 			Should(gomega.BeTrue())
+
+		// create new namespace and wait until the default service account gets created
+		gomega.Eventually(func() error {
+			// create namespace
+			_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "snapshot-test",
+				},
+			}, metav1.CreateOptions{})
+			if err != nil && !kerrors.IsAlreadyExists(err) {
+				return err
+			}
+
+			// wait until the default service account gets created
+			_, err = f.VClusterClient.CoreV1().ServiceAccounts("snapshot-test").Get(f.Context, "default", metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}).WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.Succeed())
+
+		// delete the namespace
+		err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, "snapshot-test", metav1.DeleteOptions{})
+		framework.ExpectNoError(err)
 	})
 
+	// create new namespace and wait until the default service account gets created
+	gomega.Eventually(func() error {
+		// create namespace
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "snapshot-test",
+			},
+		}, metav1.CreateOptions{})
+		if err != nil && !kerrors.IsAlreadyExists(err) {
+			return err
+		}
+
+		// wait until the default service account gets created
+		_, err = f.VClusterClient.CoreV1().ServiceAccounts("snapshot-test").Get(f.Context, "default", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}).WithPolling(time.Second).
+		WithTimeout(framework.PollTimeout).
+		Should(gomega.Succeed())
+
+	// delete the namespace
+	err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, "snapshot-test", metav1.DeleteOptions{})
+	framework.ExpectNoError(err)
 })
+
 
 func intRef(i int32) *int32 {
 	return &i
