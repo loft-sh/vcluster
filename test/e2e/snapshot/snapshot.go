@@ -476,7 +476,6 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster", ginkgo.Ordered, func() 
 	framework.ExpectNoError(err)
 })
 
-
 func intRef(i int32) *int32 {
 	return &i
 }
