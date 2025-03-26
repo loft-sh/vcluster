@@ -207,6 +207,7 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 			}
 
 			managedPods := &corev1.PodList{}
+			managedPodAdditionalReqs := corev1.ResourceList{}
 			err = s.managedPodCache.List(ctx.Context, managedPods, client.MatchingFields{constants.IndexByAssigned: pNode.Name})
 			if err != nil {
 				return nil, fmt.Errorf("error listing managed pods: %w", err)
@@ -218,41 +219,21 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 					continue
 				}
 
-				reqs, err := s.ManagedPodRequestsAndLimits(ctx, &pod)
+				r, err := s.ManagedPodRequestsAndLimits(ctx, &pod)
 				if err != nil {
 					return nil, err
 				}
 
-				updateAllocatable(reqs, allocatable)
+				addResourceList(managedPodAdditionalReqs, r)
 			}
 
-			// Deduct Reserved resource from the allocatable capacity
-			reservedReqs := corev1.ResourceList{}
-			if s.reservedResourceCPU != "" {
-				cpu, err := resource.ParseQuantity(s.reservedResourceCPU)
-				if err != nil {
-					return nil, fmt.Errorf("error parsing reservedResource cpu: %w", err)
-				}
-
-				reservedReqs[corev1.ResourceCPU] = cpu
+			// handle resource requests for managed pods that are otherwise unaccounted
+			// for instance in case of sidecar containers being injected into synced pods on host
+			// which are outside the purview of the virtual node
+			err = s.handleManagedPods(managedPodAdditionalReqs, allocatable)
+			if err != nil {
+				return nil, err
 			}
-			if s.reservedResourceMemory != "" {
-				memory, err := resource.ParseQuantity(s.reservedResourceMemory)
-				if err != nil {
-					return nil, fmt.Errorf("error parsing reservedResource memory: %w", err)
-				}
-
-				reservedReqs[corev1.ResourceMemory] = memory
-			}
-			if s.reservedResourceEphemeralStorage != "" {
-				ephemeralStorage, err := resource.ParseQuantity(s.reservedResourceEphemeralStorage)
-				if err != nil {
-					return nil, fmt.Errorf("error parsing reservedResource ephemeral storage: %w", err)
-				}
-
-				reservedReqs[corev1.ResourceEphemeralStorage] = ephemeralStorage
-			}
-			updateAllocatable(reservedReqs, allocatable)
 
 			allocatable[corev1.ResourcePods] -= nonVClusterPods
 			if allocatable[corev1.ResourcePods] > 0 {
@@ -475,4 +456,49 @@ func updateAllocatable(reqs corev1.ResourceList, allocatable map[corev1.Resource
 			}
 		}
 	}
+}
+
+func (s *nodeSyncer) handleManagedPods(managedPodAdditionalReqs corev1.ResourceList, allocatable map[corev1.ResourceName]int64) error { // Check for Reserved resources
+	reqs := corev1.ResourceList{}
+	if s.reservedResourceCPU != "" {
+		cpu, err := resource.ParseQuantity(s.reservedResourceCPU)
+		if err != nil {
+			return fmt.Errorf("error parsing reservedResource cpu: %w", err)
+		}
+
+		reqs[corev1.ResourceCPU] = cpu
+	} else {
+		if cpu, found := managedPodAdditionalReqs[corev1.ResourceCPU]; found {
+			reqs[corev1.ResourceCPU] = cpu
+		}
+	}
+
+	if s.reservedResourceMemory != "" {
+		memory, err := resource.ParseQuantity(s.reservedResourceMemory)
+		if err != nil {
+			return fmt.Errorf("error parsing reservedResource memory: %w", err)
+		}
+
+		reqs[corev1.ResourceMemory] = memory
+	} else {
+		if memory, found := managedPodAdditionalReqs[corev1.ResourceMemory]; found {
+			reqs[corev1.ResourceMemory] = memory
+		}
+	}
+
+	if s.reservedResourceEphemeralStorage != "" {
+		ephemeralStorage, err := resource.ParseQuantity(s.reservedResourceEphemeralStorage)
+		if err != nil {
+			return fmt.Errorf("error parsing reservedResource ephemeral storage: %w", err)
+		}
+
+		reqs[corev1.ResourceEphemeralStorage] = ephemeralStorage
+	} else {
+		if ephemeral, found := managedPodAdditionalReqs[corev1.ResourceEphemeralStorage]; found {
+			reqs[corev1.ResourceEphemeralStorage] = ephemeral
+		}
+	}
+
+	updateAllocatable(reqs, allocatable)
+	return nil
 }
