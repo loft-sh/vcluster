@@ -155,10 +155,12 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		framework.ExpectEqual(true, len(pods.Items) > 0)
 
 		// skip restore if k0s
+		isK0s := false
 		for _, pod := range pods.Items {
 			for _, container := range pod.Spec.InitContainers {
 				if strings.Contains(container.Image, "k0s") {
-					ginkgo.Skip("Skip restore for k0s.")
+					isK0s = true
+					break
 				}
 			}
 		}
@@ -186,6 +188,24 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		// now create a deployment that should be there when we restore again
 		_, err = f.VClusterClient.AppsV1().Deployments(defaultNamespace).Create(f.Context, deploymentToRestore, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
+
+		if isK0s {
+			cmd := exec.Command(
+				"vcluster",
+				"snapshot",
+				f.VClusterName,
+				"container:///tmp/snapshot.tar",
+				"-n", f.VClusterNamespace,
+				"--pod-exec",
+			)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			err = cmd.Run()
+			framework.ExpectNoError(err)
+
+			fmt.Println("Skip restore because this is unsupported in k0s")
+			return
+		}
 
 		ginkgo.By("Snapshot vcluster")
 		cmd := exec.Command(
