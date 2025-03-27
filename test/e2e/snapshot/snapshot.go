@@ -170,7 +170,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		framework.ExpectNoError(err)
 
 		if f.MultiNamespaceMode {
-			vClusterDefaultNamespace = translate.NewMultiNamespaceTranslator(vClusterDefaultNamespace).HostNamespace(nil, defaultNamespace)
+			vClusterDefaultNamespace = translate.NewMultiNamespaceTranslator(f.VClusterNamespace).HostNamespace(nil, defaultNamespace)
 		}
 
 		// now create a service that should be there when we restore again
@@ -189,6 +189,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		_, err = f.VClusterClient.AppsV1().Deployments(defaultNamespace).Create(f.Context, deploymentToRestore, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
+		ginkgo.By("Snapshot vcluster")
 		if isK0s {
 			cmd := exec.Command(
 				"vcluster",
@@ -207,13 +208,13 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			return
 		}
 
-		ginkgo.By("Snapshot vcluster")
+		// regular snapshot
 		cmd := exec.Command(
 			"vcluster",
 			"snapshot",
 			f.VClusterName,
 			"container:///snapshot-pvc/snapshot.tar",
-			"-n", vClusterDefaultNamespace,
+			"-n", f.VClusterNamespace,
 			"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
 		)
 		cmd.Stdout = os.Stdout
@@ -259,7 +260,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			"restore",
 			f.VClusterName,
 			"container:///snapshot-pvc/snapshot.tar",
-			"-n", vClusterDefaultNamespace,
+			"-n", f.VClusterNamespace,
 			"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
 		)
 		cmd.Stdout = os.Stdout
@@ -472,7 +473,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			"restore",
 			f.VClusterName,
 			"container:///snapshot-pvc/snapshot.tar",
-			"-n", vClusterDefaultNamespace,
+			"-n", f.VClusterNamespace,
 			"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
 		)
 		cmd.Stdout = os.Stdout
