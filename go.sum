@@ -643,8 +643,8 @@ github.com/loft-sh/log v0.0.0-20230824104949-bd516c25712a h1:/gqqjKpcHEdFXIX41lx
 github.com/loft-sh/log v0.0.0-20230824104949-bd516c25712a/go.mod h1:YImeRjXH34Yf5E79T7UHBQpDZl9fIaaFRgyZ/bkY+UQ=
 github.com/loft-sh/utils v0.0.29 h1:P/MObccXToAZy2QoJSQDJ+OJx1qHitpFHEVj3QBSNJs=
 github.com/loft-sh/utils v0.0.29/go.mod h1:9hlX9cGpWHg3mNi/oBlv3X4ePGDMK66k8MbOZGFMDTI=
-github.com/loft-sh/vcluster-values v0.0.0-20240618120001-334c9c814bc7 h1:jx71rhB9wVag57JsF3+qBTzDSxs80Xg1TNT/5o31+/8=
-github.com/loft-sh/vcluster-values v0.0.0-20240618120001-334c9c814bc7/go.mod h1:46AgKZ6A9cP+tSWkPEyeyNe/BSwk56nETKfzV+9bux8=
+github.com/loft-sh/vcluster-values v0.0.0-20250327134729-4279eb8eb01c h1:AOImJcz3/1/MlYcVGTAtMgMasScEnl2eXL//gSnpxAg=
+github.com/loft-sh/vcluster-values v0.0.0-20250327134729-4279eb8eb01c/go.mod h1:46AgKZ6A9cP+tSWkPEyeyNe/BSwk56nETKfzV+9bux8=
 github.com/magiconair/properties v1.8.1/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/magiconair/properties v1.8.5/go.mod h1:y3VJvCyxH9uVvJTWEGAELF3aiYNyPKd5NZ3oSwXrF60=
 github.com/mailru/easyjson v0.0.0-20160728113105-d5b7844b561a/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=

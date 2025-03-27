@@ -194,3 +194,12 @@ Prints only the flags that modify the defaults:
 - '--map-host-service={{ $value.from }}={{ $value.to }}'
 {{- end }}
 {{- end -}}
+
+{{/*
+  Reserved Resources Quantity validation
+*/}}
+{{- define "validate.quantity" -}}
+{{- if not (regexMatch "^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$" .value) }}
+{{ fail (printf ".Values.sync.nodes.reservedResources.%s value '%s' is invalid. Quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'" .type .value) }}
+{{- end }}
+{{- end -}}

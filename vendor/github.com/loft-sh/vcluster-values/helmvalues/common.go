@@ -123,11 +123,12 @@ type SyncPods struct {
 }
 
 type SyncNodes struct {
-	FakeKubeletIPs  bool   `json:"fakeKubeletIPs,omitempty"`
-	Enabled         bool   `json:"enabled,omitempty"`
-	SyncAllNodes    bool   `json:"syncAllNodes,omitempty"`
-	NodeSelector    string `json:"nodeSelector,omitempty"`
-	EnableScheduler bool   `json:"enableScheduler,omitempty"`
+	FakeKubeletIPs    bool                    `json:"fakeKubeletIPs,omitempty"`
+	Enabled           bool                    `json:"enabled,omitempty"`
+	SyncAllNodes      bool                    `json:"syncAllNodes,omitempty"`
+	NodeSelector      string                  `json:"nodeSelector,omitempty"`
+	EnableScheduler   bool                    `json:"enableScheduler,omitempty"`
+	ReservedResources ReservedResourcesValues `json:"reservedResources,omitempty"`
 
 	// Deprecated: should be removed from the chart first
 	SyncNodeChanges bool `json:"syncNodeChanges,omitempty"`
@@ -403,4 +404,10 @@ type CommonValues struct {
 	Tolerations       []map[string]interface{} `json:"tolerations,omitempty"`
 	PodAnnotations    map[string]string        `json:"podAnnotations,omitempty"`
 	PodLabels         map[string]string        `json:"podLabels,omitempty"`
+}
+
+type ReservedResourcesValues struct {
+	CPU              string `json:"cpu,omitempty"`
+	Memory           string `json:"memory,omitempty"`
+	EphemeralStorage string `json:"ephemeralStorage,omitempty"`
 }

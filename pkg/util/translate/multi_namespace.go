@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"regexp"
 	"strings"
 
@@ -226,7 +227,15 @@ func (s *multiNamespace) ApplyLabels(src client.Object, _ client.Object, syncedL
 }
 
 func (s *multiNamespace) TranslateLabels(fromLabels map[string]string, _ string, _ []string) map[string]string {
-	return fromLabels
+	var newLabels map[string]string
+	if fromLabels != nil {
+		newLabels = maps.Clone(fromLabels)
+	} else {
+		newLabels = make(map[string]string, 1)
+	}
+
+	newLabels[MarkerLabel] = VClusterName
+	return newLabels
 }
 
 func (s *multiNamespace) SetupMetadataWithName(vObj client.Object, translator PhysicalNameTranslator) (client.Object, error) {

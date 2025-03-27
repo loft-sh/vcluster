@@ -175,6 +175,12 @@ spec:
           {{- include "vcluster.serviceMapping.fromVirtual" . | indent 10 }}
           {{- if .Values.sync.nodes.enableScheduler }}
           - --enable-scheduler
+          {{- range $type, $value := .Values.sync.nodes.reservedResources }}
+          {{- if and $value (ne $value "") }}
+          {{ include "validate.quantity" (dict "type" $type "value" $value) }}
+          - --reserved-resource-{{- $type -}}={{ $value }}
+          {{- end }}
+          {{- end }}
           {{- end }}
           {{- if and .Values.sync.nodes.enabled .Values.sync.nodes.syncNodeChanges }}
           - --sync-node-changes=true
