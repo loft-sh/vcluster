@@ -21,7 +21,7 @@ require (
 	github.com/loft-sh/api/v3 v3.0.0-20240207094436-f23808d5a185
 	github.com/loft-sh/loftctl/v3 v3.0.0-20240207094551-f600825cc6f5
 	github.com/loft-sh/utils v0.0.29
-	github.com/loft-sh/vcluster-values v0.0.0-20240618120001-334c9c814bc7
+	github.com/loft-sh/vcluster-values v0.0.0-20250327134729-4279eb8eb01c
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/locker v1.0.1
@@ -137,7 +137,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/google/go-github/v30 v30.1.0 // indirect
+	github.com/google/go-github/v30 v30.1.0
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20231205033806-a5a03c77bf08 // indirect
@@ -168,7 +168,7 @@ require (
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/prometheus/client_golang v1.18.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
-	github.com/tcnksm/go-gitconfig v0.1.2 // indirect
+	github.com/tcnksm/go-gitconfig v0.1.2
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.11 // indirect
@@ -188,7 +188,7 @@ require (
 	golang.org/x/crypto v0.18.0 // indirect
 	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
 	golang.org/x/net v0.20.0 // indirect
-	golang.org/x/oauth2 v0.16.0 // indirect
+	golang.org/x/oauth2 v0.16.0
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/term v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
