@@ -203,9 +203,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			cmd.Stderr = os.Stderr
 			err = cmd.Run()
 			framework.ExpectNoError(err)
-
-			fmt.Println("Skip restore because this is unsupported in k0s")
-			return
+			ginkgo.Skip("Skip restore because this is unsupported in k0s")
 		}
 
 		// regular snapshot
