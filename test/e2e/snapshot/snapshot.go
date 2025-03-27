@@ -3,12 +3,12 @@ package snapshot
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
