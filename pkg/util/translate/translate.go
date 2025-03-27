@@ -261,15 +261,19 @@ type ApplyMetadataOptions struct {
 
 // SyncHostMetadataToVirtual copies metadata from the host resource to the virtual resource.
 //
-// The following annotations are not copied from the host resource:
-//   - vcluster.loft.sh/managed-annotations
-//   - vcluster.loft.sh/managed-labels
-//
 // In addition to copying the annotations from the host resource, this function also sets multiple vCluster annotations
 // on the virtual resource:
+//   - vcluster.loft.sh/managed-annotations: a multi-line string that contains keys of annotations that are copied from
+//     the host resource;
+//   - vcluster.loft.sh/managed-labels: a multi-line string that contains keys of labels that are copied from the host
+//     resource;
 //   - vcluster.loft.sh/object-host-name: host resource name, so you can easily identify from which host resource the
 //     virtual resource was created;
 //   - vcluster.loft.sh/object-host-namespace: host resource namespace (if the resource is namespaced).
+//
+// The following annotations are not copied from the host resource:
+//   - vcluster.loft.sh/managed-annotations
+//   - vcluster.loft.sh/managed-labels
 //
 // It also sets the following labels on the virtual resource:
 //   - vcluster.loft.sh/managed-by: vCluster name, so you can know that the resource is managed by vCluster.
