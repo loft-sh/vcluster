@@ -268,7 +268,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 
 		// wait until vCluster is running
 		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (done bool, err error) {
-			newPods, _ := f.HostClient.CoreV1().Pods(vClusterDefaultNamespace).List(ctx, metav1.ListOptions{
+			newPods, _ := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: "app=vcluster",
 			})
 			p := len(newPods.Items)
@@ -481,7 +481,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 
 		// wait until vCluster is running
 		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (done bool, err error) {
-			newPods, _ := f.HostClient.CoreV1().Pods(vClusterDefaultNamespace).List(ctx, metav1.ListOptions{
+			newPods, _ := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: "app=vcluster",
 			})
 			p := len(newPods.Items)
