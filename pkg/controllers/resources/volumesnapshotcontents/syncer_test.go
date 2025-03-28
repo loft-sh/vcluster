@@ -75,6 +75,9 @@ func TestSync(t *testing.T) {
 			translate.KindAnnotation:     volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent").String(),
 			translate.HostNameAnnotation: translate.Default.HostNameCluster(vPreProvisioned.Name),
 		},
+		Labels: map[string]string{
+			translate.MarkerLabel: translate.SafeConcatName(testingutil.DefaultTestTargetNamespace, "x", translate.VClusterName),
+		},
 	}
 	pPreProvisioned := &volumesnapshotv1.VolumeSnapshotContent{
 		ObjectMeta: pPreProvisionedObjectMeta,

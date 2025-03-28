@@ -165,7 +165,10 @@ func TestSyncBothExist(t *testing.T) {
 			name:              "Update backward no change",
 			withVirtualPod:    true,
 			virtualNodeExists: true,
-			modifiedPhysical:  false,
+			virtualFinalLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
+			modifiedPhysical: false,
 		},
 		{
 			name:              "Update backward",
@@ -184,7 +187,10 @@ func TestSyncBothExist(t *testing.T) {
 			syncFromHostLabel:       map[string]string{"test": "true"},
 			hostLabel:               map[string]string{"test": "true"},
 			virtualFinalAnnotations: map[string]string{translate.ManagedLabelsAnnotation: "test"},
-			virtualFinalLabels:      map[string]string{"test": "true"},
+			virtualFinalLabels: map[string]string{
+				"test":                "true",
+				translate.MarkerLabel: translate.VClusterName,
+			},
 		},
 		{
 			name:              "Label Not Matched and enforceNodeSelector true - expect node not to be synced",
@@ -198,12 +204,18 @@ func TestSyncBothExist(t *testing.T) {
 			withVirtualPod:     true,
 			clearImage:         true,
 			imagesPhysicalNode: []corev1.ContainerImage{{Names: []string{"ghcr.io/jetpack/calico"}}},
+			virtualFinalLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
 		},
 		{
 			name:               "Don't Clear Nodes",
 			virtualNodeExists:  true,
 			withVirtualPod:     true,
 			imagesPhysicalNode: []corev1.ContainerImage{{Names: []string{"ghcr.io/jetpack/calico"}}},
+			virtualFinalLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
 		},
 		{
 			name: "Matching taints",
@@ -222,6 +234,9 @@ func TestSyncBothExist(t *testing.T) {
 					Value:  "value1",
 					Effect: "NoSchedule",
 				},
+			},
+			virtualFinalLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
 			},
 		},
 		{
@@ -249,6 +264,9 @@ func TestSyncBothExist(t *testing.T) {
 					Effect: "NoSchedule",
 				},
 			},
+			virtualFinalLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
 		},
 		{
 			name: "Taint matching Enforced Toleration - special case of empty key with Exists operator",
@@ -268,6 +286,9 @@ func TestSyncBothExist(t *testing.T) {
 					Effect: "NoSchedule",
 				},
 			},
+			virtualFinalLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
 		},
 		{
 			name:              "Nodes syncing enabled -- Ignore updates to Rancher managed annotations",
@@ -286,6 +307,9 @@ func TestSyncBothExist(t *testing.T) {
 			virtualFinalAnnotations: map[string]string{
 				RancherAgentPodRequestsAnnotation: "{\"pods\":\"1\"}",
 				RancherAgentPodLimitsAnnotation:   "{\"pods\":\"5\"}",
+			},
+			virtualFinalLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
 			},
 		},
 	}
@@ -329,7 +353,12 @@ func TestSyncBothExist(t *testing.T) {
 			expectedVNode.Spec.Taints = tC.expectedTaints
 
 			if tC.modifiedPhysical {
-				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Node")] = []runtime.Object{editedNode.DeepCopy()}
+				overrideExpectedVNode := editedNode.DeepCopy()
+				if overrideExpectedVNode.Labels == nil {
+					overrideExpectedVNode.Labels = map[string]string{}
+				}
+				overrideExpectedVNode.Labels[translate.MarkerLabel] = translate.VClusterName
+				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Node")] = []runtime.Object{overrideExpectedVNode}
 				physical = editedNode.DeepCopy()
 			}
 

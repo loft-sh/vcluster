@@ -51,6 +51,7 @@ func TestSync(t *testing.T) {
 				translate.HostNameAnnotation:      translate.Default.HostName(nil, baseSecret.Name, baseSecret.Namespace).Name,
 			},
 			Labels: map[string]string{
+				translate.MarkerLabel:    translate.VClusterName,
 				translate.NamespaceLabel: baseSecret.Namespace,
 				testLabel:                testLabelValue,
 			},

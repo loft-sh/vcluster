@@ -23,6 +23,9 @@ func TestSync(t *testing.T) {
 			translate.UIDAnnotation:  "",
 			translate.KindAnnotation: nodev1.SchemeGroupVersion.WithKind("RuntimeClass").String(),
 		},
+		Labels: map[string]string{
+			translate.MarkerLabel: translate.VClusterName,
+		},
 		ResourceVersion: "999",
 	}
 

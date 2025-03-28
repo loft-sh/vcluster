@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -18,18 +19,20 @@ import (
 const kind = "CSINode"
 
 func TestSync(t *testing.T) {
-	pObjectMeta := metav1.ObjectMeta{
-		Name: "test-node",
-	}
-	vObjectMeta := metav1.ObjectMeta{
-		Name:            "test-node",
-		ResourceVersion: "999",
-	}
-
 	vNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "test-node"}}
 
 	pObj := &storagev1.CSINode{
-		ObjectMeta: pObjectMeta,
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-node",
+			Annotations: map[string]string{
+				"test-annotation-1": "hello-1",
+				"test-annotation-2": "hello-2",
+			},
+			Labels: map[string]string{
+				"test-label-1": "hello-1",
+				"test-label-2": "hello-2",
+			},
+		},
 		Spec: storagev1.CSINodeSpec{
 			Drivers: []storagev1.CSINodeDriver{
 				{
@@ -43,7 +46,21 @@ func TestSync(t *testing.T) {
 	}
 
 	vObj := &storagev1.CSINode{
-		ObjectMeta: vObjectMeta,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "test-node",
+			ResourceVersion: "999",
+			Annotations: map[string]string{
+				"test-annotation-1":                    "hello-1",
+				"test-annotation-2":                    "hello-2",
+				translate.ManagedAnnotationsAnnotation: translate.ManagedKeysValue(pObj.Annotations),
+				translate.ManagedLabelsAnnotation:      translate.ManagedKeysValue(pObj.Labels),
+			},
+			Labels: map[string]string{
+				"test-label-1":        "hello-1",
+				"test-label-2":        "hello-2",
+				translate.MarkerLabel: translate.VClusterName,
+			},
+		},
 		Spec: storagev1.CSINodeSpec{
 			Drivers: []storagev1.CSINodeDriver{
 				{
@@ -57,7 +74,7 @@ func TestSync(t *testing.T) {
 	}
 
 	pObjUpdated := &storagev1.CSINode{
-		ObjectMeta: pObjectMeta,
+		ObjectMeta: pObj.ObjectMeta,
 		Spec: storagev1.CSINodeSpec{
 			Drivers: []storagev1.CSINodeDriver{
 				{
@@ -77,7 +94,7 @@ func TestSync(t *testing.T) {
 	}
 
 	vObjUpdated := &storagev1.CSINode{
-		ObjectMeta: vObjectMeta,
+		ObjectMeta: vObj.ObjectMeta,
 		Spec: storagev1.CSINodeSpec{
 			Drivers: []storagev1.CSINodeDriver{
 				{

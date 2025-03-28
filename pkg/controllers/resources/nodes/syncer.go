@@ -307,14 +307,6 @@ func (s *nodeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncE
 
 	s.translateUpdateBackwards(event.Host, event.Virtual)
 
-	// Set the marker of managed-by vcluster so that
-	// we skip deleting the nodes which are not managed
-	// by vcluster in `SyncToHost` function
-	if len(event.Virtual.Labels) == 0 {
-		event.Virtual.Labels = map[string]string{}
-	}
-	event.Virtual.Labels[translate.MarkerLabel] = translate.VClusterName
-
 	return ctrl.Result{}, nil
 }
 
