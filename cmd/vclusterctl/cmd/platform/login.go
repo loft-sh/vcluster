@@ -155,6 +155,11 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 
 func (cmd *LoginCmd) printLoginDetails(ctx context.Context) error {
 	cfg := cmd.LoadedConfig(cmd.Log)
+	// TODO: Refactor login to rely less on side effects from manipulating the cfg.Platform object in memory
+	if cmd.AccessKey != "" {
+		cfg.Platform.AccessKey = cmd.AccessKey
+	}
+
 	platformClient := platform.NewClientFromConfig(cfg)
 
 	managementClient, err := platformClient.Management()
