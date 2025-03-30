@@ -1040,5 +1040,6 @@ experimental:
 
 # Configuration related to telemetry gathered about vCluster usage.
 telemetry:
-  # Enabled specifies that the telemetry for the vCluster control plane should be enabled.
   enabled: true
+### additional sidecar container
+# sidecarContainer:
