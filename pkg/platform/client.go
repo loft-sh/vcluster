@@ -346,10 +346,10 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 }
 
 func (c *client) mgmtLogin(host, accessKey string, insecure bool) error {
-	platformCfg := c.Config().Platform
-	platformCfg.Host = host
-	platformCfg.AccessKey = accessKey
-	platformCfg.Insecure = insecure
+	cfg := c.Config()
+	cfg.Platform.Host = host
+	cfg.Platform.AccessKey = accessKey
+	cfg.Platform.Insecure = insecure
 
 	// verify the connection works
 	managementClient, err := c.Management()
