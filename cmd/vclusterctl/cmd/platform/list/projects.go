@@ -3,6 +3,7 @@ package list
 import (
 	"context"
 
+	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
@@ -67,20 +68,38 @@ func (cmd *ProjectsCmd) RunProjects(ctx context.Context) error {
 	header := []string{
 		"Project",
 	}
+	printData(cmd.log, cmd.Output, header, projectList.Items)
+	return nil
+}
 
-	projects := make([][]string, len(projectList.Items))
-	for i, project := range projectList.Items {
-		projects[i] = []string{project.Name}
-	}
-
-	if cmd.Output == "json" {
-		err := printJson(cmd.log, header, projects)
+func printData(logger log.Logger, outputType string, headers []string, project []managementv1.Project) error {
+	switch outputType {
+	case "json":
+		projectsMap := toMap(headers, project)
+		err := printJson(logger, projectsMap)
 		if err != nil {
 			return err
 		}
+	case "table", "default":
+		values := toValues(project)
+		table.PrintTable(logger, headers, values)
 		return nil
 	}
-
-	table.PrintTable(cmd.log, header, projects)
 	return nil
+}
+
+func toValues(projects []managementv1.Project) [][]string {
+	values := make([][]string, len(projects))
+	for i, project := range projects {
+		values[i] = []string{project.Name}
+	}
+	return values
+}
+
+func toMap(headers []string, projects []managementv1.Project) []map[string]string {
+	var projectsMap []map[string]string
+	for _, project := range projects {
+		projectsMap = append(projectsMap, map[string]string{headers[0]: project.Name})
+	}
+	return projectsMap
 }
