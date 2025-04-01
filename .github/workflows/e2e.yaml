@@ -43,7 +43,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Setup Just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v3
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0.18.0
       - name: Setup GoReleaser
@@ -77,7 +77,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Setup Just
-        uses: extractions/setup-just@v2
+        uses: extractions/setup-just@v3
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0.18.0
       - name: Setup GoReleaser
