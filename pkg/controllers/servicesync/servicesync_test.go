@@ -43,37 +43,54 @@ func TestFromHostRegister(t *testing.T) {
 }
 
 func TestFromHostReconcile(t *testing.T) {
-	name := "test-map-host-service-syncer"
-	pClient := testingutil.NewFakeClient(scheme.Scheme)
-	vClient := testingutil.NewFakeClient(scheme.Scheme)
-	fakeConfig := testingutil.NewFakeConfig()
-	fakeContext := syncertesting.NewFakeRegisterContext(fakeConfig, pClient, vClient)
-	fakeMapping := map[string]types.NamespacedName{
-		"host-namespace/host-service": {
-			Namespace: "virtual-namespace",
-			Name:      "virtual-service",
+	testCases := []struct {
+		Name     string
+		Mappings map[string]types.NamespacedName
+		Request  ctrl.Request
+	}{
+		{
+			Name: "Service is not synced",
+			Mappings: map[string]types.NamespacedName{
+				"host-namespace/host-service": {
+					Namespace: "virtual-namespace",
+					Name:      "virtual-service",
+				},
+			},
+			Request: ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: "example-namespace",
+					Name:      "example-service",
+				},
+			},
 		},
 	}
 
-	// create new FromHost syncer
-	serviceSyncer := &ServiceSyncer{
-		Name:                  name,
-		SyncContext:           fakeContext.ToSyncContext(name),
-		SyncServices:          fakeMapping,
-		CreateNamespace:       true,
-		CreateEndpoints:       true,
-		From:                  fakeContext.PhysicalManager,
-		IsVirtualToHostSyncer: false,
-		To:                    fakeContext.VirtualManager,
-		Log:                   loghelper.New(name),
-	}
-	req := ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: "example-namespace",
-			Name:      "example-service",
-		},
-	}
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			name := "test-map-host-service-syncer"
+			pClient := testingutil.NewFakeClient(scheme.Scheme)
+			vClient := testingutil.NewFakeClient(scheme.Scheme)
+			fakeConfig := testingutil.NewFakeConfig()
+			fakeContext := syncertesting.NewFakeRegisterContext(fakeConfig, pClient, vClient)
 
-	_, err := serviceSyncer.Reconcile(fakeContext, req)
-	assert.NilError(t, err)
+			// create new FromHost syncer
+			serviceSyncer := &ServiceSyncer{
+				Name:                  name,
+				SyncContext:           fakeContext.ToSyncContext(name),
+				SyncServices:          testCase.Mappings,
+				CreateNamespace:       true,
+				CreateEndpoints:       true,
+				From:                  fakeContext.PhysicalManager,
+				IsVirtualToHostSyncer: false,
+				To:                    fakeContext.VirtualManager,
+				Log:                   loghelper.New(name),
+			}
+
+			// Reconcile host resource
+			_, err := serviceSyncer.Reconcile(fakeContext, testCase.Request)
+
+			// Check that reconcile executes without errors
+			assert.NilError(t, err)
+		})
+	}
 }
