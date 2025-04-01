@@ -6,6 +6,7 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
+	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
@@ -15,7 +16,7 @@ import (
 // ProjectsCmd holds the login cmd flags
 type ProjectsCmd struct {
 	*flags.GlobalFlags
-
+	cli.ListOptions
 	log log.Logger
 }
 
@@ -42,6 +43,7 @@ vcluster platform list projects
 		},
 	}
 
+	AddCommonFlags(projectsCmd, &cmd.ListOptions)
 	return projectsCmd
 }
 
@@ -65,9 +67,18 @@ func (cmd *ProjectsCmd) RunProjects(ctx context.Context) error {
 	header := []string{
 		"Project",
 	}
+
 	projects := make([][]string, len(projectList.Items))
 	for i, project := range projectList.Items {
 		projects[i] = []string{project.Name}
+	}
+
+	if cmd.Output == "json" {
+		err := printJson(cmd.log, header, projects)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	table.PrintTable(cmd.log, header, projects)
