@@ -63,6 +63,21 @@ func TestFromHostReconcile(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Reconcile without errors when host and virtual services are not found",
+			Mappings: map[string]types.NamespacedName{
+				"host-namespace/host-service": {
+					Namespace: "virtual-namespace",
+					Name:      "virtual-service",
+				},
+			},
+			Request: ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: "host-namespace",
+					Name:      "host-service",
+				},
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
