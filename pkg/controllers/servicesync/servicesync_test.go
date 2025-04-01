@@ -55,7 +55,7 @@ func TestFromHostReconcile(t *testing.T) {
 		ExpectedVirtualServices []runtime.Object
 	}{
 		{
-			Name: "Service is not synced",
+			Name: "Reconcile without errors when service is not synced",
 			Mappings: map[string]types.NamespacedName{
 				"host-namespace/host-service": {
 					Namespace: "virtual-namespace",
