@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func TestRegister(t *testing.T) {
+func TestFromHostRegister(t *testing.T) {
 	name := "test-map-host-service-syncer"
 	pClient := testingutil.NewFakeClient(scheme.Scheme)
 	vClient := testingutil.NewFakeClient(scheme.Scheme)
@@ -23,15 +23,18 @@ func TestRegister(t *testing.T) {
 			Name:      "virtual-service",
 		},
 	}
+
+	// create new FromHost syncer
 	serviceSyncer := &ServiceSyncer{
-		Name:            name,
-		SyncContext:     fakeContext.ToSyncContext(name),
-		SyncServices:    fakeMapping,
-		CreateNamespace: true,
-		CreateEndpoints: true,
-		From:            fakeContext.PhysicalManager,
-		To:              fakeContext.VirtualManager,
-		Log:             loghelper.New(name),
+		Name:                  name,
+		SyncContext:           fakeContext.ToSyncContext(name),
+		SyncServices:          fakeMapping,
+		CreateNamespace:       true,
+		CreateEndpoints:       true,
+		From:                  fakeContext.PhysicalManager,
+		IsVirtualToHostSyncer: false,
+		To:                    fakeContext.VirtualManager,
+		Log:                   loghelper.New(name),
 	}
 
 	err := serviceSyncer.Register()
