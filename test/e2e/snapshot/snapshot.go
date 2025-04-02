@@ -322,7 +322,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			LabelSelector: "snapshot=restore",
 		})
 
-		gomega.Expect(len(configmaps.Items)).To(gomega.Equal(1))
+		gomega.Expect(configmaps.Items).To(gomega.HaveLen(1))
 		restoredConfigmap := configmaps.Items[0]
 		gomega.Expect(restoredConfigmap.Data).To(gomega.Equal(configMapToRestore.Data))
 		framework.ExpectNoError(err)
@@ -332,7 +332,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			LabelSelector: "snapshot=restore",
 		})
 
-		gomega.Expect(len(secrets.Items)).To(gomega.Equal(1))
+		gomega.Expect(secrets.Items).To(gomega.HaveLen(1))
 		restoredSecret := secrets.Items[0]
 		gomega.Expect(restoredSecret.Data).To(gomega.Equal(secretToRestore.Data))
 		framework.ExpectNoError(err)
@@ -342,7 +342,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			LabelSelector: "snapshot=restore",
 		})
 
-		gomega.Expect(len(deployment.Items)).To(gomega.Equal(1))
+		gomega.Expect(deployment.Items).To(gomega.HaveLen(1))
 		framework.ExpectNoError(err)
 
 		//Check configmap created after snapshot is not available
