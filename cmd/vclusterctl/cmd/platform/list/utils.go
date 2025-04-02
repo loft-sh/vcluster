@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func printJson(logger log.Logger, value []map[string]string) error {
+func printJSON(logger log.Logger, value []map[string]string) error {
 	bytes, err := json.MarshalIndent(value, "", "    ")
 	if err != nil {
 		return err
@@ -26,7 +26,7 @@ func PrintData[T any](logger log.Logger, outputType string, headers []string, it
 		// Convert items into a map using headers and value extractor function
 		itemsMap := toMap(headers, items, getValues)
 
-		err := printJson(logger, itemsMap)
+		err := printJSON(logger, itemsMap)
 		if err != nil {
 			return err
 		}

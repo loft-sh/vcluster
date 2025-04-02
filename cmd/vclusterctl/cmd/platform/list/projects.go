@@ -75,6 +75,6 @@ func (cmd *ProjectsCmd) RunProjects(ctx context.Context) error {
 		return []string{p.Name}
 	}
 
-	PrintData(cmd.log, cmd.Output, header, projectList.Items, getValuesFunc)
-	return nil
+	err = PrintData(cmd.log, cmd.Output, header, projectList.Items, getValuesFunc)
+	return err
 }
