@@ -13,7 +13,7 @@ func printJson(logger log.Logger, value []map[string]string) error {
 	if err != nil {
 		return err
 	}
-	logger.WriteString(logrus.InfoLevel, string(bytes))
+	logger.WriteString(logrus.InfoLevel, string(bytes)+"\n")
 	return nil
 }
 
