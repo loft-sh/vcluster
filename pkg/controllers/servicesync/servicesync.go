@@ -7,6 +7,8 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
+	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -14,13 +16,21 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
+
+type syncResult struct {
+	gvk        schema.GroupVersionKind
+	fromObject client.Object
+	toObject   client.Object
+}
 
 type ServiceSyncer struct {
 	Name        string
@@ -117,21 +127,37 @@ func (e *ServiceSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	fromService = fromService.DeepCopy()
 	services.StripNodePorts(fromService)
 
+	var result *syncResult
+
 	// if we should create endpoints
 	if e.CreateEndpoints {
-		return e.syncServiceAndEndpoints(ctx, fromService, to)
+		result, err = e.syncServiceAndEndpoints(ctx, fromService, to)
+	} else {
+		result, err = e.syncServiceWithSelector(ctx, fromService, to)
+	}
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error while trying to sync service %s: %w", req.NamespacedName.String(), err)
+	}
+	if result == nil {
+		// skipped syncing service
+		return ctrl.Result{}, nil
 	}
 
-	return e.syncServiceWithSelector(ctx, fromService, to)
+	err = e.saveMapping(ctx, *result)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error while trying to save mapping: %w", err)
+	}
+
+	return ctrl.Result{}, nil
 }
 
-func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService *corev1.Service, to types.NamespacedName) (ctrl.Result, error) {
+func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService *corev1.Service, to types.NamespacedName) (*syncResult, error) {
 	// compare to endpoint and service
 	toService := &corev1.Service{}
 	err := e.To.GetClient().Get(ctx, to, toService)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
-			return ctrl.Result{}, err
+			return nil, fmt.Errorf("error (diffrent than NotFound) while getting target service %s: %w", to.String(), err)
 		}
 
 		// create service
@@ -159,10 +185,18 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 		}
 		toService.Spec.Selector = translate.HostLabelsMap(fromService.Spec.Selector, toService.Spec.Selector, fromService.Namespace, false)
 		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
-		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)
+		err = e.To.GetClient().Create(ctx, toService)
+		if err != nil {
+			return nil, fmt.Errorf("error while creating target service %s/%s: %w", to.Namespace, to.Name, err)
+		}
+		return &syncResult{
+			gvk:        mappings.Services(),
+			fromObject: fromService,
+			toObject:   toService,
+		}, nil
 	} else if toService.Labels == nil || toService.Labels[translate.ControllerLabel] != "vcluster" {
 		// skip as it seems the service was user created
-		return ctrl.Result{}, nil
+		return nil, nil
 	}
 
 	// rewrite selector
@@ -174,19 +208,27 @@ func (e *ServiceSyncer) syncServiceWithSelector(ctx context.Context, fromService
 		e.Log.Infof("Update target service %s/%s because ports or selector are different", to.Namespace, to.Name)
 		toService.Spec.Ports = fromService.Spec.Ports
 		toService.Spec.Selector = targetService.Spec.Selector
-		return ctrl.Result{}, e.To.GetClient().Update(ctx, toService)
+		err = e.To.GetClient().Update(ctx, toService)
+		if err != nil {
+			return nil, fmt.Errorf("error while updating target service %s/%s: %w", to.Namespace, to.Name, err)
+		}
+		return &syncResult{
+			gvk:        mappings.Services(),
+			fromObject: fromService,
+			toObject:   toService,
+		}, nil
 	}
 
-	return ctrl.Result{}, nil
+	return nil, nil
 }
 
-func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService *corev1.Service, to types.NamespacedName) (ctrl.Result, error) {
+func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService *corev1.Service, to types.NamespacedName) (*syncResult, error) {
 	// compare to endpoint and service
 	toService := &corev1.Service{}
 	err := e.To.GetClient().Get(ctx, to, toService)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
-			return ctrl.Result{}, err
+			return nil, fmt.Errorf("error (diffrent than NotFound) while getting target service %s/%s: %w", to.Namespace, to.Name, err)
 		}
 
 		// check if namespace exists
@@ -194,7 +236,7 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 			namespace := &corev1.Namespace{}
 			err = e.To.GetClient().Get(ctx, types.NamespacedName{Name: to.Namespace}, namespace)
 			if err != nil && !kerrors.IsNotFound(err) {
-				return ctrl.Result{}, err
+				return nil, fmt.Errorf("error (diffrent than NotFound) while getting namespace %s: %w", to.Namespace, err)
 			} else if kerrors.IsNotFound(err) {
 				// create namespace
 				e.Log.Infof("Create namespace %s because it is missing", to.Namespace)
@@ -204,7 +246,7 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 					},
 				})
 				if err != nil {
-					return ctrl.Result{}, err
+					return nil, fmt.Errorf("error (diffrent than NotFound) while creating namespace %s: %w", to.Namespace, err)
 				}
 			}
 		}
@@ -229,31 +271,56 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 			toService.OwnerReferences = translate.GetOwnerReference(nil)
 		}
 		e.Log.Infof("Create target service %s/%s because it is missing", to.Namespace, to.Name)
-		return ctrl.Result{}, e.To.GetClient().Create(ctx, toService)
+		err = e.To.GetClient().Create(ctx, toService)
+		if err != nil {
+			return nil, fmt.Errorf("error while creating target service %s/%s: %w", to.Namespace, to.Name, err)
+		}
+		return &syncResult{
+			gvk:        mappings.Services(),
+			fromObject: fromService,
+			toObject:   toService,
+		}, nil
 	} else if toService.Labels == nil || toService.Labels[translate.ControllerLabel] != "vcluster" {
 		// skip as it seems the service was user created
-		return ctrl.Result{}, nil
+		return nil, nil
 	}
 
 	// sync the loadbalancer status
 	if fromService.Spec.Type == corev1.ServiceTypeLoadBalancer && !apiequality.Semantic.DeepEqual(fromService.Status.LoadBalancer, toService.Status.LoadBalancer) {
 		e.Log.Infof("Update target service %s/%s because the loadbalancer status changed", to.Namespace, to.Name)
 		toService.Status.LoadBalancer = fromService.Status.LoadBalancer
-		return ctrl.Result{}, e.To.GetClient().Status().Update(ctx, toService)
+		err = e.To.GetClient().Status().Update(ctx, toService)
+		if err != nil {
+			return nil, fmt.Errorf("error while updating target service %s/%s because loadbalancer status changed: %w", to.Namespace, to.Name, err)
+		}
+		return &syncResult{
+			gvk:        mappings.Services(),
+			fromObject: fromService,
+			toObject:   toService,
+		}, nil
 	}
 	// compare service ports
 	if !apiequality.Semantic.DeepEqual(toService.Spec.Ports, fromService.Spec.Ports) {
 		e.Log.Infof("Update target service %s/%s because ports are different", to.Namespace, to.Name)
 		toService.Spec.Ports = fromService.Spec.Ports
-		return ctrl.Result{}, e.To.GetClient().Update(ctx, toService)
+		err = e.To.GetClient().Update(ctx, toService)
+		if err != nil {
+			return nil, fmt.Errorf("error while updating target service %s/%s because ports changed: %w", to.Namespace, to.Name, err)
+		}
+		return &syncResult{
+			gvk:        mappings.Services(),
+			fromObject: fromService,
+			toObject:   toService,
+		}, nil
 	}
 
 	// check target endpoints
+	fromEndpoints := &corev1.Endpoints{}
 	toEndpoints := &corev1.Endpoints{}
 	err = e.To.GetClient().Get(ctx, to, toEndpoints)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
-			return ctrl.Result{}, err
+			return nil, fmt.Errorf("error (diffrent than NotFound) while getting target endpoints %s: %w", to.String(), err)
 		}
 
 		// copy subsets from endpoint
@@ -261,16 +328,15 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 
 		if fromService.Spec.ClusterIP == corev1.ClusterIPNone {
 			// fetch the corresponding endpoint and assign address from there to here
-			fromEndpoint := &corev1.Endpoints{}
 			err = e.From.GetClient().Get(ctx, types.NamespacedName{
 				Name:      fromService.GetName(),
 				Namespace: fromService.GetNamespace(),
-			}, fromEndpoint)
+			}, fromEndpoints)
 			if err != nil {
-				return ctrl.Result{}, err
+				return nil, fmt.Errorf("error while getting from endpoints %s/%s: %w", fromService.Namespace, fromService.Name, err)
 			}
 
-			subsets = fromEndpoint.Subsets
+			subsets = fromEndpoints.Subsets
 		} else {
 			subsets = append(subsets, corev1.EndpointSubset{
 				Addresses: []corev1.EndpointAddress{
@@ -295,23 +361,30 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 		}
 
 		e.Log.Infof("Create target endpoints %s/%s because they are missing", to.Namespace, to.Name)
-		return ctrl.Result{}, e.To.GetClient().Create(ctx, toEndpoints)
+		err = e.To.GetClient().Create(ctx, toEndpoints)
+		if err != nil {
+			return nil, fmt.Errorf("error while creating target endpoints %s: %w", to.String(), err)
+		}
+		return &syncResult{
+			gvk:        mappings.Endpoints(),
+			fromObject: fromEndpoints,
+			toObject:   toEndpoints,
+		}, nil
 	}
 
 	// check if update is needed
 	var expectedSubsets []corev1.EndpointSubset
 	if fromService.Spec.ClusterIP == corev1.ClusterIPNone {
 		// fetch the corresponding endpoint and assign address from there to here
-		fromEndpoint := &corev1.Endpoints{}
 		err = e.From.GetClient().Get(ctx, types.NamespacedName{
 			Name:      fromService.GetName(),
 			Namespace: fromService.GetNamespace(),
-		}, fromEndpoint)
+		}, fromEndpoints)
 		if err != nil {
-			return ctrl.Result{}, err
+			return nil, fmt.Errorf("error while getting from endpoints %s/%s: %w", fromService.Namespace, fromService.Name, err)
 		}
 
-		expectedSubsets = fromEndpoint.Subsets
+		expectedSubsets = fromEndpoints.Subsets
 	} else {
 		expectedSubsets = []corev1.EndpointSubset{
 			{
@@ -328,10 +401,89 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 	if !apiequality.Semantic.DeepEqual(toEndpoints.Subsets, expectedSubsets) {
 		e.Log.Infof("Update target endpoints %s/%s because subsets are different", to.Namespace, to.Name)
 		toEndpoints.Subsets = expectedSubsets
-		return ctrl.Result{}, e.To.GetClient().Update(ctx, toEndpoints)
+		err = e.To.GetClient().Update(ctx, toEndpoints)
+		if err != nil {
+			return nil, fmt.Errorf("error while updating target endpoints %s/%s: %w", toEndpoints.Namespace, toEndpoints.Name, err)
+		}
+		return &syncResult{
+			gvk:        mappings.Endpoints(),
+			fromObject: fromEndpoints,
+			toObject:   toEndpoints,
+		}, nil
 	}
 
-	return ctrl.Result{}, nil
+	return nil, nil
+}
+
+func (e *ServiceSyncer) saveMapping(ctx context.Context, result syncResult) error {
+	var pObj, vObj client.Object
+	if e.IsVirtualToHostSyncer {
+		vObj = result.fromObject
+		pObj = result.toObject
+	} else {
+		vObj = result.toObject
+		pObj = result.fromObject
+	}
+	vNamespacedName := types.NamespacedName{
+		Namespace: vObj.GetNamespace(),
+		Name:      vObj.GetName(),
+	}
+	pNamespacedName := types.NamespacedName{
+		Namespace: pObj.GetNamespace(),
+		Name:      pObj.GetName(),
+	}
+
+	// Add mapping to context. This is needed so we can record the mapping.
+	var err error
+	syncContext := &synccontext.SyncContext{
+		Context:                ctx,
+		Config:                 e.SyncContext.Config,
+		Log:                    e.SyncContext.Log,
+		PhysicalClient:         e.SyncContext.PhysicalClient,
+		ObjectCache:            e.SyncContext.ObjectCache,
+		CurrentNamespace:       e.SyncContext.CurrentNamespace,
+		CurrentNamespaceClient: e.SyncContext.CurrentNamespaceClient,
+		VirtualClient:          e.SyncContext.VirtualClient,
+		Mappings:               e.SyncContext.Mappings,
+	}
+	syncContext.Context, err = synccontext.WithMappingFromObjects(syncContext.Context, pObj, vObj)
+	if err != nil {
+		return fmt.Errorf(
+			"error while trying to add mapping to context for host object %s and virtual object %s: %w",
+			pNamespacedName.String(),
+			vNamespacedName.String(),
+			err)
+	}
+
+	// Record mapping to mappings store. This is needed so we can save the mapping.
+	err = generic.RecordMapping(syncContext, pNamespacedName, vNamespacedName, result.gvk)
+	if err != nil {
+		return fmt.Errorf(
+			"error while trying to record mapping for host object %s and virtual object %s: %w",
+			pNamespacedName.String(),
+			vNamespacedName.String(),
+			err)
+	}
+
+	// Save synced service to mappings store
+	mapping := synccontext.NameMapping{
+		GroupVersionKind: result.gvk,
+		HostName: types.NamespacedName{
+			Namespace: pObj.GetNamespace(),
+			Name:      pObj.GetName(),
+		},
+		VirtualName: types.NamespacedName{
+			Namespace: vObj.GetNamespace(),
+			Name:      vObj.GetName(),
+		},
+	}
+
+	err = syncContext.Mappings.Store().SaveMapping(ctx, mapping)
+	if err != nil {
+		return fmt.Errorf("error while saving mapping %s: %w", mapping.String(), err)
+	}
+
+	return nil
 }
 
 func convertPorts(servicePorts []corev1.ServicePort) []corev1.EndpointPort {

@@ -3,7 +3,9 @@ package servicesync
 import (
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
@@ -48,11 +50,12 @@ func TestFromHostRegister(t *testing.T) {
 
 func TestFromHostReconcile(t *testing.T) {
 	testCases := []struct {
-		Name                    string
-		Mappings                map[string]types.NamespacedName
-		Request                 ctrl.Request
-		InitialHostServices     []runtime.Object
-		ExpectedVirtualServices []runtime.Object
+		Name                         string
+		Mappings                     map[string]types.NamespacedName
+		Request                      ctrl.Request
+		InitialHostServices          []runtime.Object
+		ExpectedVirtualServices      []runtime.Object
+		ExpectedMappingsStoreObjects []synccontext.Object
 	}{
 		{
 			Name: "Reconcile without errors when service is not synced",
@@ -125,6 +128,15 @@ func TestFromHostReconcile(t *testing.T) {
 					},
 				},
 			},
+			ExpectedMappingsStoreObjects: []synccontext.Object{
+				{
+					GroupVersionKind: mappings.Services(),
+					NamespacedName: types.NamespacedName{
+						Namespace: "virtual-namespace",
+						Name:      "virtual-service",
+					},
+				},
+			},
 			Mappings: map[string]types.NamespacedName{
 				"host-namespace/host-service": {
 					Namespace: "virtual-namespace",
@@ -181,6 +193,14 @@ func TestFromHostReconcile(t *testing.T) {
 					nil)
 				if compareErr != nil {
 					t.Fatalf("%s - Virtual State mismatch %v", testCase.Name, compareErr)
+				}
+			}
+
+			// check expected mappings
+			for _, object := range testCase.ExpectedMappingsStoreObjects {
+				hasObject := fakeContext.Mappings.Store().HasVirtualObject(fakeContext, object)
+				if !hasObject {
+					t.Fatalf("%s - Object %s missing in store", object.String(), testCase.Name)
 				}
 			}
 		})
