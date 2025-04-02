@@ -43,7 +43,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
       - uses: azure/setup-helm@v4
         with:
-          version: "v3.0.2"
+          version: "v3.17.2"
       - id: get_version
         run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
@@ -110,12 +110,19 @@ jobs:
         uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
         with:
-          version: "v3.0.2"
+          version: "v3.17.2"
       - run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/v!!p')
+          RELEASE_PACKAGE=vcluster-$RELEASE_VERSION.tgz
           helm plugin install https://github.com/chartmuseum/helm-push.git
+          helm package --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" chart
+
+          # Push to chart museum
           helm repo add chartmuseum $CHART_MUSEUM_URL --username $CHART_MUSEUM_USER --password $CHART_MUSEUM_PASSWORD
-          helm cm-push --force --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" chart chartmuseum
+          helm cm-push --force $RELEASE_PACKAGE chartmuseum
+
+          # Push chart to ghcr.io
+          helm push $RELEASE_PACKAGE oci://ghcr.io/loft-sh/charts
         env:
           CHART_MUSEUM_URL: "https://charts.loft.sh/"
           CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
