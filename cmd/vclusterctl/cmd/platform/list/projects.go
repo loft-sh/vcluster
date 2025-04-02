@@ -6,7 +6,6 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
@@ -68,38 +67,14 @@ func (cmd *ProjectsCmd) RunProjects(ctx context.Context) error {
 	header := []string{
 		"Project",
 	}
-	printData(cmd.log, cmd.Output, header, projectList.Items)
+
+	// Define a function to extract specific fields from a Project struct.
+	// This function will be passed to PrintData to determine which fields
+	// should be printed in JSON or table format.
+	getValuesFunc := func(p managementv1.Project) []string {
+		return []string{p.Name}
+	}
+
+	PrintData(cmd.log, cmd.Output, header, projectList.Items, getValuesFunc)
 	return nil
-}
-
-func printData(logger log.Logger, outputType string, headers []string, project []managementv1.Project) error {
-	switch outputType {
-	case "json":
-		projectsMap := toMap(headers, project)
-		err := printJson(logger, projectsMap)
-		if err != nil {
-			return err
-		}
-	case "table", "default":
-		values := toValues(project)
-		table.PrintTable(logger, headers, values)
-		return nil
-	}
-	return nil
-}
-
-func toValues(projects []managementv1.Project) [][]string {
-	values := make([][]string, len(projects))
-	for i, project := range projects {
-		values[i] = []string{project.Name}
-	}
-	return values
-}
-
-func toMap(headers []string, projects []managementv1.Project) []map[string]string {
-	var projectsMap []map[string]string
-	for _, project := range projects {
-		projectsMap = append(projectsMap, map[string]string{headers[0]: project.Name})
-	}
-	return projectsMap
 }
