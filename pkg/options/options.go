@@ -43,6 +43,10 @@ type VirtualClusterOptions struct {
 	ClearNodeImages     bool     `json:"clearNodeImages,omitempty"`
 	TranslateImages     []string `json:"translateImages,omitempty"`
 
+	ReservedResourceCPU              string `json:"reservedResourceCPU,omitempty"`
+	ReservedResourceMemory           string `json:"reservedResourceMemory,omitempty"`
+	ReservedResourceEphemeralStorage string `json:"reservedResourceEphemeralStorage,omitempty"`
+
 	NodeSelector        string `json:"nodeSelector,omitempty"`
 	EnforceNodeSelector bool   `json:"enforceNodeSelector,omitempty"`
 	ServiceAccount      string `json:"serviceAccount,omitempty"`
