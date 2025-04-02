@@ -318,51 +318,32 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		framework.ExpectNoError(err)
 
 		//Check configmap created before snapshot is available
-		gomega.Eventually(func() map[string]string {
-			configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).List(f.Context, metav1.ListOptions{
-				LabelSelector: "snapshot=restore",
-			})
+		configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).List(f.Context, metav1.ListOptions{
+			LabelSelector: "snapshot=restore",
+		})
 
-			if len(configmaps.Items) != 1 {
-				return map[string]string{}
-			}
-			restoredConfigmap := configmaps.Items[0]
-			framework.ExpectNoError(err)
-			return restoredConfigmap.Data
-		}).WithPolling(time.Second).
-			WithTimeout(framework.PollTimeout).
-			Should(gomega.Equal(configMapToRestore.Data))
+		gomega.Expect(len(configmaps.Items)).To(gomega.Equal(1))
+		restoredConfigmap := configmaps.Items[0]
+		gomega.Expect(restoredConfigmap.Data).To(gomega.Equal(configMapToRestore.Data))
+		framework.ExpectNoError(err)
 
 		//Check secret created before snapshot is available
-		gomega.Eventually(func() map[string][]byte {
-			secrets, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
-				LabelSelector: "snapshot=restore",
-			})
+		secrets, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
+			LabelSelector: "snapshot=restore",
+		})
 
-			if len(secrets.Items) != 1 {
-				return map[string][]byte{}
-			}
-			restoredSecret := secrets.Items[0]
-			framework.ExpectNoError(err)
-			return restoredSecret.Data
-		}).WithPolling(time.Second).
-			WithTimeout(framework.PollTimeout).
-			Should(gomega.Equal(secretToRestore.Data))
+		gomega.Expect(len(secrets.Items)).To(gomega.Equal(1))
+		restoredSecret := secrets.Items[0]
+		gomega.Expect(restoredSecret.Data).To(gomega.Equal(secretToRestore.Data))
+		framework.ExpectNoError(err)
 
 		//Check deployment created before snapshot is available
-		gomega.Eventually(func() bool {
-			deployment, err := f.VClusterClient.AppsV1().Deployments(defaultNamespace).List(f.Context, metav1.ListOptions{
-				LabelSelector: "snapshot=restore",
-			})
+		deployment, err := f.VClusterClient.AppsV1().Deployments(defaultNamespace).List(f.Context, metav1.ListOptions{
+			LabelSelector: "snapshot=restore",
+		})
 
-			if len(deployment.Items) != 1 {
-				return false
-			}
-			framework.ExpectNoError(err)
-			return len(deployment.Items) == 1
-		}).WithPolling(time.Second).
-			WithTimeout(framework.PollTimeout * 2).
-			Should(gomega.BeTrue())
+		gomega.Expect(len(deployment.Items)).To(gomega.Equal(1))
+		framework.ExpectNoError(err)
 
 		//Check configmap created after snapshot is not available
 		gomega.Eventually(func() bool {
