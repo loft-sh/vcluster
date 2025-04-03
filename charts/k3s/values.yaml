@@ -184,7 +184,7 @@ syncer:
     # Size of the persistent volume claim
     size: 5Gi
     # The binariesVolume is used to retrieve distro specific executables to be run by the syncer
-    # This volume doesn't need to be persistent 
+    # This volume doesn't need to be persistent
     binariesVolume:
       - name: binaries
         emptyDir: {}
@@ -229,6 +229,9 @@ vcluster:
 embeddedEtcd:
   # If embedded etcd should be enabled, this is a PRO only feature
   enabled: false
+  # To use if embeddedEtcd is enabled and you want to migrate the data
+  # from the external etcd
+  migrateFromEtcd: false
 
 # list of {validating/mutating}webhooks that the syncer should proxy.
 # This is a PRO only feature.
