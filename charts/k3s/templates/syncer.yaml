@@ -211,6 +211,9 @@ spec:
           - --etcd-embedded
           - --etcd-replicas={{ include "vcluster.replicas" . }}
           {{- end }}
+          {{- if .Values.embeddedEtcd.migrateFromEtcd }}
+          - --migrate-from=https://{{ .Release.Name }}-etcd:2379
+          {{- end }}
           {{- end }}
           {{- if .Values.sync.nodes.enableScheduler }}
           - --enable-scheduler
@@ -369,6 +372,9 @@ spec:
               - --datastore-cafile=/data/pki/etcd/ca.crt
               - --datastore-certfile=/data/pki/apiserver-etcd-client.crt
               - --datastore-keyfile=/data/pki/apiserver-etcd-client.key
+              {{- end }}
+              {{- if .Values.embeddedEtcd.migrateFromEtcd }}
+              - --migrate-from=https://{{ .Release.Name }}-etcd:2379
               {{- end }}
               {{- end }}
               {{- range $f := .Values.vcluster.extraArgs }}

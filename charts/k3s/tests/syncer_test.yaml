@@ -84,7 +84,7 @@ tests:
             cpu: "100m"
             memory: "256Mi"
             ephemeral-storage: "512Mi"
-    
+
     asserts:
       - hasDocuments:
           count: 1
@@ -97,3 +97,17 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].args
           content: "--reserved-resource-ephemeral-storage=512Mi"
+
+  - it: should pass migrate from flag if embedded etcd is enabled
+    set:
+      pro: true
+      embeddedEtcd:
+        enabled: true
+        migrateFromEtcd: true
+
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--migrate-from=https://RELEASE-NAME-etcd:2379"
