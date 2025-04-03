@@ -733,7 +733,10 @@ integrations:
     # Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
     pods: true
   
-  # ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster
+  # ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster.
+  # - ExternalSecrets will be synced from the virtual cluster to the host cluster.
+  # - SecretStores will be synced bi-directionally.
+  # - ClusterSecretStores will be synced from the host cluster to the virtual cluster.
   externalSecrets:
     # Enabled defines whether the external secret integration is enabled or not
     enabled: false
@@ -742,13 +745,13 @@ integrations:
       enabled: false
     # Sync defines the syncing behavior for the integration
     sync:
-      # ExternalSecrets defines whether to sync external secrets or not
+      # ExternalSecrets defines if external secrets should get synced from the virtual cluster to the host cluster.
       externalSecrets:
         enabled: true
-      # Stores defines whether to sync stores or not
+      # Stores defines if secret stores should get synced from the virtual cluster to the host cluster.
       stores:
         enabled: false
-      # ClusterStores defines whether to sync cluster stores or not
+      # ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster.
       clusterStores:
         # Enabled defines if this option should be enabled.
         enabled: false
