@@ -8,7 +8,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -424,46 +423,6 @@ func (e *ServiceSyncer) saveMapping(ctx context.Context, result syncResult) erro
 		vObj = result.toObject
 		pObj = result.fromObject
 	}
-	vNamespacedName := types.NamespacedName{
-		Namespace: vObj.GetNamespace(),
-		Name:      vObj.GetName(),
-	}
-	pNamespacedName := types.NamespacedName{
-		Namespace: pObj.GetNamespace(),
-		Name:      pObj.GetName(),
-	}
-
-	// Add mapping to context. This is needed so we can record the mapping.
-	var err error
-	syncContext := &synccontext.SyncContext{
-		Context:                ctx,
-		Config:                 e.SyncContext.Config,
-		Log:                    e.SyncContext.Log,
-		PhysicalClient:         e.SyncContext.PhysicalClient,
-		ObjectCache:            e.SyncContext.ObjectCache,
-		CurrentNamespace:       e.SyncContext.CurrentNamespace,
-		CurrentNamespaceClient: e.SyncContext.CurrentNamespaceClient,
-		VirtualClient:          e.SyncContext.VirtualClient,
-		Mappings:               e.SyncContext.Mappings,
-	}
-	syncContext.Context, err = synccontext.WithMappingFromObjects(syncContext.Context, pObj, vObj)
-	if err != nil {
-		return fmt.Errorf(
-			"error while trying to add mapping to context for host object %s and virtual object %s: %w",
-			pNamespacedName.String(),
-			vNamespacedName.String(),
-			err)
-	}
-
-	// Record mapping to mappings store. This is needed so we can save the mapping.
-	err = generic.RecordMapping(syncContext, pNamespacedName, vNamespacedName, result.gvk)
-	if err != nil {
-		return fmt.Errorf(
-			"error while trying to record mapping for host object %s and virtual object %s: %w",
-			pNamespacedName.String(),
-			vNamespacedName.String(),
-			err)
-	}
 
 	// Save synced service to mappings store
 	mapping := synccontext.NameMapping{
@@ -478,7 +437,7 @@ func (e *ServiceSyncer) saveMapping(ctx context.Context, result syncResult) erro
 		},
 	}
 
-	err = syncContext.Mappings.Store().SaveMapping(ctx, mapping)
+	err := e.SyncContext.Mappings.Store().AddReferenceAndSave(ctx, mapping, mapping)
 	if err != nil {
 		return fmt.Errorf("error while saving mapping %s: %w", mapping.String(), err)
 	}
