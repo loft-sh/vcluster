@@ -404,7 +404,7 @@ func initControllerContext(
 		virtualManager.GetClient(),
 		localManager.GetClient(),
 		store.NewEtcdBackend(etcdClient),
-		verify.NewVerifyMapping(controllerContext.ToRegisterContext().ToSyncContext("verify-mapping")),
+		verify.NewVerifyMapping(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("start mapping store: %w", err)

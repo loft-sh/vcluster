@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/store/verify"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -437,6 +438,7 @@ func (e *ServiceSyncer) saveMapping(ctx context.Context, result syncResult) erro
 		},
 	}
 
+	ctx = context.WithValue(ctx, verify.SkipHostNamespaceCheck, true)
 	err := e.SyncContext.Mappings.Store().AddReferenceAndSave(ctx, mapping, mapping)
 	if err != nil {
 		return fmt.Errorf("error while saving mapping %s: %w", mapping.String(), err)

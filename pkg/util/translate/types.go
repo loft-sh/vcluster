@@ -41,7 +41,7 @@ type Translator interface {
 	IsManaged(ctx *synccontext.SyncContext, pObj client.Object) bool
 
 	// IsTargetedNamespace checks if the provided namespace is a sync target for vcluster
-	IsTargetedNamespace(ctx *synccontext.SyncContext, namespace string) bool
+	IsTargetedNamespace(namespace string) bool
 
 	// MarkerLabelCluster returns the marker label for the cluster scoped object
 	MarkerLabelCluster() string

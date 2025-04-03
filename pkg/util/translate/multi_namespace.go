@@ -59,7 +59,7 @@ func (s *multiNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Obj
 	// If obj is not in the synced namespace OR
 	// If object-name annotation is not set OR
 	// If object-name annotation is different from actual name
-	if !s.IsTargetedNamespace(ctx, pObj.GetNamespace()) || pObj.GetAnnotations()[NameAnnotation] == "" {
+	if !s.IsTargetedNamespace(pObj.GetNamespace()) || pObj.GetAnnotations()[NameAnnotation] == "" {
 		return false
 	} else if pObj.GetAnnotations()[KindAnnotation] != "" {
 		gvk, err := apiutil.GVKForObject(pObj, scheme.Scheme)
@@ -87,7 +87,7 @@ func (s *multiNamespace) LabelsToTranslate() map[string]bool {
 	}
 }
 
-func (s *multiNamespace) IsTargetedNamespace(_ *synccontext.SyncContext, pNamespace string) bool {
+func (s *multiNamespace) IsTargetedNamespace(pNamespace string) bool {
 	return strings.HasPrefix(pNamespace, s.getNamespacePrefix()) && strings.HasSuffix(pNamespace, getNamespaceSuffix(s.currentNamespace, VClusterName))
 }
 

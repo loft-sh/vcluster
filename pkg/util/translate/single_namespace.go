@@ -81,7 +81,7 @@ func (s *singleNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Ob
 	}
 
 	// is object not in our target namespace?
-	if !s.IsTargetedNamespace(ctx, pObj.GetNamespace()) {
+	if !s.IsTargetedNamespace(pObj.GetNamespace()) {
 		return false
 	}
 
@@ -131,7 +131,7 @@ func (s *singleNamespace) IsManaged(ctx *synccontext.SyncContext, pObj client.Ob
 	return true
 }
 
-func (s *singleNamespace) IsTargetedNamespace(_ *synccontext.SyncContext, pNamespace string) bool {
+func (s *singleNamespace) IsTargetedNamespace(pNamespace string) bool {
 	return pNamespace == s.targetNamespace
 }
 
