@@ -373,9 +373,6 @@ spec:
               - --datastore-certfile=/data/pki/apiserver-etcd-client.crt
               - --datastore-keyfile=/data/pki/apiserver-etcd-client.key
               {{- end }}
-              {{- if .Values.embeddedEtcd.migrateFromEtcd }}
-              - --migrate-from=https://{{ .Release.Name }}-etcd:2379
-              {{- end }}
               {{- end }}
               {{- range $f := .Values.vcluster.extraArgs }}
               - {{ $f }}
