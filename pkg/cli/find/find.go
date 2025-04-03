@@ -78,7 +78,7 @@ func CurrentContext() (string, *clientcmdapi.Config, error) {
 }
 
 func GetPlatformVCluster(ctx context.Context, platformClient platform.Client, name, project string, log log.Logger) (*platform.VirtualClusterInstanceProject, error) {
-	platformVClusters, err := platform.ListVClusters(ctx, platformClient, name, project)
+	platformVClusters, err := platform.ListVClusters(ctx, platformClient, name, project, false)
 	if err != nil {
 		log.Warnf("Error retrieving platform vclusters: %v", err)
 	}
