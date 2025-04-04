@@ -74,7 +74,6 @@ func TestPrintData(t *testing.T) {
 		assert.Assert(t, strings.Contains(nonEmpty[2], "test-project1"))
 		assert.Assert(t, strings.Contains(nonEmpty[3], "test-project2"))
 	})
-
 }
 
 func filterNonEmpty(lines []string) []string {
