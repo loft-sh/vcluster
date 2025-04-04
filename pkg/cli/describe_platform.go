@@ -17,7 +17,7 @@ func DescribePlatform(ctx context.Context, globalFlags *flags.GlobalFlags, outpu
 		return err
 	}
 
-	proVClusters, err := platform.ListVClusters(ctx, platformClient, name, projectName)
+	proVClusters, err := platform.ListVClusters(ctx, platformClient, name, projectName, false)
 	if err != nil {
 		return err
 	}

@@ -83,7 +83,7 @@ func printVClusters(ctx context.Context, options *ListOptions, output []ListVClu
 				ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 				defer cancel()
 
-				proVClusters, _ := platform.ListVClusters(ctx, platformClient, "", "")
+				proVClusters, _ := platform.ListVClusters(ctx, platformClient, "", "", false)
 				if len(proVClusters) > 0 {
 					logger.Infof("You also have %d virtual clusters in your platform driver context.", len(proVClusters))
 					logger.Info("If you want to see them, run: 'vcluster list --driver platform' or 'vcluster use driver platform' to change the default")
