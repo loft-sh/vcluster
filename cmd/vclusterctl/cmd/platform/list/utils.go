@@ -21,23 +21,20 @@ func printJSON(logger log.Logger, value []map[string]string) error {
 // It takes a logger for output, an output type (json/table), a list of headers, a slice of items,
 // and a function to extract values from each item.
 func PrintData[T any](logger log.Logger, outputType string, headers []string, items []T, getValues func(T) []string) error {
+	var err error
 	switch outputType {
 	case "json":
 		// Convert items into a map using headers and value extractor function
 		itemsMap := toMap(headers, items, getValues)
 
-		err := printJSON(logger, itemsMap)
-		if err != nil {
-			return err
-		}
+		err = printJSON(logger, itemsMap)
 	case "table", "default":
 		// Convert items into a 2D slice of values
 		values := toValues(items, getValues)
 
 		table.PrintTable(logger, headers, values)
-		return nil
 	}
-	return nil
+	return err
 }
 
 func toValues[T any](items []T, getValues func(T) []string) [][]string {
