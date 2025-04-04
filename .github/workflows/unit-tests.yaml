@@ -8,6 +8,8 @@ on:
       - main
       - v*
     paths:
+      - go.mod
+      - go.sum
       - "**.go"
       - "!test/**" # exclude changes in e2e tests
       - ".github/workflows/unit-tests.yaml"

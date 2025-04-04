@@ -8,6 +8,8 @@ on:
       - main
       - v*
     paths:
+      - go.mod
+      - go.sum
       - "**.go"
       - "!**_test.go" # exclude test files to ignore unit test changes
       - "test/**" # include test files in e2e again
