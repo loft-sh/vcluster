@@ -179,7 +179,7 @@ func TestFromHostReconcile(t *testing.T) {
 					scheme.Scheme,
 					testCase.ExpectedVirtualServices,
 					nil)
-				if err != nil {
+				if compareErr != nil {
 					t.Fatalf("%s - Virtual State mismatch %v", testCase.Name, compareErr)
 				}
 			}
