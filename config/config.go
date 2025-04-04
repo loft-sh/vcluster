@@ -90,7 +90,10 @@ type Integrations struct {
 	// KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
 	KubeVirt KubeVirt `json:"kubeVirt,omitempty"`
 
-	// ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster
+	// ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster.
+	// - ExternalSecrets will be synced from the virtual cluster to the host cluster.
+	// - SecretStores will be synced bi-directionally.
+	// - ClusterSecretStores will be synced from the host cluster to the virtual cluster.
 	ExternalSecrets ExternalSecrets `json:"externalSecrets,omitempty"`
 
 	// CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster.
@@ -142,11 +145,11 @@ type ExternalSecrets struct {
 }
 
 type ExternalSecretsSync struct {
-	// ExternalSecrets defines whether to sync external secrets or not
+	// ExternalSecrets defines if external secrets should get synced from the virtual cluster to the host cluster.
 	ExternalSecrets EnableSwitch `json:"externalSecrets,omitempty"`
-	// Stores defines whether to sync stores or not
+	// Stores defines if secret stores should get synced from the virtual cluster to the host cluster.
 	Stores EnableSwitch `json:"stores,omitempty"`
-	// ClusterStores defines whether to sync cluster stores or not
+	// ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster.
 	ClusterStores ClusterStoresSyncConfig `json:"clusterStores,omitempty"`
 }
 

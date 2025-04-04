@@ -1852,15 +1852,15 @@
       "properties": {
         "externalSecrets": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "ExternalSecrets defines whether to sync external secrets or not"
+          "description": "ExternalSecrets defines if external secrets should get synced from the virtual cluster to the host cluster."
         },
         "stores": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "Stores defines whether to sync stores or not"
+          "description": "Stores defines if secret stores should get synced from the virtual cluster to the host cluster."
         },
         "clusterStores": {
           "$ref": "#/$defs/ClusterStoresSyncConfig",
-          "description": "ClusterStores defines whether to sync cluster stores or not"
+          "description": "ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster."
         }
       },
       "additionalProperties": false,
@@ -2033,7 +2033,7 @@
         },
         "externalSecrets": {
           "$ref": "#/$defs/ExternalSecrets",
-          "description": "ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster"
+          "description": "ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster.\n- ExternalSecrets will be synced from the virtual cluster to the host cluster.\n- SecretStores will be synced bi-directionally.\n- ClusterSecretStores will be synced from the host cluster to the virtual cluster."
         },
         "certManager": {
           "$ref": "#/$defs/CertManager",
