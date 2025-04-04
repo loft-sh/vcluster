@@ -1300,7 +1300,6 @@ func isUserTeamOwner(teams []*storagev1.EntityInfo, vclusterOwnerTeam string) bo
 		if team.Name == vclusterOwnerTeam {
 			isOwner = true
 			break
-
 		}
 	}
 	return isOwner
