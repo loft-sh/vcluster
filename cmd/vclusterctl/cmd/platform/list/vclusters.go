@@ -46,8 +46,7 @@ vcluster platform list vclusters
 
 	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	cobraCmd.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
-	cobraCmd.Flags().StringVar(&cmd.Output, "output", "table", "Choose the format of the output. [table|json]")
-
+	AddCommonFlags(cobraCmd, &cmd.ListOptions)
 	return cobraCmd
 }
 
