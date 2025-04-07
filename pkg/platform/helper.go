@@ -1295,12 +1295,10 @@ func isUserOwner(ctx context.Context, managementClient kube.Interface, vcInstanc
 }
 
 func isUserTeamOwner(teams []*storagev1.EntityInfo, vclusterOwnerTeam string) bool {
-	var isOwner bool
 	for _, team := range teams {
 		if team.Name == vclusterOwnerTeam {
-			isOwner = true
-			break
+			return true
 		}
 	}
-	return isOwner
+	return false
 }
