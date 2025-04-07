@@ -47,7 +47,6 @@ vcluster platform list vclusters
 
 	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	cobraCmd.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
-	cobraCmd.Flags().StringVar(&cmd.Output, "output", "table", "Choose the format of the output. [table|json]")
 	cobraCmd.Flags().BoolVar(&cmd.owner, "owner", false, "List virtual clusters owned by the currently logged-in user")
 
 	AddCommonFlags(cobraCmd, &cmd.ListOptions)
