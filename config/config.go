@@ -800,6 +800,22 @@ type SyncNodes struct {
 
 	// Patches patch the resource according to the provided specification.
 	Patches []TranslatePatch `json:"patches,omitempty"`
+
+	// ReservedResources specifies the amount of a particular resource type to be reserved/subtracted from the allocatable resource on the virtual node.
+	// This is to account for additional resource requirement in case of sidecar container(s) injected via mutating webhooks when workloads are synced from virtual to host.
+	// This will take effect only when the virtual scheduler is enabled.
+	ReservedResources ReservedResources `json:"reservedResources,omitempty"`
+}
+
+type ReservedResources struct {
+	// CPU is amount of CPU to reserve.
+	CPU string `json:"cpu,omitempty"`
+
+	// Memory is amount of Memory to reserve.
+	Memory string `json:"memory,omitempty"`
+
+	// EphemeralStorage is amount of EphemeralStorage to reserve.
+	EphemeralStorage string `json:"ephemeralStorage,omitempty"`
 }
 
 type SyncNodeSelector struct {

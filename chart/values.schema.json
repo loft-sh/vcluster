@@ -2881,6 +2881,24 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ReservedResources": {
+      "properties": {
+        "cpu": {
+          "type": "string",
+          "description": "CPU is amount of CPU to reserve."
+        },
+        "memory": {
+          "type": "string",
+          "description": "Memory is amount of Memory to reserve."
+        },
+        "ephemeralStorage": {
+          "type": "string",
+          "description": "EphemeralStorage is amount of EphemeralStorage to reserve."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ResolveDNS": {
       "properties": {
         "hostname": {
@@ -3304,6 +3322,10 @@
           },
           "type": "array",
           "description": "Patches patch the resource according to the provided specification."
+        },
+        "reservedResources": {
+          "$ref": "#/$defs/ReservedResources",
+          "description": "ReservedResources specifies the amount of a particular resource type to be reserved/subtracted from the allocatable resource on the virtual node.\nThis is to account for additional resource requirement in case of sidecar container(s) injected via mutating webhooks when workloads are synced from virtual to host.\nThis will take effect only when the virtual scheduler is enabled."
         }
       },
       "additionalProperties": false,
