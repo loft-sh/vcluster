@@ -60,6 +60,11 @@ generate-vcluster-latest-images version="0.0.0":
 generate-vcluster-optional-images:
   {{ASSETS_RUN}} --optional > ./release/images-optional.txt
 
+# Generate the vcluster charts file
+[private]
+generate-vcluster-charts version="0.0.0":
+  @echo "oci://ghcr.io/loft-sh/charts/vcluster {{version}}" > ./release/charts.txt
+
 # Generate versioned vCluster image files for multiple versions and distros
 [private]
 generate-matrix-specific-images version="0.0.0":
