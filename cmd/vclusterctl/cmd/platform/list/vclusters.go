@@ -50,6 +50,7 @@ vcluster platform list vclusters
 	cobraCmd.Flags().StringVar(&cmd.Output, "output", "table", "Choose the format of the output. [table|json]")
 	cobraCmd.Flags().BoolVar(&cmd.owner, "owner", false, "List virtual clusters owned by the currently logged-in user")
 
+	AddCommonFlags(cobraCmd, &cmd.ListOptions)
 	return cobraCmd
 }
 
