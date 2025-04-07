@@ -239,6 +239,13 @@ func StartBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig
 		if err != nil {
 			return "", nil, fmt.Errorf("configure external database: %w", err)
 		}
+	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeExternalEtcd {
+		etcdCertificates = &etcd.Certificates{
+			CaCert:     vConfig.ControlPlane.BackingStore.Etcd.External.TLS.CaFile,
+			ServerCert: vConfig.ControlPlane.BackingStore.Etcd.External.TLS.CertFile,
+			ServerKey:  vConfig.ControlPlane.BackingStore.Etcd.External.TLS.KeyFile,
+		}
+		etcdEndpoints = "https://" + strings.TrimPrefix(vConfig.ControlPlane.BackingStore.Etcd.External.Endpoint, "https://")
 	} else {
 		// embedded or deployed etcd
 		etcdCertificates = &etcd.Certificates{

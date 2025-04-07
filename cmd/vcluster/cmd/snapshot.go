@@ -206,7 +206,7 @@ func newEtcdClient(ctx context.Context, vConfig *config.VirtualClusterConfig, is
 				return nil, fmt.Errorf("start external database backing store: %w", err)
 			}
 		}
-	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeExternalEtcd {
+	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeDeployedEtcd {
 		_, err := generateCertificates(ctx, vConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get certificates: %w", err)

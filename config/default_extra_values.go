@@ -17,6 +17,7 @@ type StoreType string
 const (
 	StoreTypeEmbeddedEtcd     StoreType = "embedded-etcd"
 	StoreTypeExternalEtcd     StoreType = "external-etcd"
+	StoreTypeDeployedEtcd     StoreType = "deployed-etcd"
 	StoreTypeEmbeddedDatabase StoreType = "embedded-database"
 	StoreTypeExternalDatabase StoreType = "external-database"
 )

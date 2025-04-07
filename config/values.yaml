@@ -180,6 +180,13 @@ controlPlane:
       embedded:
         enabled: false
         migrateFromDeployedEtcd: false
+      external:
+        enabled: false
+        endpoint: ""
+        tls:
+          caFile: ""
+          certFile: ""
+          keyFile: ""
       deploy:
         enabled: false
         statefulSet:

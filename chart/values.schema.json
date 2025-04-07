@@ -1157,9 +1157,9 @@
           "$ref": "#/$defs/EtcdDeploy",
           "description": "Deploy defines to use an external etcd that is deployed by the helm chart"
         },
-          "external": {
+        "external": {
           "$ref": "#/$defs/EtcdExternal",
-          "description": "External defines to use an external etcd"
+          "description": "External defines to use a self-hosted external etcd that is not deployed by the helm chart"
         }
       },
       "additionalProperties": false,
@@ -1182,33 +1182,6 @@
         "headlessService": {
           "$ref": "#/$defs/EtcdDeployHeadlessService",
           "description": "HeadlessService holds options for the external etcd headless service."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "EtcdExternal": {
-      "properties": {
-        "service": {
-          "type": "string"
-        },
-        "enabled": {
-          "type": "boolean"
-        },
-        "tls": {
-          "properties": {
-            "caFile": {
-              "type": "string"
-            },
-            "certFile": {
-              "type": "string"
-            },
-            "keyFile": {
-              "type": "string"
-            }
-          },
-          "type": "object",
-          "description": "TLS"
         }
       },
       "additionalProperties": false,
@@ -1336,6 +1309,43 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "EtcdExternal": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the external etcd should be used."
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "Endpoint holds the endpoint of the external etcd server, e.g. my-example-service:2379"
+        },
+        "tls": {
+          "$ref": "#/$defs/EtcdExternalTLS",
+          "description": "TLS defines the tls configuration for the external etcd server"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EtcdExternalTLS": {
+      "properties": {
+        "caFile": {
+          "type": "string",
+          "description": "CaFile is the path to the ca file"
+        },
+        "certFile": {
+          "type": "string",
+          "description": "CertFile is the path to the cert file"
+        },
+        "keyFile": {
+          "type": "string",
+          "description": "KeyFile is the path to the key file"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "EtcdExternalTLS defines tls for external etcd server"
     },
     "Experimental": {
       "properties": {

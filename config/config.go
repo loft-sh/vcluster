@@ -277,8 +277,10 @@ func (c *Config) BackingStoreType() StoreType {
 	switch {
 	case c.ControlPlane.BackingStore.Etcd.Embedded.Enabled:
 		return StoreTypeEmbeddedEtcd
-	case c.ControlPlane.BackingStore.Etcd.Deploy.Enabled:
+	case c.ControlPlane.BackingStore.Etcd.External.Enabled:
 		return StoreTypeExternalEtcd
+	case c.ControlPlane.BackingStore.Etcd.Deploy.Enabled:
+		return StoreTypeDeployedEtcd
 	case c.ControlPlane.BackingStore.Database.Embedded.Enabled:
 		return StoreTypeEmbeddedDatabase
 	case c.ControlPlane.BackingStore.Database.External.Enabled:
@@ -289,7 +291,7 @@ func (c *Config) BackingStoreType() StoreType {
 }
 
 func (c *Config) EmbeddedDatabase() bool {
-	return !c.ControlPlane.BackingStore.Database.External.Enabled && !c.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !c.ControlPlane.BackingStore.Etcd.Deploy.Enabled
+	return !c.ControlPlane.BackingStore.Database.External.Enabled && !c.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !c.ControlPlane.BackingStore.Etcd.Deploy.Enabled && !c.ControlPlane.BackingStore.Etcd.External.Enabled
 }
 
 func (c *Config) Distro() string {
@@ -328,10 +330,10 @@ func ValidateStoreAndDistroChanges(currentStoreType, previousStoreType StoreType
 	}
 
 	if currentStoreType != previousStoreType {
-		if currentStoreType != StoreTypeEmbeddedEtcd {
+		if currentStoreType != StoreTypeDeployedEtcd && currentStoreType != StoreTypeEmbeddedEtcd {
 			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
 		}
-		if previousStoreType != StoreTypeExternalEtcd && previousStoreType != StoreTypeEmbeddedDatabase {
+		if previousStoreType != StoreTypeExternalEtcd && previousStoreType != StoreTypeDeployedEtcd && previousStoreType != StoreTypeEmbeddedDatabase {
 			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
 		}
 	}
@@ -1280,7 +1282,7 @@ type Etcd struct {
 	// Deploy defines to use an external etcd that is deployed by the helm chart
 	Deploy EtcdDeploy `json:"deploy,omitempty"`
 
-	//External defines to use external etcd
+	// External defines to use a self-hosted external etcd that is not deployed by the helm chart
 	External EtcdExternal `json:"external,omitempty"`
 }
 
@@ -1289,23 +1291,28 @@ func (e Etcd) JSONSchemaExtend(base *jsonschema.Schema) {
 }
 
 type EtcdExternal struct {
-
 	// Enabled defines if the external etcd should be used.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// Service holds options for the external etcd service
-	Service string `json:"service,omitempty"`
+	// Endpoint holds the endpoint of the external etcd server, e.g. my-example-service:2379
+	Endpoint string `json:"endpoint,omitempty"`
 
-	// Certificate defines tls for external etcd server
-	Certificate Certificate `json:"tls,omitempty"`
+	// TLS defines the tls configuration for the external etcd server
+	TLS EtcdExternalTLS `json:"tls,omitempty"`
 }
 
-// Certificate defines tls
-type Certificate struct {
-	CaFile  string `json:"caFile,omitempty"`
-	CrtFile string `json:"certFile,omitempty"`
+// EtcdExternalTLS defines tls for external etcd server
+type EtcdExternalTLS struct {
+	// CaFile is the path to the ca file
+	CaFile string `json:"caFile,omitempty"`
+
+	// CertFile is the path to the cert file
+	CertFile string `json:"certFile,omitempty"`
+
+	// KeyFile is the path to the key file
 	KeyFile string `json:"keyFile,omitempty"`
 }
+
 type EtcdEmbedded struct {
 	// Enabled defines if the embedded etcd should be used.
 	Enabled bool `json:"enabled,omitempty" product:"pro"`

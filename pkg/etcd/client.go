@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	vconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -66,11 +67,11 @@ func GetEtcdEndpoint(vConfig *config.VirtualClusterConfig) (string, *Certificate
 			etcdEndpoints = "https://" + vConfig.Name + "-etcd-headless:2379"
 		}
 	} else if vConfig.ControlPlane.BackingStore.Etcd.External.Enabled {
-		etcdEndpoints = vConfig.ControlPlane.BackingStore.Etcd.External.Service
+		etcdEndpoints = "https://" + strings.TrimPrefix(vConfig.ControlPlane.BackingStore.Etcd.External.Endpoint, "https://")
 		etcdCertificates = &Certificates{
-			CaCert:     vConfig.ControlPlane.BackingStore.Etcd.External.Certificate.CaFile,
-			ServerCert: vConfig.ControlPlane.BackingStore.Etcd.External.Certificate.CrtFile,
-			ServerKey:  vConfig.ControlPlane.BackingStore.Etcd.External.Certificate.KeyFile,
+			CaCert:     vConfig.ControlPlane.BackingStore.Etcd.External.TLS.CaFile,
+			ServerCert: vConfig.ControlPlane.BackingStore.Etcd.External.TLS.CertFile,
+			ServerKey:  vConfig.ControlPlane.BackingStore.Etcd.External.TLS.KeyFile,
 		}
 	} else if vConfig.Distro() == vconfig.K8SDistro {
 		etcdEndpoints = constants.K8sKineEndpoint
