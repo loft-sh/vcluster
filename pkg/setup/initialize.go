@@ -31,8 +31,14 @@ import (
 
 // Initialize creates the required secrets and configmaps for the control plane to start
 func Initialize(ctx context.Context, options *config.VirtualClusterConfig) error {
+	// migrate k3s to k8s if needed
+	err := k8s.MigrateK3sToK8s(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options)
+	if err != nil {
+		return fmt.Errorf("migrate k3s to k8s: %w", err)
+	}
+
 	// Ensure that service CIDR range is written into the expected location
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(waitCtx context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(waitCtx context.Context) (bool, error) {
 		err := initialize(waitCtx, options)
 		if err != nil {
 			klog.Errorf("error initializing service cidr, certs and token: %v", err)
@@ -253,9 +259,8 @@ func GenerateCerts(ctx context.Context, currentNamespaceClient kubernetes.Interf
 		)
 	}
 
-	// expect up to 20 etcd members, number could be lower since more
-	// than 5 is generally a bad idea
-	for i := range 20 {
+	// expect up to 5 etcd members
+	for i := range 5 {
 		// this is for embedded etcd
 		hostname := vClusterName + "-" + strconv.Itoa(i)
 		etcdSans = append(etcdSans, hostname, hostname+"."+vClusterName+"-headless", hostname+"."+vClusterName+"-headless"+"."+currentNamespace)

@@ -29,6 +29,16 @@ const (
 	// CAKeyName defines certificate name
 	CAKeyName = "ca.key"
 
+	// ServerCAKeyName defines server ca key name
+	ServerCAKeyName = "server-ca.key"
+	// ServerCACertName defines server ca cert name
+	ServerCACertName = "server-ca.crt"
+
+	// ClientCACertName defines client ca cert name
+	ClientCACertName = "client-ca.crt"
+	// ClientCAKeyName defines client ca key name
+	ClientCAKeyName = "client-ca.key"
+
 	// APIServerCertAndKeyBaseName defines API's server certificate and key base name
 	APIServerCertAndKeyBaseName = "apiserver"
 	// APIServerCertName defines API's server certificate name
@@ -147,6 +157,12 @@ var certMap = map[string]string{
 
 	CACertName: CACertName,
 	CAKeyName:  CAKeyName,
+
+	ServerCACertName: ServerCACertName,
+	ServerCAKeyName:  ServerCAKeyName,
+
+	ClientCACertName: ClientCACertName,
+	ClientCAKeyName:  ClientCAKeyName,
 
 	FrontProxyCACertName: FrontProxyCACertName,
 	FrontProxyCAKeyName:  FrontProxyCAKeyName,

@@ -75,9 +75,9 @@ func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKu
 	case config.K8SDistro:
 		distroConfig = config.VirtualClusterKubeConfig{
 			KubeConfig:          "/data/pki/admin.conf",
-			ServerCAKey:         "/data/pki/ca.key",
-			ServerCACert:        "/data/pki/ca.crt",
-			ClientCACert:        "/data/pki/ca.crt",
+			ServerCAKey:         "/data/pki/server-ca.key",
+			ServerCACert:        "/data/pki/server-ca.crt",
+			ClientCACert:        "/data/pki/client-ca.crt",
 			RequestHeaderCACert: "/data/pki/front-proxy-ca.crt",
 		}
 	}
