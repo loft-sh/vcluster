@@ -346,7 +346,7 @@ func (s *importer) isVirtualManaged(vObj client.Object) bool {
 	return vObj.GetAnnotations() != nil && vObj.GetAnnotations()[translate.ControllerLabel] != "" && vObj.GetAnnotations()[translate.ControllerLabel] == s.Name()
 }
 
-func (s *importer) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
+func (s *importer) IsManaged(_ *synccontext.SyncContext, pObj client.Object) (bool, error) {
 	if s.syncerOptions.IsClusterScopedCRD {
 		return true, nil
 	}
@@ -355,7 +355,7 @@ func (s *importer) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (
 	}
 
 	// check if the pObj belong to a namespace managed by this vcluster
-	if !translate.Default.IsTargetedNamespace(ctx, pObj.GetNamespace()) {
+	if !translate.Default.IsTargetedNamespace(pObj.GetNamespace()) {
 		return false, nil
 	}
 

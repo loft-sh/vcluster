@@ -71,7 +71,7 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 	}
 
 	// create new store
-	mappingsStore, _ := store.NewStoreWithVerifyMapping(ctx, vClient, pClient, store.NewMemoryBackend(), verify.NewVerifyMapping(registerCtx.ToSyncContext("verify-mapping")))
+	mappingsStore, _ := store.NewStoreWithVerifyMapping(ctx, vClient, pClient, store.NewMemoryBackend(), verify.NewVerifyMapping())
 	registerCtx.Mappings = mappings.NewMappingsRegistry(mappingsStore)
 
 	// make sure we do not ensure any CRDs

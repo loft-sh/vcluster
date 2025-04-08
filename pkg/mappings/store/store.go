@@ -25,7 +25,7 @@ const (
 	GarbageCollectionTimeout  = 15 * time.Second
 )
 
-type VerifyMapping func(mapping synccontext.NameMapping) bool
+type VerifyMapping func(ctx context.Context, mapping synccontext.NameMapping) bool
 
 func NewStore(ctx context.Context, cachedVirtualClient, cachedHostClient client.Client, backend Backend) (synccontext.MappingsStore, error) {
 	return NewStoreWithVerifyMapping(ctx, cachedVirtualClient, cachedHostClient, backend, nil)
@@ -275,7 +275,7 @@ func (s *Store) start(ctx context.Context) error {
 
 	for _, mapping := range mappings {
 		// verify mapping if needed
-		if s.verifyMapping != nil && !s.verifyMapping(mapping.NameMapping) {
+		if s.verifyMapping != nil && !s.verifyMapping(ctx, mapping.NameMapping) {
 			continue
 		}
 
@@ -323,7 +323,7 @@ func (s *Store) handleEvent(ctx context.Context, watchEvent BackendWatchResponse
 		}
 
 		// verify mapping if needed
-		if event.Type == BackendWatchEventTypeUpdate && s.verifyMapping != nil && !s.verifyMapping(event.Mapping.NameMapping) {
+		if event.Type == BackendWatchEventTypeUpdate && s.verifyMapping != nil && !s.verifyMapping(ctx, event.Mapping.NameMapping) {
 			continue
 		}
 
@@ -444,7 +444,7 @@ func (s *Store) AddReference(ctx context.Context, nameMapping, belongsTo synccon
 	}
 
 	// verify mapping if needed
-	if s.verifyMapping != nil && !s.verifyMapping(nameMapping) {
+	if s.verifyMapping != nil && !s.verifyMapping(ctx, nameMapping) {
 		return nil
 	}
 
