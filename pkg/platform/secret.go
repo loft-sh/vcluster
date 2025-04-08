@@ -22,6 +22,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -105,7 +106,7 @@ func ApplyPlatformSecret(
 	if err != nil && !kerrors.IsNotFound(err) {
 		return fmt.Errorf("error getting platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 	} else if kerrors.IsNotFound(err) {
-		_, err = kubeClient.CoreV1().Secrets(namespace).Create(ctx, &corev1.Secret{
+		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      DefaultPlatformSecretName,
 				Namespace: namespace,
@@ -114,7 +115,25 @@ func ApplyPlatformSecret(
 				},
 			},
 			Data: secretPayload,
-		}, metav1.CreateOptions{})
+		}
+		// try to find vCluster service
+		vClusterService, svcErr := kubeClient.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+		if svcErr == nil {
+			// set virtual cluster service as an owner for platform secret, so it can be cleaned up by kubernetes GC controller
+			// once virtual cluster is uninstalled
+			secret.OwnerReferences = []metav1.OwnerReference{
+				{
+					APIVersion:         "v1",
+					Kind:               "Service",
+					Name:               vClusterService.Name,
+					UID:                vClusterService.UID,
+					Controller:         ptr.To(true),
+					BlockOwnerDeletion: ptr.To(false),
+				},
+			}
+		}
+
+		_, err = kubeClient.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("error creating platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 		}
