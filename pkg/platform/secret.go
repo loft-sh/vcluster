@@ -106,8 +106,6 @@ func ApplyPlatformSecret(
 	if err != nil && !kerrors.IsNotFound(err) {
 		return fmt.Errorf("error getting platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 	} else if kerrors.IsNotFound(err) {
-		// try to find vCluster service
-		vClusterService, svcErr := kubeClient.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      DefaultPlatformSecretName,
@@ -118,6 +116,8 @@ func ApplyPlatformSecret(
 			},
 			Data: secretPayload,
 		}
+		// try to find vCluster service
+		vClusterService, svcErr := kubeClient.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
 		if svcErr == nil {
 			// set virtual cluster service as an owner for platform secret, so it can be cleaned up by kubernetes GC controller
 			// once virtual cluster is uninstalled
