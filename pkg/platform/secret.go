@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/smithy-go/ptr"
 	"github.com/blang/semver"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
@@ -23,6 +22,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -127,8 +127,8 @@ func ApplyPlatformSecret(
 					Kind:               "Service",
 					Name:               vClusterService.Name,
 					UID:                vClusterService.UID,
-					Controller:         ptr.Bool(true),
-					BlockOwnerDeletion: ptr.Bool(false),
+					Controller:         ptr.To(true),
+					BlockOwnerDeletion: ptr.To(false),
 				},
 			}
 		}
