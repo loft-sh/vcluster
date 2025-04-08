@@ -417,12 +417,15 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 
 func (e *ServiceSyncer) saveMapping(ctx context.Context, result syncResult) error {
 	var pObj, vObj client.Object
+	var syncDirection synccontext.SyncDirection
 	if e.IsVirtualToHostSyncer {
 		vObj = result.fromObject
 		pObj = result.toObject
+		syncDirection = synccontext.SyncVirtualToHost
 	} else {
 		vObj = result.toObject
 		pObj = result.fromObject
+		syncDirection = synccontext.SyncHostToVirtual
 	}
 
 	// Save synced service to mappings store
@@ -436,6 +439,7 @@ func (e *ServiceSyncer) saveMapping(ctx context.Context, result syncResult) erro
 			Namespace: vObj.GetNamespace(),
 			Name:      vObj.GetName(),
 		},
+		SyncDirection: syncDirection,
 	}
 
 	ctx = context.WithValue(ctx, verify.SkipHostNamespaceCheck, true)
