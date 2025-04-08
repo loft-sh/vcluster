@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/smithy-go/ptr"
 	"github.com/blang/semver"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
@@ -105,7 +106,9 @@ func ApplyPlatformSecret(
 	if err != nil && !kerrors.IsNotFound(err) {
 		return fmt.Errorf("error getting platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 	} else if kerrors.IsNotFound(err) {
-		_, err = kubeClient.CoreV1().Secrets(namespace).Create(ctx, &corev1.Secret{
+		// try to find vCluster service
+		vClusterService, svcErr := kubeClient.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      DefaultPlatformSecretName,
 				Namespace: namespace,
@@ -114,7 +117,23 @@ func ApplyPlatformSecret(
 				},
 			},
 			Data: secretPayload,
-		}, metav1.CreateOptions{})
+		}
+		if svcErr == nil {
+			// set virtual cluster service as an owner for platform secret, so it can be cleaned up by kubernetes GC controller
+			// once virtual cluster is uninstalled
+			secret.OwnerReferences = []metav1.OwnerReference{
+				{
+					APIVersion:         "v1",
+					Kind:               "Service",
+					Name:               vClusterService.Name,
+					UID:                vClusterService.UID,
+					Controller:         ptr.Bool(true),
+					BlockOwnerDeletion: ptr.Bool(false),
+				},
+			}
+		}
+
+		_, err = kubeClient.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("error creating platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 		}
