@@ -936,3 +936,15 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "additional secret must have name and/or namespace set, found: {\"server\":\"my-server\"}"
+          
+  - it: must use Deployment for external etcd
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            external:
+              enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment

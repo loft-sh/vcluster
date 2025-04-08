@@ -91,7 +91,7 @@ func migrateK8sAndEKS(oldValues string, newConfig *config.Config) error {
 	}
 
 	// make default storage deployed etcd
-	if !newConfig.ControlPlane.BackingStore.Database.External.Enabled && !newConfig.ControlPlane.BackingStore.Database.Embedded.Enabled && !newConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
+	if !newConfig.ControlPlane.BackingStore.Database.External.Enabled && !newConfig.ControlPlane.BackingStore.Database.Embedded.Enabled && !newConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !newConfig.ControlPlane.BackingStore.Etcd.External.Enabled {
 		newConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled = true
 	}
 
@@ -672,6 +672,7 @@ func convertEmbeddedEtcd(oldConfig EmbeddedEtcdValues, newConfig *config.Config)
 	if oldConfig.Enabled {
 		newConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled = true
 		newConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled = false
+		newConfig.ControlPlane.BackingStore.Etcd.External.Enabled = false
 		newConfig.ControlPlane.BackingStore.Database.Embedded.Enabled = false
 		newConfig.ControlPlane.BackingStore.Database.External.Enabled = false
 	}

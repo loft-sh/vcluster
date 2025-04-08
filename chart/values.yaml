@@ -378,6 +378,20 @@ controlPlane:
         enabled: false
         # MigrateFromDeployedEtcd signals that vCluster should migrate from the deployed external etcd to embedded etcd.
         migrateFromDeployedEtcd: false
+      # External defines to use a self-hosted external etcd that is not deployed by the helm chart
+      external:
+        # Enabled defines if the external etcd should be used.
+        enabled: false
+        # Endpoint holds the endpoint of the external etcd server, e.g. my-example-service:2379
+        endpoint: ""
+        # TLS defines the tls configuration for the external etcd server
+        tls:
+          # CaFile is the path to the ca file
+          caFile: ""
+          # CertFile is the path to the cert file
+          certFile: ""
+          # KeyFile is the path to the key file
+          keyFile: ""
       # Deploy defines to use an external etcd that is deployed by the helm chart
       deploy:
         # Enabled defines that an external etcd should be deployed.
