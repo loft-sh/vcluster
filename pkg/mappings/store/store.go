@@ -348,6 +348,22 @@ func (s *Store) HasHostObject(ctx context.Context, pObj synccontext.Object) bool
 	return ok
 }
 
+func (s *Store) HasHostObjectSyncedFromVirtual(_ context.Context, pObj synccontext.Object) bool {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	vObjLookup, ok := s.hostToVirtualName[pObj]
+	if !ok {
+		return false
+	}
+	for _, mapping := range vObjLookup.Mappings {
+		if mapping.SyncDirection == synccontext.SyncVirtualToHost {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Store) HostToVirtualName(_ context.Context, pObj synccontext.Object) (types.NamespacedName, bool) {
 	s.m.RLock()
 	defer s.m.RUnlock()
@@ -359,6 +375,22 @@ func (s *Store) HostToVirtualName(_ context.Context, pObj synccontext.Object) (t
 func (s *Store) HasVirtualObject(ctx context.Context, vObj synccontext.Object) bool {
 	_, ok := s.VirtualToHostName(ctx, vObj)
 	return ok
+}
+
+func (s *Store) HasVirtualObjectSyncedFromHost(_ context.Context, vObj synccontext.Object) bool {
+	s.m.RLock()
+	defer s.m.RUnlock()
+
+	pObjLookup, ok := s.virtualToHostName[vObj]
+	if !ok {
+		return false
+	}
+	for _, mapping := range pObjLookup.Mappings {
+		if mapping.SyncDirection == synccontext.SyncHostToVirtual {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Store) VirtualToHostName(_ context.Context, vObj synccontext.Object) (types.NamespacedName, bool) {
@@ -602,6 +634,7 @@ func (s *Store) findMapping(mapping synccontext.NameMapping) (*Mapping, bool) {
 		GroupVersionKind: mapping.GroupVersionKind,
 		VirtualName:      vObj.NamespacedName,
 		HostName:         pObj.NamespacedName,
+		SyncDirection:    mapping.SyncDirection,
 	}]
 	return retMapping, ok
 }
@@ -637,6 +670,7 @@ func (s *Store) createMapping(ctx context.Context, nameMapping, belongsTo syncco
 			GroupVersionKind: belongsTo.GroupVersionKind,
 			VirtualName:      vObj.NamespacedName,
 			HostName:         pObj.NamespacedName,
+			SyncDirection:    belongsTo.SyncDirection,
 		},
 
 		changed: true,

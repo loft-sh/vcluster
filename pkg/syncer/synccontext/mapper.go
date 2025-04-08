@@ -47,8 +47,14 @@ type MappingsStore interface {
 	// HasHostObject checks if the store has a mapping for the host object
 	HasHostObject(ctx context.Context, pObj Object) bool
 
+	// HasHostObjectSyncedFromVirtual checks if the store has a mapping for the host object that was synced from virtual
+	HasHostObjectSyncedFromVirtual(ctx context.Context, pObj Object) bool
+
 	// HasVirtualObject checks if the store has a mapping for the virtual object
 	HasVirtualObject(ctx context.Context, pObj Object) bool
+
+	// HasVirtualObjectSyncedFromHost checks if the store has a mapping for the virtual object that was synced from host
+	HasVirtualObjectSyncedFromHost(ctx context.Context, vObj Object) bool
 
 	// AddReferenceAndSave adds a reference mapping and directly saves the mapping
 	AddReferenceAndSave(ctx context.Context, nameMapping, belongsTo NameMapping) error
@@ -177,11 +183,13 @@ func NewNameMappingFrom(pObj, vObj client.Object) (NameMapping, error) {
 type NameMapping struct {
 	schema.GroupVersionKind
 
-	VirtualName types.NamespacedName
-	HostName    types.NamespacedName
+	VirtualName   types.NamespacedName
+	HostName      types.NamespacedName
+	SyncDirection SyncDirection
 }
 
 func (n NameMapping) Equals(other NameMapping) bool {
+	// TODO check if SyncDirection should be included into equality check, as this might affect the existing mappings
 	return n.Host().Equals(other.Host()) && n.Virtual().Equals(other.Virtual())
 }
 
@@ -208,5 +216,6 @@ func (n NameMapping) String() string {
 		n.GroupVersionKind.String(),
 		n.VirtualName.String(),
 		n.HostName.String(),
+		string(n.SyncDirection),
 	}, ";")
 }

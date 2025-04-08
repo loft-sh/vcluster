@@ -50,12 +50,13 @@ func TestFromHostRegister(t *testing.T) {
 
 func TestFromHostReconcile(t *testing.T) {
 	testCases := []struct {
-		Name                         string
-		Mappings                     map[string]types.NamespacedName
-		Request                      ctrl.Request
-		InitialHostServices          []runtime.Object
-		ExpectedVirtualServices      []runtime.Object
-		ExpectedMappingsStoreObjects []synccontext.Object
+		Name                                string
+		Mappings                            map[string]types.NamespacedName
+		Request                             ctrl.Request
+		InitialHostServices                 []runtime.Object
+		ExpectedVirtualServices             []runtime.Object
+		ExpectedMappingsStoreHostObjects    []synccontext.Object
+		ExpectedMappingsStoreVirtualObjects []synccontext.Object
 	}{
 		{
 			Name: "Reconcile without errors when service is not synced",
@@ -128,7 +129,16 @@ func TestFromHostReconcile(t *testing.T) {
 					},
 				},
 			},
-			ExpectedMappingsStoreObjects: []synccontext.Object{
+			ExpectedMappingsStoreHostObjects: []synccontext.Object{
+				{
+					GroupVersionKind: mappings.Services(),
+					NamespacedName: types.NamespacedName{
+						Namespace: "host-namespace",
+						Name:      "host-service",
+					},
+				},
+			},
+			ExpectedMappingsStoreVirtualObjects: []synccontext.Object{
 				{
 					GroupVersionKind: mappings.Services(),
 					NamespacedName: types.NamespacedName{
@@ -196,11 +206,31 @@ func TestFromHostReconcile(t *testing.T) {
 				}
 			}
 
-			// check expected mappings
-			for _, object := range testCase.ExpectedMappingsStoreObjects {
+			// check expected mappings for host objects
+			for _, object := range testCase.ExpectedMappingsStoreHostObjects {
+				// host object must be in mappings store
+				hasObject := fakeContext.Mappings.Store().HasHostObject(fakeContext, object)
+				if !hasObject {
+					t.Fatalf("%s - Host object %s missing in mappings store", object.String(), testCase.Name)
+				}
+				// host object in mappings store must be synced from host to virtual
+				hasObjectSyncedFromVirtualToHost := fakeContext.Mappings.Store().HasHostObjectSyncedFromVirtual(fakeContext, object)
+				if hasObjectSyncedFromVirtualToHost {
+					t.Fatalf("%s - Host object %s found in mappings store is synced from virtual to host, when it should be synced from host to virtual", object.String(), testCase.Name)
+				}
+			}
+
+			// check expected mappings for virtual objects
+			for _, object := range testCase.ExpectedMappingsStoreVirtualObjects {
+				// virtual object must be in mappings store
 				hasObject := fakeContext.Mappings.Store().HasVirtualObject(fakeContext, object)
 				if !hasObject {
-					t.Fatalf("%s - Object %s missing in store", object.String(), testCase.Name)
+					t.Fatalf("%s - Virtual object %s missing in mappings store", object.String(), testCase.Name)
+				}
+				// virtual object in mappings store must be synced from host to virtual
+				hasObjectSyncedFromHostToVirtual := fakeContext.Mappings.Store().HasVirtualObjectSyncedFromHost(fakeContext, object)
+				if !hasObjectSyncedFromHostToVirtual {
+					t.Fatalf("%s - Virtual object %s found in mappings store is synced from virtual to host, when it should be synced from host to virtual", object.String(), testCase.Name)
 				}
 			}
 		})
