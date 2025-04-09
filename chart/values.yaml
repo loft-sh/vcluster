@@ -735,7 +735,7 @@ integrations:
   
   # ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster.
   # - ExternalSecrets will be synced from the virtual cluster to the host cluster.
-  # - SecretStores will be synced bi-directionally.
+  # - SecretStores will be synced from the virtual cluster to the host cluster and then bi-directionally.
   # - ClusterSecretStores will be synced from the host cluster to the virtual cluster.
   externalSecrets:
     # Enabled defines whether the external secret integration is enabled or not
@@ -748,7 +748,7 @@ integrations:
       # ExternalSecrets defines if external secrets should get synced from the virtual cluster to the host cluster.
       externalSecrets:
         enabled: true
-      # Stores defines if secret stores should get synced from the virtual cluster to the host cluster.
+      # Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally.
       stores:
         enabled: false
       # ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster.
