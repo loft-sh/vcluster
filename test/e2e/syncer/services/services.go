@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/util/translate"
-
 	"github.com/loft-sh/vcluster/pkg/util/random"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -385,16 +385,36 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		framework.ExpectNoError(err)
 
 		// wait for the change to be synced into the vCluster
-		err = f.WaitForServiceToUpdate(f.VClusterClient, vService.Name, vService.Namespace, vService.ResourceVersion)
-		framework.ExpectNoError(err)
+		gomega.Eventually(func() error {
+			vService, err = f.VClusterClient.CoreV1().Services(vService.Namespace).Get(f.Context, service.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			pService, err = f.HostClient.CoreV1().Services(pServiceName.Namespace).Get(f.Context, pService.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			// check that labels and annotations are the same
+			annotationsEqual := vService.Annotations["some-annotation"] == pService.Annotations["some-annotation"]
+			if !annotationsEqual {
+				return fmt.Errorf(
+					"expected vService.Annotations['some-annotation'] %s to equal pService.Annotations['some-annotation'] %s",
+					vService.Annotations["some-annotation"], pService.Annotations["some-annotation"],
+				)
+			}
+			labelsEqual := vService.Labels["host-cluster-label"] == pService.Labels["host-cluster-label"]
+			if !labelsEqual {
+				return fmt.Errorf(
+					"expected vService.Labels['host-cluster-label'] %s to equal pService.Labels['host-cluster-label'] %s",
+					vService.Labels["host-cluster-label"], pService.Labels["host-cluster-label"],
+				)
+			}
+			return nil
 
-		// refetch the vCluster service object
-		vService, err = f.VClusterClient.CoreV1().Services(ns).Get(f.Context, vService.Name, metav1.GetOptions{})
-		framework.ExpectNoError(err)
-
-		// check that labels and annotations are the same
-		framework.ExpectEqual(vService.Annotations["some-annotation"], pService.Annotations["some-annotation"])
-		framework.ExpectEqual(vService.Labels["host-cluster-label"], pService.Labels["host-cluster-label"])
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			ShouldNot(gomega.HaveOccurred())
 
 		// update vCluster service
 		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(context.Context) (bool, error) {
@@ -426,15 +446,34 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		framework.ExpectNoError(err)
 
 		// wait for the change to be synced into the host cluster
-		err = f.WaitForServiceToUpdate(f.HostClient, pService.Name, pService.Namespace, pService.ResourceVersion)
-		framework.ExpectNoError(err)
+		gomega.Eventually(func() error {
+			vService, err = f.VClusterClient.CoreV1().Services(vService.Namespace).Get(f.Context, service.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			pService, err = f.HostClient.CoreV1().Services(pServiceName.Namespace).Get(f.Context, pService.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			annotationsEqual := vService.Annotations["some-annotation"] == pService.Annotations["some-annotation"]
+			if !annotationsEqual {
+				return fmt.Errorf(
+					"expected vService.Annotations['some-annotation'] %s to equal pService.Annotations['some-annotation'] %s",
+					vService.Annotations["some-annotation"], pService.Annotations["some-annotation"],
+				)
+			}
+			labelsEqual := vService.Labels["vcluster-label"] == pService.Labels["vcluster-label"]
+			if !labelsEqual {
+				return fmt.Errorf(
+					"expected vService.Labels['vcluster-label'] %s to equal pService.Labels['vcluster-label'] %s",
+					vService.Labels["vcluster-label"], pService.Labels["vcluster-label"],
+				)
+			}
+			return nil
 
-		// refetch the host cluster service object
-		pService, err = f.HostClient.CoreV1().Services(pService.Namespace).Get(f.Context, pService.Name, metav1.GetOptions{})
-		framework.ExpectNoError(err)
-
-		// check that labels and annotations are the same
-		framework.ExpectEqual(vService.Annotations["some-annotation"], pService.Annotations["some-annotation"])
-		framework.ExpectEqual(vService.Labels["vcluster-label"], pService.Labels["vcluster-label"])
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			ShouldNot(gomega.HaveOccurred())
 	})
 })

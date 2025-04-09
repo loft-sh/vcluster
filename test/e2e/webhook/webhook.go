@@ -42,7 +42,7 @@ var (
 	allowedConfigMapName    = "allowed-configmap"
 )
 
-var _ = ginkgo.Describe("AdmissionWebhook", func() {
+var _ = ginkgo.Describe("AdmissionWebhook", ginkgo.Ordered, func() {
 	var (
 		f         *framework.Framework
 		iteration int
@@ -53,7 +53,7 @@ var _ = ginkgo.Describe("AdmissionWebhook", func() {
 	servicePort := int32(8443)
 	containerPort := int32(8444)
 
-	ginkgo.JustBeforeEach(func() {
+	ginkgo.BeforeAll(func() {
 		// use default framework
 		f = framework.DefaultFramework
 		iteration++
@@ -72,7 +72,7 @@ var _ = ginkgo.Describe("AdmissionWebhook", func() {
 		deployWebhookAndService(f, image, certCtx, servicePort, containerPort, ns)
 	})
 
-	ginkgo.AfterEach(func() {
+	ginkgo.AfterAll(func() {
 		cleanWebhookTest(f, ns)
 	})
 
