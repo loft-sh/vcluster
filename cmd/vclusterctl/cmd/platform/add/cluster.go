@@ -31,6 +31,7 @@ type ClusterCmd struct {
 	Log log.Logger
 	*flags.GlobalFlags
 	Namespace        string
+	CreateNamespace  bool
 	ServiceAccount   string
 	DisplayName      string
 	Context          string
@@ -82,6 +83,7 @@ vcluster platform add cluster my-cluster
 	}
 
 	c.Flags().StringVar(&cmd.Namespace, "namespace", clihelper.DefaultPlatformNamespace, "The namespace to generate the service account in. The namespace will be created if it does not exist")
+	c.Flags().BoolVar(&cmd.CreateNamespace, "create-namespace", true, "If true the namespace will be created if it does not exist")
 	c.Flags().StringVar(&cmd.ServiceAccount, "service-account", "loft-admin", "The service account name to create")
 	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this cluster")
 	c.Flags().BoolVar(&cmd.Wait, "wait", false, "If true, will wait until the cluster is initialized")
@@ -167,10 +169,13 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		"upgrade", "loft",
 	}
 
+	if cmd.CreateNamespace {
+		helmArgs = append(helmArgs, "--create-namespace")
+	}
+
 	if os.Getenv("DEVELOPMENT") == "true" {
 		helmArgs = []string{
 			"upgrade", "--install", "loft", cmp.Or(os.Getenv("DEVELOPMENT_CHART_DIR"), "./chart"),
-			"--create-namespace",
 			"--namespace", namespace,
 			"--set", "agentOnly=true",
 			"--set", "image=" + cmp.Or(os.Getenv("DEVELOPMENT_IMAGE"), "ghcr.io/loft-sh/enterprise:release-test"),
@@ -192,7 +197,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		}
 
 		// general arguments
-		helmArgs = append(helmArgs, "--install", "--create-namespace", "--namespace", cmd.Namespace, "--set", "agentOnly=true")
+		helmArgs = append(helmArgs, "--install", "--namespace", cmd.Namespace, "--set", "agentOnly=true")
 	}
 
 	for _, set := range cmd.HelmSet {
