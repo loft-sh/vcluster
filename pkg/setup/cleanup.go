@@ -58,7 +58,7 @@ func deletePreviouslyReplicatedServices(ctx *synccontext.ControllerContext) erro
 		logger.Info("deleted previously synced service", "name", service.Name, "namespace", service.Namespace)
 	}
 	if len(deleteErrors) > 0 {
-		return fmt.Errorf("failed to delete one or more previously synced services: %v", errors.Join(deleteErrors...))
+		return fmt.Errorf("failed to delete one or more previously synced services: %w", errors.Join(deleteErrors...))
 	}
 	logger.Info("finished deleting previously synced services")
 	return nil
