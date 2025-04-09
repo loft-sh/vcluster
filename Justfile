@@ -92,7 +92,7 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
 
   TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean
   cp dist/vcluster_linux_$(go env GOARCH | sed s/amd64/amd64_v1/g | sed s/arm64/arm64_v8.0/g)/vcluster ./vcluster
-  docker build -t vcluster:e2e-latest -f Dockerfile.release --build-arg TARGETARCH=$(uname -m) --build-arg TARGETOS=linux .
+  docker build -t vcluster:e2e-latest -f Dockerfile.release --build-arg TARGETARCH=$(uname -m | sed s/x86_64/amd64/g) --build-arg TARGETOS=linux .
   rm ./vcluster
 
   kind load docker-image vcluster:e2e-latest -n vcluster
