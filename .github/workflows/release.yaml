@@ -145,6 +145,62 @@ jobs:
       - publish
     runs-on: ubuntu-22.04
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: get_base_branch
+        name: Get base branch for tag
+        run: |
+          RELEASE_VERSION=${{ needs.publish.outputs.release_version }}
+          TAG_COMMIT=$(git rev-list -n 1 "$RELEASE_VERSION")
+
+          # Find all remote branches containing this commit
+          REMOTE_BRANCHES=$(git branch -r --contains "$TAG_COMMIT" | grep -v HEAD | sed -e 's/^[[:space:]]*//' -e 's/^origin\///')
+
+          if [ -z "$REMOTE_BRANCHES" ]; then
+            echo "No remote branches found containing this commit, falling back to 'main'"
+            BASE_BRANCH="main"
+          else
+            # Initialize variables for branch distance calculation
+            BEST_BRANCH="main"
+            BEST_DISTANCE=99999
+
+            # For each branch, calculate the distance from tag commit to branch tip
+            for REMOTE_BRANCH in $REMOTE_BRANCHES; do
+              # Skip if branch is empty
+              [ -z "$REMOTE_BRANCH" ] && continue
+
+              # Get the base of the branch (where it diverged from main)
+              BRANCH_BASE=$(git merge-base origin/main origin/$REMOTE_BRANCH 2>/dev/null || echo "")
+
+              if [ ! -z "$BRANCH_BASE" ]; then
+                # Check if our tag commit is directly in the branch history
+                if git merge-base --is-ancestor "$BRANCH_BASE" "$TAG_COMMIT" 2>/dev/null; then
+                  # Calculate how far our commit is from the branch tip
+                  DISTANCE=$(git rev-list --count "$TAG_COMMIT..origin/$REMOTE_BRANCH")
+
+                  echo "Branch $REMOTE_BRANCH - Distance from branch tip: $DISTANCE"
+
+                  # If this is the closest branch so far, update our best match
+                  if [ "$DISTANCE" -lt "$BEST_DISTANCE" ]; then
+                    BEST_BRANCH=$REMOTE_BRANCH
+                    BEST_DISTANCE=$DISTANCE
+                  fi
+                fi
+              fi
+            done
+
+            # If we failed to find a branch with our algorithm, fall back to alphabetical order
+            if [ "$BEST_DISTANCE" -eq 99999 ]; then
+              echo "No suitable branch found with distance algorithm, falling back to alphabetical order"
+              BEST_BRANCH=$(echo "$REMOTE_BRANCHES" | head -n 1 || echo "main")
+            fi
+
+            BASE_BRANCH=$BEST_BRANCH
+          fi
+
+          echo "base_branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "Base branch for $RELEASE_VERSION: $BASE_BRANCH (distance: $BEST_DISTANCE)"
       - name: Notify \#product-releases Slack channel
         uses: loft-sh/github-actions/.github/actions/release-notification@v1
         with:
