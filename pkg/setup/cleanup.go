@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/loft-sh/vcluster/config"
@@ -42,19 +43,24 @@ func deletePreviouslyReplicatedServices(ctx *synccontext.ControllerContext) erro
 
 	logger := ctx.VirtualManager.GetLogger()
 	logger.Info("deleting previously synced services")
+	var deleteErrors []error
 	for _, service := range previouslySyncedServices.Items {
 		if replicateServicesFromHostConfigContainsVirtualService(ctx.Config.Networking.ReplicateServices, service) {
-			logger.Info("service has replication config", "name", service.Name, "namespace", service.Namespace)
+			logger.Info("virtual service has replication config, not deleting it", "name", service.Name, "namespace", service.Namespace)
 			continue
 		}
 		logger.Info("deleting previously synced service", "name", service.Name, "namespace", service.Namespace)
 		err = virtualClient.Delete(ctx, &service)
 		if err != nil {
-			return fmt.Errorf("failed to delete previously synced service: %w", err)
+			deleteErrors = append(deleteErrors, fmt.Errorf("failed to delete previously synced service: %w", err))
+			continue
 		}
 		logger.Info("deleted previously synced service", "name", service.Name, "namespace", service.Namespace)
 	}
-	logger.Info("deleted all previously synced services")
+	if len(deleteErrors) > 0 {
+		return fmt.Errorf("failed to delete one or more previously synced services: %v", errors.Join(deleteErrors...))
+	}
+	logger.Info("finished deleting previously synced services")
 	return nil
 }
 
