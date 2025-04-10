@@ -52,6 +52,7 @@ func (s *hostStorageClassSyncer) Syncer() syncertypes.Sync[client.Object] {
 
 func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name}, false)
+	translate.SyncHostMetadataToVirtual(event.Host, vObj, translate.ApplyMetadataOptions{})
 
 	// Apply pro patches
 	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.StorageClasses.Patches, true)
@@ -75,8 +76,7 @@ func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 	}()
 
 	// check if there is a change
-	event.Virtual.Annotations = event.Host.Annotations
-	event.Virtual.Labels = event.Host.Labels
+	translate.SyncHostMetadataToVirtual(event.Host, event.Virtual, translate.ApplyMetadataOptions{})
 	event.Virtual.Provisioner = event.Host.Provisioner
 	event.Virtual.Parameters = event.Host.Parameters
 	event.Virtual.ReclaimPolicy = event.Host.ReclaimPolicy

@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -19,8 +20,13 @@ func TestSyncToHost(t *testing.T) {
 		Value:      1,
 	}
 	pObj := schedulingv1.PriorityClass{
-		ObjectMeta: metav1.ObjectMeta{Name: "vcluster-stuff-x-test-x-suffix"},
-		Value:      1,
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "vcluster-stuff-x-test-x-suffix",
+			Labels: map[string]string{
+				translate.MarkerLabel: translate.SafeConcatName(testingutil.DefaultTestTargetNamespace, "x", translate.VClusterName),
+			},
+		},
+		Value: 1,
 	}
 
 	pObj.Annotations = translate.HostAnnotations(&vObj, &pObj)

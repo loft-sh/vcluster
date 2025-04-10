@@ -37,6 +37,7 @@ func (s *eventSyncer) translateEvent(ctx *synccontext.SyncContext, pEvent, vEven
 	tempEvent.TypeMeta = vEvent.TypeMeta
 
 	tempEvent.DeepCopyInto(vEvent)
+	translate.SyncHostMetadataToVirtual(pEvent, vEvent, translate.ApplyMetadataOptions{})
 	vEvent.Namespace = namespace
 	vEvent.Name = name
 	return nil

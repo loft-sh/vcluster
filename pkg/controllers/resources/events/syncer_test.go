@@ -56,6 +56,9 @@ func TestSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pEvent.Name,
 			Namespace: vPod.Namespace,
+			Labels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
 		},
 		InvolvedObject: corev1.ObjectReference{
 			APIVersion:      corev1.SchemeGroupVersion.String(),

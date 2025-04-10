@@ -83,6 +83,7 @@ func TestExistingEndpoints(t *testing.T) {
 				translate.HostNameAnnotation:      translate.Default.HostName(nil, vEndpoints.Name, vEndpoints.Namespace).Name,
 			},
 			Labels: map[string]string{
+				translate.MarkerLabel:    translate.VClusterName,
 				translate.NamespaceLabel: vEndpoints.Namespace,
 			},
 		},
@@ -165,6 +166,7 @@ func TestSync(t *testing.T) {
 				translate.HostNameAnnotation:      translate.Default.HostName(nil, baseEndpoints.Name, baseEndpoints.Namespace).Name,
 			},
 			Labels: map[string]string{
+				translate.MarkerLabel:    translate.VClusterName,
 				translate.NamespaceLabel: baseEndpoints.Namespace,
 			},
 		},

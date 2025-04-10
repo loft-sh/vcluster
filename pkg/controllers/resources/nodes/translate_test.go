@@ -64,7 +64,8 @@ func TestTranslateBackwards(t *testing.T) {
 			},
 
 			expectedLabels: map[string]string{
-				"test": "test",
+				"test":                "test",
+				translate.MarkerLabel: translate.VClusterName,
 			},
 
 			expectedTaints: []corev1.Taint{
@@ -95,7 +96,9 @@ func TestTranslateBackwards(t *testing.T) {
 				},
 			},
 
-			expectedLabels: map[string]string{},
+			expectedLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
 			expectedAnnotations: map[string]string{
 				TaintsAnnotation: mustMarshal([]string{
 					mustMarshal(
@@ -148,8 +151,10 @@ func TestTranslateBackwards(t *testing.T) {
 			},
 
 			expectedAnnotations: map[string]string{},
-			expectedLabels:      map[string]string{},
-			expectedTaints:      []corev1.Taint{},
+			expectedLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
+			expectedTaints: []corev1.Taint{},
 		},
 		{
 			name: "not-ready-3",
@@ -171,7 +176,9 @@ func TestTranslateBackwards(t *testing.T) {
 				Spec:       corev1.NodeSpec{},
 			},
 			expectedAnnotations: map[string]string{},
-			expectedLabels:      map[string]string{},
+			expectedLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
 
 			expectedTaints: []corev1.Taint{},
 		},
@@ -215,7 +222,9 @@ func TestTranslateBackwards(t *testing.T) {
 					Effect: corev1.TaintEffectNoExecute,
 				},
 			},
-			expectedLabels: map[string]string{},
+			expectedLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
 		},
 		{
 			name: "custom-taint-2",
@@ -252,8 +261,10 @@ func TestTranslateBackwards(t *testing.T) {
 			},
 
 			expectedAnnotations: map[string]string{},
-			expectedLabels:      map[string]string{},
-			expectedTaints:      []corev1.Taint{},
+			expectedLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
+			expectedTaints: []corev1.Taint{},
 		},
 		{
 			name: "custom-taint-3",
@@ -278,7 +289,9 @@ func TestTranslateBackwards(t *testing.T) {
 			},
 
 			expectedAnnotations: map[string]string{},
-			expectedLabels:      map[string]string{},
+			expectedLabels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
 			expectedTaints: []corev1.Taint{
 				{
 					Key:    "custom-taint",
