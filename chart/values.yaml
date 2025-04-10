@@ -168,6 +168,16 @@ sync:
         # All specifies if all nodes should get synced by vCluster from the host to the virtual cluster or only the ones where pods are assigned to.
         all: false
         labels: {}
+      # ReservedResources specifies the amount of a particular resource type to be reserved/subtracted from the allocatable resource on the virtual node.
+      # This is to account for additional resource requirement in case of sidecar container(s) injected via mutating webhooks when workloads are synced from virtual to host.
+      # This will take effect only when the virtual scheduler is enabled.
+      reservedResources:
+        # CPU is amount of CPU to reserve.
+        cpu: ""
+        # Memory is amount of Memory to reserve.
+        memory: ""
+        # EphemeralStorage is amount of EphemeralStorage to reserve.
+        ephemeralStorage: ""
     # Secrets defines if secrets in the host should get synced to the virtual cluster.
     secrets:
       # Enabled defines if this option should be enabled.

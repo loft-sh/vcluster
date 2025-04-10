@@ -260,6 +260,11 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 	for k, v := range vNamespace.GetLabels() {
 		updatedLabels[translate.HostLabelNamespace(k)] = v
 	}
+
+	if !translate.Default.SingleNamespaceTarget() {
+		updatedLabels[translate.MarkerLabel] = translate.VClusterName
+	}
+
 	pPod.SetLabels(updatedLabels)
 
 	// translate services to environment variables

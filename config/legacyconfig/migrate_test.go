@@ -727,6 +727,36 @@ exportKubeConfig:
   context: my-context
   server: https://my-vcluster.example.com`,
 		},
+		{
+			Name:   "reservedResources set",
+			Distro: "k8s",
+			In: `
+sync:
+  nodes:
+    reservedResources:
+      cpu: "100m"
+      memory: "256Mi"
+      ephemeralStorage: "512Mi"
+`,
+			Expected: `controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+  distro:
+    k8s:
+      enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+sync:
+  fromHost:
+    nodes:
+      reservedResources:
+        cpu: 100m
+        ephemeralStorage: 512Mi
+        memory: 256Mi`,
+		},
 	}
 
 	for _, testCase := range testCases {
