@@ -92,32 +92,22 @@ controlPlane:
     k8s:
       enabled: false
       version: ""
+      imagePullPolicy: ""
+      image:
+        registry: ghcr.io
+        repository: "loft-sh/kubernetes"
+        tag: "v1.32.1"
       apiServer:
         enabled: true
         command: []
         extraArgs: []
-        imagePullPolicy: ""
-        image:
-          registry: registry.k8s.io
-          repository: kube-apiserver
-          tag: "v1.32.1"
       controllerManager:
         enabled: true
         command: []
         extraArgs: []
-        imagePullPolicy: ""
-        image:
-          registry: registry.k8s.io
-          repository: "kube-controller-manager"
-          tag: "v1.32.1"
       scheduler:
         command: []
         extraArgs: []
-        imagePullPolicy: ""
-        image:
-          registry: registry.k8s.io
-          repository: "kube-scheduler"
-          tag: "v1.32.1"
       env: []
       securityContext: {}
       resources:

@@ -58,7 +58,6 @@ func BuildRoot() *cobra.Command {
 
 	// add top level commands
 	rootCmd.AddCommand(NewStartCommand())
-	rootCmd.AddCommand(NewCpCommand())
 	rootCmd.AddCommand(NewSnapshotCommand())
 	rootCmd.AddCommand(NewRestoreCommand())
 	rootCmd.AddCommand(debug.NewDebugCmd())
