@@ -398,7 +398,7 @@ controlPlane:
             # Repository is the repository of the container image, e.g. my-repo/my-image
             repository: "etcd"
             # Tag is the tag of the container image, e.g. latest
-            tag: "3.5.17-0"
+            tag: "3.5.21-0"
           # ImagePullPolicy is the pull policy for the external etcd image
           imagePullPolicy: ""
           # ExtraArgs are appended to the etcd command.
