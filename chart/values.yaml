@@ -206,16 +206,19 @@ controlPlane:
       # Enabled specifies if the K8s distro should be enabled. Only one distro can be enabled at the same time.
       enabled: false
       # Version specifies k8s components (scheduler, kube-controller-manager & apiserver) version.
-      # It is a shortcut for controlPlane.distro.k8s.apiServer.image.tag,
-      # controlPlane.distro.k8s.controllerManager.image.tag and
-      # controlPlane.distro.k8s.scheduler.image.tag
-      # If e.g. controlPlane.distro.k8s.version is set to v1.30.1 and
-      # controlPlane.distro.k8s.scheduler.image.tag
-      # (or controlPlane.distro.k8s.controllerManager.image.tag or controlPlane.distro.k8s.apiServer.image.tag)
-      # is set to v1.31.0,
-      # value from controlPlane.distro.k8s.(controlPlane-component).image.tag will be used
-      # (where controlPlane-component is apiServer, controllerManager and scheduler).
+      # It is a shortcut for controlPlane.distro.k8s.image.tag
       version: ""
+      # ImagePullPolicy is the pull policy for the distro image
+      imagePullPolicy: ""
+      # Image is the distro image
+      image:
+        # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+        # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+        registry: ghcr.io
+        # Repository is the repository of the container image, e.g. my-repo/my-image
+        repository: "loft-sh/kubernetes"
+        # Tag is the tag of the container image, e.g. latest
+        tag: "v1.32.1"
       # APIServer holds configuration specific to starting the api server.
       apiServer:
         enabled: true
@@ -223,17 +226,6 @@ controlPlane:
         command: []
         # ExtraArgs are additional arguments to pass to the distro binary.
         extraArgs: []
-        # ImagePullPolicy is the pull policy for the distro image
-        imagePullPolicy: ""
-        # Image is the distro image
-        image:
-          # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
-          # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
-          registry: registry.k8s.io
-          # Repository is the repository of the container image, e.g. my-repo/my-image
-          repository: kube-apiserver
-          # Tag is the tag of the container image, e.g. latest
-          tag: "v1.32.1"
       # ControllerManager holds configuration specific to starting the controller manager.
       controllerManager:
         enabled: true
@@ -241,34 +233,12 @@ controlPlane:
         command: []
         # ExtraArgs are additional arguments to pass to the distro binary.
         extraArgs: []
-        # ImagePullPolicy is the pull policy for the distro image
-        imagePullPolicy: ""
-        # Image is the distro image
-        image:
-          # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
-          # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
-          registry: registry.k8s.io
-          # Repository is the repository of the container image, e.g. my-repo/my-image
-          repository: "kube-controller-manager"
-          # Tag is the tag of the container image, e.g. latest
-          tag: "v1.32.1"
       # Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
       scheduler:
         # Command is the command to start the distro binary. This will override the existing command.
         command: []
         # ExtraArgs are additional arguments to pass to the distro binary.
         extraArgs: []
-        # ImagePullPolicy is the pull policy for the distro image
-        imagePullPolicy: ""
-        # Image is the distro image
-        image:
-          # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
-          # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
-          registry: registry.k8s.io
-          # Repository is the repository of the container image, e.g. my-repo/my-image
-          repository: "kube-scheduler"
-          # Tag is the tag of the container image, e.g. latest
-          tag: "v1.32.1"
       # Env are extra environment variables to use for the main container and NOT the init container.
       env: []
       # Security options can be used for the distro init container

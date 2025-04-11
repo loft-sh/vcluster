@@ -18,50 +18,17 @@
 {{- end -}}
 
 {{/* Bump $defaultTag value whenever k8s version is bumped */}}
-{{- define "vcluster.k8s.controllerManager.image.tag" -}}
+{{- define "vcluster.k8s.image.tag" -}}
 {{- $defaultTag := "v1.32.1" -}}
-{{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.controllerManager.image.tag $defaultTag) -}}
+{{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.image.tag $defaultTag) -}}
 {{ .Values.controlPlane.distro.k8s.version }}
 {{- else -}}
-{{- if not (eq .Values.controlPlane.distro.k8s.controllerManager.image.tag $defaultTag) -}}
-{{ .Values.controlPlane.distro.k8s.controllerManager.image.tag }}
+{{- if not (eq .Values.controlPlane.distro.k8s.image.tag $defaultTag) -}}
+{{ .Values.controlPlane.distro.k8s.image.tag }}
 {{- else if not (empty (include "vcluster.k8s.capabilities.version" .)) -}}
 {{ include "vcluster.k8s.capabilities.version" . }}
 {{- else -}}
-{{ .Values.controlPlane.distro.k8s.controllerManager.image.tag }}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/* Bump $defaultTag value whenever k8s version is bumped */}}
-{{- define "vcluster.k8s.apiServer.image.tag" -}}
-{{- $defaultTag := "v1.32.1" -}}
-{{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.apiServer.image.tag $defaultTag) -}}
-{{ .Values.controlPlane.distro.k8s.version}}
-{{- else -}}
-{{- if not (eq .Values.controlPlane.distro.k8s.apiServer.image.tag $defaultTag) -}}
-{{ .Values.controlPlane.distro.k8s.apiServer.image.tag }}
-{{- else if not (empty (include "vcluster.k8s.capabilities.version" .)) -}}
-{{ include "vcluster.k8s.capabilities.version" . }}
-{{- else -}}
-{{ .Values.controlPlane.distro.k8s.apiServer.image.tag }}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-
-{{/* Bump $defaultTag value whenever k8s version is bumped */}}
-{{- define "vcluster.k8s.scheduler.image.tag" -}}
-{{- $defaultTag := "v1.32.1" -}}
-{{- if and (not (empty .Values.controlPlane.distro.k8s.version)) (eq .Values.controlPlane.distro.k8s.scheduler.image.tag $defaultTag) -}}
-{{ .Values.controlPlane.distro.k8s.version}}
-{{- else -}}
-{{- if not (eq .Values.controlPlane.distro.k8s.scheduler.image.tag $defaultTag) -}}
-{{ .Values.controlPlane.distro.k8s.scheduler.image.tag }}
-{{- else if not (empty (include "vcluster.k8s.capabilities.version" .)) -}}
-{{ include "vcluster.k8s.capabilities.version" . }}
-{{- else -}}
-{{ .Values.controlPlane.distro.k8s.scheduler.image.tag }}
+{{ .Values.controlPlane.distro.k8s.image.tag }}
 {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -69,85 +36,24 @@
 {{- define "vcluster.k8s.initContainers" -}}
 {{- include "vcluster.oldPlugins.initContainers" . }}
 {{- include "vcluster.plugins.initContainers" . }}
-# this is needed because the k8s containers are distroless and thus we don't have any
-# way of copying the binaries otherwise
-- name: vcluster-copy
-  image: {{ include "vcluster.controlPlane.image" . | quote }}
+- name: kubernetes
+  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.image.registry "repository" .Values.controlPlane.distro.k8s.image.repository "tag" (include "vcluster.k8s.image.tag" .)) }}"
   volumeMounts:
     - mountPath: /binaries
       name: binaries
   command:
-    - /bin/sh
-  args:
-    - -c
-    - "cp /vcluster /binaries/vcluster"
-  {{- if .Values.controlPlane.statefulSet.imagePullPolicy }}
-  imagePullPolicy: {{ .Values.controlPlane.statefulSet.imagePullPolicy }}
-  {{- end }}
-  securityContext:
-{{ toYaml .Values.controlPlane.distro.k8s.securityContext | indent 4 }}
-  resources:
-{{ toYaml .Values.controlPlane.distro.k8s.resources | indent 4 }}
-{{- if .Values.controlPlane.distro.k8s.controllerManager.enabled }}
-- name: kube-controller-manager
-  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.controllerManager.image.registry "repository" .Values.controlPlane.distro.k8s.controllerManager.image.repository "tag" (include "vcluster.k8s.controllerManager.image.tag" .)) }}"
-  volumeMounts:
-    - mountPath: /binaries
-      name: binaries
-  command:
-    - /binaries/vcluster
-  args:
     - cp
-    - /usr/local/bin/kube-controller-manager
-    - /binaries/kube-controller-manager
-  {{- if .Values.controlPlane.distro.k8s.controllerManager.imagePullPolicy }}
-  imagePullPolicy: {{ .Values.controlPlane.distro.k8s.controllerManager.imagePullPolicy }}
-  {{- end }}
-  securityContext:
-{{ toYaml .Values.controlPlane.distro.k8s.securityContext | indent 4 }}
-  resources:
-{{ toYaml .Values.controlPlane.distro.k8s.resources | indent 4 }}
-{{- end }}
-{{- if .Values.controlPlane.advanced.virtualScheduler.enabled }}
-- name: kube-scheduler-manager
-  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.scheduler.image.registry "repository" .Values.controlPlane.distro.k8s.scheduler.image.repository "tag" (include "vcluster.k8s.scheduler.image.tag" .)) }}"
-  volumeMounts:
-    - mountPath: /binaries
-      name: binaries
-  command:
-    - /binaries/vcluster
   args:
-    - cp
-    - /usr/local/bin/kube-scheduler
-    - /binaries/kube-scheduler
-  {{- if .Values.controlPlane.distro.k8s.scheduler.imagePullPolicy }}
-  imagePullPolicy: {{ .Values.controlPlane.distro.k8s.scheduler.imagePullPolicy }}
+    - -a
+    - /kubernetes/.
+    - /binaries/
+  {{- if .Values.controlPlane.distro.k8s.imagePullPolicy }}
+  imagePullPolicy: {{ .Values.controlPlane.distro.k8s.imagePullPolicy }}
   {{- end }}
   securityContext:
 {{ toYaml .Values.controlPlane.distro.k8s.securityContext | indent 4 }}
   resources:
 {{ toYaml .Values.controlPlane.distro.k8s.resources | indent 4 }}
-{{- end }}
-{{- if .Values.controlPlane.distro.k8s.apiServer.enabled }}
-- name: kube-apiserver
-  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k8s.apiServer.image.registry "repository" .Values.controlPlane.distro.k8s.apiServer.image.repository "tag" (include "vcluster.k8s.apiServer.image.tag" .)) }}"
-  volumeMounts:
-    - mountPath: /binaries
-      name: binaries
-  command:
-    - /binaries/vcluster
-  args:
-    - cp
-    - /usr/local/bin/kube-apiserver
-    - /binaries/kube-apiserver
-  {{- if .Values.controlPlane.distro.k8s.apiServer.imagePullPolicy }}
-  imagePullPolicy: {{ .Values.controlPlane.distro.k8s.apiServer.imagePullPolicy }}
-  {{- end }}
-  securityContext:
-{{ toYaml .Values.controlPlane.distro.k8s.securityContext | indent 4 }}
-  resources:
-{{ toYaml .Values.controlPlane.distro.k8s.resources | indent 4 }}
-{{- end }}
 {{- end -}}
 
 {{- define "vcluster.k3s.initContainers" -}}

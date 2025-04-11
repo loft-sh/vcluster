@@ -113,7 +113,7 @@ func GetImages(cleanTag string, latest bool, optional bool, kubernetesVersion st
 
 // GetSupportedKubernetesVersions returns a list of supported Kubernetes versions
 func GetSupportedKubernetesVersions() []string {
-	k8sSupportedVersions := maps.Keys(vclusterconfig.K8SAPIVersionMap)
+	k8sSupportedVersions := maps.Keys(vclusterconfig.K8SVersionMap)
 	slices.SortFunc(k8sSupportedVersions, versionsDescCmp)
 	return k8sSupportedVersions
 }
@@ -162,8 +162,7 @@ func GetVclusterDependencyImageMaps(distro string) []map[string]string {
 	switch distro {
 	case k8s:
 		ret = append(ret,
-			vclusterconfig.K8SAPIVersionMap,
-			vclusterconfig.K8SControllerVersionMap,
+			vclusterconfig.K8SVersionMap,
 			vclusterconfig.K8SEtcdVersionMap)
 	case k3s:
 		ret = append(ret, vclusterconfig.K3SVersionMap)
@@ -171,11 +170,9 @@ func GetVclusterDependencyImageMaps(distro string) []map[string]string {
 		ret = append(ret, vclusterconfig.K0SVersionMap)
 	default: // All distros
 		ret = append(ret,
-			vclusterconfig.K8SAPIVersionMap,
-			vclusterconfig.K8SControllerVersionMap,
+			vclusterconfig.K8SVersionMap,
 			vclusterconfig.K8SEtcdVersionMap,
 			vclusterconfig.K3SVersionMap,
-			vclusterconfig.K0SVersionMap,
 		)
 	}
 	ret = append(ret, constants.CoreDNSVersionMap)
