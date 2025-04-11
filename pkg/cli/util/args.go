@@ -23,7 +23,13 @@ var (
 var (
 	ErrNonInteractive   = errors.New("terminal is not interactive")
 	ErrTooManyArguments = errors.New("too many arguments specified")
+
+	// prompt responses
+	PositiveResponse = "yes"
+	NegativeResponse = "no"
 )
+
+const DbConnectorSecretNotFound = "DbConnectorSecretNotFound"
 
 func init() {
 	NamespaceNameOnlyUseLine, NamespaceNameOnlyValidator = NamedPositionalArgsValidator(true, true, "NAMESPACE_NAME")
