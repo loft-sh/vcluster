@@ -13,7 +13,9 @@ import (
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/start"
+	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -319,18 +321,40 @@ func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Conte
 						return false, fmt.Errorf("failed to unmarshal virtual cluster config for %v %q: %w", resource, namespacedName, err)
 					}
 					if vConfig.ControlPlane.BackingStore.Database.External.Connector != "" {
+						// if db-connector secret is not found then the controller won't be able to remove the "cleanup-connectors" finalizer
+						// hence the user need to opt-in for the removal of finalizer
+						for _, cond := range virtualClusterInstance.Status.Conditions {
+							if cond.Type == util.DbConnectorSecretNotFound && cond.Status == corev1.ConditionTrue {
+								log.Warnf("The database connector secret is not found. To continue with the cleanup process, the finalizer needs to be removed.")
+								resp, err := log.Question(&survey.QuestionOptions{
+									Options:  []string{util.PositiveResponse, util.NegativeResponse},
+									Question: "Do you want to continue with the cleanup process?",
+								})
+								if err != nil {
+									return false, fmt.Errorf("failed to prompt for confirmation: %w", err)
+								}
+								if resp == util.PositiveResponse {
+									// remove the "cleanup-connectors" finalizer from the virtualClusterInstance
+									_, err = resourceClient.Namespace(object.GetNamespace()).Patch(ctx, virtualClusterInstance.Name,
+										types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`), metav1.PatchOptions{})
+									if err != nil && !kerrors.IsNotFound(err) {
+										return false, err
+									}
+								} else {
+									return false, fmt.Errorf("platform destroy operation cancelled during prompt")
+								}
+							}
+						}
 						log.Warnf("IMPORTANT! You are removing an externally deployed virtual cluster %q from the platform.\n It will not be destroyed as the deployment is managed externally, but its database will be removed rendering it inoperable.", namespacedName)
 						if !nonInteractive {
-							yesOpt := "yes"
-							noOpt := "no"
-							out, err := log.Question(&survey.QuestionOptions{
-								Options:  []string{yesOpt, noOpt},
+							resp, err := log.Question(&survey.QuestionOptions{
+								Options:  []string{util.PositiveResponse, util.NegativeResponse},
 								Question: "Do you want to continue?",
 							})
 							if err != nil {
 								return false, fmt.Errorf("failed to prompt for confirmation: %w", err)
 							}
-							if out != yesOpt {
+							if resp != util.PositiveResponse {
 								return false, fmt.Errorf("destroy cancelled during prompt")
 							}
 						}
