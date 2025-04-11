@@ -8,6 +8,21 @@ experimental:
           name: test-configmap
         data:
           foo: bar
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: test-replicated-service-cleanup
+          labels:
+            vcluster.loft.sh/controlled-by: vcluster
+        spec:
+          selector:
+            app: fake-app
+          ports:
+          - protocol: TCP
+            port: 8080
+            targetPort: 8080
+            name: tcp
       manifestsTemplate: |-
         apiVersion: v1
         kind: ConfigMap
