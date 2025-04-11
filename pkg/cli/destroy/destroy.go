@@ -321,10 +321,27 @@ func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Conte
 						return false, fmt.Errorf("failed to unmarshal virtual cluster config for %v %q: %w", resource, namespacedName, err)
 					}
 					if vConfig.ControlPlane.BackingStore.Database.External.Connector != "" {
+						// check if already marked for deletion to avoid getting repeated prompts in case of backoff-retry scenario
+						if object.GetDeletionTimestamp().IsZero() {
+							log.Warnf("IMPORTANT! You are removing an externally deployed virtual cluster %q from the platform.\n It will not be destroyed as the deployment is managed externally, but its database will be removed rendering it inoperable.", namespacedName)
+							if !nonInteractive {
+								resp, err := log.Question(&survey.QuestionOptions{
+									Options:  []string{util.PositiveResponse, util.NegativeResponse},
+									Question: "Do you want to continue?",
+								})
+								if err != nil {
+									return false, fmt.Errorf("failed to prompt for confirmation: %w", err)
+								}
+								if resp != util.PositiveResponse {
+									return false, fmt.Errorf("destroy cancelled during prompt")
+								}
+							}
+						}
+
 						// if db-connector secret is not found then the controller won't be able to remove the "cleanup-connectors" finalizer
-						// hence the user need to opt-in for the removal of finalizer
+						// and the destroy op gets stuck. Hence, the user needs to opt-in for the removal of finalizer
 						for _, cond := range virtualClusterInstance.Status.Conditions {
-							if cond.Type == util.DbConnectorSecretNotFound && cond.Status == corev1.ConditionTrue {
+							if cond.Type == util.DBConnectorSecretNotFound && cond.Status == corev1.ConditionTrue {
 								log.Warnf("The database connector secret is not found. To continue with the cleanup process, the finalizer needs to be removed.")
 								resp, err := log.Question(&survey.QuestionOptions{
 									Options:  []string{util.PositiveResponse, util.NegativeResponse},
@@ -343,19 +360,6 @@ func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Conte
 								} else {
 									return false, fmt.Errorf("platform destroy operation cancelled during prompt")
 								}
-							}
-						}
-						log.Warnf("IMPORTANT! You are removing an externally deployed virtual cluster %q from the platform.\n It will not be destroyed as the deployment is managed externally, but its database will be removed rendering it inoperable.", namespacedName)
-						if !nonInteractive {
-							resp, err := log.Question(&survey.QuestionOptions{
-								Options:  []string{util.PositiveResponse, util.NegativeResponse},
-								Question: "Do you want to continue?",
-							})
-							if err != nil {
-								return false, fmt.Errorf("failed to prompt for confirmation: %w", err)
-							}
-							if resp != util.PositiveResponse {
-								return false, fmt.Errorf("destroy cancelled during prompt")
 							}
 						}
 					} else {
@@ -397,7 +401,7 @@ func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Conte
 		return ctxWithDeadLine, func() {}, err
 	}
 
-	// the timeout is hit, begin removing finalizers and rety
+	// the timeout is hit, begin removing finalizers and retry
 	if !deleteFinalizers {
 		return ctxWithDeadLine, func() {}, fmt.Errorf("timed out waiting for %q to be deleted", resource)
 	}

@@ -9,6 +9,8 @@ import (
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
 	"github.com/spf13/cobra"
+
+	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
 )
 
 var (
@@ -29,7 +31,7 @@ var (
 	NegativeResponse = "no"
 )
 
-const DbConnectorSecretNotFound = "DbConnectorSecretNotFound"
+const DBConnectorSecretNotFound agentstoragev1.ConditionType = "DBConnectorSecretNotFound"
 
 func init() {
 	NamespaceNameOnlyUseLine, NamespaceNameOnlyValidator = NamedPositionalArgsValidator(true, true, "NAMESPACE_NAME")
