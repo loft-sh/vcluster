@@ -91,22 +91,13 @@ tests:
         distro:
           k8s:
             enabled: true
-            controllerManager:
-              image:
-                registry: ""
-                repository: "k8s-controller"
-                tag: "123"
-            apiServer:
-              image:
-                registry: ""
-                repository: "k8s-api"
-                tag: "456"
+            image:
+              registry: ""
+              repository: "k8s-api"
+              tag: "456"
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: k8s-controller:123
-      - equal:
-          path: spec.template.spec.initContainers[2].image
+          path: spec.template.spec.initContainers[0].image
           value: k8s-api:456
 
   - it: custom init container
@@ -115,23 +106,15 @@ tests:
         distro:
           k8s:
             enabled: true
-            controllerManager:
-              image:
-                repository: "k8s-controller"
-                tag: "123"
-            apiServer:
-              image:
-                repository: "k8s-api"
-                tag: "456"
+            image:
+              repository: "k8s-controller"
+              tag: "123"
         advanced:
           defaultImageRegistry: "bbb.com"
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
+          path: spec.template.spec.initContainers[0].image
           value: bbb.com/k8s-controller:123
-      - equal:
-          path: spec.template.spec.initContainers[2].image
-          value: bbb.com/k8s-api:456
 
   - it: name & defaults
     release:
@@ -309,7 +292,7 @@ tests:
           count: 7
       - lengthEqual:
           path: spec.template.spec.initContainers
-          count: 5
+          count: 3
 
   - it: plugin volumes 2
     set:
@@ -343,7 +326,7 @@ tests:
           count: 6
       - lengthEqual:
           path: spec.template.spec.initContainers
-          count: 3
+          count: 1
 
   - it: add volumes
     set:
@@ -606,65 +589,56 @@ tests:
             enabled: true
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.32.1
-      - equal:
-          path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-apiserver:v1.32.1
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.32.1
 
   - it: k8s capabilities set
     chart:
       version: "test-v1.29.3"
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.29.3
-      - equal:
-          path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-apiserver:v1.29.3
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.29.3
 
   - it: k8s capabilities orbstack
     chart:
       version: "test-v1.29.3+orb1"
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.29.3
-      - equal:
-          path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-apiserver:v1.29.3
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.29.3
 
   - it: k8s capabilities invalid
     chart:
       version: "test-invalid"
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.32.1
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.32.1
 
   - it: k8s capabilities incomplete
     chart:
       version: "test-v1.22"
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.32.1
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.32.1
 
   - it: k8s capabilities incomplete 2
     chart:
       version: "test-1.22.11"
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.32.1
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.32.1
 
   - it: k8s capabilities incomplete 2
     chart:
       version: "test-v1.22.33"
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.22.33
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.22.33
 
   - it: k8s version sets image tag for apiServer and controllerManager
     set:
@@ -675,11 +649,8 @@ tests:
             version: v1.35.999
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.35.999
-      - equal:
-          path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-apiserver:v1.35.999
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.35.999
 
   - it: k8s version set but overridden by image tag for apiServer and controllerManager
     set:
@@ -688,20 +659,13 @@ tests:
           k8s:
             enabled: true
             version: v1.30.999
-            apiServer:
-              image:
-                tag: v99912
-            controllerManager:
-              image:
-                tag: v23123
+            image:
+              tag: v99912
 
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v23123
-      - equal:
-          path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-apiserver:v99912
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v99912
 
   - it: k8s not version set but image tags for apiServer and controllerManager set
     set:
@@ -709,20 +673,13 @@ tests:
         distro:
           k8s:
             enabled: true
-            apiServer:
-              image:
-                tag: v99914
-            controllerManager:
-              image:
-                tag: v23127
+            image:
+              tag: v99914
 
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v23127
-      - equal:
-          path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-apiserver:v99914
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v99914
 
   - it: k8s version not set, default tag images used for apiServer and controllerManager (virtual scheduler enabled)
     chart:
@@ -737,14 +694,8 @@ tests:
             enabled: true
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.32.1
-      - equal:
-          path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-scheduler:v1.32.1
-      - equal:
-          path: spec.template.spec.initContainers[3].image
-          value: registry.k8s.io/kube-apiserver:v1.32.1
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.32.1
 
   - it: k8s version sets image tag for apiServer and controllerManager (virtual scheduler enabled)
     set:
@@ -758,14 +709,8 @@ tests:
             enabled: true
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v1.35.999
-      - equal:
-          path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-scheduler:v1.35.999
-      - equal:
-          path: spec.template.spec.initContainers[3].image
-          value: registry.k8s.io/kube-apiserver:v1.35.999
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.35.999
 
   - it: k8s version set but overridden by image tag for apiServer and controllerManager (virtual scheduler enabled)
     set:
@@ -774,60 +719,16 @@ tests:
           k8s:
             enabled: true
             version: v1.30.999
-            apiServer:
-              image:
-                tag: v99912
-            controllerManager:
-              image:
-                tag: v23123
-            scheduler:
-              image:
-                tag: v123654
+            image:
+              tag: v99912
         advanced:
           virtualScheduler:
             enabled: true
 
     asserts:
       - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v23123
-      - equal:
-          path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-scheduler:v123654
-      - equal:
-          path: spec.template.spec.initContainers[3].image
-          value: registry.k8s.io/kube-apiserver:v99912
-
-  - it: k8s not version set but image tags for apiServer and controllerManager set (virtual scheduler enabled)
-    set:
-      controlPlane:
-        distro:
-          k8s:
-            enabled: true
-            apiServer:
-              image:
-                tag: v99914
-            controllerManager:
-              image:
-                tag: v23127
-            scheduler:
-              image:
-                tag: v123656
-
-        advanced:
-          virtualScheduler:
-            enabled: true
-
-    asserts:
-      - equal:
-          path: spec.template.spec.initContainers[1].image
-          value: registry.k8s.io/kube-controller-manager:v23127
-      - equal:
-          path: spec.template.spec.initContainers[2].image
-          value: registry.k8s.io/kube-scheduler:v123656
-      - equal:
-          path: spec.template.spec.initContainers[3].image
-          value: registry.k8s.io/kube-apiserver:v99914
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v99912
 
   - it: custom dnsPolicy
     set:

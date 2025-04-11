@@ -58,7 +58,7 @@ func main() {
 		case "k3s":
 			versionMap = vclusterconfig.K3SVersionMap
 		case "k8s":
-			versionMap = vclusterconfig.K8SAPIVersionMap
+			versionMap = vclusterconfig.K8SVersionMap
 		case "k0s":
 			versionMap = vclusterconfig.K0SVersionMap
 		}

@@ -62,6 +62,8 @@ done
 
 if ! check_vcluster_running; then
     echo "vCluster $VCLUSTER_NAME did not reach Running state within $MAX_WAIT_TIME seconds."
+    kubectl get pods -n $VCLUSTER_NAMESPACE
+    kubectl get events -n $VCLUSTER_NAMESPACE
     exit 1
 fi
 

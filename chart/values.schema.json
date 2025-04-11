@@ -873,14 +873,6 @@
     },
     "DistroContainer": {
       "properties": {
-        "image": {
-          "$ref": "#/$defs/Image",
-          "description": "Image is the distro image"
-        },
-        "imagePullPolicy": {
-          "type": "string",
-          "description": "ImagePullPolicy is the pull policy for the distro image"
-        },
         "command": {
           "items": {
             "type": "string"
@@ -904,14 +896,6 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled signals this container should be enabled."
-        },
-        "image": {
-          "$ref": "#/$defs/Image",
-          "description": "Image is the distro image"
-        },
-        "imagePullPolicy": {
-          "type": "string",
-          "description": "ImagePullPolicy is the pull policy for the distro image"
         },
         "command": {
           "items": {
@@ -941,6 +925,14 @@
           "type": "string",
           "description": "Config allows you to override the k0s config passed to the k0s binary."
         },
+        "image": {
+          "$ref": "#/$defs/Image",
+          "description": "Image is the distro image"
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the pull policy for the distro image"
+        },
         "env": {
           "items": {
             "type": "object"
@@ -955,14 +947,6 @@
         "securityContext": {
           "type": "object",
           "description": "Security options can be used for the distro init container"
-        },
-        "image": {
-          "$ref": "#/$defs/Image",
-          "description": "Image is the distro image"
-        },
-        "imagePullPolicy": {
-          "type": "string",
-          "description": "ImagePullPolicy is the pull policy for the distro image"
         },
         "command": {
           "items": {
@@ -992,6 +976,14 @@
           "type": "string",
           "description": "Token is the K3s token to use. If empty, vCluster will choose one."
         },
+        "image": {
+          "$ref": "#/$defs/Image",
+          "description": "Image is the distro image"
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the pull policy for the distro image"
+        },
         "env": {
           "items": {
             "type": "object"
@@ -1006,14 +998,6 @@
         "securityContext": {
           "type": "object",
           "description": "Security options can be used for the distro init container"
-        },
-        "image": {
-          "$ref": "#/$defs/Image",
-          "description": "Image is the distro image"
-        },
-        "imagePullPolicy": {
-          "type": "string",
-          "description": "ImagePullPolicy is the pull policy for the distro image"
         },
         "command": {
           "items": {
@@ -1041,7 +1025,7 @@
         },
         "version": {
           "type": "string",
-          "description": "Version specifies k8s components (scheduler, kube-controller-manager \u0026 apiserver) version.\nIt is a shortcut for controlPlane.distro.k8s.apiServer.image.tag,\ncontrolPlane.distro.k8s.controllerManager.image.tag and\ncontrolPlane.distro.k8s.scheduler.image.tag\nIf e.g. controlPlane.distro.k8s.version is set to v1.30.1 and\ncontrolPlane.distro.k8s.scheduler.image.tag\n(or controlPlane.distro.k8s.controllerManager.image.tag or controlPlane.distro.k8s.apiServer.image.tag)\nis set to v1.31.0,\nvalue from controlPlane.distro.k8s.(controlPlane-component).image.tag will be used\n(where controlPlane-component is apiServer, controllerManager and scheduler)."
+          "description": "Version specifies k8s components (scheduler, kube-controller-manager \u0026 apiserver) version.\nIt is a shortcut for controlPlane.distro.k8s.image.tag"
         },
         "apiServer": {
           "$ref": "#/$defs/DistroContainerEnabled",
@@ -1054,6 +1038,14 @@
         "scheduler": {
           "$ref": "#/$defs/DistroContainer",
           "description": "Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled"
+        },
+        "image": {
+          "$ref": "#/$defs/Image",
+          "description": "Image is the distro image"
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the pull policy for the distro image"
         },
         "env": {
           "items": {
