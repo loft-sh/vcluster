@@ -49,10 +49,7 @@ jobs:
           fi
 
       - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
-
-      - name: Build custom golangci-lint
-        run: golangci-lint custom
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v2.0.2
 
       - name: Run golangci-lint
-        run: ./custom-gcl run
+        run: golangci-lint run
