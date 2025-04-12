@@ -49,11 +49,11 @@ func ParseInLocation(layout, value string, loc *time.Location) (Time, error) {
 	return Time{Time: t}, err
 }
 
-func Date(year int, month time.Month, day, hour, min, sec, nsec int, loc *time.Location) Time {
-	return Time{Time: time.Date(year, month, day, hour, min, sec, nsec, loc)}
+func Date(year int, month time.Month, day, hour, minute, second, nanosecond int, location *time.Location) Time {
+	return Time{Time: time.Date(year, month, day, hour, minute, second, nanosecond, location)}
 }
 
-func Unix(sec int64, nsec int64) Time { return Time{Time: time.Unix(sec, nsec)} }
+func Unix(second int64, nanosecond int64) Time { return Time{Time: time.Unix(second, nanosecond)} }
 
 func (t Time) Add(d time.Duration) Time { return Time{Time: t.Time.Add(d)} }
 func (t Time) AddDate(years int, months int, days int) Time {
