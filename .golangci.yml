@@ -87,18 +87,6 @@ linters-settings:
       - xml
       - form
 
-  custom:
-    nilaway:
-      type: "module"
-      description: Static analysis tool to detect potential nil panics in Go code.
-      settings:
-        # Settings must be a "map from string to string" to mimic command line flags: the keys are
-        # flag names and the values are the values to the particular flags.
-        include-pkgs: "github.com/loft-sh/vcluster"
-        exclude-pkgs: "github.com/loft-sh/vcluster/test"
-        experimental-anonymous-function: "true"
-        # experimental-struct-init: "true"
-
 issues:
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0
