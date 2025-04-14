@@ -100,6 +100,9 @@ type Integrations struct {
 	// - Certificates and Issuers will be synced from the virtual cluster to the host cluster.
 	// - ClusterIssuers will be synced from the host cluster to the virtual cluster.
 	CertManager CertManager `json:"certManager,omitempty"`
+
+	// Istio syncs DestinationRules, Gateways and VirtualServices from virtual cluster to the host.
+	Istio Istio `json:"istio,omitempty"`
 }
 
 // CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster
@@ -132,6 +135,23 @@ type ClusterIssuersSyncConfig struct {
 	EnableSwitch
 	// Selector defines what cluster issuers should be imported.
 	Selector LabelSelector `json:"selector,omitempty"`
+}
+
+type Istio struct {
+	EnableSwitch
+	Sync IstioSync `json:"sync,omitempty"`
+}
+
+type IstioSync struct {
+	ToHost IstioSyncToHost `json:"toHost,omitempty"`
+}
+
+type IstioSyncToHost struct {
+	DestinationRules EnableSwitch `json:"destinationRules,omitempty"`
+
+	Gateways EnableSwitch `json:"gateways,omitempty"`
+
+	VirtualServices EnableSwitch `json:"virtualServices,omitempty"`
 }
 
 // ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster

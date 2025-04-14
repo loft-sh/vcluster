@@ -2071,11 +2071,52 @@
         "certManager": {
           "$ref": "#/$defs/CertManager",
           "description": "CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster.\n- Certificates and Issuers will be synced from the virtual cluster to the host cluster.\n- ClusterIssuers will be synced from the host cluster to the virtual cluster."
+        },
+        "istio": {
+          "$ref": "#/$defs/Istio",
+          "description": "Istio syncs DestinationRules, Gateways and VirtualServices from virtual cluster to the host."
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "Integrations holds config for vCluster integrations with other operators or tools running on the host cluster"
+    },
+    "Istio": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "sync": {
+          "$ref": "#/$defs/IstioSync"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "IstioSync": {
+      "properties": {
+        "toHost": {
+          "$ref": "#/$defs/IstioSyncToHost"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "IstioSyncToHost": {
+      "properties": {
+        "destinationRules": {
+          "$ref": "#/$defs/EnableSwitch"
+        },
+        "gateways": {
+          "$ref": "#/$defs/EnableSwitch"
+        },
+        "virtualServices": {
+          "$ref": "#/$defs/EnableSwitch"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "KubeVirt": {
       "properties": {

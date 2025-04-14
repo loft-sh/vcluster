@@ -442,6 +442,16 @@ integrations:
           enabled: true
           selector:
             labels: {}
+  istio:
+    enabled: false
+    sync:
+      toHost:
+        destinationRules:
+          enabled: true
+        gateways:
+          enabled: true
+        virtualServices:
+          enabled: true
 
 rbac:
   role:

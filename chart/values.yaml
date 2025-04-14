@@ -794,6 +794,19 @@ integrations:
           # Selector defines what cluster issuers should be imported.
           selector:
             labels: {}
+  
+  # Istio syncs DestinationRules, Gateways and VirtualServices from virtual cluster to the host.
+  istio:
+    # Enabled defines if this option should be enabled.
+    enabled: false
+    sync:
+      toHost:
+        destinationRules:
+          enabled: true
+        gateways:
+          enabled: true
+        virtualServices:
+          enabled: true
 
 # RBAC options for the virtual cluster.
 rbac:
