@@ -169,14 +169,11 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		"upgrade", "loft",
 	}
 
-	if cmd.CreateNamespace {
-		helmArgs = append(helmArgs, "--create-namespace")
-	}
-
 	if os.Getenv("DEVELOPMENT") == "true" {
 		helmArgs = []string{
 			"upgrade", "--install", "loft", cmp.Or(os.Getenv("DEVELOPMENT_CHART_DIR"), "./chart"),
 			"--namespace", namespace,
+			"--create-namespace",
 			"--set", "agentOnly=true",
 			"--set", "image=" + cmp.Or(os.Getenv("DEVELOPMENT_IMAGE"), "ghcr.io/loft-sh/enterprise:release-test"),
 			"--set", "env.AGENT_IMAGE=" + cmp.Or(os.Getenv("AGENT_IMAGE"), os.Getenv("DEVELOPMENT_IMAGE"), "ghcr.io/loft-sh/enterprise:release-test"),
@@ -194,6 +191,10 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 
 		if cmd.HelmChartVersion != "" {
 			helmArgs = append(helmArgs, "--version", cmd.HelmChartVersion)
+		}
+
+		if cmd.CreateNamespace {
+			helmArgs = append(helmArgs, "--create-namespace")
 		}
 
 		// general arguments
