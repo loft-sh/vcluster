@@ -168,6 +168,15 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 	// start mappings store garbage collection
 	controllerContext.Mappings.Store().StartGarbageCollection(controllerContext.Context)
 
+	// When the user disables from host syncing for some kind, the previously synced resources will
+	// stay in the virtual cluster. Since the controllers for those resources do not exist anymore,
+	// here we delete those stale virtual resources that were synced from host but should not be
+	// synced anymore.
+	err = deletePreviouslySyncedResources(controllerContext)
+	if err != nil {
+		return fmt.Errorf("failed to delete previouly synced resources: %w", err)
+	}
+
 	// we are done here
 	klog.FromContext(controllerContext).Info("Successfully started vCluster controllers")
 	return nil
