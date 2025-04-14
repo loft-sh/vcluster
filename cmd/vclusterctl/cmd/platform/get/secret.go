@@ -54,12 +54,23 @@ vcluster platform get secret test-secret.key
 vcluster platform get secret test-secret.key --project myproject
 ########################################################
 	`)
+
 	useLine, validator := util.NamedPositionalArgsValidator(true, true, "SECRET_NAME")
 	c := &cobra.Command{
 		Use:   "secret" + useLine,
 		Short: "Returns the key value of a project / shared secret",
 		Long:  description,
-		Args:  validator,
+		Args: func(cmd *cobra.Command, args []string) error {
+			// bypass validation if the "all" flag is set
+			all, err := cmd.Flags().GetBool("all")
+			if err != nil {
+				return err
+			}
+			if !all {
+				return validator(cmd, args)
+			}
+			return nil
+		},
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd.Context(), args)
 		},
