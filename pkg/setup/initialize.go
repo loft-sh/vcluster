@@ -31,14 +31,8 @@ import (
 
 // Initialize creates the required secrets and configmaps for the control plane to start
 func Initialize(ctx context.Context, options *config.VirtualClusterConfig) error {
-	// migrate k3s to k8s if needed
-	err := k8s.MigrateK3sToK8s(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options)
-	if err != nil {
-		return fmt.Errorf("migrate k3s to k8s: %w", err)
-	}
-
 	// Ensure that service CIDR range is written into the expected location
-	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(waitCtx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(waitCtx context.Context) (bool, error) {
 		err := initialize(waitCtx, options)
 		if err != nil {
 			klog.Errorf("error initializing service cidr, certs and token: %v", err)
@@ -178,6 +172,12 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 			}
 		}()
 	case vclusterconfig.K8SDistro:
+		// migrate k3s to k8s if needed
+		err := k8s.MigrateK3sToK8s(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options)
+		if err != nil {
+			return fmt.Errorf("migrate k3s to k8s: %w", err)
+		}
+
 		// try to generate k8s certificates
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == "/data/pki" {

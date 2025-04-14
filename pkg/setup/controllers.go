@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/coredns"
+	"github.com/loft-sh/vcluster/pkg/k8s"
 	"github.com/loft-sh/vcluster/pkg/log"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -38,6 +39,12 @@ import (
 func StartControllers(controllerContext *synccontext.ControllerContext, syncers []syncertypes.Object) error {
 	// exchange control plane client
 	controlPlaneClient, err := pro.ExchangeControlPlaneClient(controllerContext)
+	if err != nil {
+		return err
+	}
+
+	// migrate k3s to k8s if needed
+	err = k8s.MigrateK3sToK8sStateless(controllerContext.Context, controllerContext.Config.ControlPlaneClient, controllerContext.Config.ControlPlaneNamespace, controllerContext.VirtualManager.GetClient(), controllerContext.Config)
 	if err != nil {
 		return err
 	}
