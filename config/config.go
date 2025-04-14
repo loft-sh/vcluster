@@ -1105,15 +1105,7 @@ type DistroK8s struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// Version specifies k8s components (scheduler, kube-controller-manager & apiserver) version.
-	// It is a shortcut for controlPlane.distro.k8s.apiServer.image.tag,
-	// controlPlane.distro.k8s.controllerManager.image.tag and
-	// controlPlane.distro.k8s.scheduler.image.tag
-	// If e.g. controlPlane.distro.k8s.version is set to v1.30.1 and
-	// controlPlane.distro.k8s.scheduler.image.tag
-	//(or controlPlane.distro.k8s.controllerManager.image.tag or controlPlane.distro.k8s.apiServer.image.tag)
-	// is set to v1.31.0,
-	// value from controlPlane.distro.k8s.(controlPlane-component).image.tag will be used
-	// (where controlPlane-component is apiServer, controllerManager and scheduler).
+	// It is a shortcut for controlPlane.distro.k8s.image.tag
 	Version string `json:"version,omitempty"`
 
 	// APIServer holds configuration specific to starting the api server.
@@ -1140,6 +1132,12 @@ type DistroK0s struct {
 }
 
 type DistroCommon struct {
+	// Image is the distro image
+	Image Image `json:"image,omitempty"`
+
+	// ImagePullPolicy is the pull policy for the distro image
+	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+
 	// Env are extra environment variables to use for the main container and NOT the init container.
 	Env []map[string]interface{} `json:"env,omitempty"`
 
@@ -1149,14 +1147,7 @@ type DistroCommon struct {
 	// Security options can be used for the distro init container
 	SecurityContext map[string]interface{} `json:"securityContext,omitempty"`
 }
-
 type DistroContainer struct {
-	// Image is the distro image
-	Image Image `json:"image,omitempty"`
-
-	// ImagePullPolicy is the pull policy for the distro image
-	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
-
 	// Command is the command to start the distro binary. This will override the existing command.
 	Command []string `json:"command,omitempty"`
 
@@ -1167,12 +1158,6 @@ type DistroContainer struct {
 type DistroContainerEnabled struct {
 	// Enabled signals this container should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
-
-	// Image is the distro image
-	Image Image `json:"image,omitempty"`
-
-	// ImagePullPolicy is the pull policy for the distro image
-	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
 
 	// Command is the command to start the distro binary. This will override the existing command.
 	Command []string `json:"command,omitempty"`
