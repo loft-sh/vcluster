@@ -676,8 +676,8 @@ func deployWebhookAndService(f *framework.Framework, image string, certCtx *cert
 
 		_, _ = fmt.Fprintln(ginkgo.GinkgoWriter, "webhook deployment ready")
 		return true, nil
-	}).WithTimeout(2 * time.Minute).
-		WithPolling(5 * time.Second).
+	}).WithTimeout(framework.PollTimeoutLong).
+		WithPolling(framework.PollInterval).
 		WithContext(ctx).
 		Should(gomega.BeTrue())
 
@@ -732,8 +732,8 @@ func deployWebhookAndService(f *framework.Framework, image string, certCtx *cert
 		checkMessage := fmt.Sprintf("didn't find ready endpoint for service %s", serviceName)
 		_, _ = fmt.Fprintln(ginkgo.GinkgoWriter, checkMessage)
 		return false, errors.New(checkMessage)
-	}).WithTimeout(2 * time.Minute).
-		WithPolling(5 * time.Second).
+	}).WithTimeout(framework.PollTimeoutLong).
+		WithPolling(framework.PollInterval).
 		WithContext(ctx).
 		Should(gomega.BeTrue())
 }
