@@ -24,7 +24,9 @@ import (
 )
 
 const (
+	PollInterval             = 5 * time.Second
 	PollTimeout              = time.Minute
+	PollTimeoutLong          = 2 * time.Minute
 	DefaultVClusterName      = "vcluster"
 	DefaultVClusterNamespace = "vcluster"
 	DefaultClientTimeout     = 32 * time.Second // the default in client-go is 32

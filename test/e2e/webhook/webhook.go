@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -653,7 +655,31 @@ func deployWebhookAndService(f *framework.Framework, image string, certCtx *cert
 	_, err = client.AppsV1().Deployments(namespace).Create(ctx, d, metav1.CreateOptions{})
 	framework.ExpectNoError(err, "creating deployment %s in namespace %s", deploymentName, namespace)
 	ginkgo.By("Wait for the deployment to be ready")
-	time.Sleep(1 * time.Minute) //TODO: replace with polling
+	gomega.Eventually(func() (bool, error) {
+		webhookDeployment, err := client.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		var errorMessage string
+		if webhookDeployment.Status.Replicas != replicas {
+			errorMessage = fmt.Sprintf("webhook deployment %s has %d replicas, expected %d", deploymentName, webhookDeployment.Status.Replicas, replicas)
+		} else if webhookDeployment.Status.ReadyReplicas != replicas {
+			errorMessage = fmt.Sprintf("webhook deployment %s has %d replicas ready, expected %d", deploymentName, webhookDeployment.Status.ReadyReplicas, replicas)
+		} else if webhookDeployment.Status.AvailableReplicas != replicas {
+			errorMessage = fmt.Sprintf("webhook deployment %s has %d available replicas, expected %d", deploymentName, webhookDeployment.Status.AvailableReplicas, replicas)
+		}
+		if errorMessage != "" {
+			_, _ = fmt.Fprintln(ginkgo.GinkgoWriter, errorMessage)
+			return false, errors.New(errorMessage)
+		}
+
+		_, _ = fmt.Fprintln(ginkgo.GinkgoWriter, "webhook deployment ready")
+		return true, nil
+	}).WithTimeout(framework.PollTimeoutLong).
+		WithPolling(framework.PollInterval).
+		WithContext(ctx).
+		Should(gomega.BeTrue())
 
 	ginkgo.By("Deploying the webhook service")
 
@@ -679,7 +705,37 @@ func deployWebhookAndService(f *framework.Framework, image string, certCtx *cert
 	framework.ExpectNoError(err, "creating service %s in namespace %s", serviceName, namespace)
 
 	ginkgo.By("Wait for the service to be paired with the endpoint")
-	time.Sleep(1 * time.Minute) //TODO: replace with polling
+	gomega.Eventually(func() (bool, error) {
+		listOptions := metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("kubernetes.io/service-name=%s", serviceName),
+		}
+		endpointSlicesList, err := client.DiscoveryV1().EndpointSlices(namespace).List(ctx, listOptions)
+		if err != nil {
+			return false, err
+		}
+
+		for _, endpointSlices := range endpointSlicesList.Items {
+			for _, ownerReference := range endpointSlices.OwnerReferences {
+				if ownerReference.Kind != "Service" || ownerReference.Name != serviceName {
+					continue
+				}
+				// found endpoint slices for the service, now check if at least one endpoint is ready
+				for _, endpoint := range endpointSlices.Endpoints {
+					if endpoint.Conditions.Ready != nil && *endpoint.Conditions.Ready {
+						_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "Found ready endpoint for service %s\n", serviceName)
+						return true, nil
+					}
+				}
+			}
+		}
+
+		checkMessage := fmt.Sprintf("didn't find ready endpoint for service %s", serviceName)
+		_, _ = fmt.Fprintln(ginkgo.GinkgoWriter, checkMessage)
+		return false, errors.New(checkMessage)
+	}).WithTimeout(framework.PollTimeoutLong).
+		WithPolling(framework.PollInterval).
+		WithContext(ctx).
+		Should(gomega.BeTrue())
 }
 
 // NewDeployment returns a deployment spec with the specified argument.
@@ -760,8 +816,8 @@ func registerWebhookForAttachingPod(f *framework.Framework, configName string, c
 	})
 	framework.ExpectNoError(err, "registering webhook config %s with namespace %s", configName, namespace)
 
-	err = waitWebhookConfigurationReady(f, ns)
-	framework.ExpectNoError(err, "waiting for webhook configuration to be ready")
+	ginkgo.By("Wait for the webhook configuration to be ready")
+	time.Sleep(5 * time.Second)
 
 	return func() {
 		_ = client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, configName, metav1.DeleteOptions{})
