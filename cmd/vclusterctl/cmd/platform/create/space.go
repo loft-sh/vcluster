@@ -193,7 +193,7 @@ func (cmd *NamespaceCmd) createSpace(ctx context.Context, platformClient platfor
 			return true, nil
 		})
 		if waitErr != nil {
-			return errors.Wrap(err, "get namespace instance")
+			return errors.Wrap(waitErr, "get namespace instance")
 		}
 
 		spaceInstance = nil
