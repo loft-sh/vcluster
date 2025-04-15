@@ -237,4 +237,7 @@ spec:
 {{ toYaml .Values.controlPlane.statefulSet.persistence.addVolumeMounts | indent 12 }}
             {{- end }}
 {{- include "vcluster.legacyPlugins.containers" . | indent 8 }}
+      {{- if .Values.sidecarContainer }}
+{{ toYaml .Values.sidecarContainer | indent 6 }}
+      {{- end }}
 {{- end }}
