@@ -9,11 +9,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -137,6 +139,73 @@ func MigrateK3sToK8s(ctx context.Context, currentNamespaceClient kubernetes.Inte
 
 	// remove old data
 	_ = os.RemoveAll("/data/server")
+	return nil
+}
+
+func MigrateK3sToK8sStateless(ctx context.Context, currentNamespaceClient kubernetes.Interface, currentNamespace string, vClusterClient client.Client, options *config.VirtualClusterConfig) error {
+	if options.Distro() != vclusterconfig.K8SDistro {
+		return nil
+	} else if options.BackingStoreType() != vclusterconfig.StoreTypeDeployedEtcd && options.BackingStoreType() != vclusterconfig.StoreTypeExternalEtcd && options.BackingStoreType() != vclusterconfig.StoreTypeExternalDatabase {
+		return nil
+	}
+
+	// get k3s secret
+	secretName := "vc-k3s-" + options.Name
+	k3sSecret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
+	if err != nil {
+		// this is fine, we can just skip this
+		return nil
+	} else if k3sSecret.Annotations[migratedFromK3sAnnotation] == "true" { // already migrated
+		return nil
+	}
+
+	// migrating means deleting all pods in the vcluster and all kube-root-ca.crt configmaps
+	klog.Infof("Recreating pods and certificates since we are migrating from k3s to k8s...")
+
+	// delete all configmaps
+	configMapList := &corev1.ConfigMapList{}
+	err = vClusterClient.List(ctx, configMapList)
+	if err != nil {
+		return fmt.Errorf("failed to list configmaps in vcluster: %w", err)
+	}
+	for _, configMap := range configMapList.Items {
+		if configMap.Name == "kube-root-ca.crt" {
+			err = vClusterClient.Delete(ctx, &configMap)
+			if err != nil {
+				return fmt.Errorf("failed to delete configmap %s: %w", configMap.Name, err)
+			}
+		}
+	}
+
+	// now delete all pods
+	podList := &corev1.PodList{}
+	err = vClusterClient.List(ctx, podList)
+	if err != nil {
+		return fmt.Errorf("failed to list pods in vcluster: %w", err)
+	}
+	for _, pod := range podList.Items {
+		err = vClusterClient.Delete(ctx, &pod)
+		if err != nil {
+			return fmt.Errorf("failed to delete pod %s: %w", pod.Name, err)
+		}
+	}
+
+	// patch secret
+	oldSecret := k3sSecret.DeepCopy()
+	if k3sSecret.Annotations == nil {
+		k3sSecret.Annotations = make(map[string]string)
+	}
+	k3sSecret.Annotations[migratedFromK3sAnnotation] = "true"
+	patch := client.MergeFrom(oldSecret)
+	patchBytes, err := patch.Data(k3sSecret)
+	if err != nil {
+		return fmt.Errorf("failed to create patch for k3s secret %s: %w", secretName, err)
+	}
+	_, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Patch(ctx, secretName, patch.Type(), patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to patch k3s secret %s: %w", secretName, err)
+	}
+
 	return nil
 }
 
