@@ -610,6 +610,15 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 	if oldConfig.Sync.Nodes.SyncNodeChanges != nil {
 		newConfig.Sync.FromHost.Nodes.SyncBackChanges = *oldConfig.Sync.Nodes.SyncNodeChanges
 	}
+	if oldConfig.Sync.Nodes.ReservedResources.CPU != "" {
+		newConfig.Sync.FromHost.Nodes.ReservedResources.CPU = oldConfig.Sync.Nodes.ReservedResources.CPU
+	}
+	if oldConfig.Sync.Nodes.ReservedResources.Memory != "" {
+		newConfig.Sync.FromHost.Nodes.ReservedResources.Memory = oldConfig.Sync.Nodes.ReservedResources.Memory
+	}
+	if oldConfig.Sync.Nodes.ReservedResources.EphemeralStorage != "" {
+		newConfig.Sync.FromHost.Nodes.ReservedResources.EphemeralStorage = oldConfig.Sync.Nodes.ReservedResources.EphemeralStorage
+	}
 	if oldConfig.Sync.PersistentVolumes.Enabled != nil {
 		newConfig.Sync.ToHost.PersistentVolumes.Enabled = *oldConfig.Sync.PersistentVolumes.Enabled
 	}

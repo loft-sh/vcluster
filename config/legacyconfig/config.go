@@ -203,11 +203,18 @@ type SyncPods struct {
 type SyncNodes struct {
 	Enabled *bool `json:"enabled,omitempty"`
 
-	FakeKubeletIPs  *bool  `json:"fakeKubeletIPs,omitempty"`
-	SyncAllNodes    *bool  `json:"syncAllNodes,omitempty"`
-	NodeSelector    string `json:"nodeSelector,omitempty"`
-	EnableScheduler *bool  `json:"enableScheduler,omitempty"`
-	SyncNodeChanges *bool  `json:"syncNodeChanges,omitempty"`
+	FakeKubeletIPs    *bool                   `json:"fakeKubeletIPs,omitempty"`
+	SyncAllNodes      *bool                   `json:"syncAllNodes,omitempty"`
+	NodeSelector      string                  `json:"nodeSelector,omitempty"`
+	EnableScheduler   *bool                   `json:"enableScheduler,omitempty"`
+	SyncNodeChanges   *bool                   `json:"syncNodeChanges,omitempty"`
+	ReservedResources ReservedResourcesValues `json:"reservedResources,omitempty"`
+}
+
+type ReservedResourcesValues struct {
+	CPU              string `json:"cpu,omitempty"`
+	Memory           string `json:"memory,omitempty"`
+	EphemeralStorage string `json:"ephemeralStorage,omitempty"`
 }
 
 type SyncGeneric struct {

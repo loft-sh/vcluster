@@ -80,6 +80,10 @@ sync:
       selector:
         all: false
         labels: {}
+      reservedResources:
+        cpu: ""
+        memory: ""
+        ephemeralStorage: ""
     secrets:
       enabled: false
       mappings:
