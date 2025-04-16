@@ -906,7 +906,13 @@ policies:
     enabled: false
     labels: {}
     annotations: {}
+    # FallbackDNS is the fallback DNS server to use if the virtual cluster does not have a DNS server.
     fallbackDns: 8.8.8.8
+    # ExtraControlPlaneRules are extra allowed rules for the vCluster control plane.
+    extraControlPlaneRules: []
+    # ExtraWorkloadRules are extra allowed rules for the vCluster workloads.
+    extraWorkloadRules: []
+    # OutgoingConnections are the outgoing connections options for the vCluster workloads.
     outgoingConnections:
       # Platform enables egress access towards loft platform
       platform: true

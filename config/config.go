@@ -1798,8 +1798,17 @@ type NetworkPolicy struct {
 	// Enabled defines if the network policy should be deployed by vCluster.
 	Enabled bool `json:"enabled,omitempty"`
 
-	FallbackDNS         string              `json:"fallbackDns,omitempty"`
+	// FallbackDNS is the fallback DNS server to use if the virtual cluster does not have a DNS server.
+	FallbackDNS string `json:"fallbackDns,omitempty"`
+
+	// OutgoingConnections are the outgoing connections options for the vCluster workloads.
 	OutgoingConnections OutgoingConnections `json:"outgoingConnections,omitempty"`
+
+	// ExtraControlPlaneRules are extra allowed rules for the vCluster control plane.
+	ExtraControlPlaneRules []map[string]interface{} `json:"extraControlPlaneRules,omitempty"`
+
+	// ExtraWorkloadRules are extra allowed rules for the vCluster workloads.
+	ExtraWorkloadRules []map[string]interface{} `json:"extraWorkloadRules,omitempty"`
 
 	LabelsAndAnnotations `json:",inline"`
 }
