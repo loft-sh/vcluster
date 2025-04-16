@@ -50,7 +50,7 @@ type deleteHelm struct {
 	log log.Logger
 }
 
-func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
+func DeleteHelm(ctx context.Context, platformClient platform.Client, options *DeleteOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	cmd := deleteHelm{
 		GlobalFlags:   globalFlags,
 		DeleteOptions: options,
@@ -76,6 +76,14 @@ func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.
 	err = cmd.prepare(vCluster)
 	if err != nil {
 		return err
+	}
+
+	if platformClient != nil {
+		cmd.log.Debugf("deleting vcluster in platform")
+		err = cmd.deleteVClusterInPlatform(ctx, platformClient, vClusterName)
+		if err != nil {
+			return fmt.Errorf("deleting vcluster in platform failed: %w", err)
+		}
 	}
 
 	// test for helm
@@ -104,12 +112,6 @@ func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.
 		}
 	}
 
-	// get service uid
-	vClusterService, err := cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(ctx, vClusterName, metav1.GetOptions{})
-	if err != nil && !kerrors.IsNotFound(err) {
-		return fmt.Errorf("error retrieving vcluster service: %w", err)
-	}
-
 	// we have to delete the chart
 	cmd.log.Infof("Delete vcluster %s...", vClusterName)
 	err = helm.NewClient(cmd.rawConfig, cmd.log, helmBinaryPath).Delete(vClusterName, cmd.Namespace)
@@ -121,17 +123,6 @@ func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.
 	// delete priorityclasses
 	if err = deletePriorityClasses(ctx, cmd, vClusterName); err != nil {
 		return err
-	}
-
-	// try to delete the vCluster in the platform
-	if vClusterService != nil {
-		cmd.log.Debugf("deleting vcluster in platform")
-		err = cmd.deleteVClusterInPlatform(ctx, vClusterService)
-		if err != nil {
-			return err
-		}
-	} else {
-		cmd.log.Warn("vcluster service not found, could not delete in platform")
 	}
 
 	// try to delete the pvc
@@ -235,13 +226,7 @@ func DeleteHelm(ctx context.Context, options *DeleteOptions, globalFlags *flags.
 	return nil
 }
 
-func (cmd *deleteHelm) deleteVClusterInPlatform(ctx context.Context, vClusterService *corev1.Service) error {
-	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
-	if err != nil {
-		cmd.log.Debugf("Error creating platform client: %v", err)
-		return nil
-	}
-
+func (cmd *deleteHelm) deleteVClusterInPlatform(ctx context.Context, platformClient platform.Client, vClusterName string) error {
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		cmd.log.Debugf("Error creating management client: %v", err)
@@ -254,7 +239,16 @@ func (cmd *deleteHelm) deleteVClusterInPlatform(ctx context.Context, vClusterSer
 		return nil
 	}
 
-	toDelete := []managementv1.VirtualClusterInstance{}
+	// get service uid
+	vClusterService, err := cmd.kubeClient.CoreV1().Services(cmd.Namespace).Get(ctx, vClusterName, metav1.GetOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return fmt.Errorf("error retrieving vcluster service: %w", err)
+	} else if kerrors.IsNotFound(err) {
+		cmd.log.Warn("vcluster service not found, could not delete in platform")
+		return nil
+	}
+
+	var toDelete []managementv1.VirtualClusterInstance
 	for _, virtualClusterInstance := range virtualClusterInstances.Items {
 		if virtualClusterInstance.Status.ServiceUID != "" && virtualClusterInstance.Status.ServiceUID == string(vClusterService.UID) {
 			toDelete = append(toDelete, virtualClusterInstance)
@@ -263,6 +257,9 @@ func (cmd *deleteHelm) deleteVClusterInPlatform(ctx context.Context, vClusterSer
 	cmd.log.Debugf("found %d matching virtualclusterinstances", len(toDelete))
 
 	for _, virtualClusterInstance := range toDelete {
+		if nonDeletableValue, ok := virtualClusterInstance.Annotations[NonDeletableAnnotation]; ok && nonDeletableValue == "true" {
+			return fmt.Errorf("deletion of virtual cluster %s is prevented, disable \"Prevent Deletion\" via platform in order to delete this virtual cluster", vClusterName)
+		}
 		cmd.log.Infof("Delete virtual cluster instance %s/%s in platform", virtualClusterInstance.Namespace, virtualClusterInstance.Name)
 		err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Delete(ctx, virtualClusterInstance.Name, metav1.DeleteOptions{})
 		if err != nil {
