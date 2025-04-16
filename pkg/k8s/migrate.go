@@ -209,12 +209,12 @@ func MigrateK3sToK8sStateless(ctx context.Context, currentNamespaceClient kubern
 	return nil
 }
 
-func renameIfExists(old, new string) error {
-	if _, err := os.Stat(old); os.IsNotExist(err) {
+func renameIfExists(oldPath, newPath string) error {
+	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
 		return nil
 	}
 
-	return os.Rename(old, new)
+	return os.Rename(oldPath, newPath)
 }
 
 func fillKubeConfig(kubeConfigPath string) ([]byte, error) {

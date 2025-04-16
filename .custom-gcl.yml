@@ -1,6 +1,0 @@
-# This has to be >= v1.57.0 for module plugin system support.
-version: v1.61.0
-plugins:
-  - module: "go.uber.org/nilaway"
-    import: "go.uber.org/nilaway/cmd/gclplugin"
-    version: latest # Or a fixed version for reproducible builds.
