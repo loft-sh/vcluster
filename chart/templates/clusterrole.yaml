@@ -119,7 +119,7 @@ rules:
     resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
     verbs: ["get", "list", "watch"]
   {{- end }}
-  {{- if or .Values.integrations.kubeVirt.enabled .Values.integrations.externalSecrets.enabled .Values.integrations.certManager.enabled .Values.sync.toHost.customResources .Values.sync.fromHost.customResources }}
+  {{- if or .Values.integrations.kubeVirt.enabled .Values.integrations.externalSecrets.enabled .Values.integrations.certManager.enabled .Values.sync.toHost.customResources .Values.sync.fromHost.customResources .Values.integrations.istio.enabled }}
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "watch"]
