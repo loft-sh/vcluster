@@ -117,6 +117,10 @@ func HasPodProblem(pod *corev1.Pod) bool {
 }
 
 func CheckHelmVersion(output string) error {
+	if !strings.HasPrefix(output, "v") {
+		output = "v" + output
+	}
+
 	if semver.Compare(output, MinHelmVersion) == -1 {
 		return fmt.Errorf("please ensure that the \"helm\" binary in your PATH is valid. Currently only Helm >= %s is supported", MinHelmVersion)
 	}
