@@ -2323,10 +2323,26 @@
           "description": "Enabled defines if the network policy should be deployed by vCluster."
         },
         "fallbackDns": {
-          "type": "string"
+          "type": "string",
+          "description": "FallbackDNS is the fallback DNS server to use if the virtual cluster does not have a DNS server."
         },
         "outgoingConnections": {
-          "$ref": "#/$defs/OutgoingConnections"
+          "$ref": "#/$defs/OutgoingConnections",
+          "description": "OutgoingConnections are the outgoing connections options for the vCluster workloads."
+        },
+        "extraControlPlaneRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ExtraControlPlaneRules are extra allowed rules for the vCluster control plane."
+        },
+        "extraWorkloadRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ExtraWorkloadRules are extra allowed rules for the vCluster workloads."
         },
         "annotations": {
           "additionalProperties": {

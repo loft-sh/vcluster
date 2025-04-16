@@ -510,6 +510,8 @@ policies:
     labels: {}
     annotations: {}
     fallbackDns: 8.8.8.8
+    extraControlPlaneRules: []
+    extraWorkloadRules: []
     outgoingConnections:
       platform: true
       ipBlock:
