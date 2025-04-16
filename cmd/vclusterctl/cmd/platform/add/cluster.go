@@ -33,6 +33,7 @@ type ClusterCmd struct {
 	Namespace        string
 	ServiceAccount   string
 	DisplayName      string
+	Description      string
 	Context          string
 	Insecure         bool
 	Wait             bool
@@ -84,6 +85,7 @@ vcluster platform add cluster my-cluster
 	c.Flags().StringVar(&cmd.Namespace, "namespace", clihelper.DefaultPlatformNamespace, "The namespace to generate the service account in. The namespace will be created if it does not exist")
 	c.Flags().StringVar(&cmd.ServiceAccount, "service-account", "loft-admin", "The service account name to create")
 	c.Flags().StringVar(&cmd.DisplayName, "display-name", "", "The display name to show in the UI for this cluster")
+	c.Flags().StringVar(&cmd.Description, "description", "", "The description to show in the UI for this cluster")
 	c.Flags().BoolVar(&cmd.Wait, "wait", false, "If true, will wait until the cluster is initialized")
 	c.Flags().BoolVar(&cmd.Insecure, "insecure", false, "If true, deploys the agent in insecure mode")
 	c.Flags().StringVar(&cmd.HelmChartVersion, "helm-chart-version", "", "The agent chart version to deploy")
@@ -127,6 +129,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		Spec: managementv1.ClusterSpec{
 			ClusterSpec: storagev1.ClusterSpec{
 				DisplayName: cmd.DisplayName,
+				Description: cmd.Description,
 				Owner: &storagev1.UserOrTeam{
 					User: user,
 					Team: team,
