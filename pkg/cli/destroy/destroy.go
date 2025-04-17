@@ -337,33 +337,36 @@ func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Conte
 								}
 							}
 						}
-
-						// if db-connector secret is not found then the controller won't be able to remove the "cleanup-connectors" finalizer
-						// and the destroy op gets stuck. Hence, the user needs to opt-in for the removal of finalizer
-						for _, cond := range virtualClusterInstance.Status.Conditions {
-							if cond.Type == util.DBConnectorSecretNotFound && cond.Status == corev1.ConditionTrue {
-								log.Warnf("The database connector secret is not found. To continue with the cleanup process, the finalizer needs to be removed.")
-								resp, err := log.Question(&survey.QuestionOptions{
-									Options:  []string{util.PositiveResponse, util.NegativeResponse},
-									Question: "Do you want to continue with the cleanup process?",
-								})
-								if err != nil {
-									return false, fmt.Errorf("failed to prompt for confirmation: %w", err)
-								}
-								if resp == util.PositiveResponse {
-									// remove the "cleanup-connectors" finalizer from the virtualClusterInstance
-									_, err = resourceClient.Namespace(object.GetNamespace()).Patch(ctx, virtualClusterInstance.Name,
-										types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`), metav1.PatchOptions{})
-									if err != nil && !kerrors.IsNotFound(err) {
-										return false, err
-									}
-								} else {
-									return false, fmt.Errorf("platform destroy operation cancelled during prompt")
-								}
-							}
-						}
 					} else {
 						log.Warnf("removing an externally deployed virtual cluster %q from the platform. It will not be destroyed as the deployment is managed externally.", namespacedName)
+					}
+				}
+
+				// check if DBConnectorSynced condition is marked as false, if so then controller won't be able to
+				// remove the "cleanup-connectors" finalizer. Hence, the user needs to opt-in for the removal of finalizer
+				for _, cond := range virtualClusterInstance.Status.Conditions {
+					if cond.Type == util.InstanceVirtualClusterDBConnectorSynced &&
+						cond.Status == corev1.ConditionFalse &&
+						cond.Reason == util.DBConnectorSecretNotFound {
+						log.Warnf("The database connector secret is not found. To continue with the cleanup process "+
+							"of \"%v\", the finalizer needs to be removed.", virtualClusterInstance.GetName())
+						resp, err := log.Question(&survey.QuestionOptions{
+							Options:  []string{util.PositiveResponse, util.NegativeResponse},
+							Question: "Do you want to continue with the cleanup process?",
+						})
+						if err != nil {
+							return false, fmt.Errorf("failed to prompt for confirmation: %w", err)
+						}
+						if resp == util.PositiveResponse {
+							// remove the "cleanup-connectors" finalizer from the virtualClusterInstance
+							_, err = resourceClient.Namespace(object.GetNamespace()).Patch(ctx, virtualClusterInstance.Name,
+								types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`), metav1.PatchOptions{})
+							if err != nil && !kerrors.IsNotFound(err) {
+								return false, err
+							}
+						} else {
+							return false, fmt.Errorf("platform destroy operation cancelled during prompt")
+						}
 					}
 				}
 

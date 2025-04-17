@@ -31,7 +31,11 @@ var (
 	NegativeResponse = "no"
 )
 
-const DBConnectorSecretNotFound agentstoragev1.ConditionType = "DBConnectorSecretNotFound"
+const (
+	InstanceVirtualClusterDBConnectorSynced agentstoragev1.ConditionType = "DBConnectorSynced"
+
+	DBConnectorSecretNotFound string = "DBConnectorSecretNotFound"
+)
 
 func init() {
 	NamespaceNameOnlyUseLine, NamespaceNameOnlyValidator = NamedPositionalArgsValidator(true, true, "NAMESPACE_NAME")
