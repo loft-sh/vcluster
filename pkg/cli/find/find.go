@@ -244,20 +244,25 @@ func ListVClusters(ctx context.Context, context, name, namespace string, log log
 		log.Warnf("Error retrieving vclusters: %v", err)
 	}
 
-	virtualClusterInstancesList, err := kubeClient.Loft().ManagementV1().VirtualClusterInstances(namespace).List(ctx, metav1.ListOptions{})
+	listOptions := metav1.ListOptions{}
+	if name != "" {
+		listOptions.FieldSelector = "metadata.name=" + name
+	}
+	// Find virtual cluster instances, so we can pair them with OSS virtual clusters.
+	virtualClusterInstancesList, err := kubeClient.Loft().ManagementV1().VirtualClusterInstances("").List(ctx, listOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list virtual cluster instances: %w", err)
 	}
-	var virtualClusterInstances map[string]*managementv1.VirtualClusterInstance
+	virtualClusterInstances := map[string]*managementv1.VirtualClusterInstance{}
 	for _, virtualClusterInstance := range virtualClusterInstancesList.Items {
-		namespacedName := types.NamespacedName{
-			Namespace: virtualClusterInstance.Namespace,
-			Name:      virtualClusterInstance.Name,
+		vClusterNamespacedName := types.NamespacedName{
+			Namespace: virtualClusterInstance.Spec.ClusterRef.Namespace,
+			Name:      virtualClusterInstance.Spec.ClusterRef.VirtualCluster,
 		}.String()
-		virtualClusterInstances[namespacedName] = &virtualClusterInstance
+		virtualClusterInstances[vClusterNamespacedName] = &virtualClusterInstance
 	}
 
-	// Pair found VirtualClusterInstances to OSS virtual clusters.
+	// Pair found VirtualClusterInstances with OSS virtual clusters.
 	for i := range vClusters {
 		namespacedName := types.NamespacedName{
 			Namespace: vClusters[i].Namespace,
