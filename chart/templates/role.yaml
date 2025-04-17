@@ -120,10 +120,10 @@ rules:
   {{- end }}
   {{- if .Values.integrations.istio.enabled }}
   - apiGroups: [ "networking.istio.io" ]
-    resources: [ "*" ]
+    resources: [ "destinationrules", "gateways", "virtualservices" ]
     verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
   - apiGroups: [ "gateway.networking.k8s.io" ]
-    resources: [ "*" ]
+    resources: [ "gateways" ]
     verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
   {{- end }}
   {{- include "vcluster.customResources.roleExtraRules" . | indent 2 }}

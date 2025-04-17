@@ -375,3 +375,32 @@ tests:
       namespace: my-namespace
     asserts:
       - notFailedTemplate: {}
+
+  - it: istio integration
+    set:
+      integrations:
+        istio:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["networking.istio.io"]
+            resources: ["destinationrules", "gateways", "virtualservices"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["gateway.networking.k8s.io"]
+            resources: ["gateways"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
