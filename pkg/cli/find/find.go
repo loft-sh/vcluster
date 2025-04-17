@@ -244,6 +244,18 @@ func ListVClusters(ctx context.Context, context, name, namespace string, log log
 		log.Warnf("Error retrieving vclusters: %v", err)
 	}
 
+	// check if VirtualClusterInstances CRD exists
+	_, err = kubeClient.ApiExtensions().ApiextensionsV1().CustomResourceDefinitions().Get(ctx, "virtualclusterinstances.management.loft.sh", metav1.GetOptions{})
+	if err != nil {
+		// VirtualClusterInstances CRD not found. This usually the case with OSS vCluster.
+		if kerrors.IsNotFound(err) {
+			log.Debug("virtualclusterinstances.management.loft.sh CustomResourceDefinition not found, will not check virtual cluster on the platform")
+		} else {
+			log.Warnf("Error retrieving virtualclusterinstances.management.loft.sh CRD: %v", err)
+		}
+		return vClusters, nil
+	}
+
 	listOptions := metav1.ListOptions{}
 	if name != "" {
 		listOptions.FieldSelector = "metadata.name=" + name
