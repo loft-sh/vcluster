@@ -120,7 +120,7 @@ rules:
   {{- end }}
   {{- if .Values.integrations.istio.enabled }}
   - apiGroups: [ "networking.istio.io" ]
-    resources: [ "destinationrules", "gateways", "virtualservices" ]
+    resources: [ "destinationrules", "gateways", "serviceentries", "virtualservices" ]
     verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
   - apiGroups: [ "gateway.networking.k8s.io" ]
     resources: [ "gateways" ]

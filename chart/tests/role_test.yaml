@@ -394,7 +394,7 @@ tests:
           path: rules
           content:
             apiGroups: ["networking.istio.io"]
-            resources: ["destinationrules", "gateways", "virtualservices"]
+            resources: ["destinationrules", "gateways", "serviceentries", "virtualservices"]
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
       - contains:
