@@ -14,10 +14,13 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func DeletePlatform(ctx context.Context, options *DeleteOptions, config *config.CLI, vClusterName string, log log.Logger) error {
-	platformClient, err := platform.InitClientFromConfig(ctx, config)
-	if err != nil {
-		return err
+const (
+	NonDeletableAnnotation = "loft.sh/non-deletable"
+)
+
+func DeletePlatform(ctx context.Context, platformClient platform.Client, options *DeleteOptions, config *config.CLI, vClusterName string, log log.Logger) error {
+	if platformClient == nil {
+		return fmt.Errorf("platform client not set")
 	}
 
 	// retrieve the vcluster
