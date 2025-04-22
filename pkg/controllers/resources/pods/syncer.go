@@ -249,6 +249,11 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		return ctrl.Result{}, err
 	}
 
+	err = pro.ApplyIstioPatches(ctx, nil, pPod, event.Virtual)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	return patcher.CreateHostObject(ctx, event.Virtual, pPod, s.EventRecorder(), true)
 }
 
