@@ -29,6 +29,12 @@ spec:
       {{- end }}
       nodePort: {{ .Values.controlPlane.service.httpsNodePort }}
       protocol: TCP
+    {{- if .Values.integrations.istio.enabled }}
+    - name: wake-http
+      port: 9090
+      nodePort: {{ .Values.controlPlane.service.httpsNodePort }}
+      protocol: TCP
+   {{- end }}
    {{- if and .Values.networking.advanced.proxyKubelets.byHostname (not (eq .Values.controlPlane.service.spec.type "LoadBalancer")) }}
     - name: kubelet
       port: 10250
