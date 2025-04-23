@@ -3,7 +3,6 @@ package deletecmd
 import (
 	"context"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/platform"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
@@ -11,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	flagsdelete "github.com/loft-sh/vcluster/pkg/cli/flags/delete"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 )
 
