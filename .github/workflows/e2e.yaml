@@ -34,6 +34,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: github.repository_owner == 'loft-sh' # do not run on forks
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

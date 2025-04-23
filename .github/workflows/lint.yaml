@@ -18,6 +18,7 @@ concurrency:
 jobs:
   golangci:
     name: lint
+    if: github.repository_owner == 'loft-sh' # do not run on forks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
