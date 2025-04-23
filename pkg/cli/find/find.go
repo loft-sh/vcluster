@@ -226,15 +226,7 @@ func ListVClusters(ctx context.Context, context, name, namespace string, log log
 			return nil, err
 		}
 	}
-
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
-		CurrentContext: context,
-	})
-	restConfig, err := kubeClientConfig.ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get kube client config: %w", err)
-	}
-	kubeClient, err := kube.NewForConfig(restConfig)
+	kubeClient, err := createKubeClient(context)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
@@ -297,18 +289,24 @@ func ListOSSVClusters(ctx context.Context, kubeClient kube.Interface, context, n
 		timeout = time.Second * 5
 	}
 
-	vclusters, err := findInContext(ctx, kubeClient, context, name, namespace, timeout, false)
+	vclusters, err := findInContext(ctx, kubeClient, context, name, namespace, timeout)
 	if err != nil && vClusterName == "" {
 		return nil, errors.Wrap(err, "find vcluster")
 	}
 
 	if vClusterName != "" {
-		parentContextVClusters, err := findInContext(ctx, kubeClient, vClusterContext, name, namespace, time.Minute, true)
+		parentContextClient, err := createKubeClient(vClusterContext)
 		if err != nil {
-			return nil, errors.Wrap(err, "find vcluster")
-		}
+			logger := log.GetInstance()
+			logger.Warn("parent context unreachable - No vClusters listed from parent context")
+		} else {
+			parentContextVClusters, err := findInContext(ctx, parentContextClient, vClusterContext, name, namespace, time.Minute)
+			if err != nil {
+				return nil, errors.Wrap(err, "find vcluster")
+			}
 
-		vclusters = append(vclusters, parentContextVClusters...)
+			vclusters = append(vclusters, parentContextVClusters...)
+		}
 	}
 
 	return vclusters, nil
@@ -358,11 +356,9 @@ func VClusterFromContext(originalContext string) (name string, namespace string,
 	return originalContext, "", ""
 }
 
-func findInContext(ctx context.Context, kubeClient kube.Interface, context, name, namespace string, timeout time.Duration, isParentContext bool) ([]VCluster, error) {
+func findInContext(ctx context.Context, kubeClient kube.Interface, context, name, namespace string, timeout time.Duration) ([]VCluster, error) {
 	vclusters := []VCluster{}
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
-		CurrentContext: context,
-	})
+	kubeClientConfig := createKubeClientConfig(context)
 
 	// statefulset based vclusters
 	statefulSets, err := getStatefulSets(ctx, kubeClient, namespace, kubeClientConfig, timeout)
