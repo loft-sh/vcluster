@@ -31,7 +31,7 @@ func StartK8S(
 ) error {
 	errChan := make(chan error, 1)
 
-	// start the backing store
+	// start the backing store if enabled
 	etcdEndpoints, etcdCertificates, err := StartBackingStore(ctx, vConfig)
 	if err != nil {
 		return err
