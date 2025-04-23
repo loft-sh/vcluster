@@ -265,9 +265,6 @@ func (cmd *deleteHelm) deleteVClusterInPlatform(ctx context.Context, platformCli
 	cmd.log.Debugf("found %d matching virtualclusterinstances", len(toDelete))
 
 	for _, virtualClusterInstance := range toDelete {
-		if nonDeletableValue, ok := virtualClusterInstance.Annotations[NonDeletableAnnotation]; ok && nonDeletableValue == "true" {
-			return fmt.Errorf("deletion of virtual cluster %s is prevented, disable \"Prevent Deletion\" via platform in order to delete this virtual cluster", vClusterName)
-		}
 		cmd.log.Infof("Delete virtual cluster instance %s/%s in platform", virtualClusterInstance.Namespace, virtualClusterInstance.Name)
 		err = managementClient.Loft().ManagementV1().VirtualClusterInstances(virtualClusterInstance.Namespace).Delete(ctx, virtualClusterInstance.Name, metav1.DeleteOptions{})
 		if err != nil {
