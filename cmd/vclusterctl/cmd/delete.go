@@ -77,7 +77,7 @@ func (cmd *DeleteCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	if driverType == config.PlatformDriver {
-		return cli.DeletePlatform(ctx, platformClient, &cmd.DeleteOptions, cfg, args[0], cmd.log)
+		return cli.DeletePlatform(ctx, platformClient, &cmd.DeleteOptions, args[0], cmd.log)
 	}
 
 	return cli.DeleteHelm(ctx, platformClient, &cmd.DeleteOptions, cmd.GlobalFlags, args[0], cmd.log)

@@ -64,5 +64,5 @@ func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("init platform client: %w", err)
 	}
 
-	return cli.DeletePlatform(ctx, platformClient, &cmd.DeleteOptions, cmd.LoadedConfig(cmd.log), args[0], cmd.log)
+	return cli.DeletePlatform(ctx, platformClient, &cmd.DeleteOptions, args[0], cmd.log)
 }

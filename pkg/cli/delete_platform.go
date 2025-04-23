@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
@@ -18,7 +17,7 @@ const (
 	NonDeletableAnnotation = "loft.sh/non-deletable"
 )
 
-func DeletePlatform(ctx context.Context, platformClient platform.Client, options *DeleteOptions, config *config.CLI, vClusterName string, log log.Logger) error {
+func DeletePlatform(ctx context.Context, platformClient platform.Client, options *DeleteOptions, vClusterName string, log log.Logger) error {
 	if platformClient == nil {
 		return fmt.Errorf("platform client not set")
 	}
