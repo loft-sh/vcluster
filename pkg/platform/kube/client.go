@@ -13,7 +13,7 @@ import (
 
 type Interface interface {
 	kubernetes.Interface
-	ApiExtensions() apiextensions.Interface
+	APIExtensions() apiextensions.Interface
 	Loft() loftclient.Interface
 	Agent() agentloftclient.Interface
 }
@@ -54,7 +54,7 @@ type client struct {
 	agentLoftClient     agentloftclient.Interface
 }
 
-func (c *client) ApiExtensions() apiextensions.Interface {
+func (c *client) APIExtensions() apiextensions.Interface {
 	return c.apiExtensionsClient
 }
 

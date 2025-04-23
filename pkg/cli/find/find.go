@@ -237,7 +237,7 @@ func ListVClusters(ctx context.Context, context, name, namespace string, log log
 	}
 
 	// check if VirtualClusterInstances CRD exists
-	_, err = kubeClient.ApiExtensions().ApiextensionsV1().CustomResourceDefinitions().Get(ctx, "virtualclusterinstances.management.loft.sh", metav1.GetOptions{})
+	_, err = kubeClient.APIExtensions().ApiextensionsV1().CustomResourceDefinitions().Get(ctx, "virtualclusterinstances.management.loft.sh", metav1.GetOptions{})
 	if err != nil {
 		// VirtualClusterInstances CRD not found. This usually the case with OSS vCluster.
 		if kerrors.IsNotFound(err) {
