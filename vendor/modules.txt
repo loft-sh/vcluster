@@ -13,6 +13,13 @@ github.com/Azure/go-ansiterm/winterm
 # github.com/MakeNowJust/heredoc v1.0.0
 ## explicit; go 1.12
 github.com/MakeNowJust/heredoc
+# github.com/Microsoft/go-winio v0.6.2
+## explicit; go 1.21
+github.com/Microsoft/go-winio
+github.com/Microsoft/go-winio/internal/fs
+github.com/Microsoft/go-winio/internal/socket
+github.com/Microsoft/go-winio/internal/stringbuffer
+github.com/Microsoft/go-winio/pkg/guid
 # github.com/NYTimes/gziphandler v1.1.1
 ## explicit; go 1.11
 github.com/NYTimes/gziphandler
@@ -241,6 +248,9 @@ github.com/davecgh/go-spew/spew
 # github.com/denisbrodbeck/machineid v1.0.1
 ## explicit
 github.com/denisbrodbeck/machineid
+# github.com/distribution/reference v0.6.0
+## explicit; go 1.20
+github.com/distribution/reference
 # github.com/docker/cli v27.5.0+incompatible
 ## explicit
 github.com/docker/cli/cli/config
@@ -511,6 +521,9 @@ github.com/kylelemons/godebug/diff
 # github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 ## explicit
 github.com/liggitt/tabwriter
+# github.com/lithammer/dedent v1.1.0
+## explicit
+github.com/lithammer/dedent
 # github.com/loft-sh/admin-apis v0.0.0-20240203010124-3600c1c582a8
 ## explicit; go 1.21.1
 github.com/loft-sh/admin-apis/pkg/licenseapi
@@ -926,6 +939,8 @@ golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
+golang.org/x/sys/windows/svc
+golang.org/x/sys/windows/svc/mgr
 # golang.org/x/term v0.30.0
 ## explicit; go 1.23.0
 golang.org/x/term
@@ -1193,6 +1208,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
+k8s.io/apiextensions-apiserver/pkg/features
 # k8s.io/apimachinery v0.32.1
 ## explicit; go 1.23.0
 k8s.io/apimachinery/pkg/api/equality
@@ -1227,6 +1243,7 @@ k8s.io/apimachinery/pkg/runtime/serializer/protobuf
 k8s.io/apimachinery/pkg/runtime/serializer/recognizer
 k8s.io/apimachinery/pkg/runtime/serializer/streaming
 k8s.io/apimachinery/pkg/runtime/serializer/versioning
+k8s.io/apimachinery/pkg/runtime/serializer/yaml
 k8s.io/apimachinery/pkg/selection
 k8s.io/apimachinery/pkg/types
 k8s.io/apimachinery/pkg/util/cache
@@ -1792,14 +1809,36 @@ k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/watchlist
 k8s.io/client-go/util/workqueue
+# k8s.io/cloud-provider v0.32.1
+## explicit; go 1.23.0
+k8s.io/cloud-provider
+k8s.io/cloud-provider/app/config
+k8s.io/cloud-provider/config
+k8s.io/cloud-provider/config/install
+k8s.io/cloud-provider/config/v1alpha1
+k8s.io/cloud-provider/controllers/node/config
+k8s.io/cloud-provider/controllers/node/config/v1alpha1
+k8s.io/cloud-provider/controllers/service/config
+k8s.io/cloud-provider/controllers/service/config/v1alpha1
+k8s.io/cloud-provider/names
+k8s.io/cloud-provider/options
+# k8s.io/cluster-bootstrap v0.32.1
+## explicit; go 1.23.0
+k8s.io/cluster-bootstrap/token/api
+k8s.io/cluster-bootstrap/token/util
+k8s.io/cluster-bootstrap/util/secrets
 # k8s.io/component-base v0.32.1
 ## explicit; go 1.23.0
 k8s.io/component-base/cli/flag
+k8s.io/component-base/config
+k8s.io/component-base/config/options
+k8s.io/component-base/config/v1alpha1
 k8s.io/component-base/featuregate
 k8s.io/component-base/logs
 k8s.io/component-base/logs/api/v1
 k8s.io/component-base/logs/internal/setverbositylevel
 k8s.io/component-base/logs/klogflags
+k8s.io/component-base/logs/logreduction
 k8s.io/component-base/metrics
 k8s.io/component-base/metrics/features
 k8s.io/component-base/metrics/legacyregistry
@@ -1811,10 +1850,35 @@ k8s.io/component-base/metrics/testutil
 k8s.io/component-base/tracing
 k8s.io/component-base/tracing/api/v1
 k8s.io/component-base/version
+k8s.io/component-base/zpages/features
 k8s.io/component-base/zpages/flagz
 # k8s.io/component-helpers v0.32.1
 ## explicit; go 1.23.0
+k8s.io/component-helpers/node/util
+k8s.io/component-helpers/resource
 k8s.io/component-helpers/storage/ephemeral
+# k8s.io/controller-manager v0.32.1
+## explicit; go 1.23.0
+k8s.io/controller-manager/config
+k8s.io/controller-manager/config/v1
+k8s.io/controller-manager/config/v1alpha1
+k8s.io/controller-manager/config/v1beta1
+k8s.io/controller-manager/options
+k8s.io/controller-manager/pkg/clientbuilder
+k8s.io/controller-manager/pkg/features
+k8s.io/controller-manager/pkg/features/register
+k8s.io/controller-manager/pkg/leadermigration/config
+k8s.io/controller-manager/pkg/leadermigration/options
+# k8s.io/cri-api v0.32.1
+## explicit; go 1.23.0
+k8s.io/cri-api/pkg/apis
+k8s.io/cri-api/pkg/apis/runtime/v1
+# k8s.io/cri-client v0.32.1
+## explicit; go 1.23.0
+k8s.io/cri-client/pkg
+k8s.io/cri-client/pkg/internal
+k8s.io/cri-client/pkg/logs
+k8s.io/cri-client/pkg/util
 # k8s.io/klog/v2 v2.130.1
 ## explicit; go 1.18
 k8s.io/klog/v2
@@ -1888,6 +1952,9 @@ k8s.io/kube-openapi/pkg/validation/errors
 k8s.io/kube-openapi/pkg/validation/spec
 k8s.io/kube-openapi/pkg/validation/strfmt
 k8s.io/kube-openapi/pkg/validation/strfmt/bson
+# k8s.io/kube-proxy v0.32.1
+## explicit; go 1.23.0
+k8s.io/kube-proxy/config/v1alpha1
 # k8s.io/kubectl v0.32.1
 ## explicit; go 1.23.0
 k8s.io/kubectl/pkg/apps
@@ -1925,7 +1992,55 @@ k8s.io/kubectl/pkg/util/term
 k8s.io/kubectl/pkg/validation
 # k8s.io/kubelet v0.32.1
 ## explicit; go 1.23.0
+k8s.io/kubelet/config/v1beta1
 k8s.io/kubelet/pkg/apis/stats/v1alpha1
+# k8s.io/kubernetes v1.32.1
+## explicit; go 1.23.0
+k8s.io/kubernetes/cmd/kubeadm/app/apis/bootstraptoken/v1
+k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm
+k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/scheme
+k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/v1beta3
+k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/v1beta4
+k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/validation
+k8s.io/kubernetes/cmd/kubeadm/app/apis/output
+k8s.io/kubernetes/cmd/kubeadm/app/apis/output/v1alpha3
+k8s.io/kubernetes/cmd/kubeadm/app/cmd/options
+k8s.io/kubernetes/cmd/kubeadm/app/componentconfigs
+k8s.io/kubernetes/cmd/kubeadm/app/constants
+k8s.io/kubernetes/cmd/kubeadm/app/features
+k8s.io/kubernetes/cmd/kubeadm/app/images
+k8s.io/kubernetes/cmd/kubeadm/app/phases/addons/proxy
+k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/clusterinfo
+k8s.io/kubernetes/cmd/kubeadm/app/phases/bootstraptoken/node
+k8s.io/kubernetes/cmd/kubeadm/app/phases/certs
+k8s.io/kubernetes/cmd/kubeadm/app/phases/kubeconfig
+k8s.io/kubernetes/cmd/kubeadm/app/phases/kubelet
+k8s.io/kubernetes/cmd/kubeadm/app/phases/uploadconfig
+k8s.io/kubernetes/cmd/kubeadm/app/util
+k8s.io/kubernetes/cmd/kubeadm/app/util/apiclient
+k8s.io/kubernetes/cmd/kubeadm/app/util/config
+k8s.io/kubernetes/cmd/kubeadm/app/util/config/strict
+k8s.io/kubernetes/cmd/kubeadm/app/util/initsystem
+k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig
+k8s.io/kubernetes/cmd/kubeadm/app/util/output
+k8s.io/kubernetes/cmd/kubeadm/app/util/patches
+k8s.io/kubernetes/cmd/kubeadm/app/util/pkiutil
+k8s.io/kubernetes/cmd/kubeadm/app/util/runtime
+k8s.io/kubernetes/pkg/api/v1/pod
+k8s.io/kubernetes/pkg/api/v1/service
+k8s.io/kubernetes/pkg/apis/apps
+k8s.io/kubernetes/pkg/apis/autoscaling
+k8s.io/kubernetes/pkg/apis/core
+k8s.io/kubernetes/pkg/apis/core/v1
+k8s.io/kubernetes/pkg/apis/core/v1/helper/qos
+k8s.io/kubernetes/pkg/apis/scheduling
+k8s.io/kubernetes/pkg/cluster/ports
+k8s.io/kubernetes/pkg/features
+k8s.io/kubernetes/pkg/kubelet/apis/config
+k8s.io/kubernetes/pkg/kubelet/apis/config/v1beta1
+k8s.io/kubernetes/pkg/kubelet/qos
+k8s.io/kubernetes/pkg/kubelet/types
+k8s.io/kubernetes/pkg/util/parsers
 # k8s.io/metrics v0.32.1
 ## explicit; go 1.23.0
 k8s.io/metrics/pkg/apis/metrics

@@ -822,6 +822,43 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Dedicated": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if dedicated mode should be enabled."
+        },
+        "networking": {
+          "$ref": "#/$defs/DedicatedNetworking",
+          "description": "Networking holds dedicated networking configuration."
+        },
+        "kubeProxy": {
+          "$ref": "#/$defs/KubeProxy",
+          "description": "KubeProxy holds dedicated kube proxy configuration."
+        },
+        "konnectivity": {
+          "$ref": "#/$defs/Konnectivity",
+          "description": "Konnectivity holds dedicated konnectivity configuration."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Dedicated holds configuration for vCluster dedicated mode."
+    },
+    "DedicatedNetworking": {
+      "properties": {
+        "serviceCIDR": {
+          "type": "string",
+          "description": "ServiceCIDR holds the service cidr for the virtual cluster."
+        },
+        "podCIDR": {
+          "type": "string",
+          "description": "PodCIDR holds the pod cidr for the virtual cluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "DenyRule": {
       "properties": {
         "name": {
@@ -1584,16 +1621,6 @@
     },
     "ExperimentalSyncSettings": {
       "properties": {
-        "disableSync": {
-          "type": "boolean",
-          "description": "DisableSync will not sync any resources and disable most control plane functionality.",
-          "pro": true
-        },
-        "rewriteKubernetesService": {
-          "type": "boolean",
-          "description": "RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled",
-          "pro": true
-        },
         "targetNamespace": {
           "type": "string",
           "description": "TargetNamespace is the namespace where the workloads should get synced to."
@@ -2113,6 +2140,26 @@
         },
         "virtualServices": {
           "$ref": "#/$defs/EnableSwitch"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Konnectivity": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the konnectivity should be enabled."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KubeProxy": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the kube proxy should be enabled."
         }
       },
       "additionalProperties": false,
@@ -3902,6 +3949,10 @@
     "controlPlane": {
       "$ref": "#/$defs/ControlPlane",
       "description": "Configure vCluster's control plane components and deployment."
+    },
+    "dedicated": {
+      "$ref": "#/$defs/Dedicated",
+      "description": "Dedicated holds configuration for vCluster dedicated mode."
     },
     "rbac": {
       "$ref": "#/$defs/RBAC",

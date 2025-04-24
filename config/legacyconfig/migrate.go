@@ -365,26 +365,6 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 		newConfig.RBAC.ClusterRole.Enabled = "true"
 	}
 
-	if oldConfig.NoopSyncer.Enabled {
-		newConfig.Experimental.SyncSettings.DisableSync = true
-		if oldConfig.NoopSyncer.Secret.KubeConfig != "" {
-			newConfig.Experimental.VirtualClusterKubeConfig.KubeConfig = oldConfig.NoopSyncer.Secret.KubeConfig
-		}
-		if oldConfig.NoopSyncer.Secret.ClientCaCert != "" {
-			newConfig.Experimental.VirtualClusterKubeConfig.ClientCACert = oldConfig.NoopSyncer.Secret.ClientCaCert
-		}
-		if oldConfig.NoopSyncer.Secret.ServerCaKey != "" {
-			newConfig.Experimental.VirtualClusterKubeConfig.ServerCAKey = oldConfig.NoopSyncer.Secret.ServerCaKey
-		}
-		if oldConfig.NoopSyncer.Secret.ServerCaCert != "" {
-			newConfig.Experimental.VirtualClusterKubeConfig.ServerCACert = oldConfig.NoopSyncer.Secret.ServerCaCert
-		}
-		if oldConfig.NoopSyncer.Secret.RequestHeaderCaCert != "" {
-			newConfig.Experimental.VirtualClusterKubeConfig.RequestHeaderCACert = oldConfig.NoopSyncer.Secret.RequestHeaderCaCert
-		}
-		newConfig.Experimental.SyncSettings.RewriteKubernetesService = oldConfig.NoopSyncer.Synck8sService
-	}
-
 	newConfig.Experimental.Deploy.VCluster.Manifests = oldConfig.Init.Manifests
 	newConfig.Experimental.Deploy.VCluster.ManifestsTemplate = oldConfig.Init.ManifestsTemplate
 	newConfig.Experimental.Deploy.VCluster.Helm = oldConfig.Init.Helm

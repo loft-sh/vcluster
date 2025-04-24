@@ -1,5 +1,7 @@
 ARG KINE_VERSION="v0.13.14"
+ARG KONNECTIVITY_VERSION="v0.32.0"
 FROM rancher/kine:${KINE_VERSION} AS kine
+FROM registry.k8s.io/kas-network-proxy/proxy-server:${KONNECTIVITY_VERSION} AS konnectivity
 
 # Build program
 FROM golang:1.24 AS builder
@@ -22,6 +24,7 @@ RUN if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "arm64" ]; then go i
 
 # Install kine
 COPY --from=kine /bin/kine /usr/local/bin/kine
+COPY --from=konnectivity /proxy-server /usr/local/bin/konnectivity-server
 
 # Copy the Go Modules manifests
 COPY go.mod go.mod
@@ -68,6 +71,7 @@ WORKDIR /
 COPY --from=kine /bin/kine /usr/local/bin/kine
 COPY --from=builder /vcluster .
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
+COPY --from=konnectivity /proxy-server /usr/local/bin/konnectivity-server
 
 # RUN useradd -u 12345 nonroot
 # USER nonroot

@@ -28,10 +28,15 @@ deployments:
       chart:
         name: ./chart
       values:
+        exportKubeConfig:
+          server: https://vcluster.vcluster:443
+        dedicated:
+          enabled: true
         controlPlane:
           distro:
             k8s:
               enabled: true
+              version: v1.33.0
           statefulSet:
             image:
               registry: ""

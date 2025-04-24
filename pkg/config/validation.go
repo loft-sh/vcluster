@@ -217,6 +217,12 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 
+	// validate dedicated mode
+	err = validateDedicatedMode(vConfig)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -708,6 +714,61 @@ func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
 			return errExportKubeConfigAdditionalSecretWithoutNameAndNamespace
 		}
 	}
+	return nil
+}
+
+func validateDedicatedMode(vConfig *VirtualClusterConfig) error {
+	if !vConfig.Dedicated.Enabled {
+		return nil
+	}
+
+	// integrations are not supported in dedicated mode
+	if vConfig.Integrations.MetricsServer.Enabled {
+		return fmt.Errorf("metrics-server integration is not supported in dedicated mode")
+	}
+	if vConfig.Integrations.CertManager.Enabled {
+		return fmt.Errorf("cert-manager integration is not supported in dedicated mode")
+	}
+	if vConfig.Integrations.ExternalSecrets.Enabled {
+		return fmt.Errorf("external-secrets integration is not supported in dedicated mode")
+	}
+	if vConfig.Integrations.Istio.Enabled {
+		return fmt.Errorf("istio integration is not supported in dedicated mode")
+	}
+	if vConfig.Integrations.KubeVirt.Enabled {
+		return fmt.Errorf("kubevirt integration is not supported in dedicated mode")
+	}
+
+	// embedded coredns is not supported in dedicated mode
+	if vConfig.ControlPlane.CoreDNS.Embedded {
+		return fmt.Errorf("coredns is not supported in dedicated mode")
+	}
+
+	// host path mapper is not supported in dedicated mode
+	if vConfig.ControlPlane.HostPathMapper.Enabled {
+		return fmt.Errorf("host path mapper is not supported in dedicated mode")
+	}
+
+	// multi-namespace mode is not supported in dedicated mode
+	if vConfig.Experimental.MultiNamespaceMode.Enabled {
+		return fmt.Errorf("multi-namespace mode is not supported in dedicated mode")
+	}
+
+	// isolated control plane is not supported in dedicated mode
+	if vConfig.Experimental.IsolatedControlPlane.Enabled {
+		return fmt.Errorf("isolated control plane is not supported in dedicated mode")
+	}
+
+	// dedicated mode is only supported for kubernetes distro
+	if vConfig.Distro() != config.K8SDistro {
+		return fmt.Errorf("dedicated mode is only supported for kubernetes")
+	}
+
+	// set default pod cidr if not set
+	if vConfig.Dedicated.Networking.PodCIDR == "" {
+		vConfig.Dedicated.Networking.PodCIDR = "10.244.0.0/16"
+	}
+
 	return nil
 }
 

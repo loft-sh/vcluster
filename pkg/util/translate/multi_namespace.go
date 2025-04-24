@@ -95,7 +95,7 @@ func (s *multiNamespace) getNamespacePrefix() string {
 	return "vcluster"
 }
 
-func (s *multiNamespace) HostNamespace(_ *synccontext.SyncContext, vNamespace string) string {
+func (s *multiNamespace) HostNamespace(ctx *synccontext.SyncContext, vNamespace string) string {
 	if vNamespace == "" {
 		return ""
 	}

@@ -29,6 +29,19 @@ spec:
       {{- end }}
       nodePort: {{ .Values.controlPlane.service.httpsNodePort }}
       protocol: TCP
+    {{- if .Values.dedicated.enabled }}
+    {{- if .Values.dedicated.konnectivity.enabled }}
+    - name: kon-agent
+      port: 8132
+      protocol: TCP
+    - name: kon-admin
+      port: 8133
+      protocol: TCP
+    - name: kon-health
+      port: 8134
+      protocol: TCP
+    {{- end }}
+    {{- end }}
     {{- if .Values.integrations.istio.enabled }}
     - name: wake-http
       port: 9090

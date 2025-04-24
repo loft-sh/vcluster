@@ -27,7 +27,7 @@ Corefile: |-
           fallthrough in-addr.arpa ip6.arpa
           {{- end }}
       }
-      hosts /etc/NodeHosts {
+      hosts /etc/coredns/NodeHosts {
           ttl 60
           reload 15s
           fallthrough

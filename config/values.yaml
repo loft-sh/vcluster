@@ -394,6 +394,13 @@ controlPlane:
     globalMetadata:
       annotations: {}
 
+dedicated:
+  enabled: false
+  konnectivity:
+    enabled: true
+  kubeProxy:
+    enabled: true
+
 integrations:
   metricsServer:
     enabled: false
@@ -558,8 +565,6 @@ experimental:
     enabled: false
 
   syncSettings:
-    disableSync: false
-    rewriteKubernetesService: false
     targetNamespace: ""
     setOwner: true
 

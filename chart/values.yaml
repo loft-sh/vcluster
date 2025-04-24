@@ -706,6 +706,21 @@ controlPlane:
     globalMetadata:
       annotations: {}
 
+# Dedicated holds configuration for vCluster dedicated mode.
+dedicated:
+  # Enabled defines if dedicated mode should be enabled.
+  enabled: false
+  
+  # Konnectivity holds dedicated konnectivity configuration.
+  konnectivity:
+    # Enabled defines if the konnectivity should be enabled.
+    enabled: true
+  
+  # KubeProxy holds dedicated kube proxy configuration.
+  kubeProxy:
+    # Enabled defines if the kube proxy should be enabled.
+    enabled: true
+
 # Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
 integrations:
   # MetricsServer reuses the metrics server from the host cluster within the vCluster.
@@ -1002,10 +1017,6 @@ experimental:
   
   # SyncSettings are advanced settings for the syncer controller.
   syncSettings:
-    # DisableSync will not sync any resources and disable most control plane functionality.
-    disableSync: false
-    # RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled
-    rewriteKubernetesService: false
     # TargetNamespace is the namespace where the workloads should get synced to.
     targetNamespace: ""
     # SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.

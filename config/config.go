@@ -54,6 +54,9 @@ type Config struct {
 	// Configure vCluster's control plane components and deployment.
 	ControlPlane ControlPlane `json:"controlPlane,omitempty"`
 
+	// Dedicated holds configuration for vCluster dedicated mode.
+	Dedicated Dedicated `json:"dedicated,omitempty"`
+
 	// RBAC options for the virtual cluster.
 	RBAC RBAC `json:"rbac,omitempty"`
 
@@ -80,6 +83,38 @@ type Config struct {
 
 	// SleepMode holds the native sleep mode configuration for Pro clusters
 	SleepMode *SleepMode `json:"sleepMode,omitempty"`
+}
+
+// Dedicated holds configuration for vCluster dedicated mode.
+type Dedicated struct {
+	// Enabled defines if dedicated mode should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Networking holds dedicated networking configuration.
+	Networking DedicatedNetworking `json:"networking,omitempty"`
+
+	// KubeProxy holds dedicated kube proxy configuration.
+	KubeProxy KubeProxy `json:"kubeProxy,omitempty"`
+
+	// Konnectivity holds dedicated konnectivity configuration.
+	Konnectivity Konnectivity `json:"konnectivity,omitempty"`
+}
+
+type KubeProxy struct {
+	// Enabled defines if the kube proxy should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+type Konnectivity struct {
+	// Enabled defines if the konnectivity should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+}
+type DedicatedNetworking struct {
+	// ServiceCIDR holds the service cidr for the virtual cluster.
+	ServiceCIDR string `json:"serviceCIDR,omitempty"`
+
+	// PodCIDR holds the pod cidr for the virtual cluster.
+	PodCIDR string `json:"podCIDR,omitempty"`
 }
 
 // Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
@@ -389,14 +424,6 @@ func (c *Config) IsProFeatureEnabled() bool {
 	}
 
 	if c.ControlPlane.HostPathMapper.Central {
-		return true
-	}
-
-	if c.Experimental.SyncSettings.DisableSync {
-		return true
-	}
-
-	if c.Experimental.SyncSettings.RewriteKubernetesService {
 		return true
 	}
 
@@ -2107,12 +2134,6 @@ type ExperimentalIsolatedControlPlane struct {
 }
 
 type ExperimentalSyncSettings struct {
-	// DisableSync will not sync any resources and disable most control plane functionality.
-	DisableSync bool `json:"disableSync,omitempty" product:"pro"`
-
-	// RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled
-	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty" product:"pro"`
-
 	// TargetNamespace is the namespace where the workloads should get synced to.
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 
