@@ -1373,10 +1373,6 @@
           "type": "array",
           "description": "DenyProxyRequests denies certain requests in the vCluster proxy.",
           "pro": true
-        },
-        "reuseNamespace": {
-          "type": "boolean",
-          "description": "ReuseNamespace allows reusing the same namespace to create multiple vClusters.\nThis flag is deprecated, as this scenario will be removed entirely in upcoming releases."
         }
       },
       "additionalProperties": false,
