@@ -668,3 +668,92 @@ func TestValidateExportKubeConfig(t *testing.T) {
 		})
 	}
 }
+
+const patchesPath = "spec.containers[*].name"
+
+func TestValidateAllSyncPatches(t *testing.T) {
+	cases := []struct {
+		name          string
+		configSync    config.Sync
+		expectedError error
+	}{
+		{
+			name: "Simple config sync with one patch",
+			configSync: config.Sync{
+				ToHost: config.SyncToHost{
+					Pods: config.SyncPods{
+						Patches: []config.TranslatePatch{
+							{
+								Path:              patchesPath,
+								Expression:        "\"my-prefix-\"+value",
+								ReverseExpression: "value.slice(\"my-prefix\".length)",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Multiple patches with same path",
+			configSync: config.Sync{
+				ToHost: config.SyncToHost{
+					Pods: config.SyncPods{
+						Patches: []config.TranslatePatch{
+							{
+								Path:              patchesPath,
+								Expression:        "\"my-prefix-\"+value",
+								ReverseExpression: "value.slice(\"my-prefix\".length)",
+							},
+						},
+					},
+					Endpoints: config.EnableSwitchWithPatches{
+						Patches: []config.TranslatePatch{
+							{
+								Path:              patchesPath,
+								Expression:        "\"my-prefix-\"+value",
+								ReverseExpression: "value.slice(\"my-prefix\".length)",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Invalid duplicated paths on patches",
+			configSync: config.Sync{
+				ToHost: config.SyncToHost{
+					Pods: config.SyncPods{
+						Patches: []config.TranslatePatch{
+							{
+								Path:       patchesPath,
+								Expression: "\"my-prefix-\"+value",
+							},
+							{
+								Path:              patchesPath,
+								ReverseExpression: "value.slice(\"my-prefix\".length)",
+							},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("sync.toHost.pods.patches[0] and sync.toHost.pods.patches[1] have the same path \"spec.containers[*].name\""),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateAllSyncPatches(tc.configSync)
+			if tc.expectedError != nil {
+				if err == nil {
+					t.Errorf("expected error %v, but got nil", tc.expectedError)
+				} else if err.Error() != tc.expectedError.Error() {
+					t.Errorf("expected error %v, but got %v", tc.expectedError, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, but got %v", err)
+				}
+			}
+		})
+	}
+}

@@ -80,34 +80,7 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	}
 
 	// validate sync patches
-	err := validatePatches(
-		patchesValidation{basePath: "sync.toHost.configMaps", patches: vConfig.Sync.ToHost.ConfigMaps.Patches},
-		patchesValidation{basePath: "sync.toHost.secrets", patches: vConfig.Sync.ToHost.Secrets.Patches},
-		patchesValidation{basePath: "sync.toHost.endpoints", patches: vConfig.Sync.ToHost.Endpoints.Patches},
-		patchesValidation{basePath: "sync.toHost.services", patches: vConfig.Sync.ToHost.Services.Patches},
-		patchesValidation{basePath: "sync.toHost.pods", patches: vConfig.Sync.ToHost.Pods.Patches},
-		patchesValidation{basePath: "sync.toHost.serviceAccounts", patches: vConfig.Sync.ToHost.ServiceAccounts.Patches},
-		patchesValidation{basePath: "sync.toHost.ingresses", patches: vConfig.Sync.ToHost.Ingresses.Patches},
-		patchesValidation{basePath: "sync.toHost.networkPolicies", patches: vConfig.Sync.ToHost.NetworkPolicies.Patches},
-		patchesValidation{basePath: "sync.toHost.persistentVolumeClaims", patches: vConfig.Sync.ToHost.PersistentVolumeClaims.Patches},
-		patchesValidation{basePath: "sync.toHost.persistentVolumes", patches: vConfig.Sync.ToHost.PersistentVolumes.Patches},
-		patchesValidation{basePath: "sync.toHost.podDisruptionBudgets", patches: vConfig.Sync.ToHost.PodDisruptionBudgets.Patches},
-		patchesValidation{basePath: "sync.toHost.priorityClasses", patches: vConfig.Sync.ToHost.PriorityClasses.Patches},
-		patchesValidation{basePath: "sync.toHost.storageClasses", patches: vConfig.Sync.ToHost.StorageClasses.Patches},
-		patchesValidation{basePath: "sync.toHost.volumeSnapshots", patches: vConfig.Sync.ToHost.VolumeSnapshots.Patches},
-		patchesValidation{basePath: "sync.toHost.volumeSnapshotContents", patches: vConfig.Sync.ToHost.VolumeSnapshotContents.Patches},
-		patchesValidation{basePath: "sync.fromHost.nodes", patches: vConfig.Sync.FromHost.Nodes.Patches},
-		patchesValidation{basePath: "sync.fromHost.storageClasses", patches: vConfig.Sync.FromHost.StorageClasses.Patches},
-		patchesValidation{basePath: "sync.fromHost.priorityClasses", patches: vConfig.Sync.FromHost.PriorityClasses.Patches},
-		patchesValidation{basePath: "sync.fromHost.ingressClasses", patches: vConfig.Sync.FromHost.IngressClasses.Patches},
-		patchesValidation{basePath: "sync.fromHost.runtimeClasses", patches: vConfig.Sync.FromHost.RuntimeClasses.Patches},
-		patchesValidation{basePath: "sync.fromHost.csiDrivers", patches: vConfig.Sync.FromHost.CSIDrivers.Patches},
-		patchesValidation{basePath: "sync.fromHost.csiNodes", patches: vConfig.Sync.FromHost.CSINodes.Patches},
-		patchesValidation{basePath: "sync.fromHost.csiStorageCapacities", patches: vConfig.Sync.FromHost.CSIStorageCapacities.Patches},
-		patchesValidation{basePath: "sync.fromHost.events", patches: vConfig.Sync.FromHost.Events.Patches},
-		patchesValidation{basePath: "sync.fromHost.volumeSnapshotClasses", patches: vConfig.Sync.FromHost.VolumeSnapshotClasses.Patches},
-		patchesValidation{basePath: "sync.fromHost.configMaps", patches: vConfig.Sync.FromHost.ConfigMaps.Patches},
-	)
+	err := ValidateAllSyncPatches(vConfig.Sync)
 	if err != nil {
 		return err
 	}
@@ -225,10 +198,45 @@ type patchesValidation struct {
 	patches  []config.TranslatePatch
 }
 
+// ValidateAllSyncPatches validates all sync patches
+func ValidateAllSyncPatches(sync config.Sync) error {
+	return validatePatches(
+		[]patchesValidation{
+			{"sync.toHost.configMaps", sync.ToHost.ConfigMaps.Patches},
+			{"sync.toHost.secrets", sync.ToHost.Secrets.Patches},
+			{"sync.toHost.endpoints", sync.ToHost.Endpoints.Patches},
+			{"sync.toHost.services", sync.ToHost.Services.Patches},
+			{"sync.toHost.pods", sync.ToHost.Pods.Patches},
+			{"sync.toHost.serviceAccounts", sync.ToHost.ServiceAccounts.Patches},
+			{"sync.toHost.ingresses", sync.ToHost.Ingresses.Patches},
+			{"sync.toHost.networkPolicies", sync.ToHost.NetworkPolicies.Patches},
+			{"sync.toHost.persistentVolumeClaims", sync.ToHost.PersistentVolumeClaims.Patches},
+			{"sync.toHost.persistentVolumes", sync.ToHost.PersistentVolumes.Patches},
+			{"sync.toHost.podDisruptionBudgets", sync.ToHost.PodDisruptionBudgets.Patches},
+			{"sync.toHost.priorityClasses", sync.ToHost.PriorityClasses.Patches},
+			{"sync.toHost.storageClasses", sync.ToHost.StorageClasses.Patches},
+			{"sync.toHost.volumeSnapshots", sync.ToHost.VolumeSnapshots.Patches},
+			{"sync.toHost.volumeSnapshotContents", sync.ToHost.VolumeSnapshotContents.Patches},
+			{"sync.fromHost.nodes", sync.FromHost.Nodes.Patches},
+			{"sync.fromHost.storageClasses", sync.FromHost.StorageClasses.Patches},
+			{"sync.fromHost.priorityClasses", sync.FromHost.PriorityClasses.Patches},
+			{"sync.fromHost.ingressClasses", sync.FromHost.IngressClasses.Patches},
+			{"sync.fromHost.csiDrivers", sync.FromHost.CSIDrivers.Patches},
+			{"sync.fromHost.runtimeClasses", sync.FromHost.RuntimeClasses.Patches},
+			{"sync.fromHost.csiNodes", sync.FromHost.CSINodes.Patches},
+			{"sync.fromHost.csiStorageCapacities", sync.FromHost.CSIStorageCapacities.Patches},
+			{"sync.fromHost.events", sync.FromHost.Events.Patches},
+			{"sync.fromHost.volumeSnapshotClasses", sync.FromHost.VolumeSnapshotClasses.Patches},
+			{"sync.fromHost.configMaps", sync.FromHost.ConfigMaps.Patches},
+		}...,
+	)
+}
+
 func validatePatches(patchesValidation ...patchesValidation) error {
 	for _, p := range patchesValidation {
 		patches := p.patches
 		basePath := p.basePath
+		usedPaths := map[string]int{}
 		for idx, patch := range patches {
 			used := 0
 			if patch.Expression != "" || patch.ReverseExpression != "" {
@@ -245,6 +253,10 @@ func validatePatches(patchesValidation ...patchesValidation) error {
 			} else if used == 0 {
 				return fmt.Errorf("%s.patches[%d] need to use one of: expression, labels or reference", basePath, idx)
 			}
+			if j, ok := usedPaths[patch.Path]; ok {
+				return fmt.Errorf("%s.patches[%d] and %s.patches[%d] have the same path %q", basePath, j, basePath, idx, patch.Path)
+			}
+			usedPaths[patch.Path] = idx
 		}
 	}
 

@@ -28,6 +28,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
+	pkgconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/embed"
 	"github.com/loft-sh/vcluster/pkg/helm"
@@ -296,6 +297,11 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 
 	// parse vCluster config
 	vClusterConfig, err := cmd.parseVClusterYAML(chartValues)
+	if err != nil {
+		return err
+	}
+
+	err = pkgconfig.ValidateAllSyncPatches(vClusterConfig.Sync)
 	if err != nil {
 		return err
 	}
