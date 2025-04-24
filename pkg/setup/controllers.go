@@ -261,8 +261,20 @@ func CreateVClusterKubeConfigForExport(ctx context.Context, virtualConfig *rest.
 				Server:                   options.ExportKubeConfig.Server,
 				Extensions:               make(map[string]runtime.Object),
 				CertificateAuthorityData: cluster.CertificateAuthorityData,
-				InsecureSkipTLSVerify:    options.ExportKubeConfig.Insecure,
 			}
+		}
+	}
+
+	// is insecure?
+	if options.ExportKubeConfig.Insecure {
+		// set insecure skip tls verify and remove certificate authority data
+		for key, cluster := range syncerConfigToExport.Clusters {
+			if cluster == nil {
+				continue
+			}
+
+			syncerConfigToExport.Clusters[key].InsecureSkipTLSVerify = true
+			syncerConfigToExport.Clusters[key].CertificateAuthorityData = nil
 		}
 	}
 

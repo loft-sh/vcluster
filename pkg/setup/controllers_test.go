@@ -158,6 +158,50 @@ func TestExportKubeConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Export default kubeconfig with insecure",
+			syncerConfig: clientcmdapi.Config{
+				CurrentContext: testContext,
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{
+					testUser: {},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					testCluster: {
+						CertificateAuthorityData: []byte("test-ca"),
+					},
+				},
+				Contexts: map[string]*clientcmdapi.Context{
+					testContext: {
+						Cluster:  testCluster,
+						AuthInfo: testUser,
+					},
+				},
+			},
+			options: CreateKubeConfigOptions{
+				ControlPlaneProxy: testControlPlaneProxy,
+				ExportKubeConfig: config.ExportKubeConfigProperties{
+					Insecure: true,
+				},
+			},
+			expectedKubeConfig: clientcmdapi.Config{
+				CurrentContext: testContext,
+				AuthInfos: map[string]*clientcmdapi.AuthInfo{
+					testUser: {},
+				},
+				Clusters: map[string]*clientcmdapi.Cluster{
+					testCluster: {
+						Server:                fmt.Sprintf("https://localhost:%d", testControlPlanePort),
+						InsecureSkipTLSVerify: true,
+					},
+				},
+				Contexts: map[string]*clientcmdapi.Context{
+					testContext: {
+						Cluster:  testCluster,
+						AuthInfo: testUser,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {
