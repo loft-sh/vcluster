@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
@@ -17,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -30,11 +30,11 @@ import (
 const VirtualClusterSelector = "app=vcluster"
 
 type VCluster struct {
-	ClientFactory          clientcmd.ClientConfig               `json:"-"`
-	Pods                   []corev1.Pod                         `json:"-"`
-	Deployment             *appsv1.Deployment                   `json:"-"`
-	StatefulSet            *appsv1.StatefulSet                  `json:"-"`
-	VirtualClusterInstance *managementv1.VirtualClusterInstance `json:"-"`
+	ClientFactory          clientcmd.ClientConfig            `json:"-"`
+	Pods                   []corev1.Pod                      `json:"-"`
+	Deployment             *appsv1.Deployment                `json:"-"`
+	StatefulSet            *appsv1.StatefulSet               `json:"-"`
+	VirtualClusterInstance *storagev1.VirtualClusterInstance `json:"-"`
 	Created                metav1.Time
 	Name                   string
 	Namespace              string
@@ -237,13 +237,13 @@ func ListVClusters(ctx context.Context, context, name, namespace string, log log
 	}
 
 	// check if VirtualClusterInstances CRD exists
-	_, err = kubeClient.APIExtensions().ApiextensionsV1().CustomResourceDefinitions().Get(ctx, "virtualclusterinstances.management.loft.sh", metav1.GetOptions{})
+	_, err = kubeClient.APIExtensions().ApiextensionsV1().CustomResourceDefinitions().Get(ctx, "virtualclusterinstances.storage.loft.sh", metav1.GetOptions{})
 	if err != nil {
 		// VirtualClusterInstances CRD not found. This usually the case with OSS vCluster.
 		if kerrors.IsNotFound(err) {
-			log.Debug("virtualclusterinstances.management.loft.sh CustomResourceDefinition not found, will not check virtual cluster on the platform")
+			log.Debug("virtualclusterinstances.storage.loft.sh CustomResourceDefinition not found, will not check virtual cluster on the platform")
 		} else {
-			log.Warnf("Error retrieving virtualclusterinstances.management.loft.sh CRD: %v", err)
+			log.Warnf("Error retrieving virtualclusterinstances.storage.loft.sh CRD: %v", err)
 		}
 		return vClusters, nil
 	}
@@ -253,11 +253,11 @@ func ListVClusters(ctx context.Context, context, name, namespace string, log log
 		listOptions.FieldSelector = "metadata.name=" + name
 	}
 	// Find virtual cluster instances, so we can pair them with OSS virtual clusters.
-	virtualClusterInstancesList, err := kubeClient.Loft().ManagementV1().VirtualClusterInstances("").List(ctx, listOptions)
+	virtualClusterInstancesList, err := kubeClient.Loft().StorageV1().VirtualClusterInstances("").List(ctx, listOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list virtual cluster instances: %w", err)
 	}
-	virtualClusterInstances := map[string]*managementv1.VirtualClusterInstance{}
+	virtualClusterInstances := map[string]*storagev1.VirtualClusterInstance{}
 	for _, virtualClusterInstance := range virtualClusterInstancesList.Items {
 		vClusterNamespacedName := types.NamespacedName{
 			Namespace: virtualClusterInstance.Spec.ClusterRef.Namespace,
