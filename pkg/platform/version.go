@@ -61,8 +61,8 @@ func LatestCompatibleVersion(ctx context.Context) (string, error) {
 			return semver.Version{}, false
 		}
 
-		// skip the pre-releases (alpha, rc etc.), in semVer stable releases don't contain "-"
-		if strings.Contains(ghVersion.String(), "-") {
+		// skip the pre-releases (alpha, rc, etc.)
+		if len(ghVersion.Pre) != 0 {
 			return semver.Version{}, false
 		}
 		return ghVersion, ghVersion.GTE(MinimumVersion)
