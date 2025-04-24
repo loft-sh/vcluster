@@ -73,11 +73,8 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 	}
 
 	// Check if vCluster is created via platform and has deletion prevention enabled
-	if vCluster.VirtualClusterInstance != nil {
-		// check if virtual cluster is protected
-		if nonDeletable, ok := vCluster.VirtualClusterInstance.Annotations[NonDeletableAnnotation]; ok && nonDeletable == "true" {
-			return fmt.Errorf("deletion of virtual cluster %s is prevented, disable \"Prevent Deletion\" via platform in order to delete this virtual cluster", vClusterName)
-		}
+	if vCluster.HasPreventDeletionEnabled() {
+		return fmt.Errorf("deletion of virtual cluster %s is prevented, disable \"Prevent Deletion\" via platform in order to delete this virtual cluster", vClusterName)
 	}
 
 	// prepare client

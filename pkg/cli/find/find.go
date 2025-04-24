@@ -27,7 +27,10 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-const VirtualClusterSelector = "app=vcluster"
+const (
+	NonDeletableAnnotation = "loft.sh/non-deletable"
+	VirtualClusterSelector = "app=vcluster"
+)
 
 type VCluster struct {
 	ClientFactory          clientcmd.ClientConfig            `json:"-"`
@@ -183,6 +186,30 @@ func (v *VCluster) GetAnnotations() map[string]string {
 // GetLabels implements Labeled
 func (v *VCluster) GetLabels() map[string]string {
 	return v.Labels
+}
+
+// HasPreventDeletionEnabled returns true if the virtual cluster has "Prevent Deletion" enabled in the platform, otherwise
+// it returns false.
+// This check works only when:
+//   - you are running vcluster CLI while connected to the host cluster where VirtualClusterInstance resource is available, or
+//   - for clusters that are created or updated with platform version 4.3.0 or newer.
+func (v *VCluster) HasPreventDeletionEnabled() bool {
+	if v.VirtualClusterInstance != nil {
+		// When the vcluster CLI has access to the VirtualClusterInstance resource, we check if the loft.sh/non-deletable
+		// annotation is set there.
+		// This check does not work when accessing the virtual cluster from a connected host cluster, because VirtualClusterInstance
+		// resource is not present on the connected host cluster.
+		if nonDeletable, ok := v.VirtualClusterInstance.Annotations[NonDeletableAnnotation]; ok && nonDeletable == "true" {
+			return true
+		}
+	}
+	// In cases when the vcluster CLI does not have access to the VirtualClusterInstance resource, we check if the
+	// loft.sh/non-deletable annotation is set on the vcluster StatefulSet/Deployment.
+	// This check works only if the virtual cluster is created or updated with a platform version 4.3.0 or newer.
+	if nonDeletable, ok := v.Annotations[NonDeletableAnnotation]; ok && nonDeletable == "true" {
+		return true
+	}
+	return false
 }
 
 func FormatOptions(format string, options [][]string) []string {
