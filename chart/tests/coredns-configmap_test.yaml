@@ -90,7 +90,7 @@ tests:
                         pods insecure
                         fallthrough in-addr.arpa ip6.arpa
                     }
-                    hosts /etc/NodeHosts {
+                    hosts /etc/coredns/NodeHosts {
                         ttl 60
                         reload 15s
                         fallthrough
@@ -283,7 +283,7 @@ tests:
                     pods insecure
                     fallthrough in-addr.arpa ip6.arpa
                 }
-                hosts /etc/NodeHosts {
+                hosts /etc/coredns/NodeHosts {
                     ttl 60
                     reload 15s
                     fallthrough
@@ -420,7 +420,7 @@ tests:
                         pods insecure
                         fallthrough in-addr.arpa ip6.arpa
                     }
-                    hosts /etc/NodeHosts {
+                    hosts /etc/coredns/NodeHosts {
                         ttl 60
                         reload 15s
                         fallthrough
@@ -648,7 +648,7 @@ tests:
                         pods insecure
                         fallthrough in-addr.arpa ip6.arpa
                     }
-                    hosts /etc/NodeHosts {
+                    hosts /etc/coredns/NodeHosts {
                         ttl 60
                         reload 15s
                         fallthrough
@@ -875,7 +875,7 @@ tests:
                         pods insecure
                         fallthrough in-addr.arpa ip6.arpa
                     }
-                    hosts /etc/NodeHosts {
+                    hosts /etc/coredns/NodeHosts {
                         ttl 60
                         reload 15s
                         fallthrough
@@ -1091,7 +1091,7 @@ tests:
                         pods insecure
                         fallthrough in-addr.arpa ip6.arpa
                     }
-                    hosts /etc/NodeHosts {
+                    hosts /etc/coredns/NodeHosts {
                         ttl 60
                         reload 15s
                         fallthrough

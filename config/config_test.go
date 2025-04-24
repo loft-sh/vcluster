@@ -282,40 +282,6 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "Pro Sync Settings not used",
-			config: &Config{
-				Experimental: Experimental{
-					SyncSettings: ExperimentalSyncSettings{
-						DisableSync:              false,
-						RewriteKubernetesService: false,
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "Pro Sync Setting disableSync used",
-			config: &Config{
-				Experimental: Experimental{
-					SyncSettings: ExperimentalSyncSettings{
-						DisableSync: true,
-					},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "Pro Sync Setting rewriteKubernetesService used",
-			config: &Config{
-				Experimental: Experimental{
-					SyncSettings: ExperimentalSyncSettings{
-						RewriteKubernetesService: true,
-					},
-				},
-			},
-			expected: true,
-		},
-		{
 			name: "Isolated Control Plane not used",
 			config: &Config{
 				Experimental: Experimental{

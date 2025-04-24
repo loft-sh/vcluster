@@ -21,9 +21,9 @@ func Register(ctx *synccontext.ControllerContext) error {
 	var provider provider
 	if useLegacy {
 		klog.Infof("Registering legacy discovery endpoint for k8s.io/api/discovery/v1beta1")
-		provider = &v1BetaProvider{}
+		provider = &EndpointsV1BetaProvider{}
 	} else {
-		provider = &v1Provider{}
+		provider = &EndpointsV1Provider{}
 	}
 	return NewEndpointController(ctx, provider).Register(ctx.LocalManager)
 }

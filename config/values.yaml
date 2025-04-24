@@ -394,8 +394,16 @@ controlPlane:
       labels: {}
       annotations: {}
 
+    konnectivity:
+      enabled: true
+
     globalMetadata:
       annotations: {}
+
+privateNodes:
+  enabled: false
+  kubeProxy:
+    enabled: true
 
 integrations:
   metricsServer:
@@ -467,6 +475,7 @@ rbac:
     extraRules: []
 
 networking:
+  podCIDR: "10.244.0.0/16"
   replicateServices:
     toHost: []
     fromHost: []
@@ -561,8 +570,6 @@ experimental:
     enabled: false
 
   syncSettings:
-    disableSync: false
-    rewriteKubernetesService: false
     targetNamespace: ""
     setOwner: true
 

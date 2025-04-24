@@ -125,14 +125,12 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 
 	legacyOptions := &legacyconfig.LegacyVirtualClusterOptions{
 		ProOptions: legacyconfig.LegacyVirtualClusterProOptions{
-			RemoteKubeConfig:      v.Experimental.IsolatedControlPlane.KubeConfig,
-			RemoteNamespace:       v.Experimental.IsolatedControlPlane.Namespace,
-			RemoteServiceName:     v.Experimental.IsolatedControlPlane.Service,
-			IntegratedCoredns:     v.ControlPlane.CoreDNS.Embedded,
-			EtcdReplicas:          int(v.ControlPlane.StatefulSet.HighAvailability.Replicas),
-			EtcdEmbedded:          v.ControlPlane.BackingStore.Etcd.Embedded.Enabled,
-			NoopSyncer:            !v.Experimental.SyncSettings.DisableSync,
-			SyncKubernetesService: v.Experimental.SyncSettings.RewriteKubernetesService,
+			RemoteKubeConfig:  v.Experimental.IsolatedControlPlane.KubeConfig,
+			RemoteNamespace:   v.Experimental.IsolatedControlPlane.Namespace,
+			RemoteServiceName: v.Experimental.IsolatedControlPlane.Service,
+			IntegratedCoredns: v.ControlPlane.CoreDNS.Embedded,
+			EtcdReplicas:      int(v.ControlPlane.StatefulSet.HighAvailability.Replicas),
+			EtcdEmbedded:      v.ControlPlane.BackingStore.Etcd.Embedded.Enabled,
 		},
 		ServerCaCert:                v.VirtualClusterKubeConfig().ServerCACert,
 		ServerCaKey:                 v.VirtualClusterKubeConfig().ServerCAKey,

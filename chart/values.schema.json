@@ -234,6 +234,10 @@
           "$ref": "#/$defs/ControlPlaneHeadlessService",
           "description": "HeadlessService specifies options for the headless service used for the vCluster StatefulSet."
         },
+        "konnectivity": {
+          "$ref": "#/$defs/Konnectivity",
+          "description": "Konnectivity holds dedicated konnectivity configuration. This is only available when privateNodes.enabled is true."
+        },
         "globalMetadata": {
           "$ref": "#/$defs/ControlPlaneGlobalMetadata",
           "description": "GlobalMetadata is metadata that will be added to all resources deployed by Helm."
@@ -1584,16 +1588,6 @@
     },
     "ExperimentalSyncSettings": {
       "properties": {
-        "disableSync": {
-          "type": "boolean",
-          "description": "DisableSync will not sync any resources and disable most control plane functionality.",
-          "pro": true
-        },
-        "rewriteKubernetesService": {
-          "type": "boolean",
-          "description": "RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled",
-          "pro": true
-        },
         "targetNamespace": {
           "type": "string",
           "description": "TargetNamespace is the namespace where the workloads should get synced to."
@@ -2118,6 +2112,26 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Konnectivity": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the konnectivity should be enabled."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KubeProxy": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the kube proxy should be enabled."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "KubeVirt": {
       "properties": {
         "enabled": {
@@ -2171,6 +2185,16 @@
       "additionalProperties": false,
       "type": "object",
       "description": "KubeVirtSync are the crds that are supported by this integration"
+    },
+    "Kubelet": {
+      "properties": {
+        "cgroupDriver": {
+          "type": "string",
+          "description": "CgroupDriver defines the cgroup driver to use for the kubelet."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "LabelSelector": {
       "properties": {
@@ -2419,6 +2443,14 @@
     },
     "Networking": {
       "properties": {
+        "serviceCIDR": {
+          "type": "string",
+          "description": "ServiceCIDR holds the service cidr for the virtual cluster. This should only be set if privateNodes.enabled is true or vCluster cannot detect the host service cidr."
+        },
+        "podCIDR": {
+          "type": "string",
+          "description": "PodCIDR holds the pod cidr for the virtual cluster. This should only be set if privateNodes.enabled is true."
+        },
         "replicateServices": {
           "$ref": "#/$defs/ReplicateServices",
           "description": "ReplicateServices allows replicating services from the host within the virtual cluster or the other way around."
@@ -2840,6 +2872,25 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "PrivateNodes": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if dedicated nodes should be enabled."
+        },
+        "kubeProxy": {
+          "$ref": "#/$defs/KubeProxy",
+          "description": "KubeProxy holds dedicated kube proxy configuration."
+        },
+        "kubelet": {
+          "$ref": "#/$defs/Kubelet",
+          "description": "Kubelet holds dedicated kubelet configuration."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "PrivateNodes enables private nodes for vCluster."
     },
     "RBAC": {
       "properties": {
@@ -3902,6 +3953,10 @@
     "controlPlane": {
       "$ref": "#/$defs/ControlPlane",
       "description": "Configure vCluster's control plane components and deployment."
+    },
+    "privateNodes": {
+      "$ref": "#/$defs/PrivateNodes",
+      "description": "PrivateNodes holds configuration for vCluster private nodes mode."
     },
     "rbac": {
       "$ref": "#/$defs/RBAC",
