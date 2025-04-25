@@ -88,12 +88,12 @@ jobs:
           script: |
             const version = '${{ steps.get_version.outputs.release_version }}';
             const ref = '${{ github.ref }}';
-            const response = await github.rest.actions.createWorkflowDispatch({
+            // Using repository_dispatch instead of workflow_dispatch
+            const response = await github.rest.repos.createDispatchEvent({
               owner: 'loft-sh',
               repo: 'vcluster-docs',
-              workflow_id: 'cli-docs.yaml',
-              ref: 'main',
-              inputs: {
+              event_type: 'update-cli-docs',
+              client_payload: {
                 version,
                 ref,
               }
