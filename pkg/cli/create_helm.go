@@ -149,8 +149,8 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	// from v0.25 onwards, creation of multiple vClusters inside the same ns is not allowed
 	for _, v := range vClusters {
 		if v.Namespace == cmd.Namespace && v.Name != vClusterName {
-			return fmt.Errorf("there is already a virtual cluster in namespace %s\n "+
-				"creating multiple vclusters inside the same namespace is not allowed", cmd.Namespace)
+			return fmt.Errorf("there is already a virtual cluster in namespace %s; "+
+				"creating multiple virtual clusters inside the same namespace is not allowed", cmd.Namespace)
 		}
 	}
 

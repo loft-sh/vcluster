@@ -98,8 +98,8 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	// from v0.25 onwards, creation of multiple vClusters inside the same ns is not allowed
 	for _, v := range vClusters {
 		if v.Namespace == vConfig.ControlPlaneNamespace && v.Name != vClusterName {
-			return fmt.Errorf("there is already a virtual cluster in namespace %s\n "+
-				"creating multiple vclusters inside the same namespace is not allowed", vConfig.ControlPlaneNamespace)
+			return fmt.Errorf("there is already a virtual cluster in namespace %s; "+
+				"creating multiple virtual clusters inside the same namespace is not allowed", vConfig.ControlPlaneNamespace)
 		}
 	}
 
