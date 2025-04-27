@@ -230,7 +230,7 @@ var _ = ginkgo.Describe("Test fromHost sync of configmaps", ginkgo.Ordered, func
 				Containers: []corev1.Container{
 					{
 						Name:            "default",
-						Image:           "nginxinc/nginx-unprivileged",
+						Image:           "nginxinc/nginx-unprivileged:stable-alpine3.20-slim",
 						ImagePullPolicy: corev1.PullIfNotPresent,
 						SecurityContext: f.GetDefaultSecurityContext(),
 						EnvFrom: []corev1.EnvFromSource{
