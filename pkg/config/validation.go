@@ -65,6 +65,11 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return fmt.Errorf("embedded database is not supported with multiple replicas")
 	}
 
+	// disallow listing istio CRDs in sync.toHost.customResources if istio integration is enabled
+	if err := validateIstioEnabled(vConfig.Sync.ToHost.CustomResources, vConfig.Integrations.Istio); err != nil {
+		return err
+	}
+
 	// check if custom resources have correct scope
 	for key, customResource := range vConfig.Sync.ToHost.CustomResources {
 		if customResource.Scope != "" && customResource.Scope != config.ScopeNamespaced {
@@ -718,6 +723,33 @@ func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
 		// You must set at least Name or Namespace for every additional kubeconfig secret.
 		if additionalSecret.Name == "" && additionalSecret.Namespace == "" {
 			return errExportKubeConfigAdditionalSecretWithoutNameAndNamespace
+		}
+	}
+	return nil
+}
+
+func validateIstioEnabled(toHostCustomResources map[string]config.SyncToHostCustomResource, istioIntegration config.Istio) error {
+	if !istioIntegration.Enabled {
+		return nil
+	}
+	for crdName, crdConfig := range toHostCustomResources {
+		if crdName == "destinationrules.networking.istio.io" && crdConfig.Enabled && istioIntegration.Sync.ToHost.DestinationRules.Enabled {
+			return errors.New("" +
+				"istio integration is enabled but istio custom resource (destinationrules.networking.istio.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources",
+			)
+		}
+		if crdName == "gateways.networking.istio.io" && crdConfig.Enabled && istioIntegration.Sync.ToHost.Gateways.Enabled {
+			return errors.New("" +
+				"istio integration is enabled but istio custom resource (gateways.networking.istio.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources",
+			)
+		}
+		if crdName == "virtualservices.networking.istio.io" && crdConfig.Enabled && istioIntegration.Sync.ToHost.VirtualServices.Enabled {
+			return errors.New("" +
+				"istio integration is enabled but istio custom resource (virtualservices.networking.istio.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources",
+			)
 		}
 	}
 	return nil
