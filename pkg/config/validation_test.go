@@ -411,24 +411,6 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 }
 
 func TestValidateFromHostSyncCustomResources(t *testing.T) {
-	noErrExpected := func(t *testing.T, err error) {
-		t.Helper()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	}
-	expectErr := func(errMsg string) func(t *testing.T, err error) {
-		return func(t *testing.T, err error) {
-			t.Helper()
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if err.Error() != errMsg {
-				t.Fatalf("unexpected error: %v", err)
-			}
-		}
-	}
-
 	cases := []struct {
 		name                        string
 		customResourcesFromHostSync map[string]config.SyncFromHostCustomResource
@@ -755,5 +737,130 @@ func TestValidateAllSyncPatches(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestValidateToHostSyncAndIstioIntegration(t *testing.T) {
+	istioEnabled := config.Istio{
+		EnableSwitch: config.EnableSwitch{Enabled: true},
+		Sync: config.IstioSync{ToHost: config.IstioSyncToHost{
+			DestinationRules: config.EnableSwitch{Enabled: true},
+			Gateways:         config.EnableSwitch{Enabled: true},
+			VirtualServices:  config.EnableSwitch{Enabled: true},
+		}},
+	}
+	istioDisabled := config.Istio{
+		EnableSwitch: config.EnableSwitch{Enabled: false},
+	}
+
+	cases := []struct {
+		name                      string
+		customResourcesToHostSync map[string]config.SyncToHostCustomResource
+		istioIntegration          config.Istio
+		checkErr                  func(t *testing.T, err error)
+	}{
+		{
+			name: "valid config",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"clusterissuers.cert-manager.io": {
+					Enabled: true,
+					Scope:   config.ScopeCluster,
+				},
+			},
+			istioIntegration: istioEnabled,
+			checkErr:         noErrExpected,
+		},
+		{
+			name: "destination rule listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"destinationrules.networking.istio.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			istioIntegration: istioEnabled,
+			checkErr:         expectErr("istio integration is enabled but istio custom resource (destinationrules.networking.istio.io) is also set in the sync.toHost.customResources. This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "destination rule listed in sync.toHost.customResources but istio disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"destinationrules.networking.istio.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			istioIntegration: istioDisabled,
+			checkErr:         noErrExpected,
+		},
+		{
+			name: "gateways listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"gateways.networking.istio.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			istioIntegration: istioEnabled,
+			checkErr:         expectErr("istio integration is enabled but istio custom resource (gateways.networking.istio.io) is also set in the sync.toHost.customResources. This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "gateways listed in sync.toHost.customResources but istio disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"gateways.networking.istio.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			istioIntegration: istioDisabled,
+			checkErr:         noErrExpected,
+		},
+		{
+			name: "virtual services listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"virtualservices.networking.istio.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			istioIntegration: istioEnabled,
+			checkErr:         expectErr("istio integration is enabled but istio custom resource (virtualservices.networking.istio.io) is also set in the sync.toHost.customResources. This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "virtual services listed in sync.toHost.customResources but istio disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"virtualservices.networking.istio.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			istioIntegration: istioDisabled,
+			checkErr:         noErrExpected,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateIstioEnabled(tc.customResourcesToHostSync, tc.istioIntegration)
+			tc.checkErr(t, err)
+		})
+	}
+}
+
+func expectErr(errMsg string) func(t *testing.T, err error) {
+	return func(t *testing.T, err error) {
+		t.Helper()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.Error() != errMsg {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+}
+
+func noErrExpected(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
