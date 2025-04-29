@@ -6,14 +6,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 type Interface interface {
 	kubernetes.Interface
-	APIExtensions() apiextensions.Interface
 	Loft() loftclient.Interface
 	Agent() agentloftclient.Interface
 }
@@ -22,11 +20,6 @@ func NewForConfig(c *rest.Config) (Interface, error) {
 	kubeClient, err := kubernetes.NewForConfig(c)
 	if err != nil {
 		return nil, errors.Wrap(err, "create kube client")
-	}
-
-	apiExtensionsClient, err := apiextensions.NewForConfig(c)
-	if err != nil {
-		return nil, errors.Wrap(err, "create api extensions client")
 	}
 
 	loftClient, err := loftclient.NewForConfig(c)
@@ -40,22 +33,16 @@ func NewForConfig(c *rest.Config) (Interface, error) {
 	}
 
 	return &client{
-		Interface:           kubeClient,
-		apiExtensionsClient: apiExtensionsClient,
-		loftClient:          loftClient,
-		agentLoftClient:     agentLoftClient,
+		Interface:       kubeClient,
+		loftClient:      loftClient,
+		agentLoftClient: agentLoftClient,
 	}, nil
 }
 
 type client struct {
 	kubernetes.Interface
-	apiExtensionsClient apiextensions.Interface
-	loftClient          loftclient.Interface
-	agentLoftClient     agentloftclient.Interface
-}
-
-func (c *client) APIExtensions() apiextensions.Interface {
-	return c.apiExtensionsClient
+	loftClient      loftclient.Interface
+	agentLoftClient agentloftclient.Interface
 }
 
 func (c *client) Loft() loftclient.Interface {
