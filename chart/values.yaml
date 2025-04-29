@@ -1039,10 +1039,6 @@ experimental:
       extraRules: []
     role:
       extraRules: []
-  
-  # ReuseNamespace allows reusing the same namespace to create multiple vClusters.
-  # This flag is deprecated, as this scenario will be removed entirely in upcoming releases.
-  reuseNamespace: false
 
 # Configuration related to telemetry gathered about vCluster usage.
 telemetry:

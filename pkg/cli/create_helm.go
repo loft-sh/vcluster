@@ -112,7 +112,7 @@ type createHelm struct {
 	localCluster     bool
 }
 
-func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger, reuseNamespace bool) error {
+func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	cmd := &createHelm{
 		GlobalFlags:   globalFlags,
 		CreateOptions: options,
@@ -140,19 +140,18 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if err != nil {
 		return err
 	}
+
 	vClusters, err := find.ListVClusters(ctx, cmd.Context, "", cmd.Namespace, log)
 	if err != nil {
 		return err
 	}
 
-	if !reuseNamespace {
-		for _, v := range vClusters {
-			if v.Namespace == cmd.Namespace && v.Name != vClusterName {
-				return fmt.Errorf("there is already a virtual cluster in namespace %s", cmd.Namespace)
-			}
+	// from v0.25 onwards, creation of multiple vClusters inside the same ns is not allowed
+	for _, v := range vClusters {
+		if v.Namespace == cmd.Namespace && v.Name != vClusterName {
+			return fmt.Errorf("there is already a virtual cluster in namespace %s; "+
+				"creating multiple virtual clusters inside the same namespace is not supported", cmd.Namespace)
 		}
-	} else {
-		cmd.log.Warn("Creation of multiple virtual clusters within the same namespace is deprecated and will be removed soon.")
 	}
 
 	err = cmd.prepare(ctx, vClusterName)
@@ -304,12 +303,6 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	err = pkgconfig.ValidateAllSyncPatches(vClusterConfig.Sync)
 	if err != nil {
 		return err
-	}
-
-	// multiple vCluster creation inside same ns should fail if `reuseNamespace` is not set as true in vCluster config
-	if reuseNamespace && !vClusterConfig.Experimental.ReuseNamespace {
-		return fmt.Errorf("there is already a virtual cluster in namespace %s; to create multiple virtual clusters "+
-			"within the same namespace, please set 'reuse-namespace' to true in vCluster config", cmd.Namespace)
 	}
 
 	if vClusterConfig.Experimental.IsolatedControlPlane.Headless {

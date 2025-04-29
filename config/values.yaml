@@ -581,7 +581,5 @@ experimental:
     role:
       extraRules: []
 
-  reuseNamespace: false
-
 telemetry:
   enabled: true
