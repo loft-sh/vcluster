@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
@@ -264,14 +265,13 @@ func ListVClusters(ctx context.Context, context, name, namespace string, log log
 	}
 
 	// check if VirtualClusterInstances CRD exists
-	_, err = kubeClient.APIExtensions().ApiextensionsV1().CustomResourceDefinitions().Get(ctx, "virtualclusterinstances.storage.loft.sh", metav1.GetOptions{})
-	if err != nil {
+	virtualClusterInstanceAvailable, err := isVirtualClusterInstanceResourceAvailable(kubeClient.Discovery())
+	if !virtualClusterInstanceAvailable {
 		// VirtualClusterInstances CRD not found. This usually the case with OSS vCluster.
-		if kerrors.IsNotFound(err) {
-			log.Debug("virtualclusterinstances.storage.loft.sh CustomResourceDefinition not found, will not check virtual cluster on the platform")
-		} else {
-			log.Warnf("Error retrieving virtualclusterinstances.storage.loft.sh CRD: %v", err)
+		if err != nil {
+			log.Warnf("Error when checking if VirtualClusterInstance resources are available: %v", err)
 		}
+		log.Debug("VirtualClusterInstance resources are not available on the server.")
 		return vClusters, nil
 	}
 
@@ -659,4 +659,20 @@ func isPaused(v client.Object) bool {
 	labels := v.GetLabels()
 
 	return annotations[constants.PausedAnnotation(false)] == "true" || labels[sleepmode.Label] == "true"
+}
+
+// isVirtualClusterInstanceResourceAvailable checks if VirtualClusterInstance resources from storage.loft.sh/v1 exist
+// on the server.
+func isVirtualClusterInstanceResourceAvailable(discoveryClient discovery.DiscoveryInterface) (bool, error) {
+	resources, err := discoveryClient.ServerResourcesForGroupVersion(storagev1.SchemeGroupVersion.String())
+	if err != nil {
+		return false, fmt.Errorf("failed to retrieve server resources for group/version '%s': %v", storagev1.GroupVersion.String(), err)
+	}
+
+	for _, resource := range resources.APIResources {
+		if strings.ToLower(resource.Name) == "virtualclusterinstances" {
+			return true, nil
+		}
+	}
+	return false, nil
 }
