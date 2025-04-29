@@ -65,8 +65,11 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return fmt.Errorf("embedded database is not supported with multiple replicas")
 	}
 
-	// disallow listing istio CRDs in sync.toHost.customResources if istio integration is enabled
-	if err := validateIstioEnabled(vConfig.Sync.ToHost.CustomResources, vConfig.Integrations.Istio); err != nil {
+	// disallow listing integration CRDs in sync.*.customResources if the corresponding integrations are enabled
+	if err := validateEnabledIntegrations(
+		vConfig.Sync.ToHost.CustomResources,
+		vConfig.Sync.FromHost.CustomResources,
+		vConfig.Integrations); err != nil {
 		return err
 	}
 
@@ -728,31 +731,108 @@ func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
 	return nil
 }
 
-func validateIstioEnabled(toHostCustomResources map[string]config.SyncToHostCustomResource, istioIntegration config.Istio) error {
+func validateEnabledIntegrations(
+	toHostCustomResources map[string]config.SyncToHostCustomResource,
+	fromHostCustomResources map[string]config.SyncFromHostCustomResource,
+	integrations config.Integrations) error {
+	if err := validateIstioEnabled(toHostCustomResources, integrations.Istio); err != nil {
+		return err
+	}
+	if err := validateCertManagerEnabled(toHostCustomResources, fromHostCustomResources, integrations.CertManager); err != nil {
+		return err
+	}
+	if err := validateExternalSecretsEnabled(toHostCustomResources, integrations.ExternalSecrets); err != nil {
+		return err
+	}
+	if err := validateKubeVirtEnabled(toHostCustomResources, integrations.KubeVirt); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateIstioEnabled(
+	toHostCustomResources map[string]config.SyncToHostCustomResource,
+	istioIntegration config.Istio) error {
 	if !istioIntegration.Enabled {
 		return nil
 	}
 	for crdName, crdConfig := range toHostCustomResources {
-		if crdName == "destinationrules.networking.istio.io" && crdConfig.Enabled && istioIntegration.Sync.ToHost.DestinationRules.Enabled {
-			return errors.New("" +
-				"istio integration is enabled but istio custom resource (destinationrules.networking.istio.io) is also set in the sync.toHost.customResources. " +
-				"This is not supported, please remove the entry from sync.toHost.customResources",
-			)
-		}
-		if crdName == "gateways.networking.istio.io" && crdConfig.Enabled && istioIntegration.Sync.ToHost.Gateways.Enabled {
-			return errors.New("" +
-				"istio integration is enabled but istio custom resource (gateways.networking.istio.io) is also set in the sync.toHost.customResources. " +
-				"This is not supported, please remove the entry from sync.toHost.customResources",
-			)
-		}
-		if crdName == "virtualservices.networking.istio.io" && crdConfig.Enabled && istioIntegration.Sync.ToHost.VirtualServices.Enabled {
-			return errors.New("" +
-				"istio integration is enabled but istio custom resource (virtualservices.networking.istio.io) is also set in the sync.toHost.customResources. " +
-				"This is not supported, please remove the entry from sync.toHost.customResources",
-			)
+		if crdConfig.Enabled &&
+			(crdName == "destinationrules.networking.istio.io" && istioIntegration.Sync.ToHost.DestinationRules.Enabled ||
+				crdName == "virtualservices.networking.istio.io" && istioIntegration.Sync.ToHost.VirtualServices.Enabled ||
+				crdName == "gateways.networking.istio.io" && istioIntegration.Sync.ToHost.Gateways.Enabled) {
+			return fmt.Errorf("istio integration is enabled but istio custom resource (%s) is also set in the sync.toHost.customResources. "+
+				"This is not supported, please remove the entry from sync.toHost.customResources", crdName)
 		}
 	}
 	return nil
+}
+
+func validateCertManagerEnabled(
+	toHostCustomResources map[string]config.SyncToHostCustomResource,
+	fromHostCustomResource map[string]config.SyncFromHostCustomResource,
+	certManagerIntegration config.CertManager) error {
+	if !certManagerIntegration.Enabled {
+		return nil
+	}
+	errMsg := "cert-manager integration is enabled but cert-manager custom resource (%s) is also set in the sync.%[2]s.customResources. " +
+		"This is not supported, please remove the entry from sync.%[2]s.customResources"
+	for crdName, crdConfig := range toHostCustomResources {
+		if crdConfig.Enabled &&
+			(crdName == "certificates.cert-manager.io" && certManagerIntegration.Sync.ToHost.Certificates.Enabled ||
+				crdName == "issuers.cert-manager.io" && certManagerIntegration.Sync.ToHost.Issuers.Enabled) {
+			return fmt.Errorf(errMsg, crdName, "toHost")
+		}
+	}
+	for crdName, crdConfig := range fromHostCustomResource {
+		if crdConfig.Enabled && crdName == "clusterissuers.cert-manager.io" && certManagerIntegration.Sync.FromHost.ClusterIssuers.Enabled {
+			return fmt.Errorf(errMsg, crdName, "fromHost")
+		}
+	}
+	return nil
+}
+
+func validateExternalSecretsEnabled(
+	toHostCustomResources map[string]config.SyncToHostCustomResource,
+	externalSecretsIntegration config.ExternalSecrets) error {
+	if !externalSecretsIntegration.Enabled {
+		return nil
+	}
+	for crdName, crdConfig := range toHostCustomResources {
+		if crdConfig.Enabled &&
+			(crdName == "externalsecrets.external-secrets.io" && externalSecretsIntegration.Sync.ExternalSecrets.Enabled ||
+				crdName == "secretstores.external-secrets.io" && externalSecretsIntegration.Sync.Stores.Enabled ||
+				crdName == "clustersecretstores.external-secrets.io" && externalSecretsIntegration.Sync.ClusterStores.Enabled) {
+			return fmt.Errorf("external-secrets integration is enabled but external-secrets custom resource (%s) is also set in the sync.toHost.customResources. "+
+				"This is not supported, please remove the entry from sync.toHost.customResources", crdName)
+		}
+	}
+	return nil
+}
+
+func validateKubeVirtEnabled(
+	toHostCustomResources map[string]config.SyncToHostCustomResource,
+	kubeVirtIntegration config.KubeVirt) error {
+	if !kubeVirtIntegration.Enabled {
+		return nil
+	}
+	for crdName, crdConfig := range toHostCustomResources {
+		if crdConfig.Enabled &&
+			(isIn(crdName, "datavolumes.cdi.kubevirt.io", "datavolumes/status.cdi.kubevirt.io") && kubeVirtIntegration.Sync.DataVolumes.Enabled ||
+				isIn(crdName, "virtualmachineinstancemigrations.kubevirt.io", "virtualmachineinstancemigrations/status.kubevirt.io") && kubeVirtIntegration.Sync.VirtualMachineInstanceMigrations.Enabled ||
+				isIn(crdName, "virtualmachineinstances.kubevirt.io", "virtualmachineinstances/status.kubevirt.io") && kubeVirtIntegration.Sync.VirtualMachineInstances.Enabled ||
+				isIn(crdName, "virtualmachines.kubevirt.io", "virtualmachines/status.kubevirt.io") && kubeVirtIntegration.Sync.VirtualMachines.Enabled ||
+				isIn(crdName, "virtualmachineclones.clone.kubevirt.io", "virtualmachineclones/status.clone.kubevirt.io") && kubeVirtIntegration.Sync.VirtualMachineClones.Enabled ||
+				isIn(crdName, "virtualmachinepools.pool.kubevirt.io", "virtualmachinepools/status.pool.kubevirt.io") && kubeVirtIntegration.Sync.VirtualMachinePools.Enabled) {
+			return fmt.Errorf("kube-virt integration is enabled but kube-virt custom resource (%s) is also set in the sync.toHost.customResources. "+
+				"This is not supported, please remove the entry from sync.toHost.customResources", crdName)
+		}
+	}
+	return nil
+}
+
+func isIn(crdName string, s ...string) bool {
+	return slices.Contains(s, crdName)
 }
 
 var ProValidateConfig = func(_ *VirtualClusterConfig) error {
