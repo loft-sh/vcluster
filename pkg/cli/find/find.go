@@ -665,7 +665,9 @@ func isPaused(v client.Object) bool {
 // on the server.
 func isVirtualClusterInstanceResourceAvailable(discoveryClient discovery.DiscoveryInterface) (bool, error) {
 	resources, err := discoveryClient.ServerResourcesForGroupVersion(storagev1.SchemeGroupVersion.String())
-	if err != nil {
+	if kerrors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
 		return false, fmt.Errorf("failed to retrieve server resources for group/version '%s': %w", storagev1.GroupVersion.String(), err)
 	}
 
