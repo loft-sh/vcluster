@@ -150,7 +150,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	for _, v := range vClusters {
 		if v.Namespace == cmd.Namespace && v.Name != vClusterName {
 			return fmt.Errorf("there is already a virtual cluster in namespace %s; "+
-				"creating multiple virtual clusters inside the same namespace is not allowed", cmd.Namespace)
+				"creating multiple virtual clusters inside the same namespace is not supported", cmd.Namespace)
 		}
 	}
 

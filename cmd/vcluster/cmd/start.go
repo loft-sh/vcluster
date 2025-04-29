@@ -99,7 +99,7 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	for _, v := range vClusters {
 		if v.Namespace == vConfig.ControlPlaneNamespace && v.Name != vClusterName {
 			return fmt.Errorf("there is already a virtual cluster in namespace %s; "+
-				"creating multiple virtual clusters inside the same namespace is not allowed", vConfig.ControlPlaneNamespace)
+				"creating multiple virtual clusters inside the same namespace is not supported", vConfig.ControlPlaneNamespace)
 		}
 	}
 
