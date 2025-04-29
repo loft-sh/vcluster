@@ -71,14 +71,14 @@ func (cmd *DeleteCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// check if there is a platform client or we skip the info message
-	_, err = platform.InitClientFromConfig(ctx, cfg)
+	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
 	if err == nil {
 		config.PrintDriverInfo("delete", driverType, cmd.log)
 	}
 
 	if driverType == config.PlatformDriver {
-		return cli.DeletePlatform(ctx, &cmd.DeleteOptions, cfg, args[0], cmd.log)
+		return cli.DeletePlatform(ctx, platformClient, &cmd.DeleteOptions, args[0], cmd.log)
 	}
 
-	return cli.DeleteHelm(ctx, &cmd.DeleteOptions, cmd.GlobalFlags, args[0], cmd.log)
+	return cli.DeleteHelm(ctx, platformClient, &cmd.DeleteOptions, cmd.GlobalFlags, args[0], cmd.log)
 }
