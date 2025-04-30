@@ -27,9 +27,6 @@ var K3SVersionMap = map[string]string{
 	"1.32": "rancher/k3s:v1.32.1-k3s1",
 	"1.31": "rancher/k3s:v1.31.1-k3s1",
 	"1.30": "rancher/k3s:v1.30.2-k3s1",
-	"1.29": "rancher/k3s:v1.29.6-k3s1",
-	"1.28": "rancher/k3s:v1.28.11-k3s1",
-	"1.27": "rancher/k3s:v1.27.16-k3s1",
 }
 
 // K0SVersionMap holds the supported k0s versions
@@ -37,9 +34,6 @@ var K0SVersionMap = map[string]string{
 	"1.32": "k0sproject/k0s:v1.30.2-k0s.0",
 	"1.31": "k0sproject/k0s:v1.30.2-k0s.0",
 	"1.30": "k0sproject/k0s:v1.30.2-k0s.0",
-	"1.29": "k0sproject/k0s:v1.29.6-k0s.0",
-	"1.28": "k0sproject/k0s:v1.28.11-k0s.0",
-	"1.27": "k0sproject/k0s:v1.27.16-k0s.0",
 }
 
 // K8SVersionMap holds the supported k8s api servers
@@ -47,9 +41,6 @@ var K8SVersionMap = map[string]string{
 	"1.32": "ghcr.io/loft-sh/kubernetes:v1.32.1",
 	"1.31": "ghcr.io/loft-sh/kubernetes:v1.31.1",
 	"1.30": "ghcr.io/loft-sh/kubernetes:v1.30.2",
-	"1.29": "ghcr.io/loft-sh/kubernetes:v1.29.6",
-	"1.28": "ghcr.io/loft-sh/kubernetes:v1.28.11",
-	"1.27": "ghcr.io/loft-sh/kubernetes:v1.27.16",
 }
 
 // K8SEtcdVersionMap holds the supported etcd
@@ -57,9 +48,6 @@ var K8SEtcdVersionMap = map[string]string{
 	"1.32": "registry.k8s.io/etcd:3.5.21-0",
 	"1.31": "registry.k8s.io/etcd:3.5.15-0",
 	"1.30": "registry.k8s.io/etcd:3.5.13-0",
-	"1.29": "registry.k8s.io/etcd:3.5.10-0",
-	"1.28": "registry.k8s.io/etcd:3.5.9-0",
-	"1.27": "registry.k8s.io/etcd:3.5.7-0",
 }
 
 // ExtraValuesOptions holds the chart options
