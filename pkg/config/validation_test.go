@@ -779,7 +779,8 @@ func TestValidateToHostSyncAndIstioIntegration(t *testing.T) {
 				},
 			},
 			istioIntegration: istioEnabled,
-			checkErr:         expectErr("istio integration is enabled but istio custom resource (destinationrules.networking.istio.io) is also set in the sync.toHost.customResources. This is not supported, please remove the entry from sync.toHost.customResources"),
+			checkErr: expectErr("istio integration is enabled but istio custom resource (destinationrules.networking.istio.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
 		},
 		{
 			name: "destination rule listed in sync.toHost.customResources but istio disabled",
@@ -801,7 +802,9 @@ func TestValidateToHostSyncAndIstioIntegration(t *testing.T) {
 				},
 			},
 			istioIntegration: istioEnabled,
-			checkErr:         expectErr("istio integration is enabled but istio custom resource (gateways.networking.istio.io) is also set in the sync.toHost.customResources. This is not supported, please remove the entry from sync.toHost.customResources"),
+			checkErr: expectErr("istio integration is enabled but istio custom resource " +
+				"(gateways.networking.istio.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
 		},
 		{
 			name: "gateways listed in sync.toHost.customResources but istio disabled",
@@ -823,7 +826,9 @@ func TestValidateToHostSyncAndIstioIntegration(t *testing.T) {
 				},
 			},
 			istioIntegration: istioEnabled,
-			checkErr:         expectErr("istio integration is enabled but istio custom resource (virtualservices.networking.istio.io) is also set in the sync.toHost.customResources. This is not supported, please remove the entry from sync.toHost.customResources"),
+			checkErr: expectErr("istio integration is enabled but istio custom resource " +
+				"(virtualservices.networking.istio.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
 		},
 		{
 			name: "virtual services listed in sync.toHost.customResources but istio disabled",
@@ -841,6 +846,312 @@ func TestValidateToHostSyncAndIstioIntegration(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := validateIstioEnabled(tc.customResourcesToHostSync, tc.istioIntegration)
+			tc.checkErr(t, err)
+		})
+	}
+}
+
+func TestValidateToHostSyncAndCertManagerIntegration(t *testing.T) {
+	certManagerEnabled := config.CertManager{
+		EnableSwitch: config.EnableSwitch{Enabled: true},
+		Sync: config.CertManagerSync{
+			ToHost: config.CertManagerSyncToHost{
+				Certificates: config.EnableSwitch{Enabled: true},
+				Issuers:      config.EnableSwitch{Enabled: true},
+			},
+			FromHost: config.CertManagerSyncFromHost{
+				ClusterIssuers: config.ClusterIssuersSyncConfig{
+					EnableSwitch: config.EnableSwitch{Enabled: true},
+				},
+			},
+		},
+	}
+	certManagerDisabled := config.CertManager{
+		EnableSwitch: config.EnableSwitch{Enabled: false},
+	}
+
+	cases := []struct {
+		name                        string
+		customResourcesToHostSync   map[string]config.SyncToHostCustomResource
+		customResourcesFromHostSync map[string]config.SyncFromHostCustomResource
+		certManagerIntegration      config.CertManager
+		checkErr                    func(t *testing.T, err error)
+	}{
+		{
+			name: "valid config",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"some.other.resource": {Enabled: true},
+			},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerEnabled,
+			checkErr:                    noErrExpected,
+		},
+		{
+			name: "certificates listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"certificates.cert-manager.io": {Enabled: true},
+			},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerEnabled,
+			checkErr: expectErr("cert-manager integration is enabled but cert-manager custom resource " +
+				"(certificates.cert-manager.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "issuers listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"issuers.cert-manager.io": {Enabled: true},
+			},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerEnabled,
+			checkErr: expectErr("cert-manager integration is enabled but cert-manager custom resource " +
+				"(issuers.cert-manager.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name:                      "clusterissuers listed in sync.fromHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"clusterissuers.cert-manager.io": {Enabled: true},
+			},
+			certManagerIntegration: certManagerEnabled,
+			checkErr: expectErr("cert-manager integration is enabled but cert-manager custom resource " +
+				"(clusterissuers.cert-manager.io) is also set in the sync.fromHost.customResources. " +
+				"This is not supported, please remove the entry from sync.fromHost.customResources"),
+		},
+		{
+			name: "certificates listed in sync.toHost.customResources but cert-manager disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"certificates.cert-manager.io": {Enabled: true},
+			},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerDisabled,
+			checkErr:                    noErrExpected,
+		},
+		{
+			name: "issuers listed in sync.toHost.customResources but cert-manager disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"issuers.cert-manager.io": {Enabled: true},
+			},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerDisabled,
+			checkErr:                    noErrExpected,
+		},
+		{
+			name:                      "clusterissuers listed in sync.fromHost.customResources but cert-manager disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"clusterissuers.cert-manager.io": {Enabled: true},
+			},
+			certManagerIntegration: certManagerDisabled,
+			checkErr:               noErrExpected,
+		},
+		{
+			name:                        "no custom resources and cert-manager enabled",
+			customResourcesToHostSync:   map[string]config.SyncToHostCustomResource{},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerEnabled,
+			checkErr:                    noErrExpected,
+		},
+		{
+			name:                        "no custom resources and cert-manager disabled",
+			customResourcesToHostSync:   map[string]config.SyncToHostCustomResource{},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerDisabled,
+			checkErr:                    noErrExpected,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateCertManagerEnabled(tc.customResourcesToHostSync, tc.customResourcesFromHostSync, tc.certManagerIntegration)
+			tc.checkErr(t, err)
+		})
+	}
+}
+
+func TestValidateToHostSyncAndKubeVirtIntegration(t *testing.T) {
+	kubeVirtEnabled := config.KubeVirt{
+		Enabled: true,
+		Sync: config.KubeVirtSync{
+			DataVolumes:                      config.EnableSwitch{Enabled: true},
+			VirtualMachineInstances:          config.EnableSwitch{Enabled: true},
+			VirtualMachines:                  config.EnableSwitch{Enabled: true},
+			VirtualMachineInstanceMigrations: config.EnableSwitch{Enabled: true},
+		},
+	}
+	kubeVirtDisabled := config.KubeVirt{
+		Enabled: false,
+	}
+
+	cases := []struct {
+		name                      string
+		customResourcesToHostSync map[string]config.SyncToHostCustomResource
+		kubeVirtIntegration       config.KubeVirt
+		checkErr                  func(t *testing.T, err error)
+	}{
+		{
+			name: "valid config",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"some.other.resource": {Enabled: true},
+			},
+			kubeVirtIntegration: kubeVirtEnabled,
+			checkErr:            noErrExpected,
+		},
+		{
+			name: "datavolumes listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"datavolumes.cdi.kubevirt.io": {Enabled: true},
+			},
+			kubeVirtIntegration: kubeVirtEnabled,
+			checkErr: expectErr("kube-virt integration is enabled but kube-virt custom resource " +
+				"(datavolumes.cdi.kubevirt.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "virtualmachines listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"virtualmachines.kubevirt.io": {Enabled: true},
+			},
+			kubeVirtIntegration: kubeVirtEnabled,
+			checkErr: expectErr("kube-virt integration is enabled but kube-virt custom resource " +
+				"(virtualmachines.kubevirt.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "virtualmachineinstances listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"virtualmachineinstances.kubevirt.io": {Enabled: true},
+			},
+			kubeVirtIntegration: kubeVirtEnabled,
+			checkErr: expectErr("kube-virt integration is enabled but kube-virt custom resource " +
+				"(virtualmachineinstances.kubevirt.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "virtualmachineinstancemigrations listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"virtualmachineinstancemigrations.kubevirt.io": {Enabled: true},
+			},
+			kubeVirtIntegration: kubeVirtEnabled,
+			checkErr: expectErr("kube-virt integration is enabled but kube-virt custom resource " +
+				"(virtualmachineinstancemigrations.kubevirt.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "datavolumes listed in sync.toHost.customResources but kube-virt disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"datavolumes.cdi.kubevirt.io": {Enabled: true},
+			},
+			kubeVirtIntegration: kubeVirtDisabled,
+			checkErr:            noErrExpected,
+		},
+		{
+			name:                      "no custom resources and kube-virt enabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{},
+			kubeVirtIntegration:       kubeVirtEnabled,
+			checkErr:                  noErrExpected,
+		},
+		{
+			name:                      "no custom resources and kube-virt disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{},
+			kubeVirtIntegration:       kubeVirtDisabled,
+			checkErr:                  noErrExpected,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateKubeVirtEnabled(tc.customResourcesToHostSync, tc.kubeVirtIntegration)
+			tc.checkErr(t, err)
+		})
+	}
+}
+
+func TestValidateToHostSyncAndExternalSecretsIntegration(t *testing.T) {
+	externalSecretsEnabled := config.ExternalSecrets{
+		Enabled: true,
+		Sync: config.ExternalSecretsSync{
+			ExternalSecrets: config.EnableSwitch{Enabled: true},
+			Stores:          config.EnableSwitch{Enabled: true},
+			ClusterStores: config.ClusterStoresSyncConfig{
+				EnableSwitch: config.EnableSwitch{Enabled: true},
+			},
+		},
+	}
+	externalSecretsDisabled := config.ExternalSecrets{
+		Enabled: false,
+	}
+
+	cases := []struct {
+		name                       string
+		customResourcesToHostSync  map[string]config.SyncToHostCustomResource
+		externalSecretsIntegration config.ExternalSecrets
+		checkErr                   func(t *testing.T, err error)
+	}{
+		{
+			name: "valid config",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"some.other.resource": {Enabled: true},
+			},
+			externalSecretsIntegration: externalSecretsEnabled,
+			checkErr:                   noErrExpected,
+		},
+		{
+			name: "externalsecrets listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"externalsecrets.external-secrets.io": {Enabled: true},
+			},
+			externalSecretsIntegration: externalSecretsEnabled,
+			checkErr: expectErr("external-secrets integration is enabled but external-secrets custom resource " +
+				"(externalsecrets.external-secrets.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "secretstores listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"secretstores.external-secrets.io": {Enabled: true},
+			},
+			externalSecretsIntegration: externalSecretsEnabled,
+			checkErr: expectErr("external-secrets integration is enabled but external-secrets custom resource " +
+				"(secretstores.external-secrets.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "clustersecretstores listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"clustersecretstores.external-secrets.io": {Enabled: true},
+			},
+			externalSecretsIntegration: externalSecretsEnabled,
+			checkErr: expectErr("external-secrets integration is enabled but external-secrets custom resource " +
+				"(clustersecretstores.external-secrets.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "externalsecrets listed in sync.toHost.customResources but external-secrets disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"externalsecrets.external-secrets.io": {Enabled: true},
+			},
+			externalSecretsIntegration: externalSecretsDisabled,
+			checkErr:                   noErrExpected,
+		},
+		{
+			name:                       "no custom resources and external-secrets enabled",
+			customResourcesToHostSync:  map[string]config.SyncToHostCustomResource{},
+			externalSecretsIntegration: externalSecretsEnabled,
+			checkErr:                   noErrExpected,
+		},
+		{
+			name:                       "no custom resources and external-secrets disabled",
+			customResourcesToHostSync:  map[string]config.SyncToHostCustomResource{},
+			externalSecretsIntegration: externalSecretsDisabled,
+			checkErr:                   noErrExpected,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateExternalSecretsEnabled(tc.customResourcesToHostSync, tc.externalSecretsIntegration)
 			tc.checkErr(t, err)
 		})
 	}
