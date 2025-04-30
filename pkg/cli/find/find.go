@@ -7,9 +7,11 @@ import (
 	"strings"
 	"time"
 
+	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
@@ -18,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -53,9 +54,10 @@ type VCluster struct {
 type Status string
 
 const (
-	StatusRunning Status = "Running"
-	StatusPaused  Status = "Paused"
-	StatusUnknown Status = "Unknown"
+	StatusRunning          Status = "Running"
+	StatusPaused           Status = "Paused"
+	StatusWorkloadSleeping Status = "Sleeping (workloads only)"
+	StatusUnknown          Status = "Unknown"
 )
 
 type VClusterNotFoundError struct {
@@ -457,12 +459,23 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 	releaseName := ""
 	status := ""
 	version := ""
-	pods := []corev1.Pod{}
+	var pods []corev1.Pod
 
-	if object.GetAnnotations() != nil && object.GetAnnotations()[constants.PausedAnnotation(false)] == "true" {
+	if object.GetAnnotations()[constants.PausedAnnotation(false)] == "true" {
 		status = string(StatusPaused)
 	} else {
 		releaseName = "release=" + release
+	}
+
+	if status == "" {
+		// Workload sleepmode cannot modify/annotate the VirtualClusterInstance, StatefulSet, or Deployment so it
+		// sets a sleep type on the config secret.  Check that here.
+		sec, err := getConfigSecret(ctx, client, kubeClientConfig, namespace, release)
+		if err == nil {
+			if _, ok := sec.Annotations[clusterv1.SleepModeSleepTypeAnnotation]; ok {
+				status = string(StatusWorkloadSleeping)
+			}
+		}
 	}
 
 	if status == "" {
@@ -474,9 +487,6 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 		for _, pod := range podList.Items {
 			status = GetPodStatus(&pod)
 		}
-	}
-	if status == "" {
-		status = string(StatusUnknown)
 	}
 
 	switch vclusterObject := object.(type) {
@@ -536,6 +546,24 @@ func getPods(ctx context.Context, client kube.Interface, kubeClientConfig client
 		return nil, err
 	}
 	return podList, nil
+}
+
+func getConfigSecret(ctx context.Context, client kube.Interface, kubeClientConfig clientcmd.ClientConfig, namespace, releaseName string) (*corev1.Secret, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+
+	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, "vc-config-"+releaseName, metav1.GetOptions{})
+	if err != nil {
+		if kerrors.IsForbidden(err) {
+			// try the current namespace instead
+			if namespace, err = getAccessibleNS(kubeClientConfig); err != nil {
+				return nil, err
+			}
+			return client.CoreV1().Secrets(namespace).Get(ctx, releaseName, metav1.GetOptions{})
+		}
+		return nil, err
+	}
+	return secret, nil
 }
 
 func getDeployments(ctx context.Context, client kube.Interface, namespace string, kubeClientConfig clientcmd.ClientConfig, timeout time.Duration) (*appsv1.DeploymentList, error) {
