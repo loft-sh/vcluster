@@ -33,7 +33,7 @@ brew install loft-sh/tap/vcluster
 vcluster create my-vcluster --namespace team-x
 ```
 
-https://github.com/user-attachments/assets/d97c21ae-5d23-499c-a1e8-e8d784493be4
+![vCluster gif](./docs/static/media/vcluster-github-gif-1280.gif)
 
 For detailed steps, visit our [Quickstart Documentation](https://www.vcluster.com/docs/get-started).
 
