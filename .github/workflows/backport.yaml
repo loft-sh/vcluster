@@ -18,26 +18,6 @@ jobs:
       - name: Install GH CLI
         uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
 
-      - name: Fetch PR description and update backportrc
-        env:
-          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-        run: |
-          # Grab raw original PR body, gh CLI uses the default token.
-          BODY_CONTENT="$(gh api "/repos/$REPO/pulls/$PR_NUMBER" | jq -r .body)"
-
-          # Escape the markdown content so that sed can produce valid JSON.
-          # Remove starting and ending quites and replace new lines with literals.
-          ESCAPED_CONTENT=$(echo "$BODY_CONTENT" | jq -aRs .)
-          ESCAPED_CONTENT="${ESCAPED_CONTENT%\"}"
-          ESCAPED_CONTENT="${ESCAPED_CONTENT#\"}"
-          ESCAPED_CONTENT=$(echo "$ESCAPED_CONTENT" | sed 's/[\/&]/\\&/g')
-
-          # sourcePullRequest is an actual variable, but the PR description is not provided by the action or the CLI.
-          # Instead we are using it as a substitution target and replacing it with the markdown content.
-          sed -i "s/{{sourcePullRequest}}/$ESCAPED_CONTENT/g" .backportrc.json
-
       - name: Backport Action
         uses: sorenlouv/backport-github-action@v9.5.1
         with:
