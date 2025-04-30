@@ -59,6 +59,12 @@ func migrateK8sAndEKS(oldValues string, newConfig *config.Config) error {
 	}
 
 	newConfig.ControlPlane.Distro.K8S.Enabled = true
+	if oldConfig.API.Image != "" {
+		if oldConfig.API.ImagePullPolicy != "" {
+			newConfig.ControlPlane.Distro.K8S.ImagePullPolicy = oldConfig.API.ImagePullPolicy
+		}
+		convertImage(oldConfig.API.Image, &newConfig.ControlPlane.Distro.K8S.Image)
+	}
 	convertAPIValues(oldConfig.API, &newConfig.ControlPlane.Distro.K8S.APIServer)
 	convertControllerValues(oldConfig.Controller, &newConfig.ControlPlane.Distro.K8S.ControllerManager)
 	convertSchedulerValues(oldConfig.Scheduler, &newConfig.ControlPlane.Distro.K8S.Scheduler)
@@ -91,7 +97,7 @@ func migrateK8sAndEKS(oldValues string, newConfig *config.Config) error {
 	}
 
 	// make default storage deployed etcd
-	if !newConfig.ControlPlane.BackingStore.Database.External.Enabled && !newConfig.ControlPlane.BackingStore.Database.Embedded.Enabled && !newConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
+	if !newConfig.ControlPlane.BackingStore.Database.External.Enabled && !newConfig.ControlPlane.BackingStore.Database.Embedded.Enabled && !newConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !newConfig.ControlPlane.BackingStore.Etcd.External.Enabled {
 		newConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled = true
 	}
 
@@ -218,32 +224,14 @@ func convertEtcd(oldConfig EtcdValues, newConfig *config.Config) error {
 }
 
 func convertAPIValues(oldConfig APIServerValues, newContainer *config.DistroContainerEnabled) {
-	if oldConfig.ImagePullPolicy != "" {
-		newContainer.ImagePullPolicy = oldConfig.ImagePullPolicy
-	}
-	if oldConfig.Image != "" {
-		convertImage(oldConfig.Image, &newContainer.Image)
-	}
 	newContainer.ExtraArgs = oldConfig.ExtraArgs
 }
 
 func convertControllerValues(oldConfig ControllerValues, newContainer *config.DistroContainerEnabled) {
-	if oldConfig.ImagePullPolicy != "" {
-		newContainer.ImagePullPolicy = oldConfig.ImagePullPolicy
-	}
-	if oldConfig.Image != "" {
-		convertImage(oldConfig.Image, &newContainer.Image)
-	}
 	newContainer.ExtraArgs = oldConfig.ExtraArgs
 }
 
 func convertSchedulerValues(oldConfig SchedulerValues, newContainer *config.DistroContainer) {
-	if oldConfig.ImagePullPolicy != "" {
-		newContainer.ImagePullPolicy = oldConfig.ImagePullPolicy
-	}
-	if oldConfig.Image != "" {
-		convertImage(oldConfig.Image, &newContainer.Image)
-	}
 	newContainer.ExtraArgs = oldConfig.ExtraArgs
 }
 
@@ -672,6 +660,7 @@ func convertEmbeddedEtcd(oldConfig EmbeddedEtcdValues, newConfig *config.Config)
 	if oldConfig.Enabled {
 		newConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled = true
 		newConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled = false
+		newConfig.ControlPlane.BackingStore.Etcd.External.Enabled = false
 		newConfig.ControlPlane.BackingStore.Database.Embedded.Enabled = false
 		newConfig.ControlPlane.BackingStore.Database.External.Enabled = false
 	}
@@ -1139,13 +1128,13 @@ func applyStorage(oldConfig Storage, newConfig *config.Config) {
 
 func convertVClusterConfig(oldConfig VClusterValues, retDistroCommon *config.DistroCommon, retDistroContainer *config.DistroContainer, newConfig *config.Config) error {
 	retDistroCommon.Env = oldConfig.Env
-	convertImage(oldConfig.Image, &retDistroContainer.Image)
+	convertImage(oldConfig.Image, &retDistroCommon.Image)
 	if len(oldConfig.Resources) > 0 {
 		retDistroCommon.Resources = mergeMaps(retDistroCommon.Resources, oldConfig.Resources)
 	}
 	retDistroContainer.ExtraArgs = append(retDistroContainer.ExtraArgs, oldConfig.ExtraArgs...)
 	if oldConfig.ImagePullPolicy != "" {
-		retDistroContainer.ImagePullPolicy = oldConfig.ImagePullPolicy
+		retDistroCommon.ImagePullPolicy = oldConfig.ImagePullPolicy
 	}
 
 	if len(oldConfig.BaseArgs) > 0 {

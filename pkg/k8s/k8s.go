@@ -17,7 +17,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/util/commandwriter"
-	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 )
@@ -30,7 +29,7 @@ func StartK8S(
 	scheduler vclusterconfig.DistroContainer,
 	vConfig *config.VirtualClusterConfig,
 ) error {
-	eg := &errgroup.Group{}
+	errChan := make(chan error, 1)
 
 	// start the backing store
 	etcdEndpoints, etcdCertificates, err := StartBackingStore(ctx, vConfig)
@@ -40,7 +39,7 @@ func StartK8S(
 
 	// start api server first
 	if apiServer.Enabled {
-		eg.Go(func() error {
+		go func() {
 			// build flags
 			issuer := "https://kubernetes.default.svc.cluster.local"
 
@@ -89,12 +88,13 @@ func StartK8S(
 			// wait until etcd is up and running
 			err := etcd.WaitForEtcd(ctx, etcdCertificates, etcdEndpoints)
 			if err != nil {
-				return err
+				errChan <- err
+				return
 			}
 
 			// now start the api server
-			return RunCommand(ctx, args, "apiserver")
-		})
+			errChan <- RunCommand(ctx, args, "apiserver")
+		}()
 	}
 
 	// wait for api server to be up as otherwise controller and scheduler might fail
@@ -105,7 +105,7 @@ func StartK8S(
 
 	// start controller command
 	if controllerManager.Enabled {
-		eg.Go(func() error {
+		go func() {
 			// build flags
 			args := []string{}
 			if len(controllerManager.Command) > 0 {
@@ -145,13 +145,13 @@ func StartK8S(
 
 			// add extra args
 			args = append(args, controllerManager.ExtraArgs...)
-			return RunCommand(ctx, args, "controller-manager")
-		})
+			errChan <- RunCommand(ctx, args, "controller-manager")
+		}()
 	}
 
 	// start scheduler command
 	if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled {
-		eg.Go(func() error {
+		go func() {
 			// build flags
 			args := []string{}
 			if len(scheduler.Command) > 0 {
@@ -171,18 +171,11 @@ func StartK8S(
 
 			// add extra args
 			args = append(args, scheduler.ExtraArgs...)
-			return RunCommand(ctx, args, "scheduler")
-		})
+			errChan <- RunCommand(ctx, args, "scheduler")
+		}()
 	}
 
-	// regular stop case, will return as soon as a component returns an error.
-	// we don't expect the components to stop by themselves since they're supposed
-	// to run until killed or until they fail
-	err = eg.Wait()
-	if err == nil || err.Error() == "signal: killed" {
-		return nil
-	}
-	return err
+	return <-errChan
 }
 
 func StartKine(ctx context.Context, dataSource, listenAddress string, certificates *etcd.Certificates) {
@@ -246,6 +239,13 @@ func StartBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig
 		if err != nil {
 			return "", nil, fmt.Errorf("configure external database: %w", err)
 		}
+	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeExternalEtcd {
+		etcdCertificates = &etcd.Certificates{
+			CaCert:     vConfig.ControlPlane.BackingStore.Etcd.External.TLS.CaFile,
+			ServerCert: vConfig.ControlPlane.BackingStore.Etcd.External.TLS.CertFile,
+			ServerKey:  vConfig.ControlPlane.BackingStore.Etcd.External.TLS.KeyFile,
+		}
+		etcdEndpoints = "https://" + strings.TrimPrefix(vConfig.ControlPlane.BackingStore.Etcd.External.Endpoint, "https://")
 	} else {
 		// embedded or deployed etcd
 		etcdCertificates = &etcd.Certificates{
@@ -300,7 +300,7 @@ func RunCommand(ctx context.Context, command []string, component string) error {
 
 	// make sure we wait for scanner to be done
 	writer.CloseAndWait(ctx, err)
-	return err
+	return fmt.Errorf("error running command %s: %w", command[0], err)
 }
 
 // waits for the api to be up, ignoring certs and calling it

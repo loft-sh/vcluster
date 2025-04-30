@@ -9,6 +9,9 @@
 {{- if .Values.controlPlane.backingStore.etcd.deploy.enabled -}}
 {{- $backingStores = add1 $backingStores -}}
 {{- end -}}
+{{- if .Values.controlPlane.backingStore.etcd.external.enabled -}}
+{{- $backingStores = add1 $backingStores -}}
+{{- end -}}
 {{- if .Values.controlPlane.backingStore.database.embedded.enabled -}}
 {{- $backingStores = add1 $backingStores -}}
 {{- end -}}

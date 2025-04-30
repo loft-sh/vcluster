@@ -8,6 +8,8 @@ on:
       - main
       - v*
     paths:
+      - go.mod
+      - go.sum
       - "**.go"
       - "!test/**" # exclude changes in e2e tests
       - ".github/workflows/unit-tests.yaml"
@@ -21,6 +23,7 @@ concurrency:
 jobs:
   helm-unit-tests:
     name: Execute all helm tests
+    if: github.repository_owner == 'loft-sh' # do not run on forks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -34,6 +37,7 @@ jobs:
 
   go-unit-test:
     name: Execute all go tests
+    if: github.repository_owner == 'loft-sh' # do not run on forks
     runs-on: ubuntu-22.04
     steps:
       - name: Check out code into the Go module directory

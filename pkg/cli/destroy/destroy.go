@@ -13,7 +13,9 @@ import (
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/start"
+	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -319,23 +321,52 @@ func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Conte
 						return false, fmt.Errorf("failed to unmarshal virtual cluster config for %v %q: %w", resource, namespacedName, err)
 					}
 					if vConfig.ControlPlane.BackingStore.Database.External.Connector != "" {
-						log.Warnf("IMPORTANT! You are removing an externally deployed virtual cluster %q from the platform.\n It will not be destroyed as the deployment is managed externally, but its database will be removed rendering it inoperable.", namespacedName)
-						if !nonInteractive {
-							yesOpt := "yes"
-							noOpt := "no"
-							out, err := log.Question(&survey.QuestionOptions{
-								Options:  []string{yesOpt, noOpt},
-								Question: "Do you want to continue?",
-							})
-							if err != nil {
-								return false, fmt.Errorf("failed to prompt for confirmation: %w", err)
-							}
-							if out != yesOpt {
-								return false, fmt.Errorf("destroy cancelled during prompt")
+						// check if already marked for deletion to avoid getting repeated prompts in case of backoff-retry scenario
+						if object.GetDeletionTimestamp().IsZero() {
+							log.Warnf("IMPORTANT! You are removing an externally deployed virtual cluster %q from the platform.\n It will not be destroyed as the deployment is managed externally, but its database will be removed rendering it inoperable.", namespacedName)
+							if !nonInteractive {
+								resp, err := log.Question(&survey.QuestionOptions{
+									Options:  []string{util.PositiveResponse, util.NegativeResponse},
+									Question: "Do you want to continue?",
+								})
+								if err != nil {
+									return false, fmt.Errorf("failed to prompt for confirmation: %w", err)
+								}
+								if resp != util.PositiveResponse {
+									return false, fmt.Errorf("destroy cancelled during prompt")
+								}
 							}
 						}
 					} else {
 						log.Warnf("removing an externally deployed virtual cluster %q from the platform. It will not be destroyed as the deployment is managed externally.", namespacedName)
+					}
+				}
+
+				// check if DBConnectorSynced condition is marked as false, if so then controller won't be able to
+				// remove the "cleanup-connectors" finalizer. Hence, the user needs to opt-in for the removal of finalizer
+				for _, cond := range virtualClusterInstance.Status.Conditions {
+					if cond.Type == util.InstanceVirtualClusterDBConnectorSynced &&
+						cond.Status == corev1.ConditionFalse &&
+						cond.Reason == util.DBConnectorSecretNotFound {
+						log.Warnf("The database connector secret is not found. To continue with the cleanup process "+
+							"of \"%v\", the finalizer needs to be removed.", virtualClusterInstance.GetName())
+						resp, err := log.Question(&survey.QuestionOptions{
+							Options:  []string{util.PositiveResponse, util.NegativeResponse},
+							Question: "Do you want to continue with the cleanup process?",
+						})
+						if err != nil {
+							return false, fmt.Errorf("failed to prompt for confirmation: %w", err)
+						}
+						if resp == util.PositiveResponse {
+							// remove the "cleanup-connectors" finalizer from the virtualClusterInstance
+							_, err = resourceClient.Namespace(object.GetNamespace()).Patch(ctx, virtualClusterInstance.Name,
+								types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`), metav1.PatchOptions{})
+							if err != nil && !kerrors.IsNotFound(err) {
+								return false, err
+							}
+						} else {
+							return false, fmt.Errorf("platform destroy operation cancelled during prompt")
+						}
 					}
 				}
 
@@ -373,7 +404,7 @@ func deleteAllResourcesAndWait(ctxWithoutDeadline, ctxWithDeadLine context.Conte
 		return ctxWithDeadLine, func() {}, err
 	}
 
-	// the timeout is hit, begin removing finalizers and rety
+	// the timeout is hit, begin removing finalizers and retry
 	if !deleteFinalizers {
 		return ctxWithDeadLine, func() {}, fmt.Errorf("timed out waiting for %q to be deleted", resource)
 	}

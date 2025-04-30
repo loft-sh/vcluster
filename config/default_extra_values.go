@@ -17,6 +17,7 @@ type StoreType string
 const (
 	StoreTypeEmbeddedEtcd     StoreType = "embedded-etcd"
 	StoreTypeExternalEtcd     StoreType = "external-etcd"
+	StoreTypeDeployedEtcd     StoreType = "deployed-etcd"
 	StoreTypeEmbeddedDatabase StoreType = "embedded-database"
 	StoreTypeExternalDatabase StoreType = "external-database"
 )
@@ -41,39 +42,19 @@ var K0SVersionMap = map[string]string{
 	"1.27": "k0sproject/k0s:v1.27.16-k0s.0",
 }
 
-// K8SAPIVersionMap holds the supported k8s api servers
-var K8SAPIVersionMap = map[string]string{
-	"1.32": "registry.k8s.io/kube-apiserver:v1.32.1",
-	"1.31": "registry.k8s.io/kube-apiserver:v1.31.1",
-	"1.30": "registry.k8s.io/kube-apiserver:v1.30.2",
-	"1.29": "registry.k8s.io/kube-apiserver:v1.29.6",
-	"1.28": "registry.k8s.io/kube-apiserver:v1.28.11",
-	"1.27": "registry.k8s.io/kube-apiserver:v1.27.16",
-}
-
-// K8SControllerVersionMap holds the supported k8s controller managers
-var K8SControllerVersionMap = map[string]string{
-	"1.32": "registry.k8s.io/kube-controller-manager:v1.32.1",
-	"1.31": "registry.k8s.io/kube-controller-manager:v1.31.1",
-	"1.30": "registry.k8s.io/kube-controller-manager:v1.30.2",
-	"1.29": "registry.k8s.io/kube-controller-manager:v1.29.6",
-	"1.28": "registry.k8s.io/kube-controller-manager:v1.28.11",
-	"1.27": "registry.k8s.io/kube-controller-manager:v1.27.16",
-}
-
-// K8SSchedulerVersionMap holds the supported k8s schedulers
-var K8SSchedulerVersionMap = map[string]string{
-	"1.32": "registry.k8s.io/kube-scheduler:v1.32.1",
-	"1.31": "registry.k8s.io/kube-scheduler:v1.31.1",
-	"1.30": "registry.k8s.io/kube-scheduler:v1.30.2",
-	"1.29": "registry.k8s.io/kube-scheduler:v1.29.6",
-	"1.28": "registry.k8s.io/kube-scheduler:v1.28.11",
-	"1.27": "registry.k8s.io/kube-scheduler:v1.27.16",
+// K8SVersionMap holds the supported k8s api servers
+var K8SVersionMap = map[string]string{
+	"1.32": "ghcr.io/loft-sh/kubernetes:v1.32.1",
+	"1.31": "ghcr.io/loft-sh/kubernetes:v1.31.1",
+	"1.30": "ghcr.io/loft-sh/kubernetes:v1.30.2",
+	"1.29": "ghcr.io/loft-sh/kubernetes:v1.29.6",
+	"1.28": "ghcr.io/loft-sh/kubernetes:v1.28.11",
+	"1.27": "ghcr.io/loft-sh/kubernetes:v1.27.16",
 }
 
 // K8SEtcdVersionMap holds the supported etcd
 var K8SEtcdVersionMap = map[string]string{
-	"1.32": "registry.k8s.io/etcd:3.5.17-0",
+	"1.32": "registry.k8s.io/etcd:3.5.21-0",
 	"1.31": "registry.k8s.io/etcd:3.5.15-0",
 	"1.30": "registry.k8s.io/etcd:3.5.13-0",
 	"1.29": "registry.k8s.io/etcd:3.5.10-0",

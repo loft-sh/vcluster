@@ -2,6 +2,7 @@ package deletecmd
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
@@ -9,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	flagsdelete "github.com/loft-sh/vcluster/pkg/cli/flags/delete"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/spf13/cobra"
 )
 
@@ -54,5 +56,13 @@ vcluster platform delete vcluster --namespace test
 
 // Run executes the functionality
 func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
-	return cli.DeletePlatform(ctx, &cmd.DeleteOptions, cmd.LoadedConfig(cmd.log), args[0], cmd.log)
+	cfg := cmd.LoadedConfig(cmd.log)
+
+	// check if there is a platform client or we skip the info message
+	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
+	if err != nil {
+		return fmt.Errorf("init platform client: %w", err)
+	}
+
+	return cli.DeletePlatform(ctx, platformClient, &cmd.DeleteOptions, args[0], cmd.log)
 }

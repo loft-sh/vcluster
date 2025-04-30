@@ -7,10 +7,9 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-
-	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,29 +27,20 @@ import (
 
 var _ = ginkgo.Describe("Services are created as expected", func() {
 	var (
-		f         *framework.Framework
-		iteration int
-		ns        string
+		f *framework.Framework
 	)
 
 	ginkgo.JustBeforeEach(func() {
 		// use default framework
 		f = framework.DefaultFramework
-		iteration++
-		ns = fmt.Sprintf("e2e-syncer-services-%d-%s", iteration, random.String(5))
-
-		// create test namespace
-		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
-		framework.ExpectNoError(err)
-	})
-
-	ginkgo.AfterEach(func() {
-		// delete test namespace
-		err := f.DeleteTestNamespace(ns, false)
-		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("Test LoadBalancer node ports & cluster ip", func() {
+		// create test namespace
+		ns := "test-service-lb-node-ports-cluster-ip"
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "myservice-loadbalancer",
@@ -84,9 +74,18 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		for i := range vService.Spec.Ports {
 			framework.ExpectEqual(vService.Spec.Ports[i].NodePort, pService.Spec.Ports[i].NodePort)
 		}
+
+		// delete test namespace
+		err = f.DeleteTestNamespace(ns, false)
+		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("Test Service gets created when no Kind is present in body", func() {
+		// create test namespace
+		ns := "test-service-created-no-kind"
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
 		service := corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "myservice",
@@ -114,9 +113,18 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		pServiceName := translate.Default.HostName(nil, service.Name, service.Namespace)
 		_, err = f.HostClient.CoreV1().Services(pServiceName.Namespace).Get(f.Context, pServiceName.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
+
+		// delete test namespace
+		err = f.DeleteTestNamespace(ns, false)
+		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("Services should complete a service status lifecycle", func() {
+		// create test namespace
+		ns := "test-service-status-lifecycle"
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
 		svcResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
 		svcClient := f.VClusterClient.CoreV1().Services(ns)
 		testSvcName := "test-service-" + utilrand.String(5)
@@ -328,9 +336,18 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		})
 		framework.ExpectNoError(err, "failed to delete Service %v in namespace %v", testService.Name, ns)
 		f.Log.Infof("Service %s deleted", testSvcName)
+
+		// delete test namespace
+		err = f.DeleteTestNamespace(ns, false)
+		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("should sync labels and annotation bidirectionally", func() {
+		// create test namespace
+		ns := "test-service-sync-labels-annotations-bidirectionally"
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "myservice-with-annotations",
@@ -385,16 +402,36 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		framework.ExpectNoError(err)
 
 		// wait for the change to be synced into the vCluster
-		err = f.WaitForServiceToUpdate(f.VClusterClient, vService.Name, vService.Namespace, vService.ResourceVersion)
-		framework.ExpectNoError(err)
+		gomega.Eventually(func() error {
+			vService, err = f.VClusterClient.CoreV1().Services(vService.Namespace).Get(f.Context, service.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			pService, err = f.HostClient.CoreV1().Services(pServiceName.Namespace).Get(f.Context, pService.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			// check that labels and annotations are the same
+			annotationsEqual := vService.Annotations["some-annotation"] == pService.Annotations["some-annotation"]
+			if !annotationsEqual {
+				return fmt.Errorf(
+					"expected vService.Annotations['some-annotation'] %s to equal pService.Annotations['some-annotation'] %s",
+					vService.Annotations["some-annotation"], pService.Annotations["some-annotation"],
+				)
+			}
+			labelsEqual := vService.Labels["host-cluster-label"] == pService.Labels["host-cluster-label"]
+			if !labelsEqual {
+				return fmt.Errorf(
+					"expected vService.Labels['host-cluster-label'] %s to equal pService.Labels['host-cluster-label'] %s",
+					vService.Labels["host-cluster-label"], pService.Labels["host-cluster-label"],
+				)
+			}
+			return nil
 
-		// refetch the vCluster service object
-		vService, err = f.VClusterClient.CoreV1().Services(ns).Get(f.Context, vService.Name, metav1.GetOptions{})
-		framework.ExpectNoError(err)
-
-		// check that labels and annotations are the same
-		framework.ExpectEqual(vService.Annotations["some-annotation"], pService.Annotations["some-annotation"])
-		framework.ExpectEqual(vService.Labels["host-cluster-label"], pService.Labels["host-cluster-label"])
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			ShouldNot(gomega.HaveOccurred())
 
 		// update vCluster service
 		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(context.Context) (bool, error) {
@@ -426,15 +463,38 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		framework.ExpectNoError(err)
 
 		// wait for the change to be synced into the host cluster
-		err = f.WaitForServiceToUpdate(f.HostClient, pService.Name, pService.Namespace, pService.ResourceVersion)
-		framework.ExpectNoError(err)
+		gomega.Eventually(func() error {
+			vService, err = f.VClusterClient.CoreV1().Services(vService.Namespace).Get(f.Context, service.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			pService, err = f.HostClient.CoreV1().Services(pServiceName.Namespace).Get(f.Context, pService.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			annotationsEqual := vService.Annotations["some-annotation"] == pService.Annotations["some-annotation"]
+			if !annotationsEqual {
+				return fmt.Errorf(
+					"expected vService.Annotations['some-annotation'] %s to equal pService.Annotations['some-annotation'] %s",
+					vService.Annotations["some-annotation"], pService.Annotations["some-annotation"],
+				)
+			}
+			labelsEqual := vService.Labels["vcluster-label"] == pService.Labels["vcluster-label"]
+			if !labelsEqual {
+				return fmt.Errorf(
+					"expected vService.Labels['vcluster-label'] %s to equal pService.Labels['vcluster-label'] %s",
+					vService.Labels["vcluster-label"], pService.Labels["vcluster-label"],
+				)
+			}
+			return nil
 
-		// refetch the host cluster service object
-		pService, err = f.HostClient.CoreV1().Services(pService.Namespace).Get(f.Context, pService.Name, metav1.GetOptions{})
-		framework.ExpectNoError(err)
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			ShouldNot(gomega.HaveOccurred())
 
-		// check that labels and annotations are the same
-		framework.ExpectEqual(vService.Annotations["some-annotation"], pService.Annotations["some-annotation"])
-		framework.ExpectEqual(vService.Labels["vcluster-label"], pService.Labels["vcluster-label"])
+		// delete test namespace
+		err = f.DeleteTestNamespace(ns, false)
+		framework.ExpectNoError(err)
 	})
 })

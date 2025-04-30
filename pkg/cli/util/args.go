@@ -9,6 +9,8 @@ import (
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
 	"github.com/spf13/cobra"
+
+	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
 )
 
 var (
@@ -23,6 +25,16 @@ var (
 var (
 	ErrNonInteractive   = errors.New("terminal is not interactive")
 	ErrTooManyArguments = errors.New("too many arguments specified")
+
+	// prompt responses
+	PositiveResponse = "yes"
+	NegativeResponse = "no"
+)
+
+const (
+	InstanceVirtualClusterDBConnectorSynced agentstoragev1.ConditionType = "DBConnectorSynced"
+
+	DBConnectorSecretNotFound string = "DBConnectorSecretNotFound"
 )
 
 func init() {

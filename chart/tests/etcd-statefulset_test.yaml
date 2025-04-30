@@ -7,6 +7,17 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+          
+  - it: check disabled for external etcd
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            external:
+              enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
 
   - it: check disabled headless
     set:

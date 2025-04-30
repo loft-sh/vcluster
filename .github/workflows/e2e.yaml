@@ -8,6 +8,8 @@ on:
       - main
       - v*
     paths:
+      - go.mod
+      - go.sum
       - "**.go"
       - "!**_test.go" # exclude test files to ignore unit test changes
       - "test/**" # include test files in e2e again
@@ -30,33 +32,40 @@ env:
   VCLUSTER_NAMESPACE: vcluster
 
 jobs:
-  build-and-push-syncer-image:
+  build:
     runs-on: ubuntu-latest
+    if: github.repository_owner == 'loft-sh' # do not run on forks
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - run: git fetch --force --tags
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Setup Just
-        uses: extractions/setup-just@v2
-      - name: Setup Syft
-        uses: anchore/sbom-action/download-syft@v0.18.0
+
       - name: Setup GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           install-only: true
           version: latest
+
       - name: Build and save syncer image
         run: |
           set -x
+          # Build syncer
           TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster --clean --output ./vcluster
           docker build -t "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
           docker save -o vcluster_syncer "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}"
+          # Build cli
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
+          # Build tests for cache
+          go test -mod=vendor -test.v -c ./test/e2e
+
       - name: Upload syncer image to artifact
         uses: actions/upload-artifact@v4
         with:
@@ -64,30 +73,6 @@ jobs:
           path: ./vcluster_syncer
           retention-days: 7
 
-  build-vcluster-cli:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - run: git fetch --force --tags
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Setup Just
-        uses: extractions/setup-just@v2
-      - name: Setup Syft
-        uses: anchore/sbom-action/download-syft@v0.18.0
-      - name: Setup GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          install-only: true
-      - name: Build vcluster cli
-        run: |
-          set -x
-          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
       - name: Upload vcluster cli to artifact
         uses: actions/upload-artifact@v4
         with:
@@ -109,42 +94,9 @@ jobs:
     outputs:
       matrix: ${{ steps.set-paths-matrix.outputs.matrix }}
 
-  build-e2e:
-    name: Build e2e binaries
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure git
-        run: git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
-        env:
-          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version-file: go.mod
-
-      - name: Build e2e binary
-        run: |
-          go run -mod=vendor github.com/onsi/ginkgo/v2/ginkgo build --require-suite -r --mod vendor $(ls -d ./test/e2e* | jq -R . | jq -rcs '. | join(" \\\n")')
-        env:
-          GOWORK: off
-
-      - name: Upload e2e binaries to artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-binaries
-          path: ./test/*/*.test
-          retention-days: 7
-
   vcluster-install-delete:
     name: Install and delete virtual cluster
-    needs:
-      - build-and-push-syncer-image
-      - build-vcluster-cli
+    needs: build
 
     runs-on: ubuntu-latest
     steps:
@@ -182,23 +134,17 @@ jobs:
 
       - name: Setup environment
         run: |
-
           kind load image-archive vcluster_syncer
-
           chmod +x vcluster && sudo mv vcluster /usr/bin
-
-          sudo apt-get install -y sed
 
       - name: Run tests - install and delete virtual cluster using kubectl
         run: |
           set -x
-
           ./hack/vcluster-install-scripts/test-kubectl-install.sh
 
       - name: Run tests - install and delete virtual cluster using helm
         run: |
           set -x
-
           ./hack/vcluster-install-scripts/test-helm-install.sh
 
   download-latest-cli:
@@ -218,8 +164,7 @@ jobs:
   upgrade-test:
     name: test if we can upgrade from older version
     needs:
-      - build-and-push-syncer-image
-      - build-vcluster-cli
+      - build
       - download-latest-cli
     runs-on: ubuntu-latest
     strategy:
@@ -234,6 +179,7 @@ jobs:
         name: Setup Helm
         with:
           version: "v3.11.0"
+
       - name: Set up kind k8s cluster
         uses: engineerd/setup-kind@v0.5.0
         with:
@@ -263,10 +209,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vcluster_syncer
-
-      - name: install sed
-        run: |
-          sudo apt-get install -y sed
 
       - name: Install yq@v4
         run: go install github.com/mikefarah/yq/v4@latest
@@ -306,10 +248,8 @@ jobs:
   e2e-tests:
     name: Execute test suites
     needs:
-      - build-and-push-syncer-image
-      - build-vcluster-cli
+      - build
       - get-testsuites-dir
-      - build-e2e
 
     runs-on: ubuntu-latest
     strategy:
@@ -352,6 +292,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
       - uses: azure/setup-helm@v4
         name: Setup Helm
         with:
@@ -381,15 +326,6 @@ jobs:
         with:
           name: vcluster_syncer
 
-      - name: Download e2e binaries
-        uses: actions/download-artifact@v4
-        with:
-          name: e2e-binaries
-          path: ./test
-
-      # - name: Setup upterm session for debugging
-      #   uses: lhotari/action-upterm@v1
-
       - name: Create vcluster
         id: create-vcluster
         run: |
@@ -416,8 +352,6 @@ jobs:
             kubectl create namespace from-host-sync-test
             kubectl create namespace from-host-sync-test-2
           fi
-
-          sudo apt-get install -y sed
 
           sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
           sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
@@ -472,9 +406,11 @@ jobs:
         run: |
           set -x
 
-          sudo chmod +x $(echo "${{ matrix.test-suite-path }}" | sed "s#./test/##g").test
-
-          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} ./$(echo "${{ matrix.test-suite-path }}" | sed "s#./test/##g").test -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast
+          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} \
+          VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} \
+          VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} \
+          MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} \
+          go test -timeout 40m -mod=vendor -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast ${{ matrix.test-suite-path }}
           if kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p >/dev/null 2>/dev/null; then
             echo "vCluster has restarted during testing, failing..."
             exit 1

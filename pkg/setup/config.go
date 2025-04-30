@@ -122,7 +122,7 @@ func EnsureBackingStoreChanges(ctx context.Context, client kubernetes.Interface,
 // It checks for the existence of the default K3s token path or the K0s data directory.
 func CheckUsingHeuristic(distro string) (bool, error) {
 	// check if previously we were using k3s as a default and now have switched to a different distro
-	if distro != vclusterconfig.K3SDistro {
+	if distro != vclusterconfig.K3SDistro && distro != vclusterconfig.K8SDistro {
 		_, err := os.Stat(k3s.TokenPath)
 		if err == nil {
 			return false, fmt.Errorf("seems like you were using k3s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", distro)

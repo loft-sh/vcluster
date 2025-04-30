@@ -172,6 +172,12 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 			}
 		}()
 	case vclusterconfig.K8SDistro:
+		// migrate k3s to k8s if needed
+		err := k8s.MigrateK3sToK8s(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options)
+		if err != nil {
+			return fmt.Errorf("migrate k3s to k8s: %w", err)
+		}
+
 		// try to generate k8s certificates
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == "/data/pki" {
@@ -253,9 +259,8 @@ func GenerateCerts(ctx context.Context, currentNamespaceClient kubernetes.Interf
 		)
 	}
 
-	// expect up to 20 etcd members, number could be lower since more
-	// than 5 is generally a bad idea
-	for i := range 20 {
+	// expect up to 5 etcd members
+	for i := range 5 {
 		// this is for embedded etcd
 		hostname := vClusterName + "-" + strconv.Itoa(i)
 		etcdSans = append(etcdSans, hostname, hostname+"."+vClusterName+"-headless", hostname+"."+vClusterName+"-headless"+"."+currentNamespace)

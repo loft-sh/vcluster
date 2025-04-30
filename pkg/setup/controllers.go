@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/coredns"
+	"github.com/loft-sh/vcluster/pkg/k8s"
 	"github.com/loft-sh/vcluster/pkg/log"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -38,6 +39,12 @@ import (
 func StartControllers(controllerContext *synccontext.ControllerContext, syncers []syncertypes.Object) error {
 	// exchange control plane client
 	controlPlaneClient, err := pro.ExchangeControlPlaneClient(controllerContext)
+	if err != nil {
+		return err
+	}
+
+	// migrate k3s to k8s if needed
+	err = k8s.MigrateK3sToK8sStateless(controllerContext.Context, controllerContext.Config.ControlPlaneClient, controllerContext.Config.ControlPlaneNamespace, controllerContext.VirtualManager.GetClient(), controllerContext.Config)
 	if err != nil {
 		return err
 	}
@@ -168,6 +175,15 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 	// start mappings store garbage collection
 	controllerContext.Mappings.Store().StartGarbageCollection(controllerContext.Context)
 
+	// When the user disables from host syncing for some kind, the previously synced resources will
+	// stay in the virtual cluster. Since the controllers for those resources do not exist anymore,
+	// here we delete those stale virtual resources that were synced from host but should not be
+	// synced anymore.
+	err = deletePreviouslySyncedResources(controllerContext)
+	if err != nil {
+		return fmt.Errorf("failed to delete previouly synced resources: %w", err)
+	}
+
 	// we are done here
 	klog.FromContext(controllerContext).Info("Successfully started vCluster controllers")
 	return nil
@@ -245,8 +261,20 @@ func CreateVClusterKubeConfigForExport(ctx context.Context, virtualConfig *rest.
 				Server:                   options.ExportKubeConfig.Server,
 				Extensions:               make(map[string]runtime.Object),
 				CertificateAuthorityData: cluster.CertificateAuthorityData,
-				InsecureSkipTLSVerify:    options.ExportKubeConfig.Insecure,
 			}
+		}
+	}
+
+	// is insecure?
+	if options.ExportKubeConfig.Insecure {
+		// set insecure skip tls verify and remove certificate authority data
+		for key, cluster := range syncerConfigToExport.Clusters {
+			if cluster == nil {
+				continue
+			}
+
+			syncerConfigToExport.Clusters[key].InsecureSkipTLSVerify = true
+			syncerConfigToExport.Clusters[key].CertificateAuthorityData = nil
 		}
 	}
 

@@ -14,7 +14,7 @@ One of the biggest benefits of vCluster compared to other virtual cluster approa
 
 ### Namespaces
 
-Installation creates the namespace for vCluster if it does not yet exist. When you create namespaces within your virtual cluster, those resources are encapsulated within the vCluster namespace. 
+Installation creates the namespace for vCluster if it does not yet exist. When you create namespaces within your virtual cluster, those resources are encapsulated within the vCluster namespace.
 
 ## Create your virtual cluster
 
@@ -41,7 +41,7 @@ done Switched active kube context to vcluster_my-cluster
 
 `vcluster create` has [config options](../cli/vcluster_create.md) for specific cases:
 
-* Use `--expose` to create a vCluster in a remote cluster with an externally accessible LoadBalancer. 
+* Use `--expose` to create a vCluster in a remote cluster with an externally accessible LoadBalancer.
 
   `vcluster create my-vcluster --expose`
 
@@ -54,7 +54,7 @@ done Switched active kube context to vcluster_my-cluster
   `vcluster create my-vcluster --distro k8s`
 
 * Use `--isolate` to create an isolated environment for the vCluster workloads
-  
+
   `vcluster create my-vcluster --isolate`
 
 
@@ -93,7 +93,7 @@ helm template my-vcluster vcluster --repo https://charts.loft.sh -n vcluster-my-
 </Tabs>
 
 :::note Contexts
-In this guide, vCluster installation creates a new context that starts with "vcluster_my-cluster" and updates your `kubeconfig` file to point to that context. 
+In this guide, vCluster installation creates a new context that starts with "vcluster_my-cluster" and updates your `kubeconfig` file to point to that context.
 
 * Execute `vcluster connect my-cluster` to connect to your vCluster context.
 * Execute `vcluster disconnect` to switch back to your default (host) context.
@@ -111,7 +111,8 @@ defaultImageRegistry: my-private-registry:5000/vcluster/
 
 This tells vCluster to prepend the image registry to all images used by vCluster, such as syncer, K3s, and CoreDNS. For example, `rancher/k3s:v1.29.1+k3s2` becomes `my-private-registry:5000/vcluster/rancher/k3s:v1.29.1+k3s2.
 
-You can find a list of all needed images by vCluster in the file `vcluster-images.txt` at the [releases page](https://github.com/loft-sh/vcluster/releases), as well as two scripts (download-images.sh & push-images.sh) to pull and push those to your private registry. 
+You can find a list of all needed images by vCluster in the file `images.txt` at the [releases page](https://github.com/loft-sh/vcluster/releases), as well as two scripts (download-images.sh & push-images.sh) to pull and push those to your private registry.
+Optional images with additional versions of dependencies are listed in the `images-optional.txt` file.
 
 You can locate the Helm chart and values file for Kubernetes distro in the vCluster [repo](https://github.com/loft-sh/vcluster/tree/v0.19/charts). Be sure to choose the tag that matches your vCluster version.
 

@@ -92,6 +92,11 @@ func StartK0S(ctx context.Context, cancel context.CancelFunc, vConfig *config.Vi
 	// everywhere
 	defer cancel()
 
+	// check if external etcd is enabled
+	if vConfig.ControlPlane.BackingStore.Etcd.External.Enabled {
+		return fmt.Errorf("external etcd is not supported for k0s, please use a different distro")
+	}
+
 	// make sure we delete the contents of /run/k0s
 	dirEntries, _ := os.ReadDir(runDir)
 	for _, entry := range dirEntries {

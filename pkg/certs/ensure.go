@@ -42,10 +42,10 @@ func EnsureCerts(
 		return errors.New("nil currentNamespaceClient")
 	}
 
-	// we create a certificate for up to 20 etcd replicas, this should be sufficient for most use cases. Eventually we probably
+	// we create a certificate for up to 5 etcd replicas, this should be sufficient for most use cases. Eventually we probably
 	// want to update this to the actual etcd number, but for now this is the easiest way to allow up and downscaling without
 	// regenerating certificates.
-	secretName := vClusterName + "-certs"
+	secretName := CertSecretName(vClusterName)
 	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err == nil {
 		// download certs from secret
@@ -181,6 +181,10 @@ func EnsureCerts(
 	return downloadCertsFromSecret(secret, certificateDir)
 }
 
+func CertSecretName(vClusterName string) string {
+	return vClusterName + "-certs"
+}
+
 func createConfig(serviceCIDR, vClusterName, certificateDir, clusterDomain string, etcdSans []string) (*InitConfiguration, error) {
 	// init config
 	cfg, err := SetInitDynamicDefaults()
@@ -228,6 +232,11 @@ func generateCertificates(
 		return fmt.Errorf("create kube configs: %w", err)
 	}
 
+	err = splitCACert(certificateDir)
+	if err != nil {
+		return fmt.Errorf("split ca cert: %w", err)
+	}
+
 	return nil
 }
 
@@ -267,6 +276,46 @@ func downloadCertsFromSecret(
 		}
 	}
 
+	err := splitCACert(certificateDir)
+	if err != nil {
+		return fmt.Errorf("split ca cert: %w", err)
+	}
+
+	return nil
+}
+
+func splitCACert(certificateDir string) error {
+	// make sure to write server-ca and client-ca to file system
+	err := copyFileIfNotExists(filepath.Join(certificateDir, CACertName), filepath.Join(certificateDir, ServerCACertName))
+	if err != nil {
+		return fmt.Errorf("copy %s: %w", ServerCACertName, err)
+	}
+	err = copyFileIfNotExists(filepath.Join(certificateDir, CAKeyName), filepath.Join(certificateDir, ServerCAKeyName))
+	if err != nil {
+		return fmt.Errorf("copy %s: %w", ServerCAKeyName, err)
+	}
+	err = copyFileIfNotExists(filepath.Join(certificateDir, CACertName), filepath.Join(certificateDir, ClientCACertName))
+	if err != nil {
+		return fmt.Errorf("copy %s: %w", ClientCACertName, err)
+	}
+	err = copyFileIfNotExists(filepath.Join(certificateDir, CAKeyName), filepath.Join(certificateDir, ClientCAKeyName))
+	if err != nil {
+		return fmt.Errorf("copy %s: %w", ClientCAKeyName, err)
+	}
+
+	return nil
+}
+
+func copyFileIfNotExists(src, dst string) error {
+	_, err := os.Stat(dst)
+	if os.IsNotExist(err) {
+		srcBytes, err := os.ReadFile(src)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", src, err)
+		}
+
+		return os.WriteFile(dst, srcBytes, 0666)
+	}
 	return nil
 }
 

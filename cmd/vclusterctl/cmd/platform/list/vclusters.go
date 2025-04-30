@@ -17,6 +17,7 @@ type VClustersCmd struct {
 
 	log     log.Logger
 	Project string
+	owner   bool
 }
 
 // newVClustersCmd creates a new command
@@ -46,11 +47,12 @@ vcluster platform list vclusters
 
 	p, _ := defaults.Get(pdefaults.KeyProject, "")
 	cobraCmd.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
-	cobraCmd.Flags().StringVar(&cmd.Output, "output", "table", "Choose the format of the output. [table|json]")
+	cobraCmd.Flags().BoolVar(&cmd.owner, "owner", false, "List virtual clusters owned by the currently logged-in user")
 
+	AddCommonFlags(cobraCmd, &cmd.ListOptions)
 	return cobraCmd
 }
 
 func (cmd *VClustersCmd) Run(ctx context.Context) error {
-	return cli.ListPlatform(ctx, &cmd.ListOptions, cmd.GlobalFlags, cmd.log, cmd.Project)
+	return cli.ListPlatform(ctx, &cmd.ListOptions, cmd.GlobalFlags, cmd.log, cmd.Project, cmd.owner)
 }

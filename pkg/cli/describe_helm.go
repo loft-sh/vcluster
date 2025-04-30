@@ -25,10 +25,8 @@ type DescribeOutput struct {
 }
 
 type ImageTag struct {
-	APIServer         string `json:"apiServer,omitempty"`
-	Syncer            string `json:"syncer,omitempty"`
-	Scheduler         string `json:"scheduler,omitempty"`
-	ControllerManager string `json:"controllerManager,omitempty"`
+	APIServer string `json:"apiServer,omitempty"`
+	Syncer    string `json:"syncer,omitempty"`
 }
 
 func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Writer, name, format string) error {
@@ -117,12 +115,10 @@ func extractFromValues(d *DescribeOutput, configBytes []byte, format, version st
 	default:
 		d.Distro = conf.Distro()
 		d.BackingStore = string(conf.BackingStoreType())
-		syncer, api, scheduler, controllerManager := getImageTags(conf, version)
+		syncer, api := getImageTags(conf, version)
 		d.ImageTags = ImageTag{
-			Syncer:            syncer,
-			APIServer:         api,
-			Scheduler:         scheduler,
-			ControllerManager: controllerManager,
+			Syncer:    syncer,
+			APIServer: api,
 		}
 	}
 
@@ -146,7 +142,7 @@ func valueOrDefaultSyncerImage(value string) string {
 	return "vcluster-pro"
 }
 
-func getImageTags(c *config.Config, version string) (syncer, api, scheduler, controllerManager string) {
+func getImageTags(c *config.Config, version string) (syncer, api string) {
 	syncerConfig := c.ControlPlane.StatefulSet.Image
 	defaultRegistry := c.ControlPlane.Advanced.DefaultImageRegistry
 
@@ -160,22 +156,10 @@ func getImageTags(c *config.Config, version string) (syncer, api, scheduler, con
 	case config.K8SDistro:
 		k8s := c.ControlPlane.Distro.K8S
 
-		api = valueOrDefaultRegistry(k8s.APIServer.Image.Registry, defaultRegistry) + "/" + k8s.APIServer.Image.Repository + ":" + k8s.APIServer.Image.Tag
-		if k8s.APIServer.Image.Repository == "" {
+		api = valueOrDefaultRegistry(k8s.Image.Registry, defaultRegistry) + "/" + k8s.Image.Repository + ":" + k8s.Image.Tag
+		if k8s.Image.Repository == "" {
 			// with the platform driver if only the registry is set we won't be able to display complete info
 			api = ""
-		}
-
-		scheduler = valueOrDefaultRegistry(k8s.Scheduler.Image.Registry, defaultRegistry) + "/" + k8s.Scheduler.Image.Repository + ":" + k8s.Scheduler.Image.Tag
-		if k8s.Scheduler.Image.Repository == "" {
-			// with the platform driver if only the registry is set we won't be able to display complete info
-			scheduler = ""
-		}
-
-		controllerManager = valueOrDefaultRegistry(k8s.ControllerManager.Image.Registry, defaultRegistry) + "/" + k8s.ControllerManager.Image.Repository + ":" + k8s.ControllerManager.Image.Tag
-		if k8s.ControllerManager.Image.Repository == "" {
-			// with the platform driver if only the registry is set we won't be able to display complete info
-			controllerManager = ""
 		}
 
 	case config.K3SDistro:
@@ -190,7 +174,6 @@ func getImageTags(c *config.Config, version string) (syncer, api, scheduler, con
 		k0s := c.ControlPlane.Distro.K0S
 
 		api = valueOrDefaultRegistry(k0s.Image.Registry, defaultRegistry) + "/" + k0s.Image.Repository + ":" + k0s.Image.Tag
-
 		if strings.HasPrefix(api, valueOrDefaultRegistry(k0s.Image.Registry, defaultRegistry)+"/:") {
 			// with the platform driver if only the registry is set we won't be able to display complete info
 			api = ""
@@ -199,13 +182,9 @@ func getImageTags(c *config.Config, version string) (syncer, api, scheduler, con
 
 	syncer = strings.TrimPrefix(syncer, "/")
 	api = strings.TrimPrefix(api, "/")
-	scheduler = strings.TrimPrefix(scheduler, "/")
-	controllerManager = strings.TrimPrefix(controllerManager, "/")
 
 	syncer = strings.TrimSuffix(syncer, ":")
 	api = strings.TrimSuffix(api, ":")
-	scheduler = strings.TrimSuffix(scheduler, ":")
-	controllerManager = strings.TrimSuffix(controllerManager, ":")
 
-	return syncer, api, scheduler, controllerManager
+	return syncer, api
 }

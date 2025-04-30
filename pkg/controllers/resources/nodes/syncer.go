@@ -175,20 +175,20 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 }
 
 // only used when scheduler is enabled
-func enqueueNonVClusterPod(old, new client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
-	pod, ok := new.(*corev1.Pod)
+func enqueueNonVClusterPod(oldObject, newObject client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+	pod, ok := newObject.(*corev1.Pod)
 	if !ok {
-		klog.Errorf("invalid type passed to pod handler: %T", new)
+		klog.Errorf("invalid type passed to pod handler: %T", newObject)
 		return
 	}
 	// skip if node name missing
 	if pod.Spec.NodeName == "" {
 		return
 	}
-	if old != nil {
-		oldPod, ok := old.(*corev1.Pod)
+	if oldObject != nil {
+		oldPod, ok := oldObject.(*corev1.Pod)
 		if !ok {
-			klog.Errorf("invalid type passed to pod handler: %T", old)
+			klog.Errorf("invalid type passed to pod handler: %T", oldObject)
 			return
 		}
 		// skip if running status not updated

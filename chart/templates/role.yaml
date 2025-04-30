@@ -118,6 +118,14 @@ rules:
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
   {{- end }}
+  {{- if .Values.integrations.istio.enabled }}
+  - apiGroups: [ "networking.istio.io" ]
+    resources: [ "destinationrules", "gateways", "serviceentries", "virtualservices" ]
+    verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+  - apiGroups: [ "gateway.networking.k8s.io" ]
+    resources: [ "gateways" ]
+    verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+  {{- end }}
   {{- include "vcluster.customResources.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.generic.roleExtraRules" . | indent 2 }}

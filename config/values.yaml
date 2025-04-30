@@ -92,32 +92,22 @@ controlPlane:
     k8s:
       enabled: false
       version: ""
+      imagePullPolicy: ""
+      image:
+        registry: ghcr.io
+        repository: "loft-sh/kubernetes"
+        tag: "v1.32.1"
       apiServer:
         enabled: true
         command: []
         extraArgs: []
-        imagePullPolicy: ""
-        image:
-          registry: registry.k8s.io
-          repository: kube-apiserver
-          tag: "v1.32.1"
       controllerManager:
         enabled: true
         command: []
         extraArgs: []
-        imagePullPolicy: ""
-        image:
-          registry: registry.k8s.io
-          repository: "kube-controller-manager"
-          tag: "v1.32.1"
       scheduler:
         command: []
         extraArgs: []
-        imagePullPolicy: ""
-        image:
-          registry: registry.k8s.io
-          repository: "kube-scheduler"
-          tag: "v1.32.1"
       env: []
       securityContext: {}
       resources:
@@ -180,6 +170,13 @@ controlPlane:
       embedded:
         enabled: false
         migrateFromDeployedEtcd: false
+      external:
+        enabled: false
+        endpoint: ""
+        tls:
+          caFile: ""
+          certFile: ""
+          keyFile: ""
       deploy:
         enabled: false
         statefulSet:
@@ -190,7 +187,7 @@ controlPlane:
           image:
             registry: "registry.k8s.io"
             repository: "etcd"
-            tag: "3.5.17-0"
+            tag: "3.5.21-0"
           imagePullPolicy: ""
           extraArgs: []
           env: []
@@ -445,6 +442,16 @@ integrations:
           enabled: true
           selector:
             labels: {}
+  istio:
+    enabled: false
+    sync:
+      toHost:
+        destinationRules:
+          enabled: true
+        gateways:
+          enabled: true
+        virtualServices:
+          enabled: true
 
 rbac:
   role:
@@ -513,6 +520,8 @@ policies:
     labels: {}
     annotations: {}
     fallbackDns: 8.8.8.8
+    extraControlPlaneRules: []
+    extraWorkloadRules: []
     outgoingConnections:
       platform: true
       ipBlock:
@@ -571,8 +580,6 @@ experimental:
       extraRules: []
     role:
       extraRules: []
-
-  reuseNamespace: false
 
 telemetry:
   enabled: true

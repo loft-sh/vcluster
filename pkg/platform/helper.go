@@ -873,7 +873,7 @@ func RetrieveCaData(cluster *managementv1.Cluster) ([]byte, error) {
 
 // ListVClusters lists all virtual clusters across all projects if virtualClusterName and projectName are empty.
 // The list can be narrowed down by the given virtual cluster name and project name.
-func ListVClusters(ctx context.Context, client Client, virtualClusterName, projectName string) ([]*VirtualClusterInstanceProject, error) {
+func ListVClusters(ctx context.Context, client Client, virtualClusterName, projectName string, showUserOwned bool) ([]*VirtualClusterInstanceProject, error) {
 	managementClient, err := client.Management()
 	if err != nil {
 		return nil, err
@@ -891,14 +891,14 @@ func ListVClusters(ctx context.Context, client Client, virtualClusterName, proje
 			return nil, err
 		}
 
-		// gather space instances in those projects
+		// gather virtualcluster instances in those projects
 		if virtualClusterName != "" {
 			virtualClusterInstance, err := getProjectVirtualClusterInstance(ctx, managementClient, project, virtualClusterName)
 			if err == nil {
 				virtualClusters = append(virtualClusters, virtualClusterInstance)
 			}
 		} else {
-			virtualClusterInstances, err := getProjectVirtualClusterInstances(ctx, managementClient, project.Name)
+			virtualClusterInstances, err := getProjectVirtualClusterInstances(ctx, managementClient, project.Name, showUserOwned)
 			if err != nil {
 				return nil, err
 			}
@@ -916,7 +916,7 @@ func ListVClusters(ctx context.Context, client Client, virtualClusterName, proje
 			return nil, err
 		}
 
-		virtualClusterInstances, err := getProjectVirtualClusterInstances(ctx, managementClient, "")
+		virtualClusterInstances, err := getProjectVirtualClusterInstances(ctx, managementClient, "", showUserOwned)
 		if err != nil || len(virtualClusterInstances) == 0 {
 			return nil, err
 		}
@@ -1244,7 +1244,7 @@ func getProjectVirtualClusterInstance(ctx context.Context, managementClient kube
 	}, nil
 }
 
-func getProjectVirtualClusterInstances(ctx context.Context, managementClient kube.Interface, projectName string) ([]*managementv1.VirtualClusterInstance, error) {
+func getProjectVirtualClusterInstances(ctx context.Context, managementClient kube.Interface, projectName string, showUserOwned bool) ([]*managementv1.VirtualClusterInstance, error) {
 	virtualClusterInstanceList := &managementv1.VirtualClusterInstanceList{}
 	request := managementClient.Loft().ManagementV1().RESTClient().
 		Get().
@@ -1265,8 +1265,40 @@ func getProjectVirtualClusterInstances(ctx context.Context, managementClient kub
 			continue
 		}
 
+		if showUserOwned {
+			isOwner, err := isUserOwner(ctx, managementClient, &virtualClusterInstance)
+			if err != nil {
+				return nil, err
+			}
+			if !isOwner {
+				continue
+			}
+		}
+
 		v := virtualClusterInstance
 		virtualClusters = append(virtualClusters, &v)
 	}
 	return virtualClusters, nil
+}
+
+func isUserOwner(ctx context.Context, managementClient kube.Interface, vcInstance *managementv1.VirtualClusterInstance) (bool, error) {
+	user, _, err := GetCurrentUser(ctx, managementClient)
+	if err != nil {
+		return false, err
+	}
+
+	if user == nil {
+		return false, fmt.Errorf("no user or team found for the current logged-in user")
+	}
+
+	return vcInstance.Spec.Owner.User == user.Username || isUserTeamOwner(user.Teams, vcInstance.Spec.Owner.Team), nil
+}
+
+func isUserTeamOwner(teams []*storagev1.EntityInfo, vclusterOwnerTeam string) bool {
+	for _, team := range teams {
+		if team.Name == vclusterOwnerTeam {
+			return true
+		}
+	}
+	return false
 }

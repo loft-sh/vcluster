@@ -6,6 +6,8 @@ on:
       - main
       - v*
     paths:
+      - go.mod
+      - go.sum
       - "**.go"
       - ".github/workflows/lint.yaml"
 
@@ -16,6 +18,7 @@ concurrency:
 jobs:
   golangci:
     name: lint
+    if: github.repository_owner == 'loft-sh' # do not run on forks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -46,11 +49,7 @@ jobs:
             exit 1
           fi
 
-      - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
-
-      - name: Build custom golangci-lint
-        run: golangci-lint custom
-
       - name: Run golangci-lint
-        run: ./custom-gcl run
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.0

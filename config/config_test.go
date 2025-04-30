@@ -415,15 +415,13 @@ func TestIfDefaultImagesVersionsAreInSync(t *testing.T) {
 	tplBytes, err := os.ReadFile(initContainersTplFilePath)
 
 	assert.NilError(t, err)
-	assert.Equal(t, defaultConfig.ControlPlane.Distro.K8S.ControllerManager.Image.Tag, defaultConfig.ControlPlane.Distro.K8S.APIServer.Image.Tag)
-	assert.Equal(t, defaultConfig.ControlPlane.Distro.K8S.ControllerManager.Image.Tag, defaultConfig.ControlPlane.Distro.K8S.Scheduler.Image.Tag)
-	assert.Equal(t, defaultConfig.ControlPlane.Distro.K8S.APIServer.Image.Tag, defaultConfig.ControlPlane.Distro.K8S.Scheduler.Image.Tag)
-	expectedDefaultTag := fmt.Sprintf("{{- $defaultTag := %q -}}", defaultConfig.ControlPlane.Distro.K8S.ControllerManager.Image.Tag)
+	assert.Equal(t, defaultConfig.ControlPlane.Distro.K8S.Image.Tag, defaultConfig.ControlPlane.Distro.K8S.Image.Tag)
+	expectedDefaultTag := fmt.Sprintf("{{- $defaultTag := %q -}}", defaultConfig.ControlPlane.Distro.K8S.Image.Tag)
 	got := strings.Count(string(tplBytes), expectedDefaultTag)
 	assert.Equal(
-		t, got, 3,
+		t, got, 1,
 		fmt.Sprintf("please update $defaultTag in %s so it's equal to the "+
-			".Values.controlPlane.distro.k8s.controllerManager.image.tag",
+			".Values.controlPlane.distro.k8s.image.tag",
 			initContainersTplFilePath),
 	)
 }
