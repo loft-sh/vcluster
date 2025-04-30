@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
@@ -28,29 +27,20 @@ import (
 
 var _ = ginkgo.Describe("Services are created as expected", func() {
 	var (
-		f         *framework.Framework
-		iteration int
-		ns        string
+		f *framework.Framework
 	)
 
 	ginkgo.JustBeforeEach(func() {
 		// use default framework
 		f = framework.DefaultFramework
-		iteration++
-		ns = fmt.Sprintf("e2e-syncer-services-%d-%s", iteration, random.String(5))
-
-		// create test namespace
-		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
-		framework.ExpectNoError(err)
-	})
-
-	ginkgo.AfterEach(func() {
-		// delete test namespace
-		err := f.DeleteTestNamespace(ns, false)
-		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("Test LoadBalancer node ports & cluster ip", func() {
+		// create test namespace
+		ns := "test-service-lb-node-ports-cluster-ip"
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "myservice-loadbalancer",
@@ -84,9 +74,18 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		for i := range vService.Spec.Ports {
 			framework.ExpectEqual(vService.Spec.Ports[i].NodePort, pService.Spec.Ports[i].NodePort)
 		}
+
+		// delete test namespace
+		err = f.DeleteTestNamespace(ns, false)
+		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("Test Service gets created when no Kind is present in body", func() {
+		// create test namespace
+		ns := "test-service-created-no-kind"
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
 		service := corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "myservice",
@@ -114,9 +113,18 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		pServiceName := translate.Default.HostName(nil, service.Name, service.Namespace)
 		_, err = f.HostClient.CoreV1().Services(pServiceName.Namespace).Get(f.Context, pServiceName.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
+
+		// delete test namespace
+		err = f.DeleteTestNamespace(ns, false)
+		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("Services should complete a service status lifecycle", func() {
+		// create test namespace
+		ns := "test-service-status-lifecycle"
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
 		svcResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
 		svcClient := f.VClusterClient.CoreV1().Services(ns)
 		testSvcName := "test-service-" + utilrand.String(5)
@@ -328,9 +336,18 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 		})
 		framework.ExpectNoError(err, "failed to delete Service %v in namespace %v", testService.Name, ns)
 		f.Log.Infof("Service %s deleted", testSvcName)
+
+		// delete test namespace
+		err = f.DeleteTestNamespace(ns, false)
+		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("should sync labels and annotation bidirectionally", func() {
+		// create test namespace
+		ns := "test-service-sync-labels-annotations-bidirectionally"
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "myservice-with-annotations",
@@ -475,5 +492,9 @@ var _ = ginkgo.Describe("Services are created as expected", func() {
 			WithPolling(time.Second).
 			WithTimeout(framework.PollTimeout).
 			ShouldNot(gomega.HaveOccurred())
+
+		// delete test namespace
+		err = f.DeleteTestNamespace(ns, false)
+		framework.ExpectNoError(err)
 	})
 })
