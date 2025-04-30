@@ -281,7 +281,10 @@ func ListVClusters(ctx context.Context, context, name, namespace string, log log
 	}
 	// Find virtual cluster instances, so we can pair them with OSS virtual clusters.
 	virtualClusterInstancesList, err := kubeClient.Loft().StorageV1().VirtualClusterInstances("").List(ctx, listOptions)
-	if err != nil {
+	if kerrors.IsForbidden(err) {
+		log.Debug("user does not have permission to list VirtualClusterInstances")
+		return vClusters, nil
+	} else if err != nil {
 		return nil, fmt.Errorf("failed to list virtual cluster instances: %w", err)
 	}
 	virtualClusterInstances := map[string]*storagev1.VirtualClusterInstance{}
