@@ -1124,8 +1124,8 @@ type DistroK8s struct {
 	// Enabled specifies if the K8s distro should be enabled. Only one distro can be enabled at the same time.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// Version specifies k8s components (scheduler, kube-controller-manager & apiserver) version.
-	// It is a shortcut for controlPlane.distro.k8s.image.tag
+	// [Deprecated] Version field is deprecated.
+	// Use controlPlane.distro.k8s.image.tag to specify the Kubernetes version instead.
 	Version string `json:"version,omitempty"`
 
 	// APIServer holds configuration specific to starting the api server.
@@ -1208,7 +1208,7 @@ type Image struct {
 	// Repository is the repository of the container image, e.g. my-repo/my-image
 	Repository string `json:"repository,omitempty"`
 
-	// Tag is the tag of the container image, e.g. latest
+	// Tag is the tag of the container image, e.g. latest. If set to the default, it will use the host Kubernetes version.
 	Tag string `json:"tag,omitempty"`
 }
 

@@ -205,8 +205,8 @@ controlPlane:
     k8s:
       # Enabled specifies if the K8s distro should be enabled. Only one distro can be enabled at the same time.
       enabled: false
-      # Version specifies k8s components (scheduler, kube-controller-manager & apiserver) version.
-      # It is a shortcut for controlPlane.distro.k8s.image.tag
+      # [Deprecated] Version field is deprecated.
+      # Use controlPlane.distro.k8s.image.tag to specify the Kubernetes version instead.
       version: ""
       # ImagePullPolicy is the pull policy for the distro image
       imagePullPolicy: ""
@@ -217,7 +217,7 @@ controlPlane:
         registry: ghcr.io
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "loft-sh/kubernetes"
-        # Tag is the tag of the container image, e.g. latest
+        # Tag is the tag of the container image, e.g. latest. If set to the default, it will use the host Kubernetes version.
         tag: "v1.32.1"
       # APIServer holds configuration specific to starting the api server.
       apiServer:
@@ -268,7 +268,7 @@ controlPlane:
         registry: ""
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "rancher/k3s"
-        # Tag is the tag of the container image, e.g. latest
+        # Tag is the tag of the container image, e.g. latest. If set to the default, it will use the host Kubernetes version.
         tag: "v1.32.1-k3s1"
       # Security options can be used for the distro init container
       securityContext: {}
@@ -299,7 +299,7 @@ controlPlane:
         registry: ""
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "k0sproject/k0s"
-        # Tag is the tag of the container image, e.g. latest
+        # Tag is the tag of the container image, e.g. latest. If set to the default, it will use the host Kubernetes version.
         tag: "v1.30.2-k0s.0"
       # Security options can be used for the distro init container
       securityContext: {}
@@ -381,7 +381,7 @@ controlPlane:
             registry: "registry.k8s.io"
             # Repository is the repository of the container image, e.g. my-repo/my-image
             repository: "etcd"
-            # Tag is the tag of the container image, e.g. latest
+            # Tag is the tag of the container image, e.g. latest. If set to the default, it will use the host Kubernetes version.
             tag: "3.5.21-0"
           # ImagePullPolicy is the pull policy for the external etcd image
           imagePullPolicy: ""
