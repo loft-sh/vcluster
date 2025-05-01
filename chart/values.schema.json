@@ -1025,7 +1025,7 @@
         },
         "version": {
           "type": "string",
-          "description": "Version specifies k8s components (scheduler, kube-controller-manager \u0026 apiserver) version.\nIt is a shortcut for controlPlane.distro.k8s.image.tag"
+          "description": "[Deprecated] Version field is deprecated.\nUse controlPlane.distro.k8s.image.tag to specify the Kubernetes version instead."
         },
         "apiServer": {
           "$ref": "#/$defs/DistroContainerEnabled",
@@ -1999,7 +1999,7 @@
         },
         "tag": {
           "type": "string",
-          "description": "Tag is the tag of the container image, e.g. latest"
+          "description": "Tag is the tag of the container image, e.g. latest. If set to the default, it will use the host Kubernetes version."
         }
       },
       "additionalProperties": false,
