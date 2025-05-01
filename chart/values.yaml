@@ -251,7 +251,7 @@ controlPlane:
         requests:
           cpu: 40m
           memory: 64Mi
-    # K3S holds K3s relevant configuration.
+    # [Deprecated] K3S holds K3s relevant configuration.
     k3s:
       # Enabled specifies if the K3s distro should be enabled. Only one distro can be enabled at the same time.
       enabled: false
@@ -280,7 +280,7 @@ controlPlane:
         requests:
           cpu: 40m
           memory: 64Mi
-    # K0S holds k0s relevant configuration.
+    # [Deprecated] K0S holds k0s relevant configuration.
     k0s:
       # Enabled specifies if the k0s distro should be enabled. Only one distro can be enabled at the same time.
       enabled: false

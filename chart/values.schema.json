@@ -861,11 +861,11 @@
         },
         "k3s": {
           "$ref": "#/$defs/DistroK3s",
-          "description": "K3S holds K3s relevant configuration."
+          "description": "[Deprecated] K3S holds K3s relevant configuration."
         },
         "k0s": {
           "$ref": "#/$defs/DistroK0s",
-          "description": "K0S holds k0s relevant configuration."
+          "description": "[Deprecated] K0S holds k0s relevant configuration."
         }
       },
       "additionalProperties": false,

@@ -1102,10 +1102,10 @@ type Distro struct {
 	// K8S holds K8s relevant configuration.
 	K8S DistroK8s `json:"k8s,omitempty"`
 
-	// K3S holds K3s relevant configuration.
+	// [Deprecated] K3S holds K3s relevant configuration.
 	K3S DistroK3s `json:"k3s,omitempty"`
 
-	// K0S holds k0s relevant configuration.
+	// [Deprecated] K0S holds k0s relevant configuration.
 	K0S DistroK0s `json:"k0s,omitempty"`
 }
 
