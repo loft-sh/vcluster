@@ -86,6 +86,9 @@ generate-config-schema:
 embed-chart version="0.0.0":
   RELEASE_VERSION={{ version }} go generate -tags embed_chart ./...
 
+test-chart:
+  helm unittest chart
+
 # Run e2e tests
 e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && delete-kind
   echo "Execute test suites ({{ distribution }}, {{ path }}, {{ multinamespace }})"
