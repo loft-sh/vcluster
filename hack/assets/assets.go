@@ -25,7 +25,6 @@ const (
 var usage = fmt.Sprintf(`Usage:
   go run -mod vendor ./hack/assets/cmd/main.go [v]X.Y.Z [--latest] [--optional]
   go run -mod vendor ./hack/assets/cmd/main.go [v]X.Y.Z [--kubernetes-distro <%s>] [--kubernetes-version X.Y.Z]
-  go run -mod vendor ./hack/assets/cmd/main.go --optional
   go run -mod vendor ./hack/assets/cmd/main.go --list-distros
   go run -mod vendor ./hack/assets/cmd/main.go --list-versions`,
 	strings.Join(GetSupportedDistros(), " | "))
@@ -61,7 +60,7 @@ func Main() {
 		os.Exit(0)
 	}
 
-	if pflag.NArg() < 1 && !*optional {
+	if pflag.NArg() < 1 {
 		fmt.Println(usage)
 		os.Exit(1)
 	}
@@ -101,10 +100,7 @@ func GetSupportedDistros() []string {
 
 // GetImages returns a list of images based on the given parameters
 func GetImages(cleanTag string, latest bool, optional bool, kubernetesVersion string, kubernetesDistro string) []string {
-	var images []string
-	if !optional {
-		images = GetVclusterImages(cleanTag)
-	}
+	images := GetVclusterImages(latest, optional, cleanTag)
 	images = UniqueAppend(images,
 		GetImageList(latest, optional, kubernetesVersion, GetVclusterDependencyImageMaps(kubernetesDistro))...,
 	)
@@ -148,12 +144,18 @@ func GetImageList(latest bool, optional bool, kubernetesVersion string, groups [
 }
 
 // GetVclusterImages returns a list of vcluster images
-func GetVclusterImages(cleanTag string) []string {
-	return []string{
-		"ghcr.io/loft-sh/vcluster-oss:" + cleanTag,
-		"ghcr.io/loft-sh/vcluster-pro:" + cleanTag,
-		config.DefaultHostsRewriteImage,
+func GetVclusterImages(latest, optional bool, cleanTag string) []string {
+	images := []string{"ghcr.io/loft-sh/vcluster-oss:" + cleanTag}
+	if !optional {
+		if latest {
+			images = nil
+		}
+		images = append(images,
+			"ghcr.io/loft-sh/vcluster-pro:"+cleanTag,
+			config.DefaultHostsRewriteImage,
+		)
 	}
+	return images
 }
 
 // GetVclusterDependencyImageMaps returns a list of maps containing vcluster image versions
