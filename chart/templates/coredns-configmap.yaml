@@ -171,10 +171,15 @@ data:
           topologySpreadConstraints:
 {{ toYaml .Values.controlPlane.coredns.deployment.topologySpreadConstraints  | indent 12 }}
           {{- end }}
+          {{- if .Values.controlPlane.coredns.security.podSecurityContext }}
+          securityContext:
+{{ toYaml .Values.controlPlane.coredns.security.podSecurityContext | indent 12 }}
+          {{- else }}
           {{- if .Values.policies.podSecurityStandard }}
           securityContext:
             seccompProfile:
               type: RuntimeDefault
+          {{- end }}
           {{- end }}
           containers:
             - name: coredns
@@ -200,6 +205,10 @@ data:
                 - name: custom-config-volume
                   mountPath: /etc/coredns/custom
                   readOnly: true
+              {{- if .Values.controlPlane.coredns.security.containerSecurityContext }}
+              securityContext:
+{{ toYaml .Values.controlPlane.coredns.security.containerSecurityContext | indent 16 }}
+              {{- else }}
               securityContext:
                 runAsNonRoot: true
                 runAsUser: {{`{{.RUN_AS_USER}}`}}
@@ -211,6 +220,7 @@ data:
                   drop:
                     - ALL
                 readOnlyRootFilesystem: true
+              {{- end }}
               livenessProbe:
                 httpGet:
                   path: /health

@@ -237,6 +237,9 @@ controlPlane:
     overwriteManifests: ""
     overwriteConfig: ""
     priorityClassName: ""
+    security:
+      podSecurityContext: {}
+      containerSecurityContext: {}
     service:
       annotations: {}
       labels: {}

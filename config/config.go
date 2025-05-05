@@ -1428,6 +1428,9 @@ type CoreDNS struct {
 	// Embedded defines if vCluster will start the embedded coredns service within the control-plane and not as a separate deployment. This is a PRO feature.
 	Embedded bool `json:"embedded,omitempty" product:"pro"`
 
+	// Security defines pod or container security context.
+	Security ControlPlaneSecurity `json:"security,omitempty"`
+
 	// Service holds extra options for the coredns service deployed within the virtual cluster
 	Service CoreDNSService `json:"service,omitempty"`
 

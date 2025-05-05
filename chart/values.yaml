@@ -472,6 +472,12 @@ controlPlane:
     overwriteConfig: ""
     # PriorityClassName specifies the priority class name for the CoreDNS pods.
     priorityClassName: ""
+    # Security defines pod or container security context.
+    security:
+      # PodSecurityContext specifies security context options on the pod level.
+      podSecurityContext: {}
+      # ContainerSecurityContext specifies security context options on the container level.
+      containerSecurityContext: {}
     # Service holds extra options for the coredns service deployed within the virtual cluster
     service:
       annotations: {}
