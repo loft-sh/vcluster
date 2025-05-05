@@ -367,6 +367,14 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
+
+	// apply istio patches. This is needed when the sync is triggered by the label update in the virtual namespace object.
+	// we need to then update / set this label on the pod object.
+	err = pro.ApplyIstioPatches(ctx, nil, event.Host, event.Virtual)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	defer func() {
 		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
