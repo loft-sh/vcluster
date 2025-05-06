@@ -870,10 +870,6 @@
         "k3s": {
           "$ref": "#/$defs/DistroK3s",
           "description": "[Deprecated] K3S holds K3s relevant configuration."
-        },
-        "k0s": {
-          "$ref": "#/$defs/DistroK0s",
-          "description": "[Deprecated] K0S holds k0s relevant configuration."
         }
       },
       "additionalProperties": false,
@@ -904,57 +900,6 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled signals this container should be enabled."
-        },
-        "command": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "Command is the command to start the distro binary. This will override the existing command."
-        },
-        "extraArgs": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "ExtraArgs are additional arguments to pass to the distro binary."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "DistroK0s": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled specifies if the k0s distro should be enabled. Only one distro can be enabled at the same time."
-        },
-        "config": {
-          "type": "string",
-          "description": "Config allows you to override the k0s config passed to the k0s binary."
-        },
-        "image": {
-          "$ref": "#/$defs/Image",
-          "description": "Image is the distro image"
-        },
-        "imagePullPolicy": {
-          "type": "string",
-          "description": "ImagePullPolicy is the pull policy for the distro image"
-        },
-        "env": {
-          "items": {
-            "type": "object"
-          },
-          "type": "array",
-          "description": "Env are extra environment variables to use for the main container and NOT the init container."
-        },
-        "resources": {
-          "type": "object",
-          "description": "Resources for the distro init container"
-        },
-        "securityContext": {
-          "type": "object",
-          "description": "Security options can be used for the distro init container"
         },
         "command": {
           "items": {

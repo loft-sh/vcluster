@@ -3,8 +3,6 @@
 {{ include "vcluster.k3s.initContainers" . }}
 {{- else if eq (include "vcluster.distro" .) "k8s" -}}
 {{ include "vcluster.k8s.initContainers" . }}
-{{- else if eq (include "vcluster.distro" .) "k0s" -}}
-{{ include "vcluster.k0s.initContainers" . }}
 {{- end -}}
 {{- end -}}
 
@@ -60,28 +58,6 @@
       mountPath: /binaries
   resources:
 {{ toYaml .Values.controlPlane.distro.k3s.resources | indent 4 }}
-{{- end -}}
-
-{{- define "vcluster.k0s.initContainers" -}}
-{{- include "vcluster.oldPlugins.initContainers" . }}
-{{- include "vcluster.plugins.initContainers" . }}
-- name: vcluster
-  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k0s.image.registry "repository" .Values.controlPlane.distro.k0s.image.repository "tag" .Values.controlPlane.distro.k0s.image.tag) }}"
-  command:
-    - /bin/sh
-  args:
-    - -c
-    - "cp /usr/local/bin/k0s /binaries/k0s"
-  {{- if .Values.controlPlane.distro.k0s.imagePullPolicy }}
-  imagePullPolicy: {{ .Values.controlPlane.distro.k0s.imagePullPolicy }}
-  {{- end }}
-  securityContext:
-{{ toYaml .Values.controlPlane.distro.k0s.securityContext | indent 4 }}
-  volumeMounts:
-    - name: binaries
-      mountPath: /binaries
-  resources:
-{{ toYaml .Values.controlPlane.distro.k0s.resources | indent 4 }}
 {{- end -}}
 
 {{/*

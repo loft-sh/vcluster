@@ -136,25 +136,6 @@ controlPlane:
           cpu: 40m
           memory: 64Mi
 
-    k0s:
-      enabled: false
-      config: ""
-      command: []
-      extraArgs: []
-      imagePullPolicy: ""
-      image:
-        registry: ""
-        repository: "k0sproject/k0s"
-        tag: "v1.30.2-k0s.0"
-      securityContext: {}
-      resources:
-        limits:
-          cpu: 100m
-          memory: 256Mi
-        requests:
-          cpu: 40m
-          memory: 64Mi
-
   backingStore:
     database:
       embedded:

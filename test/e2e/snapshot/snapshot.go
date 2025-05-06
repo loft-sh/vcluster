@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -28,17 +27,6 @@ var _ = ginkgo.Describe("Snapshot VCluster", func() {
 		})
 		framework.ExpectNoError(err)
 		framework.ExpectEqual(true, len(pods.Items) > 0)
-
-		// skip restore if k0s
-		isK0s := false
-		for _, pod := range pods.Items {
-			for _, container := range pod.Spec.InitContainers {
-				if strings.Contains(container.Image, "k0s") {
-					isK0s = true
-					break
-				}
-			}
-		}
 
 		// create a pvc we will use to store the snapshot
 		pvc := &corev1.PersistentVolumeClaim{
@@ -86,24 +74,6 @@ var _ = ginkgo.Describe("Snapshot VCluster", func() {
 		framework.ExpectNoError(err)
 
 		ginkgo.By("Snapshot vcluster")
-		if isK0s {
-			cmd := exec.Command(
-				"vcluster",
-				"snapshot",
-				f.VClusterName,
-				"container:///tmp/snapshot.tar",
-				"-n", f.VClusterNamespace,
-				"--pod-exec",
-			)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err = cmd.Run()
-			framework.ExpectNoError(err)
-
-			fmt.Println("Skip restore because this is unsupported in k0s")
-			return
-		}
-
 		// regular snapshot
 		cmd := exec.Command(
 			"vcluster",

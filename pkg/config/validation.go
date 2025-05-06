@@ -151,11 +151,6 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 
-	err = validateK0sAndNoExperimentalKubeconfig(vConfig)
-	if err != nil {
-		return err
-	}
-
 	// check deny proxy requests
 	for _, c := range vConfig.Experimental.DenyProxyRequests {
 		err := validateCheck(c)
@@ -280,9 +275,6 @@ func validatePatches(patchesValidation ...patchesValidation) error {
 func validateDistro(config *VirtualClusterConfig) error {
 	enabledDistros := 0
 	if config.ControlPlane.Distro.K3S.Enabled {
-		enabledDistros++
-	}
-	if config.ControlPlane.Distro.K0S.Enabled {
 		enabledDistros++
 	}
 	if config.ControlPlane.Distro.K8S.Enabled {
@@ -606,18 +598,6 @@ func validateWildcardOrAny(values []string) error {
 		if val == "*" {
 			return fmt.Errorf("when wildcard(*) is used, it must be the only value in the list")
 		}
-	}
-	return nil
-}
-
-func validateK0sAndNoExperimentalKubeconfig(c *VirtualClusterConfig) error {
-	if c.Distro() != config.K0SDistro {
-		return nil
-	}
-	virtualclusterconfig := c.Experimental.VirtualClusterKubeConfig
-	empty := config.VirtualClusterKubeConfig{}
-	if virtualclusterconfig != empty {
-		return errors.New("config.experimental.VirtualClusterConfig cannot be set for k0s")
 	}
 	return nil
 }

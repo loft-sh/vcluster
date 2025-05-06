@@ -29,7 +29,6 @@ type issueList map[string]string
 
 type KnownIssues struct {
 	K3s map[string]issueList
-	K0s map[string]issueList
 	K8s map[string]issueList
 }
 
@@ -52,15 +51,13 @@ func main() {
 
 	renderedBytes := &bytes.Buffer{}
 	renderedBytes.WriteString(header)
-	for _, v := range []string{"k3s", "k8s", "k0s"} {
+	for _, v := range []string{"k3s", "k8s"} {
 		var versionMap map[string]string
 		switch v {
 		case "k3s":
 			versionMap = vclusterconfig.K3SVersionMap
 		case "k8s":
 			versionMap = vclusterconfig.K8SVersionMap
-		case "k0s":
-			versionMap = vclusterconfig.K0SVersionMap
 		}
 		buff := updateTableWithDistro(v, versionMap, issues)
 		renderedBytes.WriteString(fmt.Sprintf(templateString, v, v, buff.String()))
@@ -107,8 +104,6 @@ func updateTableWithDistro(distroName string, versionMap map[string]string, know
 	switch distroName {
 	case "k3s":
 		issues = knownIssues.K3s
-	case "k0s":
-		issues = knownIssues.K0s
 	case "k8s":
 		issues = knownIssues.K8s
 	}

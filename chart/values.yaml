@@ -280,37 +280,6 @@ controlPlane:
         requests:
           cpu: 40m
           memory: 64Mi
-    # [Deprecated] K0S holds k0s relevant configuration.
-    k0s:
-      # Enabled specifies if the k0s distro should be enabled. Only one distro can be enabled at the same time.
-      enabled: false
-      # Config allows you to override the k0s config passed to the k0s binary.
-      config: ""
-      # Command is the command to start the distro binary. This will override the existing command.
-      command: []
-      # ExtraArgs are additional arguments to pass to the distro binary.
-      extraArgs: []
-      # ImagePullPolicy is the pull policy for the distro image
-      imagePullPolicy: ""
-      # Image is the distro image
-      image:
-        # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
-        # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
-        registry: ""
-        # Repository is the repository of the container image, e.g. my-repo/my-image
-        repository: "k0sproject/k0s"
-        # Tag is the tag of the container image, e.g. latest. If set to the default, it will use the host Kubernetes version.
-        tag: "v1.30.2-k0s.0"
-      # Security options can be used for the distro init container
-      securityContext: {}
-      # Resources for the distro init container
-      resources:
-        limits:
-          cpu: 100m
-          memory: 256Mi
-        requests:
-          cpu: 40m
-          memory: 64Mi
   
   # BackingStore defines which backing store to use for virtual cluster. If not defined will use embedded database as a default backing store.
   backingStore:

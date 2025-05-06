@@ -170,14 +170,6 @@ func getImageTags(c *config.Config, version string) (syncer, api string) {
 			// with the platform driver if only the registry is set we won't be able to display complete info
 			api = ""
 		}
-	case config.K0SDistro:
-		k0s := c.ControlPlane.Distro.K0S
-
-		api = valueOrDefaultRegistry(k0s.Image.Registry, defaultRegistry) + "/" + k0s.Image.Repository + ":" + k0s.Image.Tag
-		if strings.HasPrefix(api, valueOrDefaultRegistry(k0s.Image.Registry, defaultRegistry)+"/:") {
-			// with the platform driver if only the registry is set we won't be able to display complete info
-			api = ""
-		}
 	}
 
 	syncer = strings.TrimPrefix(syncer, "/")

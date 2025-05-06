@@ -60,21 +60,6 @@ tests:
           path: spec.template.spec.initContainers[0].image
           value: ghcr.io/test:123
 
-  - it: custom init container
-    set:
-      controlPlane:
-        distro:
-          k0s:
-            enabled: true
-            image:
-              registry: ""
-              repository: "k0s"
-              tag: "123"
-    asserts:
-      - equal:
-          path: spec.template.spec.initContainers[0].image
-          value: k0s:123
-
   - it: disables serviceLinks for sts etcd pod
     set:
       controlPlane:
@@ -298,7 +283,7 @@ tests:
     set:
       controlPlane:
         distro:
-          k0s:
+          k8s:
             enabled: true
       plugin:
         test:
@@ -310,7 +295,7 @@ tests:
           value: StatefulSet
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 8
+          count: 7
       - lengthEqual:
           path: spec.template.spec.initContainers
           count: 2
@@ -469,28 +454,6 @@ tests:
           etcd:
             deploy:
               enabled: true
-    asserts:
-      - equal:
-          path: kind
-          value: Deployment
-      - notExists:
-          path: spec.volumeClaimTemplates
-      - contains:
-          path: spec.template.spec.volumes
-          content:
-            name: data
-            emptyDir: {}
-
-  - it: enable k0s
-    set:
-      controlPlane:
-        backingStore:
-          etcd:
-            deploy:
-              enabled: true
-        distro:
-          k0s:
-            enabled: true
     asserts:
       - equal:
           path: kind
