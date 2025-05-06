@@ -57,8 +57,8 @@ generate-vcluster-latest-images version="0.0.0":
 
 # Generate the vcluster optional images file
 [private]
-generate-vcluster-optional-images:
-  {{ASSETS_RUN}} --optional > ./release/images-optional.txt
+generate-vcluster-optional-images version="0.0.0":
+  {{ASSETS_RUN}} --optional {{ version }} > ./release/images-optional.txt
 
 # Generate versioned vCluster image files for multiple versions and distros
 [private]
