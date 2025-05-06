@@ -83,7 +83,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 			return true, nil
 		})
 		if waitErr != nil {
-			return fmt.Errorf("get virtual cluster instance: %w", err)
+			return fmt.Errorf("get virtual cluster instance: %w", waitErr)
 		}
 
 		virtualClusterInstance = nil
