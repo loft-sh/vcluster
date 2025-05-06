@@ -580,8 +580,6 @@ tests:
               claimName: my-custom-pvc
 
   - it: k8s version not set, default tag images used for apiServer and controllerManager
-    chart:
-      version: "test-"
     set:
       controlPlane:
         distro:
@@ -592,53 +590,18 @@ tests:
           path: spec.template.spec.initContainers[0].image
           value: ghcr.io/loft-sh/kubernetes:v1.32.1
 
-  - it: k8s capabilities set
-    chart:
-      version: "test-v1.29.3"
+  - it: k8s override image tag
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            image:
+              tag: v99912
     asserts:
       - equal:
           path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v1.29.3
-
-  - it: k8s capabilities orbstack
-    chart:
-      version: "test-v1.29.3+orb1"
-    asserts:
-      - equal:
-          path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v1.29.3
-
-  - it: k8s capabilities invalid
-    chart:
-      version: "test-invalid"
-    asserts:
-      - equal:
-          path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v1.32.1
-
-  - it: k8s capabilities incomplete
-    chart:
-      version: "test-v1.22"
-    asserts:
-      - equal:
-          path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v1.32.1
-
-  - it: k8s capabilities incomplete 2
-    chart:
-      version: "test-1.22.11"
-    asserts:
-      - equal:
-          path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v1.32.1
-
-  - it: k8s capabilities incomplete 2
-    chart:
-      version: "test-v1.22.33"
-    asserts:
-      - equal:
-          path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v1.22.33
+          value: ghcr.io/loft-sh/kubernetes:v99912
 
   - it: k8s version sets image tag for apiServer and controllerManager
     set:
@@ -652,7 +615,7 @@ tests:
           path: spec.template.spec.initContainers[0].image
           value: ghcr.io/loft-sh/kubernetes:v1.35.999
 
-  - it: k8s version set but overridden by image tag for apiServer and controllerManager
+  - it: k8s version set and not overridden by image tag
     set:
       controlPlane:
         distro:
@@ -665,7 +628,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v99912
+          value: ghcr.io/loft-sh/kubernetes:v1.30.999
 
   - it: k8s not version set but image tags for apiServer and controllerManager set
     set:
@@ -712,7 +675,7 @@ tests:
           path: spec.template.spec.initContainers[0].image
           value: ghcr.io/loft-sh/kubernetes:v1.35.999
 
-  - it: k8s version set but overridden by image tag for apiServer and controllerManager (virtual scheduler enabled)
+  - it: k8s version set but not overridden by image tag for apiServer and controllerManager (virtual scheduler enabled)
     set:
       controlPlane:
         distro:
@@ -728,7 +691,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v99912
+          value: ghcr.io/loft-sh/kubernetes:v1.30.999
 
   - it: custom dnsPolicy
     set:
