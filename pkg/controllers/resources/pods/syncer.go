@@ -236,7 +236,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		return ctrl.Result{}, pro.NewFeatureError(string(licenseapi.HybridScheduling))
 	}
 
-	podUsesVirtualClusterScheduler, err := PodUsesSchedulerFromVirtualCluster(s.virtualSchedulerEnabled, s.hybridSchedulingEnabled, s.hostSchedulers)
+	podUsesVirtualClusterScheduler, err := PodUsesSchedulerFromVirtualCluster(pPod.Spec.SchedulerName, s.virtualSchedulerEnabled, s.hybridSchedulingEnabled, s.hostSchedulers)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to check if pod uses scheduler from virtual cluster: %w", err)
 	}
@@ -270,7 +270,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 	return patcher.CreateHostObject(ctx, event.Virtual, pPod, s.EventRecorder(), true)
 }
 
-var PodUsesSchedulerFromVirtualCluster = func(virtualSchedulerEnabled, hybridSchedulingEnabled bool, hostSchedulers []string) (bool, error) {
+var PodUsesSchedulerFromVirtualCluster = func(_ string, virtualSchedulerEnabled, hybridSchedulingEnabled bool, hostSchedulers []string) (bool, error) {
 	if hybridSchedulingEnabled {
 		return false, pro.NewFeatureError(string(licenseapi.HybridScheduling))
 	}
