@@ -596,6 +596,9 @@ type SyncToHost struct {
 	// CustomResources defines what custom resources should get synced from the virtual cluster to the host cluster. vCluster will copy the definition automatically from host cluster to virtual cluster on startup.
 	// vCluster will also automatically add any required RBAC permissions to the vCluster role for this to work.
 	CustomResources map[string]SyncToHostCustomResource `json:"customResources,omitempty"`
+
+	// Namespaces defines if namespaces created within the virtual cluster should get synced to the host cluster.
+	Namespaces SyncToHostNamespaces `json:"namespaces,omitempty"`
 }
 
 type EnableSwitchWithPatches struct {
@@ -677,6 +680,19 @@ type SyncFromHost struct {
 
 	// Secrets defines if secrets in the host should get synced to the virtual cluster.
 	Secrets EnableSwitchWithResourcesMappings `json:"secrets,omitempty"`
+}
+
+type SyncToHostNamespaces struct {
+	Enabled bool `json:"enabled,omitempty" jsonschema:"required"`
+
+	// Patches patch the resource according to the provided specification.
+	Patches []TranslatePatch `json:"patches,omitempty"`
+
+	// Mappings for Namespace and Object
+	Mappings FromHostMappings `json:"mappings,omitempty"`
+
+	// ExtraLabels are additional labels to add to the namespace in the host cluster.
+	ExtraLabels map[string]string `json:"extraLabels,omitempty"`
 }
 
 type SyncToHostCustomResource struct {

@@ -54,6 +54,8 @@ sync:
       enabled: false
     persistentVolumes:
       enabled: false
+    namespaces:
+      enabled: false
 
   fromHost:
     events:
