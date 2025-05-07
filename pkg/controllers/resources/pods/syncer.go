@@ -232,10 +232,6 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		}
 	}
 
-	if s.hybridSchedulingEnabled {
-		return ctrl.Result{}, pro.NewFeatureError(string(licenseapi.HybridScheduling))
-	}
-
 	podUsesVirtualClusterScheduler, err := PodUsesSchedulerFromVirtualCluster(pPod.Spec.SchedulerName, s.virtualSchedulerEnabled, s.hybridSchedulingEnabled, s.hostSchedulers)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to check if pod uses scheduler from virtual cluster: %w", err)

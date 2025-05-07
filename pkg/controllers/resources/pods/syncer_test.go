@@ -726,5 +726,21 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
+		{
+			Name:                 "SyncToHost error when both HybridScheduling and Virtual Scheduler are enabled",
+			InitialVirtualState:  []runtime.Object{vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.ToHost.Pods.HybridScheduling.Enabled = true
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPod := &corev1.Pod{
+					ObjectMeta: vObjectMeta,
+				}
+				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(vPod))
+				assert.ErrorContains(t, err, "you are trying to use a vCluster pro feature")
+			},
+		},
 	})
 }
