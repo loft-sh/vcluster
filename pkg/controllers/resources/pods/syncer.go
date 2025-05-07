@@ -266,6 +266,11 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 	return patcher.CreateHostObject(ctx, event.Virtual, pPod, s.EventRecorder(), true)
 }
 
+// PodUsesSchedulerFromVirtualCluster checks if the pod uses a scheduler from the virtual cluster.
+//
+// In the case of vcluster OSS, here we have two cases:
+//   - when Hybrid Scheduling is enabled, this func returns an error, because Hybrid Scheduling is a Pro-only feature;
+//   - otherwise, it checks if the virtual scheduler is enabled.
 var PodUsesSchedulerFromVirtualCluster = func(_ string, virtualSchedulerEnabled, hybridSchedulingEnabled bool, hostSchedulers []string) (bool, error) {
 	if hybridSchedulingEnabled {
 		return false, pro.NewFeatureError(string(licenseapi.HybridScheduling))
