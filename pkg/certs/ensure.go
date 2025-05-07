@@ -2,6 +2,10 @@ package certs
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -9,6 +13,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"golang.org/x/exp/maps"
@@ -19,7 +24,16 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
+	certutil "k8s.io/client-go/util/cert"
+	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
+	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
+	kubeadmconstants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
+	"k8s.io/kubernetes/cmd/kubeadm/app/phases/certs"
+	"k8s.io/kubernetes/cmd/kubeadm/app/phases/kubeconfig"
+	kubeadmutil "k8s.io/kubernetes/cmd/kubeadm/app/util"
+	kubeconfigutil "k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig"
+	"k8s.io/kubernetes/cmd/kubeadm/app/util/pkiutil"
 )
 
 const (
@@ -30,13 +44,11 @@ const (
 
 func EnsureCerts(
 	ctx context.Context,
-	serviceCIDR string,
 	currentNamespace string,
 	currentNamespaceClient kubernetes.Interface,
-	vClusterName string,
 	certificateDir string,
-	etcdSans []string,
 	options *config.VirtualClusterConfig,
+	kubeadmConfig *kubeadmapi.InitConfiguration,
 ) error {
 	if currentNamespaceClient == nil {
 		return errors.New("nil currentNamespaceClient")
@@ -45,7 +57,7 @@ func EnsureCerts(
 	// we create a certificate for up to 5 etcd replicas, this should be sufficient for most use cases. Eventually we probably
 	// want to update this to the actual etcd number, but for now this is the easiest way to allow up and downscaling without
 	// regenerating certificates.
-	secretName := CertSecretName(vClusterName)
+	secretName := CertSecretName(options.Name)
 	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err == nil {
 		// download certs from secret
@@ -64,10 +76,6 @@ func EnsureCerts(
 
 		// delete the certs and recreate them
 		klog.Info("removing outdated certs")
-		cfg, err := createConfig(serviceCIDR, vClusterName, certificateDir, options.Networking.Advanced.ClusterDomain, etcdSans)
-		if err != nil {
-			return err
-		}
 		err = os.Remove(filepath.Join(certificateDir, "apiserver.crt"))
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
@@ -78,7 +86,7 @@ func EnsureCerts(
 		}
 
 		// only create the files if the files are not there yet
-		err = CreatePKIAssets(cfg)
+		err = certs.CreatePKIAssets(kubeadmConfig)
 		if err != nil {
 			// ignore the error because some other certs are upsetting the function
 			klog.V(1).Info("create pki assets err:", err)
@@ -105,7 +113,7 @@ func EnsureCerts(
 	_, err = os.Stat(filepath.Join(certificateDir, CAKeyName))
 	if errors.Is(err, fs.ErrNotExist) {
 		// try to generate the certificates
-		err = generateCertificates(serviceCIDR, vClusterName, certificateDir, options.Networking.Advanced.ClusterDomain, etcdSans)
+		err = generateCertificates(certificateDir, kubeadmConfig)
 		if err != nil {
 			return err
 		}
@@ -185,51 +193,32 @@ func CertSecretName(vClusterName string) string {
 	return vClusterName + "-certs"
 }
 
-func createConfig(serviceCIDR, vClusterName, certificateDir, clusterDomain string, etcdSans []string) (*InitConfiguration, error) {
-	// init config
-	cfg, err := SetInitDynamicDefaults()
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.ClusterName = "kubernetes"
-	cfg.NodeRegistration.Name = vClusterName
-	cfg.Etcd.Local = &LocalEtcd{
-		ServerCertSANs: etcdSans,
-		PeerCertSANs:   etcdSans,
-	}
-	cfg.Networking.ServiceSubnet = serviceCIDR
-	cfg.Networking.DNSDomain = clusterDomain
-	cfg.ControlPlaneEndpoint = "127.0.0.1:6443"
-	cfg.CertificatesDir = certificateDir
-	cfg.LocalAPIEndpoint.AdvertiseAddress = "0.0.0.0"
-	cfg.LocalAPIEndpoint.BindPort = 443
-
-	return cfg, nil
-}
-
 func generateCertificates(
-	serviceCIDR string,
-	vClusterName string,
 	certificateDir string,
-	clusterDomain string,
-	etcdSans []string,
+	kubeadmConfig *kubeadmapi.InitConfiguration,
 ) error {
-	// init config
-	cfg, err := createConfig(serviceCIDR, vClusterName, certificateDir, clusterDomain, etcdSans)
-	if err != nil {
-		return err
-	}
-
 	// only create the files if the files are not there yet
-	err = CreatePKIAssets(cfg)
+	err := certs.CreatePKIAssets(kubeadmConfig)
 	if err != nil {
 		return fmt.Errorf("create pki assets: %w", err)
 	}
 
-	err = CreateJoinControlPlaneKubeConfigFiles(cfg.CertificatesDir, cfg)
+	// create kube config files
+	err = kubeconfig.CreateJoinControlPlaneKubeConfigFiles(certificateDir, kubeadmConfig)
 	if err != nil {
 		return fmt.Errorf("create kube configs: %w", err)
+	}
+
+	// create super admin kube config file
+	err = kubeconfig.CreateKubeConfigFile(kubeadmconstants.SuperAdminKubeConfigFileName, certificateDir, kubeadmConfig)
+	if err != nil {
+		return fmt.Errorf("create kube config: %w", err)
+	}
+
+	// rename super-admin.conf to admin.conf
+	err = os.Rename(filepath.Join(certificateDir, kubeadmconstants.SuperAdminKubeConfigFileName), filepath.Join(certificateDir, kubeadmconstants.AdminKubeConfigFileName))
+	if err != nil {
+		return fmt.Errorf("rename kube config: %w", err)
 	}
 
 	err = splitCACert(certificateDir)
@@ -394,4 +383,79 @@ func updateKubeconfigInSecret(secret *corev1.Secret) (shouldUpdate bool, err err
 		secret.Data[k] = marshalled
 	}
 	return shouldUpdate, nil
+}
+
+// KubeConfigOptions struct holds info required to build a KubeConfig object
+type KubeConfigOptions struct {
+	CACert        string
+	CAKey         string
+	Organizations []string
+	APIServer     string
+	ClientName    string
+}
+
+// CreateKubeConfig creates a kubeconfig object and writes it to disk
+func CreateKubeConfig(spec *KubeConfigOptions, path string) error {
+	config, err := BuildKubeConfig(spec)
+	if err != nil {
+		return fmt.Errorf("failed to build kubeconfig: %w", err)
+	}
+
+	return kubeconfigutil.WriteToDisk(path, config)
+}
+
+// BuildKubeConfig creates a kubeconfig object for the given kubeConfigSpec
+func BuildKubeConfig(spec *KubeConfigOptions) (*clientcmdapi.Config, error) {
+	caCert, err := certutil.CertsFromFile(spec.CACert)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load CA certificate: %w", err)
+	}
+	caKeyRaw, err := keyutil.PrivateKeyFromFile(spec.CAKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load CA key: %w", err)
+	}
+
+	// Allow RSA and ECDSA formats only
+	var caKey crypto.Signer
+	switch k := caKeyRaw.(type) {
+	case *rsa.PrivateKey:
+		caKey = k
+	case *ecdsa.PrivateKey:
+		caKey = k
+	default:
+		return nil, fmt.Errorf("the private key file %s is neither in RSA nor ECDSA format", spec.CAKey)
+	}
+
+	// we need to set the not after to the start time + 10 years
+	notAfter := kubeadmutil.StartTimeUTC().Add(time.Hour * 24 * 365 * 10)
+
+	// otherwise, create a client cert
+	clientCertConfig := pkiutil.CertConfig{
+		Config: certutil.Config{
+			CommonName:   spec.ClientName,
+			Organization: spec.Organizations,
+			Usages:       []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		},
+		NotAfter:            notAfter,
+		EncryptionAlgorithm: kubeadmapi.EncryptionAlgorithmRSA2048,
+	}
+
+	clientCert, clientKey, err := pkiutil.NewCertAndKey(caCert[0], caKey, &clientCertConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failure while creating %s client certificate: %w", spec.ClientName, err)
+	}
+
+	encodedClientKey, err := keyutil.MarshalPrivateKeyToPEM(clientKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal private key to PEM: %w", err)
+	}
+	// create a kubeconfig with the client certs
+	return kubeconfigutil.CreateWithCerts(
+		spec.APIServer,
+		"default",
+		spec.ClientName,
+		pkiutil.EncodeCertPEM(caCert[0]),
+		encodedClientKey,
+		pkiutil.EncodeCertPEM(clientCert),
+	), nil
 }

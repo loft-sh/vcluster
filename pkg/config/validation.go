@@ -198,6 +198,12 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 
+	// validate dedicated nodes mode
+	err = validateDedicatedNodesMode(vConfig)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -833,6 +839,56 @@ func validateKubeVirtEnabled(
 
 func isIn(crdName string, s ...string) bool {
 	return slices.Contains(s, crdName)
+}
+
+func validateDedicatedNodesMode(vConfig *VirtualClusterConfig) error {
+	if !vConfig.PrivateNodes.Enabled {
+		return nil
+	}
+
+	// integrations are not supported in private nodes mode
+	if vConfig.Integrations.MetricsServer.Enabled {
+		return fmt.Errorf("metrics-server integration is not supported in private nodes mode")
+	}
+	if vConfig.Integrations.CertManager.Enabled {
+		return fmt.Errorf("cert-manager integration is not supported in private nodes mode")
+	}
+	if vConfig.Integrations.ExternalSecrets.Enabled {
+		return fmt.Errorf("external-secrets integration is not supported in private nodes mode")
+	}
+	if vConfig.Integrations.Istio.Enabled {
+		return fmt.Errorf("istio integration is not supported in private nodes mode")
+	}
+	if vConfig.Integrations.KubeVirt.Enabled {
+		return fmt.Errorf("kubevirt integration is not supported in private nodes mode")
+	}
+
+	// embedded coredns is not supported in private nodes mode
+	if vConfig.ControlPlane.CoreDNS.Embedded {
+		return fmt.Errorf("coredns is not supported in private nodes mode")
+	}
+
+	// host path mapper is not supported in private nodes mode
+	if vConfig.ControlPlane.HostPathMapper.Enabled {
+		return fmt.Errorf("host path mapper is not supported in private nodes mode")
+	}
+
+	// multi-namespace mode is not supported in private nodes mode
+	if vConfig.Experimental.MultiNamespaceMode.Enabled {
+		return fmt.Errorf("multi-namespace mode is not supported in private nodes mode")
+	}
+
+	// isolated control plane is not supported in dedicated mode
+	if vConfig.Experimental.IsolatedControlPlane.Enabled {
+		return fmt.Errorf("isolated control plane is not supported in private nodes mode")
+	}
+
+	// dedicated mode is only supported for kubernetes distro
+	if vConfig.Distro() != config.K8SDistro {
+		return fmt.Errorf("private nodes mode is only supported for kubernetes")
+	}
+
+	return nil
 }
 
 var ProValidateConfig = func(_ *VirtualClusterConfig) error {

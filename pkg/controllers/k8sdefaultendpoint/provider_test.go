@@ -39,11 +39,11 @@ func TestCreateOrPatch(t *testing.T) {
 			},
 		},
 	}
-	p := &v1Provider{}
-	err := p.createOrPatch(ctx, virtualClient, endpoints)
+	p := &EndpointsV1Provider{}
+	err := p.CreateOrPatch(ctx, virtualClient, endpoints)
 	assert.NilError(t, err, "")
 
-	pbeta := &v1BetaProvider{}
-	err = pbeta.createOrPatch(ctx, virtualClient, endpoints)
+	pbeta := &EndpointsV1BetaProvider{}
+	err = pbeta.CreateOrPatch(ctx, virtualClient, endpoints)
 	assert.NilError(t, err, "")
 }

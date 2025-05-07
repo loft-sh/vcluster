@@ -10,6 +10,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/loft-sh/vcluster/config"
 )
 
 const (
@@ -17,7 +19,17 @@ const (
 	FallbackCIDR     = "10.96.0.0/12"
 )
 
-func GetServiceCIDR(ctx context.Context, client kubernetes.Interface, namespace string) (string, string) {
+func GetServiceCIDR(ctx context.Context, vConfig *config.Config, client kubernetes.Interface, namespace string) (string, string) {
+	if vConfig.ServiceCIDR != "" {
+		return vConfig.ServiceCIDR, ""
+	} else if vConfig.PrivateNodes.Enabled {
+		if vConfig.Networking.ServiceCIDR != "" {
+			return vConfig.Networking.ServiceCIDR, ""
+		}
+
+		return FallbackCIDR, ""
+	}
+
 	ipv4CIDR, ipv4Err := getServiceCIDR(ctx, client, namespace, false)
 	ipv6CIDR, ipv6Err := getServiceCIDR(ctx, client, namespace, true)
 	if ipv4Err != nil && ipv6Err != nil {

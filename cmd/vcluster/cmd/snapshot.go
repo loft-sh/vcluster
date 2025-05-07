@@ -343,18 +343,14 @@ func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterCon
 	}
 
 	// retrieve service cidr
-	serviceCIDR := vConfig.ServiceCIDR
-	if serviceCIDR == "" {
-		var warning string
-		serviceCIDR, warning = servicecidr.GetServiceCIDR(ctx, vConfig.WorkloadClient, vConfig.WorkloadNamespace)
-		if warning != "" {
-			klog.Warning(warning)
-		}
+	serviceCIDR, warning := servicecidr.GetServiceCIDR(ctx, &vConfig.Config, vConfig.WorkloadClient, vConfig.WorkloadNamespace)
+	if warning != "" {
+		klog.Warning(warning)
 	}
 
 	// generate etcd certificates
 	certificatesDir := "/data/pki"
-	err = setup.GenerateCerts(ctx, vConfig.ControlPlaneClient, vConfig.Name, vConfig.ControlPlaneNamespace, serviceCIDR, certificatesDir, vConfig)
+	err = setup.GenerateCerts(ctx, serviceCIDR, certificatesDir, vConfig)
 	if err != nil {
 		return "", err
 	}

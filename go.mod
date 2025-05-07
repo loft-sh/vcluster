@@ -65,6 +65,7 @@ require (
 	k8s.io/kube-aggregator v0.32.1
 	k8s.io/kubectl v0.32.1
 	k8s.io/kubelet v0.32.1
+	k8s.io/kubernetes v1.32.1
 	k8s.io/metrics v0.32.1
 	k8s.io/pod-security-admission v0.32.1
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
@@ -76,6 +77,7 @@ require (
 require (
 	cel.dev/expr v0.18.0 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
+	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Sytten/logrus-zap-hook v0.1.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
@@ -101,6 +103,7 @@ require (
 	github.com/containerd/stargz-snapshotter/estargz v0.16.3 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/creack/pty v1.1.21 // indirect
+	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.2 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20191028211022-135eb7262960 // indirect
@@ -118,6 +121,7 @@ require (
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
+	github.com/lithammer/dedent v1.1.0 // indirect
 	github.com/loft-sh/apiserver v0.0.0-20240607231110-634aeeab2b36 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
@@ -139,7 +143,11 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240930140551-af27646dc61f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240930140551-af27646dc61f // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
+	k8s.io/cluster-bootstrap v0.32.1 // indirect
+	k8s.io/cri-api v0.32.1 // indirect
+	k8s.io/cri-client v0.32.1 // indirect
 	k8s.io/kms v0.32.1 // indirect
+	k8s.io/kube-proxy v0.32.1 // indirect
 	mvdan.cc/sh/v3 v3.6.0 // indirect
 )
 

@@ -54,6 +54,9 @@ type Config struct {
 	// Configure vCluster's control plane components and deployment.
 	ControlPlane ControlPlane `json:"controlPlane,omitempty"`
 
+	// PrivateNodes holds configuration for vCluster private nodes mode.
+	PrivateNodes PrivateNodes `json:"privateNodes,omitempty"`
+
 	// RBAC options for the virtual cluster.
 	RBAC RBAC `json:"rbac,omitempty"`
 
@@ -80,6 +83,34 @@ type Config struct {
 
 	// SleepMode holds the native sleep mode configuration for Pro clusters
 	SleepMode *SleepMode `json:"sleepMode,omitempty"`
+}
+
+// PrivateNodes enables private nodes for vCluster. When turned on, vCluster will not sync resources to the host cluster
+// and instead act as a hosted control plane into which actual worker nodes can be joined via kubeadm or cluster api.
+type PrivateNodes struct {
+	// Enabled defines if dedicated nodes should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// KubeProxy holds dedicated kube proxy configuration.
+	KubeProxy KubeProxy `json:"kubeProxy,omitempty"`
+
+	// Kubelet holds dedicated kubelet configuration.
+	Kubelet Kubelet `json:"kubelet,omitempty"`
+}
+
+type Kubelet struct {
+	// CgroupDriver defines the cgroup driver to use for the kubelet.
+	CgroupDriver string `json:"cgroupDriver,omitempty"`
+}
+
+type KubeProxy struct {
+	// Enabled defines if the kube proxy should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+type Konnectivity struct {
+	// Enabled defines if the konnectivity should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
@@ -389,14 +420,6 @@ func (c *Config) IsProFeatureEnabled() bool {
 	}
 
 	if c.ControlPlane.HostPathMapper.Central {
-		return true
-	}
-
-	if c.Experimental.SyncSettings.DisableSync {
-		return true
-	}
-
-	if c.Experimental.SyncSettings.RewriteKubernetesService {
 		return true
 	}
 
@@ -844,6 +867,12 @@ type ServiceMonitor struct {
 }
 
 type Networking struct {
+	// ServiceCIDR holds the service cidr for the virtual cluster. This should only be set if privateNodes.enabled is true or vCluster cannot detect the host service cidr.
+	ServiceCIDR string `json:"serviceCIDR,omitempty"`
+
+	// PodCIDR holds the pod cidr for the virtual cluster. This should only be set if privateNodes.enabled is true.
+	PodCIDR string `json:"podCIDR,omitempty"`
+
 	// ReplicateServices allows replicating services from the host within the virtual cluster or the other way around.
 	ReplicateServices ReplicateServices `json:"replicateServices,omitempty"`
 
@@ -1560,6 +1589,9 @@ type ControlPlaneAdvanced struct {
 	// HeadlessService specifies options for the headless service used for the vCluster StatefulSet.
 	HeadlessService ControlPlaneHeadlessService `json:"headlessService,omitempty"`
 
+	// Konnectivity holds dedicated konnectivity configuration. This is only available when privateNodes.enabled is true.
+	Konnectivity Konnectivity `json:"konnectivity,omitempty"`
+
 	// GlobalMetadata is metadata that will be added to all resources deployed by Helm.
 	GlobalMetadata ControlPlaneGlobalMetadata `json:"globalMetadata,omitempty"`
 }
@@ -2106,12 +2138,6 @@ type ExperimentalIsolatedControlPlane struct {
 }
 
 type ExperimentalSyncSettings struct {
-	// DisableSync will not sync any resources and disable most control plane functionality.
-	DisableSync bool `json:"disableSync,omitempty" product:"pro"`
-
-	// RewriteKubernetesService will rewrite the Kubernetes service to point to the vCluster service if disableSync is enabled
-	RewriteKubernetesService bool `json:"rewriteKubernetesService,omitempty" product:"pro"`
-
 	// TargetNamespace is the namespace where the workloads should get synced to.
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 

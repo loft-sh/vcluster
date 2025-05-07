@@ -11,12 +11,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-type v1BetaProvider struct{}
+type EndpointsV1BetaProvider struct{}
 
-func (p *v1BetaProvider) createClientObject() client.Object {
+func (p *EndpointsV1BetaProvider) CreateClientObject() client.Object {
 	return &discoveryv1beta1.EndpointSlice{}
 }
-func (p *v1BetaProvider) createOrPatch(ctx context.Context, virtualClient client.Client, vEndpoints *corev1.Endpoints) error {
+func (p *EndpointsV1BetaProvider) CreateOrPatch(ctx context.Context, virtualClient client.Client, vEndpoints *corev1.Endpoints) error {
 	vSlices := &discoveryv1beta1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
@@ -37,7 +37,7 @@ func (p *v1BetaProvider) createOrPatch(ctx context.Context, virtualClient client
 // endpointSliceFromEndpoints generates an EndpointSlice from an Endpoints
 // resource.
 // From: https://github.com/kubernetes/kubernetes/blob/7380fc735aca591325ae1fabf8dab194b40367de/pkg/controlplane/reconcilers/endpointsadapter.go#L121-L151
-func (p *v1BetaProvider) endpointSliceFromEndpoints(endpoints *corev1.Endpoints) *discoveryv1beta1.EndpointSlice {
+func (p *EndpointsV1BetaProvider) endpointSliceFromEndpoints(endpoints *corev1.Endpoints) *discoveryv1beta1.EndpointSlice {
 	endpointSlice := &discoveryv1beta1.EndpointSlice{}
 	endpointSlice.Name = endpoints.Name
 	endpointSlice.Labels = map[string]string{discoveryv1beta1.LabelServiceName: endpoints.Name}
@@ -70,7 +70,7 @@ func (p *v1BetaProvider) endpointSliceFromEndpoints(endpoints *corev1.Endpoints)
 // getEndpointsFromAddresses returns a list of Endpoints from addresses that
 // match the provided address type.
 // From: https://github.com/kubernetes/kubernetes/blob/7380fc735aca591325ae1fabf8dab194b40367de/pkg/controlplane/reconcilers/endpointsadapter.go#L153-L166
-func (p *v1BetaProvider) getEndpointsFromAddresses(addresses []corev1.EndpointAddress, addressType discoveryv1beta1.AddressType, ready bool) []discoveryv1beta1.Endpoint {
+func (p *EndpointsV1BetaProvider) getEndpointsFromAddresses(addresses []corev1.EndpointAddress, addressType discoveryv1beta1.AddressType, ready bool) []discoveryv1beta1.Endpoint {
 	endpoints := []discoveryv1beta1.Endpoint{}
 	isIPv6AddressType := addressType == discoveryv1beta1.AddressTypeIPv6
 
@@ -85,7 +85,7 @@ func (p *v1BetaProvider) getEndpointsFromAddresses(addresses []corev1.EndpointAd
 
 // endpointFromAddress generates an EndpointController from an EndpointAddress resource.
 // From: https://github.com/kubernetes/kubernetes/blob/7380fc735aca591325ae1fabf8dab194b40367de/pkg/controlplane/reconcilers/endpointsadapter.go#L168-L181
-func (p *v1BetaProvider) endpointFromAddress(address corev1.EndpointAddress, ready bool) discoveryv1beta1.Endpoint {
+func (p *EndpointsV1BetaProvider) endpointFromAddress(address corev1.EndpointAddress, ready bool) discoveryv1beta1.Endpoint {
 	ep := discoveryv1beta1.Endpoint{
 		Addresses:  []string{address.IP},
 		Conditions: discoveryv1beta1.EndpointConditions{Ready: &ready},
