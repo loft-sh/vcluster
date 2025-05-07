@@ -271,7 +271,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 // In the case of vcluster OSS, here we have two cases:
 //   - when Hybrid Scheduling is enabled, this func returns an error, because Hybrid Scheduling is a Pro-only feature;
 //   - otherwise, it checks if the virtual scheduler is enabled.
-var PodUsesSchedulerFromVirtualCluster = func(_ string, virtualSchedulerEnabled, hybridSchedulingEnabled bool, hostSchedulers []string) (bool, error) {
+var PodUsesSchedulerFromVirtualCluster = func(_ string, virtualSchedulerEnabled, hybridSchedulingEnabled bool, _ []string) (bool, error) {
 	if hybridSchedulingEnabled {
 		return false, pro.NewFeatureError(string(licenseapi.HybridScheduling))
 	}
