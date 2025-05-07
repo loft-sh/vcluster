@@ -810,6 +810,9 @@ type SyncPods struct {
 
 	// Patches patch the resource according to the provided specification.
 	Patches []TranslatePatch `json:"patches,omitempty"`
+
+	// HybridScheduling is used to enable and configure hybrid scheduling for pods in the virtual cluster.
+	HybridScheduling HybridScheduling `json:"hybridScheduling,omitempty"`
 }
 
 type SyncRewriteHosts struct {
@@ -826,6 +829,14 @@ type SyncRewriteHostsInitContainer struct {
 
 	// Resources are the resources that should be assigned to the init container for each stateful set init container.
 	Resources Resources `json:"resources,omitempty"`
+}
+
+type HybridScheduling struct {
+	// Enabled specifies if hybrid scheduling is enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// HostSchedulers is a list of schedulers that are deployed on the host cluster.
+	HostSchedulers []string `json:"hostSchedulers,omitempty"`
 }
 
 type SyncNodes struct {
