@@ -60,7 +60,9 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 	return &nodeSyncer{
 		Mapper: nodesMapper,
 
-		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		// If either virtual scheduler or hybrid scheduling is enabled, it means that pods in the virtual cluster can be
+		// scheduled by a scheduler from the virtual cluster.
+		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled || ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled,
 
 		enforceNodeSelector:  true,
 		nodeSelector:         nodeSelector,
