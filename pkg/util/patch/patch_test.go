@@ -184,6 +184,64 @@ metadata:
 			},
 		},
 		{
+			Name: "Set 4",
+
+			Object: `
+spec:
+  selector:
+    app: istio-ingress
+  servers:
+    - hosts:
+      - foo01/foo.ingress.loft.sh
+      - foo02/catalyst2-admin.ingress.loft.sh
+      port:
+        name: http
+        number: 80
+        protocol: HTTP
+      tls:
+        httpsRedirect: true
+    - hosts:
+      - foo11/foo.ingress.loft.sh
+      port:
+        name: https-443
+        number: 443
+        protocol: HTTPS
+      tls:
+        credentialName: foo-ui-tls-cert
+        mode: SIMPLE
+`,
+
+			ExpectedObject: `
+spec:
+  selector:
+    app: istio-ingress
+  servers:
+  - hosts:
+    - aaa
+    - aaa
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+    tls:
+      httpsRedirect: true
+  - hosts:
+    - aaa
+    port:
+      name: https-443
+      number: 443
+      protocol: HTTPS
+    tls:
+      credentialName: foo-ui-tls-cert
+      mode: SIMPLE
+
+`,
+
+			Adjust: func(p Patch) {
+				p.Set("spec.servers[*].hosts[*]", "aaa")
+			},
+		},
+		{
 			Name: "Translate 1",
 
 			Object: `spec:
@@ -291,6 +349,72 @@ metadata:
 				if val, ok := p.String("spec.rules.\"test.object.other\".1"); !ok || val != "spec.rules.\"test.object.other\".1" {
 					panic("Unexpected value at spec.rules.\"test.object.other\".1: " + val)
 				}
+			},
+		},
+		{
+			Name: "Path multiple wildcards",
+
+			Object: `spec:
+  selector:
+    app: istio-ingress
+  servers:
+    - hosts:
+      - foo01/foo.ingress.loft.sh
+      - foo02/catalyst2-admin.ingress.loft.sh
+      port:
+        name: http
+        number: 80
+        protocol: HTTP
+      tls:
+        httpsRedirect: true
+    - hosts:
+      - foo11/foo.ingress.loft.sh
+      port:
+        name: https-443
+        number: 443
+        protocol: HTTPS
+      tls:
+        credentialName: foo-ui-tls-cert
+        mode: SIMPLE`,
+
+			ExpectedObject: `
+spec:
+  selector:
+    app: istio-ingress
+  servers:
+  - hosts:
+    - ./foo.ingress.loft.sh
+    - ./catalyst2-admin.ingress.loft.sh
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+    tls:
+      httpsRedirect: true
+  - hosts:
+    - ./foo.ingress.loft.sh
+    port:
+      name: https-443
+      number: 443
+      protocol: HTTPS
+    tls:
+      credentialName: foo-ui-tls-cert
+      mode: SIMPLE
+`,
+
+			Adjust: func(p Patch) {
+				p.MustTranslate("spec.servers[*].hosts[*]", func(_ string, val interface{}) (interface{}, error) {
+					valString, ok := val.(string)
+					if !ok {
+						return val, nil
+					}
+					_, dnsName, found := strings.Cut(valString, "/")
+					if !found {
+						return val, nil
+					}
+
+					return "./" + dnsName, nil
+				})
 			},
 		},
 		{
