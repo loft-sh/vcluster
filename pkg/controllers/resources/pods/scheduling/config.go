@@ -6,9 +6,9 @@ import (
 )
 
 type Config struct {
-	virtualSchedulerEnabled bool
-	hybridSchedulingEnabled bool
-	hostSchedulers          []string
+	VirtualSchedulerEnabled bool
+	HybridSchedulingEnabled bool
+	HostSchedulers          []string
 }
 
 // NewConfig creates a new scheduling config with specified vCluster scheduling options. In the case of vcluster OSS
@@ -19,13 +19,13 @@ var NewConfig = func(virtualSchedulerEnabled, hybridSchedulingEnabled bool, _ []
 	}
 
 	return Config{
-		virtualSchedulerEnabled: virtualSchedulerEnabled,
+		VirtualSchedulerEnabled: virtualSchedulerEnabled,
 	}, nil
 }
 
 // IsSchedulerFromVirtualCluster checks if the pod uses a scheduler from the virtual cluster.
 func (c *Config) IsSchedulerFromVirtualCluster(schedulerName string) bool {
-	return IsSchedulerFromVirtualCluster(schedulerName, c.virtualSchedulerEnabled, c.hybridSchedulingEnabled, c.hostSchedulers)
+	return IsSchedulerFromVirtualCluster(schedulerName, c.VirtualSchedulerEnabled, c.HybridSchedulingEnabled, c.HostSchedulers)
 }
 
 // IsSchedulerFromVirtualCluster checks if the pod uses a scheduler from the virtual cluster.
