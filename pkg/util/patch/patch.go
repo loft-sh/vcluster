@@ -84,6 +84,7 @@ func (p Patch) Translate(path string, translate func(path string, val interface{
 
 	// get last map / array
 	curs, ok := p.getValue(parsedPath, 1)
+
 	if !ok {
 		return nil
 	}
@@ -91,6 +92,7 @@ func (p Patch) Translate(path string, translate func(path string, val interface{
 	// get last element
 	for _, cur := range curs {
 		segment := parsedPath[len(parsedPath)-1]
+
 		switch t := cur.Value.(type) {
 		case []interface{}:
 			if segment == "*" {
@@ -100,8 +102,7 @@ func (p Patch) Translate(path string, translate func(path string, val interface{
 						return err
 					}
 				}
-
-				return nil
+				continue
 			}
 
 			index, err := strconv.Atoi(segment)
@@ -129,7 +130,7 @@ func (p Patch) Translate(path string, translate func(path string, val interface{
 					}
 				}
 
-				return nil
+				continue
 			}
 
 			val, ok := t[segment]
@@ -242,7 +243,7 @@ func (p Patch) Set(path string, value interface{}) {
 					cur[k] = value
 				}
 
-				return
+				continue
 			}
 
 			cur[segment] = value
@@ -252,7 +253,7 @@ func (p Patch) Set(path string, value interface{}) {
 					cur[k] = value
 				}
 
-				return
+				continue
 			}
 
 			index, err := strconv.Atoi(segment)
