@@ -27,9 +27,9 @@ import (
 )
 
 type provider interface {
-	createClientObject() client.Object
+	CreateClientObject() client.Object
 	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
-	createOrPatch(ctx context.Context, virtualClient client.Client, vEndpoints *corev1.Endpoints) error
+	CreateOrPatch(ctx context.Context, virtualClient client.Client, vEndpoints *corev1.Endpoints) error
 }
 
 type EndpointController struct {

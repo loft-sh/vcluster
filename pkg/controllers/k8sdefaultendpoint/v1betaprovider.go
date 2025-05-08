@@ -18,7 +18,7 @@ func (p *EndpointsV1BetaProvider) CreateClientObject() client.Object {
 }
 
 //nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
-func (p *EndpointsV1BetaProvider) createOrPatch(ctx context.Context, virtualClient client.Client, vEndpoints *corev1.Endpoints) error {
+func (p *EndpointsV1BetaProvider) CreateOrPatch(ctx context.Context, virtualClient client.Client, vEndpoints *corev1.Endpoints) error {
 	vSlices := &discoveryv1beta1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
