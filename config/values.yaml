@@ -19,6 +19,9 @@ sync:
       enabled: true
       translateImage: {}
       enforceTolerations: []
+      hybridScheduling:
+        enabled: false
+        hostSchedulers: []
       useSecretsForSATokens: false
       runtimeClassName: ""
       priorityClassName: ""
