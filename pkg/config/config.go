@@ -211,6 +211,11 @@ func (v VirtualClusterConfig) DisableMissingAPIs(discoveryClient discovery.Disco
 	return nil
 }
 
+// SchedulingInVirtualClusterEnabled returns true if the virtual scheduler or the hybrid scheduling is enabled.
+func (v VirtualClusterConfig) SchedulingInVirtualClusterEnabled() bool {
+	return v.ControlPlane.Advanced.VirtualScheduler.Enabled || v.Sync.ToHost.Pods.HybridScheduling.Enabled
+}
+
 func findResource(resources *metav1.APIResourceList, resourcePlural string) bool {
 	if resources != nil {
 		for _, r := range resources.APIResources {
