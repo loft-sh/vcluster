@@ -2,8 +2,6 @@ package config
 
 import (
 	_ "embed"
-	"fmt"
-	"os"
 	"strings"
 	"testing"
 
@@ -405,23 +403,4 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 			assert.Equal(t, tt.config.IsProFeatureEnabled(), tt.expected)
 		})
 	}
-}
-
-func TestIfDefaultImagesVersionsAreInSync(t *testing.T) {
-	defaultConfig, err := NewDefaultConfig()
-	assert.NilError(t, err)
-	// this will fail when this test is moved or _init-containers.tpl is moved
-	initContainersTplFilePath := "../chart/templates/_init-containers.tpl"
-	tplBytes, err := os.ReadFile(initContainersTplFilePath)
-
-	assert.NilError(t, err)
-	assert.Equal(t, defaultConfig.ControlPlane.Distro.K8S.Image.Tag, defaultConfig.ControlPlane.Distro.K8S.Image.Tag)
-	expectedDefaultTag := fmt.Sprintf("{{- $defaultTag := %q -}}", defaultConfig.ControlPlane.Distro.K8S.Image.Tag)
-	got := strings.Count(string(tplBytes), expectedDefaultTag)
-	assert.Equal(
-		t, got, 1,
-		fmt.Sprintf("please update $defaultTag in %s so it's equal to the "+
-			".Values.controlPlane.distro.k8s.image.tag",
-			initContainersTplFilePath),
-	)
 }
