@@ -9,12 +9,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func (s *endpointsSyncer) translate(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Endpoints {
 	endpoints := translate.HostMetadata(vObj.(*corev1.Endpoints), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj), s.excludedAnnotations...)
 	s.translateSpec(ctx, endpoints)
 	return endpoints
 }
 
+//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func (s *endpointsSyncer) translateSpec(ctx *synccontext.SyncContext, endpoints *corev1.Endpoints) {
 	// translate the addresses
 	for i, subset := range endpoints.Subsets {
@@ -43,6 +45,7 @@ func (s *endpointsSyncer) translateSpec(ctx *synccontext.SyncContext, endpoints 
 	}
 }
 
+//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func (s *endpointsSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj, vObj *corev1.Endpoints) error {
 	// check subsets
 	translated := vObj.DeepCopy()
