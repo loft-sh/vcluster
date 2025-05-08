@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/admin-apis/pkg/licenseapi"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/scheduling"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/token"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -90,15 +90,21 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, errors.Wrap(err, "create pod translator")
 	}
 
+	schedulingConfig, err := scheduling.NewConfig(
+		ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled,
+		ctx.Config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
+	}
+
 	return &podSyncer{
 		GenericTranslator: genericTranslator,
 		Importer:          pro.NewImporter(podsMapper),
 
-		serviceName:             ctx.Config.WorkloadService,
-		hybridSchedulingEnabled: ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled,
-		hostSchedulers:          ctx.Config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers,
-		virtualSchedulerEnabled: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
-		fakeKubeletIPs:          ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
+		serviceName:      ctx.Config.WorkloadService,
+		schedulingConfig: schedulingConfig,
+		fakeKubeletIPs:   ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 
 		virtualClusterClient:  virtualClusterClient,
 		physicalClusterClient: physicalClusterClient,
@@ -115,11 +121,9 @@ type podSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
 
-	serviceName             string
-	fakeKubeletIPs          bool
-	hybridSchedulingEnabled bool
-	hostSchedulers          []string
-	virtualSchedulerEnabled bool
+	serviceName      string
+	fakeKubeletIPs   bool
+	schedulingConfig scheduling.Config
 
 	podTranslator         translatepods.Translator
 	virtualClusterClient  kubernetes.Interface
@@ -232,11 +236,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		}
 	}
 
-	podUsesVirtualClusterScheduler, err := PodUsesSchedulerFromVirtualCluster(pPod.Spec.SchedulerName, s.virtualSchedulerEnabled, s.hybridSchedulingEnabled, s.hostSchedulers)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to check if pod uses scheduler from virtual cluster: %w", err)
-	}
-	if podUsesVirtualClusterScheduler {
+	if s.schedulingConfig.IsSchedulerFromVirtualCluster(pPod.Spec.SchedulerName) {
 		// if the pod is using a scheduler from the virtual cluster, we only sync if the pod has a node name
 		if pPod.Spec.NodeName == "" {
 			return ctrl.Result{}, nil
@@ -264,19 +264,6 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 	}
 
 	return patcher.CreateHostObject(ctx, event.Virtual, pPod, s.EventRecorder(), true)
-}
-
-// PodUsesSchedulerFromVirtualCluster checks if the pod uses a scheduler from the virtual cluster.
-//
-// In the case of vcluster OSS, here we have two cases:
-//   - when Hybrid Scheduling is enabled, this func returns an error, because Hybrid Scheduling is a Pro-only feature;
-//   - otherwise, it checks if the virtual scheduler is enabled.
-var PodUsesSchedulerFromVirtualCluster = func(_ string, virtualSchedulerEnabled, hybridSchedulingEnabled bool, _ []string) (bool, error) {
-	if hybridSchedulingEnabled {
-		return false, pro.NewFeatureError(string(licenseapi.HybridScheduling))
-	}
-
-	return virtualSchedulerEnabled, nil
 }
 
 func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) (_ ctrl.Result, retErr error) {
