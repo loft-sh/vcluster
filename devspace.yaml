@@ -78,33 +78,6 @@ deployments:
         telemetry:
           enabled: false
 
-  vcluster-k0s:
-    helm:
-      releaseName: vcluster
-      chart:
-        name: ./chart
-      values:
-        controlPlane:
-          distro:
-            k0s:
-              enabled: true
-          statefulSet:
-            image:
-              registry: ""
-              repository: image(${SYNCER_IMAGE})
-              tag: tag(${SYNCER_IMAGE})
-            scheduling:
-              tolerations:
-                - operator: "Exists"
-          service:
-            spec:
-              type: NodePort
-          advanced:
-            serviceAccount:
-              enabled: false
-              name: default
-        telemetry:
-          enabled: false
 
 # Dev Configuration for vcluster
 dev:
@@ -170,8 +143,6 @@ pipelines:
       # Deploy the vcluster
       if is_equal $(get_flag distro) k8s; then
         create_deployments vcluster-k8s
-      elif is_equal $(get_flag distro) k0s; then
-        create_deployments vcluster-k0s
       else
         create_deployments vcluster-k3s
       fi
@@ -203,14 +174,6 @@ profiles:
             - ${COMMON_VALUES}
             - ${VALUES_FILE}
 
-  - name: test-k0s
-    patches:
-      - op: add
-        path: deployments.vcluster-k0s.helm
-        value:
-          valuesFiles:
-            - ${COMMON_VALUES}
-            - ${VALUES_FILE}
   - name: test-pro
     patches:
       - op: add

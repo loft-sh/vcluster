@@ -40,7 +40,6 @@ Reads from stdin if no file is given via "-f".
 Examples:
 vcluster convert config --distro k8s -f /my/k8s/values.yaml
 vcluster convert config --distro k3s < /my/k3s/values.yaml
-cat /my/k0s/values.yaml | vcluster convert config --distro k0s
 ##############################################################
 	`,
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -48,7 +47,7 @@ cat /my/k0s/values.yaml | vcluster convert config --distro k0s
 		}}
 
 	cobraCmd.Flags().StringVarP(&c.filePath, "file", "f", "", "Path to the input file")
-	cobraCmd.Flags().StringVar(&c.distro, "distro", "", fmt.Sprintf("Kubernetes distro of the config. Allowed distros: %s", strings.Join([]string{"k8s", "k3s", "k0s"}, ", ")))
+	cobraCmd.Flags().StringVar(&c.distro, "distro", "", fmt.Sprintf("Kubernetes distro of the config. Allowed distros: %s", strings.Join([]string{"k8s", "k3s"}, ", ")))
 	cobraCmd.Flags().StringVarP(&c.format, "output", "o", "yaml", "Prints the output in the specified format. Allowed values: yaml, json")
 
 	return cobraCmd

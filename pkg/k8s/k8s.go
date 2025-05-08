@@ -1,10 +1,13 @@
 package k8s
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
@@ -325,6 +328,38 @@ func StartBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig
 	}
 
 	return etcdEndpoints, etcdCertificates, nil
+}
+
+func ExecTemplate(templateContents string, name, namespace string, values *vclusterconfig.Config) ([]byte, error) {
+	out, err := json.Marshal(values)
+	if err != nil {
+		return nil, err
+	}
+
+	rawValues := map[string]interface{}{}
+	err = json.Unmarshal(out, &rawValues)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := template.New("").Parse(templateContents)
+	if err != nil {
+		return nil, err
+	}
+
+	b := &bytes.Buffer{}
+	err = t.Execute(b, map[string]interface{}{
+		"Values": rawValues,
+		"Release": map[string]interface{}{
+			"Name":      name,
+			"Namespace": namespace,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
 }
 
 // waits for the api to be up, ignoring certs and calling it

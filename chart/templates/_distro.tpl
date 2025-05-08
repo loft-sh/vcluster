@@ -3,8 +3,6 @@
 {{ toYaml .Values.controlPlane.distro.k3s.env }}
 {{- else if and (eq (include "vcluster.distro" .) "k8s") .Values.controlPlane.distro.k8s.env -}}
 {{ toYaml .Values.controlPlane.distro.k8s.env }}
-{{- else if and (eq (include "vcluster.distro" .) "k0s") .Values.controlPlane.distro.k0s.env -}}
-{{ toYaml .Values.controlPlane.distro.k0s.env }}
 {{- end -}}
 {{- end -}}
 
@@ -15,10 +13,6 @@
 {{- $distros := 0 -}}
 {{- if .Values.controlPlane.distro.k3s.enabled -}}
 k3s
-{{- $distros = add1 $distros -}}
-{{- end -}}
-{{- if .Values.controlPlane.distro.k0s.enabled -}}
-k0s
 {{- $distros = add1 $distros -}}
 {{- end -}}
 {{- if .Values.controlPlane.distro.k8s.enabled -}}

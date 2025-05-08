@@ -4,7 +4,7 @@ import (
 	"github.com/loft-sh/vcluster/config"
 )
 
-type LegacyK0sAndK3s struct {
+type LegacyK3s struct {
 	BaseHelm
 	AutoDeletePersistentVolumeClaims bool               `json:"autoDeletePersistentVolumeClaims,omitempty"`
 	K3sToken                         string             `json:"k3sToken,omitempty"`
@@ -14,7 +14,7 @@ type LegacyK0sAndK3s struct {
 	Storage                          Storage            `json:"storage,omitempty"`
 }
 
-func (c *LegacyK0sAndK3s) UnmarshalYAMLStrict(data []byte) error {
+func (c *LegacyK3s) UnmarshalYAMLStrict(data []byte) error {
 	return config.UnmarshalYAMLStrict(data, c)
 }
 

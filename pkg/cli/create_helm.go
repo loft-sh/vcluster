@@ -99,7 +99,7 @@ type CreateOptions struct {
 
 var CreatedByVClusterAnnotation = "vcluster.loft.sh/created"
 
-var AllowedDistros = []string{config.K8SDistro, config.K3SDistro, config.K0SDistro}
+var AllowedDistros = []string{config.K8SDistro, config.K3SDistro}
 
 type createHelm struct {
 	*flags.GlobalFlags
@@ -425,8 +425,8 @@ func (cmd *createHelm) parseVClusterYAML(chartValues string) (*config.Config, er
 
 		// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
 		// It also might be a legacy config, so we try to parse it as such.
-		// We cannot discriminate between k0s/k3s and eks/k8s. So we cannot prompt the actual values to convert, as this would cause false positives,
-		// because users are free to e.g. pass a k0s values file to a currently running k3s virtual cluster.
+		// We cannot discriminate between eks/k8s. So we cannot prompt the actual values to convert, as this would cause false positives,
+		// because users are free to e.g. pass a eks values file to a currently running k8s virtual cluster.
 		if isLegacyConfig([]byte(oldValues)) {
 			return nil, fmt.Errorf("it appears you are using a vCluster configuration using pre-v0.20 formatting. Please run %q to convert the values to the latest format", "vcluster convert config --distro <distro> -f /path/to/vcluster.yaml")
 		}
@@ -481,8 +481,8 @@ func isVClusterDeployed(release *helm.Release) bool {
 	return release != nil &&
 		release.Chart != nil &&
 		release.Chart.Metadata != nil &&
-		(release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k0s" ||
-			release.Chart.Metadata.Name == "vcluster-k8s" || release.Chart.Metadata.Name == "vcluster-eks") &&
+		(release.Chart.Metadata.Name == "vcluster" || release.Chart.Metadata.Name == "vcluster-k8s" ||
+			release.Chart.Metadata.Name == "vcluster-eks") &&
 		release.Secret != nil &&
 		release.Secret.Labels != nil &&
 		release.Secret.Labels["status"] == "deployed"
@@ -507,7 +507,7 @@ func validateHABackingStoreCompatibility(config *config.Config) error {
 }
 
 func isLegacyConfig(values []byte) bool {
-	cfg := legacyconfig.LegacyK0sAndK3s{}
+	cfg := legacyconfig.LegacyK3s{}
 	if err := cfg.UnmarshalYAMLStrict(values); err != nil {
 		// Try to parse it as k8s/eks
 		cfg := legacyconfig.LegacyK8s{}

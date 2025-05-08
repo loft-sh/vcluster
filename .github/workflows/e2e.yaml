@@ -170,7 +170,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distribution: ["k3s", "k8s", "k0s"]
+        distribution: ["k3s", "k8s"]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -255,7 +255,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distribution: ["k3s", "k8s", "k0s"]
+        distribution: ["k3s", "k8s"]
         test-suite-path: ${{fromJson(needs.get-testsuites-dir.outputs.matrix)}}
         multinamespace-mode: ["false", "true"]
         ha: ["false", "true"]
@@ -268,15 +268,9 @@ jobs:
             ha: "true"
             test-suite-path: "./test/e2e"
             multinamespace-mode: "false"
-          - distribution: "k0s"
-            ha: "true"
-            test-suite-path: "./test/e2e"
-            multinamespace-mode: "false"
         exclude:
           - ha: "true"
           - distribution: "k8s"
-            multinamespace-mode: "true"
-          - distribution: "k0s"
             multinamespace-mode: "true"
           - distribution: "k3s"
             multinamespace-mode: "true"

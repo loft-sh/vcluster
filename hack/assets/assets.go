@@ -19,7 +19,6 @@ import (
 const (
 	k8s = "k8s"
 	k3s = "k3s"
-	k0s = "k0s"
 )
 
 var usage = fmt.Sprintf(`Usage:
@@ -95,7 +94,7 @@ func Main() {
 
 // GetSupportedDistros returns a list of supported Kubernetes distros
 func GetSupportedDistros() []string {
-	return []string{k8s, k3s, k0s}
+	return []string{k8s, k3s}
 }
 
 // GetImages returns a list of images based on the given parameters
@@ -168,8 +167,6 @@ func GetVclusterDependencyImageMaps(distro string) []map[string]string {
 			vclusterconfig.K8SEtcdVersionMap)
 	case k3s:
 		ret = append(ret, vclusterconfig.K3SVersionMap)
-	case k0s:
-		ret = append(ret, vclusterconfig.K0SVersionMap)
 	default: // All distros
 		ret = append(ret,
 			vclusterconfig.K8SVersionMap,

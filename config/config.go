@@ -348,8 +348,6 @@ func (c *Config) EmbeddedDatabase() bool {
 func (c *Config) Distro() string {
 	if c.ControlPlane.Distro.K3S.Enabled {
 		return K3SDistro
-	} else if c.ControlPlane.Distro.K0S.Enabled {
-		return K0SDistro
 	} else if c.ControlPlane.Distro.K8S.Enabled {
 		return K8SDistro
 	}
@@ -1133,9 +1131,6 @@ type Distro struct {
 
 	// [Deprecated] K3S holds K3s relevant configuration.
 	K3S DistroK3s `json:"k3s,omitempty"`
-
-	// [Deprecated] K0S holds k0s relevant configuration.
-	K0S DistroK0s `json:"k0s,omitempty"`
 }
 
 type DistroK3s struct {
@@ -1167,17 +1162,6 @@ type DistroK8s struct {
 	Scheduler DistroContainer `json:"scheduler,omitempty"`
 
 	DistroCommon `json:",inline"`
-}
-
-type DistroK0s struct {
-	// Enabled specifies if the k0s distro should be enabled. Only one distro can be enabled at the same time.
-	Enabled bool `json:"enabled,omitempty"`
-
-	// Config allows you to override the k0s config passed to the k0s binary.
-	Config string `json:"config,omitempty"`
-
-	DistroCommon    `json:",inline"`
-	DistroContainer `json:",inline"`
 }
 
 type DistroCommon struct {

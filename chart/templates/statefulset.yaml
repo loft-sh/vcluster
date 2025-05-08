@@ -105,10 +105,6 @@ spec:
           emptyDir: {}
         - name: certs
           emptyDir: {}
-        {{- if eq (include "vcluster.distro" .) "k0s" }}
-        - name: run-k0s
-          emptyDir: {}
-        {{- end }}
         {{- if eq (include "vcluster.distro" .) "k3s" }}
         - name: k3s-config
           emptyDir: {}
@@ -216,10 +212,6 @@ spec:
               mountPath: /pki
             - name: helm-cache
               mountPath: /.cache/helm
-            {{- if eq (include "vcluster.distro" .) "k0s" }}
-            - name: run-k0s
-              mountPath: /run/k0s
-            {{- end }}
             {{- if eq (include "vcluster.distro" .) "k3s" }}
             - name: k3s-config
               mountPath: /etc/rancher

@@ -30,8 +30,8 @@ func MigrateLegacyConfig(distro, oldValues string) (string, error) {
 	}
 
 	switch distro {
-	case config.K0SDistro, config.K3SDistro:
-		err = migrateK3sAndK0s(distro, oldValues, toConfig)
+	case config.K3SDistro:
+		err = migrateK3s(distro, oldValues, toConfig)
 		if err != nil {
 			return "", fmt.Errorf("migrate legacy %s values: %w", distro, err)
 		}
@@ -104,9 +104,9 @@ func migrateK8sAndEKS(oldValues string, newConfig *config.Config) error {
 	return nil
 }
 
-func migrateK3sAndK0s(distro, oldValues string, newConfig *config.Config) error {
+func migrateK3s(distro, oldValues string, newConfig *config.Config) error {
 	// unmarshal legacy config
-	oldConfig := &LegacyK0sAndK3s{}
+	oldConfig := &LegacyK3s{}
 	err := oldConfig.UnmarshalYAMLStrict([]byte(oldValues))
 	if err != nil {
 		if err := errIfConfigIsAlreadyConverted(oldValues); err != nil {
@@ -115,16 +115,7 @@ func migrateK3sAndK0s(distro, oldValues string, newConfig *config.Config) error 
 		return fmt.Errorf("unmarshal legacy config: %w", err)
 	}
 
-	// distro specific
-	if distro == config.K0SDistro {
-		newConfig.ControlPlane.Distro.K0S.Enabled = true
-
-		// vcluster config
-		err = convertVClusterConfig(oldConfig.VCluster, &newConfig.ControlPlane.Distro.K0S.DistroCommon, &newConfig.ControlPlane.Distro.K0S.DistroContainer, newConfig)
-		if err != nil {
-			return fmt.Errorf("error converting vcluster config: %w", err)
-		}
-	} else if distro == config.K3SDistro {
+	if distro == config.K3SDistro {
 		newConfig.ControlPlane.Distro.K3S.Enabled = true
 		newConfig.ControlPlane.Distro.K3S.Token = oldConfig.K3sToken
 
