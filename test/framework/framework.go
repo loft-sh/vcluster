@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	logutil "github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -206,9 +207,10 @@ func (f *Framework) RefreshVirtualClient() error {
 			Debug:     true,
 		},
 		ConnectOptions: cli.ConnectOptions{
-			KubeConfig:      vKubeconfigFile.Name(),
-			LocalPort:       14550, // choosing a port that usually should be unused
-			BackgroundProxy: true,
+			KubeConfig:           vKubeconfigFile.Name(),
+			LocalPort:            14550, // choosing a port that usually should be unused
+			BackgroundProxy:      true,
+			BackgroundProxyImage: constants.DefaultBackgroundProxyImage,
 		},
 	}
 	err = connectCmd.Run(f.Context, []string{f.VClusterName})
