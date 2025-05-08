@@ -213,7 +213,6 @@ func (n *nodeServiceProvider) updateNodeServiceEndpoints(ctx context.Context, no
 		},
 	}
 	result, err := controllerutil.CreateOrPatch(ctx, n.currentNamespaceClient, nodeServiceEndpoints, func() error {
-
 		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 		// build new subsets
 		newSubsets := []corev1.EndpointSubset{}
@@ -247,6 +246,7 @@ func (n *nodeServiceProvider) updateNodeServiceEndpoints(ctx context.Context, no
 				newNotReadyAddresses = append(newNotReadyAddresses, address)
 			}
 
+			//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 			newSubsets = append(newSubsets, corev1.EndpointSubset{
 				Addresses:         newAddresses,
 				NotReadyAddresses: newNotReadyAddresses,
