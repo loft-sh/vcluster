@@ -35,7 +35,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.1
-	github.com/opencontainers/image-spec v1.1.0
+	github.com/opencontainers/image-spec v1.1.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/common v0.62.0
@@ -65,7 +65,7 @@ require (
 	k8s.io/kube-aggregator v0.33.0
 	k8s.io/kubectl v0.33.0
 	k8s.io/kubelet v0.33.0
-	k8s.io/kubernetes v0.33.0
+	k8s.io/kubernetes v1.33.0
 	k8s.io/metrics v0.33.0
 	k8s.io/pod-security-admission v0.33.0
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
@@ -148,7 +148,6 @@ require (
 	k8s.io/cri-client v0.33.0 // indirect
 	k8s.io/kms v0.33.0 // indirect
 	k8s.io/kube-proxy v0.33.0 // indirect
-	k8s.io/kms v0.33.0 // indirect
 	mvdan.cc/sh/v3 v3.6.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 )
