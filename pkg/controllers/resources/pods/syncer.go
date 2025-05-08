@@ -122,8 +122,8 @@ type podSyncer struct {
 	syncertypes.Importer
 
 	serviceName      string
-	fakeKubeletIPs   bool
 	schedulingConfig scheduling.Config
+	fakeKubeletIPs   bool
 
 	podTranslator         translatepods.Translator
 	virtualClusterClient  kubernetes.Interface
