@@ -40,12 +40,12 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	}
 
 	// check if enable scheduler works correctly
-	if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled && !vConfig.Sync.FromHost.Nodes.Selector.All && len(vConfig.Sync.FromHost.Nodes.Selector.Labels) == 0 {
+	if vConfig.SchedulingInVirtualClusterEnabled() && !vConfig.Sync.FromHost.Nodes.Selector.All && len(vConfig.Sync.FromHost.Nodes.Selector.Labels) == 0 {
 		vConfig.Sync.FromHost.Nodes.Selector.All = true
 	}
 
 	// enable additional controllers required for scheduling with storage
-	if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled && vConfig.Sync.ToHost.PersistentVolumeClaims.Enabled {
+	if vConfig.SchedulingInVirtualClusterEnabled() && vConfig.Sync.ToHost.PersistentVolumeClaims.Enabled {
 		if vConfig.Sync.FromHost.CSINodes.Enabled == "auto" {
 			vConfig.Sync.FromHost.CSINodes.Enabled = "true"
 		}
@@ -112,8 +112,8 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	}
 
 	// check if nodes controller needs to be enabled
-	if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled && !vConfig.Sync.FromHost.Nodes.Enabled {
-		return errors.New("sync.fromHost.nodes.enabled is false, but required if using virtual scheduler")
+	if vConfig.SchedulingInVirtualClusterEnabled() && !vConfig.Sync.FromHost.Nodes.Enabled {
+		return errors.New("sync.fromHost.nodes.enabled is false, but required if using hybrid scheduling or virtual scheduler")
 	}
 
 	// check if storage classes and host storage classes are enabled at the same time
