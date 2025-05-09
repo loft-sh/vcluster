@@ -21,7 +21,7 @@ import (
 
 const (
 	testingContainerName  = "nginx"
-	testingContainerImage = "nginxinc/nginx-unprivileged"
+	testingContainerImage = "nginxinc/nginx-unprivileged:stable-alpine3.20-slim"
 	ipRegExp              = "(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]).){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])"
 	initialNsLabelKey     = "testing-ns-label"
 	initialNsLabelValue   = "testing-ns-label-value"
