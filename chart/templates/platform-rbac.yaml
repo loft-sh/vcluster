@@ -23,7 +23,7 @@ subjects:
     {{- else }}
     name: vc-{{ .Release.Name }}
     {{- end }}
-    namespace: {{ include "vcluster.rbac.platformSecretNamespace" .}}
+    namespace: {{ .Release.Namespace }}
 roleRef:
   kind: Role
   name: {{ include "vcluster.rbac.platformRoleName" . }}
