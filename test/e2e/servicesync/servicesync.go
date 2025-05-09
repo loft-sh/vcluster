@@ -163,6 +163,7 @@ func testMapping(ctx context.Context, fromClient kubernetes.Interface, fromNames
 		framework.ExpectEqual(toService.Spec.Selector[translate.NamespaceLabel], fromNamespace)
 		framework.ExpectEqual(toService.Spec.Selector[translate.MarkerLabel], translate.VClusterName)
 		framework.ExpectEqual(toService.Spec.Selector[translate.HostLabel("test")], "test")
+		framework.ExpectEqual(toService.Spec.ClusterIP, fromService.Spec.ClusterIP)
 	}
 
 	// check service deletion
