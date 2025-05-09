@@ -213,9 +213,9 @@ func StartBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig
 		etcdCertificates *etcd.Certificates
 	)
 	if vConfig.EmbeddedDatabase() {
-		dataSource := vConfig.ControlPlane.BackingStore.Database.External.DataSource
+		dataSource := vConfig.ControlPlane.BackingStore.Database.Embedded.DataSource
 		if dataSource == "" {
-			dataSource = fmt.Sprintf("sqlite://%s?_journal=WAL&cache=shared&_busy_timeout=30000", constants.K8sSqliteDatabase)
+			dataSource = fmt.Sprintf("sqlite://%s?_journal=WAL&cache=shared&_busy_timeout=30000&_txlock=immediate", constants.K8sSqliteDatabase)
 		}
 
 		StartKine(ctx, dataSource, constants.K8sKineEndpoint, &etcd.Certificates{
