@@ -192,6 +192,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 
 	// update status
 	event.Virtual.Status = event.Host.Status
+	ensureLoadBalancerStatus(event.Virtual)
 
 	// bi-directional sync of annotations and labels
 	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event, s.excludedAnnotations...)
@@ -298,4 +299,18 @@ func TranslateServicePorts(ports []corev1.ServicePort) []corev1.ServicePort {
 	}
 
 	return retPorts
+}
+
+// ensureLoadBalancerStatus removes any LoadBalancer-related fields from the Service
+// if it is of type ClusterIP.
+//
+// This is necessary to ensure consistency when syncing services from a virtual
+// cluster to the host cluster. ClusterIP services should not carry LoadBalancer
+// settings such as LoadBalancerIP or Status.LoadBalancer.Ingress, which are
+// specific to LoadBalancer-type services and can cause incorrect behavior if retained.
+func ensureLoadBalancerStatus(vObj *corev1.Service) {
+	if vObj.Spec.Type == corev1.ServiceTypeClusterIP {
+		vObj.Spec.LoadBalancerIP = ""
+		vObj.Status.LoadBalancer.Ingress = make([]corev1.LoadBalancerIngress, 0)
+	}
 }
