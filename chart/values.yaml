@@ -102,6 +102,9 @@ sync:
     persistentVolumes:
       # Enabled defines if this option should be enabled.
       enabled: false
+    # Namespaces defines if namespaces created within the virtual cluster should get synced to the host cluster.
+    namespaces:
+      enabled: false
   
   # Configure what resources vCluster should sync from the host cluster to the virtual cluster.
   fromHost:

@@ -43,9 +43,10 @@
     (and .Values.integrations.certManager.enabled .Values.integrations.certManager.sync.fromHost.clusterIssuers.enabled)
     (and .Values.integrations.metricsServer.enabled .Values.integrations.metricsServer.nodes)
     .Values.experimental.multiNamespaceMode.enabled
-	.Values.sync.fromHost.configMaps.enabled
+    .Values.sync.fromHost.configMaps.enabled
     .Values.sync.fromHost.secrets.enabled
-     .Values.integrations.istio.enabled
+    .Values.integrations.istio.enabled
+    .Values.sync.toHost.namespaces.enabled
      -}}
 {{- true -}}
 {{- end -}}
