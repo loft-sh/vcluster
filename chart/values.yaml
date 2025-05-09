@@ -33,6 +33,12 @@ sync:
       translateImage: {}
       # EnforceTolerations will add the specified tolerations to all pods synced by the virtual cluster.
       enforceTolerations: []
+      # HybridScheduling is used to enable and configure hybrid scheduling for pods in the virtual cluster.
+      hybridScheduling:
+        # Enabled specifies if hybrid scheduling is enabled.
+        enabled: false
+        # HostSchedulers is a list of schedulers that are deployed on the host cluster.
+        hostSchedulers: []
       # UseSecretsForSATokens will use secrets to save the generated service account tokens by virtual cluster instead of using a
       # pod annotation.
       useSecretsForSATokens: false

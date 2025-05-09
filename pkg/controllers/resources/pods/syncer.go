@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/scheduling"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/token"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -89,13 +90,21 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, errors.Wrap(err, "create pod translator")
 	}
 
+	schedulingConfig, err := scheduling.NewConfig(
+		ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled,
+		ctx.Config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
+	}
+
 	return &podSyncer{
 		GenericTranslator: genericTranslator,
 		Importer:          pro.NewImporter(podsMapper),
 
-		serviceName:     ctx.Config.WorkloadService,
-		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
-		fakeKubeletIPs:  ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
+		serviceName:      ctx.Config.WorkloadService,
+		schedulingConfig: schedulingConfig,
+		fakeKubeletIPs:   ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 
 		virtualClusterClient:  virtualClusterClient,
 		physicalClusterClient: physicalClusterClient,
@@ -112,9 +121,9 @@ type podSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
 
-	serviceName     string
-	enableScheduler bool
-	fakeKubeletIPs  bool
+	serviceName      string
+	schedulingConfig scheduling.Config
+	fakeKubeletIPs   bool
 
 	podTranslator         translatepods.Translator
 	virtualClusterClient  kubernetes.Interface
@@ -227,8 +236,8 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		}
 	}
 
-	if s.enableScheduler {
-		// if scheduler is enabled we only sync if the pod has a node name
+	if s.schedulingConfig.IsSchedulerFromVirtualCluster(pPod.Spec.SchedulerName) {
+		// if the pod is using a scheduler from the virtual cluster, we only sync if the pod has a node name
 		if pPod.Spec.NodeName == "" {
 			return ctrl.Result{}, nil
 		}

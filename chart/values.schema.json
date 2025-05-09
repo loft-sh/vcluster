@@ -1913,6 +1913,23 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "HybridScheduling": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled specifies if hybrid scheduling is enabled."
+        },
+        "hostSchedulers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "HostSchedulers is a list of schedulers that are deployed on the host cluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "IPBlock": {
       "properties": {
         "cidr": {
@@ -3437,6 +3454,10 @@
           },
           "type": "array",
           "description": "Patches patch the resource according to the provided specification."
+        },
+        "hybridScheduling": {
+          "$ref": "#/$defs/HybridScheduling",
+          "description": "HybridScheduling is used to enable and configure hybrid scheduling for pods in the virtual cluster."
         }
       },
       "additionalProperties": false,

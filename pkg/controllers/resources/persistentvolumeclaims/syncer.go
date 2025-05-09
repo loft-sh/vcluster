@@ -50,7 +50,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		excludedAnnotations: []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation},
 
 		storageClassesEnabled:    ctx.Config.Sync.ToHost.StorageClasses.Enabled,
-		schedulerEnabled:         ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		schedulerEnabled:         ctx.Config.SchedulingInVirtualClusterEnabled(),
 		useFakePersistentVolumes: !ctx.Config.Sync.ToHost.PersistentVolumes.Enabled,
 	}, nil
 }
