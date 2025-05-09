@@ -3,6 +3,8 @@ package localkubernetes
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
@@ -21,6 +23,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
+
+const dockerInternalHostName = "host.docker.internal"
 
 func (c ClusterType) LocalKubernetes() bool {
 	return c == ClusterTypeDockerDesktop ||
@@ -233,7 +237,17 @@ func updateConfigForDockerToHost(rawConfig clientcmdapi.Config) (clientcmdapi.Co
 	localCluster := updated.Clusters["local"]
 	localCluster.InsecureSkipTLSVerify = true
 	localCluster.CertificateAuthorityData = nil
-	localCluster.Server = strings.ReplaceAll(localCluster.Server, "127.0.0.1", "host.docker.internal")
+
+	uri, err := url.ParseRequestURI(localCluster.Server)
+	if err != nil {
+		return clientcmdapi.Config{}, err
+	}
+	host, _, err := net.SplitHostPort(uri.Host)
+	if err != nil {
+		return clientcmdapi.Config{}, err
+	}
+
+	localCluster.Server = strings.ReplaceAll(localCluster.Server, host, dockerInternalHostName)
 
 	return *updated, nil
 }
