@@ -68,15 +68,16 @@ type CreateOptions struct {
 
 	KubernetesVersion string
 
-	CreateNamespace bool
-	UpdateCurrent   bool
-	BackgroundProxy bool
-	Add             bool
-	Expose          bool
-	ExposeLocal     bool
-	Restore         string
-	Connect         bool
-	Upgrade         bool
+	CreateNamespace      bool
+	UpdateCurrent        bool
+	BackgroundProxy      bool
+	BackgroundProxyImage string
+	Add                  bool
+	Expose               bool
+	ExposeLocal          bool
+	Restore              string
+	Connect              bool
+	Upgrade              bool
 
 	// Platform
 	Project         string
@@ -180,6 +181,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 					UpdateCurrent:         true,
 					KubeConfigContextName: cmd.KubeConfigContextName,
 					KubeConfig:            "./kubeconfig.yaml",
+					BackgroundProxyImage:  cmd.BackgroundProxyImage,
 				}, cmd.GlobalFlags, vClusterName, nil, cmd.log)
 			}
 
@@ -359,6 +361,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			Print:                 cmd.Print,
 			KubeConfigContextName: cmd.KubeConfigContextName,
 			KubeConfig:            "./kubeconfig.yaml",
+			BackgroundProxyImage:  cmd.BackgroundProxyImage,
 		}, cmd.GlobalFlags, vClusterName, nil, cmd.log)
 	}
 
