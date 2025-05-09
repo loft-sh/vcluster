@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
@@ -12,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -30,6 +32,7 @@ const (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	klog.Infof("DEBUG - create new syncer for namespaces")
 	mapper, err := ctx.Mappings.ByGVK(mappings.Namespaces())
 	if err != nil {
 		return nil, err
@@ -45,8 +48,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &namespaceSyncer{
 		GenericTranslator:          translator.NewGenericTranslator(ctx, "namespace", &corev1.Namespace{}, mapper),
 		workloadServiceAccountName: ctx.Config.ControlPlane.Advanced.WorkloadServiceAccount.Name,
-
-		excludedAnnotations: excludedAnnotations,
+		Importer:                   pro.NewImporter(mapper),
+		excludedAnnotations:        excludedAnnotations,
 
 		namespaceLabels: namespaceLabels,
 	}, nil
@@ -54,6 +57,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 type namespaceSyncer struct {
 	syncertypes.GenericTranslator
+	syncertypes.Importer
 
 	namespaceLabels            map[string]string
 	workloadServiceAccountName string
@@ -67,8 +71,18 @@ func (s *namespaceSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *namespaceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Namespace]) (ctrl.Result, error) {
+	klog.Infof("DEBUG - SyncToHost - %s", event.Virtual.Name)
+
 	newNamespace := s.translate(ctx, event.Virtual)
 	ctx.Log.Infof("create physical namespace %s", newNamespace.Name)
+
+	if ctx.Config.Sync.ToHost.Namespaces.Enabled {
+		err := pro.ApplyPatchesHostObject(ctx, nil, newNamespace, event.Virtual, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	err := ctx.PhysicalClient.Create(ctx, newNamespace)
 	if err != nil {
 		ctx.Log.Infof("error syncing %s to physical cluster: %v", event.Virtual.Name, err)

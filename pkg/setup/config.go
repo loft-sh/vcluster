@@ -10,6 +10,7 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/k3s"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,8 +39,13 @@ func InitClients(vConfig *config.VirtualClusterConfig) error {
 	}
 
 	// get workload target namespace
-	if vConfig.Experimental.MultiNamespaceMode.Enabled {
-		translate.Default = translate.NewMultiNamespaceTranslator(vConfig.WorkloadNamespace)
+	if vConfig.Sync.ToHost.Namespaces.Enabled {
+		translate.Default, err = pro.GetWithSyncedNamespacesTranslator(vConfig.WorkloadNamespace, vConfig.Sync.ToHost.Namespaces.Mappings)
+		if err != nil {
+			return err
+		}
+		// if vConfig.Experimental.MultiNamespaceMode.Enabled {
+		// 	translate.Default = translate.NewMultiNamespaceTranslator(vConfig.WorkloadNamespace)
 	} else {
 		// ensure target namespace
 		vConfig.WorkloadTargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace
