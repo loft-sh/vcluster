@@ -401,6 +401,6 @@ tests:
           path: rules
           content:
             apiGroups: ["gateway.networking.k8s.io"]
-            resources: ["gateways"]
+            resources: ["referencegrants"]
             verbs:
-              ["create", "delete", "patch", "update", "get", "list", "watch"]
+              ["create", "delete", "patch", "update", "get"]

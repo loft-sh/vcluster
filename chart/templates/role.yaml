@@ -123,8 +123,8 @@ rules:
     resources: [ "destinationrules", "gateways", "serviceentries", "virtualservices" ]
     verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
   - apiGroups: [ "gateway.networking.k8s.io" ]
-    resources: [ "gateways" ]
-    verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+    resources: [ "referencegrants" ]
+    verbs: [ "create", "delete", "patch", "update", "get" ]
   {{- end }}
   {{- include "vcluster.customResources.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
