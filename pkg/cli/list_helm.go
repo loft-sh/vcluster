@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	`github.com/loft-sh/vcluster/pkg/platform`
 	"strings"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
@@ -27,6 +27,8 @@ type ListVCluster struct {
 	AgeSeconds int
 	Connected  bool
 }
+
+type vClusterProjectMap map[string]string
 
 type ListOptions struct {
 	Driver string
@@ -76,27 +78,15 @@ func printVClusters(ctx context.Context, options *ListOptions, output []ListVClu
 		values := toValues(output)
 		table.PrintTable(logger, header, values)
 
-		// show use driver command
-		if showPlatform {
-			platformClient, err := platform.InitClientFromConfig(ctx, globalFlags.LoadedConfig(logger))
-			if err == nil {
-				ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-				defer cancel()
-
-				proVClusters, _ := platform.ListVClusters(ctx, platformClient, "", "", false)
-				if len(proVClusters) > 0 {
-					logger.Infof("You also have %d virtual clusters in your platform driver context.", len(proVClusters))
-					logger.Info("If you want to see them, run: 'vcluster list --driver platform' or 'vcluster use driver platform' to change the default")
-				}
-			}
-		} else {
+		platformClient, err := platform.InitClientFromConfig(ctx, globalFlags.LoadedConfig(logger))
+		if err == nil {
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
 
-			vClusters, _ := find.ListVClusters(ctx, globalFlags.Context, "", "", log.Discard)
-			if len(vClusters) > 0 {
-				logger.Infof("You also have %d virtual clusters in your current kube-context.", len(vClusters))
-				logger.Info("If you want to see them, run: 'vcluster list --driver helm' or 'vcluster use driver helm' to change the default")
+			proVClusters, _ := platform.ListVClusters(ctx, platformClient, "", "", false)
+			if len(proVClusters) > 0 {
+				logger.Infof("You also have %d virtual clusters in your platform driver context.", len(proVClusters))
+				logger.Info("If you want to see them, run: 'vcluster list --driver platform' or 'vcluster use driver platform' to change the default")
 			}
 		}
 
