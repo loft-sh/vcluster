@@ -176,6 +176,12 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 
+	// check sync.toHost.namespaces.mappings
+	err = validateToHostNamespaceSyncMappings(vConfig.Sync.ToHost.Namespaces, "namespaces")
+	if err != nil {
+		return err
+	}
+
 	// set service name
 	if vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name == "" {
 		vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + vConfig.Name
@@ -597,6 +603,52 @@ func validateWildcardOrAny(values []string) error {
 	for _, val := range values {
 		if val == "*" {
 			return fmt.Errorf("when wildcard(*) is used, it must be the only value in the list")
+		}
+	}
+	return nil
+}
+
+func validateToHostNamespaceSyncMappings(s config.SyncToHostNamespaces, resourceNamePlural string) error {
+	if !s.Enabled {
+		return nil
+	}
+	configPathIdentifier := fmt.Sprintf("config.sync.toHost.%s.mappings", resourceNamePlural)
+	for vNS, hNS := range s.Mappings.ByName {
+		vIsPattern := strings.Contains(vNS, "*")
+		hIsPattern := strings.Contains(hNS, "*")
+
+		if vIsPattern != hIsPattern {
+			return fmt.Errorf("%s: entry '%s':'%s' has mismatched types; if one side is a pattern (contains '*'), the other must also be a pattern, and vice-versa", configPathIdentifier, vNS, hNS)
+		}
+
+		// Validate virtual namespace part
+		if vIsPattern {
+			if strings.Count(vNS, "*") != 1 {
+				return fmt.Errorf("%s: virtual namespace pattern '%s' in entry '%s':'%s' must contain exactly one '*'", configPathIdentifier, vNS, vNS, hNS)
+			}
+		} else { // Is exact
+			if vNS == "" {
+				return fmt.Errorf("%s: virtual namespace in entry '%s':'%s' cannot be empty", configPathIdentifier, vNS, hNS)
+			}
+			errs := validation.ValidateNamespaceName(vNS, false)
+			if len(errs) > 0 {
+				return fmt.Errorf("%s: invalid virtual namespace name '%s' in entry '%s':'%s': %v", configPathIdentifier, vNS, vNS, hNS, errs)
+			}
+		}
+
+		// Validate host namespace part
+		if hIsPattern {
+			if strings.Count(hNS, "*") != 1 {
+				return fmt.Errorf("%s: host namespace pattern '%s' in entry '%s':'%s' must contain exactly one '*'", configPathIdentifier, hNS, vNS, hNS)
+			}
+		} else { // Is exact
+			if hNS == "" {
+				return fmt.Errorf("%s: host namespace in entry '%s':'%s' cannot be empty", configPathIdentifier, vNS, hNS)
+			}
+			errs := validation.ValidateNamespaceName(hNS, false)
+			if len(errs) > 0 {
+				return fmt.Errorf("%s: invalid host namespace name '%s' in entry '%s':'%s': %v", configPathIdentifier, hNS, vNS, hNS, errs)
+			}
 		}
 	}
 	return nil
