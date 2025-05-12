@@ -28,6 +28,7 @@
     .Values.sync.toHost.volumeSnapshotContents.enabled
     .Values.sync.fromHost.volumeSnapshotClasses.enabled
     .Values.controlPlane.advanced.virtualScheduler.enabled
+    .Values.sync.toHost.pods.hybridScheduling.enabled
     .Values.sync.fromHost.ingressClasses.enabled
     .Values.sync.fromHost.runtimeClasses.enabled
     (eq (toString .Values.sync.fromHost.storageClasses.enabled) "true")
