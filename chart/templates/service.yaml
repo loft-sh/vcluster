@@ -1,4 +1,7 @@
-{{- if .Values.controlPlane.service.enabled }}
+{{- $platform_svc_exists := lookup "v1" "Service" .Release.Namespace "loft" }}
+{{- if $platform_svc_exists }}
+{{- fail (printf "a vCluster platform installation exists in the namespace '%s'. Aborting install" .Release.Namespace) }}
+{{- else if .Values.controlPlane.service.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
