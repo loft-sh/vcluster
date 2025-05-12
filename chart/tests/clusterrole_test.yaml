@@ -120,7 +120,7 @@ tests:
           path: rules
           content:
             apiGroups: [ "" ]
-            resources: [ "namespaces", "serviceaccounts" ]
+            resources: [ "namespaces", "serviceaccounts", "services", "pods", "secrets", "configmaps", "persistentvolumeclaims", "endpoints", "events"]
             verbs: [ "create", "delete", "patch", "update", "get", "watch", "list" ]
 
   - it: override rules
