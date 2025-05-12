@@ -1306,10 +1306,6 @@
           "$ref": "#/$defs/ExperimentalGenericSync",
           "description": "GenericSync holds options to generically sync resources from virtual cluster to host."
         },
-        "multiNamespaceMode": {
-          "$ref": "#/$defs/ExperimentalMultiNamespaceMode",
-          "description": "MultiNamespaceMode tells virtual cluster to sync to multiple namespaces instead of a single one. This will map each virtual cluster namespace to a single namespace in the host cluster."
-        },
         "isolatedControlPlane": {
           "$ref": "#/$defs/ExperimentalIsolatedControlPlane",
           "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.",
@@ -1509,23 +1505,6 @@
         "service": {
           "type": "string",
           "description": "Service is the vCluster service in the remote cluster."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ExperimentalMultiNamespaceMode": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled specifies if multi namespace mode should get enabled"
-        },
-        "namespaceLabels": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object",
-          "description": "NamespaceLabels are extra labels that will be added by vCluster to each created namespace."
         }
       },
       "additionalProperties": false,

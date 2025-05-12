@@ -209,7 +209,7 @@ func SetGlobalOwner(ctx context.Context, vConfig *config.VirtualClusterConfig) e
 		return nil
 	}
 
-	if vConfig.Experimental.MultiNamespaceMode.Enabled {
+	if vConfig.Sync.ToHost.Namespaces.Enabled {
 		klog.Warningf("Skip setting owner, because multi namespace mode is enabled")
 		return nil
 	}

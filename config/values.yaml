@@ -552,9 +552,6 @@ external: {}
 plugins: {}
 
 experimental:
-  multiNamespaceMode:
-    enabled: false
-
   syncSettings:
     targetNamespace: ""
     setOwner: true

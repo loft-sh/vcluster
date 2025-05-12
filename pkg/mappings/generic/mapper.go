@@ -150,7 +150,7 @@ func TryToTranslateBackByName(ctx *synccontext.SyncContext, req types.Namespaced
 	}
 
 	// if multi-namespace mode we try to translate back
-	if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
+	if ctx.Config.Sync.ToHost.Namespaces.Enabled {
 		if gvk == mappings.Namespaces() || !ctx.Mappings.Has(mappings.Namespaces()) {
 			return types.NamespacedName{}
 		}

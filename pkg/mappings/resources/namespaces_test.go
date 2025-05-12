@@ -73,7 +73,7 @@ func TestNamespaceMapperHostToVirtual(t *testing.T) {
 			mappingsRegistry := mappings.NewMappingsRegistry(mappingsStore)
 			if testCase.MultiNamespaceMode {
 				translate.Default = translate.NewMultiNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
-				vConfig.Experimental.MultiNamespaceMode.Enabled = true
+				vConfig.Sync.ToHost.Namespaces.Enabled = true
 			} else {
 				translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
 			}
@@ -142,7 +142,7 @@ func TestNamespaceMapperMigrate(t *testing.T) {
 			mappingsRegistry := mappings.NewMappingsRegistry(mappingsStore)
 			if testCase.MultiNamespaceMode {
 				translate.Default = translate.NewMultiNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
-				vConfig.Experimental.MultiNamespaceMode.Enabled = true
+				vConfig.Sync.ToHost.Namespaces.Enabled = true
 			} else {
 				translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
 			}

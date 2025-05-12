@@ -39,7 +39,7 @@ func CreateImporters(ctx *synccontext.ControllerContext) error {
 	}
 
 	registerCtx := ctx.ToRegisterContext()
-	if !registerCtx.Config.Experimental.MultiNamespaceMode.Enabled {
+	if !registerCtx.Config.Sync.ToHost.Namespaces.Enabled {
 		return fmt.Errorf("invalid configuration, 'import' type sync of the generic CRDs is allowed only in the multi-namespace mode")
 	}
 

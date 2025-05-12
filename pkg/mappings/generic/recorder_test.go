@@ -214,7 +214,7 @@ func TestRecorderMigrate(t *testing.T) {
 			mappingsRegistry := mappings.NewMappingsRegistry(mappingsStore)
 			if testCase.MultiNamespaceMode {
 				translate.Default = translate.NewMultiNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
-				vConfig.Experimental.MultiNamespaceMode.Enabled = true
+				vConfig.Sync.ToHost.Namespaces.Enabled = true
 
 				namespaceMapper, err := NewMirrorMapper(&corev1.Namespace{})
 				assert.NilError(t, err)

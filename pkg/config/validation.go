@@ -854,7 +854,7 @@ func validateDedicatedNodesMode(vConfig *VirtualClusterConfig) error {
 	}
 
 	// multi-namespace mode is not supported in private nodes mode
-	if vConfig.Experimental.MultiNamespaceMode.Enabled {
+	if vConfig.Sync.ToHost.Namespaces.Enabled {
 		return fmt.Errorf("multi-namespace mode is not supported in private nodes mode")
 	}
 

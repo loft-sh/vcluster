@@ -41,7 +41,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	namespaceLabels := map[string]string{}
-	for k, v := range ctx.Config.Experimental.MultiNamespaceMode.NamespaceLabels {
+	for k, v := range ctx.Config.Sync.ToHost.Namespaces.ExtraLabels {
 		namespaceLabels[k] = v
 	}
 	namespaceLabels[VClusterNameAnnotation] = ctx.Config.Name
