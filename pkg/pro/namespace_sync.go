@@ -1,0 +1,15 @@
+package pro
+
+import (
+	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
+)
+
+var GetNamespaceMapper = func(_ *synccontext.RegisterContext) (synccontext.Mapper, error) {
+	return nil, NewFeatureError("namespace toHost syncing")
+}
+
+var GetWithSyncedNamespacesTranslator = func(currentNamespace string, mappings config.FromHostMappings) (translate.Translator, error) {
+	return nil, NewFeatureError("namespace toHost syncing")
+}
