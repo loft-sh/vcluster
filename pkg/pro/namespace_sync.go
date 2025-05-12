@@ -10,6 +10,6 @@ var GetNamespaceMapper = func(_ *synccontext.RegisterContext) (synccontext.Mappe
 	return nil, NewFeatureError("namespace toHost syncing")
 }
 
-var GetWithSyncedNamespacesTranslator = func(currentNamespace string, mappings config.FromHostMappings) (translate.Translator, error) {
+var GetWithSyncedNamespacesTranslator = func(_ string, _ config.FromHostMappings) (translate.Translator, error) {
 	return nil, NewFeatureError("namespace toHost syncing")
 }

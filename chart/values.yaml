@@ -105,7 +105,7 @@ sync:
     # Namespaces defines if namespaces created within the virtual cluster should get synced to the host cluster.
     namespaces:
       enabled: false
-
+  
   # Configure what resources vCluster should sync from the host cluster to the virtual cluster.
   fromHost:
     # Events defines if events should get synced from the host cluster to the virtual cluster, but not back.
@@ -289,7 +289,7 @@ controlPlane:
         requests:
           cpu: 40m
           memory: 64Mi
-
+  
   # BackingStore defines which backing store to use for virtual cluster. If not defined will use embedded database as a default backing store.
   backingStore:
     # Database defines that a database backend should be used as the backend for the virtual cluster. This uses a project called kine under the hood which is a shim for bridging Kubernetes and relational databases.
@@ -428,7 +428,7 @@ controlPlane:
         # HeadlessService holds options for the external etcd headless service.
         headlessService:
           annotations: {}
-
+  
   # Proxy defines options for the virtual cluster control plane proxy that is used to do authentication and intercept requests.
   proxy:
     # BindAddress under which vCluster will expose the proxy.
@@ -437,7 +437,7 @@ controlPlane:
     port: 8443
     # ExtraSANs are extra hostnames to sign the vCluster proxy certificate for.
     extraSANs: []
-
+  
   # CoreDNS defines everything related to the coredns that is deployed and used within the vCluster.
   coredns:
     # Enabled defines if coredns is enabled
@@ -499,7 +499,7 @@ controlPlane:
           labelSelector:
             matchLabels:
               k8s-app: vcluster-kube-dns
-
+  
   # Service defines options for vCluster service deployed by Helm.
   service:
     # Enabled defines if the control plane service should be enabled
@@ -513,7 +513,7 @@ controlPlane:
     # Spec allows you to configure extra service options.
     spec:
       type: ClusterIP
-
+  
   # Ingress defines options for vCluster ingress deployed by Helm.
   ingress:
     # Enabled defines if the control plane ingress should be enabled
@@ -530,7 +530,7 @@ controlPlane:
     # Spec allows you to configure extra ingress options.
     spec:
       tls: []
-
+  
   # StatefulSet defines options for vCluster statefulSet deployed by Helm.
   statefulSet:
     labels: {}
@@ -646,14 +646,14 @@ controlPlane:
       # StartupProbe specifies if the startup probe for the container should be enabled
       startupProbe:
         enabled: true
-
+  
   # ServiceMonitor can be used to automatically create a service monitor for vCluster deployment itself.
   serviceMonitor:
     # Enabled configures if Helm should create the service monitor.
     enabled: false
     labels: {}
     annotations: {}
-
+  
   # Advanced holds additional configuration for the vCluster control plane.
   advanced:
     # DefaultImageRegistry will be used as a prefix for all internal images deployed by vCluster or Helm. This makes it easy to
@@ -698,7 +698,7 @@ controlPlane:
 privateNodes:
   # Enabled defines if dedicated nodes should be enabled.
   enabled: false
-
+  
   # KubeProxy holds dedicated kube proxy configuration.
   kubeProxy:
     # Enabled defines if the kube proxy should be enabled.
@@ -714,7 +714,7 @@ integrations:
     nodes: true
     # Pods defines if metrics-server pods api should get proxied from host to virtual cluster.
     pods: true
-
+  
   # ExternalSecrets reuses a host external secret operator and makes certain CRDs from it available inside the vCluster.
   # - ExternalSecrets will be synced from the virtual cluster to the host cluster.
   # - SecretStores will be synced from the virtual cluster to the host cluster and then bi-directionally.
@@ -740,7 +740,7 @@ integrations:
         # Selector defines what cluster stores should be synced
         selector:
           labels: {}
-
+  
   # KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
   kubeVirt:
     # Enabled signals if the integration should be enabled
@@ -768,7 +768,7 @@ integrations:
       # If VirtualMachineInstanceMigrations should get synced
       virtualMachineInstanceMigrations:
         enabled: true
-
+  
   # CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster.
   # - Certificates and Issuers will be synced from the virtual cluster to the host cluster.
   # - ClusterIssuers will be synced from the host cluster to the virtual cluster.
@@ -792,7 +792,7 @@ integrations:
           # Selector defines what cluster issuers should be imported.
           selector:
             labels: {}
-
+  
   # Istio syncs DestinationRules, Gateways and VirtualServices from virtual cluster to the host.
   istio:
     # Enabled defines if this option should be enabled.
@@ -816,7 +816,7 @@ rbac:
     overwriteRules: []
     # ExtraRules will add rules to the role.
     extraRules: []
-
+  
   # ClusterRole holds virtual cluster cluster role configuration
   clusterRole:
     # Enabled defines if the cluster role should be enabled or disabled. If auto, vCluster automatically determines whether the virtual cluster requires a cluster role.
@@ -830,7 +830,7 @@ rbac:
 networking:
   # PodCIDR holds the pod cidr for the virtual cluster. This should only be set if privateNodes.enabled is true.
   podCIDR: "10.244.0.0/16"
-
+  
   # ReplicateServices allows replicating services from the host within the virtual cluster or the other way around.
   replicateServices:
     # ToHost defines the services that should get synced from virtual cluster to the host cluster. If services are
@@ -839,10 +839,10 @@ networking:
     toHost: []
     # FromHost defines the services that should get synced from the host to the virtual cluster.
     fromHost: []
-
+  
   # ResolveDNS allows to define extra DNS rules. This only works if embedded coredns is configured.
   resolveDNS: []
-
+  
   # Advanced holds advanced network options.
   advanced:
     # ClusterDomain is the Kubernetes cluster domain to use within the virtual cluster.
@@ -891,7 +891,7 @@ policies:
       matchExpressions: []
     # Scopes are the resource quota scopes
     scopes: []
-
+  
   # LimitRange specifies limit range options.
   limitRange:
     # Enabled defines if the limit range should be deployed by vCluster. "auto" means that if resourceQuota is enabled,
@@ -913,7 +913,7 @@ policies:
     min: {}
     # Max are the max limits for the limit range
     max: {}
-
+  
   # NetworkPolicy specifies network policy options.
   networkPolicy:
     # Enabled defines if the network policy should be deployed by vCluster.
@@ -947,7 +947,7 @@ policies:
           - 10.0.0.0/8
           - 172.16.0.0/12
           - 192.168.0.0/16
-
+  
   # CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.
   centralAdmission:
     # ValidatingWebhooks are validating webhooks that should be enforced in the virtual cluster
@@ -959,13 +959,13 @@ policies:
 exportKubeConfig:
   # Context is the name of the context within the generated kubeconfig to use.
   context: ""
-
+  
   # Override the default https://localhost:8443 and specify a custom hostname for the generated kubeconfig.
   server: ""
-
+  
   # If tls should get skipped for the server
   insecure: false
-
+  
   # ServiceAccount can be used to generate a service account token instead of the default certificates.
   serviceAccount:
     # Name of the service account to be used to generate a service account token instead of the default certificates.
@@ -975,7 +975,7 @@ exportKubeConfig:
     namespace: ""
     # ClusterRole to assign to the service account.
     clusterRole: ""
-
+  
   # Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.
   # If this is not defined, vCluster will create it with `vc-NAME`. If you specify another name,
   # vCluster creates the config in this other secret.
@@ -1002,12 +1002,12 @@ experimental:
     targetNamespace: ""
     # SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.
     setOwner: true
-
+  
   # IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
   isolatedControlPlane:
     # Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane.
     headless: false
-
+  
   # Deploy allows you to configure manifests and Helm charts to deploy within the host or virtual cluster.
   deploy:
     # Host defines what manifests to deploy into the host cluster
@@ -1024,7 +1024,7 @@ experimental:
       manifestsTemplate: ""
       # Helm are Helm charts that should get deployed into the virtual cluster
       helm: []
-
+  
   # GenericSync holds options to generically sync resources from virtual cluster to host.
   genericSync:
     clusterRole:

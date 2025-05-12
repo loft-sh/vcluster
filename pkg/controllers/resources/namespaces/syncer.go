@@ -130,20 +130,6 @@ func (s *namespaceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syn
 	return ctrl.Result{}, nil
 }
 
-func (s *namespaceSyncer) translateToVirtual(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Namespace {
-	newNamespace := translate.VirtualMetadata(vObj.(*corev1.Namespace), s.HostToVirtual(ctx, types.NamespacedName{Name: vObj.GetName()}, vObj), s.excludedAnnotations...)
-	if newNamespace.Labels == nil {
-		newNamespace.Labels = map[string]string{}
-	}
-
-	// add user defined namespace labels
-	for k, v := range s.namespaceLabels {
-		newNamespace.Labels[k] = v
-	}
-
-	return newNamespace
-}
-
 func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncContext, pNamespace string) error {
 	if s.workloadServiceAccountName == "" {
 		return nil
