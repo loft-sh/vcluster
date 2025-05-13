@@ -44,8 +44,6 @@ func InitClients(vConfig *config.VirtualClusterConfig) error {
 		if err != nil {
 			return err
 		}
-		// if vConfig.Experimental.MultiNamespaceMode.Enabled {
-		// 	translate.Default = translate.NewMultiNamespaceTranslator(vConfig.WorkloadNamespace)
 	} else {
 		// ensure target namespace
 		vConfig.WorkloadTargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace
