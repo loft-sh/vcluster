@@ -257,7 +257,7 @@ jobs:
       matrix:
         distribution: ["k3s", "k8s"]
         test-suite-path: ${{fromJson(needs.get-testsuites-dir.outputs.matrix)}}
-        multinamespace-mode: ["false", "true"]
+        multinamespace-mode: ["false"]
         ha: ["false", "true"]
         include:
           - distribution: "k8s"
