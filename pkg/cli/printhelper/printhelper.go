@@ -54,7 +54,7 @@ Login via CLI: %s
 
 #################################################################
 
-vcluster platform was successfully installed and port-forwarding has been started.
+The platform was successfully installed and port-forwarding has been started.
 If you stop this command, run 'vcluster platform start' again to restart port-forwarding.
 
 Thanks for using vCluster Platform!
