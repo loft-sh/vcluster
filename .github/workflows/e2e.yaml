@@ -281,6 +281,10 @@ jobs:
           - distribution: "k3s"
             multinamespace-mode: "true"
             test-suite-path: "./test/e2e_isolation_mode"
+          - distribution: "k3s"
+            test-suite-path: "./test/e2e_generic"
+          - distribution: "k8s"
+            test-suite-path: "./test/e2e_generic"
 
     steps:
       - name: Checkout repository
