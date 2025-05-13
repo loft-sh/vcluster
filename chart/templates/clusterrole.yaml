@@ -39,7 +39,7 @@ rules:
     resources: ["nodes", "nodes/status"]
     verbs: ["update", "patch"]
   {{- end }}
-  {{- if .Values.controlPlane.advanced.virtualScheduler.enabled }}
+  {{- if or .Values.controlPlane.advanced.virtualScheduler.enabled .Values.sync.toHost.pods.hybridScheduling.enabled }}
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
     verbs: ["get", "watch", "list"]
