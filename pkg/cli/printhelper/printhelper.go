@@ -29,7 +29,7 @@ EXTERNAL-IP may be 'pending' for a while until your cloud provider has created a
 
 #########################################################################################################
 
-The command will wait until vcluster platform is reachable under the host. You can also abort and use port-forwarding instead
+The command will wait until the platform is reachable under the host. You can also abort and use port-forwarding instead
 by running 'vcluster platform start' again.
 
 `)
