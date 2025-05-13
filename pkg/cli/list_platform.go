@@ -38,8 +38,7 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 		return err
 	}
 
-	vClusters, vClusterProjectMapping := proToVClusters(proVClusters, currentContext)
-	err = printProVClusters(ctx, options, vClusters, vClusterProjectMapping, globalFlags, logger)
+	err = printProVClusters(ctx, options, proToVClusters(proVClusters, currentContext), globalFlags, logger)
 	if err != nil {
 		return err
 	}
@@ -47,9 +46,8 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 	return nil
 }
 
-func proToVClusters(vClusters []*platform.VirtualClusterInstanceProject, currentContext string) ([]ListVCluster, vClusterProjectMap) {
-	var output []ListVCluster
-	vClusterProjectMapping := make(vClusterProjectMap)
+func proToVClusters(vClusters []*platform.VirtualClusterInstanceProject, currentContext string) []ListProVCluster {
+	var output []ListProVCluster
 	for _, vCluster := range vClusters {
 		status := string(vCluster.VirtualCluster.Status.Phase)
 		if vCluster.VirtualCluster.DeletionTimestamp != nil {
@@ -71,24 +69,24 @@ func proToVClusters(vClusters []*platform.VirtualClusterInstanceProject, current
 		}
 
 		connected := strings.HasPrefix(currentContext, "vcluster-platform_"+vCluster.VirtualCluster.Name+"_"+vCluster.Project.Name)
-		vClusterOutput := ListVCluster{
-			Name:       name,
-			Namespace:  vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
-			Connected:  connected,
-			Created:    vCluster.VirtualCluster.CreationTimestamp.Time,
-			AgeSeconds: int(time.Since(vCluster.VirtualCluster.CreationTimestamp.Time).Round(time.Second).Seconds()),
-			Status:     status,
-			Version:    version,
+		vClusterOutput := ListProVCluster{
+			ListVCluster{
+				Name:       name,
+				Namespace:  vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
+				Connected:  connected,
+				Created:    vCluster.VirtualCluster.CreationTimestamp.Time,
+				AgeSeconds: int(time.Since(vCluster.VirtualCluster.CreationTimestamp.Time).Round(time.Second).Seconds()),
+				Status:     status,
+				Version:    version,
+			},
+			vCluster.Project.Name,
 		}
-		uniqueVClusterIdentifier := vClusterOutput.Name + "_" + vClusterOutput.Namespace
-		vClusterProjectMapping[uniqueVClusterIdentifier] = vCluster.Project.Name
 		output = append(output, vClusterOutput)
 	}
-	return output, vClusterProjectMapping
+	return output
 }
 
-func printProVClusters(ctx context.Context, options *ListOptions, output []ListVCluster,
-	vClusterProjectMapping vClusterProjectMap, globalFlags *flags.GlobalFlags, logger log.Logger) error {
+func printProVClusters(ctx context.Context, options *ListOptions, output []ListProVCluster, globalFlags *flags.GlobalFlags, logger log.Logger) error {
 	if options.Output == "json" {
 		bytes, err := json.MarshalIndent(output, "", "    ")
 		if err != nil {
@@ -98,7 +96,7 @@ func printProVClusters(ctx context.Context, options *ListOptions, output []ListV
 		logger.WriteString(logrus.InfoLevel, string(bytes)+"\n")
 	} else {
 		header := []string{"NAME", "NAMESPACE", "PROJECT", "STATUS", "VERSION", "CONNECTED", "AGE"}
-		values := toTableValues(output, vClusterProjectMapping)
+		values := toTableValues(output)
 		table.PrintTable(logger, header, values)
 
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
@@ -118,7 +116,7 @@ func printProVClusters(ctx context.Context, options *ListOptions, output []ListV
 	return nil
 }
 
-func toTableValues(vClusters []ListVCluster, vClusterProjectMapping vClusterProjectMap) [][]string {
+func toTableValues(vClusters []ListProVCluster) [][]string {
 	var values [][]string
 	for _, vCluster := range vClusters {
 		isConnected := ""
@@ -126,11 +124,10 @@ func toTableValues(vClusters []ListVCluster, vClusterProjectMapping vClusterProj
 			isConnected = "True"
 		}
 
-		uniqueVClusterIdentifier := vCluster.Name + "_" + vCluster.Namespace
 		values = append(values, []string{
 			vCluster.Name,
 			vCluster.Namespace,
-			vClusterProjectMapping[uniqueVClusterIdentifier],
+			vCluster.Project,
 			vCluster.Status,
 			vCluster.Version,
 			isConnected,
