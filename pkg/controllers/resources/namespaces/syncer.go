@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -34,7 +33,6 @@ const (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
-	klog.Infof("DEBUG - create new syncer for namespaces")
 	mapper, err := ctx.Mappings.ByGVK(mappings.Namespaces())
 	if err != nil {
 		return nil, err

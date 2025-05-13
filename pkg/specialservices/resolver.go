@@ -3,6 +3,7 @@ package specialservices
 import (
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -40,6 +41,10 @@ type NameserverFinder struct {
 }
 
 func (f *NameserverFinder) DNSNamespace(ctx *synccontext.SyncContext) (client.Client, string) {
+	if ctx.Config.Sync.ToHost.Namespaces.Enabled {
+		// when namespaces are synced, we rely on translator logic
+		return ctx.PhysicalClient, translate.Default.HostNamespace(ctx, DefaultKubeDNSServiceNamespace)
+	}
 	return ctx.PhysicalClient, mappings.VirtualToHostNamespace(ctx, DefaultKubeDNSServiceNamespace)
 }
 
