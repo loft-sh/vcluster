@@ -124,7 +124,7 @@ rules:
     verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
   - apiGroups: [ "gateway.networking.k8s.io" ]
     resources: [ "referencegrants" ]
-    verbs: [ "create", "delete", "patch", "update", "get" ]
+    verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
   {{- end }}
   {{- include "vcluster.customResources.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
