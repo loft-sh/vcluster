@@ -3574,7 +3574,8 @@
     "SyncToHostNamespaces": {
       "properties": {
         "enabled": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
         },
         "patches": {
           "items": {
@@ -3599,7 +3600,8 @@
       "type": "object",
       "required": [
         "enabled"
-      ]
+      ],
+      "description": "SyncToHostNamespaces defines how namespaces should be synced from the virtual cluster to the host cluster."
     },
     "Telemetry": {
       "properties": {
