@@ -6,7 +6,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 )
 
-var GetNamespaceMapper = func(_ *synccontext.RegisterContext) (synccontext.Mapper, error) {
+var GetNamespaceMapper = func(_ *synccontext.RegisterContext, _ synccontext.Mapper) (synccontext.Mapper, error) {
 	return nil, NewFeatureError("namespace toHost syncing")
 }
 

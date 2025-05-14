@@ -11,13 +11,13 @@ import (
 )
 
 func CreateNamespacesMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	if ctx.Config.Sync.ToHost.Namespaces.Enabled {
-		return pro.GetNamespaceMapper(ctx)
-	}
-
-	return &singleNamespaceModeMapper{
+	singleNamespaceMapper := &singleNamespaceModeMapper{
 		targetNamespace: ctx.Config.WorkloadTargetNamespace,
-	}, nil
+	}
+	if ctx.Config.Sync.ToHost.Namespaces.Enabled {
+		return pro.GetNamespaceMapper(ctx, singleNamespaceMapper)
+	}
+	return singleNamespaceMapper, nil
 }
 
 type singleNamespaceModeMapper struct {

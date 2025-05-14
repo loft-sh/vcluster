@@ -38,19 +38,19 @@ func InitClients(vConfig *config.VirtualClusterConfig) error {
 		return err
 	}
 
-	// get workload target namespace
+	// ensure target namespace
+	vConfig.WorkloadTargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace
+	if vConfig.WorkloadTargetNamespace == "" {
+		vConfig.WorkloadTargetNamespace = vConfig.WorkloadNamespace
+	}
+
+	// get workload target namespace translator
 	if vConfig.Sync.ToHost.Namespaces.Enabled {
-		translate.Default, err = pro.GetWithSyncedNamespacesTranslator(vConfig.WorkloadNamespace, vConfig.Sync.ToHost.Namespaces.Mappings)
+		translate.Default, err = pro.GetWithSyncedNamespacesTranslator(vConfig.WorkloadTargetNamespace, vConfig.Sync.ToHost.Namespaces.Mappings)
 		if err != nil {
 			return err
 		}
 	} else {
-		// ensure target namespace
-		vConfig.WorkloadTargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace
-		if vConfig.WorkloadTargetNamespace == "" {
-			vConfig.WorkloadTargetNamespace = vConfig.WorkloadNamespace
-		}
-
 		translate.Default = translate.NewSingleNamespaceTranslator(vConfig.WorkloadTargetNamespace)
 	}
 
