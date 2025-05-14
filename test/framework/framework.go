@@ -139,12 +139,7 @@ func CreateFramework(ctx context.Context) error {
 	translate.VClusterName = suffix
 
 	var multiNamespaceMode bool
-	if os.Getenv("MULTINAMESPACE_MODE") == "true" {
-		translate.Default = translate.NewMultiNamespaceTranslator(ns)
-		multiNamespaceMode = true
-	} else {
-		translate.Default = translate.NewSingleNamespaceTranslator(ns)
-	}
+	translate.Default = translate.NewSingleNamespaceTranslator(ns)
 
 	l.Infof("Testing vCluster named: %s in namespace: %s", name, ns)
 	hostConfig, err := ctrl.GetConfig()
