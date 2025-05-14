@@ -13,7 +13,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -82,7 +81,7 @@ func (s *namespaceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
-	newNamespace := s.translate(ctx, event.Virtual)
+	newNamespace := s.translateToHost(ctx, event.Virtual)
 	ctx.Log.Infof("create physical namespace %s", newNamespace.Name)
 
 	err := pro.ApplyPatchesHostObject(ctx, nil, newNamespace, event.Virtual, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
@@ -115,24 +114,15 @@ func (s *namespaceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syn
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 
-	virtualName := ""
-	for vname, hname := range ctx.Config.Sync.ToHost.Namespaces.Mappings.ByName {
-		if hname == event.Host.Name {
-			virtualName = vname
-			break
-		}
-	}
+	newNamespace := s.translateToVirtual(ctx, event.Host)
+	ctx.Log.Infof("create virtual namespace %s", newNamespace.Name)
 
-	if virtualName != "" {
-		newNamespace := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.GetName()}, event.Host), s.excludedAnnotations...)
-		err := pro.ApplyPatchesVirtualObject(ctx, nil, newNamespace, event.Host, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		return patcher.CreateVirtualObject(ctx, event.Host, newNamespace, s.EventRecorder(), true)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, newNamespace, event.Host, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
+	return patcher.CreateVirtualObject(ctx, event.Host, newNamespace, s.EventRecorder(), true)
 
-	return ctrl.Result{}, nil
 }
 
 func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncContext, pNamespace string) error {
