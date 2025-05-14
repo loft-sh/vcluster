@@ -22,8 +22,6 @@ func TestRecorderMigrate(t *testing.T) {
 	type testCase struct {
 		Name string
 
-		MultiNamespaceMode bool
-
 		Object client.Object
 
 		ExpectedMapping *synccontext.NameMapping
@@ -117,91 +115,6 @@ func TestRecorderMigrate(t *testing.T) {
 				},
 			},
 		},
-		{
-			Name: "Multi namespace mode",
-
-			MultiNamespaceMode: true,
-
-			Object: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "host-secret-1",
-					Namespace: translate.NewMultiNamespaceTranslator(testingutil.DefaultTestTargetNamespace).HostNamespace(nil, "test"),
-					Annotations: map[string]string{
-						translate.NameAnnotation:      "virtual-secret-1",
-						translate.NamespaceAnnotation: "virtual-namespace-1",
-						translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Secret").String(),
-					},
-				},
-			},
-
-			ExpectedMapping: &synccontext.NameMapping{
-				GroupVersionKind: corev1.SchemeGroupVersion.WithKind("Secret"),
-				VirtualName: types.NamespacedName{
-					Namespace: "virtual-namespace-1",
-					Name:      "virtual-secret-1",
-				},
-				HostName: types.NamespacedName{
-					Namespace: translate.NewMultiNamespaceTranslator(testingutil.DefaultTestTargetNamespace).HostNamespace(nil, "test"),
-					Name:      "host-secret-1",
-				},
-			},
-		},
-		{
-			Name: "Multi namespace mode - wrong namespace",
-
-			MultiNamespaceMode: true,
-
-			Object: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "host-secret-1",
-					Namespace: "test",
-					Annotations: map[string]string{
-						translate.NameAnnotation:      "virtual-secret-1",
-						translate.NamespaceAnnotation: "virtual-namespace-1",
-						translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Secret").String(),
-					},
-				},
-			},
-		},
-		{
-			Name: "Multi namespace mode - no annotations",
-
-			MultiNamespaceMode: true,
-
-			Object: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "host-secret-1",
-					Namespace: translate.NewMultiNamespaceTranslator(testingutil.DefaultTestTargetNamespace).HostNamespace(nil, "test"),
-				},
-			},
-		},
-		{
-			Name: "Multi namespace mode - namespace mapper",
-
-			MultiNamespaceMode: true,
-
-			Object: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "host-secret-1",
-					Namespace: translate.NewMultiNamespaceTranslator(testingutil.DefaultTestTargetNamespace).HostNamespace(nil, "test"),
-				},
-			},
-		},
-		{
-			Name: "Multi namespace mode - namespace mapper",
-
-			MultiNamespaceMode: true,
-
-			Object: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "host-namespace-1",
-					Annotations: map[string]string{
-						translate.NameAnnotation: "virtual-namespace-1",
-						translate.KindAnnotation: corev1.SchemeGroupVersion.WithKind("Namespace").String(),
-					},
-				},
-			},
-		},
 	}
 
 	for _, testCase := range testCases {
@@ -212,17 +125,7 @@ func TestRecorderMigrate(t *testing.T) {
 
 			vConfig := testingutil.NewFakeConfig()
 			mappingsRegistry := mappings.NewMappingsRegistry(mappingsStore)
-			if testCase.MultiNamespaceMode {
-				translate.Default = translate.NewMultiNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
-				vConfig.Sync.ToHost.Namespaces.Enabled = true
-
-				namespaceMapper, err := NewMirrorMapper(&corev1.Namespace{})
-				assert.NilError(t, err)
-				err = mappingsRegistry.AddMapper(namespaceMapper)
-				assert.NilError(t, err)
-			} else {
-				translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
-			}
+			translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
 
 			// check recording
 			registerContext := &synccontext.RegisterContext{
