@@ -106,6 +106,8 @@ sync:
     namespaces:
       # Enabled defines if this option should be enabled.
       enabled: false
+      # MappingsOnly defines if creation of namespaces not matched by mappings should be allowed.
+      mappingsOnly: false
   
   # Configure what resources vCluster should sync from the host cluster to the virtual cluster.
   fromHost:

@@ -693,6 +693,9 @@ type SyncToHostNamespaces struct {
 	// Mappings for Namespace and Object
 	Mappings FromHostMappings `json:"mappings,omitempty"`
 
+	// MappingsOnly defines if creation of namespaces not matched by mappings should be allowed.
+	MappingsOnly bool `json:"mappingsOnly,omitempty"`
+
 	// ExtraLabels are additional labels to add to the namespace in the host cluster.
 	ExtraLabels map[string]string `json:"extraLabels,omitempty"`
 }

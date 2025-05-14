@@ -3588,6 +3588,10 @@
           "$ref": "#/$defs/FromHostMappings",
           "description": "Mappings for Namespace and Object"
         },
+        "mappingsOnly": {
+          "type": "boolean",
+          "description": "MappingsOnly defines if creation of namespaces not matched by mappings should be allowed."
+        },
         "extraLabels": {
           "additionalProperties": {
             "type": "string"
