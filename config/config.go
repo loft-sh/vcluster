@@ -682,7 +682,9 @@ type SyncFromHost struct {
 	Secrets EnableSwitchWithResourcesMappings `json:"secrets,omitempty"`
 }
 
+// SyncToHostNamespaces defines how namespaces should be synced from the virtual cluster to the host cluster.
 type SyncToHostNamespaces struct {
+	// Enabled defines if this option should be enabled.
 	Enabled bool `json:"enabled,omitempty" jsonschema:"required"`
 
 	// Patches patch the resource according to the provided specification.
@@ -2118,14 +2120,6 @@ type Experimental struct {
 
 func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
 	addProToJSONSchema(base, reflect.TypeOf(e))
-}
-
-type ExperimentalMultiNamespaceMode struct {
-	// Enabled specifies if multi namespace mode should get enabled
-	Enabled bool `json:"enabled,omitempty"`
-
-	// NamespaceLabels are extra labels that will be added by vCluster to each created namespace.
-	NamespaceLabels map[string]string `json:"namespaceLabels,omitempty"`
 }
 
 type ExperimentalIsolatedControlPlane struct {
