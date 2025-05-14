@@ -23,8 +23,6 @@ var allowedPodSecurityStandards = map[string]bool{
 	"restricted": true,
 }
 
-var verbs = []string{"get", "list", "create", "update", "patch", "watch", "delete", "deletecollection"}
-
 func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	// check the value of pod security standard
 	if vConfig.Policies.PodSecurityStandard != "" && !allowedPodSecurityStandards[vConfig.Policies.PodSecurityStandard] {
