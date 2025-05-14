@@ -106,7 +106,7 @@ rules:
   {{- end }}
   {{- if .Values.sync.toHost.namespaces.enabled }}
   - apiGroups: [""]
-    resources: ["namespaces", "serviceaccounts", "services", "pods", "secrets", "configmaps", "persistentvolumeclaims", "endpoints", "events"]
+    resources: ["namespaces", "serviceaccounts"]
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
   {{- end }}
   {{- if (and .Values.integrations.metricsServer.enabled .Values.integrations.metricsServer.nodes) }}
