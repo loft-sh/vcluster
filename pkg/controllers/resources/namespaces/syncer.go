@@ -65,6 +65,13 @@ type namespaceSyncer struct {
 }
 
 var _ syncertypes.Syncer = &namespaceSyncer{}
+var _ syncertypes.OptionsProvider = &namespaceSyncer{}
+
+func (s *namespaceSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		ObjectCaching: true,
+	}
+}
 
 func (s *namespaceSyncer) Syncer() syncertypes.Sync[client.Object] {
 	return syncer.ToGenericSyncer(s)
