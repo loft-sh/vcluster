@@ -122,7 +122,6 @@ func (s *namespaceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syn
 		return ctrl.Result{}, err
 	}
 	return patcher.CreateVirtualObject(ctx, event.Host, newNamespace, s.EventRecorder(), true)
-
 }
 
 func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncContext, pNamespace string) error {
