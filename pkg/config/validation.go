@@ -31,6 +31,8 @@ var allowedPodSecurityStandards = map[string]bool{
 	"restricted": true,
 }
 
+var verbs = []string{"get", "list", "create", "update", "patch", "watch", "delete", "deletecollection"}
+
 func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	// check the value of pod security standard
 	if vConfig.Policies.PodSecurityStandard != "" && !allowedPodSecurityStandards[vConfig.Policies.PodSecurityStandard] {
@@ -99,9 +101,22 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 
-	// disable old generic sync
-	if isUsingOldGenericSync(vConfig.Experimental.GenericSync) {
-		return errors.New("experimental.genericSync is deprecated. Please use sync.toHost.customResources and sync.fromHost.customResources instead")
+	// disallow old and new generic sync to be used together
+	if len(vConfig.Sync.ToHost.CustomResources) > 0 || len(vConfig.Sync.FromHost.CustomResources) > 0 {
+		// check if generic sync exports are used
+		if len(vConfig.Experimental.GenericSync.Exports) > 0 {
+			return errors.New("experimental.genericSync.exports is not allowed when using sync.toHost.customResources or sync.fromHost.customResources")
+		}
+
+		// check if generic sync imports are used
+		if len(vConfig.Experimental.GenericSync.Imports) > 0 {
+			return errors.New("experimental.genericSync.imports is not allowed when using sync.toHost.customResources or sync.fromHost.customResources")
+		}
+
+		// check if hooks are used
+		if vConfig.Experimental.GenericSync.Hooks != nil && (len(vConfig.Experimental.GenericSync.Hooks.HostToVirtual) > 0 || len(vConfig.Experimental.GenericSync.Hooks.VirtualToHost) > 0) {
+			return errors.New("experimental.genericSync.hooks is not allowed when using sync.toHost.customResources or sync.fromHost.customResources. Please use sync.*.patches.expression instead")
+		}
 	}
 
 	// check if nodes controller needs to be enabled
@@ -130,6 +145,12 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	err = validateCentralAdmissionControl(vConfig)
 	if err != nil {
 		return err
+	}
+
+	// validate generic sync config
+	err = validateGenericSyncConfig(vConfig.Experimental.GenericSync)
+	if err != nil {
+		return fmt.Errorf("validate experimental.genericSync")
 	}
 
 	// validate distro
@@ -161,6 +182,10 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	err = validateFromHostSyncMappings(vConfig.Sync.FromHost.Secrets, "secrets")
 	if err != nil {
 		return err
+	}
+
+	if isUsingOldGenericSync(vConfig.Experimental.GenericSync) && vConfig.Sync.ToHost.Namespaces.Enabled {
+		return errors.New("experimental.genericSync.imports is not allowed when using sync.toHost.namespaces")
 	}
 
 	// check sync.toHost.namespaces.mappings
@@ -277,6 +302,165 @@ func validateDistro(config *VirtualClusterConfig) error {
 	if enabledDistros > 1 {
 		return fmt.Errorf("only one distribution can be enabled")
 	}
+	return nil
+}
+
+func validateGenericSyncConfig(config config.ExperimentalGenericSync) error {
+	err := validateExportDuplicates(config.Exports)
+	if err != nil {
+		return err
+	}
+
+	for idx, exp := range config.Exports {
+		if exp == nil {
+			return fmt.Errorf("exports[%d] is required", idx)
+		}
+
+		if exp.Kind == "" {
+			return fmt.Errorf("exports[%d].kind is required", idx)
+		}
+
+		if exp.APIVersion == "" {
+			return fmt.Errorf("exports[%d].APIVersion is required", idx)
+		}
+
+		for patchIdx, patch := range exp.Patches {
+			err := validatePatch(patch)
+			if err != nil {
+				return fmt.Errorf("invalid exports[%d].patches[%d]: %w", idx, patchIdx, err)
+			}
+		}
+
+		for patchIdx, patch := range exp.ReversePatches {
+			err := validatePatch(patch)
+			if err != nil {
+				return fmt.Errorf("invalid exports[%d].reversPatches[%d]: %w", idx, patchIdx, err)
+			}
+		}
+	}
+
+	err = validateImportDuplicates(config.Imports)
+	if err != nil {
+		return err
+	}
+
+	for idx, imp := range config.Imports {
+		if imp == nil {
+			return fmt.Errorf("imports[%d] is required", idx)
+		}
+
+		if imp.Kind == "" {
+			return fmt.Errorf("imports[%d].kind is required", idx)
+		}
+
+		if imp.APIVersion == "" {
+			return fmt.Errorf("imports[%d].APIVersion is required", idx)
+		}
+
+		for patchIdx, patch := range imp.Patches {
+			err := validatePatch(patch)
+			if err != nil {
+				return fmt.Errorf("invalid imports[%d].patches[%d]: %w", idx, patchIdx, err)
+			}
+		}
+
+		for patchIdx, patch := range imp.ReversePatches {
+			err := validatePatch(patch)
+			if err != nil {
+				return fmt.Errorf("invalid imports[%d].reversPatches[%d]: %w", idx, patchIdx, err)
+			}
+		}
+	}
+
+	if config.Hooks != nil {
+		// HostToVirtual validation
+		for idx, hook := range config.Hooks.HostToVirtual {
+			for idy, verb := range hook.Verbs {
+				if err := validateVerb(verb); err != nil {
+					return fmt.Errorf("invalid hooks.hostToVirtual[%d].verbs[%d]: %w", idx, idy, err)
+				}
+			}
+
+			for idy, patch := range hook.Patches {
+				if err := validatePatch(patch); err != nil {
+					return fmt.Errorf("invalid hooks.hostToVirtual[%d].patches[%d]: %w", idx, idy, err)
+				}
+			}
+		}
+
+		// VirtualToHost validation
+		for idx, hook := range config.Hooks.VirtualToHost {
+			for idy, verb := range hook.Verbs {
+				if err := validateVerb(verb); err != nil {
+					return fmt.Errorf("invalid hooks.virtualToHost[%d].verbs[%d]: %w", idx, idy, err)
+				}
+			}
+
+			for idy, patch := range hook.Patches {
+				if err := validatePatch(patch); err != nil {
+					return fmt.Errorf("invalid hooks.virtualToHost[%d].patches[%d]: %w", idx, idy, err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func validatePatch(patch *config.Patch) error {
+	switch patch.Operation {
+	case config.PatchTypeRemove, config.PatchTypeReplace, config.PatchTypeAdd:
+		if patch.FromPath != "" {
+			return fmt.Errorf("fromPath is not supported for this operation")
+		}
+
+		return nil
+	case config.PatchTypeRewriteName, config.PatchTypeRewriteLabelSelector, config.PatchTypeRewriteLabelKey, config.PatchTypeRewriteLabelExpressionsSelector:
+		return nil
+	case config.PatchTypeCopyFromObject:
+		if patch.FromPath == "" {
+			return fmt.Errorf("fromPath is required for this operation")
+		}
+
+		return nil
+	default:
+		return fmt.Errorf("unsupported patch type %s", patch.Operation)
+	}
+}
+
+func validateVerb(verb string) error {
+	if !slices.Contains(verbs, verb) {
+		return fmt.Errorf("invalid verb \"%s\"; expected on of %q", verb, verbs)
+	}
+
+	return nil
+}
+
+func validateExportDuplicates(exports []*config.Export) error {
+	gvks := map[string]bool{}
+	for _, e := range exports {
+		k := fmt.Sprintf("%s|%s", e.APIVersion, e.Kind)
+		_, found := gvks[k]
+		if found {
+			return fmt.Errorf("duplicate export for APIVersion %s and %s Kind, only one export for each APIVersion+Kind is permitted", e.APIVersion, e.Kind)
+		}
+		gvks[k] = true
+	}
+
+	return nil
+}
+
+func validateImportDuplicates(imports []*config.Import) error {
+	gvks := map[string]bool{}
+	for _, e := range imports {
+		k := fmt.Sprintf("%s|%s", e.APIVersion, e.Kind)
+		_, found := gvks[k]
+		if found {
+			return fmt.Errorf("duplicate import for APIVersion %s and %s Kind, only one import for each APIVersion+Kind is permitted", e.APIVersion, e.Kind)
+		}
+		gvks[k] = true
+	}
+
 	return nil
 }
 
