@@ -342,7 +342,8 @@ func (c *Config) BackingStoreType() StoreType {
 }
 
 func (c *Config) EmbeddedDatabase() bool {
-	return !c.ControlPlane.BackingStore.Database.External.Enabled && !c.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !c.ControlPlane.BackingStore.Etcd.Deploy.Enabled && !c.ControlPlane.BackingStore.Etcd.External.Enabled
+	return !c.ControlPlane.BackingStore.Database.External.Enabled && !c.ControlPlane.BackingStore.Etcd.Embedded.Enabled &&
+		!c.ControlPlane.BackingStore.Etcd.Deploy.Enabled && !c.ControlPlane.BackingStore.Etcd.External.Enabled && c.ControlPlane.BackingStore.Database.External.DataSource == ""
 }
 
 func (c *Config) Distro() string {
