@@ -657,9 +657,6 @@ type UpgradePlanConfiguration struct {
 	// DryRun tells if the dry run mode is enabled, don't apply any change if it is and just output what would be done.
 	DryRun *bool
 
-	// EtcdUpgrade instructs kubeadm to execute etcd upgrade during upgrades.
-	EtcdUpgrade *bool
-
 	// IgnorePreflightErrors provides a slice of pre-flight errors to be ignored during the upgrade process, e.g. 'IsPrivilegedUser,Swap'.
 	// Value 'all' ignores errors from all checks.
 	IgnorePreflightErrors []string

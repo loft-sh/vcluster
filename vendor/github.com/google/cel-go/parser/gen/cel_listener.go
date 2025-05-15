@@ -1,7 +1,8 @@
-// Code generated from /usr/local/google/home/jdtatum/github/cel-go/parser/gen/CEL.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from /usr/local/google/home/tswadell/go/src/github.com/google/cel-go/parser/gen/CEL.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package gen // CEL
 import "github.com/antlr4-go/antlr/v4"
+
 
 // CELListener is a complete listener for a parse tree produced by CELParser.
 type CELListener interface {
@@ -46,11 +47,8 @@ type CELListener interface {
 	// EnterIndex is called when entering the Index production.
 	EnterIndex(c *IndexContext)
 
-	// EnterIdent is called when entering the Ident production.
-	EnterIdent(c *IdentContext)
-
-	// EnterGlobalCall is called when entering the GlobalCall production.
-	EnterGlobalCall(c *GlobalCallContext)
+	// EnterIdentOrGlobalCall is called when entering the IdentOrGlobalCall production.
+	EnterIdentOrGlobalCall(c *IdentOrGlobalCallContext)
 
 	// EnterNested is called when entering the Nested production.
 	EnterNested(c *NestedContext)
@@ -81,12 +79,6 @@ type CELListener interface {
 
 	// EnterMapInitializerList is called when entering the mapInitializerList production.
 	EnterMapInitializerList(c *MapInitializerListContext)
-
-	// EnterSimpleIdentifier is called when entering the SimpleIdentifier production.
-	EnterSimpleIdentifier(c *SimpleIdentifierContext)
-
-	// EnterEscapedIdentifier is called when entering the EscapedIdentifier production.
-	EnterEscapedIdentifier(c *EscapedIdentifierContext)
 
 	// EnterOptExpr is called when entering the optExpr production.
 	EnterOptExpr(c *OptExprContext)
@@ -154,11 +146,8 @@ type CELListener interface {
 	// ExitIndex is called when exiting the Index production.
 	ExitIndex(c *IndexContext)
 
-	// ExitIdent is called when exiting the Ident production.
-	ExitIdent(c *IdentContext)
-
-	// ExitGlobalCall is called when exiting the GlobalCall production.
-	ExitGlobalCall(c *GlobalCallContext)
+	// ExitIdentOrGlobalCall is called when exiting the IdentOrGlobalCall production.
+	ExitIdentOrGlobalCall(c *IdentOrGlobalCallContext)
 
 	// ExitNested is called when exiting the Nested production.
 	ExitNested(c *NestedContext)
@@ -189,12 +178,6 @@ type CELListener interface {
 
 	// ExitMapInitializerList is called when exiting the mapInitializerList production.
 	ExitMapInitializerList(c *MapInitializerListContext)
-
-	// ExitSimpleIdentifier is called when exiting the SimpleIdentifier production.
-	ExitSimpleIdentifier(c *SimpleIdentifierContext)
-
-	// ExitEscapedIdentifier is called when exiting the EscapedIdentifier production.
-	ExitEscapedIdentifier(c *EscapedIdentifierContext)
 
 	// ExitOptExpr is called when exiting the optExpr production.
 	ExitOptExpr(c *OptExprContext)

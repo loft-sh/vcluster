@@ -62,25 +62,13 @@ func NewFilteredEndpointSliceInformer(client kubernetes.Interface, namespace str
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.DiscoveryV1beta1().EndpointSlices(namespace).List(context.Background(), options)
+				return client.DiscoveryV1beta1().EndpointSlices(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.DiscoveryV1beta1().EndpointSlices(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.DiscoveryV1beta1().EndpointSlices(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.DiscoveryV1beta1().EndpointSlices(namespace).Watch(ctx, options)
+				return client.DiscoveryV1beta1().EndpointSlices(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apidiscoveryv1beta1.EndpointSlice{},

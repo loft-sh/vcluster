@@ -187,7 +187,9 @@ var ipLibraryDecls = map[string][]cel.FunctionOpt{
 }
 
 func (*ip) CompileOptions() []cel.EnvOption {
-	options := []cel.EnvOption{cel.Types(apiservercel.IPType)}
+	options := []cel.EnvOption{cel.Types(apiservercel.IPType),
+		cel.Variable(apiservercel.IPType.TypeName(), types.NewTypeTypeWithParam(apiservercel.IPType)),
+	}
 	for name, overloads := range ipLibraryDecls {
 		options = append(options, cel.Function(name, overloads...))
 	}

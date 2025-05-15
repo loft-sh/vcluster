@@ -15,8 +15,6 @@ import (
 )
 
 // TransformerConfig holds the data needed to perform transformations.
-//
-//nolint:tagalign
 type TransformerConfig struct {
 	// if any fields are added, update the DeepCopy implementation
 	NamePrefix        types.FsSlice `json:"namePrefix,omitempty" yaml:"namePrefix,omitempty"`

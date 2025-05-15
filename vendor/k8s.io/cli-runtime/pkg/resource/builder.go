@@ -1198,7 +1198,7 @@ func (b *Builder) Do() *Result {
 // strings in the original order.
 func SplitResourceArgument(arg string) []string {
 	out := []string{}
-	set := sets.New[string]()
+	set := sets.NewString()
 	for _, s := range strings.Split(arg, ",") {
 		if set.Has(s) {
 			continue

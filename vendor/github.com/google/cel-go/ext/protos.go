@@ -15,8 +15,6 @@
 package ext
 
 import (
-	"math"
-
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/ast"
 )
@@ -51,23 +49,8 @@ import (
 // Examples:
 //
 //	proto.hasExt(msg, google.expr.proto2.test.int32_ext) // returns true || false
-func Protos(options ...ProtosOption) cel.EnvOption {
-	l := &protoLib{version: math.MaxUint32}
-	for _, o := range options {
-		l = o(l)
-	}
-	return cel.Lib(l)
-}
-
-// ProtosOption declares a functional operator for configuring protobuf utilities.
-type ProtosOption func(*protoLib) *protoLib
-
-// ProtosVersion sets the library version for extensions for protobuf utilities.
-func ProtosVersion(version uint32) ProtosOption {
-	return func(lib *protoLib) *protoLib {
-		lib.version = version
-		return lib
-	}
+func Protos() cel.EnvOption {
+	return cel.Lib(protoLib{})
 }
 
 var (
@@ -76,9 +59,7 @@ var (
 	getExtension   = "getExt"
 )
 
-type protoLib struct {
-	version uint32
-}
+type protoLib struct{}
 
 // LibraryName implements the SingletonLibrary interface method.
 func (protoLib) LibraryName() string {

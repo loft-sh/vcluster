@@ -23,7 +23,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/google/go-cmp/cmp" //nolint:depguard
+	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/util/dump"
 )
 

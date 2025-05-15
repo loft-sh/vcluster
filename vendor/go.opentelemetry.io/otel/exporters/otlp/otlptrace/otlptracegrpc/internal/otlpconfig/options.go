@@ -98,7 +98,7 @@ func cleanPath(urlPath string, defaultPath string) string {
 		return defaultPath
 	}
 	if !path.IsAbs(tmp) {
-		tmp = "/" + tmp
+		tmp = fmt.Sprintf("/%s", tmp)
 	}
 	return tmp
 }
@@ -278,7 +278,9 @@ func WithEndpointURL(v string) GenericOption {
 
 		cfg.Traces.Endpoint = u.Host
 		cfg.Traces.URLPath = u.Path
-		cfg.Traces.Insecure = u.Scheme != "https"
+		if u.Scheme != "https" {
+			cfg.Traces.Insecure = true
+		}
 
 		return cfg
 	})

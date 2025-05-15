@@ -17,7 +17,6 @@ package ext
 import (
 	"errors"
 	"fmt"
-	"math"
 	"reflect"
 	"strings"
 	"time"
@@ -99,9 +98,7 @@ var (
 func NativeTypes(args ...any) cel.EnvOption {
 	return func(env *cel.Env) (*cel.Env, error) {
 		nativeTypes := make([]any, 0, len(args))
-		tpOptions := nativeTypeOptions{
-			version: math.MaxUint32,
-		}
+		tpOptions := nativeTypeOptions{}
 
 		for _, v := range args {
 			switch v := v.(type) {
@@ -130,14 +127,6 @@ func NativeTypes(args ...any) cel.EnvOption {
 
 // NativeTypesOption is a functional interface for configuring handling of native types.
 type NativeTypesOption func(*nativeTypeOptions) error
-
-// NativeTypesVersion sets the native types version support for native extensions functions.
-func NativeTypesVersion(version uint32) NativeTypesOption {
-	return func(opts *nativeTypeOptions) error {
-		opts.version = version
-		return nil
-	}
-}
 
 // NativeTypesFieldNameHandler is a handler for mapping a reflect.StructField to a CEL field name.
 // This can be used to override the default Go struct field to CEL field name mapping.
@@ -169,9 +158,6 @@ type nativeTypeOptions struct {
 	// This is most commonly used for switching to parsing based off the struct field tag,
 	// such as "cel" or "json".
 	fieldNameHandler NativeTypesFieldNameHandler
-
-	// version is the native types library version.
-	version uint32
 }
 
 // ParseStructTags configures if native types field names should be overridable by CEL struct tags.
@@ -343,7 +329,7 @@ func (tp *nativeTypeProvider) NewValue(typeName string, fields map[string]ref.Va
 		}
 		fieldVal, err := val.ConvertToNative(refFieldDef.Type)
 		if err != nil {
-			return types.NewErrFromString(err.Error())
+			return types.NewErr(err.Error())
 		}
 		refField := refVal.FieldByIndex(refFieldDef.Index)
 		refFieldVal := reflect.ValueOf(fieldVal)
@@ -450,7 +436,7 @@ func convertToCelType(refType reflect.Type) (*cel.Type, bool) {
 func (tp *nativeTypeProvider) newNativeObject(val any, refValue reflect.Value) ref.Val {
 	valType, err := newNativeType(tp.options.fieldNameHandler, refValue.Type())
 	if err != nil {
-		return types.NewErrFromString(err.Error())
+		return types.NewErr(err.Error())
 	}
 	return &nativeObj{
 		Adapter:  tp,

@@ -25,9 +25,8 @@ import (
 // VolumeErrorApplyConfiguration represents a declarative configuration of the VolumeError type for use
 // with apply.
 type VolumeErrorApplyConfiguration struct {
-	Time      *metav1.Time `json:"time,omitempty"`
-	Message   *string      `json:"message,omitempty"`
-	ErrorCode *int32       `json:"errorCode,omitempty"`
+	Time    *metav1.Time `json:"time,omitempty"`
+	Message *string      `json:"message,omitempty"`
 }
 
 // VolumeErrorApplyConfiguration constructs a declarative configuration of the VolumeError type for use with
@@ -49,13 +48,5 @@ func (b *VolumeErrorApplyConfiguration) WithTime(value metav1.Time) *VolumeError
 // If called multiple times, the Message field is set to the value of the last call.
 func (b *VolumeErrorApplyConfiguration) WithMessage(value string) *VolumeErrorApplyConfiguration {
 	b.Message = &value
-	return b
-}
-
-// WithErrorCode sets the ErrorCode field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ErrorCode field is set to the value of the last call.
-func (b *VolumeErrorApplyConfiguration) WithErrorCode(value int32) *VolumeErrorApplyConfiguration {
-	b.ErrorCode = &value
 	return b
 }

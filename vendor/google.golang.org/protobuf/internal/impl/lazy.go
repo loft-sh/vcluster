@@ -131,7 +131,7 @@ func (mi *MessageInfo) skipField(b []byte, f *coderFieldInfo, wtyp protowire.Typ
 	fmi := f.validation.mi
 	if fmi == nil {
 		fd := mi.Desc.Fields().ByNumber(f.num)
-		if fd == nil {
+		if fd == nil || !fd.IsWeak() {
 			return out, ValidationUnknown
 		}
 		messageName := fd.Message().FullName()

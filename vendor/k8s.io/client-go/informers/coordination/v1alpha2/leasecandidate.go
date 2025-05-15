@@ -62,25 +62,13 @@ func NewFilteredLeaseCandidateInformer(client kubernetes.Interface, namespace st
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CoordinationV1alpha2().LeaseCandidates(namespace).List(context.Background(), options)
+				return client.CoordinationV1alpha2().LeaseCandidates(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CoordinationV1alpha2().LeaseCandidates(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.CoordinationV1alpha2().LeaseCandidates(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.CoordinationV1alpha2().LeaseCandidates(namespace).Watch(ctx, options)
+				return client.CoordinationV1alpha2().LeaseCandidates(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apicoordinationv1alpha2.LeaseCandidate{},

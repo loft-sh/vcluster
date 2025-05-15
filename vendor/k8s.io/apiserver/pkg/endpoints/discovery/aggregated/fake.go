@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
-	"github.com/google/go-cmp/cmp" //nolint:depguard
+	"github.com/google/go-cmp/cmp"
 	apidiscoveryv2 "k8s.io/api/apidiscovery/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"

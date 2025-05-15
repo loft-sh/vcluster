@@ -62,25 +62,13 @@ func NewFilteredResourceClaimInformer(client kubernetes.Interface, namespace str
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ResourceV1alpha3().ResourceClaims(namespace).List(context.Background(), options)
+				return client.ResourceV1alpha3().ResourceClaims(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ResourceV1alpha3().ResourceClaims(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.ResourceV1alpha3().ResourceClaims(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.ResourceV1alpha3().ResourceClaims(namespace).Watch(ctx, options)
+				return client.ResourceV1alpha3().ResourceClaims(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apiresourcev1alpha3.ResourceClaim{},

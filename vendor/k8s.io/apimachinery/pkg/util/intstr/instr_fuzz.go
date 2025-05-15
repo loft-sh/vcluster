@@ -20,24 +20,24 @@ limitations under the License.
 package intstr
 
 import (
-	"sigs.k8s.io/randfill"
+	fuzz "github.com/google/gofuzz"
 )
 
-// RandFill satisfies randfill.NativeSelfFiller
-func (intstr *IntOrString) RandFill(c randfill.Continue) {
+// Fuzz satisfies fuzz.Interface
+func (intstr *IntOrString) Fuzz(c fuzz.Continue) {
 	if intstr == nil {
 		return
 	}
-	if c.Bool() {
+	if c.RandBool() {
 		intstr.Type = Int
-		c.Fill(&intstr.IntVal)
+		c.Fuzz(&intstr.IntVal)
 		intstr.StrVal = ""
 	} else {
 		intstr.Type = String
 		intstr.IntVal = 0
-		c.Fill(&intstr.StrVal)
+		c.Fuzz(&intstr.StrVal)
 	}
 }
 
 // ensure IntOrString implements fuzz.Interface
-var _ randfill.NativeSelfFiller = &IntOrString{}
+var _ fuzz.Interface = &IntOrString{}

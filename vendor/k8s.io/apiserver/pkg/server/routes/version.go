@@ -39,10 +39,10 @@ func (v Version) Install(c *restful.Container) {
 	// Set up a service to return the git code version.
 	versionWS := new(restful.WebService)
 	versionWS.Path("/version")
-	versionWS.Doc("get the version information for this server.")
+	versionWS.Doc("git code version from which this is built")
 	versionWS.Route(
 		versionWS.GET("/").To(v.handleVersion).
-			Doc("get the version information for this server").
+			Doc("get the code version").
 			Operation("getCodeVersion").
 			Produces(restful.MIME_JSON).
 			Consumes(restful.MIME_JSON).

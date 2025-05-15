@@ -28,7 +28,7 @@ import (
 func newSerializersForScheme(scheme *runtime.Scheme, mf json.MetaFactory, options CodecFactoryOptions) []runtime.SerializerInfo {
 	jsonSerializer := json.NewSerializerWithOptions(
 		mf, scheme, scheme,
-		json.SerializerOptions{Yaml: false, Pretty: false, Strict: options.Strict, StreamingCollectionsEncoding: options.StreamingCollectionsEncodingToJSON},
+		json.SerializerOptions{Yaml: false, Pretty: false, Strict: options.Strict},
 	)
 	jsonSerializerType := runtime.SerializerInfo{
 		MediaType:        runtime.ContentTypeJSON,
@@ -38,7 +38,7 @@ func newSerializersForScheme(scheme *runtime.Scheme, mf json.MetaFactory, option
 		Serializer:       jsonSerializer,
 		StrictSerializer: json.NewSerializerWithOptions(
 			mf, scheme, scheme,
-			json.SerializerOptions{Yaml: false, Pretty: false, Strict: true, StreamingCollectionsEncoding: options.StreamingCollectionsEncodingToJSON},
+			json.SerializerOptions{Yaml: false, Pretty: false, Strict: true},
 		),
 		StreamSerializer: &runtime.StreamSerializerInfo{
 			EncodesAsText: true,
@@ -61,9 +61,7 @@ func newSerializersForScheme(scheme *runtime.Scheme, mf json.MetaFactory, option
 		mf, scheme, scheme,
 		json.SerializerOptions{Yaml: true, Pretty: false, Strict: true},
 	)
-	protoSerializer := protobuf.NewSerializerWithOptions(scheme, scheme, protobuf.SerializerOptions{
-		StreamingCollectionsEncoding: options.StreamingCollectionsEncodingToProtobuf,
-	})
+	protoSerializer := protobuf.NewSerializer(scheme, scheme)
 	protoRawSerializer := protobuf.NewRawSerializer(scheme, scheme)
 
 	serializers := []runtime.SerializerInfo{
@@ -115,9 +113,6 @@ type CodecFactoryOptions struct {
 	// Pretty includes a pretty serializer along with the non-pretty one
 	Pretty bool
 
-	StreamingCollectionsEncodingToJSON     bool
-	StreamingCollectionsEncodingToProtobuf bool
-
 	serializers []func(runtime.ObjectCreater, runtime.ObjectTyper) runtime.SerializerInfo
 }
 
@@ -149,18 +144,6 @@ func DisableStrict(options *CodecFactoryOptions) {
 func WithSerializer(f func(runtime.ObjectCreater, runtime.ObjectTyper) runtime.SerializerInfo) CodecFactoryOptionsMutator {
 	return func(options *CodecFactoryOptions) {
 		options.serializers = append(options.serializers, f)
-	}
-}
-
-func WithStreamingCollectionEncodingToJSON() CodecFactoryOptionsMutator {
-	return func(options *CodecFactoryOptions) {
-		options.StreamingCollectionsEncodingToJSON = true
-	}
-}
-
-func WithStreamingCollectionEncodingToProtobuf() CodecFactoryOptionsMutator {
-	return func(options *CodecFactoryOptions) {
-		options.StreamingCollectionsEncodingToProtobuf = true
 	}
 }
 

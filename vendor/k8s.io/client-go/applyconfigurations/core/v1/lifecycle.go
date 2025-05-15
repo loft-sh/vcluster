@@ -18,16 +18,11 @@ limitations under the License.
 
 package v1
 
-import (
-	corev1 "k8s.io/api/core/v1"
-)
-
 // LifecycleApplyConfiguration represents a declarative configuration of the Lifecycle type for use
 // with apply.
 type LifecycleApplyConfiguration struct {
-	PostStart  *LifecycleHandlerApplyConfiguration `json:"postStart,omitempty"`
-	PreStop    *LifecycleHandlerApplyConfiguration `json:"preStop,omitempty"`
-	StopSignal *corev1.Signal                      `json:"stopSignal,omitempty"`
+	PostStart *LifecycleHandlerApplyConfiguration `json:"postStart,omitempty"`
+	PreStop   *LifecycleHandlerApplyConfiguration `json:"preStop,omitempty"`
 }
 
 // LifecycleApplyConfiguration constructs a declarative configuration of the Lifecycle type for use with
@@ -49,13 +44,5 @@ func (b *LifecycleApplyConfiguration) WithPostStart(value *LifecycleHandlerApply
 // If called multiple times, the PreStop field is set to the value of the last call.
 func (b *LifecycleApplyConfiguration) WithPreStop(value *LifecycleHandlerApplyConfiguration) *LifecycleApplyConfiguration {
 	b.PreStop = value
-	return b
-}
-
-// WithStopSignal sets the StopSignal field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the StopSignal field is set to the value of the last call.
-func (b *LifecycleApplyConfiguration) WithStopSignal(value corev1.Signal) *LifecycleApplyConfiguration {
-	b.StopSignal = &value
 	return b
 }

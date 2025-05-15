@@ -146,11 +146,6 @@ func (in *HPAScalingRules) DeepCopyInto(out *HPAScalingRules) {
 		*out = make([]HPAScalingPolicy, len(*in))
 		copy(*out, *in)
 	}
-	if in.Tolerance != nil {
-		in, out := &in.Tolerance, &out.Tolerance
-		x := (*in).DeepCopy()
-		*out = &x
-	}
 	return
 }
 

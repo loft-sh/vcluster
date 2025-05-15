@@ -61,25 +61,13 @@ func NewFilteredMutatingAdmissionPolicyBindingInformer(client kubernetes.Interfa
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().List(context.Background(), options)
+				return client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Watch(ctx, options)
+				return client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Watch(context.TODO(), options)
 			},
 		},
 		&apiadmissionregistrationv1alpha1.MutatingAdmissionPolicyBinding{},

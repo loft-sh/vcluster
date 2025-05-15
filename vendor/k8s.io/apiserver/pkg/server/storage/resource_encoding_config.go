@@ -22,8 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apimachineryversion "k8s.io/apimachinery/pkg/util/version"
-	"k8s.io/apiserver/pkg/util/compatibility"
-	basecompatibility "k8s.io/component-base/compatibility"
+	version "k8s.io/component-base/version"
 )
 
 type ResourceEncodingConfig interface {
@@ -44,7 +43,7 @@ type DefaultResourceEncodingConfig struct {
 	// resources records the overriding encoding configs for individual resources.
 	resources        map[schema.GroupResource]*OverridingResourceEncoding
 	scheme           *runtime.Scheme
-	effectiveVersion basecompatibility.EffectiveVersion
+	effectiveVersion version.EffectiveVersion
 }
 
 type OverridingResourceEncoding struct {
@@ -55,11 +54,7 @@ type OverridingResourceEncoding struct {
 var _ ResourceEncodingConfig = &DefaultResourceEncodingConfig{}
 
 func NewDefaultResourceEncodingConfig(scheme *runtime.Scheme) *DefaultResourceEncodingConfig {
-	return NewDefaultResourceEncodingConfigForEffectiveVersion(scheme, compatibility.DefaultComponentGlobalsRegistry.EffectiveVersionFor(basecompatibility.DefaultKubeComponent))
-}
-
-func NewDefaultResourceEncodingConfigForEffectiveVersion(scheme *runtime.Scheme, effectiveVersion basecompatibility.EffectiveVersion) *DefaultResourceEncodingConfig {
-	return &DefaultResourceEncodingConfig{resources: map[schema.GroupResource]*OverridingResourceEncoding{}, scheme: scheme, effectiveVersion: effectiveVersion}
+	return &DefaultResourceEncodingConfig{resources: map[schema.GroupResource]*OverridingResourceEncoding{}, scheme: scheme, effectiveVersion: version.DefaultKubeEffectiveVersion()}
 }
 
 func (o *DefaultResourceEncodingConfig) SetResourceEncoding(resourceBeingStored schema.GroupResource, externalEncodingVersion, internalVersion schema.GroupVersion) {
@@ -69,7 +64,7 @@ func (o *DefaultResourceEncodingConfig) SetResourceEncoding(resourceBeingStored 
 	}
 }
 
-func (o *DefaultResourceEncodingConfig) SetEffectiveVersion(effectiveVersion basecompatibility.EffectiveVersion) {
+func (o *DefaultResourceEncodingConfig) SetEffectiveVersion(effectiveVersion version.EffectiveVersion) {
 	o.effectiveVersion = effectiveVersion
 }
 
@@ -126,7 +121,7 @@ type replacementInterface interface {
 	APILifecycleReplacement() schema.GroupVersionKind
 }
 
-func emulatedStorageVersion(binaryVersionOfResource schema.GroupVersion, example runtime.Object, effectiveVersion basecompatibility.EffectiveVersion, scheme *runtime.Scheme) (schema.GroupVersion, error) {
+func emulatedStorageVersion(binaryVersionOfResource schema.GroupVersion, example runtime.Object, effectiveVersion version.EffectiveVersion, scheme *runtime.Scheme) (schema.GroupVersion, error) {
 	if example == nil || effectiveVersion == nil {
 		return binaryVersionOfResource, nil
 	}
@@ -177,7 +172,7 @@ func emulatedStorageVersion(binaryVersionOfResource schema.GroupVersion, example
 		}
 
 		// If it was introduced after current compatibility version, don't use it
-		// skip the introduced check for test when current compatibility version is 0.0 to test all apis
+		// skip the introduced check for test when currentVersion is 0.0 to test all apis
 		if introduced, hasIntroduced := exampleOfGVK.(introducedInterface); hasIntroduced && (compatibilityVersion.Major() > 0 || compatibilityVersion.Minor() > 0) {
 
 			// Skip versions that have a replacement.

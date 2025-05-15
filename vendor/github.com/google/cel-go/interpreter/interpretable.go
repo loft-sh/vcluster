@@ -762,9 +762,6 @@ func (fold *evalFold) Eval(ctx Activation) ref.Val {
 	defer releaseFolder(f)
 
 	foldRange := fold.iterRange.Eval(ctx)
-	if types.IsUnknownOrError(foldRange) {
-		return foldRange
-	}
 	if fold.iterVar2 != "" {
 		var foldable traits.Foldable
 		switch r := foldRange.(type) {
@@ -1244,7 +1241,7 @@ func invalidOptionalElementInit(value ref.Val) ref.Val {
 func newFolder(eval *evalFold, ctx Activation) *folder {
 	f := folderPool.Get().(*folder)
 	f.evalFold = eval
-	f.activation = ctx
+	f.Activation = ctx
 	return f
 }
 
@@ -1265,7 +1262,7 @@ func releaseFolder(f *folder) {
 // cel.bind or cel.@block.
 type folder struct {
 	*evalFold
-	activation Activation
+	Activation
 
 	// fold state objects.
 	accuVal     ref.Val
@@ -1293,7 +1290,7 @@ func (f *folder) foldIterable(iterable traits.Iterable) ref.Val {
 		// Update the accumulation value and check for eval interuption.
 		f.accuVal = f.step.Eval(f)
 		f.initialized = true
-		if f.interruptable && checkInterrupt(f.activation) {
+		if f.interruptable && checkInterrupt(f.Activation) {
 			f.interrupted = true
 			return f.evalResult()
 		}
@@ -1319,7 +1316,7 @@ func (f *folder) FoldEntry(key, val any) bool {
 	// Update the accumulation value and check for eval interuption.
 	f.accuVal = f.step.Eval(f)
 	f.initialized = true
-	if f.interruptable && checkInterrupt(f.activation) {
+	if f.interruptable && checkInterrupt(f.Activation) {
 		f.interrupted = true
 		return false
 	}
@@ -1333,7 +1330,7 @@ func (f *folder) ResolveName(name string) (any, bool) {
 	if name == f.accuVar {
 		if !f.initialized {
 			f.initialized = true
-			initVal := f.accu.Eval(f.activation)
+			initVal := f.accu.Eval(f.Activation)
 			if !f.exhaustive {
 				if l, isList := initVal.(traits.Lister); isList && l.Size() == types.IntZero {
 					initVal = types.NewMutableList(f.adapter)
@@ -1358,32 +1355,7 @@ func (f *folder) ResolveName(name string) (any, bool) {
 			return f.iterVar2Val, true
 		}
 	}
-	return f.activation.ResolveName(name)
-}
-
-// Parent returns the activation embedded into the folder.
-func (f *folder) Parent() Activation {
-	return f.activation
-}
-
-// UnknownAttributePatterns implements the PartialActivation interface returning the unknown patterns
-// if they were provided to the input activation, or an empty set if the proxied activation is not partial.
-func (f *folder) UnknownAttributePatterns() []*AttributePattern {
-	if pv, ok := f.activation.(partialActivationConverter); ok {
-		if partial, isPartial := pv.asPartialActivation(); isPartial {
-			return partial.UnknownAttributePatterns()
-		}
-	}
-	return []*AttributePattern{}
-}
-
-func (f *folder) asPartialActivation() (PartialActivation, bool) {
-	if pv, ok := f.activation.(partialActivationConverter); ok {
-		if _, isPartial := pv.asPartialActivation(); isPartial {
-			return f, true
-		}
-	}
-	return nil, false
+	return f.Activation.ResolveName(name)
 }
 
 // evalResult computes the final result of the fold after all entries have been folded and accumulated.
@@ -1409,7 +1381,7 @@ func (f *folder) evalResult() ref.Val {
 // reset clears any state associated with folder evaluation.
 func (f *folder) reset() {
 	f.evalFold = nil
-	f.activation = nil
+	f.Activation = nil
 	f.accuVal = nil
 	f.iterVar1Val = nil
 	f.iterVar2Val = nil

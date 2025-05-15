@@ -62,25 +62,13 @@ func NewFilteredServiceAccountInformer(client kubernetes.Interface, namespace st
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CoreV1().ServiceAccounts(namespace).List(context.Background(), options)
+				return client.CoreV1().ServiceAccounts(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CoreV1().ServiceAccounts(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.CoreV1().ServiceAccounts(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.CoreV1().ServiceAccounts(namespace).Watch(ctx, options)
+				return client.CoreV1().ServiceAccounts(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apicorev1.ServiceAccount{},

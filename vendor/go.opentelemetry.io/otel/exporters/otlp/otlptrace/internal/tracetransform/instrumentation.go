@@ -13,8 +13,7 @@ func InstrumentationScope(il instrumentation.Scope) *commonpb.InstrumentationSco
 		return nil
 	}
 	return &commonpb.InstrumentationScope{
-		Name:       il.Name,
-		Version:    il.Version,
-		Attributes: Iterator(il.Attributes.Iter()),
+		Name:    il.Name,
+		Version: il.Version,
 	}
 }

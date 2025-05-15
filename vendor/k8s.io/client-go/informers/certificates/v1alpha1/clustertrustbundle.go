@@ -61,25 +61,13 @@ func NewFilteredClusterTrustBundleInformer(client kubernetes.Interface, resyncPe
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CertificatesV1alpha1().ClusterTrustBundles().List(context.Background(), options)
+				return client.CertificatesV1alpha1().ClusterTrustBundles().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CertificatesV1alpha1().ClusterTrustBundles().Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.CertificatesV1alpha1().ClusterTrustBundles().List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.CertificatesV1alpha1().ClusterTrustBundles().Watch(ctx, options)
+				return client.CertificatesV1alpha1().ClusterTrustBundles().Watch(context.TODO(), options)
 			},
 		},
 		&apicertificatesv1alpha1.ClusterTrustBundle{},

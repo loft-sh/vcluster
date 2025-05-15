@@ -1,7 +1,8 @@
-// Code generated from /usr/local/google/home/jdtatum/github/cel-go/parser/gen/CEL.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from /usr/local/google/home/tswadell/go/src/github.com/google/cel-go/parser/gen/CEL.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package gen // CEL
 import "github.com/antlr4-go/antlr/v4"
+
 
 type BaseCELVisitor struct {
 	*antlr.BaseParseTreeVisitor
@@ -59,11 +60,7 @@ func (v *BaseCELVisitor) VisitIndex(ctx *IndexContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseCELVisitor) VisitIdent(ctx *IdentContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseCELVisitor) VisitGlobalCall(ctx *GlobalCallContext) interface{} {
+func (v *BaseCELVisitor) VisitIdentOrGlobalCall(ctx *IdentOrGlobalCallContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -104,14 +101,6 @@ func (v *BaseCELVisitor) VisitOptField(ctx *OptFieldContext) interface{} {
 }
 
 func (v *BaseCELVisitor) VisitMapInitializerList(ctx *MapInitializerListContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseCELVisitor) VisitSimpleIdentifier(ctx *SimpleIdentifierContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseCELVisitor) VisitEscapedIdentifier(ctx *EscapedIdentifierContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

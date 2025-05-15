@@ -17,11 +17,10 @@ limitations under the License.
 package rbac
 
 import (
-	"reflect"
-	"strings"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"reflect"
+	"strings"
 )
 
 type simpleResource struct {
@@ -44,7 +43,7 @@ func CompactRules(rules []rbacv1.PolicyRule) ([]rbacv1.PolicyRule, error) {
 				if existingRule.Verbs == nil {
 					existingRule.Verbs = []string{}
 				}
-				existingVerbs := sets.New[string](existingRule.Verbs...)
+				existingVerbs := sets.NewString(existingRule.Verbs...)
 				for _, verb := range rule.Verbs {
 					if !existingVerbs.Has(verb) {
 						existingRule.Verbs = append(existingRule.Verbs, verb)

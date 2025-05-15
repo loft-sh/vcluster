@@ -65,13 +65,13 @@ func UniversalUnmarshal(buffer []byte) (runtime.Object, error) {
 	return obj, nil
 }
 
-// SplitConfigDocuments reads the YAML/JSON bytes per-document, unmarshals the TypeMeta information from each document
+// SplitYAMLDocuments reads the YAML bytes per-document, unmarshals the TypeMeta information from each document
 // and returns a map between the GroupVersionKind of the document and the document bytes
-func SplitConfigDocuments(documentBytes []byte) (kubeadmapi.DocumentMap, error) {
+func SplitYAMLDocuments(yamlBytes []byte) (kubeadmapi.DocumentMap, error) {
 	gvkmap := kubeadmapi.DocumentMap{}
 	knownKinds := map[string]bool{}
 	errs := []error{}
-	buf := bytes.NewBuffer(documentBytes)
+	buf := bytes.NewBuffer(yamlBytes)
 	reader := utilyaml.NewYAMLReader(bufio.NewReader(buf))
 	for {
 		// Read one YAML document at a time, until io.EOF is returned
@@ -111,7 +111,7 @@ func SplitConfigDocuments(documentBytes []byte) (kubeadmapi.DocumentMap, error) 
 
 // GroupVersionKindsFromBytes parses the bytes and returns a gvk slice
 func GroupVersionKindsFromBytes(b []byte) ([]schema.GroupVersionKind, error) {
-	gvkmap, err := SplitConfigDocuments(b)
+	gvkmap, err := SplitYAMLDocuments(b)
 	if err != nil {
 		return nil, err
 	}

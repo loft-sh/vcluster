@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/mxk/go-flowrate/flowrate"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -71,7 +70,7 @@ func (h *StreamTranslatorHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 	defer websocketStreams.conn.Close()
 
 	// Creating SPDY executor, ensuring redirects are not followed.
-	spdyRoundTripper, err := spdy.NewRoundTripperWithConfig(spdy.RoundTripperConfig{UpgradeTransport: h.Transport, PingPeriod: 5 * time.Second})
+	spdyRoundTripper, err := spdy.NewRoundTripperWithConfig(spdy.RoundTripperConfig{UpgradeTransport: h.Transport})
 	if err != nil {
 		websocketStreams.writeStatus(apierrors.NewInternalError(err)) //nolint:errcheck
 		metrics.IncStreamTranslatorRequest(req.Context(), strconv.Itoa(http.StatusInternalServerError))

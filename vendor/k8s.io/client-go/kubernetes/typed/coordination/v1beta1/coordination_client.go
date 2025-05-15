@@ -29,7 +29,6 @@ import (
 type CoordinationV1beta1Interface interface {
 	RESTClient() rest.Interface
 	LeasesGetter
-	LeaseCandidatesGetter
 }
 
 // CoordinationV1beta1Client is used to interact with features provided by the coordination.k8s.io group.
@@ -41,16 +40,14 @@ func (c *CoordinationV1beta1Client) Leases(namespace string) LeaseInterface {
 	return newLeases(c, namespace)
 }
 
-func (c *CoordinationV1beta1Client) LeaseCandidates(namespace string) LeaseCandidateInterface {
-	return newLeaseCandidates(c, namespace)
-}
-
 // NewForConfig creates a new CoordinationV1beta1Client for the given config.
 // NewForConfig is equivalent to NewForConfigAndClient(c, httpClient),
 // where httpClient was generated with rest.HTTPClientFor(c).
 func NewForConfig(c *rest.Config) (*CoordinationV1beta1Client, error) {
 	config := *c
-	setConfigDefaults(&config)
+	if err := setConfigDefaults(&config); err != nil {
+		return nil, err
+	}
 	httpClient, err := rest.HTTPClientFor(&config)
 	if err != nil {
 		return nil, err
@@ -62,7 +59,9 @@ func NewForConfig(c *rest.Config) (*CoordinationV1beta1Client, error) {
 // Note the http client provided takes precedence over the configured transport values.
 func NewForConfigAndClient(c *rest.Config, h *http.Client) (*CoordinationV1beta1Client, error) {
 	config := *c
-	setConfigDefaults(&config)
+	if err := setConfigDefaults(&config); err != nil {
+		return nil, err
+	}
 	client, err := rest.RESTClientForConfigAndClient(&config, h)
 	if err != nil {
 		return nil, err
@@ -85,7 +84,7 @@ func New(c rest.Interface) *CoordinationV1beta1Client {
 	return &CoordinationV1beta1Client{c}
 }
 
-func setConfigDefaults(config *rest.Config) {
+func setConfigDefaults(config *rest.Config) error {
 	gv := coordinationv1beta1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
@@ -94,6 +93,8 @@ func setConfigDefaults(config *rest.Config) {
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
+
+	return nil
 }
 
 // RESTClient returns a RESTClient that is used to communicate

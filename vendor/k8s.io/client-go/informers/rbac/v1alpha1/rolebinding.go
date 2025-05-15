@@ -62,25 +62,13 @@ func NewFilteredRoleBindingInformer(client kubernetes.Interface, namespace strin
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.RbacV1alpha1().RoleBindings(namespace).List(context.Background(), options)
+				return client.RbacV1alpha1().RoleBindings(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.RbacV1alpha1().RoleBindings(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.RbacV1alpha1().RoleBindings(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.RbacV1alpha1().RoleBindings(namespace).Watch(ctx, options)
+				return client.RbacV1alpha1().RoleBindings(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apirbacv1alpha1.RoleBinding{},
