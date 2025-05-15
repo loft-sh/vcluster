@@ -62,25 +62,13 @@ func NewFilteredReplicaSetInformer(client kubernetes.Interface, namespace string
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AppsV1beta2().ReplicaSets(namespace).List(context.Background(), options)
+				return client.AppsV1beta2().ReplicaSets(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AppsV1beta2().ReplicaSets(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.AppsV1beta2().ReplicaSets(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.AppsV1beta2().ReplicaSets(namespace).Watch(ctx, options)
+				return client.AppsV1beta2().ReplicaSets(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apiappsv1beta2.ReplicaSet{},

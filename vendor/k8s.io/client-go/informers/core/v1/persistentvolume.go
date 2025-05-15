@@ -61,25 +61,13 @@ func NewFilteredPersistentVolumeInformer(client kubernetes.Interface, resyncPeri
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CoreV1().PersistentVolumes().List(context.Background(), options)
+				return client.CoreV1().PersistentVolumes().List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CoreV1().PersistentVolumes().Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.CoreV1().PersistentVolumes().List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.CoreV1().PersistentVolumes().Watch(ctx, options)
+				return client.CoreV1().PersistentVolumes().Watch(context.TODO(), options)
 			},
 		},
 		&apicorev1.PersistentVolume{},

@@ -32,9 +32,9 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"k8s.io/apiserver/pkg/cel/library"
 	genericfeatures "k8s.io/apiserver/pkg/features"
-	"k8s.io/apiserver/pkg/util/compatibility"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	basecompatibility "k8s.io/component-base/compatibility"
+	"k8s.io/component-base/featuregate"
+	utilversion "k8s.io/component-base/version"
 )
 
 // DefaultCompatibilityVersion returns a default compatibility version for use with EnvSet
@@ -50,9 +50,9 @@ import (
 // A default version number equal to the current Kubernetes major.minor version
 // indicates fast forward CEL features that can be used when rollback is no longer needed.
 func DefaultCompatibilityVersion() *version.Version {
-	effectiveVer := compatibility.DefaultComponentGlobalsRegistry.EffectiveVersionFor(basecompatibility.DefaultKubeComponent)
+	effectiveVer := featuregate.DefaultComponentGlobalsRegistry.EffectiveVersionFor(featuregate.DefaultKubeComponent)
 	if effectiveVer == nil {
-		effectiveVer = compatibility.DefaultBuildEffectiveVersion()
+		effectiveVer = utilversion.DefaultKubeEffectiveVersion()
 	}
 	return effectiveVer.MinCompatibilityVersion()
 }
@@ -173,14 +173,7 @@ var baseOptsWithoutStrictCost = []VersionedOptions{
 	{
 		IntroducedVersion: version.MajorMinor(1, 32),
 		EnvOptions: []cel.EnvOption{
-			ext.TwoVarComprehensions(),
-		},
-	},
-	// Semver
-	{
-		IntroducedVersion: version.MajorMinor(1, 33),
-		EnvOptions: []cel.EnvOption{
-			library.SemverLib(library.SemverVersion(1)),
+			UnversionedLib(ext.TwoVarComprehensions),
 		},
 	},
 }

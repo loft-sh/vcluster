@@ -62,25 +62,13 @@ func NewFilteredHorizontalPodAutoscalerInformer(client kubernetes.Interface, nam
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AutoscalingV2().HorizontalPodAutoscalers(namespace).List(context.Background(), options)
+				return client.AutoscalingV2().HorizontalPodAutoscalers(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.AutoscalingV2().HorizontalPodAutoscalers(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.AutoscalingV2().HorizontalPodAutoscalers(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.AutoscalingV2().HorizontalPodAutoscalers(namespace).Watch(ctx, options)
+				return client.AutoscalingV2().HorizontalPodAutoscalers(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apiautoscalingv2.HorizontalPodAutoscaler{},

@@ -182,10 +182,7 @@ func (ts *cachingTokenSource) Token() (*oauth2.Token, error) {
 		if ts.tok == nil {
 			return nil, err
 		}
-		// Not using a caller-provided logger isn't ideal, but impossible to fix
-		// without new APIs that go up all the way to HTTPWrappersForConfig.
-		// This is currently deemed not worth changing (too much effort, not enough benefit).
-		klog.TODO().Error(err, "Unable to rotate token")
+		klog.Errorf("Unable to rotate token: %v", err)
 		return ts.tok, nil
 	}
 

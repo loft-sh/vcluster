@@ -34,8 +34,7 @@ type Loader struct {
 }
 
 func NewLoader(
-	pc *types.PluginConfig, rf *resmap.Factory, fs filesys.FileSystem,
-) *Loader {
+	pc *types.PluginConfig, rf *resmap.Factory, fs filesys.FileSystem) *Loader {
 	return &Loader{pc: pc, rf: rf, fs: fs}
 }
 
@@ -59,8 +58,7 @@ func (l *Loader) Config() *types.PluginConfig {
 
 func (l *Loader) LoadGenerators(
 	ldr ifc.Loader, v ifc.Validator, rm resmap.ResMap) (
-	result []*resmap.GeneratorWithProperties, err error,
-) {
+	result []*resmap.GeneratorWithProperties, err error) {
 	for _, res := range rm.Resources() {
 		g, err := l.LoadGenerator(ldr, v, res)
 		if err != nil {
@@ -76,8 +74,7 @@ func (l *Loader) LoadGenerators(
 }
 
 func (l *Loader) LoadGenerator(
-	ldr ifc.Loader, v ifc.Validator, res *resource.Resource,
-) (resmap.Generator, error) {
+	ldr ifc.Loader, v ifc.Validator, res *resource.Resource) (resmap.Generator, error) {
 	c, err := l.loadAndConfigurePlugin(ldr, v, res)
 	if err != nil {
 		return nil, err
@@ -90,8 +87,7 @@ func (l *Loader) LoadGenerator(
 }
 
 func (l *Loader) LoadTransformers(
-	ldr ifc.Loader, v ifc.Validator, rm resmap.ResMap,
-) ([]*resmap.TransformerWithProperties, error) {
+	ldr ifc.Loader, v ifc.Validator, rm resmap.ResMap) ([]*resmap.TransformerWithProperties, error) {
 	var result []*resmap.TransformerWithProperties
 	for _, res := range rm.Resources() {
 		t, err := l.LoadTransformer(ldr, v, res)
@@ -108,8 +104,7 @@ func (l *Loader) LoadTransformers(
 }
 
 func (l *Loader) LoadTransformer(
-	ldr ifc.Loader, v ifc.Validator, res *resource.Resource,
-) (*resmap.TransformerWithProperties, error) {
+	ldr ifc.Loader, v ifc.Validator, res *resource.Resource) (*resmap.TransformerWithProperties, error) {
 	c, err := l.loadAndConfigurePlugin(ldr, v, res)
 	if err != nil {
 		return nil, err
@@ -184,8 +179,7 @@ func isBuiltinPlugin(res *resource.Resource) bool {
 func (l *Loader) loadAndConfigurePlugin(
 	ldr ifc.Loader,
 	v ifc.Validator,
-	res *resource.Resource,
-) (c resmap.Configurable, err error) {
+	res *resource.Resource) (c resmap.Configurable, err error) {
 	if isBuiltinPlugin(res) {
 		switch l.pc.BpLoadingOptions {
 		case types.BploLoadFromFileSys:
@@ -198,7 +192,7 @@ func (l *Loader) loadAndConfigurePlugin(
 			c, err = l.makeBuiltinPlugin(res.GetGvk())
 		default:
 			err = fmt.Errorf(
-				"unknown plugin loader behavior specified: %s %v", res.GetGvk().String(),
+				"unknown plugin loader behavior specified: %v",
 				l.pc.BpLoadingOptions)
 		}
 	} else {
@@ -288,3 +282,4 @@ func (l *Loader) loadExecOrGoPlugin(resId resid.ResId) (resmap.Configurable, err
 	}
 	return c, nil
 }
+

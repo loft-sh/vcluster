@@ -28,7 +28,6 @@ import (
 
 type provider interface {
 	CreateClientObject() client.Object
-	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 	CreateOrPatch(ctx context.Context, virtualClient client.Client, vEndpoints *corev1.Endpoints) error
 }
 
@@ -78,8 +77,6 @@ func (e *EndpointController) Reconcile(ctx context.Context, _ ctrl.Request) (ctr
 }
 
 // SetupWithManager adds the controller to the manager
-//
-//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 	// creating a predicate to receive reconcile requests for kubernetes endpoint only
 	pPredicates := predicate.NewTypedPredicateFuncs(func(object client.Object) bool {
@@ -105,7 +102,6 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(e)
 }
 
-//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context) error {
 	// get physical service endpoints
 	pEndpoints := &corev1.Endpoints{}

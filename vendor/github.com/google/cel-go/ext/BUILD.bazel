@@ -8,7 +8,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "bindings.go",
-        "comprehensions.go",
         "encoders.go",
         "formatting.go",
         "guards.go",
@@ -46,9 +45,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "bindings_test.go",
-        "comprehensions_test.go",
-        "encoders_test.go",        
+        "encoders_test.go",
         "lists_test.go",
         "math_test.go",
         "native_test.go",

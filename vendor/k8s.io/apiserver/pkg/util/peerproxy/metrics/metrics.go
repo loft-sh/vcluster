@@ -50,11 +50,6 @@ func Register() {
 	})
 }
 
-// Only used for tests.
-func Reset() {
-	legacyregistry.Reset()
-}
-
 // IncPeerProxiedRequest increments the # of proxied requests to peer kube-apiserver
 func IncPeerProxiedRequest(ctx context.Context, status string) {
 	peerProxiedRequestsTotal.WithContext(ctx).WithLabelValues(status).Add(1)

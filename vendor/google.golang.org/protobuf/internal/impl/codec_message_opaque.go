@@ -46,6 +46,9 @@ func (mi *MessageInfo) makeOpaqueCoderMethods(t reflect.Type, si opaqueStructInf
 		switch {
 		case fd.ContainingOneof() != nil && !fd.ContainingOneof().IsSynthetic():
 			fieldOffset = offsetOf(fs)
+		case fd.IsWeak():
+			fieldOffset = si.weakOffset
+			funcs = makeWeakMessageFieldCoder(fd)
 		case fd.Message() != nil && !fd.IsMap():
 			fieldOffset = offsetOf(fs)
 			if fd.IsList() {

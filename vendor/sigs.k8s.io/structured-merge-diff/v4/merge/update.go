@@ -33,9 +33,6 @@ type UpdaterBuilder struct {
 	Converter    Converter
 	IgnoreFilter map[fieldpath.APIVersion]fieldpath.Filter
 
-	// IgnoredFields provides a set of fields to ignore for each
-	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
-
 	// Stop comparing the new object with old object after applying.
 	// This was initially used to avoid spurious etcd update, but
 	// since that's vastly inefficient, we've come-up with a better
@@ -49,7 +46,6 @@ func (u *UpdaterBuilder) BuildUpdater() *Updater {
 	return &Updater{
 		Converter:         u.Converter,
 		IgnoreFilter:      u.IgnoreFilter,
-		IgnoredFields:     u.IgnoredFields,
 		returnInputOnNoop: u.ReturnInputOnNoop,
 	}
 }
@@ -59,9 +55,6 @@ func (u *UpdaterBuilder) BuildUpdater() *Updater {
 type Updater struct {
 	// Deprecated: This will eventually become private.
 	Converter Converter
-
-	// Deprecated: This will eventually become private.
-	IgnoredFields map[fieldpath.APIVersion]*fieldpath.Set
 
 	// Deprecated: This will eventually become private.
 	IgnoreFilter map[fieldpath.APIVersion]fieldpath.Filter
@@ -77,19 +70,8 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 		return nil, nil, fmt.Errorf("failed to compare objects: %v", err)
 	}
 
-	var versions map[fieldpath.APIVersion]*typed.Comparison
-
-	if s.IgnoredFields != nil && s.IgnoreFilter != nil {
-		return nil, nil, fmt.Errorf("IgnoreFilter and IgnoreFilter may not both be set")
-	}
-	if s.IgnoredFields != nil {
-		versions = map[fieldpath.APIVersion]*typed.Comparison{
-			version: compare.ExcludeFields(s.IgnoredFields[version]),
-		}
-	} else {
-		versions = map[fieldpath.APIVersion]*typed.Comparison{
-			version: compare.FilterFields(s.IgnoreFilter[version]),
-		}
+	versions := map[fieldpath.APIVersion]*typed.Comparison{
+		version: compare.FilterFields(s.IgnoreFilter[version]),
 	}
 
 	for manager, managerSet := range managers {
@@ -119,12 +101,7 @@ func (s *Updater) update(oldObject, newObject *typed.TypedValue, version fieldpa
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to compare objects: %v", err)
 			}
-
-			if s.IgnoredFields != nil {
-				versions[managerSet.APIVersion()] = compare.ExcludeFields(s.IgnoredFields[managerSet.APIVersion()])
-			} else {
-				versions[managerSet.APIVersion()] = compare.FilterFields(s.IgnoreFilter[managerSet.APIVersion()])
-			}
+			versions[managerSet.APIVersion()] = compare.FilterFields(s.IgnoreFilter[managerSet.APIVersion()])
 		}
 
 		conflictSet := managerSet.Set().Intersection(compare.Modified.Union(compare.Added))
@@ -177,16 +154,7 @@ func (s *Updater) Update(liveObject, newObject *typed.TypedValue, version fieldp
 		managers[manager] = fieldpath.NewVersionedSet(fieldpath.NewSet(), version, false)
 	}
 	set := managers[manager].Set().Difference(compare.Removed).Union(compare.Modified).Union(compare.Added)
-
-	if s.IgnoredFields != nil && s.IgnoreFilter != nil {
-		return nil, nil, fmt.Errorf("IgnoreFilter and IgnoreFilter may not both be set")
-	}
-	var ignoreFilter fieldpath.Filter
-	if s.IgnoredFields != nil {
-		ignoreFilter = fieldpath.NewExcludeSetFilter(s.IgnoredFields[version])
-	} else {
-		ignoreFilter = s.IgnoreFilter[version]
-	}
+	ignoreFilter := s.IgnoreFilter[version]
 	if ignoreFilter != nil {
 		set = ignoreFilter.Filter(set)
 	}
@@ -221,15 +189,7 @@ func (s *Updater) Apply(liveObject, configObject *typed.TypedValue, version fiel
 		return nil, fieldpath.ManagedFields{}, fmt.Errorf("failed to get field set: %v", err)
 	}
 
-	if s.IgnoredFields != nil && s.IgnoreFilter != nil {
-		return nil, nil, fmt.Errorf("IgnoreFilter and IgnoreFilter may not both be set")
-	}
-	var ignoreFilter fieldpath.Filter
-	if s.IgnoredFields != nil {
-		ignoreFilter = fieldpath.NewExcludeSetFilter(s.IgnoredFields[version])
-	} else {
-		ignoreFilter = s.IgnoreFilter[version]
-	}
+	ignoreFilter := s.IgnoreFilter[version]
 	if ignoreFilter != nil {
 		set = ignoreFilter.Filter(set)
 	}

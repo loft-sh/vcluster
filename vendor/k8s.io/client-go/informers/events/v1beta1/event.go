@@ -62,25 +62,13 @@ func NewFilteredEventInformer(client kubernetes.Interface, namespace string, res
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.EventsV1beta1().Events(namespace).List(context.Background(), options)
+				return client.EventsV1beta1().Events(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.EventsV1beta1().Events(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.EventsV1beta1().Events(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.EventsV1beta1().Events(namespace).Watch(ctx, options)
+				return client.EventsV1beta1().Events(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apieventsv1beta1.Event{},

@@ -19,6 +19,7 @@ package transport
 import (
 	"bytes"
 	"crypto/tls"
+	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -39,7 +40,6 @@ var CertCallbackRefreshDuration = 5 * time.Minute
 type reloadFunc func(*tls.CertificateRequestInfo) (*tls.Certificate, error)
 
 type dynamicClientCert struct {
-	logger     klog.Logger
 	clientCert *tls.Certificate
 	certMtx    sync.RWMutex
 
@@ -50,9 +50,8 @@ type dynamicClientCert struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 }
 
-func certRotatingDialer(logger klog.Logger, reload reloadFunc, dial utilnet.DialFunc) *dynamicClientCert {
+func certRotatingDialer(reload reloadFunc, dial utilnet.DialFunc) *dynamicClientCert {
 	d := &dynamicClientCert{
-		logger:     logger,
 		reload:     reload,
 		connDialer: connrotation.NewDialer(connrotation.DialFunc(dial)),
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -89,7 +88,7 @@ func (c *dynamicClientCert) loadClientCert() (*tls.Certificate, error) {
 		return cert, nil
 	}
 
-	c.logger.V(1).Info("Certificate rotation detected, shutting down client connections to start using new credentials")
+	klog.V(1).Infof("certificate rotation detected, shutting down client connections to start using new credentials")
 	c.connDialer.CloseAll()
 
 	return cert, nil
@@ -134,12 +133,12 @@ func byteMatrixEqual(left, right [][]byte) bool {
 }
 
 // run starts the controller and blocks until stopCh is closed.
-func (c *dynamicClientCert) run(stopCh <-chan struct{}) {
-	defer utilruntime.HandleCrashWithLogger(c.logger)
+func (c *dynamicClientCert) Run(stopCh <-chan struct{}) {
+	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	c.logger.V(3).Info("Starting client certificate rotation controller")
-	defer c.logger.V(3).Info("Shutting down client certificate rotation controller")
+	klog.V(3).Infof("Starting client certificate rotation controller")
+	defer klog.V(3).Infof("Shutting down client certificate rotation controller")
 
 	go wait.Until(c.runWorker, time.Second, stopCh)
 
@@ -169,7 +168,7 @@ func (c *dynamicClientCert) processNextWorkItem() bool {
 		return true
 	}
 
-	utilruntime.HandleErrorWithLogger(c.logger, err, "Loading client cert failed", "key", dsKey)
+	utilruntime.HandleError(fmt.Errorf("%v failed with : %v", dsKey, err))
 	c.queue.AddRateLimited(dsKey)
 
 	return true

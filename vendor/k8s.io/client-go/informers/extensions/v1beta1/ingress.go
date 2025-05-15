@@ -62,25 +62,13 @@ func NewFilteredIngressInformer(client kubernetes.Interface, namespace string, r
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ExtensionsV1beta1().Ingresses(namespace).List(context.Background(), options)
+				return client.ExtensionsV1beta1().Ingresses(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ExtensionsV1beta1().Ingresses(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.ExtensionsV1beta1().Ingresses(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.ExtensionsV1beta1().Ingresses(namespace).Watch(ctx, options)
+				return client.ExtensionsV1beta1().Ingresses(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apiextensionsv1beta1.Ingress{},

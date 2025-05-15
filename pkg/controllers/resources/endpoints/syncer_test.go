@@ -24,7 +24,6 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 	return syncCtx, fakeSyncer.(*endpointsSyncer)
 }
 
-//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func TestExistingEndpoints(t *testing.T) {
 	vEndpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
@@ -129,7 +128,6 @@ func TestExistingEndpoints(t *testing.T) {
 	})
 }
 
-//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func TestSync(t *testing.T) {
 	baseEndpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{

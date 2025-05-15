@@ -176,14 +176,6 @@ var (
 			Help:           "Counter for consistent reads from cache.",
 			StabilityLevel: compbasemetrics.ALPHA,
 		}, []string{"resource", "success", "fallback"})
-
-	StorageConsistencyCheckTotal = compbasemetrics.NewCounterVec(
-		&compbasemetrics.CounterOpts{
-			Namespace:      namespace,
-			Name:           "storage_consistency_checks_total",
-			Help:           "Counter for status of consistency checks between etcd and watch cache",
-			StabilityLevel: compbasemetrics.INTERNAL,
-		}, []string{"resource", "status"})
 )
 
 var registerMetrics sync.Once
@@ -206,7 +198,6 @@ func Register() {
 		legacyregistry.MustRegister(WatchCacheInitializations)
 		legacyregistry.MustRegister(WatchCacheReadWait)
 		legacyregistry.MustRegister(ConsistentReadTotal)
-		legacyregistry.MustRegister(StorageConsistencyCheckTotal)
 	})
 }
 

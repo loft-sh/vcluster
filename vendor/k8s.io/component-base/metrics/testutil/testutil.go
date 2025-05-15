@@ -20,9 +20,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	dto "github.com/prometheus/client_model/go"
 
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/component-base/metrics"
@@ -34,14 +32,6 @@ type TB interface {
 	Errorf(format string, args ...any)
 	Fatalf(format string, args ...any)
 }
-
-// MetricFamily is a type alias which enables writing gatherers in tests
-// without importing prometheus directly (https://github.com/kubernetes/kubernetes/issues/99876).
-type MetricFamily = dto.MetricFamily
-
-// GathererFunc is a type alias which enables writing gatherers as a function in tests
-// without importing prometheus directly (https://github.com/kubernetes/kubernetes/issues/99876).
-type GathererFunc = prometheus.GathererFunc
 
 // CollectAndCompare registers the provided Collector with a newly created
 // pedantic Registry. It then does the same as GatherAndCompare, gathering the

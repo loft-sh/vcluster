@@ -16,4 +16,4 @@ limitations under the License.
 
 // Package buffered provides an implementation for the audit.Backend interface
 // that batches incoming audit events and sends batches to the delegate audit.Backend.
-package buffered
+package buffered // import "k8s.io/apiserver/plugin/pkg/audit/buffered"

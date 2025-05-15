@@ -28,7 +28,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	return &endpointsSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "endpoints", &corev1.Endpoints{}, mapper), //nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+		GenericTranslator: translator.NewGenericTranslator(ctx, "endpoints", &corev1.Endpoints{}, mapper),
 
 		excludedAnnotations: []string{
 			"control-plane.alpha.kubernetes.io/leader",
@@ -56,7 +56,6 @@ func (s *endpointsSyncer) Syncer() syncertypes.Sync[client.Object] {
 	return syncer.ToGenericSyncer(s)
 }
 
-//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Endpoints]) (ctrl.Result, error) {
 	if event.HostOld != nil {
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
@@ -71,7 +70,6 @@ func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 	return patcher.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder(), false)
 }
 
-//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Endpoints]) (_ ctrl.Result, retErr error) {
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Endpoints.Patches, false))
 	if err != nil {
@@ -99,7 +97,6 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 	return ctrl.Result{}, nil
 }
 
-//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func (s *endpointsSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Endpoints]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
 	return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
@@ -107,7 +104,6 @@ func (s *endpointsSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syn
 
 var _ syncertypes.Starter = &endpointsSyncer{}
 
-//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
 	if req.NamespacedName == specialservices.DefaultKubernetesSvcKey {
 		return true, nil

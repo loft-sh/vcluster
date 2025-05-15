@@ -40,18 +40,15 @@ type ExprFactory interface {
 	NewIdent(id int64, name string) Expr
 
 	// NewAccuIdent creates an Expr value representing an accumulator identifier within a
-	// comprehension.
+	//comprehension.
 	NewAccuIdent(id int64) Expr
-
-	// AccuIdentName reports the name of the accumulator variable to be used within a comprehension.
-	AccuIdentName() string
 
 	// NewLiteral creates an Expr value representing a literal value, such as a string or integer.
 	NewLiteral(id int64, value ref.Val) Expr
 
 	// NewList creates an Expr value representing a list literal expression with optional indices.
 	//
-	// Optional indices will typically be empty unless the CEL optional types are enabled.
+	// Optional indicies will typically be empty unless the CEL optional types are enabled.
 	NewList(id int64, elems []Expr, optIndices []int32) Expr
 
 	// NewMap creates an Expr value representing a map literal expression
@@ -81,23 +78,11 @@ type ExprFactory interface {
 	isExprFactory()
 }
 
-type baseExprFactory struct {
-	accumulatorName string
-}
+type baseExprFactory struct{}
 
 // NewExprFactory creates an ExprFactory instance.
 func NewExprFactory() ExprFactory {
-	return &baseExprFactory{
-		"@result",
-	}
-}
-
-// NewExprFactoryWithAccumulator creates an ExprFactory instance with a custom
-// accumulator identifier name.
-func NewExprFactoryWithAccumulator(id string) ExprFactory {
-	return &baseExprFactory{
-		id,
-	}
+	return &baseExprFactory{}
 }
 
 func (fac *baseExprFactory) NewCall(id int64, function string, args ...Expr) Expr {
@@ -153,11 +138,7 @@ func (fac *baseExprFactory) NewIdent(id int64, name string) Expr {
 }
 
 func (fac *baseExprFactory) NewAccuIdent(id int64) Expr {
-	return fac.NewIdent(id, fac.AccuIdentName())
-}
-
-func (fac *baseExprFactory) AccuIdentName() string {
-	return fac.accumulatorName
+	return fac.NewIdent(id, "__result__")
 }
 
 func (fac *baseExprFactory) NewLiteral(id int64, value ref.Val) Expr {

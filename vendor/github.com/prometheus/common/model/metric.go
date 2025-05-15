@@ -14,11 +14,9 @@
 package model
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -28,13 +26,13 @@ import (
 
 var (
 	// NameValidationScheme determines the method of name validation to be used by
-	// all calls to IsValidMetricName() and LabelName IsValid(). Setting UTF-8
-	// mode in isolation from other components that don't support UTF-8 may result
-	// in bugs or other undefined behavior. This value can be set to
-	// LegacyValidation during startup if a binary is not UTF-8-aware binaries. To
-	// avoid need for locking, this value should be set once, ideally in an
-	// init(), before multiple goroutines are started.
-	NameValidationScheme = UTF8Validation
+	// all calls to IsValidMetricName() and LabelName IsValid(). Setting UTF-8 mode
+	// in isolation from other components that don't support UTF-8 may result in
+	// bugs or other undefined behavior. This value is intended to be set by
+	// UTF-8-aware binaries as part of their startup. To avoid need for locking,
+	// this value should be set once, ideally in an init(), before multiple
+	// goroutines are started.
+	NameValidationScheme = LegacyValidation
 
 	// NameEscapingScheme defines the default way that names will be escaped when
 	// presented to systems that do not support UTF-8 names. If the Content-Type
@@ -271,6 +269,10 @@ func metricNeedsEscaping(m *dto.Metric) bool {
 	return false
 }
 
+const (
+	lowerhex = "0123456789abcdef"
+)
+
 // EscapeName escapes the incoming name according to the provided escaping
 // scheme. Depending on the rules of escaping, this may cause no change in the
 // string that is returned. (Especially NoEscaping, which by definition is a
@@ -305,7 +307,7 @@ func EscapeName(name string, scheme EscapingScheme) string {
 			} else if isValidLegacyRune(b, i) {
 				escaped.WriteRune(b)
 			} else {
-				escaped.WriteString("__")
+				escaped.WriteRune('_')
 			}
 		}
 		return escaped.String()
@@ -315,15 +317,21 @@ func EscapeName(name string, scheme EscapingScheme) string {
 		}
 		escaped.WriteString("U__")
 		for i, b := range name {
-			if b == '_' {
-				escaped.WriteString("__")
-			} else if isValidLegacyRune(b, i) {
+			if isValidLegacyRune(b, i) {
 				escaped.WriteRune(b)
 			} else if !utf8.ValidRune(b) {
 				escaped.WriteString("_FFFD_")
-			} else {
+			} else if b < 0x100 {
 				escaped.WriteRune('_')
-				escaped.WriteString(strconv.FormatInt(int64(b), 16))
+				for s := 4; s >= 0; s -= 4 {
+					escaped.WriteByte(lowerhex[b>>uint(s)&0xF])
+				}
+				escaped.WriteRune('_')
+			} else if b < 0x10000 {
+				escaped.WriteRune('_')
+				for s := 12; s >= 0; s -= 4 {
+					escaped.WriteByte(lowerhex[b>>uint(s)&0xF])
+				}
 				escaped.WriteRune('_')
 			}
 		}
@@ -381,9 +389,8 @@ func UnescapeName(name string, scheme EscapingScheme) string {
 			// We think we are in a UTF-8 code, process it.
 			var utf8Val uint
 			for j := 0; i < len(escapedName); j++ {
-				// This is too many characters for a utf8 value based on the MaxRune
-				// value of '\U0010FFFF'.
-				if j >= 6 {
+				// This is too many characters for a utf8 value.
+				if j > 4 {
 					return name
 				}
 				// Found a closing underscore, convert to a rune, check validity, and append.
@@ -436,7 +443,7 @@ func (e EscapingScheme) String() string {
 
 func ToEscapingScheme(s string) (EscapingScheme, error) {
 	if s == "" {
-		return NoEscaping, errors.New("got empty string instead of escaping scheme")
+		return NoEscaping, fmt.Errorf("got empty string instead of escaping scheme")
 	}
 	switch s {
 	case AllowUTF8:

@@ -61,25 +61,13 @@ func NewFilteredStorageClassInformer(client kubernetes.Interface, resyncPeriod t
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.StorageV1().StorageClasses().List(context.Background(), options)
+				return client.StorageV1().StorageClasses().List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.StorageV1().StorageClasses().Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.StorageV1().StorageClasses().List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.StorageV1().StorageClasses().Watch(ctx, options)
+				return client.StorageV1().StorageClasses().Watch(context.TODO(), options)
 			},
 		},
 		&apistoragev1.StorageClass{},

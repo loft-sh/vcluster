@@ -568,7 +568,7 @@ func getNode(name string) *corev1.Node {
 				"kubernetes.io/hostname": name,
 			},
 			Annotations: map[string]string{
-				constants.AnnotationKubeadmCRISocket: "dry-run-cri-socket",
+				"kubeadm.alpha.kubernetes.io/cri-socket": "dry-run-cri-socket",
 			},
 		},
 	}

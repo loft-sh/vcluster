@@ -20,22 +20,21 @@ limitations under the License.
 package v1
 
 import (
-	"math/rand"
 	"time"
 
-	"sigs.k8s.io/randfill"
+	fuzz "github.com/google/gofuzz"
 )
 
-// Fuzz satisfies randfill.SimpleSelfFiller.
-func (t *MicroTime) RandFill(r *rand.Rand) {
+// Fuzz satisfies fuzz.Interface.
+func (t *MicroTime) Fuzz(c fuzz.Continue) {
 	if t == nil {
 		return
 	}
 	// Allow for about 1000 years of randomness. Accurate to a tenth of
 	// micro second. Leave off nanoseconds because JSON doesn't
 	// represent them so they can't round-trip properly.
-	t.Time = time.Unix(r.Int63n(1000*365*24*60*60), 1000*r.Int63n(1000000))
+	t.Time = time.Unix(c.Rand.Int63n(1000*365*24*60*60), 1000*c.Rand.Int63n(1000000))
 }
 
-// ensure MicroTime implements randfill.Interface
-var _ randfill.SimpleSelfFiller = &MicroTime{}
+// ensure MicroTime implements fuzz.Interface
+var _ fuzz.Interface = &MicroTime{}

@@ -80,10 +80,6 @@ func Forever(f func(), period time.Duration) {
 	Until(f, period, NeverStop)
 }
 
-// jitterRand is a dedicated random source for jitter calculations.
-// It defaults to rand.Float64, but is a package variable so it can be overridden to make unit tests deterministic.
-var jitterRand = rand.Float64
-
 // Jitter returns a time.Duration between duration and duration + maxFactor *
 // duration.
 //
@@ -93,7 +89,7 @@ func Jitter(duration time.Duration, maxFactor float64) time.Duration {
 	if maxFactor <= 0.0 {
 		maxFactor = 1.0
 	}
-	wait := duration + time.Duration(jitterRand()*maxFactor*float64(duration))
+	wait := duration + time.Duration(rand.Float64()*maxFactor*float64(duration))
 	return wait
 }
 
@@ -145,7 +141,6 @@ func (c channelContext) Value(key any) any           { return nil }
 //
 // Deprecated: Will be removed when the legacy polling methods are removed.
 func runConditionWithCrashProtection(condition ConditionFunc) (bool, error) {
-	//nolint:logcheck // Already deprecated.
 	defer runtime.HandleCrash()
 	return condition()
 }
@@ -155,7 +150,7 @@ func runConditionWithCrashProtection(condition ConditionFunc) (bool, error) {
 //
 // Deprecated: Will be removed when the legacy polling methods are removed.
 func runConditionWithCrashProtectionWithContext(ctx context.Context, condition ConditionWithContextFunc) (bool, error) {
-	defer runtime.HandleCrashWithContext(ctx)
+	defer runtime.HandleCrash()
 	return condition(ctx)
 }
 

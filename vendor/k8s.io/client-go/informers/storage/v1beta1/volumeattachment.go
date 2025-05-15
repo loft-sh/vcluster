@@ -61,25 +61,13 @@ func NewFilteredVolumeAttachmentInformer(client kubernetes.Interface, resyncPeri
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.StorageV1beta1().VolumeAttachments().List(context.Background(), options)
+				return client.StorageV1beta1().VolumeAttachments().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.StorageV1beta1().VolumeAttachments().Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.StorageV1beta1().VolumeAttachments().List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.StorageV1beta1().VolumeAttachments().Watch(ctx, options)
+				return client.StorageV1beta1().VolumeAttachments().Watch(context.TODO(), options)
 			},
 		},
 		&apistoragev1beta1.VolumeAttachment{},

@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/internal/pragma"
 	"google.golang.org/protobuf/internal/strs"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
 // Edition is an Enum for proto2.Edition
@@ -274,6 +275,7 @@ type (
 		Kind             protoreflect.Kind
 		StringName       stringName
 		IsProto3Optional bool // promoted from google.protobuf.FieldDescriptorProto
+		IsWeak           bool // promoted from google.protobuf.FieldOptions
 		IsLazy           bool // promoted from google.protobuf.FieldOptions
 		Default          defaultValue
 		ContainingOneof  protoreflect.OneofDescriptor // must be consistent with Message.Oneofs.Fields
@@ -367,7 +369,7 @@ func (fd *Field) IsPacked() bool {
 	return fd.L1.EditionFeatures.IsPacked
 }
 func (fd *Field) IsExtension() bool { return false }
-func (fd *Field) IsWeak() bool      { return false }
+func (fd *Field) IsWeak() bool      { return fd.L1.IsWeak }
 func (fd *Field) IsLazy() bool      { return fd.L1.IsLazy }
 func (fd *Field) IsList() bool      { return fd.Cardinality() == protoreflect.Repeated && !fd.IsMap() }
 func (fd *Field) IsMap() bool       { return fd.Message() != nil && fd.Message().IsMapEntry() }
@@ -394,6 +396,11 @@ func (fd *Field) Enum() protoreflect.EnumDescriptor {
 	return fd.L1.Enum
 }
 func (fd *Field) Message() protoreflect.MessageDescriptor {
+	if fd.L1.IsWeak {
+		if d, _ := protoregistry.GlobalFiles.FindDescriptorByName(fd.L1.Message.FullName()); d != nil {
+			return d.(protoreflect.MessageDescriptor)
+		}
+	}
 	return fd.L1.Message
 }
 func (fd *Field) IsMapEntry() bool {

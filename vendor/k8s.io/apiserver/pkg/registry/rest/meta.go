@@ -23,9 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
-// metav1Now returns metav1.Now(), but allows override for unit testing
-var metav1Now = func() metav1.Time { return metav1.Now() }
-
 // WipeObjectMetaSystemFields erases fields that are managed by the system on ObjectMeta.
 func WipeObjectMetaSystemFields(meta metav1.Object) {
 	meta.SetCreationTimestamp(metav1.Time{})
@@ -37,7 +34,7 @@ func WipeObjectMetaSystemFields(meta metav1.Object) {
 
 // FillObjectMetaSystemFields populates fields that are managed by the system on ObjectMeta.
 func FillObjectMetaSystemFields(meta metav1.Object) {
-	meta.SetCreationTimestamp(metav1Now())
+	meta.SetCreationTimestamp(metav1.Now())
 	meta.SetUID(uuid.NewUUID())
 }
 

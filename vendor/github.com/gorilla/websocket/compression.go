@@ -33,11 +33,7 @@ func decompressNoContextTakeover(r io.Reader) io.ReadCloser {
 		"\x01\x00\x00\xff\xff"
 
 	fr, _ := flateReaderPool.Get().(io.ReadCloser)
-	mr := io.MultiReader(r, strings.NewReader(tail))
-	if err := fr.(flate.Resetter).Reset(mr, nil); err != nil {
-		// Reset never fails, but handle error in case that changes.
-		fr = flate.NewReader(mr)
-	}
+	fr.(flate.Resetter).Reset(io.MultiReader(r, strings.NewReader(tail)), nil)
 	return &flateReadWrapper{fr}
 }
 

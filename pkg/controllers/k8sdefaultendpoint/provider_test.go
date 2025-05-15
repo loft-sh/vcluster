@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func TestCreateOrPatch(t *testing.T) {
 	ctx := context.Background()
 	InitialVirtualState := []runtime.Object{}

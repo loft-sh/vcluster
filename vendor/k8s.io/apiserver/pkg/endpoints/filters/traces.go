@@ -24,7 +24,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
-	"k8s.io/apiserver/pkg/authentication/user"
 	tracing "k8s.io/component-base/tracing"
 )
 
@@ -32,7 +31,7 @@ import (
 func WithTracing(handler http.Handler, tp trace.TracerProvider) http.Handler {
 	opts := []otelhttp.Option{
 		otelhttp.WithPropagators(tracing.Propagators()),
-		otelhttp.WithPublicEndpointFn(notSystemPrivilegedGroup),
+		otelhttp.WithPublicEndpoint(),
 		otelhttp.WithTracerProvider(tp),
 		otelhttp.WithSpanNameFormatter(func(operation string, r *http.Request) string {
 			ctx := r.Context()
@@ -44,11 +43,6 @@ func WithTracing(handler http.Handler, tp trace.TracerProvider) http.Handler {
 		}),
 	}
 	wrappedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Adjust otelhttp tracing start time to match the start time used
-		// for Prometheus metrics.
-		if startTime, ok := request.ReceivedTimestampFrom(r.Context()); ok {
-			r = r.WithContext(otelhttp.ContextWithStartTime(r.Context(), startTime))
-		}
 		// Add the http.target attribute to the otelhttp span
 		// Workaround for https://github.com/open-telemetry/opentelemetry-go-contrib/issues/3743
 		if r.URL != nil {
@@ -78,15 +72,4 @@ func getSpanNameFromRequestInfo(info *request.RequestInfo, r *http.Request) stri
 		spanName += "/" + info.Subresource
 	}
 	return r.Method + " " + spanName
-}
-
-func notSystemPrivilegedGroup(req *http.Request) bool {
-	if u, ok := request.UserFrom(req.Context()); ok {
-		for _, group := range u.GetGroups() {
-			if group == user.SystemPrivilegedGroup || group == user.MonitoringGroup {
-				return false
-			}
-		}
-	}
-	return true
 }

@@ -62,25 +62,13 @@ func NewFilteredPodDisruptionBudgetInformer(client kubernetes.Interface, namespa
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PolicyV1beta1().PodDisruptionBudgets(namespace).List(context.Background(), options)
+				return client.PolicyV1beta1().PodDisruptionBudgets(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.PolicyV1beta1().PodDisruptionBudgets(namespace).Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.PolicyV1beta1().PodDisruptionBudgets(namespace).List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.PolicyV1beta1().PodDisruptionBudgets(namespace).Watch(ctx, options)
+				return client.PolicyV1beta1().PodDisruptionBudgets(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apipolicyv1beta1.PodDisruptionBudget{},

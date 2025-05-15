@@ -61,25 +61,13 @@ func NewFilteredComponentStatusInformer(client kubernetes.Interface, resyncPerio
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CoreV1().ComponentStatuses().List(context.Background(), options)
+				return client.CoreV1().ComponentStatuses().List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CoreV1().ComponentStatuses().Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.CoreV1().ComponentStatuses().List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.CoreV1().ComponentStatuses().Watch(ctx, options)
+				return client.CoreV1().ComponentStatuses().Watch(context.TODO(), options)
 			},
 		},
 		&apicorev1.ComponentStatus{},

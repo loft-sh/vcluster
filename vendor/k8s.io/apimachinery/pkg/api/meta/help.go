@@ -221,9 +221,6 @@ func extractList(obj runtime.Object, allocNew bool) ([]runtime.Object, error) {
 	if err != nil {
 		return nil, err
 	}
-	if items.IsNil() {
-		return nil, nil
-	}
 	list := make([]runtime.Object, items.Len())
 	if len(list) == 0 {
 		return list, nil

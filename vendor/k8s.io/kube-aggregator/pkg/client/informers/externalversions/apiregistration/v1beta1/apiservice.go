@@ -61,25 +61,13 @@ func NewFilteredAPIServiceInformer(client clientset.Interface, resyncPeriod time
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ApiregistrationV1beta1().APIServices().List(context.Background(), options)
+				return client.ApiregistrationV1beta1().APIServices().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ApiregistrationV1beta1().APIServices().Watch(context.Background(), options)
-			},
-			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.ApiregistrationV1beta1().APIServices().List(ctx, options)
-			},
-			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
-				if tweakListOptions != nil {
-					tweakListOptions(&options)
-				}
-				return client.ApiregistrationV1beta1().APIServices().Watch(ctx, options)
+				return client.ApiregistrationV1beta1().APIServices().Watch(context.TODO(), options)
 			},
 		},
 		&apisapiregistrationv1beta1.APIService{},

@@ -256,7 +256,13 @@ func (c completedConfig) NewWithDelegate(delegationTarget genericapiserver.Deleg
 		tracerProvider:             c.GenericConfig.TracerProvider,
 	}
 
-	apiGroupInfo := apiservicerest.NewRESTStorage(c.GenericConfig.MergedResourceConfig, c.GenericConfig.RESTOptionsGetter, false)
+	// used later  to filter the served resource by those that have expired.
+	resourceExpirationEvaluator, err := genericapiserver.NewResourceExpirationEvaluator(s.GenericAPIServer.EffectiveVersion.EmulationVersion())
+	if err != nil {
+		return nil, err
+	}
+
+	apiGroupInfo := apiservicerest.NewRESTStorage(c.GenericConfig.MergedResourceConfig, c.GenericConfig.RESTOptionsGetter, resourceExpirationEvaluator.ShouldServeForVersion(1, 22))
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
 		return nil, err
 	}
@@ -275,8 +281,12 @@ func (c completedConfig) NewWithDelegate(delegationTarget genericapiserver.Deleg
 		discoveryGroup: discoveryGroup(enabledVersions),
 	}
 
-	apisHandlerWithAggregationSupport := aggregated.WrapAggregatedDiscoveryToHandler(apisHandler, s.GenericAPIServer.AggregatedDiscoveryGroupManager)
-	s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/apis", apisHandlerWithAggregationSupport)
+	if utilfeature.DefaultFeatureGate.Enabled(genericfeatures.AggregatedDiscoveryEndpoint) {
+		apisHandlerWithAggregationSupport := aggregated.WrapAggregatedDiscoveryToHandler(apisHandler, s.GenericAPIServer.AggregatedDiscoveryGroupManager)
+		s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/apis", apisHandlerWithAggregationSupport)
+	} else {
+		s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/apis", apisHandler)
+	}
 	s.GenericAPIServer.Handler.NonGoRestfulMux.UnlistedHandle("/apis/", apisHandler)
 
 	apiserviceRegistrationController := NewAPIServiceRegistrationController(informerFactory.Apiregistration().V1().APIServices(), s)
@@ -361,39 +371,41 @@ func (c completedConfig) NewWithDelegate(delegationTarget genericapiserver.Deleg
 		return nil
 	})
 
-	s.discoveryAggregationController = NewDiscoveryManager(
-		// Use aggregator as the source name to avoid overwriting native/CRD
-		// groups
-		s.GenericAPIServer.AggregatedDiscoveryGroupManager.WithSource(aggregated.AggregatorSource),
-	)
+	if utilfeature.DefaultFeatureGate.Enabled(genericfeatures.AggregatedDiscoveryEndpoint) {
+		s.discoveryAggregationController = NewDiscoveryManager(
+			// Use aggregator as the source name to avoid overwriting native/CRD
+			// groups
+			s.GenericAPIServer.AggregatedDiscoveryGroupManager.WithSource(aggregated.AggregatorSource),
+		)
 
-	// Setup discovery endpoint
-	s.GenericAPIServer.AddPostStartHookOrDie("apiservice-discovery-controller", func(context genericapiserver.PostStartHookContext) error {
-		// Discovery aggregation depends on the apiservice registration controller
-		// having the full list of APIServices already synced
-		select {
-		case <-context.Done():
+		// Setup discovery endpoint
+		s.GenericAPIServer.AddPostStartHookOrDie("apiservice-discovery-controller", func(context genericapiserver.PostStartHookContext) error {
+			// Discovery aggregation depends on the apiservice registration controller
+			// having the full list of APIServices already synced
+			select {
+			case <-context.Done():
+				return nil
+			// Context cancelled, should abort/clean goroutines
+			case <-apiServiceRegistrationControllerInitiated:
+			}
+
+			// Run discovery manager's worker to watch for new/removed/updated
+			// APIServices to the discovery document can be updated at runtime
+			// When discovery is ready, all APIServices will be present, with APIServices
+			// that have not successfully synced discovery to be present but marked as Stale.
+			discoverySyncedCh := make(chan struct{})
+			go s.discoveryAggregationController.Run(context.Done(), discoverySyncedCh)
+
+			select {
+			case <-context.Done():
+				return nil
+			// Context cancelled, should abort/clean goroutines
+			case <-discoverySyncedCh:
+				// API services successfully sync
+			}
 			return nil
-		// Context cancelled, should abort/clean goroutines
-		case <-apiServiceRegistrationControllerInitiated:
-		}
-
-		// Run discovery manager's worker to watch for new/removed/updated
-		// APIServices to the discovery document can be updated at runtime
-		// When discovery is ready, all APIServices will be present, with APIServices
-		// that have not successfully synced discovery to be present but marked as Stale.
-		discoverySyncedCh := make(chan struct{})
-		go s.discoveryAggregationController.Run(context.Done(), discoverySyncedCh)
-
-		select {
-		case <-context.Done():
-			return nil
-		// Context cancelled, should abort/clean goroutines
-		case <-discoverySyncedCh:
-			// API services successfully sync
-		}
-		return nil
-	})
+		})
+	}
 
 	if utilfeature.DefaultFeatureGate.Enabled(genericfeatures.StorageVersionAPI) &&
 		utilfeature.DefaultFeatureGate.Enabled(genericfeatures.APIServerIdentity) {

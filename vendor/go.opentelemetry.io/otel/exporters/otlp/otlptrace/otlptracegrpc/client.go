@@ -229,12 +229,7 @@ func (c *client) exportContext(parent context.Context) (context.Context, context
 	}
 
 	if c.metadata.Len() > 0 {
-		md := c.metadata
-		if outMD, ok := metadata.FromOutgoingContext(ctx); ok {
-			md = metadata.Join(md, outMD)
-		}
-
-		ctx = metadata.NewOutgoingContext(ctx, md)
+		ctx = metadata.NewOutgoingContext(ctx, c.metadata)
 	}
 
 	// Unify the client stopCtx with the parent.

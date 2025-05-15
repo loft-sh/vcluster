@@ -18,6 +18,7 @@ package cacher
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 
@@ -41,20 +42,6 @@ type threadedStoreIndexer struct {
 	lock    sync.RWMutex
 	store   btreeStore
 	indexer indexer
-}
-
-var _ orderedLister = (*threadedStoreIndexer)(nil)
-
-func (si *threadedStoreIndexer) Count(prefix, continueKey string) (count int) {
-	si.lock.RLock()
-	defer si.lock.RUnlock()
-	return si.store.Count(prefix, continueKey)
-}
-
-func (si *threadedStoreIndexer) Clone() orderedLister {
-	si.lock.RLock()
-	defer si.lock.RUnlock()
-	return si.store.Clone()
 }
 
 func (si *threadedStoreIndexer) Add(obj interface{}) error {
@@ -86,11 +73,11 @@ func (si *threadedStoreIndexer) Delete(obj interface{}) error {
 	}
 	si.lock.Lock()
 	defer si.lock.Unlock()
-	oldObj, existed := si.store.deleteElem(storeElem)
-	if !existed {
+	oldObj := si.store.deleteElem(storeElem)
+	if oldObj == nil {
 		return nil
 	}
-	return si.indexer.updateElem(storeElem.Key, oldObj, nil)
+	return si.indexer.updateElem(storeElem.Key, oldObj.(*storeElement), nil)
 }
 
 func (si *threadedStoreIndexer) List() []interface{} {
@@ -99,10 +86,10 @@ func (si *threadedStoreIndexer) List() []interface{} {
 	return si.store.List()
 }
 
-func (si *threadedStoreIndexer) ListPrefix(prefix, continueKey string) []interface{} {
+func (si *threadedStoreIndexer) ListPrefix(prefix, continueKey string, limit int) ([]interface{}, bool) {
 	si.lock.RLock()
 	defer si.lock.RUnlock()
-	return si.store.ListPrefix(prefix, continueKey)
+	return si.store.ListPrefix(prefix, continueKey, limit)
 }
 
 func (si *threadedStoreIndexer) ListKeys() []string {
@@ -141,20 +128,12 @@ func (si *threadedStoreIndexer) ByIndex(indexName, indexValue string) ([]interfa
 
 func newBtreeStore(degree int) btreeStore {
 	return btreeStore{
-		tree: btree.NewG(degree, func(a, b *storeElement) bool {
-			return a.Key < b.Key
-		}),
+		tree: btree.New(degree),
 	}
 }
 
 type btreeStore struct {
-	tree *btree.BTreeG[*storeElement]
-}
-
-func (s *btreeStore) Clone() orderedLister {
-	return &btreeStore{
-		tree: s.tree.Clone(),
-	}
+	tree *btree.BTree
 }
 
 func (s *btreeStore) Add(obj interface{}) error {
@@ -193,14 +172,14 @@ func (s *btreeStore) Delete(obj interface{}) error {
 	return nil
 }
 
-func (s *btreeStore) deleteElem(storeElem *storeElement) (*storeElement, bool) {
+func (s *btreeStore) deleteElem(storeElem *storeElement) interface{} {
 	return s.tree.Delete(storeElem)
 }
 
 func (s *btreeStore) List() []interface{} {
 	items := make([]interface{}, 0, s.tree.Len())
-	s.tree.Ascend(func(item *storeElement) bool {
-		items = append(items, item)
+	s.tree.Ascend(func(i btree.Item) bool {
+		items = append(items, i.(interface{}))
 		return true
 	})
 	return items
@@ -208,8 +187,8 @@ func (s *btreeStore) List() []interface{} {
 
 func (s *btreeStore) ListKeys() []string {
 	items := make([]string, 0, s.tree.Len())
-	s.tree.Ascend(func(item *storeElement) bool {
-		items = append(items, item.Key)
+	s.tree.Ascend(func(i btree.Item) bool {
+		items = append(items, i.(*storeElement).Key)
 		return true
 	})
 	return items
@@ -220,8 +199,11 @@ func (s *btreeStore) Get(obj interface{}) (item interface{}, exists bool, err er
 	if !ok {
 		return nil, false, fmt.Errorf("obj is not a storeElement")
 	}
-	item, exists = s.tree.Get(storeElem)
-	return item, exists, nil
+	item = s.tree.Get(storeElem)
+	if item == nil {
+		return nil, false, nil
+	}
+	return item, true, nil
 }
 
 func (s *btreeStore) GetByKey(key string) (item interface{}, exists bool, err error) {
@@ -243,37 +225,54 @@ func (s *btreeStore) Replace(objs []interface{}, _ string) error {
 // addOrUpdateLocked assumes a lock is held and is used for Add
 // and Update operations.
 func (s *btreeStore) addOrUpdateElem(storeElem *storeElement) *storeElement {
-	oldObj, _ := s.tree.ReplaceOrInsert(storeElem)
-	return oldObj
+	oldObj := s.tree.ReplaceOrInsert(storeElem)
+	if oldObj == nil {
+		return nil
+	}
+	return oldObj.(*storeElement)
 }
 
 func (s *btreeStore) getByKey(key string) (item interface{}, exists bool, err error) {
 	keyElement := &storeElement{Key: key}
-	item, exists = s.tree.Get(keyElement)
-	return item, exists, nil
+	item = s.tree.Get(keyElement)
+	return item, item != nil, nil
 }
 
-func (s *btreeStore) ListPrefix(prefix, continueKey string) []interface{} {
+func (s *btreeStore) ListPrefix(prefix, continueKey string, limit int) ([]interface{}, bool) {
+	if limit < 0 {
+		return nil, false
+	}
 	if continueKey == "" {
 		continueKey = prefix
 	}
 	var result []interface{}
-	s.tree.AscendGreaterOrEqual(&storeElement{Key: continueKey}, func(item *storeElement) bool {
-		if !strings.HasPrefix(item.Key, prefix) {
+	var hasMore bool
+	if limit == 0 {
+		limit = math.MaxInt
+	}
+	s.tree.AscendGreaterOrEqual(&storeElement{Key: continueKey}, func(i btree.Item) bool {
+		elementKey := i.(*storeElement).Key
+		if !strings.HasPrefix(elementKey, prefix) {
 			return false
 		}
-		result = append(result, item)
+		// TODO: Might be worth to lookup one more item to provide more accurate HasMore.
+		if len(result) >= limit {
+			hasMore = true
+			return false
+		}
+		result = append(result, i.(interface{}))
 		return true
 	})
-	return result
+	return result, hasMore
 }
 
 func (s *btreeStore) Count(prefix, continueKey string) (count int) {
 	if continueKey == "" {
 		continueKey = prefix
 	}
-	s.tree.AscendGreaterOrEqual(&storeElement{Key: continueKey}, func(item *storeElement) bool {
-		if !strings.HasPrefix(item.Key, prefix) {
+	s.tree.AscendGreaterOrEqual(&storeElement{Key: continueKey}, func(i btree.Item) bool {
+		elementKey := i.(*storeElement).Key
+		if !strings.HasPrefix(elementKey, prefix) {
 			return false
 		}
 		count++
@@ -391,115 +390,4 @@ func (i *indexer) delete(key, value string, index map[string]map[string]*storeEl
 	if len(set) == 0 {
 		delete(index, value)
 	}
-}
-
-// newStoreSnapshotter returns a storeSnapshotter that stores snapshots for
-// serving read requests with exact resource versions (RV) and pagination.
-//
-// Snapshots are created by calling Clone method on orderedLister, which is
-// expected to be fast and efficient thanks to usage of B-trees.
-// B-trees can create a lazy copy of the tree structure, minimizing overhead.
-//
-// Assuming the watch cache observes all events and snapshots cache after each of them,
-// requests for a specific resource version can be served by retrieving
-// the snapshot with the greatest RV less than or equal to the requested RV.
-// To make snapshot retrivial efficient we need an ordered data structure, such as tree.
-//
-// The initial implementation uses a B-tree to achieve the following performance characteristics (n - number of snapshots stored):
-//   - `Add`: Adds a new snapshot.
-//     Complexity: O(log n).
-//     Executed for each watch event observed by the cache.
-//   - `GetLessOrEqual`: Retrieves the snapshot with the greatest RV less than or equal to the requested RV.
-//     Complexity: O(log n).
-//     Executed for each LIST request with match=Exact or continuation.
-//   - `RemoveLess`: Cleans up snapshots outside the watch history window.
-//     Complexity: O(k log n), k - number of snapshots to remove, usually only one if watch capacity was not reduced.
-//     Executed per watch event observed when the cache is full.
-//   - `Reset`: Cleans up all snapshots.
-//     Complexity: O(1).
-//     Executed when the watch cache is reinitialized.
-//
-// Further optimization is possible by leveraging the property that adds always
-// increase the maximum RV and deletes only increase the minimum RV.
-// For example, a binary search on a cyclic buffer of (RV, snapshot)
-// should reduce number of allocations and improve removal complexity.
-// However, this solution is more complex and is deferred for future implementation.
-//
-// TODO: Rewrite to use a cyclic buffer
-func newStoreSnapshotter() *storeSnapshotter {
-	s := &storeSnapshotter{
-		snapshots: btree.NewG[rvSnapshot](btreeDegree, func(a, b rvSnapshot) bool {
-			return a.resourceVersion < b.resourceVersion
-		}),
-	}
-	return s
-}
-
-var _ Snapshotter = (*storeSnapshotter)(nil)
-
-type Snapshotter interface {
-	Reset()
-	GetLessOrEqual(rv uint64) (orderedLister, bool)
-	Add(rv uint64, indexer orderedLister)
-	RemoveLess(rv uint64)
-	Len() int
-}
-
-type storeSnapshotter struct {
-	mux       sync.RWMutex
-	snapshots *btree.BTreeG[rvSnapshot]
-}
-
-type rvSnapshot struct {
-	resourceVersion uint64
-	snapshot        orderedLister
-}
-
-func (s *storeSnapshotter) Reset() {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	s.snapshots.Clear(false)
-}
-
-func (s *storeSnapshotter) GetLessOrEqual(rv uint64) (orderedLister, bool) {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-
-	var result *rvSnapshot
-	s.snapshots.DescendLessOrEqual(rvSnapshot{resourceVersion: rv}, func(rvs rvSnapshot) bool {
-		result = &rvs
-		return false
-	})
-	if result == nil {
-		return nil, false
-	}
-	return result.snapshot, true
-}
-
-func (s *storeSnapshotter) Add(rv uint64, indexer orderedLister) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	s.snapshots.ReplaceOrInsert(rvSnapshot{resourceVersion: rv, snapshot: indexer.Clone()})
-}
-
-func (s *storeSnapshotter) RemoveLess(rv uint64) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	for s.snapshots.Len() > 0 {
-		oldest, ok := s.snapshots.Min()
-		if !ok {
-			break
-		}
-		if rv <= oldest.resourceVersion {
-			break
-		}
-		s.snapshots.DeleteMin()
-	}
-}
-
-func (s *storeSnapshotter) Len() int {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-
-	return s.snapshots.Len()
 }
