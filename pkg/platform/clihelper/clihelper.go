@@ -59,6 +59,8 @@ const LoftRouterDomainSecret = "loft-router-domain"
 
 const DefaultPlatformNamespace = "vcluster-platform"
 
+const DefaultPlatformServiceName = "loft"
+
 const defaultTimeout = 10 * time.Minute
 
 const timeoutEnvVariable = "LOFT_TIMEOUT"

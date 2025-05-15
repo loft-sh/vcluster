@@ -33,6 +33,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/embed"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	platformclihelper "github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
@@ -162,6 +163,13 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	release, err := helm.NewSecrets(cmd.kubeClient).Get(ctx, vClusterName, cmd.Namespace)
 	if err != nil && !kerrors.IsNotFound(err) {
 		return fmt.Errorf("get current helm release: %w", err)
+	}
+
+	_, err = cmd.kubeClient.CoreV1().Services(globalFlags.Namespace).Get(ctx, platformclihelper.DefaultPlatformServiceName, metav1.GetOptions{})
+	if err == nil {
+		return fmt.Errorf("a vCluster platform installation exists in the namespace '%s'. Aborting install", globalFlags.Namespace)
+	} else if !kerrors.IsNotFound(err) {
+		return fmt.Errorf("get platform service: %w", err)
 	}
 
 	// check if vcluster already exists
