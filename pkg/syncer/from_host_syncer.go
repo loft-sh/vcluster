@@ -209,7 +209,7 @@ func additionalPermissionMissingHandler(ctx *synccontext.RegisterContext) func(r
 				"trying to watch on a namespace that does not exists / have no permissions. "+
 					"Please either re-create it or remove the namespace from mappings in the vcluster.yaml and restart vCluster.")
 		} else {
-			toolscache.DefaultWatchErrorHandler(r, err)
+			toolscache.DefaultWatchErrorHandler(ctx, r, err)
 		}
 	}
 }
