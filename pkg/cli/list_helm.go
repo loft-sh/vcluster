@@ -28,6 +28,12 @@ type ListVCluster struct {
 	Connected  bool
 }
 
+// ListProVCluster holds information about a vCluster along with the associated project name
+type ListProVCluster struct {
+	ListVCluster
+	Project string
+}
+
 type ListOptions struct {
 	Driver string
 
@@ -55,7 +61,7 @@ func ListHelm(ctx context.Context, options *ListOptions, globalFlags *flags.Glob
 		return err
 	}
 
-	err = printVClusters(ctx, options, ossToVClusters(vClusters, currentContext), globalFlags, true, log)
+	err = printVClusters(ctx, options, ossToVClusters(vClusters, currentContext), globalFlags, log)
 	if err != nil {
 		return err
 	}
@@ -63,7 +69,7 @@ func ListHelm(ctx context.Context, options *ListOptions, globalFlags *flags.Glob
 	return nil
 }
 
-func printVClusters(ctx context.Context, options *ListOptions, output []ListVCluster, globalFlags *flags.GlobalFlags, showPlatform bool, logger log.Logger) error {
+func printVClusters(ctx context.Context, options *ListOptions, output []ListVCluster, globalFlags *flags.GlobalFlags, logger log.Logger) error {
 	if options.Output == "json" {
 		bytes, err := json.MarshalIndent(output, "", "    ")
 		if err != nil {
@@ -76,27 +82,15 @@ func printVClusters(ctx context.Context, options *ListOptions, output []ListVClu
 		values := toValues(output)
 		table.PrintTable(logger, header, values)
 
-		// show use driver command
-		if showPlatform {
-			platformClient, err := platform.InitClientFromConfig(ctx, globalFlags.LoadedConfig(logger))
-			if err == nil {
-				ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-				defer cancel()
-
-				proVClusters, _ := platform.ListVClusters(ctx, platformClient, "", "", false)
-				if len(proVClusters) > 0 {
-					logger.Infof("You also have %d virtual clusters in your platform driver context.", len(proVClusters))
-					logger.Info("If you want to see them, run: 'vcluster list --driver platform' or 'vcluster use driver platform' to change the default")
-				}
-			}
-		} else {
+		platformClient, err := platform.InitClientFromConfig(ctx, globalFlags.LoadedConfig(logger))
+		if err == nil {
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
 
-			vClusters, _ := find.ListVClusters(ctx, globalFlags.Context, "", "", log.Discard)
-			if len(vClusters) > 0 {
-				logger.Infof("You also have %d virtual clusters in your current kube-context.", len(vClusters))
-				logger.Info("If you want to see them, run: 'vcluster list --driver helm' or 'vcluster use driver helm' to change the default")
+			proVClusters, _ := platform.ListVClusters(ctx, platformClient, "", "", false)
+			if len(proVClusters) > 0 {
+				logger.Infof("You also have %d virtual clusters in your platform driver context.", len(proVClusters))
+				logger.Info("If you want to see them, run: 'vcluster list --driver platform' or 'vcluster use driver platform' to change the default")
 			}
 		}
 
