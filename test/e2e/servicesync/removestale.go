@@ -3,7 +3,6 @@ package servicesync
 import (
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -18,9 +17,6 @@ var _ = ginkgo.Describe("previously replicated services removed from replication
 	ginkgo.BeforeEach(func() {
 		f = framework.DefaultFramework
 		vClusterNamespace = f.VClusterNamespace
-		if f.MultiNamespaceMode {
-			vClusterNamespace = translate.NewMultiNamespaceTranslator(f.VClusterNamespace).HostNamespace(nil, "default")
-		}
 	})
 
 	ginkgo.It("doesn't find virtual service that is removed from replication config", func() {

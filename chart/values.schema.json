@@ -1306,10 +1306,6 @@
           "$ref": "#/$defs/ExperimentalGenericSync",
           "description": "GenericSync holds options to generically sync resources from virtual cluster to host."
         },
-        "multiNamespaceMode": {
-          "$ref": "#/$defs/ExperimentalMultiNamespaceMode",
-          "description": "MultiNamespaceMode tells virtual cluster to sync to multiple namespaces instead of a single one. This will map each virtual cluster namespace to a single namespace in the host cluster."
-        },
         "isolatedControlPlane": {
           "$ref": "#/$defs/ExperimentalIsolatedControlPlane",
           "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.",
@@ -1509,23 +1505,6 @@
         "service": {
           "type": "string",
           "description": "Service is the vCluster service in the remote cluster."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ExperimentalMultiNamespaceMode": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled specifies if multi namespace mode should get enabled"
-        },
-        "namespaceLabels": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object",
-          "description": "NamespaceLabels are extra labels that will be added by vCluster to each created namespace."
         }
       },
       "additionalProperties": false,
@@ -3559,6 +3538,10 @@
           },
           "type": "object",
           "description": "CustomResources defines what custom resources should get synced from the virtual cluster to the host cluster. vCluster will copy the definition automatically from host cluster to virtual cluster on startup.\nvCluster will also automatically add any required RBAC permissions to the vCluster role for this to work."
+        },
+        "namespaces": {
+          "$ref": "#/$defs/SyncToHostNamespaces",
+          "description": "Namespaces defines if namespaces created within the virtual cluster should get synced to the host cluster."
         }
       },
       "additionalProperties": false,
@@ -3587,6 +3570,42 @@
       "required": [
         "enabled"
       ]
+    },
+    "SyncToHostNamespaces": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "patches": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "Patches patch the resource according to the provided specification."
+        },
+        "mappings": {
+          "$ref": "#/$defs/FromHostMappings",
+          "description": "Mappings for Namespace and Object"
+        },
+        "mappingsOnly": {
+          "type": "boolean",
+          "description": "MappingsOnly defines if creation of namespaces not matched by mappings should be allowed."
+        },
+        "extraLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "ExtraLabels are additional labels to add to the namespace in the host cluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "enabled"
+      ],
+      "description": "SyncToHostNamespaces defines how namespaces should be synced from the virtual cluster to the host cluster."
     },
     "Telemetry": {
       "properties": {

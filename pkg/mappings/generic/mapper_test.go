@@ -350,7 +350,7 @@ func TestTryToTranslateBackByName(t *testing.T) {
 	assert.NilError(t, err)
 	err = syncContext.Mappings.AddMapper(namespaceMapper)
 	assert.NilError(t, err)
-	vConfig.Experimental.MultiNamespaceMode.Enabled = true
+	vConfig.Sync.ToHost.Namespaces.Enabled = true
 	req := types.NamespacedName{
 		Namespace: targetNamespace,
 		Name:      "test",

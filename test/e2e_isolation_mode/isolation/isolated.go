@@ -16,9 +16,6 @@ import (
 
 var _ = ginkgo.Describe("Isolated mode", func() {
 	f := framework.DefaultFramework
-	if f.MultiNamespaceMode {
-		ginkgo.Skip("Isolated mode is not supported in Multi-Namespace mode")
-	}
 
 	ginkgo.It("Enforce isolated mode", func() {
 		ginkgo.By("Check if isolated mode creates resourcequota")

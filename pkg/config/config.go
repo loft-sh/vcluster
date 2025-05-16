@@ -160,7 +160,7 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 		MountPhysicalHostPaths:      false,
 		HostMetricsBindAddress:      "0",
 		VirtualMetricsBindAddress:   "0",
-		MultiNamespaceMode:          v.Experimental.MultiNamespaceMode.Enabled,
+		MultiNamespaceMode:          v.Sync.ToHost.Namespaces.Enabled,
 		SyncAllSecrets:              v.Sync.ToHost.Secrets.All,
 		SyncAllConfigMaps:           v.Sync.ToHost.ConfigMaps.All,
 		ProxyMetricsServer:          v.Integrations.MetricsServer.Enabled,

@@ -8,18 +8,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *namespaceSyncer) translate(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Namespace {
-	newNamespace := translate.HostMetadata(vObj.(*corev1.Namespace), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName()}, vObj), s.excludedAnnotations...)
-	if newNamespace.Labels == nil {
-		newNamespace.Labels = map[string]string{}
+func (s *namespaceSyncer) applyNamespaceLabels(ns *corev1.Namespace) *corev1.Namespace {
+	if ns.Labels == nil {
+		ns.Labels = map[string]string{}
 	}
 
-	// add user defined namespace labels
 	for k, v := range s.namespaceLabels {
-		newNamespace.Labels[k] = v
+		ns.Labels[k] = v
 	}
+	return ns
+}
 
-	return newNamespace
+func (s *namespaceSyncer) translateToHost(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Namespace {
+	newNamespace := translate.HostMetadata(vObj.(*corev1.Namespace), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName()}, vObj), s.excludedAnnotations...)
+	return s.applyNamespaceLabels(newNamespace)
+}
+
+func (s *namespaceSyncer) translateToVirtual(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Namespace {
+	newNamespace := translate.VirtualMetadata(vObj.(*corev1.Namespace), s.HostToVirtual(ctx, types.NamespacedName{Name: vObj.GetName()}, vObj), s.excludedAnnotations...)
+	return s.applyNamespaceLabels(newNamespace)
 }
 
 func (s *namespaceSyncer) translateUpdate(pObj, vObj *corev1.Namespace) {

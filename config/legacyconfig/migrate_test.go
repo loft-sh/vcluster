@@ -131,8 +131,10 @@ experimental:
     - apiVersion: v1
       kind: Secret
     version: v1beta1
-  multiNamespaceMode:
-    enabled: true`,
+sync:
+  toHost:
+    namespaces:
+      enabled: true`,
 		},
 		{
 			Name:   "persistence false",

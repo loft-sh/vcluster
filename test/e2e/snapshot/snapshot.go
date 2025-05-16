@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -48,9 +47,6 @@ var _ = ginkgo.Describe("Snapshot VCluster", func() {
 
 		// get vCluster default namespace
 		vClusterDefaultNamespace := f.VClusterNamespace
-		if f.MultiNamespaceMode {
-			vClusterDefaultNamespace = translate.NewMultiNamespaceTranslator(f.VClusterNamespace).HostNamespace(nil, "default")
-		}
 
 		// now create a service that should be there when we restore again
 		_, err = f.VClusterClient.CoreV1().Services("default").Create(f.Context, &corev1.Service{

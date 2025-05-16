@@ -114,7 +114,7 @@ func registerGenericSyncController(ctx *synccontext.ControllerContext) error {
 
 func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
 	hostNamespace := ctx.Config.WorkloadTargetNamespace
-	if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
+	if ctx.Config.Sync.ToHost.Namespaces.Enabled {
 		hostNamespace = ctx.Config.WorkloadNamespace
 	}
 
@@ -187,7 +187,7 @@ func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
 			Log:                   loghelper.New(name),
 		}
 
-		if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
+		if ctx.Config.Sync.ToHost.Namespaces.Enabled {
 			controller.CreateEndpoints = true
 		}
 
