@@ -10,6 +10,7 @@ import (
 )
 
 func CreateEndpointsMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
+	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 	mapper, err := generic.NewMapper(ctx, &corev1.Endpoints{}, translate.Default.HostName)
 	if err != nil {
 		return nil, err
