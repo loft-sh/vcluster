@@ -197,6 +197,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 }
 
 func (n *nodeServiceProvider) updateNodeServiceEndpoints(ctx context.Context, nodeServiceName string) error {
+	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 	vClusterServiceEndpoints := &corev1.Endpoints{}
 	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: n.serviceName, Namespace: n.currentNamespace}, vClusterServiceEndpoints)
 	if err != nil {
@@ -204,6 +205,7 @@ func (n *nodeServiceProvider) updateNodeServiceEndpoints(ctx context.Context, no
 	}
 
 	// filter subsets
+	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 	nodeServiceEndpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: n.currentNamespace,
@@ -211,6 +213,7 @@ func (n *nodeServiceProvider) updateNodeServiceEndpoints(ctx context.Context, no
 		},
 	}
 	result, err := controllerutil.CreateOrPatch(ctx, n.currentNamespaceClient, nodeServiceEndpoints, func() error {
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 		// build new subsets
 		newSubsets := []corev1.EndpointSubset{}
 		for _, subset := range vClusterServiceEndpoints.Subsets {
@@ -243,6 +246,7 @@ func (n *nodeServiceProvider) updateNodeServiceEndpoints(ctx context.Context, no
 				newNotReadyAddresses = append(newNotReadyAddresses, address)
 			}
 
+			//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 			newSubsets = append(newSubsets, corev1.EndpointSubset{
 				Addresses:         newAddresses,
 				NotReadyAddresses: newNotReadyAddresses,

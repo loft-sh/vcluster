@@ -16,6 +16,8 @@ type EndpointsV1BetaProvider struct{}
 func (p *EndpointsV1BetaProvider) CreateClientObject() client.Object {
 	return &discoveryv1beta1.EndpointSlice{}
 }
+
+//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func (p *EndpointsV1BetaProvider) CreateOrPatch(ctx context.Context, virtualClient client.Client, vEndpoints *corev1.Endpoints) error {
 	vSlices := &discoveryv1beta1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
@@ -37,6 +39,8 @@ func (p *EndpointsV1BetaProvider) CreateOrPatch(ctx context.Context, virtualClie
 // endpointSliceFromEndpoints generates an EndpointSlice from an Endpoints
 // resource.
 // From: https://github.com/kubernetes/kubernetes/blob/7380fc735aca591325ae1fabf8dab194b40367de/pkg/controlplane/reconcilers/endpointsadapter.go#L121-L151
+//
+//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 func (p *EndpointsV1BetaProvider) endpointSliceFromEndpoints(endpoints *corev1.Endpoints) *discoveryv1beta1.EndpointSlice {
 	endpointSlice := &discoveryv1beta1.EndpointSlice{}
 	endpointSlice.Name = endpoints.Name
