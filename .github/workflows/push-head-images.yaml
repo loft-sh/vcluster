@@ -1,0 +1,50 @@
+name: Build and push head images
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-head-images:
+    runs-on: ubuntu-latest
+    name: Publish head images
+    if: |
+      github.repository_owner == 'loft-sh' &&
+      github.ref_name == 'main'
+    permissions:
+      contents: read
+      id-token: write # This is the key for OIDC cosign!
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - name: Install just
+        uses: extractions/setup-just@v1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup GoReleaser and Build Images
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --config .goreleaser.head_images.yaml --clean --skip=announce,validate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEMETRY_PRIVATE_KEY: ""
+          CI_BRANCH: ${{ github.ref_name }}
