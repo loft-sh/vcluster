@@ -13,6 +13,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -116,6 +117,75 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 				framework.ExpectNoError(err, "Count of ephemeralContainer is expected to be greater than 0")
 			}
 		}
+	})
+
+	ginkgo.It("Test pod without explicitly set scheduler is scheduled by the default-scheduler", func(ctx context.Context) {
+		const (
+			podName              = "implicit-default-scheduler-test"
+			defaultSchedulerName = "default-scheduler"
+		)
+		_, err := f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: podName},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		err = f.WaitForPodRunning(podName, ns)
+		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+
+		eventsListOptions := metav1.ListOptions{
+			FieldSelector: "reason==Scheduled,involvedObject.name==" + podName,
+		}
+		scheduledEvents, err := f.VClusterClient.CoreV1().Events(ns).List(ctx, eventsListOptions)
+		framework.ExpectNoError(err)
+		gomega.Expect(scheduledEvents.Items).To(gomega.HaveLen(1))
+
+		// Assert that the default scheduler has scheduled the pod
+		gomega.Expect(scheduledEvents.Items[0].ReportingController).To(gomega.Equal(defaultSchedulerName))
+	})
+
+	ginkgo.It("Test pod with explicitly set default-scheduler is scheduled by the default-scheduler", func(ctx context.Context) {
+		const (
+			podName              = "explicit-default-scheduler-test"
+			defaultSchedulerName = "default-scheduler"
+		)
+		_, err := f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: podName},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
+					},
+				},
+				SchedulerName: defaultSchedulerName,
+			},
+		}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		err = f.WaitForPodRunning(podName, ns)
+		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+
+		eventsListOptions := metav1.ListOptions{
+			FieldSelector: "reason==Scheduled,involvedObject.name==" + podName,
+		}
+		scheduledEvents, err := f.VClusterClient.CoreV1().Events(ns).List(ctx, eventsListOptions)
+		framework.ExpectNoError(err)
+		gomega.Expect(scheduledEvents.Items).To(gomega.HaveLen(1))
+
+		// Assert that the default scheduler has scheduled the pod
+		gomega.Expect(scheduledEvents.Items[0].ReportingController).To(gomega.Equal(defaultSchedulerName))
 	})
 
 	ginkgo.It("Test pod starts successfully and readiness conditions are synced back to vcluster pod resource", func() {
