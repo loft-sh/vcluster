@@ -9,6 +9,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -31,7 +32,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &storageClassSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "storageclass", &storagev1.StorageClass{}, mapper),
 
-		ctx: ctx,
+		labelSelector: ctx.Config.Sync.FromHost.StorageClasses.Selector,
 		excludedAnnotations: []string{
 			DefaultStorageClassAnnotation,
 		},
@@ -41,7 +42,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 type storageClassSyncer struct {
 	syncertypes.GenericTranslator
 
-	ctx                 *synccontext.RegisterContext
+	labelSelector       config.StandardLabelSelector
 	excludedAnnotations []string
 }
 
@@ -147,5 +148,5 @@ func (s *storageClassSyncer) ExcludeVirtual(_ client.Object) bool {
 }
 
 func (s *storageClassSyncer) ExcludePhysical(obj client.Object) bool {
-	return !selector.StandardLabelSelectorMatches(obj, s.ctx.Config.Sync.FromHost.StorageClasses.Selector)
+	return !selector.StandardLabelSelectorMatches(obj, s.labelSelector)
 }

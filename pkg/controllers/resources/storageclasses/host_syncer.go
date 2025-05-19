@@ -9,6 +9,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -26,15 +27,15 @@ func NewHostStorageClassSyncer(ctx *synccontext.RegisterContext) (syncertypes.Ob
 	}
 
 	return &hostStorageClassSyncer{
-		Mapper: mapper,
-		ctx:    ctx,
+		Mapper:        mapper,
+		labelSelector: ctx.Config.Sync.FromHost.StorageClasses.Selector,
 	}, nil
 }
 
 type hostStorageClassSyncer struct {
 	synccontext.Mapper
 
-	ctx *synccontext.RegisterContext
+	labelSelector config.StandardLabelSelector
 }
 
 func (s *hostStorageClassSyncer) UseUncachedPhysicalClient() bool {
@@ -102,5 +103,5 @@ func (s *hostStorageClassSyncer) ExcludeVirtual(_ client.Object) bool {
 }
 
 func (s *hostStorageClassSyncer) ExcludePhysical(obj client.Object) bool {
-	return !selector.StandardLabelSelectorMatches(obj, s.ctx.Config.Sync.FromHost.StorageClasses.Selector)
+	return !selector.StandardLabelSelectorMatches(obj, s.labelSelector)
 }

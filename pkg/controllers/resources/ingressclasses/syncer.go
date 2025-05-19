@@ -9,6 +9,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -26,14 +27,15 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	return &ingressClassSyncer{
-		Mapper: mapper,
-		ctx:    ctx,
+		Mapper:        mapper,
+		labelSelector: ctx.Config.Sync.FromHost.IngressClasses.Selector,
 	}, nil
 }
 
 type ingressClassSyncer struct {
 	synccontext.Mapper
-	ctx *synccontext.RegisterContext
+
+	labelSelector config.StandardLabelSelector
 }
 
 func (i *ingressClassSyncer) Name() string {
@@ -92,5 +94,5 @@ func (i *ingressClassSyncer) ExcludeVirtual(_ client.Object) bool {
 }
 
 func (i *ingressClassSyncer) ExcludePhysical(obj client.Object) bool {
-	return !selector.StandardLabelSelectorMatches(obj, i.ctx.Config.Sync.FromHost.IngressClasses.Selector)
+	return !selector.StandardLabelSelectorMatches(obj, i.labelSelector)
 }

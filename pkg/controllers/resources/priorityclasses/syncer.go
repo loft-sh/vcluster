@@ -10,6 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -36,7 +37,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 	return &priorityClassSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "priorityclass", &schedulingv1.PriorityClass{}, mapper),
-		ctx:               ctx,
+		labelSelector:     ctx.Config.Sync.FromHost.PriorityClasses.Selector,
 		fromHost:          fromHost,
 		toHost:            toHost,
 	}, nil
@@ -44,9 +45,9 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 type priorityClassSyncer struct {
 	syncertypes.GenericTranslator
-	ctx      *synccontext.RegisterContext
-	fromHost bool
-	toHost   bool
+	labelSelector config.StandardLabelSelector
+	fromHost      bool
+	toHost        bool
 }
 
 var _ syncertypes.OptionsProvider = &priorityClassSyncer{}
@@ -128,5 +129,5 @@ func (s *priorityClassSyncer) ExcludeVirtual(_ client.Object) bool {
 }
 
 func (s *priorityClassSyncer) ExcludePhysical(obj client.Object) bool {
-	return !selector.StandardLabelSelectorMatches(obj, s.ctx.Config.Sync.FromHost.PriorityClasses.Selector)
+	return !selector.StandardLabelSelectorMatches(obj, s.labelSelector)
 }
