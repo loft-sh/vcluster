@@ -4,6 +4,12 @@ import (
 	"errors"
 	"fmt"
 
+	schedulingv1 "k8s.io/api/scheduling/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -11,12 +17,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/selector"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	schedulingv1 "k8s.io/api/scheduling/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
@@ -34,6 +36,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 	return &priorityClassSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "priorityclass", &schedulingv1.PriorityClass{}, mapper),
+		ctx:               ctx,
 		fromHost:          fromHost,
 		toHost:            toHost,
 	}, nil
@@ -41,6 +44,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 type priorityClassSyncer struct {
 	syncertypes.GenericTranslator
+	ctx      *synccontext.RegisterContext
 	fromHost bool
 	toHost   bool
 }
@@ -56,7 +60,7 @@ func (s *priorityClassSyncer) Options() *syncertypes.Options {
 var _ syncertypes.Syncer = &priorityClassSyncer{}
 
 func (s *priorityClassSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer(s)
+	return syncer.ToGenericSyncer[*schedulingv1.PriorityClass](s)
 }
 
 func (s *priorityClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*schedulingv1.PriorityClass]) (ctrl.Result, error) {
@@ -117,4 +121,12 @@ func (s *priorityClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event 
 	}
 
 	return patcher.CreateVirtualObject(ctx, event.Host, newVirtualPC, nil, false)
+}
+
+func (s *priorityClassSyncer) ExcludeVirtual(_ client.Object) bool {
+	return true
+}
+
+func (s *priorityClassSyncer) ExcludePhysical(obj client.Object) bool {
+	return !selector.StandardLabelSelectorMatches(obj, s.ctx.Config.Sync.FromHost.PriorityClasses.Selector)
 }

@@ -1,7 +1,14 @@
 package ingresses
 
 import (
+	"context"
 	"fmt"
+
+	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -11,12 +18,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/selector"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/types"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
@@ -33,6 +36,7 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		GenericTranslator: translator.NewGenericTranslator(ctx, "ingress", &networkingv1.Ingress{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 
+		ctx: ctx,
 		// exclude "field.cattle.io/publicEndpoints" annotation used by Rancher, similar to service syncer
 		excludedAnnotations: []string{services.RancherPublicEndpointsAnnotation},
 	}, nil
@@ -42,6 +46,7 @@ type ingressSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
 
+	ctx                 *synccontext.RegisterContext
 	excludedAnnotations []string
 }
 
@@ -56,7 +61,7 @@ func (s *ingressSyncer) Options() *syncertypes.Options {
 var _ syncertypes.Syncer = &ingressSyncer{}
 
 func (s *ingressSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer(s)
+	return syncer.ToGenericSyncer[*networkingv1.Ingress](s)
 }
 
 func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*networkingv1.Ingress]) (ctrl.Result, error) {
@@ -116,4 +121,29 @@ func (s *ingressSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 	}
 
 	return patcher.CreateVirtualObject(ctx, event.Host, vIngress, s.EventRecorder(), true)
+}
+
+func (s *ingressSyncer) ExcludeVirtual(obj client.Object) bool {
+	ingress, ok := obj.(*networkingv1.Ingress)
+	if !ok ||
+		((ingress.Spec.IngressClassName == nil || *ingress.Spec.IngressClassName == "") && selector.IsLabelSelectorEmpty(s.ctx.Config.Sync.FromHost.IngressClasses.Selector)) {
+		return false
+	}
+
+	ingressClass := &networkingv1.IngressClass{}
+	err := s.ctx.PhysicalManager.GetClient().Get(context.Background(),
+		types.NamespacedName{
+			Name: *ingress.Spec.IngressClassName,
+		},
+		ingressClass,
+	)
+	if err != nil {
+		return false
+	}
+
+	return !selector.StandardLabelSelectorMatches(ingressClass, s.ctx.Config.Sync.FromHost.IngressClasses.Selector)
+}
+
+func (s *ingressSyncer) ExcludePhysical(_ client.Object) bool {
+	return false
 }

@@ -3,18 +3,20 @@ package storageclasses
 import (
 	"fmt"
 
+	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/selector"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/types"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func NewHostStorageClassSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
@@ -25,11 +27,14 @@ func NewHostStorageClassSyncer(ctx *synccontext.RegisterContext) (syncertypes.Ob
 
 	return &hostStorageClassSyncer{
 		Mapper: mapper,
+		ctx:    ctx,
 	}, nil
 }
 
 type hostStorageClassSyncer struct {
 	synccontext.Mapper
+
+	ctx *synccontext.RegisterContext
 }
 
 func (s *hostStorageClassSyncer) UseUncachedPhysicalClient() bool {
@@ -47,7 +52,7 @@ func (s *hostStorageClassSyncer) Resource() client.Object {
 var _ syncertypes.Syncer = &hostStorageClassSyncer{}
 
 func (s *hostStorageClassSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer(s)
+	return syncer.ToGenericSyncer[*storagev1.StorageClass](s)
 }
 
 func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
@@ -90,4 +95,12 @@ func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 func (s *hostStorageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
 	ctx.Log.Infof("delete virtual storage class %s, because physical object is missing", event.Virtual)
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
+}
+
+func (s *hostStorageClassSyncer) ExcludeVirtual(_ client.Object) bool {
+	return true
+}
+
+func (s *hostStorageClassSyncer) ExcludePhysical(obj client.Object) bool {
+	return !selector.StandardLabelSelectorMatches(obj, s.ctx.Config.Sync.FromHost.StorageClasses.Selector)
 }

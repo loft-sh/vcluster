@@ -16,7 +16,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/selector"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	nodev1alpha1 "k8s.io/api/node/v1alpha1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -102,6 +105,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		GenericTranslator: genericTranslator,
 		Importer:          pro.NewImporter(podsMapper),
 
+		ctx:              ctx,
 		serviceName:      ctx.Config.WorkloadService,
 		schedulingConfig: schedulingConfig,
 		fakeKubeletIPs:   ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
@@ -120,6 +124,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 type podSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
+
+	ctx *synccontext.RegisterContext
 
 	serviceName      string
 	schedulingConfig scheduling.Config
@@ -544,4 +550,55 @@ func (s *podSyncer) getNodeIP(ctx *synccontext.SyncContext, name string) (string
 	}
 
 	return nodeService.Spec.ClusterIP, nil
+}
+
+func (s *podSyncer) ExcludeVirtual(obj client.Object) bool {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok {
+		return false
+	}
+
+	return s.excludeVirtualPodOnRuntime(pod) || s.excludeVirtualPodOnPriority(pod)
+}
+
+func (s *podSyncer) excludeVirtualPodOnRuntime(pod *corev1.Pod) bool {
+	if pod.Spec.RuntimeClassName == nil || *pod.Spec.RuntimeClassName == "" && selector.IsLabelSelectorEmpty(s.ctx.Config.Sync.FromHost.RuntimeClasses.Selector) {
+		return false
+	}
+
+	runtimeClass := &nodev1alpha1.RuntimeClass{}
+	err := s.ctx.PhysicalManager.GetClient().Get(context.Background(),
+		types.NamespacedName{
+			Name: *pod.Spec.RuntimeClassName,
+		},
+		runtimeClass,
+	)
+	if err != nil {
+		return true
+	}
+
+	return !selector.StandardLabelSelectorMatches(runtimeClass, s.ctx.Config.Sync.FromHost.RuntimeClasses.Selector)
+}
+
+func (s *podSyncer) excludeVirtualPodOnPriority(pod *corev1.Pod) bool {
+	if pod.Spec.PriorityClassName == "" && selector.IsLabelSelectorEmpty(s.ctx.Config.Sync.FromHost.PriorityClasses.Selector) {
+		return false
+	}
+
+	priorityClass := &schedulingv1.PriorityClass{}
+	err := s.ctx.PhysicalManager.GetClient().Get(context.Background(),
+		types.NamespacedName{
+			Name: pod.Spec.PriorityClassName,
+		},
+		priorityClass,
+	)
+	if err != nil {
+		return true
+	}
+
+	return !selector.StandardLabelSelectorMatches(priorityClass, s.ctx.Config.Sync.FromHost.PriorityClasses.Selector)
+}
+
+func (s *podSyncer) ExcludePhysical(_ client.Object) bool {
+	return false
 }

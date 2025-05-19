@@ -3,21 +3,23 @@ package ingressclasses
 import (
 	"fmt"
 
+	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/selector"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/types"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(_ *synccontext.RegisterContext) (syncertypes.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := generic.NewMirrorMapper(&networkingv1.IngressClass{})
 	if err != nil {
 		return nil, err
@@ -25,11 +27,13 @@ func New(_ *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 	return &ingressClassSyncer{
 		Mapper: mapper,
+		ctx:    ctx,
 	}, nil
 }
 
 type ingressClassSyncer struct {
 	synccontext.Mapper
+	ctx *synccontext.RegisterContext
 }
 
 func (i *ingressClassSyncer) Name() string {
@@ -43,7 +47,7 @@ func (i *ingressClassSyncer) Resource() client.Object {
 var _ syncertypes.Syncer = &ingressClassSyncer{}
 
 func (i *ingressClassSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer(i)
+	return syncer.ToGenericSyncer[*networkingv1.IngressClass](i)
 }
 
 func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*networkingv1.IngressClass]) (ctrl.Result, error) {
@@ -81,4 +85,12 @@ func (i *ingressClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 func (i *ingressClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*networkingv1.IngressClass]) (ctrl.Result, error) {
 	ctx.Log.Infof("delete virtual ingress class %s, because physical object is missing", event.Virtual.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
+}
+
+func (i *ingressClassSyncer) ExcludeVirtual(_ client.Object) bool {
+	return true
+}
+
+func (i *ingressClassSyncer) ExcludePhysical(obj client.Object) bool {
+	return !selector.StandardLabelSelectorMatches(obj, i.ctx.Config.Sync.FromHost.IngressClasses.Selector)
 }

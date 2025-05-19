@@ -1,7 +1,13 @@
 package persistentvolumeclaims
 
 import (
+	"context"
 	"fmt"
+
+	"github.com/pkg/errors"
+	storagev1 "k8s.io/api/storage/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/klog/v2"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -11,18 +17,17 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/selector"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/klog/v2"
 
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 )
 
 var (
@@ -47,6 +52,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		GenericTranslator: translator.NewGenericTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 
+		ctx: ctx,
+
 		excludedAnnotations: []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation},
 
 		storageClassesEnabled:    ctx.Config.Sync.ToHost.StorageClasses.Enabled,
@@ -58,6 +65,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 type persistentVolumeClaimSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
+
+	ctx *synccontext.RegisterContext
 
 	excludedAnnotations []string
 
@@ -78,7 +87,7 @@ func (s *persistentVolumeClaimSyncer) Options() *syncertypes.Options {
 var _ syncertypes.Syncer = &persistentVolumeClaimSyncer{}
 
 func (s *persistentVolumeClaimSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer(s)
+	return syncer.ToGenericSyncer[*corev1.PersistentVolumeClaim](s)
 }
 
 func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.PersistentVolumeClaim]) (ctrl.Result, error) {
@@ -284,4 +293,29 @@ func recreatePersistentVolumeClaim(ctx *synccontext.SyncContext, virtualClient c
 	}
 
 	return vPVC, nil
+}
+
+func (s *persistentVolumeClaimSyncer) ExcludeVirtual(obj client.Object) bool {
+	pvc, ok := obj.(*corev1.PersistentVolumeClaim)
+	if !ok ||
+		(pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "") && selector.IsLabelSelectorEmpty(s.ctx.Config.Sync.FromHost.StorageClasses.Selector) {
+		return false
+	}
+
+	storageClass := &storagev1.StorageClass{}
+	err := s.ctx.PhysicalManager.GetClient().Get(context.Background(),
+		types.NamespacedName{
+			Name: *pvc.Spec.StorageClassName,
+		},
+		storageClass,
+	)
+	if err != nil {
+		return false
+	}
+
+	return !selector.StandardLabelSelectorMatches(storageClass, s.ctx.Config.Sync.FromHost.StorageClasses.Selector)
+}
+
+func (s *persistentVolumeClaimSyncer) ExcludePhysical(_ client.Object) bool {
+	return false
 }

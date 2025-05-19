@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	storagev1 "k8s.io/api/storage/v1"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -13,11 +15,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/selector"
+
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +28,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 )
 
 const (
@@ -40,6 +45,7 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &persistentVolumeSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, mapper),
 
+		ctx: ctx,
 		excludedAnnotations: []string{
 			constants.HostClusterPersistentVolumeAnnotation,
 		},
@@ -69,6 +75,7 @@ func mapPVCs(_ context.Context, obj client.Object) []reconcile.Request {
 
 type persistentVolumeSyncer struct {
 	syncertypes.GenericTranslator
+	ctx                 *synccontext.RegisterContext
 	virtualClient       client.Client
 	excludedAnnotations []string
 }
@@ -91,7 +98,7 @@ func (s *persistentVolumeSyncer) Options() *syncertypes.Options {
 var _ syncertypes.Syncer = &persistentVolumeSyncer{}
 
 func (s *persistentVolumeSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer(s)
+	return syncer.ToGenericSyncer[*corev1.PersistentVolume](s)
 }
 
 func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.PersistentVolume]) (ctrl.Result, error) {
@@ -316,4 +323,28 @@ func (s *persistentVolumeSyncer) IsManaged(ctx *synccontext.SyncContext, pObj cl
 	}
 
 	return sync, nil
+}
+
+func (s *persistentVolumeSyncer) ExcludeVirtual(obj client.Object) bool {
+	pv, ok := obj.(*corev1.PersistentVolume)
+	if !ok || (pv.Spec.StorageClassName == "" && selector.IsLabelSelectorEmpty(s.ctx.Config.Sync.FromHost.StorageClasses.Selector)) {
+		return false
+	}
+
+	storageClass := &storagev1.StorageClass{}
+	err := s.ctx.PhysicalManager.GetClient().Get(context.Background(),
+		types.NamespacedName{
+			Name: pv.Spec.StorageClassName,
+		},
+		storageClass,
+	)
+	if err != nil {
+		return false
+	}
+
+	return !selector.StandardLabelSelectorMatches(storageClass, s.ctx.Config.Sync.FromHost.StorageClasses.Selector)
+}
+
+func (s *persistentVolumeSyncer) ExcludePhysical(_ client.Object) bool {
+	return false
 }

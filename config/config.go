@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/invopop/jsonschema"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -649,16 +650,16 @@ type SyncFromHost struct {
 	Events EnableSwitchWithPatches `json:"events,omitempty"`
 
 	// IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
-	IngressClasses EnableSwitchWithPatches `json:"ingressClasses,omitempty"`
+	IngressClasses EnableSwitchWithPatchesAndSelector `json:"ingressClasses,omitempty"`
 
 	// RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
-	RuntimeClasses EnableSwitchWithPatches `json:"runtimeClasses,omitempty"`
+	RuntimeClasses EnableSwitchWithPatchesAndSelector `json:"runtimeClasses,omitempty"`
 
 	// PriorityClasses defines if priority classes classes should get synced from the host cluster to the virtual cluster, but not back.
-	PriorityClasses EnableSwitchWithPatches `json:"priorityClasses,omitempty"`
+	PriorityClasses EnableSwitchWithPatchesAndSelector `json:"priorityClasses,omitempty"`
 
 	// StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
-	StorageClasses EnableAutoSwitchWithPatches `json:"storageClasses,omitempty"`
+	StorageClasses EnableAutoSwitchWithPatchesAndSelector `json:"storageClasses,omitempty"`
 
 	// CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
 	CSINodes EnableAutoSwitchWithPatches `json:"csiNodes,omitempty"`
@@ -680,6 +681,22 @@ type SyncFromHost struct {
 
 	// Secrets defines if secrets in the host should get synced to the virtual cluster.
 	Secrets EnableSwitchWithResourcesMappings `json:"secrets,omitempty"`
+}
+
+type StandardLabelSelector v1.LabelSelector
+
+type EnableSwitchWithPatchesAndSelector struct {
+	EnableSwitchWithPatches
+
+	// Selector defines the selector to use for the resource. If not set, all resources of that type will be synced.
+	Selector StandardLabelSelector `json:"selector,omitempty"`
+}
+
+type EnableAutoSwitchWithPatchesAndSelector struct {
+	EnableAutoSwitchWithPatches
+
+	// Selector defines the selector to use for the resource. If not set, all resources of that type will be synced.
+	Selector StandardLabelSelector `json:"selector,omitempty"`
 }
 
 // SyncToHostNamespaces defines how namespaces should be synced from the virtual cluster to the host cluster.
@@ -2111,6 +2128,9 @@ type Experimental struct {
 	// GenericSync holds options to generically sync resources from virtual cluster to host.
 	GenericSync ExperimentalGenericSync `json:"genericSync,omitempty"`
 
+	// MultiNamespaceMode tells virtual cluster to sync to multiple namespaces instead of a single one. This will map each virtual cluster namespace to a single namespace in the host cluster.
+	MultiNamespaceMode ExperimentalMultiNamespaceMode `json:"multiNamespaceMode,omitempty"`
+
 	// IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
 	IsolatedControlPlane ExperimentalIsolatedControlPlane `json:"isolatedControlPlane,omitempty" product:"pro"`
 
@@ -2123,6 +2143,14 @@ type Experimental struct {
 
 func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
 	addProToJSONSchema(base, reflect.TypeOf(e))
+}
+
+type ExperimentalMultiNamespaceMode struct {
+	// Enabled specifies if multi namespace mode should get enabled
+	Enabled bool `json:"enabled,omitempty"`
+
+	// NamespaceLabels are extra labels that will be added by vCluster to each created namespace.
+	NamespaceLabels map[string]string `json:"namespaceLabels,omitempty"`
 }
 
 type ExperimentalIsolatedControlPlane struct {
