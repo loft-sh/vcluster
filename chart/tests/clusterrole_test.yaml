@@ -106,9 +106,10 @@ tests:
       rbac:
         clusterRole:
           enabled: auto
-      experimental:
-        multiNamespaceMode:
-          enabled: true
+      sync:
+        toHost:
+          namespaces:
+            enabled: true
     asserts:
       - hasDocuments:
           count: 1
@@ -119,7 +120,7 @@ tests:
           path: rules
           content:
             apiGroups: [ "" ]
-            resources: [ "namespaces", "serviceaccounts" ]
+            resources: [ "namespaces", "serviceaccounts"]
             verbs: [ "create", "delete", "patch", "update", "get", "watch", "list" ]
 
   - it: override rules

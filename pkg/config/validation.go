@@ -17,6 +17,14 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 )
 
+const (
+	// Name placeholder will be replaced with this virtual cluster name
+	NamePlaceholder string = "${name}"
+
+	// WildcardChar is used in pattern mappings.
+	WildcardChar string = "*"
+)
+
 var allowedPodSecurityStandards = map[string]bool{
 	"privileged": true,
 	"baseline":   true,
@@ -172,6 +180,16 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	}
 
 	err = validateFromHostSyncMappings(vConfig.Sync.FromHost.Secrets, "secrets")
+	if err != nil {
+		return err
+	}
+
+	if isUsingOldGenericSync(vConfig.Experimental.GenericSync) && vConfig.Sync.ToHost.Namespaces.Enabled {
+		return errors.New("experimental.genericSync.imports is not allowed when using sync.toHost.namespaces")
+	}
+
+	// check sync.toHost.namespaces.mappings
+	err = validateToHostNamespaceSyncMappings(vConfig.Sync.ToHost.Namespaces, vConfig.Name)
 	if err != nil {
 		return err
 	}
@@ -602,6 +620,167 @@ func validateWildcardOrAny(values []string) error {
 	return nil
 }
 
+func isUsingOldGenericSync(genericSync config.ExperimentalGenericSync) bool {
+	return len(genericSync.Exports) > 0 || len(genericSync.Imports) > 0 ||
+		(genericSync.Hooks != nil && (len(genericSync.Hooks.HostToVirtual) > 0 || len(genericSync.Hooks.VirtualToHost) > 0))
+}
+
+// IsPattern checks if a string contains a wildcard character '*'.
+func IsPattern(val string) bool {
+	return strings.Contains(val, WildcardChar)
+}
+
+func validateToHostNamespaceSyncMappings(s config.SyncToHostNamespaces, vclusterName string) error {
+	if !s.Enabled {
+		return nil
+	}
+
+	configPathIdentifier := "config.sync.toHost.namespaces.mappings.byName"
+
+	// if namespace sync is enabled, mappings must be defined
+	if len(s.Mappings.ByName) == 0 {
+		return fmt.Errorf("%s are empty", configPathIdentifier)
+	}
+
+	for vNS, hNS := range s.Mappings.ByName {
+		// check both if they are patterns
+		vIsPattern := IsPattern(vNS)
+		hIsPattern := IsPattern(hNS)
+
+		// we only allow exact-to-exact and pattern-to-pattern mappings
+		if vIsPattern != hIsPattern {
+			return fmt.Errorf("%s: '%s':'%s' has mismatched wildcard '*' usage - pattern must always map to another pattern", configPathIdentifier, vNS, hNS)
+		}
+
+		var err error
+		if vIsPattern && hIsPattern {
+			err = validateToHostPatternNamespaceMapping(vNS, hNS, vclusterName, configPathIdentifier)
+		} else {
+			err = validateToHostExactNamespaceMapping(vNS, hNS, vclusterName, configPathIdentifier)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateToHostExactNamespaceMapping validates a pair of exact virtual and host namespace mappings.
+func validateToHostExactNamespaceMapping(vNS, hNS, vclusterName, configPathIdentifier string) error {
+	// check virtual namespace name
+	if err := validateToHostExactNamespaceMappingPart(vNS, vclusterName, "virtual namespace", configPathIdentifier); err != nil {
+		return err
+	}
+
+	// check host namespace name
+	if err := validateToHostExactNamespaceMappingPart(hNS, vclusterName, "host namespace", configPathIdentifier); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateToHostPatternNamespaceMapping validates a pair of pattern-based virtual and host namespace mappings.
+func validateToHostPatternNamespaceMapping(vNS, hNS, vclusterName, configPathIdentifier string) error {
+	// check virtual namespace pattern
+	if err := validateToHostPatternNamespaceMappingPart(vNS, vclusterName, "virtual namespace", configPathIdentifier); err != nil {
+		return err
+	}
+
+	// check host namespace pattern
+	if err := validateToHostPatternNamespaceMappingPart(hNS, vclusterName, "host namespace", configPathIdentifier); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateToHostExactNamespaceMappingPart validates an exact namespace name (no wildcard).
+func validateToHostExactNamespaceMappingPart(name, vclusterName, partIdentifier, configPathIdentifier string) error {
+	if name == "" {
+		return fmt.Errorf("%s: %s cannot be empty", configPathIdentifier, partIdentifier)
+	}
+	if IsPattern(name) { // should never happen
+		return fmt.Errorf("%s: %s '%s' is treated as exact but contains a wildcard '*'", configPathIdentifier, partIdentifier, name)
+	}
+
+	// check ${name} placeholder usage
+	if err := validateNamePlaceholderUsage(name, vclusterName, partIdentifier, configPathIdentifier); err != nil {
+		return err
+	}
+
+	// for namespace name validation we replace with instance name
+	nameForValidation := name
+	if strings.Contains(name, NamePlaceholder) {
+		nameForValidation = strings.ReplaceAll(name, NamePlaceholder, vclusterName)
+	}
+
+	// validate namespace name
+	errs := validation.ValidateNamespaceName(nameForValidation, false)
+	if len(errs) > 0 {
+		return fmt.Errorf("%s: invalid %s name '%s': %v", configPathIdentifier, partIdentifier, name, errs[0])
+	}
+	return nil
+}
+
+// validateToHostPatternNamespaceMappingPart validates a namespace pattern (containing '*').
+func validateToHostPatternNamespaceMappingPart(pattern, vclusterName, partIdentifier, configPathIdentifier string) error {
+	if !IsPattern(pattern) { // should never happen
+		return fmt.Errorf("%s: %s '%s' is treated as a pattern but does not contain a wildcard '*'", configPathIdentifier, partIdentifier, pattern)
+	}
+
+	// allow only single wildcard character in pattern
+	if strings.Count(pattern, WildcardChar) != 1 {
+		return fmt.Errorf("%s: %s pattern '%s' must contain exactly one '*'", configPathIdentifier, partIdentifier, pattern)
+	}
+
+	// wildcard is only allowed at the end of the pattern
+	if !strings.HasSuffix(pattern, WildcardChar) {
+		return fmt.Errorf("%s: %s pattern '%s' must have the wildcard '*' at the end", configPathIdentifier, partIdentifier, pattern)
+	}
+
+	// strip the wildcard to validate pattern prefix
+	prefix := strings.TrimSuffix(pattern, WildcardChar)
+
+	// check ${name} placeholder usage
+	if err := validateNamePlaceholderUsage(prefix, vclusterName, fmt.Sprintf("%s pattern prefix", partIdentifier), configPathIdentifier); err != nil {
+		return fmt.Errorf("%w (from pattern '%s')", err, pattern)
+	}
+
+	literalPrefixForValidation := strings.ReplaceAll(prefix, "${name}", vclusterName)
+	if len(literalPrefixForValidation) > 32 {
+		return fmt.Errorf("%s: literal parts of %s pattern prefix '%s' (from '%s') cannot be longer than 32 characters (literal length: %d)", configPathIdentifier, partIdentifier, prefix, pattern, len(literalPrefixForValidation))
+	}
+
+	errs := validation.ValidateNamespaceName(literalPrefixForValidation, true)
+	if len(errs) > 0 {
+		return fmt.Errorf("%s: invalid %s pattern '%s': %s", configPathIdentifier, partIdentifier, pattern, errs[0])
+	}
+
+	return nil
+}
+
+// validateNamePlaceholderUsage validates the usage of the ${name} placeholder in a string.
+func validateNamePlaceholderUsage(namePart, vclusterName, partTypeIdentifier, configPathIdentifier string) error {
+	if !strings.Contains(namePart, NamePlaceholder) {
+		// If ${name} is not present, check for other invalid ${...} placeholders
+		if strings.Contains(namePart, "${") && strings.Contains(namePart, "}") {
+			return fmt.Errorf("%s: %s '%s' contains an unsupported placeholder; only '%s' is allowed", configPathIdentifier, partTypeIdentifier, namePart, NamePlaceholder)
+		}
+		return nil
+	}
+
+	if strings.Count(namePart, NamePlaceholder) > 1 {
+		return fmt.Errorf("%s: %s '%s' contains placeholder '%s' multiple times", configPathIdentifier, partTypeIdentifier, namePart, NamePlaceholder)
+	}
+
+	// Check if there are other ${...} placeholders when ${name} is present
+	tempName := strings.ReplaceAll(namePart, NamePlaceholder, vclusterName)
+	if strings.Contains(tempName, "${") && strings.Contains(tempName, "}") {
+		return fmt.Errorf("%s: %s '%s' contains an unsupported placeholder; only a single '%s' is allowed", configPathIdentifier, partTypeIdentifier, namePart, NamePlaceholder)
+	}
+
+	return nil
+}
+
 func validateFromHostSyncMappings(s config.EnableSwitchWithResourcesMappings, resourceNamePlural string) error {
 	if !s.Enabled {
 		return nil
@@ -854,7 +1033,7 @@ func validateDedicatedNodesMode(vConfig *VirtualClusterConfig) error {
 	}
 
 	// multi-namespace mode is not supported in private nodes mode
-	if vConfig.Experimental.MultiNamespaceMode.Enabled {
+	if vConfig.Sync.ToHost.Namespaces.Enabled {
 		return fmt.Errorf("multi-namespace mode is not supported in private nodes mode")
 	}
 

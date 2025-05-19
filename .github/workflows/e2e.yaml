@@ -257,30 +257,20 @@ jobs:
       matrix:
         distribution: ["k3s", "k8s"]
         test-suite-path: ${{fromJson(needs.get-testsuites-dir.outputs.matrix)}}
-        multinamespace-mode: ["false", "true"]
         ha: ["false", "true"]
         include:
           - distribution: "k8s"
             ha: "true"
             test-suite-path: "./test/e2e"
-            multinamespace-mode: "false"
           - distribution: "k3s"
             ha: "true"
             test-suite-path: "./test/e2e"
-            multinamespace-mode: "false"
         exclude:
           - ha: "true"
+          - distribution: "k3s"
+            test-suite-path: "./test/e2e_generic"
           - distribution: "k8s"
-            multinamespace-mode: "true"
-          - distribution: "k3s"
-            multinamespace-mode: "true"
-            test-suite-path: "./test/e2e_target_namespace"
-          - distribution: "k3s"
-            multinamespace-mode: "true"
-            test-suite-path: "./test/e2e_plugin"
-          - distribution: "k3s"
-            multinamespace-mode: "true"
-            test-suite-path: "./test/e2e_isolation_mode"
+            test-suite-path: "./test/e2e_generic"
 
     steps:
       - name: Checkout repository
@@ -326,9 +316,6 @@ jobs:
           set -x
 
           extraArgs=()
-          if [ ${{ matrix.multinamespace-mode }} == "true" ]; then
-            extraArgs+=( -f ./test/multins_values.yaml )
-          fi
           if [ ${{ matrix.test-suite-path }} == "./test/e2e_metrics_proxy" ]; then
             helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
             helm upgrade --install metrics-server metrics-server/metrics-server --set args={--kubelet-insecure-tls} --set containerPort=4443 -n kube-system
@@ -403,7 +390,6 @@ jobs:
           VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} \
           VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} \
           VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} \
-          MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} \
           go test -timeout 40m -mod=vendor -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast ${{ matrix.test-suite-path }}
           if kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p >/dev/null 2>/dev/null; then
             echo "vCluster has restarted during testing, failing..."

@@ -104,7 +104,7 @@ rules:
     resources: ["services", "endpoints"]
     verbs: ["get", "watch", "list"]
   {{- end }}
-  {{- if .Values.experimental.multiNamespaceMode.enabled }}
+  {{- if .Values.sync.toHost.namespaces.enabled }}
   - apiGroups: [""]
     resources: ["namespaces", "serviceaccounts"]
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]

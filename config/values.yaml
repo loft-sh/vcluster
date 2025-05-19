@@ -54,6 +54,9 @@ sync:
       enabled: false
     persistentVolumes:
       enabled: false
+    namespaces:
+      enabled: false
+      mappingsOnly: false
 
   fromHost:
     events:
@@ -550,9 +553,6 @@ external: {}
 plugins: {}
 
 experimental:
-  multiNamespaceMode:
-    enabled: false
-
   syncSettings:
     targetNamespace: ""
     setOwner: true

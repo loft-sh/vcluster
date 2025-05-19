@@ -10,6 +10,7 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/k3s"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,16 +38,19 @@ func InitClients(vConfig *config.VirtualClusterConfig) error {
 		return err
 	}
 
-	// get workload target namespace
-	if vConfig.Experimental.MultiNamespaceMode.Enabled {
-		translate.Default = translate.NewMultiNamespaceTranslator(vConfig.WorkloadNamespace)
-	} else {
-		// ensure target namespace
-		vConfig.WorkloadTargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace
-		if vConfig.WorkloadTargetNamespace == "" {
-			vConfig.WorkloadTargetNamespace = vConfig.WorkloadNamespace
-		}
+	// ensure target namespace
+	vConfig.WorkloadTargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace
+	if vConfig.WorkloadTargetNamespace == "" {
+		vConfig.WorkloadTargetNamespace = vConfig.WorkloadNamespace
+	}
 
+	// get workload target namespace translator
+	if vConfig.Sync.ToHost.Namespaces.Enabled {
+		translate.Default, err = pro.GetWithSyncedNamespacesTranslator(vConfig.WorkloadTargetNamespace, vConfig.Sync.ToHost.Namespaces.Mappings)
+		if err != nil {
+			return err
+		}
+	} else {
 		translate.Default = translate.NewSingleNamespaceTranslator(vConfig.WorkloadTargetNamespace)
 	}
 
@@ -203,7 +207,7 @@ func SetGlobalOwner(ctx context.Context, vConfig *config.VirtualClusterConfig) e
 		return nil
 	}
 
-	if vConfig.Experimental.MultiNamespaceMode.Enabled {
+	if vConfig.Sync.ToHost.Namespaces.Enabled {
 		klog.Warningf("Skip setting owner, because multi namespace mode is enabled")
 		return nil
 	}

@@ -137,9 +137,10 @@ tests:
 
   - it: multi-namespace mode
     set:
-      experimental:
-        multiNamespaceMode:
-          enabled: true
+      sync:
+        toHost:
+          namespaces:
+            enabled: true
     release:
       name: my-release
       namespace: my-namespace

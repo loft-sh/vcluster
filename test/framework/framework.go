@@ -91,9 +91,6 @@ type Framework struct {
 
 	// ClientQPS value used in the clients
 	ClientQPS float32
-
-	// MultiNamespaceMode denotes whether the multi namespace mode is enabled for the virtualcluster
-	MultiNamespaceMode bool
 }
 
 func CreateFramework(ctx context.Context) error {
@@ -139,13 +136,7 @@ func CreateFramework(ctx context.Context) error {
 	}
 	translate.VClusterName = suffix
 
-	var multiNamespaceMode bool
-	if os.Getenv("MULTINAMESPACE_MODE") == "true" {
-		translate.Default = translate.NewMultiNamespaceTranslator(ns)
-		multiNamespaceMode = true
-	} else {
-		translate.Default = translate.NewSingleNamespaceTranslator(ns)
-	}
+	translate.Default = translate.NewSingleNamespaceTranslator(ns)
 
 	l.Infof("Testing vCluster named: %s in namespace: %s", name, ns)
 	hostConfig, err := ctrl.GetConfig()
@@ -168,18 +159,17 @@ func CreateFramework(ctx context.Context) error {
 
 	// create the framework
 	DefaultFramework = &Framework{
-		Context:            ctx,
-		VClusterName:       name,
-		VClusterNamespace:  ns,
-		Suffix:             suffix,
-		HostConfig:         hostConfig,
-		HostClient:         hostClient,
-		HostCRClient:       hostCRClient,
-		Log:                l,
-		ClientTimeout:      timeout,
-		ClientBurst:        clientBurst,
-		ClientQPS:          float32(clientQPS),
-		MultiNamespaceMode: multiNamespaceMode,
+		Context:           ctx,
+		VClusterName:      name,
+		VClusterNamespace: ns,
+		Suffix:            suffix,
+		HostConfig:        hostConfig,
+		HostClient:        hostClient,
+		HostCRClient:      hostCRClient,
+		Log:               l,
+		ClientTimeout:     timeout,
+		ClientBurst:       clientBurst,
+		ClientQPS:         float32(clientQPS),
 	}
 
 	// init virtual client

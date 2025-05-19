@@ -42,7 +42,7 @@ var _ = ginkgo.Describe("map services from host to virtual cluster and vice vers
 		testMapping(ctx, f.HostClient, "test", "test", f.VClusterClient, "default", "test", true)
 
 		// virtual -> physical
-		testMapping(ctx, f.VClusterClient, "test", "test", f.HostClient, f.VClusterNamespace, "test", f.MultiNamespaceMode)
+		testMapping(ctx, f.VClusterClient, "test", "test", f.HostClient, f.VClusterNamespace, "test", false)
 	})
 
 	ginkgo.Context("Should sync endpoint updates for a headless service", func() {

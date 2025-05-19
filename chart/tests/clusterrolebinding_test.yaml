@@ -10,9 +10,10 @@ tests:
 
   - it: enable by multi namespace mode
     set:
-      experimental:
-        multiNamespaceMode:
-          enabled: true
+      sync:
+        toHost:
+          namespaces:
+            enabled: true
     asserts:
       - hasDocuments:
           count: 1

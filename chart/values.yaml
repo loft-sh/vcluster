@@ -102,6 +102,12 @@ sync:
     persistentVolumes:
       # Enabled defines if this option should be enabled.
       enabled: false
+    # Namespaces defines if namespaces created within the virtual cluster should get synced to the host cluster.
+    namespaces:
+      # Enabled defines if this option should be enabled.
+      enabled: false
+      # MappingsOnly defines if creation of namespaces not matched by mappings should be allowed.
+      mappingsOnly: false
   
   # Configure what resources vCluster should sync from the host cluster to the virtual cluster.
   fromHost:
@@ -993,11 +999,6 @@ plugins: {}
 
 # Experimental features for vCluster. Configuration here might change, so be careful with this.
 experimental:
-  # MultiNamespaceMode tells virtual cluster to sync to multiple namespaces instead of a single one. This will map each virtual cluster namespace to a single namespace in the host cluster.
-  multiNamespaceMode:
-    # Enabled specifies if multi namespace mode should get enabled
-    enabled: false
-  
   # SyncSettings are advanced settings for the syncer controller.
   syncSettings:
     # TargetNamespace is the namespace where the workloads should get synced to.

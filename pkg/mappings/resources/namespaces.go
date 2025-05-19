@@ -1,7 +1,7 @@
 package resources
 
 import (
-	"github.com/loft-sh/vcluster/pkg/mappings/generic"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -11,15 +11,13 @@ import (
 )
 
 func CreateNamespacesMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
-		return generic.NewMapper(ctx, &corev1.Namespace{}, func(ctx *synccontext.SyncContext, vName, _ string) types.NamespacedName {
-			return types.NamespacedName{Name: translate.Default.HostNamespace(ctx, vName)}
-		})
-	}
-
-	return &singleNamespaceModeMapper{
+	singleNamespaceMapper := &singleNamespaceModeMapper{
 		targetNamespace: ctx.Config.WorkloadTargetNamespace,
-	}, nil
+	}
+	if ctx.Config.Sync.ToHost.Namespaces.Enabled {
+		return pro.GetNamespaceMapper(ctx, singleNamespaceMapper)
+	}
+	return singleNamespaceMapper, nil
 }
 
 type singleNamespaceModeMapper struct {
