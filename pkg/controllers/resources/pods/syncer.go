@@ -7,6 +7,13 @@ import (
 	"strings"
 	"time"
 
+	nodev1 "k8s.io/api/node/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
+
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/scheduling"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/token"
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -17,12 +24,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog/v2"
 
-	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -38,6 +40,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
+	"github.com/loft-sh/vcluster/pkg/util/toleration"
 )
 
 var (
@@ -179,6 +184,10 @@ func (s *podSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Pod]) (ctrl.Result, error) {
+	if s.applyLimitByClass(ctx, event.Virtual) {
+		return ctrl.Result{}, nil
+	}
+
 	// in some scenarios it is possible that the pod was already started and the physical pod
 	// was deleted without vcluster's knowledge. In this case we are deleting the virtual pod
 	// as well, to avoid conflicts with nodes if we would resync the same pod to the host cluster again.
@@ -270,6 +279,11 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	var (
 		err error
 	)
+
+	if s.applyLimitByClass(ctx, event.Virtual) {
+		return ctrl.Result{}, nil
+	}
+
 	// should pod get deleted?
 	if event.Host.DeletionTimestamp != nil {
 		if event.Virtual.DeletionTimestamp == nil {
@@ -544,4 +558,35 @@ func (s *podSyncer) getNodeIP(ctx *synccontext.SyncContext, name string) (string
 	}
 
 	return nodeService.Spec.ClusterIP, nil
+}
+
+func (s *podSyncer) applyLimitByClass(ctx *synccontext.SyncContext, virtual *corev1.Pod) bool {
+	// Get the host priority class and check if it matches the selector under 'sync.fromHost.priorityClasses.selector'
+	if ctx.Config.Sync.FromHost.PriorityClasses.Enabled && virtual.Spec.PriorityClassName != "" {
+		pPriorityClass := &schedulingv1.PriorityClass{}
+		err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: virtual.Spec.PriorityClassName}, pPriorityClass)
+		if err != nil || pPriorityClass.GetDeletionTimestamp() != nil {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q couldn't be reached in the host: %s", virtual.GetName(), virtual.Spec.PriorityClassName, err)
+			return true
+		}
+		if !ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(pPriorityClass) {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host does not match the selector under 'sync.fromHost.priorityClasses.selector'", virtual.GetName(), pPriorityClass.GetName())
+			return true
+		}
+	}
+
+	// Get the host runtime class and check if it matches the selector under 'sync.fromHost.runtimeClasses.selector'
+	if ctx.Config.Sync.FromHost.RuntimeClasses.Enabled && virtual.Spec.RuntimeClassName != nil && *virtual.Spec.RuntimeClassName != "" {
+		pRuntimeClass := &nodev1.RuntimeClass{}
+		err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.RuntimeClassName}, pRuntimeClass)
+		if err != nil || pRuntimeClass.GetDeletionTimestamp() != nil {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.RuntimeClassName, err)
+			return true
+		}
+		if !ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(pRuntimeClass) {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q in the host does not match the selector under 'sync.fromHost.runtimeClasses.selector'", virtual.GetName(), pRuntimeClass.GetName())
+			return true
+		}
+	}
+	return false
 }

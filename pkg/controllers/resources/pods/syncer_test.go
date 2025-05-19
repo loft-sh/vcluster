@@ -5,6 +5,15 @@ import (
 	"maps"
 	"testing"
 
+	"gotest.tools/assert"
+	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/pod-security-admission/api"
+	"k8s.io/utils/ptr"
+
 	"github.com/loft-sh/vcluster/pkg/config"
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
@@ -12,13 +21,6 @@ import (
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"gotest.tools/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/pod-security-admission/api"
-	"k8s.io/utils/ptr"
 )
 
 var (
@@ -618,6 +620,11 @@ func TestSync(t *testing.T) {
 	}
 
 	priorityClassName := "high-priority"
+	pPriorityClass := &schedulingv1.PriorityClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: priorityClassName,
+		},
+	}
 	vPodWithoutPriorityClass := &corev1.Pod{
 		ObjectMeta: vObjectMeta,
 		Spec:       corev1.PodSpec{},
@@ -625,7 +632,7 @@ func TestSync(t *testing.T) {
 	vPodWithPriorityClass := &corev1.Pod{
 		ObjectMeta: vObjectMeta,
 		Spec: corev1.PodSpec{
-			PriorityClassName: priorityClassName,
+			PriorityClassName: pPriorityClass.Name,
 		},
 	}
 	pPodWithPriorityClass := &corev1.Pod{
@@ -639,7 +646,7 @@ func TestSync(t *testing.T) {
 			}},
 			Hostname:           vPodWithPriorityClass.Name,
 			ServiceAccountName: "vc-workload-vcluster",
-			PriorityClassName:  priorityClassName,
+			PriorityClassName:  pPriorityClass.Name,
 		},
 	}
 	pPodWithTranslatedPriorityClass := pPodWithPriorityClass.DeepCopy()
@@ -681,7 +688,7 @@ func TestSync(t *testing.T) {
 		{
 			Name:                 "From Host PriorityClasses sync enabled",
 			InitialVirtualState:  []runtime.Object{vPodWithPriorityClass, vNamespace.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pPriorityClass, pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodWithPriorityClass},
 			},
