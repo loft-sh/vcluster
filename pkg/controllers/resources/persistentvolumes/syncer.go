@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/client-go/kubernetes"
 
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -42,10 +43,17 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, err
 	}
 
+	physicalClusterClient, err := kubernetes.NewForConfig(ctx.PhysicalManager.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
 	return &persistentVolumeSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, mapper),
 
-		ctx: ctx,
+		labelSelector:         ctx.Config.Sync.FromHost.StorageClasses.Selector,
+		physicalClusterClient: physicalClusterClient,
+
 		excludedAnnotations: []string{
 			constants.HostClusterPersistentVolumeAnnotation,
 		},
@@ -75,7 +83,10 @@ func mapPVCs(_ context.Context, obj client.Object) []reconcile.Request {
 
 type persistentVolumeSyncer struct {
 	syncertypes.GenericTranslator
-	ctx                 *synccontext.RegisterContext
+
+	labelSelector         config.StandardLabelSelector
+	physicalClusterClient kubernetes.Interface
+
 	virtualClient       client.Client
 	excludedAnnotations []string
 }
@@ -327,22 +338,17 @@ func (s *persistentVolumeSyncer) IsManaged(ctx *synccontext.SyncContext, pObj cl
 
 func (s *persistentVolumeSyncer) ExcludeVirtual(obj client.Object) bool {
 	pv, ok := obj.(*corev1.PersistentVolume)
-	if !ok || (pv.Spec.StorageClassName == "" && selector.IsLabelSelectorEmpty(s.ctx.Config.Sync.FromHost.StorageClasses.Selector)) {
+	if !ok || (pv.Spec.StorageClassName == "" && selector.IsLabelSelectorEmpty(s.labelSelector)) {
 		return false
 	}
 
-	storageClass := &storagev1.StorageClass{}
-	err := s.ctx.PhysicalManager.GetClient().Get(context.Background(),
-		types.NamespacedName{
-			Name: pv.Spec.StorageClassName,
-		},
-		storageClass,
-	)
+	storageClass, err := s.physicalClusterClient.StorageV1().StorageClasses().
+		Get(context.Background(), pv.Spec.StorageClassName, metav1.GetOptions{})
 	if err != nil {
-		return false
+		return true
 	}
 
-	return !selector.StandardLabelSelectorMatches(storageClass, s.ctx.Config.Sync.FromHost.StorageClasses.Selector)
+	return !selector.StandardLabelSelectorMatches(storageClass, s.labelSelector)
 }
 
 func (s *persistentVolumeSyncer) ExcludePhysical(_ client.Object) bool {

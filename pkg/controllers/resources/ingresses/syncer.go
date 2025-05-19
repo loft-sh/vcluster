@@ -5,11 +5,14 @@ import (
 	"fmt"
 
 	networkingv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -32,11 +35,18 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, err
 	}
 
+	physicalClusterClient, err := kubernetes.NewForConfig(ctx.PhysicalManager.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
 	return &ingressSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "ingress", &networkingv1.Ingress{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 
-		ctx: ctx,
+		labelSelector:         ctx.Config.Sync.FromHost.IngressClasses.Selector,
+		physicalClusterClient: physicalClusterClient,
+
 		// exclude "field.cattle.io/publicEndpoints" annotation used by Rancher, similar to service syncer
 		excludedAnnotations: []string{services.RancherPublicEndpointsAnnotation},
 	}, nil
@@ -46,8 +56,9 @@ type ingressSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
 
-	ctx                 *synccontext.RegisterContext
-	excludedAnnotations []string
+	labelSelector         config.StandardLabelSelector
+	physicalClusterClient kubernetes.Interface
+	excludedAnnotations   []string
 }
 
 var _ syncertypes.OptionsProvider = &ingressSyncer{}
@@ -126,22 +137,17 @@ func (s *ingressSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 func (s *ingressSyncer) ExcludeVirtual(obj client.Object) bool {
 	ingress, ok := obj.(*networkingv1.Ingress)
 	if !ok ||
-		((ingress.Spec.IngressClassName == nil || *ingress.Spec.IngressClassName == "") && selector.IsLabelSelectorEmpty(s.ctx.Config.Sync.FromHost.IngressClasses.Selector)) {
+		((ingress.Spec.IngressClassName == nil || *ingress.Spec.IngressClassName == "") && selector.IsLabelSelectorEmpty(s.labelSelector)) {
 		return false
 	}
 
-	ingressClass := &networkingv1.IngressClass{}
-	err := s.ctx.PhysicalManager.GetClient().Get(context.Background(),
-		types.NamespacedName{
-			Name: *ingress.Spec.IngressClassName,
-		},
-		ingressClass,
-	)
+	ingressClass, err := s.physicalClusterClient.NetworkingV1().IngressClasses().
+		Get(context.Background(), *ingress.Spec.IngressClassName, metav1.GetOptions{})
 	if err != nil {
-		return false
+		return true
 	}
 
-	return !selector.StandardLabelSelectorMatches(ingressClass, s.ctx.Config.Sync.FromHost.IngressClasses.Selector)
+	return !selector.StandardLabelSelectorMatches(ingressClass, s.labelSelector)
 }
 
 func (s *ingressSyncer) ExcludePhysical(_ client.Object) bool {

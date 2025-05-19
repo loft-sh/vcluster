@@ -5,10 +5,11 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	storagev1 "k8s.io/api/storage/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -48,11 +49,17 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, err
 	}
 
+	physicalClusterClient, err := kubernetes.NewForConfig(ctx.PhysicalManager.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
 	return &persistentVolumeClaimSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 
-		ctx: ctx,
+		labelSelector:         ctx.Config.Sync.FromHost.StorageClasses.Selector,
+		physicalClusterClient: physicalClusterClient,
 
 		excludedAnnotations: []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation},
 
@@ -66,7 +73,8 @@ type persistentVolumeClaimSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
 
-	ctx *synccontext.RegisterContext
+	labelSelector         config.StandardLabelSelector
+	physicalClusterClient kubernetes.Interface
 
 	excludedAnnotations []string
 
@@ -298,22 +306,17 @@ func recreatePersistentVolumeClaim(ctx *synccontext.SyncContext, virtualClient c
 func (s *persistentVolumeClaimSyncer) ExcludeVirtual(obj client.Object) bool {
 	pvc, ok := obj.(*corev1.PersistentVolumeClaim)
 	if !ok ||
-		(pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "") && selector.IsLabelSelectorEmpty(s.ctx.Config.Sync.FromHost.StorageClasses.Selector) {
+		(pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "") && selector.IsLabelSelectorEmpty(s.labelSelector) {
 		return false
 	}
 
-	storageClass := &storagev1.StorageClass{}
-	err := s.ctx.PhysicalManager.GetClient().Get(context.Background(),
-		types.NamespacedName{
-			Name: *pvc.Spec.StorageClassName,
-		},
-		storageClass,
-	)
+	storageClass, err := s.physicalClusterClient.StorageV1().StorageClasses().
+		Get(context.Background(), *pvc.Spec.StorageClassName, metav1.GetOptions{})
 	if err != nil {
-		return false
+		return true
 	}
 
-	return !selector.StandardLabelSelectorMatches(storageClass, s.ctx.Config.Sync.FromHost.StorageClasses.Selector)
+	return !selector.StandardLabelSelectorMatches(storageClass, s.labelSelector)
 }
 
 func (s *persistentVolumeClaimSyncer) ExcludePhysical(_ client.Object) bool {
