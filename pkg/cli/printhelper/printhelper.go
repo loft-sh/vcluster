@@ -16,7 +16,7 @@ func PrintDNSConfiguration(host string, log log.Logger) {
 
 ###################################     DNS CONFIGURATION REQUIRED     ##################################
 
-Create a DNS A-record for `+host+` with the EXTERNAL-IP of your nginx-ingress controller.
+Create a DNS A-record for `+host+` with the EXTERNAL-IP of your NGINX Ingress controller.
 To find this EXTERNAL-IP, run the following command and look at the output:
 
 > kubectl get services -n ingress-nginx
@@ -29,8 +29,8 @@ EXTERNAL-IP may be 'pending' for a while until your cloud provider has created a
 
 #########################################################################################################
 
-The command will wait until loft is reachable under the host. You can also abort and use port-forwarding instead
-by running 'loft start' again.
+The command waits until the platform is reachable under the host. You can also abort and use port-forwarding instead
+by running 'vcluster platform start' again.
 
 `)
 }
@@ -54,10 +54,10 @@ Login via CLI: %s
 
 #################################################################
 
-Loft was successfully installed and port-forwarding has been started.
-If you stop this command, run 'loft start' again to restart port-forwarding.
+The platform was successfully installed and port-forwarding has started.
+If you stop this command, run 'vcluster platform start' again to restart port-forwarding.
 
-Thanks for using Loft!
+Thanks for using vCluster Platform!
 `), ansi.Color(url, "green+b"), ansi.Color(product.LoginCmd()+" --insecure "+url, "green+b")))
 }
 
@@ -85,9 +85,9 @@ Follow this guide to add a valid certificate: %s
 
 #################################################################
 
-Loft was successfully installed and can now be reached at: %s
+vCluster Platform was successfully installed and can now be reached at: %s
 
-Thanks for using Loft!
+Thanks for using vCluster Platform!
 `),
 		ansi.Color(url, "green+b"),
 		ansi.Color(product.LoginCmd()+" --insecure "+url, "green+b"),
@@ -116,9 +116,9 @@ Login via CLI: %s
 
 #################################################################
 
-Loft was successfully installed and can now be reached at: %s
+vCluster Platform was successfully installed and can now be reached at: %s
 
-Thanks for using Loft!
+Thanks for using vCluster Platform!
 `),
 		ansi.Color(url, "green+b"),
 		ansi.Color(product.LoginCmd()+" "+url, "green+b"),
