@@ -65,11 +65,13 @@ type Server struct {
 	clientCaFile           string
 	redirectResources      []delegatingauthorizer.GroupVersionResourceVerb
 	fakeKubeletIPs         bool
+
+	dedicatedMode bool
 }
 
 // NewServer creates and installs a new Server.
 // 'filter', if non-nil, protects requests to the api only.
-func NewServer(ctx *synccontext.ControllerContext, requestHeaderCaFile, clientCaFile string) (*Server, error) {
+func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 	registerCtx := ctx.ToRegisterContext()
 	localConfig := ctx.LocalManager.GetConfig()
 	virtualConfig := ctx.VirtualManager.GetConfig()
@@ -108,8 +110,8 @@ func NewServer(ctx *synccontext.ControllerContext, requestHeaderCaFile, clientCa
 		currentNamespace:       ctx.Config.WorkloadNamespace,
 		currentNamespaceClient: ctx.WorkloadNamespaceClient,
 
-		requestHeaderCaFile: requestHeaderCaFile,
-		clientCaFile:        clientCaFile,
+		requestHeaderCaFile: ctx.Config.VirtualClusterKubeConfig().RequestHeaderCACert,
+		clientCaFile:        ctx.Config.VirtualClusterKubeConfig().ClientCACert,
 		redirectResources: []delegatingauthorizer.GroupVersionResourceVerb{
 			{
 				GroupVersionResource: corev1.SchemeGroupVersion.WithResource("nodes"),
@@ -137,6 +139,8 @@ func NewServer(ctx *synccontext.ControllerContext, requestHeaderCaFile, clientCa
 				SubResource:          "log",
 			},
 		},
+
+		dedicatedMode: ctx.Config.PrivateNodes.Enabled,
 	}
 
 	// init plugins
@@ -152,17 +156,20 @@ func NewServer(ctx *synccontext.ControllerContext, requestHeaderCaFile, clientCa
 		h = f(h, ctx)
 	}
 
-	h = filters.WithServiceCreateRedirect(h, registerCtx, uncachedLocalClient, uncachedVirtualClient)
-	h = filters.WithRedirect(h, registerCtx, uncachedVirtualClient, admissionHandler, s.redirectResources)
-	h = filters.WithK8sMetrics(h, registerCtx)
-	h = filters.WithMetricsProxy(h, registerCtx)
+	// add filters if not dedicated
+	if !ctx.Config.PrivateNodes.Enabled {
+		h = filters.WithServiceCreateRedirect(h, registerCtx, uncachedLocalClient, uncachedVirtualClient)
+		h = filters.WithRedirect(h, registerCtx, uncachedVirtualClient, admissionHandler, s.redirectResources)
+		h = filters.WithK8sMetrics(h, registerCtx)
+		h = filters.WithMetricsProxy(h, registerCtx)
 
-	// inject apis
-	if ctx.Config.Sync.FromHost.Nodes.Enabled && ctx.Config.Sync.FromHost.Nodes.SyncBackChanges {
-		h = filters.WithNodeChanges(ctx, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
+		// inject apis
+		if ctx.Config.Sync.FromHost.Nodes.Enabled && ctx.Config.Sync.FromHost.Nodes.SyncBackChanges {
+			h = filters.WithNodeChanges(ctx, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
+		}
+		h = filters.WithFakeKubelet(h, ctx.ToRegisterContext())
+		h = filters.WithK3sConnect(h)
 	}
-	h = filters.WithFakeKubelet(h, ctx.ToRegisterContext())
-	h = filters.WithK3sConnect(h)
 
 	if os.Getenv("DEBUG") == "true" {
 		h = filters.WithPprof(h)
@@ -248,7 +255,9 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 
 func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
 	defaultHandler := DefaultBuildHandlerChain(s.handler, serverConfig)
-	defaultHandler = filters.WithNodeName(defaultHandler, s.currentNamespace, s.fakeKubeletIPs, s.cachedVirtualClient, s.currentNamespaceClient)
+	if !s.dedicatedMode {
+		defaultHandler = filters.WithNodeName(defaultHandler, s.currentNamespace, s.fakeKubeletIPs, s.cachedVirtualClient, s.currentNamespaceClient)
+	}
 	return defaultHandler
 }
 

@@ -219,7 +219,7 @@ func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterCon
 	}
 
 	// delete contents in external etcd
-	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeExternalEtcd {
+	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeDeployedEtcd || vConfig.BackingStoreType() == vclusterconfig.StoreTypeExternalEtcd {
 		klog.FromContext(ctx).Info("Delete existing etcd data before restore...")
 		err = etcdClient.DeletePrefix(ctx, "/")
 		if err != nil {

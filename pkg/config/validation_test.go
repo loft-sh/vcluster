@@ -2,6 +2,8 @@ package config
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/loft-sh/vcluster/config"
@@ -411,24 +413,6 @@ func TestValidateFromHostSyncMappings(t *testing.T) {
 }
 
 func TestValidateFromHostSyncCustomResources(t *testing.T) {
-	noErrExpected := func(t *testing.T, err error) {
-		t.Helper()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	}
-	expectErr := func(errMsg string) func(t *testing.T, err error) {
-		return func(t *testing.T, err error) {
-			t.Helper()
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if err.Error() != errMsg {
-				t.Fatalf("unexpected error: %v", err)
-			}
-		}
-	}
-
 	cases := []struct {
 		name                        string
 		customResourcesFromHostSync map[string]config.SyncFromHostCustomResource
@@ -666,5 +650,791 @@ func TestValidateExportKubeConfig(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+const patchesPath = "spec.containers[*].name"
+
+func TestValidateAllSyncPatches(t *testing.T) {
+	cases := []struct {
+		name          string
+		configSync    config.Sync
+		expectedError error
+	}{
+		{
+			name: "Simple config sync with one patch",
+			configSync: config.Sync{
+				ToHost: config.SyncToHost{
+					Pods: config.SyncPods{
+						Patches: []config.TranslatePatch{
+							{
+								Path:              patchesPath,
+								Expression:        "\"my-prefix-\"+value",
+								ReverseExpression: "value.slice(\"my-prefix\".length)",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Multiple patches with same path",
+			configSync: config.Sync{
+				ToHost: config.SyncToHost{
+					Pods: config.SyncPods{
+						Patches: []config.TranslatePatch{
+							{
+								Path:              patchesPath,
+								Expression:        "\"my-prefix-\"+value",
+								ReverseExpression: "value.slice(\"my-prefix\".length)",
+							},
+						},
+					},
+					Endpoints: config.EnableSwitchWithPatches{
+						Patches: []config.TranslatePatch{
+							{
+								Path:              patchesPath,
+								Expression:        "\"my-prefix-\"+value",
+								ReverseExpression: "value.slice(\"my-prefix\".length)",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Invalid duplicated paths on patches",
+			configSync: config.Sync{
+				ToHost: config.SyncToHost{
+					Pods: config.SyncPods{
+						Patches: []config.TranslatePatch{
+							{
+								Path:       patchesPath,
+								Expression: "\"my-prefix-\"+value",
+							},
+							{
+								Path:              patchesPath,
+								ReverseExpression: "value.slice(\"my-prefix\".length)",
+							},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("sync.toHost.pods.patches[0] and sync.toHost.pods.patches[1] have the same path \"spec.containers[*].name\""),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateAllSyncPatches(tc.configSync)
+			if tc.expectedError != nil {
+				if err == nil {
+					t.Errorf("expected error %v, but got nil", tc.expectedError)
+				} else if err.Error() != tc.expectedError.Error() {
+					t.Errorf("expected error %v, but got %v", tc.expectedError, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, but got %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateToHostSyncAndIstioIntegration(t *testing.T) {
+	istioEnabled := config.Istio{
+		EnableSwitch: config.EnableSwitch{Enabled: true},
+		Sync: config.IstioSync{ToHost: config.IstioSyncToHost{
+			DestinationRules: config.EnableSwitch{Enabled: true},
+			Gateways:         config.EnableSwitch{Enabled: true},
+			VirtualServices:  config.EnableSwitch{Enabled: true},
+		}},
+	}
+	istioDisabled := config.Istio{
+		EnableSwitch: config.EnableSwitch{Enabled: false},
+	}
+
+	cases := []struct {
+		name                      string
+		customResourcesToHostSync map[string]config.SyncToHostCustomResource
+		istioIntegration          config.Istio
+		checkErr                  func(t *testing.T, err error)
+	}{
+		{
+			name: "valid config",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"clusterissuers.cert-manager.io": {
+					Enabled: true,
+					Scope:   config.ScopeCluster,
+				},
+			},
+			istioIntegration: istioEnabled,
+			checkErr:         noErrExpected,
+		},
+		{
+			name: "destination rule listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"destinationrules.networking.istio.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			istioIntegration: istioEnabled,
+			checkErr: expectErr("istio integration is enabled but istio custom resource (destinationrules.networking.istio.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "destination rule listed in sync.toHost.customResources but istio disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"destinationrules.networking.istio.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			istioIntegration: istioDisabled,
+			checkErr:         noErrExpected,
+		},
+		{
+			name: "gateways listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"gateways.networking.istio.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			istioIntegration: istioEnabled,
+			checkErr: expectErr("istio integration is enabled but istio custom resource " +
+				"(gateways.networking.istio.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "gateways listed in sync.toHost.customResources but istio disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"gateways.networking.istio.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			istioIntegration: istioDisabled,
+			checkErr:         noErrExpected,
+		},
+		{
+			name: "virtual services listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"virtualservices.networking.istio.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			istioIntegration: istioEnabled,
+			checkErr: expectErr("istio integration is enabled but istio custom resource " +
+				"(virtualservices.networking.istio.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "virtual services listed in sync.toHost.customResources but istio disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"virtualservices.networking.istio.io": {
+					Enabled: true,
+					Scope:   config.ScopeNamespaced,
+				},
+			},
+			istioIntegration: istioDisabled,
+			checkErr:         noErrExpected,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateIstioEnabled(tc.customResourcesToHostSync, tc.istioIntegration)
+			tc.checkErr(t, err)
+		})
+	}
+}
+
+func TestValidateToHostSyncAndCertManagerIntegration(t *testing.T) {
+	certManagerEnabled := config.CertManager{
+		EnableSwitch: config.EnableSwitch{Enabled: true},
+		Sync: config.CertManagerSync{
+			ToHost: config.CertManagerSyncToHost{
+				Certificates: config.EnableSwitch{Enabled: true},
+				Issuers:      config.EnableSwitch{Enabled: true},
+			},
+			FromHost: config.CertManagerSyncFromHost{
+				ClusterIssuers: config.ClusterIssuersSyncConfig{
+					EnableSwitch: config.EnableSwitch{Enabled: true},
+				},
+			},
+		},
+	}
+	certManagerDisabled := config.CertManager{
+		EnableSwitch: config.EnableSwitch{Enabled: false},
+	}
+
+	cases := []struct {
+		name                        string
+		customResourcesToHostSync   map[string]config.SyncToHostCustomResource
+		customResourcesFromHostSync map[string]config.SyncFromHostCustomResource
+		certManagerIntegration      config.CertManager
+		checkErr                    func(t *testing.T, err error)
+	}{
+		{
+			name: "valid config",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"some.other.resource": {Enabled: true},
+			},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerEnabled,
+			checkErr:                    noErrExpected,
+		},
+		{
+			name: "certificates listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"certificates.cert-manager.io": {Enabled: true},
+			},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerEnabled,
+			checkErr: expectErr("cert-manager integration is enabled but cert-manager custom resource " +
+				"(certificates.cert-manager.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "issuers listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"issuers.cert-manager.io": {Enabled: true},
+			},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerEnabled,
+			checkErr: expectErr("cert-manager integration is enabled but cert-manager custom resource " +
+				"(issuers.cert-manager.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name:                      "clusterissuers listed in sync.fromHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"clusterissuers.cert-manager.io": {Enabled: true},
+			},
+			certManagerIntegration: certManagerEnabled,
+			checkErr: expectErr("cert-manager integration is enabled but cert-manager custom resource " +
+				"(clusterissuers.cert-manager.io) is also set in the sync.fromHost.customResources. " +
+				"This is not supported, please remove the entry from sync.fromHost.customResources"),
+		},
+		{
+			name: "certificates listed in sync.toHost.customResources but cert-manager disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"certificates.cert-manager.io": {Enabled: true},
+			},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerDisabled,
+			checkErr:                    noErrExpected,
+		},
+		{
+			name: "issuers listed in sync.toHost.customResources but cert-manager disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"issuers.cert-manager.io": {Enabled: true},
+			},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerDisabled,
+			checkErr:                    noErrExpected,
+		},
+		{
+			name:                      "clusterissuers listed in sync.fromHost.customResources but cert-manager disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{
+				"clusterissuers.cert-manager.io": {Enabled: true},
+			},
+			certManagerIntegration: certManagerDisabled,
+			checkErr:               noErrExpected,
+		},
+		{
+			name:                        "no custom resources and cert-manager enabled",
+			customResourcesToHostSync:   map[string]config.SyncToHostCustomResource{},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerEnabled,
+			checkErr:                    noErrExpected,
+		},
+		{
+			name:                        "no custom resources and cert-manager disabled",
+			customResourcesToHostSync:   map[string]config.SyncToHostCustomResource{},
+			customResourcesFromHostSync: map[string]config.SyncFromHostCustomResource{},
+			certManagerIntegration:      certManagerDisabled,
+			checkErr:                    noErrExpected,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateCertManagerEnabled(tc.customResourcesToHostSync, tc.customResourcesFromHostSync, tc.certManagerIntegration)
+			tc.checkErr(t, err)
+		})
+	}
+}
+
+func TestValidateToHostSyncAndKubeVirtIntegration(t *testing.T) {
+	kubeVirtEnabled := config.KubeVirt{
+		Enabled: true,
+		Sync: config.KubeVirtSync{
+			DataVolumes:                      config.EnableSwitch{Enabled: true},
+			VirtualMachineInstances:          config.EnableSwitch{Enabled: true},
+			VirtualMachines:                  config.EnableSwitch{Enabled: true},
+			VirtualMachineInstanceMigrations: config.EnableSwitch{Enabled: true},
+		},
+	}
+	kubeVirtDisabled := config.KubeVirt{
+		Enabled: false,
+	}
+
+	cases := []struct {
+		name                      string
+		customResourcesToHostSync map[string]config.SyncToHostCustomResource
+		kubeVirtIntegration       config.KubeVirt
+		checkErr                  func(t *testing.T, err error)
+	}{
+		{
+			name: "valid config",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"some.other.resource": {Enabled: true},
+			},
+			kubeVirtIntegration: kubeVirtEnabled,
+			checkErr:            noErrExpected,
+		},
+		{
+			name: "datavolumes listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"datavolumes.cdi.kubevirt.io": {Enabled: true},
+			},
+			kubeVirtIntegration: kubeVirtEnabled,
+			checkErr: expectErr("kube-virt integration is enabled but kube-virt custom resource " +
+				"(datavolumes.cdi.kubevirt.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "virtualmachines listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"virtualmachines.kubevirt.io": {Enabled: true},
+			},
+			kubeVirtIntegration: kubeVirtEnabled,
+			checkErr: expectErr("kube-virt integration is enabled but kube-virt custom resource " +
+				"(virtualmachines.kubevirt.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "virtualmachineinstances listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"virtualmachineinstances.kubevirt.io": {Enabled: true},
+			},
+			kubeVirtIntegration: kubeVirtEnabled,
+			checkErr: expectErr("kube-virt integration is enabled but kube-virt custom resource " +
+				"(virtualmachineinstances.kubevirt.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "virtualmachineinstancemigrations listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"virtualmachineinstancemigrations.kubevirt.io": {Enabled: true},
+			},
+			kubeVirtIntegration: kubeVirtEnabled,
+			checkErr: expectErr("kube-virt integration is enabled but kube-virt custom resource " +
+				"(virtualmachineinstancemigrations.kubevirt.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "datavolumes listed in sync.toHost.customResources but kube-virt disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"datavolumes.cdi.kubevirt.io": {Enabled: true},
+			},
+			kubeVirtIntegration: kubeVirtDisabled,
+			checkErr:            noErrExpected,
+		},
+		{
+			name:                      "no custom resources and kube-virt enabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{},
+			kubeVirtIntegration:       kubeVirtEnabled,
+			checkErr:                  noErrExpected,
+		},
+		{
+			name:                      "no custom resources and kube-virt disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{},
+			kubeVirtIntegration:       kubeVirtDisabled,
+			checkErr:                  noErrExpected,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateKubeVirtEnabled(tc.customResourcesToHostSync, tc.kubeVirtIntegration)
+			tc.checkErr(t, err)
+		})
+	}
+}
+
+func TestValidateToHostSyncAndExternalSecretsIntegration(t *testing.T) {
+	externalSecretsEnabled := config.ExternalSecrets{
+		Enabled: true,
+		Sync: config.ExternalSecretsSync{
+			ExternalSecrets: config.EnableSwitch{Enabled: true},
+			Stores:          config.EnableSwitch{Enabled: true},
+			ClusterStores: config.ClusterStoresSyncConfig{
+				EnableSwitch: config.EnableSwitch{Enabled: true},
+			},
+		},
+	}
+	externalSecretsDisabled := config.ExternalSecrets{
+		Enabled: false,
+	}
+
+	cases := []struct {
+		name                       string
+		customResourcesToHostSync  map[string]config.SyncToHostCustomResource
+		externalSecretsIntegration config.ExternalSecrets
+		checkErr                   func(t *testing.T, err error)
+	}{
+		{
+			name: "valid config",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"some.other.resource": {Enabled: true},
+			},
+			externalSecretsIntegration: externalSecretsEnabled,
+			checkErr:                   noErrExpected,
+		},
+		{
+			name: "externalsecrets listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"externalsecrets.external-secrets.io": {Enabled: true},
+			},
+			externalSecretsIntegration: externalSecretsEnabled,
+			checkErr: expectErr("external-secrets integration is enabled but external-secrets custom resource " +
+				"(externalsecrets.external-secrets.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "secretstores listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"secretstores.external-secrets.io": {Enabled: true},
+			},
+			externalSecretsIntegration: externalSecretsEnabled,
+			checkErr: expectErr("external-secrets integration is enabled but external-secrets custom resource " +
+				"(secretstores.external-secrets.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "clustersecretstores listed in sync.toHost.customResources",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"clustersecretstores.external-secrets.io": {Enabled: true},
+			},
+			externalSecretsIntegration: externalSecretsEnabled,
+			checkErr: expectErr("external-secrets integration is enabled but external-secrets custom resource " +
+				"(clustersecretstores.external-secrets.io) is also set in the sync.toHost.customResources. " +
+				"This is not supported, please remove the entry from sync.toHost.customResources"),
+		},
+		{
+			name: "externalsecrets listed in sync.toHost.customResources but external-secrets disabled",
+			customResourcesToHostSync: map[string]config.SyncToHostCustomResource{
+				"externalsecrets.external-secrets.io": {Enabled: true},
+			},
+			externalSecretsIntegration: externalSecretsDisabled,
+			checkErr:                   noErrExpected,
+		},
+		{
+			name:                       "no custom resources and external-secrets enabled",
+			customResourcesToHostSync:  map[string]config.SyncToHostCustomResource{},
+			externalSecretsIntegration: externalSecretsEnabled,
+			checkErr:                   noErrExpected,
+		},
+		{
+			name:                       "no custom resources and external-secrets disabled",
+			customResourcesToHostSync:  map[string]config.SyncToHostCustomResource{},
+			externalSecretsIntegration: externalSecretsDisabled,
+			checkErr:                   noErrExpected,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateExternalSecretsEnabled(tc.customResourcesToHostSync, tc.externalSecretsIntegration)
+			tc.checkErr(t, err)
+		})
+	}
+}
+
+func TestValidateToHostNamespaceSyncMappings(t *testing.T) {
+	type testCase struct {
+		name         string
+		syncConfig   config.SyncToHostNamespaces
+		vclusterName string
+		checkErr     func(t *testing.T, err error)
+	}
+
+	testCases := []testCase{
+		{
+			name: "Sync disabled",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled: false,
+			},
+			vclusterName: "test-vc",
+			checkErr:     noErrExpected,
+		},
+		{
+			name: "Sync enabled, no mappings",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName are empty"),
+		},
+		{
+			name: "Valid exact-to-exact mapping",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": "hns1"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     noErrExpected,
+		},
+		{
+			name: "Valid exact-to-exact mapping with ${name} on host side",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": "hns1-${name}"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     noErrExpected,
+		},
+		{
+			name: "Valid exact-to-exact mapping with ${name} on virtual side",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns1-${name}": "hns1"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     noErrExpected,
+		},
+		{
+			name: "Valid exact-to-exact mapping with ${name} on both sides",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns-${name}-foo": "hns-${name}-bar"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     noErrExpected,
+		},
+		{
+			name: "Valid pattern-to-pattern mapping",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "hns-*"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     noErrExpected,
+		},
+		{
+			name: "Valid pattern-to-pattern mapping with ${name} on host side prefix",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "hns-${name}-*"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     noErrExpected,
+		},
+		{
+			name: "Valid pattern-to-pattern mapping with ${name} on virtual side prefix",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns-${name}-*": "hns-*"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     noErrExpected,
+		},
+		{
+			name: "Valid pattern-to-pattern mapping with ${name} on both prefixes",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns-${name}-foo-*": "hns-${name}-bar-*"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     noErrExpected,
+		},
+		{
+			name: "Invalid: Mismatched types (exact-to-pattern)",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": "hns-*"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: 'vns1':'hns-*' has mismatched wildcard '*' usage - pattern must always map to another pattern"),
+		},
+		{
+			name: "Invalid: Mismatched types (pattern-to-exact)",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "hns1"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: 'vns-*':'hns1' has mismatched wildcard '*' usage - pattern must always map to another pattern"),
+		},
+		{
+			name: "Invalid: Empty virtual exact name",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"": "hns1"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: virtual namespace cannot be empty"),
+		},
+		{
+			name: "Invalid: Empty host exact name",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": ""}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: host namespace cannot be empty"),
+		},
+		{
+			name: "Invalid: Virtual exact name not DNS compliant (uppercase)",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"VNS1": "hns1"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: invalid virtual namespace name 'VNS1': a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"),
+		},
+		{
+			name: "Invalid: Host exact name not DNS compliant (too long)",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": strings.Repeat("a", 64)}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr(fmt.Sprintf("config.sync.toHost.namespaces.mappings.byName: invalid host namespace name '%s': must be no more than 63 characters", strings.Repeat("a", 64))),
+		},
+		{
+			name: "Invalid: Virtual exact name with multiple ${name}",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns-${name}-${name}": "hns1"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: virtual namespace 'vns-${name}-${name}' contains placeholder '${name}' multiple times"),
+		},
+		{
+			name: "Invalid: Host exact name with unsupported placeholder",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": "hns-${unsupported}"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: host namespace 'hns-${unsupported}' contains an unsupported placeholder; only '${name}' is allowed"),
+		},
+		{
+			name: "Invalid: Virtual pattern with multiple '*'",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*-*": "hns-*"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: virtual namespace pattern 'vns-*-*' must contain exactly one '*'"),
+		},
+		{
+			name: "Invalid: Host pattern with '*' not at the end",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "hns-*-end"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: host namespace pattern 'hns-*-end' must have the wildcard '*' at the end"),
+		},
+		{
+			name: "Invalid: Virtual pattern prefix too long",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{strings.Repeat("a", 33) + "*": "hns-*"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: literal parts of virtual namespace pattern prefix '" + strings.Repeat("a", 33) + "' (from '" + strings.Repeat("a", 33) + "*') cannot be longer than 32 characters (literal length: 33)"),
+		},
+		{
+			name: "Invalid: Host pattern prefix too long (with ${name})",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": strings.Repeat("a", 30) + "${name}" + strings.Repeat("b", 3) + "*"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: literal parts of host namespace pattern prefix '" + strings.Repeat("a", 30) + "${name}" + strings.Repeat("b", 3) + "' (from '" + strings.Repeat("a", 30) + "${name}" + strings.Repeat("b", 3) + "*" + "') cannot be longer than 32 characters (literal length: 40)"),
+		},
+		{
+			name: "Invalid: Virtual pattern prefix starts with '-'",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"-vns-*": "hns-*"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: invalid virtual namespace pattern '-vns-*': a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"),
+		},
+		{
+			name: "Invalid: Host pattern prefix (with ${name}) ends with '-' after substitution",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "${name}-hns--*"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     noErrExpected, // Based on log: "expected error, got nil"
+		},
+		{
+			name: "Invalid: Virtual pattern prefix contains invalid char '.'",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns.foo-*": "hns-*"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: invalid virtual namespace pattern 'vns.foo-*': must not contain dots"),
+		},
+		{
+			name: "Invalid: Virtual namespace mapping contains '/'",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns/foo": "hns"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: invalid virtual namespace name 'vns/foo': a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"),
+		},
+		{
+			name: "Invalid: Host namespace mapping contains '/'",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled:  true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{"vns": "hns/bar"}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: invalid host namespace name 'hns/bar': a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateToHostNamespaceSyncMappings(tc.syncConfig, tc.vclusterName)
+			tc.checkErr(t, err)
+		})
+	}
+}
+
+func expectErr(errMsg string) func(t *testing.T, err error) {
+	return func(t *testing.T, err error) {
+		t.Helper()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.Error() != errMsg {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+}
+
+func noErrExpected(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

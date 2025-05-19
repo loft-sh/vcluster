@@ -66,7 +66,7 @@ func getSyncers(ctx *synccontext.RegisterContext) []BuildController {
 		isEnabled(ctx.Config.Sync.FromHost.CSIDrivers.Enabled == "true", csidrivers.New),
 		isEnabled(ctx.Config.Sync.FromHost.CSIStorageCapacities.Enabled == "true", csistoragecapacities.New),
 		isEnabled(ctx.Config.Sync.FromHost.VolumeSnapshotClasses.Enabled, volumesnapshotclasses.New),
-		isEnabled(ctx.Config.Experimental.MultiNamespaceMode.Enabled, namespaces.New),
+		isEnabled(ctx.Config.Sync.ToHost.Namespaces.Enabled, namespaces.New),
 		persistentvolumes.New,
 		nodes.New,
 	}, ExtraControllers...)

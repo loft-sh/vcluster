@@ -52,6 +52,9 @@ spec:
             {{- range .Values.policies.networkPolicy.outgoingConnections.ipBlock.except }}
             - {{ . }}
             {{- end }}
+    {{- if .Values.policies.networkPolicy.extraWorkloadRules }}
+{{ toYaml .Values.policies.networkPolicy.extraWorkloadRules | indent 4 }}
+    {{- end }}
   policyTypes:
     - Egress
 ---
@@ -101,6 +104,9 @@ spec:
               app: loft
           namespaceSelector: {}
         {{- end }}
+    {{- if .Values.policies.networkPolicy.extraControlPlaneRules }}
+{{ toYaml .Values.policies.networkPolicy.extraControlPlaneRules | indent 4 }}
+    {{- end }}
   policyTypes:
     - Egress
   {{- end }}

@@ -15,7 +15,7 @@ import (
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/k0s"
+	"github.com/loft-sh/vcluster/pkg/k8s"
 	"github.com/pkg/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -181,7 +181,7 @@ func (r *Deployer) ProcessInitManifests(ctx context.Context, vConfig *config.Vir
 	var err error
 	manifests := vConfig.Experimental.Deploy.VCluster.Manifests
 	if vConfig.Experimental.Deploy.VCluster.ManifestsTemplate != "" {
-		templatedManifests, err := k0s.ExecTemplate(vConfig.Experimental.Deploy.VCluster.ManifestsTemplate, vConfig.Name, vConfig.WorkloadTargetNamespace, &vConfig.Config)
+		templatedManifests, err := k8s.ExecTemplate(vConfig.Experimental.Deploy.VCluster.ManifestsTemplate, vConfig.Name, vConfig.WorkloadTargetNamespace, &vConfig.Config)
 		if err != nil {
 			return fmt.Errorf("exec manifests template: %w", err)
 		}

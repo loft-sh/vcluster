@@ -110,7 +110,7 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 	// is multi namespace mode?
 	defaultNamespaces := make(map[string]cache.Config)
-	if !options.Experimental.MultiNamespaceMode.Enabled {
+	if !options.Sync.ToHost.Namespaces.Enabled {
 		defaultNamespaces[options.WorkloadTargetNamespace] = cache.Config{}
 	}
 	// do we need access to another namespace to export the kubeconfig ?
@@ -431,7 +431,7 @@ func newCurrentNamespaceClient(ctx context.Context, localManager ctrl.Manager, o
 	// as the regular cache is scoped to the options.TargetNamespace and cannot return
 	// objects from the current namespace.
 	currentNamespaceCache := localManager.GetCache()
-	if !options.Experimental.MultiNamespaceMode.Enabled && options.WorkloadNamespace != options.WorkloadTargetNamespace {
+	if !options.Sync.ToHost.Namespaces.Enabled && options.WorkloadNamespace != options.WorkloadTargetNamespace {
 		currentNamespaceCache, err = cache.New(localManager.GetConfig(), cache.Options{
 			Scheme:            localManager.GetScheme(),
 			Mapper:            localManager.GetRESTMapper(),

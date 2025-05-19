@@ -291,7 +291,7 @@ func (f *Framework) CreateNginxPodAndService(ns string) (*corev1.Pod, *corev1.Se
 			Containers: []corev1.Container{
 				{
 					Name:            podName,
-					Image:           "nginxinc/nginx-unprivileged",
+					Image:           "nginxinc/nginx-unprivileged:stable-alpine3.20-slim",
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					SecurityContext: f.GetDefaultSecurityContext(),
 				},

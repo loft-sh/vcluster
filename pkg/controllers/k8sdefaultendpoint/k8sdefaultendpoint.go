@@ -27,8 +27,8 @@ import (
 )
 
 type provider interface {
-	createClientObject() client.Object
-	createOrPatch(ctx context.Context, virtualClient client.Client, vEndpoints *corev1.Endpoints) error
+	CreateClientObject() client.Object
+	CreateOrPatch(ctx context.Context, virtualClient client.Client, vEndpoints *corev1.Endpoints) error
 }
 
 type EndpointController struct {
@@ -98,7 +98,7 @@ func (e *EndpointController) SetupWithManager(mgr ctrl.Manager) error {
 		}).
 		For(&corev1.Endpoints{}, builder.WithPredicates(pPredicates)).
 		WatchesRawSource(source.Kind[client.Object](e.VirtualManagerCache, &corev1.Endpoints{}, &handler.TypedEnqueueRequestForObject[client.Object]{}, vPredicates)).
-		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.createClientObject(), &handler.EnqueueRequestForObject{}, vPredicates)).
+		WatchesRawSource(source.Kind(e.VirtualManagerCache, e.provider.CreateClientObject(), &handler.EnqueueRequestForObject{}, vPredicates)).
 		Complete(e)
 }
 
@@ -171,7 +171,7 @@ func (e *EndpointController) syncKubernetesServiceEndpoints(ctx context.Context)
 	}
 
 	if result == controllerutil.OperationResultCreated || result == controllerutil.OperationResultUpdated {
-		return e.provider.createOrPatch(ctx, e.VirtualClient, vEndpoints)
+		return e.provider.CreateOrPatch(ctx, e.VirtualClient, vEndpoints)
 	}
 
 	return nil

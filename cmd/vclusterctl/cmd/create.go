@@ -22,8 +22,7 @@ type CreateCmd struct {
 	*flags.GlobalFlags
 	cli.CreateOptions
 
-	log            log.Logger
-	reuseNamespace bool
+	log log.Logger
 }
 
 // NewCreateCmd creates a new command
@@ -66,9 +65,6 @@ vcluster create test --namespace test
 	}
 
 	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
-	cobraCmd.Flags().BoolVar(&cmd.reuseNamespace, "reuse-namespace", false, "Allows to create multiple virtual clusters in a single namespace")
-	cobraCmd.Flag("reuse-namespace").Hidden = true
-	_ = cobraCmd.Flags().MarkDeprecated("reuse-namespace", "creation of multiple virtual clusters within the same namespace is deprecated.")
 
 	create.AddCommonFlags(cobraCmd, &cmd.CreateOptions)
 	create.AddHelmFlags(cobraCmd, &cmd.CreateOptions)
@@ -101,6 +97,5 @@ func (cmd *CreateCmd) Run(ctx context.Context, args []string) error {
 	if driver == config.PlatformDriver {
 		return cli.CreatePlatform(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log)
 	}
-
-	return cli.CreateHelm(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log, cmd.reuseNamespace)
+	return cli.CreateHelm(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log)
 }

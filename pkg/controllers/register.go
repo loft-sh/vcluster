@@ -28,8 +28,8 @@ import (
 func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertypes.Object) error {
 	registerContext := ctx.ToRegisterContext()
 
-	// start default endpoint controller
-	err := k8sdefaultendpoint.Register(ctx)
+	// register controller that keeps CoreDNS NodeHosts config up to date
+	err := registerCoreDNSController(ctx)
 	if err != nil {
 		return err
 	}
@@ -42,8 +42,13 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 		}
 	}
 
-	// register controller that keeps CoreDNS NodeHosts config up to date
-	err = registerCoreDNSController(ctx)
+	// skip if we run in dedicated mode
+	if ctx.Config.PrivateNodes.Enabled {
+		return nil
+	}
+
+	// start default endpoint controller
+	err = k8sdefaultendpoint.Register(ctx)
 	if err != nil {
 		return err
 	}
@@ -109,7 +114,7 @@ func registerGenericSyncController(ctx *synccontext.ControllerContext) error {
 
 func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
 	hostNamespace := ctx.Config.WorkloadTargetNamespace
-	if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
+	if ctx.Config.Sync.ToHost.Namespaces.Enabled {
 		hostNamespace = ctx.Config.WorkloadNamespace
 	}
 
@@ -182,7 +187,7 @@ func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
 			Log:                   loghelper.New(name),
 		}
 
-		if ctx.Config.Experimental.MultiNamespaceMode.Enabled {
+		if ctx.Config.Sync.ToHost.Namespaces.Enabled {
 			controller.CreateEndpoints = true
 		}
 

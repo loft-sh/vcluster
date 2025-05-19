@@ -29,6 +29,16 @@ const (
 	// CAKeyName defines certificate name
 	CAKeyName = "ca.key"
 
+	// ServerCAKeyName defines server ca key name
+	ServerCAKeyName = "server-ca.key"
+	// ServerCACertName defines server ca cert name
+	ServerCACertName = "server-ca.crt"
+
+	// ClientCACertName defines client ca cert name
+	ClientCACertName = "client-ca.crt"
+	// ClientCAKeyName defines client ca key name
+	ClientCAKeyName = "client-ca.key"
+
 	// APIServerCertAndKeyBaseName defines API's server certificate and key base name
 	APIServerCertAndKeyBaseName = "apiserver"
 	// APIServerCertName defines API's server certificate name
@@ -148,6 +158,12 @@ var certMap = map[string]string{
 	CACertName: CACertName,
 	CAKeyName:  CAKeyName,
 
+	ServerCACertName: ServerCACertName,
+	ServerCAKeyName:  ServerCAKeyName,
+
+	ClientCACertName: ClientCACertName,
+	ClientCAKeyName:  ClientCAKeyName,
+
 	FrontProxyCACertName: FrontProxyCACertName,
 	FrontProxyCAKeyName:  FrontProxyCAKeyName,
 
@@ -168,21 +184,4 @@ var certMap = map[string]string{
 
 	EtcdServerCertName: strings.ReplaceAll(EtcdServerCertName, "/", "-"),
 	EtcdServerKeyName:  strings.ReplaceAll(EtcdServerKeyName, "/", "-"),
-}
-
-var K0sFiles = map[string]bool{
-	"admin.crt":         true,
-	"admin.key":         true,
-	"ccm.conf":          true,
-	"ccm.crt":           true,
-	"ccm.key":           true,
-	"konnectivity.key":  true,
-	"k0s-api.crt":       true,
-	"scheduler.crt":     true,
-	"k0s-api.key":       true,
-	"scheduler.key":     true,
-	"konnectivity.conf": true,
-	"server.crt":        true,
-	"konnectivity.crt":  true,
-	"server.key":        true,
 }

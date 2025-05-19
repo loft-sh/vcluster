@@ -9,6 +9,8 @@ GOBIN := env("GOBIN", `go env GOPATH`+"/bin")
 DIST_FOLDER := if GOARCH == "amd64" { "dist/vcluster_linux_amd64_v1" } else if GOARCH == "arm64" { "dist/vcluster_linux_arm64_v8.0" } else { "unknown" }
 DIST_FOLDER_CLI := if GOARCH == "amd64" { "dist/vcluster-cli_" + GOOS + "_amd64_v1" } else if GOARCH == "arm64" { "dist/vcluster-cli_" + GOOS + "_arm64_v8.0" } else { "unknown" }
 
+ASSETS_RUN := "go run -mod vendor ./hack/assets/cmd/main.go"
+
 _default:
   @just --list
 
@@ -48,28 +50,28 @@ copy-assets:
   mkdir -p ./release
   cp -a assets/. release/
 
-# Generate the vcluster images file
+# Generate the vcluster latest/minimal images file
 [private]
-generate-vcluster-images version="0.0.0":
-  go run -mod vendor ./hack/assets/main.go {{ version }} > ./release/vcluster-images.txt
+generate-vcluster-latest-images version="0.0.0":
+  {{ASSETS_RUN}} --latest {{ version }} > ./release/images.txt
+
+# Generate the vcluster optional images file
+[private]
+generate-vcluster-optional-images version="0.0.0":
+  {{ASSETS_RUN}} --optional {{ version }} > ./release/images-optional.txt
 
 # Generate versioned vCluster image files for multiple versions and distros
 [private]
 generate-matrix-specific-images version="0.0.0":
   #!/usr/bin/env bash
 
-  distros=("k8s" "k3s" "k0s")
-  versions=("1.30" "1.29" "1.28")
-
+  distros=(`{{ASSETS_RUN}} --list-distros`)
+  versions=(`{{ASSETS_RUN}}  --list-versions`)
   for distro in "${distros[@]}"; do
     for version in "${versions[@]}"; do
-      go run -mod vendor ./hack/assets/separate/main.go -kubernetes-distro=$distro -kubernetes-version=$version -vcluster-version={{ version }} > ./release/vcluster-images-$distro-$version.txt
+      {{ASSETS_RUN}} --kubernetes-distro=$distro --kubernetes-version=$version {{ version }} > ./release/vcluster-images-$distro-$version.txt
     done
   done
-
-# Generate the CLI docs
-generate-cli-docs:
-  go run -mod vendor -tags pro ./hack/docs/main.go
 
 # Generate the vcluster.yaml config schema
 generate-config-schema:
@@ -80,13 +82,16 @@ generate-config-schema:
 embed-chart version="0.0.0":
   RELEASE_VERSION={{ version }} go generate -tags embed_chart ./...
 
+test-chart:
+  helm unittest chart
+
 # Run e2e tests
 e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && delete-kind
   echo "Execute test suites ({{ distribution }}, {{ path }}, {{ multinamespace }})"
 
   TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean
   cp dist/vcluster_linux_$(go env GOARCH | sed s/amd64/amd64_v1/g | sed s/arm64/arm64_v8.0/g)/vcluster ./vcluster
-  docker build -t vcluster:e2e-latest -f Dockerfile.release --build-arg TARGETARCH=$(uname -m) --build-arg TARGETOS=linux .
+  docker build -t vcluster:e2e-latest -f Dockerfile.release --build-arg TARGETARCH=$(uname -m | sed s/x86_64/amd64/g) --build-arg TARGETOS=linux .
   rm ./vcluster
 
   kind load docker-image vcluster:e2e-latest -n vcluster

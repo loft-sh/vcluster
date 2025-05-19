@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/scheduling"
 	satoken "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/token"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -83,6 +84,14 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		return nil, fmt.Errorf("parse init container resource requests: %w", err)
 	}
 
+	schedulingConfig, err := scheduling.NewConfig(
+		ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled,
+		ctx.Config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
+	}
+
 	return &translator{
 		vClientConfig: ctx.VirtualManager.GetConfig(),
 		vClient:       ctx.VirtualManager.GetClient(),
@@ -105,7 +114,7 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		serviceAccountsEnabled:         ctx.Config.Sync.ToHost.ServiceAccounts.Enabled,
 		hostPriorityClassesSyncEnabled: ctx.Config.Sync.FromHost.PriorityClasses.Enabled,
 		priorityClassesSyncEnabled:     ctx.Config.Sync.ToHost.PriorityClasses.Enabled,
-		enableScheduler:                ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		schedulingConfig:               schedulingConfig,
 		fakeKubeletIPs:                 ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 
 		mountPhysicalHostPaths: ctx.Config.ControlPlane.HostPathMapper.Enabled && !ctx.Config.ControlPlane.HostPathMapper.Central,
@@ -138,7 +147,7 @@ type translator struct {
 	overrideHostsResources         corev1.ResourceRequirements
 	hostPriorityClassesSyncEnabled bool
 	priorityClassesSyncEnabled     bool
-	enableScheduler                bool
+	schedulingConfig               scheduling.Config
 	fakeKubeletIPs                 bool
 
 	virtualLogsPath       string
@@ -350,7 +359,7 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 	}
 
 	// translate topology spread constraints
-	if t.enableScheduler {
+	if t.schedulingConfig.IsSchedulerFromVirtualCluster(pPod.Spec.SchedulerName) {
 		pPod.Spec.TopologySpreadConstraints = nil
 		pPod.Spec.Affinity = nil
 		pPod.Spec.NodeSelector = nil
@@ -429,7 +438,7 @@ func (t *translator) translateVolumes(ctx *synccontext.SyncContext, pPod *corev1
 		}
 		if pPod.Spec.Volumes[i].DownwardAPI != nil {
 			for j := range pPod.Spec.Volumes[i].DownwardAPI.Items {
-				translateFieldRef(pPod.Spec.Volumes[i].DownwardAPI.Items[j].FieldRef, t.fakeKubeletIPs, t.enableScheduler)
+				translateFieldRef(pPod.Spec.Volumes[i].DownwardAPI.Items[j].FieldRef, t.fakeKubeletIPs, t.schedulingConfig.IsSchedulerFromVirtualCluster(pPod.Spec.SchedulerName))
 			}
 		}
 		if pPod.Spec.Volumes[i].ISCSI != nil && pPod.Spec.Volumes[i].ISCSI.SecretRef != nil {
@@ -495,7 +504,7 @@ func (t *translator) translateProjectedVolume(
 		}
 		if projectedVolume.Sources[i].DownwardAPI != nil {
 			for j := range projectedVolume.Sources[i].DownwardAPI.Items {
-				translateFieldRef(projectedVolume.Sources[i].DownwardAPI.Items[j].FieldRef, t.fakeKubeletIPs, t.enableScheduler)
+				translateFieldRef(projectedVolume.Sources[i].DownwardAPI.Items[j].FieldRef, t.fakeKubeletIPs, t.schedulingConfig.IsSchedulerFromVirtualCluster(pPod.Spec.SchedulerName))
 			}
 		}
 		if projectedVolume.Sources[i].ServiceAccountToken != nil {
@@ -632,7 +641,7 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector, fakeKubeletIPs
 func (t *translator) TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 	envNameMap := make(map[string]struct{})
 	for j, env := range envVar {
-		translateDownwardAPI(&envVar[j], t.fakeKubeletIPs, t.enableScheduler)
+		translateDownwardAPI(&envVar[j], t.fakeKubeletIPs, t.schedulingConfig.IsSchedulerFromVirtualCluster(vPod.Spec.SchedulerName))
 		if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil && env.ValueFrom.ConfigMapKeyRef.Name != "" {
 			envVar[j].ValueFrom.ConfigMapKeyRef.Name = mappings.VirtualToHostName(ctx, envVar[j].ValueFrom.ConfigMapKeyRef.Name, vPod.Namespace, mappings.ConfigMaps())
 		}

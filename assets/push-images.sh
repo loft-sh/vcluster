@@ -1,6 +1,6 @@
 #!/bin/bash
 images="vcluster-images.tar.gz"
-list="vcluster-images.txt"
+list="images.txt"
 usage () {
     echo "USAGE: $0 [--images vcluster-images.tar.gz] --registry my.registry.com:5000"
     echo "  [-l|--image-list path] text file with list of images; one image per line."

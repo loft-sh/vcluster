@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	MinimumVersionTag = "v4.0.0-alpha.18"
+	MinimumVersionTag = "v4.2.3"
 	MinimumVersion    = semver.MustParse(strings.TrimPrefix(MinimumVersionTag, "v"))
 )
 
@@ -50,7 +50,7 @@ func LatestCompatibleVersion(ctx context.Context) (string, error) {
 		return MinimumVersionTag, nil
 	}
 
-	eligibleReleases := lo.FilterMap(releases, func(release *github.RepositoryRelease, _ int) (semver.Version, bool) {
+	eligibleStableReleases := lo.FilterMap(releases, func(release *github.RepositoryRelease, _ int) (semver.Version, bool) {
 		tagName := release.GetTagName()
 		if tagName == "" {
 			return semver.Version{}, false
@@ -61,15 +61,19 @@ func LatestCompatibleVersion(ctx context.Context) (string, error) {
 			return semver.Version{}, false
 		}
 
+		// skip the pre-releases (alpha, rc, etc.)
+		if len(ghVersion.Pre) != 0 {
+			return semver.Version{}, false
+		}
 		return ghVersion, ghVersion.GTE(MinimumVersion)
 	})
 
-	sort.Slice(eligibleReleases, func(i, j int) bool {
-		return eligibleReleases[i].LT(eligibleReleases[j])
+	sort.Slice(eligibleStableReleases, func(i, j int) bool {
+		return eligibleStableReleases[i].LT(eligibleStableReleases[j])
 	})
 
-	if len(eligibleReleases) > 0 {
-		return "v" + eligibleReleases[len(eligibleReleases)-1].String(), nil
+	if len(eligibleStableReleases) > 0 {
+		return "v" + eligibleStableReleases[len(eligibleStableReleases)-1].String(), nil
 	}
 
 	return MinimumVersionTag, nil

@@ -64,20 +64,12 @@ func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKu
 			ClientCACert:        "/data/server/tls/client-ca.crt",
 			RequestHeaderCACert: "/data/server/tls/request-header-ca.crt",
 		}
-	case config.K0SDistro:
-		distroConfig = config.VirtualClusterKubeConfig{
-			KubeConfig:          "/data/k0s/pki/admin.conf",
-			ServerCAKey:         "/data/k0s/pki/ca.key",
-			ServerCACert:        "/data/k0s/pki/ca.crt",
-			ClientCACert:        "/data/k0s/pki/ca.crt",
-			RequestHeaderCACert: "/data/k0s/pki/front-proxy-ca.crt",
-		}
 	case config.K8SDistro:
 		distroConfig = config.VirtualClusterKubeConfig{
 			KubeConfig:          "/data/pki/admin.conf",
-			ServerCAKey:         "/data/pki/ca.key",
-			ServerCACert:        "/data/pki/ca.crt",
-			ClientCACert:        "/data/pki/ca.crt",
+			ServerCAKey:         "/data/pki/server-ca.key",
+			ServerCACert:        "/data/pki/server-ca.crt",
+			ClientCACert:        "/data/pki/client-ca.crt",
 			RequestHeaderCACert: "/data/pki/front-proxy-ca.crt",
 		}
 	}
@@ -125,14 +117,12 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 
 	legacyOptions := &legacyconfig.LegacyVirtualClusterOptions{
 		ProOptions: legacyconfig.LegacyVirtualClusterProOptions{
-			RemoteKubeConfig:      v.Experimental.IsolatedControlPlane.KubeConfig,
-			RemoteNamespace:       v.Experimental.IsolatedControlPlane.Namespace,
-			RemoteServiceName:     v.Experimental.IsolatedControlPlane.Service,
-			IntegratedCoredns:     v.ControlPlane.CoreDNS.Embedded,
-			EtcdReplicas:          int(v.ControlPlane.StatefulSet.HighAvailability.Replicas),
-			EtcdEmbedded:          v.ControlPlane.BackingStore.Etcd.Embedded.Enabled,
-			NoopSyncer:            !v.Experimental.SyncSettings.DisableSync,
-			SyncKubernetesService: v.Experimental.SyncSettings.RewriteKubernetesService,
+			RemoteKubeConfig:  v.Experimental.IsolatedControlPlane.KubeConfig,
+			RemoteNamespace:   v.Experimental.IsolatedControlPlane.Namespace,
+			RemoteServiceName: v.Experimental.IsolatedControlPlane.Service,
+			IntegratedCoredns: v.ControlPlane.CoreDNS.Embedded,
+			EtcdReplicas:      int(v.ControlPlane.StatefulSet.HighAvailability.Replicas),
+			EtcdEmbedded:      v.ControlPlane.BackingStore.Etcd.Embedded.Enabled,
 		},
 		ServerCaCert:                v.VirtualClusterKubeConfig().ServerCACert,
 		ServerCaKey:                 v.VirtualClusterKubeConfig().ServerCAKey,
@@ -170,7 +160,7 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 		MountPhysicalHostPaths:      false,
 		HostMetricsBindAddress:      "0",
 		VirtualMetricsBindAddress:   "0",
-		MultiNamespaceMode:          v.Experimental.MultiNamespaceMode.Enabled,
+		MultiNamespaceMode:          v.Sync.ToHost.Namespaces.Enabled,
 		SyncAllSecrets:              v.Sync.ToHost.Secrets.All,
 		SyncAllConfigMaps:           v.Sync.ToHost.ConfigMaps.All,
 		ProxyMetricsServer:          v.Integrations.MetricsServer.Enabled,
@@ -219,6 +209,11 @@ func (v VirtualClusterConfig) DisableMissingAPIs(discoveryClient discovery.Disco
 	}
 
 	return nil
+}
+
+// SchedulingInVirtualClusterEnabled returns true if the virtual scheduler or the hybrid scheduling is enabled.
+func (v VirtualClusterConfig) SchedulingInVirtualClusterEnabled() bool {
+	return v.ControlPlane.Advanced.VirtualScheduler.Enabled || v.Sync.ToHost.Pods.HybridScheduling.Enabled
 }
 
 func findResource(resources *metav1.APIResourceList, resourcePlural string) bool {

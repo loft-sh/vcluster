@@ -33,7 +33,7 @@ brew install loft-sh/tap/vcluster
 vcluster create my-vcluster --namespace team-x
 ```
 
-https://github.com/user-attachments/assets/d97c21ae-5d23-499c-a1e8-e8d784493be4
+![vCluster gif](./docs/static/media/vcluster-github-gif-1280.gif)
 
 For detailed steps, visit our [Quickstart Documentation](https://www.vcluster.com/docs/get-started).
 
@@ -90,7 +90,7 @@ For detailed steps, visit our [Quickstart Documentation](https://www.vcluster.co
 <summary><strong>Enhanced Flexibility and Compatibility</strong></summary>
 
 - **Diverse Kubernetes Environments**:  
-  vCluster supports different Kubernetes versions and distributions (including K8s, K3s, and K0s), allowing version skews. This makes it possible to tailor each virtual cluster to specific requirements without impacting others.
+  vCluster supports different Kubernetes versions and distributions (including K8s and K3s), allowing version skews. This makes it possible to tailor each virtual cluster to specific requirements without impacting others.
 
 - **Adaptable Backing Stores**:  
   Choose from a range of data stores, from lightweight (SQLite) to enterprise-grade options (embedded etcd, external data stores like Global RDS), catering to various scalability and durability needs.

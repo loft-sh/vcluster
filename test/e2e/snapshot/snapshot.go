@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -169,9 +168,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		_, err = f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(f.Context, pvc, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		if f.MultiNamespaceMode {
-			vClusterDefaultNamespace = translate.NewMultiNamespaceTranslator(f.VClusterNamespace).HostNamespace(nil, defaultNamespace)
-		}
+		vClusterDefaultNamespace := f.VClusterNamespace
 
 		// now create a service that should be there when we restore again
 		_, err = f.VClusterClient.CoreV1().Services(defaultNamespace).Create(f.Context, serviceToRestore, metav1.CreateOptions{})

@@ -329,10 +329,27 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 		}
 	}
 
-	platformConfig.Host = host
-	platformConfig.Insecure = insecure
-	platformConfig.AccessKey = accessKey
-	c.Config().Platform = platformConfig
+	// Try a secure login first, even if they specify --insecure
+	if lgnErr := c.mgmtLogin(host, accessKey, false); lgnErr != nil {
+		if !insecure {
+			return lgnErr
+		}
+
+		// If specified, try an insecure login and save to the platform config if successful
+		if lgnErr = c.mgmtLogin(host, accessKey, true); lgnErr != nil {
+			return lgnErr
+		}
+	}
+
+	c.Config().Platform.Insecure = insecure
+	return c.Save()
+}
+
+func (c *client) mgmtLogin(host, accessKey string, insecure bool) error {
+	cfg := c.Config()
+	cfg.Platform.Host = host
+	cfg.Platform.AccessKey = accessKey
+	cfg.Platform.Insecure = insecure
 
 	// verify the connection works
 	managementClient, err := c.Management()
@@ -354,7 +371,7 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 		return perrors.Errorf("error logging in: %v", err)
 	}
 
-	return c.Save()
+	return nil
 }
 
 func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {

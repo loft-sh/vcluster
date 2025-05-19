@@ -1,15 +1,15 @@
-ARG KINE_VERSION="v0.13.8"
+ARG KINE_VERSION="v0.13.14"
 FROM rancher/kine:${KINE_VERSION} AS kine
 
 # Build program
-FROM golang:1.23 AS builder
+FROM golang:1.24 AS builder
 
 WORKDIR /vcluster-dev
 ARG TARGETOS
 ARG TARGETARCH
 ARG BUILD_VERSION=dev
 ARG TELEMETRY_PRIVATE_KEY=""
-ARG HELM_VERSION="v3.17.0"
+ARG HELM_VERSION="v3.17.3"
 
 # Install kubectl for development
 RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl && chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl

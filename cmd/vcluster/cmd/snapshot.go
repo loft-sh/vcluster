@@ -206,7 +206,7 @@ func newEtcdClient(ctx context.Context, vConfig *config.VirtualClusterConfig, is
 				return nil, fmt.Errorf("start external database backing store: %w", err)
 			}
 		}
-	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeExternalEtcd {
+	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeDeployedEtcd {
 		_, err := generateCertificates(ctx, vConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get certificates: %w", err)
@@ -343,18 +343,14 @@ func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterCon
 	}
 
 	// retrieve service cidr
-	serviceCIDR := vConfig.ServiceCIDR
-	if serviceCIDR == "" {
-		var warning string
-		serviceCIDR, warning = servicecidr.GetServiceCIDR(ctx, vConfig.WorkloadClient, vConfig.WorkloadNamespace)
-		if warning != "" {
-			klog.Warning(warning)
-		}
+	serviceCIDR, warning := servicecidr.GetServiceCIDR(ctx, &vConfig.Config, vConfig.WorkloadClient, vConfig.WorkloadNamespace)
+	if warning != "" {
+		klog.Warning(warning)
 	}
 
 	// generate etcd certificates
 	certificatesDir := "/data/pki"
-	err = setup.GenerateCerts(ctx, vConfig.ControlPlaneClient, vConfig.Name, vConfig.ControlPlaneNamespace, serviceCIDR, certificatesDir, vConfig)
+	err = setup.GenerateCerts(ctx, serviceCIDR, certificatesDir, vConfig)
 	if err != nil {
 		return "", err
 	}

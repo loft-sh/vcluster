@@ -94,22 +94,12 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	if err != nil {
 		return err
 	}
-	var vClusterExists bool
+
+	// from v0.25 onwards, creation of multiple vClusters inside the same ns is not allowed
 	for _, v := range vClusters {
 		if v.Namespace == vConfig.ControlPlaneNamespace && v.Name != vClusterName {
-			vClusterExists = true
-			break
-		}
-	}
-	// add a deprecation warning for multiple vCluster creation scenario
-	if vClusterExists {
-		logger.Warnf("Please note that creating multiple virtual clusters in the same namespace " +
-			"and the 'reuseNamespace' config are deprecated and will be removed soon.")
-
-		// throw an error if reuseNamespace config is not set
-		if !vConfig.Experimental.ReuseNamespace {
-			return fmt.Errorf("there is already a virtual cluster in namespace %s. To create multiple virtual clusters "+
-				"within the same namespace, it is mandatory to set 'reuse-namespace' to true in vCluster config", vConfig.ControlPlaneNamespace)
+			return fmt.Errorf("there is already a virtual cluster in namespace %s; "+
+				"creating multiple virtual clusters inside the same namespace is not supported", vConfig.ControlPlaneNamespace)
 		}
 	}
 

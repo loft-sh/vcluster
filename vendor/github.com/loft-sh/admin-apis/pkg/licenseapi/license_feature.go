@@ -12,18 +12,20 @@ type Feature struct {
 	// +optional
 	DisplayName string `json:"displayName,omitempty"`
 
+	// Preview represents whether the feature can be previewed if a user's license does not allow the feature
 	// +optional
-	Description string `json:"description,omitempty"`
+	Preview bool `json:"preview,omitempty"`
+
+	// AllowBefore is an optional timestamp. If set, licenses issued before this time are allowed
+	// to use the feature even if it's not included in the license.
+	// +optional
+	AllowBefore string `json:"allowBefore,omitempty"`
 
 	// Status shows the status of the feature (see type FeatureStatus)
 	// +optional
 	Status string `json:"status,omitempty"`
 
-	// Compatibility contains a series of semver compatibility constraints
+	// Name of the module that this feature belongs to
 	// +optional
-	Compatibility string `json:"compatibility,omitempty"`
-
-	// Labels contains a list of labels to be displayed for this feature (e.g. alpha, beta)
-	// +optional
-	Labels []string `json:"labels,omitempty"`
+	Module string `json:"module,omitempty"`
 }

@@ -77,7 +77,7 @@ vcluster platform login https://my-vcluster-platform.com --access-key myaccesske
 
 	loginCmd.Flags().StringVar(&cmd.Driver, "use-driver", "", "Switch vCluster driver between platform and helm")
 	loginCmd.Flags().StringVar(&cmd.AccessKey, "access-key", "", "The access key to use")
-	loginCmd.Flags().BoolVar(&cmd.Insecure, "insecure", true, product.Replace("Allow login into an insecure Loft instance"))
+	loginCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, product.Replace("Allow login into an insecure Loft instance"))
 	loginCmd.Flags().BoolVar(&cmd.DockerLogin, "docker-login", true, "If true, will log into the docker image registries the user has image pull secrets for")
 
 	return loginCmd
@@ -155,6 +155,11 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 
 func (cmd *LoginCmd) printLoginDetails(ctx context.Context) error {
 	cfg := cmd.LoadedConfig(cmd.Log)
+	// TODO: Refactor login to rely less on side effects from manipulating the cfg.Platform object in memory
+	if cmd.AccessKey != "" {
+		cfg.Platform.AccessKey = cmd.AccessKey
+	}
+
 	platformClient := platform.NewClientFromConfig(cfg)
 
 	managementClient, err := platformClient.Management()

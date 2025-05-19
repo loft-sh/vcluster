@@ -68,6 +68,23 @@ tests:
             resources: [ "storageclasses", "csinodes", "csidrivers", "csistoragecapacities" ]
             verbs: [ "get", "watch", "list" ]
 
+  - it: enable hybrid scheduling
+    set:
+      sync:
+        toHost:
+          pods:
+            hybridScheduling:
+              enabled: true
+    asserts:
+    - hasDocuments:
+        count: 1
+    - contains:
+        path: rules
+        content:
+          apiGroups: [ "storage.k8s.io" ]
+          resources: [ "storageclasses", "csinodes", "csidrivers", "csistoragecapacities" ]
+          verbs: [ "get", "watch", "list" ]
+
   - it: enable csinodes
     set:
       sync:
@@ -89,9 +106,10 @@ tests:
       rbac:
         clusterRole:
           enabled: auto
-      experimental:
-        multiNamespaceMode:
-          enabled: true
+      sync:
+        toHost:
+          namespaces:
+            enabled: true
     asserts:
       - hasDocuments:
           count: 1
@@ -102,7 +120,7 @@ tests:
           path: rules
           content:
             apiGroups: [ "" ]
-            resources: [ "namespaces", "serviceaccounts" ]
+            resources: [ "namespaces", "serviceaccounts"]
             verbs: [ "create", "delete", "patch", "update", "get", "watch", "list" ]
 
   - it: override rules
@@ -683,3 +701,23 @@ tests:
             resourceNames: [ "my-secret", "my-secret-2" ]
             resources: [ "secrets" ]
             verbs: [ "get" ]
+  - it: istio enabled
+    set:
+      integrations:
+        istio:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "apiextensions.k8s.io" ]
+            resources: [ "customresourcedefinitions" ]
+            verbs: [ "get", "list", "watch" ]

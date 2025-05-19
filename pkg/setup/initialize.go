@@ -3,29 +3,21 @@ package setup
 import (
 	"context"
 	"fmt"
-	"io/fs"
-	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/k0s"
 	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/k8s"
+	"github.com/loft-sh/vcluster/pkg/kubeadm"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
-	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
@@ -65,69 +57,13 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 	}
 
 	// retrieve service cidr
-	serviceCIDR := options.ServiceCIDR
-	if serviceCIDR == "" {
-		var warning string
-		serviceCIDR, warning = servicecidr.GetServiceCIDR(ctx, options.WorkloadClient, options.WorkloadNamespace)
-		if warning != "" {
-			klog.Warning(warning)
-		}
+	serviceCIDR, warning := servicecidr.GetServiceCIDR(ctx, &options.Config, options.WorkloadClient, options.WorkloadNamespace)
+	if warning != "" {
+		klog.Warning(warning)
 	}
 
 	// check what distro are we running
 	switch distro {
-	case vclusterconfig.K0SDistro:
-		// only return the first cidr, because k0s don't accept coma separated ones
-		serviceCIDR = strings.Split(serviceCIDR, ",")[0]
-
-		// ensure service cidr
-		err := k0s.WriteK0sConfig(serviceCIDR, options)
-		if err != nil {
-			return err
-		}
-
-		// create certificates if they are not there yet
-		certificatesDir := "/data/k0s/pki"
-		err = GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options)
-		if err != nil {
-			return err
-		}
-
-		// should start embedded etcd?
-		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
-			err = pro.StartEmbeddedEtcd(
-				context.WithoutCancel(ctx),
-				options.Name,
-				options.ControlPlaneNamespace,
-				certificatesDir,
-				int(options.ControlPlane.StatefulSet.HighAvailability.Replicas),
-				options.ControlPlane.BackingStore.Etcd.Embedded.SnapshotCount,
-				migrateFrom,
-				true,
-				options.ControlPlane.StatefulSet.Scheduling.PodManagementPolicy != "Parallel",
-			)
-			if err != nil {
-				return fmt.Errorf("start embedded etcd: %w", err)
-			}
-		}
-
-		// start k0s
-		parentCtxWithCancel, cancel := context.WithCancel(context.WithoutCancel(ctx))
-		go func() {
-			// we need to run this with the parent ctx as otherwise this context will be cancelled by the wait
-			// loop in Initialize
-			err := k0s.StartK0S(parentCtxWithCancel, cancel, options)
-			if err != nil {
-				klog.Fatalf("Error running k0s: %v", err)
-			}
-		}()
-
-		// try to update the certs secret with the k0s certificates
-		err = UpdateSecretWithK0sCerts(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options.Name)
-		if err != nil {
-			cancel()
-			return err
-		}
 	case vclusterconfig.K3SDistro:
 		// its k3s, let's create the token secret
 		k3sToken, err := k3s.EnsureK3SToken(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options.Name, options)
@@ -137,7 +73,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 
 		// generate etcd certificates
 		certificatesDir := "/data/pki"
-		err = GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options)
+		err = GenerateCerts(ctx, serviceCIDR, certificatesDir, options)
 		if err != nil {
 			return err
 		}
@@ -172,10 +108,16 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 			}
 		}()
 	case vclusterconfig.K8SDistro:
+		// migrate k3s to k8s if needed
+		err := k8s.MigrateK3sToK8s(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options)
+		if err != nil {
+			return fmt.Errorf("migrate k3s to k8s: %w", err)
+		}
+
 		// try to generate k8s certificates
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == "/data/pki" {
-			err := GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options)
+			err := GenerateCerts(ctx, serviceCIDR, certificatesDir, options)
 			if err != nil {
 				return err
 			}
@@ -207,9 +149,6 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 			err := k8s.StartK8S(
 				context.WithoutCancel(ctx),
 				serviceCIDR,
-				options.ControlPlane.Distro.K8S.APIServer,
-				options.ControlPlane.Distro.K8S.ControllerManager,
-				options.ControlPlane.Distro.K8S.Scheduler,
 				options,
 			)
 			if err != nil {
@@ -220,7 +159,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == "/data/pki" {
 			// generate k8s certificates
-			err := GenerateCerts(ctx, options.ControlPlaneClient, options.Name, options.ControlPlaneNamespace, serviceCIDR, certificatesDir, options)
+			err := GenerateCerts(ctx, serviceCIDR, certificatesDir, options)
 			if err != nil {
 				return err
 			}
@@ -230,11 +169,14 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 	return nil
 }
 
-func GenerateCerts(ctx context.Context, currentNamespaceClient kubernetes.Interface, vClusterName, currentNamespace, serviceCIDR, certificatesDir string, options *config.VirtualClusterConfig) error {
+func GenerateCerts(ctx context.Context, serviceCIDR, certificatesDir string, options *config.VirtualClusterConfig) error {
 	clusterDomain := options.Networking.Advanced.ClusterDomain
+	currentNamespace := options.ControlPlaneNamespace
+	currentNamespaceClient := options.ControlPlaneClient
+
 	// generate etcd server and peer sans
-	etcdService := vClusterName + "-etcd"
-	etcdSans := []string{
+	etcdService := options.Name + "-etcd"
+	extraSans := []string{
 		"localhost",
 		etcdService,
 		etcdService + "-headless",
@@ -243,9 +185,9 @@ func GenerateCerts(ctx context.Context, currentNamespaceClient kubernetes.Interf
 	}
 
 	// add wildcard
-	for _, service := range []string{vClusterName, etcdService} {
-		etcdSans = append(
-			etcdSans,
+	for _, service := range []string{options.Name, etcdService} {
+		extraSans = append(
+			extraSans,
 			"*."+service+"-headless",
 			"*."+service+"-headless"+"."+currentNamespace,
 			"*."+service+"-headless"+"."+currentNamespace+".svc",
@@ -253,126 +195,28 @@ func GenerateCerts(ctx context.Context, currentNamespaceClient kubernetes.Interf
 		)
 	}
 
-	// expect up to 20 etcd members, number could be lower since more
-	// than 5 is generally a bad idea
-	for i := range 20 {
+	// expect up to 5 etcd members
+	for i := range 5 {
 		// this is for embedded etcd
-		hostname := vClusterName + "-" + strconv.Itoa(i)
-		etcdSans = append(etcdSans, hostname, hostname+"."+vClusterName+"-headless", hostname+"."+vClusterName+"-headless"+"."+currentNamespace)
+		hostname := options.Name + "-" + strconv.Itoa(i)
+		extraSans = append(extraSans, hostname, hostname+"."+options.Name+"-headless", hostname+"."+options.Name+"-headless"+"."+currentNamespace)
 
 		// this is for external etcd
 		etcdHostname := etcdService + "-" + strconv.Itoa(i)
-		etcdSans = append(etcdSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
+		extraSans = append(extraSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
+	}
+
+	// create kubeadm config
+	kubeadmConfig, err := kubeadm.InitKubeadmConfig(options, "", "127.0.0.1:6443", serviceCIDR, certificatesDir, extraSans)
+	if err != nil {
+		return fmt.Errorf("create kubeadm config: %w", err)
 	}
 
 	// generate certificates
-	err := certs.EnsureCerts(ctx, serviceCIDR, currentNamespace, currentNamespaceClient, vClusterName, certificatesDir, etcdSans, options)
+	err = certs.EnsureCerts(ctx, currentNamespace, currentNamespaceClient, certificatesDir, options, kubeadmConfig)
 	if err != nil {
 		return fmt.Errorf("ensure certs: %w", err)
 	}
 
 	return nil
-}
-
-func UpdateSecretWithK0sCerts(
-	ctx context.Context,
-	currentNamespaceClient kubernetes.Interface,
-	currentNamespace, vClusterName string,
-) error {
-	if currentNamespaceClient == nil {
-		return errors.New("nil currentNamespaceClient")
-	}
-
-	// wait for k0s to generate the secrets for us
-	files, err := waitForK0sFiles(ctx, "/data/k0s/pki")
-	if err != nil {
-		return err
-	}
-
-	// retrieve cert secret
-	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, vClusterName+"-certs", metav1.GetOptions{})
-	if err != nil {
-		return err
-	} else if secret.Data == nil {
-		return fmt.Errorf("error while trying to update the secret, data was empty, will try to fetch it again")
-	}
-
-	// check if the secret contains the k0s files now, which would mean somebody was faster than we were
-	if secretContainsK0sCerts(secret) {
-		if secretIsUpToDate(secret, files) {
-			return nil
-		}
-
-		return fmt.Errorf("error while trying to update the secret, it was already updated, will try to fetch it again")
-	}
-
-	// update the secret to include the k0s certs
-	for fileName, content := range files {
-		secret.Data[fileName] = content
-	}
-
-	// if any error we will retry from the poll loop
-	_, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Update(ctx, secret, metav1.UpdateOptions{})
-	return err
-}
-
-func waitForK0sFiles(ctx context.Context, certDir string) (map[string][]byte, error) {
-	for {
-		filesFound := 0
-		for file := range certs.K0sFiles {
-			_, err := os.ReadFile(filepath.Join(certDir, file))
-			if errors.Is(err, fs.ErrNotExist) {
-				break
-			} else if err != nil {
-				return nil, err
-			}
-
-			filesFound++
-		}
-		if filesFound == len(certs.K0sFiles) {
-			break
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil, context.DeadlineExceeded
-		case <-time.After(time.Second):
-		}
-	}
-	return readK0sFiles(certDir)
-}
-
-func readK0sFiles(certDir string) (map[string][]byte, error) {
-	files := make(map[string][]byte)
-	for file := range certs.K0sFiles {
-		b, err := os.ReadFile(filepath.Join(certDir, file))
-		if err != nil {
-			return nil, err
-		}
-		files[file] = b
-	}
-
-	return files, nil
-}
-
-func secretContainsK0sCerts(secret *corev1.Secret) bool {
-	if secret.Data == nil {
-		return false
-	}
-	for k := range secret.Data {
-		if certs.K0sFiles[k] {
-			return true
-		}
-	}
-	return false
-}
-
-func secretIsUpToDate(secret *corev1.Secret, files map[string][]byte) bool {
-	for fileName, content := range files {
-		if !reflect.DeepEqual(secret.Data[fileName], content) {
-			return false
-		}
-	}
-
-	return true
 }

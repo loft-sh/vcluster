@@ -19,6 +19,9 @@ sync:
       enabled: true
       translateImage: {}
       enforceTolerations: []
+      hybridScheduling:
+        enabled: false
+        hostSchedulers: []
       useSecretsForSATokens: false
       runtimeClassName: ""
       priorityClassName: ""
@@ -51,6 +54,9 @@ sync:
       enabled: false
     persistentVolumes:
       enabled: false
+    namespaces:
+      enabled: false
+      mappingsOnly: false
 
   fromHost:
     events:
@@ -92,32 +98,22 @@ controlPlane:
     k8s:
       enabled: false
       version: ""
+      imagePullPolicy: ""
+      image:
+        registry: ghcr.io
+        repository: "loft-sh/kubernetes"
+        tag: "v1.32.1"
       apiServer:
         enabled: true
         command: []
         extraArgs: []
-        imagePullPolicy: ""
-        image:
-          registry: registry.k8s.io
-          repository: kube-apiserver
-          tag: "v1.32.1"
       controllerManager:
         enabled: true
         command: []
         extraArgs: []
-        imagePullPolicy: ""
-        image:
-          registry: registry.k8s.io
-          repository: "kube-controller-manager"
-          tag: "v1.32.1"
       scheduler:
         command: []
         extraArgs: []
-        imagePullPolicy: ""
-        image:
-          registry: registry.k8s.io
-          repository: "kube-scheduler"
-          tag: "v1.32.1"
       env: []
       securityContext: {}
       resources:
@@ -146,25 +142,6 @@ controlPlane:
           cpu: 40m
           memory: 64Mi
 
-    k0s:
-      enabled: false
-      config: ""
-      command: []
-      extraArgs: []
-      imagePullPolicy: ""
-      image:
-        registry: ""
-        repository: "k0sproject/k0s"
-        tag: "v1.30.2-k0s.0"
-      securityContext: {}
-      resources:
-        limits:
-          cpu: 100m
-          memory: 256Mi
-        requests:
-          cpu: 40m
-          memory: 64Mi
-
   backingStore:
     database:
       embedded:
@@ -180,6 +157,13 @@ controlPlane:
       embedded:
         enabled: false
         migrateFromDeployedEtcd: false
+      external:
+        enabled: false
+        endpoint: ""
+        tls:
+          caFile: ""
+          certFile: ""
+          keyFile: ""
       deploy:
         enabled: false
         statefulSet:
@@ -190,7 +174,7 @@ controlPlane:
           image:
             registry: "registry.k8s.io"
             repository: "etcd"
-            tag: "3.5.17-0"
+            tag: "3.5.21-0"
           imagePullPolicy: ""
           extraArgs: []
           env: []
@@ -240,6 +224,9 @@ controlPlane:
     overwriteManifests: ""
     overwriteConfig: ""
     priorityClassName: ""
+    security:
+      podSecurityContext: {}
+      containerSecurityContext: {}
     service:
       annotations: {}
       labels: {}
@@ -394,8 +381,16 @@ controlPlane:
       labels: {}
       annotations: {}
 
+    konnectivity:
+      enabled: true
+
     globalMetadata:
       annotations: {}
+
+privateNodes:
+  enabled: false
+  kubeProxy:
+    enabled: true
 
 integrations:
   metricsServer:
@@ -445,6 +440,16 @@ integrations:
           enabled: true
           selector:
             labels: {}
+  istio:
+    enabled: false
+    sync:
+      toHost:
+        destinationRules:
+          enabled: true
+        gateways:
+          enabled: true
+        virtualServices:
+          enabled: true
 
 rbac:
   role:
@@ -457,6 +462,7 @@ rbac:
     extraRules: []
 
 networking:
+  podCIDR: "10.244.0.0/16"
   replicateServices:
     toHost: []
     fromHost: []
@@ -513,6 +519,8 @@ policies:
     labels: {}
     annotations: {}
     fallbackDns: 8.8.8.8
+    extraControlPlaneRules: []
+    extraWorkloadRules: []
     outgoingConnections:
       platform: true
       ipBlock:
@@ -545,12 +553,7 @@ external: {}
 plugins: {}
 
 experimental:
-  multiNamespaceMode:
-    enabled: false
-
   syncSettings:
-    disableSync: false
-    rewriteKubernetesService: false
     targetNamespace: ""
     setOwner: true
 
@@ -571,8 +574,6 @@ experimental:
       extraRules: []
     role:
       extraRules: []
-
-  reuseNamespace: false
 
 telemetry:
   enabled: true

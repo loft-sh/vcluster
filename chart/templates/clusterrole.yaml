@@ -39,7 +39,7 @@ rules:
     resources: ["nodes", "nodes/status"]
     verbs: ["update", "patch"]
   {{- end }}
-  {{- if .Values.controlPlane.advanced.virtualScheduler.enabled }}
+  {{- if or .Values.controlPlane.advanced.virtualScheduler.enabled .Values.sync.toHost.pods.hybridScheduling.enabled }}
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
     verbs: ["get", "watch", "list"]
@@ -104,7 +104,7 @@ rules:
     resources: ["services", "endpoints"]
     verbs: ["get", "watch", "list"]
   {{- end }}
-  {{- if .Values.experimental.multiNamespaceMode.enabled }}
+  {{- if .Values.sync.toHost.namespaces.enabled }}
   - apiGroups: [""]
     resources: ["namespaces", "serviceaccounts"]
     verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
@@ -119,7 +119,7 @@ rules:
     resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
     verbs: ["get", "list", "watch"]
   {{- end }}
-  {{- if or .Values.integrations.kubeVirt.enabled .Values.integrations.externalSecrets.enabled .Values.integrations.certManager.enabled .Values.sync.toHost.customResources .Values.sync.fromHost.customResources }}
+  {{- if or .Values.integrations.kubeVirt.enabled .Values.integrations.externalSecrets.enabled .Values.integrations.certManager.enabled .Values.sync.toHost.customResources .Values.sync.fromHost.customResources .Values.integrations.istio.enabled }}
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "watch"]

@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	logutil "github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -24,7 +25,9 @@ import (
 )
 
 const (
+	PollInterval             = 5 * time.Second
 	PollTimeout              = time.Minute
+	PollTimeoutLong          = 2 * time.Minute
 	DefaultVClusterName      = "vcluster"
 	DefaultVClusterNamespace = "vcluster"
 	DefaultClientTimeout     = 32 * time.Second // the default in client-go is 32
@@ -88,9 +91,6 @@ type Framework struct {
 
 	// ClientQPS value used in the clients
 	ClientQPS float32
-
-	// MultiNamespaceMode denotes whether the multi namespace mode is enabled for the virtualcluster
-	MultiNamespaceMode bool
 }
 
 func CreateFramework(ctx context.Context) error {
@@ -136,13 +136,7 @@ func CreateFramework(ctx context.Context) error {
 	}
 	translate.VClusterName = suffix
 
-	var multiNamespaceMode bool
-	if os.Getenv("MULTINAMESPACE_MODE") == "true" {
-		translate.Default = translate.NewMultiNamespaceTranslator(ns)
-		multiNamespaceMode = true
-	} else {
-		translate.Default = translate.NewSingleNamespaceTranslator(ns)
-	}
+	translate.Default = translate.NewSingleNamespaceTranslator(ns)
 
 	l.Infof("Testing vCluster named: %s in namespace: %s", name, ns)
 	hostConfig, err := ctrl.GetConfig()
@@ -165,18 +159,17 @@ func CreateFramework(ctx context.Context) error {
 
 	// create the framework
 	DefaultFramework = &Framework{
-		Context:            ctx,
-		VClusterName:       name,
-		VClusterNamespace:  ns,
-		Suffix:             suffix,
-		HostConfig:         hostConfig,
-		HostClient:         hostClient,
-		HostCRClient:       hostCRClient,
-		Log:                l,
-		ClientTimeout:      timeout,
-		ClientBurst:        clientBurst,
-		ClientQPS:          float32(clientQPS),
-		MultiNamespaceMode: multiNamespaceMode,
+		Context:           ctx,
+		VClusterName:      name,
+		VClusterNamespace: ns,
+		Suffix:            suffix,
+		HostConfig:        hostConfig,
+		HostClient:        hostClient,
+		HostCRClient:      hostCRClient,
+		Log:               l,
+		ClientTimeout:     timeout,
+		ClientBurst:       clientBurst,
+		ClientQPS:         float32(clientQPS),
 	}
 
 	// init virtual client
@@ -204,9 +197,10 @@ func (f *Framework) RefreshVirtualClient() error {
 			Debug:     true,
 		},
 		ConnectOptions: cli.ConnectOptions{
-			KubeConfig:      vKubeconfigFile.Name(),
-			LocalPort:       14550, // choosing a port that usually should be unused
-			BackgroundProxy: true,
+			KubeConfig:           vKubeconfigFile.Name(),
+			LocalPort:            14550, // choosing a port that usually should be unused
+			BackgroundProxy:      true,
+			BackgroundProxyImage: constants.DefaultBackgroundProxyImage,
 		},
 	}
 	err = connectCmd.Run(f.Context, []string{f.VClusterName})

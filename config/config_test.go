@@ -2,8 +2,6 @@ package config
 
 import (
 	_ "embed"
-	"fmt"
-	"os"
 	"strings"
 	"testing"
 
@@ -282,40 +280,6 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "Pro Sync Settings not used",
-			config: &Config{
-				Experimental: Experimental{
-					SyncSettings: ExperimentalSyncSettings{
-						DisableSync:              false,
-						RewriteKubernetesService: false,
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "Pro Sync Setting disableSync used",
-			config: &Config{
-				Experimental: Experimental{
-					SyncSettings: ExperimentalSyncSettings{
-						DisableSync: true,
-					},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "Pro Sync Setting rewriteKubernetesService used",
-			config: &Config{
-				Experimental: Experimental{
-					SyncSettings: ExperimentalSyncSettings{
-						RewriteKubernetesService: true,
-					},
-				},
-			},
-			expected: true,
-		},
-		{
 			name: "Isolated Control Plane not used",
 			config: &Config{
 				Experimental: Experimental{
@@ -405,25 +369,4 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 			assert.Equal(t, tt.config.IsProFeatureEnabled(), tt.expected)
 		})
 	}
-}
-
-func TestIfDefaultImagesVersionsAreInSync(t *testing.T) {
-	defaultConfig, err := NewDefaultConfig()
-	assert.NilError(t, err)
-	// this will fail when this test is moved or _init-containers.tpl is moved
-	initContainersTplFilePath := "../chart/templates/_init-containers.tpl"
-	tplBytes, err := os.ReadFile(initContainersTplFilePath)
-
-	assert.NilError(t, err)
-	assert.Equal(t, defaultConfig.ControlPlane.Distro.K8S.ControllerManager.Image.Tag, defaultConfig.ControlPlane.Distro.K8S.APIServer.Image.Tag)
-	assert.Equal(t, defaultConfig.ControlPlane.Distro.K8S.ControllerManager.Image.Tag, defaultConfig.ControlPlane.Distro.K8S.Scheduler.Image.Tag)
-	assert.Equal(t, defaultConfig.ControlPlane.Distro.K8S.APIServer.Image.Tag, defaultConfig.ControlPlane.Distro.K8S.Scheduler.Image.Tag)
-	expectedDefaultTag := fmt.Sprintf("{{- $defaultTag := %q -}}", defaultConfig.ControlPlane.Distro.K8S.ControllerManager.Image.Tag)
-	got := strings.Count(string(tplBytes), expectedDefaultTag)
-	assert.Equal(
-		t, got, 3,
-		fmt.Sprintf("please update $defaultTag in %s so it's equal to the "+
-			".Values.controlPlane.distro.k8s.controllerManager.image.tag",
-			initContainersTplFilePath),
-	)
 }

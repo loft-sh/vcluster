@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/scheduling"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/token"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -89,13 +90,21 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, errors.Wrap(err, "create pod translator")
 	}
 
+	schedulingConfig, err := scheduling.NewConfig(
+		ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled,
+		ctx.Config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
+	}
+
 	return &podSyncer{
 		GenericTranslator: genericTranslator,
 		Importer:          pro.NewImporter(podsMapper),
 
-		serviceName:     ctx.Config.WorkloadService,
-		enableScheduler: ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
-		fakeKubeletIPs:  ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
+		serviceName:      ctx.Config.WorkloadService,
+		schedulingConfig: schedulingConfig,
+		fakeKubeletIPs:   ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 
 		virtualClusterClient:  virtualClusterClient,
 		physicalClusterClient: physicalClusterClient,
@@ -112,9 +121,9 @@ type podSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
 
-	serviceName     string
-	enableScheduler bool
-	fakeKubeletIPs  bool
+	serviceName      string
+	schedulingConfig scheduling.Config
+	fakeKubeletIPs   bool
 
 	podTranslator         translatepods.Translator
 	virtualClusterClient  kubernetes.Interface
@@ -227,8 +236,8 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		}
 	}
 
-	if s.enableScheduler {
-		// if scheduler is enabled we only sync if the pod has a node name
+	if s.schedulingConfig.IsSchedulerFromVirtualCluster(pPod.Spec.SchedulerName) {
+		// if the pod is using a scheduler from the virtual cluster, we only sync if the pod has a node name
 		if pPod.Spec.NodeName == "" {
 			return ctrl.Result{}, nil
 		}
@@ -245,6 +254,11 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 	}
 
 	err = pro.ApplyPatchesHostObject(ctx, nil, pPod, event.Virtual, ctx.Config.Sync.ToHost.Pods.Patches, false)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = pro.ApplyIstioPatches(ctx, nil, pPod, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -362,6 +376,14 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
+
+	// apply istio patches. This is needed when the sync is triggered by the label update in the virtual namespace object.
+	// we need to then update / set this label on the pod object.
+	err = pro.ApplyIstioPatches(ctx, nil, event.Host, event.Virtual)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	defer func() {
 		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})

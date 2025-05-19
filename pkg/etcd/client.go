@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	vconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -50,13 +51,6 @@ func GetEtcdEndpoint(vConfig *config.VirtualClusterConfig) (string, *Certificate
 			ServerCert: "/data/pki/apiserver-etcd-client.crt",
 			ServerKey:  "/data/pki/apiserver-etcd-client.key",
 		}
-		if vConfig.Distro() == vconfig.K0SDistro {
-			etcdCertificates = &Certificates{
-				CaCert:     "/data/k0s/pki/etcd/ca.crt",
-				ServerCert: "/data/k0s/pki/apiserver-etcd-client.crt",
-				ServerKey:  "/data/k0s/pki/apiserver-etcd-client.key",
-			}
-		}
 
 		if vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			etcdEndpoints = "https://127.0.0.1:2379"
@@ -65,22 +59,17 @@ func GetEtcdEndpoint(vConfig *config.VirtualClusterConfig) (string, *Certificate
 		} else {
 			etcdEndpoints = "https://" + vConfig.Name + "-etcd-headless:2379"
 		}
+	} else if vConfig.ControlPlane.BackingStore.Etcd.External.Enabled {
+		etcdEndpoints = "https://" + strings.TrimPrefix(vConfig.ControlPlane.BackingStore.Etcd.External.Endpoint, "https://")
+		etcdCertificates = &Certificates{
+			CaCert:     vConfig.ControlPlane.BackingStore.Etcd.External.TLS.CaFile,
+			ServerCert: vConfig.ControlPlane.BackingStore.Etcd.External.TLS.CertFile,
+			ServerKey:  vConfig.ControlPlane.BackingStore.Etcd.External.TLS.KeyFile,
+		}
 	} else if vConfig.Distro() == vconfig.K8SDistro {
 		etcdEndpoints = constants.K8sKineEndpoint
 	} else if vConfig.Distro() == vconfig.K3SDistro {
 		etcdEndpoints = constants.K3sKineEndpoint
-	} else if vConfig.Distro() == vconfig.K0SDistro {
-		if (vConfig.ControlPlane.BackingStore.Database.Embedded.Enabled && vConfig.ControlPlane.BackingStore.Database.Embedded.DataSource != "") ||
-			vConfig.ControlPlane.BackingStore.Database.External.Enabled {
-			etcdEndpoints = constants.K0sKineEndpoint
-		} else {
-			etcdEndpoints = "https://127.0.0.1:2379"
-			etcdCertificates = &Certificates{
-				CaCert:     "/data/k0s/pki/etcd/ca.crt",
-				ServerCert: "/data/k0s/pki/apiserver-etcd-client.crt",
-				ServerKey:  "/data/k0s/pki/apiserver-etcd-client.key",
-			}
-		}
 	}
 
 	return etcdEndpoints, etcdCertificates

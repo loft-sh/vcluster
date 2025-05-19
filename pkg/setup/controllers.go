@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/coredns"
+	"github.com/loft-sh/vcluster/pkg/k8s"
 	"github.com/loft-sh/vcluster/pkg/log"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -42,35 +43,38 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 		return err
 	}
 
+	// migrate k3s to k8s if needed
+	err = k8s.MigrateK3sToK8sStateless(controllerContext.Context, controllerContext.Config.ControlPlaneClient, controllerContext.Config.ControlPlaneNamespace, controllerContext.VirtualManager.GetClient(), controllerContext.Config)
+	if err != nil {
+		return err
+	}
+
 	// register init manifests configmap watcher controller
 	err = deploy.RegisterInitManifestsController(controllerContext)
 	if err != nil {
 		return err
 	}
 
-	// start coredns & create syncers
-	if !controllerContext.Config.Experimental.SyncSettings.DisableSync {
-		// setup CoreDNS according to the manifest file
-		// skip this if both integrated and dedicated coredns
-		// deployments are explicitly disabled
-		go func() {
-			// apply coredns
-			ApplyCoreDNS(controllerContext)
+	// setup CoreDNS according to the manifest file
+	// skip this if both integrated and dedicated coredns
+	// deployments are explicitly disabled
+	go func() {
+		// apply coredns
+		ApplyCoreDNS(controllerContext)
 
-			// delete coredns deployment if integrated core dns
-			if controllerContext.Config.ControlPlane.CoreDNS.Embedded {
-				err := controllerContext.VirtualManager.GetClient().Delete(controllerContext.Context, &appsv1.Deployment{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "coredns",
-						Namespace: "kube-system",
-					},
-				})
-				if err != nil && !kerrors.IsNotFound(err) {
-					klog.Errorf("Error deleting coredns deployment: %v", err)
-				}
+		// delete coredns deployment if integrated core dns
+		if controllerContext.Config.ControlPlane.CoreDNS.Embedded {
+			err := controllerContext.VirtualManager.GetClient().Delete(controllerContext.Context, &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "coredns",
+					Namespace: "kube-system",
+				},
+			})
+			if err != nil && !kerrors.IsNotFound(err) {
+				klog.Errorf("Error deleting coredns deployment: %v", err)
 			}
-		}()
-	}
+		}
+	}()
 
 	// sync remote Endpoints
 	if controllerContext.Config.Experimental.IsolatedControlPlane.KubeConfig != "" {
@@ -92,45 +96,22 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 		}
 	}
 
-	// sync endpoints for noop syncer
-	if controllerContext.Config.Experimental.SyncSettings.DisableSync && controllerContext.Config.Experimental.SyncSettings.RewriteKubernetesService {
-		err := pro.SyncNoopSyncerEndpoints(
-			controllerContext,
-			types.NamespacedName{
-				Namespace: controllerContext.Config.ControlPlaneNamespace,
-				Name:      controllerContext.Config.ControlPlaneService,
-			},
-			controlPlaneClient,
-			types.NamespacedName{
-				Namespace: controllerContext.Config.ControlPlaneNamespace,
-				Name:      controllerContext.Config.ControlPlaneService + "-proxy",
-			},
-			controllerContext.Config.ControlPlaneService,
-		)
-		if err != nil {
-			return errors.Wrap(err, "sync proxied cluster endpoints")
-		}
+	// migrate mappers
+	err = MigrateMappers(controllerContext.ToRegisterContext(), syncers)
+	if err != nil {
+		return err
 	}
 
-	// if not noop syncer
-	if !controllerContext.Config.Experimental.SyncSettings.DisableSync {
-		// migrate mappers
-		err = MigrateMappers(controllerContext.ToRegisterContext(), syncers)
-		if err != nil {
-			return err
-		}
+	// make sure the kubernetes service is synced
+	err = SyncKubernetesService(controllerContext)
+	if err != nil {
+		return errors.Wrap(err, "sync kubernetes service")
+	}
 
-		// make sure the kubernetes service is synced
-		err = SyncKubernetesService(controllerContext)
-		if err != nil {
-			return errors.Wrap(err, "sync kubernetes service")
-		}
-
-		// register controllers
-		err = controllers.RegisterControllers(controllerContext, syncers)
-		if err != nil {
-			return err
-		}
+	// register controllers
+	err = controllers.RegisterControllers(controllerContext, syncers)
+	if err != nil {
+		return err
 	}
 
 	// register pro controllers
@@ -167,6 +148,21 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 
 	// start mappings store garbage collection
 	controllerContext.Mappings.Store().StartGarbageCollection(controllerContext.Context)
+
+	// When the user disables from host syncing for some kind, the previously synced resources will
+	// stay in the virtual cluster. Since the controllers for those resources do not exist anymore,
+	// here we delete those stale virtual resources that were synced from host but should not be
+	// synced anymore.
+	err = deletePreviouslySyncedResources(controllerContext)
+	if err != nil {
+		return fmt.Errorf("failed to delete previouly synced resources: %w", err)
+	}
+
+	// ensure kubeadm setup
+	err = pro.StartPrivateNodesMode(controllerContext)
+	if err != nil {
+		return fmt.Errorf("ensure kubeadm setup: %w", err)
+	}
 
 	// we are done here
 	klog.FromContext(controllerContext).Info("Successfully started vCluster controllers")
@@ -206,15 +202,21 @@ func ApplyCoreDNS(controllerContext *synccontext.ControllerContext) {
 }
 
 func SyncKubernetesService(ctx *synccontext.ControllerContext) error {
-	err := specialservices.SyncKubernetesService(
-		ctx.ToRegisterContext().ToSyncContext("sync-kubernetes-service"),
-		ctx.Config.WorkloadNamespace,
-		ctx.Config.WorkloadService,
-		types.NamespacedName{
-			Name:      specialservices.DefaultKubernetesSVCName,
-			Namespace: specialservices.DefaultKubernetesSVCNamespace,
-		},
-		services.TranslateServicePorts)
+	// don't sync kubernetes service in dedicated mode
+	var err error
+	if ctx.Config.PrivateNodes.Enabled {
+		err = pro.SyncKubernetesServiceDedicated(ctx.ToRegisterContext().ToSyncContext("sync-kubernetes-service"))
+	} else {
+		err = specialservices.SyncKubernetesService(
+			ctx.ToRegisterContext().ToSyncContext("sync-kubernetes-service"),
+			ctx.Config.WorkloadNamespace,
+			ctx.Config.WorkloadService,
+			types.NamespacedName{
+				Name:      specialservices.DefaultKubernetesSVCName,
+				Namespace: specialservices.DefaultKubernetesSVCNamespace,
+			},
+			services.TranslateServicePorts)
+	}
 	if err != nil {
 		if kerrors.IsConflict(err) {
 			klog.Errorf("Error syncing kubernetes service: %v", err)
@@ -245,8 +247,20 @@ func CreateVClusterKubeConfigForExport(ctx context.Context, virtualConfig *rest.
 				Server:                   options.ExportKubeConfig.Server,
 				Extensions:               make(map[string]runtime.Object),
 				CertificateAuthorityData: cluster.CertificateAuthorityData,
-				InsecureSkipTLSVerify:    options.ExportKubeConfig.Insecure,
 			}
+		}
+	}
+
+	// is insecure?
+	if options.ExportKubeConfig.Insecure {
+		// set insecure skip tls verify and remove certificate authority data
+		for key, cluster := range syncerConfigToExport.Clusters {
+			if cluster == nil {
+				continue
+			}
+
+			syncerConfigToExport.Clusters[key].InsecureSkipTLSVerify = true
+			syncerConfigToExport.Clusters[key].CertificateAuthorityData = nil
 		}
 	}
 

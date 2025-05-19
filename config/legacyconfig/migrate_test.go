@@ -45,17 +45,6 @@ serviceCIDR: 10.96.0.0/16
       podManagementPolicy: OrderedReady`,
 		},
 		{
-			Name:   "Simple k0s",
-			Distro: "k0s",
-			Expected: `controlPlane:
-  distro:
-    k0s:
-      enabled: true
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady`,
-		},
-		{
 			Name:   "Plugin k3s",
 			Distro: "k3s",
 			In: `plugin:
@@ -142,8 +131,10 @@ experimental:
     - apiVersion: v1
       kind: Secret
     version: v1beta1
-  multiNamespaceMode:
-    enabled: true`,
+sync:
+  toHost:
+    namespaces:
+      enabled: true`,
 		},
 		{
 			Name:   "persistence false",
@@ -206,96 +197,6 @@ coredns:
   statefulSet:
     highAvailability:
       replicas: 3
-    scheduling:
-      podManagementPolicy: OrderedReady`,
-		},
-		{
-			Name:   "fallback host dns",
-			Distro: "k0s",
-			In: `fallbackHostDns: true
-pro: true`,
-			Expected: `controlPlane:
-  distro:
-    k0s:
-      enabled: true
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady
-networking:
-  advanced:
-    fallbackHostCluster: true
-pro: true`,
-		},
-		{
-			Name:   "isolated mode",
-			Distro: "k0s",
-			In: `isolation:
-  enabled: true
-  podSecurityStandard: baseline
-  resourceQuota:
-    enabled: true
-  limitRange:
-    enabled: true
-  networkPolicy:
-    enabled: false`,
-			Expected: `controlPlane:
-  distro:
-    k0s:
-      enabled: true
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady
-policies:
-  limitRange:
-    enabled: true
-  podSecurityStandard: baseline
-  resourceQuota:
-    enabled: true`,
-		},
-		{
-			Name:   "convert flags",
-			Distro: "k0s",
-			In: `syncer:
-  extraArgs:
-  - --tls-san=my-vcluster.example.com
-  - --service-account-token-secrets=true
-  - --mount-physical-host-paths=true
-  - --sync-all-nodes`,
-			Expected: `controlPlane:
-  distro:
-    k0s:
-      enabled: true
-  hostPathMapper:
-    enabled: true
-  proxy:
-    extraSANs:
-    - my-vcluster.example.com
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady
-sync:
-  fromHost:
-    nodes:
-      selector:
-        all: true
-  toHost:
-    pods:
-      useSecretsForSATokens: true`,
-		},
-		{
-			Name:   "convert deprecated host-path-mapper flag",
-			Distro: "k0s",
-			In: `syncer:
-  extraArgs:
-  - --rewrite-host-paths=true
-`,
-			Expected: `controlPlane:
-  distro:
-    k0s:
-      enabled: true
-  hostPathMapper:
-    enabled: true
-  statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady`,
 		},

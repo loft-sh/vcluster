@@ -109,15 +109,6 @@ func RunSnapshotPod(
 		return SnapshotExec(ctx, kubeConfig, command, vCluster, podOptions, snapshotOptions)
 	}
 
-	// if k0s we error out
-	for _, pod := range vCluster.Pods {
-		for _, container := range pod.Spec.InitContainers {
-			if strings.Contains(container.Image, "k0s") {
-				return fmt.Errorf("snapshot via separate pod is not supported for k0s distro, please use --pod-exec instead")
-			}
-		}
-	}
-
 	// create snapshot pod
 	snapshotPod, err := CreateSnapshotPod(
 		ctx,
