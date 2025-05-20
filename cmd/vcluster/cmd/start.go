@@ -103,7 +103,7 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		}
 	}
 
-	err = setup.Initialize(ctx, vConfig)
+	initialization, err := setup.Initialize(ctx, vConfig)
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
@@ -115,6 +115,12 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	controllerCtx, err := setup.NewControllerContext(ctx, vConfig)
 	if err != nil {
 		return fmt.Errorf("create controller context: %w", err)
+	}
+
+	if vConfig.Config.ControlPlane.BackingStore.Etcd.Embedded.Enabled && initialization != nil {
+		if err := pro.StartAutoHealingController(controllerCtx, initialization.CertificatesDir); err != nil {
+			return fmt.Errorf("start etcd self healing: %w", err)
+		}
 	}
 
 	// start license loader
