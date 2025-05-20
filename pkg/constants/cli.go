@@ -1,3 +1,3 @@
 package constants
 
-const DefaultBackgroundProxyImage = "bitnami/kubectl:1.29"
+const DefaultBackgroundProxyImage = "bitnami/kubectl:1.33"
