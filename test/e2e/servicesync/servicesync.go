@@ -103,6 +103,7 @@ func testMapping(ctx context.Context, fromClient kubernetes.Interface, fromNames
 	if checkEndpoints {
 		// wait for vcluster service
 		var (
+			//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 			toEndpoints *corev1.Endpoints
 			toService   *corev1.Service
 		)
@@ -188,8 +189,8 @@ func testMapping(ctx context.Context, fromClient kubernetes.Interface, fromNames
 
 func checkEndpointsSync(ctx context.Context, fromClient kubernetes.Interface, fromNamespace, fromName string, toClient kubernetes.Interface, toNamespace, toName string) {
 	var (
-		fromEndpoints *corev1.Endpoints
-		toEndpoints   *corev1.Endpoints
+		fromEndpoints *corev1.Endpoints //nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+		toEndpoints   *corev1.Endpoints //nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 		deployment    *appsv1.Deployment
 		err           error
 
