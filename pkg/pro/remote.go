@@ -16,8 +16,8 @@ import (
 
 var GetRemoteClient = func(vConfig *config.VirtualClusterConfig) (*rest.Config, string, string, *rest.Config, string, string, error) {
 	inClusterConfig := ctrl.GetConfigOrDie()
-	inClusterConfig.QPS = 40
-	inClusterConfig.Burst = 80
+	inClusterConfig.QPS = 1000
+	inClusterConfig.Burst = 2000
 	inClusterConfig.Timeout = 0
 
 	// get current namespace
