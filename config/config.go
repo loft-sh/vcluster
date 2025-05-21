@@ -369,6 +369,10 @@ func ValidateChanges(oldCfg, newCfg *Config) error {
 	oldDistro, newDistro := oldCfg.Distro(), newCfg.Distro()
 	oldBackingStore, newBackingStore := oldCfg.BackingStoreType(), newCfg.BackingStoreType()
 
+	if err := ValidateNamespaceSyncChanges(oldCfg, newCfg); err != nil {
+		return err
+	}
+
 	return ValidateStoreAndDistroChanges(newBackingStore, oldBackingStore, newDistro, oldDistro)
 }
 
@@ -385,6 +389,29 @@ func ValidateStoreAndDistroChanges(currentStoreType, previousStoreType StoreType
 		if previousStoreType != StoreTypeExternalEtcd && previousStoreType != StoreTypeDeployedEtcd && previousStoreType != StoreTypeEmbeddedDatabase {
 			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
 		}
+	}
+
+	return nil
+}
+
+func ValidateNamespaceSyncChanges(oldCfg, newCfg *Config) error {
+	oldNamespaceConf := oldCfg.Sync.ToHost.Namespaces
+	newNamespaceConf := newCfg.Sync.ToHost.Namespaces
+
+	if oldNamespaceConf.Enabled != newNamespaceConf.Enabled {
+		return fmt.Errorf("sync.toHost.namespaces.enabled is not allowed to be changed")
+	}
+
+	if oldNamespaceConf.MappingsOnly != newNamespaceConf.MappingsOnly {
+		return fmt.Errorf("sync.toHost.namespaces.mappingsOnly is not allowed to be changed")
+	}
+
+	if !reflect.DeepEqual(oldNamespaceConf.Mappings.ByName, newNamespaceConf.Mappings.ByName) {
+		return fmt.Errorf("sync.toHost.namespaces.mappings.byName is not allowed to be changed")
+	}
+
+	if !reflect.DeepEqual(oldNamespaceConf.Patches, newNamespaceConf.Patches) {
+		return fmt.Errorf("sync.toHost.namespaces.patches is not allowed to be changed")
 	}
 
 	return nil
