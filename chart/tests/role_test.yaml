@@ -405,3 +405,21 @@ tests:
             resources: ["referencegrants"]
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
+
+  - it: private nodes
+    set:
+      privateNodes:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["coordination.k8s.io"]
+            resources: ["leases"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]

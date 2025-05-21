@@ -42,7 +42,7 @@ rules:
     resources: ["endpoints"]
     verbs: ["create", "delete", "patch", "update"]
   {{- end }}
-  {{- if gt (int .Values.controlPlane.statefulSet.highAvailability.replicas) 1 }}
+  {{- if or .Values.privateNodes.enabled (gt (int .Values.controlPlane.statefulSet.highAvailability.replicas) 1) }}
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
