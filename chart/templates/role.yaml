@@ -126,6 +126,16 @@ rules:
     resources: [ "referencegrants" ]
     verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
   {{- end }}
+  {{- if and (not .Values.controlPlane.backingStore.etcd.deploy.enabled) .Values.controlPlane.backingStore.etcd.embedded.enabled .Values.controlPlane.backingStore.etcd.embedded.migrateFromDeployedEtcd }}
+  - apiGroups: [ "apps" ]
+    resources: [ "statefulsets" ]
+    resourceNames: [ "{{ .Release.Name }}-etcd" ]
+    verbs: [ "delete" ]
+  - apiGroups: [ "" ]
+    resources: [ "services" ]
+    resourceNames: [ "{{ .Release.Name }}-etcd", "{{ .Release.Name }}-etcd-headless" ]
+    verbs: [ "delete" ]
+  {{- end }}
   {{- include "vcluster.customResources.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.generic.roleExtraRules" . | indent 2 }}
