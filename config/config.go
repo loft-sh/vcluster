@@ -335,29 +335,49 @@ func (c *Config) IsConfiguredForSleepMode() bool {
 }
 
 // ValidateChanges checks for disallowed config changes.
-// Currently only certain backingstore changes are allowed but no distro change.
 func ValidateChanges(oldCfg, newCfg *Config) error {
-	oldDistro, newDistro := oldCfg.Distro(), newCfg.Distro()
-	oldBackingStore, newBackingStore := oldCfg.BackingStoreType(), newCfg.BackingStoreType()
-
-	return ValidateStoreAndDistroChanges(newBackingStore, oldBackingStore, newDistro, oldDistro)
+	if err := ValidateDistroChanges(oldCfg.Distro(), newCfg.Distro()); err != nil {
+		return err
+	}
+	if err := ValidateStoreChanges(oldCfg.BackingStoreType(), newCfg.BackingStoreType()); err != nil {
+		return err
+	}
+	return nil
 }
 
-// ValidateStoreAndDistroChanges checks whether migrating from one store to the other is allowed.
-func ValidateStoreAndDistroChanges(currentStoreType, previousStoreType StoreType, currentDistro, previousDistro string) error {
+// ValidateStoreChanges checks whether migrating from one store to the other is allowed.
+func ValidateStoreChanges(currentStoreType, previousStoreType StoreType) error {
+	if currentStoreType == previousStoreType {
+		return nil
+	}
+
+	switch currentStoreType {
+	case StoreTypeDeployedEtcd:
+		fallthrough
+	case StoreTypeEmbeddedEtcd:
+		// switching from external ETCD, deploy ETCD, or embedded (SQLite) to deployed or embedded ETCD is valid
+		if previousStoreType == StoreTypeExternalEtcd || previousStoreType == StoreTypeDeployedEtcd || previousStoreType == StoreTypeEmbeddedDatabase {
+			return nil
+		}
+	case StoreTypeExternalDatabase:
+		// switching from embedded to external ETCD is allowed because of a bug that labeled store types as embedded but used
+		// external info if provided when the external "enabled" flag was not used. Now, using the "enabled" flag is required or
+		// SQLite is used. The exception to allow this switch is necessary so they can toggle the "enabled" flag if the cluster
+		// was previously using external. Otherwise, after upgrade the vCluster will start using a fresh SQLite database.
+		if previousStoreType == StoreTypeEmbeddedDatabase {
+			return nil
+		}
+	default:
+	}
+	return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s,"+
+		" please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
+}
+
+// ValidateDistroChanges checks whether migrating from one distro to the other is allowed.
+func ValidateDistroChanges(currentDistro, previousDistro string) error {
 	if currentDistro != previousDistro && !(previousDistro == "eks" && currentDistro == K8SDistro) && !(previousDistro == K3SDistro && currentDistro == K8SDistro) {
 		return fmt.Errorf("seems like you were using %s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", previousDistro, currentDistro)
 	}
-
-	if currentStoreType != previousStoreType {
-		if currentStoreType != StoreTypeDeployedEtcd && currentStoreType != StoreTypeEmbeddedEtcd {
-			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
-		}
-		if previousStoreType != StoreTypeExternalEtcd && previousStoreType != StoreTypeDeployedEtcd && previousStoreType != StoreTypeEmbeddedDatabase {
-			return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s, please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
-		}
-	}
-
 	return nil
 }
 
