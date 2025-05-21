@@ -642,6 +642,21 @@ func validateToHostNamespaceSyncMappings(s config.SyncToHostNamespaces, vcluster
 		return fmt.Errorf("%s are empty", configPathIdentifier)
 	}
 
+	virtualNamespaceNames := make([]string, 0, len(s.Mappings.ByName))
+	hostNamespaceNames := make([]string, 0, len(s.Mappings.ByName))
+
+	for vNS, hNS := range s.Mappings.ByName {
+		virtualNamespaceNames = append(virtualNamespaceNames, vNS)
+		hostNamespaceNames = append(hostNamespaceNames, hNS)
+	}
+
+	if err := validateNoDuplicatedMappingKeys(virtualNamespaceNames, "virtual namespace", configPathIdentifier); err != nil {
+		return err
+	}
+	if err := validateNoDuplicatedMappingKeys(hostNamespaceNames, "host namespace", configPathIdentifier); err != nil {
+		return err
+	}
+
 	for vNS, hNS := range s.Mappings.ByName {
 		// check both if they are patterns
 		vIsPattern := IsPattern(vNS)
@@ -778,6 +793,17 @@ func validateNamePlaceholderUsage(namePart, vclusterName, partTypeIdentifier, co
 		return fmt.Errorf("%s: %s '%s' contains an unsupported placeholder; only a single '%s' is allowed", configPathIdentifier, partTypeIdentifier, namePart, NamePlaceholder)
 	}
 
+	return nil
+}
+
+func validateNoDuplicatedMappingKeys(items []string, itemType string, configPathIdentifier string) error {
+	seen := make(map[string]bool)
+	for _, item := range items {
+		if seen[item] {
+			return fmt.Errorf("%s: duplicate %s '%s' found in mappings", configPathIdentifier, itemType, item)
+		}
+		seen[item] = true
+	}
 	return nil
 }
 

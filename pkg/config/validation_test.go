@@ -1410,6 +1410,56 @@ func TestValidateToHostNamespaceSyncMappings(t *testing.T) {
 			vclusterName: "test-vc",
 			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: invalid host namespace name 'hns/bar': a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"),
 		},
+		{
+			name: "Invalid: Duplicate host namespace name (exact)",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled: true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{
+					"vns1": "common-hns",
+					"vns2": "common-hns",
+				}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: duplicate host namespace 'common-hns' found in mappings"),
+		},
+		{
+			name: "Invalid: Duplicate host namespace name (pattern)",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled: true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{
+					"vns-a-*": "common-hns-*",
+					"vns-b-*": "common-hns-*",
+				}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: duplicate host namespace 'common-hns-*' found in mappings"),
+		},
+		{
+			name: "Invalid: Duplicate host namespace name (with ${name} placeholder)",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled: true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{
+					"vns-x": "hns-${name}-duplicate",
+					"vns-y": "hns-${name}-duplicate",
+				}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     expectErr("config.sync.toHost.namespaces.mappings.byName: duplicate host namespace 'hns-${name}-duplicate' found in mappings"),
+		},
+		{
+			name: "Valid: No duplicate host namespaces (multiple different mappings)",
+			syncConfig: config.SyncToHostNamespaces{
+				Enabled: true,
+				Mappings: config.FromHostMappings{ByName: map[string]string{
+					"vns1":           "hns1",
+					"vns2":           "hns2",
+					"vns-pat-*":      "hns-pat-*",
+					"vns-ph-${name}": "hns-ph-${name}",
+				}},
+			},
+			vclusterName: "test-vc",
+			checkErr:     noErrExpected,
+		},
 	}
 
 	for _, tc := range testCases {
