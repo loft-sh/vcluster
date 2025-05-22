@@ -3,14 +3,19 @@ package ingresses
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	networkingv1 "k8s.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
@@ -35,17 +40,12 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, err
 	}
 
-	physicalClusterClient, err := kubernetes.NewForConfig(ctx.PhysicalManager.GetConfig())
-	if err != nil {
-		return nil, err
-	}
-
 	return &ingressSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "ingress", &networkingv1.Ingress{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 
 		labelSelector:         ctx.Config.Sync.FromHost.IngressClasses.Selector,
-		physicalClusterClient: physicalClusterClient,
+		physicalClusterClient: ctx.PhysicalManager.GetClient(),
 
 		// exclude "field.cattle.io/publicEndpoints" annotation used by Rancher, similar to service syncer
 		excludedAnnotations: []string{services.RancherPublicEndpointsAnnotation},
@@ -57,7 +57,7 @@ type ingressSyncer struct {
 	syncertypes.Importer
 
 	labelSelector         config.StandardLabelSelector
-	physicalClusterClient kubernetes.Interface
+	physicalClusterClient client.Client
 	excludedAnnotations   []string
 }
 
@@ -141,15 +141,74 @@ func (s *ingressSyncer) ExcludeVirtual(obj client.Object) bool {
 		return false
 	}
 
-	ingressClass, err := s.physicalClusterClient.NetworkingV1().IngressClasses().
-		Get(context.Background(), *ingress.Spec.IngressClassName, metav1.GetOptions{})
+	ingressClass := &networkingv1.IngressClass{}
+	err := s.physicalClusterClient.Get(context.Background(), types.NamespacedName{Name: *ingress.Spec.IngressClassName}, ingressClass)
 	if err != nil {
+		klog.FromContext(context.Background()).Info(
+			fmt.Sprintf("Warning: Ingress %q will not be synced to host cluster, because IngressClass %q couldn't be found: %v", ingress.Name, *ingress.Spec.IngressClassName, err))
 		return true
 	}
 
-	return !selector.StandardLabelSelectorMatches(ingressClass, s.labelSelector)
+	exclude := !selector.StandardLabelSelectorMatches(ingressClass, s.labelSelector)
+	if exclude {
+		klog.FromContext(context.Background()).Info(
+			fmt.Sprintf("Warning: Ingress %q will not be synced to host cluster, because IngressClass %q does NOT match the label selector in the 'sync.fromHost.ingressClasses' configuration", ingress.Name, *ingress.Spec.IngressClassName))
+	}
+	return exclude
 }
 
 func (s *ingressSyncer) ExcludePhysical(_ client.Object) bool {
 	return false
+}
+
+func (s *ingressSyncer) ModifyController(registerCxt *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+	loggerDebug := func(verb, objectName string) {
+		klog.FromContext(registerCxt.Context).V(1).Info(
+			fmt.Sprintf("%s triggers requeue of ingresses related with ingressClass %q", verb, objectName))
+	}
+	eventHandler := handler.Funcs{
+		CreateFunc: func(_ context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("creation", e.Object.GetName())
+			requeueRelatedIngresses(registerCxt, nil, e.Object, q)
+		},
+		UpdateFunc: func(_ context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("update", e.ObjectNew.GetName())
+			requeueRelatedIngresses(registerCxt, e.ObjectOld, e.ObjectNew, q)
+		},
+		DeleteFunc: func(_ context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("delete", e.Object.GetName())
+			requeueRelatedIngresses(registerCxt, e.Object, nil, q)
+		},
+	}
+
+	return builder.Watches(&networkingv1.IngressClass{}, eventHandler), nil
+}
+
+func requeueRelatedIngresses(registerCxt *synccontext.RegisterContext, oldObj, newObj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+	if newObj != nil && oldObj != nil && reflect.DeepEqual(newObj.GetLabels(), oldObj.GetLabels()) { // Update with no change in labels
+		return
+	}
+	var ingressClassName string
+	if newObj != nil { // Create || Update
+		ingressClassName = newObj.GetName()
+	}
+	if oldObj != nil && newObj == nil { // Delete
+		ingressClassName = oldObj.GetName()
+	}
+
+	ingresses := &networkingv1.IngressList{}
+	if err := registerCxt.VirtualManager.GetClient().List(registerCxt.Context, ingresses); err != nil {
+		return
+	}
+
+	for _, ingress := range ingresses.Items {
+		if ingress.Spec.IngressClassName == nil || *ingress.Spec.IngressClassName != ingressClassName {
+			continue
+		}
+		klog.FromContext(registerCxt.Context).V(1).Info("ingressClass watcher requeue Ingress", "ingressClassName", ingressClassName, "ingress", ingress.Name, "namespace", ingress.Namespace)
+		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      ingress.GetName(),
+			Namespace: ingress.GetNamespace(),
+		}})
+	}
 }

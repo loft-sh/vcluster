@@ -3,9 +3,13 @@ package persistentvolumes
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
+	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -43,16 +47,11 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, err
 	}
 
-	physicalClusterClient, err := kubernetes.NewForConfig(ctx.PhysicalManager.GetConfig())
-	if err != nil {
-		return nil, err
-	}
-
 	return &persistentVolumeSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "persistentvolume", &corev1.PersistentVolume{}, mapper),
 
 		labelSelector:         ctx.Config.Sync.FromHost.StorageClasses.Selector,
-		physicalClusterClient: physicalClusterClient,
+		physicalClusterClient: ctx.PhysicalManager.GetClient(),
 
 		excludedAnnotations: []string{
 			constants.HostClusterPersistentVolumeAnnotation,
@@ -85,7 +84,7 @@ type persistentVolumeSyncer struct {
 	syncertypes.GenericTranslator
 
 	labelSelector         config.StandardLabelSelector
-	physicalClusterClient kubernetes.Interface
+	physicalClusterClient client.Client
 
 	virtualClient       client.Client
 	excludedAnnotations []string
@@ -93,8 +92,58 @@ type persistentVolumeSyncer struct {
 
 var _ syncertypes.ControllerModifier = &persistentVolumeSyncer{}
 
-func (s *persistentVolumeSyncer) ModifyController(_ *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return builder.Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(mapPVCs)), nil
+func (s *persistentVolumeSyncer) ModifyController(registerCxt *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+	builder.Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(mapPVCs))
+
+	loggerDebug := func(verb, objectName string) {
+		klog.FromContext(registerCxt.Context).V(1).Info(
+			fmt.Sprintf("%s triggers requeue of PVs related with storageClass %q", verb, objectName))
+	}
+	eventHandler := handler.Funcs{
+		CreateFunc: func(_ context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("creation", e.Object.GetName())
+			requeueRelatedPVs(registerCxt, nil, e.Object, q)
+		},
+		UpdateFunc: func(_ context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("update", e.ObjectNew.GetName())
+			requeueRelatedPVs(registerCxt, e.ObjectOld, e.ObjectNew, q)
+		},
+		DeleteFunc: func(_ context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("delete", e.Object.GetName())
+			requeueRelatedPVs(registerCxt, e.Object, nil, q)
+		},
+	}
+
+	return builder.Watches(&storagev1.StorageClass{}, eventHandler), nil
+}
+
+func requeueRelatedPVs(registerCxt *synccontext.RegisterContext, oldObj, newObj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+	if newObj != nil && oldObj != nil && reflect.DeepEqual(newObj.GetLabels(), oldObj.GetLabels()) { // Update with no change in labels
+		return
+	}
+	var storageClassName string
+	if newObj != nil { // Create || Update
+		storageClassName = newObj.GetName()
+	}
+	if oldObj != nil && newObj == nil { // Delete
+		storageClassName = oldObj.GetName()
+	}
+
+	pvs := &corev1.PersistentVolumeList{}
+	if err := registerCxt.VirtualManager.GetClient().List(registerCxt.Context, pvs); err != nil {
+		return
+	}
+
+	for _, pv := range pvs.Items {
+		if pv.Spec.StorageClassName != storageClassName {
+			continue
+		}
+		klog.FromContext(registerCxt.Context).V(1).Info("storageClass watcher requeue PV", "storageClassName", storageClassName, "pv", pv.Name, "namespace", pv.Namespace)
+		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      pv.GetName(),
+			Namespace: pv.GetNamespace(),
+		}})
+	}
 }
 
 var _ syncertypes.OptionsProvider = &persistentVolumeSyncer{}
@@ -342,13 +391,20 @@ func (s *persistentVolumeSyncer) ExcludeVirtual(obj client.Object) bool {
 		return false
 	}
 
-	storageClass, err := s.physicalClusterClient.StorageV1().StorageClasses().
-		Get(context.Background(), pv.Spec.StorageClassName, metav1.GetOptions{})
-	if err != nil {
+	storageClass := &storagev1.StorageClass{}
+	if err := s.physicalClusterClient.Get(context.Background(), types.NamespacedName{Name: pv.Spec.StorageClassName}, storageClass); err != nil {
+		klog.FromContext(context.Background()).Info(
+			fmt.Sprintf("Warning: PV %q will not be synced to host cluster, because StorageClass %q couldn't be found: %v", pv.Name, pv.Spec.StorageClassName, err))
 		return true
 	}
 
-	return !selector.StandardLabelSelectorMatches(storageClass, s.labelSelector)
+	exclude := !selector.StandardLabelSelectorMatches(storageClass, s.labelSelector)
+	if exclude {
+		klog.FromContext(context.Background()).Info(
+			fmt.Sprintf("Warning: PV %q will not be synced to host cluster, because StorageClass %q does NOT match the label selector in the 'sync.fromHost.storageClasses' configuration", pv.Name, pv.Spec.StorageClassName))
+	}
+
+	return exclude
 }
 
 func (s *persistentVolumeSyncer) ExcludePhysical(_ client.Object) bool {

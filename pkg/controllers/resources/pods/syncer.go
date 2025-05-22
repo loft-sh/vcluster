@@ -7,6 +7,12 @@ import (
 	"strings"
 	"time"
 
+	nodev1 "k8s.io/api/node/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
+
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/scheduling"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/token"
@@ -19,12 +25,7 @@ import (
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/selector"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog/v2"
 
-	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -40,6 +41,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
+	"github.com/loft-sh/vcluster/pkg/util/toleration"
 )
 
 var (
@@ -154,7 +158,8 @@ func (s *podSyncer) Options() *syncertypes.Options {
 var _ syncertypes.ControllerModifier = &podSyncer{}
 
 func (s *podSyncer) ModifyController(registerContext *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	eventHandler := handler.Funcs{
+	// watch for namespace changes
+	namespaceEventHandler := handler.Funcs{
 		UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 			// no need to reconcile pods if namespace labels didn't change
 			if reflect.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels()) {
@@ -176,8 +181,46 @@ func (s *podSyncer) ModifyController(registerContext *synccontext.RegisterContex
 			}
 		},
 	}
+	builder.Watches(&corev1.Namespace{}, namespaceEventHandler)
 
-	return builder.Watches(&corev1.Namespace{}, eventHandler), nil
+	// watch for runtime class changes
+	loggerDebug := func(verb, class, objectName string) {
+		klog.FromContext(registerContext.Context).V(1).Info(
+			fmt.Sprintf("%s triggers requeue of pods related with %s: %q", verb, class, objectName))
+	}
+	runtimeClassEventHandler := handler.Funcs{
+		CreateFunc: func(_ context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("creation", "runtimeClass", e.Object.GetName())
+			requeueClassRelatedPods(registerContext, nil, e.Object, q, skipByRuntimeClassName)
+		},
+		UpdateFunc: func(_ context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("update", "runtimeClass", e.ObjectNew.GetName())
+			requeueClassRelatedPods(registerContext, e.ObjectOld, e.ObjectNew, q, skipByRuntimeClassName)
+		},
+		DeleteFunc: func(_ context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("delete", "runtimeClass", e.Object.GetName())
+			requeueClassRelatedPods(registerContext, e.Object, nil, q, skipByRuntimeClassName)
+		},
+	}
+	builder.Watches(&nodev1.RuntimeClass{}, runtimeClassEventHandler)
+
+	// watch for priority class changes
+	priorityClassEventHandler := handler.Funcs{
+		CreateFunc: func(_ context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("creation", "priorityClass", e.Object.GetName())
+			requeueClassRelatedPods(registerContext, nil, e.Object, q, skipByPriorityClassName)
+		},
+		UpdateFunc: func(_ context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("update", "priorityClass", e.ObjectNew.GetName())
+			requeueClassRelatedPods(registerContext, e.ObjectOld, e.ObjectNew, q, skipByPriorityClassName)
+		},
+		DeleteFunc: func(_ context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("delete", "priorityClass", e.Object.GetName())
+			requeueClassRelatedPods(registerContext, e.Object, nil, q, skipByPriorityClassName)
+		},
+	}
+
+	return builder.Watches(&schedulingv1.PriorityClass{}, priorityClassEventHandler), nil
 }
 
 var _ syncertypes.Syncer = &podSyncer{}
@@ -571,10 +614,17 @@ func (s *podSyncer) excludeVirtualPodOnRuntime(pod *corev1.Pod) bool {
 	runtimeClass, err := s.physicalClusterClient.NodeV1().RuntimeClasses().
 		Get(context.Background(), *pod.Spec.RuntimeClassName, metav1.GetOptions{})
 	if err != nil {
+		klog.FromContext(context.Background()).Info(
+			fmt.Sprintf("Warning: Pod %q will not be synced to host cluster, because RuntimeClass %q couldn't be found: %v", pod.Name, *pod.Spec.RuntimeClassName, err))
 		return true
 	}
 
-	return !selector.StandardLabelSelectorMatches(runtimeClass, s.runtimeClassLabelSelector)
+	exclude := !selector.StandardLabelSelectorMatches(runtimeClass, s.runtimeClassLabelSelector)
+	if exclude {
+		klog.FromContext(context.Background()).Info(
+			fmt.Sprintf("Warning: Pod %q will not be synced to host cluster, because RuntimeClass %q does NOT match the label selector in the 'sync.fromHost.runtimeClasses' configuration", pod.Name, *pod.Spec.RuntimeClassName))
+	}
+	return exclude
 }
 
 func (s *podSyncer) excludeVirtualPodOnPriority(pod *corev1.Pod) bool {
@@ -585,12 +635,63 @@ func (s *podSyncer) excludeVirtualPodOnPriority(pod *corev1.Pod) bool {
 	priorityClass, err := s.physicalClusterClient.SchedulingV1().PriorityClasses().
 		Get(context.Background(), pod.Spec.PriorityClassName, metav1.GetOptions{})
 	if err != nil {
+		klog.FromContext(context.Background()).Info(
+			fmt.Sprintf("Warning: Pod %q will not be synced to host cluster, because PriorityClass %q couldn't be found: %v", pod.Name, pod.Spec.PriorityClassName, err))
 		return true
 	}
 
-	return !selector.StandardLabelSelectorMatches(priorityClass, s.priorityClassLabelSelector)
+	exclude := !selector.StandardLabelSelectorMatches(priorityClass, s.priorityClassLabelSelector)
+	if exclude {
+		klog.FromContext(context.Background()).Info(
+			fmt.Sprintf("Warning: Pod %q will not be synced to host cluster, because PriorityClass %q does NOT match the label selector in the 'sync.fromHost.priorityClasses' configuration", pod.Name, pod.Spec.PriorityClassName))
+	}
+	return exclude
 }
 
 func (s *podSyncer) ExcludePhysical(_ client.Object) bool {
 	return false
+}
+
+type skipByClassNameFunc func(pod *corev1.Pod, className string) bool
+
+func requeueClassRelatedPods(
+	registerCxt *synccontext.RegisterContext,
+	oldObj, newObj client.Object,
+	q workqueue.TypedRateLimitingInterface[ctrl.Request],
+	skipByClassNameFn skipByClassNameFunc) {
+	if newObj != nil && oldObj != nil && reflect.DeepEqual(newObj.GetLabels(), oldObj.GetLabels()) { // Update with no change in labels
+		return
+	}
+	var className string
+	if newObj != nil { // Create || Update
+		className = newObj.GetName()
+	}
+	if oldObj != nil && newObj == nil { // Delete
+		className = oldObj.GetName()
+	}
+
+	pods := &corev1.PodList{}
+	err := registerCxt.VirtualManager.GetClient().List(registerCxt.Context, pods, &client.ListOptions{Namespace: ""})
+	if err != nil {
+		return
+	}
+
+	for _, pod := range pods.Items {
+		if skipByClassNameFn(&pod, className) {
+			continue
+		}
+		klog.FromContext(registerCxt.Context).V(1).Info("priority/runtime class watcher requeue", "className", className, "pod", pod.Name, "namespace", pod.Namespace)
+		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      pod.GetName(),
+			Namespace: pod.GetNamespace(),
+		}})
+	}
+}
+
+func skipByPriorityClassName(pod *corev1.Pod, priorityClassName string) bool {
+	return pod.Spec.PriorityClassName != priorityClassName
+}
+
+func skipByRuntimeClassName(pod *corev1.Pod, runtimeClassName string) bool {
+	return pod.Spec.RuntimeClassName == nil || *pod.Spec.RuntimeClassName != runtimeClassName
 }
