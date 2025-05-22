@@ -392,7 +392,10 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 		}
 	}
 
-	// start port forwarding
+	// start port forwarding if:
+	// * we want to have a service account token
+	// * we still don't have a server (means background proxy has failed or is disabled)
+	// * we have a command to execute
 	if cmd.ServiceAccount != "" || cmd.Server == "" || len(command) > 0 {
 		cmd.portForwarding = true
 		cmd.interruptChan = make(chan struct{})
@@ -413,7 +416,15 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 
 	// we want to use a service account token in the kube config
 	if cmd.ServiceAccount != "" {
-		vKubeClient, serviceAccount, serviceAccountNamespace, err := getServiceAccountClientAndName(*kubeConfig, cmd.ConnectOptions)
+		// change kubeconfig to use the port forwarding address
+		saKubeConfig := *kubeConfig.DeepCopy()
+		for k := range saKubeConfig.Clusters {
+			saKubeConfig.Clusters[k].Server = "https://localhost:" + strconv.Itoa(cmd.LocalPort)
+			saKubeConfig.Clusters[k].InsecureSkipTLSVerify = true
+			saKubeConfig.Clusters[k].CertificateAuthorityData = nil
+		}
+
+		vKubeClient, serviceAccount, serviceAccountNamespace, err := getServiceAccountClientAndName(saKubeConfig, cmd.ConnectOptions)
 		if err != nil {
 			return nil, err
 		}
