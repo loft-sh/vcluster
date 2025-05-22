@@ -146,6 +146,7 @@ controlPlane:
     database:
       embedded:
         enabled: false
+        extraArgs: []
       external:
         enabled: false
         dataSource: ""
@@ -153,10 +154,12 @@ controlPlane:
         certFile: ""
         keyFile: ""
         caFile: ""
+        extraArgs: []
     etcd:
       embedded:
         enabled: false
         migrateFromDeployedEtcd: false
+        extraArgs: []
       external:
         enabled: false
         endpoint: ""
@@ -382,7 +385,17 @@ controlPlane:
       annotations: {}
 
     konnectivity:
-      enabled: true
+      server:
+        enabled: true
+        extraArgs: []
+      agent:
+        enabled: true
+        image: ""
+        imagePullPolicy: ""
+        nodeSelector: {}
+        tolerations: []
+        extraEnv: []
+        extraArgs: []
 
     globalMetadata:
       annotations: {}
@@ -391,6 +404,12 @@ privateNodes:
   enabled: false
   kubeProxy:
     enabled: true
+    image: ""
+    imagePullPolicy: ""
+    nodeSelector: {}
+    tolerations: []
+    extraEnv: []
+    extraArgs: []
 
 integrations:
   metricsServer:

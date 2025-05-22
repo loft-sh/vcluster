@@ -301,6 +301,8 @@ controlPlane:
       embedded:
         # Enabled defines if the database should be used.
         enabled: false
+        # ExtraArgs are additional arguments to pass to Kine.
+        extraArgs: []
       # External defines that an external database should be used as the backend for the virtual cluster
       external:
         # Enabled defines if the database should be used.
@@ -321,6 +323,8 @@ controlPlane:
         keyFile: ""
         # CaFile is the ca file to use for the database. This is optional.
         caFile: ""
+        # ExtraArgs are additional arguments to pass to Kine.
+        extraArgs: []
     # Etcd defines that etcd should be used as the backend for the virtual cluster
     etcd:
       # Embedded defines to use embedded etcd as a storage backend for the virtual cluster
@@ -329,6 +333,8 @@ controlPlane:
         enabled: false
         # MigrateFromDeployedEtcd signals that vCluster should migrate from the deployed external etcd to embedded etcd.
         migrateFromDeployedEtcd: false
+        # ExtraArgs are additional arguments to pass to the embedded etcd.
+        extraArgs: []
       # External defines to use a self-hosted external etcd that is not deployed by the helm chart
       external:
         # Enabled defines if the external etcd should be used.
@@ -691,8 +697,28 @@ controlPlane:
       annotations: {}
     # Konnectivity holds dedicated konnectivity configuration. This is only available when privateNodes.enabled is true.
     konnectivity:
-      # Enabled defines if the konnectivity should be enabled.
-      enabled: true
+      # Server holds configuration for the konnectivity server.
+      server:
+        # Enabled defines if the konnectivity server should be enabled.
+        enabled: true
+        # ExtraArgs are additional arguments to pass to the konnectivity server.
+        extraArgs: []
+      # Agent holds configuration for the konnectivity agent.
+      agent:
+        # Enabled defines if the konnectivity agent should be enabled.
+        enabled: true
+        # Image is the image for the konnectivity agent.
+        image: ""
+        # ImagePullPolicy is the policy how to pull the image.
+        imagePullPolicy: ""
+        # NodeSelector is the node selector for the konnectivity agent.
+        nodeSelector: {}
+        # Tolerations is the tolerations for the konnectivity agent.
+        tolerations: []
+        # ExtraEnv is the extra environment variables for the konnectivity agent.
+        extraEnv: []
+        # ExtraArgs are additional arguments to pass to the konnectivity agent.
+        extraArgs: []
     # GlobalMetadata is metadata that will be added to all resources deployed by Helm.
     globalMetadata:
       annotations: {}
@@ -706,6 +732,18 @@ privateNodes:
   kubeProxy:
     # Enabled defines if the kube proxy should be enabled.
     enabled: true
+    # Image is the image for the kube-proxy.
+    image: ""
+    # ImagePullPolicy is the policy how to pull the image.
+    imagePullPolicy: ""
+    # NodeSelector is the node selector for the kube-proxy.
+    nodeSelector: {}
+    # Tolerations is the tolerations for the kube-proxy.
+    tolerations: []
+    # ExtraEnv is the extra environment variables for the kube-proxy.
+    extraEnv: []
+    # ExtraArgs are additional arguments to pass to the kube-proxy.
+    extraArgs: []
 
 # Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
 integrations:

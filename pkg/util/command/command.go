@@ -12,6 +12,35 @@ import (
 	"k8s.io/klog/v2"
 )
 
+func MergeArgs(baseArgs []string, extraArgs []string) []string {
+	newArgs := []string{}
+	for _, arg := range baseArgs {
+		if containsFlag(extraArgs, arg) {
+			continue
+		}
+
+		newArgs = append(newArgs, arg)
+	}
+	newArgs = append(newArgs, extraArgs...)
+	return newArgs
+}
+
+func containsFlag(args []string, flag string) bool {
+	for _, arg := range args {
+		if !strings.HasPrefix(arg, "--") || !strings.HasPrefix(flag, "--") {
+			continue
+		}
+
+		trimmedArg, _, _ := strings.Cut(arg, "=")
+		trimmedFlag, _, _ := strings.Cut(flag, "=")
+		if trimmedArg == trimmedFlag {
+			return true
+		}
+	}
+
+	return false
+}
+
 func RunCommand(ctx context.Context, command []string, component string) error {
 	writer, err := commandwriter.NewCommandWriter(component, false)
 	if err != nil {

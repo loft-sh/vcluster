@@ -92,6 +92,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				migrateFrom,
 				true,
 				options.ControlPlane.StatefulSet.Scheduling.PodManagementPolicy != "Parallel",
+				options.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
 			)
 			if err != nil {
 				return fmt.Errorf("start embedded etcd: %w", err)
@@ -136,6 +137,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				migrateFrom,
 				true,
 				options.ControlPlane.StatefulSet.Scheduling.PodManagementPolicy != "Parallel",
+				options.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
 			)
 			if err != nil {
 				return fmt.Errorf("start embedded etcd: %w", err)
