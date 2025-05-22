@@ -77,7 +77,7 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release --config .goreleaser.head_images.yaml --clean --skip=announce,validate
+          args: release --config .goreleaser.head_images.yaml --clean --skip=announce,archive,validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEMETRY_PRIVATE_KEY: ""
