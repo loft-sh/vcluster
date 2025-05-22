@@ -156,7 +156,7 @@ func CheckUsingSecretAnnotation(ctx context.Context, client kubernetes.Interface
 	// Thus we can check if the distro has changed.
 	okCounter := 0
 	if annotatedDistro, ok := secret.Annotations[AnnotationDistro]; ok {
-		if err := vclusterconfig.ValidateStoreAndDistroChanges("", "", distro, annotatedDistro); err != nil {
+		if err := vclusterconfig.ValidateDistroChanges(distro, annotatedDistro); err != nil {
 			return false, err
 		}
 
@@ -164,7 +164,7 @@ func CheckUsingSecretAnnotation(ctx context.Context, client kubernetes.Interface
 	}
 
 	if annotatedStore, ok := secret.Annotations[AnnotationStore]; ok {
-		if err := vclusterconfig.ValidateStoreAndDistroChanges(backingStoreType, vclusterconfig.StoreType(annotatedStore), "", ""); err != nil {
+		if err := vclusterconfig.ValidateStoreChanges(backingStoreType, vclusterconfig.StoreType(annotatedStore)); err != nil {
 			return false, err
 		}
 
