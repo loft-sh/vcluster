@@ -3,8 +3,6 @@ package localkubernetes
 import (
 	"context"
 	"fmt"
-	"net"
-	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
@@ -238,16 +236,9 @@ func updateConfigForDockerToHost(rawConfig clientcmdapi.Config) (clientcmdapi.Co
 	localCluster.InsecureSkipTLSVerify = true
 	localCluster.CertificateAuthorityData = nil
 
-	uri, err := url.ParseRequestURI(localCluster.Server)
-	if err != nil {
-		return clientcmdapi.Config{}, err
-	}
-	host, _, err := net.SplitHostPort(uri.Host)
-	if err != nil {
-		return clientcmdapi.Config{}, err
-	}
-
-	localCluster.Server = strings.ReplaceAll(localCluster.Server, host, dockerInternalHostName)
+	localCluster.Server = strings.ReplaceAll(localCluster.Server, "127.0.0.1", dockerInternalHostName)
+	localCluster.Server = strings.ReplaceAll(localCluster.Server, "0.0.0.0", dockerInternalHostName)
+	localCluster.Server = strings.ReplaceAll(localCluster.Server, "localhost", dockerInternalHostName)
 
 	return *updated, nil
 }
