@@ -106,11 +106,69 @@ type Kubelet struct {
 type KubeProxy struct {
 	// Enabled defines if the kube proxy should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
+
+	// Image is the image for the kube-proxy.
+	Image string `json:"image,omitempty"`
+
+	// ImagePullPolicy is the policy how to pull the image.
+	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+
+	// NodeSelector is the node selector for the kube-proxy.
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// PriorityClassName is the priority class name for the kube-proxy.
+	PriorityClassName string `json:"priorityClassName,omitempty"`
+
+	// Tolerations is the tolerations for the kube-proxy.
+	Tolerations []interface{} `json:"tolerations,omitempty"`
+
+	// ExtraEnv is the extra environment variables for the kube-proxy.
+	ExtraEnv []interface{} `json:"extraEnv,omitempty"`
+
+	// ExtraArgs are additional arguments to pass to the kube-proxy.
+	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
 type Konnectivity struct {
-	// Enabled defines if the konnectivity should be enabled.
+	// Server holds configuration for the konnectivity server.
+	Server KonnectivityServer `json:"server,omitempty"`
+
+	// Agent holds configuration for the konnectivity agent.
+	Agent KonnectivityAgent `json:"agent,omitempty"`
+}
+
+type KonnectivityServer struct {
+	// Enabled defines if the konnectivity server should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
+
+	// ExtraArgs are additional arguments to pass to the konnectivity server.
+	ExtraArgs []string `json:"extraArgs,omitempty"`
+}
+
+type KonnectivityAgent struct {
+	// Enabled defines if the konnectivity agent should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Image is the image for the konnectivity agent.
+	Image string `json:"image,omitempty"`
+
+	// ImagePullPolicy is the policy how to pull the image.
+	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+
+	// NodeSelector is the node selector for the konnectivity agent.
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// PriorityClassName is the priority class name for the konnectivity agent.
+	PriorityClassName string `json:"priorityClassName,omitempty"`
+
+	// Tolerations is the tolerations for the konnectivity agent.
+	Tolerations []interface{} `json:"tolerations,omitempty"`
+
+	// ExtraEnv is the extra environment variables for the konnectivity agent.
+	ExtraEnv []interface{} `json:"extraEnv,omitempty"`
+
+	// ExtraArgs are additional arguments to pass to the konnectivity agent.
+	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
 // Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
@@ -1370,6 +1428,9 @@ type DatabaseKine struct {
 
 	// CaFile is the ca file to use for the database. This is optional.
 	CaFile string `json:"caFile,omitempty"`
+
+	// ExtraArgs are additional arguments to pass to Kine.
+	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
 type Etcd struct {
@@ -1419,6 +1480,9 @@ type EtcdEmbedded struct {
 
 	// SnapshotCount defines the number of snapshots to keep for the embedded etcd. Defaults to 10000 if less than 1.
 	SnapshotCount int `json:"snapshotCount,omitempty"`
+
+	// ExtraArgs are additional arguments to pass to the embedded etcd.
+	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
 func (e EtcdEmbedded) JSONSchemaExtend(base *jsonschema.Schema) {

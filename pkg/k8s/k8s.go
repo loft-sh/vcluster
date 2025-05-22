@@ -100,7 +100,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 					args = append(args, "--endpoint-reconciler-type=none")
 
 					// if konnectivity is enabled, we need to write the egress config
-					if vConfig.ControlPlane.Advanced.Konnectivity.Enabled {
+					if vConfig.ControlPlane.Advanced.Konnectivity.Server.Enabled {
 						egressConfig, err := pro.WriteKonnectivityEgressConfig()
 						if err != nil {
 							klog.Fatalf("error writing konnectivity egress config: %s", err.Error())
@@ -113,7 +113,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 			}
 
 			// add extra args
-			args = append(args, apiServer.ExtraArgs...)
+			args = command.MergeArgs(args, apiServer.ExtraArgs)
 
 			// wait until etcd is up and running
 			err := etcd.WaitForEtcd(ctx, etcdCertificates, etcdEndpoints)
@@ -188,7 +188,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 			}
 
 			// add extra args
-			args = append(args, controllerManager.ExtraArgs...)
+			args = command.MergeArgs(args, controllerManager.ExtraArgs)
 			err = command.RunCommand(ctx, args, "controller-manager")
 			if err != nil {
 				klog.Fatalf("error running controller-manager: %s", err.Error())
@@ -221,7 +221,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 			}
 
 			// add extra args
-			args = append(args, scheduler.ExtraArgs...)
+			args = command.MergeArgs(args, scheduler.ExtraArgs)
 			err = command.RunCommand(ctx, args, "scheduler")
 			if err != nil {
 				klog.Fatalf("error running scheduler: %s", err.Error())
@@ -242,7 +242,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 	return ctx.Err()
 }
 
-func StartKine(ctx context.Context, dataSource, listenAddress string, certificates *etcd.Certificates) {
+func StartKine(ctx context.Context, dataSource, listenAddress string, certificates *etcd.Certificates, extraArgs []string) {
 	// start embedded mode
 	go func() {
 		args := []string{}
@@ -261,6 +261,7 @@ func StartKine(ctx context.Context, dataSource, listenAddress string, certificat
 		}
 		args = append(args, "--metrics-bind-address=0")
 		args = append(args, "--listen-address="+listenAddress)
+		args = command.MergeArgs(args, extraArgs)
 
 		// now start kine
 		err := command.RunCommand(ctx, args, "kine")
@@ -286,7 +287,7 @@ func StartBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig
 			CaCert:     vConfig.ControlPlane.BackingStore.Database.Embedded.CaFile,
 			ServerKey:  vConfig.ControlPlane.BackingStore.Database.Embedded.KeyFile,
 			ServerCert: vConfig.ControlPlane.BackingStore.Database.Embedded.CertFile,
-		})
+		}, vConfig.ControlPlane.BackingStore.Database.Embedded.ExtraArgs)
 
 		etcdEndpoints = constants.K8sKineEndpoint
 	} else if vConfig.ControlPlane.BackingStore.Database.External.Enabled {

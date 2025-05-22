@@ -825,6 +825,13 @@
         "caFile": {
           "type": "string",
           "description": "CaFile is the ca file to use for the database. This is optional."
+        },
+        "extraArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "ExtraArgs are additional arguments to pass to Kine."
         }
       },
       "additionalProperties": false,
@@ -1250,6 +1257,13 @@
         "snapshotCount": {
           "type": "integer",
           "description": "SnapshotCount defines the number of snapshots to keep for the embedded etcd. Defaults to 10000 if less than 1."
+        },
+        "extraArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "ExtraArgs are additional arguments to pass to the embedded etcd."
         }
       },
       "additionalProperties": false,
@@ -1702,6 +1716,13 @@
           "type": "string",
           "description": "CaFile is the ca file to use for the database. This is optional."
         },
+        "extraArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "ExtraArgs are additional arguments to pass to Kine."
+        },
         "connector": {
           "type": "string",
           "description": "Connector specifies a secret located in a connected vCluster Platform that contains database server connection information\nto be used by Platform to create a database and database user for the vCluster.\nand non-privileged user. A kine endpoint should be created using the database and user on Platform registration.\nThis is optional."
@@ -2055,9 +2076,76 @@
     },
     "Konnectivity": {
       "properties": {
+        "server": {
+          "$ref": "#/$defs/KonnectivityServer",
+          "description": "Server holds configuration for the konnectivity server."
+        },
+        "agent": {
+          "$ref": "#/$defs/KonnectivityAgent",
+          "description": "Agent holds configuration for the konnectivity agent."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KonnectivityAgent": {
+      "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled defines if the konnectivity should be enabled."
+          "description": "Enabled defines if the konnectivity agent should be enabled."
+        },
+        "image": {
+          "type": "string",
+          "description": "Image is the image for the konnectivity agent."
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the policy how to pull the image."
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "NodeSelector is the node selector for the konnectivity agent."
+        },
+        "priorityClassName": {
+          "type": "string",
+          "description": "PriorityClassName is the priority class name for the konnectivity agent."
+        },
+        "tolerations": {
+          "items": true,
+          "type": "array",
+          "description": "Tolerations is the tolerations for the konnectivity agent."
+        },
+        "extraEnv": {
+          "items": true,
+          "type": "array",
+          "description": "ExtraEnv is the extra environment variables for the konnectivity agent."
+        },
+        "extraArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "ExtraArgs are additional arguments to pass to the konnectivity agent."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KonnectivityServer": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the konnectivity server should be enabled."
+        },
+        "extraArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "ExtraArgs are additional arguments to pass to the konnectivity server."
         }
       },
       "additionalProperties": false,
@@ -2068,6 +2156,42 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled defines if the kube proxy should be enabled."
+        },
+        "image": {
+          "type": "string",
+          "description": "Image is the image for the kube-proxy."
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the policy how to pull the image."
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "NodeSelector is the node selector for the kube-proxy."
+        },
+        "priorityClassName": {
+          "type": "string",
+          "description": "PriorityClassName is the priority class name for the kube-proxy."
+        },
+        "tolerations": {
+          "items": true,
+          "type": "array",
+          "description": "Tolerations is the tolerations for the kube-proxy."
+        },
+        "extraEnv": {
+          "items": true,
+          "type": "array",
+          "description": "ExtraEnv is the extra environment variables for the kube-proxy."
+        },
+        "extraArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "ExtraArgs are additional arguments to pass to the kube-proxy."
         }
       },
       "additionalProperties": false,
