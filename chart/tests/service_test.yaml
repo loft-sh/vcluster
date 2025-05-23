@@ -116,3 +116,35 @@ tests:
           path: spec.ports[1].targetPort
       - notExists:
           path: spec.selector
+
+  - it: konnectivity
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      privateNodes:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.ports
+          count: 5
+      - contains:
+          path: spec.ports
+          content:
+            name: kon-agent
+            protocol: TCP
+            port: 8132
+      - contains:
+          path: spec.ports
+          content:
+            name: kon-admin
+            protocol: TCP
+            port: 8133
+      - contains:
+          path: spec.ports
+          content:
+            name: kon-health
+            protocol: TCP
+            port: 8134
