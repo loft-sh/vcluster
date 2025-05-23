@@ -36,6 +36,8 @@ type Config struct {
 	// Global values shared across all (sub)charts
 	Global interface{} `json:"global,omitempty"`
 
+	Foo string json:"global,omitempty"`
+
 	// ExportKubeConfig describes how vCluster should export the vCluster kubeConfig file.
 	ExportKubeConfig ExportKubeConfig `json:"exportKubeConfig,omitempty"`
 
