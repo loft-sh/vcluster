@@ -3,33 +3,38 @@ package runtimeclasses
 import (
 	"fmt"
 
+	nodev1 "k8s.io/api/node/v1"
+	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/selector"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	nodev1 "k8s.io/api/node/v1"
-	"k8s.io/apimachinery/pkg/types"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(_ *synccontext.RegisterContext) (syncertypes.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := generic.NewMirrorMapper(&nodev1.RuntimeClass{})
 	if err != nil {
 		return nil, err
 	}
 
 	return &runtimeClassSyncer{
-		Mapper: mapper,
+		Mapper:        mapper,
+		labelSelector: ctx.Config.Sync.FromHost.RuntimeClasses.Selector,
 	}, nil
 }
 
 type runtimeClassSyncer struct {
 	synccontext.Mapper
+	labelSelector config.StandardLabelSelector
 }
 
 func (i *runtimeClassSyncer) Name() string {
@@ -43,7 +48,7 @@ func (i *runtimeClassSyncer) Resource() client.Object {
 var _ syncertypes.Syncer = &runtimeClassSyncer{}
 
 func (i *runtimeClassSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer(i)
+	return syncer.ToGenericSyncer[*nodev1.RuntimeClass](i)
 }
 
 func (i *runtimeClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*nodev1.RuntimeClass]) (ctrl.Result, error) {
@@ -81,4 +86,12 @@ func (i *runtimeClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 func (i *runtimeClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*nodev1.RuntimeClass]) (ctrl.Result, error) {
 	ctx.Log.Infof("delete virtual runtime class %s, because physical object is missing", event.Virtual.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
+}
+
+func (i *runtimeClassSyncer) ExcludeVirtual(_ client.Object) bool {
+	return true
+}
+
+func (i *runtimeClassSyncer) ExcludePhysical(obj client.Object) bool {
+	return !selector.StandardLabelSelectorMatches(obj, i.labelSelector)
 }

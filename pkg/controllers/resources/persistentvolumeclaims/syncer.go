@@ -1,8 +1,21 @@
 package persistentvolumeclaims
 
 import (
+	"context"
 	"fmt"
+	"reflect"
 
+	"github.com/pkg/errors"
+	storagev1 "k8s.io/api/storage/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -11,18 +24,17 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/selector"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/klog/v2"
 
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 )
 
 var (
@@ -47,6 +59,9 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		GenericTranslator: translator.NewGenericTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 
+		labelSelector:         ctx.Config.Sync.FromHost.StorageClasses.Selector,
+		physicalClusterClient: ctx.PhysicalManager.GetClient(),
+
 		excludedAnnotations: []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation},
 
 		storageClassesEnabled:    ctx.Config.Sync.ToHost.StorageClasses.Enabled,
@@ -58,6 +73,9 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 type persistentVolumeClaimSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
+
+	labelSelector         config.StandardLabelSelector
+	physicalClusterClient client.Client
 
 	excludedAnnotations []string
 
@@ -78,7 +96,7 @@ func (s *persistentVolumeClaimSyncer) Options() *syncertypes.Options {
 var _ syncertypes.Syncer = &persistentVolumeClaimSyncer{}
 
 func (s *persistentVolumeClaimSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer(s)
+	return syncer.ToGenericSyncer[*corev1.PersistentVolumeClaim](s)
 }
 
 func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.PersistentVolumeClaim]) (ctrl.Result, error) {
@@ -284,4 +302,83 @@ func recreatePersistentVolumeClaim(ctx *synccontext.SyncContext, virtualClient c
 	}
 
 	return vPVC, nil
+}
+
+func (s *persistentVolumeClaimSyncer) ExcludeVirtual(obj client.Object) bool {
+	pvc, ok := obj.(*corev1.PersistentVolumeClaim)
+	if !ok ||
+		(pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "") && selector.IsLabelSelectorEmpty(s.labelSelector) {
+		return false
+	}
+
+	storageClass := &storagev1.StorageClass{}
+	if err := s.physicalClusterClient.Get(context.Background(), types.NamespacedName{Name: *pvc.Spec.StorageClassName}, storageClass); err != nil {
+		klog.FromContext(context.Background()).Info(
+			fmt.Sprintf("Warning: PVC %q will not be synced to host cluster, because StorageClass %q couldn't be found: %v", pvc.Name, *pvc.Spec.StorageClassName, err))
+		return true
+	}
+
+	exclude := !selector.StandardLabelSelectorMatches(storageClass, s.labelSelector)
+	if exclude {
+		klog.FromContext(context.Background()).Info(
+			fmt.Sprintf("Warning: PVC %q will not be synced to host cluster, because StorageClass %q does NOT match the label selector in the 'sync.fromHost.storageClasses' configuration", pvc.Name, *pvc.Spec.StorageClassName))
+	}
+	return exclude
+}
+
+func (s *persistentVolumeClaimSyncer) ExcludePhysical(_ client.Object) bool {
+	return false
+}
+
+func (s *persistentVolumeClaimSyncer) ModifyController(registerCxt *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+	loggerDebug := func(verb, objectName string) {
+		klog.FromContext(registerCxt.Context).V(1).Info(
+			fmt.Sprintf("%s triggers requeue of PVCs related with storageClass %q", verb, objectName))
+	}
+
+	eventHandler := handler.Funcs{
+		CreateFunc: func(_ context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("creation", e.Object.GetName())
+			requeueRelatedPVCs(registerCxt, nil, e.Object, q)
+		},
+		UpdateFunc: func(_ context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("update", e.ObjectNew.GetName())
+			requeueRelatedPVCs(registerCxt, e.ObjectOld, e.ObjectNew, q)
+		},
+		DeleteFunc: func(_ context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+			loggerDebug("delete", e.Object.GetName())
+			requeueRelatedPVCs(registerCxt, e.Object, nil, q)
+		},
+	}
+
+	return builder.Watches(&storagev1.StorageClass{}, eventHandler), nil
+}
+
+func requeueRelatedPVCs(registerCxt *synccontext.RegisterContext, oldObj, newObj client.Object, q workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+	if newObj != nil && oldObj != nil && reflect.DeepEqual(newObj.GetLabels(), oldObj.GetLabels()) { // Update with no change in labels
+		return
+	}
+	var storageClassName string
+	if newObj != nil { // Create || Update
+		storageClassName = newObj.GetName()
+	}
+	if oldObj != nil && newObj == nil { // Delete
+		storageClassName = oldObj.GetName()
+	}
+
+	pvcs := &corev1.PersistentVolumeClaimList{}
+	if err := registerCxt.VirtualManager.GetClient().List(registerCxt.Context, pvcs); err != nil {
+		return
+	}
+
+	for _, pvc := range pvcs.Items {
+		if pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName != storageClassName {
+			continue
+		}
+		klog.FromContext(registerCxt.Context).V(1).Info("storageClass watcher requeue PVC", "storageClassName", storageClassName, "pvc", pvc.Name, "namespace", pvc.Namespace)
+		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      pvc.GetName(),
+			Namespace: pvc.GetNamespace(),
+		}})
+	}
 }

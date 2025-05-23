@@ -3,6 +3,13 @@ package storageclasses
 import (
 	"fmt"
 
+	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -10,12 +17,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/selector"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/types"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var DefaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
@@ -29,6 +32,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	return &storageClassSyncer{
 		GenericTranslator: translator.NewGenericTranslator(ctx, "storageclass", &storagev1.StorageClass{}, mapper),
 
+		labelSelector: ctx.Config.Sync.FromHost.StorageClasses.Selector,
 		excludedAnnotations: []string{
 			DefaultStorageClassAnnotation,
 		},
@@ -38,6 +42,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 type storageClassSyncer struct {
 	syncertypes.GenericTranslator
 
+	labelSelector       config.StandardLabelSelector
 	excludedAnnotations []string
 }
 
@@ -52,7 +57,7 @@ func (s *storageClassSyncer) Options() *syncertypes.Options {
 var _ syncertypes.Syncer = &storageClassSyncer{}
 
 func (s *storageClassSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer(s)
+	return syncer.ToGenericSyncer[*storagev1.StorageClass](s)
 }
 
 func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
@@ -136,4 +141,12 @@ func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 func (s *storageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
 	return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
+}
+
+func (s *storageClassSyncer) ExcludeVirtual(_ client.Object) bool {
+	return true
+}
+
+func (s *storageClassSyncer) ExcludePhysical(obj client.Object) bool {
+	return !selector.StandardLabelSelectorMatches(obj, s.labelSelector)
 }
