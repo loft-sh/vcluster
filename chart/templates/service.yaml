@@ -33,7 +33,7 @@ spec:
       nodePort: {{ .Values.controlPlane.service.httpsNodePort }}
       protocol: TCP
     {{- if .Values.privateNodes.enabled }}
-    {{- if .Values.controlPlane.advanced.konnectivity.enabled }}
+    {{- if .Values.controlPlane.advanced.konnectivity.server.enabled }}
     - name: kon-agent
       port: 8132
       protocol: TCP
