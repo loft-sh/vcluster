@@ -21,29 +21,37 @@ import (
 	"k8s.io/klog/v2"
 )
 
+type Initialization struct {
+	CertificatesDir string
+}
+
 // Initialize creates the required secrets and configmaps for the control plane to start
-func Initialize(ctx context.Context, options *config.VirtualClusterConfig) error {
+func Initialize(ctx context.Context, options *config.VirtualClusterConfig) (*Initialization, error) {
+	i := &Initialization{}
+	var initErr error
+
 	// Ensure that service CIDR range is written into the expected location
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(waitCtx context.Context) (bool, error) {
-		err := initialize(waitCtx, options)
-		if err != nil {
-			klog.Errorf("error initializing service cidr, certs and token: %v", err)
+		i, initErr = initialize(waitCtx, options)
+		if initErr != nil {
+			klog.Errorf("error initializing service cidr, certs and token: %v", initErr)
 			return false, nil
 		}
 
 		return true, nil
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	specialservices.Default = pro.InitDNSServiceSyncing(options)
 	telemetry.CollectorControlPlane.RecordStart(ctx, options)
-	return nil
+	return i, nil
 }
 
 // initialize creates the required secrets and configmaps for the control plane to start
-func initialize(ctx context.Context, options *config.VirtualClusterConfig) error {
+func initialize(ctx context.Context, options *config.VirtualClusterConfig) (*Initialization, error) {
+	initialization := &Initialization{}
 	distro := options.Distro()
 
 	// migrate from
@@ -68,14 +76,14 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		// its k3s, let's create the token secret
 		k3sToken, err := k3s.EnsureK3SToken(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options.Name, options)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// generate etcd certificates
 		certificatesDir := "/data/pki"
 		err = GenerateCerts(ctx, serviceCIDR, certificatesDir, options)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// should start embedded etcd?
@@ -95,7 +103,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				options.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
 			)
 			if err != nil {
-				return fmt.Errorf("start embedded etcd: %w", err)
+				return nil, fmt.Errorf("start embedded etcd: %w", err)
 			}
 		}
 
@@ -112,7 +120,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		// migrate k3s to k8s if needed
 		err := k8s.MigrateK3sToK8s(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options)
 		if err != nil {
-			return fmt.Errorf("migrate k3s to k8s: %w", err)
+			return nil, fmt.Errorf("migrate k3s to k8s: %w", err)
 		}
 
 		// try to generate k8s certificates
@@ -120,9 +128,11 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		if certificatesDir == "/data/pki" {
 			err := GenerateCerts(ctx, serviceCIDR, certificatesDir, options)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
+
+		initialization.CertificatesDir = certificatesDir
 
 		// should start embedded etcd?
 		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
@@ -140,7 +150,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				options.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
 			)
 			if err != nil {
-				return fmt.Errorf("start embedded etcd: %w", err)
+				return nil, fmt.Errorf("start embedded etcd: %w", err)
 			}
 		}
 
@@ -163,12 +173,12 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 			// generate k8s certificates
 			err := GenerateCerts(ctx, serviceCIDR, certificatesDir, options)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 
-	return nil
+	return initialization, nil
 }
 
 func GenerateCerts(ctx context.Context, serviceCIDR, certificatesDir string, options *config.VirtualClusterConfig) error {
