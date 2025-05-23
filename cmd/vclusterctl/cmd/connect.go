@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -25,15 +26,11 @@ type ConnectCmd struct {
 	Log log.Logger
 	*flags.GlobalFlags
 	cli.ConnectOptions
+	CobraCmd *cobra.Command
 }
 
 // NewConnectCmd creates a new command
 func NewConnectCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
-	cmd := &ConnectCmd{
-		GlobalFlags: globalFlags,
-		Log:         log.GetInstance(),
-	}
-
 	useLine, nameValidator := util.NamedPositionalArgsValidator(true, false, "VCLUSTER_NAME")
 
 	cobraCmd := &cobra.Command{
@@ -53,12 +50,19 @@ vcluster connect test -n test -- kubectl get ns
 	`,
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			// Check for newer version
-			upgrade.PrintNewerVersionWarning()
+	}
 
-			return cmd.Run(cobraCmd.Context(), args)
-		},
+	cmd := &ConnectCmd{
+		GlobalFlags: globalFlags,
+		Log:         log.GetInstance(),
+		CobraCmd:    cobraCmd,
+	}
+
+	cobraCmd.RunE = func(_ *cobra.Command, args []string) error {
+		// Check for newer version
+		upgrade.PrintNewerVersionWarning()
+
+		return cmd.Run(cobraCmd.Context(), args)
 	}
 
 	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
@@ -93,6 +97,19 @@ func (cmd *ConnectCmd) Run(ctx context.Context, args []string) error {
 
 	if driverType == config.PlatformDriver {
 		return cli.ConnectPlatform(ctx, &cmd.ConnectOptions, cmd.GlobalFlags, vClusterName, args[1:], cmd.Log)
+	}
+
+	// log error if platform flags have been set when using driver helm
+	var fs []string
+	pfs := connect.ChangedPlatformFlags(cmd.CobraCmd)
+	for pf, changed := range pfs {
+		if changed {
+			fs = append(fs, pf)
+		}
+	}
+
+	if len(fs) > 0 {
+		cmd.Log.Fatalf("Following platform flags have been set, which won't have any effect when using driver type %s: %s", config.HelmDriver, strings.Join(fs, ", "))
 	}
 
 	return cli.ConnectHelm(ctx, &cmd.ConnectOptions, cmd.GlobalFlags, vClusterName, args[1:], cmd.Log)
