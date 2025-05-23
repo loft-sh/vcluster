@@ -81,21 +81,23 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, err
 	}
 
-	// create new namespaced translator
-	genericTranslator := translator.NewGenericTranslator(ctx, "pod", &corev1.Pod{}, podsMapper)
-
-	// create pod translator
-	podTranslator, err := translatepods.NewTranslator(ctx, genericTranslator.EventRecorder())
-	if err != nil {
-		return nil, errors.Wrap(err, "create pod translator")
-	}
-
 	schedulingConfig, err := scheduling.NewConfig(
+		physicalClusterClient.EventsV1(),
+		virtualClusterClient.EventsV1(),
 		ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 		ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled,
 		ctx.Config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
+	}
+
+	// create new namespaced translator
+	genericTranslator := translator.NewGenericTranslator(ctx, "pod", &corev1.Pod{}, podsMapper)
+
+	// create pod translator
+	podTranslator, err := translatepods.NewTranslator(ctx, genericTranslator.EventRecorder(), schedulingConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "create pod translator")
 	}
 
 	return &podSyncer{
@@ -314,6 +316,26 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		})
 	}
 
+	// check if vCluster scheduler scheduled the pod that should be scheduled by the host scheduler
+	if event.Virtual.Spec.NodeName != "" && event.Host.Spec.NodeName == "" &&
+		!s.schedulingConfig.IsSchedulerFromVirtualCluster(event.Virtual.Spec.SchedulerName) {
+		// The virtual pod's scheduler is not supposed to be in the virtual cluster, yet the virtual pod is scheduled,
+		// while the host pod is not. This implies that the virtual pod was mistakenly scheduled by the scheduler in the
+		// virtual cluster, so we try to check if that is the case.
+		// Here the syncer just logs an error because it cannot fix the current state.
+		virtualPodScheduledBySchedulerInVirtualCluster, err := s.schedulingConfig.IsPodScheduledBySchedulerFromVirtualCluster(ctx, event.Host, event.Virtual)
+		if err == nil && virtualPodScheduledBySchedulerInVirtualCluster {
+			ctx.Log.Errorf("pod '%s/%s' is scheduled by the scheduler '%s' in the virtual cluster, which should not happen because scheduler '%s' is configured as a host scheduler",
+				event.Virtual.Namespace,
+				event.Virtual.Name,
+				event.Virtual.Spec.SchedulerName,
+				event.Virtual.Spec.SchedulerName)
+		} else if err != nil {
+			ctx.Log.Errorf("failed to check if pod %s/%s is scheduled by the scheduler in the virtual cluster: %v", event.Virtual.Namespace, event.Virtual.Name, err)
+		}
+		// unsetting the nodeName doesn't make sense, as the virtual cluster scheduler would just set it again, just log warning
+	}
+
 	// make sure node exists for pod
 	if event.Host.Spec.NodeName != "" {
 		requeue, err := s.ensureNode(ctx, event.Host, event.Virtual)
@@ -445,13 +467,31 @@ func setSATokenSecretAsOwner(ctx *synccontext.SyncContext, pClient client.Client
 
 func (s *podSyncer) ensureNode(ctx *synccontext.SyncContext, pObj *corev1.Pod, vObj *corev1.Pod) (bool, error) {
 	if vObj.Spec.NodeName != pObj.Spec.NodeName && vObj.Spec.NodeName != "" {
-		// node of virtual and physical pod are different, we delete the virtual pod to try to recover from this state
-		_, err := patcher.DeleteVirtualObject(ctx, vObj, pObj, "virtual and physical pods have different assigned nodes")
-		if err != nil {
-			return false, err
+		var nodeNameDifferenceFixed bool
+		if !s.schedulingConfig.IsSchedulerFromVirtualCluster(vObj.Spec.SchedulerName) {
+			// Here it looks like the virtual pod's scheduler is not supposed to be in the virtual cluster. However, the
+			// virtual pod and host pod have been scheduled differently, so we want to check if the virtual pod was
+			// mistakenly scheduled by the scheduler in the virtual cluster.
+			virtualPodScheduledBySchedulerInVirtualCluster, err := s.schedulingConfig.IsPodScheduledBySchedulerFromVirtualCluster(ctx, pObj, vObj)
+			if err != nil {
+				ctx.Log.Errorf("failed to check if pod %s/%s is scheduled by the scheduler in the virtual cluster: %v", vObj.Namespace, vObj.Name, err)
+			} else if virtualPodScheduledBySchedulerInVirtualCluster {
+				// TODO: try to fix the situation, patch virtual object
+				// vObj.Spec.NodeName = pObj.Spec.NodeName
+				// patch vObj
+				// nodeNameDifferenceFixed = true
+			}
 		}
 
-		return true, nil
+		if !nodeNameDifferenceFixed {
+			// node of virtual and physical pod are different, we delete the virtual pod to try to recover from this state
+			_, err := patcher.DeleteVirtualObject(ctx, vObj, pObj, "virtual and physical pods have different assigned nodes")
+			if err != nil {
+				return false, err
+			}
+
+			return true, nil
+		}
 	}
 
 	// ensure the node is available in the virtual cluster, if not and we sync the pod to the virtual cluster,
