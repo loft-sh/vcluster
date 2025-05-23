@@ -1,5 +1,5 @@
 # Sync describes how to sync resources from the virtual cluster to host cluster and back.
-sync:
+sync:asd
   # Configure resources to sync from the virtual cluster to the host cluster.
   toHost:
     # Services defines if services created within the virtual cluster should get synced to the host cluster.
