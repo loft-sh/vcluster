@@ -335,7 +335,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	verb := "created"
 	if isVClusterDeployed(release) {
 		verb = "upgraded"
-		currentVClusterConfig, err = getConfigfileFromSecret(ctx, vClusterName, cmd.Namespace)
+		currentVClusterConfig, err = getConfigfileFromSecret(ctx, vClusterName, cmd.Namespace, cmd.log)
 		if err != nil {
 			return err
 		}
@@ -945,7 +945,7 @@ func (cmd *createHelm) getVClusterConfigFromSnapshot(ctx context.Context) (strin
 	return "", nil
 }
 
-func getConfigfileFromSecret(ctx context.Context, name, namespace string) (*config.Config, error) {
+func getConfigfileFromSecret(ctx context.Context, name, namespace string, log log.Logger) (*config.Config, error) {
 	secretName := "vc-config-" + name
 
 	kConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
@@ -960,16 +960,20 @@ func getConfigfileFromSecret(ctx context.Context, name, namespace string) (*conf
 	}
 
 	secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
-	if err != nil {
+	if err != nil && !kerrors.IsNotFound(err) {
 		return nil, err
+	}
+
+	config := config.Config{}
+	if kerrors.IsNotFound(err) {
+		log.Warnf("Secret %s not found, returning empty vCluster config", secretName)
+		return &config, nil
 	}
 
 	configBytes, ok := secret.Data["config.yaml"]
 	if !ok {
 		return nil, fmt.Errorf("secret %s in namespace %s does not contain the expected 'config.yaml' field", secretName, namespace)
 	}
-
-	config := config.Config{}
 	err = yaml.Unmarshal(configBytes, &config)
 	if err != nil {
 		return nil, err
