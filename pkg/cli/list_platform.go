@@ -2,10 +2,16 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/table"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"k8s.io/client-go/tools/clientcmd"
@@ -32,7 +38,7 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 		return err
 	}
 
-	err = printVClusters(ctx, options, proToVClusters(proVClusters, currentContext), globalFlags, false, logger)
+	err = printProVClusters(ctx, options, proToVClusters(proVClusters, currentContext), globalFlags, logger)
 	if err != nil {
 		return err
 	}
@@ -40,8 +46,8 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 	return nil
 }
 
-func proToVClusters(vClusters []*platform.VirtualClusterInstanceProject, currentContext string) []ListVCluster {
-	var output []ListVCluster
+func proToVClusters(vClusters []*platform.VirtualClusterInstanceProject, currentContext string) []ListProVCluster {
+	var output []ListProVCluster
 	for _, vCluster := range vClusters {
 		status := string(vCluster.VirtualCluster.Status.Phase)
 		if vCluster.VirtualCluster.DeletionTimestamp != nil {
@@ -63,16 +69,70 @@ func proToVClusters(vClusters []*platform.VirtualClusterInstanceProject, current
 		}
 
 		connected := strings.HasPrefix(currentContext, "vcluster-platform_"+vCluster.VirtualCluster.Name+"_"+vCluster.Project.Name)
-		vClusterOutput := ListVCluster{
-			Name:       name,
-			Namespace:  vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
-			Connected:  connected,
-			Created:    vCluster.VirtualCluster.CreationTimestamp.Time,
-			AgeSeconds: int(time.Since(vCluster.VirtualCluster.CreationTimestamp.Time).Round(time.Second).Seconds()),
-			Status:     status,
-			Version:    version,
+		vClusterOutput := ListProVCluster{
+			ListVCluster{
+				Name:       name,
+				Namespace:  vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
+				Connected:  connected,
+				Created:    vCluster.VirtualCluster.CreationTimestamp.Time,
+				AgeSeconds: int(time.Since(vCluster.VirtualCluster.CreationTimestamp.Time).Round(time.Second).Seconds()),
+				Status:     status,
+				Version:    version,
+			},
+			vCluster.Project.Name,
 		}
 		output = append(output, vClusterOutput)
 	}
 	return output
+}
+
+func printProVClusters(ctx context.Context, options *ListOptions, output []ListProVCluster, globalFlags *flags.GlobalFlags, logger log.Logger) error {
+	if options.Output == "json" {
+		bytes, err := json.MarshalIndent(output, "", "    ")
+		if err != nil {
+			return fmt.Errorf("json marshal vClusters: %w", err)
+		}
+
+		logger.WriteString(logrus.InfoLevel, string(bytes)+"\n")
+	} else {
+		header := []string{"NAME", "NAMESPACE", "PROJECT", "STATUS", "VERSION", "CONNECTED", "AGE"}
+		values := toTableValues(output)
+		table.PrintTable(logger, header, values)
+
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+
+		vClusters, _ := find.ListVClusters(ctx, globalFlags.Context, "", "", log.Discard)
+		if len(vClusters) > 0 {
+			logger.Infof("You also have %d virtual clusters in your current kube-context.", len(vClusters))
+			logger.Info("If you want to see them, run: 'vcluster list --driver helm' or 'vcluster use driver helm' to change the default")
+		}
+
+		// show disconnect command
+		if strings.HasPrefix(globalFlags.Context, "vcluster_") || strings.HasPrefix(globalFlags.Context, "vcluster-platform_") {
+			logger.Infof("Run `vcluster disconnect` to switch back to the parent context")
+		}
+	}
+	return nil
+}
+
+func toTableValues(vClusters []ListProVCluster) [][]string {
+	var values [][]string
+	for _, vCluster := range vClusters {
+		isConnected := ""
+		if vCluster.Connected {
+			isConnected = "True"
+		}
+
+		values = append(values, []string{
+			vCluster.Name,
+			vCluster.Namespace,
+			vCluster.Project,
+			vCluster.Status,
+			vCluster.Version,
+			isConnected,
+			time.Since(vCluster.Created).Round(1 * time.Second).String(),
+		})
+	}
+	return values
 }
