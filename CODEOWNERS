@@ -1,0 +1,26 @@
+# This is a comment.
+# Each line is a file pattern followed by one or more owners.
+
+/pkg/syncer/ @FabianKramm
+/pkg/controllers/resources/pods/ @FabianKramm
+/pkg/controllers/resources/services/ @FabianKramm
+/pkg/controllers/resources/endpoints/ @FabianKramm
+/pkg/controllers/resources/secrets/ @FabianKramm
+/pkg/controllers/resources/configmaps/ @FabianKramm
+/pkg/controllers/resources/events/ @FabianKramm
+/pkg/controllers/k8sdefaultendpoint/ @FabianKramm
+/pkg/controllers/register.go @FabianKramm
+/pkg/mappings/ @FabianKramm
+/pkg/server/ @FabianKramm
+/pkg/k8s/ @FabianKramm
+/pkg/setup/ @FabianKramm
+/pkg/plugin/ @FabianKramm
+/pkg/util/translate/ @FabianKramm
+/pkg/authentication/ @FabianKramm
+/pkg/authorization/ @FabianKramm
+/pkg/config/config.go @FabianKramm
+/config/ @FabianKramm
+/cmd/vcluster/ @FabianKramm
+/chart/ @FabianKramm
+
+
