@@ -481,7 +481,9 @@ func (s *podSyncer) ensureNode(ctx *synccontext.SyncContext, pObj *corev1.Pod, v
 			} else if virtualPodScheduledBySchedulerInVirtualCluster {
 				// Node name set in the host pod is correct, and it will be used by the kubelet, so update the virtual
 				// pod so it has the correct spec.
+				ctx.Log.Infof("pod %s/%s is incorrectly scheduled by scheduler '%s' in the virtual cluster, will try to fix and schedule it to correct node", vObj.Namespace, vObj.Name, vObj.Spec.SchedulerName)
 				tryFixingVirtualPodNodeName = true
+				vObj.Spec.NodeName = pObj.Spec.NodeName
 			}
 		}
 
