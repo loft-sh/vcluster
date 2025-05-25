@@ -6,20 +6,20 @@ import (
 	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	corev1 "k8s.io/api/core/v1"
-	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
+	corev1Clients "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 type Config struct {
 	VirtualSchedulerEnabled bool
 	HybridSchedulingEnabled bool
 	HostSchedulers          []string
-	HostEventsClient        eventsv1.EventsV1Interface
-	VirtualEventsClient     eventsv1.EventsV1Interface
+	HostEventsClient        corev1Clients.CoreV1Interface
+	VirtualEventsClient     corev1Clients.CoreV1Interface
 }
 
 // NewConfig creates a new scheduling config with specified vCluster scheduling options. In the case of vcluster OSS
 // when Hybrid Scheduling is enabled, this func returns an error, because Hybrid Scheduling is a Pro-only feature.
-var NewConfig = func(_, _ eventsv1.EventsV1Interface, virtualSchedulerEnabled, hybridSchedulingEnabled bool, _ []string) (Config, error) {
+var NewConfig = func(_, _ corev1Clients.CoreV1Interface, virtualSchedulerEnabled, hybridSchedulingEnabled bool, _ []string) (Config, error) {
 	if hybridSchedulingEnabled {
 		return Config{}, pro.NewFeatureError(string(licenseapi.HybridScheduling))
 	}
@@ -50,6 +50,6 @@ var IsSchedulerFromVirtualCluster = func(_ string, virtualSchedulerEnabled, _ bo
 
 // IsPodScheduledBySchedulerFromVirtualCluster checks if the specified pod is scheduled by a scheduler from the virtual
 // cluster.
-var IsPodScheduledBySchedulerFromVirtualCluster = func(_ context.Context, _, _ eventsv1.EventsV1Interface, _, _ *corev1.Pod) (bool, error) {
+var IsPodScheduledBySchedulerFromVirtualCluster = func(_ context.Context, _, _ corev1Clients.CoreV1Interface, _, _ *corev1.Pod) (bool, error) {
 	return false, nil
 }

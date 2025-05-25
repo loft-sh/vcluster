@@ -82,8 +82,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	schedulingConfig, err := scheduling.NewConfig(
-		physicalClusterClient.EventsV1(),
-		virtualClusterClient.EventsV1(),
+		physicalClusterClient.CoreV1(),
+		virtualClusterClient.CoreV1(),
 		ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 		ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled,
 		ctx.Config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers)
