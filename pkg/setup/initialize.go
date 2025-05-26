@@ -65,13 +65,9 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 	}
 
 	// retrieve service cidr
-	serviceCIDR := options.ServiceCIDR
-	if serviceCIDR == "" {
-		var warning string
-		serviceCIDR, warning = servicecidr.GetServiceCIDR(ctx, options.WorkloadClient, options.WorkloadNamespace)
-		if warning != "" {
-			klog.Warning(warning)
-		}
+	serviceCIDR, err := servicecidr.GetServiceCIDR(ctx, &options.Config, options.WorkloadClient, options.WorkloadService, options.WorkloadNamespace)
+	if err != nil {
+		return fmt.Errorf("failed to get service cidr: %w", err)
 	}
 
 	// check what distro are we running
