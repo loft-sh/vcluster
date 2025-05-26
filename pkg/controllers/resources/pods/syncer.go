@@ -341,23 +341,34 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	}
 
 	// check if vCluster scheduler scheduled the pod that should be scheduled by the host scheduler
-	if event.Virtual.Spec.NodeName != "" && event.Host.Spec.NodeName == "" &&
-		!s.schedulingConfig.IsSchedulerFromVirtualCluster(event.Virtual.Spec.SchedulerName) {
-		// The virtual pod's scheduler is not supposed to be in the virtual cluster, yet the virtual pod is scheduled,
-		// while the host pod is not. This implies that the virtual pod was mistakenly scheduled by the scheduler in the
-		// virtual cluster, so we try to check if that is the case.
-		// Here the syncer just logs an error because it cannot fix the current state.
+	if event.Virtual.Spec.NodeName != "" &&
+		event.Virtual.Spec.NodeName != event.Host.Spec.NodeName &&
+		s.schedulingConfig.HybridSchedulingEnabled &&
+		s.schedulingConfig.IsSchedulerFromHostCluster(event.Virtual.Spec.SchedulerName) {
+		// When the following conditions are all met, we may be in the situation where a scheduler from the virtual cluster
+		// has undesirably scheduled a pod:
+		// - Virtual pod is scheduled, and
+		// - Host pod is not scheduled yet or the virtual pod is scheduled to a different node, and
+		// - Hybrid scheduling is enabled, and
+		// - Virtual pod is using a scheduler from the host cluster.
+		//
+		// When all the above conditions are met, we do the final check to determine if a scheduler from the virtual
+		// cluster really scheduled the virtual pod. Since this final accesses API server, we do it only when all the
+		// above conditions are met.
 		virtualPodScheduledBySchedulerInVirtualCluster, err := s.schedulingConfig.IsPodScheduledBySchedulerFromVirtualCluster(ctx, event.Host, event.Virtual)
 		if err == nil && virtualPodScheduledBySchedulerInVirtualCluster {
-			ctx.Log.Errorf("pod '%s/%s' is scheduled by the scheduler '%s' in the virtual cluster, which should not happen because scheduler '%s' is configured as a host scheduler",
-				event.Virtual.Namespace,
-				event.Virtual.Name,
-				event.Virtual.Spec.SchedulerName,
-				event.Virtual.Spec.SchedulerName)
+			return ctrl.Result{},
+				fmt.Errorf(
+					"pod '%s/%s' is scheduled by the scheduler '%s' in the virtual cluster, which should not happen because scheduler '%s' is configured as a host scheduler",
+					event.Virtual.Namespace,
+					event.Virtual.Name,
+					event.Virtual.Spec.SchedulerName,
+					event.Virtual.Spec.SchedulerName)
 		} else if err != nil {
+			// Just log error, don't return it, because unwanted virtual scheduling check is done on the best effort basis,
+			// and error here means that the checking action failed, not that unwanted virtual scheduling happened.
 			ctx.Log.Errorf("failed to check if pod %s/%s is scheduled by the scheduler in the virtual cluster: %v", event.Virtual.Namespace, event.Virtual.Name, err)
 		}
-		// unsetting the nodeName doesn't make sense, as the virtual cluster scheduler would just set it again, just log warning
 	}
 
 	// make sure node exists for pod
