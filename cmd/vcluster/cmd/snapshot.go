@@ -344,9 +344,9 @@ func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterCon
 	}
 
 	// retrieve service cidr
-	serviceCIDR, warning := servicecidr.GetServiceCIDR(ctx, &vConfig.Config, vConfig.WorkloadClient, vConfig.WorkloadNamespace)
-	if warning != "" {
-		klog.Warning(warning)
+	serviceCIDR, err := servicecidr.GetServiceCIDR(ctx, &vConfig.Config, vConfig.WorkloadClient, vConfig.WorkloadService, vConfig.WorkloadNamespace)
+	if err != nil {
+		return "", fmt.Errorf("failed to get service cidr: %w", err)
 	}
 
 	// generate etcd certificates
