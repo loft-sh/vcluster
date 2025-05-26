@@ -29,6 +29,11 @@ var NewConfig = func(_, _ corev1Clients.CoreV1Interface, virtualSchedulerEnabled
 	}, nil
 }
 
+// IsSchedulerFromHostCluster checks if the pod uses a scheduler from the host cluster.
+func (c *Config) IsSchedulerFromHostCluster(schedulerName string) bool {
+	return !c.IsSchedulerFromVirtualCluster(schedulerName)
+}
+
 // IsSchedulerFromVirtualCluster checks if the pod uses a scheduler from the virtual cluster.
 func (c *Config) IsSchedulerFromVirtualCluster(schedulerName string) bool {
 	return IsSchedulerFromVirtualCluster(schedulerName, c.VirtualSchedulerEnabled, c.HybridSchedulingEnabled, c.HostSchedulers)
