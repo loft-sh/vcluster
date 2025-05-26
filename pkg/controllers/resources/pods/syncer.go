@@ -254,6 +254,26 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 			pPod.Annotations[translatepods.HostIPsAnnotation] = nodeIP
 		}
 	}
+	if s.schedulingConfig.HybridSchedulingEnabled && !s.schedulingConfig.IsSchedulerFromVirtualCluster(pPod.Spec.SchedulerName) {
+		// Hybrid scheduling is enabled and the pod is using a host scheduler
+		if event.Virtual.Spec.NodeName != "" {
+			badScheduling, err := s.schedulingConfig.IsPodScheduledBySchedulerFromVirtualCluster(ctx, pPod, event.Virtual)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to determine whether the pod was scheduler by a scheduler in virtual cluster: %w", err)
+			}
+			if badScheduling {
+				return ctrl.Result{}, fmt.Errorf("pod '%s/%s' is scheduled by the scheduler '%s' in the virtual cluster, which should not happen because scheduler '%s' is configured as a host scheduler",
+					event.Virtual.Namespace,
+					event.Virtual.Name,
+					event.Virtual.Spec.SchedulerName,
+					event.Virtual.Spec.SchedulerName)
+			}
+		} else if time.Now().Sub(event.Virtual.CreationTimestamp.Time) < time.Second*5 {
+			// check again in 5 seconds if the virtual pod will get scheduled by the virtual scheduler by mistake
+			ctx.Log.Infof("requeueing pod '%s/%s' to check the scheduler", event.Virtual.Namespace, event.Virtual.Name)
+			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+		}
+	}
 
 	err = pro.ApplyPatchesHostObject(ctx, nil, pPod, event.Virtual, ctx.Config.Sync.ToHost.Pods.Patches, false)
 	if err != nil {
