@@ -1,133 +1,245 @@
 package servicecidr
 
 import (
+	"bytes"
 	"context"
-	"errors"
+	"encoding/binary"
 	"fmt"
+	"math/big"
 	"net"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/loft-sh/vcluster/config"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/klog/v2"
 )
 
 const (
-	ErrorMessageFind = "The range of valid IPs is "
-	FallbackCIDR     = "10.96.0.0/12"
+	ServiceCIDRAnnotation = "vcluster.loft.sh/service-cidr"
 )
 
-func GetServiceCIDR(ctx context.Context, vConfig *config.Config, client kubernetes.Interface, namespace string) (string, string) {
+func GetServiceCIDR(ctx context.Context, vConfig *config.Config, client kubernetes.Interface, vClusterServiceName, vClusterNamespace string) (string, error) {
 	if vConfig.ServiceCIDR != "" {
-		return vConfig.ServiceCIDR, ""
+		return vConfig.ServiceCIDR, nil
 	} else if vConfig.PrivateNodes.Enabled {
 		if vConfig.Networking.ServiceCIDR != "" {
-			return vConfig.Networking.ServiceCIDR, ""
+			return vConfig.Networking.ServiceCIDR, nil
 		}
 
-		return FallbackCIDR, ""
+		// fallback to the default service cidr
+		return "10.96.0.0/12", nil
 	}
 
-	ipv4CIDR, ipv4Err := getServiceCIDR(ctx, client, namespace, false)
-	ipv6CIDR, ipv6Err := getServiceCIDR(ctx, client, namespace, true)
-	if ipv4Err != nil && ipv6Err != nil {
-		return FallbackCIDR, fmt.Sprintf("failed to detect service CIDR, will fallback to %s, however this is probably wrong, please make sure the host cluster service cidr and virtual cluster service cidr match. Error details: failed to find IPv4 service CIDR: %v ; or IPv6 service CIDR: %v", FallbackCIDR, ipv4Err, ipv6Err)
-	}
-	if ipv4Err != nil {
-		return ipv6CIDR, fmt.Sprintf("failed to find IPv4 service CIDR, will use IPv6 service CIDR. Error details: %v", ipv4Err)
-	}
-	if ipv6Err != nil {
-		return ipv4CIDR, fmt.Sprintf("failed to find IPv6 service CIDR, will use IPv4 service CIDR. Error details: %v", ipv6Err)
+	// check if we need to use the new service cidr detection
+	vClusterService, err := client.CoreV1().Services(vClusterNamespace).Get(ctx, vClusterServiceName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get vCluster service %s: %w", vClusterServiceName, err)
 	}
 
-	if client == nil {
-		panic("client is nil")
+	// check if we already found the service cidr
+	if vClusterService.Annotations[ServiceCIDRAnnotation] != "" {
+		klog.Infof("using cached service cidr from annotation: %s", vClusterService.Annotations[ServiceCIDRAnnotation])
+		return vClusterService.Annotations[ServiceCIDRAnnotation], nil
 	}
 
-	// Both IPv4 and IPv6 are configured, we need to find out which one is the default
-	policy := corev1.IPFamilyPolicyPreferDualStack
-	testService, err := client.CoreV1().Services(namespace).Create(ctx, &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "test-service-delete-me-",
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Port: 80,
-				},
+	// create function to check if the ip is in the service cidr
+	isInRange := func(ip net.IP) bool {
+		policy := corev1.IPFamilyPolicySingleStack
+		ipFamily := corev1.IPv4Protocol
+		if ip.To4() == nil {
+			ipFamily = corev1.IPv6Protocol
+		}
+
+		// create an actual service to check this
+		testService, err := client.CoreV1().Services(vClusterNamespace).Create(ctx, &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "test-service-delete-me-",
 			},
-			IPFamilyPolicy: &policy,
-		},
-	}, metav1.CreateOptions{})
-
-	if err == nil {
-		defer func() {
-			_ = client.CoreV1().Services(namespace).Delete(ctx, testService.GetName(), metav1.DeleteOptions{})
-		}()
-
-		// check if this is dual stack, and which family is default
-		if len(testService.Spec.IPFamilies) > 0 {
-			if testService.Spec.IPFamilies[0] == corev1.IPv4Protocol {
-				// IPv4 is the default
-				return fmt.Sprintf("%s,%s", ipv4CIDR, ipv6CIDR), ""
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Port: 80,
+					},
+				},
+				IPFamilyPolicy: &policy,
+				IPFamilies:     []corev1.IPFamily{ipFamily},
+				ClusterIP:      ip.String(),
+			},
+		}, metav1.CreateOptions{})
+		if err == nil {
+			err := client.CoreV1().Services(vClusterNamespace).Delete(ctx, testService.GetName(), metav1.DeleteOptions{})
+			if err != nil && !kerrors.IsNotFound(err) {
+				klog.Warningf("failed to delete test service %s: %v", testService.GetName(), err)
 			}
 
-			// IPv6 is the default
-			return fmt.Sprintf("%s,%s", ipv6CIDR, ipv4CIDR), ""
+			return true
 		}
 
-		return ipv4CIDR, fmt.Sprintf("unexpected number of entries in .Spec.IPFamilies - %d, defaulting to IPv4 CIDR only", len(testService.Spec.IPFamilies))
+		// see https://github.com/kubernetes/kubernetes/blob/4c1e535e39abf2acba78ac3408ab5eed77364e68/pkg/registry/core/service/ipallocator/interfaces.go#L44 for the error messages
+		if !strings.Contains(err.Error(), "is already allocated") &&
+			!strings.Contains(err.Error(), "network does not match") &&
+			!strings.Contains(err.Error(), "not in the valid range") {
+			klog.Warningf("failed to create test service %s: %v", testService.GetName(), err)
+		}
+
+		// there is a special case here where if a service with the given ip already exists or the allocator is not ready, it is part of the service cidr but returns an error
+		return strings.Contains(err.Error(), "is already allocated") || strings.Contains(err.Error(), "allocator not ready")
 	}
 
-	return fmt.Sprintf("%s,%s", ipv4CIDR, ipv6CIDR), "failed to find host cluster default Service IP family, defaulting to IPv4 family"
+	// check if dual stack
+	serviceCIDRs := []string{}
+	for _, ip := range vClusterService.Spec.ClusterIPs {
+		// get the vCluster service ip
+		vClusterServiceIP := net.ParseIP(ip)
+		if vClusterServiceIP == nil {
+			return "", fmt.Errorf("failed to parse vCluster service %s cluster IP: %v", vClusterServiceName, ip)
+		}
+
+		// get the prefix
+		serviceCIDRs = append(serviceCIDRs, DetectPrefix(vClusterServiceIP, isInRange))
+	}
+	if len(serviceCIDRs) == 0 {
+		return "", fmt.Errorf("no service cidrs found")
+	}
+
+	// join the service cidrs
+	serviceCIDR := strings.Join(serviceCIDRs, ",")
+
+	// set annotation on the vCluster service
+	vClusterService.Annotations[ServiceCIDRAnnotation] = serviceCIDR
+	_, err = client.CoreV1().Services(vClusterNamespace).Update(ctx, vClusterService, metav1.UpdateOptions{})
+	if err != nil {
+		// retry on conflict
+		if kerrors.IsConflict(err) {
+			time.Sleep(time.Second)
+			klog.Warningf("failed to update vCluster service %s: %v, will retry", vClusterServiceName, err)
+			return GetServiceCIDR(ctx, vConfig, client, vClusterServiceName, vClusterNamespace)
+		}
+
+		return "", fmt.Errorf("failed to update vCluster service %s: %w", vClusterServiceName, err)
+	}
+
+	return serviceCIDR, nil
 }
 
-func getServiceCIDR(ctx context.Context, client kubernetes.Interface, namespace string, ipv6 bool) (string, error) {
-	clusterIP := "4.4.4.4"
-	if ipv6 {
-		// https://www.ietf.org/rfc/rfc3849.txt
-		clusterIP = "2001:DB8::1"
-	}
-	if client == nil {
-		return "", errors.New("nil client")
-	}
-	_, err := client.CoreV1().Services(namespace).Create(ctx, &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "test-service-",
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Port: 80,
-				},
-			},
-			ClusterIP: clusterIP,
-		},
-	}, metav1.CreateOptions{})
-	if err == nil {
-		return "", fmt.Errorf("couldn't find host cluster Service CIDR")
+// DetectPrefix inspects A to pick v4 vs v6,
+// then runs the corresponding binary search.
+func DetectPrefix(A net.IP, isInRange func(net.IP) bool) string {
+	// ipv4?
+	if A.To4() != nil {
+		k := detectIPv4Prefix(A, isInRange)
+		base := A.Mask(net.CIDRMask(k, 32))
+		return fmt.Sprintf("%s/%d", base.String(), k)
 	}
 
-	errorMessage := err.Error()
-	idx := strings.Index(errorMessage, ErrorMessageFind)
-	if idx == -1 {
-		return "", fmt.Errorf("couldn't find host cluster Service CIDR (\"%s\")", errorMessage)
+	// ipv6?
+	k := detectIPv6Prefix(A, isInRange)
+	base := A.Mask(net.CIDRMask(k, 128))
+	return fmt.Sprintf("%s/%d", base.String(), k)
+}
+
+// IPv4 helpers --------------------------------------------------
+
+func ipToUint32(ip net.IP) uint32 {
+	ip4 := ip.To4()
+	if ip4 == nil {
+		return 0
+	}
+	return binary.BigEndian.Uint32(ip4)
+}
+
+func uint32ToIP(n uint32) net.IP {
+	ip := make(net.IP, 4)
+	binary.BigEndian.PutUint32(ip, n)
+	return ip
+}
+
+// detectIPv4Prefix finds the minimal prefix k ∈ [1..32] around A
+// using ≤5 queries, skipping the reserved network and broadcast addresses.
+func detectIPv4Prefix(A net.IP, isInRange func(net.IP) bool) int {
+	a := ipToUint32(A)
+	low, high := 1, 32
+
+	for low < high {
+		mid := (low + high) / 2
+		mask := uint32(0xFFFFFFFF) << (32 - mid)
+		netBase := a & mask
+		bcast := netBase | ^mask
+
+		var testLow, testHigh uint32
+		if mid == 32 {
+			// /32: only one address
+			testLow, testHigh = netBase, netBase
+		} else {
+			// skip network (netBase) and broadcast (bcast)
+			testLow, testHigh = netBase+1, bcast-1
+		}
+
+		if isInRange(uint32ToIP(testLow)) && isInRange(uint32ToIP(testHigh)) {
+			high = mid
+		} else {
+			low = mid + 1
+		}
 	}
 
-	cidr := strings.TrimSpace(errorMessage[idx+len(ErrorMessageFind):])
-	ip, _, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return "", err
-	}
-	isIPv4 := ip.To4() != nil
+	return low
+}
 
-	if isIPv4 && ipv6 {
-		return "", fmt.Errorf("invalid IP family, got IPv4 when trying to determine IPv6 Service CIDR")
+// IPv6 helpers --------------------------------------------------
+
+func toBigInt(ip net.IP) *big.Int {
+	ip16 := ip.To16()
+	if ip16 == nil {
+		return big.NewInt(0)
 	}
-	if !isIPv4 && !ipv6 {
-		return "", fmt.Errorf("invalid IP family, got invalid IPv4 address when trying to determine IPv4 Service CIDR")
+	return new(big.Int).SetBytes(ip16)
+}
+
+func toIP(i *big.Int) net.IP {
+	b := i.Bytes()
+	if len(b) < 16 {
+		b = bytes.Join([][]byte{make([]byte, 16-len(b)), b}, nil)
 	}
-	return cidr, nil
+	return net.IP(b)
+}
+
+// detectIPv6Prefix finds the minimal prefix k ∈ [0..128], skipping
+// the reserved network and (IPv4‐style) broadcast edges.
+func detectIPv6Prefix(A net.IP, isInRange func(net.IP) bool) int {
+	a := toBigInt(A)
+	one := big.NewInt(1)
+	allOnes := new(big.Int).Sub(new(big.Int).Lsh(one, 128), one)
+
+	low, high := 0, 128
+	for low < high {
+		mid := (low + high) / 2
+
+		// build mask = allOnes << (128-mid)
+		mask := new(big.Int).Lsh(allOnes, uint(128-mid))
+		netBase := new(big.Int).And(a, mask)
+
+		// hostMask = ~mask & allOnes
+		hostMask := new(big.Int).And(new(big.Int).Xor(mask, allOnes), allOnes)
+		bcast := new(big.Int).Or(netBase, hostMask)
+
+		var firstHost, lastHost *big.Int
+		if mid == 128 {
+			firstHost, lastHost = new(big.Int).Set(netBase), new(big.Int).Set(netBase)
+		} else {
+			firstHost = new(big.Int).Add(netBase, one)
+			lastHost = new(big.Int).Sub(bcast, one)
+		}
+
+		if isInRange(toIP(firstHost)) && isInRange(toIP(lastHost)) {
+			high = mid
+		} else {
+			low = mid + 1
+		}
+	}
+	return low
 }
