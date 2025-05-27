@@ -261,7 +261,13 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		)
 		// Try to check if unwanted virtual scheduling has happened.
 		if event.Virtual.Spec.NodeName != "" {
-			unwantedVirtualScheduling, err := s.schedulingConfig.IsPodScheduledBySchedulerFromVirtualCluster(ctx, pPod, event.Virtual)
+			// Here, with hybrid scheduling enabled, the pod uses a scheduler from the host cluster. The virtual pod most
+			// probably has not been synced to the host yet, so it should not have the node name set (because the scheduler
+			// from the host cluster should set it after the pod is synced to host). However, if the scheduler that is
+			// supposed to be in the host cluster is also deployed to the virtual cluster (which should not be done), it
+			// will undesirably schedule the pod (known hybrid scheduling limitation), so here vCLuster checks if that
+			// has happened.
+			unwantedVirtualScheduling, err := s.schedulingConfig.IsPodRecentlyScheduledInVirtualCluster(ctx, pPod, event.Virtual)
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to determine whether the pod was scheduler by a scheduler in virtual cluster: %w", err)
 			}
@@ -353,9 +359,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		// - Virtual pod is using a scheduler from the host cluster.
 		//
 		// When all the above conditions are met, we do the final check to determine if a scheduler from the virtual
-		// cluster really scheduled the virtual pod. Since this final accesses API server, we do it only when all the
-		// above conditions are met.
-		virtualPodScheduledBySchedulerInVirtualCluster, err := s.schedulingConfig.IsPodScheduledBySchedulerFromVirtualCluster(ctx, event.Host, event.Virtual)
+		// cluster really scheduled the virtual pod. Since this final check accesses API server, we do it only when all
+		// the above conditions are met.
+		virtualPodScheduledBySchedulerInVirtualCluster, err := s.schedulingConfig.IsPodRecentlyScheduledInVirtualCluster(ctx, event.Host, event.Virtual)
 		if err == nil && virtualPodScheduledBySchedulerInVirtualCluster {
 			return ctrl.Result{},
 				fmt.Errorf(

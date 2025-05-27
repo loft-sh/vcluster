@@ -2,6 +2,7 @@ package scheduling
 
 import (
 	"context"
+	"errors"
 
 	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -9,12 +10,19 @@ import (
 	corev1Clients "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
+var (
+	// VirtualSchedulingCheckPodTooOld error means that vCluster cannot check if the pod has been scheduled by the
+	// scheduler in the virtual cluster because the pod is too old and vCluster cannot reliably get its scheduling events
+	// because they have been possibly deleted.
+	VirtualSchedulingCheckPodTooOld = errors.New("virtual scheduling check not possible because pod is too old")
+)
+
 type Config struct {
 	VirtualSchedulerEnabled bool
 	HybridSchedulingEnabled bool
 	HostSchedulers          []string
-	HostEventsClient        corev1Clients.CoreV1Interface
-	VirtualEventsClient     corev1Clients.CoreV1Interface
+	HostCoreClient          corev1Clients.CoreV1Interface
+	VirtualCoreClient       corev1Clients.CoreV1Interface
 }
 
 // NewConfig creates a new scheduling config with specified vCluster scheduling options. In the case of vcluster OSS
@@ -39,11 +47,13 @@ func (c *Config) IsSchedulerFromVirtualCluster(schedulerName string) bool {
 	return IsSchedulerFromVirtualCluster(schedulerName, c.VirtualSchedulerEnabled, c.HybridSchedulingEnabled, c.HostSchedulers)
 }
 
-func (c *Config) IsPodScheduledBySchedulerFromVirtualCluster(ctx context.Context, hostPod, virtualPod *corev1.Pod) (bool, error) {
+// IsPodRecentlyScheduledInVirtualCluster checks if the virtual pod has been recently scheduled by the scheduler from the
+// virtual cluster.
+func (c *Config) IsPodRecentlyScheduledInVirtualCluster(ctx context.Context, hostPod, virtualPod *corev1.Pod) (bool, error) {
 	if c.VirtualSchedulerEnabled {
 		return true, nil
 	} else if c.HybridSchedulingEnabled {
-		return IsPodScheduledBySchedulerFromVirtualCluster(ctx, c.HostEventsClient, c.VirtualEventsClient, hostPod, virtualPod)
+		return IsPodRecentlyScheduledInVirtualCluster(ctx, c.HostCoreClient, c.VirtualCoreClient, hostPod, virtualPod)
 	}
 	return false, nil
 }
@@ -53,8 +63,8 @@ var IsSchedulerFromVirtualCluster = func(_ string, virtualSchedulerEnabled, _ bo
 	return virtualSchedulerEnabled
 }
 
-// IsPodScheduledBySchedulerFromVirtualCluster checks if the specified pod is scheduled by a scheduler from the virtual
+// IsPodRecentlyScheduledInVirtualCluster checks if the specified pod is scheduled by a scheduler from the virtual
 // cluster.
-var IsPodScheduledBySchedulerFromVirtualCluster = func(_ context.Context, _, _ corev1Clients.CoreV1Interface, _, _ *corev1.Pod) (bool, error) {
+var IsPodRecentlyScheduledInVirtualCluster = func(_ context.Context, _, _ corev1Clients.CoreV1Interface, _, _ *corev1.Pod) (bool, error) {
 	return false, nil
 }
