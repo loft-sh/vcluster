@@ -384,7 +384,6 @@ func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
 			product.LoginCmd(), product.Url(),
 			product.LoginCmd(),
 		))
-
 	}
 
 	// build a rest config
