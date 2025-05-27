@@ -40,6 +40,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const (
+	maxSyncToHostDelay                     = 3 * time.Second
+	unwantedVirtualSchedulingCheckInterval = 1 * time.Second
+)
+
 var (
 	// Default grace period in seconds
 	minimumGracePeriodInSeconds int64 = 30
@@ -254,37 +259,23 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 			pPod.Annotations[translatepods.HostIPsAnnotation] = nodeIP
 		}
 	}
-	if s.schedulingConfig.HybridSchedulingEnabled && s.schedulingConfig.IsSchedulerFromHostCluster(pPod.Spec.SchedulerName) {
-		const (
-			maxSyncToHostDelay                     = 10 * time.Second
-			unwantedVirtualSchedulingCheckInterval = 3 * time.Second
-		)
-		// Try to check if unwanted virtual scheduling has happened.
-		if event.Virtual.Spec.NodeName != "" {
-			// Here, with hybrid scheduling enabled, the pod uses a scheduler from the host cluster. The virtual pod most
-			// probably has not been synced to the host yet, so it should not have the node name set (because the scheduler
-			// from the host cluster should set it after the pod is synced to host). However, if the scheduler that is
-			// supposed to be in the host cluster is also deployed to the virtual cluster (which should not be done), it
-			// will undesirably schedule the pod (known hybrid scheduling limitation), so here vCLuster checks if that
-			// has happened.
-			unwantedVirtualScheduling, err := s.schedulingConfig.IsPodRecentlyScheduledInVirtualCluster(ctx, pPod, event.Virtual)
-			if errors.Is(err, scheduling.ErrVirtualSchedulingCheckPodTooOld) {
-				return ctrl.Result{}, fmt.Errorf("virtual scheduling check not reliable, scheduling events are possibly deleted: %w", err)
-			} else if err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to determine whether the pod was scheduler by a scheduler in virtual cluster: %w", err)
-			}
-			if unwantedVirtualScheduling {
-				return ctrl.Result{}, fmt.Errorf("pod '%s/%s' is scheduled by the scheduler '%s' in the virtual cluster, which should not happen because scheduler '%s' is configured as a host scheduler",
-					event.Virtual.Namespace,
-					event.Virtual.Name,
-					event.Virtual.Spec.SchedulerName,
-					event.Virtual.Spec.SchedulerName)
-			}
-		} else if time.Since(event.Virtual.CreationTimestamp.Time) < maxSyncToHostDelay {
-			// check again in 5 seconds if the virtual pod will get scheduled by the virtual scheduler by mistake
-			ctx.Log.Infof("requeueing pod '%s/%s' to check the scheduler", event.Virtual.Namespace, event.Virtual.Name)
-			return ctrl.Result{RequeueAfter: unwantedVirtualSchedulingCheckInterval}, nil
+
+	err = s.checkScheduling(ctx, nil, event.Virtual)
+	if errors.Is(err, scheduling.ErrUnwantedVirtualScheduling) {
+		// pod was scheduled incorrectly, delete it
+		_, err := patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "virtual and physical pods have different assigned nodes")
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete incorrectly scheduled virtual pod: %w", err)
 		}
+	} else if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check pod scheduling: %w", err)
+	}
+	if s.schedulingCheckShouldBeRepeated(event.Virtual) {
+		// Wait a bit and check again if the virtual pod will get scheduled by the virtual scheduler by mistake.
+		// Repeat this few times to give the syncer a chance to potentially catch the incorrect scheduling before the
+		// pod gets synced to host.
+		ctx.Log.Debugf("requeueing pod '%s/%s' to check the scheduling again", event.Virtual.Namespace, event.Virtual.Name)
+		return ctrl.Result{RequeueAfter: unwantedVirtualSchedulingCheckInterval}, nil
 	}
 
 	err = pro.ApplyPatchesHostObject(ctx, nil, pPod, event.Virtual, ctx.Config.Sync.ToHost.Pods.Patches, false)
@@ -349,7 +340,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	}
 
 	err = s.checkScheduling(ctx, event.Host, event.Virtual)
-	if err != nil {
+	if errors.Is(err, scheduling.ErrUnwantedVirtualScheduling) {
+		return ctrl.Result{}, fmt.Errorf("scheduling error has occurred: %w", err)
+	} else if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to check pod scheduling: %w", err)
 	}
 
@@ -587,9 +580,16 @@ func (s *podSyncer) getNodeIP(ctx *synccontext.SyncContext, name string) (string
 
 func (s *podSyncer) schedulingCheckIsNeeded(pPod, vPod *corev1.Pod) bool {
 	return vPod.Spec.NodeName != "" &&
-		vPod.Spec.NodeName != pPod.Spec.NodeName &&
+		(pPod == nil || vPod.Spec.NodeName != pPod.Spec.NodeName) &&
 		s.schedulingConfig.HybridSchedulingEnabled &&
 		s.schedulingConfig.IsSchedulerFromHostCluster(vPod.Spec.SchedulerName)
+}
+
+func (s *podSyncer) schedulingCheckShouldBeRepeated(vPod *corev1.Pod) bool {
+	return s.schedulingConfig.HybridSchedulingEnabled &&
+		s.schedulingConfig.IsSchedulerFromHostCluster(vPod.Spec.SchedulerName) &&
+		vPod.Spec.NodeName == "" &&
+		time.Since(vPod.CreationTimestamp.Time) < maxSyncToHostDelay
 }
 
 func (s *podSyncer) checkScheduling(ctx *synccontext.SyncContext, pPod, vPod *corev1.Pod) error {
@@ -599,7 +599,7 @@ func (s *podSyncer) checkScheduling(ctx *synccontext.SyncContext, pPod, vPod *co
 	// When the following conditions are all met, we may be in the situation where a scheduler from the virtual cluster
 	// has undesirably scheduled a pod:
 	// - Virtual pod is scheduled, and
-	// - Host pod is not scheduled yet or the virtual pod is scheduled to a different node, and
+	// - Host pod is not yet synced, host pod is not yet scheduled, or the virtual pod is scheduled to a different node, and
 	// - Hybrid scheduling is enabled, and
 	// - Virtual pod is using a scheduler from the host cluster.
 	//
@@ -608,13 +608,16 @@ func (s *podSyncer) checkScheduling(ctx *synccontext.SyncContext, pPod, vPod *co
 	// when all the above conditions are met, so we don't unnecessarily put more load on the API server.
 	virtualPodScheduledBySchedulerInVirtualCluster, err := s.schedulingConfig.IsPodRecentlyScheduledInVirtualCluster(ctx, pPod, vPod)
 	if err == nil && virtualPodScheduledBySchedulerInVirtualCluster {
+		// incorrect scheduling detected
 		return fmt.Errorf(
-			"pod '%s/%s' is scheduled by the scheduler '%s' in the virtual cluster, which should not happen because scheduler '%s' is configured as a host scheduler",
+			"pod '%s/%s' is scheduled by the scheduler '%s' in the virtual cluster, which should not happen because scheduler '%s' is configured as a host scheduler: %w",
 			vPod.Namespace,
 			vPod.Name,
 			vPod.Spec.SchedulerName,
-			vPod.Spec.SchedulerName)
+			vPod.Spec.SchedulerName,
+			scheduling.ErrUnwantedVirtualScheduling)
 	} else if errors.Is(err, scheduling.ErrVirtualSchedulingCheckPodTooOld) {
+		// check cannot be reliably done, so just log and don't return an error
 		ctx.Log.Infof("virtual scheduling check not reliable, scheduling events are possibly deleted: %v", err)
 	} else if err != nil {
 		return fmt.Errorf(

@@ -11,6 +11,10 @@ import (
 )
 
 var (
+	// ErrUnwantedVirtualScheduling happens when the scheduler, which should be deployed in the host cluster, is also
+	// deployed in the virtual cluster.
+	ErrUnwantedVirtualScheduling = errors.New("scheduling happened in virtual cluster, but it should have happened in the host cluster")
+
 	// ErrVirtualSchedulingCheckPodTooOld error means that vCluster cannot check if the pod has been scheduled by the
 	// scheduler in the virtual cluster because the pod is too old and vCluster cannot reliably get pod scheduling events
 	// because they have been possibly deleted.
