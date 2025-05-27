@@ -260,7 +260,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		}
 	}
 
-	err = s.checkScheduling(ctx, nil, event.Virtual)
+	err = s.checkScheduling(ctx, pPod, event.Virtual)
 	if errors.Is(err, scheduling.ErrUnwantedVirtualScheduling) {
 		// pod was scheduled incorrectly, delete it
 		_, err := patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "virtual and physical pods have different assigned nodes")

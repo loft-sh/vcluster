@@ -17,6 +17,9 @@ func (s *podSyncer) schedulingCheckIsNeeded(pPod, vPod *corev1.Pod) bool {
 		s.schedulingConfig.IsSchedulerFromHostCluster(vPod.Spec.SchedulerName)
 }
 
+// schedulingCheckShouldBeRepeated returns true when the virtual pod has not yet been scheduled, and it has been very
+// recently created (within last handful of seconds). Also, hybrid scheduling must be enabled and the pod must use a
+// scheduler from the host cluster.
 func (s *podSyncer) schedulingCheckShouldBeRepeated(vPod *corev1.Pod) bool {
 	return s.schedulingConfig.HybridSchedulingEnabled &&
 		s.schedulingConfig.IsSchedulerFromHostCluster(vPod.Spec.SchedulerName) &&
@@ -54,7 +57,7 @@ func (s *podSyncer) checkScheduling(ctx *synccontext.SyncContext, pPod, vPod *co
 	} else if err != nil {
 		return fmt.Errorf(
 			"failed to determine whether the pod %s/%s was scheduled by a scheduler in the virtual cluster: %w",
-			vPod.Namespace, pPod.Name, err)
+			vPod.Namespace, vPod.Name, err)
 	}
 
 	return nil
