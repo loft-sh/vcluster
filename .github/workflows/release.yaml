@@ -133,7 +133,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Update linear issues
-        run: go run -mod vendor . -release-tag="${{ needs.publish.outputs.release_version }}"
+        run: go run . -release-tag="${{ needs.publish.outputs.release_version }}"
         working-directory: hack/linear-sync
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
