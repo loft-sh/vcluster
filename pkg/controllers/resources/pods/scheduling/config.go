@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	// VirtualSchedulingCheckPodTooOld error means that vCluster cannot check if the pod has been scheduled by the
-	// scheduler in the virtual cluster because the pod is too old and vCluster cannot reliably get its scheduling events
+	// ErrVirtualSchedulingCheckPodTooOld error means that vCluster cannot check if the pod has been scheduled by the
+	// scheduler in the virtual cluster because the pod is too old and vCluster cannot reliably get pod scheduling events
 	// because they have been possibly deleted.
-	VirtualSchedulingCheckPodTooOld = errors.New("virtual scheduling check not possible because pod is too old")
+	ErrVirtualSchedulingCheckPodTooOld = errors.New("virtual scheduling check not possible because pod is too old")
 )
 
 type Config struct {
