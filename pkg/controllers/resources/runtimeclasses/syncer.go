@@ -3,33 +3,35 @@ package runtimeclasses
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/mappings/generic"
-	"github.com/loft-sh/vcluster/pkg/patcher"
-	"github.com/loft-sh/vcluster/pkg/pro"
-	"github.com/loft-sh/vcluster/pkg/syncer"
-	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	nodev1 "k8s.io/api/node/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/loft-sh/vcluster/pkg/mappings/generic"
+	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 )
 
-func New(_ *synccontext.RegisterContext) (syncertypes.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := generic.NewMirrorMapper(&nodev1.RuntimeClass{})
 	if err != nil {
 		return nil, err
 	}
 
 	return &runtimeClassSyncer{
-		Mapper: mapper,
+		GenericTranslator: translator.NewGenericTranslator(ctx, "runtimeclass", &nodev1.RuntimeClass{}, mapper),
 	}, nil
 }
 
 type runtimeClassSyncer struct {
-	synccontext.Mapper
+	syncertypes.GenericTranslator
 }
 
 func (i *runtimeClassSyncer) Name() string {
@@ -47,6 +49,10 @@ func (i *runtimeClassSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (i *runtimeClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*nodev1.RuntimeClass]) (ctrl.Result, error) {
+	if !ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(event.Host) {
+		return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, fmt.Sprintf("did not sync runtime class %q because it does not match the selector under 'sync.fromHost.runtimeClasses.selector'", event.Host.Name))
+	}
+
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
 
 	// Apply pro patches
@@ -60,6 +66,10 @@ func (i *runtimeClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 }
 
 func (i *runtimeClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*nodev1.RuntimeClass]) (_ ctrl.Result, retErr error) {
+	if !ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(event.Host) {
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.Host, fmt.Sprintf("did not sync runtime class %q because it does not match the selector under 'sync.fromHost.runtimeClasses.selector'", event.Host.Name))
+	}
+
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.RuntimeClasses.Patches, true))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)

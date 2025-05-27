@@ -3,6 +3,12 @@ package persistentvolumeclaims
 import (
 	"fmt"
 
+	storagev1 "k8s.io/api/storage/v1"
+
+	"github.com/pkg/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/klog/v2"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -12,17 +18,15 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/klog/v2"
 
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 )
 
 var (
@@ -82,6 +86,10 @@ func (s *persistentVolumeClaimSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.PersistentVolumeClaim]) (ctrl.Result, error) {
+	if s.applyLimitByClass(ctx, event.Virtual) {
+		return ctrl.Result{}, nil
+	}
+
 	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
 		return patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.HostOld, "host object was deleted", &client.DeleteOptions{
 			GracePeriodSeconds: &zero,
@@ -103,6 +111,10 @@ func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, e
 }
 
 func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.PersistentVolumeClaim]) (_ ctrl.Result, retErr error) {
+	if s.applyLimitByClass(ctx, event.Virtual) {
+		return ctrl.Result{}, nil
+	}
+
 	// if pvs are deleted check the corresponding pvc is deleted as well
 	if event.Host.DeletionTimestamp != nil {
 		if event.Virtual.DeletionTimestamp == nil {
@@ -284,4 +296,21 @@ func recreatePersistentVolumeClaim(ctx *synccontext.SyncContext, virtualClient c
 	}
 
 	return vPVC, nil
+}
+
+func (s *persistentVolumeClaimSyncer) applyLimitByClass(ctx *synccontext.SyncContext, virtual *corev1.PersistentVolumeClaim) bool {
+	// Get the host storage class and check if it matches the selector
+	if ctx.Config.Sync.FromHost.StorageClasses.Enabled.Bool() && virtual.Spec.StorageClassName != nil && *virtual.Spec.StorageClassName != "" {
+		pStorageClass := &storagev1.StorageClass{}
+		err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.StorageClassName}, pStorageClass)
+		if err != nil || pStorageClass.GetDeletionTimestamp() != nil {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync persistent volume claim %q to host because the storage class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.StorageClassName, err)
+			return true
+		}
+		if !ctx.Config.Sync.FromHost.StorageClasses.Selector.Matches(pStorageClass) {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync persistent volume claim %q to host because the storage class %q in the host does not match the selector under 'sync.fromHost.storageClasses.selector'", virtual.GetName(), pStorageClass.GetName())
+			return true
+		}
+	}
+	return false
 }

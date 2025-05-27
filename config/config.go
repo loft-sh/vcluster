@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/invopop/jsonschema"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
 
@@ -754,16 +757,16 @@ type SyncFromHost struct {
 	Events EnableSwitchWithPatches `json:"events,omitempty"`
 
 	// IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
-	IngressClasses EnableSwitchWithPatches `json:"ingressClasses,omitempty"`
+	IngressClasses EnableSwitchWithPatchesAndSelector `json:"ingressClasses,omitempty"`
 
 	// RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
-	RuntimeClasses EnableSwitchWithPatches `json:"runtimeClasses,omitempty"`
+	RuntimeClasses EnableSwitchWithPatchesAndSelector `json:"runtimeClasses,omitempty"`
 
 	// PriorityClasses defines if priority classes classes should get synced from the host cluster to the virtual cluster, but not back.
-	PriorityClasses EnableSwitchWithPatches `json:"priorityClasses,omitempty"`
+	PriorityClasses EnableSwitchWithPatchesAndSelector `json:"priorityClasses,omitempty"`
 
 	// StorageClasses defines if storage classes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
-	StorageClasses EnableAutoSwitchWithPatches `json:"storageClasses,omitempty"`
+	StorageClasses EnableAutoSwitchWithPatchesAndSelector `json:"storageClasses,omitempty"`
 
 	// CSINodes defines if csi nodes should get synced from the host cluster to the virtual cluster, but not back. If auto, is automatically enabled when the virtual scheduler is enabled.
 	CSINodes EnableAutoSwitchWithPatches `json:"csiNodes,omitempty"`
@@ -785,6 +788,31 @@ type SyncFromHost struct {
 
 	// Secrets defines if secrets in the host should get synced to the virtual cluster.
 	Secrets EnableSwitchWithResourcesMappings `json:"secrets,omitempty"`
+}
+
+type StandardLabelSelector v1.LabelSelector
+
+func (s StandardLabelSelector) Matches(obj client.Object) bool {
+	ls := v1.LabelSelector(s)
+	selector, err := v1.LabelSelectorAsSelector(&ls)
+	if err != nil {
+		return false
+	}
+	return selector.Matches(labels.Set(obj.GetLabels()))
+}
+
+type EnableSwitchWithPatchesAndSelector struct {
+	EnableSwitchWithPatches
+
+	// Selector defines the selector to use for the resource. If not set, all resources of that type will be synced.
+	Selector StandardLabelSelector `json:"selector,omitempty"`
+}
+
+type EnableAutoSwitchWithPatchesAndSelector struct {
+	EnableAutoSwitchWithPatches
+
+	// Selector defines the selector to use for the resource. If not set, all resources of that type will be synced.
+	Selector StandardLabelSelector `json:"selector,omitempty"`
 }
 
 // SyncToHostNamespaces defines how namespaces should be synced from the virtual cluster to the host cluster.

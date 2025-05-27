@@ -4,6 +4,12 @@ import (
 	"errors"
 	"fmt"
 
+	schedulingv1 "k8s.io/api/scheduling/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -12,11 +18,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	schedulingv1 "k8s.io/api/scheduling/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
@@ -75,6 +76,10 @@ func (s *priorityClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 }
 
 func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*schedulingv1.PriorityClass]) (_ ctrl.Result, retErr error) {
+	if !ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host) {
+		return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, fmt.Sprintf("did not sync priority class %q because it does not match the selector under 'sync.fromHost.priorityClasses.selector'", event.Host.Name))
+	}
+
 	// patch objects
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
@@ -105,6 +110,10 @@ func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 }
 
 func (s *priorityClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*schedulingv1.PriorityClass]) (_ ctrl.Result, retErr error) {
+	if !ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host) {
+		return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, fmt.Sprintf("did not sync priority class %q because it does not match the selector under 'sync.fromHost.priorityClasses.selector'", event.Host.Name))
+	}
+
 	// virtual object is not here anymore, so we delete
 	if !s.fromHost || (event.VirtualOld != nil && s.toHost) || translate.ShouldDeleteHostObject(event.Host) {
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")

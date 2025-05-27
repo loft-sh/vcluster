@@ -3,6 +3,12 @@ package ingresses
 import (
 	"fmt"
 
+	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -12,11 +18,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/types"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
@@ -60,6 +61,11 @@ func (s *ingressSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*networkingv1.Ingress]) (ctrl.Result, error) {
+	if s.applyLimitByClass(ctx, event.Virtual) {
+		s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncWarning", "did not sync ingress %q to host because it does not match the selector under 'sync.fromHost.ingressClasses.selector'", event.Virtual.GetName())
+		return ctrl.Result{}, nil
+	}
+
 	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
@@ -78,6 +84,10 @@ func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccont
 }
 
 func (s *ingressSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*networkingv1.Ingress]) (_ ctrl.Result, retErr error) {
+	if s.applyLimitByClass(ctx, event.Virtual) {
+		return ctrl.Result{}, nil
+	}
+
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Ingresses.Patches, false))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
@@ -116,4 +126,21 @@ func (s *ingressSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 	}
 
 	return patcher.CreateVirtualObject(ctx, event.Host, vIngress, s.EventRecorder(), true)
+}
+
+func (s *ingressSyncer) applyLimitByClass(ctx *synccontext.SyncContext, virtual *networkingv1.Ingress) bool {
+	// Get the host ingress class and check if it matches the selector
+	if ctx.Config.Sync.FromHost.IngressClasses.Enabled && virtual.Spec.IngressClassName != nil && *virtual.Spec.IngressClassName != "" {
+		pIngressClass := &networkingv1.IngressClass{}
+		err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.IngressClassName}, pIngressClass)
+		if err != nil || pIngressClass.GetDeletionTimestamp() != nil {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync ingress %q to host because the ingress class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.IngressClassName, err)
+			return true
+		}
+		if !ctx.Config.Sync.FromHost.IngressClasses.Selector.Matches(pIngressClass) {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync ingress %q to host because the ingress class %q in the host does not match the selector under 'sync.fromHost.ingressClasses.selector'", virtual.GetName(), pIngressClass.GetName())
+			return true
+		}
+	}
+	return false
 }
