@@ -260,7 +260,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		}
 	}
 
-	err = s.checkScheduling(ctx, pPod, event.Virtual)
+	err = s.checkScheduling(ctx, event.HostOld, event.Virtual)
 	if errors.Is(err, scheduling.ErrUnwantedVirtualScheduling) {
 		// pod was scheduled incorrectly, delete it
 		ctx.Log.Errorf("scheduling error has occurred, pod will be deleted: %v", err)
@@ -275,7 +275,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		// Wait a bit and check again if the virtual pod will get scheduled by the virtual scheduler by mistake.
 		// Repeat this few times to give the syncer a chance to potentially catch the incorrect scheduling before the
 		// pod gets synced to host.
-		ctx.Log.Debugf("requeueing pod '%s/%s' to check the scheduling again", event.Virtual.Namespace, event.Virtual.Name)
+		ctx.Log.Infof("requeueing pod '%s/%s' to check the scheduling again", event.Virtual.Namespace, event.Virtual.Name)
 		return ctrl.Result{RequeueAfter: unwantedVirtualSchedulingCheckInterval}, nil
 	}
 
