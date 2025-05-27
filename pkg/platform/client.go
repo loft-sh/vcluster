@@ -378,7 +378,13 @@ func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
 	if c.config == nil {
 		return nil, perrors.New("no config loaded")
 	} else if c.config.Platform.Host == "" || c.config.Platform.AccessKey == "" {
-		return nil, perrors.New(fmt.Sprintf("not logged in, please make sure you have run '%s' to create one or run one of these commands to login: '%s [%s]' or '%s --access-key <access-key>' if one already exists", product.StartCmd(), product.LoginCmd(), product.Url()))
+		return nil, perrors.New(fmt.Sprintf(
+			"not logged in – run '%s' to create a client, or if one already exists, log in with '%s [%s]' or '%s --access-key <key>'",
+			product.StartCmd(),
+			product.LoginCmd(), product.Url(),
+			product.LoginCmd(),
+		))
+
 	}
 
 	// build a rest config
