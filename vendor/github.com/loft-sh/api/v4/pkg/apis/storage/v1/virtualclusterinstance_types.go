@@ -19,6 +19,7 @@ const (
 	InstanceProjectsSecretsSynced  agentstoragev1.ConditionType = "ProjectSecretsSynced"
 
 	InstanceVirtualClusterAppsAndObjectsSynced agentstoragev1.ConditionType = "VirtualClusterAppsAndObjectsSynced"
+	InstanceVirtualClusterDBConnectorSynced    agentstoragev1.ConditionType = "DBConnectorSynced"
 )
 
 // +genclient

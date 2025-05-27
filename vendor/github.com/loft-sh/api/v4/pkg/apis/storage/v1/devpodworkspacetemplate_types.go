@@ -93,9 +93,23 @@ type DevPodWorkspaceTemplateDefinition struct {
 	// +optional
 	SpaceTemplate *SpaceTemplateDefinition `json:"spaceTemplate,omitempty"`
 
+	// VirtualClusterTemplateRef is a reference to the virtual cluster that should get created for this DevPod.
+	// If this is specified, the kubernetes provider will be selected automatically.
+	// +optional
+	VirtualClusterTemplateRef *TemplateRef `json:"virtualClusterTemplateRef,omitempty"`
+
+	// VirtualClusterTemplate is the inline template for a virtual cluster that should get created for this DevPod.
+	// If this is specified, the kubernetes provider will be selected automatically.
+	// +optional
+	VirtualClusterTemplate *VirtualClusterTemplateDefinition `json:"virtualClusterTemplate,omitempty"`
+
 	// WorkspaceEnv are environment variables that should be available within the created workspace.
 	// +optional
 	WorkspaceEnv map[string]DevPodProviderOption `json:"workspaceEnv,omitempty"`
+
+	// InitEnv are environment variables that should be available during the initialization phase of the created workspace.
+	// +optional
+	InitEnv map[string]DevPodProviderOption `json:"initEnv,omitempty"`
 
 	// InstanceTemplate holds the workspace instance template
 	// +optional
@@ -112,6 +126,14 @@ type DevPodWorkspaceTemplateDefinition struct {
 	// GitCloneStrategy specifies how git based workspace are being cloned. Can be "" (full, default), treeless, blobless or shallow
 	// +optional
 	GitCloneStrategy GitCloneStrategy `json:"gitCloneStrategy,omitempty"`
+
+	// CredentialForwarding specifies controls for how workspaces created by this template forward credentials into the workspace
+	// +optional
+	CredentialForwarding *CredentialForwarding `json:"credentialForwarding,omitempty"`
+
+	// PreventWakeUpOnConnection is used to prevent workspace that uses sleep mode from waking up on incomming ssh connection.
+	// +optional
+	PreventWakeUpOnConnection bool `json:"preventWakeUpOnConnection,omitempty"`
 }
 
 // +enum
@@ -124,6 +146,28 @@ const (
 	TreelessCloneStrategy GitCloneStrategy = "treeless"
 	ShallowCloneStrategy  GitCloneStrategy = "shallow"
 )
+
+type CredentialForwarding struct {
+	// Docker specifies controls for how workspaces created by this template forward docker credentials
+	// +optional
+	Docker *DockerCredentialForwarding `json:"docker,omitempty"`
+
+	// Git specifies controls for how workspaces created by this template forward git credentials
+	// +optional
+	Git *GitCredentialForwarding `json:"git,omitempty"`
+}
+
+type DockerCredentialForwarding struct {
+	// Disabled prevents all workspaces created by this template from forwarding credentials into the workspace
+	// +optional
+	Disabled bool `json:"disabled,omitempty"`
+}
+
+type GitCredentialForwarding struct {
+	// Disabled prevents all workspaces created by this template from forwarding credentials into the workspace
+	// +optional
+	Disabled bool `json:"disabled,omitempty"`
+}
 
 type DevPodWorkspaceProvider struct {
 	// Name is the name of the provider. This can also be an url.
