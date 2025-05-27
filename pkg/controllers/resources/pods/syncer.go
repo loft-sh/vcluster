@@ -268,7 +268,9 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 			// will undesirably schedule the pod (known hybrid scheduling limitation), so here vCLuster checks if that
 			// has happened.
 			unwantedVirtualScheduling, err := s.schedulingConfig.IsPodRecentlyScheduledInVirtualCluster(ctx, pPod, event.Virtual)
-			if err != nil {
+			if errors.Is(err, scheduling.ErrVirtualSchedulingCheckPodTooOld) {
+				return ctrl.Result{}, fmt.Errorf("virtual scheduling check not reliable, scheduling events are possibly deleted: %w", err)
+			} else if err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to determine whether the pod was scheduler by a scheduler in virtual cluster: %w", err)
 			}
 			if unwantedVirtualScheduling {
@@ -370,10 +372,12 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 					event.Virtual.Name,
 					event.Virtual.Spec.SchedulerName,
 					event.Virtual.Spec.SchedulerName)
+		} else if errors.Is(err, scheduling.ErrVirtualSchedulingCheckPodTooOld) {
+			return ctrl.Result{}, fmt.Errorf("virtual scheduling check not reliable, scheduling events are possibly deleted: %w", err)
 		} else if err != nil {
-			// Just log error, don't return it, because unwanted virtual scheduling check is done on the best effort basis,
-			// and error here means that the checking action failed, not that unwanted virtual scheduling happened.
-			ctx.Log.Errorf("failed to check if pod %s/%s is scheduled by the scheduler in the virtual cluster: %v", event.Virtual.Namespace, event.Virtual.Name, err)
+			return ctrl.Result{}, fmt.Errorf(
+				"failed to determine whether the pod %s/%s was scheduler by a scheduler in virtual cluster: %w",
+				event.Virtual.Namespace, event.Virtual.Name, err)
 		}
 	}
 
