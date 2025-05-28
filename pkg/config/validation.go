@@ -14,7 +14,6 @@ import (
 
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/namespaces"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 )
@@ -182,12 +181,8 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return errors.New("experimental.genericSync.imports is not allowed when using sync.toHost.namespaces")
 	}
 
-	currentNamespace, err := clienthelper.CurrentNamespace()
-	if err != nil {
-		return fmt.Errorf("get current namespace: %w", err)
-	}
 	// sync.toHost.namespaces validation
-	err = namespaces.ValidateNamespaceSyncConfig(&vConfig.Config, vConfig.Name, currentNamespace)
+	err = namespaces.ValidateNamespaceSyncConfig(&vConfig.Config, vConfig.Name, vConfig.ControlPlaneNamespace)
 	if err != nil {
 		return fmt.Errorf("namespace sync: %w", err)
 	}
