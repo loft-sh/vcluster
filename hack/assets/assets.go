@@ -144,14 +144,16 @@ func GetImageList(latest bool, optional bool, kubernetesVersion string, groups [
 
 // GetVclusterImages returns a list of vcluster images
 func GetVclusterImages(latest, optional bool, cleanTag string) []string {
-	images := []string{"ghcr.io/loft-sh/vcluster-oss:" + cleanTag}
+	images := []string{
+		"ghcr.io/loft-sh/vcluster-oss:" + cleanTag,
+		config.DefaultHostsRewriteImage,
+	}
 	if !optional {
 		if latest {
 			images = nil
 		}
 		images = append(images,
 			"ghcr.io/loft-sh/vcluster-pro:"+cleanTag,
-			config.DefaultHostsRewriteImage,
 		)
 	}
 	return images
@@ -164,23 +166,34 @@ func GetVclusterDependencyImageMaps(distro string) []map[string]string {
 	case k8s:
 		ret = append(ret,
 			vclusterconfig.K8SVersionMap,
-			vclusterconfig.K8SEtcdVersionMap)
+			getFullOptional(vclusterconfig.K8SEtcdVersionMap))
 	case k3s:
-		ret = append(ret, vclusterconfig.K3SVersionMap)
+		ret = append(ret, getFullOptional(vclusterconfig.K3SVersionMap))
 	default: // All distros
 		ret = append(ret,
 			vclusterconfig.K8SVersionMap,
-			vclusterconfig.K8SEtcdVersionMap,
-			vclusterconfig.K3SVersionMap,
+			getFullOptional(vclusterconfig.K8SEtcdVersionMap),
+			getFullOptional(vclusterconfig.K3SVersionMap),
 		)
 	}
 	ret = append(ret, constants.CoreDNSVersionMap)
 	return ret
 }
 
+// getFullOptional returns a map with an empty string key and value added.
+// This is used to ensure that the latest image is also pushed to the optional part of the list.
+// This is combined with the sorting function that puts the empty string at the beginning of the list (which is the latest one)
+func getFullOptional(m map[string]string) map[string]string {
+	m[""] = ""
+	return m
+}
+
 // UniqueAppend Appends unique elements to the slice
 func UniqueAppend(slice []string, elem ...string) []string {
 	for _, e := range elem {
+		if e == "" {
+			continue
+		}
 		if !slices.Contains(slice, e) {
 			slice = append(slice, e)
 		}
@@ -200,8 +213,12 @@ func getSortedDescValues(versionImageMap map[string]string) []string {
 }
 
 // Comparison function for versions in descending order
-func versionsDescCmp(X, Y string) int {
-	if version.MustParse(X).GreaterThan(version.MustParse(Y)) {
+// Empty string is treated a greater than any other element
+func versionsDescCmp(x, y string) int {
+	if y == "" {
+		return 1
+	}
+	if x == "" || version.MustParse(x).GreaterThan(version.MustParse(y)) {
 		return -1
 	}
 	return 1
