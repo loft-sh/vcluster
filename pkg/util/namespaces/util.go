@@ -38,10 +38,5 @@ func MatchAndExtractWildcard(name, pattern string) (wildcardValue string, matche
 
 // ProcessNamespaceName returns namespace name after applying all pre-processing to it
 func ProcessNamespaceName(namespaceName string, vclusterName string) string {
-	return replaceNamePlaceholder(namespaceName, vclusterName)
-}
-
-// replaceNamePlaceholder replaces ${name} placeholder in given templateString with vclusterName
-func replaceNamePlaceholder(templateString string, vclusterName string) string {
-	return strings.ReplaceAll(templateString, NamePlaceholder, vclusterName)
+	return strings.ReplaceAll(namespaceName, NamePlaceholder, vclusterName)
 }

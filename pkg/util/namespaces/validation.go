@@ -6,6 +6,7 @@ import (
 
 	"github.com/loft-sh/vcluster/config"
 	"k8s.io/apimachinery/pkg/api/validation"
+	"k8s.io/apimachinery/pkg/util/sets" // Ensure this import is present
 )
 
 func ValidateNamespaceSyncConfig(c *config.Config, name, namespace string) error {
@@ -19,23 +20,23 @@ func ValidateNamespaceSyncConfig(c *config.Config, name, namespace string) error
 		return fmt.Errorf("%s are empty", configPathIdentifier)
 	}
 
-	virtualNamespaceNames := make([]string, 0, len(c.Sync.ToHost.Namespaces.Mappings.ByName))
-	hostNamespaceNames := make([]string, 0, len(c.Sync.ToHost.Namespaces.Mappings.ByName))
+	virtualNamespaceSet := sets.NewString()
+	hostNamespaceSet := sets.NewString()
 
+	// for each vnamespace:hostNamespace mapping
 	for vNS, hNS := range c.Sync.ToHost.Namespaces.Mappings.ByName {
-		virtualNamespaceNames = append(virtualNamespaceNames, vNS)
-		hostNamespaceNames = append(hostNamespaceNames, hNS)
-	}
+		// first check for duplicate entries
+		if virtualNamespaceSet.Has(vNS) {
+			return fmt.Errorf("%s: duplicate virtual namespace '%s' found in mappings", configPathIdentifier, vNS)
+		}
+		virtualNamespaceSet.Insert(vNS)
 
-	if err := validateNoDuplicatedMappingKeys(virtualNamespaceNames, "virtual namespace", configPathIdentifier); err != nil {
-		return err
-	}
+		if hostNamespaceSet.Has(hNS) {
+			return fmt.Errorf("%s: duplicate host namespace '%s' found in mappings", configPathIdentifier, hNS)
+		}
+		hostNamespaceSet.Insert(hNS)
 
-	if err := validateNoDuplicatedMappingKeys(hostNamespaceNames, "host namespace", configPathIdentifier); err != nil {
-		return err
-	}
-
-	for vNS, hNS := range c.Sync.ToHost.Namespaces.Mappings.ByName {
+		// then check for matching patterns
 		vIsPattern := IsPattern(vNS)
 		hIsPattern := IsPattern(hNS)
 
@@ -43,14 +44,17 @@ func ValidateNamespaceSyncConfig(c *config.Config, name, namespace string) error
 			return fmt.Errorf("%s: '%s':'%s' has mismatched wildcard '*' usage - pattern must always map to another pattern", configPathIdentifier, vNS, hNS)
 		}
 
+		// validate we're not mapping to host namespace in which vcluster is running
 		if err := validateHostMappingNotControlPlane(hNS, hIsPattern, configPathIdentifier, name, namespace); err != nil {
 			return err
 		}
 
-		var errLoop error // Renamed to avoid shadowing outer err
+		var errLoop error
 		if vIsPattern && hIsPattern {
+			// validate pattern mapping rule
 			errLoop = validateToHostPatternNamespaceMapping(vNS, hNS, name, configPathIdentifier)
 		} else {
+			// validate exact mapping rule
 			errLoop = validateToHostExactNamespaceMapping(vNS, hNS, name, configPathIdentifier)
 		}
 		if errLoop != nil {
@@ -155,17 +159,6 @@ func validateNamePlaceholderUsage(namePart, vclusterName, partTypeIdentifier, co
 		return fmt.Errorf("%s: %s '%s' contains an unsupported placeholder; only a single '%s' is allowed", configPathIdentifier, partTypeIdentifier, namePart, NamePlaceholder)
 	}
 
-	return nil
-}
-
-func validateNoDuplicatedMappingKeys(items []string, itemType string, configPathIdentifier string) error {
-	seen := make(map[string]bool)
-	for _, item := range items {
-		if seen[item] {
-			return fmt.Errorf("%s: duplicate %s '%s' found in mappings", configPathIdentifier, itemType, item)
-		}
-		seen[item] = true
-	}
 	return nil
 }
 
