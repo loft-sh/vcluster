@@ -54,7 +54,8 @@ func (s *hostStorageClassSyncer) Syncer() syncertypes.Sync[client.Object] {
 
 func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
 	if !ctx.Config.Sync.FromHost.StorageClasses.Selector.Matches(event.Host) {
-		return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, fmt.Sprintf("did not sync storage class %q because it does not match the selector under 'sync.fromHost.storageClasses.selector'", event.Host.Name))
+		ctx.Log.Infof("Warning: did not sync storage class %q because it does not match the selector under 'sync.fromHost.storageClasses.selector'", event.Host.Name)
+		return ctrl.Result{}, nil
 	}
 
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name}, false)
