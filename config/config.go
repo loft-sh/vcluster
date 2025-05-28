@@ -426,10 +426,10 @@ func (c *Config) IsConfiguredForSleepMode() bool {
 
 // ValidateChanges checks for disallowed config changes.
 func ValidateChanges(oldCfg, newCfg *Config) error {
-	if err := ValidateDistroChanges(oldCfg.Distro(), newCfg.Distro()); err != nil {
+	if err := ValidateDistroChanges(newCfg.Distro(), oldCfg.Distro()); err != nil {
 		return err
 	}
-	if err := ValidateStoreChanges(oldCfg.BackingStoreType(), newCfg.BackingStoreType()); err != nil {
+	if err := ValidateStoreChanges(newCfg.BackingStoreType(), oldCfg.BackingStoreType()); err != nil {
 		return err
 	}
 
