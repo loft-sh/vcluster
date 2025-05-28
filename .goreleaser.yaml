@@ -8,7 +8,7 @@ before:
     - '{{ if not .IsSnapshot }}just clean-release{{ else }}echo "Skipping clean-release"{{ end }}'
     - '{{ if not .IsSnapshot }}just copy-assets{{ else }}echo "Skipping copy-assets"{{ end }}'
     - '{{ if not .IsSnapshot }}just generate-vcluster-latest-images {{ .Version }}{{ else }}echo "Skipping generate-vcluster-latest-images"{{ end }}'
-    - '{{ if not .IsSnapshot }}just generate-vcluster-optional-images{{ else }}echo "Skipping generate-vcluster-optional-images"{{ end }}'
+    - '{{ if not .IsSnapshot }}just generate-vcluster-optional-images {{ .Version }}{{ else }}echo "Skipping generate-vcluster-optional-images"{{ end }}'
     - '{{ if not .IsSnapshot }}just generate-matrix-specific-images {{ .Version }}{{ else }}echo "Skipping generate-matrix-specific-images"{{ end }}'
 
 source:
