@@ -542,6 +542,10 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
+	if c.Sync.ToHost.Namespaces.Enabled {
+		return true
+	}
+
 	return false
 }
 
