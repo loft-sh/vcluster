@@ -40,11 +40,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const (
-	maxSyncToHostDelay                     = 3 * time.Second
-	unwantedVirtualSchedulingCheckInterval = 1 * time.Second
-)
-
 var (
 	// Default grace period in seconds
 	minimumGracePeriodInSeconds int64 = 30
@@ -262,22 +257,9 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 
 	err = s.checkScheduling(ctx, event.HostOld, event.Virtual)
 	if errors.Is(err, scheduling.ErrUnwantedVirtualScheduling) {
-		// pod was scheduled incorrectly, delete it
-		ctx.Log.Errorf("scheduling error has occurred, pod will be deleted: %v", err)
-		_, err := patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "scheduling error has occurred")
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete incorrectly scheduled virtual pod: %w", err)
-		}
-		return ctrl.Result{}, fmt.Errorf("scheduling error has occurred, pod '%s/%s' has been deleted: %w", event.Virtual.Namespace, event.Virtual.Name, scheduling.ErrUnwantedVirtualScheduling)
+		ctx.Log.Errorf("an error has occurred when scheduling pod %s/%s: %v", event.Virtual.Namespace, event.Virtual.Name, err)
 	} else if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to check pod scheduling: %w", err)
-	}
-	if s.schedulingCheckShouldBeRepeated(event.Virtual) {
-		// Wait a bit and check again if the virtual pod will get scheduled by the virtual scheduler by mistake.
-		// Repeat this few times to give the syncer a chance to potentially catch the incorrect scheduling before the
-		// pod gets synced to host.
-		ctx.Log.Infof("requeueing pod '%s/%s' to check the scheduling again", event.Virtual.Namespace, event.Virtual.Name)
-		return ctrl.Result{RequeueAfter: unwantedVirtualSchedulingCheckInterval}, nil
 	}
 
 	err = pro.ApplyPatchesHostObject(ctx, nil, pPod, event.Virtual, ctx.Config.Sync.ToHost.Pods.Patches, false)
@@ -344,12 +326,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	err = s.checkScheduling(ctx, event.Host, event.Virtual)
 	if errors.Is(err, scheduling.ErrUnwantedVirtualScheduling) {
 		// pod was scheduled incorrectly, delete it
-		ctx.Log.Errorf("scheduling error has occurred, pod will be deleted: %v", err)
-		_, err := patcher.DeleteVirtualObject(ctx, event.Virtual, event.Host, "scheduling error has occurred")
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete incorrectly scheduled virtual pod: %w", err)
-		}
-		return ctrl.Result{}, fmt.Errorf("scheduling error has occurred, pod '%s/%s' has been deleted: %w", event.Virtual.Namespace, event.Virtual.Name, scheduling.ErrUnwantedVirtualScheduling)
+		ctx.Log.Errorf("an error has occurred when scheduling pod %s/%s: %v", event.Virtual.Namespace, event.Virtual.Name, err)
 	} else if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to check pod scheduling: %w", err)
 	}

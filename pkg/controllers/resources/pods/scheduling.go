@@ -3,7 +3,6 @@ package pods
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/scheduling"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -15,16 +14,6 @@ func (s *podSyncer) schedulingCheckIsNeeded(pPod, vPod *corev1.Pod) bool {
 		(pPod == nil || vPod.Spec.NodeName != pPod.Spec.NodeName) &&
 		s.schedulingConfig.HybridSchedulingEnabled &&
 		s.schedulingConfig.IsSchedulerFromHostCluster(vPod.Spec.SchedulerName)
-}
-
-// schedulingCheckShouldBeRepeated returns true when the virtual pod has not yet been scheduled, and it has been very
-// recently created (within last handful of seconds). Also, hybrid scheduling must be enabled and the pod must use a
-// scheduler from the host cluster.
-func (s *podSyncer) schedulingCheckShouldBeRepeated(vPod *corev1.Pod) bool {
-	return s.schedulingConfig.HybridSchedulingEnabled &&
-		s.schedulingConfig.IsSchedulerFromHostCluster(vPod.Spec.SchedulerName) &&
-		vPod.Spec.NodeName == "" &&
-		time.Since(vPod.CreationTimestamp.Time) < maxSyncToHostDelay
 }
 
 func (s *podSyncer) checkScheduling(ctx *synccontext.SyncContext, pPod, vPod *corev1.Pod) error {
