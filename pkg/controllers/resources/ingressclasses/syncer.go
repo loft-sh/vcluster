@@ -50,7 +50,8 @@ func (i *ingressClassSyncer) Syncer() syncertypes.Sync[client.Object] {
 
 func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*networkingv1.IngressClass]) (ctrl.Result, error) {
 	if !ctx.Config.Sync.FromHost.IngressClasses.Selector.Matches(event.Host) {
-		return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, fmt.Sprintf("did not sync ingress class %q because it does not match the selector under 'sync.fromHost.ingressClasses.selector'", event.Host.Name))
+		ctx.Log.Infof("Warning: did not sync ingress class %q because it does not match the selector under 'sync.fromHost.ingressClasses.selector'", event.Host.Name)
+		return ctrl.Result{}, nil
 	}
 
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)

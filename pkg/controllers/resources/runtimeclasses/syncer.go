@@ -50,7 +50,8 @@ func (i *runtimeClassSyncer) Syncer() syncertypes.Sync[client.Object] {
 
 func (i *runtimeClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*nodev1.RuntimeClass]) (ctrl.Result, error) {
 	if !ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(event.Host) {
-		return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, fmt.Sprintf("did not sync runtime class %q because it does not match the selector under 'sync.fromHost.runtimeClasses.selector'", event.Host.Name))
+		ctx.Log.Infof("Warning: did not sync runtime class %q because it does not match the selector under 'sync.fromHost.runtimeClasses.selector'", event.Host.Name)
+		return ctrl.Result{}, nil
 	}
 
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
