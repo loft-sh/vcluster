@@ -41,6 +41,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
+	"github.com/loft-sh/vcluster/pkg/util/namespaces"
 	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -313,6 +314,12 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	err = pkgconfig.ValidateAllSyncPatches(vClusterConfig.Sync)
 	if err != nil {
 		return err
+	}
+
+	if vClusterConfig.Sync.ToHost.Namespaces.Enabled {
+		if err := namespaces.ValidateNamespaceSyncConfig(vClusterConfig, vClusterName, cmd.Namespace); err != nil {
+			return err
+		}
 	}
 
 	if vClusterConfig.Experimental.IsolatedControlPlane.Headless {

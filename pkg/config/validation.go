@@ -14,15 +14,9 @@ import (
 
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
+	"github.com/loft-sh/vcluster/pkg/util/namespaces"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
-)
-
-const (
-	// Name placeholder will be replaced with this virtual cluster name
-	NamePlaceholder string = "${name}"
-
-	// WildcardChar is used in pattern mappings.
-	WildcardChar string = "*"
 )
 
 var allowedPodSecurityStandards = map[string]bool{
@@ -186,6 +180,16 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 
 	if isUsingOldGenericSync(vConfig.Experimental.GenericSync) && vConfig.Sync.ToHost.Namespaces.Enabled {
 		return errors.New("experimental.genericSync.imports is not allowed when using sync.toHost.namespaces")
+	}
+
+	currentNamespace, err := clienthelper.CurrentNamespace()
+	if err != nil {
+		return fmt.Errorf("get current namespace: %w", err)
+	}
+	// sync.toHost.namespaces validation
+	err = namespaces.ValidateNamespaceSyncConfig(&vConfig.Config, vConfig.Name, currentNamespace)
+	if err != nil {
+		return fmt.Errorf("namespace sync: %w", err)
 	}
 
 	// set service name
