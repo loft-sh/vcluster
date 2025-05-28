@@ -7,7 +7,15 @@ on:
 jobs:
   backport:
     name: Backport PR
-    if: github.event.pull_request.merged == true && !(contains(github.event.pull_request.labels.*.name, 'backport'))
+    if: |
+      github.event.pull_request.merged == true &&
+      (
+        contains(
+          join(github.event.pull_request.labels.*.name, ','),
+          'backport-to-'
+        )
+      ) &&
+      (github.event.action == 'closed' || startsWith(github.event.label.name, 'backport-to-'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
