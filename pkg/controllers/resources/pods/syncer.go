@@ -268,6 +268,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete incorrectly scheduled virtual pod: %w", err)
 		}
+		return ctrl.Result{}, fmt.Errorf("scheduling error has occurred, pod '%s/%s' has been deleted: %w", event.Virtual.Namespace, event.Virtual.Name, scheduling.ErrUnwantedVirtualScheduling)
 	} else if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to check pod scheduling: %w", err)
 	}
@@ -344,10 +345,11 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	if errors.Is(err, scheduling.ErrUnwantedVirtualScheduling) {
 		// pod was scheduled incorrectly, delete it
 		ctx.Log.Errorf("scheduling error has occurred, pod will be deleted: %v", err)
-		_, err := patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "scheduling error has occurred")
+		_, err := patcher.DeleteVirtualObject(ctx, event.Virtual, event.Host, "scheduling error has occurred")
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete incorrectly scheduled virtual pod: %w", err)
 		}
+		return ctrl.Result{}, fmt.Errorf("scheduling error has occurred, pod '%s/%s' has been deleted: %w", event.Virtual.Namespace, event.Virtual.Name, scheduling.ErrUnwantedVirtualScheduling)
 	} else if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to check pod scheduling: %w", err)
 	}
