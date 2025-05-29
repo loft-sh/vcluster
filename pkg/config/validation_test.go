@@ -2,9 +2,12 @@ package config
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/util/namespaces"
 )
 
 func Test(t *testing.T) {
@@ -1152,6 +1155,534 @@ func TestValidateToHostSyncAndExternalSecretsIntegration(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := validateExternalSecretsEnabled(tc.customResourcesToHostSync, tc.externalSecretsIntegration)
+			tc.checkErr(t, err)
+		})
+	}
+}
+
+func TestValidateToHostNamespaceSyncMappings(t *testing.T) {
+	type testCase struct {
+		name           string
+		vclusterConfig *VirtualClusterConfig
+		checkErr       func(t *testing.T, err error)
+	}
+
+	mockControlPlaneNamespaceForClientHelper := "vcluster-control-plane"
+	t.Setenv("NAMESPACE", mockControlPlaneNamespaceForClientHelper)
+
+	testCases := []testCase{
+		{
+			name: "Sync disabled",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled: false,
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Sync enabled, no mappings",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName are empty"),
+		},
+		{
+			name: "Valid exact-to-exact mapping",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": "hns1"}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid exact-to-exact mapping with ${name} on host side",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": "hns1-${name}"}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid exact-to-exact mapping with ${name} on virtual side",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns1-${name}": "hns1"}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid exact-to-exact mapping with ${name} on both sides",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-${name}-foo": "hns-${name}-bar"}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid pattern-to-pattern mapping",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "hns-*"}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid pattern-to-pattern mapping with ${name} on host side prefix",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "hns-${name}-*"}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid pattern-to-pattern mapping with ${name} on virtual side prefix",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-${name}-*": "hns-*"}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid pattern-to-pattern mapping with ${name} on both prefixes",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-${name}-foo-*": "hns-${name}-bar-*"}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Invalid: Mismatched types (exact-to-pattern)",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": "hns-*"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: 'vns1':'hns-*' has mismatched wildcard '*' usage - pattern must always map to another pattern"),
+		},
+		{
+			name: "Invalid: Mismatched types (pattern-to-exact)",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "hns1"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: 'vns-*':'hns1' has mismatched wildcard '*' usage - pattern must always map to another pattern"),
+		},
+		{
+			name: "Invalid: Empty virtual exact name",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"": "hns1"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: virtual namespace cannot be empty"),
+		},
+		{
+			name: "Invalid: Empty host exact name",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": ""}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: host namespace cannot be empty"),
+		},
+		{
+			name: "Invalid: Virtual exact name not DNS compliant (uppercase)",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"VNS1": "hns1"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: invalid virtual namespace name 'VNS1': a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"),
+		},
+		{
+			name: "Invalid: Host exact name not DNS compliant (too long)",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": strings.Repeat("a", 64)}},
+					}}},
+				},
+			},
+			checkErr: expectErr(fmt.Sprintf("config.sync.toHost.namespaces.mappings.byName: invalid host namespace name '%s': must be no more than 63 characters", strings.Repeat("a", 64))),
+		},
+		{
+			name: "Invalid: Virtual exact name with multiple ${name}",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-${name}-${name}": "hns1"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: virtual namespace 'vns-${name}-${name}' contains placeholder '${name}' multiple times"),
+		},
+		{
+			name: "Invalid: Host exact name with unsupported placeholder",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": "hns-${unsupported}"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: host namespace 'hns-${unsupported}' contains an unsupported placeholder; only '${name}' is allowed"),
+		},
+		{
+			name: "Invalid: Virtual pattern with multiple '*'",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*-*": "hns-*"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: virtual namespace pattern 'vns-*-*' must contain exactly one '*'"),
+		},
+		{
+			name: "Invalid: Host pattern with '*' not at the end",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "hns-*-end"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: host namespace pattern 'hns-*-end' must have the wildcard '*' at the end"),
+		},
+		{
+			name: "Invalid: Virtual pattern prefix too long",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{strings.Repeat("a", 33) + "*": "hns-*"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: literal parts of virtual namespace pattern prefix '" + strings.Repeat("a", 33) + "' (from '" + strings.Repeat("a", 33) + "*') cannot be longer than 32 characters (literal length: 33)"),
+		},
+		{
+			name: "Invalid: Host pattern prefix too long (with ${name})",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc", // length 7
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": strings.Repeat("a", 30) + "${name}" + strings.Repeat("b", 3) + "*"}}, // 30 + 7 + 3 = 40
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: literal parts of host namespace pattern prefix '" + strings.Repeat("a", 30) + "${name}" + strings.Repeat("b", 3) + "' (from '" + strings.Repeat("a", 30) + "${name}" + strings.Repeat("b", 3) + "*" + "') cannot be longer than 32 characters (literal length: 40)"),
+		},
+		{
+			name: "Invalid: Virtual pattern prefix starts with '-'",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"-vns-*": "hns-*"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: invalid virtual namespace pattern '-vns-*': a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"),
+		},
+		{
+			name: "Invalid: Host pattern prefix (with ${name}) ends with '-' after substitution",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "${name}-hns--*"}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Invalid: Virtual pattern prefix contains invalid char '.'",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns.foo-*": "hns-*"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: invalid virtual namespace pattern 'vns.foo-*': must not contain dots"),
+		},
+		{
+			name: "Invalid: Virtual namespace mapping contains '/'",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns/foo": "hns"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: invalid virtual namespace name 'vns/foo': a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"),
+		},
+		{
+			name: "Invalid: Host namespace mapping contains '/'",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns": "hns/bar"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: invalid host namespace name 'hns/bar': a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"),
+		},
+		{
+			name: "Invalid: Duplicate host namespace name (exact)",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled: true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{
+							"vns1": "common-hns",
+							"vns2": "common-hns",
+						}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: duplicate host namespace 'common-hns' found in mappings"),
+		},
+		{
+			name: "Invalid: Duplicate host namespace name (pattern)",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled: true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{
+							"vns-a-*": "common-hns-*",
+							"vns-b-*": "common-hns-*",
+						}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: duplicate host namespace 'common-hns-*' found in mappings"),
+		},
+		{
+			name: "Invalid: Duplicate host namespace name (with ${name} placeholder)",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled: true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{
+							"vns-x": "hns-${name}-duplicate",
+							"vns-y": "hns-${name}-duplicate",
+						}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: duplicate host namespace 'hns-${name}-duplicate' found in mappings"),
+		},
+		{
+			name: "Valid: No duplicate host namespaces (multiple different mappings)",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled: true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{
+							"vns1":           "hns1",
+							"vns2":           "hns2",
+							"vns-pat-*":      "hns-pat-*",
+							"vns-ph-${name}": "hns-ph-${name}",
+						}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Invalid: Exact host namespace matches (mocked) clienthelper.CurrentNamespace()",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": mockControlPlaneNamespaceForClientHelper}},
+					}}},
+				},
+			},
+			checkErr: expectErr(fmt.Sprintf("config.sync.toHost.namespaces.mappings.byName: host namespace mapping '%s' conflicts with control plane namespace '%s'", mockControlPlaneNamespaceForClientHelper, mockControlPlaneNamespaceForClientHelper)),
+		},
+		{
+			name: "Invalid: Exact host namespace with ${name} resolves to (mocked) clienthelper.CurrentNamespace()",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "control-plane",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": "vcluster-${name}"}},
+					}}},
+				},
+			},
+			checkErr: expectErr(fmt.Sprintf("config.sync.toHost.namespaces.mappings.byName: host namespace mapping 'vcluster-${name}' conflicts with control plane namespace '%s'", mockControlPlaneNamespaceForClientHelper)),
+		},
+		{
+			name: "Invalid: Pattern host namespace matches (mocked) clienthelper.CurrentNamespace()",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "vcluster-control*"}},
+					}}},
+				},
+			},
+			checkErr: expectErr(fmt.Sprintf("config.sync.toHost.namespaces.mappings.byName: host namespace pattern 'vcluster-control*' conflicts with control plane namespace '%s'", mockControlPlaneNamespaceForClientHelper)),
+		},
+		{
+			name: "Invalid: Pattern host namespace with ${name} resolves to match (mocked) clienthelper.CurrentNamespace()",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "control",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "vcluster-${name}-plane*"}},
+					}}},
+				},
+			},
+			checkErr: expectErr(fmt.Sprintf("config.sync.toHost.namespaces.mappings.byName: host namespace pattern 'vcluster-${name}-plane*' conflicts with control plane namespace '%s'", mockControlPlaneNamespaceForClientHelper)),
+		},
+		{
+			name: "Valid: No conflict if host namespace is different from (mocked) clienthelper.CurrentNamespace()",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns1": "different-host-ns"}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid: No conflict if pattern host namespace does not match (mocked) clienthelper.CurrentNamespace()",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "different-host-prefix-*"}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid: Pattern host namespace with ${name} does not match (mocked) clienthelper.CurrentNamespace()",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"vns-*": "resolved-${name}-prefix-*"}},
+					}}},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := namespaces.ValidateNamespaceSyncConfig(&tc.vclusterConfig.Config, tc.vclusterConfig.Name, mockControlPlaneNamespaceForClientHelper)
 			tc.checkErr(t, err)
 		})
 	}

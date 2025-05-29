@@ -14,15 +14,8 @@ import (
 
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/util/namespaces"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
-)
-
-const (
-	// Name placeholder will be replaced with this virtual cluster name
-	NamePlaceholder string = "${name}"
-
-	// WildcardChar is used in pattern mappings.
-	WildcardChar string = "*"
 )
 
 var allowedPodSecurityStandards = map[string]bool{
@@ -188,6 +181,12 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return errors.New("experimental.genericSync.imports is not allowed when using sync.toHost.namespaces")
 	}
 
+	// sync.toHost.namespaces validation
+	err = namespaces.ValidateNamespaceSyncConfig(&vConfig.Config, vConfig.Name, vConfig.ControlPlaneNamespace)
+	if err != nil {
+		return fmt.Errorf("namespace sync: %w", err)
+	}
+
 	// set service name
 	if vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name == "" {
 		vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + vConfig.Name
@@ -230,6 +229,7 @@ func ValidateAllSyncPatches(sync config.Sync) error {
 			{"sync.toHost.pods", sync.ToHost.Pods.Patches},
 			{"sync.toHost.serviceAccounts", sync.ToHost.ServiceAccounts.Patches},
 			{"sync.toHost.ingresses", sync.ToHost.Ingresses.Patches},
+			{"sync.toHost.namespaces", sync.ToHost.Namespaces.Patches},
 			{"sync.toHost.networkPolicies", sync.ToHost.NetworkPolicies.Patches},
 			{"sync.toHost.persistentVolumeClaims", sync.ToHost.PersistentVolumeClaims.Patches},
 			{"sync.toHost.persistentVolumes", sync.ToHost.PersistentVolumes.Patches},
