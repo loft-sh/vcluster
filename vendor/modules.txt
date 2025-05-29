@@ -237,9 +237,6 @@ github.com/coreos/go-semver/semver
 ## explicit; go 1.12
 github.com/coreos/go-systemd/v22/daemon
 github.com/coreos/go-systemd/v22/journal
-# github.com/cpuguy83/go-md2man/v2 v2.0.6
-## explicit; go 1.12
-github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/creack/pty v1.1.21
 ## explicit; go 1.13
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
@@ -734,7 +731,6 @@ github.com/skratchdot/open-golang/open
 # github.com/spf13/cobra v1.8.1
 ## explicit; go 1.15
 github.com/spf13/cobra
-github.com/spf13/cobra/doc
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
@@ -1988,6 +1984,7 @@ k8s.io/kubernetes/cmd/kubeadm/app/util/initsystem
 k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig
 k8s.io/kubernetes/cmd/kubeadm/app/util/output
 k8s.io/kubernetes/cmd/kubeadm/app/util/pkiutil
+k8s.io/kubernetes/cmd/kubeadm/app/util/pubkeypin
 k8s.io/kubernetes/cmd/kubeadm/app/util/runtime
 # k8s.io/metrics v0.32.1
 ## explicit; go 1.23.0

@@ -60,6 +60,7 @@ require (
 	k8s.io/apiserver v0.32.1
 	k8s.io/cli-runtime v0.32.1
 	k8s.io/client-go v0.32.1
+	k8s.io/cluster-bootstrap v0.32.1
 	k8s.io/component-helpers v0.32.1
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-aggregator v0.32.1
@@ -101,7 +102,6 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.16.3 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/creack/pty v1.1.21 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
@@ -143,7 +143,6 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240930140551-af27646dc61f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240930140551-af27646dc61f // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
-	k8s.io/cluster-bootstrap v0.32.1 // indirect
 	k8s.io/cri-api v0.32.1 // indirect
 	k8s.io/cri-client v0.32.1 // indirect
 	k8s.io/kms v0.32.1 // indirect
