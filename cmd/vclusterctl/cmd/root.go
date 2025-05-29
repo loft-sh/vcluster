@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/debug"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/token"
 	"github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/mitchellh/go-homedir"
 
@@ -132,6 +133,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, *flags.GlobalFlags, error) {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(NewInfoCmd(globalFlags))
 	rootCmd.AddCommand(set.NewSetCmd(globalFlags, defaults))
+	rootCmd.AddCommand(token.NewTokenCmd(globalFlags))
 
 	// add platform commands
 	platformCmd, err := cmdplatform.NewPlatformCmd(globalFlags)
