@@ -59,7 +59,7 @@ type Translator interface {
 	TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error)
 }
 
-func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventRecorder) (Translator, error) {
+func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventRecorder, schedulingConfig scheduling.Config) (Translator, error) {
 	imageTranslator, err := NewImageTranslator(ctx.Config.Sync.ToHost.Pods.TranslateImage)
 	if err != nil {
 		return nil, err
@@ -82,14 +82,6 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 	resourceRequirements.Requests, err = parseResources(ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainer.Resources.Requests)
 	if err != nil {
 		return nil, fmt.Errorf("parse init container resource requests: %w", err)
-	}
-
-	schedulingConfig, err := scheduling.NewConfig(
-		ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
-		ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled,
-		ctx.Config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
 	}
 
 	return &translator{

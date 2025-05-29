@@ -86,21 +86,23 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, err
 	}
 
-	// create new namespaced translator
-	genericTranslator := translator.NewGenericTranslator(ctx, "pod", &corev1.Pod{}, podsMapper)
-
-	// create pod translator
-	podTranslator, err := translatepods.NewTranslator(ctx, genericTranslator.EventRecorder())
-	if err != nil {
-		return nil, errors.Wrap(err, "create pod translator")
-	}
-
 	schedulingConfig, err := scheduling.NewConfig(
+		physicalClusterClient.CoreV1(),
+		virtualClusterClient.CoreV1(),
 		ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
 		ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled,
 		ctx.Config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
+	}
+
+	// create new namespaced translator
+	genericTranslator := translator.NewGenericTranslator(ctx, "pod", &corev1.Pod{}, podsMapper)
+
+	// create pod translator
+	podTranslator, err := translatepods.NewTranslator(ctx, genericTranslator.EventRecorder(), schedulingConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "create pod translator")
 	}
 
 	return &podSyncer{
@@ -262,6 +264,13 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		}
 	}
 
+	err = s.checkScheduling(ctx, event.HostOld, event.Virtual)
+	if errors.Is(err, scheduling.ErrUnwantedVirtualScheduling) {
+		ctx.Log.Errorf("an error has occurred when scheduling pod %s/%s: %v", event.Virtual.Namespace, event.Virtual.Name, err)
+	} else if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check pod scheduling: %w", err)
+	}
+
 	err = pro.ApplyPatchesHostObject(ctx, nil, pPod, event.Virtual, ctx.Config.Sync.ToHost.Pods.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -326,6 +335,14 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 			GracePeriodSeconds: event.Virtual.DeletionGracePeriodSeconds,
 			Preconditions:      metav1.NewUIDPreconditions(string(event.Host.UID)),
 		})
+	}
+
+	err = s.checkScheduling(ctx, event.Host, event.Virtual)
+	if errors.Is(err, scheduling.ErrUnwantedVirtualScheduling) {
+		// pod was scheduled incorrectly, delete it
+		ctx.Log.Errorf("an error has occurred when scheduling pod %s/%s: %v", event.Virtual.Namespace, event.Virtual.Name, err)
+	} else if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check pod scheduling: %w", err)
 	}
 
 	// make sure node exists for pod
