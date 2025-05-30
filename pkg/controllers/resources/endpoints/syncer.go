@@ -98,7 +98,6 @@ func (s *endpointsSyncer) ModifyController(ctx *synccontext.RegisterContext, bld
         }
     }))
 
-    klog.Info("Finished modifying the controller to watch for Service changes")
     return bld, nil
 }
 
