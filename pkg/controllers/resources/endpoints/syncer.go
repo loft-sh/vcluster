@@ -99,7 +99,6 @@ func (s *endpointsSyncer) ModifyController(ctx *synccontext.RegisterContext, bld
         }
     }))
 
-    klog.Info("Finished modifying the controller to watch for Service changes")
     return bld, nil
 }
 //nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
