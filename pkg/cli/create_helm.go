@@ -239,6 +239,13 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 			if err := currentVClusterConfig.UnmarshalYAMLStrict([]byte(migratedValues)); err != nil {
 				return err
 			}
+		} else if !currentVClusterConfig.ControlPlane.Distro.K3S.Enabled && !currentVClusterConfig.ControlPlane.Distro.K8S.Enabled {
+			// When the both supported distro (k3s & k8s) are disabled, it means that the current vcluster config is empty
+			// And for none legacy vCluster version we need to fetch the vcluster config values from a secret
+			currentVClusterConfig, err = getConfigfileFromSecret(ctx, vClusterName, cmd.Namespace, cmd.log)
+			if err != nil {
+				return err
+			}
 		}
 
 		if len(cmd.Values) == 0 {
@@ -342,11 +349,6 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	verb := "created"
 	if isVClusterDeployed(release) {
 		verb = "upgraded"
-		currentVClusterConfig, err = getConfigfileFromSecret(ctx, vClusterName, cmd.Namespace, cmd.log)
-		if err != nil {
-			return err
-		}
-
 		// While certain backing store changes are allowed we prohibit changes to another distro.
 		if err := config.ValidateChanges(currentVClusterConfig, vClusterConfig); err != nil {
 			return err
