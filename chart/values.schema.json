@@ -446,15 +446,15 @@
     "ControlPlaneProbes": {
       "properties": {
         "livenessProbe": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/Probe",
           "description": "LivenessProbe specifies if the liveness probe for the container should be enabled"
         },
         "readinessProbe": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/Probe",
           "description": "ReadinessProbe specifies if the readiness probe for the container should be enabled"
         },
         "startupProbe": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/Probe",
           "description": "StartupProbe specifies if the startup probe for the container should be enabled"
         }
       },
@@ -3114,6 +3114,28 @@
       "additionalProperties": false,
       "type": "object",
       "description": "PrivateNodes enables private nodes for vCluster."
+    },
+    "Probe": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "failureThreshold": {
+          "type": "integer"
+        },
+        "initialDelaySeconds": {
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "type": "integer"
+        },
+        "periodSeconds": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "RBAC": {
       "properties": {

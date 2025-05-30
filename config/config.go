@@ -1977,13 +1977,21 @@ type ControlPlaneWorkloadServiceAccount struct {
 
 type ControlPlaneProbes struct {
 	// LivenessProbe specifies if the liveness probe for the container should be enabled
-	LivenessProbe EnableSwitch `json:"livenessProbe,omitempty"`
+	LivenessProbe Probe `json:"livenessProbe,omitempty"`
 
 	// ReadinessProbe specifies if the readiness probe for the container should be enabled
-	ReadinessProbe EnableSwitch `json:"readinessProbe,omitempty"`
+	ReadinessProbe Probe `json:"readinessProbe,omitempty"`
 
 	// StartupProbe specifies if the startup probe for the container should be enabled
-	StartupProbe EnableSwitch `json:"startupProbe,omitempty"`
+	StartupProbe Probe `json:"startupProbe,omitempty"`
+}
+
+type Probe struct {
+	EnableSwitch
+	FailureThreshold    int `json:"failureThreshold,omitempty"`
+	InitialDelaySeconds int `json:"initialDelaySeconds,omitempty"`
+	TimeoutSeconds      int `json:"timeoutSeconds,omitempty"`
+	PeriodSeconds       int `json:"periodSeconds,omitempty"`
 }
 
 type ControlPlaneSecurity struct {

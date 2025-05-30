@@ -350,10 +350,20 @@ controlPlane:
     probes:
       livenessProbe:
         enabled: true
+        failureThreshold: 60
+        initialDelaySeconds: 60
+        timeoutSeconds: 3
+        periodSeconds: 2
       readinessProbe:
         enabled: true
+        failureThreshold: 60
+        timeoutSeconds: 3
+        periodSeconds: 2
       startupProbe:
         enabled: true
+        failureThreshold: 300
+        timeoutSeconds: 3
+        periodSeconds: 6
 
   serviceMonitor:
     enabled: false

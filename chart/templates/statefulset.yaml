@@ -146,36 +146,39 @@ spec:
           args:
 {{ toYaml .Values.controlPlane.statefulSet.args | indent 12 }}
           {{- end }}
-          {{- if .Values.controlPlane.statefulSet.probes.livenessProbe.enabled }}
+          {{- $liveness := include "vcluster.probe" (dict "ctx" . "type" "livenessProbe") | fromYaml }}
+          {{- if $liveness.enabled }}
           livenessProbe:
             httpGet:
               path: /healthz
               port: 8443
               scheme: HTTPS
-            failureThreshold: 60
-            initialDelaySeconds: 60
-            timeoutSeconds: 3
-            periodSeconds: 2
+            initialDelaySeconds: {{ $liveness.initialDelaySeconds }}
+            periodSeconds: {{ $liveness.periodSeconds }}
+            timeoutSeconds: {{ $liveness.timeoutSeconds }}
+            failureThreshold: {{ $liveness.failureThreshold }}
           {{- end }}
-          {{- if .Values.controlPlane.statefulSet.probes.readinessProbe.enabled }}
+          {{- $readiness := include "vcluster.probe" (dict "ctx" . "type" "readinessProbe") | fromYaml }}
+          {{- if $readiness.enabled }}
           readinessProbe:
             httpGet:
               path: /readyz
               port: 8443
               scheme: HTTPS
-            failureThreshold: 60
-            timeoutSeconds: 3
-            periodSeconds: 2
+            periodSeconds: {{ $readiness.periodSeconds }}
+            timeoutSeconds: {{ $readiness.timeoutSeconds }}
+            failureThreshold: {{ $readiness.failureThreshold }}
           {{- end }}
-          {{- if .Values.controlPlane.statefulSet.probes.startupProbe.enabled }}
+          {{- $startup := include "vcluster.probe" (dict "ctx" . "type" "startupProbe") | fromYaml }}
+          {{- if $startup.enabled }}
           startupProbe:
             httpGet:
               path: /readyz
               port: 8443
               scheme: HTTPS
-            failureThreshold: 300
-            timeoutSeconds: 3
-            periodSeconds: 6
+            periodSeconds: {{ $startup.periodSeconds }}
+            timeoutSeconds: {{ $startup.timeoutSeconds }}
+            failureThreshold: {{ $startup.failureThreshold }}
           {{- end }}
           {{- if .Values.controlPlane.statefulSet.security.containerSecurityContext }}
           securityContext:

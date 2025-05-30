@@ -648,13 +648,26 @@ controlPlane:
     probes:
       # LivenessProbe specifies if the liveness probe for the container should be enabled
       livenessProbe:
+        # Enabled defines if this option should be enabled.
         enabled: true
+        failureThreshold: 60
+        initialDelaySeconds: 60
+        timeoutSeconds: 3
+        periodSeconds: 2
       # ReadinessProbe specifies if the readiness probe for the container should be enabled
       readinessProbe:
+        # Enabled defines if this option should be enabled.
         enabled: true
+        failureThreshold: 60
+        timeoutSeconds: 3
+        periodSeconds: 2
       # StartupProbe specifies if the startup probe for the container should be enabled
       startupProbe:
+        # Enabled defines if this option should be enabled.
         enabled: true
+        failureThreshold: 300
+        timeoutSeconds: 3
+        periodSeconds: 6
   
   # ServiceMonitor can be used to automatically create a service monitor for vCluster deployment itself.
   serviceMonitor:
