@@ -12,7 +12,11 @@ type ClusterAccessExpansion interface{}
 
 type ClusterRoleTemplateExpansion interface{}
 
+type DevPodEnvironmentTemplateExpansion interface{}
+
 type DevPodWorkspaceInstanceExpansion interface{}
+
+type DevPodWorkspacePresetExpansion interface{}
 
 type DevPodWorkspaceTemplateExpansion interface{}
 

@@ -12,7 +12,7 @@ func LoginCmd() string {
 	case licenseapi.DevPodPro:
 		return "devpod login"
 	case licenseapi.VClusterPro:
-		return "vcluster login"
+		return "vcluster platform login"
 	case licenseapi.Loft:
 	}
 

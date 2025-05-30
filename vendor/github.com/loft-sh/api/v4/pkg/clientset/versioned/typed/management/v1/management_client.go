@@ -3,10 +3,10 @@
 package v1
 
 import (
-	"net/http"
+	http "net/http"
 
-	v1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	"github.com/loft-sh/api/v4/pkg/clientset/versioned/scheme"
+	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
+	scheme "github.com/loft-sh/api/v4/pkg/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -21,7 +21,10 @@ type ManagementV1Interface interface {
 	ClusterRoleTemplatesGetter
 	ConfigsGetter
 	ConvertVirtualClusterConfigsGetter
+	DatabaseConnectorsGetter
+	DevPodEnvironmentTemplatesGetter
 	DevPodWorkspaceInstancesGetter
+	DevPodWorkspacePresetsGetter
 	DevPodWorkspaceTemplatesGetter
 	DirectClusterEndpointTokensGetter
 	EventsGetter
@@ -30,6 +33,7 @@ type ManagementV1Interface interface {
 	LicensesGetter
 	LicenseTokensGetter
 	LoftUpgradesGetter
+	OIDCClientsGetter
 	OwnedAccessKeysGetter
 	ProjectsGetter
 	ProjectSecretsGetter
@@ -45,8 +49,10 @@ type ManagementV1Interface interface {
 	SubjectAccessReviewsGetter
 	TasksGetter
 	TeamsGetter
+	TranslateVClusterResourceNamesGetter
 	UsersGetter
 	VirtualClusterInstancesGetter
+	VirtualClusterSchemasGetter
 	VirtualClusterTemplatesGetter
 }
 
@@ -91,8 +97,20 @@ func (c *ManagementV1Client) ConvertVirtualClusterConfigs() ConvertVirtualCluste
 	return newConvertVirtualClusterConfigs(c)
 }
 
+func (c *ManagementV1Client) DatabaseConnectors() DatabaseConnectorInterface {
+	return newDatabaseConnectors(c)
+}
+
+func (c *ManagementV1Client) DevPodEnvironmentTemplates() DevPodEnvironmentTemplateInterface {
+	return newDevPodEnvironmentTemplates(c)
+}
+
 func (c *ManagementV1Client) DevPodWorkspaceInstances(namespace string) DevPodWorkspaceInstanceInterface {
 	return newDevPodWorkspaceInstances(c, namespace)
+}
+
+func (c *ManagementV1Client) DevPodWorkspacePresets() DevPodWorkspacePresetInterface {
+	return newDevPodWorkspacePresets(c)
 }
 
 func (c *ManagementV1Client) DevPodWorkspaceTemplates() DevPodWorkspaceTemplateInterface {
@@ -125,6 +143,10 @@ func (c *ManagementV1Client) LicenseTokens() LicenseTokenInterface {
 
 func (c *ManagementV1Client) LoftUpgrades() LoftUpgradeInterface {
 	return newLoftUpgrades(c)
+}
+
+func (c *ManagementV1Client) OIDCClients() OIDCClientInterface {
+	return newOIDCClients(c)
 }
 
 func (c *ManagementV1Client) OwnedAccessKeys() OwnedAccessKeyInterface {
@@ -187,12 +209,20 @@ func (c *ManagementV1Client) Teams() TeamInterface {
 	return newTeams(c)
 }
 
+func (c *ManagementV1Client) TranslateVClusterResourceNames() TranslateVClusterResourceNameInterface {
+	return newTranslateVClusterResourceNames(c)
+}
+
 func (c *ManagementV1Client) Users() UserInterface {
 	return newUsers(c)
 }
 
 func (c *ManagementV1Client) VirtualClusterInstances(namespace string) VirtualClusterInstanceInterface {
 	return newVirtualClusterInstances(c, namespace)
+}
+
+func (c *ManagementV1Client) VirtualClusterSchemas() VirtualClusterSchemaInterface {
+	return newVirtualClusterSchemas(c)
 }
 
 func (c *ManagementV1Client) VirtualClusterTemplates() VirtualClusterTemplateInterface {
@@ -244,10 +274,10 @@ func New(c rest.Interface) *ManagementV1Client {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	gv := v1.SchemeGroupVersion
+	gv := managementv1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

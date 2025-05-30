@@ -3,15 +3,14 @@
 package v1
 
 import (
-	"context"
-	"time"
+	context "context"
 
-	v1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
+	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	scheme "github.com/loft-sh/api/v4/pkg/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // UsersGetter has a method to return a UserInterface.
@@ -22,159 +21,46 @@ type UsersGetter interface {
 
 // UserInterface has methods to work with User resources.
 type UserInterface interface {
-	Create(ctx context.Context, user *v1.User, opts metav1.CreateOptions) (*v1.User, error)
-	Update(ctx context.Context, user *v1.User, opts metav1.UpdateOptions) (*v1.User, error)
-	UpdateStatus(ctx context.Context, user *v1.User, opts metav1.UpdateOptions) (*v1.User, error)
+	Create(ctx context.Context, user *managementv1.User, opts metav1.CreateOptions) (*managementv1.User, error)
+	Update(ctx context.Context, user *managementv1.User, opts metav1.UpdateOptions) (*managementv1.User, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, user *managementv1.User, opts metav1.UpdateOptions) (*managementv1.User, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.User, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.UserList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*managementv1.User, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*managementv1.UserList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.User, err error)
-	GetProfile(ctx context.Context, userName string, options metav1.GetOptions) (*v1.UserProfile, error)
-	ListClusters(ctx context.Context, userName string, options metav1.GetOptions) (*v1.UserClusters, error)
-	ListAccessKeys(ctx context.Context, userName string, options metav1.GetOptions) (*v1.UserAccessKeys, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *managementv1.User, err error)
+	GetProfile(ctx context.Context, userName string, options metav1.GetOptions) (*managementv1.UserProfile, error)
+	ListClusters(ctx context.Context, userName string, options metav1.GetOptions) (*managementv1.UserClusters, error)
+	ListAccessKeys(ctx context.Context, userName string, options metav1.GetOptions) (*managementv1.UserAccessKeys, error)
 
 	UserExpansion
 }
 
 // users implements UserInterface
 type users struct {
-	client rest.Interface
+	*gentype.ClientWithList[*managementv1.User, *managementv1.UserList]
 }
 
 // newUsers returns a Users
 func newUsers(c *ManagementV1Client) *users {
 	return &users{
-		client: c.RESTClient(),
+		gentype.NewClientWithList[*managementv1.User, *managementv1.UserList](
+			"users",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *managementv1.User { return &managementv1.User{} },
+			func() *managementv1.UserList { return &managementv1.UserList{} },
+		),
 	}
 }
 
-// Get takes name of the user, and returns the corresponding user object, and an error if there is any.
-func (c *users) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.User, err error) {
-	result = &v1.User{}
-	err = c.client.Get().
-		Resource("users").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of Users that match those selectors.
-func (c *users) List(ctx context.Context, opts metav1.ListOptions) (result *v1.UserList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1.UserList{}
-	err = c.client.Get().
-		Resource("users").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested users.
-func (c *users) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("users").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a user and creates it.  Returns the server's representation of the user, and an error, if there is any.
-func (c *users) Create(ctx context.Context, user *v1.User, opts metav1.CreateOptions) (result *v1.User, err error) {
-	result = &v1.User{}
-	err = c.client.Post().
-		Resource("users").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(user).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a user and updates it. Returns the server's representation of the user, and an error, if there is any.
-func (c *users) Update(ctx context.Context, user *v1.User, opts metav1.UpdateOptions) (result *v1.User, err error) {
-	result = &v1.User{}
-	err = c.client.Put().
-		Resource("users").
-		Name(user.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(user).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *users) UpdateStatus(ctx context.Context, user *v1.User, opts metav1.UpdateOptions) (result *v1.User, err error) {
-	result = &v1.User{}
-	err = c.client.Put().
-		Resource("users").
-		Name(user.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(user).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the user and deletes it. Returns an error if one occurs.
-func (c *users) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("users").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *users) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("users").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched user.
-func (c *users) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.User, err error) {
-	result = &v1.User{}
-	err = c.client.Patch(pt).
-		Resource("users").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// GetProfile takes name of the user, and returns the corresponding v1.UserProfile object, and an error if there is any.
-func (c *users) GetProfile(ctx context.Context, userName string, options metav1.GetOptions) (result *v1.UserProfile, err error) {
-	result = &v1.UserProfile{}
-	err = c.client.Get().
+// GetProfile takes name of the user, and returns the corresponding managementv1.UserProfile object, and an error if there is any.
+func (c *users) GetProfile(ctx context.Context, userName string, options metav1.GetOptions) (result *managementv1.UserProfile, err error) {
+	result = &managementv1.UserProfile{}
+	err = c.GetClient().Get().
 		Resource("users").
 		Name(userName).
 		SubResource("profile").
@@ -184,10 +70,10 @@ func (c *users) GetProfile(ctx context.Context, userName string, options metav1.
 	return
 }
 
-// ListClusters takes name of the user, and returns the corresponding v1.UserClusters object, and an error if there is any.
-func (c *users) ListClusters(ctx context.Context, userName string, options metav1.GetOptions) (result *v1.UserClusters, err error) {
-	result = &v1.UserClusters{}
-	err = c.client.Get().
+// ListClusters takes name of the user, and returns the corresponding managementv1.UserClusters object, and an error if there is any.
+func (c *users) ListClusters(ctx context.Context, userName string, options metav1.GetOptions) (result *managementv1.UserClusters, err error) {
+	result = &managementv1.UserClusters{}
+	err = c.GetClient().Get().
 		Resource("users").
 		Name(userName).
 		SubResource("clusters").
@@ -197,10 +83,10 @@ func (c *users) ListClusters(ctx context.Context, userName string, options metav
 	return
 }
 
-// ListAccessKeys takes name of the user, and returns the corresponding v1.UserAccessKeys object, and an error if there is any.
-func (c *users) ListAccessKeys(ctx context.Context, userName string, options metav1.GetOptions) (result *v1.UserAccessKeys, err error) {
-	result = &v1.UserAccessKeys{}
-	err = c.client.Get().
+// ListAccessKeys takes name of the user, and returns the corresponding managementv1.UserAccessKeys object, and an error if there is any.
+func (c *users) ListAccessKeys(ctx context.Context, userName string, options metav1.GetOptions) (result *managementv1.UserAccessKeys, err error) {
+	result = &managementv1.UserAccessKeys{}
+	err = c.GetClient().Get().
 		Resource("users").
 		Name(userName).
 		SubResource("accesskeys").
