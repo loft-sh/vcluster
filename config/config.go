@@ -1929,6 +1929,9 @@ type ControlPlaneProbes struct {
 	StartupProbe EnableSwitch `json:"startupProbe,omitempty"`
 }
 
+type Probe struct {
+}
+
 type ControlPlaneSecurity struct {
 	// PodSecurityContext specifies security context options on the pod level.
 	PodSecurityContext map[string]interface{} `json:"podSecurityContext,omitempty"`
