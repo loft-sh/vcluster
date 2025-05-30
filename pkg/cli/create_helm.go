@@ -54,6 +54,10 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
+var (
+	errVConfigSecretNotFound = errors.New("no vConfig secret found")
+)
+
 // CreateOptions holds the create cmd options
 type CreateOptions struct {
 	Driver string
@@ -342,14 +346,19 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	verb := "created"
 	if isVClusterDeployed(release) {
 		verb = "upgraded"
-		currentVClusterConfig, err = getConfigfileFromSecret(ctx, vClusterName, cmd.Namespace, cmd.log)
-		if err != nil {
+		secretName := "vc-config-" + vClusterName
+		configFromSecret, err := getConfigFromSecret(ctx, secretName, cmd.Namespace)
+		if err != nil && !errors.Is(errVConfigSecretNotFound, err) {
 			return err
 		}
 
-		// While certain backing store changes are allowed we prohibit changes to another distro.
-		if err := config.ValidateChanges(currentVClusterConfig, vClusterConfig); err != nil {
-			return err
+		if errors.Is(errVConfigSecretNotFound, err) {
+			log.Warnf("Could not get old config for vCluster [%s]. Secret [%s] missing. This might be a migration. Skipping validation", vClusterName, secretName)
+		} else {
+			currentVClusterConfig = configFromSecret
+			if err := config.ValidateChanges(currentVClusterConfig, vClusterConfig); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -952,9 +961,7 @@ func (cmd *createHelm) getVClusterConfigFromSnapshot(ctx context.Context) (strin
 	return "", nil
 }
 
-func getConfigfileFromSecret(ctx context.Context, name, namespace string, log log.Logger) (*config.Config, error) {
-	secretName := "vc-config-" + name
-
+func getConfigFromSecret(ctx context.Context, secretName, namespace string) (*config.Config, error) {
 	kConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 	clientConfig, err := kConf.ClientConfig()
 	if err != nil {
@@ -969,8 +976,7 @@ func getConfigfileFromSecret(ctx context.Context, name, namespace string, log lo
 	secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			log.Warnf("Secret %s not found, returning empty vCluster config", secretName)
-			return &config.Config{}, nil
+			return nil, errVConfigSecretNotFound
 		}
 		return nil, err
 	}

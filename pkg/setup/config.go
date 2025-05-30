@@ -170,7 +170,7 @@ func CheckUsingSecretAnnotation(ctx context.Context, client kubernetes.Interface
 	return okCounter == 2, nil
 }
 
-// updateSecretAnnotations udates the vCluster's config secret with the currently used distro and backing store type.
+// updateSecretAnnotations updates the vCluster's config secret with the currently used distro and backing store type.
 func updateSecretAnnotations(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		secret, err := client.CoreV1().Secrets(namespace).Get(ctx, "vc-config-"+name, metav1.GetOptions{})
