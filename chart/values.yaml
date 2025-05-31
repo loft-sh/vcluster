@@ -707,6 +707,8 @@ controlPlane:
       agent:
         # Enabled defines if the konnectivity agent should be enabled.
         enabled: true
+        # Replicas is the number of replicas for the konnectivity agent.
+        replicas: 1
         # Image is the image for the konnectivity agent.
         image: ""
         # ImagePullPolicy is the policy how to pull the image.
@@ -727,6 +729,25 @@ controlPlane:
 privateNodes:
   # Enabled defines if dedicated nodes should be enabled.
   enabled: false
+  
+  # AutoUpgrade holds configuration for auto upgrade.
+  autoUpgrade:
+    # Enabled defines if auto upgrade should be enabled.
+    enabled: true
+    # Concurrency is the number of nodes that can be upgraded at the same time.
+    concurrency: 1
+  
+  # LocalPathProvisioner holds dedicated local path provisioner configuration.
+  localPathProvisioner:
+    # Enabled defines if LocalPathProvisioner should be enabled.
+    enabled: true
+  
+  # CNI holds dedicated CNI configuration.
+  cni:
+    # Flannel holds dedicated Flannel configuration.
+    flannel:
+      # Enabled defines if Flannel should be enabled.
+      enabled: true
   
   # KubeProxy holds dedicated kube proxy configuration.
   kubeProxy:

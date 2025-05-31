@@ -154,7 +154,7 @@ func RunSnapshotPod(
 	}()
 
 	// wait for pod to become ready
-	err = waitForReadyPod(ctx, kubeClient, snapshotPod.Namespace, snapshotPod.Name, "snapshot", log)
+	err = WaitForReadyPod(ctx, kubeClient, snapshotPod.Namespace, snapshotPod.Name, "snapshot", log)
 	if err != nil {
 		return fmt.Errorf("waiting for restore pod to become ready: %w", err)
 	}
@@ -176,7 +176,7 @@ func RunSnapshotPod(
 	}
 
 	// check restore pod for exit code
-	exitCode, err := waitForCompletedPod(ctx, kubeClient, snapshotPod.Namespace, snapshotPod.Name, "snapshot")
+	exitCode, err := WaitForCompletedPod(ctx, kubeClient, snapshotPod.Namespace, snapshotPod.Name, "snapshot", time.Minute)
 	if err != nil {
 		return err
 	}
@@ -498,7 +498,7 @@ func parseExtraVolumes(ctx context.Context, kubeClient *kubernetes.Clientset, vC
 	return extraVolumes, extraVolumeMounts, nil
 }
 
-func waitForReadyPod(ctx context.Context, kubeClient kubernetes.Interface, namespace, name, container string, log log.Logger) error {
+func WaitForReadyPod(ctx context.Context, kubeClient kubernetes.Interface, namespace, name, container string, log log.Logger) error {
 	now := time.Now()
 	err := wait.PollUntilContextTimeout(ctx, time.Second*2, time.Minute*2, true, func(ctx context.Context) (bool, error) {
 		pod, err := kubeClient.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
@@ -564,9 +564,9 @@ func waitForReadyPod(ctx context.Context, kubeClient kubernetes.Interface, names
 	return nil
 }
 
-func waitForCompletedPod(ctx context.Context, kubeClient *kubernetes.Clientset, namespace, name, container string) (int32, error) {
+func WaitForCompletedPod(ctx context.Context, kubeClient *kubernetes.Clientset, namespace, name, container string, timeout time.Duration) (int32, error) {
 	exitCode := int32(-1)
-	err := wait.PollUntilContextTimeout(ctx, time.Second*2, time.Minute, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, time.Second*2, timeout, true, func(ctx context.Context) (bool, error) {
 		pod, err := kubeClient.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			// this is a fatal

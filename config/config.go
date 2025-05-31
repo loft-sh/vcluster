@@ -99,6 +99,56 @@ type PrivateNodes struct {
 
 	// Kubelet holds dedicated kubelet configuration.
 	Kubelet Kubelet `json:"kubelet,omitempty"`
+
+	// CNI holds dedicated CNI configuration.
+	CNI CNI `json:"cni,omitempty"`
+
+	// LocalPathProvisioner holds dedicated local path provisioner configuration.
+	LocalPathProvisioner LocalPathProvisioner `json:"localPathProvisioner,omitempty"`
+
+	// AutoUpgrade holds configuration for auto upgrade.
+	AutoUpgrade AutoUpgrade `json:"autoUpgrade,omitempty"`
+}
+
+type LocalPathProvisioner struct {
+	// Enabled defines if LocalPathProvisioner should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+type CNI struct {
+	// Flannel holds dedicated Flannel configuration.
+	Flannel CNIFlannel `json:"flannel,omitempty"`
+}
+
+type CNIFlannel struct {
+	// Enabled defines if Flannel should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+type AutoUpgrade struct {
+	// Enabled defines if auto upgrade should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Image is the image for the auto upgrade. If empty defaults to the controlPlane.statefulSet.image.
+	Image string `json:"image,omitempty"`
+
+	// ImagePullPolicy is the policy how to pull the image.
+	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+
+	// NodeSelector is the node selector for the auto upgrade. If empty will select all worker nodes.
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// BundleRepository is the repository to use for downloading the Kubernetes bundle. Defaults to https://github.com/loft-sh/kubernetes/releases/download
+	BundleRepository string `json:"bundleRepository,omitempty"`
+
+	// BinariesPath is the base path for the kubeadm binaries. Defaults to /usr/local/bin
+	BinariesPath string `json:"binariesPath,omitempty"`
+
+	// CNIBinariesPath is the base path for the CNI binaries. Defaults to /opt/cni/bin
+	CNIBinariesPath string `json:"cniBinariesPath,omitempty"`
+
+	// Concurrency is the number of nodes that can be upgraded at the same time.
+	Concurrency int `json:"concurrency,omitempty"`
 }
 
 type Kubelet struct {
@@ -151,6 +201,9 @@ type KonnectivityServer struct {
 type KonnectivityAgent struct {
 	// Enabled defines if the konnectivity agent should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
+
+	// Replicas is the number of replicas for the konnectivity agent.
+	Replicas int `json:"replicas,omitempty"`
 
 	// Image is the image for the konnectivity agent.
 	Image string `json:"image,omitempty"`

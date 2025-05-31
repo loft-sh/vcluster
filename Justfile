@@ -25,7 +25,7 @@ build-cli-snapshot:
 build-snapshot:
   GOOS=linux goreleaser build --id vcluster --single-target --snapshot --clean
   cp Dockerfile.release {{DIST_FOLDER}}/Dockerfile
-  cd {{DIST_FOLDER}} && docker build . -t ghcr.io/loft-sh/vcluster:dev-next
+  cd {{DIST_FOLDER}} && docker buildx build --load . -t ghcr.io/loft-sh/vcluster:dev-next
 
 # --- Kind ---
 
