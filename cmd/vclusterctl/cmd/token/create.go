@@ -66,7 +66,7 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 	}
 
 	// create the token
-	apiEndpoint, token, caHash, err := createBootstrapToken(ctx, vClient, cmd.Expires)
+	apiEndpoint, token, caHash, err := CreateBootstrapToken(ctx, vClient, cmd.Expires)
 	if err != nil {
 		return err
 	}
@@ -76,8 +76,8 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 	return nil
 }
 
-// createToken attempts to create a token with the given ID.
-func createBootstrapToken(ctx context.Context, vClient *kubernetes.Clientset, expires string) (string, string, string, error) {
+// CreateBootstrapToken attempts to create a token with the given ID. Its public because it's used in e2e tests.
+func CreateBootstrapToken(ctx context.Context, vClient *kubernetes.Clientset, expires string) (string, string, string, error) {
 	// get api server endpoint
 	kubeadmConfig, err := vClient.CoreV1().ConfigMaps("kube-system").Get(ctx, "kubeadm-config", metav1.GetOptions{})
 	if err != nil {
