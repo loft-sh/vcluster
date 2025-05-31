@@ -37,3 +37,14 @@ var StartKonnectivity = func(_ context.Context, vConfig *config.VirtualClusterCo
 var WriteKonnectivityEgressConfig = func() (string, error) {
 	return "", NewFeatureError("private nodes")
 }
+
+type UpgradeOptions struct {
+	KubernetesVersion string
+	BinariesPath      string
+	CNIBinariesPath   string
+	BundleRepository  string
+}
+
+var UpgradeNode = func(_ context.Context, _ *UpgradeOptions) error {
+	return NewFeatureError("private nodes")
+}

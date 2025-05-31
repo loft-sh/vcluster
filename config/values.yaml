@@ -390,6 +390,7 @@ controlPlane:
         extraArgs: []
       agent:
         enabled: true
+        replicas: 1
         image: ""
         imagePullPolicy: ""
         nodeSelector: {}
@@ -402,6 +403,14 @@ controlPlane:
 
 privateNodes:
   enabled: false
+  autoUpgrade:
+    enabled: true
+    concurrency: 1
+  localPathProvisioner:
+    enabled: true
+  cni:
+    flannel:
+      enabled: true
   kubeProxy:
     enabled: true
     image: ""

@@ -42,6 +42,47 @@
       "type": "object",
       "description": "AutoSleepExclusion holds conifiguration for excluding workloads from sleeping by label(s)"
     },
+    "AutoUpgrade": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if auto upgrade should be enabled."
+        },
+        "image": {
+          "type": "string",
+          "description": "Image is the image for the auto upgrade. If empty defaults to the controlPlane.statefulSet.image."
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the policy how to pull the image."
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "NodeSelector is the node selector for the auto upgrade. If empty will select all worker nodes."
+        },
+        "bundleRepository": {
+          "type": "string",
+          "description": "BundleRepository is the repository to use for downloading the Kubernetes bundle. Defaults to https://github.com/loft-sh/kubernetes/releases/download"
+        },
+        "binariesPath": {
+          "type": "string",
+          "description": "BinariesPath is the base path for the kubeadm binaries. Defaults to /usr/local/bin"
+        },
+        "cniBinariesPath": {
+          "type": "string",
+          "description": "CNIBinariesPath is the base path for the CNI binaries. Defaults to /opt/cni/bin"
+        },
+        "concurrency": {
+          "type": "integer",
+          "description": "Concurrency is the number of nodes that can be upgraded at the same time."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "AutoWakeup": {
       "properties": {
         "schedule": {
@@ -61,6 +102,26 @@
         "database": {
           "$ref": "#/$defs/Database",
           "description": "Database defines that a database backend should be used as the backend for the virtual cluster. This uses a project called kine under the hood which is a shim for bridging Kubernetes and relational databases."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CNI": {
+      "properties": {
+        "flannel": {
+          "$ref": "#/$defs/CNIFlannel",
+          "description": "Flannel holds dedicated Flannel configuration."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CNIFlannel": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if Flannel should be enabled."
         }
       },
       "additionalProperties": false,
@@ -2143,6 +2204,10 @@
           "type": "boolean",
           "description": "Enabled defines if the konnectivity agent should be enabled."
         },
+        "replicas": {
+          "type": "integer",
+          "description": "Replicas is the number of replicas for the konnectivity agent."
+        },
         "image": {
           "type": "string",
           "description": "Image is the image for the konnectivity agent."
@@ -2403,6 +2468,16 @@
           },
           "type": "object",
           "description": "Labels are extra labels for this resource."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "LocalPathProvisioner": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if LocalPathProvisioner should be enabled."
         }
       },
       "additionalProperties": false,
@@ -3018,6 +3093,18 @@
         "kubelet": {
           "$ref": "#/$defs/Kubelet",
           "description": "Kubelet holds dedicated kubelet configuration."
+        },
+        "cni": {
+          "$ref": "#/$defs/CNI",
+          "description": "CNI holds dedicated CNI configuration."
+        },
+        "localPathProvisioner": {
+          "$ref": "#/$defs/LocalPathProvisioner",
+          "description": "LocalPathProvisioner holds dedicated local path provisioner configuration."
+        },
+        "autoUpgrade": {
+          "$ref": "#/$defs/AutoUpgrade",
+          "description": "AutoUpgrade holds configuration for auto upgrade."
         }
       },
       "additionalProperties": false,
