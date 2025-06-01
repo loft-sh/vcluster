@@ -310,6 +310,11 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		return err
 	}
 
+	err = pkgconfig.ValidateSyncFromHostClasses(vClusterConfig.Sync.FromHost)
+	if err != nil {
+		return err
+	}
+
 	err = pkgconfig.ValidateAllSyncPatches(vClusterConfig.Sync)
 	if err != nil {
 		return err

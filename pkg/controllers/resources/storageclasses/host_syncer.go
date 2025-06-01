@@ -53,7 +53,11 @@ func (s *hostStorageClassSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
-	if !ctx.Config.Sync.FromHost.StorageClasses.Selector.Matches(event.Host) {
+	matches, err := ctx.Config.Sync.FromHost.StorageClasses.Selector.Matches(event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("check storage class selector: %w", err)
+	}
+	if !matches {
 		ctx.Log.Infof("Warning: did not sync storage class %q because it does not match the selector under 'sync.fromHost.storageClasses.selector'", event.Host.Name)
 		return ctrl.Result{}, nil
 	}
@@ -61,7 +65,7 @@ func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, eve
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name}, false)
 
 	// Apply pro patches
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.StorageClasses.Patches, true)
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.StorageClasses.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
@@ -71,7 +75,11 @@ func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, eve
 }
 
 func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
-	if !ctx.Config.Sync.FromHost.StorageClasses.Selector.Matches(event.Host) {
+	matches, err := ctx.Config.Sync.FromHost.StorageClasses.Selector.Matches(event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("check storage class selector: %w", err)
+	}
+	if !matches {
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.Host, fmt.Sprintf("did not sync storage class %q because it does not match the selector under 'sync.fromHost.storageClasses.selector'", event.Host.Name))
 	}
 

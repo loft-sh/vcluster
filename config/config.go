@@ -792,13 +792,17 @@ type SyncFromHost struct {
 
 type StandardLabelSelector v1.LabelSelector
 
-func (s StandardLabelSelector) Matches(obj client.Object) bool {
-	ls := v1.LabelSelector(s)
-	selector, err := v1.LabelSelectorAsSelector(&ls)
+func (s StandardLabelSelector) Matches(obj client.Object) (bool, error) {
+	selector, err := s.ToSelector()
 	if err != nil {
-		return false
+		return false, fmt.Errorf("failed to convert label selector: %w", err)
 	}
-	return selector.Matches(labels.Set(obj.GetLabels()))
+	return selector.Matches(labels.Set(obj.GetLabels())), nil
+}
+
+func (s StandardLabelSelector) ToSelector() (labels.Selector, error) {
+	ls := v1.LabelSelector(s)
+	return v1.LabelSelectorAsSelector(&ls)
 }
 
 type EnableSwitchWithPatchesAndSelector struct {

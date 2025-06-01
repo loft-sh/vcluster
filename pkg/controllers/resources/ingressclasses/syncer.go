@@ -49,7 +49,11 @@ func (i *ingressClassSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*networkingv1.IngressClass]) (ctrl.Result, error) {
-	if !ctx.Config.Sync.FromHost.IngressClasses.Selector.Matches(event.Host) {
+	matches, err := ctx.Config.Sync.FromHost.IngressClasses.Selector.Matches(event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("check ingress class selector: %w", err)
+	}
+	if !matches {
 		ctx.Log.Infof("Warning: did not sync ingress class %q because it does not match the selector under 'sync.fromHost.ingressClasses.selector'", event.Host.Name)
 		return ctrl.Result{}, nil
 	}
@@ -57,7 +61,7 @@ func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
 
 	// Apply pro patches
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.IngressClasses.Patches, true)
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.IngressClasses.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
@@ -67,7 +71,11 @@ func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 }
 
 func (i *ingressClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*networkingv1.IngressClass]) (_ ctrl.Result, retErr error) {
-	if !ctx.Config.Sync.FromHost.IngressClasses.Selector.Matches(event.Host) {
+	matches, err := ctx.Config.Sync.FromHost.IngressClasses.Selector.Matches(event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("check ingress class selector: %w", err)
+	}
+	if !matches {
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.Host, fmt.Sprintf("did not sync ingress class %q because it does not match the selector under 'sync.fromHost.ingressClasses.selector'", event.Host.Name))
 	}
 
