@@ -233,18 +233,27 @@ func (f *Framework) DeleteTestNamespace(ns string, waitUntilDeleted bool) error 
 	deleteOptions := metav1.DeleteOptions{
 		PropagationPolicy: &propagationPolicy,
 	}
-	err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, ns, deleteOptions)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
+	for i := 0; i < 5; i++ {
+		err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, ns, deleteOptions)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return nil
+			} else if i == 4 {
+				return err
+			}
+
+			time.Sleep(time.Second)
+			continue
 		}
-		return err
+
+		break
 	}
+
 	if !waitUntilDeleted {
 		return nil
 	}
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err = f.VClusterClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
+		_, err := f.VClusterClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			return true, nil
 		}
