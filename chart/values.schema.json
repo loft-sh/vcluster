@@ -3086,6 +3086,10 @@
           "type": "boolean",
           "description": "Enabled defines if dedicated nodes should be enabled."
         },
+        "importNodeBinaries": {
+          "type": "boolean",
+          "description": "ImportNodeBinaries defines to use the loft-sh/kubernetes:VERSION-full image to also copy the node binaries to the control plane. This allows upgrades and\njoining new nodes into the cluster without having to download the binaries from the internet."
+        },
         "kubeProxy": {
           "$ref": "#/$defs/KubeProxy",
           "description": "KubeProxy holds dedicated kube proxy configuration."

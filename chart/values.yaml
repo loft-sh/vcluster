@@ -730,6 +730,10 @@ privateNodes:
   # Enabled defines if dedicated nodes should be enabled.
   enabled: false
   
+  # ImportNodeBinaries defines to use the loft-sh/kubernetes:VERSION-full image to also copy the node binaries to the control plane. This allows upgrades and
+  # joining new nodes into the cluster without having to download the binaries from the internet.
+  importNodeBinaries: true
+  
   # AutoUpgrade holds configuration for auto upgrade.
   autoUpgrade:
     # Enabled defines if auto upgrade should be enabled.
