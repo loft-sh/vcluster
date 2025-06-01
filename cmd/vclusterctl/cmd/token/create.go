@@ -3,6 +3,7 @@ package token
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/loft-sh/log"
@@ -28,6 +29,7 @@ type CreateCmd struct {
 	*flags.GlobalFlags
 
 	Expires string
+	Kubeadm bool
 	Log     log.Logger
 }
 
@@ -55,6 +57,7 @@ Create a new node bootstrap token for a vCluster with private nodes enabled.
 	}
 
 	createCmd.Flags().StringVar(&cmd.Expires, "expires", "", "The duration the token will be valid for. Format: 1h, 1d, 1w, 1m, 1y. If empty, the token will never expire.")
+	createCmd.Flags().BoolVar(&cmd.Kubeadm, "kubeadm", false, "If enabled shows the raw kubeadm join command.")
 	return createCmd
 }
 
@@ -72,7 +75,12 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 	}
 
 	// print the join command
-	fmt.Printf("kubeadm join %s --token %s --discovery-token-ca-cert-hash %s\n", apiEndpoint, token, caHash)
+	if cmd.Kubeadm {
+		fmt.Printf("kubeadm join %s --token %s --discovery-token-ca-cert-hash %s\n", apiEndpoint, token, caHash)
+	} else {
+		fmt.Printf("curl -sfLk https://%s/node/join?token=%s | sh -\n", apiEndpoint, url.QueryEscape(token))
+	}
+
 	return nil
 }
 

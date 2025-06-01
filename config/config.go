@@ -94,6 +94,10 @@ type PrivateNodes struct {
 	// Enabled defines if dedicated nodes should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
+	// ImportNodeBinaries defines to use the loft-sh/kubernetes:VERSION-full image to also copy the node binaries to the control plane. This allows upgrades and
+	// joining new nodes into the cluster without having to download the binaries from the internet.
+	ImportNodeBinaries bool `json:"importNodeBinaries,omitempty"`
+
 	// KubeProxy holds dedicated kube proxy configuration.
 	KubeProxy KubeProxy `json:"kubeProxy,omitempty"`
 

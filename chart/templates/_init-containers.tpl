@@ -11,7 +11,11 @@
 {{- if not (empty .Values.controlPlane.distro.k8s.version) -}}
 {{ .Values.controlPlane.distro.k8s.version }}
 {{- else -}}
+{{- if and .Values.privateNodes.enabled .Values.privateNodes.importNodeBinaries -}}
+{{ .Values.controlPlane.distro.k8s.image.tag }}-full
+{{- else -}}
 {{ .Values.controlPlane.distro.k8s.image.tag }}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 

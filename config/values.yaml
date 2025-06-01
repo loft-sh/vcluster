@@ -403,6 +403,7 @@ controlPlane:
 
 privateNodes:
   enabled: false
+  importNodeBinaries: true
   autoUpgrade:
     enabled: true
     concurrency: 1
