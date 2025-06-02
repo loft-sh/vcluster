@@ -34,11 +34,16 @@ type UISettingsSpec struct {
 	// +optional
 	Offline bool `json:"offline,omitempty"`
 
-	// HasHelmRelease indicates whether loft has been installed via Helm
+	// HasHelmRelease indicates whether the vCluster Platform instance
+	// has been installed via Helm
 	HasHelmRelease bool `json:"hasHelmRelease,omitempty"`
 
 	// DefaultVClusterVersion is the default version of vClusters
 	DefaultVClusterVersion string `json:"defaultVClusterVersion,omitempty"`
+
+	// LoftHosted indicates whether the vCluster Platform instance
+	// is hosted and operated by Loft Labs Inc.
+	LoftHosted bool `json:"loftHosted,omitempty"`
 }
 
 type UISettingsConfig struct {
@@ -49,6 +54,10 @@ type UISettingsConfig struct {
 	// the Loft UI!
 	// +optional
 	LogoURL string `json:"logoURL,omitempty"`
+	// SmallLogoURL is url pointing to the small logo to use in the Loft UI. This path must be accessible for clients accessing
+	// the Loft UI!
+	// +optional
+	SmallLogoURL string `json:"smallLogoURL,omitempty"`
 	// LogoBackgroundColor is the color value (ex: "#12345") to use as the background color for the logo
 	// +optional
 	LogoBackgroundColor string `json:"logoBackgroundColor,omitempty"`

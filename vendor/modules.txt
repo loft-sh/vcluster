@@ -524,8 +524,8 @@ github.com/lithammer/dedent
 # github.com/loft-sh/admin-apis v0.0.0-20250429193833-4e0a455c33dd
 ## explicit; go 1.21.1
 github.com/loft-sh/admin-apis/pkg/licenseapi
-# github.com/loft-sh/agentapi/v4 v4.0.0-alpha.6.0.20240614131646-3359da6a4818
-## explicit; go 1.22.4
+# github.com/loft-sh/agentapi/v4 v4.3.0-alpha.39
+## explicit; go 1.23.1
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1
@@ -536,8 +536,8 @@ github.com/loft-sh/agentapi/v4/pkg/clientset/versioned/typed/storage/v1
 # github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 ## explicit; go 1.21
 github.com/loft-sh/analytics-client/client
-# github.com/loft-sh/api/v4 v4.0.0-alpha.6.0.20240614134907-f9ecc1668e9e
-## explicit; go 1.22.4
+# github.com/loft-sh/api/v4 v4.3.0-alpha.32
+## explicit; go 1.23.1
 github.com/loft-sh/api/v4/pkg/apis/audit/v1
 github.com/loft-sh/api/v4/pkg/apis/management
 github.com/loft-sh/api/v4/pkg/apis/management/v1
@@ -553,8 +553,8 @@ github.com/loft-sh/api/v4/pkg/clientset/versioned/typed/storage/v1
 github.com/loft-sh/api/v4/pkg/clientset/versioned/typed/virtualcluster/v1
 github.com/loft-sh/api/v4/pkg/managerfactory
 github.com/loft-sh/api/v4/pkg/product
-# github.com/loft-sh/apiserver v0.0.0-20240607231110-634aeeab2b36
-## explicit; go 1.22.4
+# github.com/loft-sh/apiserver v0.0.0-20250206205835-422f1d472459
+## explicit; go 1.23.1
 github.com/loft-sh/apiserver/pkg/builders
 # github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac
 ## explicit; go 1.20
@@ -685,7 +685,7 @@ github.com/peterbourgon/diskv
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# github.com/prometheus/client_golang v1.20.4
+# github.com/prometheus/client_golang v1.20.5
 ## explicit; go 1.20
 github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil
 github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil/header
@@ -895,7 +895,7 @@ golang.org/x/crypto/openpgp/packet
 golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/salsa20/salsa
 golang.org/x/crypto/sha3
-# golang.org/x/exp v0.0.0-20241004190924-225e2abe05e6
+# golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
 ## explicit; go 1.22.0
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
@@ -972,7 +972,7 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# golang.org/x/time v0.7.0
+# golang.org/x/time v0.9.0
 ## explicit; go 1.18
 golang.org/x/time/rate
 # golang.org/x/tools v0.29.0
