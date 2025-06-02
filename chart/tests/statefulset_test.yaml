@@ -274,7 +274,7 @@ tests:
     asserts:
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 7
+          count: 6
       - lengthEqual:
           path: spec.template.spec.initContainers
           count: 3
@@ -295,7 +295,7 @@ tests:
           value: StatefulSet
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 7
+          count: 6
       - lengthEqual:
           path: spec.template.spec.initContainers
           count: 2
@@ -308,7 +308,7 @@ tests:
     asserts:
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 6
+          count: 5
       - lengthEqual:
           path: spec.template.spec.initContainers
           count: 1
@@ -330,7 +330,7 @@ tests:
             name: myVolume
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 8
+          count: 7
 
   - it: add templated volumes
     set:
@@ -349,7 +349,7 @@ tests:
             name: RELEASE-NAME-myVolume
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 8
+          count: 7
 
   - it: enable k8s
     set:
