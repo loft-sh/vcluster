@@ -108,6 +108,11 @@ sync:
       enabled: false
       # MappingsOnly defines if creation of namespaces not matched by mappings should be allowed.
       mappingsOnly: false
+      # HostNamespaces defines configuration for handling host namespaces.
+      hostNamespaces:
+        # Cleanup defines the cleanup policy for host resources when vCluster is deleted.
+        # Allowed values: "all", "synced", "none".
+        cleanup: "synced"
   
   # Configure what resources vCluster should sync from the host cluster to the virtual cluster.
   fromHost:

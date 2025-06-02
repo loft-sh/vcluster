@@ -57,6 +57,8 @@ sync:
     namespaces:
       enabled: false
       mappingsOnly: false
+      hostNamespaces:
+        cleanup: "synced"
 
   fromHost:
     events:
