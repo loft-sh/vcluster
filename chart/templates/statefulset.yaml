@@ -112,11 +112,6 @@ spec:
         - name: vcluster-config
           secret:
             secretName: vc-config-{{ .Release.Name }}
-        {{- if .Values.controlPlane.coredns.enabled }}
-        - name: coredns
-          configMap:
-            name: vc-coredns-{{ .Release.Name }}
-        {{- end }}
         {{- if .Values.controlPlane.statefulSet.persistence.dataVolume }}
 {{ toYaml .Values.controlPlane.statefulSet.persistence.dataVolume | indent 8 }}
         {{- else if not (include "vcluster.persistence.volumeClaim.enabled" .) }}
@@ -220,11 +215,6 @@ spec:
               mountPath: /var/vcluster
             - name: tmp
               mountPath: /tmp
-            {{- if .Values.controlPlane.coredns.enabled }}
-            - name: coredns
-              mountPath: /manifests/coredns
-              readOnly: true
-            {{- end }}
             {{- if .Values.controlPlane.statefulSet.persistence.addVolumeMounts }}
 {{ toYaml .Values.controlPlane.statefulSet.persistence.addVolumeMounts | indent 12 }}
             {{- end }}

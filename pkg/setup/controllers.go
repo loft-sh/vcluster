@@ -187,7 +187,9 @@ func ApplyCoreDNS(controllerContext *synccontext.ControllerContext) {
 				}
 			}
 		}
-		err = coredns.ApplyManifest(ctx, controllerContext.Config.ControlPlane.Advanced.DefaultImageRegistry, controllerContext.VirtualManager.GetConfig(), controllerContext.VirtualClusterVersion)
+
+		// apply coredns manifests
+		err = coredns.ApplyManifest(ctx, &controllerContext.Config.Config, controllerContext.Config.ControlPlane.Advanced.DefaultImageRegistry, controllerContext.VirtualManager.GetConfig(), controllerContext.VirtualClusterVersion)
 		if err != nil {
 			if errors.Is(err, coredns.ErrNoCoreDNSManifests) {
 				klog.Infof("No CoreDNS manifests found, skipping CoreDNS configuration")
@@ -196,6 +198,7 @@ func ApplyCoreDNS(controllerContext *synccontext.ControllerContext) {
 			klog.Infof("Failed to apply CoreDNS configuration from the manifest file: %v", err)
 			return false, nil
 		}
+
 		klog.Infof("CoreDNS configuration from the manifest file applied successfully")
 		return true, nil
 	})
