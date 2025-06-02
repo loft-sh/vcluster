@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers"
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
@@ -21,6 +24,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/serviceaccount"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -305,6 +310,35 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 	defaultKubeConfig, err := CreateVClusterKubeConfigForExport(ctx, virtualConfig, syncerConfig.DeepCopy(), createKubeConfigOptions)
 	if err != nil {
 		return fmt.Errorf("failed to create kubeconfig that is exported to the default kubeconfig secret: %w", err)
+	}
+
+	// if standalone mode is enabled, we don't need to write any kubeconfig secrets and instead write it to a file
+	if options.ControlPlane.Standalone.Enabled {
+		klog.FromContext(ctx).Info("Writing kubeconfig to", "path", filepath.Join(constants.DataDir, "kubeconfig.yaml"))
+		err = clientcmd.WriteToFile(*defaultKubeConfig, filepath.Join(constants.DataDir, "kubeconfig.yaml"))
+		if err != nil {
+			return fmt.Errorf("failed to write kubeconfig to file: %w", err)
+		}
+
+		// also check if we can write it to ~/.kube/config
+		home, err := homedir.Dir()
+		if err != nil {
+			return fmt.Errorf("failed to get home directory: %w", err)
+		}
+
+		homeKubeConfig := filepath.Join(home, ".kube", "config")
+		_, err = os.Stat(homeKubeConfig)
+		if err == nil {
+			// does exist so we skip writing it to the home kubeconfig
+			return nil
+		}
+
+		err = clientcmd.WriteToFile(*defaultKubeConfig, homeKubeConfig)
+		if err != nil {
+			return fmt.Errorf("failed to write kubeconfig to file: %w", err)
+		}
+
+		return nil
 	}
 	isIsolatedControlPlaneKubeConfigSet := options.Experimental.IsolatedControlPlane.KubeConfig != ""
 	err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, defaultKubeConfig, isIsolatedControlPlaneKubeConfigSet, options.Name)

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -20,23 +21,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-)
-
-var (
-	FrontProxyClientCert = "/data/pki/front-proxy-client.crt"
-	FrontProxyClientKey  = "/data/pki/front-proxy-client.key"
-
-	SAKey  = "/data/pki/sa.key"
-	SACert = "/data/pki/sa.pub"
-
-	APIServerCert = "/data/pki/apiserver.crt"
-	APIServerKey  = "/data/pki/apiserver.key"
-
-	APIServerKubeletClientCert = "/data/pki/apiserver-kubelet-client.crt"
-	APIServerKubeletClientKey  = "/data/pki/apiserver-kubelet-client.key"
-
-	ControllerManagerConf = "/data/pki/controller-manager.conf"
-	SchedulerConf         = "/data/pki/scheduler.conf"
 )
 
 func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualClusterConfig) error {
@@ -61,7 +45,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 			if len(apiServer.Command) > 0 {
 				args = append(args, apiServer.Command...)
 			} else {
-				args = append(args, "/binaries/kube-apiserver")
+				args = append(args, constants.K8sAPIServerBinary)
 				args = append(args, "--service-cluster-ip-range="+serviceCIDR)
 				args = append(args, "--bind-address=127.0.0.1")
 				args = append(args, "--allow-privileged=true")
@@ -74,8 +58,8 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 					args = append(args, "--etcd-certfile="+etcdCertificates.ServerCert)
 					args = append(args, "--etcd-keyfile="+etcdCertificates.ServerKey)
 				}
-				args = append(args, "--proxy-client-cert-file="+FrontProxyClientCert)
-				args = append(args, "--proxy-client-key-file="+FrontProxyClientKey)
+				args = append(args, "--proxy-client-cert-file="+constants.FrontProxyClientCert)
+				args = append(args, "--proxy-client-key-file="+constants.FrontProxyClientKey)
 				args = append(args, "--requestheader-allowed-names=front-proxy-client")
 				args = append(args, "--requestheader-client-ca-file="+vConfig.VirtualClusterKubeConfig().RequestHeaderCACert)
 				args = append(args, "--requestheader-extra-headers-prefix=X-Remote-Extra-")
@@ -83,10 +67,10 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 				args = append(args, "--requestheader-username-headers=X-Remote-User")
 				args = append(args, "--secure-port=6443")
 				args = append(args, "--service-account-issuer="+issuer)
-				args = append(args, "--service-account-key-file="+SACert)
-				args = append(args, "--service-account-signing-key-file="+SAKey)
-				args = append(args, "--tls-cert-file="+APIServerCert)
-				args = append(args, "--tls-private-key-file="+APIServerKey)
+				args = append(args, "--service-account-key-file="+constants.SACert)
+				args = append(args, "--service-account-signing-key-file="+constants.SAKey)
+				args = append(args, "--tls-cert-file="+constants.APIServerCert)
+				args = append(args, "--tls-private-key-file="+constants.APIServerKey)
 				args = append(args, "--profiling=false")
 
 				// this is a hack since we want to set this ourselves and k8s does not support setting a custom port for this
@@ -94,8 +78,8 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 				args = append(args, "--endpoint-reconciler-type=none")
 
 				if vConfig.PrivateNodes.Enabled {
-					args = append(args, "--kubelet-client-certificate="+APIServerKubeletClientCert)
-					args = append(args, "--kubelet-client-key="+APIServerKubeletClientKey)
+					args = append(args, "--kubelet-client-certificate="+constants.APIServerKubeletClientCert)
+					args = append(args, "--kubelet-client-key="+constants.APIServerKubeletClientKey)
 					args = append(args, "--enable-admission-plugins=NodeRestriction")
 					args = append(args, "--endpoint-reconciler-type=none")
 
@@ -148,19 +132,19 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 			if len(controllerManager.Command) > 0 {
 				args = append(args, controllerManager.Command...)
 			} else {
-				args = append(args, "/binaries/kube-controller-manager")
+				args = append(args, constants.K8sControllerManagerBinary)
 				args = append(args, "--service-cluster-ip-range="+serviceCIDR)
-				args = append(args, "--authentication-kubeconfig="+ControllerManagerConf)
-				args = append(args, "--authorization-kubeconfig="+ControllerManagerConf)
+				args = append(args, "--authentication-kubeconfig="+constants.ControllerManagerConf)
+				args = append(args, "--authorization-kubeconfig="+constants.ControllerManagerConf)
 				args = append(args, "--bind-address=127.0.0.1")
 				args = append(args, "--client-ca-file="+vConfig.VirtualClusterKubeConfig().ClientCACert)
 				args = append(args, "--cluster-name=kubernetes")
 				args = append(args, "--cluster-signing-cert-file="+vConfig.VirtualClusterKubeConfig().ServerCACert)
 				args = append(args, "--cluster-signing-key-file="+vConfig.VirtualClusterKubeConfig().ServerCAKey)
-				args = append(args, "--kubeconfig="+ControllerManagerConf)
+				args = append(args, "--kubeconfig="+constants.ControllerManagerConf)
 				args = append(args, "--requestheader-client-ca-file="+vConfig.VirtualClusterKubeConfig().RequestHeaderCACert)
 				args = append(args, "--root-ca-file="+vConfig.VirtualClusterKubeConfig().ServerCACert)
-				args = append(args, "--service-account-private-key-file="+SAKey)
+				args = append(args, "--service-account-private-key-file="+constants.SAKey)
 				args = append(args, "--use-service-account-credentials=true")
 				if vConfig.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 {
 					args = append(args, "--leader-elect=true")
@@ -208,11 +192,11 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 			if len(scheduler.Command) > 0 {
 				args = append(args, scheduler.Command...)
 			} else {
-				args = append(args, "/binaries/kube-scheduler")
-				args = append(args, "--authentication-kubeconfig="+SchedulerConf)
-				args = append(args, "--authorization-kubeconfig="+SchedulerConf)
+				args = append(args, constants.K8sSchedulerBinary)
+				args = append(args, "--authentication-kubeconfig="+constants.SchedulerConf)
+				args = append(args, "--authorization-kubeconfig="+constants.SchedulerConf)
 				args = append(args, "--bind-address=127.0.0.1")
-				args = append(args, "--kubeconfig="+SchedulerConf)
+				args = append(args, "--kubeconfig="+constants.SchedulerConf)
 				if vConfig.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 {
 					args = append(args, "--leader-elect=true")
 				} else {
@@ -246,7 +230,7 @@ func StartKine(ctx context.Context, dataSource, listenAddress string, certificat
 	// start embedded mode
 	go func() {
 		args := []string{}
-		args = append(args, "/usr/local/bin/kine")
+		args = append(args, constants.KineBinary)
 		args = append(args, "--endpoint="+dataSource)
 		if certificates != nil {
 			if certificates.CaCert != "" {
@@ -268,6 +252,8 @@ func StartKine(ctx context.Context, dataSource, listenAddress string, certificat
 		if err != nil {
 			klog.Fatal("could not run kine", err)
 		}
+		klog.Info("kine finished")
+		os.Exit(0)
 	}()
 }
 
@@ -314,9 +300,9 @@ func StartBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig
 	} else {
 		// embedded or deployed etcd
 		etcdCertificates = &etcd.Certificates{
-			CaCert:     "/data/pki/etcd/ca.crt",
-			ServerCert: "/data/pki/apiserver-etcd-client.crt",
-			ServerKey:  "/data/pki/apiserver-etcd-client.key",
+			CaCert:     filepath.Join(constants.PKIDir, "etcd", "ca.crt"),
+			ServerCert: filepath.Join(constants.PKIDir, "apiserver-etcd-client.crt"),
+			ServerKey:  filepath.Join(constants.PKIDir, "apiserver-etcd-client.key"),
 		}
 
 		if vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {

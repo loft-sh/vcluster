@@ -284,6 +284,12 @@ controlPlane:
     spec:
       tls: []
 
+  standalone:
+    dataDir: "/var/lib/vcluster"
+    bundleRepository: "https://github.com/loft-sh/kubernetes/releases/download"
+    joinNode:
+      enabled: true
+
   statefulSet:
     labels: {}
     annotations: {}

@@ -49,7 +49,7 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 	}
 
 	// start plugins
-	if !plugin.IsPlugin {
+	if !plugin.IsPlugin && !options.ControlPlane.Standalone.Enabled {
 		err = startPlugins(ctx, virtualConfig, virtualRawConfig, options)
 		if err != nil {
 			return nil, err
@@ -69,16 +69,19 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 	}
 
 	// create physical manager
-	klog.Info("Using physical cluster at " + options.WorkloadConfig.Host)
-	localManager, err := NewLocalManager(options.WorkloadConfig, ctrl.Options{
-		Scheme:         scheme.Scheme,
-		Metrics:        metricsserver.Options{BindAddress: localManagerMetrics},
-		LeaderElection: false,
-		Cache:          getLocalCacheOptions(options),
-		NewClient:      pro.NewPhysicalClient(options),
-	})
-	if err != nil {
-		return nil, err
+	var localManager ctrl.Manager
+	if !options.ControlPlane.Standalone.Enabled {
+		klog.Info("Using physical cluster at " + options.WorkloadConfig.Host)
+		localManager, err = NewLocalManager(options.WorkloadConfig, ctrl.Options{
+			Scheme:         scheme.Scheme,
+			Metrics:        metricsserver.Options{BindAddress: localManagerMetrics},
+			LeaderElection: false,
+			Cache:          getLocalCacheOptions(options),
+			NewClient:      pro.NewPhysicalClient(options),
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// create virtual manager
@@ -343,9 +346,6 @@ func initControllerContext(
 	virtualRawConfig *clientcmdapi.Config,
 	vClusterOptions *config.VirtualClusterConfig,
 ) (*synccontext.ControllerContext, error) {
-	if localManager == nil {
-		return nil, errors.New("nil localManager")
-	}
 	if virtualManager == nil {
 		return nil, errors.New("nil virtualManager")
 	}
@@ -365,19 +365,22 @@ func initControllerContext(
 	klog.FromContext(ctx).Info("Can connect to virtual cluster", "version", virtualClusterVersion.GitVersion)
 
 	// create a new current namespace client
-	currentNamespaceClient, err := newCurrentNamespaceClient(ctx, localManager, vClusterOptions)
-	if err != nil {
-		return nil, err
-	}
+	var currentNamespaceClient client.Client
+	if !vClusterOptions.ControlPlane.Standalone.Enabled {
+		currentNamespaceClient, err = newCurrentNamespaceClient(ctx, localManager, vClusterOptions)
+		if err != nil {
+			return nil, err
+		}
 
-	localDiscoveryClient, err := discovery.NewDiscoveryClientForConfig(localManager.GetConfig())
-	if err != nil {
-		return nil, err
-	}
+		localDiscoveryClient, err := discovery.NewDiscoveryClientForConfig(localManager.GetConfig())
+		if err != nil {
+			return nil, err
+		}
 
-	err = vClusterOptions.DisableMissingAPIs(localDiscoveryClient)
-	if err != nil {
-		return nil, err
+		err = vClusterOptions.DisableMissingAPIs(localDiscoveryClient)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	etcdClient, err := etcd.NewFromConfig(ctx, vClusterOptions)
@@ -393,23 +396,29 @@ func initControllerContext(
 		VirtualRawConfig:      virtualRawConfig,
 		VirtualClusterVersion: virtualClusterVersion,
 
+		EtcdClient: etcdClient,
+
 		WorkloadNamespaceClient: currentNamespaceClient,
 
 		StopChan: stopChan,
 		Config:   vClusterOptions,
 	}
 
+	var localClient client.Client
+	if localManager != nil {
+		localClient = localManager.GetClient()
+	}
+
 	mappingStore, err := store.NewStoreWithVerifyMapping(
 		ctx,
 		virtualManager.GetClient(),
-		localManager.GetClient(),
+		localClient,
 		store.NewEtcdBackend(etcdClient),
 		verify.NewVerifyMapping(controllerContext.ToRegisterContext().ToSyncContext("verify-mapping")),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("start mapping store: %w", err)
 	}
-
 	controllerContext.Mappings = mappings.NewMappingsRegistry(mappingStore)
 	return controllerContext, nil
 }

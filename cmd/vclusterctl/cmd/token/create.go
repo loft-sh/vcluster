@@ -78,7 +78,7 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 	if cmd.Kubeadm {
 		fmt.Printf("kubeadm join %s --token %s --discovery-token-ca-cert-hash %s\n", apiEndpoint, token, caHash)
 	} else {
-		fmt.Printf("curl -sfLk https://%s/node/join?token=%s | sh -\n", apiEndpoint, url.QueryEscape(token))
+		fmt.Printf("curl -sfLk \"https://%s/node/join?token=%s\" | sh -\n", apiEndpoint, url.QueryEscape(token))
 	}
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"slices"
 	"strings"
@@ -205,7 +206,7 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	}
 
 	// validate dedicated nodes mode
-	err = validateDedicatedNodesMode(vConfig)
+	err = validatePrivatedNodesMode(vConfig)
 	if err != nil {
 		return err
 	}
@@ -866,9 +867,21 @@ func isIn(crdName string, s ...string) bool {
 	return slices.Contains(s, crdName)
 }
 
-func validateDedicatedNodesMode(vConfig *VirtualClusterConfig) error {
+func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 	if !vConfig.PrivateNodes.Enabled {
+		if vConfig.ControlPlane.Endpoint != "" {
+			return fmt.Errorf("endpoint is only supported in private nodes mode")
+		}
+
 		return nil
+	}
+
+	// validate endpoint
+	if vConfig.ControlPlane.Endpoint != "" {
+		_, _, err := net.SplitHostPort(vConfig.ControlPlane.Endpoint)
+		if err != nil {
+			return fmt.Errorf("invalid endpoint %s: %w", vConfig.ControlPlane.Endpoint, err)
+		}
 	}
 
 	// integrations are not supported in private nodes mode

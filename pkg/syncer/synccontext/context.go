@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"k8s.io/apimachinery/pkg/version"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -19,6 +20,8 @@ type ControllerContext struct {
 	VirtualManager        ctrl.Manager
 	VirtualRawConfig      *clientcmdapi.Config
 	VirtualClusterVersion *version.Info
+
+	EtcdClient etcd.Client
 
 	WorkloadNamespaceClient client.Client
 
@@ -73,14 +76,19 @@ func (c *ControllerContext) ToRegisterContext() *RegisterContext {
 }
 
 func (r *RegisterContext) ToSyncContext(logName string) *SyncContext {
-	return &SyncContext{
+	syncCtx := &SyncContext{
 		Context:                r.Context,
 		Config:                 r.Config,
 		Log:                    loghelper.New(logName),
-		PhysicalClient:         r.PhysicalManager.GetClient(),
-		VirtualClient:          r.VirtualManager.GetClient(),
 		CurrentNamespace:       r.CurrentNamespace,
 		CurrentNamespaceClient: r.CurrentNamespaceClient,
 		Mappings:               r.Mappings,
 	}
+	if r.PhysicalManager != nil {
+		syncCtx.PhysicalClient = r.PhysicalManager.GetClient()
+	}
+	if r.VirtualManager != nil {
+		syncCtx.VirtualClient = r.VirtualManager.GetClient()
+	}
+	return syncCtx
 }

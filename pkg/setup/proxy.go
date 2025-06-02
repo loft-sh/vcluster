@@ -24,7 +24,7 @@ func StartProxy(ctx *synccontext.ControllerContext) error {
 
 	// start the proxy server in secure mode
 	go func() {
-		err = proxyServer.ServeOnListenerTLS(ctx.Config.ControlPlane.Proxy.BindAddress, ctx.Config.ControlPlane.Proxy.Port, ctx.StopChan)
+		err = proxyServer.ServeOnListenerTLS(ctx)
 		if err != nil {
 			klog.Fatalf("Error serving: %v", err)
 		}

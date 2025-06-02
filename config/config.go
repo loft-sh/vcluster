@@ -114,6 +114,46 @@ type PrivateNodes struct {
 	AutoUpgrade AutoUpgrade `json:"autoUpgrade,omitempty"`
 }
 
+type Standalone struct {
+	// Enabled defines if standalone mode should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// DataDir defines the data directory for the standalone mode.
+	DataDir string `json:"dataDir,omitempty"`
+
+	// BundleRepository is the repository to use for downloading the Kubernetes bundle. Defaults to https://github.com/loft-sh/kubernetes/releases/download
+	BundleRepository string `json:"bundleRepository,omitempty"`
+
+	// JoinNode holds configuration for the standalone control plane node.
+	JoinNode StandaloneJoinNode `json:"joinNode,omitempty"`
+}
+
+type StandaloneJoinNode struct {
+	// Enabled defines if the standalone node should be joined into the cluster. If false, only the control plane binaries will be executed and no node will show up in the actual cluster.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Name defines the name of the standalone node. If empty the node will get the hostname as name.
+	Name string `json:"name,omitempty"`
+
+	// KubeletExtraArgs passes through extra arguments to the kubelet. The arguments here are passed to the kubelet command line via the environment file
+	// kubeadm writes at runtime for the kubelet to source. This overrides the generic base-level configuration in the kubelet-config ConfigMap
+	// Flags have higher priority when parsing. These values are local and specific to the node kubeadm is executing on.
+	// An argument name in this list is the flag name as it appears on the command line except without leading dash(es).
+	// Extra arguments will override existing default arguments. Duplicate extra arguments are allowed.
+	KubeletExtraArgs []KubeletExtraArg `json:"kubeletExtraArgs,omitempty"`
+
+	// IgnorePreflightErrors provides a slice of pre-flight errors to be ignored when the current node is registered, e.g. 'IsPrivilegedUser,Swap'.
+	// Value 'all' ignores errors from all checks.
+	IgnorePreflightErrors []string `json:"ignorePreflightErrors,omitempty"`
+}
+
+type KubeletExtraArg struct {
+	// Name is the name of the argument.
+	Name string `json:"name,omitempty"`
+	// Value is the value of the argument.
+	Value string `json:"value,omitempty"`
+}
+
 type LocalPathProvisioner struct {
 	// Enabled defines if LocalPathProvisioner should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
@@ -1289,8 +1329,15 @@ type RBACPolicyRule struct {
 }
 
 type ControlPlane struct {
+	// Endpoint is the endpoint of the virtual cluster. This is used to connect to the virtual cluster.
+	Endpoint string `json:"endpoint,omitempty"`
+
 	// Distro holds virtual cluster related distro options. A distro cannot be changed after vCluster is deployed.
 	Distro Distro `json:"distro,omitempty"`
+
+	// Standalone holds configuration for standalone mode. Standalone mode is set automatically when no container is detected and
+	// also implies privateNodes.enabled.
+	Standalone Standalone `json:"standalone,omitempty"`
 
 	// BackingStore defines which backing store to use for virtual cluster. If not defined will use embedded database as a default backing store.
 	BackingStore BackingStore `json:"backingStore,omitempty"`
