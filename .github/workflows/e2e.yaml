@@ -109,10 +109,11 @@ jobs:
           version: "v3.11.0"
 
       - name: Set up kind k8s cluster
-        uses: engineerd/setup-kind@v0.5.0
+        uses: loft-sh/setup-kind@master
         with:
           version: "v0.26.0"
           image: kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
+          skipClusterLogsExport: "true"
 
       - name: Testing kind cluster set-up
         run: |
@@ -181,10 +182,11 @@ jobs:
           version: "v3.11.0"
 
       - name: Set up kind k8s cluster
-        uses: engineerd/setup-kind@v0.5.0
+        uses: loft-sh/setup-kind@master
         with:
           version: "v0.26.0"
           image: kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
+          skipClusterLogsExport: "true"
 
       - name: Testing kind cluster set-up
         run: |
@@ -287,10 +289,11 @@ jobs:
           version: "v3.11.0"
 
       - name: Set up kind k8s cluster
-        uses: engineerd/setup-kind@v0.5.0
+        uses: loft-sh/setup-kind@master
         with:
           version: "v0.26.0"
           image: kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
+          skipClusterLogsExport: "true"
 
       - name: Testing kind cluster set-up
         run: |
