@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"sort"
 
@@ -18,6 +19,8 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -160,6 +163,7 @@ func getExtraSANs(ctx context.Context, workloadNamespaceClient, vClient client.C
 
 	// if dedicated mode is enabled, we need to get the service ip within the virtual cluster
 	if vConfig.PrivateNodes.Enabled {
+		// add the cluster ip of the kubernetes service
 		svc := &corev1.Service{}
 		err = vClient.Get(ctx, types.NamespacedName{
 			Namespace: "default",
@@ -168,8 +172,33 @@ func getExtraSANs(ctx context.Context, workloadNamespaceClient, vClient client.C
 		if err != nil {
 			return nil, fmt.Errorf("error getting vcluster kubernetes service: %w", err)
 		}
-
 		retSANs = append(retSANs, svc.Spec.ClusterIP)
+
+		// get endpoint
+		clusterInfo := &corev1.ConfigMap{}
+		err = vClient.Get(ctx, types.NamespacedName{
+			Namespace: "kube-public",
+			Name:      "cluster-info",
+		}, clusterInfo)
+		if err != nil && !kerrors.IsNotFound(err) {
+			return nil, fmt.Errorf("error getting vcluster cluster-info configmap: %w", err)
+		}
+
+		if clusterInfo.Data["kubeconfig"] != "" {
+			clusterInfo, err := clientcmd.Load([]byte(clusterInfo.Data["kubeconfig"]))
+			if err != nil {
+				klog.FromContext(ctx).Error(err, "error loading kubeconfig")
+			} else {
+				for _, cluster := range clusterInfo.Clusters {
+					url, err := url.Parse(cluster.Server)
+					if err != nil {
+						continue
+					}
+
+					retSANs = append(retSANs, url.Hostname())
+				}
+			}
+		}
 	}
 
 	// add extra sans

@@ -193,6 +193,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
             {{- if .Values.controlPlane.statefulSet.env }}
 {{ toYaml .Values.controlPlane.statefulSet.env | indent 12 }}
             {{- end }}
