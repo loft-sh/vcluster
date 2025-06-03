@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/loft-sh/log"
@@ -92,7 +93,7 @@ func cleanupSyncedNamespaces(
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("cleanup of vCluster '%s' namespaces finished with errors: %v", vClusterName, errs)
+		return fmt.Errorf("cleanup of vCluster '%s' namespaces finished with errors: %w", vClusterName, errors.Join(errs...))
 	}
 
 	logger.Infof("Cleanup of vCluster '%s' namespaces finished.", vClusterName)
@@ -158,7 +159,7 @@ func cleanupAllNamespaces(
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("cleanup of vCluster '%s' namespaces finished with errors: %v", vClusterName, errs)
+		return fmt.Errorf("cleanup of vCluster '%s' namespaces finished with errors: %w", vClusterName, errors.Join(errs...))
 	}
 
 	logger.Infof("Cleanup of vCluster '%s' namespaces finished.", vClusterName)
