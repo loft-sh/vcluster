@@ -7,11 +7,14 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/ghodss/yaml"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
@@ -117,9 +120,22 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 		}
 	}
 
+	helmClient := helm.NewClient(cmd.rawConfig, cmd.log, helmBinaryPath)
+	// before removing vCluster release, we need to get the values for later user
+	values, err := helmClient.GetValues(ctx, vClusterName, cmd.Namespace, helm.GetValuesOptions{All: true})
+	if err != nil {
+		return err
+	}
+
+	retConfig := &config.Config{}
+	err = yaml.Unmarshal(values, retConfig)
+	if err != nil {
+		return err
+	}
+
 	// we have to delete the chart
 	cmd.log.Infof("Delete vcluster %s...", vClusterName)
-	err = helm.NewClient(cmd.rawConfig, cmd.log, helmBinaryPath).Delete(vClusterName, cmd.Namespace)
+	err = helmClient.Delete(vClusterName, cmd.Namespace)
 	if err != nil {
 		return err
 	}
@@ -179,7 +195,18 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 		cmd.DeleteNamespace = false
 	}
 
-	// try to delete the namespace
+	// if namespace sync is enabled, use cleanup handlers to handle namespace cleanup
+	if retConfig.Sync.ToHost.Namespaces.Enabled {
+		runNamespaceCleanup, err := namespaces.GetCleanupHandler(retConfig.Sync.ToHost.Namespaces.HostNamespaces.Cleanup)
+		if err != nil {
+			return fmt.Errorf("get cleanup handler: %w", err)
+		}
+		if err := runNamespaceCleanup(ctx, cmd.Namespace, vClusterName, retConfig.Sync.ToHost.Namespaces, cmd.kubeClient, cmd.log); err != nil {
+			return fmt.Errorf("run namespace cleanup: %w", err)
+		}
+	}
+
+	// check if we should cleanup vCluster host namespace
 	if cmd.DeleteNamespace {
 		// delete namespace
 		err = cmd.kubeClient.CoreV1().Namespaces().Delete(ctx, cmd.Namespace, metav1.DeleteOptions{})
@@ -191,29 +218,7 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 			cmd.log.Donef("Successfully deleted virtual cluster namespace %s", cmd.Namespace)
 		}
 
-		// delete multi namespace mode namespaces
-		namespaces, err := cmd.kubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
-			LabelSelector: translate.MarkerLabel + "=" + translate.SafeConcatName(cmd.Namespace, "x", vClusterName),
-		})
-		if err != nil && !kerrors.IsForbidden(err) {
-			return fmt.Errorf("list namespaces: %w", err)
-		}
-
-		// delete all namespaces
-		if namespaces != nil && len(namespaces.Items) > 0 {
-			for _, namespace := range namespaces.Items {
-				err = cmd.kubeClient.CoreV1().Namespaces().Delete(ctx, namespace.Name, metav1.DeleteOptions{})
-				if err != nil {
-					if !kerrors.IsNotFound(err) {
-						return fmt.Errorf("delete namespace: %w", err)
-					}
-				} else {
-					cmd.log.Donef("Successfully deleted virtual cluster namespace %s", namespace.Name)
-				}
-			}
-		}
-
-		// wait for vcluster deletion
+		// wait for namespace deletion
 		if cmd.Wait {
 			cmd.log.Info("Waiting for virtual cluster to be deleted...")
 			for {
