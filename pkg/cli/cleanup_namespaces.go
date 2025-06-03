@@ -1,4 +1,4 @@
-package namespaces
+package cli
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// CleanupHandler defines the function signature for namespace cleanup operations.
-type CleanupHandler func(
+// NamespaceCleanupHandler defines the function signature for namespace cleanup operations.
+type NamespaceCleanupHandler func(
 	ctx context.Context,
 	mainPhysicalNamespace string,
 	vClusterName string,
@@ -22,8 +22,8 @@ type CleanupHandler func(
 	logger log.Logger,
 ) error
 
-// GetCleanupHandler returns a CleanupHandler function based on the provided policy.
-func GetCleanupHandler(policy config.HostDeletionPolicy) (CleanupHandler, error) {
+// GetNamespaceCleanupHandler returns a NamespaceCleanupHandler function based on the provided policy.
+func GetNamespaceCleanupHandler(policy config.HostDeletionPolicy) (NamespaceCleanupHandler, error) {
 	switch policy {
 	case config.HostDeletionPolicyAll:
 		return cleanupAllNamespaces, nil
@@ -74,6 +74,7 @@ func cleanupSyncedNamespaces(
 		return nil
 	}
 
+	var errs []error
 	for _, ns := range nsList.Items {
 		// Check if namespace was imported, if yes we skip deletion for 'synced' policy.
 		if ns.Annotations != nil && ns.Annotations[translate.ImportedMarkerAnnotation] == "true" {
@@ -84,9 +85,14 @@ func cleanupSyncedNamespaces(
 		logger.Infof("Attempting to delete virtual cluster namespace %s.", ns.Name)
 		err := k8sClient.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{})
 		if err != nil {
-			return fmt.Errorf("delete virtual cluster namespace %s: %w", ns.Name, err)
+			errs = append(errs, fmt.Errorf("namespace %s: %w", ns.Name, err))
+		} else {
+			logger.Donef("Successfully deleted virtual cluster namespace %s.", ns.Name)
 		}
-		logger.Donef("Successfully deleted virtual cluster namespace %s.", ns.Name)
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("cleanup of vCluster '%s' namespaces finished with errors: %v", vClusterName, errs)
 	}
 
 	logger.Infof("Cleanup of vCluster '%s' namespaces finished.", vClusterName)
@@ -124,6 +130,7 @@ func cleanupAllNamespaces(
 		return nil
 	}
 
+	var errs []error
 	for _, hostNs := range hostNamespaces.Items {
 		// Check if this hostNs matches any mapping rule target
 		for _, hostTargetPatternRaw := range mappingsConfig.ByName {
@@ -140,14 +147,18 @@ func cleanupAllNamespaces(
 				logger.Infof("Attempting to delete virtual cluster namespace %s.", hostNs.Name)
 				err := k8sClient.CoreV1().Namespaces().Delete(ctx, hostNs.Name, metav1.DeleteOptions{})
 				if err != nil {
-					return fmt.Errorf("delete virtual cluster namespace %s: %w", hostNs.Name, err)
+					errs = append(errs, fmt.Errorf("delete virtual cluster namespace %s: %w", hostNs.Name, err))
+				} else {
+					logger.Donef("Successfully deleted virtual cluster namespace %s.", hostNs.Name)
 				}
-				logger.Donef("Successfully deleted virtual cluster namespace %s.", hostNs.Name)
 				// This namespace has been handled. Skip other mappings and move to the next one.
-				goto nextHostNs
+				break
 			}
 		}
-	nextHostNs:
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("cleanup of vCluster '%s' namespaces finished with errors: %v", vClusterName, errs)
 	}
 
 	logger.Infof("Cleanup of vCluster '%s' namespaces finished.", vClusterName)

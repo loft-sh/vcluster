@@ -14,7 +14,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
@@ -121,8 +120,8 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 	}
 
 	helmClient := helm.NewClient(cmd.rawConfig, cmd.log, helmBinaryPath)
-	// before removing vCluster release, we need to get the values for later user
-	values, err := helmClient.GetValues(ctx, vClusterName, cmd.Namespace, helm.GetValuesOptions{All: true})
+	// before removing vCluster release, we need to get the config from values for later use
+	values, err := helmClient.GetValues(ctx, vClusterName, cmd.Namespace, true)
 	if err != nil {
 		return err
 	}
@@ -197,7 +196,7 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 
 	// if namespace sync is enabled, use cleanup handlers to handle namespace cleanup
 	if retConfig.Sync.ToHost.Namespaces.Enabled {
-		runNamespaceCleanup, err := namespaces.GetCleanupHandler(retConfig.Sync.ToHost.Namespaces.HostNamespaces.Cleanup)
+		runNamespaceCleanup, err := GetNamespaceCleanupHandler(retConfig.Sync.ToHost.Namespaces.HostNamespaces.Cleanup)
 		if err != nil {
 			return fmt.Errorf("get cleanup handler: %w", err)
 		}

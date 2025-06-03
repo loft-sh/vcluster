@@ -39,13 +39,6 @@ type UpgradeOptions struct {
 	Debug    bool
 }
 
-// GetValuesOptions holds the options for retrieving values for a release.
-type GetValuesOptions struct {
-	// All indicates whether to retrieve all values, including those set by the chart by default.
-	// Corresponds to the `--all` flag in Helm.
-	All bool
-}
-
 const (
 	errorExecutingHelm = "error executing helm %s: %s"
 	errorTimeout       = "error executing helm %s: %s operation timedout"
@@ -60,7 +53,7 @@ type Client interface {
 	Exists(name, namespace string) (bool, error)
 	Rollback(ctx context.Context, name, namespace string) error
 	Status(ctx context.Context, name, namespace string) ([]byte, error)
-	GetValues(ctx context.Context, name, namespace string, options GetValuesOptions) ([]byte, error)
+	GetValues(ctx context.Context, name, namespace string, all bool) ([]byte, error)
 }
 
 type client struct {
@@ -321,7 +314,7 @@ func (c *client) Status(ctx context.Context, name, namespace string) ([]byte, er
 	return exec.CommandContext(ctx, c.helmPath, args...).CombinedOutput()
 }
 
-func (c *client) GetValues(ctx context.Context, name, namespace string, options GetValuesOptions) ([]byte, error) {
+func (c *client) GetValues(ctx context.Context, name, namespace string, all bool) ([]byte, error) {
 	kubeConfig, err := WriteKubeConfig(c.config)
 	if err != nil {
 		return nil, err
@@ -329,7 +322,7 @@ func (c *client) GetValues(ctx context.Context, name, namespace string, options 
 	defer os.Remove(kubeConfig)
 
 	args := []string{"get", "values", name, "--namespace", namespace, "--kubeconfig", kubeConfig}
-	if options.All {
+	if all {
 		args = append(args, "--all")
 	}
 
