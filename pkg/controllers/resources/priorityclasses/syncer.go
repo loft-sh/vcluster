@@ -76,7 +76,11 @@ func (s *priorityClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 }
 
 func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*schedulingv1.PriorityClass]) (_ ctrl.Result, retErr error) {
-	if !ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host) {
+	matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("check priority class selector: %w", err)
+	}
+	if !matches {
 		return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, fmt.Sprintf("did not sync priority class %q because it does not match the selector under 'sync.fromHost.priorityClasses.selector'", event.Host.Name))
 	}
 
@@ -110,7 +114,11 @@ func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 }
 
 func (s *priorityClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*schedulingv1.PriorityClass]) (_ ctrl.Result, retErr error) {
-	if !ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host) {
+	matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("check priority class selector: %w", err)
+	}
+	if !matches {
 		ctx.Log.Infof("Warning: did not sync priority class %q because it does not match the selector under 'sync.fromHost.priorityClasses.selector'", event.Host.Name)
 		return ctrl.Result{}, nil
 	}
@@ -121,7 +129,7 @@ func (s *priorityClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event 
 	}
 
 	newVirtualPC := s.translateFromHost(ctx, event.Host)
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, newVirtualPC, event.Host, ctx.Config.Sync.FromHost.PriorityClasses.Patches, true)
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, newVirtualPC, event.Host, ctx.Config.Sync.FromHost.PriorityClasses.Patches, true)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

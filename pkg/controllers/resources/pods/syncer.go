@@ -569,7 +569,12 @@ func (s *podSyncer) applyLimitByClass(ctx *synccontext.SyncContext, virtual *cor
 			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q couldn't be reached in the host: %s", virtual.GetName(), virtual.Spec.PriorityClassName, err)
 			return true
 		}
-		if !ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(pPriorityClass) {
+		matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(pPriorityClass)
+		if err != nil {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host could not be checked against the selector under 'sync.fromHost.priorityClasses.selector': %s", virtual.GetName(), pPriorityClass.GetName(), err)
+			return true
+		}
+		if !matches {
 			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host does not match the selector under 'sync.fromHost.priorityClasses.selector'", virtual.GetName(), pPriorityClass.GetName())
 			return true
 		}
@@ -583,7 +588,12 @@ func (s *podSyncer) applyLimitByClass(ctx *synccontext.SyncContext, virtual *cor
 			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.RuntimeClassName, err)
 			return true
 		}
-		if !ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(pRuntimeClass) {
+		matches, err := ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(pRuntimeClass)
+		if err != nil {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q in the host could not be checked against the selector under 'sync.fromHost.runtimeClasses.selector': %s", virtual.GetName(), pRuntimeClass.GetName(), err)
+			return true
+		}
+		if !matches {
 			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q in the host does not match the selector under 'sync.fromHost.runtimeClasses.selector'", virtual.GetName(), pRuntimeClass.GetName())
 			return true
 		}

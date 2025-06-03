@@ -49,7 +49,11 @@ func (i *runtimeClassSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (i *runtimeClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*nodev1.RuntimeClass]) (ctrl.Result, error) {
-	if !ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(event.Host) {
+	matches, err := ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("check runtime class selector: %w", err)
+	}
+	if !matches {
 		ctx.Log.Infof("Warning: did not sync runtime class %q because it does not match the selector under 'sync.fromHost.runtimeClasses.selector'", event.Host.Name)
 		return ctrl.Result{}, nil
 	}
@@ -57,7 +61,7 @@ func (i *runtimeClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
 
 	// Apply pro patches
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.RuntimeClasses.Patches, true)
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.RuntimeClasses.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
@@ -67,7 +71,11 @@ func (i *runtimeClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 }
 
 func (i *runtimeClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*nodev1.RuntimeClass]) (_ ctrl.Result, retErr error) {
-	if !ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(event.Host) {
+	matches, err := ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("check runtime class selector: %w", err)
+	}
+	if !matches {
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.Host, fmt.Sprintf("did not sync runtime class %q because it does not match the selector under 'sync.fromHost.runtimeClasses.selector'", event.Host.Name))
 	}
 

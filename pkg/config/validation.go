@@ -210,6 +210,12 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 
+	// validate sync.fromHost classes
+	err = ValidateSyncFromHostClasses(vConfig.Config.Sync.FromHost)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -281,6 +287,28 @@ func validatePatches(patchesValidation ...patchesValidation) error {
 		}
 	}
 
+	return nil
+}
+
+func ValidateSyncFromHostClasses(fromHost config.SyncFromHost) error {
+	errorFn := func(sls config.StandardLabelSelector, path string) error {
+		if _, err := sls.ToSelector(); err != nil {
+			return fmt.Errorf("invalid sync.fromHost.%s.selector: %w", path, err)
+		}
+		return nil
+	}
+	if err := errorFn(fromHost.RuntimeClasses.Selector, "runtimeClasses"); err != nil {
+		return err
+	}
+	if err := errorFn(fromHost.IngressClasses.Selector, "ingressClasses"); err != nil {
+		return err
+	}
+	if err := errorFn(fromHost.PriorityClasses.Selector, "priorityClasses"); err != nil {
+		return err
+	}
+	if err := errorFn(fromHost.StorageClasses.Selector, "storageClasses"); err != nil {
+		return err
+	}
 	return nil
 }
 
