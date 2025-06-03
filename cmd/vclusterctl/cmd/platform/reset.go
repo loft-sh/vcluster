@@ -225,8 +225,30 @@ func (cmd *PasswordCmd) Run() error {
 		if err != nil {
 			return errors.Wrap(err, "update password secret")
 		}
+
+		if err := cmd.deleteOldAccessKeys(managementClient, user.Name); err != nil {
+			cmd.Log.Warnf("Failed to delete old access keys: %v", err)
+		}
 	}
 
 	cmd.Log.Donef("Successfully reset password of user %s", cmd.User)
+	return nil
+}
+
+func (cmd *PasswordCmd) deleteOldAccessKeys(managementClient kube.Interface, username string) error {
+	accessKeyList, err := managementClient.Loft().StorageV1().AccessKeys().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list access keys: %w", err)
+	}
+	for _, accessKey := range accessKeyList.Items {
+		if accessKey.Spec.User == username {
+			cmd.Log.Infof("password changed, deleting access key to force re-login, username: %s accessKey: %s", username, accessKey.Name)
+			err := managementClient.Loft().StorageV1().AccessKeys().Delete(context.Background(), accessKey.GetName(), metav1.DeleteOptions{})
+			if err != nil {
+				cmd.Log.Warnf("unable to delete access key %s err: %v", accessKey.Name, err)
+				continue
+			}
+		}
+	}
 	return nil
 }
