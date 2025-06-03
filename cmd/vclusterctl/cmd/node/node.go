@@ -18,5 +18,6 @@ func NewNodeCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	nodeCmd.AddCommand(NewUpgradeCommand(globalFlags))
 	nodeCmd.AddCommand(NewLoadImageCommand(globalFlags))
+	nodeCmd.AddCommand(NewDeleteCommand(globalFlags))
 	return nodeCmd
 }
