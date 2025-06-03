@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
+
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
@@ -161,9 +163,7 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 		if err != nil {
 			return nil, fmt.Errorf("update config: %w", err)
 		}
-
-		cmd = exec.Command(
-			"docker",
+		args := []string{
 			"run",
 			"--rm",
 			"-d",
@@ -173,15 +173,38 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 			fmt.Sprintf("%d:8443", localPort),
 			proxyImage,
 			"port-forward",
-			"svc/"+vClusterName,
+			"svc/" + vClusterName,
 			"--address=0.0.0.0",
 			"8443:443",
 			"--kubeconfig", "/kube-config",
 			"-n", vClusterNamespace,
-		)
-	} else {
+		}
+		if os.Getenv(constants.DebugLogBackgroundProxyEnvVar) == "1" {
+			args = []string{
+				"run",
+				"--rm",
+				"-d",
+				"-v", fmt.Sprintf("%v:%v", kubeConfigPath, "/kube-config"),
+				fmt.Sprintf("--name=%s", proxyName),
+				"-p",
+				fmt.Sprintf("%d:8443", localPort),
+				proxyImage,
+				"port-forward",
+				"-v7",
+				"svc/" + vClusterName,
+				"--address=0.0.0.0",
+				"8443:443",
+				"--kubeconfig", "/kube-config",
+				"-n", vClusterNamespace,
+			}
+		}
+
 		cmd = exec.Command(
 			"docker",
+			args...,
+		)
+	} else {
+		args := []string{
 			"run",
 			"--rm",
 			"-d",
@@ -190,12 +213,32 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 			"--network=host",
 			proxyImage,
 			"port-forward",
-			"svc/"+vClusterName,
+			"svc/" + vClusterName,
 			"--address=0.0.0.0",
-			strconv.Itoa(localPort)+":443",
+			strconv.Itoa(localPort) + ":443",
 			"--kubeconfig", "/kube-config",
 			"-n", vClusterNamespace,
-		)
+		}
+		if os.Getenv(constants.DebugLogBackgroundProxyEnvVar) == "1" {
+			args = []string{
+				"run",
+				"--rm",
+				"-d",
+				"-v", fmt.Sprintf("%v:%v", kubeConfigPath, "/kube-config"),
+				fmt.Sprintf("--name=%s", proxyName),
+				"--network=host",
+				proxyImage,
+				"port-forward",
+				"-v7",
+				"svc/" + vClusterName,
+				"--address=0.0.0.0",
+				strconv.Itoa(localPort) + ":443",
+				"--kubeconfig", "/kube-config",
+				"-n", vClusterNamespace,
+			}
+		}
+
+		cmd = exec.Command("docker", args...)
 	}
 
 	// write kube config to buffer
