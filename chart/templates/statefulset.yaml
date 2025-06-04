@@ -110,8 +110,13 @@ spec:
           emptyDir: {}
         {{- end }}
         - name: vcluster-config
+          {{- if .Values.controlPlane.advanced.useConfigMap }}
+          configMap:
+            name: vc-config-{{ .Release.Name }}
+          {{- else }}
           secret:
             secretName: vc-config-{{ .Release.Name }}
+          {{- end }}
         {{- if .Values.controlPlane.statefulSet.persistence.dataVolume }}
 {{ toYaml .Values.controlPlane.statefulSet.persistence.dataVolume | indent 8 }}
         {{- else if not (include "vcluster.persistence.volumeClaim.enabled" .) }}
