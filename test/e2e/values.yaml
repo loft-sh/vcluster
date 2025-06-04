@@ -51,8 +51,6 @@ sync:
   fromHost:
     runtimeClasses:
       enabled: true
-    ingressClasses:
-      enabled: true
     configMaps:
       enabled: true
       mappings:
