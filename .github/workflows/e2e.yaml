@@ -219,6 +219,7 @@ jobs:
         run: |
           chmod +x ./vcluster-current
 
+          docker load --input vcluster_syncer
           kind load image-archive vcluster_syncer
           yq eval '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' > ./test/vcluster-current.yaml
 
@@ -242,6 +243,7 @@ jobs:
           ./vcluster-dev/vcluster create vcluster \
           --connect=false \
           --upgrade \
+          --background-proxy-image=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} \
           --local-chart-dir ./chart \
           -f ./test/commonValues.yaml
 
@@ -341,6 +343,7 @@ jobs:
           sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
           yq eval -i '.controlPlane.distro.${{ matrix.distribution }}.enabled = true'  ${{ matrix.test-suite-path }}/../commonValues.yaml
 
+          docker load --input vcluster_syncer
           kind load image-archive vcluster_syncer
 
           chmod +x vcluster && sudo mv vcluster /usr/bin
@@ -349,6 +352,7 @@ jobs:
           --create-namespace \
           --debug \
           --connect=false \
+          --background-proxy-image=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} \
           --local-chart-dir ./chart \
           -f ./test/commonValues.yaml \
           $haValues \

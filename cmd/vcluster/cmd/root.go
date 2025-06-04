@@ -61,6 +61,7 @@ func BuildRoot() *cobra.Command {
 	rootCmd.AddCommand(NewStartCommand())
 	rootCmd.AddCommand(NewSnapshotCommand())
 	rootCmd.AddCommand(NewRestoreCommand())
+	rootCmd.AddCommand(NewPortForwardCommand())
 	rootCmd.AddCommand(debug.NewDebugCmd())
 	rootCmd.AddCommand(node.NewNodeCmd())
 	return rootCmd

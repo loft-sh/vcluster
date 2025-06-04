@@ -153,7 +153,15 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 
 	kubeConfigPath := tempFile.Name()
 
-	var cmd *exec.Cmd
+	dockerArgs := []string{
+		"run",
+		"--rm",
+		"-d",
+		"-v", fmt.Sprintf("%v:%v", kubeConfigPath, "/kube-config"),
+		fmt.Sprintf("--name=%s", proxyName),
+		"--entrypoint=/vcluster",
+	}
+
 	// For non-linux, update the kube config to point to the special host.docker.internal and don't use
 	// host networking.
 	if runtime.GOOS != "linux" {
@@ -162,13 +170,7 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 			return nil, fmt.Errorf("update config: %w", err)
 		}
 
-		cmd = exec.Command(
-			"docker",
-			"run",
-			"--rm",
-			"-d",
-			"-v", fmt.Sprintf("%v:%v", kubeConfigPath, "/kube-config"),
-			fmt.Sprintf("--name=%s", proxyName),
+		dockerArgs = append(dockerArgs,
 			"-p",
 			fmt.Sprintf("%d:8443", localPort),
 			proxyImage,
@@ -180,13 +182,7 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 			"-n", vClusterNamespace,
 		)
 	} else {
-		cmd = exec.Command(
-			"docker",
-			"run",
-			"--rm",
-			"-d",
-			"-v", fmt.Sprintf("%v:%v", kubeConfigPath, "/kube-config"),
-			fmt.Sprintf("--name=%s", proxyName),
+		dockerArgs = append(dockerArgs,
 			"--network=host",
 			proxyImage,
 			"port-forward",
@@ -197,6 +193,8 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 			"-n", vClusterNamespace,
 		)
 	}
+
+	cmd := exec.Command("docker", dockerArgs...)
 
 	// write kube config to buffer
 	physicalCluster, err := clientcmd.Write(physicalRawConfig)

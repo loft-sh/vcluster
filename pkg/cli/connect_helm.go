@@ -18,7 +18,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/portforward"
 	"github.com/loft-sh/vcluster/pkg/util/serviceaccount"
@@ -350,6 +352,10 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 		// check if we should start a background proxy
 		if cmd.Server == "" && cmd.BackgroundProxy {
 			if localkubernetes.IsDockerInstalledAndUpAndRunning() {
+				if cmd.BackgroundProxyImage != constants.DefaultBackgroundProxyImage(upgrade.GetVersion()) {
+					cmd.Log.Warnf("You are using a custom background proxy image (--background-proxy-image=%s). This may result in an unstable connection to the vCluster.", cmd.BackgroundProxyImage)
+				}
+
 				// start background container
 				cmd.Server, err = localkubernetes.CreateBackgroundProxyContainer(ctx, vclusterName, cmd.Namespace, cmd.BackgroundProxyImage, cmd.kubeClientConfig, cmd.LocalPort, cmd.Log)
 				if err != nil {

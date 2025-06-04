@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +29,7 @@ func AddCommonFlags(cmd *cobra.Command, options *cli.ConnectOptions) {
 	cmd.Flags().IntVar(&options.ServiceAccountExpiration, "token-expiration", 0, "If specified, vCluster will create the service account token for the given duration in seconds. Defaults to eternal")
 	cmd.Flags().BoolVar(&options.Insecure, "insecure", false, "If specified, vCluster will create the kube config with insecure-skip-tls-verify")
 	cmd.Flags().BoolVar(&options.BackgroundProxy, "background-proxy", true, "Try to use a background-proxy to access the vCluster. Only works if docker is installed and reachable")
-	cmd.Flags().StringVar(&options.BackgroundProxyImage, "background-proxy-image", constants.DefaultBackgroundProxyImage, "The image to use for the background proxy. Only used if --background-proxy is enabled.")
+	cmd.Flags().StringVar(&options.BackgroundProxyImage, "background-proxy-image", constants.DefaultBackgroundProxyImage(upgrade.GetVersion()), "The image to use for the background proxy. Only used if --background-proxy is enabled.")
 
 	// deprecated
 	_ = cmd.Flags().MarkDeprecated("kube-config", fmt.Sprintf("please use %q to write the kubeconfig of the virtual cluster to stdout.", "vcluster connect --print"))
