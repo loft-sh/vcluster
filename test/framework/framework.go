@@ -175,9 +175,11 @@ func CreateFramework(ctx context.Context) error {
 	}
 
 	// init virtual client
-	err = DefaultFramework.RefreshVirtualClient()
-	if err != nil {
-		return err
+	if os.Getenv("VCLUSTER_SKIP_CONNECT") != "true" {
+		err = DefaultFramework.RefreshVirtualClient()
+		if err != nil {
+			return err
+		}
 	}
 
 	l.Done("Framework successfully initialized")
