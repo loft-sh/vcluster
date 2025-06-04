@@ -68,7 +68,8 @@ var _ syncertypes.OptionsProvider = &namespaceSyncer{}
 
 func (s *namespaceSyncer) Options() *syncertypes.Options {
 	return &syncertypes.Options{
-		ObjectCaching: true,
+		ObjectCaching:      true,
+		DisableUIDDeletion: true,
 	}
 }
 
