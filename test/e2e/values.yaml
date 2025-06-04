@@ -48,24 +48,6 @@ experimental:
             namespace: fluent-bit
           timeout: "50s"
 sync:
-  toHost:
-    ingresses:
-      enabled: true
-  fromHost:
-    runtimeClasses:
-      enabled: true
-    ingressClasses:
-      enabled: true
-      selector:
-        matchLabels:
-          value: one
-    storageClasses:
-      enabled: true
-    priorityClasses:
-      enabled: true
-      selector:
-        matchLabels:
-          value: one
     configMaps:
       enabled: true
       mappings:
