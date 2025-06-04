@@ -10,6 +10,10 @@ sync:
     endpoints:
       # Enabled defines if this option should be enabled.
       enabled: true
+    # EndpointSlices defines if endpointslices created within the virtual cluster should get synced to the host cluster.
+    endpointSlices:
+      # Enabled defines if this option should be enabled.
+      enabled: true
     # PersistentVolumeClaims defines if persistent volume claims created within the virtual cluster should get synced to the host cluster.
     persistentVolumeClaims:
       # Enabled defines if this option should be enabled.

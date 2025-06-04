@@ -1185,6 +1185,9 @@ type SyncToHost struct {
 	// Endpoints defines if endpoints created within the virtual cluster should get synced to the host cluster.
 	Endpoints EnableSwitchWithPatches `json:"endpoints,omitempty"`
 
+	// EndpointSlices defines if endpointslices created within the virtual cluster should get synced to the host cluster.
+	EndpointSlices EnableSwitchWithPatches `json:"endpointSlices,omitempty"`
+
 	// NetworkPolicies defines if network policies created within the virtual cluster should get synced to the host cluster.
 	NetworkPolicies EnableSwitchWithPatches `json:"networkPolicies,omitempty"`
 

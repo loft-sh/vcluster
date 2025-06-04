@@ -7,6 +7,8 @@ sync:
       enabled: true
     endpoints:
       enabled: true
+    endpointSlices:
+        enabled: true
     persistentVolumeClaims:
       enabled: true
     configMaps:
