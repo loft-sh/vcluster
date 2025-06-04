@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	vconfig "github.com/loft-sh/vcluster/config"
@@ -47,9 +48,9 @@ func GetEtcdEndpoint(vConfig *config.VirtualClusterConfig) (string, *Certificate
 	if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled || vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 		// embedded or deployed etcd
 		etcdCertificates = &Certificates{
-			CaCert:     "/data/pki/etcd/ca.crt",
-			ServerCert: "/data/pki/apiserver-etcd-client.crt",
-			ServerKey:  "/data/pki/apiserver-etcd-client.key",
+			CaCert:     filepath.Join(constants.PKIDir, "etcd", "ca.crt"),
+			ServerCert: filepath.Join(constants.PKIDir, "apiserver-etcd-client.crt"),
+			ServerKey:  filepath.Join(constants.PKIDir, "apiserver-etcd-client.key"),
 		}
 
 		if vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {

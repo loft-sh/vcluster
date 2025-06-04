@@ -216,7 +216,7 @@ spec:
               mountPath: /etc/rancher
             {{- end }}
             - name: vcluster-config
-              mountPath: /var/vcluster
+              mountPath: /var/lib/vcluster
             - name: tmp
               mountPath: /tmp
             {{- if .Values.controlPlane.statefulSet.persistence.addVolumeMounts }}

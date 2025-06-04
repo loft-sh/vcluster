@@ -48,3 +48,11 @@ type UpgradeOptions struct {
 var UpgradeNode = func(_ context.Context, _ *UpgradeOptions) error {
 	return NewFeatureError("private nodes")
 }
+
+type StandaloneOptions struct {
+	Config string
+}
+
+var StartStandalone = func(_ context.Context, _ *StandaloneOptions) error {
+	return NewFeatureError("private nodes standalone")
+}

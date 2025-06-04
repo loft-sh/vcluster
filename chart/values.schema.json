@@ -228,9 +228,17 @@
     },
     "ControlPlane": {
       "properties": {
+        "endpoint": {
+          "type": "string",
+          "description": "Endpoint is the endpoint of the virtual cluster. This is used to connect to the virtual cluster."
+        },
         "distro": {
           "$ref": "#/$defs/Distro",
           "description": "Distro holds virtual cluster related distro options. A distro cannot be changed after vCluster is deployed."
+        },
+        "standalone": {
+          "$ref": "#/$defs/Standalone",
+          "description": "Standalone holds configuration for standalone mode. Standalone mode is set automatically when no container is detected and\nalso implies privateNodes.enabled."
         },
         "backingStore": {
           "$ref": "#/$defs/BackingStore",
@@ -2375,6 +2383,20 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "KubeletExtraArg": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name is the name of the argument."
+        },
+        "value": {
+          "type": "string",
+          "description": "Value is the value of the argument."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "LabelSelector": {
       "properties": {
         "labels": {
@@ -3483,6 +3505,56 @@
       "additionalProperties": false,
       "type": "object",
       "description": "SleepModeAutoSleep holds configuration for allowing a vCluster to sleep its workloads automatically"
+    },
+    "Standalone": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if standalone mode should be enabled."
+        },
+        "dataDir": {
+          "type": "string",
+          "description": "DataDir defines the data directory for the standalone mode."
+        },
+        "bundleRepository": {
+          "type": "string",
+          "description": "BundleRepository is the repository to use for downloading the Kubernetes bundle. Defaults to https://github.com/loft-sh/kubernetes/releases/download"
+        },
+        "joinNode": {
+          "$ref": "#/$defs/StandaloneJoinNode",
+          "description": "JoinNode holds configuration for the standalone control plane node."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "StandaloneJoinNode": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the standalone node should be joined into the cluster. If false, only the control plane binaries will be executed and no node will show up in the actual cluster."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name defines the name of the standalone node. If empty the node will get the hostname as name."
+        },
+        "kubeletExtraArgs": {
+          "items": {
+            "$ref": "#/$defs/KubeletExtraArg"
+          },
+          "type": "array",
+          "description": "KubeletExtraArgs passes through extra arguments to the kubelet. The arguments here are passed to the kubelet command line via the environment file\nkubeadm writes at runtime for the kubelet to source. This overrides the generic base-level configuration in the kubelet-config ConfigMap\nFlags have higher priority when parsing. These values are local and specific to the node kubeadm is executing on.\nAn argument name in this list is the flag name as it appears on the command line except without leading dash(es).\nExtra arguments will override existing default arguments. Duplicate extra arguments are allowed."
+        },
+        "ignorePreflightErrors": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "IgnorePreflightErrors provides a slice of pre-flight errors to be ignored when the current node is registered, e.g. 'IsPrivilegedUser,Swap'.\nValue 'all' ignores errors from all checks."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "StandardLabelSelector": {
       "properties": {

@@ -31,7 +31,7 @@ type ControlPlaneCollector interface {
 }
 
 func StartControlPlane(config *config.VirtualClusterConfig) {
-	if !config.Telemetry.Enabled || SyncerVersion == "dev" {
+	if !config.Telemetry.Enabled || SyncerVersion == "dev" || config.ControlPlane.Standalone.Enabled {
 		return
 	}
 
@@ -113,6 +113,10 @@ func (d *controlPlaneCollector) RecordStatus(ctx context.Context, platformUserID
 }
 
 func (d *controlPlaneCollector) RecordStart(ctx context.Context, config *config.VirtualClusterConfig) {
+	if !config.Telemetry.Enabled || config.ControlPlane.Standalone.Enabled {
+		return
+	}
+
 	chartInfo := d.getChartInfo(config)
 	properties := map[string]interface{}{
 		"vcluster_version":            SyncerVersion,
@@ -148,6 +152,10 @@ func (d *controlPlaneCollector) RecordStart(ctx context.Context, config *config.
 }
 
 func (d *controlPlaneCollector) RecordError(ctx context.Context, config *config.VirtualClusterConfig, severity ErrorSeverityType, err error) {
+	if !config.Telemetry.Enabled || config.ControlPlane.Standalone.Enabled {
+		return
+	}
+
 	properties := map[string]interface{}{
 		"severity": string(severity),
 		"message":  err.Error(),
@@ -188,6 +196,10 @@ func (d *controlPlaneCollector) getVirtualClusterVersion() *KubernetesVersion {
 }
 
 func (d *controlPlaneCollector) getHostClusterVersion() *KubernetesVersion {
+	if d.hostClient == nil {
+		return nil
+	}
+
 	hostVersion, err := d.hostClusterVersion.Get(func() (*KubernetesVersion, error) {
 		return getKubernetesVersion(d.hostClient)
 	})
@@ -207,6 +219,10 @@ func (d *controlPlaneCollector) getChartInfo(config *config.VirtualClusterConfig
 }
 
 func (d *controlPlaneCollector) getVClusterID(ctx context.Context) string {
+	if d.hostClient == nil {
+		return ""
+	}
+
 	vClusterID, err := d.vClusterID.Get(func() (string, error) {
 		return getVClusterID(ctx, d.hostClient, d.hostNamespace, d.hostService)
 	})
@@ -218,6 +234,10 @@ func (d *controlPlaneCollector) getVClusterID(ctx context.Context) string {
 }
 
 func (d *controlPlaneCollector) getVClusterCreationTimestamp(ctx context.Context) int64 {
+	if d.hostClient == nil {
+		return 0
+	}
+
 	vClusterCreationTimestamp, err := d.vClusterCreationTimestamp.Get(func() (int64, error) {
 		return getVClusterCreationTimestamp(ctx, d.hostClient, d.hostNamespace, d.hostService)
 	})

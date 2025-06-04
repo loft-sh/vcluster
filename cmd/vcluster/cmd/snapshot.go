@@ -350,7 +350,7 @@ func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterCon
 	}
 
 	// generate etcd certificates
-	certificatesDir := "/data/pki"
+	certificatesDir := constants.PKIDir
 	err = setup.GenerateCerts(ctx, serviceCIDR, certificatesDir, vConfig)
 	if err != nil {
 		return "", err

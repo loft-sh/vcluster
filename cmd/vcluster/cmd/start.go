@@ -50,6 +50,17 @@ func NewStartCommand() *cobra.Command {
 }
 
 func ExecuteStart(ctx context.Context, options *StartOptions) error {
+	if os.Getenv("VCLUSTER_NAME") == "" && os.Getenv("POD_NAME") == "" && os.Getenv("POD_NAMESPACE") == "" {
+		return pro.StartStandalone(ctx, &pro.StandaloneOptions{
+			Config: options.Config,
+		})
+	}
+
+	return StartInCluster(ctx, options)
+}
+
+// StartInCluster is invoked when running in a container
+func StartInCluster(ctx context.Context, options *StartOptions) error {
 	vClusterName := os.Getenv("VCLUSTER_NAME")
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(options.Config, vClusterName, options.SetValues)
@@ -144,7 +155,7 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	// should start embedded coredns?
 	if vConfig.ControlPlane.CoreDNS.Embedded {
 		// write vCluster kubeconfig to /data/vcluster/admin.conf
-		err = clientcmd.WriteToFile(*controllerCtx.VirtualRawConfig, "/data/vcluster/admin.conf")
+		err = clientcmd.WriteToFile(*controllerCtx.VirtualRawConfig, constants.EmbeddedCoreDNSAdminConf)
 		if err != nil {
 			return fmt.Errorf("write vCluster kube config for embedded coredns: %w", err)
 		}

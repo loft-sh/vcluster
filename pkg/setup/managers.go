@@ -24,12 +24,14 @@ func StartManagers(ctx *synccontext.RegisterContext) ([]syncertypes.Object, erro
 	}
 
 	// start the local manager
-	go func() {
-		err := ctx.PhysicalManager.Start(ctx)
-		if err != nil {
-			panic(err)
-		}
-	}()
+	if ctx.PhysicalManager != nil {
+		go func() {
+			err := ctx.PhysicalManager.Start(ctx)
+			if err != nil {
+				panic(err)
+			}
+		}()
+	}
 
 	// start the virtual cluster manager
 	go func() {
@@ -40,10 +42,13 @@ func StartManagers(ctx *synccontext.RegisterContext) ([]syncertypes.Object, erro
 	}()
 
 	// Wait for caches to be synced
-	klog.FromContext(ctx).Info("Starting local & virtual managers...")
-	ctx.PhysicalManager.GetCache().WaitForCacheSync(ctx)
+	if ctx.PhysicalManager != nil {
+		klog.FromContext(ctx).Info("Starting local manager...")
+		ctx.PhysicalManager.GetCache().WaitForCacheSync(ctx)
+	}
+	klog.FromContext(ctx).Info("Starting virtual manager...")
 	ctx.VirtualManager.GetCache().WaitForCacheSync(ctx)
-	klog.FromContext(ctx).Info("Successfully started local & virtual manager")
+	klog.FromContext(ctx).Info("Successfully started managers")
 
 	return syncers, nil
 }

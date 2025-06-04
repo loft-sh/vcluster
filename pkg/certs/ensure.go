@@ -50,8 +50,23 @@ func EnsureCerts(
 	options *config.VirtualClusterConfig,
 	kubeadmConfig *kubeadmapi.InitConfiguration,
 ) error {
+	// when we run in standalone mode, we don't have a currentNamespaceClient
 	if currentNamespaceClient == nil {
-		return errors.New("nil currentNamespaceClient")
+		if !options.ControlPlane.Standalone.Enabled {
+			return errors.New("nil currentNamespaceClient")
+		}
+
+		// we check if the files are already there
+		_, err := os.Stat(filepath.Join(certificateDir, CAKeyName))
+		if errors.Is(err, fs.ErrNotExist) {
+			// try to generate the certificates
+			err = generateCertificates(certificateDir, kubeadmConfig)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 
 	// we create a certificate for up to 5 etcd replicas, this should be sufficient for most use cases. Eventually we probably

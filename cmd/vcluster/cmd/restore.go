@@ -205,8 +205,7 @@ func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterCon
 			}
 		}
 	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
-		embeddedEtcdData := "/data/etcd"
-		err := backupFolder(ctx, embeddedEtcdData)
+		err := backupFolder(ctx, constants.EmbeddedEtcdData)
 		if err != nil {
 			return nil, err
 		}

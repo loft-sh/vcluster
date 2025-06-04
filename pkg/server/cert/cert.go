@@ -128,10 +128,73 @@ func GenAPIServerServingCerts(
 }
 
 func getExtraSANs(ctx context.Context, workloadNamespaceClient, vClient client.Client, vConfig *config.VirtualClusterConfig) ([]string, error) {
-	retSANs := []string{
-		vConfig.WorkloadService,
-		vConfig.WorkloadService + "." + vConfig.WorkloadNamespace, "*." + constants.NodeSuffix,
+	retSANs := []string{}
+
+	// ingress host
+	if vConfig.ControlPlane.Ingress.Host != "" {
+		retSANs = append(retSANs, vConfig.ControlPlane.Ingress.Host)
 	}
+
+	// make sure other sans are there as well
+	retSANs = append(retSANs, vConfig.ControlPlane.Proxy.ExtraSANs...)
+
+	// if we have a custom endpoint, we need to add the host to the sans
+	if vConfig.ControlPlane.Endpoint != "" {
+		host, _, err := net.SplitHostPort(vConfig.ControlPlane.Endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("invalid endpoint %s: %w", vConfig.ControlPlane.Endpoint, err)
+		} else if host != "" {
+			retSANs = append(retSANs, host)
+		}
+	}
+
+	// if dedicated mode is enabled, we need to get the service ip within the virtual cluster
+	if vConfig.PrivateNodes.Enabled {
+		// add the cluster ip of the kubernetes service
+		svc := &corev1.Service{}
+		err := vClient.Get(ctx, types.NamespacedName{
+			Namespace: "default",
+			Name:      "kubernetes",
+		}, svc)
+		if err != nil {
+			return nil, fmt.Errorf("error getting vcluster kubernetes service: %w", err)
+		}
+		retSANs = append(retSANs, svc.Spec.ClusterIP)
+
+		// get endpoint
+		clusterInfo := &corev1.ConfigMap{}
+		err = vClient.Get(ctx, types.NamespacedName{
+			Namespace: "kube-public",
+			Name:      "cluster-info",
+		}, clusterInfo)
+		if err != nil && !kerrors.IsNotFound(err) {
+			return nil, fmt.Errorf("error getting vcluster cluster-info configmap: %w", err)
+		}
+		if clusterInfo.Data["kubeconfig"] != "" {
+			clusterInfo, err := clientcmd.Load([]byte(clusterInfo.Data["kubeconfig"]))
+			if err != nil {
+				klog.FromContext(ctx).Error(err, "error loading kubeconfig")
+			} else {
+				for _, cluster := range clusterInfo.Clusters {
+					url, err := url.Parse(cluster.Server)
+					if err != nil {
+						continue
+					}
+
+					retSANs = append(retSANs, url.Hostname())
+				}
+			}
+		}
+	}
+
+	// if standalone mode is enabled, we don't need to add any other sans
+	if vConfig.ControlPlane.Standalone.Enabled {
+		sort.Strings(retSANs)
+		return retSANs, nil
+	}
+
+	// add default sans
+	retSANs = append(retSANs, vConfig.WorkloadService, vConfig.WorkloadService+"."+vConfig.WorkloadNamespace, "*."+constants.NodeSuffix)
 
 	// get cluster ip of target service
 	svc := &corev1.Service{}
@@ -158,46 +221,6 @@ func getExtraSANs(ctx context.Context, workloadNamespaceClient, vClient client.C
 		}
 		if ing.Hostname != "" {
 			retSANs = append(retSANs, ing.Hostname)
-		}
-	}
-
-	// if dedicated mode is enabled, we need to get the service ip within the virtual cluster
-	if vConfig.PrivateNodes.Enabled {
-		// add the cluster ip of the kubernetes service
-		svc := &corev1.Service{}
-		err = vClient.Get(ctx, types.NamespacedName{
-			Namespace: "default",
-			Name:      "kubernetes",
-		}, svc)
-		if err != nil {
-			return nil, fmt.Errorf("error getting vcluster kubernetes service: %w", err)
-		}
-		retSANs = append(retSANs, svc.Spec.ClusterIP)
-
-		// get endpoint
-		clusterInfo := &corev1.ConfigMap{}
-		err = vClient.Get(ctx, types.NamespacedName{
-			Namespace: "kube-public",
-			Name:      "cluster-info",
-		}, clusterInfo)
-		if err != nil && !kerrors.IsNotFound(err) {
-			return nil, fmt.Errorf("error getting vcluster cluster-info configmap: %w", err)
-		}
-
-		if clusterInfo.Data["kubeconfig"] != "" {
-			clusterInfo, err := clientcmd.Load([]byte(clusterInfo.Data["kubeconfig"]))
-			if err != nil {
-				klog.FromContext(ctx).Error(err, "error loading kubeconfig")
-			} else {
-				for _, cluster := range clusterInfo.Clusters {
-					url, err := url.Parse(cluster.Server)
-					if err != nil {
-						continue
-					}
-
-					retSANs = append(retSANs, url.Hostname())
-				}
-			}
 		}
 	}
 
@@ -263,15 +286,7 @@ func getExtraSANs(ctx context.Context, workloadNamespaceClient, vClient client.C
 		}
 	}
 
-	// ingress host
-	if vConfig.ControlPlane.Ingress.Host != "" {
-		retSANs = append(retSANs, vConfig.ControlPlane.Ingress.Host)
-	}
-
-	// make sure other sans are there as well
-	retSANs = append(retSANs, vConfig.ControlPlane.Proxy.ExtraSANs...)
 	sort.Strings(retSANs)
-
 	return retSANs, nil
 }
 
