@@ -1,7 +1,6 @@
 package fromhost
 
 import (
-	// "context"
 	"time"
 
 	"github.com/loft-sh/vcluster/test/framework"
@@ -29,7 +28,6 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.BeforeAll(func() {
 		f = framework.DefaultFramework
-
 		//Create nginx-ingressclass on host
 		nginxClass := &networkingv1.IngressClass{
 			ObjectMeta: metav1.ObjectMeta{
@@ -93,7 +91,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("should not sync vcluster ingresses using a filtered ingressClass to host", func() {
-		// 5. Try to create a haproxy-ingress using haproxy-ingressclass in vcluster
+		//Try to create a haproxy-ingress using haproxy-ingressclass in vcluster
 		haproxyIngress := &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      haproxyIngressName,
@@ -127,14 +125,14 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.VClusterClient.NetworkingV1().Ingresses(testNamespace).Create(f.Context, haproxyIngress, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		// 6. It should NOT be synced to host
+		//It should NOT be synced to host
 		time.Sleep(5 * time.Second)
 		_, err = f.HostClient.NetworkingV1().Ingresses(testNamespace).Get(f.Context, haproxyIngressName, metav1.GetOptions{})
 		gomega.Expect(err).To(gomega.HaveOccurred())
 	})
 
 	ginkgo.It("should sync vcluster ingresses using allowed ingressClass to host", func() {
-		// 7. Create nginx-ingress using nginx-ingressclass in vcluster
+		//Create nginx-ingress using nginx-ingressclass in vcluster
 		nginxIngress := &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      nginxIngressName,
@@ -168,22 +166,15 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.VClusterClient.NetworkingV1().Ingresses(testNamespace).Create(f.Context, nginxIngress, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		// 8. It should be synced to host
-		// gomega.Eventually(func() bool {
-		// 	hostIngress, err := f.HostClient.NetworkingV1().Ingresses(hostNamespace).Get(f.Context, nginxIngressName+"-x-"+testNamespace+"-x-"+hostNamespace, metav1.GetOptions{})
-		// 	// fmt.Fprintf(ginkgo.GinkgoWriter, "Error fetching ingress from host cluster: %v\n", err)
-		// 	// fmt.Fprintf(ginkgo.GinkgoWriter, "nginxIngressName %v\n", nginxIngressName)
-		// 	return err == nil && reflect.DeepEqual(hostIngress.Spec, nginxIngress.Spec)
-		// }).WithTimeout(time.Minute).WithPolling(time.Second).
-		// 	Should(gomega.BeTrue())
+		//It should be synced to host
 		gomega.Eventually(func() []string {
-			ics, err := f.HostClient.NetworkingV1().Ingresses(hostNamespace).List(f.Context, metav1.ListOptions{}) //List all ingresses in the vCluster
+			igs, err := f.HostClient.NetworkingV1().Ingresses(hostNamespace).List(f.Context, metav1.ListOptions{}) //List all ingresses in the vCluster
 			if err != nil {
 				return nil
 			}
 			var names []string
-			for _, ic := range ics.Items {
-				names = append(names, ic.Name)
+			for _, igc := range igs.Items {
+				names = append(names, igc.Name)
 			}
 			return names
 		}).WithTimeout(time.Minute).WithPolling(time.Second).

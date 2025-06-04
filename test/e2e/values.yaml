@@ -72,9 +72,6 @@ sync:
       selector:
         matchLabels:
           value: one
-  fromHost:
-    runtimeClasses:
-      enabled: true
     configMaps:
       enabled: true
       mappings:

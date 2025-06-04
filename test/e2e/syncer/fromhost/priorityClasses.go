@@ -1,7 +1,6 @@
 package fromhost
 
 import (
-	// "context"
 	"time"
 
 	"github.com/loft-sh/vcluster/test/framework"
@@ -66,7 +65,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.It("should only sync priorityClasses to virtual with allowed label", func() {
 		gomega.Eventually(func() []string {
-			ics, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{}) //List all ingressClasses in the vCluster
+			ics, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{}) //List all priorityClasses in the vCluster
 			if err != nil {
 				return nil
 			}
