@@ -191,13 +191,6 @@ func (f *Framework) RefreshVirtualClient() error {
 		return fmt.Errorf("could not create a temporary file: %w", err)
 	}
 
-	backgroundProxyImage := constants.DefaultBackgroundProxyImage(upgrade.GetVersion())
-	repositoryName := os.Getenv("REPOSITORY_NAME")
-	tagName := os.Getenv("TAG_NAME")
-	if repositoryName != "" && tagName != "" {
-		backgroundProxyImage = repositoryName + ":" + tagName
-	}
-
 	// vKubeConfigFile removal is done in the Framework.Cleanup() which gets called in ginkgo's AfterSuite()
 	connectCmd := cmd.ConnectCmd{
 		CobraCmd: &cobra.Command{},
@@ -210,7 +203,7 @@ func (f *Framework) RefreshVirtualClient() error {
 			KubeConfig:           vKubeconfigFile.Name(),
 			LocalPort:            14550, // choosing a port that usually should be unused
 			BackgroundProxy:      true,
-			BackgroundProxyImage: backgroundProxyImage,
+			BackgroundProxyImage: constants.DefaultBackgroundProxyImage(upgrade.GetVersion()),
 		},
 	}
 	err = connectCmd.Run(f.Context, []string{f.VClusterName})
