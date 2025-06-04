@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -67,7 +68,8 @@ var _ syncertypes.OptionsProvider = &namespaceSyncer{}
 
 func (s *namespaceSyncer) Options() *syncertypes.Options {
 	return &syncertypes.Options{
-		ObjectCaching: true,
+		ObjectCaching:      true,
+		DisableUIDDeletion: true,
 	}
 }
 
@@ -110,13 +112,31 @@ func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 func (s *namespaceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Namespace]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
 	if event.VirtualOld != nil || event.Host.DeletionTimestamp != nil {
+		// first, lets check if host object was imported - if so, we don't delete it
+		if event.Host.Annotations != nil && event.Host.Annotations[translate.ImportedMarkerAnnotation] == "true" {
+			ctx.Log.Infof("host object %s/%s was imported, not deleting it", event.Host.Namespace, event.Host.Name)
+			return ctrl.Result{}, nil
+		}
+
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
+	}
+
+	// add marker annotation to host object and update it
+	_, err := controllerutil.CreateOrPatch(ctx, ctx.PhysicalClient, event.Host, func() error {
+		if event.Host.Annotations == nil {
+			event.Host.Annotations = map[string]string{}
+		}
+		event.Host.Annotations[translate.ImportedMarkerAnnotation] = "true"
+		return nil
+	})
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("create or patch host object: %w", err)
 	}
 
 	newNamespace := s.translateToVirtual(ctx, event.Host)
 	ctx.Log.Infof("create virtual namespace %s", newNamespace.Name)
 
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, newNamespace, event.Host, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, newNamespace, event.Host, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
