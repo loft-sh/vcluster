@@ -60,6 +60,8 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 	ginkgo.AfterAll(func() {
 		_ = f.HostClient.SchedulingV1().PriorityClasses().Delete(f.Context, hpriorityClassName, metav1.DeleteOptions{})
 		_ = f.HostClient.SchedulingV1().PriorityClasses().Delete(f.Context, lpriorityClassName, metav1.DeleteOptions{})
+		_ = f.HostClient.CoreV1().Pods(testNamespace).Delete(f.Context, hpPodName, metav1.DeleteOptions{})
+		_ = f.HostClient.CoreV1().Pods(testNamespace).Delete(f.Context, lpPodName, metav1.DeleteOptions{})
 	})
 
 	ginkgo.It("should only sync priorityClasses to virtual with allowed label", func() {
