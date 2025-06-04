@@ -48,6 +48,7 @@ func getSyncers(ctx *synccontext.RegisterContext) []BuildController {
 		isEnabled(ctx.Config.Sync.FromHost.Secrets.Enabled, secrets.NewFromHost),
 		isEnabled(ctx.Config.Sync.ToHost.Secrets.Enabled, secrets.New),
 		isEnabled(ctx.Config.Sync.ToHost.Endpoints.Enabled, endpoints.New),
+		isEnabled(ctx.Config.Sync.ToHost.EndpointSlices.Enabled, endpoints.New),
 		isEnabled(ctx.Config.Sync.ToHost.Pods.Enabled, pods.New),
 		isEnabled(ctx.Config.Sync.FromHost.Events.Enabled, events.New),
 		isEnabled(ctx.Config.Sync.ToHost.PersistentVolumeClaims.Enabled, persistentvolumeclaims.New),
