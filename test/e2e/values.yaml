@@ -48,6 +48,7 @@ experimental:
             namespace: fluent-bit
           timeout: "50s"
 sync:
+  fromHost:
     configMaps:
       enabled: true
       mappings:
