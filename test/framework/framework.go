@@ -13,6 +13,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	logutil "github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/spf13/cobra"
@@ -202,7 +203,7 @@ func (f *Framework) RefreshVirtualClient() error {
 			KubeConfig:           vKubeconfigFile.Name(),
 			LocalPort:            14550, // choosing a port that usually should be unused
 			BackgroundProxy:      true,
-			BackgroundProxyImage: constants.DefaultBackgroundProxyImage,
+			BackgroundProxyImage: constants.DefaultBackgroundProxyImage(upgrade.GetVersion()),
 		},
 	}
 	err = connectCmd.Run(f.Context, []string{f.VClusterName})
