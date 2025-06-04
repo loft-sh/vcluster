@@ -49,7 +49,15 @@ experimental:
           timeout: "50s"
 sync:
   fromHost:
+    runtimeClasses:
+      enabled: true
+    ingressClasses:
+      enabled: true
+    storageClasses:
+      enabled: true
     configMaps:
+      enabled: true
+    priorityClasses:
       enabled: true
       mappings:
         byName:
