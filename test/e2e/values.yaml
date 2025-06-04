@@ -54,9 +54,6 @@ sync:
   fromHost:
     runtimeClasses:
       enabled: true
-      selector:
-        matchLabels:
-          value: one
     ingressClasses:
       enabled: true
       selector:
@@ -64,9 +61,6 @@ sync:
           value: one
     storageClasses:
       enabled: true
-      selector:
-        matchLabels:
-          value: one
     priorityClasses:
       enabled: true
       selector:
