@@ -55,9 +55,9 @@ sync:
       enabled: true
     storageClasses:
       enabled: true
-    configMaps:
-      enabled: true
     priorityClasses:
+      enabled: true
+    configMaps:
       enabled: true
       mappings:
         byName:
