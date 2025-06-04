@@ -275,6 +275,7 @@ jobs:
         run: |
           chmod +x ./vcluster-current
 
+          docker load --input vcluster_syncer
           kind load image-archive vcluster_syncer
           yq eval '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' > ./test/vcluster-current.yaml
 
@@ -423,6 +424,7 @@ jobs:
           sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
           yq eval -i '.controlPlane.distro.${{ matrix.distribution }}.enabled = true'  ${{ matrix.test-suite-path }}/../commonValues.yaml
 
+          docker load --input vcluster_syncer
           kind load image-archive vcluster_syncer
 
           chmod +x vcluster && sudo mv vcluster /usr/bin
@@ -474,7 +476,12 @@ jobs:
 
           sudo chmod +x $(echo "${{ matrix.test-suite-path }}" | sed "s#./test/##g").test
 
-          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} ./$(echo "${{ matrix.test-suite-path }}" | sed "s#./test/##g").test -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast
+          VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} \
+          VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} \
+          VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} \
+          VCLUSTER_BACKGROUND_PROXY_IMAGE=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} \
+          MULTINAMESPACE_MODE=${{ matrix.multinamespace-mode }} \
+          ./$(echo "${{ matrix.test-suite-path }}" | sed "s#./test/##g").test -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast
           if kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p >/dev/null 2>/dev/null; then
             echo "vCluster has restarted during testing, failing..."
             exit 1

@@ -12,6 +12,8 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -151,7 +153,15 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 
 	kubeConfigPath := tempFile.Name()
 
-	var cmd *exec.Cmd
+	dockerArgs := []string{
+		"run",
+		"--rm",
+		"-d",
+		"-v", fmt.Sprintf("%v:%v", kubeConfigPath, "/kube-config"),
+		fmt.Sprintf("--name=%s", proxyName),
+		"--entrypoint=/vcluster",
+	}
+
 	// For non-linux, update the kube config to point to the special host.docker.internal and don't use
 	// host networking.
 	if runtime.GOOS != "linux" {
@@ -160,16 +170,10 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 			return nil, fmt.Errorf("update config: %w", err)
 		}
 
-		cmd = exec.Command(
-			"docker",
-			"run",
-			"--rm",
-			"-d",
-			"-v", fmt.Sprintf("%v:%v", kubeConfigPath, "/kube-config"),
-			fmt.Sprintf("--name=%s", proxyName),
+		dockerArgs = append(dockerArgs,
 			"-p",
 			fmt.Sprintf("%d:8443", localPort),
-			"bitnami/kubectl:1.29",
+			constants.DefaultBackgroundProxyImage(upgrade.GetVersion()),
 			"port-forward",
 			"svc/"+vClusterName,
 			"--address=0.0.0.0",
@@ -178,15 +182,9 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 			"-n", vClusterNamespace,
 		)
 	} else {
-		cmd = exec.Command(
-			"docker",
-			"run",
-			"--rm",
-			"-d",
-			"-v", fmt.Sprintf("%v:%v", kubeConfigPath, "/kube-config"),
-			fmt.Sprintf("--name=%s", proxyName),
+		dockerArgs = append(dockerArgs,
 			"--network=host",
-			"bitnami/kubectl:1.29",
+			constants.DefaultBackgroundProxyImage(upgrade.GetVersion()),
 			"port-forward",
 			"svc/"+vClusterName,
 			"--address=0.0.0.0",
@@ -195,6 +193,8 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 			"-n", vClusterNamespace,
 		)
 	}
+
+	cmd := exec.Command("docker", dockerArgs...)
 
 	// write kube config to buffer
 	physicalCluster, err := clientcmd.Write(physicalRawConfig)
