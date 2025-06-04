@@ -53,10 +53,6 @@ sync:
       enabled: true
     ingressClasses:
       enabled: true
-    storageClasses:
-      enabled: true
-    priorityClasses:
-      enabled: true
     configMaps:
       enabled: true
       mappings:
