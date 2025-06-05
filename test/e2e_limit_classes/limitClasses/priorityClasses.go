@@ -1,4 +1,4 @@
-package fromhost
+package limitclasses
 
 import (
 	"time"
@@ -20,8 +20,8 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		labelValue1 = "one"
 		labelValue2 = "two"
 
-		hpPodName = "pod1"
-		lpPodName = "pod2"
+		hpPodName = "hp-pod"
+		lpPodName = "lp-pod"
 
 		testNamespace = "default"
 		hostNamespace = "vcluster"
@@ -29,7 +29,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.BeforeAll(func() {
 		f = framework.DefaultFramework
-		//Create high priority priorityClass on host
+		// Create high priority priorityClass on host
 		hpPriorityClass := &schedulingv1.PriorityClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   hpriorityClassName,
@@ -42,7 +42,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.HostClient.SchedulingV1().PriorityClasses().Create(f.Context, hpPriorityClass, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		//Create low priority priorityClass on host
+		// Create low priority priorityClass on host
 		lpPriorityClass := &schedulingv1.PriorityClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   lpriorityClassName,
@@ -65,7 +65,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.It("should only sync priorityClasses to virtual with allowed label", func() {
 		gomega.Eventually(func() []string {
-			ics, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{}) //List all priorityClasses in the vCluster
+			ics, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{}) // List all priorityClasses in the vCluster
 			if err != nil {
 				return nil
 			}
@@ -130,9 +130,9 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.VClusterClient.CoreV1().Pods(testNamespace).Create(f.Context, hpPod, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		//Pod should be synced to host
+		// Pod should be synced to host
 		gomega.Eventually(func() []string {
-			pods, err := f.HostClient.CoreV1().Pods(hostNamespace).List(f.Context, metav1.ListOptions{}) //List all ingresses in the vCluster
+			pods, err := f.HostClient.CoreV1().Pods(hostNamespace).List(f.Context, metav1.ListOptions{}) // List all pods in the vCluster
 			if err != nil {
 				return nil
 			}

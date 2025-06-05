@@ -10,8 +10,6 @@ import (
 	"github.com/onsi/gomega"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	// Enable cloud provider aut
-	// Enable cloud provider auth
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	// Register tests
 	_ "github.com/loft-sh/vcluster/test/e2e_limit_classes/limitClasses"

@@ -1,4 +1,4 @@
-package fromhost
+package limitclasses
 
 import (
 	"time"
@@ -28,7 +28,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.BeforeAll(func() {
 		f = framework.DefaultFramework
-		//Create nginx-ingressclass on host
+		// Create nginx-ingressclass on host
 		nginxClass := &networkingv1.IngressClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   nginxClassName,
@@ -41,7 +41,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.HostClient.NetworkingV1().IngressClasses().Create(f.Context, nginxClass, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		//Create haproxy-ingressclass on host
+		// Create haproxy-ingressclass on host
 		haproxyClass := &networkingv1.IngressClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   haproxyClassName,
@@ -64,7 +64,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.It("should only sync ingressClasses with allowed label to vcluster", func() {
 		gomega.Eventually(func() []string {
-			ics, err := f.VClusterClient.NetworkingV1().IngressClasses().List(f.Context, metav1.ListOptions{}) //List all ingressClasses in the vCluster
+			ics, err := f.VClusterClient.NetworkingV1().IngressClasses().List(f.Context, metav1.ListOptions{}) // List all ingressClasses in the vCluster
 			if err != nil {
 				return nil
 			}
@@ -91,7 +91,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("should not sync vcluster ingresses using a filtered ingressClass to host", func() {
-		//Try to create a haproxy-ingress using haproxy-ingressclass in vcluster
+		// Try to create a haproxy-ingress using haproxy-ingressclass in vcluster
 		haproxyIngress := &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      haproxyIngressName,
@@ -125,14 +125,14 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.VClusterClient.NetworkingV1().Ingresses(testNamespace).Create(f.Context, haproxyIngress, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		//It should NOT be synced to host
+		// It should NOT be synced to host
 		time.Sleep(5 * time.Second)
 		_, err = f.HostClient.NetworkingV1().Ingresses(testNamespace).Get(f.Context, haproxyIngressName, metav1.GetOptions{})
 		gomega.Expect(err).To(gomega.HaveOccurred())
 	})
 
 	ginkgo.It("should sync vcluster ingresses using allowed ingressClass to host", func() {
-		//Create nginx-ingress using nginx-ingressclass in vcluster
+		// Create nginx-ingress using nginx-ingressclass in vcluster
 		nginxIngress := &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      nginxIngressName,
@@ -166,9 +166,9 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.VClusterClient.NetworkingV1().Ingresses(testNamespace).Create(f.Context, nginxIngress, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		//It should be synced to host
+		// It should be synced to host
 		gomega.Eventually(func() []string {
-			igs, err := f.HostClient.NetworkingV1().Ingresses(hostNamespace).List(f.Context, metav1.ListOptions{}) //List all ingresses in the vCluster
+			igs, err := f.HostClient.NetworkingV1().Ingresses(hostNamespace).List(f.Context, metav1.ListOptions{}) // List all ingresses in the vCluster
 			if err != nil {
 				return nil
 			}
