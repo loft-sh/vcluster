@@ -37,6 +37,8 @@ func FailWithStatus(w http.ResponseWriter, req *http.Request, code int32, err er
 		reason = metav1.StatusReasonInternalError
 	case http.StatusNotFound:
 		reason = metav1.StatusReasonNotFound
+	case http.StatusMethodNotAllowed:
+		reason = metav1.StatusReasonMethodNotAllowed
 	}
 
 	bytes, _ := json.Marshal(NewErrorRequestStatus(code, reason, err))
