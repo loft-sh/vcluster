@@ -53,7 +53,7 @@ copy-assets:
 # Generate the vcluster latest/minimal images file
 [private]
 generate-vcluster-latest-images version="0.0.0":
-  {{ASSETS_RUN}} --latest {{ version }} > ./release/images.txt
+  {{ASSETS_RUN}} {{ version }} > ./release/images.txt
 
 # Generate the vcluster optional images file
 [private]
