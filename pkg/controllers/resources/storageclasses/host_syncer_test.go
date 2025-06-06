@@ -48,6 +48,8 @@ func TestFromHostSync(t *testing.T) {
 		},
 		Provisioner: "my-provisioner",
 	}
+	vObject.Annotations = translate.HostAnnotations(vObject, pObject)
+
 	pObjectUpdated := pObject.DeepCopy()
 	pObjectUpdated.Labels["example.com/label-c"] = "test-3"
 	pObjectUpdated.Annotations["example.com/annotation-c"] = "test-3"

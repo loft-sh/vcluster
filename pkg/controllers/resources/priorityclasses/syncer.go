@@ -76,6 +76,11 @@ func (s *priorityClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 }
 
 func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*schedulingv1.PriorityClass]) (_ ctrl.Result, retErr error) {
+	// If the virtual object has the name annotation, it means it was created by vCluster and we can safely manage it.
+	if _, ok := event.Virtual.GetAnnotations()[translate.HostNameAnnotation]; !ok {
+		return ctrl.Result{}, nil
+	}
+
 	matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("check priority class selector: %w", err)

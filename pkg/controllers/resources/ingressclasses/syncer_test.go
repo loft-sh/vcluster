@@ -17,9 +17,10 @@ func TestSync(t *testing.T) {
 	vObjectMeta := metav1.ObjectMeta{
 		Name: "test-ingc",
 		Annotations: map[string]string{
-			translate.NameAnnotation: "test-ingc",
-			translate.UIDAnnotation:  "",
-			translate.KindAnnotation: networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
+			translate.NameAnnotation:     "test-ingc",
+			translate.HostNameAnnotation: "test-ingc",
+			translate.UIDAnnotation:      "",
+			translate.KindAnnotation:     networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
 		},
 		ResourceVersion: "999",
 	}
@@ -67,9 +68,10 @@ func TestSync(t *testing.T) {
 				translate.MarkerLabel: translate.VClusterName,
 			},
 			Annotations: map[string]string{
-				translate.NameAnnotation: "test-ingc",
-				translate.UIDAnnotation:  "",
-				translate.KindAnnotation: networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
+				translate.NameAnnotation:     "test-ingc",
+				translate.HostNameAnnotation: "test-ingc",
+				translate.UIDAnnotation:      "",
+				translate.KindAnnotation:     networkingv1.SchemeGroupVersion.WithKind("IngressClass").String(),
 			},
 		},
 		Spec: networkingv1.IngressClassSpec{

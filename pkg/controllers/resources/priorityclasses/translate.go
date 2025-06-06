@@ -22,6 +22,7 @@ func (s *priorityClassSyncer) translate(ctx *synccontext.SyncContext, vObj clien
 func (s *priorityClassSyncer) translateFromHost(ctx *synccontext.SyncContext, pObj client.Object) *schedulingv1.PriorityClass {
 	// translate the priority class
 	priorityClass := translate.VirtualMetadata(pObj.(*schedulingv1.PriorityClass), s.HostToVirtual(ctx, types.NamespacedName{Name: pObj.GetName(), Namespace: pObj.GetNamespace()}, pObj))
+	priorityClass.SetAnnotations(translate.HostAnnotations(priorityClass, pObj))
 	if priorityClass.Name == "" {
 		priorityClass.Name = pObj.GetName()
 	}
@@ -30,9 +31,9 @@ func (s *priorityClassSyncer) translateFromHost(ctx *synccontext.SyncContext, pO
 
 func (s *priorityClassSyncer) translateUpdate(event *synccontext.SyncEvent[*schedulingv1.PriorityClass]) {
 	if s.fromHost {
+		event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual)
 		event.Virtual.PreemptionPolicy = event.Host.PreemptionPolicy
 		event.Virtual.Description = event.Host.Description
-		event.Virtual.Annotations = event.Host.Annotations
 		event.Virtual.Labels = event.Host.Labels
 	} else if s.toHost {
 		// bi-directional

@@ -62,7 +62,8 @@ func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, eve
 		return ctrl.Result{}, nil
 	}
 
-	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name}, false)
+	vObj := translate.VirtualMetadata(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace})
+	vObj.SetAnnotations(translate.HostAnnotations(vObj, event.Host))
 
 	// Apply pro patches
 	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.StorageClasses.Patches, true)
@@ -75,6 +76,11 @@ func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, eve
 }
 
 func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
+	// If the virtual object has the name annotation, it means it was created by vCluster and we can safely manage it.
+	if _, ok := event.Virtual.GetAnnotations()[translate.HostNameAnnotation]; !ok {
+		return ctrl.Result{}, nil
+	}
+
 	matches, err := ctx.Config.Sync.FromHost.StorageClasses.Selector.Matches(event.Host)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("check storage class selector: %w", err)
@@ -94,7 +100,7 @@ func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 	}()
 
 	// check if there is a change
-	event.Virtual.Annotations = event.Host.Annotations
+	event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual)
 	event.Virtual.Labels = event.Host.Labels
 	event.Virtual.Provisioner = event.Host.Provisioner
 	event.Virtual.Parameters = event.Host.Parameters
