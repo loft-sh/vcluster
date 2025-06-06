@@ -33,13 +33,14 @@ import (
 
 const (
 	LoftDirectClusterEndpointCaData = "loft.sh/direct-cluster-endpoint-ca-data"
-	VersionPath                     = "%s/version"
-	LoginPath                       = "%s/login?cli=true"
-	RedirectPath                    = "%s/spaces"
-	AccessKeyPath                   = "%s/profile/access-keys"
-	ConfigFileName                  = "platform.json"
-	RefreshToken                    = time.Minute * 30
-	CacheFolder                     = ".vcluster"
+
+	VersionPath    = "%s/version"
+	LoginPath      = "%s/login?cli=true"
+	RedirectPath   = "%s/spaces"
+	AccessKeyPath  = "%s/profile/access-keys"
+	ConfigFileName = "platform.json"
+	RefreshToken   = time.Minute * 30
+	CacheFolder    = ".vcluster"
 )
 
 var (
