@@ -87,6 +87,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				context.WithoutCancel(ctx),
 				options.Name,
 				options.ControlPlaneNamespace,
+				options.ControlPlaneClient,
 				certificatesDir,
 				int(options.ControlPlane.StatefulSet.HighAvailability.Replicas),
 				options.ControlPlane.BackingStore.Etcd.Embedded.SnapshotCount,
@@ -94,6 +95,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				true,
 				options.ControlPlane.StatefulSet.Scheduling.PodManagementPolicy != "Parallel",
 				options.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
+				false,
 			)
 			if err != nil {
 				return fmt.Errorf("start embedded etcd: %w", err)
@@ -132,6 +134,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				context.WithoutCancel(ctx),
 				options.Name,
 				options.ControlPlaneNamespace,
+				options.ControlPlaneClient,
 				certificatesDir,
 				int(options.ControlPlane.StatefulSet.HighAvailability.Replicas),
 				options.ControlPlane.BackingStore.Etcd.Embedded.SnapshotCount,
@@ -139,6 +142,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				true,
 				options.ControlPlane.StatefulSet.Scheduling.PodManagementPolicy != "Parallel",
 				options.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
+				false,
 			)
 			if err != nil {
 				return fmt.Errorf("start embedded etcd: %w", err)

@@ -1,7 +1,11 @@
 package pro
 
-import "context"
+import (
+	"context"
 
-var StartEmbeddedEtcd = func(_ context.Context, _, _, _ string, _, _ int, _ string, _, _ bool, _ []string) error {
+	"k8s.io/client-go/kubernetes"
+)
+
+var StartEmbeddedEtcd = func(_ context.Context, _, _ string, _ kubernetes.Interface, _ string, _, _ int, _ string, _, _ bool, _ []string, _ bool) error {
 	return NewFeatureError("embedded etcd")
 }
