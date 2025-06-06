@@ -553,7 +553,6 @@ func getConfigResource(ctx context.Context, client kube.Interface, kubeClientCon
 	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
-	// Try to get annotations using the shared function
 	ann, err := confighelper.GetResourceAnnotations(ctx, client, releaseName, namespace)
 	if err == nil {
 		return ann, nil
@@ -562,7 +561,6 @@ func getConfigResource(ctx context.Context, client kube.Interface, kubeClientCon
 	if kerrors.IsForbidden(err) {
 		// try the current namespace instead
 		if namespace, err = getAccessibleNS(kubeClientConfig); err == nil {
-			// Try in the accessible namespace with the original name pattern
 			return confighelper.GetResourceAnnotations(ctx, client, releaseName, namespace)
 		}
 	}

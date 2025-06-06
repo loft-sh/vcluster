@@ -112,11 +112,11 @@ func GetVClusterConfig(ctx context.Context, kConf clientcmd.ClientConfig, name, 
 		return nil, err
 	}
 
-	return unmarshalConfig(configBytes)
+	return UnmarshalConfig(configBytes)
 }
 
-// unmarshalConfig parses YAML config bytes into a Config object
-func unmarshalConfig(configBytes []byte) (*vclusterconfig.Config, error) {
+// UnmarshalConfig parses YAML config bytes into a Config object
+func UnmarshalConfig(configBytes []byte) (*vclusterconfig.Config, error) {
 	vclusterConfig := &vclusterconfig.Config{}
 	if err := yaml.Unmarshal(configBytes, vclusterConfig); err != nil {
 		return nil, fmt.Errorf("failed to parse vCluster configuration: %w", err)
@@ -130,7 +130,7 @@ func CheckAnnotations(annotations map[string]string, distro string, backingStore
 		annotations = map[string]string{}
 	}
 
-	// If we already have an annotation set, we're dealing with an upgrade.
+	// (ThomasK33) If we already have an annotation set, we're dealing with an upgrade.
 	// Thus we can check if the distro has changed.
 	okCounter := 0
 	if annotatedDistro, ok := annotations[confighelper.AnnotationDistro]; ok {
@@ -210,13 +210,11 @@ func UpdateConfigMapAnnotations(ctx context.Context, client kubernetes.Interface
 }
 
 // EnsureBackingStoreChanges ensures that only a certain set of allowed changes to the backing store and distro occur.
-// Then updates the annotations on either Secret or ConfigMap based on what exists.
 func EnsureBackingStoreChanges(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) error {
 	// First, check using existing config annotations
 	if ok, err := CheckUsingConfigAnnotation(ctx, client, name, namespace, distro, backingStoreType); err != nil {
 		return fmt.Errorf("using config annotations: %w", err)
 	} else if ok {
-		// If validation successful, update the annotations
 		return UpdateConfigAnnotations(ctx, client, name, namespace, distro, backingStoreType)
 	}
 
@@ -224,11 +222,34 @@ func EnsureBackingStoreChanges(ctx context.Context, client kubernetes.Interface,
 	if ok, err := CheckUsingHeuristic(distro); err != nil {
 		return fmt.Errorf("using heuristic: %w", err)
 	} else if ok {
-		// If validation successful, update the annotations
 		return UpdateConfigAnnotations(ctx, client, name, namespace, distro, backingStoreType)
 	}
 
 	return nil
+}
+
+// CheckUsingHeuristic checks for known file path indicating the existence of a previous distro.
+// It checks for the existence of the default K3s token path.
+func CheckUsingHeuristic(distro string) (bool, error) {
+	// check if previously we were using k3s as a default and now have switched to a different distro
+	if distro != vclusterconfig.K3SDistro && distro != vclusterconfig.K8SDistro {
+		_, err := os.Stat(k3s.TokenPath)
+		if err == nil {
+			return false, fmt.Errorf("seems like you were using k3s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", distro)
+		}
+	}
+
+	return true, nil
+}
+
+// CheckUsingConfigAnnotation checks for backend store and distro changes using annotations on the vCluster's configuration resource (Secret or ConfigMap).
+func CheckUsingConfigAnnotation(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) (bool, error) {
+	annotations, err := confighelper.GetResourceAnnotations(ctx, client, name, namespace)
+	if err != nil {
+		return false, err
+	}
+
+	return CheckAnnotations(annotations, distro, backingStoreType)
 }
 
 // SetGlobalOwner fetches the owning service and populates in translate.Owner if: the vcluster is configured to setOwner is,
@@ -267,29 +288,4 @@ func SetGlobalOwner(ctx context.Context, vConfig *config.VirtualClusterConfig) e
 	translate.Owner = service
 
 	return nil
-}
-
-// CheckUsingHeuristic checks for known file path indicating the existence of a previous distro.
-// It checks for the existence of the default K3s token path.
-func CheckUsingHeuristic(distro string) (bool, error) {
-	// check if previously we were using k3s as a default and now have switched to a different distro
-	if distro != vclusterconfig.K3SDistro && distro != vclusterconfig.K8SDistro {
-		_, err := os.Stat(k3s.TokenPath)
-		if err == nil {
-			return false, fmt.Errorf("seems like you were using k3s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", distro)
-		}
-	}
-
-	return true, nil
-}
-
-// CheckUsingConfigAnnotation checks for backend store and distro changes using annotations on the vCluster's configuration resource (Secret or ConfigMap).
-// Returns true, if both annotations are set and the check was successful, otherwise false.
-func CheckUsingConfigAnnotation(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) (bool, error) {
-	annotations, err := confighelper.GetResourceAnnotations(ctx, client, name, namespace)
-	if err != nil {
-		return false, err
-	}
-
-	return CheckAnnotations(annotations, distro, backingStoreType)
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 )
@@ -43,7 +44,14 @@ func DescribePlatform(ctx context.Context, globalFlags *flags.GlobalFlags, outpu
 
 	describeOutput.Version = version
 
-	err = extractFromValues(describeOutput, []byte(values), format, version, output)
+	// Parse config first
+	vclusterConfig := &config.Config{}
+	err = yaml.Unmarshal([]byte(values), vclusterConfig)
+	if err != nil {
+		return err
+	}
+
+	err = extractFromValues(describeOutput, []byte(values), vclusterConfig, format, version, output)
 	if err != nil {
 		return err
 	}

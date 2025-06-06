@@ -10,14 +10,10 @@ import (
 )
 
 const (
-	// ConfigFileName is the name of the file within the Secret or ConfigMap containing the vCluster configuration
-	ConfigFileName = "config.yaml"
-	// ConfigNamePrefix is the prefix for vCluster configuration resources
+	ConfigFileName   = "config.yaml"
 	ConfigNamePrefix = "vc-config-"
-	// AnnotationDistro is the annotation key for the vCluster distro type
 	AnnotationDistro = "vcluster.loft.sh/distro"
-	// AnnotationStore is the annotation key for the vCluster store type
-	AnnotationStore = "vcluster.loft.sh/store"
+	AnnotationStore  = "vcluster.loft.sh/store"
 )
 
 // GetResourceAnnotations retrieves annotations from either Secret or ConfigMap
