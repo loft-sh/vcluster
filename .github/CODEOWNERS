@@ -5,6 +5,8 @@
 /.github/workflows/backport.yaml @Piotr1215
 netlify.toml @loft-sh/Eng-Docs-Admin
 
+/.github/workflows/e2e.yaml @FabianKramm
+/.github/workflows/release.yaml @FabianKramm
 /pkg/syncer/ @FabianKramm
 /pkg/controllers/resources/pods/ @FabianKramm
 /pkg/controllers/resources/services/ @FabianKramm

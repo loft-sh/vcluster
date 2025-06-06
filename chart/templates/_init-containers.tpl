@@ -9,7 +9,11 @@
 {{/* Bump $defaultTag value whenever k8s version is bumped */}}
 {{- define "vcluster.k8s.image.tag" -}}
 {{- if not (empty .Values.controlPlane.distro.k8s.version) -}}
+{{- if and .Values.privateNodes.enabled .Values.privateNodes.importNodeBinaries -}}
+{{ .Values.controlPlane.distro.k8s.version }}-full
+{{- else -}}
 {{ .Values.controlPlane.distro.k8s.version }}
+{{- end -}}
 {{- else -}}
 {{- if and .Values.privateNodes.enabled .Values.privateNodes.importNodeBinaries -}}
 {{ .Values.controlPlane.distro.k8s.image.tag }}-full
