@@ -1,6 +1,7 @@
 package limitclasses
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/test/framework"
@@ -30,7 +31,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.BeforeAll(func() {
 		f = framework.DefaultFramework
-		// Create fast-ssd storageClass on host
+		ginkgo.By("Creating fast-ssd storageClass on host")
 		fastSsdClass := &storagev1.StorageClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   fssdClassName,
@@ -46,7 +47,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.HostClient.StorageV1().StorageClasses().Create(f.Context, fastSsdClass, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		// Create fast-storage storageClass on host
+		ginkgo.By("Creating fast-storage storageClass on host")
 		fastStorageClass := &storagev1.StorageClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   fsClassName,
@@ -73,35 +74,20 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("should only sync storageClasses with allowed label to vcluster", func() {
-		gomega.Eventually(func() []string {
-			scs, err := f.VClusterClient.StorageV1().StorageClasses().List(f.Context, metav1.ListOptions{}) // List all storageClasses in the vCluster
-			if err != nil {
-				return nil
-			}
-			var names []string
-			for _, sc := range scs.Items {
-				names = append(names, sc.Name)
-			}
-			return names
-		}).WithTimeout(time.Minute).WithPolling(time.Second).
-			Should(gomega.ContainElement(fssdClassName))
-
-		gomega.Consistently(func() []string {
-			scs, err := f.VClusterClient.NetworkingV1().IngressClasses().List(f.Context, metav1.ListOptions{})
-			if err != nil {
-				return nil
-			}
-			var names []string
-			for _, sc := range scs.Items {
-				names = append(names, sc.Name)
-			}
-			return names
-		}).WithTimeout(5 * time.Second).WithPolling(time.Second).
-			ShouldNot(gomega.ContainElement(fsClassName))
+		scs, err := f.VClusterClient.StorageV1().StorageClasses().List(f.Context, metav1.ListOptions{}) // List all storageClasses in the vCluster
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		var names []string
+		for _, sc := range scs.Items {
+			names = append(names, sc.Name)
+		}
+		gomega.Expect(names).To(gomega.ContainElement(fssdClassName))
+		ginkgo.By("Found fast-ssd in vcluster")
+		gomega.Expect(names).NotTo(gomega.ContainElement(fsClassName))
+		ginkgo.By("fast-storage is not available in vcluster")
 	})
 
 	ginkgo.It("should not sync vcluster PVCs using a filtered storageClasses to host", func() {
-		// Try to create a PVC using fast-storage storageClass in vcluster
+		ginkgo.By("Creating a PVC using fast-storage storageClass in vcluster")
 		fastStoragepvc := &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fstoragePvc,
@@ -123,14 +109,29 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.VClusterClient.CoreV1().PersistentVolumeClaims(testNamespace).Create(f.Context, fastStoragepvc, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		// It should NOT be synced to host
-		time.Sleep(5 * time.Second)
+		ginkgo.By("PVC should not be synced to host")
 		_, err = f.HostClient.CoreV1().PersistentVolumeClaims(testNamespace).Get(f.Context, fssdClassName, metav1.GetOptions{})
 		gomega.Expect(err).To(gomega.HaveOccurred())
+
+		ginkgo.By("There should be a warning message event in the describe of the created ingress")
+		eventList, err := f.VClusterClient.CoreV1().Events(testNamespace).List(f.Context, metav1.ListOptions{
+			FieldSelector: fmt.Sprintf("involvedObject.kind=PersistentVolumeClaim,involvedObject.name=%s", fstoragePvc),
+		})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		var found bool
+		for _, event := range eventList.Items {
+			if event.Type == corev1.EventTypeWarning && event.Reason == "SyncWarning" {
+				found = true
+				expectedSubstring := fmt.Sprintf(`did not sync persistent volume claim "%s" to host because the storage class "%s" in the host does not match the selector under 'sync.fromHost.storageClasses.selector'`, fstoragePvc, fsClassName)
+				gomega.Expect(event.Message).To(gomega.ContainSubstring(expectedSubstring))
+				break
+			}
+		}
+		gomega.Expect(found).To(gomega.BeTrue(), "Expected to find a SyncWarning event for the ingress with unavailable ingressClass")
 	})
 
 	ginkgo.It("should sync vcluster PVCs using allowed storageClass to host", func() {
-		// Try to create a PVC using fast-ssd storageClass in vcluster
+		ginkgo.By("Creating a PVC using fast-ssd storageClass in vcluster")
 		fastssdpvc := &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fssdPvc,
@@ -152,9 +153,9 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.VClusterClient.CoreV1().PersistentVolumeClaims(testNamespace).Create(f.Context, fastssdpvc, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		// It should be synced to host
+		ginkgo.By("PVC should be synced to host")
 		gomega.Eventually(func() []string {
-			scs, err := f.HostClient.CoreV1().PersistentVolumeClaims(hostNamespace).List(f.Context, metav1.ListOptions{}) // List all PVCs in the vCluster
+			scs, err := f.HostClient.CoreV1().PersistentVolumeClaims(hostNamespace).List(f.Context, metav1.ListOptions{})
 			if err != nil {
 				return nil
 			}

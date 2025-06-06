@@ -1,6 +1,7 @@
 package limitclasses
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/test/framework"
@@ -29,7 +30,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.BeforeAll(func() {
 		f = framework.DefaultFramework
-		// Create runc runtimeClass on host
+		ginkgo.By("Creating runc runtimeClass on host")
 		runcclass := &nodev1.RuntimeClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   runcClassName,
@@ -40,7 +41,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.HostClient.NodeV1().RuntimeClasses().Create(f.Context, runcclass, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		// Create runc runtimeClass on host
+		ginkgo.By("Creating runsc runtimeClass on host")
 		runscclass := &nodev1.RuntimeClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   runscClassName,
@@ -60,34 +61,21 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("should only sync runtimeClasses to virtual with allowed label", func() {
-		gomega.Eventually(func() []string {
-			rcs, err := f.VClusterClient.NodeV1().RuntimeClasses().List(f.Context, metav1.ListOptions{}) // List all runtimeClasses in the vCluster
-			if err != nil {
-				return nil
-			}
-			var names []string
-			for _, rc := range rcs.Items {
-				names = append(names, rc.Name)
-			}
-			return names
-		}).WithTimeout(time.Minute).WithPolling(time.Second).
-			Should(gomega.ContainElement(runcClassName))
-
-		gomega.Consistently(func() []string {
-			rcs, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{})
-			if err != nil {
-				return nil
-			}
-			var names []string
-			for _, rc := range rcs.Items {
-				names = append(names, rc.Name)
-			}
-			return names
-		}).WithTimeout(5 * time.Second).WithPolling(time.Second).
-			ShouldNot(gomega.ContainElement(runscClassName))
+		ginkgo.By("Listing all runtimeClasses in the vCluster")
+		rcs, err := f.VClusterClient.NodeV1().RuntimeClasses().List(f.Context, metav1.ListOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		var names []string
+		for _, rc := range rcs.Items {
+			names = append(names, rc.Name)
+		}
+		gomega.Expect(names).To(gomega.ContainElement(runcClassName))
+		ginkgo.By("Found runc in vcluster")
+		gomega.Expect(names).NotTo(gomega.ContainElement(runscClassName))
+		ginkgo.By("runsc is not available in vcluster")
 	})
 
 	ginkgo.It("should get an error for pod creation using filtered runtimeClass to host", func() {
+		ginkgo.By("Creating a pod using runsc runtimeClass in vcluster")
 		runscpod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      rscPodName,
@@ -109,10 +97,13 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 			},
 		}
 		_, err := f.VClusterClient.CoreV1().Pods(testNamespace).Create(f.Context, runscpod, metav1.CreateOptions{})
-		gomega.Expect(err).To(gomega.HaveOccurred())
+		ginkgo.By("An error should be triggered")
+		expectedSubstring := fmt.Sprintf(`pods "%s" is forbidden: pod rejected: RuntimeClass "%s" not found`, rscPodName, runscClassName)
+		gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(expectedSubstring)))
 	})
 
 	ginkgo.It("should sync vcluster pod created with allowed runtimeClass to host", func() {
+		ginkgo.By("Creating a pod using runc runtimeClass in vcluster")
 		runcpod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      rcPodName,
@@ -136,7 +127,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.VClusterClient.CoreV1().Pods(testNamespace).Create(f.Context, runcpod, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		// Pod should be synced to host
+		ginkgo.By("Pod should be synced to host")
 		gomega.Eventually(func() []string {
 			pods, err := f.HostClient.CoreV1().Pods(hostNamespace).List(f.Context, metav1.ListOptions{}) // List all pods in the vCluster
 			if err != nil {

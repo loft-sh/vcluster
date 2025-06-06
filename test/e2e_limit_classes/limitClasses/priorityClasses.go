@@ -1,6 +1,7 @@
 package limitclasses
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/test/framework"
@@ -29,7 +30,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.BeforeAll(func() {
 		f = framework.DefaultFramework
-		// Create high priority priorityClass on host
+		ginkgo.By("Creating high-priority priorityClass on host")
 		hpPriorityClass := &schedulingv1.PriorityClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   hpriorityClassName,
@@ -42,7 +43,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.HostClient.SchedulingV1().PriorityClasses().Create(f.Context, hpPriorityClass, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		// Create low priority priorityClass on host
+		ginkgo.By("Creating low-priority priorityClass on host")
 		lpPriorityClass := &schedulingv1.PriorityClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   lpriorityClassName,
@@ -64,34 +65,21 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("should only sync priorityClasses to virtual with allowed label", func() {
-		gomega.Eventually(func() []string {
-			ics, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{}) // List all priorityClasses in the vCluster
-			if err != nil {
-				return nil
-			}
-			var names []string
-			for _, ic := range ics.Items {
-				names = append(names, ic.Name)
-			}
-			return names
-		}).WithTimeout(time.Minute).WithPolling(time.Second).
-			Should(gomega.ContainElement(hpriorityClassName))
-
-		gomega.Consistently(func() []string {
-			ics, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{})
-			if err != nil {
-				return nil
-			}
-			var names []string
-			for _, ic := range ics.Items {
-				names = append(names, ic.Name)
-			}
-			return names
-		}).WithTimeout(5 * time.Second).WithPolling(time.Second).
-			ShouldNot(gomega.ContainElement(lpriorityClassName))
+		ginkgo.By("Listing all priorityClasses in vcluster")
+		pcs, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		var names []string
+		for _, pc := range pcs.Items {
+			names = append(names, pc.Name)
+		}
+		gomega.Expect(names).To(gomega.ContainElement(hpriorityClassName))
+		ginkgo.By("Found high-priority in vcluster")
+		gomega.Expect(names).NotTo(gomega.ContainElement(lpriorityClassName))
+		ginkgo.By("low-priority is not available in vcluster")
 	})
 
 	ginkgo.It("should get an error for pod creation using filtered priorityClass to host", func() {
+		ginkgo.By("Creating a pod using low-prority priorityClass in vcluster")
 		lpPod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      lpPodName,
@@ -108,10 +96,13 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 			},
 		}
 		_, err := f.VClusterClient.CoreV1().Pods(testNamespace).Create(f.Context, lpPod, metav1.CreateOptions{})
-		gomega.Expect(err).To(gomega.HaveOccurred())
+		ginkgo.By("An error should be triggered")
+		expectedSubstring := fmt.Sprintf(`pods "%s" is forbidden: no PriorityClass with name %s was found`, lpPodName, lpriorityClassName)
+		gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(expectedSubstring)))
 	})
 
 	ginkgo.It("should sync vcluster pod created with allowed priorityClass to host", func() {
+		ginkgo.By("Creating a pod using high-prority priorityClass in vcluster")
 		hpPod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      hpPodName,
@@ -130,20 +121,19 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.VClusterClient.CoreV1().Pods(testNamespace).Create(f.Context, hpPod, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		// Pod should be synced to host
+		ginkgo.By("Pod should be synced to host")
 		gomega.Eventually(func() []string {
-			pods, err := f.HostClient.CoreV1().Pods(hostNamespace).List(f.Context, metav1.ListOptions{}) // List all pods in the vCluster
+			pods, err := f.HostClient.CoreV1().Pods(hostNamespace).List(f.Context, metav1.ListOptions{})
 			if err != nil {
 				return nil
 			}
 			var names []string
-			for _, po := range pods.Items {
-				names = append(names, po.Name)
+			for _, pod := range pods.Items {
+				names = append(names, pod.Name)
 			}
 			return names
 		}).WithTimeout(time.Minute).WithPolling(time.Second).
 			Should(gomega.ContainElement(hpPodName + "-x-" + testNamespace + "-x-" + hostNamespace))
-
 	})
 
 })
