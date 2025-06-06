@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
+	"github.com/loft-sh/vcluster/pkg/util/confighelper"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -469,10 +470,10 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 
 	if status == "" {
 		// Workload sleepmode cannot modify/annotate the VirtualClusterInstance, StatefulSet, or Deployment so it
-		// sets a sleep type on the config secret.  Check that here.
-		sec, err := getConfigSecret(ctx, client, kubeClientConfig, namespace, release)
+		// sets a sleep type on the config secret or configmap. Check that here.
+		annotations, err := getConfigResource(ctx, client, kubeClientConfig, namespace, release)
 		if err == nil {
-			if _, ok := sec.Annotations[clusterv1.SleepModeSleepTypeAnnotation]; ok {
+			if _, ok := annotations[clusterv1.SleepModeSleepTypeAnnotation]; ok {
 				status = string(StatusWorkloadSleeping)
 			}
 		}
@@ -548,22 +549,24 @@ func getPods(ctx context.Context, client kube.Interface, kubeClientConfig client
 	return podList, nil
 }
 
-func getConfigSecret(ctx context.Context, client kube.Interface, kubeClientConfig clientcmd.ClientConfig, namespace, releaseName string) (*corev1.Secret, error) {
+func getConfigResource(ctx context.Context, client kube.Interface, kubeClientConfig clientcmd.ClientConfig, namespace, releaseName string) (map[string]string, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
-	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, "vc-config-"+releaseName, metav1.GetOptions{})
-	if err != nil {
-		if kerrors.IsForbidden(err) {
-			// try the current namespace instead
-			if namespace, err = getAccessibleNS(kubeClientConfig); err != nil {
-				return nil, err
-			}
-			return client.CoreV1().Secrets(namespace).Get(ctx, releaseName, metav1.GetOptions{})
-		}
-		return nil, err
+	// Try to get annotations using the shared function
+	ann, err := confighelper.GetResourceAnnotations(ctx, client, releaseName, namespace)
+	if err == nil {
+		return ann, nil
 	}
-	return secret, nil
+
+	if kerrors.IsForbidden(err) {
+		// try the current namespace instead
+		if namespace, err = getAccessibleNS(kubeClientConfig); err == nil {
+			// Try in the accessible namespace with the original name pattern
+			return confighelper.GetResourceAnnotations(ctx, client, releaseName, namespace)
+		}
+	}
+	return nil, err
 }
 
 func getDeployments(ctx context.Context, client kube.Interface, namespace string, kubeClientConfig clientcmd.ClientConfig, timeout time.Duration) (*appsv1.DeploymentList, error) {

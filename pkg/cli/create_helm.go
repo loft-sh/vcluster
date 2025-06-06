@@ -962,36 +962,3 @@ func (cmd *createHelm) getVClusterConfigFromSnapshot(ctx context.Context) (strin
 
 	return "", nil
 }
-
-func getConfigfileFromSecret(ctx context.Context, name, namespace string) (*config.Config, error) {
-	secretName := "vc-config-" + name
-
-	kConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
-	clientConfig, err := kConf.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	clientset, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	configBytes, ok := secret.Data["config.yaml"]
-	if !ok {
-		return nil, fmt.Errorf("secret %s in namespace %s does not contain the expected 'config.yaml' field", secretName, namespace)
-	}
-
-	config := config.Config{}
-	err = yaml.Unmarshal(configBytes, &config)
-	if err != nil {
-		return nil, err
-	}
-
-	return &config, nil
-}
