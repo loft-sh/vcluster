@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -23,6 +23,8 @@ import (
 )
 
 const dockerInternalHostName = "host.docker.internal"
+
+var ghcrDeniedErrorRe = regexp.MustCompile(`ghcr\.io.*\s*.*denied`)
 
 func (c ClusterType) LocalKubernetes() bool {
 	return c == ClusterTypeDockerDesktop ||
@@ -137,7 +139,11 @@ func CreateBackgroundProxyContainer(_ context.Context, vClusterName, vClusterNam
 
 	log.Infof("Starting background proxy container...")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return "", errors.Errorf("error starting background proxy: %s %v", string(out), err)
+		output := string(out)
+		if ghcrDeniedErrorRe.MatchString(output) {
+			return "", fmt.Errorf("unabled to find image '%s' locally and pulling the image was denied. If you are logged into ghcr.io, ensure that your credentials are valid or logout by running 'docker logout ghcr.io'", proxyImage)
+		}
+		return "", fmt.Errorf("error starting background proxy: %s %w", output, err)
 	}
 
 	return fmt.Sprintf("https://127.0.0.1:%v", localPort), nil
@@ -148,7 +154,7 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 	// write a temporary kube file
 	tempFile, err := os.CreateTemp("", "")
 	if err != nil {
-		return nil, errors.Wrap(err, "create temp file")
+		return nil, fmt.Errorf("create temp file: %w", err)
 	}
 
 	kubeConfigPath := tempFile.Name()
@@ -203,11 +209,11 @@ func buildDockerCommand(physicalRawConfig clientcmdapi.Config, proxyName, vClust
 	}
 
 	if _, err = tempFile.Write(physicalCluster); err != nil {
-		return nil, errors.Wrap(err, "write kube config to temp file")
+		return nil, fmt.Errorf("write kube config to temp file: %w", err)
 	}
 
 	if err = tempFile.Close(); err != nil {
-		return nil, errors.Wrap(err, "close temp file")
+		return nil, fmt.Errorf("close temp file: %w", err)
 	}
 
 	// allow permissions for kube config path
@@ -275,7 +281,7 @@ func testConnectionWithServer(ctx context.Context, vRawConfig *clientcmdapi.Conf
 
 	_, err = kubeClient.CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
 	if err != nil {
-		return errors.Wrap(err, "retrieve default namespace")
+		return fmt.Errorf("retrieve default namespace: %w", err)
 	}
 
 	return nil
