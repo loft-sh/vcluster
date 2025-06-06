@@ -34,6 +34,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	platformclihelper "github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
@@ -240,8 +241,9 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				return err
 			}
 		} else {
-			// When a vCluster is not legacy, there should be a config secret and we will fetch the values from the secret
-			currentVClusterConfig, err = getConfigfileFromSecret(ctx, vClusterName, cmd.Namespace)
+			// When a vCluster is not legacy, there should be a config secret or configmap and we will fetch the values from the secret or configmap
+			kConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+			currentVClusterConfig, err = setup.GetVClusterConfig(ctx, kConf, vClusterName, cmd.Namespace)
 			if err != nil {
 				return err
 			}
