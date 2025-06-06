@@ -110,12 +110,12 @@ spec:
           emptyDir: {}
         {{- end }}
         - name: vcluster-config
-          {{- if .Values.controlPlane.advanced.useConfigMap }}
-          configMap:
-            name: vc-config-{{ .Release.Name }}
-          {{- else }}
+          {{- if .Values.controlPlane.advanced.useConfigAsSecret }}
           secret:
             secretName: vc-config-{{ .Release.Name }}
+          {{- else }}
+          configMap:
+            name: vc-config-{{ .Release.Name }}
           {{- end }}
         {{- if .Values.controlPlane.statefulSet.persistence.dataVolume }}
 {{ toYaml .Values.controlPlane.statefulSet.persistence.dataVolume | indent 8 }}

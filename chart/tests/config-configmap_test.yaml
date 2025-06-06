@@ -7,9 +7,9 @@ release:
   name: release-name
   namespace: test-namespace
 tests:
-  - it: should create a ConfigMap and not a Secret when useConfigMap is true
+  - it: should create a ConfigMap and not a Secret when useConfigAsSecret is false
     set:
-      controlPlane.advanced.useConfigMap: true
+      controlPlane.advanced.useConfigAsSecret: false
     asserts:
       - hasDocuments:
           count: 1
@@ -22,9 +22,9 @@ tests:
           pattern: vc-config-release-name
         template: statefulset.yaml
 
-  - it: should create a Secret and not a ConfigMap when useConfigMap is false
+  - it: should create a Secret and not a ConfigMap when useConfigAsSecret is true
     set:
-      controlPlane.advanced.useConfigMap: false
+      controlPlane.advanced.useConfigAsSecret: true
     asserts:
       - hasDocuments:
           count: 0
