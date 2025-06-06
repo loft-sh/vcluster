@@ -1,4 +1,4 @@
-{{- if .Values.controlPlane.advanced.useConfigMap }}
+{{- if not .Values.controlPlane.advanced.useConfigAsSecret }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
