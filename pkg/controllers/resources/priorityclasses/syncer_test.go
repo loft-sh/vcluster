@@ -22,8 +22,8 @@ func TestSyncToHost(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "vcluster-stuff-x-test-x-suffix"},
 		Value:      1,
 	}
-
 	pObj.Annotations = translate.HostAnnotations(&vObj, &pObj)
+
 	testCases := []struct {
 		name         string
 		syncToHost   bool
@@ -109,6 +109,7 @@ func TestSyncToVirtual(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "stuff"},
 		Value:      1,
 	}
+	vObj.Annotations = translate.HostAnnotations(&vObj, &pObj)
 
 	testCases := []struct {
 		name         string

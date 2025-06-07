@@ -58,7 +58,8 @@ func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 		return ctrl.Result{}, nil
 	}
 
-	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
+	vObj := translate.VirtualMetadata(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace})
+	vObj.SetAnnotations(translate.HostAnnotations(vObj, event.Host))
 
 	// Apply pro patches
 	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.IngressClasses.Patches, true)
@@ -71,6 +72,11 @@ func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 }
 
 func (i *ingressClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*networkingv1.IngressClass]) (_ ctrl.Result, retErr error) {
+	// If the virtual object has the name annotation, it means it was created by vCluster and we can safely manage it.
+	if _, ok := event.Virtual.GetAnnotations()[translate.HostNameAnnotation]; !ok {
+		return ctrl.Result{}, nil
+	}
+
 	matches, err := ctx.Config.Sync.FromHost.IngressClasses.Selector.Matches(event.Host)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("check ingress class selector: %w", err)
@@ -90,7 +96,7 @@ func (i *ingressClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 	}()
 
 	// cast objects
-	event.Virtual.Annotations = event.Host.Annotations
+	event.Virtual.Annotations = translate.VirtualAnnotations(event.Host, event.Virtual)
 	event.Virtual.Labels = event.Host.Labels
 	event.Virtual.Spec.Controller = event.Host.Spec.Controller
 	event.Virtual.Spec.Parameters = event.Host.Spec.Parameters

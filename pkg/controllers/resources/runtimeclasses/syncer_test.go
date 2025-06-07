@@ -16,12 +16,14 @@ import (
 )
 
 func TestSync(t *testing.T) {
+	vObjectName := "test-runtimec"
 	vObjectMeta := metav1.ObjectMeta{
-		Name: "test-ingc",
+		Name: vObjectName,
 		Annotations: map[string]string{
-			translate.NameAnnotation: "test-runtimec",
-			translate.UIDAnnotation:  "",
-			translate.KindAnnotation: nodev1.SchemeGroupVersion.WithKind("RuntimeClass").String(),
+			translate.NameAnnotation:     vObjectName,
+			translate.HostNameAnnotation: vObjectName,
+			translate.UIDAnnotation:      "",
+			translate.KindAnnotation:     nodev1.SchemeGroupVersion.WithKind("RuntimeClass").String(),
 		},
 		ResourceVersion: "999",
 	}
@@ -42,11 +44,6 @@ func TestSync(t *testing.T) {
 			Name: vObjectMeta.Name,
 			Labels: map[string]string{
 				translate.MarkerLabel: translate.VClusterName,
-			},
-			Annotations: map[string]string{
-				translate.NameAnnotation: "test-runtimec",
-				translate.UIDAnnotation:  "",
-				translate.KindAnnotation: nodev1.SchemeGroupVersion.WithKind("RuntimeClass").String(),
 			},
 		},
 		Scheduling: &nodev1.Scheduling{
@@ -74,11 +71,6 @@ func TestSync(t *testing.T) {
 			Name: translate.Default.HostNameCluster(vObjectMeta.Name),
 			Labels: map[string]string{
 				translate.MarkerLabel: translate.VClusterName,
-			},
-			Annotations: map[string]string{
-				translate.NameAnnotation: "test-runtimec",
-				translate.UIDAnnotation:  "",
-				translate.KindAnnotation: nodev1.SchemeGroupVersion.WithKind("RuntimeClass").String(),
 			},
 		},
 		Scheduling: &nodev1.Scheduling{

@@ -58,7 +58,8 @@ func (i *runtimeClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 		return ctrl.Result{}, nil
 	}
 
-	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
+	vObj := translate.VirtualMetadata(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace})
+	vObj.SetAnnotations(translate.HostAnnotations(vObj, event.Host))
 
 	// Apply pro patches
 	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.RuntimeClasses.Patches, true)
@@ -71,6 +72,11 @@ func (i *runtimeClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 }
 
 func (i *runtimeClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*nodev1.RuntimeClass]) (_ ctrl.Result, retErr error) {
+	// If the virtual object has the name annotation, it means it was created by vCluster and we can safely manage it.
+	if _, ok := event.Virtual.GetAnnotations()[translate.HostNameAnnotation]; !ok {
+		return ctrl.Result{}, nil
+	}
+
 	matches, err := ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(event.Host)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("check runtime class selector: %w", err)
