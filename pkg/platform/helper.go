@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
+
 	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
@@ -621,7 +623,7 @@ func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, con
 	return contextOptions, nil
 }
 
-func CreateSpaceInstanceOptions(ctx context.Context, client Client, config string, projectName string, spaceInstance *managementv1.SpaceInstance, setActive bool) (kubeconfig.ContextOptions, error) {
+func CreateSpaceInstanceOptions(ctx context.Context, client Client, config string, projectName string, spaceInstance *managementv1.SpaceInstance, setActive, disableDirectEndpoint bool) (kubeconfig.ContextOptions, error) {
 	cluster, err := findProjectCluster(ctx, client, projectName, spaceInstance.Spec.ClusterRef.Cluster)
 	if err != nil {
 		return kubeconfig.ContextOptions{}, fmt.Errorf("find space instance cluster: %w", err)
@@ -633,8 +635,21 @@ func CreateSpaceInstanceOptions(ctx context.Context, client Client, config strin
 		CurrentNamespace: spaceInstance.Spec.ClusterRef.Namespace,
 		SetActive:        setActive,
 	}
-	contextOptions.Server = client.Config().Platform.Host + "/kubernetes/project/" + projectName + "/space/" + spaceInstance.Name
+	host := client.Config().Platform.Host
+
+	directHost, directInsecure := getDirectEndpointAndInsecureFromClusterAnnotations(cluster)
+
+	if directHost != "" && !disableDirectEndpoint {
+		host = directHost
+	}
+
+	contextOptions.Server = host + "/kubernetes/project/" + projectName + "/space/" + spaceInstance.Name
 	contextOptions.InsecureSkipTLSVerify = client.Config().Platform.Insecure
+
+	if directInsecure != "" && !disableDirectEndpoint {
+		insecure, _ := strconv.ParseBool(directInsecure)
+		contextOptions.InsecureSkipTLSVerify = insecure
+	}
 
 	data, err := RetrieveCaData(cluster)
 	if err != nil {
@@ -642,6 +657,49 @@ func CreateSpaceInstanceOptions(ctx context.Context, client Client, config strin
 	}
 	contextOptions.CaData = data
 	return contextOptions, nil
+}
+
+func CreateClusterContextOptions(platformClient Client, config string, cluster *managementv1.Cluster, spaceName string, setActive bool) (kubeconfig.ContextOptions, error) {
+	contextOptions := kubeconfig.ContextOptions{
+		Name:             kubeconfig.SpaceContextName(cluster.Name, spaceName),
+		ConfigPath:       config,
+		CurrentNamespace: spaceName,
+		SetActive:        setActive,
+	}
+	host := platformClient.Config().Platform.Host
+	directHost, directInsecure := getDirectEndpointAndInsecureFromClusterAnnotations(cluster)
+
+	if directHost != "" {
+		host = directHost
+	}
+	contextOptions.Server = host + "/kubernetes/cluster/" + cluster.Name
+	contextOptions.InsecureSkipTLSVerify = platformClient.Config().Platform.Insecure
+
+	if directInsecure != "" {
+		insecure, _ := strconv.ParseBool(directInsecure)
+		contextOptions.InsecureSkipTLSVerify = insecure
+	}
+
+	data, err := RetrieveCaData(cluster)
+	if err != nil {
+		return kubeconfig.ContextOptions{}, err
+	}
+	contextOptions.CaData = data
+	return contextOptions, nil
+}
+
+func getDirectEndpointAndInsecureFromClusterAnnotations(cluster *managementv1.Cluster) (host string, insecure string) {
+	if cluster == nil {
+		return
+	}
+	if directHost, ok := cluster.GetAnnotations()[constants.LoftDirectClusterEndpoint]; ok {
+		host = directHost
+	}
+
+	if insecureVal, ok := cluster.GetAnnotations()[constants.LoftDirectClusterEndpointInsecure]; ok {
+		insecure = insecureVal
+	}
+	return
 }
 
 func ResolveVirtualClusterTemplate(

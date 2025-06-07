@@ -317,7 +317,7 @@ func (cmd *NamespaceCmd) createSpace(ctx context.Context, platformClient platfor
 	// should we create a kube context for the space
 	if cmd.CreateContext {
 		// create kube context options
-		contextOptions, err := platform.CreateSpaceInstanceOptions(ctx, platformClient, cmd.Config, cmd.Project, spaceInstance, cmd.SwitchContext)
+		contextOptions, err := platform.CreateSpaceInstanceOptions(ctx, platformClient, cmd.Config, cmd.Project, spaceInstance, cmd.SwitchContext, cmd.DisableDirectClusterEndpoint)
 		if err != nil {
 			return err
 		}
