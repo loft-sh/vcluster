@@ -104,7 +104,7 @@ func (o *LoadImageOptions) Run(ctx context.Context, nodeName string) error {
 
 	// load the image in the node
 	o.Log.Infof("Importing image in node %s...", nodeName)
-	if err := runCommand("kubectl", "exec", loadImagePod.Name, "-n", loadImagePod.Namespace, "--", "nsenter", "-t", "1", "-m", "-u", "-i", "-n", "-S", "0", "-G", "0", "sh", "-c", "ctr images import /tmp/image.tar.gz && rm -f /tmp/image.tar.gz"); err != nil {
+	if err := runCommand("kubectl", "exec", loadImagePod.Name, "-n", loadImagePod.Namespace, "--", "nsenter", "-t", "1", "-m", "-u", "-i", "-n", "-S", "0", "-G", "0", "sh", "-c", "ctr --namespace=k8s.io images import /tmp/image.tar.gz && rm -f /tmp/image.tar.gz"); err != nil {
 		return fmt.Errorf("failed to load image in node: %w", err)
 	}
 
