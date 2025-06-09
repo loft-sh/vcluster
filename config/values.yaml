@@ -289,6 +289,8 @@ controlPlane:
     bundleRepository: "https://github.com/loft-sh/kubernetes/releases/download"
     joinNode:
       enabled: true
+      containerd:
+        enabled: true
 
   statefulSet:
     labels: {}
