@@ -405,7 +405,7 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 		// silence port-forwarding if a command is used
 		stdout := io.Writer(os.Stdout)
 		stderr := io.Writer(os.Stderr)
-		if len(command) > 0 || cmd.BackgroundProxy {
+		if len(command) > 0 || cmd.BackgroundProxy || cmd.Silent {
 			stdout = io.Discard
 			stderr = io.Discard
 		}
