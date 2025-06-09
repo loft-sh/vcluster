@@ -833,3 +833,99 @@ tests:
           path: spec.template.spec.initContainers[0].image
           value: ghcr.io/loft-sh/kubernetes:v1.35.999
           
+  - it: sets custom probe configuration
+    set:
+      controlPlane:
+        statefulSet:
+          probes:
+            livenessProbe:
+              enabled: true
+              failureThreshold: 70
+              initialDelaySeconds: 70
+              timeoutSeconds: 10
+              periodSeconds: 9
+            readinessProbe:
+              enabled: true
+              failureThreshold: 70
+              timeoutSeconds: 6
+              periodSeconds: 8
+            startupProbe:
+              enabled: true
+              failureThreshold: 350
+              timeoutSeconds: 7
+              periodSeconds: 8
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.failureThreshold
+          value: 70
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.initialDelaySeconds
+          value: 70
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.timeoutSeconds
+          value: 10
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.periodSeconds
+          value: 9
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.failureThreshold
+          value: 70
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.timeoutSeconds
+          value: 6
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.periodSeconds
+          value: 8
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 350
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.timeoutSeconds
+          value: 7
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.periodSeconds
+          value: 8
+
+
+  - it: uses default probe values when none are overridden
+    set:
+      controlPlane:
+        statefulSet:
+          probes:
+            livenessProbe:
+              enabled: true
+            readinessProbe:
+              enabled: true
+            startupProbe:
+              enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.initialDelaySeconds
+          value: 60
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.periodSeconds
+          value: 2
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.timeoutSeconds
+          value: 3
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.failureThreshold
+          value: 60
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.periodSeconds
+          value: 2
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.timeoutSeconds
+          value: 3
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.failureThreshold
+          value: 60
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.periodSeconds
+          value: 6
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.timeoutSeconds
+          value: 3
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 300

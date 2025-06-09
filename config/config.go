@@ -2049,13 +2049,64 @@ type ControlPlaneWorkloadServiceAccount struct {
 
 type ControlPlaneProbes struct {
 	// LivenessProbe specifies if the liveness probe for the container should be enabled
-	LivenessProbe EnableSwitch `json:"livenessProbe,omitempty"`
+	LivenessProbe LivenessProbe `json:"livenessProbe,omitempty"`
 
 	// ReadinessProbe specifies if the readiness probe for the container should be enabled
-	ReadinessProbe EnableSwitch `json:"readinessProbe,omitempty"`
+	ReadinessProbe ReadinessProbe `json:"readinessProbe,omitempty"`
 
 	// StartupProbe specifies if the startup probe for the container should be enabled
-	StartupProbe EnableSwitch `json:"startupProbe,omitempty"`
+	StartupProbe StartupProbe `json:"startupProbe,omitempty"`
+}
+
+// LivenessProbe defines the configuration for the liveness probe.
+// A liveness probe checks if the container is still running.
+// If it fails, Kubernetes will restart the container.
+type LivenessProbe struct {
+	EnableSwitch
+
+	// Number of consecutive failures for the probe to be considered failed
+	FailureThreshold int `json:"failureThreshold,omitempty"`
+
+	// Time (in seconds) to wait before starting the liveness probe
+	InitialDelaySeconds int `json:"initialDelaySeconds,omitempty"`
+
+	// Maximum duration (in seconds) that the probe will wait for a response.
+	TimeoutSeconds int `json:"timeoutSeconds,omitempty"`
+
+	// Frequency (in seconds) to perform the probe
+	PeriodSeconds int `json:"periodSeconds,omitempty"`
+}
+
+// ReadinessProbe defines the configuration for the readiness probe.
+// A readiness probe checks if the container is ready to accept traffic.
+// If it fails, Kubernetes removes the pod from the Service endpoints.
+type ReadinessProbe struct {
+	EnableSwitch
+
+	// Number of consecutive failures for the probe to be considered failed
+	FailureThreshold int `json:"failureThreshold,omitempty"`
+
+	// Maximum duration (in seconds) that the probe will wait for a response.
+	TimeoutSeconds int `json:"timeoutSeconds,omitempty"`
+
+	// Frequency (in seconds) to perform the probe
+	PeriodSeconds int `json:"periodSeconds,omitempty"`
+}
+
+// StartupProbe defines the configuration for the startup probe.
+// A startup probe checks if the application within the container has started.
+// While the startup probe is failing, other probes are disabled.
+type StartupProbe struct {
+	EnableSwitch
+
+	// Number of consecutive failures allowed before failing the pod
+	FailureThreshold int `json:"failureThreshold,omitempty"`
+
+	// Maximum duration (in seconds) that the probe will wait for a response.
+	TimeoutSeconds int `json:"timeoutSeconds,omitempty"`
+
+	// Frequency (in seconds) to perform the probe
+	PeriodSeconds int `json:"periodSeconds,omitempty"`
 }
 
 type ControlPlaneSecurity struct {

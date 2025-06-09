@@ -454,15 +454,15 @@
     "ControlPlaneProbes": {
       "properties": {
         "livenessProbe": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/LivenessProbe",
           "description": "LivenessProbe specifies if the liveness probe for the container should be enabled"
         },
         "readinessProbe": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/ReadinessProbe",
           "description": "ReadinessProbe specifies if the readiness probe for the container should be enabled"
         },
         "startupProbe": {
-          "$ref": "#/$defs/EnableSwitch",
+          "$ref": "#/$defs/StartupProbe",
           "description": "StartupProbe specifies if the startup probe for the container should be enabled"
         }
       },
@@ -2495,6 +2495,33 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "LivenessProbe": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "failureThreshold": {
+          "type": "integer",
+          "description": "Number of consecutive failures for the probe to be considered failed"
+        },
+        "initialDelaySeconds": {
+          "type": "integer",
+          "description": "Time (in seconds) to wait before starting the liveness probe"
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "description": "Maximum duration (in seconds) that the probe will wait for a response."
+        },
+        "periodSeconds": {
+          "type": "integer",
+          "description": "Frequency (in seconds) to perform the probe"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "LivenessProbe defines the configuration for the liveness probe."
+    },
     "LocalPathProvisioner": {
       "properties": {
         "enabled": {
@@ -3247,6 +3274,29 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ReadinessProbe": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "failureThreshold": {
+          "type": "integer",
+          "description": "Number of consecutive failures for the probe to be considered failed"
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "description": "Maximum duration (in seconds) that the probe will wait for a response."
+        },
+        "periodSeconds": {
+          "type": "integer",
+          "description": "Frequency (in seconds) to perform the probe"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ReadinessProbe defines the configuration for the readiness probe."
+    },
     "ReplicateServices": {
       "properties": {
         "toHost": {
@@ -3573,6 +3623,29 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "StartupProbe": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "failureThreshold": {
+          "type": "integer",
+          "description": "Number of consecutive failures allowed before failing the pod"
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "description": "Maximum duration (in seconds) that the probe will wait for a response."
+        },
+        "periodSeconds": {
+          "type": "integer",
+          "description": "Frequency (in seconds) to perform the probe"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "StartupProbe defines the configuration for the startup probe."
     },
     "StatefulSetImage": {
       "properties": {

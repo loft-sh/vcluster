@@ -141,16 +141,16 @@ spec:
           args:
 {{ toYaml .Values.controlPlane.statefulSet.args | indent 12 }}
           {{- end }}
-          {{- if .Values.controlPlane.statefulSet.probes.livenessProbe.enabled }}
+         {{- if .Values.controlPlane.statefulSet.probes.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
               path: /healthz
               port: 8443
               scheme: HTTPS
-            failureThreshold: 60
-            initialDelaySeconds: 60
-            timeoutSeconds: 3
-            periodSeconds: 2
+            initialDelaySeconds: {{ .Values.controlPlane.statefulSet.probes.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.controlPlane.statefulSet.probes.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.controlPlane.statefulSet.probes.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.controlPlane.statefulSet.probes.livenessProbe.failureThreshold }}
           {{- end }}
           {{- if .Values.controlPlane.statefulSet.probes.readinessProbe.enabled }}
           readinessProbe:
@@ -158,9 +158,9 @@ spec:
               path: /readyz
               port: 8443
               scheme: HTTPS
-            failureThreshold: 60
-            timeoutSeconds: 3
-            periodSeconds: 2
+            periodSeconds: {{ .Values.controlPlane.statefulSet.probes.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.controlPlane.statefulSet.probes.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.controlPlane.statefulSet.probes.readinessProbe.failureThreshold }}
           {{- end }}
           {{- if .Values.controlPlane.statefulSet.probes.startupProbe.enabled }}
           startupProbe:
@@ -168,9 +168,9 @@ spec:
               path: /readyz
               port: 8443
               scheme: HTTPS
-            failureThreshold: 300
-            timeoutSeconds: 3
-            periodSeconds: 6
+            periodSeconds: {{ .Values.controlPlane.statefulSet.probes.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.controlPlane.statefulSet.probes.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.controlPlane.statefulSet.probes.startupProbe.failureThreshold }}
           {{- end }}
           {{- if .Values.controlPlane.statefulSet.security.containerSecurityContext }}
           securityContext:
