@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -96,7 +95,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// create kube context options
-	contextOptions, err := CreateClusterContextOptions(platformClient, cmd.Config, cluster, "", true)
+	contextOptions, err := platform.CreateClusterContextOptions(platformClient, cmd.Config, cluster, "", true)
 	if err != nil {
 		return err
 	}
@@ -118,22 +117,4 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	return nil
-}
-
-func CreateClusterContextOptions(platformClient platform.Client, config string, cluster *managementv1.Cluster, spaceName string, setActive bool) (kubeconfig.ContextOptions, error) {
-	contextOptions := kubeconfig.ContextOptions{
-		Name:             kubeconfig.SpaceContextName(cluster.Name, spaceName),
-		ConfigPath:       config,
-		CurrentNamespace: spaceName,
-		SetActive:        setActive,
-	}
-	contextOptions.Server = platformClient.Config().Platform.Host + "/kubernetes/cluster/" + cluster.Name
-	contextOptions.InsecureSkipTLSVerify = platformClient.Config().Platform.Insecure
-
-	data, err := platform.RetrieveCaData(cluster)
-	if err != nil {
-		return kubeconfig.ContextOptions{}, err
-	}
-	contextOptions.CaData = data
-	return contextOptions, nil
 }
