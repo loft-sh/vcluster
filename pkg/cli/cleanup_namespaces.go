@@ -19,7 +19,6 @@ const (
 	vClusterMetadataPrefix = "vcluster.loft.sh/"
 )
 
-// NamespaceCleanupHandler defines the function signature for namespace cleanup operations.
 type NamespaceCleanupHandler func(
 	ctx context.Context,
 	mainPhysicalNamespace string,
@@ -29,7 +28,6 @@ type NamespaceCleanupHandler func(
 	logger log.Logger,
 ) error
 
-// GetNamespaceCleanupHandler returns a NamespaceCleanupHandler function based on the provided policy.
 func GetNamespaceCleanupHandler(policy config.HostDeletionPolicy) (NamespaceCleanupHandler, error) {
 	switch policy {
 	case config.HostDeletionPolicyAll:
@@ -43,14 +41,33 @@ func GetNamespaceCleanupHandler(policy config.HostDeletionPolicy) (NamespaceClea
 	}
 }
 
-// cleanupNoneNamespaces is a no-op handler for the 'none' policy.
+// cleanupNoneNamespaces is a no-op handler for the 'none' policy. It only removes namespace metadata added by vCluster.
 func cleanupNoneNamespaces(
-	_ context.Context,
-	_ string, _ string,
+	ctx context.Context,
+	mainPhysicalNamespace string,
+	vClusterName string,
 	_ config.SyncToHostNamespaces,
-	_ *kubernetes.Clientset,
-	_ log.Logger,
+	k8sClient *kubernetes.Clientset,
+	logger log.Logger,
 ) error {
+	logger.Infof("Starting metadata cleanup for vCluster '%s' namespaces.", vClusterName)
+	managedNamespaces, err := getManagedNamespaces(ctx, k8sClient, mainPhysicalNamespace, vClusterName, logger)
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, ns := range managedNamespaces {
+		if err := cleanupNamespaceMetadata(ctx, k8sClient, &ns); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("metadata cleanup for vCluster '%s' namespaces finished with errors: %w", vClusterName, errors.Join(errs...))
+	}
+
+	logger.Infof("Metadata cleanup for vCluster '%s' namespaces finished.", vClusterName)
 	return nil
 }
 
@@ -66,25 +83,14 @@ func cleanupSyncedNamespaces(
 ) error {
 	logger.Infof("Starting cleanup of vCluster '%s' namespaces.", vClusterName)
 
-	if mainPhysicalNamespace == "" || vClusterName == "" {
-		return fmt.Errorf("main physical namespace or vCluster name is empty")
-	}
-
-	labelSelector := translate.MarkerLabel + "=" + translate.SafeConcatName(mainPhysicalNamespace, "x", vClusterName)
-	nsList, err := k8sClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+	managedNamespaces, err := getManagedNamespaces(ctx, k8sClient, mainPhysicalNamespace, vClusterName, logger)
 	if err != nil {
-		return fmt.Errorf("list namespaces: %w", err)
-	}
-
-	if nsList == nil || len(nsList.Items) == 0 {
-		logger.Infof("No additional managed namespaces found with label selector '%s'.", labelSelector)
-		return nil
+		return err
 	}
 
 	var errs []error
-	for _, ns := range nsList.Items {
-		// Check if namespace was imported, if yes we skip deletion for 'synced' policy.
-		if ns.Annotations != nil && ns.Annotations[translate.ImportedMarkerAnnotation] == "true" {
+	for _, ns := range managedNamespaces {
+		if isImportedNamespace(&ns) {
 			logger.Infof("Namespace %s was imported, cleaning up import.", ns.Name)
 			if err := cleanupNamespaceMetadata(ctx, k8sClient, &ns); err != nil {
 				errs = append(errs, err)
@@ -92,12 +98,9 @@ func cleanupSyncedNamespaces(
 			continue
 		}
 
-		logger.Infof("Attempting to delete virtual cluster namespace %s.", ns.Name)
-		err := k8sClient.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{})
+		err := deleteAndLogNamespace(ctx, k8sClient, ns.Name, logger)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("namespace %s: %w", ns.Name, err))
-		} else {
-			logger.Donef("Successfully deleted virtual cluster namespace %s.", ns.Name)
+			errs = append(errs, err)
 		}
 	}
 
@@ -120,8 +123,8 @@ func cleanupAllNamespaces(
 	logger log.Logger,
 ) error {
 	logger.Infof("Starting cleanup of vCluster '%s' namespaces.", vClusterName)
-	mappingsConfig := nsSyncConfig.Mappings
 
+	mappingsConfig := nsSyncConfig.Mappings
 	if len(mappingsConfig.ByName) == 0 {
 		logger.Infof("No namespace mappings defined.")
 		logger.Infof("Cleanup of vCluster '%s' namespaces finished.", vClusterName)
@@ -129,7 +132,7 @@ func cleanupAllNamespaces(
 	}
 	logger.Debugf("Processing %d namespace mappings for potential deletion.", len(mappingsConfig.ByName))
 
-	hostNamespaces, err := k8sClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	hostNamespaces, err := getNamespaces(ctx, k8sClient, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("list all host namespaces for mapping check: %w", err)
 	}
@@ -154,14 +157,17 @@ func cleanupAllNamespaces(
 			}
 
 			if currentRuleMatches {
-				logger.Infof("Attempting to delete virtual cluster namespace %s.", hostNs.Name)
-				err := k8sClient.CoreV1().Namespaces().Delete(ctx, hostNs.Name, metav1.DeleteOptions{})
-				if err != nil {
-					errs = append(errs, fmt.Errorf("delete virtual cluster namespace %s: %w", hostNs.Name, err))
+				var err error
+				if isProtectedNamespace(hostNs.Name) {
+					logger.Infof("Namespace %s is protected, cleaning up its metadata.", hostNs.Name)
+					err = cleanupNamespaceMetadata(ctx, k8sClient, &hostNs)
 				} else {
-					logger.Donef("Successfully deleted virtual cluster namespace %s.", hostNs.Name)
+					err = deleteAndLogNamespace(ctx, k8sClient, hostNs.Name, logger)
 				}
-				// This namespace has been handled. Skip other mappings and move to the next one.
+
+				if err != nil {
+					errs = append(errs, err)
+				}
 				break
 			}
 		}
@@ -172,6 +178,45 @@ func cleanupAllNamespaces(
 	}
 
 	logger.Infof("Cleanup of vCluster '%s' namespaces finished.", vClusterName)
+	return nil
+}
+
+func getNamespaces(ctx context.Context, k8sClient *kubernetes.Clientset, listOptions metav1.ListOptions) (*corev1.NamespaceList, error) {
+	nsList, err := k8sClient.CoreV1().Namespaces().List(ctx, listOptions)
+	if err != nil {
+		return nil, fmt.Errorf("listing namespaces with options %+v: %w", listOptions, err)
+	}
+	return nsList, nil
+}
+
+func getManagedNamespaces(ctx context.Context, k8sClient *kubernetes.Clientset, mainPhysicalNamespace, vClusterName string, logger log.Logger) ([]corev1.Namespace, error) {
+	if mainPhysicalNamespace == "" || vClusterName == "" {
+		return nil, fmt.Errorf("main physical namespace or vCluster name is empty")
+	}
+
+	labelSelector := translate.MarkerLabel + "=" + translate.SafeConcatName(mainPhysicalNamespace, "x", vClusterName)
+	listOptions := metav1.ListOptions{LabelSelector: labelSelector}
+
+	nsList, err := getNamespaces(ctx, k8sClient, listOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	if nsList == nil || len(nsList.Items) == 0 {
+		logger.Infof("No additional managed namespaces found with label selector '%s'.", labelSelector)
+		return nil, nil
+	}
+
+	return nsList.Items, nil
+}
+
+func deleteAndLogNamespace(ctx context.Context, k8sClient *kubernetes.Clientset, nsName string, logger log.Logger) error {
+	logger.Infof("Attempting to delete virtual cluster namespace %s.", nsName)
+	err := k8sClient.CoreV1().Namespaces().Delete(ctx, nsName, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("namespace %s: %w", nsName, err)
+	}
+	logger.Donef("Successfully deleted virtual cluster namespace %s.", nsName)
 	return nil
 }
 
@@ -198,4 +243,15 @@ func cleanupNamespaceMetadata(
 	}
 
 	return nil
+}
+
+// isProtectedNamespace checks if a namespace should be protected from deletion.
+// Protected namespaces include 'default' and any namespace prefixed with 'kube-'.
+func isProtectedNamespace(name string) bool {
+	return name == "default" || strings.HasPrefix(name, "kube-")
+}
+
+// isImportedNamespace checks if a namespace was imported
+func isImportedNamespace(ns *corev1.Namespace) bool {
+	return ns.Annotations != nil && ns.Annotations[translate.ImportedMarkerAnnotation] == "true"
 }
