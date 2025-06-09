@@ -556,6 +556,10 @@ controlPlane:
     joinNode:
       # Enabled defines if the standalone node should be joined into the cluster. If false, only the control plane binaries will be executed and no node will show up in the actual cluster.
       enabled: true
+      # Containerd holds configuration for the containerd join process.
+      containerd:
+        # Enabled defines if containerd should be installed and configured by vCluster.
+        enabled: true
   
   # StatefulSet defines options for vCluster statefulSet deployed by Helm.
   statefulSet:
