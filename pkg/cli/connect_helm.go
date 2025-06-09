@@ -167,6 +167,7 @@ func writeKubeConfig(kubeConfig *clientcmdapi.Config, vClusterName string, optio
 		if err != nil {
 			return err
 		}
+		_ = os.Stdout.Close()
 	} else if options.UpdateCurrent {
 		var clusterConfig *clientcmdapi.Cluster
 		for _, c := range kubeConfig.Clusters {
