@@ -598,13 +598,18 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, config string, projectName string, virtualClusterInstance *managementv1.VirtualClusterInstance, setActive bool) (kubeconfig.ContextOptions, error) {
 	var cluster *managementv1.Cluster
 
-	// skip finding cluster if virtual cluster is directly connected
-	if !virtualClusterInstance.Spec.NetworkPeer {
-		var err error
-		cluster, err = findProjectCluster(ctx, client, projectName, virtualClusterInstance.Spec.ClusterRef.Cluster)
-		if err != nil {
-			return kubeconfig.ContextOptions{}, fmt.Errorf("find space instance cluster: %w", err)
-		}
+	var err error
+	cluster, err = findProjectCluster(ctx, client, projectName, virtualClusterInstance.Spec.ClusterRef.Cluster)
+	if err != nil {
+		return kubeconfig.ContextOptions{}, fmt.Errorf("find space instance cluster: %w", err)
+	}
+
+	host := client.Config().Platform.Host
+
+	directHost, directInsecure := getDirectEndpointAndInsecureFromClusterAnnotations(cluster)
+
+	if directHost != "" {
+		host = directHost
 	}
 
 	contextOptions := kubeconfig.ContextOptions{
@@ -612,14 +617,21 @@ func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, con
 		ConfigPath: config,
 		SetActive:  setActive,
 	}
-	contextOptions.Server = client.Config().Platform.Host + "/kubernetes/project/" + projectName + "/virtualcluster/" + virtualClusterInstance.Name
+	contextOptions.Server = host + "/kubernetes/project/" + projectName + "/virtualcluster/" + virtualClusterInstance.Name
 	contextOptions.InsecureSkipTLSVerify = client.Config().Platform.Insecure
 
-	data, err := RetrieveCaData(cluster)
-	if err != nil {
-		return kubeconfig.ContextOptions{}, err
+	if directInsecure != "" {
+		insecure, _ := strconv.ParseBool(directInsecure)
+		contextOptions.InsecureSkipTLSVerify = insecure
 	}
-	contextOptions.CaData = data
+	if !virtualClusterInstance.Spec.NetworkPeer {
+		data, err := RetrieveCaData(cluster)
+		if err != nil {
+			return kubeconfig.ContextOptions{}, err
+		}
+		contextOptions.CaData = data
+	}
+
 	return contextOptions, nil
 }
 
@@ -694,6 +706,9 @@ func getDirectEndpointAndInsecureFromClusterAnnotations(cluster *managementv1.Cl
 	}
 	if directHost, ok := cluster.GetAnnotations()[constants.LoftDirectClusterEndpoint]; ok {
 		host = directHost
+		if !strings.HasPrefix(host, "https://") {
+			host = "https://" + host
+		}
 	}
 
 	if insecureVal, ok := cluster.GetAnnotations()[constants.LoftDirectClusterEndpointInsecure]; ok {
