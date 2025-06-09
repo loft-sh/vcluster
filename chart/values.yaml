@@ -781,6 +781,13 @@ privateNodes:
     # Concurrency is the number of nodes that can be upgraded at the same time.
     concurrency: 1
   
+  # JoinNode holds configuration specifically used during joining the node (see "kubeadm join").
+  joinNode:
+    # Containerd holds configuration for the containerd join process.
+    containerd:
+      # Enabled defines if containerd should be installed and configured by vCluster.
+      enabled: true
+  
   # LocalPathProvisioner holds dedicated local path provisioner configuration.
   localPathProvisioner:
     # Enabled defines if LocalPathProvisioner should be enabled.

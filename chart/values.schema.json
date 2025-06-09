@@ -50,7 +50,7 @@
         },
         "image": {
           "type": "string",
-          "description": "Image is the image for the auto upgrade. If empty defaults to the controlPlane.statefulSet.image."
+          "description": "Image is the image for the auto upgrade pod started by vCluster. If empty defaults to the controlPlane.statefulSet.image."
         },
         "imagePullPolicy": {
           "type": "string",
@@ -122,6 +122,18 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled defines if Flannel should be enabled."
+        },
+        "image": {
+          "type": "string",
+          "description": "Image is the image for Flannel main container."
+        },
+        "initImage": {
+          "type": "string",
+          "description": "InitImage is the image for Flannel init container."
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the policy how to pull the image."
         }
       },
       "additionalProperties": false,
@@ -221,6 +233,20 @@
         "selector": {
           "$ref": "#/$defs/LabelSelector",
           "description": "Selector defines what cluster stores should be synced"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ContainerdJoin": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if containerd should be installed and configured by vCluster."
+        },
+        "pauseImage": {
+          "type": "string",
+          "description": "PauseImage is the image for the pause container."
         }
       },
       "additionalProperties": false,
@@ -2192,6 +2218,45 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "JoinConfiguration": {
+      "properties": {
+        "preJoinCommands": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "PreJoinCommands are commands that will be executed before the join process starts."
+        },
+        "postJoinCommands": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "PostJoinCommands are commands that will be executed after the join process starts."
+        },
+        "containerd": {
+          "$ref": "#/$defs/ContainerdJoin",
+          "description": "Containerd holds configuration for the containerd join process."
+        },
+        "caCertPath": {
+          "type": "string",
+          "description": "CACertPath is the path to the SSL certificate authority used to\nsecure communications between node and control-plane.\nDefaults to \"/etc/kubernetes/pki/ca.crt\"."
+        },
+        "skipPhases": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "SkipPhases is a list of phases to skip during command execution.\nThe list of phases can be obtained with the \"kubeadm join --help\" command."
+        },
+        "nodeRegistration": {
+          "$ref": "#/$defs/NodeRegistration",
+          "description": "NodeRegistration holds configuration for the node registration similar to the kubeadm node registration."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Konnectivity": {
       "properties": {
         "server": {
@@ -2395,6 +2460,25 @@
         }
       },
       "additionalProperties": false,
+      "type": "object",
+      "description": "KubeletExtraArg represents an argument with a name and a value."
+    },
+    "KubeletJoinTaint": {
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Required. The taint key to be applied to a node."
+        },
+        "value": {
+          "type": "string",
+          "description": "The taint value corresponding to the taint key.\n+optional"
+        },
+        "effect": {
+          "type": "string",
+          "description": "Required. The effect of the taint on pods\nthat do not tolerate the taint.\nValid effects are NoSchedule, PreferNoSchedule and NoExecute."
+        }
+      },
+      "additionalProperties": false,
       "type": "object"
     },
     "LabelSelector": {
@@ -2527,6 +2611,14 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled defines if LocalPathProvisioner should be enabled."
+        },
+        "image": {
+          "type": "string",
+          "description": "Image is the image for local path provisioner."
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the policy how to pull the image."
         }
       },
       "additionalProperties": false,
@@ -2740,6 +2832,41 @@
         "proxyKubelets": {
           "$ref": "#/$defs/NetworkProxyKubelets",
           "description": "ProxyKubelets allows rewriting certain metrics and stats from the Kubelet to \"fake\" this for applications such as\nprometheus or other node exporters."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "NodeRegistration": {
+      "properties": {
+        "criSocket": {
+          "type": "string",
+          "description": "CRI socket is the socket for the CRI."
+        },
+        "kubeletExtraArgs": {
+          "items": {
+            "$ref": "#/$defs/KubeletExtraArg"
+          },
+          "type": "array",
+          "description": "KubeletExtraArgs passes through extra arguments to the kubelet. The arguments here are passed to the kubelet command line via the environment file\nkubeadm writes at runtime for the kubelet to source. This overrides the generic base-level configuration in the kubelet-config ConfigMap\nFlags have higher priority when parsing. These values are local and specific to the node kubeadm is executing on.\nAn argument name in this list is the flag name as it appears on the command line except without leading dash(es).\nExtra arguments will override existing default arguments. Duplicate extra arguments are allowed."
+        },
+        "taints": {
+          "items": {
+            "$ref": "#/$defs/KubeletJoinTaint"
+          },
+          "type": "array",
+          "description": "Taints are additional taints to set for the kubelet."
+        },
+        "ignorePreflightErrors": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "IgnorePreflightErrors provides a slice of pre-flight errors to be ignored when the current node is registered, e.g. 'IsPrivilegedUser,Swap'.\nValue 'all' ignores errors from all checks."
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy specifies the policy for image pulling during kubeadm \"init\" and \"join\" operations.\nThe value of this field must be one of \"Always\", \"IfNotPresent\" or \"Never\".\nIf this field is unset kubeadm will default it to \"IfNotPresent\", or pull the required images if not present on the host."
         }
       },
       "additionalProperties": false,
@@ -3145,7 +3272,7 @@
         },
         "kubelet": {
           "$ref": "#/$defs/Kubelet",
-          "description": "Kubelet holds dedicated kubelet configuration."
+          "description": "Kubelet holds kubelet configuration that is used for all nodes."
         },
         "cni": {
           "$ref": "#/$defs/CNI",
@@ -3158,6 +3285,10 @@
         "autoUpgrade": {
           "$ref": "#/$defs/AutoUpgrade",
           "description": "AutoUpgrade holds configuration for auto upgrade."
+        },
+        "joinNode": {
+          "$ref": "#/$defs/JoinConfiguration",
+          "description": "JoinNode holds configuration specifically used during joining the node (see \"kubeadm join\")."
         }
       },
       "additionalProperties": false,
@@ -3588,19 +3719,38 @@
           "type": "string",
           "description": "Name defines the name of the standalone node. If empty the node will get the hostname as name."
         },
-        "kubeletExtraArgs": {
-          "items": {
-            "$ref": "#/$defs/KubeletExtraArg"
-          },
-          "type": "array",
-          "description": "KubeletExtraArgs passes through extra arguments to the kubelet. The arguments here are passed to the kubelet command line via the environment file\nkubeadm writes at runtime for the kubelet to source. This overrides the generic base-level configuration in the kubelet-config ConfigMap\nFlags have higher priority when parsing. These values are local and specific to the node kubeadm is executing on.\nAn argument name in this list is the flag name as it appears on the command line except without leading dash(es).\nExtra arguments will override existing default arguments. Duplicate extra arguments are allowed."
-        },
-        "ignorePreflightErrors": {
+        "preJoinCommands": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "IgnorePreflightErrors provides a slice of pre-flight errors to be ignored when the current node is registered, e.g. 'IsPrivilegedUser,Swap'.\nValue 'all' ignores errors from all checks."
+          "description": "PreJoinCommands are commands that will be executed before the join process starts."
+        },
+        "postJoinCommands": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "PostJoinCommands are commands that will be executed after the join process starts."
+        },
+        "containerd": {
+          "$ref": "#/$defs/ContainerdJoin",
+          "description": "Containerd holds configuration for the containerd join process."
+        },
+        "caCertPath": {
+          "type": "string",
+          "description": "CACertPath is the path to the SSL certificate authority used to\nsecure communications between node and control-plane.\nDefaults to \"/etc/kubernetes/pki/ca.crt\"."
+        },
+        "skipPhases": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "SkipPhases is a list of phases to skip during command execution.\nThe list of phases can be obtained with the \"kubeadm join --help\" command."
+        },
+        "nodeRegistration": {
+          "$ref": "#/$defs/NodeRegistration",
+          "description": "NodeRegistration holds configuration for the node registration similar to the kubeadm node registration."
         }
       },
       "additionalProperties": false,

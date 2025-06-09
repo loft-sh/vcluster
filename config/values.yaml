@@ -425,6 +425,9 @@ privateNodes:
   autoUpgrade:
     enabled: true
     concurrency: 1
+  joinNode:
+    containerd:
+      enabled: true
   localPathProvisioner:
     enabled: true
   cni:
