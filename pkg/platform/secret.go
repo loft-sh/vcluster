@@ -57,6 +57,7 @@ func ApplyPlatformSecret(
 	if !insecure {
 		insecure = platformClient.Config().Platform.Insecure
 	}
+
 	if project == "" {
 		project = "default"
 	}

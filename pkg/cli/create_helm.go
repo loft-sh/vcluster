@@ -34,6 +34,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	platformclihelper "github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	"github.com/loft-sh/vcluster/pkg/platform/kube"
+	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
@@ -404,6 +406,22 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	return nil
 }
 
+func (cmd *createHelm) ValidatePlatformProjectChanges(ctx context.Context, managementClient kube.Interface, vclusterName string, oldCfg, newCfg *config.Config) error {
+	// If old config had the project name set via vcluster.yaml and the user is trying to update
+	// the project name using cli
+	if oldCfg.PlatformProjectSet() && cmd.Project != "" && oldCfg.GetProject() != cmd.Project {
+		return fmt.Errorf("vcluster's project name is different from the project provided in the cli, project is not allowed to change")
+	}
+
+	// If vcluster was created by setting the cmd.Project flag earlier and the user
+	// is trying to update the project from vcluster.yaml, return error
+	if newCfg.PlatformProjectSet() && newCfg.GetProject() != projectutil.ProjectFromNamespace(cmd.Namespace) {
+		return fmt.Errorf("vcluster's existing project is different from the external.platform.project, cannot change project")
+	}
+
+	return config.ValidateProjectChanges(oldCfg, newCfg)
+}
+
 func confirmExperimental(currentVClusterConfig *config.Config, currentValues string, log log.Logger) error {
 	if err := currentVClusterConfig.UnmarshalYAMLStrict([]byte(currentValues)); err != nil {
 		warning := config.ExperimentalWarning(log, []byte(currentValues))
@@ -470,6 +488,8 @@ func (cmd *createHelm) addVCluster(ctx context.Context, name string, vClusterCon
 		return nil
 	}
 
+	projectName := cmd.getProjectName(platformConfig)
+
 	_, err = platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		if vClusterConfig.IsProFeatureEnabled() {
@@ -480,12 +500,19 @@ func (cmd *createHelm) addVCluster(ctx context.Context, name string, vClusterCon
 		return nil
 	}
 
-	err = platform.ApplyPlatformSecret(ctx, cmd.LoadedConfig(cmd.log), cmd.kubeClient, "", name, cmd.Namespace, cmd.Project, "", "", false, cmd.LoadedConfig(cmd.log).Platform.CertificateAuthorityData, cmd.log)
+	err = platform.ApplyPlatformSecret(ctx, cmd.LoadedConfig(cmd.log), cmd.kubeClient, "", name, cmd.Namespace, projectName, "", "", false, cmd.LoadedConfig(cmd.log).Platform.CertificateAuthorityData, cmd.log)
 	if err != nil {
 		return fmt.Errorf("apply platform secret: %w", err)
 	}
 
 	return nil
+}
+
+func (cmd *createHelm) getProjectName(platformCfg *config.PlatformConfig) string {
+	if cmd.Project != "" {
+		return cmd.Project
+	}
+	return platformCfg.Project
 }
 
 func (cmd *createHelm) isLoftAgentDeployed(ctx context.Context) (bool, error) {

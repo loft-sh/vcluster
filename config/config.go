@@ -613,7 +613,33 @@ func ValidateChanges(oldCfg, newCfg *Config) error {
 	if err := ValidateNamespaceSyncChanges(oldCfg, newCfg); err != nil { //nolint:revive
 		return err
 	}
+
+	if err := ValidateProjectChanges(oldCfg, newCfg); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func ValidateProjectChanges(oldCfg, newCfg *Config) error {
+	if oldCfg.PlatformProjectSet() && newCfg.PlatformProjectSet() {
+		if oldCfg.GetProject() != newCfg.GetProject() {
+			return fmt.Errorf("external.platform.project is not allowed to be changed")
+		}
+		return nil
+	}
+	return nil
+}
+
+func (c *Config) PlatformProjectSet() bool {
+	if c != nil && c.External != nil && c.External["platform"] == nil {
+		return false
+	}
+	return c.GetProject() != nil
+}
+
+func (c *Config) GetProject() interface{} {
+	return c.External["platform"]["project"]
 }
 
 // ValidateStoreChanges checks whether migrating from one store to the other is allowed.
