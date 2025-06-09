@@ -1991,10 +1991,18 @@ type ControlPlaneProbes struct {
 // If it fails, Kubernetes will restart the container.
 type LivenessProbe struct {
 	EnableSwitch
-	FailureThreshold    int `json:"failureThreshold,omitempty"`    // Number of consecutive failures for the probe to be considered failed
-	InitialDelaySeconds int `json:"initialDelaySeconds,omitempty"` // Time (in seconds) to wait before starting the liveness probe
-	TimeoutSeconds      int `json:"timeoutSeconds,omitempty"`      // Maximum duration (in seconds) that the probe will wait for a response.
-	PeriodSeconds       int `json:"periodSeconds,omitempty"`       // Frequency (in seconds) to perform the probe
+
+	// Number of consecutive failures for the probe to be considered failed
+	FailureThreshold int `json:"failureThreshold,omitempty"`
+
+	// Time (in seconds) to wait before starting the liveness probe
+	InitialDelaySeconds int `json:"initialDelaySeconds,omitempty"`
+
+	// Maximum duration (in seconds) that the probe will wait for a response.
+	TimeoutSeconds int `json:"timeoutSeconds,omitempty"`
+
+	// Frequency (in seconds) to perform the probe
+	PeriodSeconds int `json:"periodSeconds,omitempty"`
 }
 
 // ReadinessProbe defines the configuration for the readiness probe.
@@ -2002,9 +2010,15 @@ type LivenessProbe struct {
 // If it fails, Kubernetes removes the pod from the Service endpoints.
 type ReadinessProbe struct {
 	EnableSwitch
-	FailureThreshold int `json:"failureThreshold,omitempty"` // Number of consecutive failures for the probe to be considered failed
-	TimeoutSeconds   int `json:"timeoutSeconds,omitempty"`   // Maximum duration (in seconds) that the probe will wait for a response.
-	PeriodSeconds    int `json:"periodSeconds,omitempty"`    // Frequency (in seconds) to perform the probe
+
+	// Number of consecutive failures for the probe to be considered failed
+	FailureThreshold int `json:"failureThreshold,omitempty"`
+
+	// Maximum duration (in seconds) that the probe will wait for a response.
+	TimeoutSeconds int `json:"timeoutSeconds,omitempty"`
+
+	// Frequency (in seconds) to perform the probe
+	PeriodSeconds int `json:"periodSeconds,omitempty"`
 }
 
 // StartupProbe defines the configuration for the startup probe.
@@ -2012,9 +2026,15 @@ type ReadinessProbe struct {
 // While the startup probe is failing, other probes are disabled.
 type StartupProbe struct {
 	EnableSwitch
-	FailureThreshold int `json:"failureThreshold,omitempty"` // Number of consecutive failures allowed before failing the pod
-	TimeoutSeconds   int `json:"timeoutSeconds,omitempty"`   // Maximum duration (in seconds) that the probe will wait for a response.
-	PeriodSeconds    int `json:"periodSeconds,omitempty"`    // Frequency (in seconds) to perform the probe
+
+	// Number of consecutive failures allowed before failing the pod
+	FailureThreshold int `json:"failureThreshold,omitempty"`
+
+	// Maximum duration (in seconds) that the probe will wait for a response.
+	TimeoutSeconds int `json:"timeoutSeconds,omitempty"`
+
+	// Frequency (in seconds) to perform the probe
+	PeriodSeconds int `json:"periodSeconds,omitempty"`
 }
 
 type ControlPlaneSecurity struct {
