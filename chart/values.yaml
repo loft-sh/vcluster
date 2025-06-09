@@ -650,23 +650,33 @@ controlPlane:
       livenessProbe:
         # Enabled defines if this option should be enabled.
         enabled: true
+        # Number of consecutive failures for the probe to be considered failed
         failureThreshold: 60
+        # Time (in seconds) to wait before starting the liveness probe
         initialDelaySeconds: 60
+        # Maximum duration (in seconds) that the probe will wait for a response.
         timeoutSeconds: 3
+        # Frequency (in seconds) to perform the probe
         periodSeconds: 2
       # ReadinessProbe specifies if the readiness probe for the container should be enabled
       readinessProbe:
         # Enabled defines if this option should be enabled.
         enabled: true
+        # Number of consecutive failures for the probe to be considered failed
         failureThreshold: 60
+        # Maximum duration (in seconds) that the probe will wait for a response.
         timeoutSeconds: 3
+        # Frequency (in seconds) to perform the probe
         periodSeconds: 2
       # StartupProbe specifies if the startup probe for the container should be enabled
       startupProbe:
         # Enabled defines if this option should be enabled.
         enabled: true
+        # Number of consecutive failures allowed before failing the pod
         failureThreshold: 300
+        # Maximum duration (in seconds) that the probe will wait for a response.
         timeoutSeconds: 3
+        # Frequency (in seconds) to perform the probe
         periodSeconds: 6
   
   # ServiceMonitor can be used to automatically create a service monitor for vCluster deployment itself.
