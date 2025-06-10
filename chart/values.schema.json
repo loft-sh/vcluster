@@ -977,26 +977,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "DistroContainer": {
-      "properties": {
-        "command": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "Command is the command to start the distro binary. This will override the existing command."
-        },
-        "extraArgs": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "ExtraArgs are additional arguments to pass to the distro binary."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "DistroContainerEnabled": {
       "properties": {
         "enabled": {
@@ -1091,7 +1071,7 @@
           "description": "ControllerManager holds configuration specific to starting the controller manager."
         },
         "scheduler": {
-          "$ref": "#/$defs/DistroContainer",
+          "$ref": "#/$defs/DistroContainerEnabled",
           "description": "Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled"
         },
         "image": {

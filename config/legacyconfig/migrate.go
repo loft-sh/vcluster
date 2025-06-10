@@ -222,7 +222,7 @@ func convertControllerValues(oldConfig ControllerValues, newContainer *config.Di
 	newContainer.ExtraArgs = oldConfig.ExtraArgs
 }
 
-func convertSchedulerValues(oldConfig SchedulerValues, newContainer *config.DistroContainer) {
+func convertSchedulerValues(oldConfig SchedulerValues, newContainer *config.DistroContainerEnabled) {
 	newContainer.ExtraArgs = oldConfig.ExtraArgs
 }
 
