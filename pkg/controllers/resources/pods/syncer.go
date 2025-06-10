@@ -96,7 +96,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	schedulingConfig, err := scheduling.NewConfig(
-		ctx.Config.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		ctx.Config.IsVirtualSchedulerEnabled(),
 		ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled,
 		ctx.Config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers)
 	if err != nil {

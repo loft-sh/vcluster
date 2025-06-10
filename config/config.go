@@ -590,6 +590,12 @@ func (c *Config) Distro() string {
 	return K8SDistro
 }
 
+func (c *Config) IsVirtualSchedulerEnabled() bool {
+	k8sDistro := c.ControlPlane.Distro.K8S
+	return k8sDistro.Enabled && k8sDistro.Scheduler.Enabled ||
+		c.ControlPlane.Advanced.VirtualScheduler.Enabled
+}
+
 func (c *Config) IsConfiguredForSleepMode() bool {
 	if c != nil && c.External != nil && c.External["platform"] == nil {
 		return false

@@ -139,7 +139,7 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 		ServiceName:                 v.WorkloadService,
 		SetOwner:                    v.Experimental.SyncSettings.SetOwner,
 		SyncAllNodes:                v.Sync.FromHost.Nodes.Selector.All,
-		EnableScheduler:             v.ControlPlane.Advanced.VirtualScheduler.Enabled,
+		EnableScheduler:             v.IsVirtualSchedulerEnabled(),
 		DisableFakeKubelets:         !v.Networking.Advanced.ProxyKubelets.ByIP && !v.Networking.Advanced.ProxyKubelets.ByHostname,
 		FakeKubeletIPs:              v.Networking.Advanced.ProxyKubelets.ByIP,
 		ClearNodeImages:             v.Sync.FromHost.Nodes.ClearImageStatus,
@@ -214,7 +214,7 @@ func (v VirtualClusterConfig) DisableMissingAPIs(discoveryClient discovery.Disco
 
 // SchedulingInVirtualClusterEnabled returns true if the virtual scheduler or the hybrid scheduling is enabled.
 func (v VirtualClusterConfig) SchedulingInVirtualClusterEnabled() bool {
-	return v.ControlPlane.Advanced.VirtualScheduler.Enabled || v.Sync.ToHost.Pods.HybridScheduling.Enabled
+	return v.IsVirtualSchedulerEnabled() || v.Sync.ToHost.Pods.HybridScheduling.Enabled
 }
 
 func findResource(resources *metav1.APIResourceList, resourcePlural string) bool {
