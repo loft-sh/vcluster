@@ -2627,11 +2627,13 @@
     "Logging": {
       "properties": {
         "encoding": {
-          "type": "string"
+          "type": "string",
+          "description": "Encoding specifies the format of vCluster logs, it can either be json or console."
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "description": "Logging holds the log encoding details"
     },
     "MetricsServer": {
       "properties": {
@@ -4635,7 +4637,7 @@
     },
     "logging": {
       "$ref": "#/$defs/Logging",
-      "description": "Logging specifies the format of vCluster logs, the values can be either console or json"
+      "description": "Logging provides structured logging options"
     }
   },
   "additionalProperties": false,

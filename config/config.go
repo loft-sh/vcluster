@@ -87,7 +87,7 @@ type Config struct {
 	// SleepMode holds the native sleep mode configuration for Pro clusters
 	SleepMode *SleepMode `json:"sleepMode,omitempty"`
 
-	// Logging specifies the format of vCluster logs, the values can be either console or json
+	// Logging provides structured logging options
 	Logging *Logging `json:"logging,omitempty"`
 }
 
@@ -2992,6 +2992,8 @@ type AutoSleepExclusion struct {
 	Selector LabelSelector `json:"selector,omitempty"`
 }
 
+// Logging holds the log encoding details
 type Logging struct {
+	// Encoding specifies the format of vCluster logs, it can either be json or console.
 	Encoding string `json:"encoding,omitempty"`
 }
