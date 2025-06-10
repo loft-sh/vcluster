@@ -219,6 +219,36 @@ coredns:
 		},
 		{
 			Name:   "scheduler",
+			Distro: "k8s",
+			In: `sync:
+  csistoragecapacities:
+    enabled: false
+  csinodes:
+    enabled: false
+  nodes:
+    enableScheduler: true`,
+			Expected: `controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+  distro:
+    k8s:
+      enabled: true
+      scheduler:
+        enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+sync:
+  fromHost:
+    csiNodes:
+      enabled: false
+    csiStorageCapacities:
+      enabled: false`,
+		},
+		{
+			Name:   "scheduler (deprecated)",
 			Distro: "k3s",
 			In: `sync:
   csistoragecapacities:
