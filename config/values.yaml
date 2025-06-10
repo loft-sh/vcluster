@@ -629,3 +629,6 @@ experimental:
 
 telemetry:
   enabled: true
+
+logging:
+  encoding: console
