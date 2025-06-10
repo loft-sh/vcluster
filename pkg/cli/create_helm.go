@@ -34,8 +34,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	platformclihelper "github.com/loft-sh/vcluster/pkg/platform/clihelper"
-	"github.com/loft-sh/vcluster/pkg/platform/kube"
-	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
@@ -359,10 +357,14 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		if err := config.ValidateChanges(currentVClusterConfig, vClusterConfig); err != nil {
 			return err
 		}
+
 	}
 
 	// create platform secret
 	if cmd.Add {
+		if err := cmd.ValidatePlatformProjectChanges(ctx, vClusterName, currentVClusterConfig, vClusterConfig); err != nil {
+			return err
+		}
 		err = cmd.addVCluster(ctx, vClusterName, vClusterConfig)
 		if err != nil {
 			return err
@@ -406,20 +408,33 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	return nil
 }
 
-func (cmd *createHelm) ValidatePlatformProjectChanges(ctx context.Context, managementClient kube.Interface, vclusterName string, oldCfg, newCfg *config.Config) error {
-	// If old config had the project name set via vcluster.yaml and the user is trying to update
-	// the project name using cli
-	if oldCfg.PlatformProjectSet() && cmd.Project != "" && oldCfg.GetProject() != cmd.Project {
-		return fmt.Errorf("vcluster's project name is different from the project provided in the cli, project is not allowed to change")
+func (cmd *createHelm) ValidatePlatformProjectChanges(ctx context.Context, vclusterName string, oldCfg, newCfg *config.Config) error {
+	cfg := cmd.LoadedConfig(cmd.log)
+	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
+	if err != nil {
+		if newCfg.IsProFeatureEnabled() {
+			return fmt.Errorf("you have vCluster pro features enabled, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --add=false", err)
+		}
+		cmd.log.Debugf("create platform client: %v", err)
+		return nil
 	}
 
-	// If vcluster was created by setting the cmd.Project flag earlier and the user
-	// is trying to update the project from vcluster.yaml, return error
-	if newCfg.PlatformProjectSet() && newCfg.GetProject() != projectutil.ProjectFromNamespace(cmd.Namespace) {
-		return fmt.Errorf("vcluster's existing project is different from the external.platform.project, cannot change project")
+	managementClient, err := platformClient.Management()
+	if err != nil {
+		return err
 	}
 
-	return config.ValidateProjectChanges(oldCfg, newCfg)
+	platformConfig, err := newCfg.GetPlatformConfig()
+	if err != nil {
+		return fmt.Errorf("get platform config: %w", err)
+	}
+	projectName := cmd.getProjectName(platformConfig)
+	if projectName == "" {
+		projectName = "default"
+	}
+
+	return validateVclusterProject(ctx, managementClient, vclusterName, cmd.Namespace, projectName, cmd.log)
+
 }
 
 func confirmExperimental(currentVClusterConfig *config.Config, currentValues string, log log.Logger) error {

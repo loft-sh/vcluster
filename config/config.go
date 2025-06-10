@@ -614,10 +614,6 @@ func ValidateChanges(oldCfg, newCfg *Config) error {
 		return err
 	}
 
-	if err := ValidateProjectChanges(oldCfg, newCfg); err != nil {
-		return err
-	}
-
 	return nil
 }
 

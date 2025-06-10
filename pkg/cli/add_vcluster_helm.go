@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/loft-sh/log"
@@ -15,6 +17,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	"github.com/loft-sh/vcluster/pkg/platform/kube"
+	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 )
@@ -76,17 +80,60 @@ func AddVClusterHelm(
 	if err != nil {
 		return err
 	}
+
+	config := globalFlags.LoadedConfig(log)
+	platformClient, err := platform.InitClientFromConfig(ctx, config)
+	if err != nil {
+		return err
+	}
+
+	managementClient, err := platformClient.Management()
 	var addErrors []error
 	log.Debugf("trying to add %d vCluster instances to platform", len(vClusters))
 	for _, vCluster := range vClusters {
 		log.Infof("adding %s vCluster to platform", vCluster.Name)
-		err := addVClusterHelm(ctx, options, globalFlags, vCluster.Name, &vCluster, kubeClient, log)
+		err := validateVclusterProject(ctx, managementClient, vCluster.Name, vCluster.Namespace, options.Project, log)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+		err = addVClusterHelm(ctx, options, globalFlags, vCluster.Name, &vCluster, kubeClient, log)
 		if err != nil {
 			addErrors = append(addErrors, fmt.Errorf("cannot add %s: %w", vCluster.Name, err))
 		}
 	}
 
 	return utilerrors.NewAggregate(addErrors)
+}
+
+func validateVclusterProject(ctx context.Context,
+	managementClient kube.Interface,
+	vclusterName string,
+	vclusterNamespace string,
+	projectName string,
+	log log.Logger) error {
+	opts := metav1.ListOptions{
+		FieldSelector: "metadata.name=" + vclusterName,
+	}
+	virtualClusterInstancesList, err := managementClient.Loft().ManagementV1().VirtualClusterInstances("").List(ctx, opts)
+
+	if err == nil {
+		var projectNamespace string
+		for _, vci := range virtualClusterInstancesList.Items {
+			if vci.Spec.ClusterRef.Namespace == vclusterNamespace {
+				projectNamespace = vci.Namespace
+				break
+			}
+		}
+
+		if projectNamespace != "" && projectName != projectutil.ProjectFromNamespace(projectNamespace) {
+			return fmt.Errorf("Project name update not allowed for existing vcluster %s in namespace %s", vclusterName, vclusterNamespace)
+
+		}
+	} else if !kerrors.IsNotFound(err) {
+		return err
+	}
+	return nil
 }
 
 func addVClusterHelm(
