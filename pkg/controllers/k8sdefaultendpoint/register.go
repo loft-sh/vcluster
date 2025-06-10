@@ -1,13 +1,13 @@
 package k8sdefaultendpoint
 
 import (
-	controllercontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 )
 
-func Register(ctx *controllercontext.ControllerContext) error {
+func Register(ctx *synccontext.ControllerContext) error {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(ctx.VirtualManager.GetConfig())
 	if err != nil {
 		return err
@@ -21,9 +21,9 @@ func Register(ctx *controllercontext.ControllerContext) error {
 	var provider provider
 	if useLegacy {
 		klog.Infof("Registering legacy discovery endpoint for k8s.io/api/discovery/v1beta1")
-		provider = &v1BetaProvider{}
+		provider = &EndpointsV1BetaProvider{}
 	} else {
-		provider = &v1Provider{}
+		provider = &EndpointsV1Provider{}
 	}
 	return NewEndpointController(ctx, provider).Register(ctx.LocalManager)
 }

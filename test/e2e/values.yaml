@@ -1,3 +1,71 @@
-# empty values file to avoid no file or dir error
-# this test suite will be run for all configurations
-# so add values for this test suite in commonValues.yaml
+experimental:
+  deploy:
+    vcluster:
+      manifests: |-
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: test-configmap
+        data:
+          foo: bar
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: test-replicated-service-cleanup
+          labels:
+            vcluster.loft.sh/controlled-by: vcluster
+        spec:
+          selector:
+            app: fake-app
+          ports:
+          - protocol: TCP
+            port: 8080
+            targetPort: 8080
+            name: tcp
+      manifestsTemplate: |-
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: test-configmap-2
+        data:
+          foo: {{ .Release.Name }}
+      helm:
+        - chart:
+            name: ingress-nginx
+            repo: https://kubernetes.github.io/ingress-nginx
+            version: 4.1.1
+          release:
+            name: ingress-nginx
+            namespace: ingress-nginx
+          timeout: "50s"
+        - chart:
+            name: fluent-bit
+            repo: oci://registry-1.docker.io/bitnamicharts
+            version: 0.4.3
+          release:
+            name: fluent-bit
+            namespace: fluent-bit
+          timeout: "50s"
+sync:
+  fromHost:
+    runtimeClasses:
+      enabled: true
+    configMaps:
+      enabled: true
+      mappings:
+        byName:
+          "from-host-sync-test/*": "barfoo/*"
+          "default/my.cm": "barfoo/cm-my"
+          "": "my-new-ns"
+          "/my-cm-4": "barfoo/my-cm-4"
+          "/specific-cm": "my-virtual-namespace/specific-cm"
+          "my-ns/to-be-deleted": "my-ns/to-be-deleted"
+          "same-ns/*": "same-ns/*"
+    secrets:
+      enabled: true
+      mappings:
+        byName:
+          "from-host-sync-test-2/dummy": "barfoo2/dummy"
+          "default/my-secret": "barfoo2/secret-my"
+          "/my-secret-in-default-ns": "barfoo2/secret-from-default-ns"

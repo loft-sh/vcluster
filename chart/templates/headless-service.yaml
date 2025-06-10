@@ -1,0 +1,43 @@
+{{- if not .Values.experimental.isolatedControlPlane.headless }}
+{{- if eq (include "vcluster.kind" .) "StatefulSet" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-headless
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  {{- if .Values.controlPlane.advanced.headlessService.labels }}
+{{ toYaml .Values.controlPlane.advanced.headlessService.labels | indent 4 }}
+  {{- end }}
+  {{- $annotations := merge dict .Values.controlPlane.advanced.headlessService.annotations .Values.controlPlane.advanced.globalMetadata.annotations }}
+  {{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+  {{- end }}
+spec:
+  publishNotReadyAddresses: true
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443
+      protocol: TCP
+    {{- if .Values.controlPlane.backingStore.etcd.embedded.enabled }}
+    - name: etcd
+      port: 2379
+      targetPort: 2379
+      protocol: TCP
+    - name: peer
+      port: 2380
+      targetPort: 2380
+      protocol: TCP
+    {{- end }}
+  clusterIP: None
+  selector:
+    app: vcluster
+    release: "{{ .Release.Name }}"
+{{- end }}
+{{- end }}

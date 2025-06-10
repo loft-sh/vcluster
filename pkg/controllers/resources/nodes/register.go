@@ -2,8 +2,8 @@ package nodes
 
 import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -16,8 +16,8 @@ func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		return nil, err
 	}
 
-	nodeService := nodeservice.NewNodeServiceProvider(ctx.Options.ServiceName, ctx.CurrentNamespace, ctx.CurrentNamespaceClient, ctx.VirtualManager.GetClient(), uncachedVirtualClient)
-	if !ctx.Controllers.Has("nodes") {
+	nodeService := nodeservice.NewNodeServiceProvider(ctx.Config.WorkloadService, ctx.CurrentNamespace, ctx.CurrentNamespaceClient, ctx.VirtualManager.GetClient(), uncachedVirtualClient)
+	if !ctx.Config.Sync.FromHost.Nodes.Enabled {
 		return NewFakeSyncer(ctx, nodeService)
 	}
 

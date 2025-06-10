@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/loft-sh/vcluster/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v3"
 	k8syaml "sigs.k8s.io/yaml"
@@ -60,8 +60,9 @@ func CopyFromObject(obj1, obj2 *yaml.Node, patch *config.Patch) error {
 				},
 			})
 		} else {
-			parent := Find(obj1, ContainsChild(m))
-			removeChild(parent, m)
+			if parent := Find(obj1, ContainsChild(m)); parent != nil {
+				removeChild(parent, m)
+			}
 		}
 	}
 
@@ -71,23 +72,28 @@ func CopyFromObject(obj1, obj2 *yaml.Node, patch *config.Patch) error {
 func Remove(obj1 *yaml.Node, patch *config.Patch) error {
 	matches, err := FindMatches(obj1, patch.Path)
 	if err != nil {
-		return errors.Wrap(err, "find matches")
+		return fmt.Errorf("find matches: %w", err)
 	}
 
 	for _, m := range matches {
 		validated, err := ValidateAllConditions(obj1, m, patch.Conditions)
 		if err != nil {
-			return errors.Wrap(err, "validate conditions")
+			return fmt.Errorf("validate conditions: %w", err)
 		} else if !validated {
 			continue
 		}
 
 		parent := Find(obj1, ContainsChild(m))
+		if parent == nil {
+			continue
+		}
+
 		switch parent.Kind {
 		case yaml.MappingNode:
 			parent.Content = removeProperty(parent, m)
 		case yaml.SequenceNode:
 			parent.Content = removeChild(parent, m)
+		case yaml.DocumentNode, yaml.ScalarNode, yaml.AliasNode:
 		}
 	}
 
@@ -171,13 +177,13 @@ func RewriteName(obj1 *yaml.Node, patch *config.Patch, resolver NameResolver) er
 		case yaml.SequenceNode:
 			for _, subNode := range m.Content {
 				err = ProcessRewrite(subNode, patch, resolver)
-
 				if err != nil {
 					return err
 				}
 			}
 		case yaml.MappingNode:
 			err = ProcessRewrite(m, patch, resolver)
+		case yaml.DocumentNode, yaml.AliasNode:
 		}
 
 		if err != nil {
@@ -194,7 +200,6 @@ func ProcessRewrite(obj *yaml.Node, patch *config.Patch, resolver NameResolver) 
 
 	if patch.NamespacePath != "" {
 		namespace, err = GetNamespace(obj, patch)
-
 		if err != nil {
 			return err
 		}
@@ -210,7 +215,6 @@ func ProcessRewrite(obj *yaml.Node, patch *config.Patch, resolver NameResolver) 
 			continue
 		}
 		err = ValidateAndTranslateName(obj, nameMatch, patch, resolver, namespace)
-
 		if err != nil {
 			return err
 		}
@@ -228,7 +232,6 @@ func ProcessRewrite(obj *yaml.Node, patch *config.Patch, resolver NameResolver) 
 				continue
 			}
 			err = ValidateAndTranslateNamespace(obj, namespaceMatch, patch, resolver)
-
 			if err != nil {
 				return err
 			}
@@ -471,10 +474,11 @@ func createPath(obj1 *yaml.Node, path string, value *yaml.Node) error {
 
 	// check if we expect an array or map as parent
 	for _, match := range matches {
-		parent := Find(obj1, ContainsChild(match))
 		switch match.Kind {
 		case yaml.ScalarNode:
-			parent.Content = AddChildAtIndex(parent, match, value)
+			if parent := Find(obj1, ContainsChild(match)); parent != nil {
+				parent.Content = AddChildAtIndex(parent, match, value)
+			}
 		case yaml.MappingNode:
 			match.Content = append(match.Content, &yaml.Node{
 				Kind:  yaml.ScalarNode,
@@ -489,6 +493,8 @@ func createPath(obj1 *yaml.Node, path string, value *yaml.Node) error {
 				Tag:   "!!str",
 				Value: opPath.getChildName(),
 			}, value)
+		case yaml.AliasNode:
+			// TODO: Implement node aliases in the future
 		}
 	}
 
@@ -505,7 +511,7 @@ func isSequenceChild(path string) bool {
 	return err == nil
 }
 
-func createSequenceNode(path string, child *yaml.Node) *yaml.Node {
+func createSequenceNode(_ string, child *yaml.Node) *yaml.Node {
 	childNode := &yaml.Node{
 		Kind: yaml.SequenceNode,
 		Tag:  "!!seq",
@@ -541,15 +547,18 @@ func createMappingNode(path string, child *yaml.Node) *yaml.Node {
 }
 
 func AddNode(obj1 *yaml.Node, match *yaml.Node, value *yaml.Node) {
-	parent := Find(obj1, ContainsChild(match))
 	switch match.Kind {
 	case yaml.ScalarNode:
-		parent.Content = AddChildAtIndex(parent, match, value)
+		if parent := Find(obj1, ContainsChild(match)); parent != nil {
+			parent.Content = AddChildAtIndex(parent, match, value)
+		}
 	case yaml.MappingNode:
 		match.Content = append(match.Content, value.Content[0].Content...)
 	case yaml.SequenceNode:
 		match.Content = append(match.Content, value.Content...)
 	case yaml.DocumentNode:
 		match.Content[0].Content = append(match.Content[0].Content, value.Content[0].Content...)
+	case yaml.AliasNode:
+		// TODO: Implement node aliases in the future
 	}
 }

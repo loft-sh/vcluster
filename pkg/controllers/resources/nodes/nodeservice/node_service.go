@@ -2,12 +2,13 @@ package nodeservice
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,13 +26,11 @@ var (
 	ServiceClusterLabel = "vcluster.loft.sh/belongs-to"
 	// ServiceNodeLabel specifies which node this service represents
 	ServiceNodeLabel = "vcluster.loft.sh/node"
-	// KubeletPort is the port we pretend the kubelet is running under
-	KubeletPort = int32(10250)
 	// KubeletTargetPort is the port vcluster will run under
 	KubeletTargetPort = 8443
 )
 
-type NodeServiceProvider interface {
+type Provider interface {
 	sync.Locker
 	// Start starts the node service garbage collector
 	Start(ctx context.Context)
@@ -39,7 +38,7 @@ type NodeServiceProvider interface {
 	GetNodeIP(ctx context.Context, name string) (string, error)
 }
 
-func NewNodeServiceProvider(serviceName, currentNamespace string, currentNamespaceClient client.Client, virtualClient client.Client, uncachedVirtualClient client.Client) NodeServiceProvider {
+func NewNodeServiceProvider(serviceName, currentNamespace string, currentNamespaceClient client.Client, virtualClient client.Client, uncachedVirtualClient client.Client) Provider {
 	return &nodeServiceProvider{
 		serviceName:            serviceName,
 		currentNamespace:       currentNamespace,
@@ -75,10 +74,10 @@ func (n *nodeServiceProvider) cleanupNodeServices(ctx context.Context) error {
 
 	serviceList := &corev1.ServiceList{}
 	err := n.currentNamespaceClient.List(ctx, serviceList, client.InNamespace(n.currentNamespace), client.MatchingLabels{
-		ServiceClusterLabel: translate.Suffix,
+		ServiceClusterLabel: translate.VClusterName,
 	})
 	if err != nil {
-		return errors.Wrap(err, "list services")
+		return fmt.Errorf("list services: %w", err)
 	}
 
 	errors := []error{}
@@ -124,17 +123,17 @@ func (n *nodeServiceProvider) Unlock() {
 }
 
 func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (string, error) {
-	serviceName := translate.SafeConcatName(translate.Suffix, "node", strings.ReplaceAll(name, ".", "-"))
+	serviceName := translate.SafeConcatName(translate.VClusterName, "node", strings.ReplaceAll(name, ".", "-"))
 
 	service := &corev1.Service{}
 	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: n.currentNamespace}, service)
 	if err != nil && !kerrors.IsNotFound(err) {
-		return "", errors.Wrap(err, "list services")
+		return "", fmt.Errorf("list services: %w", err)
 	} else if err == nil {
 		if service.Spec.Selector == nil {
 			err = n.updateNodeServiceEndpoints(ctx, serviceName)
 			if err != nil {
-				return "", errors.Wrap(err, "update node service endpoints")
+				return "", fmt.Errorf("update node service endpoinds: %w", err)
 			}
 		}
 
@@ -145,11 +144,11 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 	vclusterService := &corev1.Service{}
 	err = n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: n.serviceName, Namespace: n.currentNamespace}, vclusterService)
 	if err != nil {
-		return "", errors.Wrap(err, "get vcluster service")
+		return "", fmt.Errorf("get vcluster service: %w", err)
 	}
 
 	// create the new service
-	targetPort := intstr.FromInt(KubeletTargetPort)
+	targetPort := intstr.FromInt32(int32(KubeletTargetPort))
 	if vclusterService.Spec.Selector == nil {
 		targetPort = intstr.IntOrString{}
 	}
@@ -158,7 +157,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 			Namespace: n.currentNamespace,
 			Name:      serviceName,
 			Labels: map[string]string{
-				ServiceClusterLabel: translate.Suffix,
+				ServiceClusterLabel: translate.VClusterName,
 				ServiceNodeLabel:    name,
 			},
 		},
@@ -166,7 +165,7 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "kubelet",
-					Port:       int32(KubeletPort),
+					Port:       constants.KubeletPort,
 					TargetPort: targetPort,
 				},
 			},
@@ -183,14 +182,14 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 	klog.Infof("Generating kubelet service for node %s", name)
 	err = n.currentNamespaceClient.Create(ctx, nodeService)
 	if err != nil {
-		return "", errors.Wrap(err, "create node service")
+		return "", fmt.Errorf("create node service: %w", err)
 	}
 
 	// create endpoints if selector is empty
 	if vclusterService.Spec.Selector == nil {
 		err = n.updateNodeServiceEndpoints(ctx, serviceName)
 		if err != nil {
-			return "", errors.Wrap(err, "update node service endpoints")
+			return "", fmt.Errorf("update node service endpoints: %w", err)
 		}
 	}
 
@@ -198,10 +197,10 @@ func (n *nodeServiceProvider) GetNodeIP(ctx context.Context, name string) (strin
 }
 
 func (n *nodeServiceProvider) updateNodeServiceEndpoints(ctx context.Context, nodeServiceName string) error {
-	vclusterServiceEndpoints := &corev1.Endpoints{}
-	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: n.serviceName, Namespace: n.currentNamespace}, vclusterServiceEndpoints)
+	vClusterServiceEndpoints := &corev1.Endpoints{}
+	err := n.currentNamespaceClient.Get(ctx, types.NamespacedName{Name: n.serviceName, Namespace: n.currentNamespace}, vClusterServiceEndpoints)
 	if err != nil {
-		return errors.Wrap(err, "get vcluster service endpoints")
+		return fmt.Errorf("get vcluster service endpoints: %w", err)
 	}
 
 	// filter subsets
@@ -214,14 +213,19 @@ func (n *nodeServiceProvider) updateNodeServiceEndpoints(ctx context.Context, no
 	result, err := controllerutil.CreateOrPatch(ctx, n.currentNamespaceClient, nodeServiceEndpoints, func() error {
 		// build new subsets
 		newSubsets := []corev1.EndpointSubset{}
-		for _, subset := range vclusterServiceEndpoints.Subsets {
+		for _, subset := range vClusterServiceEndpoints.Subsets {
 			newPorts := []corev1.EndpointPort{}
 			for _, p := range subset.Ports {
-				if p.Name != "kubelet" {
+				if p.Name != "https" {
 					continue
 				}
 
-				newPorts = append(newPorts, p)
+				newPorts = append(newPorts, corev1.EndpointPort{
+					Name:        "kubelet",
+					Port:        p.Port,
+					Protocol:    p.Protocol,
+					AppProtocol: p.AppProtocol,
+				})
 			}
 
 			newAddresses := []corev1.EndpointAddress{}

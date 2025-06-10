@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -14,12 +15,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/pointer"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/utils/ptr"
 )
 
 func (f *Framework) WaitForPodRunning(podName string, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second*5, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		pod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(ctx, translate.Default.PhysicalName(podName, ns), metav1.GetOptions{})
+		pPodName := translate.Default.HostName(nil, podName, ns)
+		pod, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(ctx, pPodName.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -29,7 +34,7 @@ func (f *Framework) WaitForPodRunning(podName string, ns string) error {
 		if pod.Status.Phase != corev1.PodRunning {
 			return false, nil
 		}
-		vpod, err := f.VclusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+		vpod, err := f.VClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -45,7 +50,8 @@ func (f *Framework) WaitForPodRunning(podName string, ns string) error {
 
 func (f *Framework) WaitForPodToComeUpWithReadinessConditions(podName string, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		pod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(ctx, translate.Default.PhysicalName(podName, ns), metav1.GetOptions{})
+		pPodName := translate.Default.HostName(nil, podName, ns)
+		pod, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(ctx, pPodName.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -64,7 +70,8 @@ func (f *Framework) WaitForPodToComeUpWithReadinessConditions(podName string, ns
 
 func (f *Framework) WaitForPodToComeUpWithEphemeralContainers(podName string, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		pod, err := f.HostClient.CoreV1().Pods(translate.Default.PhysicalNamespace(ns)).Get(ctx, translate.Default.PhysicalName(podName, ns), metav1.GetOptions{})
+		pPodName := translate.Default.HostName(nil, podName, ns)
+		pod, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(ctx, pPodName.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -84,7 +91,8 @@ func (f *Framework) WaitForPodToComeUpWithEphemeralContainers(podName string, ns
 
 func (f *Framework) WaitForPersistentVolumeClaimBound(pvcName, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(translate.Default.PhysicalNamespace(ns)).Get(ctx, translate.Default.PhysicalName(pvcName, ns), metav1.GetOptions{})
+		pPvcName := translate.Default.HostName(nil, pvcName, ns)
+		pvc, err := f.HostClient.CoreV1().PersistentVolumeClaims(pPvcName.Namespace).Get(ctx, pPvcName.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -97,7 +105,7 @@ func (f *Framework) WaitForPersistentVolumeClaimBound(pvcName, ns string) error 
 			return false, nil
 		}
 
-		vpvc, err := f.VclusterClient.CoreV1().PersistentVolumeClaims(ns).Get(ctx, pvcName, metav1.GetOptions{})
+		vpvc, err := f.VClusterClient.CoreV1().PersistentVolumeClaims(ns).Get(ctx, pvcName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -116,7 +124,7 @@ func (f *Framework) WaitForPersistentVolumeClaimBound(pvcName, ns string) error 
 
 func (f *Framework) WaitForInitManifestConfigMapCreation(configMapName, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err := f.VclusterClient.CoreV1().ConfigMaps(ns).Get(ctx, configMapName, metav1.GetOptions{})
+		_, err := f.VClusterClient.CoreV1().ConfigMaps(ns).Get(ctx, configMapName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -130,7 +138,7 @@ func (f *Framework) WaitForInitManifestConfigMapCreation(configMapName, ns strin
 
 func (f *Framework) WaitForServiceAccount(saName string, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err := f.VclusterClient.CoreV1().ServiceAccounts(ns).Get(ctx, saName, metav1.GetOptions{})
+		_, err := f.VClusterClient.CoreV1().ServiceAccounts(ns).Get(ctx, saName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -143,7 +151,8 @@ func (f *Framework) WaitForServiceAccount(saName string, ns string) error {
 
 func (f *Framework) WaitForService(serviceName string, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err := f.HostClient.CoreV1().Services(translate.Default.PhysicalNamespace(ns)).Get(ctx, translate.Default.PhysicalName(serviceName, ns), metav1.GetOptions{})
+		pServiceName := translate.Default.HostName(nil, serviceName, ns)
+		_, err := f.HostClient.CoreV1().Services(pServiceName.Namespace).Get(ctx, pServiceName.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -151,6 +160,22 @@ func (f *Framework) WaitForService(serviceName string, ns string) error {
 			return false, err
 		}
 		return true, nil
+	})
+}
+
+// WaitForServiceToUpdate waits for a Kubernetes service to update by periodically fetching it using the provided client.
+// It compares the current resource version of the service to the specified version and returns when they are different.
+func (f *Framework) WaitForServiceToUpdate(client *kubernetes.Clientset, serviceName string, ns string, resourceVersion string) error {
+	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
+		svc, err := client.CoreV1().Services(ns).Get(ctx, serviceName, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+
+		return svc.ResourceVersion != resourceVersion, nil
 	})
 }
 
@@ -162,7 +187,7 @@ func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) e
 	annotationKey := "e2e-test-bump"
 	updated := false
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		vService, err := f.VclusterClient.CoreV1().Services(ns).Get(ctx, serviceName, metav1.GetOptions{})
+		vService, err := f.VClusterClient.CoreV1().Services(ns).Get(ctx, serviceName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -175,7 +200,7 @@ func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) e
 				vService.Annotations = map[string]string{}
 			}
 			vService.Annotations[annotationKey] = "arbitrary"
-			_, err = f.VclusterClient.CoreV1().Services(ns).Update(ctx, vService, metav1.UpdateOptions{})
+			_, err = f.VClusterClient.CoreV1().Services(ns).Update(ctx, vService, metav1.UpdateOptions{})
 			if err != nil {
 				if kerrors.IsConflict(err) || kerrors.IsNotFound(err) {
 					return false, nil
@@ -186,7 +211,8 @@ func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) e
 		}
 
 		// Check for annotation
-		pService, err := f.HostClient.CoreV1().Services(translate.Default.PhysicalNamespace(ns)).Get(ctx, translate.Default.PhysicalName(serviceName, ns), metav1.GetOptions{})
+		pServiceName := translate.Default.HostName(nil, serviceName, ns)
+		pService, err := f.HostClient.CoreV1().Services(pServiceName.Namespace).Get(ctx, pServiceName.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return false, nil
@@ -199,18 +225,35 @@ func (f *Framework) WaitForServiceInSyncerCache(serviceName string, ns string) e
 }
 
 func (f *Framework) DeleteTestNamespace(ns string, waitUntilDeleted bool) error {
-	err := f.VclusterClient.CoreV1().Namespaces().Delete(f.Context, ns, metav1.DeleteOptions{})
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
-		}
-		return err
+	// Always delete in the background. The vCluster client timeout is set to 32 seconds, so deleting
+	// in the foreground may cause timeouts in delete requests, which will cause e2e tests to fail.
+	// If you need a blocking/foreground deletion call, you can set waitUntilDeleted to true, which
+	// will result in polling below, where we check if the namespace is deleted.
+	propagationPolicy := metav1.DeletePropagationBackground
+	deleteOptions := metav1.DeleteOptions{
+		PropagationPolicy: &propagationPolicy,
 	}
+	for i := 0; i < 5; i++ {
+		err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, ns, deleteOptions)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return nil
+			} else if i == 4 {
+				return err
+			}
+
+			time.Sleep(time.Second)
+			continue
+		}
+
+		break
+	}
+
 	if !waitUntilDeleted {
 		return nil
 	}
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err = f.VclusterClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
+		_, err := f.VClusterClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			return true, nil
 		}
@@ -220,14 +263,15 @@ func (f *Framework) DeleteTestNamespace(ns string, waitUntilDeleted bool) error 
 
 func (f *Framework) GetDefaultSecurityContext() *corev1.SecurityContext {
 	return &corev1.SecurityContext{
-		RunAsUser: pointer.Int64(12345),
+		RunAsUser: ptr.To(int64(12345)),
 	}
 }
 
 func (f *Framework) CreateCurlPod(ns string) (*corev1.Pod, error) {
-	return f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+	return f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "curl"},
 		Spec: corev1.PodSpec{
+			TerminationGracePeriodSeconds: ptr.To(int64(1)),
 			Containers: []corev1.Container{
 				{
 					Name:            "curl",
@@ -247,7 +291,7 @@ func (f *Framework) CreateNginxPodAndService(ns string) (*corev1.Pod, *corev1.Se
 	serviceName := "nginx"
 	labels := map[string]string{"app": "nginx"}
 
-	pod, err := f.VclusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+	pod, err := f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   podName,
 			Labels: labels,
@@ -256,7 +300,7 @@ func (f *Framework) CreateNginxPodAndService(ns string) (*corev1.Pod, *corev1.Se
 			Containers: []corev1.Container{
 				{
 					Name:            podName,
-					Image:           "nginxinc/nginx-unprivileged",
+					Image:           "nginxinc/nginx-unprivileged:stable-alpine3.20-slim",
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					SecurityContext: f.GetDefaultSecurityContext(),
 				},
@@ -267,7 +311,7 @@ func (f *Framework) CreateNginxPodAndService(ns string) (*corev1.Pod, *corev1.Se
 		return nil, nil, err
 	}
 
-	service, err := f.VclusterClient.CoreV1().Services(ns).Create(f.Context, &corev1.Service{
+	service, err := f.VClusterClient.CoreV1().Services(ns).Create(f.Context, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: ns,
@@ -309,15 +353,15 @@ func (f *Framework) TestServiceIsEventuallyUnreachable(curlPod *corev1.Pod, serv
 	ExpectNoError(err, "Nginx service is expected to be unreachable. On the last attempt got %s http code and following error:", string(stdoutBuffer), lastError)
 }
 
-func (f *Framework) curlService(ctx context.Context, curlPod *corev1.Pod, service *corev1.Service) ([]byte, []byte, error) {
+func (f *Framework) curlService(_ context.Context, curlPod *corev1.Pod, service *corev1.Service) ([]byte, []byte, error) {
 	url := fmt.Sprintf("http://%s.%s.svc:%d/", service.GetName(), service.GetNamespace(), service.Spec.Ports[0].Port)
 	cmd := []string{"curl", "-s", "--show-error", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "2", url}
-	return podhelper.ExecBuffered(f.Context, f.VclusterConfig, curlPod.GetNamespace(), curlPod.GetName(), curlPod.Spec.Containers[0].Name, cmd, nil)
+	return podhelper.ExecBuffered(f.Context, f.VClusterConfig, curlPod.GetNamespace(), curlPod.GetName(), curlPod.Spec.Containers[0].Name, cmd, nil)
 }
 
 func (f *Framework) CreateEgressNetworkPolicyForDNS(ctx context.Context, ns string) (*networkingv1.NetworkPolicy, error) {
 	UDPProtocol := corev1.ProtocolUDP
-	return f.VclusterClient.NetworkingV1().NetworkPolicies(ns).Create(ctx, &networkingv1.NetworkPolicy{
+	return f.VClusterClient.NetworkingV1().NetworkPolicies(ns).Create(ctx, &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: "allow-coredns-egress"},
 		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{},
@@ -331,7 +375,7 @@ func (f *Framework) CreateEgressNetworkPolicyForDNS(ctx context.Context, ns stri
 					},
 					To: []networkingv1.NetworkPolicyPeer{
 						{
-							PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{"k8s-app": "kube-dns"}},
+							PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{"k8s-app": "vcluster-kube-dns"}},
 							NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"kubernetes.io/metadata.name": "kube-system"}},
 						},
 					},
@@ -339,4 +383,36 @@ func (f *Framework) CreateEgressNetworkPolicyForDNS(ctx context.Context, ns stri
 			},
 		},
 	}, metav1.CreateOptions{})
+}
+
+func (f *Framework) ExecCommandInThePod(podName, podNamespace string, command []string) (string, error) {
+	req := f.VClusterClient.CoreV1().RESTClient().Post().Resource("pods").Name(podName).
+		Namespace(podNamespace).SubResource("exec")
+	option := &corev1.PodExecOptions{
+		Command: command,
+		Stdin:   false,
+		Stdout:  true,
+		Stderr:  true,
+		TTY:     true,
+	}
+	req.VersionedParams(
+		option,
+		scheme.ParameterCodec,
+	)
+	exec, err := remotecommand.NewSPDYExecutor(f.VClusterConfig, "POST", req.URL())
+	if err != nil {
+		return "", err
+	}
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	err = exec.StreamWithContext(f.Context, remotecommand.StreamOptions{
+		Stdout: stdout,
+		Stderr: stderr,
+	})
+	if err != nil {
+		return stderr.String(), err
+	}
+
+	return stdout.String(), nil
 }

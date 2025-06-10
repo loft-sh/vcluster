@@ -2,19 +2,20 @@ package k8sdefaultendpoint
 
 import (
 	"context"
+	"testing"
+
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"testing"
 )
 
 func TestCreateOrPatch(t *testing.T) {
 	ctx := context.Background()
-	scheme := testingutil.NewScheme()
 	InitialVirtualState := []runtime.Object{}
-	virtualClient := testingutil.NewFakeClient(scheme, InitialVirtualState...)
+	virtualClient := testingutil.NewFakeClient(scheme.Scheme, InitialVirtualState...)
 	endpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "test",
@@ -38,11 +39,11 @@ func TestCreateOrPatch(t *testing.T) {
 			},
 		},
 	}
-	p := &v1Provider{}
-	err := p.createOrPatch(ctx, virtualClient, endpoints)
+	p := &EndpointsV1Provider{}
+	err := p.CreateOrPatch(ctx, virtualClient, endpoints)
 	assert.NilError(t, err, "")
 
-	pbeta := &v1BetaProvider{}
-	err = pbeta.createOrPatch(ctx, virtualClient, endpoints)
+	pbeta := &EndpointsV1BetaProvider{}
+	err = pbeta.CreateOrPatch(ctx, virtualClient, endpoints)
 	assert.NilError(t, err, "")
 }

@@ -1,9 +1,17 @@
 package endpoints
 
 import (
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"errors"
+	"fmt"
+
+	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,38 +21,101 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.Endpoints())
+	if err != nil {
+		return nil, err
+	}
+
 	return &endpointsSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "endpoints", &corev1.Endpoints{}),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "endpoints", &corev1.Endpoints{}, mapper),
+
+		excludedAnnotations: []string{
+			"control-plane.alpha.kubernetes.io/leader",
+		},
 	}, nil
 }
 
 type endpointsSyncer struct {
-	translator.NamespacedTranslator
+	syncertypes.GenericTranslator
+
+	excludedAnnotations []string
 }
 
-func (s *endpointsSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	return s.SyncDownCreate(ctx, vObj, s.translate(ctx.Context, vObj))
+var _ syncertypes.OptionsProvider = &endpointsSyncer{}
+
+func (s *endpointsSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		ObjectCaching: true,
+	}
 }
 
-func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	newEndpoints := s.translateUpdate(ctx.Context, pObj.(*corev1.Endpoints), vObj.(*corev1.Endpoints))
-	if newEndpoints != nil {
-		translator.PrintChanges(pObj, newEndpoints, ctx.Log)
+var _ syncertypes.Syncer = &endpointsSyncer{}
+
+func (s *endpointsSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer(s)
+}
+
+func (s *endpointsSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Endpoints]) (ctrl.Result, error) {
+	if event.HostOld != nil {
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
-	return s.SyncDownUpdate(ctx, vObj, newEndpoints)
+	pObj := s.translate(ctx, event.Virtual)
+	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.Endpoints.Patches, false)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return patcher.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder(), false)
 }
 
-var _ syncer.Starter = &endpointsSyncer{}
+func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Endpoints]) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Endpoints.Patches, false))
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
+			retErr = errors.Join(retErr, err)
+		}
+
+		if retErr != nil {
+			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
+		}
+	}()
+
+	err = s.translateUpdate(ctx, event.Host, event.Virtual)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// bi-directional sync of annotations and labels
+	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event, s.excludedAnnotations...)
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
+
+	return ctrl.Result{}, nil
+}
+
+func (s *endpointsSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Endpoints]) (_ ctrl.Result, retErr error) {
+	// virtual object is not here anymore, so we delete
+	return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
+}
+
+var _ syncertypes.Starter = &endpointsSyncer{}
 
 func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
-	if req.Namespace == "default" && req.Name == "kubernetes" {
+	if req.NamespacedName == specialservices.DefaultKubernetesSvcKey {
 		return true, nil
+	}
+	if specialservices.Default != nil {
+		if _, ok := specialservices.Default.SpecialServicesToSync()[req.NamespacedName]; ok {
+			return true, nil
+		}
 	}
 
 	svc := &corev1.Service{}
-	err := ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{
+	err := ctx.VirtualClient.Get(ctx, types.NamespacedName{
 		Namespace: req.Namespace,
 		Name:      req.Name,
 	}, svc)
@@ -57,7 +128,7 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 	} else if svc.Spec.Selector != nil {
 		// check if it was a managed endpoints object before and delete it
 		endpoints := &corev1.Endpoints{}
-		err := ctx.PhysicalClient.Get(ctx.Context, s.NamespacedTranslator.VirtualToPhysical(ctx.Context, req.NamespacedName, nil), endpoints)
+		err = ctx.PhysicalClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpoints)
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
 				klog.Infof("Error retrieving endpoints: %v", err)
@@ -71,10 +142,10 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 			// Deleting the endpoints is necessary here as some clusters would not correctly maintain
 			// the endpoints if they were managed by us previously and now should be managed by Kubernetes.
 			// In the worst case we would end up in a state where we have multiple endpoint slices pointing
-			// to the same endpoints resulting in wrong DNS and cluster networking. Hence deleting the previously
+			// to the same endpoints resulting in wrong DNS and cluster networking. Hence, deleting the previously
 			// managed endpoints signals the Kubernetes controller to recreate the endpoints from the selector.
 			klog.Infof("Refresh endpoints in physical cluster because they shouldn't be managed by vcluster anymore")
-			err = ctx.PhysicalClient.Delete(ctx.Context, endpoints)
+			err = ctx.PhysicalClient.Delete(ctx, endpoints)
 			if err != nil {
 				klog.Infof("Error deleting endpoints %s/%s: %v", endpoints.Namespace, endpoints.Name, err)
 				return true, err
@@ -82,6 +153,18 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 		}
 
 		return true, nil
+	}
+
+	// check if it was a Kubernetes managed endpoints object before and delete it
+	endpoints := &corev1.Endpoints{}
+	err = ctx.PhysicalClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpoints)
+	if err == nil && (endpoints.Annotations == nil || endpoints.Annotations[translate.NameAnnotation] == "") {
+		klog.Infof("Refresh endpoints in physical cluster because they should be managed by vCluster now")
+		err = ctx.PhysicalClient.Delete(ctx, endpoints)
+		if err != nil {
+			klog.Infof("Error deleting endpoints %s/%s: %v", endpoints.Namespace, endpoints.Name, err)
+			return true, err
+		}
 	}
 
 	return false, nil

@@ -12,7 +12,7 @@ import (
 func ApplyManifestFile(ctx context.Context, inClusterConfig *rest.Config, filename string) error {
 	manifest, err := os.ReadFile(filename)
 	if err != nil {
-		return fmt.Errorf("function ApplyManifestFile failed, unable to read %s file: %v", filename, err)
+		return fmt.Errorf("function ApplyManifestFile failed, unable to read %s file: %w", filename, err)
 	}
 
 	return ApplyManifest(ctx, inClusterConfig, manifest)
@@ -29,7 +29,7 @@ func ApplyManifest(ctx context.Context, inClusterConfig *rest.Config, manifests 
 	}
 
 	a := DirectApplier{}
-	opts := ApplierOptions{
+	opts := Options{
 		RESTMapper: restMapper,
 		RESTConfig: inClusterConfig,
 		Manifest:   string(manifests),

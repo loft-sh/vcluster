@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
-	authv1 "k8s.io/api/authorization/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -28,6 +28,8 @@ func New(delegatingClient client.Client, resources []GroupVersionResourceVerb, n
 
 		nonResources: nonResources,
 		resources:    resources,
+
+		cache: NewCache(),
 	}
 }
 
@@ -36,6 +38,8 @@ type delegatingAuthorizer struct {
 
 	nonResources []PathVerb
 	resources    []GroupVersionResourceVerb
+
+	cache *Cache
 }
 
 func (l *delegatingAuthorizer) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
@@ -43,10 +47,16 @@ func (l *delegatingAuthorizer) Authorize(ctx context.Context, a authorizer.Attri
 		return authorizer.DecisionNoOpinion, "", nil
 	}
 
+	// check if in cache
+	authorized, reason, exists := l.cache.Get(a)
+	if exists {
+		return authorized, reason, nil
+	}
+
 	// check if request is allowed in the target cluster
-	accessReview := &authv1.SubjectAccessReview{
+	accessReview := &authorizationv1.SubjectAccessReview{
 		ObjectMeta: metav1.ObjectMeta{},
-		Spec: authv1.SubjectAccessReviewSpec{
+		Spec: authorizationv1.SubjectAccessReviewSpec{
 			User:   a.GetUser().GetName(),
 			UID:    a.GetUser().GetUID(),
 			Groups: a.GetUser().GetGroups(),
@@ -54,7 +64,7 @@ func (l *delegatingAuthorizer) Authorize(ctx context.Context, a authorizer.Attri
 		},
 	}
 	if a.IsResourceRequest() {
-		accessReview.Spec.ResourceAttributes = &authv1.ResourceAttributes{
+		accessReview.Spec.ResourceAttributes = &authorizationv1.ResourceAttributes{
 			Namespace:   a.GetNamespace(),
 			Verb:        a.GetVerb(),
 			Group:       a.GetAPIGroup(),
@@ -64,7 +74,7 @@ func (l *delegatingAuthorizer) Authorize(ctx context.Context, a authorizer.Attri
 			Name:        a.GetName(),
 		}
 	} else {
-		accessReview.Spec.NonResourceAttributes = &authv1.NonResourceAttributes{
+		accessReview.Spec.NonResourceAttributes = &authorizationv1.NonResourceAttributes{
 			Path: a.GetPath(),
 			Verb: a.GetVerb(),
 		}
@@ -73,6 +83,7 @@ func (l *delegatingAuthorizer) Authorize(ctx context.Context, a authorizer.Attri
 	if err != nil {
 		return authorizer.DecisionDeny, "", err
 	} else if accessReview.Status.Allowed && !accessReview.Status.Denied {
+		l.cache.Set(a, authorizer.DecisionAllow, "")
 		return authorizer.DecisionAllow, "", nil
 	}
 

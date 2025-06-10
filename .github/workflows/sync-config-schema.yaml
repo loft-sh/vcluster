@@ -1,0 +1,164 @@
+name: Sync Config Schema
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      releaseTag:
+        description: 'Release tag in form vX.Y.Z'
+        required: true
+        type: string
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+      is_alpha_version: ${{ steps.release.outputs.is_alpha_version }} # on alpha version we won't sync docs and config
+      is_stable_version: ${{ steps.release.outputs.is_stable_version }} # on stable versions we will sync config, and CI in vcluster-config will sync docs
+    steps:
+      # this is to support both manually trigger workflows, and automatically triggered on release creation
+      - name: Determine release tag
+        id: release
+        env:
+          MANUAL_TAG: ${{ inputs.releaseTag }}
+        run: |
+          if [[ -n "${MANUAL_TAG}" ]]; then
+            echo "Manually set tag: ${MANUAL_TAG}"
+            final_tag=${MANUAL_TAG}
+          else
+            echo "Tag from release event: ${{ github.event.release.tag_name }}"
+            final_tag=${{ github.event.release.tag_name }}
+          fi
+          echo "release_tag=${final_tag}" >> "$GITHUB_OUTPUT"
+          if [[ ${final_tag} == *"-alpha."* ]]; then
+            echo "is_alpha_version=true" >> "$GITHUB_OUTPUT"
+            echo "is_stable_version=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_alpha_version=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ ${final_tag} == *"-beta."* || ${final_tag} == *"-rc"* ]]; then
+            echo "is_stable_version=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_stable_version=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip sync on alpha
+        if: ${{ steps.release.outputs.is_alpha_version == 'true' }}
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+        run: echo "skipping sync because release ${RELEASE_TAG} is alpha"
+
+      - name: Checkout repo
+        if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: 'true'
+          ref: 'refs/tags/${{ steps.release.outputs.release_tag }}'
+
+      - name: Configure git
+        if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
+        run: |
+          git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
+          # set git info
+          git config --global user.name "Loft Bot"
+          git config --global user.email 'loft-bot@users.noreply.github.com'
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
+      - name: Set up Go
+        if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Update main docs version on beta or rc versions
+        # update docs "main" version only on beta or -rc
+        if: ${{ steps.release.outputs.is_stable_version == 'false' && steps.release.outputs.is_alpha_version == 'false' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+        run: |
+          # clone vcluster-config and vcluster-docs
+          git clone --single-branch https://github.com/loft-sh/vcluster-docs.git
+          git clone --single-branch https://github.com/loft-sh/vcluster-config.git
+
+          # generate vcluster.schema.json based on the current platform.schema.json in vcluster-config
+          # and values.schema.json from alpha / beta release
+          cp chart/values.schema.json vcluster-config/values.schema.json
+          cd vcluster-config/
+          go mod tidy
+          go mod vendor
+
+          go run ./hack/main.go
+
+          # copy generated vcluster.schema.json to the docs
+          cd ../
+          mkdir -p vcluster-docs/configsrc/vcluster/main/
+          cp config/values.yaml vcluster-docs/configsrc/vcluster/main/default_values.yaml
+          cp vcluster-config/vcluster.schema.json vcluster-docs/configsrc/vcluster/main/vcluster.schema.json
+
+          # generate vCluster partials in docs
+          cd vcluster-docs/
+
+          branch_name="generate-partials-for-main"
+          git switch -c ${branch_name}
+
+          # generate vcluster partials for main version
+          go mod tidy
+          go mod vendor
+          go run hack/vcluster/partials/main.go "configsrc/vcluster/main" "vcluster/_partials/config"
+
+          # set git info
+          git config --global user.name "Loft Bot"
+          git config --global user.email 'loft-bot@users.noreply.github.com'
+
+          git add --all
+
+          # if there are no changes, exit early
+          if git diff-index --quiet HEAD --; then
+            exit 0
+          fi
+          echo "Changes detected"
+
+          # create a PR in vcluster-docs with generated partials
+          git commit -m "chore: generate vCluster partials for main version based on values.schema.json in vCluster ${RELEASE_TAG}"
+          git push -u origin -f ${branch_name}
+          gh pr create --fill --head ${branch_name}
+          echo "Create PR in vcluster-docs"
+
+
+      - name: Update vcluster schema in vcluster-config
+        # update only on beta, -rc and stable versions
+        if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+        run: |
+          rm -rf vcluster-config/ || true
+          git clone --single-branch https://github.com/loft-sh/vcluster-config.git
+          # copy generated schema from vcluster chart values to vcluster-config
+          cp chart/values.schema.json vcluster-config/values.schema.json
+          cp -R config/. vcluster-config/config/
+
+          cd vcluster-config
+
+          # We have to replace our config dependency so that we do not introduce vcluster as a whole as transitive dependecy.
+          find ./config/legacyconfig -type f -exec sed -i "s#github.com/loft-sh/vcluster/config#github.com/loft-sh/vcluster-config/config#g" {} +
+
+          # Align deps, if there have been any relevant changes in vcluster.
+          go mod tidy
+          go mod vendor
+
+          git add --all
+
+          # if there are no changes, exit early
+          if git diff-index --quiet HEAD --; then
+            exit 0
+          fi
+          echo "Changes detected"
+
+          # commit changes
+          git commit -m "chore: sync config/*.go and values.schema.json to vCluster version ${RELEASE_TAG}"
+          git push -u origin -f main
+          echo "vcluster-config values.schema.json updated to the version ${RELEASE_TAG}"

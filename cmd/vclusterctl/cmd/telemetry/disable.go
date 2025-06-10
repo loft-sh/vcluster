@@ -1,52 +1,50 @@
 package telemetry
 
 import (
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"github.com/loft-sh/vcluster/pkg/util/cliconfig"
+	"fmt"
+
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
 )
 
 type DisableCmd struct {
+	*flags.GlobalFlags
 	log log.Logger
 }
 
-func disable() *cobra.Command {
+func disable(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cmd := &DisableCmd{
-		log: log.GetInstance(),
+		GlobalFlags: globalFlags,
+		log:         log.GetInstance(),
 	}
 
 	cobraCmd := &cobra.Command{
 		Use:   "disable",
 		Short: "Disables collection of anonymized vcluster telemetry",
-		Long: `
-#######################################################
+		Long: `#######################################################
 ############## vcluster telemetry disable #############
 #######################################################
 Disables collection of anonymized vcluster telemetry.
 
 More information about the collected telmetry is in the
-docs: https://www.vcluster.com/docs/telemetry
+docs: https://www.vcluster.com/docs/advanced-topics/telemetry
 
 #######################################################
 	`,
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd)
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return cmd.Run()
 		}}
 
 	return cobraCmd
 }
 
-func (cmd *DisableCmd) Run(cobraCmd *cobra.Command) error {
-	c, err := cliconfig.GetConfig()
-	if err != nil {
-		return err
+func (cmd *DisableCmd) Run() error {
+	cfg := cmd.LoadedConfig(cmd.log)
+	cfg.TelemetryDisabled = true
+	if err := cfg.Save(); err != nil {
+		return fmt.Errorf("save vCluster config: %w", err)
 	}
 
-	c.TelemetryDisabled = true
-
-	err = cliconfig.WriteConfig(c)
-	if err != nil {
-		return err
-	}
 	return nil
 }

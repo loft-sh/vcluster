@@ -35,20 +35,21 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/openapi3"
 	"k8s.io/client-go/util/csaupgrade"
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
-	"k8s.io/kubectl/pkg/cmd/delete"
+	cmddelete "k8s.io/kubectl/pkg/cmd/delete"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/kubectl/pkg/util"
 	"k8s.io/kubectl/pkg/util/i18n"
 	"k8s.io/kubectl/pkg/util/openapi"
 	"k8s.io/kubectl/pkg/util/prune"
-	"k8s.io/kubectl/pkg/util/slice"
 	"k8s.io/kubectl/pkg/util/templates"
 	"k8s.io/kubectl/pkg/validation"
 )
@@ -60,7 +61,7 @@ type ApplyFlags struct {
 	RecordFlags *genericclioptions.RecordFlags
 	PrintFlags  *genericclioptions.PrintFlags
 
-	DeleteFlags *delete.DeleteFlags
+	DeleteFlags *cmddelete.DeleteFlags
 
 	FieldManager   string
 	Selector       string
@@ -70,12 +71,11 @@ type ApplyFlags struct {
 	All            bool
 	Overwrite      bool
 	OpenAPIPatch   bool
+	Subresource    string
 
-	// DEPRECATED: Use PruneAllowlist instead
-	PruneWhitelist []string // TODO: Remove this in kubectl 1.28 or later
 	PruneAllowlist []string
 
-	genericclioptions.IOStreams
+	genericiooptions.IOStreams
 }
 
 // ApplyOptions defines flags and other configuration parameters for the `apply` command
@@ -85,7 +85,7 @@ type ApplyOptions struct {
 	PrintFlags *genericclioptions.PrintFlags
 	ToPrinter  func(string) (printers.ResourcePrinter, error)
 
-	DeleteOptions *delete.DeleteOptions
+	DeleteOptions *cmddelete.DeleteOptions
 
 	ServerSideApply bool
 	ForceConflicts  bool
@@ -98,18 +98,20 @@ type ApplyOptions struct {
 	All             bool
 	Overwrite       bool
 	OpenAPIPatch    bool
+	Subresource     string
 
 	ValidationDirective string
 	Validator           validation.Schema
 	Builder             *resource.Builder
 	Mapper              meta.RESTMapper
 	DynamicClient       dynamic.Interface
-	OpenAPISchema       openapi.Resources
+	OpenAPIGetter       openapi.OpenAPIResourcesGetter
+	OpenAPIV3Root       openapi3.Root
 
 	Namespace        string
 	EnforceNamespace bool
 
-	genericclioptions.IOStreams
+	genericiooptions.IOStreams
 
 	// Objects (and some denormalized data) which are to be
 	// applied. The standard way to fill in this structure
@@ -159,7 +161,7 @@ var (
 		# Apply the JSON passed into stdin to a pod
 		cat pod.json | kubectl apply -f -
 
-		# Apply the configuration from all files that end with '.json' - i.e. expand wildcard characters in file names
+		# Apply the configuration from all files that end with '.json'
 		kubectl apply -f '*.json'
 
 		# Note: --prune is still in Alpha
@@ -179,10 +181,10 @@ var (
 var ApplySetToolVersion = version.Get().GitVersion
 
 // NewApplyFlags returns a default ApplyFlags
-func NewApplyFlags(streams genericclioptions.IOStreams) *ApplyFlags {
+func NewApplyFlags(streams genericiooptions.IOStreams) *ApplyFlags {
 	return &ApplyFlags{
 		RecordFlags: genericclioptions.NewRecordFlags(),
-		DeleteFlags: delete.NewDeleteFlags("The files that contain the configurations to apply."),
+		DeleteFlags: cmddelete.NewDeleteFlags("The files that contain the configurations to apply."),
 		PrintFlags:  genericclioptions.NewPrintFlags("created").WithTypeSetter(scheme.Scheme),
 
 		Overwrite:    true,
@@ -193,7 +195,7 @@ func NewApplyFlags(streams genericclioptions.IOStreams) *ApplyFlags {
 }
 
 // NewCmdApply creates the `apply` command
-func NewCmdApply(baseName string, f cmdutil.Factory, ioStreams genericclioptions.IOStreams) *cobra.Command {
+func NewCmdApply(baseName string, f cmdutil.Factory, ioStreams genericiooptions.IOStreams) *cobra.Command {
 	flags := NewApplyFlags(ioStreams)
 
 	cmd := &cobra.Command{
@@ -232,10 +234,10 @@ func (flags *ApplyFlags) AddFlags(cmd *cobra.Command) {
 	cmdutil.AddServerSideApplyFlags(cmd)
 	cmdutil.AddFieldManagerFlagVar(cmd, &flags.FieldManager, FieldManagerClientSideApply)
 	cmdutil.AddLabelSelectorFlagVar(cmd, &flags.Selector)
-	cmdutil.AddPruningFlags(cmd, &flags.Prune, &flags.PruneAllowlist, &flags.PruneWhitelist, &flags.All, &flags.ApplySetRef)
-
+	cmdutil.AddPruningFlags(cmd, &flags.Prune, &flags.PruneAllowlist, &flags.All, &flags.ApplySetRef)
 	cmd.Flags().BoolVar(&flags.Overwrite, "overwrite", flags.Overwrite, "Automatically resolve conflicts between the modified and live configuration by using values from the modified configuration")
 	cmd.Flags().BoolVar(&flags.OpenAPIPatch, "openapi-patch", flags.OpenAPIPatch, "If true, use openapi to calculate diff when the openapi presents and the resource can be found in the openapi spec. Otherwise, fall back to use baked-in types.")
+	cmdutil.AddSubresourceFlags(cmd, &flags.Subresource, "If specified, apply will operate on the subresource of the requested object.  Only allowed when using --server-side.")
 }
 
 // ToOptions converts from CLI inputs to runtime inputs
@@ -281,7 +283,15 @@ func (flags *ApplyFlags) ToOptions(f cmdutil.Factory, cmd *cobra.Command, baseNa
 		return nil, err
 	}
 
-	openAPISchema, _ := f.OpenAPISchema()
+	var openAPIV3Root openapi3.Root
+	if !cmdutil.OpenAPIV3Patch.IsDisabled() {
+		openAPIV3Client, err := f.OpenAPIV3Client()
+		if err == nil {
+			openAPIV3Root = openapi3.NewRoot(openAPIV3Client)
+		} else {
+			klog.V(4).Infof("warning: OpenAPI V3 Patch is enabled but is unable to be loaded. Will fall back to OpenAPI V2")
+		}
+	}
 
 	validationDirective, err := cmdutil.GetValidationDirective(cmd)
 	if err != nil {
@@ -324,8 +334,7 @@ func (flags *ApplyFlags) ToOptions(f cmdutil.Factory, cmd *cobra.Command, baseNa
 		applySet = NewApplySet(parent, tooling, mapper, restClient)
 	}
 	if flags.Prune {
-		pruneAllowlist := slice.ToSet(flags.PruneAllowlist, flags.PruneWhitelist)
-		flags.PruneResources, err = prune.ParseResources(mapper, pruneAllowlist)
+		flags.PruneResources, err = prune.ParseResources(mapper, flags.PruneAllowlist)
 		if err != nil {
 			return nil, err
 		}
@@ -350,6 +359,7 @@ func (flags *ApplyFlags) ToOptions(f cmdutil.Factory, cmd *cobra.Command, baseNa
 		All:             flags.All,
 		Overwrite:       flags.Overwrite,
 		OpenAPIPatch:    flags.OpenAPIPatch,
+		Subresource:     flags.Subresource,
 
 		Recorder:            recorder,
 		Namespace:           namespace,
@@ -359,7 +369,8 @@ func (flags *ApplyFlags) ToOptions(f cmdutil.Factory, cmd *cobra.Command, baseNa
 		Builder:             builder,
 		Mapper:              mapper,
 		DynamicClient:       dynamicClient,
-		OpenAPISchema:       openAPISchema,
+		OpenAPIGetter:       f,
+		OpenAPIV3Root:       openAPIV3Root,
 
 		IOStreams: flags.IOStreams,
 
@@ -430,6 +441,9 @@ func (o *ApplyOptions) Validate() error {
 				return fmt.Errorf("--prune is in alpha and doesn't currently work on objects created by server-side apply")
 			}
 		}
+	}
+	if len(o.Subresource) > 0 && !o.ServerSideApply {
+		return fmt.Errorf("--subresource can only be specified for --server-side")
 	}
 
 	return nil
@@ -570,13 +584,15 @@ func (o *ApplyOptions) applyOneObject(info *resource.Info) error {
 		options := metav1.PatchOptions{
 			Force: &o.ForceConflicts,
 		}
-		obj, err := helper.Patch(
-			info.Namespace,
-			info.Name,
-			types.ApplyPatchType,
-			data,
-			&options,
-		)
+		obj, err := helper.
+			WithSubresource(o.Subresource).
+			Patch(
+				info.Namespace,
+				info.Name,
+				types.ApplyPatchType,
+				data,
+				&options,
+			)
 		if err != nil {
 			if isIncompatibleServerError(err) {
 				err = fmt.Errorf("Server-side apply not available on the server: (%v)", err)
@@ -674,6 +690,12 @@ See https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts`
 			return cmdutil.AddSourceToErr("creating", info.Source, err)
 		}
 
+		// prune nulls when client-side apply does a create to match what will happen when client-side applying an update.
+		// do this after CreateApplyAnnotation so the annotation matches what will be persisted on an update apply of the same manifest.
+		if u, ok := info.Object.(runtime.Unstructured); ok {
+			pruneNullsFromMap(u.UnstructuredContent())
+		}
+
 		if o.DryRunStrategy != cmdutil.DryRunClient {
 			// Then create the resource and skip the three-way merge
 			obj, err := helper.Create(info.Namespace, true, info.Object)
@@ -750,6 +772,29 @@ See https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts`
 	}
 
 	return nil
+}
+
+func pruneNullsFromMap(data map[string]interface{}) {
+	for k, v := range data {
+		if v == nil {
+			delete(data, k)
+		} else {
+			pruneNulls(v)
+		}
+	}
+}
+func pruneNullsFromSlice(data []interface{}) {
+	for _, v := range data {
+		pruneNulls(v)
+	}
+}
+func pruneNulls(v interface{}) {
+	switch v := v.(type) {
+	case map[string]interface{}:
+		pruneNullsFromMap(v)
+	case []interface{}:
+		pruneNullsFromSlice(v)
+	}
 }
 
 // Saves the last-applied-configuration annotation in a separate SSA field manager

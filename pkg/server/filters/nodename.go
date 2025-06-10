@@ -8,7 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -42,7 +42,7 @@ func nodeNameFromHost(req *http.Request, currentNamespace string, fakeKubeletIPs
 		hostname := splitted[0]
 		nodeList := &corev1.NodeList{}
 		err := virtualClient.List(req.Context(), nodeList, client.MatchingFields{constants.IndexByHostName: hostname})
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !kerrors.IsNotFound(err) {
 			klog.Error(err, "couldn't fetch nodename for hostname")
 		}
 		if len(nodeList.Items) == 1 {

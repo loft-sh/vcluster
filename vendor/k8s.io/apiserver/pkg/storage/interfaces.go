@@ -29,6 +29,12 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 )
 
+// Feature is the name of each feature in storage that we check in feature_support_checker.
+type Feature = string
+
+// RequestWatchProgress is an etcd feature that may use to check if it supported or not.
+var RequestWatchProgress Feature = "RequestWatchProgress"
+
 // Versioner abstracts setting and retrieving metadata fields from database response
 // onto the object ot list. It is required to maintain storage invariants - updating an
 // object twice with the same data except for the ResourceVersion and SelfLink must be
@@ -102,6 +108,8 @@ type UpdateFunc func(input runtime.Object, res ResponseMeta) (output runtime.Obj
 // ValidateObjectFunc is a function to act on a given object. An error may be returned
 // if the hook cannot be completed. The function may NOT transform the provided
 // object.
+// NOTE: the object in obj may be nil if it cannot be read from the
+// storage, due to transformation or decode error.
 type ValidateObjectFunc func(ctx context.Context, obj runtime.Object) error
 
 // ValidateAllObjectFunc is a "admit everything" instance of ValidateObjectFunc.
@@ -131,11 +139,11 @@ func (p *Preconditions) Check(key string, obj runtime.Object) error {
 	}
 	objMeta, err := meta.Accessor(obj)
 	if err != nil {
-		return NewInternalErrorf(
-			"can't enforce preconditions %v on un-introspectable object %v, got error: %v",
-			*p,
-			obj,
-			err)
+		return NewInternalError(
+			fmt.Errorf("can't enforce preconditions %v on un-introspectable object %v, got error: %w",
+				*p,
+				obj,
+				err))
 	}
 	if p.UID != nil && *p.UID != objMeta.GetUID() {
 		err := fmt.Sprintf(
@@ -172,7 +180,7 @@ type Interface interface {
 	// However, the implementations have to retry in case suggestion is stale.
 	Delete(
 		ctx context.Context, key string, out runtime.Object, preconditions *Preconditions,
-		validateDeletion ValidateObjectFunc, cachedExistingObject runtime.Object) error
+		validateDeletion ValidateObjectFunc, cachedExistingObject runtime.Object, opts DeleteOptions) error
 
 	// Watch begins watching the specified key. Events are decoded into API objects,
 	// and any items selected by 'p' are sent down to returned watch.Interface.
@@ -236,6 +244,24 @@ type Interface interface {
 
 	// Count returns number of different entries under the key (generally being path prefix).
 	Count(key string) (int64, error)
+
+	// ReadinessCheck checks if the storage is ready for accepting requests.
+	ReadinessCheck() error
+
+	// RequestWatchProgress requests the a watch stream progress status be sent in the
+	// watch response stream as soon as possible.
+	// Used for monitor watch progress even if watching resources with no changes.
+	//
+	// If watch is lagging, progress status might:
+	// * be pointing to stale resource version. Use etcd KV request to get linearizable resource version.
+	// * not be delivered at all. It's recommended to poll request progress periodically.
+	//
+	// Note: Only watches with matching context grpc metadata will be notified.
+	// https://github.com/kubernetes/kubernetes/blob/9325a57125e8502941d1b0c7379c4bb80a678d5c/vendor/go.etcd.io/etcd/client/v3/watch.go#L1037-L1042
+	//
+	// TODO: Remove when storage.Interface will be separate from etc3.store.
+	// Deprecated: Added temporarily to simplify exposing RequestProgress for watch cache.
+	RequestWatchProgress(ctx context.Context) error
 }
 
 // GetOptions provides the options that may be provided for storage get operations.
@@ -267,6 +293,19 @@ type ListOptions struct {
 	Recursive bool
 	// ProgressNotify determines whether storage-originated bookmark (progress notify) events should
 	// be delivered to the users. The option is ignored for non-watch requests.
+	//
+	// Firstly, note that this field is different from the Predicate.AllowWatchBookmarks field.
+	// Secondly, this field is intended for internal clients only such as the watch cache.
+	//
+	// This means that external clients do not have the ability to set this field directly.
+	// For example by setting the allowWatchBookmarks query parameter.
+	//
+	// The motivation for this approach is the fact that the frequency
+	// of bookmark events from a storage like etcd might be very high.
+	// As the number of watch requests increases, the server load would also increase.
+	//
+	// Furthermore, the server is not obligated to provide bookmark events at all,
+	// as described in https://github.com/kubernetes/enhancements/tree/master/keps/sig-api-machinery/956-watch-bookmark#proposal
 	ProgressNotify bool
 	// SendInitialEvents, when set together with Watch option,
 	// begin the watch stream with synthetic init events to build the
@@ -274,4 +313,15 @@ type ListOptions struct {
 	// event containing a ResourceVersion after which the server
 	// continues streaming events.
 	SendInitialEvents *bool
+}
+
+// DeleteOptions provides the options that may be provided for storage delete operations.
+type DeleteOptions struct {
+	// IgnoreStoreReadError, if enabled, will ignore store read error
+	// such as transformation or decode failure and go ahead with the
+	// deletion of the object.
+	// NOTE: for normal deletion flow it should always be false, it may be
+	// enabled by the caller only to facilitate unsafe deletion of corrupt
+	// object which otherwise can not be deleted using the normal flow
+	IgnoreStoreReadError bool
 }

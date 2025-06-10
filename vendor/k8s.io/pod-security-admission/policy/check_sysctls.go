@@ -43,6 +43,12 @@ spec.securityContext.sysctls[*].name
 'net.ipv4.ping_group_range'
 'net.ipv4.ip_unprivileged_port_start'
 'net.ipv4.ip_local_reserved_ports'
+'net.ipv4.tcp_keepalive_time'
+'net.ipv4.tcp_fin_timeout'
+'net.ipv4.tcp_keepalive_intvl'
+'net.ipv4.tcp_keepalive_probes'
+'net.ipv4.tcp_rmem'
+'net.ipv4.tcp_wmem'
 
 */
 
@@ -59,40 +65,60 @@ func CheckSysctls() Check {
 		Versions: []VersionedCheck{
 			{
 				MinimumVersion: api.MajorMinorVersion(1, 0),
-				CheckPod:       sysctls_1_0,
+				CheckPod:       sysctlsV1Dot0,
 			},
 			{
 				MinimumVersion: api.MajorMinorVersion(1, 27),
-				CheckPod:       sysctls_1_27,
+				CheckPod:       sysctlsV1Dot27,
+			}, {
+				MinimumVersion: api.MajorMinorVersion(1, 29),
+				CheckPod:       sysctlsV1Dot29,
+			},
+			{
+				MinimumVersion: api.MajorMinorVersion(1, 32),
+				CheckPod:       sysctlsV1Dot32,
 			},
 		},
 	}
 }
 
 var (
-	sysctls_allowed_1_0 = sets.NewString(
+	sysctlsAllowedV1Dot0 = sets.NewString(
 		"kernel.shm_rmid_forced",
 		"net.ipv4.ip_local_port_range",
 		"net.ipv4.tcp_syncookies",
 		"net.ipv4.ping_group_range",
 		"net.ipv4.ip_unprivileged_port_start",
 	)
-	sysctls_allowed_1_27 = sets.NewString(
-		"kernel.shm_rmid_forced",
-		"net.ipv4.ip_local_port_range",
-		"net.ipv4.tcp_syncookies",
-		"net.ipv4.ping_group_range",
-		"net.ipv4.ip_unprivileged_port_start",
+	sysctlsAllowedV1Dot27 = sysctlsAllowedV1Dot0.Union(sets.NewString(
 		"net.ipv4.ip_local_reserved_ports",
-	)
+	))
+	sysctlsAllowedV1Dot29 = sysctlsAllowedV1Dot27.Union(sets.NewString(
+		"net.ipv4.tcp_keepalive_time",
+		"net.ipv4.tcp_fin_timeout",
+		"net.ipv4.tcp_keepalive_intvl",
+		"net.ipv4.tcp_keepalive_probes",
+	))
+	sysctlsAllowedV1Dot32 = sysctlsAllowedV1Dot29.Union(sets.NewString(
+		"net.ipv4.tcp_rmem",
+		"net.ipv4.tcp_wmem",
+	))
 )
 
-func sysctls_1_0(podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) CheckResult {
-	return sysctls(podMetadata, podSpec, sysctls_allowed_1_0)
+func sysctlsV1Dot0(podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) CheckResult {
+	return sysctls(podMetadata, podSpec, sysctlsAllowedV1Dot0)
 }
 
-func sysctls_1_27(podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) CheckResult {
-	return sysctls(podMetadata, podSpec, sysctls_allowed_1_27)
+func sysctlsV1Dot27(podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) CheckResult {
+	return sysctls(podMetadata, podSpec, sysctlsAllowedV1Dot27)
+}
+
+func sysctlsV1Dot29(podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) CheckResult {
+	return sysctls(podMetadata, podSpec, sysctlsAllowedV1Dot29)
+}
+
+func sysctlsV1Dot32(podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) CheckResult {
+	return sysctls(podMetadata, podSpec, sysctlsAllowedV1Dot32)
 }
 
 func sysctls(podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec, sysctls_allowed_set sets.String) CheckResult {

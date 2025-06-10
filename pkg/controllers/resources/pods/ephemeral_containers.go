@@ -1,102 +1,79 @@
 package pods
 
 import (
-	"encoding/json"
 	"fmt"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+
+	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
 )
 
-// AddEphemeralContainer runs an EphemeralContainer in the target Pod for use as a debug container
-func AddEphemeralContainer(ctx *synccontext.SyncContext, physicalClusterClient kubernetes.Interface, physicalPod *corev1.Pod, virtualPod *corev1.Pod) error {
-	if len(virtualPod.Spec.EphemeralContainers) > 0 {
-		podJS, err := json.Marshal(physicalPod)
-		if err != nil {
-			return fmt.Errorf("error creating JSON for physicalPod: %v", err)
-		}
-		debugPod, debugContainer, err := getEphemeralContainer(physicalPod, virtualPod)
-		if err != nil {
-			return err
-		}
-		ctx.Log.Debugf("new ephemeral container: %#v", debugContainer)
+// syncEphemeralContainers updates the ephemeral containers in the physical pod
+func (s *podSyncer) syncEphemeralContainers(ctx *synccontext.SyncContext, physicalClusterClient kubernetes.Interface, physicalPod *corev1.Pod, virtualPod *corev1.Pod) (bool, error) {
+	if len(virtualPod.Spec.EphemeralContainers) == 0 {
+		return false, nil
+	}
 
-		debugJS, err := json.Marshal(debugPod)
-		if err != nil {
-			return fmt.Errorf("error creating JSON for debug container: %v", err)
-		}
+	// make sure when changing the physical pod we don't get any unwanted side effects
+	physicalPod = physicalPod.DeepCopy()
 
-		patch, err := strategicpatch.CreateTwoWayMergePatch(podJS, debugJS, physicalPod)
-		if err != nil {
-			return fmt.Errorf("error creating patch to add debug container: %v", err)
-		}
-		ctx.Log.Debugf("generated strategic merge patch for debug container: %s", patch)
-
-		pods := physicalClusterClient.CoreV1().Pods(physicalPod.Namespace)
-		_, err = pods.Patch(ctx.Context, physicalPod.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}, "ephemeralcontainers")
-		if err != nil {
-			// The apiserver will return a 404 when the EphemeralContainers feature is disabled because the `/ephemeralcontainers` subresource
-			// is missing. Unlike the 404 returned by a missing physicalPod, the status details will be empty.
-			if serr, ok := err.(*errors.StatusError); ok && serr.Status().Reason == metav1.StatusReasonNotFound && serr.ErrStatus.Details.Name == "" {
-				return fmt.Errorf("ephemeral containers are disabled for this cluster (error from server: %q)", err)
+	// copy the ephemeral containers not found in the physical pod
+	ephemeralContainers := virtualPod.Spec.EphemeralContainers
+	newContainers := []corev1.EphemeralContainer{}
+	for _, ephemeralContainer := range ephemeralContainers {
+		// check if found
+		found := false
+		for _, existingEphemeralContainer := range physicalPod.Spec.EphemeralContainers {
+			if existingEphemeralContainer.Name == ephemeralContainer.Name {
+				found = true
+				break
 			}
-			// The Kind used for the /ephemeralcontainers subresource changed in 1.22. When presented with an unexpected
-			// Kind the api server will respond with a not-registered error. When this happens we can optimistically try
-			// using the old API.
-			if runtime.IsNotRegisteredError(err) {
-				ctx.Log.Infof("Falling back to legacy API because server returned error: %v", err)
-				return addEphemeralContainerLegacy(ctx, physicalClusterClient, physicalPod, debugContainer)
-			}
-			return err
 		}
+		if found {
+			continue
+		}
+
+		newContainers = append(newContainers, ephemeralContainer)
 	}
 
-	return nil
-}
+	// if there are no new ephemeral containers, we skip
+	// important to note that we do not check the other way around and sync ephemeral containers from host to virtual
+	if len(newContainers) == 0 {
+		return false, nil
+	}
 
-// addEphemeralContainerLegacy adds an ephemeral container using the pre-1.22 /ephemeralcontainers API
-// This may be removed when we no longer wish to support releases prior to 1.22.
-func addEphemeralContainerLegacy(ctx *synccontext.SyncContext, physicalClusterClient kubernetes.Interface, physicalPod *corev1.Pod, debugContainer *corev1.EphemeralContainer) error {
-	// We no longer have the v1.EphemeralContainers Kind since it was removed in 1.22, but
-	// we can present a JSON 6902 patch that the api server will apply.
-	patch, err := json.Marshal([]map[string]interface{}{{
-		"op":    "add",
-		"path":  "/ephemeralContainers/-",
-		"value": debugContainer,
-	}})
+	// translate the ephemeral containers
+	kubeIP, _, ptrServiceList, err := s.getK8sIPDNSIPServiceList(ctx, virtualPod)
 	if err != nil {
-		return fmt.Errorf("error creating JSON 6902 patch for old /ephemeralcontainers API: %s", err)
+		return false, err
+	}
+	serviceEnv := translatepods.ServicesToEnvironmentVariables(virtualPod.Spec.EnableServiceLinks, ptrServiceList, kubeIP)
+	for _, ephemeralContainer := range newContainers {
+		// not found, we add it to physical
+		envVar, envFrom, err := s.podTranslator.TranslateContainerEnv(ctx, ephemeralContainer.Env, ephemeralContainer.EnvFrom, virtualPod, serviceEnv)
+		if err != nil {
+			return false, fmt.Errorf("translate container env: %w", err)
+		}
+		ephemeralContainer.Env = envVar
+		ephemeralContainer.EnvFrom = envFrom
+		physicalPod.Spec.EphemeralContainers = append(physicalPod.Spec.EphemeralContainers, ephemeralContainer)
 	}
 
-	result := physicalClusterClient.CoreV1().RESTClient().Patch(types.JSONPatchType).
-		Namespace(physicalPod.Namespace).
-		Resource("pods").
-		Name(physicalPod.Name).
-		SubResource("ephemeralcontainers").
-		Body(patch).
-		Do(ctx.Context)
-	if err := result.Error(); err != nil {
-		return err
-	}
-
-	_, err = physicalClusterClient.CoreV1().Pods(physicalPod.Namespace).Get(ctx.Context, physicalPod.Name, metav1.GetOptions{})
+	// do the actual update
+	ctx.Log.Infof("Update ephemeral containers for pod %s/%s", physicalPod.Namespace, physicalPod.Name)
+	_, err = physicalClusterClient.CoreV1().Pods(physicalPod.Namespace).UpdateEphemeralContainers(ctx, physicalPod.Name, physicalPod, metav1.UpdateOptions{})
 	if err != nil {
-		return err
-	}
-	return nil
-}
+		// The api-server will return a 404 when the EphemeralContainers feature is disabled because the `/ephemeralcontainers` subresource
+		// is missing. Unlike the 404 returned by a missing physicalPod, the status details will be empty.
+		if kerrors.IsNotFound(err) {
+			return false, fmt.Errorf("ephemeral containers are disabled for this cluster (error from server: %w)", err)
+		}
 
-// getEphemeralContainer returns a debugging pod and an EphemeralContainer suitable for use as a debug container
-// in the given pod.
-func getEphemeralContainer(physicalPod *corev1.Pod, virtualPod *corev1.Pod) (*corev1.Pod, *corev1.EphemeralContainer, error) {
-	ephemeralContainer := virtualPod.Spec.EphemeralContainers[len(virtualPod.Spec.EphemeralContainers)-1]
-	copied := physicalPod.DeepCopy()
-	ephemeralContainer.TargetContainerName = ""
-	copied.Spec.EphemeralContainers = append(copied.Spec.EphemeralContainers, ephemeralContainer)
-	return copied, &ephemeralContainer, nil
+		return false, fmt.Errorf("update ephemeral containers: %w", err)
+	}
+
+	return true, nil
 }

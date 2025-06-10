@@ -12,10 +12,10 @@ import (
 )
 
 type Applier interface {
-	Apply(ctx context.Context, options ApplierOptions) error
+	Apply(ctx context.Context, options Options) error
 }
 
-type ApplierOptions struct {
+type Options struct {
 	Manifest string
 
 	RESTConfig *rest.Config

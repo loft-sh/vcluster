@@ -1,18 +1,22 @@
 package upgrade
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 
 	"github.com/blang/semver"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
 )
+
+const DevelopmentVersion = "0.0.1"
 
 // Version holds the current version tag
 var version string
@@ -62,7 +66,7 @@ func SetVersion(verText string) {
 
 var (
 	latestVersion     string
-	latestVersionErr  error
+	errLatestVersion  error
 	latestVersionOnce sync.Once
 )
 
@@ -71,23 +75,26 @@ func CheckForNewerVersion() (string, error) {
 	latestVersionOnce.Do(func() {
 		latest, found, err := selfupdate.DetectLatest(githubSlug)
 		if err != nil {
-			latestVersionErr = err
+			errLatestVersion = err
 			return
 		}
-
-		v := semver.MustParse(version)
-		if !found || latest.Version.Equals(v) {
+		// if latest not found or latest version found is less than or equal to the current version, do not upgrade
+		if !found {
 			return
 		}
 
 		latestVersion = latest.Version.String()
 	})
 
-	return latestVersion, latestVersionErr
+	return latestVersion, errLatestVersion
 }
 
 // NewerVersionAvailable checks if there is a newer version of vcluster
 func NewerVersionAvailable() string {
+	if GetVersion() == DevelopmentVersion {
+		return ""
+	}
+
 	// Get version of current binary
 	version := GetVersion()
 	if version != "" {
@@ -110,9 +117,15 @@ func NewerVersionAvailable() string {
 }
 
 // Upgrade downloads the latest release from github and replaces vcluster if a new version is found
-func Upgrade(flagVersion string, log log.Logger) error {
+func Upgrade(ctx context.Context, flagVersion string, log log.Logger) error {
+	updater, err := selfupdate.NewUpdater(selfupdate.Config{
+		Filters: []string{"vcluster"},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize updater: %w", err)
+	}
 	if flagVersion != "" {
-		release, found, err := selfupdate.DetectVersion(githubSlug, flagVersion)
+		release, found, err := DetectVersion(ctx, githubSlug, flagVersion)
 		if err != nil {
 			return errors.Wrap(err, "find version")
 		} else if !found {
@@ -124,9 +137,8 @@ func Upgrade(flagVersion string, log log.Logger) error {
 			return err
 		}
 
-		log.StartWait(fmt.Sprintf("Downloading version %s...", flagVersion))
-		err = selfupdate.DefaultUpdater().UpdateTo(release, cmdPath)
-		log.StopWait()
+		log.Infof("Downloading version %s...", flagVersion)
+		err = updater.UpdateTo(release, cmdPath)
 		if err != nil {
 			return err
 		}
@@ -135,20 +147,33 @@ func Upgrade(flagVersion string, log log.Logger) error {
 		return nil
 	}
 
-	newerVersion, err := CheckForNewerVersion()
+	latestStable, err := CheckForNewerVersion()
 	if err != nil {
 		return err
 	}
-	if newerVersion == "" {
+	if latestStable == "" {
 		log.Infof("Current binary is the latest version: %s", version)
+		return nil
+	}
+
+	version = GetVersion()
+	semverCurrentVersion := semver.MustParse(version)
+	semverLatestStableVersion := semver.MustParse(latestStable)
+	cmp := semverLatestStableVersion.Compare(semverCurrentVersion)
+	if cmp == 0 {
+		log.Infof("Current binary is the latest version: %s", version)
+		return nil
+	} else if cmp == -1 {
+		command := fmt.Sprintf("%s upgrade --version %s", os.Args[0], latestStable)
+		log.Infof("Current binary version is newer than the latest stable version: %q", version)
+		log.Infof("To upgrade to latest stable use %q.", command)
 		return nil
 	}
 
 	v := semver.MustParse(version)
 
-	log.StartWait("Downloading newest version...")
-	latest, err := selfupdate.UpdateSelf(v, githubSlug)
-	log.StopWait()
+	log.Info("Downloading newest version...")
+	latest, err := updater.UpdateSelf(v, githubSlug)
 	if err != nil {
 		return err
 	}
@@ -162,4 +187,44 @@ func Upgrade(flagVersion string, log log.Logger) error {
 	}
 
 	return nil
+}
+
+func DetectVersion(ctx context.Context, slug string, version string) (*selfupdate.Release, bool, error) {
+	var (
+		release *selfupdate.Release
+		found   bool
+		err     error
+	)
+
+	repo := strings.Split(slug, "/")
+	if len(repo) != 2 || repo[0] == "" || repo[1] == "" {
+		return nil, false, fmt.Errorf("invalid slug format. It should be 'owner/name': %s", slug)
+	}
+
+	githubRelease, err := fetchReleaseByTag(ctx, repo[0], repo[1], version)
+	if err != nil {
+		return nil, false, fmt.Errorf("repository or release not found: %w", err)
+	}
+
+	asset, semVer, found, err := findAssetFromRelease(githubRelease)
+	if !found {
+		return nil, false, fmt.Errorf("release asset not found: %w", err)
+	}
+
+	publishedAt := githubRelease.GetPublishedAt().Time
+	release = &selfupdate.Release{
+		Version:           semVer,
+		AssetURL:          asset.GetBrowserDownloadURL(),
+		AssetByteSize:     asset.GetSize(),
+		AssetID:           asset.GetID(),
+		ValidationAssetID: -1,
+		URL:               githubRelease.GetHTMLURL(),
+		ReleaseNotes:      githubRelease.GetBody(),
+		Name:              githubRelease.GetName(),
+		PublishedAt:       &publishedAt,
+		RepoOwner:         repo[0],
+		RepoName:          repo[1],
+	}
+
+	return release, true, nil
 }

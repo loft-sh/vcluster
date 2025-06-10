@@ -4,16 +4,16 @@ import (
 	"testing"
 	"time"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/loft-sh/vcluster/pkg/constants"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"k8s.io/apimachinery/pkg/types"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,12 +22,7 @@ import (
 )
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *persistentVolumeSyncer) {
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolumeClaim{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
-	})
-	assert.NilError(t, err)
-
-	syncContext, object := generictesting.FakeStartSyncer(t, ctx, NewSyncer)
+	syncContext, object := syncertesting.FakeStartSyncer(t, ctx, NewSyncer)
 	return syncContext, object.(*persistentVolumeSyncer)
 }
 
@@ -39,19 +34,29 @@ func TestSync(t *testing.T) {
 		},
 	}
 	basePPvcReference := &corev1.ObjectReference{
-		Name:            translate.Default.PhysicalName("testpvc", "test"),
+		Name:            translate.Default.HostName(nil, "testpvc", "test").Name,
 		Namespace:       "test",
-		ResourceVersion: generictesting.FakeClientResourceVersion,
+		ResourceVersion: syncertesting.FakeClientResourceVersion,
 	}
 	baseVPvcReference := &corev1.ObjectReference{
 		Name:            "testpvc",
 		Namespace:       "test",
-		ResourceVersion: generictesting.FakeClientResourceVersion,
+		ResourceVersion: syncertesting.FakeClientResourceVersion,
 	}
 	basePvObjectMeta := metav1.ObjectMeta{
 		Name: "testpv",
 		Annotations: map[string]string{
-			HostClusterPersistentVolumeAnnotation: "testpv",
+			constants.HostClusterPersistentVolumeAnnotation: "testpv",
+		},
+	}
+	backwardPvObjectMeta := metav1.ObjectMeta{
+		Name: "testpv",
+		Annotations: map[string]string{
+			constants.HostClusterPersistentVolumeAnnotation: "testpv",
+			translate.HostNameAnnotation:                    "testpv",
+			translate.KindAnnotation:                        "/v1, Kind=PersistentVolume",
+			translate.NameAnnotation:                        "testpv",
+			translate.UIDAnnotation:                         "",
 		},
 	}
 	basePvWithDelTSObjectMeta := metav1.ObjectMeta{
@@ -77,7 +82,7 @@ func TestSync(t *testing.T) {
 			ClaimRef: &corev1.ObjectReference{
 				Name:            "testpvc",
 				Namespace:       "wrong",
-				ResourceVersion: generictesting.FakeClientResourceVersion,
+				ResourceVersion: syncertesting.FakeClientResourceVersion,
 			},
 		},
 	}
@@ -91,7 +96,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 	backwardUpdatePPv := &corev1.PersistentVolume{
-		ObjectMeta: basePvObjectMeta,
+		ObjectMeta: backwardPvObjectMeta,
 		Spec: corev1.PersistentVolumeSpec{
 			ClaimRef:         basePPvcReference,
 			StorageClassName: "someStorageClass",
@@ -108,20 +113,6 @@ func TestSync(t *testing.T) {
 		},
 		Status: corev1.PersistentVolumeStatus{
 			Message: "someMessage",
-		},
-	}
-	backwardRetainPPv := &corev1.PersistentVolume{
-		ObjectMeta: basePvObjectMeta,
-		Spec: corev1.PersistentVolumeSpec{
-			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
-			ClaimRef: &corev1.ObjectReference{
-				Name:      "retainPVC-x-test-x-suffix",
-				Namespace: "test",
-			},
-			StorageClassName: "vcluster-retainSC-x-test-x-suffix",
-		},
-		Status: corev1.PersistentVolumeStatus{
-			Phase: corev1.VolumeReleased,
 		},
 	}
 	backwardRetainInitialVPv := &corev1.PersistentVolume{
@@ -194,8 +185,36 @@ func TestSync(t *testing.T) {
 			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
 		},
 	}
+	backwardRetainPPv := &corev1.PersistentVolume{
+		ObjectMeta: backwardPvObjectMeta,
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			ClaimRef: &corev1.ObjectReference{
+				Name:      "retainPVC-x-test-x-suffix",
+				Namespace: "test",
+			},
+			StorageClassName: "retainSC",
+		},
+		Status: corev1.PersistentVolumeStatus{
+			Phase: corev1.VolumeReleased,
+		},
+	}
+	capacityVPv := &corev1.PersistentVolume{
+		ObjectMeta: basePPv.ObjectMeta,
+		Spec: corev1.PersistentVolumeSpec{
+			Capacity: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("5Gi"),
+			},
+			ClaimRef: basePPv.Spec.ClaimRef,
+		},
+	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	createContext := func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.ToHost.PersistentVolumes.Enabled = true
+		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}
+
+	testCases := []*syncertesting.SyncTest{
 		{
 			Name:                 "Create Backward",
 			InitialVirtualState:  []runtime.Object{basePvc},
@@ -209,7 +228,11 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncUp(syncContext, basePPv)
+
+				vName := syncer.HostToVirtual(syncContext, types.NamespacedName{Name: basePPv.Name}, basePPv)
+				assert.Equal(t, vName.Name, baseVPv.Name)
+
+				_, err := syncer.SyncToVirtual(syncContext, synccontext.NewSyncToVirtualEvent(basePPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -226,7 +249,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncUp(syncContext, wrongNsPPv)
+				_, err := syncer.SyncToVirtual(syncContext, synccontext.NewSyncToVirtualEvent(wrongNsPPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -243,7 +266,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.SyncUp(syncContext, noPvcPPv)
+				_, err := syncer.SyncToVirtual(syncContext, synccontext.NewSyncToVirtualEvent(noPvcPPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -260,18 +283,34 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				backwardUpdatePPv := backwardUpdatePPv.DeepCopy()
-				baseVPv := baseVPv.DeepCopy()
-				_, err := syncer.Sync(syncContext, backwardUpdatePPv, baseVPv)
+
+				pObjOld := backwardUpdatePPv
+				pObj := backwardUpdatePPv.DeepCopy()
+				vObjOld := baseVPv
+				vObj := baseVPv.DeepCopy()
+
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEventWithOld(
+					pObjOld,
+					pObj,
+					vObjOld,
+					vObj,
+				))
 				assert.NilError(t, err)
 
-				err = syncContext.VirtualClient.Get(ctx.Context, types.NamespacedName{Name: baseVPv.Name}, baseVPv)
+				err = syncContext.VirtualClient.Get(ctx, types.NamespacedName{Name: baseVPv.Name}, baseVPv)
 				assert.NilError(t, err)
 
-				err = syncContext.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: backwardUpdatePPv.Name}, backwardUpdatePPv)
+				err = syncContext.PhysicalClient.Get(ctx, types.NamespacedName{Name: backwardUpdatePPv.Name}, backwardUpdatePPv)
 				assert.NilError(t, err)
 
-				_, err = syncer.Sync(syncContext, backwardUpdatePPv, baseVPv)
+				pObj2 := backwardUpdatePPv
+				vObj2 := baseVPv
+				_, err = syncer.Sync(syncContext, synccontext.NewSyncEventWithOld(
+					pObjOld,
+					pObj2,
+					vObjOld,
+					vObj2,
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -288,7 +327,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncContext, noPvcPPv, baseVPv)
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(noPvcPPv, baseVPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -305,7 +344,18 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				_, err := syncer.Sync(syncContext, basePPv, baseVPv)
+
+				pObjOld := basePPv
+				pObj := basePPv
+				vObjOld := baseVPv
+				vObj := baseVPv
+
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEventWithOld(
+					pObjOld,
+					pObj,
+					vObjOld,
+					vObj,
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -315,15 +365,7 @@ func TestSync(t *testing.T) {
 				&corev1.PersistentVolumeClaim{
 					ObjectMeta: basePvc.ObjectMeta,
 				},
-				&corev1.PersistentVolume{
-					ObjectMeta: baseVPv.ObjectMeta,
-					Spec: corev1.PersistentVolumeSpec{
-						Capacity: corev1.ResourceList{
-							corev1.ResourceStorage: resource.MustParse("5Gi"),
-						},
-						ClaimRef: baseVPv.Spec.ClaimRef,
-					},
-				},
+				capacityVPv,
 			},
 			InitialPhysicalState: []runtime.Object{
 				&corev1.PersistentVolume{
@@ -357,7 +399,7 @@ func TestSync(t *testing.T) {
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("PersistentVolume"): {
 					&corev1.PersistentVolume{
-						ObjectMeta: basePPv.ObjectMeta,
+						ObjectMeta: backwardPvObjectMeta,
 						Spec: corev1.PersistentVolumeSpec{
 							Capacity: corev1.ResourceList{
 								corev1.ResourceStorage: resource.MustParse("20Gi"),
@@ -370,15 +412,20 @@ func TestSync(t *testing.T) {
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
 
-				vPv := &corev1.PersistentVolume{}
-				err := syncContext.VirtualClient.Get(ctx.Context, types.NamespacedName{Name: baseVPv.Name}, vPv)
+				vObjOld := capacityVPv
+
+				vObj := vObjOld.DeepCopy()
+				vObj.Spec.Capacity = corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse("20Gi"),
+				}
+
+				pObjOld := &corev1.PersistentVolume{}
+				err := syncContext.PhysicalClient.Get(ctx, types.NamespacedName{Name: basePPv.Name}, pObjOld)
 				assert.NilError(t, err)
 
-				pPv := &corev1.PersistentVolume{}
-				err = syncContext.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: basePPv.Name}, pPv)
-				assert.NilError(t, err)
+				pObj := pObjOld.DeepCopy()
 
-				_, err = syncer.Sync(syncContext, pPv, vPv)
+				_, err = syncer.Sync(syncContext, synccontext.NewSyncEventWithOld(pObjOld, pObj, vObjOld, vObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -394,9 +441,18 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
-				backwardRetainPPv := backwardRetainPPv.DeepCopy()
-				backwardRetainInitialVPv := backwardRetainInitialVPv.DeepCopy()
-				_, err := syncer.Sync(syncContext, backwardRetainPPv, backwardRetainInitialVPv)
+
+				pObjOld := backwardRetainPPv
+				pObj := backwardRetainPPv.DeepCopy()
+				vObjOld := backwardRetainInitialVPv
+				vObj := backwardRetainInitialVPv.DeepCopy()
+
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEventWithOld(
+					pObjOld,
+					pObj,
+					vObjOld,
+					vObj,
+				))
 				assert.NilError(t, err)
 			},
 		},
@@ -414,7 +470,7 @@ func TestSync(t *testing.T) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
 				backwardDeletePPv := backwardDeletePPv.DeepCopy()
 				backwardDeleteVPv := backwardDeleteVPv.DeepCopy()
-				_, err := syncer.Sync(syncContext, backwardDeletePPv, backwardDeleteVPv)
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(backwardDeletePPv, backwardDeleteVPv))
 				assert.NilError(t, err)
 			},
 		},
@@ -432,7 +488,7 @@ func TestSync(t *testing.T) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
 				backwardDeletePPv := backwardDeletePPv.DeepCopy()
 				backwardDeleteVPvwithDelTS := backwardDeleteVPvwithDelTS.DeepCopy()
-				_, err := syncer.Sync(syncContext, backwardDeletePPv, backwardDeleteVPvwithDelTS)
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(backwardDeletePPv, backwardDeleteVPvwithDelTS))
 				assert.NilError(t, err)
 			},
 		},
@@ -450,9 +506,15 @@ func TestSync(t *testing.T) {
 				syncContext, syncer := newFakeSyncer(t, ctx)
 				vPVforDeletePVWithoutClaim := vPVforDeletePVWithoutClaim.DeepCopy()
 				pPVforDeletePVWithoutClaim := pPVforDeletePVWithoutClaim.DeepCopy()
-				_, err := syncer.Sync(syncContext, pPVforDeletePVWithoutClaim, vPVforDeletePVWithoutClaim)
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(pPVforDeletePVWithoutClaim, vPVforDeletePVWithoutClaim))
 				assert.NilError(t, err)
 			},
 		},
-	})
+	}
+
+	for _, test := range testCases {
+		t.Run(test.Name, func(t *testing.T) {
+			test.Run(t, createContext)
+		})
+	}
 }

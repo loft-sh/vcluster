@@ -1,0 +1,5 @@
+!/.github/
+/vendor/
+!.golangci.yml
+!.goreleaser.yaml
+!.custom-gcl.yml

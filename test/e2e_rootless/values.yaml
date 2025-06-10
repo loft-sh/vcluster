@@ -1,28 +1,74 @@
-securityContext:
-  runAsUser: 12345
-  runAsNonRoot: true
-
-fsGroup: 12345
-
 ## this values are for k8s distro
-syncer:
-  securityContext:
-    runAsUser: 12345
-    runAsNonRoot: true
+controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        statefulSet:
+          security:
+            podSecurityContext:
+              fsGroup: 12345
 
-etcd:
-  fsGroup: 12345
+  statefulSet:
+    security:
+      podSecurityContext:
+        fsGroup: 12345
+      containerSecurityContext:
+        runAsUser: 12345
+        runAsNonRoot: true
 
 # values for general test suite
-mapServices:
-  fromVirtual:
-  - from: test/test
-    to: test
-  fromHost:
-  - from: test/test
-    to: default/test
+networking:
+  replicateServices:
+    toHost:
+    - from: test/test
+      to: test
+    - from: test/nginx
+      to: nginx
+    fromHost:
+    - from: test/test
+      to: default/test
+    - from: test/nginx
+      to: default/nginx
 
 sync:
+  fromHost:
    nodes:
      enabled: true
-     nodeSelector: "kubernetes.io/hostname=kind-control-plane"
+     selector:
+       labels:
+         kubernetes.io/hostname: "kind-control-plane"
+
+experimental:
+  deploy:
+    vcluster:
+      manifests: |-
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: test-configmap
+        data:
+          foo: bar
+      manifestsTemplate: |-
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: test-configmap-2
+        data:
+          foo: {{ .Release.Name }}
+      helm:
+        - chart:
+            name: ingress-nginx
+            repo: https://kubernetes.github.io/ingress-nginx
+            version: 4.1.1
+          release:
+            name: ingress-nginx
+            namespace: ingress-nginx
+          timeout: "50s"
+        - chart:
+            name: fluent-bit
+            repo: oci://registry-1.docker.io/bitnamicharts
+            version: 0.4.3
+          release:
+            name: fluent-bit
+            namespace: fluent-bit
+          timeout: "50s"

@@ -1,4 +1,4 @@
-FROM golang:1.20 as builder
+FROM golang:1.24 as builder
 
 WORKDIR /vcluster-dev
 ARG TARGETOS
@@ -18,9 +18,9 @@ COPY pkg/ pkg/
 COPY cmd/ cmd/
 
 # Copy and embed the helm charts
-COPY charts/ charts/
+COPY chart/ chart/
 COPY hack/ hack/
-RUN go generate -tags embed_charts ./...
+RUN go generate -tags embed_chart ./...
 
 ENV GO111MODULE on
 ENV DEBUG true
@@ -29,12 +29,11 @@ ENV DEBUG true
 RUN mkdir -p /.cache
 ENV GOCACHE=/.cache
 
-
 # Build cmd
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -mod vendor -tags embed_charts -o /vcluster cmd/vclusterctl/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build -mod vendor -tags embed_chart -o /vcluster cmd/vclusterctl/main.go
 
 # we use alpine for easier debugging
-FROM alpine:3.18
+FROM alpine:3.22
 # Set home to "/" in order to for kubectl to automatically pick up vcluster kube config
 ENV KUBECONFIG=/root/.kube/config
 COPY --from=builder /vcluster /usr/local/bin/vcluster

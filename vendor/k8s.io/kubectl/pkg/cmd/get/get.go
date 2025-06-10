@@ -36,7 +36,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
@@ -47,9 +47,8 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/kubectl/pkg/util/i18n"
 	"k8s.io/kubectl/pkg/util/interrupt"
-	"k8s.io/kubectl/pkg/util/slice"
 	"k8s.io/kubectl/pkg/util/templates"
-	utilpointer "k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 // GetOptions contains the input to the get command.
@@ -82,7 +81,7 @@ type GetOptions struct {
 	NoHeaders      bool
 	IgnoreNotFound bool
 
-	genericclioptions.IOStreams
+	genericiooptions.IOStreams
 }
 
 var (
@@ -91,8 +90,8 @@ var (
 
 		Prints a table of the most important information about the specified resources.
 		You can filter the list using a label selector and the --selector flag. If the
-		desired resource type is namespaced you will only see results in your current
-		namespace unless you pass --all-namespaces.
+		desired resource type is namespaced you will only see results in the current
+		namespace if you don't specify any namespace.
 
 		By specifying the output as 'template' and providing a Go template as the value
 		of the --template flag, you can filter the attributes of the fetched resources.`))
@@ -131,18 +130,22 @@ var (
 		# List one or more resources by their type and names
 		kubectl get rc/web service/frontend pods/web-pod-13je7
 
-		# List status subresource for a single pod.
-		kubectl get pod web-pod-13je7 --subresource status`))
+		# List the 'status' subresource for a single pod
+		kubectl get pod web-pod-13je7 --subresource status
+
+		# List all deployments in namespace 'backend'
+		kubectl get deployments.apps --namespace backend
+
+		# List all pods existing in all namespaces
+		kubectl get pods --all-namespaces`))
 )
 
 const (
 	useServerPrintColumns = "server-print"
 )
 
-var supportedSubresources = []string{"status", "scale"}
-
 // NewGetOptions returns a GetOptions with default chunk size 500.
-func NewGetOptions(parent string, streams genericclioptions.IOStreams) *GetOptions {
+func NewGetOptions(parent string, streams genericiooptions.IOStreams) *GetOptions {
 	return &GetOptions{
 		PrintFlags: NewGetPrintFlags(),
 		CmdParent:  parent,
@@ -155,7 +158,7 @@ func NewGetOptions(parent string, streams genericclioptions.IOStreams) *GetOptio
 
 // NewCmdGet creates a command object for the generic "get" action, which
 // retrieves one or more resources from a server.
-func NewCmdGet(parent string, f cmdutil.Factory, streams genericclioptions.IOStreams) *cobra.Command {
+func NewCmdGet(parent string, f cmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Command {
 	o := NewGetOptions(parent, streams)
 
 	cmd := &cobra.Command{
@@ -186,7 +189,7 @@ func NewCmdGet(parent string, f cmdutil.Factory, streams genericclioptions.IOStr
 	cmdutil.AddFilenameOptionFlags(cmd, &o.FilenameOptions, "identifying the resource to get from a server.")
 	cmdutil.AddChunkSizeFlag(cmd, &o.ChunkSize)
 	cmdutil.AddLabelSelectorFlagVar(cmd, &o.LabelSelector)
-	cmdutil.AddSubresourceFlags(cmd, &o.Subresource, "If specified, gets the subresource of the requested object.", supportedSubresources...)
+	cmdutil.AddSubresourceFlags(cmd, &o.Subresource, "If specified, gets the subresource of the requested object.")
 	return cmd
 }
 
@@ -267,9 +270,13 @@ func (o *GetOptions) Complete(f cmdutil.Factory, cmd *cobra.Command, args []stri
 	}
 
 	switch {
-	case o.Watch || o.WatchOnly:
+	case o.Watch:
 		if len(o.SortBy) > 0 {
-			fmt.Fprintf(o.IOStreams.ErrOut, "warning: --watch or --watch-only requested, --sort-by will be ignored\n")
+			fmt.Fprintf(o.IOStreams.ErrOut, "warning: --watch requested, --sort-by will be ignored for watch events received\n")
+		}
+	case o.WatchOnly:
+		if len(o.SortBy) > 0 {
+			fmt.Fprintf(o.IOStreams.ErrOut, "warning: --watch-only requested, --sort-by will be ignored\n")
 		}
 	default:
 		if len(args) == 0 && cmdutil.IsFilenameSliceEmpty(o.Filenames, o.Kustomize) {
@@ -280,7 +287,7 @@ func (o *GetOptions) Complete(f cmdutil.Factory, cmd *cobra.Command, args []stri
 				usageString = fmt.Sprintf("%s\nUse \"%s explain <resource>\" for a detailed description of that resource (e.g. %[2]s explain pods).", usageString, fullCmdName)
 			}
 
-			return cmdutil.UsageErrorf(cmd, usageString)
+			return cmdutil.UsageErrorf(cmd, "%s", usageString)
 		}
 	}
 
@@ -308,9 +315,6 @@ func (o *GetOptions) Validate() error {
 	}
 	if o.OutputWatchEvents && !(o.Watch || o.WatchOnly) {
 		return fmt.Errorf("--output-watch-events option can only be used with --watch or --watch-only")
-	}
-	if len(o.Subresource) > 0 && !slice.ContainsString(supportedSubresources, o.Subresource, nil) {
-		return fmt.Errorf("invalid subresource value: %q. Must be one of %v", o.Subresource, supportedSubresources)
 	}
 	return nil
 }
@@ -627,7 +631,7 @@ func (o *GetOptions) watch(f cmdutil.Factory, args []string) error {
 
 	info := infos[0]
 	mapping := info.ResourceMapping()
-	outputObjects := utilpointer.BoolPtr(!o.WatchOnly)
+	outputObjects := ptr.To(!o.WatchOnly)
 	printer, err := o.ToPrinter(mapping, outputObjects, o.AllNamespaces, false)
 	if err != nil {
 		return err

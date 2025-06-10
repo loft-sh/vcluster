@@ -1,0 +1,931 @@
+suite: ControlPlane StatefulSet
+templates:
+  - statefulset.yaml
+
+tests:
+  - it: should not create control-plane
+    set:
+      experimental:
+        isolatedControlPlane:
+          headless: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: image name
+    set:
+      controlPlane:
+        statefulSet:
+          image:
+            registry: "custom-registry.com"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: custom-registry.com/loft-sh/vcluster-pro:0.0.1
+
+  - it: defaultImageRegistry
+    set:
+      controlPlane:
+        advanced:
+          defaultImageRegistry: docker.io
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: docker.io/loft-sh/vcluster-pro:0.0.1
+
+  - it: custom tag
+    set:
+      controlPlane:
+        statefulSet:
+          image:
+            repository: my-repo
+            tag: "custom-tag"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/my-repo:custom-tag
+
+  - it: custom init container
+    set:
+      controlPlane:
+        distro:
+          k3s:
+            enabled: true
+            image:
+              registry: "ghcr.io"
+              repository: "test"
+              tag: "123"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/test:123
+
+  - it: disables serviceLinks for sts etcd pod
+    set:
+      controlPlane:
+        statefulSet:
+          enableServiceLinks: false
+    asserts:
+      - equal:
+          path: spec.template.spec.enableServiceLinks
+          value: false
+
+  - it: custom init container
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            image:
+              registry: ""
+              repository: "k8s-api"
+              tag: "456"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: k8s-api:456
+
+  - it: custom init container
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            image:
+              repository: "k8s-controller"
+              tag: "123"
+        advanced:
+          defaultImageRegistry: "bbb.com"
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: bbb.com/k8s-controller:123
+
+  - it: name & defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    capabilities:
+      majorVersion: 1
+      minorVersion: 29
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/loft-sh/vcluster-pro:0.0.1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: VCLUSTER_NAME
+            value: my-release
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /data
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: binaries
+            mountPath: /binaries
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: certs
+            mountPath: /pki
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: helm-cache
+            mountPath: /.cache/helm
+      - equal:
+          path: metadata.name
+          value: my-release
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+      - equal:
+          path: spec.podManagementPolicy
+          value: Parallel
+      - equal:
+          path: spec.persistentVolumeClaimRetentionPolicy.whenDeleted
+          value: Retain
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.template.metadata.labels.app
+          value: vcluster
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 10
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.accessModes[0]
+          value: ReadWriteOnce
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.resources.requests.storage
+          value: 5Gi
+
+  - it: fail when both backing stores are enabled
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            embedded:
+              enabled: true
+            deploy:
+              enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "you can only enable one backingStore at the same time"
+
+  - it: not persistent when external etcd is enabled
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+      - notExists:
+          path: spec.volumeClaimTemplates
+
+  - it: not persistent when k8s and external database
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+        backingStore:
+          database:
+            external:
+              enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+      - notExists:
+          path: spec.volumeClaimTemplates
+
+  - it: persistent when embedded database
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+        backingStore:
+          database:
+            embedded:
+              enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+
+  - it: persistent when k8s and embedded etcd
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            embedded:
+              enabled: true
+        distro:
+          k8s:
+            enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+
+  - it: persistent when embedded database
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+
+  - it: plugin 1
+    set:
+      plugins:
+        test:
+          image: test
+      plugin:
+        test123:
+          version: v2
+          image: test
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 6
+      - lengthEqual:
+          path: spec.template.spec.initContainers
+          count: 3
+
+  - it: plugin volumes 2
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+      plugin:
+        test:
+          version: v2
+          image: test
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 6
+      - lengthEqual:
+          path: spec.template.spec.initContainers
+          count: 2
+
+  - it: plugin volumes 3
+    set:
+      plugin:
+        test:
+          image: test
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 5
+      - lengthEqual:
+          path: spec.template.spec.initContainers
+          count: 1
+
+  - it: add volumes
+    set:
+      controlPlane:
+        distro:
+          k3s:
+            enabled: true
+        statefulSet:
+          persistence:
+            addVolumes:
+              - name: myVolume
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: myVolume
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 7
+
+  - it: add templated volumes
+    set:
+      controlPlane:
+        distro:
+          k3s:
+            enabled: true
+        statefulSet:
+          persistence:
+            addVolumes:
+              - name: '{{ .Release.Name }}-myVolume'
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: RELEASE-NAME-myVolume
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 7
+
+  - it: enable k8s
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+
+  - it: enable k8s with deploy etcd
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+      - notExists:
+          path: spec.volumeClaimTemplates
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
+
+  - it: enable k8s
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+        statefulSet:
+          persistence:
+            volumeClaim:
+              enabled: false
+            volumeClaimTemplates:
+              - metadata:
+                  name: data
+                spec:
+                  resources:
+                    requests:
+                      storage: 5Gi
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - equal:
+          path: spec.serviceName
+          value: my-release-headless
+      - contains:
+          path: spec.volumeClaimTemplates
+          content:
+            metadata:
+              name: data
+            spec:
+              resources:
+                requests:
+                  storage: 5Gi
+
+  - it: enable k8s
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - equal:
+          path: spec.serviceName
+          value: my-release-headless
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+
+  - it: enable k8s with deploy etcd
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+      - notExists:
+          path: spec.volumeClaimTemplates
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
+
+  - it: append distro env
+    set:
+      controlPlane:
+        distro:
+          k3s:
+            enabled: true
+            env:
+              - name: KEY
+                value: VALUE
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KEY
+            value: VALUE
+
+  - it: should correctly set labels on the statefulset
+    set:
+      controlPlane:
+        statefulSet:
+          labels:
+            my-label: my-value
+
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+      - equal:
+          path: metadata.labels["my-label"]
+          value: "my-value"
+
+  - it: binariesVolume - should set to emptyDir by default
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: binaries
+            emptyDir: {}
+
+  - it: binariesVolume - should set the specified volume type correctly
+    set:
+      controlPlane:
+        statefulSet:
+          persistence:
+            binariesVolume:
+              - name: binaries
+                persistentVolumeClaim:
+                  claimName: my-pvc
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: binaries
+            persistentVolumeClaim:
+              claimName: my-pvc
+
+  - it: dataVolume - should set the specified data volume type correctly
+    set:
+      controlPlane:
+        statefulSet:
+          persistence:
+            dataVolume:
+              - name: data
+                persistentVolumeClaim:
+                  claimName: my-custom-pvc
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            persistentVolumeClaim:
+              claimName: my-custom-pvc
+
+  - it: k8s version not set, default tag images used for apiServer and controllerManager
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.32.1
+
+  - it: k8s override image tag
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            image:
+              tag: v99912
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v99912
+
+  - it: k8s version sets image tag for apiServer and controllerManager
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            version: v1.35.999
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.35.999
+
+  - it: k8s version set and not overridden by image tag
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            version: v1.30.999
+            image:
+              tag: v99912
+
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.30.999
+
+  - it: k8s not version set but image tags for apiServer and controllerManager set
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            image:
+              tag: v99914
+
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v99914
+
+  - it: k8s version not set, default tag images used for apiServer and controllerManager (virtual scheduler enabled)
+    chart:
+      version: "test-"
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+        advanced:
+          virtualScheduler:
+            enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.32.1
+
+  - it: k8s version sets image tag for apiServer and controllerManager (virtual scheduler enabled)
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            version: v1.35.999
+        advanced:
+          virtualScheduler:
+            enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.35.999
+
+  - it: k8s version set but not overridden by image tag for apiServer and controllerManager (virtual scheduler enabled)
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            version: v1.30.999
+            image:
+              tag: v99912
+        advanced:
+          virtualScheduler:
+            enabled: true
+
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.30.999
+
+  - it: custom dnsPolicy
+    set:
+      controlPlane:
+        statefulSet:
+          dnsPolicy: "ClusterFirst"
+    asserts:
+      - equal:
+          path: spec.template.spec.dnsPolicy
+          value: "ClusterFirst"
+
+  - it: custom dnsConfig
+    set:
+      controlPlane:
+        statefulSet:
+          dnsConfig:
+            nameservers:
+              - 192.0.2.1
+            searches:
+              - ns1.svc.cluster-domain.example
+            options:
+              - name: ndots
+                value: "2"
+    asserts:
+      - equal:
+          path: spec.template.spec.dnsConfig.nameservers[0]
+          value: "192.0.2.1"
+      - equal:
+          path: spec.template.spec.dnsConfig.searches[0]
+          value: "ns1.svc.cluster-domain.example"
+      - equal:
+          path: spec.template.spec.dnsConfig.options[0].name
+          value: "ndots"
+      - equal:
+          path: spec.template.spec.dnsConfig.options[0].value
+          value: "2"
+
+  - it: must use StatefulSet for embedded etcd
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            embedded:
+              enabled: true
+
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+
+  - it: must use StatefulSet for embedded etcd without persistence
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            embedded:
+              enabled: true
+        statefulSet:
+          persistence:
+            volumeClaim:
+              enabled: false
+            binariesVolume:
+              - name: binaries
+                emptyDir:
+                  medium: Memory
+
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+
+  - it: sync custom resources
+    set:
+      sync:
+        toHost:
+          customResources:
+            test.cert-manager.io:
+              enabled: true
+              patches:
+                - path: spec.dnsNames[*]
+                  expression: "value.startsWith('www.') ? value.slice(4) : value"
+                  reverseExpression: '"www."+value'
+    asserts:
+      - equal:
+          path: kind
+          value: StatefulSet
+
+  - it: fails when you set both exportKubeConfig.secret and exportKubeConfig.additionalSecrets
+    set:
+      exportKubeConfig:
+        secret:
+          name: my-secret
+        additionalSecrets:
+          - name: another-secret
+    asserts:
+      - failedTemplate:
+          errorMessage: "exportKubeConfig.secret and exportKubeConfig.additionalSecrets cannot be set at the same time"
+
+  - it: fails when additional secret does not have at least name or namespace
+    set:
+      exportKubeConfig:
+        additionalSecrets:
+          - name: my-secret
+            context: my-context
+          - server: my-server
+    asserts:
+      - failedTemplate:
+          errorMessage: "additional secret must have name and/or namespace set, found: {\"server\":\"my-server\"}"
+          
+  - it: must use Deployment for external etcd
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            external:
+              enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+
+  - it: private nodes k8s full image
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            image:
+              tag: v1.35.999
+      privateNodes:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.35.999-full
+
+  - it: private nodes k8s full image disabled
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            image:
+              tag: v1.35.999
+      privateNodes:
+        enabled: true
+        importNodeBinaries: false
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.35.999
+
+  - it: private nodes k8s full image version
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            version: v1.35.999
+      privateNodes:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.35.999-full
+
+  - it: private nodes k8s full image disabled version
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            image:
+              tag: v1.35.999
+      privateNodes:
+        enabled: true
+        importNodeBinaries: false
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.35.999
+          
+  - it: sets custom probe configuration
+    set:
+      controlPlane:
+        statefulSet:
+          probes:
+            livenessProbe:
+              enabled: true
+              failureThreshold: 70
+              initialDelaySeconds: 70
+              timeoutSeconds: 10
+              periodSeconds: 9
+            readinessProbe:
+              enabled: true
+              failureThreshold: 70
+              timeoutSeconds: 6
+              periodSeconds: 8
+            startupProbe:
+              enabled: true
+              failureThreshold: 350
+              timeoutSeconds: 7
+              periodSeconds: 8
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.failureThreshold
+          value: 70
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.initialDelaySeconds
+          value: 70
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.timeoutSeconds
+          value: 10
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.periodSeconds
+          value: 9
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.failureThreshold
+          value: 70
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.timeoutSeconds
+          value: 6
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.periodSeconds
+          value: 8
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 350
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.timeoutSeconds
+          value: 7
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.periodSeconds
+          value: 8
+
+
+  - it: uses default probe values when none are overridden
+    set:
+      controlPlane:
+        statefulSet:
+          probes:
+            livenessProbe:
+              enabled: true
+            readinessProbe:
+              enabled: true
+            startupProbe:
+              enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.initialDelaySeconds
+          value: 60
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.periodSeconds
+          value: 2
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.timeoutSeconds
+          value: 3
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.failureThreshold
+          value: 60
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.periodSeconds
+          value: 2
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.timeoutSeconds
+          value: 3
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.failureThreshold
+          value: 60
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.periodSeconds
+          value: 6
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.timeoutSeconds
+          value: 3
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 300

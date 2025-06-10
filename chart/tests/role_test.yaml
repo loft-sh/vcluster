@@ -1,0 +1,425 @@
+suite: Role
+templates:
+  - role.yaml
+
+tests:
+  - it: check disabled
+    set:
+      rbac:
+        role:
+          enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: check overwrite rules
+    set:
+      rbac:
+        role:
+          overwriteRules:
+            - apiGroups: [""]
+              resources: ["configmaps"]
+              verbs: ["create"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 1
+      - contains:
+          path: rules
+          count: 1
+          content:
+            apiGroups: [""]
+            resources: ["configmaps"]
+            verbs: ["create"]
+
+  - it: check plugin extra rules
+    set:
+      plugin:
+        test123:
+          rbac:
+            role:
+              extraRules:
+                - apiGroups: [""]
+                  resources: ["test123"]
+                  verbs: ["test123"]
+      plugins:
+        test:
+          rbac:
+            role:
+              extraRules:
+                - apiGroups: [""]
+                  resources: ["test"]
+                  verbs: ["test"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 7
+      - contains:
+          path: rules
+          count: 1
+          content:
+            apiGroups: [""]
+            resources: ["test123"]
+            verbs: ["test123"]
+      - contains:
+          path: rules
+          count: 1
+          content:
+            apiGroups: [""]
+            resources: ["test"]
+            verbs: ["test"]
+
+  - it: check generic sync
+    set:
+      experimental:
+        genericSync:
+          role:
+            extraRules:
+              - apiGroups: [""]
+                resources: ["test"]
+                verbs: ["test"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 6
+      - contains:
+          path: rules
+          count: 1
+          content:
+            apiGroups: [""]
+            resources: ["test"]
+            verbs: ["test"]
+
+  - it: check extra rules
+    set:
+      rbac:
+        role:
+          extraRules:
+            - apiGroups: [""]
+              resources: ["test"]
+              verbs: ["test"]
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
+          count: 6
+      - contains:
+          path: rules
+          count: 1
+          content:
+            apiGroups: [""]
+            resources: ["test"]
+            verbs: ["test"]
+
+  - it: check defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - equal:
+          path: metadata.name
+          value: vc-my-release
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+
+  - it: multi-namespace mode
+    set:
+      sync:
+        toHost:
+          namespaces:
+            enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ClusterRole
+      - equal:
+          path: metadata.name
+          value: vc-mn-my-release-v-my-namespace
+
+  - it: metrics proxy
+    set:
+      integrations:
+        metricsServer:
+          enabled: true
+          pods: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["metrics.k8s.io"]
+            resources: ["pods"]
+            verbs: ["get", "list"]
+
+  - it: external secret test
+    set:
+      integrations:
+        externalSecrets:
+          enabled: true
+          sync:
+            externalSecrets:
+              enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["external-secrets.io"]
+            resources: ["externalsecrets"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - it: certManager enabled
+    set:
+      integrations:
+        certManager:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["cert-manager.io"]
+            resources: ["issuers"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["cert-manager.io"]
+            resources: ["certificates"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - it: external secret test store sync
+    set:
+      integrations:
+        externalSecrets:
+          enabled: true
+          sync:
+            externalSecrets:
+              enabled: true
+            stores:
+              enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["external-secrets.io"]
+            resources: ["secretstores"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - it: kubeVirt test
+    set:
+      integrations:
+        kubeVirt:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["kubevirt.io"]
+            resources:
+              [
+                "virtualmachines",
+                "virtualmachines/status",
+                "virtualmachineinstances",
+                "virtualmachineinstances/status",
+                "virtualmachineinstancemigrations",
+                "virtualmachineinstancemigrations/status",
+              ]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["cdi.kubevirt.io"]
+            resources: ["datavolumes", "datavolumes/status"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["clone.kubevirt.io"]
+            resources: ["virtualmachineclones", "virtualmachineclones/status"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["pool.kubevirt.io"]
+            resources: ["virtualmachinepools", "virtualmachinepools/status"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+
+  - it: crd sync
+    set:
+      sync:
+        toHost:
+          customResources:
+            test.my-group:
+              enabled: false
+            test.my-group-2:
+              enabled: true
+            tests.my-group-3.com:
+              enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - lengthEqual:
+          path: rules
+          count: 7
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["my-group-2"]
+            resources: ["test"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["my-group-3.com"]
+            resources: ["tests"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+
+  - it: patches
+    set:
+      sync:
+        toHost:
+          customResources:
+            test.my-group-2:
+              enabled: true
+              patches:
+                - path: "test"
+                  expression: "test"
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: patches 2
+    set:
+      sync:
+        toHost:
+          customResources:
+            test.my-group-2:
+              enabled: true
+              patches:
+                - path: "test"
+                  reference:
+                    apiVersion: "v1"
+                    kind: "Secret"
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: istio integration
+    set:
+      integrations:
+        istio:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["networking.istio.io"]
+            resources: ["destinationrules", "gateways", "serviceentries", "virtualservices"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["gateway.networking.k8s.io"]
+            resources: ["referencegrants"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+
+  - it: private nodes
+    set:
+      privateNodes:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["coordination.k8s.io"]
+            resources: ["leases"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]

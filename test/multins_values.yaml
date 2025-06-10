@@ -1,2 +1,3 @@
-multiNamespaceMode:
-  enabled: true
+experimental:
+  multiNamespaceMode:
+    enabled: true

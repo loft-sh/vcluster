@@ -1,0 +1,213 @@
+{{- if not .Values.experimental.isolatedControlPlane.headless }}
+{{- if or .Values.controlPlane.backingStore.etcd.deploy.enabled (include "vcluster.etcd.embedded.migrate" .) }}
+{{- if .Values.controlPlane.backingStore.etcd.deploy.statefulSet.enabled }}
+{{- $externalEtcd := .Values.controlPlane.backingStore.etcd.deploy.statefulSet }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-etcd
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster-etcd
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+{{- if $externalEtcd.labels }}
+{{ toYaml $externalEtcd.labels | indent 4 }}
+{{- end }}
+  {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations $externalEtcd.annotations }}
+  {{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ $externalEtcd.highAvailability.replicas }}
+  podManagementPolicy: {{ $externalEtcd.scheduling.podManagementPolicy }}
+  serviceName: {{ .Release.Name }}-etcd-headless
+  {{- if eq $externalEtcd.persistence.volumeClaim.retentionPolicy "Delete" }}
+  {{- if ge (int .Capabilities.KubeVersion.Minor) 27 }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: {{ $externalEtcd.persistence.volumeClaim.retentionPolicy }}
+  {{- end }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: vcluster-etcd
+      release: {{ .Release.Name }}
+  {{- if $externalEtcd.persistence.volumeClaimTemplates }}
+  volumeClaimTemplates:
+{{ toYaml $externalEtcd.persistence.volumeClaimTemplates | indent 4 }}
+  {{- else if $externalEtcd.persistence.volumeClaim.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: {{ $externalEtcd.persistence.volumeClaim.accessModes }}
+        {{- if $externalEtcd.persistence.volumeClaim.storageClass }}
+        storageClassName: {{ $externalEtcd.persistence.volumeClaim.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ $externalEtcd.persistence.volumeClaim.size }}
+  {{- end }}
+  template:
+    metadata:
+      {{- if $externalEtcd.pods.annotations }}
+      annotations:
+{{ toYaml $externalEtcd.pods.annotations | indent 8 }}
+      {{- end }}
+      labels:
+        app: vcluster-etcd
+        release: {{ .Release.Name }}
+        {{- range $k, $v := $externalEtcd.pods.labels }}
+        {{ $k }}: {{ $v | quote }}
+        {{- end }}
+    spec:
+      terminationGracePeriodSeconds: 10
+      {{- if $externalEtcd.scheduling.affinity }}
+      affinity:
+{{ toYaml $externalEtcd.scheduling.affinity | indent 8 }}
+      {{- else }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          # if possible avoid scheduling more than one pod on one node
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - vcluster-etcd
+                - key: release
+                  operator: In
+                  values:
+                  - {{ .Release.Name }}
+              topologyKey: "kubernetes.io/hostname"
+          # if possible avoid scheduling pod onto node that is in the same zone as one or more vcluster pods are running
+          - weight: 50
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - vcluster-etcd
+                - key: release
+                  operator: In
+                  values:
+                  - {{ .Release.Name }}
+              topologyKey: topology.kubernetes.io/zone
+      {{- end }}
+      {{- if $externalEtcd.scheduling.topologySpreadConstraints }}
+      topologySpreadConstraints:
+{{ toYaml $externalEtcd.scheduling.topologySpreadConstraints | indent 8 }}
+      {{- end }}
+      nodeSelector:
+{{ toYaml $externalEtcd.scheduling.nodeSelector | indent 8 }}
+      tolerations:
+{{ toYaml $externalEtcd.scheduling.tolerations | indent 8 }}
+      automountServiceAccountToken: false
+      {{- if .Values.controlPlane.advanced.serviceAccount.name }}
+      serviceAccountName: {{ .Values.controlPlane.advanced.serviceAccount.name }}
+      {{- else }}
+      serviceAccountName: vc-{{ .Release.Name }}
+      {{- end }}
+      volumes:
+        - name: certs
+          secret:
+            secretName: {{ .Release.Name }}-certs
+      {{- if $externalEtcd.persistence.addVolumes }}
+{{ toYaml $externalEtcd.persistence.addVolumes | indent 8 }}
+      {{- end }}
+      {{- if not $externalEtcd.persistence.volumeClaim.enabled }}
+        - name: data
+          emptyDir: {}
+      {{- end }}
+      {{- if $externalEtcd.scheduling.priorityClassName }}
+      priorityClassName: {{ $externalEtcd.scheduling.priorityClassName }}
+      {{- end }}
+      {{- if $externalEtcd.security.podSecurityContext }}
+      securityContext:
+{{ toYaml $externalEtcd.security.podSecurityContext | indent 8 }}
+      {{- end }}
+      enableServiceLinks: {{ .Values.controlPlane.backingStore.etcd.deploy.statefulSet.enableServiceLinks }}
+      containers:
+      - name: etcd
+        image: '{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" $externalEtcd.image.registry "repository" $externalEtcd.image.repository "tag" $externalEtcd.image.tag) }}'
+        command:
+          - etcd
+          - '--cert-file=/run/config/pki/etcd-server.crt'
+          - '--client-cert-auth=true'
+          - '--data-dir=/var/lib/etcd'
+          - '--advertise-client-urls=https://$(NAME).{{ .Release.Name }}-etcd-headless.{{ .Release.Namespace }}:2379'
+          - '--initial-advertise-peer-urls=https://$(NAME).{{ .Release.Name }}-etcd-headless.{{ .Release.Namespace }}:2380'
+          {{- $releaseName := .Release.Name -}}
+          {{- $releaseNamespace := .Release.Namespace }}
+          - '--initial-cluster={{ range $index := untilStep 0 (int $externalEtcd.highAvailability.replicas) 1 }}{{ if (ne (int $index) 0) }},{{ end }}{{ $releaseName }}-etcd-{{ $index }}=https://{{ $releaseName }}-etcd-{{ $index }}.{{ $releaseName }}-etcd-headless.{{ $releaseNamespace }}:2380{{ end }}'
+          - '--initial-cluster-token={{ .Release.Name }}'
+          - '--initial-cluster-state=new'
+          - '--listen-client-urls=https://0.0.0.0:2379'
+          - '--listen-metrics-urls=http://0.0.0.0:2381'
+          - '--listen-peer-urls=https://0.0.0.0:2380'
+          - '--key-file=/run/config/pki/etcd-server.key'
+          - '--name=$(NAME)'
+          - '--peer-cert-file=/run/config/pki/etcd-peer.crt'
+          - '--peer-client-cert-auth=true'
+          - '--peer-key-file=/run/config/pki/etcd-peer.key'
+          - '--peer-trusted-ca-file=/run/config/pki/etcd-ca.crt'
+          - '--snapshot-count=10000'
+          - '--trusted-ca-file=/run/config/pki/etcd-ca.crt'
+          {{- range $f := $externalEtcd.extraArgs }}
+          - {{ $f | quote }}
+          {{- end }}
+        {{- if $externalEtcd.security.containerSecurityContext }}
+        securityContext:
+{{ toYaml $externalEtcd.security.containerSecurityContext | indent 10 }}
+        {{- end }}
+        env:
+          - name: NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        {{- if $externalEtcd.env }}
+{{ toYaml $externalEtcd.env | indent 10 }}
+        {{- end }}
+        volumeMounts:
+          - name: data
+            mountPath: /var/lib/etcd
+          - mountPath: /run/config/pki
+            name: certs
+            readOnly: true
+        {{- if $externalEtcd.persistence.addVolumeMounts }}
+{{ toYaml $externalEtcd.persistence.addVolumeMounts | indent 10 }}
+        {{- end }}
+        resources:
+{{ toYaml $externalEtcd.resources | indent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 2381
+            scheme: HTTP
+          initialDelaySeconds: 10
+          timeoutSeconds: 15
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 8
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 2381
+            scheme: HTTP
+          initialDelaySeconds: 10
+          timeoutSeconds: 15
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 24
+        {{- if $externalEtcd.imagePullPolicy }}
+        imagePullPolicy: {{ $externalEtcd.imagePullPolicy }}
+        {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

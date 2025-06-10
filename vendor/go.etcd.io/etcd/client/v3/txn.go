@@ -25,15 +25,14 @@ import (
 
 // Txn is the interface that wraps mini-transactions.
 //
-//	 Txn(context.TODO()).If(
-//	  Compare(Value(k1), ">", v1),
-//	  Compare(Version(k1), "=", 2)
-//	 ).Then(
-//	  OpPut(k2,v2), OpPut(k3,v3)
-//	 ).Else(
-//	  OpPut(k4,v4), OpPut(k5,v5)
-//	 ).Commit()
-//
+//	Txn(context.TODO()).If(
+//	 Compare(Value(k1), ">", v1),
+//	 Compare(Version(k1), "=", 2)
+//	).Then(
+//	 OpPut(k2,v2), OpPut(k3,v3)
+//	).Else(
+//	 OpPut(k4,v4), OpPut(k5,v5)
+//	).Commit()
 type Txn interface {
 	// If takes a list of comparison. If all comparisons passed in succeed,
 	// the operations passed into Then() will be executed. Or the operations
@@ -145,7 +144,7 @@ func (txn *txn) Commit() (*TxnResponse, error) {
 	var err error
 	resp, err = txn.kv.remote.Txn(txn.ctx, r, txn.callOpts...)
 	if err != nil {
-		return nil, toErr(txn.ctx, err)
+		return nil, ContextError(txn.ctx, err)
 	}
 	return (*TxnResponse)(resp), nil
 }

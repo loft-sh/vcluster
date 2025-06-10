@@ -2,30 +2,307 @@ package pods
 
 import (
 	"fmt"
+	"maps"
 	"testing"
 
-	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
-	"github.com/loft-sh/vcluster/pkg/util/maps"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/pod-security-admission/api"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
+
+	"github.com/loft-sh/vcluster/pkg/config"
+	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 )
 
+var (
+	pVclusterService = corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testingutil.DefaultTestVClusterServiceName,
+			Namespace: testingutil.DefaultTestCurrentNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "1.2.3.4",
+		},
+	}
+	pDNSService = corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      translate.Default.HostName(nil, "kube-dns", "kube-system").Name,
+			Namespace: testingutil.DefaultTestTargetNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "2.2.2.2",
+		},
+	}
+)
+
+func TestSyncTable(t *testing.T) {
+	translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
+	specialservices.Default = specialservices.NewDefaultServiceSyncer()
+
+	vNamespace := corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "testns",
+		},
+	}
+	vObjectMeta := metav1.ObjectMeta{
+		Name:      "testpod",
+		Namespace: vNamespace.Name,
+	}
+	pObjectMeta := metav1.ObjectMeta{
+		Name:      translate.Default.HostName(nil, "testpod", "testns").Name,
+		Namespace: "test",
+		Annotations: map[string]string{
+			podtranslate.ClusterAutoScalerAnnotation:  "false",
+			podtranslate.VClusterLabelsAnnotation:     "",
+			podtranslate.NameAnnotation:               vObjectMeta.Name,
+			podtranslate.NamespaceAnnotation:          vObjectMeta.Namespace,
+			translate.NameAnnotation:                  vObjectMeta.Name,
+			translate.UIDAnnotation:                   "",
+			translate.NamespaceAnnotation:             vObjectMeta.Namespace,
+			translate.KindAnnotation:                  corev1.SchemeGroupVersion.WithKind("Pod").String(),
+			translate.HostNamespaceAnnotation:         "test",
+			translate.HostNameAnnotation:              translate.Default.HostName(nil, "testpod", "testns").Name,
+			podtranslate.ServiceAccountNameAnnotation: "",
+			podtranslate.UIDAnnotation:                string(vObjectMeta.UID),
+		},
+		Labels: map[string]string{
+			translate.NamespaceLabel: vObjectMeta.Namespace,
+			translate.MarkerLabel:    translate.VClusterName,
+		},
+	}
+	virtualNode := corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "test123"},
+	}
+	testCases := []struct {
+		name                     string
+		expectPhysicalPod        bool
+		expectVirtualPod         bool
+		withVirtualNode          bool
+		virtualPodWithoutNode    bool
+		initialVContainers       []corev1.Container
+		expectedVContainers      []corev1.Container
+		initialPContainers       []corev1.Container
+		initialNodeSelector      map[string]string
+		expectedNodeSelector     map[string]string
+		nodeSelectorOption       map[string]string
+		syncToHost               bool
+		securityStandard         string
+		virtualPodsLabels        map[string]string
+		expectPhysicalPodsLabels map[string]string
+	}{
+		{
+			name:              "Delete virtual pod",
+			expectPhysicalPod: true,
+		},
+		{
+			name:              "Check injected sidecar",
+			expectPhysicalPod: true,
+			expectVirtualPod:  true,
+			withVirtualNode:   true,
+			initialVContainers: []corev1.Container{
+				{Name: "nginx-not-injected"},
+			},
+			expectedVContainers: []corev1.Container{
+				{Name: "nginx-not-injected"},
+			},
+			initialPContainers: []corev1.Container{
+				{Name: "nginx-not-injected"},
+				{Name: "nginx-injected"},
+			},
+		},
+		{
+			name:                  "SyncToHost and enforce NodeSelector",
+			expectPhysicalPod:     true,
+			syncToHost:            true,
+			expectVirtualPod:      true,
+			virtualPodWithoutNode: true,
+			initialNodeSelector: map[string]string{
+				"labelA": "valueA",
+				"labelB": "valueB",
+			},
+			nodeSelectorOption: map[string]string{
+				"labelB":     "enforcedB",
+				"otherLabel": "abc",
+			},
+			expectedNodeSelector: map[string]string{
+				"labelA":     "valueA",
+				"labelB":     "enforcedB",
+				"otherLabel": "abc",
+			},
+		},
+		{
+			name:                  "SyncToHost without security standard",
+			expectPhysicalPod:     true,
+			syncToHost:            true,
+			expectVirtualPod:      true,
+			virtualPodWithoutNode: true,
+		},
+		{
+			name:                  "SyncToHost with privileged security standard",
+			expectPhysicalPod:     true,
+			syncToHost:            true,
+			expectVirtualPod:      true,
+			virtualPodWithoutNode: true,
+			securityStandard:      string(api.LevelPrivileged),
+		},
+		{
+			name:                  "SyncToHost with restricted security standard",
+			expectPhysicalPod:     false,
+			syncToHost:            true,
+			expectVirtualPod:      true,
+			virtualPodWithoutNode: true,
+			securityStandard:      string(api.LevelRestricted),
+		},
+		{
+			name:                     "SyncToHost with labels wildcard",
+			expectPhysicalPod:        true,
+			syncToHost:               true,
+			expectVirtualPod:         true,
+			virtualPodWithoutNode:    true,
+			virtualPodsLabels:        map[string]string{"test.sh/abcd": "yes"},
+			expectPhysicalPodsLabels: map[string]string{"test.sh/abcd": "yes"},
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.name, func(t *testing.T) {
+			vPodInitial := corev1.Pod{
+				ObjectMeta: vObjectMeta,
+			}
+			if tC.initialVContainers != nil {
+				vPodInitial.Spec.Containers = tC.initialVContainers
+			}
+			if tC.initialNodeSelector != nil {
+				vPodInitial.Spec.NodeSelector = tC.initialNodeSelector
+			}
+
+			vPodFinal := corev1.Pod{
+				ObjectMeta: vObjectMeta,
+				Spec: corev1.PodSpec{
+					NodeSelector: tC.initialNodeSelector,
+				},
+			}
+			if tC.virtualPodsLabels != nil {
+				vPodInitial.Labels = tC.virtualPodsLabels
+				vPodFinal.Labels = tC.virtualPodsLabels
+			}
+			if tC.expectedVContainers != nil {
+				vPodFinal.Spec.Containers = tC.expectedVContainers
+			}
+			pPodInitial := corev1.Pod{
+				ObjectMeta: *pObjectMeta.DeepCopy(),
+				Spec: corev1.PodSpec{
+					AutomountServiceAccountToken: ptr.To(false),
+					EnableServiceLinks:           ptr.To(false),
+					HostAliases: []corev1.HostAlias{{
+						IP:        pVclusterService.Spec.ClusterIP,
+						Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
+					}},
+					ServiceAccountName: "vc-workload-vcluster",
+					Hostname:           vObjectMeta.Name,
+					Containers:         tC.initialPContainers,
+				},
+			}
+			pPodFinal := &corev1.Pod{
+				ObjectMeta: pObjectMeta,
+				Spec: corev1.PodSpec{
+					AutomountServiceAccountToken: ptr.To(false),
+					EnableServiceLinks:           ptr.To(false),
+					HostAliases: []corev1.HostAlias{{
+						IP:        pVclusterService.Spec.ClusterIP,
+						Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
+					}},
+					ServiceAccountName: "vc-workload-vcluster",
+					Hostname:           vObjectMeta.Name,
+					Containers:         tC.initialPContainers,
+					NodeSelector:       tC.expectedNodeSelector,
+				},
+			}
+			if tC.expectPhysicalPodsLabels != nil {
+				maps.Copy(pPodFinal.Labels, tC.virtualPodsLabels)
+				pPodFinal.Annotations[podtranslate.VClusterLabelsAnnotation] = podtranslate.LabelsAnnotation(vPodInitial.DeepCopy())
+			}
+
+			if !tC.virtualPodWithoutNode {
+				pPodInitial.Spec.NodeName = "test123"
+				pPodFinal.Spec.NodeName = "test123"
+				vPodInitial.Spec.NodeName = "test123"
+				vPodFinal.Spec.NodeName = "test123"
+			}
+
+			initialVirtualObjects := []runtime.Object{vPodInitial.DeepCopy(), vNamespace.DeepCopy()}
+			if tC.withVirtualNode {
+				initialVirtualObjects = append(initialVirtualObjects, virtualNode.DeepCopy())
+			}
+			expectedVirtualObjects := map[schema.GroupVersionKind][]runtime.Object{}
+			if tC.expectVirtualPod {
+				expectedVirtualObjects[corev1.SchemeGroupVersion.WithKind("Pod")] =
+					[]runtime.Object{vPodFinal.DeepCopy()}
+			}
+			initialPhysicalObjects := []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()}
+			if !tC.syncToHost {
+				initialPhysicalObjects = append(initialPhysicalObjects, pPodInitial.DeepCopy())
+			}
+			expectedPhysicalObjects := map[schema.GroupVersionKind][]runtime.Object{}
+			if tC.expectPhysicalPod {
+				expectedPhysicalObjects[corev1.SchemeGroupVersion.WithKind("Pod")] =
+					[]runtime.Object{pPodFinal.DeepCopy()}
+			}
+
+			test := syncertesting.SyncTest{
+				Name:                  tC.name,
+				InitialVirtualState:   initialVirtualObjects,
+				InitialPhysicalState:  initialPhysicalObjects,
+				ExpectedVirtualState:  expectedVirtualObjects,
+				ExpectedPhysicalState: expectedPhysicalObjects,
+			}
+
+			// setting up the clients
+			pClient, vClient, vConfig := test.Setup()
+			registerContext := syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+
+			registerContext.Config.Networking.Advanced.ProxyKubelets.ByIP = false
+			registerContext.Config.Sync.FromHost.Nodes.Selector.Labels = tC.nodeSelectorOption
+			if tC.securityStandard != "" {
+				registerContext.Config.Policies.PodSecurityStandard = tC.securityStandard
+			}
+
+			syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, New)
+
+			var err error
+			if tC.syncToHost {
+				_, err = syncer.(*podSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPodInitial.DeepCopy()))
+			} else {
+				_, err = syncer.(*podSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pPodInitial.DeepCopy(),
+					pPodInitial.DeepCopy(),
+					vPodInitial.DeepCopy(),
+					vPodInitial.DeepCopy(),
+				))
+			}
+			assert.NilError(t, err)
+
+			test.Validate(t)
+		})
+	}
+}
+
 func TestSync(t *testing.T) {
-	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
+	translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
+	specialservices.Default = specialservices.NewDefaultServiceSyncer()
 
 	PodLogsVolumeName := "pod-logs"
 	LogsVolumeName := "logs"
 	KubeletPodVolumeName := "kubelet-pods"
 	HostpathPodName := "test-hostpaths"
-	NotInjectedPodName := "test-not-injected"
 
 	pPodContainerEnv := []corev1.EnvVar{
 		{
@@ -60,18 +337,18 @@ func TestSync(t *testing.T) {
 
 	pVclusterService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generictesting.DefaultTestVclusterServiceName,
-			Namespace: generictesting.DefaultTestCurrentNamespace,
+			Name:      testingutil.DefaultTestVClusterServiceName,
+			Namespace: testingutil.DefaultTestCurrentNamespace,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "1.2.3.4",
 		},
 	}
-	translate.Suffix = generictesting.DefaultTestVclusterName
+	translate.VClusterName = testingutil.DefaultTestVClusterName
 	pDNSService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.PhysicalName("kube-dns", "kube-system"),
-			Namespace: generictesting.DefaultTestTargetNamespace,
+			Name:      translate.Default.HostName(nil, "kube-dns", "kube-system").Name,
+			Namespace: testingutil.DefaultTestTargetNamespace,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "2.2.2.2",
@@ -87,93 +364,53 @@ func TestSync(t *testing.T) {
 		Namespace: vNamespace.Name,
 	}
 	pObjectMeta := metav1.ObjectMeta{
-		Name:      translate.Default.PhysicalName("testpod", "testns"),
+		Name:      translate.Default.HostName(nil, "testpod", "testns").Name,
 		Namespace: "test",
 		Annotations: map[string]string{
 			podtranslate.ClusterAutoScalerAnnotation:  "false",
-			podtranslate.LabelsAnnotation:             "",
+			podtranslate.VClusterLabelsAnnotation:     "",
 			podtranslate.NameAnnotation:               vObjectMeta.Name,
 			podtranslate.NamespaceAnnotation:          vObjectMeta.Namespace,
 			translate.NameAnnotation:                  vObjectMeta.Name,
 			translate.UIDAnnotation:                   "",
 			translate.NamespaceAnnotation:             vObjectMeta.Namespace,
+			translate.KindAnnotation:                  corev1.SchemeGroupVersion.WithKind("Pod").String(),
+			translate.HostNameAnnotation:              translate.Default.HostName(nil, "testpod", "testns").Name,
+			translate.HostNamespaceAnnotation:         "test",
 			podtranslate.ServiceAccountNameAnnotation: "",
 			podtranslate.UIDAnnotation:                string(vObjectMeta.UID),
 		},
 		Labels: map[string]string{
 			translate.NamespaceLabel: vObjectMeta.Namespace,
-			translate.MarkerLabel:    translate.Suffix,
+			translate.MarkerLabel:    translate.VClusterName,
 		},
 	}
 	pPodBase := &corev1.Pod{
 		ObjectMeta: pObjectMeta,
 		Spec: corev1.PodSpec{
-			AutomountServiceAccountToken: pointer.Bool(false),
-			EnableServiceLinks:           pointer.Bool(false),
+			AutomountServiceAccountToken: ptr.To(false),
+			EnableServiceLinks:           ptr.To(false),
 			HostAliases: []corev1.HostAlias{{
 				IP:        pVclusterService.Spec.ClusterIP,
 				Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
 			}},
-			Hostname: vObjectMeta.Name,
-		},
-	}
-	vPodWithNodeName := &corev1.Pod{
-		ObjectMeta: vObjectMeta,
-		Spec: corev1.PodSpec{
-			NodeName: "test123",
+			ServiceAccountName: "vc-workload-vcluster",
+			Hostname:           vObjectMeta.Name,
 		},
 	}
 	pPodWithNodeName := pPodBase.DeepCopy()
 	pPodWithNodeName.Spec.NodeName = "test456"
 
-	vPodWithNodeSelector := &corev1.Pod{
-		ObjectMeta: vObjectMeta,
-		Spec: corev1.PodSpec{
-			NodeSelector: map[string]string{
-				"labelA": "valueA",
-				"labelB": "valueB",
-			},
-		},
-	}
-	nodeSelectorOption := "labelB=enforcedB,otherLabel=abc"
-	pPodWithNodeSelector := pPodBase.DeepCopy()
-	pPodWithNodeSelector.Spec.NodeSelector = map[string]string{
-		"labelA":     "valueA",
-		"labelB":     "enforcedB",
-		"otherLabel": "abc",
-	}
-
-	// pod security standards test objects
-	vPodPSS := &corev1.Pod{
-		ObjectMeta: vObjectMeta,
-	}
-
-	pPodPss := pPodBase.DeepCopy()
-
-	vPodPSSR := &corev1.Pod{
-		ObjectMeta: vObjectMeta,
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name: "test-container",
-					Ports: []corev1.ContainerPort{
-						{HostPort: 80},
-					},
-				},
-			},
-		},
-	}
-
 	vHostpathNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: generictesting.DefaultTestCurrentNamespace,
+			Name: testingutil.DefaultTestCurrentNamespace,
 		},
 	}
 
 	vHostPathPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      HostpathPodName,
-			Namespace: generictesting.DefaultTestCurrentNamespace,
+			Namespace: testingutil.DefaultTestCurrentNamespace,
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -225,40 +462,44 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	vHostPath := fmt.Sprintf(podtranslate.VirtualPathTemplate, generictesting.DefaultTestCurrentNamespace, generictesting.DefaultTestVclusterName)
+	vHostPath := fmt.Sprintf(podtranslate.VirtualPathTemplate, testingutil.DefaultTestCurrentNamespace, testingutil.DefaultTestVClusterName)
 
 	hostToContainer := corev1.MountPropagationHostToContainer
 	pHostPathPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.PhysicalName(vHostPathPod.Name, generictesting.DefaultTestCurrentNamespace),
-			Namespace: generictesting.DefaultTestTargetNamespace,
+			Name:      translate.Default.HostName(nil, vHostPathPod.Name, testingutil.DefaultTestCurrentNamespace).Name,
+			Namespace: testingutil.DefaultTestTargetNamespace,
 
 			Annotations: map[string]string{
 				podtranslate.ClusterAutoScalerAnnotation:  "false",
-				podtranslate.LabelsAnnotation:             "",
+				podtranslate.VClusterLabelsAnnotation:     "",
 				podtranslate.NameAnnotation:               vHostPathPod.Name,
 				podtranslate.NamespaceAnnotation:          vHostPathPod.Namespace,
 				translate.NameAnnotation:                  vHostPathPod.Name,
 				translate.NamespaceAnnotation:             vHostPathPod.Namespace,
 				translate.UIDAnnotation:                   "",
+				translate.KindAnnotation:                  corev1.SchemeGroupVersion.WithKind("Pod").String(),
+				translate.HostNamespaceAnnotation:         "test",
+				translate.HostNameAnnotation:              translate.Default.HostName(nil, vHostPathPod.Name, testingutil.DefaultTestCurrentNamespace).Name,
 				podtranslate.ServiceAccountNameAnnotation: "",
 				podtranslate.UIDAnnotation:                string(vHostPathPod.UID),
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: vHostPathPod.Namespace,
-				translate.MarkerLabel:    translate.Suffix,
+				translate.MarkerLabel:    translate.VClusterName,
 			},
 			// CreationTimestamp: metav1.Time{},
 			// ResourceVersion:   "999",
 		},
 		Spec: corev1.PodSpec{
-			AutomountServiceAccountToken: pointer.Bool(false),
-			EnableServiceLinks:           pointer.Bool(false),
+			AutomountServiceAccountToken: ptr.To(false),
+			EnableServiceLinks:           ptr.To(false),
 			HostAliases: []corev1.HostAlias{{
 				IP:        pVclusterService.Spec.ClusterIP,
 				Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
 			}},
-			Hostname: vHostPathPod.Name,
+			Hostname:           vHostPathPod.Name,
+			ServiceAccountName: "vc-workload-vcluster",
 			Containers: []corev1.Container{
 				{
 					Name:  "nginx-placeholder",
@@ -349,163 +590,69 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	vInjectedPodNamespace := vHostpathNamespace.DeepCopy()
-	vNotInjectedPod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      NotInjectedPodName,
-			Namespace: generictesting.DefaultTestCurrentNamespace,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:  "nginx-not-injected",
-					Image: "nginx",
-				},
-			},
-		},
-		Status: corev1.PodStatus{
-			ContainerStatuses: []corev1.ContainerStatus{
-				{
-					Name: "nginx-not-injected",
-				},
-			},
-		},
+	testNodeName := "test123"
+	pVclusterNodeService := pVclusterService.DeepCopy()
+	pVclusterNodeService.Name = translate.SafeConcatName(testingutil.DefaultTestVClusterName, "node", testNodeName)
+
+	pPodFakeKubelet := pPodBase.DeepCopy()
+	pPodFakeKubelet.Spec.NodeName = testNodeName
+	pPodFakeKubelet.Status.HostIP = "3.3.3.3"
+	pPodFakeKubelet.Status.HostIPs = []corev1.HostIP{
+		{IP: "3.3.3.3"},
 	}
 
-	pInjectedPod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.PhysicalName(NotInjectedPodName, generictesting.DefaultTestCurrentNamespace),
-			Namespace: generictesting.DefaultTestTargetNamespace,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:  "nginx-not-injected",
-					Image: "nginx",
-				},
-				{
-					Name:  "nginx-injected",
-					Image: "nginx",
-				},
-			},
-		},
-		Status: corev1.PodStatus{
-			ContainerStatuses: []corev1.ContainerStatus{
-				{
-					Name: "nginx-not-injected",
-				},
-				{
-					Name: "nginx-injected",
-				},
-			},
-		},
-	}
-
-	syncLabelsWildcard := "test.sh/*"
-	testLabels := map[string]string{
-		"test.sh/label1": "true",
-		"test.sh/label2": "true",
-	}
-
-	vPodWithLabels := &corev1.Pod{
+	vPodWithNodeName := &corev1.Pod{
 		ObjectMeta: vObjectMeta,
+		Spec: corev1.PodSpec{
+			NodeName: testNodeName,
+		},
 	}
-	vPodWithLabels.Labels = testLabels
+	vPodWithHostIP := vPodWithNodeName.DeepCopy()
+	vPodWithHostIP.Status.HostIP = pVclusterService.Spec.ClusterIP
+	vPodWithHostIP.Status.HostIPs = []corev1.HostIP{
+		{IP: pVclusterService.Spec.ClusterIP},
+	}
 
-	pPodWithLabels := pPodBase.DeepCopy()
-	maps.Copy(pPodWithLabels.Labels, testLabels)
-	maps.Copy(pPodWithLabels.Labels, convertLabelKeyWithPrefix(testLabels))
-	pPodWithLabels.Annotations[podtranslate.LabelsAnnotation] = podtranslate.TranslateLabelsAnnotation(vPodWithLabels)
+	testNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNodeName,
+		},
+	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
-		{
-			Name:                 "Delete virtual pod",
-			InitialVirtualState:  []runtime.Object{vPodWithNodeName.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{pPodWithNodeName},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {
-					pPodWithNodeName,
-				},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).Sync(syncCtx, pPodWithNodeName.DeepCopy(), vPodWithNodeName)
-				assert.NilError(t, err)
-			},
+	priorityClassName := "high-priority"
+	pPriorityClass := &schedulingv1.PriorityClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: priorityClassName,
 		},
-		{
-			Name:                 "Sync and enforce NodeSelector",
-			InitialVirtualState:  []runtime.Object{vPodWithNodeSelector.DeepCopy(), vNamespace.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodWithNodeSelector.DeepCopy()},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {
-					pPodWithNodeSelector,
-				},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.EnforceNodeSelector = true
-				ctx.Options.NodeSelector = nodeSelectorOption
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodWithNodeSelector.DeepCopy())
-				assert.NilError(t, err)
-			},
+	}
+	vPodWithoutPriorityClass := &corev1.Pod{
+		ObjectMeta: vObjectMeta,
+		Spec:       corev1.PodSpec{},
+	}
+	vPodWithPriorityClass := &corev1.Pod{
+		ObjectMeta: vObjectMeta,
+		Spec: corev1.PodSpec{
+			PriorityClassName: pPriorityClass.Name,
 		},
-		{
-			Name:                 "SyncDown pods without any pod security standards",
-			InitialVirtualState:  []runtime.Object{vPodPSS.DeepCopy(), vNamespace.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodPSS.DeepCopy()},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodPss.DeepCopy()},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodPSS.DeepCopy())
-				assert.NilError(t, err)
-			},
+	}
+	pPodWithPriorityClass := &corev1.Pod{
+		ObjectMeta: pObjectMeta,
+		Spec: corev1.PodSpec{
+			AutomountServiceAccountToken: ptr.To(false),
+			EnableServiceLinks:           ptr.To(false),
+			HostAliases: []corev1.HostAlias{{
+				IP:        pVclusterService.Spec.ClusterIP,
+				Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
+			}},
+			Hostname:           vPodWithPriorityClass.Name,
+			ServiceAccountName: "vc-workload-vcluster",
+			PriorityClassName:  pPriorityClass.Name,
 		},
-		{
-			Name:                 "Enforce privileged pod security standard",
-			InitialVirtualState:  []runtime.Object{vPodPSS.DeepCopy(), vNamespace.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodPSS.DeepCopy()},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodPss.DeepCopy()},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.EnforcePodSecurityStandard = string(api.LevelPrivileged)
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodPSS.DeepCopy())
-				assert.NilError(t, err)
-			},
-		},
-		{
-			Name:                 "Enforce restricted pod security standard",
-			InitialVirtualState:  []runtime.Object{vPodPSSR.DeepCopy(), vNamespace.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodPSSR.DeepCopy()},
-			},
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.EnforcePodSecurityStandard = string(api.LevelRestricted)
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodPSSR.DeepCopy())
-				assert.NilError(t, err)
-			},
-		},
+	}
+	pPodWithTranslatedPriorityClass := pPodWithPriorityClass.DeepCopy()
+	pPodWithTranslatedPriorityClass.Spec.PriorityClassName = "vcluster-high-priority-x-test-x-vcluster"
+
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                 "Map hostpaths",
 			InitialVirtualState:  []runtime.Object{vHostPathPod, vHostpathNamespace},
@@ -517,53 +664,74 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("Pod"): {pHostPathPod.DeepCopy()},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.MountPhysicalHostPaths = true
-				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncDown(synccontext, vHostPathPod.DeepCopy())
+				ctx.Config.ControlPlane.HostPathMapper.Enabled = true
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(vHostPathPod.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
 		{
-			Name:                 "Check injected sidecars",
-			InitialVirtualState:  []runtime.Object{vNotInjectedPod, vInjectedPodNamespace},
-			InitialPhysicalState: []runtime.Object{pInjectedPod.DeepCopy()},
+			Name:                 "Fake Kubelet enabled with Node sync",
+			InitialVirtualState:  []runtime.Object{testNode.DeepCopy(), vPodWithNodeName, vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{testNode.DeepCopy(), pVclusterNodeService.DeepCopy(), pPodFakeKubelet.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {vNotInjectedPod},
+				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodWithHostIP},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				synccontext, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).Sync(synccontext, pInjectedPod.DeepCopy(), vNotInjectedPod.DeepCopy())
+				ctx.Config.Sync.FromHost.Nodes.Selector.All = true
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = true
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).Sync(syncContext, synccontext.NewSyncEventWithOld(pPodFakeKubelet, pPodFakeKubelet, vPodWithNodeName, vPodWithNodeName))
 				assert.NilError(t, err)
 			},
 		},
 		{
-			Name:                 "Check Syncer with sync labels wildcard",
-			InitialVirtualState:  []runtime.Object{vPodWithLabels.DeepCopy(), vNamespace.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodWithLabels.DeepCopy()},
-			},
+			Name:                 "From Host PriorityClasses sync enabled",
+			InitialVirtualState:  []runtime.Object{vPodWithPriorityClass, vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pPriorityClass, pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {
-					pPodWithLabels.DeepCopy(),
-				},
+				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodWithPriorityClass},
+			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.FromHost.PriorityClasses.Enabled = true
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Options.SyncLabels = []string{syncLabelsWildcard}
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).SyncDown(syncCtx, vPodWithLabels.DeepCopy())
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(vPodWithPriorityClass))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "To Host PriorityClasses sync enabled",
+			InitialVirtualState:  []runtime.Object{vPodWithPriorityClass, vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodWithTranslatedPriorityClass},
+			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.ToHost.PriorityClasses.Enabled = true
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(vPodWithPriorityClass))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "To Host Pods.PriorityClassName set",
+			InitialVirtualState:  []runtime.Object{vPodWithoutPriorityClass, vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodWithPriorityClass},
+			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.ToHost.Pods.PriorityClassName = priorityClassName
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(vPodWithoutPriorityClass))
 				assert.NilError(t, err)
 			},
 		},
 	})
-}
-
-func convertLabelKeyWithPrefix(labels map[string]string) map[string]string {
-	ret := make(map[string]string, len(labels))
-
-	for k, v := range labels {
-		ret[translate.ConvertLabelKeyWithPrefix(translate.LabelPrefix, k)] = v
-	}
-
-	return ret
 }

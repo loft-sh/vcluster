@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1 "k8s.io/api/core/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // EndpointsLister helps list Endpoints.
@@ -30,7 +30,7 @@ import (
 type EndpointsLister interface {
 	// List lists all Endpoints in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.Endpoints, err error)
+	List(selector labels.Selector) (ret []*corev1.Endpoints, err error)
 	// Endpoints returns an object that can list and get Endpoints.
 	Endpoints(namespace string) EndpointsNamespaceLister
 	EndpointsListerExpansion
@@ -38,25 +38,17 @@ type EndpointsLister interface {
 
 // endpointsLister implements the EndpointsLister interface.
 type endpointsLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1.Endpoints]
 }
 
 // NewEndpointsLister returns a new EndpointsLister.
 func NewEndpointsLister(indexer cache.Indexer) EndpointsLister {
-	return &endpointsLister{indexer: indexer}
-}
-
-// List lists all Endpoints in the indexer.
-func (s *endpointsLister) List(selector labels.Selector) (ret []*v1.Endpoints, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.Endpoints))
-	})
-	return ret, err
+	return &endpointsLister{listers.New[*corev1.Endpoints](indexer, corev1.Resource("endpoints"))}
 }
 
 // Endpoints returns an object that can list and get Endpoints.
 func (s *endpointsLister) Endpoints(namespace string) EndpointsNamespaceLister {
-	return endpointsNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return endpointsNamespaceLister{listers.NewNamespaced[*corev1.Endpoints](s.ResourceIndexer, namespace)}
 }
 
 // EndpointsNamespaceLister helps list and get Endpoints.
@@ -64,36 +56,15 @@ func (s *endpointsLister) Endpoints(namespace string) EndpointsNamespaceLister {
 type EndpointsNamespaceLister interface {
 	// List lists all Endpoints in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.Endpoints, err error)
+	List(selector labels.Selector) (ret []*corev1.Endpoints, err error)
 	// Get retrieves the Endpoints from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.Endpoints, error)
+	Get(name string) (*corev1.Endpoints, error)
 	EndpointsNamespaceListerExpansion
 }
 
 // endpointsNamespaceLister implements the EndpointsNamespaceLister
 // interface.
 type endpointsNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all Endpoints in the indexer for a given namespace.
-func (s endpointsNamespaceLister) List(selector labels.Selector) (ret []*v1.Endpoints, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.Endpoints))
-	})
-	return ret, err
-}
-
-// Get retrieves the Endpoints from the indexer for a given namespace and name.
-func (s endpointsNamespaceLister) Get(name string) (*v1.Endpoints, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("endpoints"), name)
-	}
-	return obj.(*v1.Endpoints), nil
+	listers.ResourceIndexer[*corev1.Endpoints]
 }

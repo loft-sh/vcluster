@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1 "k8s.io/api/core/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ComponentStatusLister helps list ComponentStatuses.
@@ -30,39 +30,19 @@ import (
 type ComponentStatusLister interface {
 	// List lists all ComponentStatuses in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.ComponentStatus, err error)
+	List(selector labels.Selector) (ret []*corev1.ComponentStatus, err error)
 	// Get retrieves the ComponentStatus from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.ComponentStatus, error)
+	Get(name string) (*corev1.ComponentStatus, error)
 	ComponentStatusListerExpansion
 }
 
 // componentStatusLister implements the ComponentStatusLister interface.
 type componentStatusLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1.ComponentStatus]
 }
 
 // NewComponentStatusLister returns a new ComponentStatusLister.
 func NewComponentStatusLister(indexer cache.Indexer) ComponentStatusLister {
-	return &componentStatusLister{indexer: indexer}
-}
-
-// List lists all ComponentStatuses in the indexer.
-func (s *componentStatusLister) List(selector labels.Selector) (ret []*v1.ComponentStatus, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.ComponentStatus))
-	})
-	return ret, err
-}
-
-// Get retrieves the ComponentStatus from the index for a given name.
-func (s *componentStatusLister) Get(name string) (*v1.ComponentStatus, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("componentstatus"), name)
-	}
-	return obj.(*v1.ComponentStatus), nil
+	return &componentStatusLister{listers.New[*corev1.ComponentStatus](indexer, corev1.Resource("componentstatus"))}
 }

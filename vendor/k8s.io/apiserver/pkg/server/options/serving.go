@@ -44,6 +44,8 @@ type SecureServingOptions struct {
 	// BindNetwork is the type of network to bind to - defaults to "tcp", accepts "tcp",
 	// "tcp4", and "tcp6".
 	BindNetwork string
+	// DisableHTTP2Serving indicates that http2 serving should not be enabled.
+	DisableHTTP2Serving bool
 	// Required set to true means that BindPort cannot be zero.
 	Required bool
 	// ExternalAddress is the address advertised, even if BindAddress is a loopback. By default this
@@ -153,7 +155,7 @@ func (s *SecureServingOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IPVar(&s.BindAddress, "bind-address", s.BindAddress, ""+
 		"The IP address on which to listen for the --secure-port port. The "+
 		"associated interface(s) must be reachable by the rest of the cluster, and by CLI/web "+
-		"clients. If blank or an unspecified address (0.0.0.0 or ::), all interfaces will be used.")
+		"clients. If blank or an unspecified address (0.0.0.0 or ::), all interfaces and IP address families will be used.")
 
 	desc := "The port on which to serve HTTPS with authentication and authorization."
 	if s.Required {
@@ -162,6 +164,9 @@ func (s *SecureServingOptions) AddFlags(fs *pflag.FlagSet) {
 		desc += " If 0, don't serve HTTPS at all."
 	}
 	fs.IntVar(&s.BindPort, "secure-port", s.BindPort, desc)
+
+	fs.BoolVar(&s.DisableHTTP2Serving, "disable-http2-serving", s.DisableHTTP2Serving,
+		"If true, HTTP2 serving will be disabled [default=false]")
 
 	fs.StringVar(&s.ServerCert.CertDirectory, "cert-dir", s.ServerCert.CertDirectory, ""+
 		"The directory where the TLS certs are located. "+
@@ -256,11 +261,44 @@ func (s *SecureServingOptions) ApplyTo(config **server.SecureServingInfo) error 
 	*config = &server.SecureServingInfo{
 		Listener:                     s.Listener,
 		HTTP2MaxStreamsPerConnection: s.HTTP2MaxStreamsPerConnection,
+		DisableHTTP2:                 s.DisableHTTP2Serving,
 	}
 	c := *config
 
 	serverCertFile, serverKeyFile := s.ServerCert.CertKey.CertFile, s.ServerCert.CertKey.KeyFile
-	// load main cert
+	// load main cert *original description until 2023-08-18*
+
+	/*
+		kubernetes mutual (2-way) x509 between client and apiserver:
+
+			>1. apiserver sending its apiserver certificate along with its publickey to client
+			2. client verifies the apiserver certificate sent against its cluster certificate authority data
+			3. client sending its client certificate along with its public key to the apiserver
+			4. apiserver verifies the client certificate sent against its cluster certificate authority data
+
+			description:
+				here, with this block,
+				apiserver certificate and pub key data (along with priv key)get loaded into server.SecureServingInfo
+				for client to later in the step 2 verify the apiserver certificate during the handshake
+				when making a request
+
+			normal args related to this stage:
+				--tls-cert-file string  File containing the default x509 Certificate for HTTPS.
+					(CA cert, if any, concatenated after server cert). If HTTPS serving is enabled, and
+					--tls-cert-file and --tls-private-key-file are not provided, a self-signed certificate
+					and key are generated for the public address and saved to the directory specified by
+					--cert-dir
+				--tls-private-key-file string  File containing the default x509 private key matching --tls-cert-file.
+
+				(retrievable from "kube-apiserver --help" command)
+				(suggested by @deads2k)
+
+			see also:
+				- for the step 2, see: staging/src/k8s.io/client-go/transport/transport.go
+				- for the step 3, see: staging/src/k8s.io/client-go/transport/transport.go
+				- for the step 4, see: staging/src/k8s.io/apiserver/pkg/authentication/request/x509/x509.go
+	*/
+
 	if len(serverCertFile) != 0 || len(serverKeyFile) != 0 {
 		var err error
 		c.Cert, err = dynamiccertificates.NewDynamicServingContentFromFiles("serving-cert", serverCertFile, serverKeyFile)

@@ -1,15 +1,18 @@
 package serviceaccounts
 
 import (
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
+	"testing"
+
+	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"testing"
 )
 
 func TestSync(t *testing.T) {
@@ -34,7 +37,7 @@ func TestSync(t *testing.T) {
 	}
 	pSA := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.PhysicalName(vSA.Name, vSA.Namespace),
+			Name:      translate.Default.HostName(nil, vSA.Name, vSA.Namespace).Name,
 			Namespace: "test",
 			Annotations: map[string]string{
 				"test":                                 "test",
@@ -42,15 +45,21 @@ func TestSync(t *testing.T) {
 				translate.NameAnnotation:               vSA.Name,
 				translate.NamespaceAnnotation:          vSA.Namespace,
 				translate.UIDAnnotation:                "",
+				translate.KindAnnotation:               corev1.SchemeGroupVersion.WithKind("ServiceAccount").String(),
+				translate.HostNamespaceAnnotation:      "test",
+				translate.HostNameAnnotation:           translate.Default.HostName(nil, vSA.Name, vSA.Namespace).Name,
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: vSA.Namespace,
 			},
 		},
-		AutomountServiceAccountToken: &f,
+		AutomountServiceAccountToken: &[]bool{false}[0],
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.ToHost.ServiceAccounts.Enabled = true
+		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*syncertesting.SyncTest{
 		{
 			Name: "ServiceAccount sync",
 			InitialVirtualState: []runtime.Object{
@@ -60,8 +69,8 @@ func TestSync(t *testing.T) {
 				corev1.SchemeGroupVersion.WithKind("ServiceAccount"): {pSA},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*serviceAccountSyncer).SyncDown(syncCtx, vSA)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*serviceAccountSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vSA))
 				assert.NilError(t, err)
 			},
 		},

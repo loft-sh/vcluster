@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -177,7 +176,6 @@ func (c *cacheWatcher) add(event *watchCacheEvent, timer *time.Timer) bool {
 		// This means that we couldn't send event to that watcher.
 		// Since we don't want to block on it infinitely,
 		// we simply terminate it.
-		klog.V(1).Infof("Forcing %v watcher close due to unresponsiveness: %v. len(c.input) = %v, len(c.result) = %v", c.groupResource.String(), c.identifier, len(c.input), len(c.result))
 		metrics.TerminatedWatchersCounter.WithLabelValues(c.groupResource.String()).Inc()
 		// This means that we couldn't send event to that watcher.
 		// Since we don't want to block on it infinitely, we simply terminate it.
@@ -365,17 +363,10 @@ func (c *cacheWatcher) convertToWatchEvent(event *watchCacheEvent) *watch.Event 
 	if event.Type == watch.Bookmark {
 		e := &watch.Event{Type: watch.Bookmark, Object: event.Object.DeepCopyObject()}
 		if !c.wasBookmarkAfterRvSent() {
-			objMeta, err := meta.Accessor(e.Object)
-			if err != nil {
+			if err := storage.AnnotateInitialEventsEndBookmark(e.Object); err != nil {
 				utilruntime.HandleError(fmt.Errorf("error while accessing object's metadata gr: %v, identifier: %v, obj: %#v, err: %v", c.groupResource, c.identifier, e.Object, err))
 				return nil
 			}
-			objAnnotations := objMeta.GetAnnotations()
-			if objAnnotations == nil {
-				objAnnotations = map[string]string{}
-			}
-			objAnnotations["k8s.io/initial-events-end"] = "true"
-			objMeta.SetAnnotations(objAnnotations)
 		}
 		return e
 	}
@@ -463,6 +454,13 @@ func (c *cacheWatcher) processInterval(ctx context.Context, cacheInterval *watch
 	const initProcessThreshold = 500 * time.Millisecond
 	startTime := time.Now()
 
+	// cacheInterval may be created from a version being more fresh than requested
+	// (e.g. for NotOlderThan semantic). In such a case, we need to prevent watch event
+	// with lower resourceVersion from being delivered to ensure watch contract.
+	if cacheInterval.resourceVersion > resourceVersion {
+		resourceVersion = cacheInterval.resourceVersion
+	}
+
 	initEventCount := 0
 	for {
 		event, err := cacheInterval.Next()
@@ -512,6 +510,10 @@ func (c *cacheWatcher) processInterval(ctx context.Context, cacheInterval *watch
 		klog.V(2).Infof("processing %d initEvents of %s (%s) took %v", initEventCount, c.groupResource, c.identifier, processingTime)
 	}
 
+	// send bookmark after sending all events in cacheInterval for watchlist request
+	if cacheInterval.initialEventsEndBookmark != nil {
+		c.sendWatchCacheEvent(cacheInterval.initialEventsEndBookmark)
+	}
 	c.process(ctx, resourceVersion)
 }
 

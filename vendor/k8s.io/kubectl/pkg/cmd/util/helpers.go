@@ -27,9 +27,9 @@ import (
 	"strings"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -243,7 +243,7 @@ func statusCausesToAggrError(scs []metav1.StatusCause) utilerrors.Aggregate {
 // commands.
 func StandardErrorMessage(err error) (string, bool) {
 	if debugErr, ok := err.(debugError); ok {
-		klog.V(4).Infof(debugErr.DebugError())
+		klog.V(4).Info(debugErr.DebugError())
 	}
 	status, isStatus := err.(apierrors.APIStatus)
 	switch {
@@ -425,23 +425,34 @@ func GetPodRunningTimeoutFlag(cmd *cobra.Command) (time.Duration, error) {
 type FeatureGate string
 
 const (
-	ApplySet              FeatureGate = "KUBECTL_APPLYSET"
-	ExplainOpenapiV3      FeatureGate = "KUBECTL_EXPLAIN_OPENAPIV3"
-	CmdPluginAsSubcommand FeatureGate = "KUBECTL_ENABLE_CMD_SHADOW"
+	ApplySet                FeatureGate = "KUBECTL_APPLYSET"
+	CmdPluginAsSubcommand   FeatureGate = "KUBECTL_ENABLE_CMD_SHADOW"
+	OpenAPIV3Patch          FeatureGate = "KUBECTL_OPENAPIV3_PATCH"
+	RemoteCommandWebsockets FeatureGate = "KUBECTL_REMOTE_COMMAND_WEBSOCKETS"
+	PortForwardWebsockets   FeatureGate = "KUBECTL_PORT_FORWARD_WEBSOCKETS"
+	// DebugCustomProfile should be dropped in 1.34
+	DebugCustomProfile FeatureGate = "KUBECTL_DEBUG_CUSTOM_PROFILE"
 )
 
+// IsEnabled returns true iff environment variable is set to true.
+// All other cases, it returns false.
 func (f FeatureGate) IsEnabled() bool {
-	return os.Getenv(string(f)) == "true"
+	return strings.ToLower(os.Getenv(string(f))) == "true"
+}
+
+// IsDisabled returns true iff environment variable is set to false.
+// All other cases, it returns true.
+// This function is used for the cases where feature is enabled by default,
+// but it may be needed to provide a way to ability to disable this feature.
+func (f FeatureGate) IsDisabled() bool {
+	return strings.ToLower(os.Getenv(string(f))) == "false"
 }
 
 func AddValidateFlags(cmd *cobra.Command) {
 	cmd.Flags().String(
 		"validate",
 		"strict",
-		`Must be one of: strict (or true), warn, ignore (or false).
-		"true" or "strict" will use a schema to validate the input and fail the request if invalid. It will perform server side validation if ServerSideFieldValidation is enabled on the api-server, but will fall back to less reliable client-side validation if not.
-		"warn" will warn about unknown or duplicate fields without blocking the request if server-side field validation is enabled on the API server, and behave as "ignore" otherwise.
-		"false" or "ignore" will not perform any schema validation, silently dropping any unknown or duplicate fields.`,
+		`Must be one of: strict (or true), warn, ignore (or false). "true" or "strict" will use a schema to validate the input and fail the request if invalid. It will perform server side validation if ServerSideFieldValidation is enabled on the api-server, but will fall back to less reliable client-side validation if not. "warn" will warn about unknown or duplicate fields without blocking the request if server-side field validation is enabled on the API server, and behave as "ignore" otherwise. "false" or "ignore" will not perform any schema validation, silently dropping any unknown or duplicate fields.`,
 	)
 
 	cmd.Flags().Lookup("validate").NoOptDefVal = "strict"
@@ -511,11 +522,9 @@ func AddLabelSelectorFlagVar(cmd *cobra.Command, p *string) {
 	cmd.Flags().StringVarP(p, "selector", "l", *p, "Selector (label query) to filter on, supports '=', '==', and '!='.(e.g. -l key1=value1,key2=value2). Matching objects must satisfy all of the specified label constraints.")
 }
 
-func AddPruningFlags(cmd *cobra.Command, prune *bool, pruneAllowlist *[]string, pruneWhitelist *[]string, all *bool, applySetRef *string) {
+func AddPruningFlags(cmd *cobra.Command, prune *bool, pruneAllowlist *[]string, all *bool, applySetRef *string) {
 	// Flags associated with the original allowlist-based alpha
 	cmd.Flags().StringArrayVar(pruneAllowlist, "prune-allowlist", *pruneAllowlist, "Overwrite the default allowlist with <group/version/kind> for --prune")
-	cmd.Flags().StringArrayVar(pruneWhitelist, "prune-whitelist", *pruneWhitelist, "Overwrite the default whitelist with <group/version/kind> for --prune") // TODO: Remove this in kubectl 1.28 or later
-	_ = cmd.Flags().MarkDeprecated("prune-whitelist", "Use --prune-allowlist instead.")
 	cmd.Flags().BoolVar(all, "all", *all, "Select all resources in the namespace of the specified resource types.")
 
 	// Flags associated with the new ApplySet-based alpha
@@ -528,10 +537,11 @@ func AddPruningFlags(cmd *cobra.Command, prune *bool, pruneAllowlist *[]string, 
 	}
 }
 
-func AddSubresourceFlags(cmd *cobra.Command, subresource *string, usage string, allowedSubresources ...string) {
-	cmd.Flags().StringVar(subresource, "subresource", "", fmt.Sprintf("%s Must be one of %v. This flag is beta and may change in the future.", usage, allowedSubresources))
+func AddSubresourceFlags(cmd *cobra.Command, subresource *string, usage string) {
+	cmd.Flags().StringVar(subresource, "subresource", "", fmt.Sprintf("%s This flag is beta and may change in the future.", usage))
 	CheckErr(cmd.RegisterFlagCompletionFunc("subresource", func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
-		return allowedSubresources, cobra.ShellCompDirectiveNoFileComp
+		var commonSubresources = []string{"status", "scale", "resize"}
+		return commonSubresources, cobra.ShellCompDirectiveNoFileComp
 	}))
 }
 

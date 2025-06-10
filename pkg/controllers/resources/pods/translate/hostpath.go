@@ -25,16 +25,17 @@ const (
 func (t *translator) ensureMountPropagation(pPod *corev1.Pod) {
 	for i, container := range pPod.Spec.Containers {
 		for j, volumeMount := range container.VolumeMounts {
+			// handle scenarios where path ends with a /
+			volumeMount.MountPath = strings.TrimSuffix(volumeMount.MountPath, "/")
+
 			if volumeMount.MountPath == PodLoggingHostPath ||
 				volumeMount.MountPath == KubeletPodPath ||
 				volumeMount.MountPath == LogHostPath {
-
 				hostToContainer := corev1.MountPropagationHostToContainer
 				pPod.Spec.Containers[i].VolumeMounts[j].MountPropagation = &hostToContainer
 			}
 		}
 	}
-
 }
 
 func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
@@ -130,9 +131,7 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 			}
 		}
 
-		if t.hostpathMountPropagation {
-			t.ensureMountPropagation(pPod)
-		}
+		t.ensureMountPropagation(pPod)
 	}
 }
 

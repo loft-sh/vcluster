@@ -1,43 +1,36 @@
 package events
 
 import (
-	"context"
-	"strings"
+	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/resources"
+	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"k8s.io/apimachinery/pkg/api/equality"
-
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-
-	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var AcceptedKinds = map[schema.GroupVersionKind]bool{
-	corev1.SchemeGroupVersion.WithKind("Pod"):       true,
-	corev1.SchemeGroupVersion.WithKind("Service"):   true,
-	corev1.SchemeGroupVersion.WithKind("Endpoint"):  true,
-	corev1.SchemeGroupVersion.WithKind("Secret"):    true,
-	corev1.SchemeGroupVersion.WithKind("ConfigMap"): true,
-}
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.Events())
+	if err != nil {
+		return nil, err
+	}
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 	return &eventSyncer{
-		virtualClient: ctx.VirtualManager.GetClient(),
+		Mapper: mapper,
 	}, nil
 }
 
 type eventSyncer struct {
-	virtualClient client.Client
+	synccontext.Mapper
 }
 
 func (s *eventSyncer) Resource() client.Object {
@@ -48,158 +41,80 @@ func (s *eventSyncer) Name() string {
 	return "event"
 }
 
-func (s *eventSyncer) IsManaged(ctx context.Context, pObj client.Object) (bool, error) {
-	return true, nil
+var _ syncertypes.Syncer = &eventSyncer{}
+
+func (s *eventSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer(s)
 }
 
-func (s *eventSyncer) VirtualToPhysical(ctx context.Context, req types.NamespacedName, vObj client.Object) types.NamespacedName {
-	return types.NamespacedName{}
-}
+var _ syncertypes.OptionsProvider = &eventSyncer{}
 
-func (s *eventSyncer) PhysicalToVirtual(ctx context.Context, pObj client.Object) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      pObj.GetName(),
-		Namespace: pObj.GetNamespace(),
+func (s *eventSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		SkipMappingsRecording: true,
 	}
 }
 
-var _ syncer.Starter = &eventSyncer{}
-
-func (s *eventSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.Request) (bool, error) {
-	return true, s.reconcile(ctx, req) // true will tell the syncer to return after this reconcile
+func (s *eventSyncer) SyncToHost(_ *synccontext.SyncContext, _ *synccontext.SyncToHostEvent[*corev1.Event]) (ctrl.Result, error) {
+	// just ignore, Kubernetes will clean them up
+	return ctrl.Result{}, nil
 }
 
-func (s *eventSyncer) reconcile(ctx *synccontext.SyncContext, req ctrl.Request) error {
-	pObj := s.Resource()
-	err := ctx.PhysicalClient.Get(ctx.Context, req.NamespacedName, pObj)
+func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Event]) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.Events.Patches, true))
 	if err != nil {
-		if !kerrors.IsNotFound(err) {
-			return err
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
+	}()
 
-		return nil
-	}
-
-	pEvent, ok := pObj.(*corev1.Event)
-	if !ok {
-		return nil
-	}
-
-	// check if the involved object is accepted
-	gvk := pEvent.InvolvedObject.GroupVersionKind()
-	if !AcceptedKinds[gvk] {
-		return nil
-	}
-
-	vInvolvedObj, err := ctx.VirtualClient.Scheme().New(gvk)
+	// update event
+	err = s.translateEvent(ctx, event.Host, event.Virtual)
 	if err != nil {
-		return err
+		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
 	}
 
-	index := ""
-	switch pEvent.InvolvedObject.Kind {
-	case "Pod":
-		index = constants.IndexByPhysicalName
-	case "Service":
-		index = constants.IndexByPhysicalName
-	case "Endpoint":
-		index = constants.IndexByPhysicalName
-	case "Secret":
-		index = constants.IndexByPhysicalName
-	case "ConfigMap":
-		index = constants.IndexByPhysicalName
-	default:
-		return nil
-	}
+	return ctrl.Result{}, nil
+}
 
-	// get involved object
-	err = clienthelper.GetByIndex(ctx.Context, ctx.VirtualClient, vInvolvedObj, index, pEvent.Namespace+"/"+pEvent.InvolvedObject.Name)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
-		}
-
-		return err
-	}
-
-	// we found the related object
-	m, err := meta.Accessor(vInvolvedObj)
-	if err != nil {
-		return err
-	}
-
-	// copy physical object
-	vObj := pEvent.DeepCopy()
+func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Event]) (ctrl.Result, error) {
+	// build the virtual event
+	vObj := event.Host.DeepCopy()
 	translate.ResetObjectMetadata(vObj)
-
-	// set the correct involved object meta
-	vObj.Namespace = m.GetNamespace()
-	vObj.InvolvedObject.Namespace = m.GetNamespace()
-	vObj.InvolvedObject.Name = m.GetName()
-	vObj.InvolvedObject.UID = m.GetUID()
-	vObj.InvolvedObject.ResourceVersion = m.GetResourceVersion()
-
-	// replace name of object
-	if strings.HasPrefix(vObj.Name, pEvent.InvolvedObject.Name) {
-		vObj.Name = strings.Replace(vObj.Name, pEvent.InvolvedObject.Name, vObj.InvolvedObject.Name, 1)
+	err := s.translateEvent(ctx, event.Host, vObj)
+	if err != nil {
+		return ctrl.Result{}, resources.IgnoreAcceptableErrors(err)
 	}
 
-	// we replace namespace/name & name in messages so that it seems correct
-	vObj.Message = strings.ReplaceAll(vObj.Message, pEvent.InvolvedObject.Namespace+"/"+pEvent.InvolvedObject.Name, vObj.InvolvedObject.Namespace+"/"+vObj.InvolvedObject.Name)
-	vObj.Message = strings.ReplaceAll(vObj.Message, pEvent.InvolvedObject.Name, vObj.InvolvedObject.Name)
+	// Apply pro patches
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.Events.Patches, true)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
+	}
 
 	// make sure namespace is not being deleted
 	namespace := &corev1.Namespace{}
-	err = ctx.VirtualClient.Get(ctx.Context, client.ObjectKey{Name: vObj.Namespace}, namespace)
+	err = ctx.VirtualClient.Get(ctx, client.ObjectKey{Name: vObj.Namespace}, namespace)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return nil
+			return ctrl.Result{}, nil
 		}
 
-		return err
+		return ctrl.Result{}, err
 	} else if namespace.DeletionTimestamp != nil {
 		// cannot create events in terminating namespaces
-		return nil
+		return ctrl.Result{}, nil
 	}
 
-	// check if there is such an event already
-	vOldObj := &corev1.Event{}
-	err = ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{
-		Namespace: vObj.Namespace,
-		Name:      vObj.Name,
-	}, vOldObj)
+	// try to create virtual event
+	ctx.Log.Infof("create virtual event %s/%s", vObj.Namespace, vObj.Name)
+	err = ctx.VirtualClient.Create(ctx, vObj)
 	if err != nil {
-		if !kerrors.IsNotFound(err) {
-			return err
-		}
-
-		ctx.Log.Infof("create virtual event %s/%s", vObj.Namespace, vObj.Name)
-		return ctx.VirtualClient.Create(ctx.Context, vObj)
+		return ctrl.Result{}, err
 	}
 
-	// copy metadata
-	vObj.ObjectMeta = *vOldObj.ObjectMeta.DeepCopy()
-
-	// update existing event only if changed
-	if equality.Semantic.DeepEqual(vObj, vOldObj) {
-		return nil
-	}
-
-	ctx.Log.Infof("update virtual event %s/%s", vObj.Namespace, vObj.Name)
-	translator.PrintChanges(vOldObj, vObj, ctx.Log)
-	return ctx.VirtualClient.Update(ctx.Context, vObj)
-}
-
-var _ syncer.Syncer = &eventSyncer{}
-
-func (s *eventSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	// Noop, we do nothing here
 	return ctrl.Result{}, nil
 }
-
-func (s *eventSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	// Noop, we do nothing here
-	return ctrl.Result{}, nil
-}
-
-func (s *eventSyncer) ReconcileEnd() {}

@@ -6,9 +6,11 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
+	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,13 +19,12 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime.Scheme, uncachedVirtualClient client.Client, admit admission.Interface, resources []delegatingauthorizer.GroupVersionResourceVerb) http.Handler {
-	s := serializer.NewCodecFactory(localScheme)
+func WithRedirect(h http.Handler, registerCtx *synccontext.RegisterContext, uncachedVirtualClient client.Client, admit admission.Interface, resources []delegatingauthorizer.GroupVersionResourceVerb) http.Handler {
+	s := serializer.NewCodecFactory(scheme.Scheme)
 	parameterCodec := runtime.NewParameterCodec(uncachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		info, ok := request.RequestInfoFrom(req.Context())
@@ -54,8 +55,9 @@ func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime
 				}
 
 				// exchange namespace & name
-				splitted[4] = translate.Default.PhysicalNamespace(info.Namespace)
-				splitted[6] = translate.Default.PhysicalName(splitted[6], info.Namespace)
+				pName := mappings.VirtualToHost(registerCtx.ToSyncContext("redirect"), splitted[6], info.Namespace, mappings.Pods())
+				splitted[4] = pName.Namespace
+				splitted[6] = pName.Name
 				req.URL.Path = strings.Join(splitted, "/")
 
 				// we have to add a trailing slash here, because otherwise the
@@ -65,7 +67,7 @@ func WithRedirect(h http.Handler, localConfig *rest.Config, localScheme *runtime
 				}
 			}
 
-			h, err := handler.Handler("", localConfig, nil)
+			h, err := handler.Handler("", registerCtx.PhysicalManager.GetConfig(), nil)
 			if err != nil {
 				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
 				return
@@ -96,18 +98,21 @@ func callAdmissionWebhooks(req *http.Request, info *request.RequestInfo, paramet
 				kind = corev1.SchemeGroupVersion.WithKind("PodExecOptions")
 				opts = &corev1.PodExecOptions{}
 				if err := parameterCodec.DecodeParameters(req.URL.Query(), corev1.SchemeGroupVersion, opts); err != nil {
+					klog.Infof("Error decoding exec parameters %s: %v", req.URL.Query(), err)
 					return err
 				}
 			} else if info.Subresource == "attach" {
 				kind = corev1.SchemeGroupVersion.WithKind("PodAttachOptions")
 				opts = &corev1.PodAttachOptions{}
 				if err := parameterCodec.DecodeParameters(req.URL.Query(), corev1.SchemeGroupVersion, opts); err != nil {
+					klog.Infof("Error decoding attach parameters %s: %v", req.URL.Query(), err)
 					return err
 				}
 			} else if info.Subresource == "portforward" {
 				kind = corev1.SchemeGroupVersion.WithKind("PodPortForwardOptions")
 				opts = &corev1.PodPortForwardOptions{}
 				if err := parameterCodec.DecodeParameters(req.URL.Query(), corev1.SchemeGroupVersion, opts); err != nil {
+					klog.Infof("Error decoding portforward parameters %s: %v", req.URL.Query(), err)
 					return err
 				}
 			}
@@ -115,8 +120,10 @@ func callAdmissionWebhooks(req *http.Request, info *request.RequestInfo, paramet
 			err := validatingAdmission.Validate(req.Context(), admission.NewAttributesRecord(opts, nil, kind, info.Namespace, info.Name, corev1.SchemeGroupVersion.WithResource(info.Resource), info.Subresource, admission.Connect, nil, false, userInfo), NewFakeObjectInterfaces(uncachedVirtualClient.Scheme(), uncachedVirtualClient.RESTMapper()))
 			if err != nil {
 				klog.Infof("Admission validate failed for %s: %v", info.Path, err)
-				return err
+				return kerrors.NewForbidden(corev1.SchemeGroupVersion.WithResource(info.Resource+"/"+info.Subresource).GroupResource(), info.Name, err)
 			}
+
+			klog.V(1).Info("Allowed pod request", "subresource", info.Subresource, "path", info.Path)
 		}
 	}
 

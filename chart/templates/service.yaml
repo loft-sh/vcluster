@@ -1,0 +1,69 @@
+{{- $platform_svc_exists := lookup "v1" "Service" .Release.Namespace "loft" }}
+{{- if $platform_svc_exists }}
+{{- fail (printf "a vCluster platform installation exists in the namespace '%s'. Aborting install" .Release.Namespace) }}
+{{- else if .Values.controlPlane.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+    vcluster.loft.sh/service: "true"
+    {{- if .Values.controlPlane.service.labels }}
+{{ toYaml .Values.controlPlane.service.labels | indent 4 }}
+    {{- end }}
+  {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.controlPlane.service.annotations }}
+  {{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+  {{- end }}
+spec:
+{{ toYaml .Values.controlPlane.service.spec | indent 2 }}
+  {{- if not .Values.controlPlane.service.spec.ports }}
+  ports:
+    - name: https
+      port: 443
+      {{- if not .Values.experimental.isolatedControlPlane.headless }}
+      targetPort: 8443
+      {{- end }}
+      nodePort: {{ .Values.controlPlane.service.httpsNodePort }}
+      protocol: TCP
+    {{- if .Values.privateNodes.enabled }}
+    {{- if .Values.controlPlane.advanced.konnectivity.server.enabled }}
+    - name: kon-agent
+      port: 8132
+      protocol: TCP
+    - name: kon-admin
+      port: 8133
+      protocol: TCP
+    - name: kon-health
+      port: 8134
+      protocol: TCP
+    {{- end }}
+    {{- end }}
+    {{- if .Values.integrations.istio.enabled }}
+    - name: wake-http
+      port: 9090
+      nodePort: {{ .Values.controlPlane.service.httpsNodePort }}
+      protocol: TCP
+   {{- end }}
+   {{- if and .Values.networking.advanced.proxyKubelets.byHostname (not (eq .Values.controlPlane.service.spec.type "LoadBalancer")) }}
+    - name: kubelet
+      port: 10250
+      {{- if not .Values.experimental.isolatedControlPlane.headless }}
+      targetPort: 8443
+      {{- end }}
+      nodePort: {{ .Values.controlPlane.service.kubeletNodePort }}
+      protocol: TCP
+    {{- end }}
+  {{- end }}
+  {{- if and (not .Values.controlPlane.service.spec.selector) (not .Values.experimental.isolatedControlPlane.headless) }}
+  selector:
+    app: vcluster
+    release: {{ .Release.Name }}
+  {{- end }}
+{{- end }}

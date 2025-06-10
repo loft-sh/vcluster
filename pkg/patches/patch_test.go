@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/loft-sh/vcluster/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/loft-sh/vcluster/pkg/config"
 	patchesregex "github.com/loft-sh/vcluster/pkg/patches/regex"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	yaml "gopkg.in/yaml.v3"
@@ -99,8 +99,8 @@ test2: {}`,
 				Path:      "test.test2",
 				Value:     "abc",
 			},
-			obj1: `test: 
-    test2: 
+			obj1: `test:
+    test2:
         - test`,
 			expected: `test:
     test2:
@@ -114,8 +114,8 @@ test2: {}`,
 				Path:      "test..abc",
 				Value:     "def",
 			},
-			obj1: `test: 
-    test2: 
+			obj1: `test:
+    test2:
         - abc: test
         - abc: test2`,
 			expected: `test:
@@ -136,7 +136,7 @@ test2: {}`,
 					},
 				},
 			},
-			obj1: `test: 
+			obj1: `test:
     abc: test`,
 			expected: `test:
     abc: def`,
@@ -156,7 +156,7 @@ test2: {}`,
 					},
 				},
 			},
-			obj1: `test: 
+			obj1: `test:
     status:
         test: test
     abc: test`,
@@ -180,7 +180,7 @@ test2: {}`,
 					},
 				},
 			},
-			obj1: `test: 
+			obj1: `test:
     status:
         test: test
     abc: test`,
@@ -240,7 +240,7 @@ test2: {}`,
 				targetNamespace: "vcluster",
 			},
 			obj1:     `name: abc`,
-			expected: fmt.Sprint(`name: abc-x-default-x-`, translate.Suffix),
+			expected: fmt.Sprint(`name: abc-x-default-x-`, translate.VClusterName),
 		},
 		{
 			name: "rewrite name - invalid object",
@@ -271,9 +271,9 @@ test2: {}`,
       ns: xyz`,
 			expected: `root:
     list:
-        - nm: abc-x-pqr-x-` + fmt.Sprint(translate.Suffix) + `
+        - nm: abc-x-pqr-x-` + fmt.Sprint(translate.VClusterName) + `
           ns: vcluster
-        - nm: def-x-xyz-x-` + fmt.Sprint(translate.Suffix) + `
+        - nm: def-x-xyz-x-` + fmt.Sprint(translate.VClusterName) + `
           ns: vcluster`,
 		},
 		{
@@ -295,9 +295,9 @@ test2: {}`,
       ns: pqr`,
 			expected: `root:
     list:
-        - nm: abc-x-default-x-` + fmt.Sprint(translate.Suffix) + `
+        - nm: abc-x-default-x-` + fmt.Sprint(translate.VClusterName) + `
           ns: pqr
-        - nm: def-x-default-x-` + fmt.Sprint(translate.Suffix) + `
+        - nm: def-x-default-x-` + fmt.Sprint(translate.VClusterName) + `
           ns: pqr`,
 		},
 		{
@@ -321,8 +321,8 @@ test2: {}`,
 			expected: `root:
     includes:
         - names:
-            - nm: abc-x-pqr-x-` + fmt.Sprint(translate.Suffix) + `
-            - nm: def-x-pqr-x-` + fmt.Sprint(translate.Suffix) + `
+            - nm: abc-x-pqr-x-` + fmt.Sprint(translate.VClusterName) + `
+            - nm: def-x-pqr-x-` + fmt.Sprint(translate.VClusterName) + `
           namespace: vcluster`,
 		},
 		{
@@ -343,7 +343,7 @@ test2: {}`,
     namespace: pqr`,
 			expected: `root:
     includes:
-        nm: abc-x-pqr-x-` + fmt.Sprint(translate.Suffix) + `
+        nm: abc-x-pqr-x-` + fmt.Sprint(translate.VClusterName) + `
         namespace: vcluster`,
 		},
 		{
@@ -404,7 +404,7 @@ test2: {}`,
 			},
 			nameResolver: &fakeVirtualToHostNameResolver{},
 			obj1: `test:
-    endpoints: 
+    endpoints:
       - name: abc
       - name: def`,
 			expected: `test:
@@ -428,9 +428,9 @@ test2: {}`,
 		if testCase.expectedErr != nil {
 			assert.ErrorContains(t, err, testCase.expectedErr.Error())
 			continue
-		} else {
-			assert.NilError(t, err, "error in applying patch in test case %s", testCase.name)
 		}
+
+		assert.NilError(t, err, "error in applying patch in test case %s", testCase.name)
 
 		// compare output
 		out, err := yaml.Marshal(obj1)
@@ -442,11 +442,11 @@ test2: {}`,
 
 type fakeNameResolver struct{}
 
-func (f *fakeNameResolver) TranslateName(name string, _ *regexp.Regexp, path string) (string, error) {
+func (f *fakeNameResolver) TranslateName(name string, _ *regexp.Regexp, _ string) (string, error) {
 	return name, nil
 }
 
-func (f *fakeNameResolver) TranslateNameWithNamespace(name string, namespace string, _ *regexp.Regexp, path string) (string, error) {
+func (f *fakeNameResolver) TranslateNameWithNamespace(name string, _ string, _ *regexp.Regexp, _ string) (string, error) {
 	return name, nil
 }
 
@@ -454,9 +454,11 @@ func (f *fakeNameResolver) TranslateLabelKey(key string) (string, error) {
 	return key, nil
 }
 
+var ErrNilSelector = errors.New("fake: nil selector")
+
 func (f *fakeNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
 	if selector == nil {
-		return nil, nil
+		return nil, ErrNilSelector
 	}
 
 	if selector.MatchLabels == nil {
@@ -468,13 +470,13 @@ func (f *fakeNameResolver) TranslateLabelExpressionsSelector(selector *metav1.La
 
 func (f *fakeNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
 	if selector == nil {
-		return nil, nil
+		return nil, ErrNilSelector
 	}
 	selector["test"] = "test"
 	return selector, nil
 }
 
-func (f *fakeNameResolver) TranslateNamespaceRef(name string) (string, error) {
+func (f *fakeNameResolver) TranslateNamespaceRef(string) (string, error) {
 	return "default", nil
 }
 
@@ -494,11 +496,11 @@ func (r *fakeVirtualToHostNameResolver) TranslateNameWithNamespace(name string, 
 			if ns == "" {
 				ns = namespace
 			}
-			return types.NamespacedName{Namespace: r.targetNamespace, Name: translate.Default.PhysicalName(name, ns)}
+			return types.NamespacedName{Namespace: r.targetNamespace, Name: translate.Default.HostName(nil, name, ns).Name}
 		}), nil
-	} else {
-		return translate.Default.PhysicalName(name, namespace), nil
 	}
+
+	return translate.Default.HostName(nil, name, namespace).Name, nil
 }
 
 func (r *fakeVirtualToHostNameResolver) TranslateLabelKey(key string) (string, error) {
@@ -507,7 +509,7 @@ func (r *fakeVirtualToHostNameResolver) TranslateLabelKey(key string) (string, e
 
 func (r *fakeVirtualToHostNameResolver) TranslateLabelExpressionsSelector(selector *metav1.LabelSelector) (*metav1.LabelSelector, error) {
 	if selector == nil {
-		return nil, nil
+		return nil, ErrNilSelector
 	}
 
 	if selector.MatchLabels == nil {
@@ -519,12 +521,12 @@ func (r *fakeVirtualToHostNameResolver) TranslateLabelExpressionsSelector(select
 
 func (r *fakeVirtualToHostNameResolver) TranslateLabelSelector(selector map[string]string) (map[string]string, error) {
 	if selector == nil {
-		return nil, nil
+		return nil, ErrNilSelector
 	}
 	selector["test"] = "test"
 	return selector, nil
 }
 
-func (r *fakeVirtualToHostNameResolver) TranslateNamespaceRef(namespace string) (string, error) {
+func (r *fakeVirtualToHostNameResolver) TranslateNamespaceRef(string) (string, error) {
 	return r.targetNamespace, nil
 }

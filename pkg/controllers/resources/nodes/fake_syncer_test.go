@@ -2,16 +2,17 @@ package nodes
 
 import (
 	"context"
+	goruntime "runtime"
 	"testing"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"gotest.tools/assert"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -23,13 +24,13 @@ import (
 
 func newFakeFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *fakeNodeSyncer) {
 	// we need that index here as well otherwise we wouldn't find the related pod
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
 		return []string{pod.Spec.NodeName}
 	})
 	assert.NilError(t, err)
 
-	syncContext, object := generictesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+	syncContext, object := syncertesting.FakeStartSyncer(t, ctx, func(ctx *synccontext.RegisterContext) (syncer.Object, error) {
 		return NewFakeSyncer(ctx, &fakeNodeServiceProvider{})
 	})
 	return syncContext, object.(*fakeNodeSyncer)
@@ -37,10 +38,10 @@ func newFakeFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccon
 
 type fakeNodeServiceProvider struct{}
 
-func (f *fakeNodeServiceProvider) Start(ctx context.Context) {}
-func (f *fakeNodeServiceProvider) Lock()                     {}
-func (f *fakeNodeServiceProvider) Unlock()                   {}
-func (f *fakeNodeServiceProvider) GetNodeIP(ctx context.Context, name string) (string, error) {
+func (f *fakeNodeServiceProvider) Start(context.Context) {}
+func (f *fakeNodeServiceProvider) Lock()                 {}
+func (f *fakeNodeServiceProvider) Unlock()               {}
+func (f *fakeNodeServiceProvider) GetNodeIP(context.Context, string) (string, error) {
 	return "127.0.0.1", nil
 }
 
@@ -63,9 +64,9 @@ func TestFakeSync(t *testing.T) {
 			Name: baseName.Name,
 			Labels: map[string]string{
 				"vcluster.loft.sh/fake-node": "true",
-				"beta.kubernetes.io/arch":    "amd64",
+				"beta.kubernetes.io/arch":    goruntime.GOARCH,
 				"beta.kubernetes.io/os":      "linux",
-				"kubernetes.io/arch":         "amd64",
+				"kubernetes.io/arch":         goruntime.GOARCH,
 				"kubernetes.io/hostname":     "fake-" + baseName.Name,
 				"kubernetes.io/os":           "linux",
 			},
@@ -132,7 +133,7 @@ func TestFakeSync(t *testing.T) {
 				Architecture:            "amd64",
 				ContainerRuntimeVersion: "docker://19.3.12",
 				KernelVersion:           "4.19.76-fakelinux",
-				KubeProxyVersion:        "v1.16.6-beta.0",
+				KubeProxyVersion:        "v1.16.6-beta.0", //nolint:staticcheck //deprecated, but we should continue to use it until the api removes it
 				KubeletVersion:          "v1.16.6-beta.0",
 				OperatingSystem:         "linux",
 				OSImage:                 "Fake Kubernetes Image",
@@ -141,17 +142,18 @@ func TestFakeSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
-			Name:                "Create",
+			Name:                "Create test",
 			InitialVirtualState: []runtime.Object{basePod},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Node"): {baseNode},
 				corev1.SchemeGroupVersion.WithKind("Pod"):  {basePod},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = false
 				syncContext, syncer := newFakeFakeSyncer(t, ctx)
-				_, err := syncer.FakeSyncUp(syncContext, baseName)
+				_, err := syncer.FakeSyncToVirtual(syncContext, baseName)
 				assert.NilError(t, err)
 			},
 			Compare: func(obj1 runtime.Object, obj2 runtime.Object) bool {
@@ -167,19 +169,21 @@ func TestFakeSync(t *testing.T) {
 						node.Status.NodeInfo.MachineID = fakeGUID
 						node.Status.NodeInfo.SystemUUID = fakeGUID
 						node.Status.NodeInfo.KernelVersion = fakeGUID
-						node.Status.NodeInfo.KubeProxyVersion = fakeGUID
+						node.Status.NodeInfo.KubeProxyVersion = fakeGUID //nolint:staticcheck //deprecated, but we should continue to use it until the api removes it
 						node.Status.NodeInfo.KubeletVersion = fakeGUID
 					}
 
-					node1.Status.Addresses[0].Address = node2.Status.Addresses[0].Address
+					node1.Status.Images = node2.Status.Images
 					obj1 = node1
 					obj2 = node2
 				}
+
+				assert.DeepEqual(t, obj1, obj2)
 				return apiequality.Semantic.DeepEqual(obj1, obj2)
 			},
 		},
 		{
-			Name:                "Delete",
+			Name:                "Delete test",
 			InitialVirtualState: []runtime.Object{baseNode},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Node"): {},

@@ -1,0 +1,96 @@
+suite: External etcd headless Service
+templates:
+  - etcd-headless-service.yaml
+
+tests:
+  - it: check disabled
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: enable for k3s & defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              headlessService:
+                annotations:
+                  test: test
+        distro:
+          k3s:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: my-release-etcd-headless
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+      - equal:
+          path: metadata.annotations.test
+          value: test
+
+  - it: enable for k8s & defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              headlessService:
+                annotations:
+                  test: test
+        distro:
+          k8s:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: my-release-etcd-headless
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+      - equal:
+          path: metadata.annotations.test
+          value: test
+
+  - it: enable for k8s & defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              headlessService:
+                annotations:
+                  test: test
+        distro:
+          k8s:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: my-release-etcd-headless
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+      - equal:
+          path: metadata.annotations.test
+          value: test

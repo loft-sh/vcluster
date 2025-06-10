@@ -29,17 +29,17 @@ var _ = ginkgo.Describe("NetworkPolicies are created as expected", func() {
 		// use default framework
 		f = framework.DefaultFramework
 		iteration++
-		nsNameA := fmt.Sprintf("e2e-syncer-networkpolicies-a-%d-%s", iteration, random.RandomString(5))
-		nsNameB := fmt.Sprintf("e2e-syncer-networkpolicies-b-%d-%s", iteration, random.RandomString(5))
+		nsNameA := fmt.Sprintf("e2e-syncer-networkpolicies-a-%d-%s", iteration, random.String(5))
+		nsNameB := fmt.Sprintf("e2e-syncer-networkpolicies-b-%d-%s", iteration, random.String(5))
 
 		// create test namespaces with different labels
 		var err error
-		nsA, err = f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		nsA, err = f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
 			Name:   nsNameA,
 			Labels: map[string]string{"key-a": fmt.Sprintf("e2e-syncer-networkpolicies-aaa-%d", iteration)},
 		}}, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
-		nsB, err = f.VclusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		nsB, err = f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
 			Name:   nsNameB,
 			Labels: map[string]string{"key-b": fmt.Sprintf("e2e-syncer-networkpolicies-bbb-%d", iteration)},
 		}}, metav1.CreateOptions{})
@@ -74,7 +74,7 @@ var _ = ginkgo.Describe("NetworkPolicies are created as expected", func() {
 		framework.ExpectNoError(err)
 
 		f.Log.Info("deny all Egress from the Namespace that hosts curl pod")
-		networkPolicy, err := f.VclusterClient.NetworkingV1().NetworkPolicies(nsA.GetName()).Create(f.Context, &networkingv1.NetworkPolicy{
+		networkPolicy, err := f.VClusterClient.NetworkingV1().NetworkPolicies(nsA.GetName()).Create(f.Context, &networkingv1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{Namespace: nsA.GetName(), Name: "my-egress-policy"},
 			Spec: networkingv1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{},
@@ -169,20 +169,19 @@ var _ = ginkgo.Describe("NetworkPolicies are created as expected", func() {
 		time.Sleep(time.Second * 10)
 		framework.DefaultFramework.TestServiceIsEventuallyUnreachable(curlPod, nginxService)
 	})
-
 })
 
 func updateNetworkPolicyWithRetryOnConflict(f *framework.Framework, networkPolicy *networkingv1.NetworkPolicy, mutator func(np *networkingv1.NetworkPolicy)) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		var err error
-		networkPolicy, err = f.VclusterClient.NetworkingV1().NetworkPolicies(networkPolicy.GetNamespace()).Get(f.Context, networkPolicy.GetName(), metav1.GetOptions{})
+		networkPolicy, err = f.VClusterClient.NetworkingV1().NetworkPolicies(networkPolicy.GetNamespace()).Get(f.Context, networkPolicy.GetName(), metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 
 		mutator(networkPolicy)
 
-		networkPolicy, err = f.VclusterClient.NetworkingV1().NetworkPolicies(networkPolicy.GetNamespace()).Update(f.Context, networkPolicy, metav1.UpdateOptions{})
+		networkPolicy, err = f.VClusterClient.NetworkingV1().NetworkPolicies(networkPolicy.GetNamespace()).Update(f.Context, networkPolicy, metav1.UpdateOptions{})
 		return err
 	})
 }

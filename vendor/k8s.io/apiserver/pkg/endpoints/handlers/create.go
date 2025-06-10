@@ -55,6 +55,7 @@ func createHandler(r rest.NamedCreater, scope *RequestScope, admit admission.Int
 		ctx := req.Context()
 		// For performance tracking purposes.
 		ctx, span := tracing.Start(ctx, "Create", traceFields(req)...)
+		req = req.WithContext(ctx)
 		defer span.End(500 * time.Millisecond)
 
 		namespace, name, err := scope.Namer.Name(req)
@@ -191,14 +192,13 @@ func createHandler(r rest.NamedCreater, scope *RequestScope, admit admission.Int
 		// Dedup owner references before updating managed fields
 		dedupOwnerReferencesAndAddWarning(obj, req.Context(), false)
 		result, err := finisher.FinishRequest(ctx, func() (runtime.Object, error) {
-			if scope.FieldManager != nil {
-				liveObj, err := scope.Creater.New(scope.Kind)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create new object (Create for %v): %v", scope.Kind, err)
-				}
-				obj = scope.FieldManager.UpdateNoErrors(liveObj, obj, managerOrUserAgent(options.FieldManager, req.UserAgent()))
-				admit = fieldmanager.NewManagedFieldsValidatingAdmissionController(admit)
+			liveObj, err := scope.Creater.New(scope.Kind)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create new object (Create for %v): %v", scope.Kind, err)
 			}
+			obj = scope.FieldManager.UpdateNoErrors(liveObj, obj, managerOrUserAgent(options.FieldManager, req.UserAgent()))
+			admit = fieldmanager.NewManagedFieldsValidatingAdmissionController(admit)
+
 			if mutatingAdmission, ok := admit.(admission.MutationInterface); ok && mutatingAdmission.Handles(admission.Create) {
 				if err := mutatingAdmission.Admit(ctx, admissionAttributes, scope); err != nil {
 					return nil, err

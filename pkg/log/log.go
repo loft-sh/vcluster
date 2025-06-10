@@ -24,11 +24,13 @@ func New(name string) Logger {
 		l,
 	}
 }
+
 func NewFromExisting(log logr.Logger, name string) Logger {
 	return &logger{
 		log.WithName(name),
 	}
 }
+
 func NewWithoutName() Logger {
 	return &logger{
 		log.Log,
@@ -38,6 +40,7 @@ func NewWithoutName() Logger {
 func (l *logger) Base() logr.Logger {
 	return l.Logger
 }
+
 func (l *logger) WithName(name string) Logger {
 	return &logger{
 		Logger: l.Logger.WithName(name),
@@ -45,13 +48,13 @@ func (l *logger) WithName(name string) Logger {
 }
 
 func (l *logger) Infof(format string, a ...interface{}) {
-	l.Logger.Info(fmt.Sprintf(format, a...))
+	l.WithCallDepth(1).Info(fmt.Sprintf(format, a...))
 }
 
 func (l *logger) Debugf(format string, a ...interface{}) {
-	l.Logger.V(1).Info(fmt.Sprintf(format, a...))
+	l.Logger.WithCallDepth(1).V(1).Info(fmt.Sprintf(format, a...))
 }
 
 func (l *logger) Errorf(format string, a ...interface{}) {
-	l.Logger.Error(fmt.Errorf(format, a...), "")
+	l.WithCallDepth(1).Error(fmt.Errorf(format, a...), "")
 }

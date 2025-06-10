@@ -18,17 +18,16 @@ package egressselector
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/apis/apiserver"
 	"k8s.io/apiserver/pkg/apis/apiserver/install"
-	"k8s.io/apiserver/pkg/apis/apiserver/v1beta1"
 	"k8s.io/utils/path"
-	"sigs.k8s.io/yaml"
 )
 
 var cfgScheme = runtime.NewScheme()
@@ -51,23 +50,17 @@ func ReadEgressSelectorConfiguration(configFilePath string) (*apiserver.EgressSe
 		return nil, nil
 	}
 	// a file was provided, so we just read it.
-	data, err := ioutil.ReadFile(configFilePath)
+	data, err := os.ReadFile(configFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read egress selector configuration from %q [%v]", configFilePath, err)
 	}
-	var decodedConfig v1beta1.EgressSelectorConfiguration
-	err = yaml.Unmarshal(data, &decodedConfig)
+	config, gvk, err := serializer.NewCodecFactory(cfgScheme, serializer.EnableStrict).UniversalDecoder().Decode(data, nil, nil)
 	if err != nil {
-		// we got an error where the decode wasn't related to a missing type
 		return nil, err
 	}
-	if decodedConfig.Kind != "EgressSelectorConfiguration" {
-		return nil, fmt.Errorf("invalid service configuration object %q", decodedConfig.Kind)
-	}
-	internalConfig := &apiserver.EgressSelectorConfiguration{}
-	if err := cfgScheme.Convert(&decodedConfig, internalConfig, nil); err != nil {
-		// we got an error where the decode wasn't related to a missing type
-		return nil, err
+	internalConfig, ok := config.(*apiserver.EgressSelectorConfiguration)
+	if !ok {
+		return nil, fmt.Errorf("unexpected config type: %v", gvk)
 	}
 	return internalConfig, nil
 }

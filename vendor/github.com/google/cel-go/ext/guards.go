@@ -15,6 +15,7 @@
 package ext
 
 import (
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
@@ -47,4 +48,20 @@ func listStringOrError(strs []string, err error) ref.Val {
 		return types.NewErr(err.Error())
 	}
 	return types.DefaultTypeAdapter.NativeToValue(strs)
+}
+
+func extractIdent(target ast.Expr) (string, bool) {
+	switch target.Kind() {
+	case ast.IdentKind:
+		return target.AsIdent(), true
+	default:
+		return "", false
+	}
+}
+
+func macroTargetMatchesNamespace(ns string, target ast.Expr) bool {
+	if id, found := extractIdent(target); found {
+		return id == ns
+	}
+	return false
 }

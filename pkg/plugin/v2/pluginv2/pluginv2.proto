@@ -1,0 +1,49 @@
+// protoc -I . pluginv2.proto  --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative
+syntax = "proto3";
+
+package pluginv2;
+
+option go_package = "github.com/loft-sh/vcluster/pkg/plugin/v2/pluginv2";
+
+service Plugin {
+	rpc Initialize(Initialize.Request) returns (Initialize.Response);
+	rpc SetLeader(SetLeader.Request) returns (SetLeader.Response);
+	rpc GetPluginConfig(GetPluginConfig.Request) returns (GetPluginConfig.Response);
+
+	rpc Mutate(Mutate.Request) returns (Mutate.Response);
+}
+
+message Initialize {
+	message Request {
+		string config = 1;
+	}
+
+	message Response {}
+}
+
+message GetPluginConfig {
+	message Request {}
+
+	message Response {
+		string config = 1;
+	}
+}
+
+message Mutate {
+	message Request {
+		string apiVersion = 1;
+		string kind = 2;
+		string object = 3;
+		string type = 4;
+	}
+
+	message Response {
+		string object = 1;
+		bool mutated = 2;
+	}
+}
+
+message SetLeader {
+	message Request {}
+	message Response {}
+}

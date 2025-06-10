@@ -17,6 +17,9 @@ func Find(doc *yaml.Node, predicate func(*yaml.Node) bool) *yaml.Node {
 	if predicate(doc) {
 		return doc
 	}
+	if doc == nil {
+		return nil
+	}
 
 	for _, content := range doc.Content {
 		if found := Find(content, predicate); found != nil {
@@ -53,7 +56,7 @@ func removeProperty(parent *yaml.Node, child *yaml.Node) []*yaml.Node {
 }
 
 func removeChild(parent *yaml.Node, child *yaml.Node) []*yaml.Node {
-	var remaining []*yaml.Node
+	remaining := make([]*yaml.Node, 0)
 	for _, current := range parent.Content {
 		if child == current {
 			continue

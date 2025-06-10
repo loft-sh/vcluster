@@ -1,34 +1,119 @@
+version: "2"
+
 run:
   timeout: 10m
 
 linters:
-  disable-all: true
+  default: none
   enable:
-    - deadcode
-    - gosimple
-    - govet
-    - ineffassign
-    - misspell
-    - unused
-    - varcheck
-    - staticcheck
-    - errcheck
-    # - goimports
+    - asasalint
+    - asciicheck
+    - bidichk
+    - copyloopvar
+    - decorder
     - dupl
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - govet
+    - grouper
+    - importas
+    - ineffassign
+    - makezero
+    - misspell
     - nakedret
-    - stylecheck
-    # - gofmt
-    # - golint
-    # - structcheck
-
-linters-settings:
-  gofmt:
-    simplify: true
-  dupl:
-    threshold: 400
+    - nilnil
+    - promlinter
+    - revive
+    - sloglint
+    - staticcheck
+    - unconvert
+    - unused
+    - usestdlibvars
+    - whitespace
+  settings:
+    dupl:
+      threshold: 400
+    exhaustive:
+      check:
+        - switch
+        - map
+      ignore-enum-types: ResourceName|Atom
+      default-signifies-exhaustive: true
+    importas:
+      no-unaliased: true
+      alias:
+        # Kubernetes
+        - pkg: k8s\.io/api/(\w+)/(v[\w\d]+)
+          alias: $1$2
+        - pkg: k8s\.io/apimachinery/pkg/api/(\w+)/(v[\w\d]+)
+          alias: $1$2
+        - pkg: k8s.io/apimachinery/pkg/api/errors
+          alias: kerrors
+        - pkg: k8s.io/apimachinery/pkg/apis/meta/internalversion
+          alias: metainternalversion
+    tagalign:
+      order:
+        - protobuf
+        - json
+        - yaml
+        - xml
+        - form
+    staticcheck:
+      checks:
+        - all
+        # All below staticcheck exclusions have been added when migrating golangci-lint config from
+        # v1 to v2 and for the sake of not making source code changes when upgrading golangci-lint.
+        - "-QF1001" # exclude 'could apply De Morgan's law'
+        - "-QF1003" # exclude 'could use tagged switch on value'
+        - "-QF1004" # exclude 'could use strings.ReplaceAll instead'
+        - "-QF1008" # exclude 'could remove embedded field "<field>" from selector'
+        - "-QF1012" # exclude 'Use fmt.Fprintf(...) instead of WriteString(fmt.Sprintf(...))'
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      # We are still using the deprecated exportKubeConfig.Secret field in a couple of places in code (as the support for
+      # exportKubeConfig.secret config is still not entirely removed).
+      - path: config/config.go
+        text: 'SA1019: (.+)Secret is deprecated: Use AdditionalSecrets instead.'
+      - path: pkg/config/validation.go
+        text: 'SA1019: (.+)Secret is deprecated: Use AdditionalSecrets instead.'
+    paths:
+      - licenses
+      # Paths below are added by 'golangci-lint migrate' when migrating from v1 to v2. They are the
+      # equivalent of v1 config 'issues.exclude-dirs-use-default: true'.
+      - third_party$
+      - builtin$
+      - examples$
 
 issues:
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0
   # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
   max-same-issues: 0
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+  exclusions:
+    generated: lax
+    paths:
+      - licenses
+      # Paths below are added by 'golangci-lint migrate' when migrating from v1 to v2. They are the
+      # equivalent of v1 config 'issues.exclude-dirs-use-default: true'.
+      - third_party$
+      - builtin$
+      - examples$

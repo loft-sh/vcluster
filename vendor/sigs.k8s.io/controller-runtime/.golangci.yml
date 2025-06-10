@@ -5,21 +5,20 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
-    - depguard
+    - copyloopvar
     - dogsled
     - dupl
     - errcheck
     - errchkjson
     - errorlint
     - exhaustive
-    - exportloopref
+    - ginkgolinter
     - goconst
     - gocritic
     - gocyclo
     - gofmt
     - goimports
     - goprintffuncname
-    - gosec
     - gosimple
     - govet
     - importas
@@ -41,6 +40,11 @@ linters:
     - whitespace
 
 linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+      - shadow
   importas:
     no-unaliased: true
     alias:
@@ -58,14 +62,6 @@ linters-settings:
       # Controller Runtime
       - pkg: sigs.k8s.io/controller-runtime
         alias: ctrl
-  staticcheck:
-    go: "1.20"
-  stylecheck:
-    go: "1.20"
-  depguard:
-    include-go-root: true
-    packages:
-      - io/ioutil # https://go.dev/doc/go1.16#ioutil
   revive:
     rules:
       # The following rules are recommended https://github.com/mgechev/revive#recommended-configuration
@@ -109,6 +105,9 @@ issues:
     - Subprocess launch(ed with variable|ing should be audited)
     - (G204|G104|G307)
     - "ST1000: at least one file in a package should have a package comment"
+  exclude-files:
+    - "zz_generated.*\\.go$"
+    - ".*conversion.*\\.go$"
   exclude-rules:
     - linters:
         - gosec
@@ -165,10 +164,16 @@ issues:
     - linters:
         - dupl
       path: _test\.go
+    - linters:
+        - revive
+      path: .*/internal/.*
+    - linters:
+        - unused
+      # Seems to incorrectly trigger on the two implementations that are only
+      # used through an interface and not directly..?
+      path: pkg/controller/priorityqueue/metrics\.go
 
 run:
+  go: "1.23"
   timeout: 10m
-  skip-files:
-    - "zz_generated.*\\.go$"
-    - ".*conversion.*\\.go$"
   allow-parallel-runners: true

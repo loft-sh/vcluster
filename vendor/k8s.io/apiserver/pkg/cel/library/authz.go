@@ -22,6 +22,11 @@ import (
 	"reflect"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	genericfeatures "k8s.io/apiserver/pkg/features"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
+
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
@@ -174,6 +179,50 @@ import (
 // Examples:
 //
 //	authorizer.path('/healthz').check('GET').reason()
+//
+// errored
+//
+// Returns true if the authorization check resulted in an error.
+//
+//	<Decision>.errored() <bool>
+//
+// Examples:
+//
+//	authorizer.group('').resource('pods').namespace('default').check('create').errored() // Returns true if the authorization check resulted in an error
+//
+// error
+//
+// If the authorization check resulted in an error, returns the error. Otherwise, returns the empty string.
+//
+//	<Decision>.error() <string>
+//
+// Examples:
+//
+//	authorizer.group('').resource('pods').namespace('default').check('create').error()
+//
+// fieldSelector
+//
+// Takes a string field selector, parses it to field selector requirements, and includes it in the authorization check.
+// If the field selector does not parse successfully, no field selector requirements are included in the authorization check.
+// Added in Kubernetes 1.31+, Authz library version 1.
+//
+//	<ResourceCheck>.fieldSelector(<string>) <ResourceCheck>
+//
+// Examples:
+//
+//	authorizer.group('').resource('pods').fieldSelector('spec.nodeName=mynode').check('list').allowed()
+//
+// labelSelector (added in v1, Kubernetes 1.31+)
+//
+// Takes a string label selector, parses it to label selector requirements, and includes it in the authorization check.
+// If the label selector does not parse successfully, no label selector requirements are included in the authorization check.
+// Added in Kubernetes 1.31+, Authz library version 1.
+//
+//	<ResourceCheck>.labelSelector(<string>) <ResourceCheck>
+//
+// Examples:
+//
+//	authorizer.group('').resource('pods').labelSelector('app=example').check('list').allowed()
 func Authz() cel.EnvOption {
 	return cel.Lib(authzLib)
 }
@@ -181,6 +230,23 @@ func Authz() cel.EnvOption {
 var authzLib = &authz{}
 
 type authz struct{}
+
+func (*authz) LibraryName() string {
+	return "kubernetes.authz"
+}
+
+func (*authz) Types() []*cel.Type {
+	return []*cel.Type{
+		AuthorizerType,
+		PathCheckType,
+		GroupCheckType,
+		ResourceCheckType,
+		DecisionType}
+}
+
+func (*authz) declarations() map[string][]cel.FunctionOpt {
+	return authzLibraryDecls
+}
 
 var authzLibraryDecls = map[string][]cel.FunctionOpt{
 	"path": {
@@ -209,6 +275,12 @@ var authzLibraryDecls = map[string][]cel.FunctionOpt{
 			cel.BinaryBinding(pathCheckCheck)),
 		cel.MemberOverload("resourcecheck_check", []*cel.Type{ResourceCheckType, cel.StringType}, DecisionType,
 			cel.BinaryBinding(resourceCheckCheck))},
+	"errored": {
+		cel.MemberOverload("decision_errored", []*cel.Type{DecisionType}, cel.BoolType,
+			cel.UnaryBinding(decisionErrored))},
+	"error": {
+		cel.MemberOverload("decision_error", []*cel.Type{DecisionType}, cel.StringType,
+			cel.UnaryBinding(decisionError))},
 	"allowed": {
 		cel.MemberOverload("decision_allowed", []*cel.Type{DecisionType}, cel.BoolType,
 			cel.UnaryBinding(decisionAllowed))},
@@ -226,6 +298,74 @@ func (*authz) CompileOptions() []cel.EnvOption {
 }
 
 func (*authz) ProgramOptions() []cel.ProgramOption {
+	return []cel.ProgramOption{}
+}
+
+// AuthzSelectors provides a CEL function library extension for adding fieldSelector and
+// labelSelector filters to authorization checks. This requires the Authz library.
+// See documentation of the Authz library for use and availability of the authorizer variable.
+//
+// fieldSelector
+//
+// Takes a string field selector, parses it to field selector requirements, and includes it in the authorization check.
+// If the field selector does not parse successfully, no field selector requirements are included in the authorization check.
+// Added in Kubernetes 1.31+.
+//
+//	<ResourceCheck>.fieldSelector(<string>) <ResourceCheck>
+//
+// Examples:
+//
+//	authorizer.group('').resource('pods').fieldSelector('spec.nodeName=mynode').check('list').allowed()
+//
+// labelSelector
+//
+// Takes a string label selector, parses it to label selector requirements, and includes it in the authorization check.
+// If the label selector does not parse successfully, no label selector requirements are included in the authorization check.
+// Added in Kubernetes 1.31+.
+//
+//	<ResourceCheck>.labelSelector(<string>) <ResourceCheck>
+//
+// Examples:
+//
+//	authorizer.group('').resource('pods').labelSelector('app=example').check('list').allowed()
+func AuthzSelectors() cel.EnvOption {
+	return cel.Lib(authzSelectorsLib)
+}
+
+var authzSelectorsLib = &authzSelectors{}
+
+type authzSelectors struct{}
+
+func (*authzSelectors) LibraryName() string {
+	return "kubernetes.authzSelectors"
+}
+
+func (*authzSelectors) Types() []*cel.Type {
+	return []*cel.Type{ResourceCheckType}
+}
+
+func (*authzSelectors) declarations() map[string][]cel.FunctionOpt {
+	return authzSelectorsLibraryDecls
+}
+
+var authzSelectorsLibraryDecls = map[string][]cel.FunctionOpt{
+	"fieldSelector": {
+		cel.MemberOverload("authorizer_fieldselector", []*cel.Type{ResourceCheckType, cel.StringType}, ResourceCheckType,
+			cel.BinaryBinding(resourceCheckFieldSelector))},
+	"labelSelector": {
+		cel.MemberOverload("authorizer_labelselector", []*cel.Type{ResourceCheckType, cel.StringType}, ResourceCheckType,
+			cel.BinaryBinding(resourceCheckLabelSelector))},
+}
+
+func (*authzSelectors) CompileOptions() []cel.EnvOption {
+	options := make([]cel.EnvOption, 0, len(authzSelectorsLibraryDecls))
+	for name, overloads := range authzSelectorsLibraryDecls {
+		options = append(options, cel.Function(name, overloads...))
+	}
+	return options
+}
+
+func (*authzSelectors) ProgramOptions() []cel.ProgramOption {
 	return []cel.ProgramOption{}
 }
 
@@ -324,6 +464,38 @@ func resourceCheckSubresource(arg1, arg2 ref.Val) ref.Val {
 	return result
 }
 
+func resourceCheckFieldSelector(arg1, arg2 ref.Val) ref.Val {
+	resourceCheck, ok := arg1.(resourceCheckVal)
+	if !ok {
+		return types.MaybeNoSuchOverloadErr(arg1)
+	}
+
+	fieldSelector, ok := arg2.Value().(string)
+	if !ok {
+		return types.MaybeNoSuchOverloadErr(arg1)
+	}
+
+	result := resourceCheck
+	result.fieldSelector = fieldSelector
+	return result
+}
+
+func resourceCheckLabelSelector(arg1, arg2 ref.Val) ref.Val {
+	resourceCheck, ok := arg1.(resourceCheckVal)
+	if !ok {
+		return types.MaybeNoSuchOverloadErr(arg1)
+	}
+
+	labelSelector, ok := arg2.Value().(string)
+	if !ok {
+		return types.MaybeNoSuchOverloadErr(arg1)
+	}
+
+	result := resourceCheck
+	result.labelSelector = labelSelector
+	return result
+}
+
 func resourceCheckNamespace(arg1, arg2 ref.Val) ref.Val {
 	resourceCheck, ok := arg1.(resourceCheckVal)
 	if !ok {
@@ -382,6 +554,27 @@ func resourceCheckCheck(arg1, arg2 ref.Val) ref.Val {
 	}
 
 	return resourceCheck.Authorize(context.TODO(), apiVerb)
+}
+
+func decisionErrored(arg ref.Val) ref.Val {
+	decision, ok := arg.(decisionVal)
+	if !ok {
+		return types.MaybeNoSuchOverloadErr(arg)
+	}
+
+	return types.Bool(decision.err != nil)
+}
+
+func decisionError(arg ref.Val) ref.Val {
+	decision, ok := arg.(decisionVal)
+	if !ok {
+		return types.MaybeNoSuchOverloadErr(arg)
+	}
+
+	if decision.err == nil {
+		return types.String("")
+	}
+	return types.String(decision.err.Error())
 }
 
 func decisionAllowed(arg ref.Val) ref.Val {
@@ -478,10 +671,7 @@ func (a pathCheckVal) Authorize(ctx context.Context, verb string) ref.Val {
 	}
 
 	decision, reason, err := a.authorizer.authAuthorizer.Authorize(ctx, attr)
-	if err != nil {
-		return types.NewErr("error in authorization check: %v", err)
-	}
-	return newDecision(decision, reason)
+	return newDecision(decision, err, reason)
 }
 
 type groupCheckVal struct {
@@ -496,11 +686,13 @@ func (g groupCheckVal) resourceCheck(resource string) resourceCheckVal {
 
 type resourceCheckVal struct {
 	receiverOnlyObjectVal
-	groupCheck  groupCheckVal
-	resource    string
-	subresource string
-	namespace   string
-	name        string
+	groupCheck    groupCheckVal
+	resource      string
+	subresource   string
+	namespace     string
+	name          string
+	fieldSelector string
+	labelSelector string
 }
 
 func (a resourceCheckVal) Authorize(ctx context.Context, verb string) ref.Val {
@@ -515,19 +707,37 @@ func (a resourceCheckVal) Authorize(ctx context.Context, verb string) ref.Val {
 		Verb:            verb,
 		User:            a.groupCheck.authorizer.userInfo,
 	}
-	decision, reason, err := a.groupCheck.authorizer.authAuthorizer.Authorize(ctx, attr)
-	if err != nil {
-		return types.NewErr("error in authorization check: %v", err)
+
+	if utilfeature.DefaultFeatureGate.Enabled(genericfeatures.AuthorizeWithSelectors) {
+		if len(a.fieldSelector) > 0 {
+			selector, err := fields.ParseSelector(a.fieldSelector)
+			if err != nil {
+				attr.FieldSelectorRequirements, attr.FieldSelectorParsingErr = nil, err
+			} else {
+				attr.FieldSelectorRequirements, attr.FieldSelectorParsingErr = selector.Requirements(), nil
+			}
+		}
+		if len(a.labelSelector) > 0 {
+			requirements, err := labels.ParseToRequirements(a.labelSelector)
+			if err != nil {
+				attr.LabelSelectorRequirements, attr.LabelSelectorParsingErr = nil, err
+			} else {
+				attr.LabelSelectorRequirements, attr.LabelSelectorParsingErr = requirements, nil
+			}
+		}
 	}
-	return newDecision(decision, reason)
+
+	decision, reason, err := a.groupCheck.authorizer.authAuthorizer.Authorize(ctx, attr)
+	return newDecision(decision, err, reason)
 }
 
-func newDecision(authDecision authorizer.Decision, reason string) decisionVal {
-	return decisionVal{receiverOnlyObjectVal: receiverOnlyVal(DecisionType), authDecision: authDecision, reason: reason}
+func newDecision(authDecision authorizer.Decision, err error, reason string) decisionVal {
+	return decisionVal{receiverOnlyObjectVal: receiverOnlyVal(DecisionType), authDecision: authDecision, err: err, reason: reason}
 }
 
 type decisionVal struct {
 	receiverOnlyObjectVal
+	err          error
 	authDecision authorizer.Decision
 	reason       string
 }
@@ -536,7 +746,7 @@ type decisionVal struct {
 // any object type that has receiver functions but does not expose any fields to
 // CEL.
 type receiverOnlyObjectVal struct {
-	typeValue *types.TypeValue
+	typeValue *types.Type
 }
 
 // receiverOnlyVal returns a receiverOnlyObjectVal for the given type.

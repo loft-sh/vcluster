@@ -1,0 +1,34 @@
+# actionlint configuration
+# See https://github.com/rhysd/actionlint/blob/main/docs/config.md
+
+# Patterns to ignore
+ignore:
+  # Example to ignore issues in specific workflows
+  # - "path: not/important/workflow.yml"
+
+  # Example to ignore specific error codes
+  # - "SC2086:"
+
+# Define self-hosted runner labels to validate against
+# runners:
+#   - self-hosted
+#   - linux
+#   - gpu
+
+# Configure shell-check
+shellcheck:
+  # Increase shell check severity to enable warnings
+  severity: warning
+  # Exclude some noisy rules
+  # exclude: [SC2086, SC2046]
+
+# Make sure workflows use pinned actions versions
+# (Major.Minor.Patch or SHA)
+# (default is "ref")
+name-pattern:
+  - "uses: .*@[0-9a-f]{40}$"           # SHA pinning (preferred)
+  - "uses: .*@v[0-9]+\\.[0-9]+\\.[0-9]+$" # Semver pinning
+  # Allows docker image names
+  - "uses: docker://.*"
+  # Block actions/checkout@v4 - require sha pinning
+  #- "!uses: actions/checkout@v[0-9]+"

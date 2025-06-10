@@ -18,32 +18,31 @@ package manager
 
 import (
 	"context"
-	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
+	coordinationv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/config"
-	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	intrec "sigs.k8s.io/controller-runtime/pkg/internal/recorder"
 	"sigs.k8s.io/controller-runtime/pkg/leaderelection"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/recorder"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -65,12 +64,14 @@ type Manager interface {
 	// election was configured.
 	Elected() <-chan struct{}
 
-	// AddMetricsExtraHandler adds an extra handler served on path to the http server that serves metrics.
-	// Might be useful to register some diagnostic endpoints e.g. pprof. Note that these endpoints meant to be
-	// sensitive and shouldn't be exposed publicly.
-	// If the simple path -> handler mapping offered here is not enough, a new http server/listener should be added as
-	// Runnable to the manager via Add method.
-	AddMetricsExtraHandler(path string, handler http.Handler) error
+	// AddMetricsServerExtraHandler adds an extra handler served on path to the http server that serves metrics.
+	// Might be useful to register some diagnostic endpoints e.g. pprof.
+	//
+	// Note that these endpoints are meant to be sensitive and shouldn't be exposed publicly.
+	//
+	// If the simple path -> handler mapping offered here is not enough,
+	// a new http server/listener should be added as Runnable to the manager via Add method.
+	AddMetricsServerExtraHandler(path string, handler http.Handler) error
 
 	// AddHealthzCheck allows you to add Healthz checker
 	AddHealthzCheck(name string, check healthz.Checker) error
@@ -139,35 +140,6 @@ type Options struct {
 	// NOTE: LOW LEVEL PRIMITIVE!
 	// Only use a custom NewClient if you know what you are doing.
 	NewClient client.NewClientFunc
-
-	// SyncPeriod determines the minimum frequency at which watched resources are
-	// reconciled. A lower period will correct entropy more quickly, but reduce
-	// responsiveness to change if there are many watched resources. Change this
-	// value only if you know what you are doing. Defaults to 10 hours if unset.
-	// there will a 10 percent jitter between the SyncPeriod of all controllers
-	// so that all controllers will not send list requests simultaneously.
-	//
-	// This applies to all controllers.
-	//
-	// A period sync happens for two reasons:
-	// 1. To insure against a bug in the controller that causes an object to not
-	// be requeued, when it otherwise should be requeued.
-	// 2. To insure against an unknown bug in controller-runtime, or its dependencies,
-	// that causes an object to not be requeued, when it otherwise should be
-	// requeued, or to be removed from the queue, when it otherwise should not
-	// be removed.
-	//
-	// If you want
-	// 1. to insure against missed watch events, or
-	// 2. to poll services that cannot be watched,
-	// then we recommend that, instead of changing the default period, the
-	// controller requeue, with a constant duration `t`, whenever the controller
-	// is "done" with an object, and would otherwise not requeue it, i.e., we
-	// recommend the `Reconcile` function return `reconcile.Result{RequeueAfter: t}`,
-	// instead of `reconcile.Result{}`.
-	//
-	// Deprecated: Use Cache.SyncPeriod instead.
-	SyncPeriod *time.Duration
 
 	// Logger is the logger that should be used by this manager.
 	// If none is set, it defaults to log.Log global logger.
@@ -239,27 +211,17 @@ type Options struct {
 	// wait to force acquire leadership. This is measured against time of
 	// last observed ack. Default is 15 seconds.
 	LeaseDuration *time.Duration
+
 	// RenewDeadline is the duration that the acting controlplane will retry
 	// refreshing leadership before giving up. Default is 10 seconds.
 	RenewDeadline *time.Duration
+
 	// RetryPeriod is the duration the LeaderElector clients should wait
 	// between tries of actions. Default is 2 seconds.
 	RetryPeriod *time.Duration
 
-	// Namespace, if specified, restricts the manager's cache to watch objects in
-	// the desired namespace. Defaults to all namespaces.
-	//
-	// Note: If a namespace is specified, controllers can still Watch for a
-	// cluster-scoped resource (e.g Node). For namespaced resources, the cache
-	// will only hold objects from the desired namespace.
-	//
-	// Deprecated: Use Cache.Namespaces instead.
-	Namespace string
-
-	// MetricsBindAddress is the TCP address that the controller should bind to
-	// for serving prometheus metrics.
-	// It can be set to "0" to disable the metrics serving.
-	MetricsBindAddress string
+	// Metrics are the metricsserver.Options that will be used to create the metricsserver.Server.
+	Metrics metricsserver.Options
 
 	// HealthProbeBindAddress is the TCP address that the controller should bind to
 	// for serving health probes
@@ -279,52 +241,15 @@ type Options struct {
 	// before exposing it to public.
 	PprofBindAddress string
 
-	// Port is the port that the webhook server serves at.
-	// It is used to set webhook.Server.Port if WebhookServer is not set.
-	//
-	// Deprecated: Use WebhookServer instead. A WebhookServer can be created via webhook.NewServer.
-	Port int
-	// Host is the hostname that the webhook server binds to.
-	// It is used to set webhook.Server.Host if WebhookServer is not set.
-	//
-	// Deprecated: Use WebhookServer instead. A WebhookServer can be created via webhook.NewServer.
-	Host string
-
-	// CertDir is the directory that contains the server key and certificate.
-	// If not set, webhook server would look up the server key and certificate in
-	// {TempDir}/k8s-webhook-server/serving-certs. The server key and certificate
-	// must be named tls.key and tls.crt, respectively.
-	// It is used to set webhook.Server.CertDir if WebhookServer is not set.
-	//
-	// Deprecated: Use WebhookServer instead. A WebhookServer can be created via webhook.NewServer.
-	CertDir string
-
-	// TLSOpts is used to allow configuring the TLS config used for the webhook server.
-	//
-	// Deprecated: Use WebhookServer instead. A WebhookServer can be created via webhook.NewServer.
-	TLSOpts []func(*tls.Config)
-
 	// WebhookServer is an externally configured webhook.Server. By default,
-	// a Manager will create a default server using Port, Host, and CertDir;
-	// if this is set, the Manager will use this server instead.
+	// a Manager will create a server via webhook.NewServer with default settings.
+	// If this is set, the Manager will use this server instead.
 	WebhookServer webhook.Server
 
 	// BaseContext is the function that provides Context values to Runnables
 	// managed by the Manager. If a BaseContext function isn't provided, Runnables
 	// will receive a new Background Context instead.
 	BaseContext BaseContextFunc
-
-	// ClientDisableCacheFor tells the client that, if any cache is used, to bypass it
-	// for the given objects.
-	//
-	// Deprecated: Use Client.Cache.DisableCacheFor instead.
-	ClientDisableCacheFor []client.Object
-
-	// DryRunClient specifies whether the client should be configured to enforce
-	// dryRun mode.
-	//
-	// Deprecated: Use Client.DryRun instead.
-	DryRunClient bool
 
 	// EventBroadcaster records Events emitted by the manager and sends them to the Kubernetes API
 	// Use this to customize the event correlator and spam filter
@@ -353,7 +278,7 @@ type Options struct {
 	// Dependency injection for testing
 	newRecorderProvider    func(config *rest.Config, httpClient *http.Client, scheme *runtime.Scheme, logger logr.Logger, makeBroadcaster intrec.EventBroadcasterProducer) (*intrec.Provider, error)
 	newResourceLock        func(config *rest.Config, recorderProvider recorder.Provider, options leaderelection.Options) (resourcelock.Interface, error)
-	newMetricsListener     func(addr string) (net.Listener, error)
+	newMetricsServer       func(options metricsserver.Options, config *rest.Config, httpClient *http.Client) (metricsserver.Server, error)
 	newHealthProbeListener func(addr string) (net.Listener, error)
 	newPprofListener       func(addr string) (net.Listener, error)
 }
@@ -390,7 +315,13 @@ type LeaderElectionRunnable interface {
 }
 
 // New returns a new Manager for creating Controllers.
+// Note that if ContentType in the given config is not set, "application/vnd.kubernetes.protobuf"
+// will be used for all built-in resources of Kubernetes, and "application/json" is for other types
+// including all CRD resources.
 func New(config *rest.Config, options Options) (Manager, error) {
+	if config == nil {
+		return nil, errors.New("must specify Config")
+	}
 	// Set default values for options fields
 	options = setOptionsDefaults(options)
 
@@ -398,18 +329,19 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		clusterOptions.Scheme = options.Scheme
 		clusterOptions.MapperProvider = options.MapperProvider
 		clusterOptions.Logger = options.Logger
-		clusterOptions.SyncPeriod = options.SyncPeriod
 		clusterOptions.NewCache = options.NewCache
 		clusterOptions.NewClient = options.NewClient
 		clusterOptions.Cache = options.Cache
 		clusterOptions.Client = options.Client
-		clusterOptions.Namespace = options.Namespace                         //nolint:staticcheck
-		clusterOptions.ClientDisableCacheFor = options.ClientDisableCacheFor //nolint:staticcheck
-		clusterOptions.DryRunClient = options.DryRunClient                   //nolint:staticcheck
-		clusterOptions.EventBroadcaster = options.EventBroadcaster           //nolint:staticcheck
+		clusterOptions.EventBroadcaster = options.EventBroadcaster //nolint:staticcheck
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	config = rest.CopyConfig(config)
+	if config.UserAgent == "" {
+		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
 
 	// Create the recorder provider to inject event recorders for the components.
@@ -429,7 +361,20 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		leaderRecorderProvider = recorderProvider
 	} else {
 		leaderConfig = rest.CopyConfig(options.LeaderElectionConfig)
-		leaderRecorderProvider, err = options.newRecorderProvider(leaderConfig, cluster.GetHTTPClient(), cluster.GetScheme(), options.Logger.WithName("events"), options.makeBroadcaster)
+		scheme := cluster.GetScheme()
+		err := corev1.AddToScheme(scheme)
+		if err != nil {
+			return nil, err
+		}
+		err = coordinationv1.AddToScheme(scheme)
+		if err != nil {
+			return nil, err
+		}
+		httpClient, err := rest.HTTPClientFor(options.LeaderElectionConfig)
+		if err != nil {
+			return nil, err
+		}
+		leaderRecorderProvider, err = options.newRecorderProvider(leaderConfig, httpClient, scheme, options.Logger.WithName("events"), options.makeBroadcaster)
 		if err != nil {
 			return nil, err
 		}
@@ -444,21 +389,18 @@ func New(config *rest.Config, options Options) (Manager, error) {
 			LeaderElectionResourceLock: options.LeaderElectionResourceLock,
 			LeaderElectionID:           options.LeaderElectionID,
 			LeaderElectionNamespace:    options.LeaderElectionNamespace,
+			RenewDeadline:              *options.RenewDeadline,
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Create the metrics listener. This will throw an error if the metrics bind
-	// address is invalid or already in use.
-	metricsListener, err := options.newMetricsListener(options.MetricsBindAddress)
+	// Create the metrics server.
+	metricsServer, err := options.newMetricsServer(options.Metrics, config, cluster.GetHTTPClient())
 	if err != nil {
 		return nil, err
 	}
-
-	// By default we have no extra endpoints to expose on metrics http server.
-	metricsExtraHandlers := make(map[string]http.Handler)
 
 	// Create health probes listener. This will throw an error if the bind
 	// address is invalid or already in use.
@@ -474,18 +416,16 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		return nil, fmt.Errorf("failed to new pprof listener: %w", err)
 	}
 
-	errChan := make(chan error)
+	errChan := make(chan error, 1)
 	runnables := newRunnables(options.BaseContext, errChan)
-
 	return &controllerManager{
-		stopProcedureEngaged:          pointer.Int64(0),
+		stopProcedureEngaged:          ptr.To(int64(0)),
 		cluster:                       cluster,
 		runnables:                     runnables,
 		errChan:                       errChan,
 		recorderProvider:              recorderProvider,
 		resourceLock:                  resourceLock,
-		metricsListener:               metricsListener,
-		metricsExtraHandlers:          metricsExtraHandlers,
+		metricsServer:                 metricsServer,
 		controllerConfig:              options.Controller,
 		logger:                        options.Logger,
 		elected:                       make(chan struct{}),
@@ -503,131 +443,6 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		leaderElectionStopped:         make(chan struct{}),
 		leaderElectionReleaseOnCancel: options.LeaderElectionReleaseOnCancel,
 	}, nil
-}
-
-// AndFrom will use a supplied type and convert to Options
-// any options already set on Options will be ignored, this is used to allow
-// cli flags to override anything specified in the config file.
-//
-// Deprecated: This function has been deprecated and will be removed in a future release,
-// The Component Configuration package has been unmaintained for over a year and is no longer
-// actively developed. Users should migrate to their own configuration format
-// and configure Manager.Options directly.
-// See https://github.com/kubernetes-sigs/controller-runtime/issues/895
-// for more information, feedback, and comments.
-func (o Options) AndFrom(loader config.ControllerManagerConfiguration) (Options, error) {
-	newObj, err := loader.Complete()
-	if err != nil {
-		return o, err
-	}
-
-	o = o.setLeaderElectionConfig(newObj)
-
-	if o.SyncPeriod == nil && newObj.SyncPeriod != nil {
-		o.SyncPeriod = &newObj.SyncPeriod.Duration
-	}
-
-	if o.Namespace == "" && newObj.CacheNamespace != "" {
-		o.Namespace = newObj.CacheNamespace
-	}
-
-	if o.MetricsBindAddress == "" && newObj.Metrics.BindAddress != "" {
-		o.MetricsBindAddress = newObj.Metrics.BindAddress
-	}
-
-	if o.HealthProbeBindAddress == "" && newObj.Health.HealthProbeBindAddress != "" {
-		o.HealthProbeBindAddress = newObj.Health.HealthProbeBindAddress
-	}
-
-	if o.ReadinessEndpointName == "" && newObj.Health.ReadinessEndpointName != "" {
-		o.ReadinessEndpointName = newObj.Health.ReadinessEndpointName
-	}
-
-	if o.LivenessEndpointName == "" && newObj.Health.LivenessEndpointName != "" {
-		o.LivenessEndpointName = newObj.Health.LivenessEndpointName
-	}
-
-	if o.Port == 0 && newObj.Webhook.Port != nil {
-		o.Port = *newObj.Webhook.Port
-	}
-	if o.Host == "" && newObj.Webhook.Host != "" {
-		o.Host = newObj.Webhook.Host
-	}
-	if o.CertDir == "" && newObj.Webhook.CertDir != "" {
-		o.CertDir = newObj.Webhook.CertDir
-	}
-	if o.WebhookServer == nil {
-		o.WebhookServer = webhook.NewServer(webhook.Options{
-			Port:    o.Port,
-			Host:    o.Host,
-			CertDir: o.CertDir,
-		})
-	}
-
-	if newObj.Controller != nil {
-		if o.Controller.CacheSyncTimeout == 0 && newObj.Controller.CacheSyncTimeout != nil {
-			o.Controller.CacheSyncTimeout = *newObj.Controller.CacheSyncTimeout
-		}
-
-		if len(o.Controller.GroupKindConcurrency) == 0 && len(newObj.Controller.GroupKindConcurrency) > 0 {
-			o.Controller.GroupKindConcurrency = newObj.Controller.GroupKindConcurrency
-		}
-	}
-
-	return o, nil
-}
-
-// AndFromOrDie will use options.AndFrom() and will panic if there are errors.
-//
-// Deprecated: This function has been deprecated and will be removed in a future release,
-// The Component Configuration package has been unmaintained for over a year and is no longer
-// actively developed. Users should migrate to their own configuration format
-// and configure Manager.Options directly.
-// See https://github.com/kubernetes-sigs/controller-runtime/issues/895
-// for more information, feedback, and comments.
-func (o Options) AndFromOrDie(loader config.ControllerManagerConfiguration) Options {
-	o, err := o.AndFrom(loader)
-	if err != nil {
-		panic(fmt.Sprintf("could not parse config file: %v", err))
-	}
-	return o
-}
-
-func (o Options) setLeaderElectionConfig(obj v1alpha1.ControllerManagerConfigurationSpec) Options {
-	if obj.LeaderElection == nil {
-		// The source does not have any configuration; noop
-		return o
-	}
-
-	if !o.LeaderElection && obj.LeaderElection.LeaderElect != nil {
-		o.LeaderElection = *obj.LeaderElection.LeaderElect
-	}
-
-	if o.LeaderElectionResourceLock == "" && obj.LeaderElection.ResourceLock != "" {
-		o.LeaderElectionResourceLock = obj.LeaderElection.ResourceLock
-	}
-
-	if o.LeaderElectionNamespace == "" && obj.LeaderElection.ResourceNamespace != "" {
-		o.LeaderElectionNamespace = obj.LeaderElection.ResourceNamespace
-	}
-
-	if o.LeaderElectionID == "" && obj.LeaderElection.ResourceName != "" {
-		o.LeaderElectionID = obj.LeaderElection.ResourceName
-	}
-
-	if o.LeaseDuration == nil && !reflect.DeepEqual(obj.LeaderElection.LeaseDuration, metav1.Duration{}) {
-		o.LeaseDuration = &obj.LeaderElection.LeaseDuration.Duration
-	}
-
-	if o.RenewDeadline == nil && !reflect.DeepEqual(obj.LeaderElection.RenewDeadline, metav1.Duration{}) {
-		o.RenewDeadline = &obj.LeaderElection.RenewDeadline.Duration
-	}
-
-	if o.RetryPeriod == nil && !reflect.DeepEqual(obj.LeaderElection.RetryPeriod, metav1.Duration{}) {
-		o.RetryPeriod = &obj.LeaderElection.RetryPeriod.Duration
-	}
-
-	return o
 }
 
 // defaultHealthProbeListener creates the default health probes listener bound to the given address.
@@ -688,8 +503,8 @@ func setOptionsDefaults(options Options) Options {
 		}
 	}
 
-	if options.newMetricsListener == nil {
-		options.newMetricsListener = metrics.NewListener
+	if options.newMetricsServer == nil {
+		options.newMetricsServer = metricsserver.NewServer
 	}
 	leaseDuration, renewDeadline, retryPeriod := defaultLeaseDuration, defaultRenewDeadline, defaultRetryPeriod
 	if options.LeaseDuration == nil {
@@ -734,12 +549,7 @@ func setOptionsDefaults(options Options) Options {
 	}
 
 	if options.WebhookServer == nil {
-		options.WebhookServer = webhook.NewServer(webhook.Options{
-			Host:    options.Host,
-			Port:    options.Port,
-			CertDir: options.CertDir,
-			TLSOpts: options.TLSOpts,
-		})
+		options.WebhookServer = webhook.NewServer(webhook.Options{})
 	}
 
 	return options

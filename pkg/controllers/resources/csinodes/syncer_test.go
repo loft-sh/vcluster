@@ -3,26 +3,27 @@ package csinodes
 import (
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
+	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 )
 
 const kind = "CSINode"
 
 func TestSync(t *testing.T) {
-
 	pObjectMeta := metav1.ObjectMeta{
 		Name: "test-node",
 	}
 	vObjectMeta := metav1.ObjectMeta{
-		Name: "test-node",
+		Name:            "test-node",
+		ResourceVersion: "999",
 	}
 
 	vNode := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "test-node"}}
@@ -95,7 +96,10 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTestsWithContext(t, func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.FromHost.CSINodes.Enabled = "true"
+		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}, []*syncertesting.SyncTest{
 		{
 			Name:                 "Sync Up",
 			InitialVirtualState:  []runtime.Object{vNode},
@@ -107,8 +111,8 @@ func TestSync(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObj},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*csinodeSyncer).SyncUp(syncCtx, pObj)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*csinodeSyncer).SyncToVirtual(syncCtx, synccontext.NewSyncToVirtualEvent(pObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -118,8 +122,8 @@ func TestSync(t *testing.T) {
 			ExpectedVirtualState:  map[schema.GroupVersionKind][]runtime.Object{},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*csinodeSyncer).SyncDown(syncCtx, vObj)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*csinodeSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -134,8 +138,8 @@ func TestSync(t *testing.T) {
 				storagev1.SchemeGroupVersion.WithKind(kind): {pObjUpdated},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*csinodeSyncer).Sync(syncCtx, pObjUpdated, vObj)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*csinodeSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pObjUpdated, vObj))
 				assert.NilError(t, err)
 			},
 		},
@@ -151,8 +155,8 @@ func TestSync(t *testing.T) {
 			},
 
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*csinodeSyncer).Sync(syncCtx, pObjUpdated, vObj)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*csinodeSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pObjUpdated, vObj))
 				assert.NilError(t, err)
 			},
 		},

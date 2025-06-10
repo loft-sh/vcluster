@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "k8s.io/api/certificates/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CertificateSigningRequestLister helps list CertificateSigningRequests.
@@ -30,39 +30,19 @@ import (
 type CertificateSigningRequestLister interface {
 	// List lists all CertificateSigningRequests in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.CertificateSigningRequest, err error)
+	List(selector labels.Selector) (ret []*certificatesv1beta1.CertificateSigningRequest, err error)
 	// Get retrieves the CertificateSigningRequest from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.CertificateSigningRequest, error)
+	Get(name string) (*certificatesv1beta1.CertificateSigningRequest, error)
 	CertificateSigningRequestListerExpansion
 }
 
 // certificateSigningRequestLister implements the CertificateSigningRequestLister interface.
 type certificateSigningRequestLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*certificatesv1beta1.CertificateSigningRequest]
 }
 
 // NewCertificateSigningRequestLister returns a new CertificateSigningRequestLister.
 func NewCertificateSigningRequestLister(indexer cache.Indexer) CertificateSigningRequestLister {
-	return &certificateSigningRequestLister{indexer: indexer}
-}
-
-// List lists all CertificateSigningRequests in the indexer.
-func (s *certificateSigningRequestLister) List(selector labels.Selector) (ret []*v1beta1.CertificateSigningRequest, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.CertificateSigningRequest))
-	})
-	return ret, err
-}
-
-// Get retrieves the CertificateSigningRequest from the index for a given name.
-func (s *certificateSigningRequestLister) Get(name string) (*v1beta1.CertificateSigningRequest, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("certificatesigningrequest"), name)
-	}
-	return obj.(*v1beta1.CertificateSigningRequest), nil
+	return &certificateSigningRequestLister{listers.New[*certificatesv1beta1.CertificateSigningRequest](indexer, certificatesv1beta1.Resource("certificatesigningrequest"))}
 }

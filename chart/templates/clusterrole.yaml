@@ -1,0 +1,144 @@
+{{- if (include "vcluster.createClusterRole" . ) -}}
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "vcluster.clusterRoleName" . }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  {{- if .Values.controlPlane.advanced.globalMetadata.annotations }}
+  annotations:
+{{ toYaml .Values.controlPlane.advanced.globalMetadata.annotations | indent 4 }}
+  {{- end }}
+rules:
+  {{- if .Values.rbac.clusterRole.overwriteRules }}
+{{ toYaml .Values.rbac.clusterRole.overwriteRules | indent 2 }}
+  {{- else }}
+  {{- if .Values.pro }}
+  - apiGroups: ["cluster.loft.sh", "storage.loft.sh"]
+    resources: ["features", "virtualclusters"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["management.loft.sh"]
+    resources: ["virtualclusterinstances"]
+    verbs: ["get"]
+  {{- end }}
+  {{- if or .Values.pro .Values.sync.fromHost.nodes.enabled }}
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.experimental.isolatedControlPlane.enabled }}
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if and .Values.sync.fromHost.nodes.enabled .Values.sync.fromHost.nodes.syncBackChanges }}
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/status"]
+    verbs: ["update", "patch"]
+  {{- end }}
+  {{- if or .Values.controlPlane.advanced.virtualScheduler.enabled .Values.sync.toHost.pods.hybridScheduling.enabled }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if eq (toString .Values.sync.fromHost.storageClasses.enabled) "true" }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if eq (toString .Values.sync.fromHost.csiNodes.enabled) "true" }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csinodes"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if eq (toString .Values.sync.fromHost.csiDrivers.enabled) "true" }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csidrivers"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if eq (toString .Values.sync.fromHost.csiStorageCapacities.enabled) "true" }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csistoragecapacities"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.sync.toHost.persistentVolumes.enabled }}
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.sync.fromHost.ingressClasses.enabled }}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingressclasses"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.sync.fromHost.runtimeClasses.enabled }}
+  - apiGroups: ["node.k8s.io"]
+    resources: ["runtimeclasses"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.sync.toHost.storageClasses.enabled }}
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
+  {{- end }}
+  {{- if or .Values.sync.toHost.priorityClasses.enabled .Values.sync.fromHost.priorityClasses.enabled }}
+  - apiGroups: ["scheduling.k8s.io"]
+    resources: ["priorityclasses"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.sync.fromHost.volumeSnapshotClasses.enabled }}
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshotclasses"]
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.sync.toHost.volumeSnapshotContents.enabled }}
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshotcontents"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.networking.replicateServices.fromHost }}
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.sync.toHost.namespaces.enabled }}
+  - apiGroups: [""]
+    resources: ["namespaces", "serviceaccounts"]
+    verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
+  {{- end }}
+  {{- if (and .Values.integrations.metricsServer.enabled .Values.integrations.metricsServer.nodes) }}
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  {{- end }}
+  {{- if or (and .Values.integrations.kubeVirt.enabled .Values.integrations.kubeVirt.webhook.enabled) (and .Values.integrations.externalSecrets.enabled .Values.integrations.externalSecrets.webhook.enabled )  }}
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.integrations.kubeVirt.enabled .Values.integrations.externalSecrets.enabled .Values.integrations.certManager.enabled .Values.sync.toHost.customResources .Values.sync.fromHost.customResources .Values.integrations.istio.enabled }}
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+  {{- if and .Values.integrations.externalSecrets.enabled .Values.integrations.externalSecrets.sync.clusterStores.enabled }}
+  - apiGroups: ["external-secrets.io"]
+    resources: ["clustersecretstores"]
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+  {{- if and .Values.integrations.certManager.enabled .Values.integrations.certManager.sync.fromHost.clusterIssuers.enabled }}
+  - apiGroups: ["cert-manager.io"]
+    resources: ["clusterissuers"]
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+  {{- include "vcluster.rbac.rulesForFromHostSyncerForGivenCoreResource" (list $ .Values.sync.fromHost.configMaps.mappings.byName "configmaps" .Values.sync.fromHost.configMaps.enabled ) | nindent 2 }}
+  {{- include "vcluster.rbac.rulesForFromHostSyncerForGivenCoreResource" (list $ .Values.sync.fromHost.secrets.mappings.byName "secrets" .Values.sync.fromHost.secrets.enabled ) | nindent 2 }}
+  {{- include "vcluster.customResources.clusterRoleExtraRules" . | indent 2 }}
+  {{- include "vcluster.plugin.clusterRoleExtraRules" . | indent 2 }}
+  {{- include "vcluster.generic.clusterRoleExtraRules" . | indent 2 }}
+  {{- include "vcluster.rbac.clusterRoleExtraRules" . | indent 2 }}
+  {{- end }}
+{{- end }}

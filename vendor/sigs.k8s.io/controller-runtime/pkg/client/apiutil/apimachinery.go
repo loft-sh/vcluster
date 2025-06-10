@@ -31,11 +31,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/restmapper"
 )
 
 var (
@@ -60,25 +58,6 @@ func AddToProtobufScheme(addToScheme func(*runtime.Scheme) error) error {
 	return addToScheme(protobufScheme)
 }
 
-// NewDiscoveryRESTMapper constructs a new RESTMapper based on discovery
-// information fetched by a new client with the given config.
-func NewDiscoveryRESTMapper(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
-	if httpClient == nil {
-		return nil, fmt.Errorf("httpClient must not be nil, consider using rest.HTTPClientFor(c) to create a client")
-	}
-
-	// Get a mapper
-	dc, err := discovery.NewDiscoveryClientForConfigAndClient(c, httpClient)
-	if err != nil {
-		return nil, err
-	}
-	gr, err := restmapper.GetAPIGroupResources(dc)
-	if err != nil {
-		return nil, err
-	}
-	return restmapper.NewDiscoveryRESTMapper(gr), nil
-}
-
 // IsObjectNamespaced returns true if the object is namespace scoped.
 // For unstructured objects the gvk is found from the object itself.
 func IsObjectNamespaced(obj runtime.Object, scheme *runtime.Scheme, restmapper meta.RESTMapper) (bool, error) {
@@ -93,7 +72,10 @@ func IsObjectNamespaced(obj runtime.Object, scheme *runtime.Scheme, restmapper m
 // IsGVKNamespaced returns true if the object having the provided
 // GVK is namespace scoped.
 func IsGVKNamespaced(gvk schema.GroupVersionKind, restmapper meta.RESTMapper) (bool, error) {
-	restmapping, err := restmapper.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind})
+	// Fetch the RESTMapping using the complete GVK. If we exclude the Version, the Version set
+	// will be populated using the cached Group if available. This can lead to failures updating
+	// the cache with new Versions of CRDs registered at runtime.
+	restmapping, err := restmapper.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}, gvk.Version)
 	if err != nil {
 		return false, fmt.Errorf("failed to get restmapping: %w", err)
 	}

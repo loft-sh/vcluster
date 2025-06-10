@@ -1,0 +1,97 @@
+suite: ControlPlane StatefulSet
+templates:
+  - headless-service.yaml
+
+tests:
+  - it: should not create control-plane
+    set:
+      experimental:
+        isolatedControlPlane:
+          headless: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should create if k8s
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should not create if stateless
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not create if stateless 2
+    set:
+      controlPlane:
+        backingStore:
+          database:
+            external:
+              enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: name
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.ports
+          count: 1
+      - equal:
+          path: metadata.name
+          value: my-release-headless
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+
+  - it: embedded-etcd
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            embedded:
+              enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.ports
+          count: 3
+      - equal:
+          path: spec.ports[1].name
+          value: etcd
+      - equal:
+          path: spec.ports[2].name
+          value: peer
+
+  - it: embedded-database
+    set:
+      controlPlane:
+        backingStore:
+          database:
+            embedded:
+              enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.ports
+          count: 1
+

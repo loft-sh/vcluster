@@ -1,8 +1,29 @@
 # we use alpine for easier debugging
-FROM alpine:3.18
+FROM alpine:3.22
+
+ARG HELM_VERSION="v3.17.3"
+ARG TARGETARCH
 
 # Set root path as working directory
 WORKDIR /
+
+# Add devspace
+RUN wget -O devspace "https://github.com/loft-sh/devspace/releases/latest/download/devspace-linux-${TARGETARCH}" \
+	&& chmod +x devspace \
+	&& mv devspace /usr/local/bin/devspace
+
+# Add helm
+RUN wget -O helm3.tar.gz "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" \
+	&& tar -zxvf helm3.tar.gz "linux-${TARGETARCH}/helm" \
+	&& chmod +x "linux-${TARGETARCH}/helm" \
+	&& mv "linux-${TARGETARCH}/helm" /usr/local/bin/helm \
+	&& rm helm3.tar.gz \
+	&& rm -R "linux-${TARGETARCH}"
+
+# Add kubectl
+RUN wget -O kubectl https://storage.googleapis.com/kubernetes-release/release/`wget -q -O- https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/${TARGETARCH}/kubectl \
+	&& chmod +x kubectl \
+	&& mv kubectl /usr/local/bin/kubectl
 
 ENV KUBECONFIG=/root/.kube/config
 COPY vcluster /usr/local/bin/vcluster

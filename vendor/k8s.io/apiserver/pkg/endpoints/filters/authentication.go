@@ -29,28 +29,32 @@ import (
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/authenticatorfactory"
 	"k8s.io/apiserver/pkg/authentication/request/headerrequest"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	genericfeatures "k8s.io/apiserver/pkg/features"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/klog/v2"
 )
 
-type recordMetrics func(context.Context, *authenticator.Response, bool, error, authenticator.Audiences, time.Time, time.Time)
+type authenticationRecordMetricsFunc func(context.Context, *authenticator.Response, bool, error, authenticator.Audiences, time.Time, time.Time)
 
 // WithAuthentication creates an http handler that tries to authenticate the given request as a user, and then
 // stores any such user found onto the provided context for the request. If authentication fails or returns an error
 // the failed handler is used. On success, "Authorization" header is removed from the request and handler
 // is invoked to serve the request.
 func WithAuthentication(handler http.Handler, auth authenticator.Request, failed http.Handler, apiAuds authenticator.Audiences, requestHeaderConfig *authenticatorfactory.RequestHeaderConfig) http.Handler {
-	return withAuthentication(handler, auth, failed, apiAuds, requestHeaderConfig, recordAuthMetrics)
+	return withAuthentication(handler, auth, failed, apiAuds, requestHeaderConfig, recordAuthenticationMetrics)
 }
 
-func withAuthentication(handler http.Handler, auth authenticator.Request, failed http.Handler, apiAuds authenticator.Audiences, requestHeaderConfig *authenticatorfactory.RequestHeaderConfig, metrics recordMetrics) http.Handler {
+func withAuthentication(handler http.Handler, auth authenticator.Request, failed http.Handler, apiAuds authenticator.Audiences, requestHeaderConfig *authenticatorfactory.RequestHeaderConfig, metrics authenticationRecordMetricsFunc) http.Handler {
 	if auth == nil {
 		klog.Warning("Authentication is disabled")
 		return handler
 	}
 	standardRequestHeaderConfig := &authenticatorfactory.RequestHeaderConfig{
 		UsernameHeaders:     headerrequest.StaticStringSlice{"X-Remote-User"},
+		UIDHeaders:          headerrequest.StaticStringSlice{"X-Remote-Uid"},
 		GroupHeaders:        headerrequest.StaticStringSlice{"X-Remote-Group"},
 		ExtraHeaderPrefixes: headerrequest.StaticStringSlice{"X-Remote-Extra-"},
 	}
@@ -87,6 +91,7 @@ func withAuthentication(handler http.Handler, auth authenticator.Request, failed
 		headerrequest.ClearAuthenticationHeaders(
 			req.Header,
 			standardRequestHeaderConfig.UsernameHeaders,
+			standardRequestHeaderConfig.UIDHeaders,
 			standardRequestHeaderConfig.GroupHeaders,
 			standardRequestHeaderConfig.ExtraHeaderPrefixes,
 		)
@@ -96,9 +101,22 @@ func withAuthentication(handler http.Handler, auth authenticator.Request, failed
 			headerrequest.ClearAuthenticationHeaders(
 				req.Header,
 				requestHeaderConfig.UsernameHeaders,
+				requestHeaderConfig.UIDHeaders,
 				requestHeaderConfig.GroupHeaders,
 				requestHeaderConfig.ExtraHeaderPrefixes,
 			)
+		}
+
+		// http2 is an expensive protocol that is prone to abuse,
+		// see CVE-2023-44487 and CVE-2023-39325 for an example.
+		// Do not allow unauthenticated clients to keep these
+		// connections open (i.e. basically degrade them to the
+		// performance of http1 with keep-alive disabled).
+		if utilfeature.DefaultFeatureGate.Enabled(genericfeatures.UnauthenticatedHTTP2DOSMitigation) && req.ProtoMajor == 2 && isAnonymousUser(resp.User) {
+			// limit this connection to just this request,
+			// and then send a GOAWAY and tear down the TCP connection
+			// https://github.com/golang/net/commit/97aa3a539ec716117a9d15a4659a911f50d13c3c
+			w.Header().Set("Connection", "close")
 		}
 
 		req = req.WithContext(genericapirequest.WithUser(req.Context(), resp.User))
@@ -108,6 +126,17 @@ func withAuthentication(handler http.Handler, auth authenticator.Request, failed
 
 func Unauthorized(s runtime.NegotiatedSerializer) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// http2 is an expensive protocol that is prone to abuse,
+		// see CVE-2023-44487 and CVE-2023-39325 for an example.
+		// Do not allow unauthenticated clients to keep these
+		// connections open (i.e. basically degrade them to the
+		// performance of http1 with keep-alive disabled).
+		if utilfeature.DefaultFeatureGate.Enabled(genericfeatures.UnauthenticatedHTTP2DOSMitigation) && req.ProtoMajor == 2 {
+			// limit this connection to just this request,
+			// and then send a GOAWAY and tear down the TCP connection
+			// https://github.com/golang/net/commit/97aa3a539ec716117a9d15a4659a911f50d13c3c
+			w.Header().Set("Connection", "close")
+		}
 		ctx := req.Context()
 		requestInfo, found := genericapirequest.RequestInfoFrom(ctx)
 		if !found {
@@ -126,4 +155,16 @@ func audiencesAreAcceptable(apiAuds, responseAudiences authenticator.Audiences) 
 	}
 
 	return len(apiAuds.Intersect(responseAudiences)) > 0
+}
+
+func isAnonymousUser(u user.Info) bool {
+	if u.GetName() == user.Anonymous {
+		return true
+	}
+	for _, group := range u.GetGroups() {
+		if group == user.AllUnauthenticated {
+			return true
+		}
+	}
+	return false
 }

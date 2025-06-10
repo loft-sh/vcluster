@@ -1,17 +1,20 @@
 package translate
 
 import (
-	"context"
+	"fmt"
+	"path/filepath"
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/scheme"
+	generictesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"gotest.tools/assert"
-	"gotest.tools/assert/cmp"
+	"gotest.tools/v3/assert"
+	"gotest.tools/v3/assert/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestPodAffinityTermsTranslation(t *testing.T) {
@@ -27,9 +30,9 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 	}
 	basicSelectorTranslatedWithMarker := &metav1.LabelSelector{MatchLabels: map[string]string{}}
 	for k, v := range basicSelector.MatchLabels {
-		basicSelectorTranslatedWithMarker.MatchLabels[translate.Default.ConvertLabelKey(k)] = v
+		basicSelectorTranslatedWithMarker.MatchLabels[translate.HostLabel(k)] = v
 	}
-	basicSelectorTranslatedWithMarker.MatchLabels[translate.MarkerLabel] = translate.Suffix
+	basicSelectorTranslatedWithMarker.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 
 	testCases := []translatePodAffinityTermTestCase{
 		{
@@ -46,7 +49,10 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 				Namespaces:    []string{},
 			},
 			expectedTerm: corev1.PodAffinityTerm{
-				LabelSelector: appendToMatchLabels(basicSelectorTranslatedWithMarker, translate.NamespaceLabel, pod.GetNamespace()),
+				LabelSelector: translate.MergeLabelSelectors(
+					basicSelectorTranslatedWithMarker,
+					&metav1.LabelSelector{MatchLabels: map[string]string{translate.NamespaceLabel: pod.GetNamespace()}},
+				),
 			},
 		},
 		{
@@ -56,7 +62,9 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 				Namespaces:    []string{pod.GetNamespace(), "dummy namespace"},
 			},
 			expectedTerm: corev1.PodAffinityTerm{
-				LabelSelector: appendNamespacesToMatchExpressions(basicSelectorTranslatedWithMarker, pod.GetNamespace(), "dummy namespace"),
+				LabelSelector: appendNamespacesToMatchExpressions(
+					basicSelectorTranslatedWithMarker,
+					pod.GetNamespace(), "dummy namespace"),
 			},
 		},
 		{
@@ -78,7 +86,10 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 				NamespaceSelector: basicSelector,
 			},
 			expectedTerm: corev1.PodAffinityTerm{
-				LabelSelector: appendNamespacesToMatchExpressions(basicSelectorTranslatedWithMarker, pod.GetNamespace()),
+				LabelSelector: appendNamespacesToMatchExpressions(
+					basicSelectorTranslatedWithMarker,
+					pod.GetNamespace(),
+				),
 			},
 			expectedEvents: []string{"Warning SyncWarning Inter-pod affinity rule(s) that use both .namespaces and .namespaceSelector fields in the same term are not supported by vcluster yet. The .namespaceSelector fields of the unsupported affinity entries will be ignored."},
 		},
@@ -93,11 +104,12 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 				},
 			},
 			expectedTerm: corev1.PodAffinityTerm{
-				LabelSelector: appendToMatchLabels(&metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey): "good-value",
-					},
-				}, translate.MarkerLabel, translate.Suffix),
+				LabelSelector: translate.MergeLabelSelectors(
+					basicSelectorTranslatedWithMarker,
+					&metav1.LabelSelector{MatchLabels: map[string]string{
+						translate.HostLabelNamespace(longKey): "good-value",
+					}},
+				),
 			},
 		},
 		{
@@ -115,15 +127,18 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 				},
 			},
 			expectedTerm: corev1.PodAffinityTerm{
-				LabelSelector: appendToMatchLabels(&metav1.LabelSelector{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
-						{
-							Key:      translate.ConvertLabelKeyWithPrefix(NamespaceLabelPrefix, longKey),
-							Operator: metav1.LabelSelectorOpNotIn,
-							Values:   []string{"bad-value"},
+				LabelSelector: translate.MergeLabelSelectors(
+					basicSelectorTranslatedWithMarker,
+					&metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      translate.HostLabelNamespace(longKey),
+								Operator: metav1.LabelSelectorOpNotIn,
+								Values:   []string{"bad-value"},
+							},
 						},
 					},
-				}, translate.MarkerLabel, translate.Suffix),
+				),
 			},
 		},
 	}
@@ -160,6 +175,9 @@ type translatePodAffinityTermTestCase struct {
 }
 
 func TestVolumeTranslation(t *testing.T) {
+	virtualPath := fmt.Sprintf(VirtualPathTemplate, testingutil.DefaultTestCurrentNamespace, testingutil.DefaultTestVClusterName)
+	hostToContainer := corev1.MountPropagationHostToContainer
+
 	testCases := []translatePodVolumesTestCase{
 		{
 			name: "ephemeral volume",
@@ -186,43 +204,111 @@ func TestVolumeTranslation(t *testing.T) {
 					Name: "eph-vol",
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: translate.Default.PhysicalName("pod-name-eph-vol", "test-ns"),
+							ClaimName: translate.Default.HostName(nil, "pod-name-eph-vol", "test-ns").Name,
 						},
 						Ephemeral: nil,
 					},
 				},
 			},
 		},
+		{
+			name:                   "hostpath mapper",
+			mountPhysicalHostPaths: true,
+			vPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-name",
+					Namespace: "test-ns",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "varlog",
+									MountPath: "/var/log/pods/",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "varlog",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/log/pods/",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedVolumes: []corev1.Volume{
+				{
+					Name: "varlog",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: virtualPath + "/log/pods",
+						},
+					},
+				},
+				{
+					Name: fmt.Sprintf("%s-%s", "varlog", PhysicalVolumeNameSuffix),
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: PodLoggingHostPath,
+						},
+					},
+				},
+			},
+			expectedVolumeMounts: []corev1.VolumeMount{
+				{
+					Name:             "varlog",
+					ReadOnly:         true,
+					MountPath:        "/var/log/pods/",
+					MountPropagation: &hostToContainer,
+				},
+				{
+					Name:      fmt.Sprintf("%s-%s", "varlog", PhysicalVolumeNameSuffix),
+					ReadOnly:  true,
+					MountPath: PhysicalPodLogVolumeMountPath,
+				},
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
-		fakeRecorder := record.NewFakeRecorder(10)
-		tr := &translator{
-			eventRecorder: fakeRecorder,
-			log:           loghelper.New("pods-syncer-translator-test"),
-			pClient:       fake.NewClientBuilder().Build(),
-		}
+		t.Run(testCase.name, func(t *testing.T) {
+			fakeRecorder := record.NewFakeRecorder(10)
+			pClient := testingutil.NewFakeClient(scheme.Scheme)
+			vClient := testingutil.NewFakeClient(scheme.Scheme)
+			registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
+			tr := &translator{
+				eventRecorder:          fakeRecorder,
+				log:                    loghelper.New("pods-syncer-translator-test"),
+				pClient:                pClient,
+				mountPhysicalHostPaths: testCase.mountPhysicalHostPaths,
+				virtualPodLogsPath:     filepath.Join(virtualPath, "log", "pods"),
+			}
 
-		pPod := testCase.vPod.DeepCopy()
-		err := tr.translateVolumes(context.Background(), pPod, &testCase.vPod)
-		assert.NilError(t, err)
-		assert.Assert(t, cmp.DeepEqual(pPod.Spec.Volumes, testCase.expectedVolumes), "Unexpected translation of the Volumes in the '%s' test case", testCase.name)
+			pPod := testCase.vPod.DeepCopy()
+			err := tr.translateVolumes(registerCtx.ToSyncContext("pods-syncer-translator-test"), pPod, &testCase.vPod)
+			assert.NilError(t, err)
+			assert.Assert(t, cmp.DeepEqual(pPod.Spec.Volumes, testCase.expectedVolumes), "Unexpected translation of the Volumes in the '%s' test case", testCase.name)
+
+			if len(testCase.expectedVolumeMounts) > 0 {
+				assert.Assert(t, cmp.DeepEqual(pPod.Spec.Containers[0].VolumeMounts, testCase.expectedVolumeMounts), "Unexpected translation of the Volume Mounts in the '%s' test case", testCase.name)
+			}
+		})
 	}
 }
 
 type translatePodVolumesTestCase struct {
-	name            string
-	vPod            corev1.Pod
-	expectedVolumes []corev1.Volume
-}
-
-func appendToMatchLabels(source *metav1.LabelSelector, k, v string) *metav1.LabelSelector {
-	ls := source.DeepCopy()
-	if ls.MatchLabels == nil {
-		ls.MatchLabels = map[string]string{}
-	}
-	ls.MatchLabels[k] = v
-	return ls
+	name                   string
+	vPod                   corev1.Pod
+	expectedVolumes        []corev1.Volume
+	expectedVolumeMounts   []corev1.VolumeMount
+	mountPhysicalHostPaths bool
 }
 
 func appendNamespacesToMatchExpressions(source *metav1.LabelSelector, namespaces ...string) *metav1.LabelSelector {

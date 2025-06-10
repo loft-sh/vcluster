@@ -1,0 +1,112 @@
+{{- if .Values.policies.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vc-work-{{ .Release.Name }}
+  {{- if .Values.experimental.syncSettings.targetNamespace }}
+  namespace: {{ .Values.experimental.syncSettings.targetNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+    {{- if .Values.policies.networkPolicy.labels }}
+{{ toYaml .Values.policies.networkPolicy.labels | indent 4 }}
+    {{- end }}
+  {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.policies.networkPolicy.annotations }}
+  {{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+  {{- end }}
+spec:
+  podSelector:
+    matchLabels:
+      vcluster.loft.sh/managed-by: {{ .Release.Name }}
+  egress:
+    # Allows outgoing connections to the vcluster control plane
+    - ports:
+        - port: 443
+        - port: 8443
+      to:
+        - podSelector:
+            matchLabels:
+              release: {{ .Release.Name }}
+    # Allows outgoing connections to DNS server
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allows outgoing connections to the internet or
+    # other vcluster workloads
+    - to:
+      - podSelector:
+          matchLabels:
+            vcluster.loft.sh/managed-by: {{ .Release.Name }}
+      - ipBlock:
+          cidr: {{ .Values.policies.networkPolicy.outgoingConnections.ipBlock.cidr }}
+          except:
+            {{- range .Values.policies.networkPolicy.outgoingConnections.ipBlock.except }}
+            - {{ . }}
+            {{- end }}
+    {{- if .Values.policies.networkPolicy.extraWorkloadRules }}
+{{ toYaml .Values.policies.networkPolicy.extraWorkloadRules | indent 4 }}
+    {{- end }}
+  policyTypes:
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vc-cp-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  {{- if .Values.policies.networkPolicy.labels }}
+{{ toYaml .Values.policies.networkPolicy.labels | indent 4 }}
+  {{- end }}
+  {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.policies.networkPolicy.annotations }}
+  {{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+  {{- end }}
+spec:
+  podSelector:
+    matchLabels:
+      release: {{ .Release.Name }}
+  egress:
+    # Allows outgoing connections to all pods with
+    # port 443, 8443 or 6443. This is needed for host Kubernetes
+    # access
+    - ports:
+        - port: 443
+        - port: 8443
+        - port: 6443
+    # Allows outgoing connections to all vcluster workloads
+    # or kube system dns server
+    - to:
+        - podSelector: {}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: 'kube-system'
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+        {{- if .Values.policies.networkPolicy.outgoingConnections.platform }}
+        - podSelector:
+            matchLabels:
+              app: loft
+          namespaceSelector: {}
+        {{- end }}
+    {{- if .Values.policies.networkPolicy.extraControlPlaneRules }}
+{{ toYaml .Values.policies.networkPolicy.extraControlPlaneRules | indent 4 }}
+    {{- end }}
+  policyTypes:
+    - Egress
+  {{- end }}

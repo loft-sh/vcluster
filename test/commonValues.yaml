@@ -1,66 +1,49 @@
-syncer:
-  extraArgs:
-    - --service-account-token-secrets=true
-  image: REPLACE_IMAGE_NAME
-  env:
-  - name: DEBUG
-    value: "true"
-  resources:
-    requests:
-      cpu: "0"
+sync:
+  toHost:
+    pods:
+      useSecretsForSATokens: true
+  fromHost:
+    nodes:
+      enabled: true
+      selector:
+        labels:
+          kubernetes.io/hostname: "kind-control-plane"
 
-vcluster:
-  resources:
-    requests:
-      cpu: "0"
+controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        statefulSet:
+          resources:
+            requests:
+              cpu: "0"
 
-etcd:
-  resources:
-    requests:
-      cpu: "0"
-
-controller:
-  resources:
-    requests:
-      cpu: "0"
-
-api:
-  resources:
-    requests:
-      cpu: "0"
+  statefulSet:
+    image:
+      registry: ""
+      repository: REPLACE_REPOSITORY_NAME
+      tag: REPLACE_TAG_NAME
+    env:
+    - name: DEBUG
+      value: "true"
+    resources:
+      requests:
+        cpu: "0"
 
 # values for general test suite
-mapServices:
-  fromVirtual:
-  - from: test/test
-    to: test
-  fromHost:
-  - from: test/test
-    to: default/test
+networking:
+  replicateServices:
+    toHost:
+    - from: test/test
+      to: test
+    - from: test/nginx
+      to: nginx
+    fromHost:
+    - from: test/test
+      to: default/test
+    - from: test/nginx
+      to: default/nginx
 
-init:
-  helm:
-    - chart:
-        name: ingress-nginx
-        repo: https://kubernetes.github.io/ingress-nginx
-        version: 4.1.1
-      release:
-        name: ingress-nginx
-        namespace: ingress-nginx
-      timeout: "50s"
-    - chart:
-        name: fluent-bit
-        repo: oci://registry-1.docker.io/bitnamicharts
-        version: 0.4.3
-      release:
-        name: fluent-bit
-        namespace: fluent-bit
-      timeout: "50s"
-
-sync:
-  pods:
-    ephemeralContainers: true
-    status: true
-  nodes:
-    enabled: true
-    nodeSelector: "kubernetes.io/hostname=kind-control-plane"
+experimental:
+  syncSettings:
+    setOwner: true

@@ -1,52 +1,48 @@
 package specialservices
 
 import (
-	"context"
-
+	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var Default Interface = DefaultNameserverFinder()
+var Default Interface
 
 const (
 	DefaultKubeDNSServiceName      = "kube-dns"
 	DefaultKubeDNSServiceNamespace = "kube-system"
 )
 
-type SpecialServiceSyncer func(ctx context.Context,
-	vClient,
-	pClient client.Client,
+type SpecialServiceSyncer func(
+	ctx *synccontext.SyncContext,
 	svcNamespace,
 	svcName string,
 	vSvcToSync types.NamespacedName,
-	servicePortTranslator ServicePortTranslator) error
+	servicePortTranslator ServicePortTranslator,
+) error
 
 type Interface interface {
-	GetDNSServiceSuffix() *string
 	SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer
+	DNSNamespace(ctx *synccontext.SyncContext) (client.Client, string)
+}
+
+func NewDefaultServiceSyncer() Interface {
+	return &NameserverFinder{
+		SpecialServices: map[types.NamespacedName]SpecialServiceSyncer{
+			DefaultKubernetesSvcKey: SyncKubernetesService,
+		},
+	}
 }
 
 type NameserverFinder struct {
-	DNSServiceSuffix *string
-	SpecialServices  map[types.NamespacedName]SpecialServiceSyncer
+	SpecialServices map[types.NamespacedName]SpecialServiceSyncer
 }
 
-func (f *NameserverFinder) GetDNSServiceSuffix() *string {
-	return f.DNSServiceSuffix
+func (f *NameserverFinder) DNSNamespace(ctx *synccontext.SyncContext) (client.Client, string) {
+	return ctx.PhysicalClient, mappings.VirtualToHostNamespace(ctx, DefaultKubeDNSServiceNamespace)
 }
 
 func (f *NameserverFinder) SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer {
 	return f.SpecialServices
-}
-
-func DefaultNameserverFinder() Interface {
-	return &NameserverFinder{
-		SpecialServices: map[types.NamespacedName]SpecialServiceSyncer{
-			{
-				Name:      DefaultKubernetesSVCName,
-				Namespace: DefaultKubernetesSVCNamespace,
-			}: SyncKubernetesService,
-		},
-	}
 }

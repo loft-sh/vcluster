@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1 "k8s.io/api/core/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ReplicationControllerLister helps list ReplicationControllers.
@@ -30,7 +30,7 @@ import (
 type ReplicationControllerLister interface {
 	// List lists all ReplicationControllers in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.ReplicationController, err error)
+	List(selector labels.Selector) (ret []*corev1.ReplicationController, err error)
 	// ReplicationControllers returns an object that can list and get ReplicationControllers.
 	ReplicationControllers(namespace string) ReplicationControllerNamespaceLister
 	ReplicationControllerListerExpansion
@@ -38,25 +38,17 @@ type ReplicationControllerLister interface {
 
 // replicationControllerLister implements the ReplicationControllerLister interface.
 type replicationControllerLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1.ReplicationController]
 }
 
 // NewReplicationControllerLister returns a new ReplicationControllerLister.
 func NewReplicationControllerLister(indexer cache.Indexer) ReplicationControllerLister {
-	return &replicationControllerLister{indexer: indexer}
-}
-
-// List lists all ReplicationControllers in the indexer.
-func (s *replicationControllerLister) List(selector labels.Selector) (ret []*v1.ReplicationController, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.ReplicationController))
-	})
-	return ret, err
+	return &replicationControllerLister{listers.New[*corev1.ReplicationController](indexer, corev1.Resource("replicationcontroller"))}
 }
 
 // ReplicationControllers returns an object that can list and get ReplicationControllers.
 func (s *replicationControllerLister) ReplicationControllers(namespace string) ReplicationControllerNamespaceLister {
-	return replicationControllerNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return replicationControllerNamespaceLister{listers.NewNamespaced[*corev1.ReplicationController](s.ResourceIndexer, namespace)}
 }
 
 // ReplicationControllerNamespaceLister helps list and get ReplicationControllers.
@@ -64,36 +56,15 @@ func (s *replicationControllerLister) ReplicationControllers(namespace string) R
 type ReplicationControllerNamespaceLister interface {
 	// List lists all ReplicationControllers in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.ReplicationController, err error)
+	List(selector labels.Selector) (ret []*corev1.ReplicationController, err error)
 	// Get retrieves the ReplicationController from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.ReplicationController, error)
+	Get(name string) (*corev1.ReplicationController, error)
 	ReplicationControllerNamespaceListerExpansion
 }
 
 // replicationControllerNamespaceLister implements the ReplicationControllerNamespaceLister
 // interface.
 type replicationControllerNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all ReplicationControllers in the indexer for a given namespace.
-func (s replicationControllerNamespaceLister) List(selector labels.Selector) (ret []*v1.ReplicationController, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.ReplicationController))
-	})
-	return ret, err
-}
-
-// Get retrieves the ReplicationController from the indexer for a given namespace and name.
-func (s replicationControllerNamespaceLister) Get(name string) (*v1.ReplicationController, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("replicationcontroller"), name)
-	}
-	return obj.(*v1.ReplicationController), nil
+	listers.ResourceIndexer[*corev1.ReplicationController]
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Kubernetes Authors.
+Copyright 2024 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,18 +18,44 @@ package library
 
 import (
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/ext"
-	"github.com/google/cel-go/interpreter"
 )
 
-// ExtensionLibs declares the set of CEL extension libraries available everywhere CEL is used in Kubernetes.
-var ExtensionLibs = append(k8sExtensionLibs, ext.Strings())
+// Library represents a CEL library used by kubernetes.
+type Library interface {
+	// SingletonLibrary provides the library name and ensures the library can be safely registered into environments.
+	cel.SingletonLibrary
 
-var k8sExtensionLibs = []cel.EnvOption{
-	URLs(),
-	Regex(),
-	Lists(),
-	Authz(),
+	// Types provides all custom types introduced by the library.
+	Types() []*cel.Type
+
+	// declarations returns all function declarations provided by the library.
+	declarations() map[string][]cel.FunctionOpt
 }
 
-var ExtensionLibRegexOptimizations = []*interpreter.RegexOptimization{FindRegexOptimization, FindAllRegexOptimization}
+// KnownLibraries returns all libraries used in Kubernetes.
+func KnownLibraries() []Library {
+	return []Library{
+		authzLib,
+		authzSelectorsLib,
+		listsLib,
+		regexLib,
+		urlsLib,
+		quantityLib,
+		ipLib,
+		cidrsLib,
+		formatLib,
+		semverLib,
+		jsonPatchLib,
+	}
+}
+
+func isRegisteredType(typeName string) bool {
+	for _, lib := range KnownLibraries() {
+		for _, rt := range lib.Types() {
+			if rt.TypeName() == typeName {
+				return true
+			}
+		}
+	}
+	return false
+}

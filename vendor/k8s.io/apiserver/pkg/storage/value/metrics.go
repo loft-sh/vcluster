@@ -17,9 +17,11 @@ limitations under the License.
 package value
 
 import (
+	"errors"
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"k8s.io/component-base/metrics"
@@ -59,10 +61,10 @@ var (
 			Namespace:      namespace,
 			Subsystem:      subsystem,
 			Name:           "transformation_operations_total",
-			Help:           "Total number of transformations.",
+			Help:           "Total number of transformations. Successful transformation will have a status 'OK' and a varied status string when the transformation fails. The status, resource, and transformation_type fields can be used for alerting purposes. For example, you can monitor for encryption/decryption failures using the transformation_type (e.g., from_storage for decryption and to_storage for encryption). Additionally, these fields can be used to ensure that the correct transformers are applied to each resource.",
 			StabilityLevel: metrics.ALPHA,
 		},
-		[]string{"transformation_type", "transformer_prefix", "status"},
+		[]string{"resource", "transformation_type", "transformer_prefix", "status"},
 	)
 
 	envelopeTransformationCacheMissTotal = metrics.NewCounter(
@@ -111,8 +113,8 @@ func RegisterMetrics() {
 
 // RecordTransformation records latencies and count of TransformFromStorage and TransformToStorage operations.
 // Note that transformation_failures_total metric is deprecated, use transformation_operations_total instead.
-func RecordTransformation(transformationType, transformerPrefix string, elapsed time.Duration, err error) {
-	transformerOperationsTotal.WithLabelValues(transformationType, transformerPrefix, status.Code(err).String()).Inc()
+func RecordTransformation(resource, transformationType, transformerPrefix string, elapsed time.Duration, err error) {
+	transformerOperationsTotal.WithLabelValues(resource, transformationType, transformerPrefix, getErrorCode(err)).Inc()
 
 	if err == nil {
 		transformerLatencies.WithLabelValues(transformationType, transformerPrefix).Observe(elapsed.Seconds())
@@ -137,4 +139,24 @@ func RecordDataKeyGeneration(start time.Time, err error) {
 // sinceInSeconds gets the time since the specified start in seconds.
 func sinceInSeconds(start time.Time) float64 {
 	return time.Since(start).Seconds()
+}
+
+type gRPCError interface {
+	GRPCStatus() *status.Status
+}
+
+func getErrorCode(err error) string {
+	if err == nil {
+		return codes.OK.String()
+	}
+
+	// handle errors wrapped with fmt.Errorf and similar
+	var s gRPCError
+	if errors.As(err, &s) {
+		return s.GRPCStatus().Code().String()
+	}
+
+	// This is not gRPC error. The operation must have failed before gRPC
+	// method was called, otherwise we would get gRPC error.
+	return "unknown-non-grpc"
 }

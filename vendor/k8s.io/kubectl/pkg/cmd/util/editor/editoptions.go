@@ -29,8 +29,8 @@ import (
 	goruntime "runtime"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/spf13/cobra"
+	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	"k8s.io/klog/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -45,16 +45,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/cli-runtime/pkg/genericiooptions"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/cmd/util/editor/crlf"
 	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/kubectl/pkg/util"
-	"k8s.io/kubectl/pkg/util/slice"
 )
-
-var SupportedSubresources = []string{"status"}
 
 // EditOptions contains all the options for running edit cli command.
 type EditOptions struct {
@@ -80,7 +78,7 @@ type EditOptions struct {
 
 	managedFields map[types.UID][]metav1.ManagedFieldsEntry
 
-	genericclioptions.IOStreams
+	genericiooptions.IOStreams
 
 	Recorder            genericclioptions.Recorder
 	f                   cmdutil.Factory
@@ -93,7 +91,7 @@ type EditOptions struct {
 }
 
 // NewEditOptions returns an initialized EditOptions instance
-func NewEditOptions(editMode EditMode, ioStreams genericclioptions.IOStreams) *EditOptions {
+func NewEditOptions(editMode EditMode, ioStreams genericiooptions.IOStreams) *EditOptions {
 	return &EditOptions{
 		RecordFlags: genericclioptions.NewRecordFlags(),
 
@@ -229,9 +227,6 @@ func (o *EditOptions) Complete(f cmdutil.Factory, args []string, cmd *cobra.Comm
 
 // Validate checks the EditOptions to see if there is sufficient information to run the command.
 func (o *EditOptions) Validate() error {
-	if len(o.Subresource) > 0 && !slice.ContainsString(SupportedSubresources, o.Subresource, nil) {
-		return fmt.Errorf("invalid subresource value: %q. Must be one of %v", o.Subresource, SupportedSubresources)
-	}
 	return nil
 }
 

@@ -1,34 +1,26 @@
 package events
 
 import (
-	"github.com/loft-sh/vcluster/pkg/constants"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
+	"testing"
+
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
 )
 
 func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *eventSyncer) {
-	// we need that index here as well otherwise we wouldn't find the related pod
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.Pod{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translate.Default.PhysicalNamespace(rawObj.GetNamespace()) + "/" + translate.Default.PhysicalName(rawObj.GetName(), rawObj.GetNamespace())}
-	})
-	assert.NilError(t, err)
-
-	syncContext, object := generictesting.FakeStartSyncer(t, ctx, New)
+	syncContext, object := syncertesting.FakeStartSyncer(t, ctx, New)
 	return syncContext, object.(*eventSyncer)
 }
 
 func TestSync(t *testing.T) {
-	translate.Default = translate.NewSingleNamespaceTranslator(generictesting.DefaultTestTargetNamespace)
+	translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
 
 	vNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -43,21 +35,21 @@ func TestSync(t *testing.T) {
 	}
 	pPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.PhysicalName(vPod.Name, vPod.Namespace),
-			Namespace: generictesting.DefaultTestTargetNamespace,
+			Name:      translate.Default.HostName(nil, vPod.Name, vPod.Namespace).Name,
+			Namespace: testingutil.DefaultTestTargetNamespace,
 		},
 	}
 	pEvent := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-event",
-			Namespace: generictesting.DefaultTestTargetNamespace,
+			Namespace: testingutil.DefaultTestTargetNamespace,
 		},
 		InvolvedObject: corev1.ObjectReference{
 			APIVersion:      corev1.SchemeGroupVersion.String(),
 			Kind:            "Pod",
 			Name:            pPod.Name,
 			Namespace:       pPod.Namespace,
-			ResourceVersion: generictesting.FakeClientResourceVersion,
+			ResourceVersion: syncertesting.FakeClientResourceVersion,
 		},
 	}
 	vEvent := &corev1.Event{
@@ -70,7 +62,7 @@ func TestSync(t *testing.T) {
 			Kind:            "Pod",
 			Name:            vPod.Name,
 			Namespace:       vPod.Namespace,
-			ResourceVersion: generictesting.FakeClientResourceVersion,
+			ResourceVersion: syncertesting.FakeClientResourceVersion,
 		},
 	}
 	pEventUpdated := &corev1.Event{
@@ -84,7 +76,7 @@ func TestSync(t *testing.T) {
 		InvolvedObject: vEvent.InvolvedObject,
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name: "Create new event",
 			InitialVirtualState: []runtime.Object{
@@ -102,10 +94,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, registerContext)
-				_, err := syncer.ReconcileStart(syncContext, ctrl.Request{NamespacedName: types.NamespacedName{
-					Namespace: pEvent.Namespace,
-					Name:      pEvent.Name,
-				}})
+				_, err := syncer.SyncToVirtual(syncContext, synccontext.NewSyncToVirtualEvent(pEvent))
 				assert.NilError(t, err)
 			},
 		},
@@ -127,10 +116,7 @@ func TestSync(t *testing.T) {
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeSyncer(t, registerContext)
-				_, err := syncer.ReconcileStart(syncContext, ctrl.Request{NamespacedName: types.NamespacedName{
-					Namespace: pEvent.Namespace,
-					Name:      pEvent.Name,
-				}})
+				_, err := syncer.Sync(syncContext, synccontext.NewSyncEvent(pEventUpdated, vEvent))
 				assert.NilError(t, err)
 			},
 		},

@@ -20,8 +20,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -60,7 +61,7 @@ type DynamicFileCAContent struct {
 	listeners []Listener
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 }
 
 var _ Notifier = &DynamicFileCAContent{}
@@ -82,7 +83,10 @@ func NewDynamicCAContentFromFile(purpose, filename string) (*DynamicFileCAConten
 	ret := &DynamicFileCAContent{
 		name:     name,
 		filename: filename,
-		queue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), fmt.Sprintf("DynamicCABundle-%s", purpose)),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: fmt.Sprintf("DynamicCABundle-%s", purpose)},
+		),
 	}
 	if err := ret.loadCABundle(); err != nil {
 		return nil, err
@@ -98,7 +102,7 @@ func (c *DynamicFileCAContent) AddListener(listener Listener) {
 
 // loadCABundle determines the next set of content for the file.
 func (c *DynamicFileCAContent) loadCABundle() error {
-	caBundle, err := ioutil.ReadFile(c.filename)
+	caBundle, err := os.ReadFile(c.filename)
 	if err != nil {
 		return err
 	}
@@ -207,7 +211,7 @@ func (c *DynamicFileCAContent) handleWatchEvent(e fsnotify.Event, w *fsnotify.Wa
 	if !e.Has(fsnotify.Remove) && !e.Has(fsnotify.Rename) {
 		return nil
 	}
-	if err := w.Remove(c.filename); err != nil {
+	if err := w.Remove(c.filename); err != nil && !errors.Is(err, fsnotify.ErrNonExistentWatch) {
 		klog.InfoS("Failed to remove file watch, it may have been deleted", "file", c.filename, "err", err)
 	}
 	if err := w.Add(c.filename); err != nil {

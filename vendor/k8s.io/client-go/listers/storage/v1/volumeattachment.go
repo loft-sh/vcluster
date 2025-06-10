@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	storagev1 "k8s.io/api/storage/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // VolumeAttachmentLister helps list VolumeAttachments.
@@ -30,39 +30,19 @@ import (
 type VolumeAttachmentLister interface {
 	// List lists all VolumeAttachments in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.VolumeAttachment, err error)
+	List(selector labels.Selector) (ret []*storagev1.VolumeAttachment, err error)
 	// Get retrieves the VolumeAttachment from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.VolumeAttachment, error)
+	Get(name string) (*storagev1.VolumeAttachment, error)
 	VolumeAttachmentListerExpansion
 }
 
 // volumeAttachmentLister implements the VolumeAttachmentLister interface.
 type volumeAttachmentLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*storagev1.VolumeAttachment]
 }
 
 // NewVolumeAttachmentLister returns a new VolumeAttachmentLister.
 func NewVolumeAttachmentLister(indexer cache.Indexer) VolumeAttachmentLister {
-	return &volumeAttachmentLister{indexer: indexer}
-}
-
-// List lists all VolumeAttachments in the indexer.
-func (s *volumeAttachmentLister) List(selector labels.Selector) (ret []*v1.VolumeAttachment, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.VolumeAttachment))
-	})
-	return ret, err
-}
-
-// Get retrieves the VolumeAttachment from the index for a given name.
-func (s *volumeAttachmentLister) Get(name string) (*v1.VolumeAttachment, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("volumeattachment"), name)
-	}
-	return obj.(*v1.VolumeAttachment), nil
+	return &volumeAttachmentLister{listers.New[*storagev1.VolumeAttachment](indexer, storagev1.Resource("volumeattachment"))}
 }

@@ -3,11 +3,11 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
     target-branch: main
 
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
     target-branch: main

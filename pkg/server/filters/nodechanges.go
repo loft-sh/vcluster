@@ -88,12 +88,12 @@ func patchNode(ctx context.Context, w http.ResponseWriter, req *http.Request, s 
 	q := req.URL.Query()
 	q.Add("dryRun", "All")
 	req.URL.RawQuery = q.Encode()
-	code, header, data, err := executeRequest(req, h)
+	code, header, data, err := ExecuteRequest(req, h)
 	if err != nil {
 		responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
 		return
 	} else if code != http.StatusOK {
-		writeWithHeader(w, code, header, data)
+		WriteWithHeader(w, code, header, data)
 		return
 	}
 
@@ -142,6 +142,7 @@ func updateNode(ctx context.Context, decoder encoding.Decoder, localClient clien
 	newNode := pNode.DeepCopy()
 	newNode.Labels = vNode.Labels
 	newNode.Spec.Taints = vNode.Spec.Taints
+	newNode.Spec.Unschedulable = vNode.Spec.Unschedulable
 	newNode.Status.Capacity = vNode.Status.Capacity
 
 	// if there are no changes, just return the provided object
@@ -164,7 +165,7 @@ func updateNode(ctx context.Context, decoder encoding.Decoder, localClient clien
 	}
 
 	// now let's wait for the virtual node to update
-	err = wait.PollUntilContextTimeout(ctx, time.Second*4, time.Millisecond*200, true, func(ctx context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*200, time.Second*4, true, func(ctx context.Context) (bool, error) {
 		updatedNode := &corev1.Node{}
 		err := virtualClient.Get(ctx, client.ObjectKey{Name: vNode.Name}, updatedNode)
 		if err != nil {

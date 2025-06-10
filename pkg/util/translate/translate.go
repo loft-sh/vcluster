@@ -10,7 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loft-sh/vcluster/pkg/log"
+	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/pkg/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -18,29 +19,166 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-var (
-	NamespaceLabel  = "vcluster.loft.sh/namespace"
-	MarkerLabel     = "vcluster.loft.sh/managed-by"
-	LabelPrefix     = "vcluster.loft.sh/label"
-	ControllerLabel = "vcluster.loft.sh/controlled-by"
-	// Suffix is the vcluster name, usually set at start time
-	Suffix = "suffix"
-
-	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
-	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 const (
-	SkipBacksyncInMultiNamespaceMode = "vcluster.loft.sh/skip-backsync"
+	SkipBackSyncInMultiNamespaceMode = "vcluster.loft.sh/skip-backsync"
 )
 
 var Owner client.Object
+
+func CopyObjectWithName[T client.Object](obj T, name types.NamespacedName, setOwner bool, excludedAnnotations ...string) T {
+	target := obj.DeepCopyObject().(T)
+
+	// reset metadata & translate name and namespace
+	ResetObjectMetadata(target)
+	target.SetName(name.Name)
+	if obj.GetNamespace() != "" {
+		target.SetNamespace(name.Namespace)
+
+		// set owning stateful set if defined
+		if setOwner && Owner != nil {
+			target.SetOwnerReferences(GetOwnerReference(obj))
+		}
+	}
+
+	stripExcludedAnnotations(target, excludedAnnotations...)
+	return target
+}
+
+func HostMetadata[T client.Object](vObj T, name types.NamespacedName, excludedAnnotations ...string) T {
+	pObj := CopyObjectWithName(vObj, name, true, excludedAnnotations...)
+	stripExcludedAnnotations(vObj, excludedAnnotations...)
+	pObj.SetAnnotations(HostAnnotations(vObj, pObj, excludedAnnotations...))
+	pObj.SetLabels(HostLabels(vObj, nil))
+	return pObj
+}
+
+func VirtualMetadata[T client.Object](pObj T, name types.NamespacedName, excludedAnnotations ...string) T {
+	vObj := CopyObjectWithName(pObj, name, false, excludedAnnotations...)
+	vObj.SetAnnotations(VirtualAnnotations(pObj, nil, excludedAnnotations...))
+	vObj.SetLabels(VirtualLabels(pObj, nil))
+	return vObj
+}
+
+func stripExcludedAnnotations(obj client.Object, excludedAnnotations ...string) {
+	annotations := obj.GetAnnotations()
+	for k := range annotations {
+		if stringutil.Contains(excludedAnnotations, k) {
+			delete(annotations, k)
+		}
+	}
+	obj.SetAnnotations(annotations)
+}
+
+func VirtualAnnotations(pObj, vObj client.Object, excluded ...string) map[string]string {
+	excluded = append(excluded, NameAnnotation, NamespaceAnnotation, HostNameAnnotation, HostNamespaceAnnotation, UIDAnnotation, KindAnnotation, ManagedAnnotationsAnnotation, ManagedLabelsAnnotation)
+	var toAnnotations map[string]string
+	if vObj != nil {
+		toAnnotations = vObj.GetAnnotations()
+	}
+
+	return copyMaps(pObj.GetAnnotations(), toAnnotations, func(key string) bool {
+		return exists(excluded, key)
+	})
+}
+
+func copyMaps(fromMap, toMap map[string]string, excludeKey func(string) bool) map[string]string {
+	retMap := map[string]string{}
+	for k, v := range fromMap {
+		if excludeKey != nil && excludeKey(k) {
+			continue
+		}
+
+		retMap[k] = v
+	}
+
+	for key := range toMap {
+		if excludeKey != nil && excludeKey(key) {
+			value, ok := toMap[key]
+			if ok {
+				retMap[key] = value
+			}
+		}
+	}
+
+	return retMap
+}
+
+func HostAnnotations(vObj, pObj client.Object, excluded ...string) map[string]string {
+	excluded = append(excluded, NameAnnotation, HostNameAnnotation, HostNamespaceAnnotation, UIDAnnotation, KindAnnotation, NamespaceAnnotation)
+	toAnnotations := map[string]string{}
+	if pObj != nil {
+		toAnnotations = pObj.GetAnnotations()
+		if toAnnotations == nil {
+			toAnnotations = map[string]string{}
+		}
+	}
+
+	retMap := applyAnnotations(vObj.GetAnnotations(), toAnnotations, excluded...)
+	addHostAnnotations(retMap, vObj, pObj)
+
+	return retMap
+}
+
+func addHostAnnotations(retMap map[string]string, vObj, pObj client.Object) {
+	retMap[NameAnnotation] = vObj.GetName()
+	retMap[UIDAnnotation] = string(vObj.GetUID())
+	if pObj != nil {
+		retMap[HostNameAnnotation] = pObj.GetName()
+		if pObj.GetNamespace() != "" {
+			retMap[HostNamespaceAnnotation] = pObj.GetNamespace()
+		}
+	}
+	if vObj.GetNamespace() == "" {
+		delete(retMap, NamespaceAnnotation)
+	} else {
+		retMap[NamespaceAnnotation] = vObj.GetNamespace()
+	}
+
+	gvk, err := apiutil.GVKForObject(vObj, scheme.Scheme)
+	if err == nil {
+		retMap[KindAnnotation] = gvk.String()
+	}
+}
+
+func ShouldDeleteHostObject(pObj client.Object) bool {
+	// if host object is deleting we should delete it
+	if pObj.GetDeletionTimestamp() != nil {
+		return true
+	}
+
+	// if host object was synced before we should delete it as well
+	annotations := pObj.GetAnnotations()
+
+	// if kind annotation doesn't match we don't delete
+	gvk, err := apiutil.GVKForObject(pObj, scheme.Scheme)
+	if annotations[KindAnnotation] == "" || err != nil || gvk.String() != annotations[KindAnnotation] {
+		return false
+	}
+
+	// if host object annotations don't match we don't delete
+	if annotations[NameAnnotation] == "" || annotations[HostNameAnnotation] == "" || annotations[HostNameAnnotation] != pObj.GetName() {
+		return false
+	}
+
+	// check namespace
+	if pObj.GetNamespace() != "" {
+		if annotations[NamespaceAnnotation] == "" || annotations[HostNamespaceAnnotation] == "" || annotations[HostNamespaceAnnotation] != pObj.GetNamespace() {
+			return false
+		}
+	}
+
+	// delete object because it was clearly synced
+	return true
+}
 
 func GetOwnerReference(object client.Object) []metav1.OwnerReference {
 	if Owner == nil || Owner.GetName() == "" || Owner.GetUID() == "" {
@@ -75,21 +213,6 @@ func SafeConcatName(name ...string) string {
 		return strings.ReplaceAll(fullPath[0:52]+"-"+hex.EncodeToString(digest[0:])[0:10], ".-", "-")
 	}
 	return fullPath
-}
-
-func UniqueSlice(stringSlice []string) []string {
-	keys := make(map[string]bool)
-	list := []string{}
-	for _, entry := range stringSlice {
-		if entry == "" {
-			continue
-		}
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list
 }
 
 func Split(s, sep string) (string, string) {
@@ -181,7 +304,7 @@ type ApplyMapsOptions struct {
 	ExcludeKeys []string
 }
 
-func applyMaps(fromMap map[string]string, toMap map[string]string, opts ApplyMapsOptions) (map[string]string, string) {
+func applyMaps(fromMap, toMap map[string]string, opts ApplyMapsOptions) (map[string]string, string) {
 	retMap := map[string]string{}
 	managedKeys := []string{}
 	for k, v := range fromMap {
@@ -195,9 +318,7 @@ func applyMaps(fromMap map[string]string, toMap map[string]string, opts ApplyMap
 
 	for key, value := range toMap {
 		if exists(opts.ExcludeKeys, key) {
-			if value != "" {
-				retMap[key] = value
-			}
+			retMap[key] = value
 			continue
 		} else if exists(managedKeys, key) || exists(opts.ManagedKeys, key) {
 			continue
@@ -214,11 +335,42 @@ func applyMaps(fromMap map[string]string, toMap map[string]string, opts ApplyMap
 func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vConfig *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
 	var isClusterScoped, hasStatusSubresource bool
 
-	isClusterScoped, exists, err := KindExistsAndIsClusterScoped(vConfig, groupVersionKind)
+	vClient, err := apiextensionsv1clientset.NewForConfig(vConfig)
 	if err != nil {
-		return isClusterScoped, hasStatusSubresource, errors.Wrap(err, "check virtual cluster kind")
-	} else if exists {
+		return isClusterScoped, hasStatusSubresource, err
+	}
+
+	if apiResource, err := KindExists(vConfig, groupVersionKind); err == nil {
+		// (ThomasK33): Check if the CRD has the status subresource
+		isClusterScoped = !apiResource.Namespaced
+
+		klog.FromContext(ctx).Info("CRD already exists in virtual cluster, checking for status subresource.", "apiResource", apiResource, "groupVersionKind", groupVersionKind)
+
+		crdName := apiResource.Name
+		if apiResource.Group != "" {
+			crdName += "." + apiResource.Group
+		} else if groupVersionKind.Group != "" {
+			crdName += "." + groupVersionKind.Group
+		}
+
+		crdDefinition, err := vClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
+		if err != nil {
+			klog.FromContext(ctx).Error(err, "Error getting CRD in the virtual cluster", "crd", crdName)
+			return isClusterScoped, hasStatusSubresource, nil
+		}
+
+		for _, version := range crdDefinition.Spec.Versions {
+			if version.Name == groupVersionKind.Version {
+				if version.Subresources != nil && version.Subresources.Status != nil {
+					hasStatusSubresource = true
+				}
+				break
+			}
+		}
+
 		return isClusterScoped, hasStatusSubresource, nil
+	} else if !kerrors.IsNotFound(err) {
+		return isClusterScoped, hasStatusSubresource, fmt.Errorf("check virtual cluster kind: %w", err)
 	}
 
 	// get resource from kind name in physical cluster
@@ -267,36 +419,32 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 	crdDefinition.Spec.Versions = newVersions
 
 	// apply the crd
-	vClient, err := apiextensionsv1clientset.NewForConfig(vConfig)
-	if err != nil {
-		return isClusterScoped, hasStatusSubresource, err
-	}
-
-	log.NewWithoutName().Infof("Create crd %s in virtual cluster", groupVersionKind.String())
+	klog.FromContext(ctx).Info("Create crd in virtual cluster", "crd", groupVersionKind.String())
 	_, err = vClient.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crdDefinition, metav1.CreateOptions{})
-	if err != nil {
+	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return isClusterScoped, hasStatusSubresource, errors.Wrap(err, "create crd in virtual cluster")
 	}
 
 	// wait for crd to become ready
-	log.NewWithoutName().Infof("Wait for crd %s to become ready in virtual cluster", groupVersionKind.String())
+	klog.FromContext(ctx).Info("Wait for crd to become ready in virtual cluster", "crd", groupVersionKind.String())
 	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
 		crdDefinition, err := vClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, groupVersionResource.GroupResource().String(), metav1.GetOptions{})
 		if err != nil {
 			return false, errors.Wrap(err, "retrieve crd in virtual cluster")
 		}
+		message := ""
 		for _, cond := range crdDefinition.Status.Conditions {
-			switch cond.Type {
-			case apiextensionsv1.Established:
-				if cond.Status == apiextensionsv1.ConditionTrue {
-					return true, nil
-				}
+			if cond.Type == apiextensionsv1.Established && cond.Status == apiextensionsv1.ConditionTrue {
+				return true, nil
+			} else if cond.Type == apiextensionsv1.Established {
+				message = cond.String()
 			}
 		}
+		klog.FromContext(ctx).Info("CRD is not ready yet", "crd", groupVersionKind.String(), "message", message)
 		return false, nil
 	})
 	if err != nil {
-		return isClusterScoped, hasStatusSubresource, fmt.Errorf("failed to wait for CRD %s to become ready: %v", groupVersionKind.String(), err)
+		return isClusterScoped, hasStatusSubresource, fmt.Errorf("failed to wait for CRD %s to become ready: %w", groupVersionKind.String(), err)
 	}
 
 	// check if crd is cluster scoped
@@ -327,32 +475,24 @@ func ConvertKindToResource(config *rest.Config, groupVersionKind schema.GroupVer
 	return schema.GroupVersionResource{}, kerrors.NewNotFound(schema.GroupResource{Group: groupVersionKind.Group}, groupVersionKind.Kind)
 }
 
-// KindExistsAndIsClusterScoped checks if given CRDs exist in the given group.
-// Returns foundKinds, notFoundKinds, error
-func KindExistsAndIsClusterScoped(config *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
+// KindExists returns the api resource for a given CRD.
+// If the kind does not exist, it returns an error.
+func KindExists(config *rest.Config, groupVersionKind schema.GroupVersionKind) (metav1.APIResource, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
-		return false, false, err
+		return metav1.APIResource{}, err
 	}
 
 	resources, err := discoveryClient.ServerResourcesForGroupVersion(groupVersionKind.GroupVersion().String())
 	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return false, false, nil
-		}
-
-		return false, false, err
+		return metav1.APIResource{}, err
 	}
 
 	for _, r := range resources.APIResources {
 		if r.Kind == groupVersionKind.Kind {
-			if r.Namespaced {
-				return false, true, nil
-			}
-
-			return true, true, nil
+			return r, nil
 		}
 	}
 
-	return false, false, nil
+	return metav1.APIResource{}, kerrors.NewNotFound(schema.GroupResource{Group: groupVersionKind.Group}, groupVersionKind.Kind)
 }

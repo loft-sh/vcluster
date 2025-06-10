@@ -3,8 +3,10 @@ package endpoints
 import (
 	"testing"
 
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
+	"github.com/loft-sh/vcluster/pkg/specialservices"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -14,6 +16,117 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *endpointsSyncer) {
+	specialservices.Default = specialservices.NewDefaultServiceSyncer()
+
+	syncCtx, fakeSyncer := syncertesting.FakeStartSyncer(t, ctx, New)
+	return syncCtx, fakeSyncer.(*endpointsSyncer)
+}
+
+func TestExistingEndpoints(t *testing.T) {
+	vEndpoints := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "test-endpoints",
+			Namespace:       "test",
+			ResourceVersion: "999",
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: "1.1.1.1",
+					},
+				},
+			},
+		},
+	}
+	vService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-endpoints",
+			Namespace: "test",
+		},
+	}
+	pEndpoints := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      translate.Default.HostName(nil, vEndpoints.Name, vEndpoints.Namespace).Name,
+			Namespace: "test",
+		},
+	}
+	pService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      translate.Default.HostName(nil, vEndpoints.Name, vEndpoints.Namespace).Name,
+			Namespace: "test",
+			Annotations: map[string]string{
+				translate.NameAnnotation:          vEndpoints.Name,
+				translate.NamespaceAnnotation:     vEndpoints.Namespace,
+				translate.UIDAnnotation:           "",
+				translate.KindAnnotation:          corev1.SchemeGroupVersion.WithKind("Service").String(),
+				translate.HostNamespaceAnnotation: "test",
+				translate.HostNameAnnotation:      translate.Default.HostName(nil, vEndpoints.Name, vEndpoints.Namespace).Name,
+			},
+			Labels: map[string]string{
+				translate.NamespaceLabel: vEndpoints.Namespace,
+			},
+		},
+	}
+	expectedEndpoints := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      translate.Default.HostName(nil, vEndpoints.Name, vEndpoints.Namespace).Name,
+			Namespace: "test",
+			Annotations: map[string]string{
+				translate.NameAnnotation:          vEndpoints.Name,
+				translate.NamespaceAnnotation:     vEndpoints.Namespace,
+				translate.UIDAnnotation:           "",
+				translate.KindAnnotation:          corev1.SchemeGroupVersion.WithKind("Endpoints").String(),
+				translate.HostNamespaceAnnotation: "test",
+				translate.HostNameAnnotation:      translate.Default.HostName(nil, vEndpoints.Name, vEndpoints.Namespace).Name,
+			},
+			Labels: map[string]string{
+				translate.NamespaceLabel: vEndpoints.Namespace,
+			},
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: "1.1.1.1",
+					},
+				},
+			},
+		},
+	}
+
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
+		{
+			Name: "Override endpoints even if they are not managed",
+			InitialVirtualState: []runtime.Object{
+				vEndpoints,
+				vService,
+			},
+			InitialPhysicalState: []runtime.Object{
+				pEndpoints,
+				pService,
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Endpoints"): {
+					expectedEndpoints,
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				_, fakeSyncer := newFakeSyncer(t, ctx)
+				syncController, err := syncer.NewSyncController(ctx, fakeSyncer)
+				assert.NilError(t, err)
+
+				_, err = syncController.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{
+					Namespace: vEndpoints.Namespace,
+					Name:      vEndpoints.Name,
+				}})
+				assert.NilError(t, err)
+			},
+		},
+	})
+}
 
 func TestSync(t *testing.T) {
 	baseEndpoints := &corev1.Endpoints{
@@ -40,12 +153,16 @@ func TestSync(t *testing.T) {
 	}
 	syncedEndpoints := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      translate.Default.PhysicalName(baseEndpoints.Name, baseEndpoints.Namespace),
-			Namespace: "test",
+			ResourceVersion: "999",
+			Name:            translate.Default.HostName(nil, baseEndpoints.Name, baseEndpoints.Namespace).Name,
+			Namespace:       "test",
 			Annotations: map[string]string{
-				translate.NameAnnotation:      baseEndpoints.Name,
-				translate.NamespaceAnnotation: baseEndpoints.Namespace,
-				translate.UIDAnnotation:       "",
+				translate.NameAnnotation:          baseEndpoints.Name,
+				translate.NamespaceAnnotation:     baseEndpoints.Namespace,
+				translate.UIDAnnotation:           "",
+				translate.KindAnnotation:          corev1.SchemeGroupVersion.WithKind("Endpoints").String(),
+				translate.HostNamespaceAnnotation: "test",
+				translate.HostNameAnnotation:      translate.Default.HostName(nil, baseEndpoints.Name, baseEndpoints.Namespace).Name,
 			},
 			Labels: map[string]string{
 				translate.NamespaceLabel: baseEndpoints.Namespace,
@@ -64,7 +181,7 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name: "Forward create",
 			InitialVirtualState: []runtime.Object{
@@ -76,8 +193,8 @@ func TestSync(t *testing.T) {
 				},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*endpointsSyncer).SyncDown(syncCtx, baseEndpoints)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*endpointsSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(baseEndpoints))
 				assert.NilError(t, err)
 			},
 		},
@@ -95,15 +212,20 @@ func TestSync(t *testing.T) {
 				},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*endpointsSyncer).Sync(syncCtx, syncedEndpoints, updatedEndpoints)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*endpointsSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					syncedEndpoints,
+					syncedEndpoints,
+					baseEndpoints,
+					updatedEndpoints,
+				))
 				assert.NilError(t, err)
 			},
 		},
 		{
 			Name: "Don't sync default/kubernetes endpoint",
 			Sync: func(ctx *synccontext.RegisterContext) {
-				syncCtx, syncer := generictesting.FakeStartSyncer(t, ctx, New)
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				ok, _ := syncer.(*endpointsSyncer).ReconcileStart(syncCtx, request)
 				assert.Equal(t, ok, true)
 			},

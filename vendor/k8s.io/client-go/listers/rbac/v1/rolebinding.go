@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	rbacv1 "k8s.io/api/rbac/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // RoleBindingLister helps list RoleBindings.
@@ -30,7 +30,7 @@ import (
 type RoleBindingLister interface {
 	// List lists all RoleBindings in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.RoleBinding, err error)
+	List(selector labels.Selector) (ret []*rbacv1.RoleBinding, err error)
 	// RoleBindings returns an object that can list and get RoleBindings.
 	RoleBindings(namespace string) RoleBindingNamespaceLister
 	RoleBindingListerExpansion
@@ -38,25 +38,17 @@ type RoleBindingLister interface {
 
 // roleBindingLister implements the RoleBindingLister interface.
 type roleBindingLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*rbacv1.RoleBinding]
 }
 
 // NewRoleBindingLister returns a new RoleBindingLister.
 func NewRoleBindingLister(indexer cache.Indexer) RoleBindingLister {
-	return &roleBindingLister{indexer: indexer}
-}
-
-// List lists all RoleBindings in the indexer.
-func (s *roleBindingLister) List(selector labels.Selector) (ret []*v1.RoleBinding, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.RoleBinding))
-	})
-	return ret, err
+	return &roleBindingLister{listers.New[*rbacv1.RoleBinding](indexer, rbacv1.Resource("rolebinding"))}
 }
 
 // RoleBindings returns an object that can list and get RoleBindings.
 func (s *roleBindingLister) RoleBindings(namespace string) RoleBindingNamespaceLister {
-	return roleBindingNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return roleBindingNamespaceLister{listers.NewNamespaced[*rbacv1.RoleBinding](s.ResourceIndexer, namespace)}
 }
 
 // RoleBindingNamespaceLister helps list and get RoleBindings.
@@ -64,36 +56,15 @@ func (s *roleBindingLister) RoleBindings(namespace string) RoleBindingNamespaceL
 type RoleBindingNamespaceLister interface {
 	// List lists all RoleBindings in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.RoleBinding, err error)
+	List(selector labels.Selector) (ret []*rbacv1.RoleBinding, err error)
 	// Get retrieves the RoleBinding from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.RoleBinding, error)
+	Get(name string) (*rbacv1.RoleBinding, error)
 	RoleBindingNamespaceListerExpansion
 }
 
 // roleBindingNamespaceLister implements the RoleBindingNamespaceLister
 // interface.
 type roleBindingNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all RoleBindings in the indexer for a given namespace.
-func (s roleBindingNamespaceLister) List(selector labels.Selector) (ret []*v1.RoleBinding, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.RoleBinding))
-	})
-	return ret, err
-}
-
-// Get retrieves the RoleBinding from the indexer for a given namespace and name.
-func (s roleBindingNamespaceLister) Get(name string) (*v1.RoleBinding, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("rolebinding"), name)
-	}
-	return obj.(*v1.RoleBinding), nil
+	listers.ResourceIndexer[*rbacv1.RoleBinding]
 }

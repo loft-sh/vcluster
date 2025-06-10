@@ -21,9 +21,8 @@ coredns:
 # Warning: current configuration supports VirtualService traffic only within the same namespace.
 # Traffic to service.namespace.svc(.cluster.local) URLs will not be routed by Istio.
 #
----
-sync:
-  generic:
+experimental:
+  genericSync:
     role:
       extraRules:
         - apiGroups: ["networking.istio.io"]
@@ -35,63 +34,61 @@ sync:
         - apiGroups: ["apiextensions.k8s.io"]
           resources: ["customresourcedefinitions"]
           verbs: ["get", "list", "watch"]
-    config: |-
-      version: v1beta1
-      export:
-        - apiVersion: networking.istio.io/v1alpha3
-          kind: VirtualService
-          patches:
-            # If you wish to set a specific Gateway for all
-            # VirtualServices created inside the vcluster then
-            # replace "your-gateway-here" below with the name of
-            # that Gateway and uncomment 4 lines below:
-            # - op: replace
-            #   path: .spec.gateways
-            #   value:
-            #     - your-gateway-here
-            - op: rewriteName
-              path: .spec.hosts[*]
-              regex: &svcHost >
-                ^$NAME((\.$NAMESPACE)?(\.svc(\.cluster\.local)?){1})?$
-            - op: rewriteName
-              path: .spec.http[*].route[*].destination.host
-              regex: *svcHost
-                reversePatches:
-                  - op: copyFromObject
-                    fromPath: status
-                    path: status
-        - apiVersion: networking.istio.io/v1alpha3
-          kind: DestinationRule
-          patches:
-            - op: rewriteName
-              path: .spec.host
-              regex: *svcHost
-            - op: rewriteName
-              path: .spec.trafficPolicy.tls.credentialName
-              sync:
-                secret: true
-            - op: rewriteName
-              path: .spec.trafficPolicy.portLevelSettings[*].tls.credentialName
-              sync:
-                secret: true
-            - op: rewriteName
-              path: .spec.trafficPolicy.tunnel.targetHost
-              regex: *svcHost
-            - op: rewriteLabelSelector
-              path: .spec.subsets[*].labels
-            - op: rewriteName
-              path: .spec.subsets[*].trafficPolicy.tls.credentialName
-              sync:
-                secret: true
-            - op: rewriteName
-              path: .spec.subsets[*].trafficPolicy.portLevelSettings[*].tls.credentialName
-              sync:
-                secret: true
-            - op: rewriteName
-              path: .spec.subsets[*].trafficPolicy.tunnel.targetHost
-              regex: *svcHost
-            - op: replace
-              path: .spec.exportTo
-              value: "."
-            - op: rewriteLabelSelector
-              path: .spec.workloadSelector
+    export:
+      - apiVersion: networking.istio.io/v1alpha3
+        kind: VirtualService
+        patches:
+          # If you wish to set a specific Gateway for all
+          # VirtualServices created inside the vcluster then
+          # replace "your-gateway-here" below with the name of
+          # that Gateway and uncomment 4 lines below:
+          # - op: replace
+          #   path: .spec.gateways
+          #   value:
+          #     - your-gateway-here
+          - op: rewriteName
+            path: .spec.hosts[*]
+            regex: &svcHost >
+              ^$NAME((\.$NAMESPACE)?(\.svc(\.cluster\.local)?){1})?$
+          - op: rewriteName
+            path: .spec.http[*].route[*].destination.host
+            regex: *svcHost
+        reversePatches:
+          - op: copyFromObject
+            fromPath: status
+            path: status
+      - apiVersion: networking.istio.io/v1alpha3
+        kind: DestinationRule
+        patches:
+          - op: rewriteName
+            path: .spec.host
+            regex: *svcHost
+          - op: rewriteName
+            path: .spec.trafficPolicy.tls.credentialName
+            sync:
+              secret: true
+          - op: rewriteName
+            path: .spec.trafficPolicy.portLevelSettings[*].tls.credentialName
+            sync:
+              secret: true
+          - op: rewriteName
+            path: .spec.trafficPolicy.tunnel.targetHost
+            regex: *svcHost
+          - op: rewriteLabelSelector
+            path: .spec.subsets[*].labels
+          - op: rewriteName
+            path: .spec.subsets[*].trafficPolicy.tls.credentialName
+            sync:
+              secret: true
+          - op: rewriteName
+            path: .spec.subsets[*].trafficPolicy.portLevelSettings[*].tls.credentialName
+            sync:
+              secret: true
+          - op: rewriteName
+            path: .spec.subsets[*].trafficPolicy.tunnel.targetHost
+            regex: *svcHost
+          - op: replace
+            path: .spec.exportTo
+            value: "."
+          - op: rewriteLabelSelector
+            path: .spec.workloadSelector

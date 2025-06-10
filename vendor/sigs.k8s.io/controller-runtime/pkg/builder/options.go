@@ -28,7 +28,7 @@ type ForOption interface {
 	ApplyToFor(*ForInput)
 }
 
-// OwnsOption is some configuration that modifies options for a owns request.
+// OwnsOption is some configuration that modifies options for an owns request.
 type OwnsOption interface {
 	// ApplyToOwns applies this configuration to the given owns input.
 	ApplyToOwns(*OwnsInput)
@@ -37,7 +37,7 @@ type OwnsOption interface {
 // WatchesOption is some configuration that modifies options for a watches request.
 type WatchesOption interface {
 	// ApplyToWatches applies this configuration to the given watches options.
-	ApplyToWatches(*WatchesInput)
+	ApplyToWatches(untypedWatchesInput)
 }
 
 // }}}
@@ -67,8 +67,8 @@ func (w Predicates) ApplyToOwns(opts *OwnsInput) {
 }
 
 // ApplyToWatches applies this configuration to the given WatchesInput options.
-func (w Predicates) ApplyToWatches(opts *WatchesInput) {
-	opts.predicates = w.predicates
+func (w Predicates) ApplyToWatches(opts untypedWatchesInput) {
+	opts.setPredicates(w.predicates)
 }
 
 var _ ForOption = &Predicates{}
@@ -79,8 +79,8 @@ var _ WatchesOption = &Predicates{}
 
 // {{{ For & Owns Dual-Type options
 
-// asProjection configures the projection (currently only metadata) on the input.
-// Currently only metadata is supported.  We might want to expand
+// projectAs configures the projection on the input.
+// Currently only OnlyMetadata is supported.  We might want to expand
 // this to arbitrary non-special local projections in the future.
 type projectAs objectProjection
 
@@ -95,15 +95,15 @@ func (p projectAs) ApplyToOwns(opts *OwnsInput) {
 }
 
 // ApplyToWatches applies this configuration to the given WatchesInput options.
-func (p projectAs) ApplyToWatches(opts *WatchesInput) {
-	opts.objectProjection = objectProjection(p)
+func (p projectAs) ApplyToWatches(opts untypedWatchesInput) {
+	opts.setObjectProjection(objectProjection(p))
 }
 
 var (
 	// OnlyMetadata tells the controller to *only* cache metadata, and to watch
-	// the API server in metadata-only form.  This is useful when watching
+	// the API server in metadata-only form. This is useful when watching
 	// lots of objects, really big objects, or objects for which you only know
-	// the GVK, but not the structure.  You'll need to pass
+	// the GVK, but not the structure. You'll need to pass
 	// metav1.PartialObjectMetadata to the client when fetching objects in your
 	// reconciler, otherwise you'll end up with a duplicate structured or
 	// unstructured cache.

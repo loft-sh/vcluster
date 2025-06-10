@@ -1,163 +1,354 @@
+Contributing
+
 # Contributing to vcluster
 
-Thank you for contributing to vcluster! Here you can find common questions around developing vcluster. [See the docs](https://www.vcluster.com/docs/architecture/basics) for architecture details.
+Thank you for contributing to vcluster! Here you can find common questions around developing vcluster.
 
-## Table of Contents
+# Table of Contents
 
 - [How can I get involved?](#how-can-i-get-involved)
-- [Developing the Syncer Container using devspace](#developing-the-syncer-container-using-devspace)
-  - [Setup vcluster for Development](#setup-vcluster-for-development)
-- [Debug vcluster with Delve](#debug-vcluster-with-delve)
-  - [Running vcluster Tests](#running-vcluster-tests)
-- [Build vcluster CLI tool](#build-vcluster-cli-tool)
-- [Developing the hostpath-mapper component instead of syncer](#developing-the-hostpath-mapper-component-instead-of-syncer)
-  - [License](#license)
-  - [Copyright notice](#copyright-notice)
+- [Developing vCluster](#developing-vcluster)
+  - [Pre-requisites for Development](#pre-requisites-for-development)
+  - [Developing the Different vCluster Containers](#developing-the-different-vcluster-containers)
+  - [Developing and Debugging with DevSpace](#developing-and-debugging-vcluster-containers--with-devspace)
+  - [Build and Test the vcluster CLI tool](#build-and-test-the-vcluster-cli-tool)
+  - [Developing without DevSpace](#developing-without-devspace)
 
-## How can I get involved?
+- [Running vcluster Tests](#running-vcluster-tests)
+- [License](#license)
+- [Copyright notice](#copyright-notice)
+
+# How can I get involved?
 
 There are a number of areas where contributions can be accepted:
 
-- Write Golang code for the vcluster syncer, proxy or other components
-- Write examples
+- Write code to fix bugs or implement features
 - Review pull requests
-- Test out new features or work-in-progress
-- Get involved in design reviews and technical proof-of-concepts (PoCs)
-- Help release and package vcluster including the helm chart, compose files, `kubectl` YAML, marketplaces and stores
-- Manage, triage and research Issues and Pull Requests
-- Engage with the growing community by providing technical support on GitHub
-- Create docs, guides and write blogs
+- Try out our alphas and betas and give us feedback in our community Slack channel
+- Help respond to Github issues to help our community
+- Create [docs](https://github.com/loft-sh/vcluster-docs) or guides
 
-This is just a short list of ideas, if you have other ideas for contributing please make a suggestion.
+# Developing vCluster
 
-## Developing the Syncer Container using devspace
+We recommend developing vCluster directly on a local Kubernetes cluster as it provides faster feedback. There are two ways that we recommend developing.
 
-See [docs](https://www.vcluster.com/docs/architecture/basics#vcluster-syncer) for explanation of the syncer.
-Devspace will set up a vcluster and sync your code changes from the repository to a running container.
+- DevSpace
+- Locally
 
-### Setup vcluster for Development
+## Pre-requisites for Development
 
-We recommend to develop vcluster directly in a Kubernetes cluster as it makes feedback a lot quicker. For the quick setup, you'll need to install [devspace](https://github.com/loft-sh/devspace#1-install-devspace), docker, kubectl, helm and make sure you have a local Kubernetes cluster (such as Docker Desktop, minikube, KinD or similar) installed.
+### Tools
 
-Fork and clone the repo:
+- Docker needs to be installed (e.g. docker-desktop, orbstack, rancher desktop etc.)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [Helm v3.10.0+](https://helm.sh/docs/intro/install/)
+- Local Kubernetes v1.26+ cluster (i.e. Docker Desktop, [minikube](https://minikube.sigs.k8s.io/docs/start/), KinD or similar)
 
-- Click Fork button (top right) to establish a cloud-based fork.
-- git clone your-fork-url
+### Fork and Clone the vcluster repo
 
-After adjusting the variables and you can run:
+Click Fork button (top right) to establish a cloud-based fork.
+
+```
+git clone YOUR_PERSONAL_FORK_URL
+```
+
+## Developing the Different vCluster Containers
+
+One of the primary containers of vCluster is the `syncer` but you can also work on other components like `hostpath-mapper`. The guide focuses on the `syncer` container.
+
+## Developing and Debugging vCluster Containers with DevSpace
+
+The vCluster repo is enabled to develop using [DevSpace](https://www.devspace.sh/). Devspace will automatically set up a vcluster and sync your code changes from the repository to a running container. So, you can easily develop and test.
+
+### Install DevSpace
+
+Follow the guide on how to install [DevSpace](https://github.com/loft-sh/devspace#1-install-devspace)
+
+### Launch DevSpace
+
+Ensure your `kubectl` is connected to the local Kubernetes cluster.
+
+```
+kubectl get namespaces
+```
+
+In your Github `vcluster` directory, run:
 
 ```
 devspace dev
 ```
 
-Which should produce an output similar to:
+Which uses the `devspace.yaml` file in the `vcluster` directory to deploy a vCluster and launch DevSpace:
 
 ```
-[info]   Using namespace 'vcluster'
-[info]   Using kube context 'docker-desktop'
-[done] √ Created image pull secret vcluster/devspace-auth-ghcr-io
-[info]   Building image 'ghcr.io/loft-sh/loft-enterprise/dev-vcluster:szFLbkA' with engine 'docker'
-Sending build context to Docker daemon  52.71MB
-Step 1/14 : FROM golang:1.15 as builder
- ---> 53b7b7a65524
+info Using namespace 'vcluster'
+info Using kube context 'minikube'
+info Created namespace: vcluster
+build:vcluster Rebuild image ghcr.io/loft-sh/loft-enterprise/dev-vcluster because tag is missing
+build:vcluster Building image 'ghcr.io/loft-sh/loft-enterprise/dev-vcluster:YwXtFIF' with engine 'buildkit'
+build:vcluster Execute BuildKit command with: docker buildx build --tag ghcr.io/loft-sh/loft-enterprise/dev-vcluster:YwXtFIF --file Dockerfile --target builder -
+#0 building with "default" instance using docker driver557.1kB
+build:vcluster
+build:vcluster #1 [internal] load remote build context
+Sending build context to Docker daemon  99.17MBdaemon  17.83MB
 ...
-Step 14/14 : ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go"]
- ---> Running in 7156169fe7d7
- ---> b14eacaa5e29
-Successfully built b14eacaa5e29
-Successfully tagged ghcr.io/loft-sh/loft-enterprise/dev-vcluster:szFLbkA
-[info]   Skip image push for ghcr.io/loft-sh/loft-enterprise/dev-vcluster
-[done] √ Done processing image 'ghcr.io/loft-sh/loft-enterprise/dev-vcluster'
-[info]   Execute 'helm upgrade vcluster ./chart --namespace vcluster --values /var/folders/bc/qxzrp6f93zncnj1xyz25kyp80000gn/T/079539791 --install --kube-context docker-desktop'
-[info]   Execute 'helm list --namespace vcluster --output json --kube-context docker-desktop'
-[done] √ Deployed helm chart (Release revision: 1)
-[done] √ Successfully deployed vcluster with helm
+...
+build:vcluster #21 exporting to image
+build:vcluster #21 exporting layers
+build:vcluster #21 exporting layers 3.9s done
+build:vcluster #21 writing image sha256:35a71edf70fe3be275cfd42a775e15621a9067880b5f397e957daedb0ed7b73b
+build:vcluster #21 writing image sha256:35a71edf70fe3be275cfd42a775e15621a9067880b5f397e957daedb0ed7b73b done
+build:vcluster #21 naming to ghcr.io/loft-sh/loft-enterprise/dev-vcluster:YwXtFIF done
+build:vcluster #21 DONE 3.9s
+build:vcluster
+build:vcluster View build details: docker-desktop://dashboard/build/default/default/q7vc4iv3ip8v24qxnybv4eo5p
+build:vcluster Done processing image 'ghcr.io/loft-sh/loft-enterprise/dev-vcluster'
+deploy:vcluster-k8s Deploying chart ./chart (vcluster) with helm...
+deploy:vcluster-k8s Deployed helm chart (Release revision: 1)
+deploy:vcluster-k8s Successfully deployed vcluster-k8s with helm
+dev:vcluster Waiting for pod to become ready...
+dev:vcluster DevSpace is waiting, because Pod vcluster-devspace-7b467dc9cd-hbtbz has status: Init:1/3
+dev:vcluster Selected pod vcluster-devspace-7b467dc9cd-hbtbz
+dev:vcluster ports Port forwarding started on: 2346 -> 2345
+dev:vcluster sync  Sync started on: . <-> .
+dev:vcluster sync  Waiting for initial sync to complete
+dev:vcluster sync  Initial sync completed
+dev:vcluster term  Opening shell to syncer:vcluster-devspace-7b467dc9cd-hbtbz (pod:container)
 
-#########################################################
-[info]   DevSpace UI available at: http://localhost:8090
-#########################################################
+   ____              ____
+  |  _ \  _____   __/ ___| _ __   __ _  ___ ___
+  | | | |/ _ \ \ / /\___ \| '_ \ / _` |/ __/ _ \
+  | |_| |  __/\ V /  ___) | |_) | (_| | (_|  __/
+  |____/ \___| \_/  |____/| .__/ \__,_|\___\___|
+                          |_|
 
-[0:sync] Waiting for pods...
-[0:sync] Starting sync...
-[0:sync] Sync started on /Users/fabiankramm/Programmieren/go-workspace/src/github.com/loft-sh/vcluster <-> . (Pod: vcluster/vcluster-0)
-[0:sync] Waiting for initial sync to complete
-[info]   Opening shell to pod:container vcluster-0:syncer
-root@vcluster-0:/vcluster#
+Welcome to your development container!
+This is how you can work with it:
+- Run `go run -mod vendor cmd/vcluster/main.go start` to start vcluster
+- Run `devspace enter -n vcluster --pod vcluster-devspace-7b467dc9cd-hbtbz -c syncer` to create another shell into this container
+- Run `kubectl ...` from within the container to access the vcluster if its started
+- Files will be synchronized between your local machine and this container
+
+NOTE: you may need to provide additional flags through the command line, because the flags set from the chart are ignored in the dev mode.
+
+If you wish to run vcluster in the debug mode with delve, run:
+  `dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --output /tmp/__debug_bin --headless --build-flags="-mod=vendor" -- start`
+  Wait until the `API server listening at: [::]:2345` message appears
+  Start the "Debug vcluster (localhost:2346)" configuration in VSCode to connect your debugger session.
+  Note: vcluster won't start until you connect with the debugger.
+  Note: vcluster will be stopped once you detach your debugger session.
+
+TIP: hit an up arrow on your keyboard to find the commands mentioned above :)
+
+vcluster-0:vcluster-dev$
 ```
 
-Then you can start vcluster with
+Now, your terminal is running in DevSpace, and you can develop and test with DevSpace.
+
+### Developing and Testing vCluster using DevSpace
+
+Start vcluster in DevSpace via `go run`
 
 ```
-go run -mod vendor cmd/vcluster/main.go start
+vcluster-0:vcluster-dev$ go run -mod vendor cmd/vcluster/main.go start
 ```
 
-Now if you change a file locally, DevSpace will automatically sync the file into the container and you just have to rerun `go run -mod vendor cmd/vcluster/main.go start` within the terminal to apply the changes.
+Now, you can start to work with the virtual cluster based on the source code. This vCluster is running on your local Kubernetes cluster.
 
-You can access the vcluster by running `devspace enter` in a separate terminal:
+If you change a file locally, DevSpace will automatically sync the file into the Devspace container. After any changes, re-run the same command in the DevSpace terminal to apply the changes.
+
+#### Start vcluster in DevSpace in debug mode via `dlv`
+
+You can either debug with Delve within DevSpace or locally. Devspace is more convenient as no port forwarding is required.
+
+Run vCluster in the debug mode with Delve in the `vcluster` directory. Note: Other sessions of DevSpace will need to be terminated before starting another
 
 ```
-devspace enter -n vcluster
-
-? Which pod do you want to open the terminal for? vcluster-0:syncer
-[info]   Opening shell to pod:container vcluster-0:syncer
-root@vcluster-0:/vcluster# kubectl get ns
-NAME              STATUS   AGE
-default           Active   2m18s
-kube-system       Active   2m18s
-kube-public       Active   2m18s
-kube-node-lease   Active   2m18s
-root@vcluster-0:/vcluster#
+devspace dev -n vcluster
 ```
 
-To access the virtual cluster, you can use the `vcluster connect` command locally as with any other virtual cluster.
+Once DevSpace launches and you are in the `vcluster` pod, run the following delve command.
 
-### Debug vcluster with Delve
+```
+vcluster-0:vcluster-dev$ dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --output /tmp/__debug_bin --headless --build-flags="-mod=vendor" -- start
+```
 
-If you wish to run vcluster in the debug mode with delve, run `devspace dev -n vcluster` and wait until you see the command prompt (`root@vcluster-0:/vcluster#`).
-Run `dlv debug ./cmd/vcluster/main.go --listen=0.0.0.0:2345 --api-version=2 --output /tmp/__debug_bin --headless --build-flags="-mod=vendor" -- start`
 Wait until the `API server listening at: [::]:2345` message appears.
-Start the `Debug vcluster (localhost:2346)` configuration in VSCode to connect your debugger session.
-If you are not using VSCode, configure your IDE to connect to `localhost:2346` for the "remote" delve debugging.
-**Note:** vcluster won't start until you connect with the debugger.
-**Note:** vcluster will be stopped once you detach your debugger session.
 
-### Running vcluster Tests
+Start the `Debug vcluster (localhost:2346)` configuration in Visual Studio Code to connect your debugger session.
 
-You can run the unit test suite with `./hack/test.sh` which should execute all the vcluster tests.
+If you are not using  Visual Studio Code, configure your IDE to connect to `localhost:2346` for the "remote" delve debugging.
 
-The e2e test suite can be run from the e2e folder(`cd e2e`) with this command - `go test -v -ginkgo.v`.
-Alternatively, if you [install ginkgo binary](https://github.com/onsi/ginkgo#global-installation), you can run it with `ginkgo -v`.
+**Note:** vCluster won't start until you connect with the debugger.
+**Note:** vCluster will be stopped once you detach your debugger session.
 
-For running conformance tests, please take a look at [conformance tests](https://github.com/loft-sh/tree/vcluster/main/conformance/v1.21)
+### Access your vCluster and Set your local KubeConfig
 
-## Build vcluster CLI tool
+Download the [vCluster CLI](https://www.vcluster.com/docs/get-started/) and use it to connect to your virtual cluster.
 
-Build:
+By connecting to the vCluster using the CLI, you set your local KubeConfig to the virtual cluster
+
+```
+vcluster connect vcluster
+```
+
+## Build and Test the vcluster CLI tool
+
+Build the CLI tool
 
 ```
 go generate ./... && go build -o vcluster cmd/vclusterctl/main.go # build vcluster cli
 ```
 
-Run:
+Test the built CLI tool
 
 ```
 ./vcluster create v1 # create vcluster
 ```
 
-## Developing the hostpath-mapper component instead of syncer
+## Developing without DevSpace
 
-In case you need to develop the hostpath-mapper daemonset instead of the syncer, you can use the `dev-hostpath-mapper` profile in `devspace.yaml`. You can do this by running the following command:
+### Pre-requisites
+
+- [Golang v1.24](https://go.dev/doc/install)
+- [Goreleaser](https://goreleaser.com/install/)
+- [Just](https://github.com/casey/just)
+- [Kind](https://kind.sigs.k8s.io/)
+
+### Uninstall vCluster CLI
+
+If you already have vCluster CLI installed, please make sure to uninstall it first.
+
+### Build vCluster CLI from Source Code
 
 ```
-devspace dev -p dev-hostpath-mapper
+$ just build-snapshot
+
+• starting build...
+[...]
+  • running before hooks
+    • running                                        hook=go mod tidy
+    • running                                        hook=just embed-charts 0.20.0-next
+    • running                                        hook=just clean-release
+    • running                                        hook=just copy-assets
+    • running                                        hook=just generate-vcluster-images 0.20.0-next
+  [...]
+  • building binaries
+    • partial build                                  match=target=darwin_arm64
+    • partial build                                  match=target=darwin_arm64
+    • building                                       binary=dist/<ARCH>/vcluster
+  [...]
+  • build succeeded after 11s
 ```
 
-This should deploy the hostpath-mapper as a deployment instead of a daemonset and take care of other modifications to be made and should allow you to develop the hostpath-mapper itself against the syncer.
+### Verify vCluster CLI was compiled correctly
 
-## License
+```
+$ ./dist/<ARCH>/vcluster version
+vcluster version 0.20.0-next
+```
+
+### Bring up a local K8s cluster using Kind
+
+```
+kind create cluster
+
+Creating cluster "kind" ...
+ ✓ Ensuring node image (kindest/node:v1.29.2) 🖼
+ ✓ Preparing nodes 📦
+ ✓ Writing configuration 📜
+ ✓ Starting control-plane 🕹️
+ ✓ Installing CNI 🔌
+ ✓ Installing StorageClass 💾
+Set kubectl context to "kind-kind"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-kind
+
+```
+
+### Build vCluster Container Image
+
+```
+docker build . -t my-vcluster:0.0.1
+```
+
+Note: Feel free to push this image into your own registry.
+
+#### Importing vCluster Container Image for kind Users
+
+If using kind as your local Kubernetes cluster, you need to import the image into kind.
+
+```
+kind load docker-image my-vcluster:0.0.1
+```
+
+### Create vCluster with self-compiled vCluster CLI
+
+For vCluster v0.20+:
+
+#### Create a `vcluster.yaml`
+
+Create a `vcluster.yaml` that sets the image to be your locally built Docker image.
+
+```yaml
+controlPlane:
+  statefulSet:
+    imagePullPolicy: Never
+    image:
+      registry: ""
+      repository: my-vcluster
+      tag: 0.0.1
+```
+
+#### Deploy vCluster
+
+Launch your vCluster using your `vcluster.yaml`
+
+```
+./dist/<ARCH>/vcluster create my-vcluster -n my-vcluster -f ./vcluster.yaml --local-chart-dir chart
+```
+
+### Access your vCluster and Set your local KubeConfig
+
+By connecting to the vCluster using the CLI, you set your local KubeConfig to the virtual cluster
+
+```
+./dist/<ARCH>/vcluster connect my-vcluster
+```
+
+# Running vCluster Tests
+
+All of the tests are located in the vcluster directory.
+
+## Running the Unit Test Suite
+
+Run the entire unit test suite.
+
+```
+./hack/test.sh
+```
+
+## Running the e2e Test Suite
+
+Run the e2e tests, that are located in the e2e folder.
+
+```
+just delete-kind
+just e2e
+
+```
+
+If [Ginkgo](https://github.com/onsi/ginkgo#global-installation) is already installed, run  `ginkgo -v`.
+
+## Run the Conformance Tests
+
+For running conformance tests, please take a look at [conformance tests](https://github.com/loft-sh/tree/vcluster/main/conformance/v1.21)
+
+# License
 
 This project is licensed under the Apache 2.0 License.
 
-## Copyright notice
+# Copyright notice
 
 It is important to state that you retain copyright for your contributions, but agree to license them for usage by the project and author(s) under the Apache 2.0 license. Git retains history of authorship, but we use a catch-all statement rather than individual names.

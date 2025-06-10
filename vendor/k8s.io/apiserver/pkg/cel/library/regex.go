@@ -51,6 +51,18 @@ var regexLib = &regex{}
 
 type regex struct{}
 
+func (*regex) LibraryName() string {
+	return "kubernetes.regex"
+}
+
+func (*regex) Types() []*cel.Type {
+	return []*cel.Type{}
+}
+
+func (*regex) declarations() map[string][]cel.FunctionOpt {
+	return regexLibraryDecls
+}
+
 var regexLibraryDecls = map[string][]cel.FunctionOpt{
 	"find": {
 		cel.MemberOverload("string_find_string", []*cel.Type{cel.StringType, cel.StringType}, cel.StringType,
@@ -77,7 +89,9 @@ func (*regex) CompileOptions() []cel.EnvOption {
 }
 
 func (*regex) ProgramOptions() []cel.ProgramOption {
-	return []cel.ProgramOption{}
+	return []cel.ProgramOption{
+		cel.OptimizeRegex(FindRegexOptimization, FindAllRegexOptimization),
+	}
 }
 
 func find(strVal ref.Val, regexVal ref.Val) ref.Val {

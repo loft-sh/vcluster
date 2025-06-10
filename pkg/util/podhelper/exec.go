@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	dockerterm "github.com/moby/term"
+	"github.com/samber/lo"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -165,7 +166,7 @@ func ExecBuffered(ctx context.Context, kubeConfig *rest.Config, namespace, pod, 
 		Stderr:    stderrBuffer,
 	})
 	if kubeExecError != nil {
-		if _, ok := kubeExecError.(kubectlExec.CodeExitError); !ok {
+		if _, ok := lo.ErrorsAs[kubectlExec.CodeExitError](kubeExecError); !ok {
 			return nil, nil, kubeExecError
 		}
 	}

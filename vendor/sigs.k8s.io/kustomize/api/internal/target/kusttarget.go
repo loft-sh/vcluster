@@ -13,12 +13,12 @@ import (
 	"sigs.k8s.io/kustomize/api/internal/accumulator"
 	"sigs.k8s.io/kustomize/api/internal/builtins"
 	"sigs.k8s.io/kustomize/api/internal/kusterr"
+	load "sigs.k8s.io/kustomize/api/internal/loader"
 	"sigs.k8s.io/kustomize/api/internal/plugins/builtinconfig"
 	"sigs.k8s.io/kustomize/api/internal/plugins/builtinhelpers"
 	"sigs.k8s.io/kustomize/api/internal/plugins/loader"
 	"sigs.k8s.io/kustomize/api/internal/utils"
 	"sigs.k8s.io/kustomize/api/konfig"
-	load "sigs.k8s.io/kustomize/api/loader"
 	"sigs.k8s.io/kustomize/api/resmap"
 	"sigs.k8s.io/kustomize/api/resource"
 	"sigs.k8s.io/kustomize/api/types"
@@ -72,6 +72,11 @@ func (kt *KustTarget) Load() error {
 	}
 
 	k.FixKustomization()
+
+	// check that Kustomization is empty
+	if err := k.CheckEmpty(); err != nil {
+		return err
+	}
 
 	errs := k.EnforceFields()
 	if len(errs) > 0 {
@@ -197,10 +202,6 @@ func (kt *KustTarget) accumulateTarget(ra *accumulator.ResAccumulator) (
 	if err != nil {
 		return nil, errors.WrapPrefixf(err, "accumulating resources")
 	}
-	ra, err = kt.accumulateComponents(ra, kt.kustomization.Components)
-	if err != nil {
-		return nil, errors.WrapPrefixf(err, "accumulating components")
-	}
 	tConfig, err := builtinconfig.MakeTransformerConfig(
 		kt.ldr, kt.kustomization.Configurations)
 	if err != nil {
@@ -225,6 +226,14 @@ func (kt *KustTarget) accumulateTarget(ra *accumulator.ResAccumulator) (
 	if err != nil {
 		return nil, err
 	}
+
+	// components are expected to execute after reading resources and adding generators ,before applying transformers and validation.
+	// https://github.com/kubernetes-sigs/kustomize/pull/5170#discussion_r1212101287
+	ra, err = kt.accumulateComponents(ra, kt.kustomization.Components)
+	if err != nil {
+		return nil, errors.WrapPrefixf(err, "accumulating components")
+	}
+
 	err = kt.runTransformers(ra)
 	if err != nil {
 		return nil, err
@@ -416,7 +425,14 @@ func (kt *KustTarget) accumulateResources(
 			}
 			ldr, err := kt.ldr.New(path)
 			if err != nil {
-				if kusterr.IsMalformedYAMLError(errF) { // Some error occurred while tyring to decode YAML file
+				// If accumulateFile found malformed YAML and there was a failure
+				// loading the resource as a base, then the resource is likely a
+				// file. The loader failure message is unnecessary, and could be
+				// confusing. Report only the file load error.
+				//
+				// However, a loader timeout implies there is a git repo at the
+				// path. In that case, both errors could be important.
+				if kusterr.IsMalformedYAMLError(errF) && !utils.IsErrTimeout(err) {
 					return nil, errF
 				}
 				return nil, errors.WrapPrefixf(
@@ -433,9 +449,6 @@ func (kt *KustTarget) accumulateResources(
 				ra, err = kt.accumulateDirectory(ra, ldr, false)
 			}
 			if err != nil {
-				if kusterr.IsMalformedYAMLError(errF) { // Some error occurred while tyring to decode YAML file
-					return nil, errF
-				}
 				return nil, errors.WrapPrefixf(
 					err, "accumulation err='%s'", errF.Error())
 			}
@@ -444,7 +457,7 @@ func (kt *KustTarget) accumulateResources(
 	return ra, nil
 }
 
-// accumulateResources fills the given resourceAccumulator
+// accumulateComponents fills the given resourceAccumulator
 // with resources read from the given list of paths.
 func (kt *KustTarget) accumulateComponents(
 	ra *accumulator.ResAccumulator, paths []string) (*accumulator.ResAccumulator, error) {

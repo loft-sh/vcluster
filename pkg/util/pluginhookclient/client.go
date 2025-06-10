@@ -2,17 +2,10 @@ package pluginhookclient
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"strings"
-	"time"
 
 	"github.com/loft-sh/vcluster/pkg/plugin"
-	"github.com/loft-sh/vcluster/pkg/plugin/remote"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"github.com/pkg/errors"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -37,11 +30,11 @@ func NewVirtualPluginClientFactory(delegate client.NewClientFunc) client.NewClie
 }
 
 func NewPluginClient(virtual bool, delegate client.NewClientFunc) client.NewClientFunc {
-	if !plugin.DefaultManager.HasPlugins() {
-		return delegate
-	}
-
 	return func(config *rest.Config, options client.Options) (client.Client, error) {
+		if !plugin.DefaultManager.HasPlugins() {
+			return delegate(config, options)
+		}
+
 		innerClient, err := delegate(config, options)
 		if err != nil {
 			return nil, err
@@ -52,6 +45,10 @@ func NewPluginClient(virtual bool, delegate client.NewClientFunc) client.NewClie
 }
 
 func wrapClient(virtual bool, innerClient client.Client) client.Client {
+	if innerClient == nil {
+		panic("nil innerClient")
+	}
+
 	suffix := "Physical"
 	if virtual {
 		suffix = "Virtual"
@@ -81,7 +78,7 @@ func (c *Client) Get(ctx context.Context, key client.ObjectKey, obj client.Objec
 		return err
 	}
 
-	return executeClientHooksFor(ctx, obj, "Get"+c.suffix, c.scheme)
+	return plugin.DefaultManager.MutateObject(ctx, obj, "Get"+c.suffix, c.scheme)
 }
 
 func (c *Client) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
@@ -95,12 +92,11 @@ func (c *Client) List(ctx context.Context, list client.ObjectList, opts ...clien
 		return err
 	}
 	gvk.Kind = strings.TrimSuffix(gvk.Kind, "List")
-	clientHooks := plugin.DefaultManager.ClientHooksFor(plugin.VersionKindType{
+	if !plugin.DefaultManager.HasClientHooksForType(plugintypes.VersionKindType{
 		APIVersion: gvk.GroupVersion().String(),
 		Kind:       gvk.Kind,
 		Type:       "Get" + c.suffix,
-	})
-	if len(clientHooks) == 0 {
+	}) {
 		return c.Client.List(ctx, list, opts...)
 	}
 
@@ -115,7 +111,7 @@ func (c *Client) List(ctx context.Context, list client.ObjectList, opts ...clien
 	}
 
 	for i := range objs {
-		err = executeClientHooksFor(ctx, objs[i].(client.Object), "Get"+c.suffix, c.scheme)
+		err = plugin.DefaultManager.MutateObject(ctx, objs[i].(client.Object), "Get"+c.suffix, c.scheme)
 		if err != nil {
 			return err
 		}
@@ -129,7 +125,7 @@ func (c *Client) Create(ctx context.Context, obj client.Object, opts ...client.C
 		return c.Client.Create(ctx, obj, opts...)
 	}
 
-	err := executeClientHooksFor(ctx, obj, "Create"+c.suffix, c.scheme)
+	err := plugin.DefaultManager.MutateObject(ctx, obj, "Create"+c.suffix, c.scheme)
 	if err != nil {
 		return err
 	}
@@ -142,7 +138,7 @@ func (c *Client) Patch(ctx context.Context, obj client.Object, patch client.Patc
 		return c.Client.Patch(ctx, obj, patch, opts...)
 	}
 
-	err := executeClientHooksFor(ctx, obj, "Update"+c.suffix, c.scheme)
+	err := plugin.DefaultManager.MutateObject(ctx, obj, "Update"+c.suffix, c.scheme)
 	if err != nil {
 		return err
 	}
@@ -155,7 +151,7 @@ func (c *Client) Update(ctx context.Context, obj client.Object, opts ...client.U
 		return c.Client.Update(ctx, obj, opts...)
 	}
 
-	err := executeClientHooksFor(ctx, obj, "Update"+c.suffix, c.scheme)
+	err := plugin.DefaultManager.MutateObject(ctx, obj, "Update"+c.suffix, c.scheme)
 	if err != nil {
 		return err
 	}
@@ -168,7 +164,7 @@ func (c *Client) Delete(ctx context.Context, obj client.Object, opts ...client.D
 		return c.Client.Delete(ctx, obj, opts...)
 	}
 
-	err := executeClientHooksFor(ctx, obj, "Delete"+c.suffix, c.scheme)
+	err := plugin.DefaultManager.MutateObject(ctx, obj, "Delete"+c.suffix, c.scheme)
 	if err != nil {
 		return err
 	}
@@ -200,7 +196,7 @@ func (c *StatusClient) Create(ctx context.Context, obj client.Object, subResourc
 		return c.Client.Status().Create(ctx, obj, subResource, opts...)
 	}
 
-	err := executeClientHooksFor(ctx, obj, "Create"+c.suffix, c.scheme)
+	err := plugin.DefaultManager.MutateObject(ctx, obj, "Create"+c.suffix, c.scheme)
 	if err != nil {
 		return err
 	}
@@ -213,7 +209,7 @@ func (c *StatusClient) Update(ctx context.Context, obj client.Object, opts ...cl
 		return c.Client.Status().Update(ctx, obj, opts...)
 	}
 
-	err := executeClientHooksFor(ctx, obj, "Update"+c.suffix, c.scheme)
+	err := plugin.DefaultManager.MutateObject(ctx, obj, "Update"+c.suffix, c.scheme)
 	if err != nil {
 		return err
 	}
@@ -226,74 +222,10 @@ func (c *StatusClient) Patch(ctx context.Context, obj client.Object, patch clien
 		return c.Client.Status().Patch(ctx, obj, patch, opts...)
 	}
 
-	err := executeClientHooksFor(ctx, obj, "Update"+c.suffix, c.scheme)
+	err := plugin.DefaultManager.MutateObject(ctx, obj, "Update"+c.suffix, c.scheme)
 	if err != nil {
 		return err
 	}
 
 	return c.Client.Status().Patch(ctx, obj, patch, opts...)
-}
-
-func executeClientHooksFor(ctx context.Context, obj client.Object, hookType string, scheme *runtime.Scheme) error {
-	gvk, err := apiutil.GVKForObject(obj, scheme)
-	if err != nil {
-		return err
-	}
-
-	apiVersion, kind := gvk.ToAPIVersionAndKind()
-	versionKindType := plugin.VersionKindType{
-		APIVersion: apiVersion,
-		Kind:       kind,
-		Type:       hookType,
-	}
-	clientHooks := plugin.DefaultManager.ClientHooksFor(versionKindType)
-	if len(clientHooks) > 0 {
-		encodedObj, err := json.Marshal(obj)
-		if err != nil {
-			return errors.Wrap(err, "encode obj")
-		}
-
-		for _, clientHook := range clientHooks {
-			encodedObj, err = mutateObject(ctx, versionKindType, encodedObj, clientHook)
-			if err != nil {
-				return err
-			}
-		}
-
-		err = json.Unmarshal(encodedObj, obj)
-		if err != nil {
-			return errors.Wrap(err, "unmarshal obj")
-		}
-	}
-
-	return nil
-}
-
-func mutateObject(ctx context.Context, versionKindType plugin.VersionKindType, obj []byte, plugin *plugin.Plugin) ([]byte, error) {
-	conn, err := grpc.Dial(plugin.Address, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("error dialing plugin %s: %v", plugin.Name, err)
-	}
-	defer func(conn *grpc.ClientConn) {
-		_ = conn.Close()
-	}(conn)
-
-	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-	defer cancel()
-
-	loghelper.New("mutate").Debugf("calling plugin %s to mutate object %s %s", plugin.Name, versionKindType.APIVersion, versionKindType.Kind)
-	mutateResult, err := remote.NewPluginClient(conn).Mutate(ctx, &remote.MutateRequest{
-		ApiVersion: versionKindType.APIVersion,
-		Kind:       versionKindType.Kind,
-		Object:     string(obj),
-		Type:       versionKindType.Type,
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "call plugin %s", plugin.Name)
-	}
-
-	if mutateResult.Mutated {
-		return []byte(mutateResult.Object), nil
-	}
-	return obj, nil
 }

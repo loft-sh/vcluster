@@ -22,13 +22,12 @@ import (
 
 	restful "github.com/emicklei/go-restful/v3"
 
-	apidiscoveryv2beta1 "k8s.io/api/apidiscovery/v2beta1"
+	apidiscoveryv2 "k8s.io/api/apidiscovery/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/managedfields"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
@@ -56,6 +55,11 @@ type APIGroupVersion struct {
 	// GroupVersion is the external group version
 	GroupVersion schema.GroupVersion
 
+	// AllServedVersionsByResource is indexed by resource and maps to a list of versions that resource exists in.
+	// This was created so that StorageVersion for APIs can include a list of all version that are served for each
+	// GroupResource tuple.
+	AllServedVersionsByResource map[string][]string
+
 	// OptionsExternalVersion controls the Kubernetes APIVersion used for common objects in the apiserver
 	// schema like api.Status, api.DeleteOptions, and metav1.ListOptions. Other implementors may
 	// define a version "v1beta1" but want to use the Kubernetes "v1" internal objects. If
@@ -65,9 +69,6 @@ type APIGroupVersion struct {
 	// common API implementations like ListOptions. Future changes will allow this to vary by group
 	// version (for when the inevitable meta/v2 group emerges).
 	MetaGroupVersion *schema.GroupVersion
-
-	// RootScopedKinds are the root scoped kinds for the primary GroupVersion
-	RootScopedKinds sets.String
 
 	// Serializer is used to determine how to convert responses from API methods into bytes to send over
 	// the wire.
@@ -102,7 +103,7 @@ type APIGroupVersion struct {
 // InstallREST registers the REST handlers (storage, watch, proxy and redirect) into a restful Container.
 // It is expected that the provided path root prefix will serve all operations. Root MUST NOT end
 // in a slash.
-func (g *APIGroupVersion) InstallREST(container *restful.Container) ([]apidiscoveryv2beta1.APIResourceDiscovery, []*storageversion.ResourceInfo, error) {
+func (g *APIGroupVersion) InstallREST(container *restful.Container) ([]apidiscoveryv2.APIResourceDiscovery, []*storageversion.ResourceInfo, error) {
 	prefix := path.Join(g.Root, g.GroupVersion.Group, g.GroupVersion.Version)
 	installer := &APIInstaller{
 		group:             g,

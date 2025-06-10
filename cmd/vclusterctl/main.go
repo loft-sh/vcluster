@@ -9,7 +9,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
-var version string = "0.0.1"
+var version = "0.0.1"
 
 func main() {
 	upgrade.SetVersion(version)

@@ -1,37 +1,22 @@
 package cmd
 
 import (
-	"encoding/json"
-	"strings"
-	"time"
+	"cmp"
+	"fmt"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/find"
-	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
-	"github.com/pkg/errors"
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// VCluster holds information about a cluster
-type VCluster struct {
-	Name       string
-	Namespace  string
-	Created    time.Time
-	AgeSeconds int
-	Context    string
-	Status     string
-	Connected  bool
-}
 
 // ListCmd holds the login cmd flags
 type ListCmd struct {
 	*flags.GlobalFlags
+	cli.ListOptions
 
-	log    log.Logger
-	output string
+	log log.Logger
 }
 
 // NewListCmd creates a new command
@@ -44,8 +29,7 @@ func NewListCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	cobraCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Lists all virtual clusters",
-		Long: `
-#######################################################
+		Long: `#######################################################
 #################### vcluster list ####################
 #######################################################
 Lists all virtual clusters
@@ -58,86 +42,29 @@ vcluster list --namespace test
 	`,
 		Args:    cobra.NoArgs,
 		Aliases: []string{"ls"},
-		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd, args)
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
+			return cmd.Run(cobraCmd)
 		},
 	}
 
-	cobraCmd.Flags().StringVar(&cmd.output, "output", "table", "Choose the format of the output. [table|json]")
+	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
+	cobraCmd.Flags().StringVar(&cmd.Output, "output", "table", "Choose the format of the output. [table|json]")
 
 	return cobraCmd
 }
 
 // Run executes the functionality
-func (cmd *ListCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
+func (cmd *ListCmd) Run(cobraCmd *cobra.Command) error {
+	cfg := cmd.LoadedConfig(cmd.log)
+
+	// If driver has been passed as flag use it, otherwise read it from the config file
+	driverType, err := config.ParseDriverType(cmp.Or(cmd.Driver, string(cfg.Driver.Type)))
 	if err != nil {
-		return err
+		return fmt.Errorf("parse driver type: %w", err)
 	}
-	currentContext := rawConfig.CurrentContext
-
-	if cmd.Context == "" {
-		cmd.Context = currentContext
+	if driverType == config.PlatformDriver {
+		return cli.ListPlatform(cobraCmd.Context(), &cmd.ListOptions, cmd.GlobalFlags, cmd.log, "", false)
 	}
 
-	namespace := metav1.NamespaceAll
-	if cmd.Namespace != "" {
-		namespace = cmd.Namespace
-	}
-
-	vClusters, err := find.ListVClusters(cobraCmd.Context(), cmd.Context, "", namespace)
-	if err != nil {
-		return err
-	}
-
-	if cmd.output == "json" {
-		var output []VCluster
-		for _, vcluster := range vClusters {
-			vclusterOutput := VCluster{
-				Name:       vcluster.Name,
-				Namespace:  vcluster.Namespace,
-				Created:    vcluster.Created.Time,
-				AgeSeconds: int(time.Since(vcluster.Created.Time).Round(time.Second).Seconds()),
-				Context:    vcluster.Context,
-				Status:     string(vcluster.Status),
-			}
-			vclusterOutput.Connected = currentContext == find.VClusterContextName(
-				vcluster.Name,
-				vcluster.Namespace,
-				vcluster.Context,
-			)
-			output = append(output, vclusterOutput)
-		}
-		bytes, err := json.MarshalIndent(output, "", "    ")
-		if err != nil {
-			return errors.Wrap(err, "json marshal vclusters")
-		}
-		cmd.log.WriteString(string(bytes) + "\n")
-	} else {
-		header := []string{"NAME", "NAMESPACE", "STATUS", "CONNECTED", "CREATED", "AGE", "CONTEXT"}
-		values := [][]string{}
-		for _, vcluster := range vClusters {
-			connected := ""
-			if currentContext == find.VClusterContextName(vcluster.Name, vcluster.Namespace, vcluster.Context) {
-				connected = "True"
-			}
-
-			values = append(values, []string{
-				vcluster.Name,
-				vcluster.Namespace,
-				string(vcluster.Status),
-				connected,
-				vcluster.Created.String(),
-				time.Since(vcluster.Created.Time).Round(1 * time.Second).String(),
-				vcluster.Context,
-			})
-		}
-
-		log.PrintTable(cmd.log, header, values)
-		if strings.HasPrefix(cmd.Context, "vcluster_") {
-			cmd.log.Infof("Run `vcluster disconnect` to switch back to the parent context")
-		}
-	}
-
-	return nil
+	return cli.ListHelm(cobraCmd.Context(), &cmd.ListOptions, cmd.GlobalFlags, cmd.log)
 }

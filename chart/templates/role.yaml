@@ -1,0 +1,134 @@
+{{- if .Values.rbac.role.enabled }}
+{{- if .Values.sync.toHost.namespaces.enabled }}
+kind: ClusterRole
+{{- else -}}
+kind: Role
+{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+{{- if .Values.sync.toHost.namespaces.enabled }}
+  name: {{ template "vcluster.clusterRoleNameMultinamespace" . }}
+{{- else }}
+  name: vc-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  {{- if .Values.controlPlane.advanced.globalMetadata.annotations }}
+  annotations:
+{{ toYaml .Values.controlPlane.advanced.globalMetadata.annotations | indent 4 }}
+  {{- end }}
+rules:
+  {{- if .Values.rbac.role.overwriteRules }}
+{{ toYaml .Values.rbac.role.overwriteRules | indent 2 }}
+  {{- else }}
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/portforward", "pods/exec", "persistentvolumeclaims"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/status", "pods/ephemeralcontainers"]
+    verbs: ["patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "replicasets", "deployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["endpoints", "events", "pods/log"]
+    verbs: ["get", "list", "watch"]
+  {{- if or .Values.sync.toHost.endpoints.enabled .Values.experimental.isolatedControlPlane.headless }}
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["create", "delete", "patch", "update"]
+  {{- end }}
+  {{- if or .Values.privateNodes.enabled (gt (int .Values.controlPlane.statefulSet.highAvailability.replicas) 1) }}
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if (and .Values.integrations.metricsServer.enabled .Values.integrations.metricsServer.pods) }}
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  {{- end }}
+  {{- if .Values.sync.toHost.ingresses.enabled}}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.sync.toHost.networkPolicies.enabled }}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.sync.toHost.volumeSnapshots.enabled }}
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.sync.toHost.serviceAccounts.enabled }}
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.sync.toHost.podDisruptionBudgets.enabled }}
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.integrations.kubeVirt.enabled }}
+  - apiGroups: ["subresources.kubevirt.io"]
+    resources: ["*"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["pool.kubevirt.io"]
+    resources: ["virtualmachinepools", "virtualmachinepools/status"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["clone.kubevirt.io"]
+    resources: ["virtualmachineclones", "virtualmachineclones/status"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["cdi.kubevirt.io"]
+    resources: ["datavolumes", "datavolumes/status"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["kubevirt.io"]
+    resources: ["virtualmachines", "virtualmachines/status", "virtualmachineinstances", "virtualmachineinstances/status", "virtualmachineinstancemigrations", "virtualmachineinstancemigrations/status"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if  .Values.integrations.externalSecrets.enabled }}
+  {{- if  .Values.integrations.externalSecrets.sync.externalSecrets.enabled }}
+  - apiGroups: ["external-secrets.io"]
+    resources: ["externalsecrets"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if   .Values.integrations.externalSecrets.sync.stores.enabled }}
+  - apiGroups: ["external-secrets.io"]
+    resources: ["secretstores"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- end }}
+  {{- if .Values.integrations.certManager.enabled }}
+  {{- if .Values.integrations.certManager.sync.toHost.certificates.enabled }}
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.integrations.certManager.sync.toHost.issuers.enabled }}
+  - apiGroups: ["cert-manager.io"]
+    resources: ["issuers"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- end }}
+  {{- if .Values.integrations.istio.enabled }}
+  - apiGroups: [ "networking.istio.io" ]
+    resources: [ "destinationrules", "gateways", "serviceentries", "virtualservices" ]
+    verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+  - apiGroups: [ "gateway.networking.k8s.io" ]
+    resources: [ "referencegrants" ]
+    verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+  {{- end }}
+  {{- include "vcluster.customResources.roleExtraRules" . | indent 2 }}
+  {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
+  {{- include "vcluster.generic.roleExtraRules" . | indent 2 }}
+  {{- include "vcluster.rbac.roleExtraRules" . | indent 2 }}
+  {{- end }}
+{{- end }}

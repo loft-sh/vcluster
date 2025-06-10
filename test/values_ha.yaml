@@ -1,0 +1,22 @@
+# this is for k3s pro
+controlPlane:
+  statefulSet:
+    highAvailability:
+      replicas: 3
+      leaseDuration: 15
+      renewDeadline: 10
+      retryPeriod: 5
+
+  # Scale up etcd
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+        statefulSet:
+          highAvailability:
+            replicas: 3
+
+  # Scale up DNS server
+  coredns:
+    deployment:
+      replicas: 3

@@ -21,9 +21,9 @@ func PrepareRegex(regex string) (*regexp.Regexp, error) {
 	return regexp.Compile(re)
 }
 
-type RegexTranslateFunc func(name, namespace string) types.NamespacedName
+type TranslateFunc func(name, namespace string) types.NamespacedName
 
-func ProcessRegex(regex *regexp.Regexp, input string, translateFunc RegexTranslateFunc) string {
+func ProcessRegex(regex *regexp.Regexp, input string, translateFunc TranslateFunc) string {
 	// Get group number of the named NAME and NAMESPACE regex groups
 	namePos := -1
 	namespacePos := -1
@@ -40,7 +40,6 @@ func ProcessRegex(regex *regexp.Regexp, input string, translateFunc RegexTransla
 	replacements := []IndexBasedReplaceItem{}
 	allIndexes := regex.FindAllStringSubmatchIndex(input, -1)
 	for _, indexes := range allIndexes {
-
 		if namePos != -1 && indexes[2*namePos] != -1 && indexes[2*namePos+1] != -1 {
 			name := input[indexes[2*namePos]:indexes[2*namePos+1]]
 			namespace := ""

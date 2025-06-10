@@ -2,94 +2,102 @@ package nodes
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
-	"github.com/pkg/errors"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/klog/v2"
+	resourceutil "k8s.io/kubectl/pkg/util/resource"
 )
 
 var (
-	TaintsAnnotation = "vcluster.loft.sh/original-taints"
+	TaintsAnnotation                  = "vcluster.loft.sh/original-taints"
+	RancherAgentPodRequestsAnnotation = "management.cattle.io/pod-requests"
+	RancherAgentPodLimitsAnnotation   = "management.cattle.io/pod-limits"
 )
 
-func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.Node) *corev1.Node {
-	var updated *corev1.Node
+func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.Node) {
+	// merge labels & taints
+	translatedSpec := pNode.Spec.DeepCopy()
+	excludeAnnotations := []string{TaintsAnnotation, RancherAgentPodRequestsAnnotation, RancherAgentPodLimitsAnnotation}
+	labels, annotations := translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels, excludeAnnotations...)
 
-	var (
-		annotations    map[string]string
-		labels         map[string]string
-		translatedSpec = pNode.Spec.DeepCopy()
-	)
-	if s.enableScheduler {
-		labels, annotations = translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels, TaintsAnnotation)
-
-		// merge taints together
-		oldPhysical := []string{}
-		if vNode.Annotations != nil && vNode.Annotations[TaintsAnnotation] != "" {
-			err := json.Unmarshal([]byte(vNode.Annotations[TaintsAnnotation]), &oldPhysical)
-			if err != nil {
-				klog.Errorf("error decoding taints: %v", err)
-			}
-		}
-
-		// convert physical taints
-		physical := []string{}
-		for _, p := range pNode.Spec.Taints {
-			out, err := json.Marshal(p)
-			if err != nil {
-				klog.Errorf("error encoding taint: %v", err)
-			} else {
-				physical = append(physical, string(out))
-			}
-		}
-
-		// convert virtual taints
-		virtual := []string{}
-		for _, p := range vNode.Spec.Taints {
-			out, err := json.Marshal(p)
-			if err != nil {
-				klog.Errorf("error encoding taint: %v", err)
-			} else {
-				virtual = append(virtual, string(out))
-			}
-		}
-
-		// merge taints
-		newTaints := mergeStrings(physical, virtual, oldPhysical)
-		newTaintsObjects := []corev1.Taint{}
-		for _, t := range newTaints {
-			taint := corev1.Taint{}
-			err := json.Unmarshal([]byte(t), &taint)
-			if err != nil {
-				klog.Errorf("error decoding taint: %v", err)
-			} else {
-				newTaintsObjects = append(newTaintsObjects, taint)
-			}
-		}
-		translatedSpec.Taints = newTaintsObjects
-
-		// encode taints
-		out, err := json.Marshal(physical)
+	// merge taints together
+	oldPhysical := []string{}
+	if vNode.Annotations != nil && vNode.Annotations[TaintsAnnotation] != "" {
+		err := json.Unmarshal([]byte(vNode.Annotations[TaintsAnnotation]), &oldPhysical)
 		if err != nil {
-			klog.Errorf("error encoding taints: %v", err)
-		} else {
-			if annotations == nil {
-				annotations = map[string]string{}
-			}
-			annotations[TaintsAnnotation] = string(out)
+			klog.Errorf("error decoding taints: %v", err)
 		}
+	}
+
+	// convert physical taints
+	physical := []string{}
+	hasUnready := false
+	for _, p := range pNode.Spec.Taints {
+		if p.Key == "node.kubernetes.io/not-ready" {
+			hasUnready = true
+		}
+
+		out, err := json.Marshal(p)
+		if err != nil {
+			klog.Errorf("error encoding taint: %v", err)
+		} else {
+			physical = append(physical, string(out))
+		}
+	}
+
+	// convert virtual taints
+	virtual := []string{}
+	for _, p := range vNode.Spec.Taints {
+		if !hasUnready && p.Key == "node.kubernetes.io/not-ready" {
+			continue
+		}
+
+		out, err := json.Marshal(p)
+		if err != nil {
+			klog.Errorf("error encoding taint: %v", err)
+		} else {
+			virtual = append(virtual, string(out))
+		}
+	}
+
+	// merge taints
+	newTaints := mergeStrings(physical, virtual, oldPhysical)
+	newTaintsObjects := []corev1.Taint{}
+	for _, t := range newTaints {
+		taint := corev1.Taint{}
+		err := json.Unmarshal([]byte(t), &taint)
+		if err != nil {
+			klog.Errorf("error decoding taint: %v", err)
+		} else {
+			newTaintsObjects = append(newTaintsObjects, taint)
+		}
+	}
+
+	// set merged taints
+	translatedSpec.Taints = newTaintsObjects
+
+	// encode taints
+	out, err := json.Marshal(physical)
+	if err != nil {
+		klog.Errorf("error encoding taints: %v", err)
 	} else {
-		labels, annotations = translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels)
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+		if len(physical) > 0 {
+			annotations[TaintsAnnotation] = string(out)
+		} else {
+			delete(annotations, TaintsAnnotation)
+		}
 	}
 
 	// Omit those taints for which the vcluster has enforced tolerations defined
@@ -97,31 +105,21 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		translatedSpec.Taints = s.filterOutTaintsMatchingTolerations(translatedSpec.Taints)
 	}
 
-	if !equality.Semantic.DeepEqual(vNode.Spec, *translatedSpec) {
-		updated = translator.NewIfNil(updated, vNode)
-		updated.Spec = *translatedSpec
-	}
-
 	// add annotation to prevent scale down of node by cluster-autoscaler
-	// the env var VCLUSTER_NODE_NAME is set when only one replica of vcluster is running
-	if nodeName, set := os.LookupEnv("VCLUSTER_NODE_NAME"); set && nodeName == pNode.Name {
+	// the env var NODE_NAME is set when only one replica of vcluster is running
+	if nodeName, set := os.LookupEnv("NODE_NAME"); set && nodeName == pNode.Name {
 		annotations["cluster-autoscaler.kubernetes.io/scale-down-disabled"] = "true"
 	}
 
-	if !equality.Semantic.DeepEqual(vNode.Annotations, annotations) {
-		updated = translator.NewIfNil(updated, vNode)
-		updated.Annotations = annotations
-	}
-
-	if !equality.Semantic.DeepEqual(vNode.Labels, labels) {
-		updated = translator.NewIfNil(updated, vNode)
-		updated.Labels = labels
-	}
-
-	return updated
+	// set annotations, spec & labels
+	vNode.Spec = *translatedSpec
+	vNode.Annotations = annotations
+	vNode.Labels = labels
 }
 
-func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *corev1.Node, vNode *corev1.Node) (*corev1.Node, error) {
+// translateUpdateStatus translates the node's status.
+// Returns a Node object, a boolean indicating whether it changed or an error.
+func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *corev1.Node, vNode *corev1.Node) error {
 	// translate node status first
 	translatedStatus := pNode.Status.DeepCopy()
 	if s.useFakeKubelets {
@@ -132,18 +130,20 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		}
 
 		// translate addresses
-		newAddresses := []corev1.NodeAddress{
-			{
+		newAddresses := []corev1.NodeAddress{}
+
+		if s.fakeKubeletHostnames {
+			newAddresses = append(newAddresses, corev1.NodeAddress{
 				Address: GetNodeHost(vNode.Name),
 				Type:    corev1.NodeHostName,
-			},
+			})
 		}
 
 		if s.fakeKubeletIPs {
 			// create new service for this node
-			nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx.Context, vNode.Name)
+			nodeIP, err := s.nodeServiceProvider.GetNodeIP(ctx, vNode.Name)
 			if err != nil {
-				return nil, errors.Wrap(err, "get vNode IP")
+				return fmt.Errorf("get vNode IP: %w", err)
 			}
 
 			newAddresses = append(newAddresses, corev1.NodeAddress{
@@ -166,47 +166,57 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 	if s.enableScheduler {
 		// calculate what's really allocatable
 		if translatedStatus.Allocatable != nil {
-			cpu := translatedStatus.Allocatable.Cpu().MilliValue()
-			memory := translatedStatus.Allocatable.Memory().Value()
-			storageEphemeral := translatedStatus.Allocatable.StorageEphemeral().Value()
-			pods := translatedStatus.Allocatable.Pods().Value()
+			allocatable := map[corev1.ResourceName]int64{
+				corev1.ResourceCPU:              translatedStatus.Allocatable.Cpu().MilliValue(),
+				corev1.ResourceMemory:           translatedStatus.Allocatable.Memory().Value(),
+				corev1.ResourceEphemeralStorage: translatedStatus.Allocatable.StorageEphemeral().Value(),
+				corev1.ResourcePods:             translatedStatus.Allocatable.Pods().Value(),
+			}
 
 			var nonVClusterPods int64
 			podList := &corev1.PodList{}
-			err := s.podCache.List(ctx.Context, podList, client.MatchingFields{indexPodByRunningNonVClusterNode: pNode.Name})
+			err := s.unmanagedPodCache.List(ctx, podList, client.MatchingFields{constants.IndexRunningNonVClusterPodsByNode: pNode.Name})
 			if err != nil {
 				klog.Errorf("Error listing pods: %v", err)
 			} else {
 				for _, pod := range podList.Items {
-					if !translate.Default.IsManaged(&pod) {
+					isManaged, err := s.IsManaged(ctx, &pod)
+					if err != nil {
+						klog.FromContext(ctx).Error(err, "is pod managed")
+					}
+
+					// check if managed
+					if !isManaged {
 						// count pods that are not synced by this vcluster
 						nonVClusterPods++
 					}
-					for _, container := range pod.Spec.InitContainers {
-						cpu -= container.Resources.Requests.Cpu().MilliValue()
-						memory -= container.Resources.Requests.Memory().Value()
-						storageEphemeral -= container.Resources.Requests.StorageEphemeral().Value()
-					}
-					for _, container := range pod.Spec.Containers {
-						cpu -= container.Resources.Requests.Cpu().MilliValue()
-						memory -= container.Resources.Requests.Memory().Value()
-						storageEphemeral -= container.Resources.Requests.StorageEphemeral().Value()
+
+					reqs, _ := resourceutil.PodRequestsAndLimits(&pod)
+
+					for _, resName := range []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory, corev1.ResourceEphemeralStorage} {
+						if req, ok := reqs[resName]; ok {
+							if resName == corev1.ResourceCPU {
+								allocatable[resName] -= req.MilliValue()
+							} else {
+								allocatable[resName] -= req.Value()
+							}
+						}
 					}
 				}
 			}
 
-			pods -= nonVClusterPods
-			if pods > 0 {
-				translatedStatus.Allocatable[corev1.ResourcePods] = *resource.NewQuantity(pods, resource.DecimalSI)
+			allocatable[corev1.ResourcePods] -= nonVClusterPods
+			if allocatable[corev1.ResourcePods] > 0 {
+				translatedStatus.Allocatable[corev1.ResourcePods] = *resource.NewQuantity(allocatable[corev1.ResourcePods], resource.DecimalSI)
 			}
-			if cpu > 0 {
-				translatedStatus.Allocatable[corev1.ResourceCPU] = *resource.NewMilliQuantity(cpu, resource.DecimalSI)
+			if allocatable[corev1.ResourceCPU] > 0 {
+				translatedStatus.Allocatable[corev1.ResourceCPU] = *resource.NewMilliQuantity(allocatable[corev1.ResourceCPU], resource.DecimalSI)
 			}
-			if memory > 0 {
-				translatedStatus.Allocatable[corev1.ResourceMemory] = *resource.NewQuantity(memory, resource.BinarySI)
+			if allocatable[corev1.ResourceMemory] > 0 {
+				translatedStatus.Allocatable[corev1.ResourceMemory] = *resource.NewQuantity(allocatable[corev1.ResourceMemory], resource.BinarySI)
 			}
-			if storageEphemeral > 0 {
-				translatedStatus.Allocatable[corev1.ResourceEphemeralStorage] = *resource.NewQuantity(storageEphemeral, resource.BinarySI)
+			if allocatable[corev1.ResourceEphemeralStorage] > 0 {
+				translatedStatus.Allocatable[corev1.ResourceEphemeralStorage] = *resource.NewQuantity(allocatable[corev1.ResourceEphemeralStorage], resource.BinarySI)
 			}
 		}
 
@@ -246,14 +256,8 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 		translatedStatus.Images = make([]corev1.ContainerImage, 0)
 	}
 
-	// check if the status has changed
-	if !equality.Semantic.DeepEqual(vNode.Status, *translatedStatus) {
-		newNode := vNode.DeepCopy()
-		newNode.Status = *translatedStatus
-		return newNode, nil
-	}
-
-	return nil, nil
+	vNode.Status = *translatedStatus
+	return nil
 }
 
 func mergeStrings(physical []string, virtual []string, oldPhysical []string) []string {

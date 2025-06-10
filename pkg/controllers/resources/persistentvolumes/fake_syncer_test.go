@@ -1,14 +1,15 @@
 package persistentvolumes
 
 import (
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"gotest.tools/assert"
 	"testing"
+
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
+	"gotest.tools/assert"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	generictesting "github.com/loft-sh/vcluster/pkg/controllers/syncer/testing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,13 +18,13 @@ import (
 )
 
 func newFakeFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext.SyncContext, *fakePersistentVolumeSyncer) {
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &corev1.PersistentVolumeClaim{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
+	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.PersistentVolumeClaim{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.PersistentVolumeClaim)
 		return []string{pod.Spec.VolumeName}
 	})
 	assert.NilError(t, err)
 
-	syncContext, object := generictesting.FakeStartSyncer(t, ctx, NewFakeSyncer)
+	syncContext, object := syncertesting.FakeStartSyncer(t, ctx, NewFakeSyncer)
 	return syncContext, object.(*fakePersistentVolumeSyncer)
 }
 
@@ -32,7 +33,7 @@ func TestFakeSync(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "testpvc",
 			Namespace:       "testns",
-			ResourceVersion: generictesting.FakeClientResourceVersion,
+			ResourceVersion: syncertesting.FakeClientResourceVersion,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			VolumeName:       "mypv",
@@ -82,7 +83,7 @@ func TestFakeSync(t *testing.T) {
 	pvWithFinalizers := basePv.DeepCopy()
 	pvWithFinalizers.Finalizers = []string{"myfinalizer"}
 
-	generictesting.RunTests(t, []*generictesting.SyncTest{
+	syncertesting.RunTests(t, []*syncertesting.SyncTest{
 		{
 			Name:                "Create",
 			InitialVirtualState: []runtime.Object{basePvc},
@@ -92,7 +93,7 @@ func TestFakeSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeFakeSyncer(t, ctx)
-				_, err := syncer.FakeSyncUp(syncContext, basePvName)
+				_, err := syncer.FakeSyncToVirtual(syncContext, basePvName)
 				assert.NilError(t, err)
 			},
 		},
@@ -105,7 +106,7 @@ func TestFakeSync(t *testing.T) {
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncContext, syncer := newFakeFakeSyncer(t, ctx)
-				_, err := syncer.FakeSyncUp(syncContext, basePvName)
+				_, err := syncer.FakeSyncToVirtual(syncContext, basePvName)
 				assert.NilError(t, err)
 			},
 		},

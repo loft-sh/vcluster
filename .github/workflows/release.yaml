@@ -10,61 +10,67 @@ jobs:
     name: Publish vcluster
     runs-on: ubuntu-22.04
 
+    outputs:
+      release_version: ${{ steps.get_version.outputs.release_version }}
+      previous_tag: ${{ steps.get_version.outputs.previous_tag }}
+
     permissions:
       id-token: write # This is the key for OIDC cosign!
       packages: write
       contents: write
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - run: git fetch --force --tags
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           cache: false
-          go-version: "1.20"
+          go-version-file: go.mod
       - name: Setup Just
-        uses: extractions/setup-just@v1
+        uses: extractions/setup-just@v2
       - name: Setup Cosgin
         uses: sigstore/cosign-installer@main
         with:
-          cosign-release: "v2.0.2"
+          cosign-release: "v2.2.3"
       - name: Setup Syft
-        uses: anchore/sbom-action/download-syft@v0.14.3
+        uses: anchore/sbom-action/download-syft@v0.20.0
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - uses: azure/setup-helm@v3
+        uses: docker/setup-buildx-action@v3
+      - uses: azure/setup-helm@v4
         with:
           version: "v3.0.2"
       - id: get_version
         run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
           echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1))" >> "$GITHUB_OUTPUT"
       - name: Login to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Login to ghcr.io
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: "goreleaser/goreleaser-action@v4.3.0"
+      - uses: "goreleaser/goreleaser-action@v6"
         with:
-          version: latest
           args: release --clean --timeout 60m
+          version: "~> v2"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           TELEMETRY_PRIVATE_KEY: ${{ secrets.VCLUSTER_TELEMETRY_PRIVATE_KEY }}
           GORELEASER_CURRENT_TAG: ${{ steps.get_version.outputs.release_version }}
+          GORELEASER_PREVIOUS_TAG: ${{ steps.get_version.outputs.previous_tag }}
       - name: Save release assets
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: release-assets
           path: release/
@@ -74,6 +80,26 @@ jobs:
           pattern: "release/*"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Trigger cli-docs workflow
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
+          script: |
+            const version = '${{ steps.get_version.outputs.release_version }}';
+            const ref = '${{ github.ref }}';
+            // Using repository_dispatch instead of workflow_dispatch
+            const response = await github.rest.repos.createDispatchEvent({
+              owner: 'loft-sh',
+              repo: 'vcluster-docs',
+              event_type: 'update-cli-docs',
+              client_payload: {
+                version,
+                ref,
+              }
+            });
+            console.log(response);
+
   publish-chart:
     if: startsWith(github.ref, 'refs/tags/v') == true
     needs: [publish]
@@ -81,19 +107,108 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
-      - uses: azure/setup-helm@v3
+        uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
         with:
           version: "v3.0.2"
       - run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/v!!p')
           helm plugin install https://github.com/chartmuseum/helm-push.git
           helm repo add chartmuseum $CHART_MUSEUM_URL --username $CHART_MUSEUM_USER --password $CHART_MUSEUM_PASSWORD
-          helm cm-push --force --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" charts/k3s/ chartmuseum
-          helm cm-push --force --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" charts/k0s/ chartmuseum
-          helm cm-push --force --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" charts/k8s/ chartmuseum
-          helm cm-push --force --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" charts/eks/ chartmuseum
+          helm cm-push --force --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" chart chartmuseum
         env:
           CHART_MUSEUM_URL: "https://charts.loft.sh/"
           CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
           CHART_MUSEUM_PASSWORD: ${{ secrets.CHART_MUSEUM_PASSWORD }}
+  # The workflow will only trigger on non-draft releases
+  # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#release
+  sync_linear:
+    needs:
+      - publish
+      - publish-chart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Update linear issues
+        run: go run . -release-tag="${{ needs.publish.outputs.release_version }}"
+        working-directory: hack/linear-sync
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          LINEAR_TOKEN: ${{ secrets.LINEAR_TOKEN }}
+
+  notify_release:
+    needs:
+      - publish
+      - publish-chart
+      - sync_linear
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: get_base_branch
+        name: Get base branch for tag
+        run: |
+          RELEASE_VERSION=${{ needs.publish.outputs.release_version }}
+          TAG_COMMIT=$(git rev-list -n 1 "$RELEASE_VERSION")
+
+          # Find all remote branches containing this commit
+          REMOTE_BRANCHES=$(git branch -r --contains "$TAG_COMMIT" | grep -v HEAD | sed -e 's/^[[:space:]]*//' -e 's/^origin\///')
+
+          if [ -z "$REMOTE_BRANCHES" ]; then
+            echo "No remote branches found containing this commit, falling back to 'main'"
+            BASE_BRANCH="main"
+          else
+            # Initialize variables for branch distance calculation
+            BEST_BRANCH="main"
+            BEST_DISTANCE=99999
+
+            # For each branch, calculate the distance from tag commit to branch tip
+            for REMOTE_BRANCH in $REMOTE_BRANCHES; do
+              # Skip if branch is empty
+              [ -z "$REMOTE_BRANCH" ] && continue
+
+              # Get the base of the branch (where it diverged from main)
+              BRANCH_BASE=$(git merge-base origin/main origin/$REMOTE_BRANCH 2>/dev/null || echo "")
+
+              if [ ! -z "$BRANCH_BASE" ]; then
+                # Check if our tag commit is directly in the branch history
+                if git merge-base --is-ancestor "$BRANCH_BASE" "$TAG_COMMIT" 2>/dev/null; then
+                  # Calculate how far our commit is from the branch tip
+                  DISTANCE=$(git rev-list --count "$TAG_COMMIT..origin/$REMOTE_BRANCH")
+
+                  echo "Branch $REMOTE_BRANCH - Distance from branch tip: $DISTANCE"
+
+                  # If this is the closest branch so far, update our best match
+                  if [ "$DISTANCE" -lt "$BEST_DISTANCE" ]; then
+                    BEST_BRANCH=$REMOTE_BRANCH
+                    BEST_DISTANCE=$DISTANCE
+                  fi
+                fi
+              fi
+            done
+
+            # If we failed to find a branch with our algorithm, fall back to alphabetical order
+            if [ "$BEST_DISTANCE" -eq 99999 ]; then
+              echo "No suitable branch found with distance algorithm, falling back to alphabetical order"
+              BEST_BRANCH=$(echo "$REMOTE_BRANCHES" | head -n 1 || echo "main")
+            fi
+
+            BASE_BRANCH=$BEST_BRANCH
+          fi
+
+          echo "base_branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "Base branch for $RELEASE_VERSION: $BASE_BRANCH (distance: $BEST_DISTANCE)"
+      - name: Notify \#product-releases Slack channel
+        uses: loft-sh/github-actions/.github/actions/release-notification@v1
+        with:
+          version: ${{ needs.publish.outputs.release_version }}
+          previous_tag: ${{ needs.publish.outputs.previous_tag }}
+          changes: 'See changelog link below'
+          target_repo: 'loft-sh/vcluster'
+          product: 'vCluster'
+          base_branch: ${{ steps.get_base_branch.outputs.base_branch }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL_PRODUCT_RELEASES }}

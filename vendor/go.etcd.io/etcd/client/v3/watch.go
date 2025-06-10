@@ -442,7 +442,7 @@ func (w *watchGrpcStream) close() (err error) {
 	case err = <-w.errc:
 	default:
 	}
-	return toErr(w.ctx, err)
+	return ContextError(w.ctx, err)
 }
 
 func (w *watcher) closeStream(wgs *watchGrpcStream) {
@@ -653,7 +653,7 @@ func (w *watchGrpcStream) run() {
 
 		// watch client failed on Recv; spawn another if possible
 		case err := <-w.errc:
-			if isHaltErr(w.ctx, err) || toErr(w.ctx, err) == v3rpc.ErrNoLeader {
+			if isHaltErr(w.ctx, err) || ContextError(w.ctx, err) == v3rpc.ErrNoLeader {
 				closeErr = err
 				return
 			}
@@ -848,7 +848,7 @@ func (w *watchGrpcStream) serveSubstream(ws *watcherStream, resumec chan struct{
 				}
 			} else {
 				// current progress of watch; <= store revision
-				nextRev = wr.Header.Revision
+				nextRev = wr.Header.Revision + 1
 			}
 
 			if len(wr.Events) > 0 {
@@ -1036,7 +1036,7 @@ func (pr *progressRequest) toPB() *pb.WatchRequest {
 
 func streamKeyFromCtx(ctx context.Context) string {
 	if md, ok := metadata.FromOutgoingContext(ctx); ok {
-		return fmt.Sprintf("%+v", md)
+		return fmt.Sprintf("%+v", map[string][]string(md))
 	}
 	return ""
 }

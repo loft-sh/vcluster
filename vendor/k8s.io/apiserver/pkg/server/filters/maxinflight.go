@@ -34,7 +34,6 @@ import (
 
 const (
 	// Constant for the retry-after interval on rate limiting.
-	// TODO: maybe make this dynamic? or user-adjustable?
 	retryAfter = "1"
 
 	// How often inflight usage metric should be updated. Because
@@ -51,7 +50,7 @@ var (
 func handleError(w http.ResponseWriter, r *http.Request, err error) {
 	errorMsg := fmt.Sprintf("Internal Server Error: %#v", r.RequestURI)
 	http.Error(w, errorMsg, http.StatusInternalServerError)
-	klog.Errorf(err.Error())
+	klog.Error(err.Error())
 }
 
 // requestWatermark is used to track maximal numbers of requests in a particular phase of handling
@@ -210,7 +209,7 @@ func WithMaxInFlightLimit(
 				// We need to split this data between buckets used for throttling.
 				metrics.RecordDroppedRequest(r, requestInfo, metrics.APIServerComponent, isMutatingRequest)
 				metrics.RecordRequestTermination(r, requestInfo, metrics.APIServerComponent, http.StatusTooManyRequests)
-				tooManyRequests(r, w)
+				tooManyRequests(r, w, retryAfter)
 			}
 		}
 	})
@@ -220,10 +219,4 @@ func WithMaxInFlightLimit(
 // requests.
 func StartMaxInFlightWatermarkMaintenance(stopCh <-chan struct{}) {
 	startWatermarkMaintenance(watermark, stopCh)
-}
-
-func tooManyRequests(req *http.Request, w http.ResponseWriter) {
-	// Return a 429 status indicating "Too Many Requests"
-	w.Header().Set("Retry-After", retryAfter)
-	http.Error(w, "Too many requests, please try again later.", http.StatusTooManyRequests)
 }

@@ -4,183 +4,128 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 
 	"github.com/denisbrodbeck/machineid"
-	vcontext "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/telemetry/types"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
+	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	homedir "github.com/mitchellh/go-homedir"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	SyncerVersion                                        = "dev"
-	cachedUID                                            = ""
-	cachedSyncerFlags                                    = ""
-	cachedHostKubernetesVersion *types.KubernetesVersion = nil
-	cachedVclusterServiceType                            = ""
-)
+var SyncerVersion = "dev"
 
-const (
-	ConfigEnvVar = "VCLUSTER_TELEMETRY_CONFIG"
-
-	// hashingKey is a random string used for hashing the CreatorUID.
-	// It shouldn't be changed after the release.
-	hashingKey = "1f1uR6nVryzFEaAm87Ra"
-)
-
-// getSyncerUID provides instance UID based on the UID of the PVC or Service
-func getSyncerUID(ctx context.Context, c *kubernetes.Clientset, vclusterNamespace string, options *vcontext.VirtualClusterOptions) string {
-	if cachedUID != "" {
-		return cachedUID
+// getVClusterID provides instance ID based on the UID of the service
+func getVClusterID(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace, vClusterService string) (string, error) {
+	if hostClient == nil || vClusterService == "" {
+		return "", fmt.Errorf("kubernetes client or service is undefined")
 	}
 
-	if c == nil || options == nil {
-		return ""
+	o, err := getUniqueSyncerObject(ctx, hostClient, vClusterNamespace, vClusterService)
+	if err != nil {
+		return "", err
 	}
 
-	o, err := getUniqueSyncerObject(ctx, c, vclusterNamespace, options)
-	if err == nil {
-		cachedUID = string(o.GetUID())
-		return cachedUID
+	return string(o.GetUID()), nil
+}
+
+// getVClusterCreationTimestamp returns the creation timestamp of the vCluster service
+func getVClusterCreationTimestamp(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace, vClusterService string) (int64, error) {
+	if hostClient == nil || vClusterService == "" {
+		return 0, fmt.Errorf("kubernetes client or service is undefined")
 	}
 
-	return ""
+	o, err := getUniqueSyncerObject(ctx, hostClient, vClusterNamespace, vClusterService)
+	if err != nil {
+		return 0, err
+	}
+
+	return o.GetCreationTimestamp().Unix(), nil
 }
 
 // returns a Kubernetes resource that can be used to uniquely identify this syncer instance - PVC or Service
-func getUniqueSyncerObject(ctx context.Context, c *kubernetes.Clientset, vclusterNamespace string, options *vcontext.VirtualClusterOptions) (client.Object, error) {
-	// we primarily use PVC as the source of vcluster instance UID
-	pvc, err := c.CoreV1().PersistentVolumeClaims(vclusterNamespace).Get(ctx, fmt.Sprintf("data-%s-0", translate.Suffix), metav1.GetOptions{})
-	if err == nil {
-		return pvc, nil
-	}
-	if !kerrors.IsNotFound(err) {
-		return nil, err
+func getUniqueSyncerObject(ctx context.Context, c kubernetes.Interface, vClusterNamespace string, serviceName string) (client.Object, error) {
+	// If vCluster PVC doesn't exist we try to get UID from the vCluster Service
+	if serviceName == "" {
+		return nil, fmt.Errorf("getUniqueSyncerObject failed - options.ServiceName is empty")
 	}
 
-	// If vcluster PVC doesn't exist we try to get UID from the vcluster Service
-	if options.ServiceName == "" {
-		return nil, fmt.Errorf("getUniqueSyncerObject failed - PVC was not found and options.ServiceName is empty")
-	}
-	service, err := c.CoreV1().Services(vclusterNamespace).Get(ctx, options.ServiceName, metav1.GetOptions{})
+	service, err := c.CoreV1().Services(vClusterNamespace).Get(ctx, serviceName, metav1.GetOptions{})
 	if err == nil {
 		return service, nil
 	}
+
 	return nil, err
 }
 
-func getSyncerFlags(startCommand *cobra.Command, options *vcontext.VirtualClusterOptions) string {
-	if cachedSyncerFlags != "" {
-		return cachedSyncerFlags
-	}
-
-	if startCommand == nil || options == nil {
-		return ""
-	}
-
-	setFlags := map[string]bool{}
-	startCommand.Flags().VisitAll(func(f *pflag.Flag) {
-		if f.Changed {
-			setFlags[f.Name] = true
-		}
-	})
-
-	o, err := json.Marshal(types.SyncerFlags{
-		SetFlags:    setFlags,
-		Controllers: options.Controllers,
-	})
-	if err != nil {
-		return ""
-	}
-
-	cachedSyncerFlags = string(o)
-	return cachedSyncerFlags
-}
-
-func getVirtualKubernetesVersion(c *kubernetes.Clientset) *types.KubernetesVersion {
+func getKubernetesVersion(c kubernetes.Interface) (*KubernetesVersion, error) {
 	if c == nil {
-		return nil
-	}
-
-	vi, _ := c.Discovery().ServerVersion()
-	return toKubernetesVersion(vi)
-}
-
-func getHostKubernetesVersion(c *kubernetes.Clientset) *types.KubernetesVersion {
-	if cachedHostKubernetesVersion != nil {
-		return cachedHostKubernetesVersion
-	}
-
-	if c == nil {
-		return nil
+		return nil, fmt.Errorf("client is nil")
 	}
 
 	vi, err := c.Discovery().ServerVersion()
-	if err == nil {
-		cachedHostKubernetesVersion = toKubernetesVersion(vi)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving version: %w", err)
 	}
-	return cachedHostKubernetesVersion
+
+	return toKubernetesVersion(vi), nil
 }
 
-func toKubernetesVersion(vi *version.Info) *types.KubernetesVersion {
+func toKubernetesVersion(vi *version.Info) *KubernetesVersion {
 	if vi == nil {
 		return nil
 	}
-	return &types.KubernetesVersion{
+	return &KubernetesVersion{
 		Major:      vi.Major,
 		Minor:      vi.Minor,
 		GitVersion: vi.GitVersion,
 	}
 }
 
-func getVclusterServiceType(ctx context.Context, c *kubernetes.Clientset, vclusterNamespace string, options *vcontext.VirtualClusterOptions) string {
-	if cachedVclusterServiceType != "" {
-		return cachedVclusterServiceType
+// GetPlatformUserID returns the loft instance id
+func GetPlatformUserID(cliConfig *config.CLI, self *managementv1.Self) string {
+	if cliConfig == nil || cliConfig.TelemetryDisabled || self == nil {
+		return ""
 	}
+	platformID := self.Status.Subject
+	if self.Status.User != nil && self.Status.User.Email != "" {
+		platformID = self.Status.User.Email
+	}
+	return platformID
+}
 
-	if c == nil || options == nil {
+// GetPlatformInstanceID returns the loft instance id
+func GetPlatformInstanceID(cliConfig *config.CLI, self *managementv1.Self) string {
+	if cliConfig == nil || cliConfig.TelemetryDisabled || self == nil {
 		return ""
 	}
 
-	// Let's first check if a separate LoadBalancer Service is created
-	service, err := c.CoreV1().Services(vclusterNamespace).Get(ctx, fmt.Sprintf("%s-lb", translate.Suffix), metav1.GetOptions{})
-	if err == nil {
-		cachedVclusterServiceType = string(service.Spec.Type)
-		return cachedVclusterServiceType
-	}
-
-	// otherwise check the type of the usual vcluster Service
-	service, err = c.CoreV1().Services(vclusterNamespace).Get(ctx, options.ServiceName, metav1.GetOptions{})
-	if err == nil {
-		cachedVclusterServiceType = string(service.Spec.Type)
-	}
-	return cachedVclusterServiceType
+	return self.Status.InstanceID
 }
 
-// Gets machine ID and encodes it together with users $HOME path and extra key to protect privacy.
-// Returns a hex-encoded string.
-func GetInstanceCreatorUID() string {
+// GetMachineID retrieves machine ID and encodes it together with users $HOME path and
+// extra key to protect privacy. Returns a hex-encoded string.
+func GetMachineID(cliConfig *config.CLI) string {
+	if cliConfig == nil || cliConfig.TelemetryDisabled {
+		return ""
+	}
+
 	id, err := machineid.ID()
 	if err != nil {
 		id = "error"
 	}
+
 	// get $HOME to distinguish two users on the same machine
 	// will be hashed later together with the ID
 	home, err := homedir.Dir()
 	if err != nil {
 		home = "error"
 	}
+
 	mac := hmac.New(sha256.New, []byte(id))
-	mac.Write([]byte(hashingKey))
 	mac.Write([]byte(home))
 	return fmt.Sprintf("%x", mac.Sum(nil))
 }

@@ -1,0 +1,226 @@
+{{- include "vcluster.exportKubeConfig.validate" . }}
+{{- if not .Values.experimental.isolatedControlPlane.headless }}
+apiVersion: apps/v1
+kind: {{ include "vcluster.kind" . }}
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: {{ .Release.Name }}
+    heritage: "{{ .Release.Service }}"
+  {{- if .Values.controlPlane.statefulSet.labels }}
+{{ toYaml .Values.controlPlane.statefulSet.labels | indent 4 }}
+  {{- end }}
+  {{- $annotations := merge dict .Values.controlPlane.statefulSet.annotations .Values.controlPlane.advanced.globalMetadata.annotations }}
+  {{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: vcluster
+      release: {{ .Release.Name | quote }}
+  {{- if eq (include "vcluster.kind" .) "StatefulSet" }}
+  {{- if ge (int .Capabilities.KubeVersion.Minor) 27 }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: {{ .Values.controlPlane.statefulSet.persistence.volumeClaim.retentionPolicy }}
+  {{- end }}
+  serviceName: {{ .Release.Name }}-headless
+  podManagementPolicy: {{ .Values.controlPlane.statefulSet.scheduling.podManagementPolicy }}
+{{ include "vcluster.persistence" . | indent 2 }}
+  {{- else }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      {{- if (eq (int .Values.controlPlane.statefulSet.highAvailability.replicas) 1) }}
+      maxUnavailable: 0
+      {{- else }}
+      maxUnavailable: 1
+      {{- end }}
+    type: RollingUpdate
+  {{- end }}
+  replicas: {{ .Values.controlPlane.statefulSet.highAvailability.replicas }}
+  template:
+    metadata:
+      annotations:
+        vClusterConfigHash: {{ .Values | toYaml | b64enc | sha256sum | quote }}
+      {{- if .Values.controlPlane.statefulSet.pods.annotations }}
+{{ toYaml .Values.controlPlane.statefulSet.pods.annotations | indent 8 }}
+      {{- end }}
+      labels:
+        app: vcluster
+        release: {{ .Release.Name }}
+        {{- if .Values.controlPlane.statefulSet.pods.labels }}
+{{ toYaml .Values.controlPlane.statefulSet.pods.labels | indent 8 }}
+        {{- end }}
+    spec:
+      terminationGracePeriodSeconds: 10
+      {{- if .Values.controlPlane.statefulSet.scheduling.priorityClassName }}
+      priorityClassName: {{ .Values.controlPlane.statefulSet.scheduling.priorityClassName }}
+      {{- end }}
+      {{- if .Values.controlPlane.statefulSet.security.podSecurityContext }}
+      securityContext:
+{{ toYaml .Values.controlPlane.statefulSet.security.podSecurityContext | indent 8 }}
+      {{- end }}
+      {{- if .Values.controlPlane.statefulSet.scheduling.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.controlPlane.statefulSet.scheduling.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if .Values.controlPlane.statefulSet.scheduling.affinity }}
+      affinity:
+{{ toYaml .Values.controlPlane.statefulSet.scheduling.affinity | indent 8 }}
+      {{- end }}
+      {{- if .Values.controlPlane.statefulSet.scheduling.topologySpreadConstraints }}
+      topologySpreadConstraints:
+{{ toYaml .Values.controlPlane.statefulSet.scheduling.topologySpreadConstraints | indent 8 }}
+      {{- end }}
+      {{- if .Values.controlPlane.statefulSet.scheduling.tolerations }}
+      tolerations:
+{{ toYaml .Values.controlPlane.statefulSet.scheduling.tolerations | indent 8 }}
+      {{- end }}
+      {{- if .Values.controlPlane.statefulSet.scheduling.priorityClassName }}
+      priorityClassName: {{ .Values.controlPlane.statefulSet.scheduling.priorityClassName }}
+      {{- end }}
+      {{- if .Values.controlPlane.statefulSet.dnsPolicy }}
+      dnsPolicy: {{ .Values.controlPlane.statefulSet.dnsPolicy }}
+      {{- end }}
+      {{- if .Values.controlPlane.statefulSet.dnsConfig }}
+      dnsConfig:
+{{ toYaml .Values.controlPlane.statefulSet.dnsConfig | indent 8 }}
+      {{- end }}
+      {{- if .Values.controlPlane.advanced.serviceAccount.name }}
+      serviceAccountName: {{ .Values.controlPlane.advanced.serviceAccount.name }}
+      {{- else }}
+      serviceAccountName: vc-{{ .Release.Name }}
+      {{- end }}
+      volumes:
+{{- include "vcluster.plugins.volumes" . | indent 8 }}
+        - name: helm-cache
+          emptyDir: {}
+{{ toYaml .Values.controlPlane.statefulSet.persistence.binariesVolume | indent 8 }}
+        - name: tmp
+          emptyDir: {}
+        - name: certs
+          emptyDir: {}
+        {{- if eq (include "vcluster.distro" .) "k3s" }}
+        - name: k3s-config
+          emptyDir: {}
+        {{- end }}
+        - name: vcluster-config
+          secret:
+            secretName: vc-config-{{ .Release.Name }}
+        {{- if .Values.controlPlane.statefulSet.persistence.dataVolume }}
+{{ toYaml .Values.controlPlane.statefulSet.persistence.dataVolume | indent 8 }}
+        {{- else if not (include "vcluster.persistence.volumeClaim.enabled" .) }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+        {{- if .Values.controlPlane.statefulSet.persistence.addVolumes }}
+{{ tpl (toYaml .Values.controlPlane.statefulSet.persistence.addVolumes) $ | indent 8 }}
+        {{- end }}
+      {{- if (not .Values.experimental.syncSettings.disableSync) }}
+      initContainers:
+{{ include "vcluster.initContainers" . | indent 8 }}
+      {{- end }}
+      enableServiceLinks: {{ .Values.controlPlane.statefulSet.enableServiceLinks }}
+      containers:
+        - name: syncer
+          image: {{ include "vcluster.controlPlane.image" . | quote }}
+          imagePullPolicy: {{ .Values.controlPlane.statefulSet.imagePullPolicy }}
+          {{- if .Values.controlPlane.statefulSet.workingDir }}
+          workingDir: {{ .Values.controlPlane.statefulSet.workingDir }}
+          {{- end }}
+          {{- if .Values.controlPlane.statefulSet.command }}
+          command:
+{{ toYaml .Values.controlPlane.statefulSet.command | indent 12 }}
+          {{- end }}
+          {{- if .Values.controlPlane.statefulSet.args }}
+          args:
+{{ toYaml .Values.controlPlane.statefulSet.args | indent 12 }}
+          {{- end }}
+         {{- if .Values.controlPlane.statefulSet.probes.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: {{ .Values.controlPlane.statefulSet.probes.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.controlPlane.statefulSet.probes.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.controlPlane.statefulSet.probes.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.controlPlane.statefulSet.probes.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.controlPlane.statefulSet.probes.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8443
+              scheme: HTTPS
+            periodSeconds: {{ .Values.controlPlane.statefulSet.probes.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.controlPlane.statefulSet.probes.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.controlPlane.statefulSet.probes.readinessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.controlPlane.statefulSet.probes.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: 8443
+              scheme: HTTPS
+            periodSeconds: {{ .Values.controlPlane.statefulSet.probes.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.controlPlane.statefulSet.probes.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.controlPlane.statefulSet.probes.startupProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.controlPlane.statefulSet.security.containerSecurityContext }}
+          securityContext:
+{{ toYaml .Values.controlPlane.statefulSet.security.containerSecurityContext | indent 12 }}
+          {{- end }}
+          resources:
+{{ toYaml .Values.controlPlane.statefulSet.resources | indent 12 }}
+          env:
+            - name: VCLUSTER_NAME
+              value: "{{ .Release.Name }}"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            {{- if .Values.controlPlane.statefulSet.env }}
+{{ toYaml .Values.controlPlane.statefulSet.env | indent 12 }}
+            {{- end }}
+{{ include "vcluster.distro.env" . | indent 12 }}
+          volumeMounts:
+{{- include "vcluster.plugins.volumeMounts" . | indent 12 }}
+            - name: data
+              mountPath: /data
+            - name: binaries
+              mountPath: /binaries
+            - name: certs
+              mountPath: /pki
+            - name: helm-cache
+              mountPath: /.cache/helm
+            {{- if eq (include "vcluster.distro" .) "k3s" }}
+            - name: k3s-config
+              mountPath: /etc/rancher
+            {{- end }}
+            - name: vcluster-config
+              mountPath: /var/lib/vcluster
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.controlPlane.statefulSet.persistence.addVolumeMounts }}
+{{ toYaml .Values.controlPlane.statefulSet.persistence.addVolumeMounts | indent 12 }}
+            {{- end }}
+{{- include "vcluster.legacyPlugins.containers" . | indent 8 }}
+{{- end }}

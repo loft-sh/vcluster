@@ -4,17 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
+	// Enable cloud provider aut
 	// Enable cloud provider auth
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
@@ -24,25 +20,15 @@ import (
 	_ "github.com/loft-sh/vcluster/test/e2e/manifests"
 	_ "github.com/loft-sh/vcluster/test/e2e/node"
 	_ "github.com/loft-sh/vcluster/test/e2e/servicesync"
+	_ "github.com/loft-sh/vcluster/test/e2e/snapshot"
+	_ "github.com/loft-sh/vcluster/test/e2e/syncer/fromhost"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/networkpolicies"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pods"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pvc"
+	_ "github.com/loft-sh/vcluster/test/e2e/syncer/runtimeclass"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/services"
 	_ "github.com/loft-sh/vcluster/test/e2e/webhook"
 )
-
-var (
-	scheme = runtime.NewScheme()
-)
-
-func init() {
-	_ = clientgoscheme.AddToScheme(scheme)
-	// API extensions are not in the above scheme set,
-	// and must thus be added separately.
-	_ = apiextensionsv1beta1.AddToScheme(scheme)
-	_ = apiextensionsv1.AddToScheme(scheme)
-	_ = apiregistrationv1.AddToScheme(scheme)
-}
 
 // TestRunE2ETests checks configuration parameters (specified through flags) and then runs
 // E2E tests using the Ginkgo runner.
@@ -51,7 +37,7 @@ func init() {
 // This function is called on each Ginkgo node in parallel mode.
 func TestRunE2ETests(t *testing.T) {
 	gomega.RegisterFailHandler(ginkgo.Fail)
-	err := framework.CreateFramework(context.Background(), scheme)
+	err := framework.CreateFramework(context.Background())
 	if err != nil {
 		log.GetInstance().Fatalf("Error setting up framework: %v", err)
 	}
@@ -63,5 +49,5 @@ func TestRunE2ETests(t *testing.T) {
 		}
 	})
 
-	ginkgo.RunSpecs(t, "Vcluster e2e suite")
+	ginkgo.RunSpecs(t, "VCluster e2e suite")
 }

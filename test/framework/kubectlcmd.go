@@ -12,7 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/log"
+	"github.com/samber/lo"
 	"k8s.io/client-go/tools/clientcmd"
 	uexec "k8s.io/utils/exec"
 )
@@ -52,7 +53,6 @@ func (tk *TestKubeconfig) KubectlCmd(args ...string) *exec.Cmd {
 		if tk.KubeContext != "" {
 			defaultArgs = append(defaultArgs, "--"+clientcmd.FlagContext+"="+tk.KubeContext)
 		}
-
 	} else {
 		if tk.CertDir != "" {
 			defaultArgs = append(defaultArgs,
@@ -66,11 +66,11 @@ func (tk *TestKubeconfig) KubectlCmd(args ...string) *exec.Cmd {
 	}
 	kubectlArgs := append(defaultArgs, args...)
 
-	//We allow users to specify path to kubectl, so you can test either "kubectl" or "cluster/kubectl.sh"
-	//and so on.
+	// We allow users to specify path to kubectl, so you can test either "kubectl" or "cluster/kubectl.sh"
+	// and so on.
 	cmd := exec.Command(tk.KubectlPath, kubectlArgs...)
 
-	//caller will invoke this and wait on it.
+	// caller will invoke this and wait on it.
 	return cmd
 }
 
@@ -131,16 +131,16 @@ func (b KubectlBuilder) ExecOrDie(namespace string) string {
 }
 
 func isTimeout(err error) bool {
-	switch err := err.(type) {
-	case *url.Error:
-		if err, ok := err.Err.(net.Error); ok && err.Timeout() {
-			return true
-		}
-	case net.Error:
-		if err.Timeout() {
+	if _, ok := lo.ErrorsAs[*url.Error](err); ok {
+		if err, ok := lo.ErrorsAs[net.Error](err); ok && err.Timeout() {
 			return true
 		}
 	}
+
+	if err, ok := lo.ErrorsAs[net.Error](err); ok && err.Timeout() {
+		return true
+	}
+
 	return false
 }
 
@@ -158,7 +158,7 @@ func (b KubectlBuilder) ExecWithFullOutput() (string, string, error) {
 
 	log.GetInstance().Infof("Running '%s %s'", cmd.Path, strings.Join(cmd.Args[1:], " ")) // skip arg[0] as it is printed separately
 	if err := cmd.Start(); err != nil {
-		return "", "", fmt.Errorf("error starting %v:\nCommand stdout:\n%v\nstderr:\n%v\nerror:\n%v", cmd, cmd.Stdout, cmd.Stderr, err)
+		return "", "", fmt.Errorf("error starting %v:\nCommand stdout:\n%v\nstderr:\n%v\nerror:\n%w", cmd, cmd.Stdout, cmd.Stderr, err)
 	}
 	errCh := make(chan error, 1)
 	go func() {
@@ -167,13 +167,13 @@ func (b KubectlBuilder) ExecWithFullOutput() (string, string, error) {
 	select {
 	case err := <-errCh:
 		if err != nil {
-			var rc = 127
-			if ee, ok := err.(*exec.ExitError); ok {
-				rc = int(ee.Sys().(syscall.WaitStatus).ExitStatus())
+			rc := 127
+			if ee, ok := lo.ErrorsAs[*exec.ExitError](err); ok {
+				rc = ee.Sys().(syscall.WaitStatus).ExitStatus()
 				log.GetInstance().Infof("rc: %d", rc)
 			}
 			return stdout.String(), stderr.String(), uexec.CodeExitError{
-				Err:  fmt.Errorf("error running %v:\nCommand stdout:\n%v\nstderr:\n%v\nerror:\n%v", cmd, cmd.Stdout, cmd.Stderr, err),
+				Err:  fmt.Errorf("error running %v:\nCommand stdout:\n%v\nstderr:\n%v\nerror:\n%w", cmd, cmd.Stdout, cmd.Stderr, err),
 				Code: rc,
 			}
 		}

@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ValidatingAdmissionPolicyLister helps list ValidatingAdmissionPolicies.
@@ -30,39 +30,19 @@ import (
 type ValidatingAdmissionPolicyLister interface {
 	// List lists all ValidatingAdmissionPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.ValidatingAdmissionPolicy, err error)
+	List(selector labels.Selector) (ret []*admissionregistrationv1alpha1.ValidatingAdmissionPolicy, err error)
 	// Get retrieves the ValidatingAdmissionPolicy from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.ValidatingAdmissionPolicy, error)
+	Get(name string) (*admissionregistrationv1alpha1.ValidatingAdmissionPolicy, error)
 	ValidatingAdmissionPolicyListerExpansion
 }
 
 // validatingAdmissionPolicyLister implements the ValidatingAdmissionPolicyLister interface.
 type validatingAdmissionPolicyLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*admissionregistrationv1alpha1.ValidatingAdmissionPolicy]
 }
 
 // NewValidatingAdmissionPolicyLister returns a new ValidatingAdmissionPolicyLister.
 func NewValidatingAdmissionPolicyLister(indexer cache.Indexer) ValidatingAdmissionPolicyLister {
-	return &validatingAdmissionPolicyLister{indexer: indexer}
-}
-
-// List lists all ValidatingAdmissionPolicies in the indexer.
-func (s *validatingAdmissionPolicyLister) List(selector labels.Selector) (ret []*v1alpha1.ValidatingAdmissionPolicy, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ValidatingAdmissionPolicy))
-	})
-	return ret, err
-}
-
-// Get retrieves the ValidatingAdmissionPolicy from the index for a given name.
-func (s *validatingAdmissionPolicyLister) Get(name string) (*v1alpha1.ValidatingAdmissionPolicy, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("validatingadmissionpolicy"), name)
-	}
-	return obj.(*v1alpha1.ValidatingAdmissionPolicy), nil
+	return &validatingAdmissionPolicyLister{listers.New[*admissionregistrationv1alpha1.ValidatingAdmissionPolicy](indexer, admissionregistrationv1alpha1.Resource("validatingadmissionpolicy"))}
 }

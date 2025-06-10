@@ -21,11 +21,74 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync/atomic"
 
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/apiserver/pkg/util/responsewriter"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 )
+
+type CacheableDownloader interface {
+	UpdateHandler(http.Handler)
+	Get() (*spec.Swagger, string, error)
+}
+
+// cacheableDownloader is a downloader that will always return the data
+// and the etag.
+type cacheableDownloader struct {
+	name       string
+	downloader *Downloader
+	// handler is the http Handler for the apiservice that can be replaced
+	handler atomic.Pointer[http.Handler]
+	etag    string
+	spec    *spec.Swagger
+}
+
+// NewCacheableDownloader creates a downloader that also returns the etag, making it useful to use as a cached dependency.
+func NewCacheableDownloader(apiServiceName string, downloader *Downloader, handler http.Handler) CacheableDownloader {
+	c := &cacheableDownloader{
+		name:       apiServiceName,
+		downloader: downloader,
+	}
+	c.handler.Store(&handler)
+	return c
+}
+func (d *cacheableDownloader) UpdateHandler(handler http.Handler) {
+	d.handler.Store(&handler)
+}
+
+func (d *cacheableDownloader) Get() (*spec.Swagger, string, error) {
+	spec, etag, err := d.get()
+	if err != nil {
+		return spec, etag, fmt.Errorf("failed to download %v: %v", d.name, err)
+	}
+	return spec, etag, err
+}
+
+func (d *cacheableDownloader) get() (*spec.Swagger, string, error) {
+	h := *d.handler.Load()
+	swagger, etag, status, err := d.downloader.Download(h, d.etag)
+	if err != nil {
+		return nil, "", err
+	}
+	switch status {
+	case http.StatusNotModified:
+		// Nothing has changed, do nothing.
+	case http.StatusOK:
+		if swagger != nil {
+			d.etag = etag
+			d.spec = swagger
+			break
+		}
+		fallthrough
+	case http.StatusNotFound:
+		return nil, "", ErrAPIServiceNotFound
+	default:
+		return nil, "", fmt.Errorf("invalid status code: %v", status)
+	}
+	return d.spec, d.etag, nil
+}
 
 // Downloader is the OpenAPI downloader type. It will try to download spec from /openapi/v2 or /swagger.json endpoint.
 type Downloader struct {
@@ -64,10 +127,10 @@ func (s *Downloader) Download(handler http.Handler, etag string) (returnSpec *sp
 		req.Header.Add("If-None-Match", etag)
 	}
 
-	writer := newInMemoryResponseWriter()
+	writer := responsewriter.NewInMemoryResponseWriter()
 	handler.ServeHTTP(writer, req)
 
-	switch writer.respCode {
+	switch writer.RespCode() {
 	case http.StatusNotModified:
 		if len(etag) == 0 {
 			return nil, etag, http.StatusNotModified, fmt.Errorf("http.StatusNotModified is not allowed in absence of etag")
@@ -78,12 +141,12 @@ func (s *Downloader) Download(handler http.Handler, etag string) (returnSpec *sp
 		return nil, "", http.StatusNotFound, nil
 	case http.StatusOK:
 		openAPISpec := &spec.Swagger{}
-		if err := openAPISpec.UnmarshalJSON(writer.data); err != nil {
+		if err := openAPISpec.UnmarshalJSON(writer.Data()); err != nil {
 			return nil, "", 0, err
 		}
 		newEtag = writer.Header().Get("Etag")
 		if len(newEtag) == 0 {
-			newEtag = etagFor(writer.data)
+			newEtag = etagFor(writer.Data())
 			if len(etag) > 0 && strings.HasPrefix(etag, locallyGeneratedEtagPrefix) {
 				// The function call with an etag and server does not report an etag.
 				// That means this server does not support etag and the etag that passed
@@ -98,44 +161,4 @@ func (s *Downloader) Download(handler http.Handler, etag string) (returnSpec *sp
 	default:
 		return nil, "", 0, fmt.Errorf("failed to retrieve openAPI spec, http error: %s", writer.String())
 	}
-}
-
-// inMemoryResponseWriter is a http.Writer that keep the response in memory.
-type inMemoryResponseWriter struct {
-	writeHeaderCalled bool
-	header            http.Header
-	respCode          int
-	data              []byte
-}
-
-func newInMemoryResponseWriter() *inMemoryResponseWriter {
-	return &inMemoryResponseWriter{header: http.Header{}}
-}
-
-func (r *inMemoryResponseWriter) Header() http.Header {
-	return r.header
-}
-
-func (r *inMemoryResponseWriter) WriteHeader(code int) {
-	r.writeHeaderCalled = true
-	r.respCode = code
-}
-
-func (r *inMemoryResponseWriter) Write(in []byte) (int, error) {
-	if !r.writeHeaderCalled {
-		r.WriteHeader(http.StatusOK)
-	}
-	r.data = append(r.data, in...)
-	return len(in), nil
-}
-
-func (r *inMemoryResponseWriter) String() string {
-	s := fmt.Sprintf("ResponseCode: %d", r.respCode)
-	if r.data != nil {
-		s += fmt.Sprintf(", Body: %s", string(r.data))
-	}
-	if r.header != nil {
-		s += fmt.Sprintf(", Header: %s", r.header)
-	}
-	return s
 }

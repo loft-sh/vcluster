@@ -1,7 +1,9 @@
 package cmd
 
 import (
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"context"
+
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -9,9 +11,8 @@ import (
 
 // UpgradeCmd is a struct that defines a command call for "upgrade"
 type UpgradeCmd struct {
+	log     log.Logger
 	Version string
-
-	log log.Logger
 }
 
 // NewUpgradeCmd creates a new upgrade command
@@ -23,14 +24,15 @@ func NewUpgradeCmd() *cobra.Command {
 	upgradeCmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade the vcluster CLI to the newest version",
-		Long: `
-#######################################################
+		Long: `#######################################################
 ################## vcluster upgrade ###################
 #######################################################
 Upgrades the vcluster CLI to the newest version
 #######################################################`,
 		Args: cobra.NoArgs,
-		RunE: cmd.Run,
+		RunE: func(cobraCmd *cobra.Command, _ []string) error {
+			return cmd.Run(cobraCmd.Context())
+		},
 	}
 
 	upgradeCmd.Flags().StringVar(&cmd.Version, "version", "", "The version to update vcluster to. Defaults to the latest stable version available")
@@ -38,8 +40,8 @@ Upgrades the vcluster CLI to the newest version
 }
 
 // Run executes the command logic
-func (cmd *UpgradeCmd) Run(cobraCmd *cobra.Command, args []string) error {
-	err := upgrade.Upgrade(cmd.Version, cmd.log)
+func (cmd *UpgradeCmd) Run(ctx context.Context) error {
+	err := upgrade.Upgrade(ctx, cmd.Version, cmd.log)
 	if err != nil {
 		return errors.Errorf("Couldn't upgrade: %v", err)
 	}

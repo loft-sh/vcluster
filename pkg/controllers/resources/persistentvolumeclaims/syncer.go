@@ -1,25 +1,32 @@
 package persistentvolumeclaims
 
 import (
-	"context"
+	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	storagev1 "k8s.io/api/storage/v1"
+
 	"github.com/pkg/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 
-	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/persistentvolumes"
+	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
+
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 )
 
 var (
@@ -34,91 +41,99 @@ const (
 	storageProvisionerAnnotation = "volume.beta.kubernetes.io/storage-provisioner"
 )
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
-	storageClassesEnabled := ctx.Controllers.Has("storageclasses")
-	excludedAnnotations := []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation}
-	return &persistentVolumeClaimSyncer{
-		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, excludedAnnotations...),
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.PersistentVolumeClaims())
+	if err != nil {
+		return nil, err
+	}
 
-		storageClassesEnabled:    storageClassesEnabled,
-		schedulerEnabled:         ctx.Options.EnableScheduler,
-		useFakePersistentVolumes: !ctx.Controllers.Has("persistentvolumes"),
+	return &persistentVolumeClaimSyncer{
+		GenericTranslator: translator.NewGenericTranslator(ctx, "persistent-volume-claim", &corev1.PersistentVolumeClaim{}, mapper),
+		Importer:          pro.NewImporter(mapper),
+
+		excludedAnnotations: []string{bindCompletedAnnotation, boundByControllerAnnotation, storageProvisionerAnnotation},
+
+		storageClassesEnabled:    ctx.Config.Sync.ToHost.StorageClasses.Enabled,
+		schedulerEnabled:         ctx.Config.SchedulingInVirtualClusterEnabled(),
+		useFakePersistentVolumes: !ctx.Config.Sync.ToHost.PersistentVolumes.Enabled,
 	}, nil
 }
 
 type persistentVolumeClaimSyncer struct {
-	translator.NamespacedTranslator
+	syncertypes.GenericTranslator
+	syncertypes.Importer
+
+	excludedAnnotations []string
 
 	storageClassesEnabled    bool
 	schedulerEnabled         bool
 	useFakePersistentVolumes bool
 }
 
-var _ syncer.OptionsProvider = &persistentVolumeClaimSyncer{}
+var _ syncertypes.OptionsProvider = &persistentVolumeClaimSyncer{}
 
-func (s *persistentVolumeClaimSyncer) WithOptions() *syncer.Options {
-	return &syncer.Options{DisableUIDDeletion: true}
+func (s *persistentVolumeClaimSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		DisableUIDDeletion: true,
+		ObjectCaching:      true,
+	}
 }
 
-var _ syncer.Syncer = &persistentVolumeClaimSyncer{}
+var _ syncertypes.Syncer = &persistentVolumeClaimSyncer{}
 
-func (s *persistentVolumeClaimSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	vPvc := vObj.(*corev1.PersistentVolumeClaim)
-	if vPvc.DeletionTimestamp != nil {
-		// delete pvc immediately
-		ctx.Log.Infof("delete virtual persistent volume claim %s/%s immediately, because it is being deleted & there is no physical persistent volume claim", vPvc.Namespace, vPvc.Name)
-		err := ctx.VirtualClient.Delete(ctx.Context, vPvc, &client.DeleteOptions{
+func (s *persistentVolumeClaimSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer(s)
+}
+
+func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.PersistentVolumeClaim]) (ctrl.Result, error) {
+	if s.applyLimitByClass(ctx, event.Virtual) {
+		return ctrl.Result{}, nil
+	}
+
+	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
+		return patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.HostOld, "host object was deleted", &client.DeleteOptions{
 			GracePeriodSeconds: &zero,
 		})
-		if kerrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
 	}
 
-	newPvc, err := s.translate(ctx, vPvc)
+	pObj, err := s.translate(ctx, event.Virtual)
 	if err != nil {
-		s.EventRecorder().Event(vPvc, "Warning", "SyncError", err.Error())
+		s.EventRecorder().Event(event.Virtual, "Warning", "SyncError", err.Error())
 		return ctrl.Result{}, err
 	}
 
-	return s.SyncDownCreate(ctx, vObj, newPvc)
+	err = pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.PersistentVolumeClaims.Patches, false)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return patcher.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder(), true)
 }
 
-func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	vPvc := vObj.(*corev1.PersistentVolumeClaim)
-	pPvc := pObj.(*corev1.PersistentVolumeClaim)
+func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.PersistentVolumeClaim]) (_ ctrl.Result, retErr error) {
+	if s.applyLimitByClass(ctx, event.Virtual) {
+		return ctrl.Result{}, nil
+	}
 
 	// if pvs are deleted check the corresponding pvc is deleted as well
-	if pPvc.DeletionTimestamp != nil {
-		if vPvc.DeletionTimestamp == nil {
-			ctx.Log.Infof("delete virtual persistent volume claim %s/%s, because the physical persistent volume claim is being deleted", vPvc.Namespace, vPvc.Name)
-			if err := ctx.VirtualClient.Delete(ctx.Context, vPvc, &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds}); err != nil {
-				return ctrl.Result{}, err
-			}
-		} else if *vPvc.DeletionGracePeriodSeconds != *pPvc.DeletionGracePeriodSeconds {
-			ctx.Log.Infof("delete virtual persistent volume claim %s/%s with grace period seconds %v", vPvc.Namespace, vPvc.Name, *pPvc.DeletionGracePeriodSeconds)
-			if err := ctx.VirtualClient.Delete(ctx.Context, vPvc, &client.DeleteOptions{GracePeriodSeconds: pPvc.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(vPvc.UID))}); err != nil {
-				return ctrl.Result{}, err
-			}
+	if event.Host.DeletionTimestamp != nil {
+		if event.Virtual.DeletionTimestamp == nil {
+			return patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.Host, "host persistent volume claim is being deleted", &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
+		} else if *event.Virtual.DeletionGracePeriodSeconds != *event.Host.DeletionGracePeriodSeconds {
+			return patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.Host, fmt.Sprintf("with grace period seconds %v", *event.Host.DeletionGracePeriodSeconds), &client.DeleteOptions{GracePeriodSeconds: event.Host.DeletionGracePeriodSeconds, Preconditions: metav1.NewUIDPreconditions(string(event.Virtual.UID))})
 		}
 
 		return ctrl.Result{}, nil
-	} else if vPvc.DeletionTimestamp != nil {
-		ctx.Log.Infof("delete physical persistent volume claim %s/%s, because virtual persistent volume claim is being deleted", pPvc.Namespace, pPvc.Name)
-		err := ctx.PhysicalClient.Delete(ctx.Context, pPvc, &client.DeleteOptions{
-			GracePeriodSeconds: vPvc.DeletionGracePeriodSeconds,
-			Preconditions:      metav1.NewUIDPreconditions(string(pPvc.UID)),
+	} else if event.Virtual.DeletionTimestamp != nil {
+		return patcher.DeleteHostObjectWithOptions(ctx, event.Host, event.Virtual, "virtual persistent volume claim is being deleted", &client.DeleteOptions{
+			GracePeriodSeconds: event.Virtual.DeletionGracePeriodSeconds,
+			Preconditions:      metav1.NewUIDPreconditions(string(event.Host.UID)),
 		})
-		if kerrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
 	}
 
 	// make sure the persistent volume is synced / faked
-	if pPvc.Spec.VolumeName != "" {
-		requeue, err := s.ensurePersistentVolume(ctx, pPvc, vPvc, ctx.Log)
+	if event.Host.Spec.VolumeName != "" {
+		requeue, err := s.ensurePersistentVolume(ctx, event.Host, event.Virtual, ctx.Log)
 		if err != nil {
 			return ctrl.Result{}, err
 		} else if requeue {
@@ -126,50 +141,56 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, pObj cl
 		}
 	}
 
+	// patch objects
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.PersistentVolumeClaims.Patches, false))
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+	defer func() {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+
+		if retErr != nil {
+			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
+		}
+	}()
+
 	// check backwards update
-	updated := s.translateUpdateBackwards(pPvc, vPvc)
-	if updated != nil {
-		ctx.Log.Infof("update virtual persistent volume claim %s/%s, because the spec has changed", vPvc.Namespace, vPvc.Name)
-		translator.PrintChanges(vPvc, updated, ctx.Log)
-		err := ctx.VirtualClient.Update(ctx.Context, updated)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	s.translateUpdateBackwards(event.Host, event.Virtual)
 
-		// we will requeue anyways
-		return ctrl.Result{}, nil
+	// copy host status
+	event.Virtual.Status = *event.Host.Status.DeepCopy()
+
+	// allow storage size to be increased
+	event.Host.Spec.Resources.Requests = event.Virtual.Spec.Resources.Requests
+
+	// bi-directional sync of annotations and labels
+	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event, s.excludedAnnotations...)
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
+
+	return ctrl.Result{}, nil
+}
+
+func (s *persistentVolumeClaimSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.PersistentVolumeClaim]) (_ ctrl.Result, retErr error) {
+	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(event.Host) {
+		// virtual object is not here anymore, so we delete
+		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 
-	// check backwards status
-	if !equality.Semantic.DeepEqual(vPvc.Status, pPvc.Status) {
-		newPvc := vPvc.DeepCopy()
-		newPvc.Status = *pPvc.Status.DeepCopy()
-		ctx.Log.Infof("update virtual persistent volume claim %s/%s, because the status has changed", vPvc.Namespace, vPvc.Name)
-		translator.PrintChanges(vPvc, newPvc, ctx.Log)
-		err := ctx.VirtualClient.Status().Update(ctx.Context, newPvc)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		// we will requeue anyways
-		return ctrl.Result{}, nil
-	}
-
-	// forward update
-	newPvc, err := s.translateUpdate(ctx.Context, pPvc, vPvc)
+	vPvc := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host), s.excludedAnnotations...)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vPvc, event.Host, ctx.Config.Sync.ToHost.PersistentVolumeClaims.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
-	} else if newPvc != nil {
-		translator.PrintChanges(pPvc, newPvc, ctx.Log)
 	}
 
-	return s.SyncDownUpdate(ctx, vPvc, newPvc)
+	return patcher.CreateVirtualObject(ctx, event.Host, vPvc, s.EventRecorder(), true)
 }
 
 func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.SyncContext, pObj *corev1.PersistentVolumeClaim, vObj *corev1.PersistentVolumeClaim, log loghelper.Logger) (bool, error) {
 	// ensure the persistent volume is available in the virtual cluster
 	vPV := &corev1.PersistentVolume{}
-	err := ctx.VirtualClient.Get(ctx.Context, types.NamespacedName{Name: pObj.Spec.VolumeName}, vPV)
+	err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Name: pObj.Spec.VolumeName}, vPV)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			log.Infof("error retrieving virtual pv %s: %v", pObj.Spec.VolumeName, err)
@@ -180,25 +201,23 @@ func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.Sy
 	if pObj.Spec.VolumeName != "" && vObj.Spec.VolumeName != pObj.Spec.VolumeName {
 		newVolumeName := pObj.Spec.VolumeName
 		if !s.useFakePersistentVolumes {
-			vObj := &corev1.PersistentVolume{}
-			err = clienthelper.GetByIndex(ctx.Context, ctx.VirtualClient, vObj, constants.IndexByPhysicalName, pObj.Spec.VolumeName)
-			if err != nil {
-				log.Infof("error retrieving virtual persistent volume %s: %v", pObj.Spec.VolumeName, err)
-				return false, err
+			vName := mappings.HostToVirtual(ctx, pObj.Spec.VolumeName, "", nil, mappings.PersistentVolumes())
+			if vName.Name == "" {
+				log.Infof("error retrieving virtual persistent volume %s: not found", pObj.Spec.VolumeName)
+				return false, fmt.Errorf("error retrieving virtual persistent volume %s: not found", pObj.Spec.VolumeName)
 			}
 
-			newVolumeName = vObj.Name
+			newVolumeName = vName.Name
 		}
 
 		if newVolumeName != vObj.Spec.VolumeName {
 			if vObj.Spec.VolumeName != "" {
 				log.Infof("recreate persistent volume claim because volumeName differs between physical and virtual pvc: %s != %s", vObj.Spec.VolumeName, newVolumeName)
 				s.EventRecorder().Eventf(vObj, corev1.EventTypeWarning, "VolumeNameDiffers", "recreate persistent volume claim because volumeName differs between physical and virtual pvc: %s != %s", vObj.Spec.VolumeName, newVolumeName)
-				_, err = recreatePersistentVolumeClaim(ctx.Context, ctx.VirtualClient, vPV, vObj, newVolumeName, log)
+				_, err = recreatePersistentVolumeClaim(ctx, ctx.VirtualClient, vPV, vObj, newVolumeName, log)
 				if err != nil {
 					log.Infof("error recreating virtual persistent volume claim: %v", err)
 					return false, err
-
 				}
 
 				return true, nil
@@ -206,7 +225,7 @@ func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.Sy
 
 			log.Infof("update virtual pvc %s/%s volume name to %s", vObj.Namespace, vObj.Name, newVolumeName)
 			vObj.Spec.VolumeName = newVolumeName
-			err = ctx.VirtualClient.Update(ctx.Context, vObj)
+			err = ctx.VirtualClient.Update(ctx, vObj)
 			if err != nil {
 				return false, err
 			}
@@ -216,7 +235,7 @@ func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.Sy
 	return false, nil
 }
 
-func recreatePersistentVolumeClaim(ctx context.Context, virtualClient client.Client, vPV *corev1.PersistentVolume, vPVC *corev1.PersistentVolumeClaim, volumeName string, log loghelper.Logger) (*corev1.PersistentVolumeClaim, error) {
+func recreatePersistentVolumeClaim(ctx *synccontext.SyncContext, virtualClient client.Client, vPV *corev1.PersistentVolume, vPVC *corev1.PersistentVolumeClaim, volumeName string, log loghelper.Logger) (*corev1.PersistentVolumeClaim, error) {
 	// check if we should lock the pv from deletion
 	if vPV != nil && vPV.Name != "" {
 		// lock pv
@@ -277,4 +296,26 @@ func recreatePersistentVolumeClaim(ctx context.Context, virtualClient client.Cli
 	}
 
 	return vPVC, nil
+}
+
+func (s *persistentVolumeClaimSyncer) applyLimitByClass(ctx *synccontext.SyncContext, virtual *corev1.PersistentVolumeClaim) bool {
+	// Get the host storage class and check if it matches the selector
+	if ctx.Config.Sync.FromHost.StorageClasses.Enabled.Bool() && virtual.Spec.StorageClassName != nil && *virtual.Spec.StorageClassName != "" {
+		pStorageClass := &storagev1.StorageClass{}
+		err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.StorageClassName}, pStorageClass)
+		if err != nil || pStorageClass.GetDeletionTimestamp() != nil {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync persistent volume claim %q to host because the storage class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.StorageClassName, err)
+			return true
+		}
+		matches, err := ctx.Config.Sync.FromHost.StorageClasses.Selector.Matches(pStorageClass)
+		if err != nil {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync persistent volume claim %q to host because the storage class %q in the host could not be checked against the selector under 'sync.fromHost.storageClasses.selector': %s", virtual.GetName(), pStorageClass.GetName(), err)
+			return true
+		}
+		if !matches {
+			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync persistent volume claim %q to host because the storage class %q in the host does not match the selector under 'sync.fromHost.storageClasses.selector'", virtual.GetName(), pStorageClass.GetName())
+			return true
+		}
+	}
+	return false
 }

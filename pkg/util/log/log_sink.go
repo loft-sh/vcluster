@@ -46,8 +46,8 @@ func (l *logSink) WithDepth(depth int) logr.Logger {
 	})
 }
 
-func (l *logSink) Init(info logr.RuntimeInfo) {
-	//l.depth = info.CallDepth
+func (l *logSink) Init(logr.RuntimeInfo) {
+	// l.depth = info.CallDepth
 }
 
 // Info logs a non-error message with the given key/value pairs as context.
@@ -56,7 +56,7 @@ func (l *logSink) Init(info logr.RuntimeInfo) {
 // the log line.  The key/value pairs can then be used to add additional
 // variable information.  The key/value pairs should alternate string
 // keys and arbitrary values.
-func (l *logSink) Info(level int, msg string, keysAndValues ...interface{}) {
+func (l *logSink) Info(_ int, msg string, keysAndValues ...interface{}) {
 	klog.InfoDepth(l.depth, l.formatMsg(msg, keysAndValues...))
 }
 
@@ -176,10 +176,10 @@ func formatKeysAndValues(keysAndValues ...interface{}) string {
 
 type silent struct{}
 
-func (s *silent) Init(info logr.RuntimeInfo)                                {}
-func (s *silent) Info(level int, msg string, keysAndValues ...interface{})  {}
-func (s *silent) Enabled(level int) bool                                    { return false }
-func (s *silent) Error(err error, msg string, keysAndValues ...interface{}) {}
-func (s *silent) V(level int) logr.Logger                                   { return logr.New(s) }
-func (s *silent) WithValues(keysAndValues ...interface{}) logr.LogSink      { return s }
-func (s *silent) WithName(name string) logr.LogSink                         { return s }
+func (s *silent) Init(_ logr.RuntimeInfo)                   {}
+func (s *silent) Info(_ int, _ string, _ ...interface{})    {}
+func (s *silent) Enabled(_ int) bool                        { return false }
+func (s *silent) Error(_ error, _ string, _ ...interface{}) {}
+func (s *silent) V(_ int) logr.Logger                       { return logr.New(s) }
+func (s *silent) WithValues(_ ...interface{}) logr.LogSink  { return s }
+func (s *silent) WithName(_ string) logr.LogSink            { return s }

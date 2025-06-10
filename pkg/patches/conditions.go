@@ -1,7 +1,7 @@
 package patches
 
 import (
-	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/pkg/errors"
 	"github.com/vmware-labs/yaml-jsonpath/pkg/yamlpath"
 	yaml "gopkg.in/yaml.v3"
@@ -30,9 +30,9 @@ func ValidateCondition(obj *yaml.Node, match *yaml.Node, condition *config.Patch
 		if match == nil {
 			if (condition.Empty != nil && *condition.Empty) || condition.NotEqual != nil {
 				return true, nil
-			} else {
-				return false, nil
 			}
+
+			return false, nil
 		}
 
 		path, err := yamlpath.NewPath(condition.SubPath)

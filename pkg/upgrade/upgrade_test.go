@@ -1,13 +1,13 @@
 package upgrade
 
 import (
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"context"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/loft-sh/log"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
-
 	"gotest.tools/assert"
 )
 
@@ -29,7 +29,7 @@ func TestEraseVersionPrefix(t *testing.T) {
 
 func TestUpgrade(t *testing.T) {
 	t.Skip("Skip because of some API-limit")
-	//Create TmpFolder
+	// Create TmpFolder
 	dir, err := os.MkdirTemp("", "test")
 	if err != nil {
 		t.Fatalf("Error creating temporary directory: %v", err)
@@ -60,7 +60,9 @@ func TestUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating temporary log file: %v", err)
 	}
-	*(os.Stderr) = *logFile
+	if logFile != nil {
+		*(os.Stderr) = *logFile
+	}
 
 	latest, found, err := selfupdate.DetectLatest(githubSlug)
 	if err != nil {
@@ -73,8 +75,9 @@ func TestUpgrade(t *testing.T) {
 	version = latest.Version.String()
 	defer func() { version = versionBackup }()
 
-	//Newest version already reached
-	err = Upgrade("", log.GetInstance())
+	// Newest version already reached
+	ctx := context.Background()
+	err = Upgrade(ctx, "", log.GetInstance())
 	assert.Equal(t, false, err != nil, "Upgrade returned error if newest version already reached")
 	err = logFile.Close()
 	if err != nil {
@@ -86,10 +89,10 @@ func TestUpgrade(t *testing.T) {
 	}
 	assert.Equal(t, true, strings.Contains(string(logs), "Current binary is the latest version:  "+version))
 
-	//Invalid githubSlug causes search to return an error
+	// Invalid githubSlug causes search to return an error
 	githubSlugBackup := githubSlug
 	githubSlug = ""
 	defer func() { githubSlug = githubSlugBackup }()
-	err = Upgrade("", log.GetInstance())
+	err = Upgrade(ctx, "", log.GetInstance())
 	assert.Equal(t, true, err != nil, "No error returned if DetectLatest returns one.")
 }

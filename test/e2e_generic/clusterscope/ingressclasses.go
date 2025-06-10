@@ -38,7 +38,7 @@ var _ = ginkgo.Describe("Generic sync cluster scoped resources", func() {
 		var ingClass *networkingv1.IngressClass
 
 		err = wait.PollUntilContextTimeout(ctx, time.Millisecond*500, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
-			ingClass, err = f.VclusterClient.NetworkingV1().IngressClasses().Get(ctx, IngressClassName, metav1.GetOptions{})
+			ingClass, err = f.VClusterClient.NetworkingV1().IngressClasses().Get(ctx, IngressClassName, metav1.GetOptions{})
 			if err != nil {
 				if kerrors.IsNotFound(err) {
 					return false, nil
@@ -57,7 +57,7 @@ var _ = ginkgo.Describe("Generic sync cluster scoped resources", func() {
 	ginkgo.It("deleting virtual cluster scoped object doesn't delete the physical", func() {
 		ctx := f.Context
 
-		err := f.VclusterClient.NetworkingV1().IngressClasses().Delete(ctx, IngressClassName, metav1.DeleteOptions{})
+		err := f.VClusterClient.NetworkingV1().IngressClasses().Delete(ctx, IngressClassName, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 
 		// should not delete the physical ingress class
@@ -84,7 +84,7 @@ var _ = ginkgo.Describe("Generic sync cluster scoped resources", func() {
 		framework.ExpectNoError(err)
 
 		err = wait.PollUntilContextTimeout(ctx, time.Millisecond*500, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
-			_, err = f.VclusterClient.NetworkingV1().IngressClasses().Get(ctx, IngressClassName, metav1.GetOptions{})
+			_, err = f.VClusterClient.NetworkingV1().IngressClasses().Get(ctx, IngressClassName, metav1.GetOptions{})
 			if kerrors.IsNotFound(err) {
 				return true, nil
 			}

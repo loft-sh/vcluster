@@ -20,6 +20,7 @@ import (
 	"time"
 
 	oteltrace "go.opentelemetry.io/otel/trace"
+	noopoteltrace "go.opentelemetry.io/otel/trace/noop"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -62,11 +63,6 @@ type Config struct {
 	Prefix string
 	// Transport holds all connection related info, i.e. equal TransportConfig means equal servers we talk to.
 	Transport TransportConfig
-	// Paging indicates whether the server implementation should allow paging (if it is
-	// supported). This is generally configured by feature gating, or by a specific
-	// resource type not wishing to allow paging, and is not intended for end users to
-	// set.
-	Paging bool
 
 	Codec runtime.Codec
 	// EncodeVersioner is the same groupVersioner used to build the
@@ -115,7 +111,6 @@ func (config *Config) ForResource(resource schema.GroupResource) *ConfigForResou
 
 func NewDefaultConfig(prefix string, codec runtime.Codec) *Config {
 	return &Config{
-		Paging:               true,
 		Prefix:               prefix,
 		Codec:                codec,
 		CompactionInterval:   DefaultCompactInterval,
@@ -123,6 +118,6 @@ func NewDefaultConfig(prefix string, codec runtime.Codec) *Config {
 		HealthcheckTimeout:   DefaultHealthcheckTimeout,
 		ReadycheckTimeout:    DefaultReadinessTimeout,
 		LeaseManagerConfig:   etcd3.NewDefaultLeaseManagerConfig(),
-		Transport:            TransportConfig{TracerProvider: oteltrace.NewNoopTracerProvider()},
+		Transport:            TransportConfig{TracerProvider: noopoteltrace.NewTracerProvider()},
 	}
 }

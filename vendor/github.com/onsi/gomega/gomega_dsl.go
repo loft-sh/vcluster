@@ -22,7 +22,7 @@ import (
 	"github.com/onsi/gomega/types"
 )
 
-const GOMEGA_VERSION = "1.27.7"
+const GOMEGA_VERSION = "1.35.1"
 
 const nilGomegaPanic = `You are trying to make an assertion, but haven't registered Gomega's fail handler.
 If you're using Ginkgo then you probably forgot to put your assertion in an It().
@@ -242,7 +242,7 @@ func ExpectWithOffset(offset int, actual interface{}, extra ...interface{}) Asse
 Eventually enables making assertions on asynchronous behavior.
 
 Eventually checks that an assertion *eventually* passes.  Eventually blocks when called and attempts an assertion periodically until it passes or a timeout occurs.  Both the timeout and polling interval are configurable as optional arguments.
-The first optional argument is the timeout (which defaults to 1s), the second is the polling interval (which defaults to 10ms).  Both intervals can be specified as time.Duration, parsable duration strings or floats/integers (in which case they are interpreted as seconds).  In addition an optional context.Context can be passed in - Eventually will keep trying until either the timeout epxires or the context is cancelled, whichever comes first.
+The first optional argument is the timeout (which defaults to 1s), the second is the polling interval (which defaults to 10ms).  Both intervals can be specified as time.Duration, parsable duration strings or floats/integers (in which case they are interpreted as seconds).  In addition an optional context.Context can be passed in - Eventually will keep trying until either the timeout expires or the context is cancelled, whichever comes first.
 
 Eventually works with any Gomega compatible matcher and supports making assertions against three categories of actual value:
 
@@ -313,13 +313,25 @@ It is important to note that the function passed into Eventually is invoked *syn
 		}).Should(BeNumerically(">=", 17))
 	}, SpecTimeout(time.Second))
 
-you an also use Eventually().WithContext(ctx) to pass in the context.  Passed-in contexts play nicely with paseed-in arguments as long as the context appears first.  You can rewrite the above example as:
+you an also use Eventually().WithContext(ctx) to pass in the context.  Passed-in contexts play nicely with passed-in arguments as long as the context appears first.  You can rewrite the above example as:
 
 	It("fetches the correct count", func(ctx SpecContext) {
 		Eventually(client.FetchCount).WithContext(ctx).WithArguments("/users").Should(BeNumerically(">=", 17))
 	}, SpecTimeout(time.Second))
 
-Either way the context passd to Eventually is also passed to the underlying funciton.  Now, when Ginkgo cancels the context both the FetchCount client and Gomega will be informed and can exit.
+Either way the context pasesd to Eventually is also passed to the underlying function.  Now, when Ginkgo cancels the context both the FetchCount client and Gomega will be informed and can exit.
+
+By default, when a context is passed to Eventually *without* an explicit timeout, Gomega will rely solely on the context's cancellation to determine when to stop polling.  If you want to specify a timeout in addition to the context you can do so using the .WithTimeout() method.  For example:
+
+	Eventually(client.FetchCount).WithContext(ctx).WithTimeout(10*time.Second).Should(BeNumerically(">=", 17))
+
+now either the context cacnellation or the timeout will cause Eventually to stop polling.
+
+If, instead, you would like to opt out of this behavior and have Gomega's default timeouts govern Eventuallys that take a context you can call:
+
+	EnforceDefaultTimeoutsWhenUsingContexts()
+
+in the DSL (or on a Gomega instance).  Now all calls to Eventually that take a context will fail if eitehr the context is cancelled or the default timeout elapses.
 
 **Category 3: Making assertions _in_ the function passed into Eventually**
 
@@ -349,7 +361,7 @@ For example:
 
 will rerun the function until all assertions pass.
 
-You can also pass additional arugments to functions that take a Gomega.  The only rule is that the Gomega argument must be first.  If you also want to pass the context attached to Eventually you must ensure that is the second argument.  For example:
+You can also pass additional arguments to functions that take a Gomega.  The only rule is that the Gomega argument must be first.  If you also want to pass the context attached to Eventually you must ensure that is the second argument.  For example:
 
 	Eventually(func(g Gomega, ctx context.Context, path string, expected ...string){
 		tok, err := client.GetToken(ctx)
@@ -372,11 +384,11 @@ You can ensure that you get a number of consecutive successful tries before succ
 
 Finally, in addition to passing timeouts and a context to Eventually you can be more explicit with Eventually's chaining configuration methods:
 
-	Eventually(..., "1s", "2s", ctx).Should(...)
+	Eventually(..., "10s", "2s", ctx).Should(...)
 
 is equivalent to
 
-	Eventually(...).WithTimeout(time.Second).WithPolling(2*time.Second).WithContext(ctx).Should(...)
+	Eventually(...).WithTimeout(10*time.Second).WithPolling(2*time.Second).WithContext(ctx).Should(...)
 */
 func Eventually(actualOrCtx interface{}, args ...interface{}) AsyncAssertion {
 	ensureDefaultGomegaIsConfigured()
@@ -489,6 +501,16 @@ func SetDefaultConsistentlyDuration(t time.Duration) {
 // SetDefaultConsistentlyPollingInterval sets the default polling interval for Consistently.
 func SetDefaultConsistentlyPollingInterval(t time.Duration) {
 	Default.SetDefaultConsistentlyPollingInterval(t)
+}
+
+// EnforceDefaultTimeoutsWhenUsingContexts forces `Eventually` to apply a default timeout even when a context is provided.
+func EnforceDefaultTimeoutsWhenUsingContexts() {
+	Default.EnforceDefaultTimeoutsWhenUsingContexts()
+}
+
+// DisableDefaultTimeoutsWhenUsingContext disables the default timeout when a context is provided to `Eventually`.
+func DisableDefaultTimeoutsWhenUsingContext() {
+	Default.DisableDefaultTimeoutsWhenUsingContext()
 }
 
 // AsyncAssertion is returned by Eventually and Consistently and polls the actual value passed into Eventually against

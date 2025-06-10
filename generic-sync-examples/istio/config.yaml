@@ -22,11 +22,11 @@ coredns:
 # Traffic to service.namespace.svc(.cluster.local) URLs will not be routed by Istio.
 #
 ---
-multiNamespaceMode:
-  enabled: true
+experimental:
+  multiNamespaceMode:
+    enabled: true
 
-sync:
-  generic:
+  genericSync:
     role:
       extraRules:
         - apiGroups: ["networking.istio.io"]
@@ -38,29 +38,27 @@ sync:
         - apiGroups: ["apiextensions.k8s.io"]
           resources: ["customresourcedefinitions"]
           verbs: ["get", "list", "watch"]
-    config: |-
-      version: v1beta1
-      export:
-        - apiVersion: networking.istio.io/v1beta1
-          kind: Gateway
+    export:
+      - apiVersion: networking.istio.io/v1beta1
+        kind: Gateway
 
-        - apiVersion: networking.istio.io/v1beta1
-          kind: VirtualService
-          patches:
-            - op: rewriteName
-              path: .spec.gateways[*]
-              regex: "($NAMESPACE/)?$NAME"
-              conditions:
-                - notEqual: "mesh"
+      - apiVersion: networking.istio.io/v1beta1
+        kind: VirtualService
+        patches:
+          - op: rewriteName
+            path: .spec.gateways[*]
+            regex: "($NAMESPACE/)?$NAME"
+            conditions:
+              - notEqual: "mesh"
 
-        - apiVersion: networking.istio.io/v1beta1
-          kind: DestinationRule
-          patches:
-            - op: rewriteName
-              path: .spec.exportTo
-              regex: $NAMESPACE
-              conditions:
-                - notEqual: "."
-      import:
-        - kind: Secret
-          apiVersion: v1
+      - apiVersion: networking.istio.io/v1beta1
+        kind: DestinationRule
+        patches:
+          - op: rewriteName
+            path: .spec.exportTo
+            regex: $NAMESPACE
+            conditions:
+              - notEqual: "."
+    import:
+      - kind: Secret
+        apiVersion: v1

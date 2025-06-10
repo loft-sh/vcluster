@@ -16,7 +16,8 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func EnsureCRDFromFile(ctx context.Context, config *rest.Config, crdFilePath string, groupVersionKind schema.GroupVersionKind) error {
+// EnsureCRD should be replaceable by unit tests
+var EnsureCRD = func(ctx context.Context, config *rest.Config, manifest []byte, groupVersionKind schema.GroupVersionKind) error {
 	exists, err := KindExists(config, groupVersionKind)
 	if err != nil {
 		return err
@@ -25,25 +26,25 @@ func EnsureCRDFromFile(ctx context.Context, config *rest.Config, crdFilePath str
 	}
 
 	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: 5 * time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
-		err := applier.ApplyManifestFile(ctx, config, crdFilePath)
+		err := applier.ApplyManifest(ctx, config, manifest)
 		if err != nil {
-			loghelper.Infof("Failed to apply CRD %s from the manifest file %s: %v", groupVersionKind.String(), crdFilePath, err)
+			loghelper.Infof("Failed to apply CRD %s: %v", groupVersionKind.String(), err)
 			return false, nil
 		}
 		return true, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to apply CRD %s: %v", groupVersionKind.String(), err)
+		return fmt.Errorf("failed to apply CRD %s: %w", groupVersionKind.String(), err)
 	}
 
-	var lastErr error
-	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
+	var errKindExists error
+	err = wait.ExponentialBackoffWithContext(ctx, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(_ context.Context) (bool, error) {
 		var found bool
-		found, lastErr = KindExists(config, groupVersionKind)
+		found, errKindExists = KindExists(config, groupVersionKind)
 		return found, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to find CRD %s: %v: %v", groupVersionKind.String(), err, lastErr)
+		return fmt.Errorf("failed to find CRD %s: %w: %w", groupVersionKind.String(), err, errKindExists)
 	}
 
 	return nil

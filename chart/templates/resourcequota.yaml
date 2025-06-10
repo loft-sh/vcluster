@@ -1,0 +1,44 @@
+{{- if or (eq (toString .Values.policies.resourceQuota.enabled) "true") (eq (toString .Values.policies.limitRange.enabled) "true") }}
+{{- if not (eq (toString .Values.policies.resourceQuota.enabled) "false") }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: vc-{{ .Release.Name }}
+  {{- if .Values.experimental.syncSettings.targetNamespace }}
+  namespace: {{ .Values.experimental.syncSettings.targetNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    app: vcluster
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+    {{- if .Values.policies.resourceQuota.labels }}
+{{ toYaml .Values.policies.resourceQuota.labels | indent 4 }}
+    {{- end }}
+  {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.policies.resourceQuota.annotations }}
+  {{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.policies.resourceQuota.quota }}
+  hard:
+    {{- range $key, $val := .Values.policies.resourceQuota.quota }}
+    {{ $key }}: {{ $val | quote }}
+    {{- end }}
+  {{- end }}
+
+  {{- if .Values.policies.resourceQuota.scopeSelector.matchExpressions }}
+  scopeSelector:
+    matchExpressions:
+{{- toYaml .Values.policies.resourceQuota.scopeSelector.matchExpressions | nindent 6 }}
+  {{- end }}
+
+  {{- if .Values.policies.resourceQuota.scopes }}
+  scopes:
+{{- toYaml .Values.policies.resourceQuota.scopes | nindent 4 }}
+  {{- end}}
+{{- end }}
+{{- end }}

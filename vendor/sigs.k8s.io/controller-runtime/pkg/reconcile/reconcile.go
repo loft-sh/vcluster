@@ -19,9 +19,11 @@ package reconcile
 import (
 	"context"
 	"errors"
+	"reflect"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Result contains the result of a Reconciler invocation.
@@ -87,20 +89,70 @@ driven by actual cluster state read from the apiserver or a local cache.
 For example if responding to a Pod Delete Event, the Request won't contain that a Pod was deleted,
 instead the reconcile function observes this when reading the cluster state and seeing the Pod as missing.
 */
-type Reconciler interface {
+type Reconciler = TypedReconciler[Request]
+
+// TypedReconciler implements an API for a specific Resource by Creating, Updating or Deleting Kubernetes
+// objects, or by making changes to systems external to the cluster (e.g. cloudproviders, github, etc).
+//
+// The request type is what event handlers put into the workqueue. The workqueue then de-duplicates identical
+// requests.
+type TypedReconciler[request comparable] interface {
 	// Reconcile performs a full reconciliation for the object referred to by the Request.
-	// The Controller will requeue the Request to be processed again if an error is non-nil or
-	// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-	Reconcile(context.Context, Request) (Result, error)
+	//
+	// If the returned error is non-nil, the Result is ignored and the request will be
+	// requeued using exponential backoff. The only exception is if the error is a
+	// TerminalError in which case no requeuing happens.
+	//
+	// If the error is nil and the returned Result has a non-zero result.RequeueAfter, the request
+	// will be requeued after the specified duration.
+	//
+	// If the error is nil and result.RequeueAfter is zero and result.Requeue is true, the request
+	// will be requeued using exponential backoff.
+	Reconcile(context.Context, request) (Result, error)
 }
 
 // Func is a function that implements the reconcile interface.
-type Func func(context.Context, Request) (Result, error)
+type Func = TypedFunc[Request]
+
+// TypedFunc is a function that implements the reconcile interface.
+type TypedFunc[request comparable] func(context.Context, request) (Result, error)
 
 var _ Reconciler = Func(nil)
 
 // Reconcile implements Reconciler.
-func (r Func) Reconcile(ctx context.Context, o Request) (Result, error) { return r(ctx, o) }
+func (r TypedFunc[request]) Reconcile(ctx context.Context, req request) (Result, error) {
+	return r(ctx, req)
+}
+
+// ObjectReconciler is a specialized version of Reconciler that acts on instances of client.Object. Each reconciliation
+// event gets the associated object from Kubernetes before passing it to Reconcile. An ObjectReconciler can be used in
+// Builder.Complete by calling AsReconciler. See Reconciler for more details.
+type ObjectReconciler[object client.Object] interface {
+	Reconcile(context.Context, object) (Result, error)
+}
+
+// AsReconciler creates a Reconciler based on the given ObjectReconciler.
+func AsReconciler[object client.Object](client client.Client, rec ObjectReconciler[object]) Reconciler {
+	return &objectReconcilerAdapter[object]{
+		objReconciler: rec,
+		client:        client,
+	}
+}
+
+type objectReconcilerAdapter[object client.Object] struct {
+	objReconciler ObjectReconciler[object]
+	client        client.Client
+}
+
+// Reconcile implements Reconciler.
+func (a *objectReconcilerAdapter[object]) Reconcile(ctx context.Context, req Request) (Result, error) {
+	o := reflect.New(reflect.TypeOf(*new(object)).Elem()).Interface().(object)
+	if err := a.client.Get(ctx, req.NamespacedName, o); err != nil {
+		return Result{}, client.IgnoreNotFound(err)
+	}
+
+	return a.objReconciler.Reconcile(ctx, o)
+}
 
 // TerminalError is an error that will not be retried but still be logged
 // and recorded in metrics.
@@ -112,11 +164,15 @@ type terminalError struct {
 	err error
 }
 
+// This function will return nil if te.err is nil.
 func (te *terminalError) Unwrap() error {
 	return te.err
 }
 
 func (te *terminalError) Error() string {
+	if te.err == nil {
+		return "nil terminal error"
+	}
 	return "terminal error: " + te.err.Error()
 }
 

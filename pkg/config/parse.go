@@ -2,189 +2,125 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
-	"github.com/samber/lo"
+	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/strvals"
+	"github.com/loft-sh/vcluster/pkg/util/stringutil"
+	"github.com/pkg/errors"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/yaml"
 )
 
-var (
-	verbs = []string{"get", "list", "create", "update", "patch", "watch", "delete", "deletecollection"}
-)
+func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, error) {
+	// check if name is empty
+	if name == "" {
+		return nil, fmt.Errorf("empty vCluster name")
+	}
 
-func Parse(rawConfig string) (*Config, error) {
-	c := &Config{}
-	err := yaml.UnmarshalStrict([]byte(rawConfig), c)
+	// read config file
+	rawFile, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	err = validate(c)
+	// apply set values
+	rawFile, err = applySetValues(rawFile, setValues)
+	if err != nil {
+		return nil, fmt.Errorf("apply set values: %w", err)
+	}
+
+	// create a new strict decoder
+	rawConfig := &config.Config{}
+	err = yaml.UnmarshalStrict(rawFile, rawConfig)
+	if err != nil {
+		fmt.Printf("%#+v\n", errors.Unwrap(err))
+		return nil, err
+	}
+
+	// build config
+	retConfig := &VirtualClusterConfig{
+		Config:              *rawConfig,
+		Name:                name,
+		ControlPlaneService: name,
+	}
+
+	// validate config
+	err = ValidateConfigAndSetDefaults(retConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return c, nil
+	return retConfig, nil
 }
 
-func validate(config *Config) error {
-	if config.Version != Version {
-		return fmt.Errorf("unsupported configuration version. Only %s is supported currently", Version)
+func applySetValues(rawConfig []byte, setValues []string) ([]byte, error) {
+	if len(setValues) == 0 {
+		return rawConfig, nil
 	}
 
-	err := validateExportDuplicates(config.Exports)
+	// parse raw config
+	rawConfigMap := map[string]interface{}{}
+	err := yaml.Unmarshal(rawConfig, &rawConfigMap)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("parse raw config: %w", err)
 	}
 
-	for idx, exp := range config.Exports {
-		if exp == nil {
-			return fmt.Errorf("exports[%d] is required", idx)
-		}
-
-		if exp.Kind == "" {
-			return fmt.Errorf("exports[%d].kind is required", idx)
-		}
-
-		if exp.APIVersion == "" {
-			return fmt.Errorf("exports[%d].APIVersion is required", idx)
-		}
-
-		for patchIdx, patch := range exp.Patches {
-			err := validatePatch(patch)
-			if err != nil {
-				return fmt.Errorf("invalid exports[%d].patches[%d]: %v", idx, patchIdx, err)
-			}
-		}
-
-		for patchIdx, patch := range exp.ReversePatches {
-			err := validatePatch(patch)
-			if err != nil {
-				return fmt.Errorf("invalid exports[%d].reversPatches[%d]: %v", idx, patchIdx, err)
-			}
+	// merge set
+	for _, set := range setValues {
+		err = strvals.ParseInto(set, rawConfigMap)
+		if err != nil {
+			return nil, fmt.Errorf("apply --set %s: %w", set, err)
 		}
 	}
 
-	err = validateImportDuplicates(config.Imports)
+	// marshal again
+	rawConfig, err = yaml.Marshal(rawConfigMap)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("marshal config bytes: %w", err)
 	}
 
-	for idx, imp := range config.Imports {
-		if imp == nil {
-			return fmt.Errorf("imports[%d] is required", idx)
-		}
-
-		if imp.Kind == "" {
-			return fmt.Errorf("imports[%d].kind is required", idx)
-		}
-
-		if imp.APIVersion == "" {
-			return fmt.Errorf("imports[%d].APIVersion is required", idx)
-		}
-
-		for patchIdx, patch := range imp.Patches {
-			err := validatePatch(patch)
-			if err != nil {
-				return fmt.Errorf("invalid imports[%d].patches[%d]: %v", idx, patchIdx, err)
-			}
-		}
-
-		for patchIdx, patch := range imp.ReversePatches {
-			err := validatePatch(patch)
-			if err != nil {
-				return fmt.Errorf("invalid imports[%d].reversPatches[%d]: %v", idx, patchIdx, err)
-			}
-		}
-	}
-
-	if config.Hooks != nil {
-		// HostToVirtual validation
-		for idx, hook := range config.Hooks.HostToVirtual {
-			for idy, verb := range hook.Verbs {
-				if err := validateVerb(verb); err != nil {
-					return fmt.Errorf("invalid hooks.hostToVirtual[%d].verbs[%d]: %v", idx, idy, err)
-				}
-			}
-
-			for idy, patch := range hook.Patches {
-				if err := validatePatch(patch); err != nil {
-					return fmt.Errorf("invalid hooks.hostToVirtual[%d].patches[%d]: %v", idx, idy, err)
-				}
-			}
-		}
-
-		// VirtualToHost validation
-		for idx, hook := range config.Hooks.VirtualToHost {
-			for idy, verb := range hook.Verbs {
-				if err := validateVerb(verb); err != nil {
-					return fmt.Errorf("invalid hooks.virtualToHost[%d].verbs[%d]: %v", idx, idy, err)
-				}
-			}
-
-			for idy, patch := range hook.Patches {
-				if err := validatePatch(patch); err != nil {
-					return fmt.Errorf("invalid hooks.virtualToHost[%d].patches[%d]: %v", idx, idy, err)
-				}
-			}
-		}
-	}
-
-	return nil
+	return rawConfig, nil
 }
 
-func validatePatch(patch *Patch) error {
-	switch patch.Operation {
-	case PatchTypeRemove, PatchTypeReplace, PatchTypeAdd:
-		if patch.FromPath != "" {
-			return fmt.Errorf("fromPath is not supported for this operation")
+func GetLocalCacheOptionsFromConfigMappings(mappings map[string]string, vClusterNamespace string) (cache.Options, bool) {
+	defaultNamespaces := make(map[string]cache.Config)
+	namespaces := parseHostNamespacesFromMappings(mappings, vClusterNamespace)
+	if len(namespaces) == 1 {
+		for _, k := range namespaces {
+			if k == vClusterNamespace {
+				// then there is no need to create custom manager
+				return cache.Options{}, false
+			}
 		}
-
-		return nil
-	case PatchTypeRewriteName, PatchTypeRewriteLabelSelector, PatchTypeRewriteLabelKey, PatchTypeRewriteLabelExpressionsSelector:
-		return nil
-	case PatchTypeCopyFromObject:
-		if patch.FromPath == "" {
-			return fmt.Errorf("fromPath is required for this operation")
-		}
-
-		return nil
-	default:
-		return fmt.Errorf("unsupported patch type %s", patch.Operation)
 	}
+	for _, ns := range namespaces {
+		defaultNamespaces[ns] = cache.Config{}
+	}
+	return cache.Options{DefaultNamespaces: defaultNamespaces}, true
 }
 
-func validateVerb(verb string) error {
-	if !lo.Contains(verbs, verb) {
-		return fmt.Errorf("invalid verb \"%s\"; expected on of %q", verb, verbs)
-	}
-
-	return nil
-}
-
-func validateExportDuplicates(exports []*Export) error {
-	gvks := map[string]bool{}
-	for _, e := range exports {
-		k := fmt.Sprintf("%s|%s", e.APIVersion, e.Kind)
-		_, found := gvks[k]
-		if found {
-			return fmt.Errorf("duplicate export for APIVersion %s and %s Kind, only one export for each APIVersion+Kind is permitted", e.APIVersion, e.Kind)
+func parseHostNamespacesFromMappings(mappings map[string]string, vClusterNs string) []string {
+	ret := make([]string, 0)
+	for host := range mappings {
+		if host == constants.VClusterNamespaceInHostMappingSpecialCharacter {
+			ret = append(ret, vClusterNs)
 		}
-		gvks[k] = true
-	}
-
-	return nil
-}
-
-func validateImportDuplicates(imports []*Import) error {
-	gvks := map[string]bool{}
-	for _, e := range imports {
-		k := fmt.Sprintf("%s|%s", e.APIVersion, e.Kind)
-		_, found := gvks[k]
-		if found {
-			return fmt.Errorf("duplicate import for APIVersion %s and %s Kind, only one import for each APIVersion+Kind is permitted", e.APIVersion, e.Kind)
+		parts := strings.Split(host, "/")
+		if len(parts) != 2 {
+			continue
 		}
-		gvks[k] = true
-	}
 
-	return nil
+		if parts[0] == "" {
+			// this means that the mapping key is e.g. "/my-cm-1",
+			// then, we should append virtual cluster namespace
+			ret = append(ret, vClusterNs)
+			continue
+		}
+		hostNs := parts[0]
+		ret = append(ret, hostNs)
+	}
+	return stringutil.RemoveDuplicates(ret)
 }

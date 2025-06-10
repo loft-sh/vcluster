@@ -1,41 +1,47 @@
 package namespaces
 
 import (
-	"context"
-
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (s *namespaceSyncer) translate(ctx context.Context, vObj client.Object) *corev1.Namespace {
-	newNamespace := s.TranslateMetadata(ctx, vObj).(*corev1.Namespace)
-
-	// add user defined namespace labels
-	for k, v := range s.namespaceLabels {
-		newNamespace.Labels[k] = v
+func (s *namespaceSyncer) applyNamespaceLabels(ns *corev1.Namespace) *corev1.Namespace {
+	if ns.Labels == nil {
+		ns.Labels = map[string]string{}
 	}
 
-	return newNamespace
+	for k, v := range s.namespaceLabels {
+		ns.Labels[k] = v
+	}
+	return ns
 }
 
-func (s *namespaceSyncer) translateUpdate(ctx context.Context, pObj, vObj *corev1.Namespace) *corev1.Namespace {
-	var updated *corev1.Namespace
+func (s *namespaceSyncer) translateToHost(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Namespace {
+	newNamespace := translate.HostMetadata(vObj.(*corev1.Namespace), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName()}, vObj), s.excludedAnnotations...)
+	return s.applyNamespaceLabels(newNamespace)
+}
 
-	_, updatedAnnotations, updatedLabels := s.TranslateMetadataUpdate(ctx, vObj, pObj)
+func (s *namespaceSyncer) translateToVirtual(ctx *synccontext.SyncContext, vObj client.Object) *corev1.Namespace {
+	newNamespace := translate.VirtualMetadata(vObj.(*corev1.Namespace), s.HostToVirtual(ctx, types.NamespacedName{Name: vObj.GetName()}, vObj), s.excludedAnnotations...)
+	return s.applyNamespaceLabels(newNamespace)
+}
+
+func (s *namespaceSyncer) translateUpdate(pObj, vObj *corev1.Namespace) {
+	pObj.Annotations = translate.HostAnnotations(vObj, pObj, s.excludedAnnotations...)
+	updatedLabels := translate.HostLabels(vObj, pObj)
+	if updatedLabels == nil {
+		updatedLabels = map[string]string{}
+	}
+
 	// add user defined namespace labels
 	for k, v := range s.namespaceLabels {
 		updatedLabels[k] = v
 	}
+
 	// set the kubernetes.io/metadata.name label
 	updatedLabels[corev1.LabelMetadataName] = pObj.Name
-	// check if any labels or annotations changed
-	if !equality.Semantic.DeepEqual(updatedAnnotations, pObj.GetAnnotations()) || !equality.Semantic.DeepEqual(updatedLabels, pObj.GetLabels()) {
-		updated = translator.NewIfNil(updated, pObj)
-		updated.Annotations = updatedAnnotations
-		updated.Labels = updatedLabels
-	}
-
-	return updated
+	pObj.Labels = updatedLabels
 }

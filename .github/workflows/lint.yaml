@@ -1,13 +1,15 @@
 name: Lint
 
 on:
-  release:
-    types: [created]
   pull_request:
     branches:
       - main
+      - v*
     paths:
+      - go.mod
+      - go.sum
       - "**.go"
+      - ".github/workflows/lint.yaml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -16,17 +18,38 @@ concurrency:
 jobs:
   golangci:
     name: lint
+    if: github.repository_owner == 'loft-sh' # do not run on forks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.20"
+          go-version-file: ./go.mod
           cache: false
-      - uses: actions/checkout@v3
-      - name: Generate Embedded Helm Charts
+
+      - name: Generate Embedded Helm Chart
         run: |
           go generate ./...
+
+      - name: Verify schema changes
+        run: |
+          VALUES_SHA=$(cat chart/values.yaml | sha256sum)
+          VALUES_SCHEMA_SHA=$(cat chart/values.schema.json | sha256sum)
+
+          go run hack/schema/main.go
+
+          VALUES_SHA_AFTER=$(cat chart/values.yaml | sha256sum)
+          VALUES_SCHEMA_SHA_AFTER=$(cat chart/values.schema.json | sha256sum)
+
+          # if there are changes, tell developer to run script
+          if [ "$VALUES_SHA" != "$VALUES_SHA_AFTER" ] || [ "$VALUES_SCHEMA_SHA" != "$VALUES_SCHEMA_SHA_AFTER" ]; then
+            echo "Seems like you forgot to run 'go run hack/schema/main.go' before committing your changes!"
+            exit 1
+          fi
+
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v8
         with:
-          args: -v --config=.golangci.yml
+          version: v2.1

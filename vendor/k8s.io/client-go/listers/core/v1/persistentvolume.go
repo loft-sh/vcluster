@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1 "k8s.io/api/core/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // PersistentVolumeLister helps list PersistentVolumes.
@@ -30,39 +30,19 @@ import (
 type PersistentVolumeLister interface {
 	// List lists all PersistentVolumes in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.PersistentVolume, err error)
+	List(selector labels.Selector) (ret []*corev1.PersistentVolume, err error)
 	// Get retrieves the PersistentVolume from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.PersistentVolume, error)
+	Get(name string) (*corev1.PersistentVolume, error)
 	PersistentVolumeListerExpansion
 }
 
 // persistentVolumeLister implements the PersistentVolumeLister interface.
 type persistentVolumeLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1.PersistentVolume]
 }
 
 // NewPersistentVolumeLister returns a new PersistentVolumeLister.
 func NewPersistentVolumeLister(indexer cache.Indexer) PersistentVolumeLister {
-	return &persistentVolumeLister{indexer: indexer}
-}
-
-// List lists all PersistentVolumes in the indexer.
-func (s *persistentVolumeLister) List(selector labels.Selector) (ret []*v1.PersistentVolume, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.PersistentVolume))
-	})
-	return ret, err
-}
-
-// Get retrieves the PersistentVolume from the index for a given name.
-func (s *persistentVolumeLister) Get(name string) (*v1.PersistentVolume, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("persistentvolume"), name)
-	}
-	return obj.(*v1.PersistentVolume), nil
+	return &persistentVolumeLister{listers.New[*corev1.PersistentVolume](indexer, corev1.Resource("persistentvolume"))}
 }

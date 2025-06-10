@@ -1,379 +1,96 @@
 package plugin
 
 import (
-	context "context"
-	"encoding/json"
+	"context"
 	"fmt"
-	"net"
-	"os"
-	"sync"
-	"time"
+	"net/http"
 
-	context2 "github.com/loft-sh/vcluster/cmd/vcluster/context"
-	"github.com/loft-sh/vcluster/pkg/util/loghelper"
-	"github.com/loft-sh/vcluster/pkg/util/random"
-	"go.uber.org/atomic"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog/v2"
-
-	remote "github.com/loft-sh/vcluster/pkg/plugin/remote"
-	grpc "google.golang.org/grpc"
-	rest "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
+	"github.com/loft-sh/vcluster/pkg/config"
+	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
+	pluginv1 "github.com/loft-sh/vcluster/pkg/plugin/v1"
+	pluginv2 "github.com/loft-sh/vcluster/pkg/plugin/v2"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	"github.com/pkg/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var runID = random.RandomString(12)
+// IsPlugin signals if the current binary is a plugin
+var IsPlugin = false
 
-var DefaultManager Manager = &manager{
-	clientHooks:    map[VersionKindType][]*Plugin{},
-	pluginVersions: map[string]*remote.RegisterPluginRequest{},
+var DefaultManager = newManager()
+
+func newManager() plugintypes.Manager {
+	return &manager{
+		legacyManager: pluginv1.NewManager(),
+		pluginManager: pluginv2.NewManager(),
+	}
 }
-
-type Manager interface {
-	Start(
-		ctx context.Context,
-		currentNamespace, targetNamespace string,
-		virtualKubeConfig *rest.Config,
-		physicalKubeConfig *rest.Config,
-		syncerConfig *clientcmdapi.Config,
-		options *context2.VirtualClusterOptions,
-	) error
-	SetLeader(isLeader bool)
-	ClientHooksFor(versionKindType VersionKindType) []*Plugin
-	HasClientHooks() bool
-	HasPlugins() bool
-}
-
-var _ remote.VClusterServer = &manager{}
 
 type manager struct {
-	remote.UnimplementedVClusterServer
-
-	physicalKubeConfig string
-	virtualKubeConfig  string
-	syncerKubeConfig   string
-
-	targetNamespace  string
-	currentNamespace string
-
-	options string
-
-	isLeader   atomic.Bool
-	hasPlugins atomic.Bool
-
-	clientHooksMutex sync.Mutex
-	clientHooks      map[VersionKindType][]*Plugin
-
-	pluginMutex    sync.Mutex
-	pluginVersions map[string]*remote.RegisterPluginRequest
-}
-
-type VersionKindType struct {
-	APIVersion string
-	Kind       string
-	Type       string
-}
-
-type Plugin struct {
-	Name    string
-	Address string
-}
-
-func (m *manager) HasClientHooks() bool {
-	m.clientHooksMutex.Lock()
-	defer m.clientHooksMutex.Unlock()
-
-	return len(m.clientHooks) > 0
-}
-
-func (m *manager) ClientHooksFor(versionKindType VersionKindType) []*Plugin {
-	m.clientHooksMutex.Lock()
-	defer m.clientHooksMutex.Unlock()
-
-	return m.clientHooks[versionKindType]
-}
-
-func (m *manager) HasPlugins() bool {
-	return m.hasPlugins.Load()
-}
-
-func (m *manager) SetLeader(isLeader bool) {
-	m.isLeader.Store(isLeader)
+	legacyManager *pluginv1.Manager
+	pluginManager *pluginv2.Manager
 }
 
 func (m *manager) Start(
 	ctx context.Context,
-	currentNamespace, targetNamespace string,
 	virtualKubeConfig *rest.Config,
-	physicalKubeConfig *rest.Config,
 	syncerConfig *clientcmdapi.Config,
-	options *context2.VirtualClusterOptions,
+	vConfig *config.VirtualClusterConfig,
 ) error {
-	// set if we have plugins
-	m.hasPlugins.Store(len(options.Plugins) > 0)
-
-	// base options
-	m.currentNamespace = currentNamespace
-	m.targetNamespace = targetNamespace
-
-	// Context options
-	out, err := json.Marshal(options)
+	legacyOptions, err := vConfig.LegacyOptions()
 	if err != nil {
-		return errors.Wrap(err, "marshal options")
-	}
-	m.options = string(out)
-
-	// Virtual client config
-	convertedVirtualConfig, err := ConvertRestConfigToClientConfig(virtualKubeConfig)
-	if err != nil {
-		return errors.Wrap(err, "convert virtual client config")
-	}
-	rawVirtualConfig, err := convertedVirtualConfig.RawConfig()
-	if err != nil {
-		return errors.Wrap(err, "convert virtual client config")
-	}
-	virtualConfigBytes, err := clientcmd.Write(rawVirtualConfig)
-	if err != nil {
-		return errors.Wrap(err, "marshal virtual client config")
-	}
-	m.virtualKubeConfig = string(virtualConfigBytes)
-
-	// Physical client config
-	convertedPhysicalConfig, err := ConvertRestConfigToClientConfig(physicalKubeConfig)
-	if err != nil {
-		return errors.Wrap(err, "convert physical client config")
-	}
-	rawPhysicalConfig, err := convertedPhysicalConfig.RawConfig()
-	if err != nil {
-		return errors.Wrap(err, "convert physical client config")
-	}
-	phyisicalConfigBytes, err := clientcmd.Write(rawPhysicalConfig)
-	if err != nil {
-		return errors.Wrap(err, "marshal physical client config")
-	}
-	m.physicalKubeConfig = string(phyisicalConfigBytes)
-
-	// Syncer client config
-	syncerConfigBytes, err := clientcmd.Write(*syncerConfig)
-	if err != nil {
-		return errors.Wrap(err, "marshal syncer client config")
-	}
-	m.syncerKubeConfig = string(syncerConfigBytes)
-
-	// start the grpc server
-	loghelper.Infof("Plugin server listening on %s", options.PluginListenAddress)
-	lis, err := net.Listen("tcp", options.PluginListenAddress)
-	if err != nil {
-		return fmt.Errorf("failed to listen: %v", err)
+		return fmt.Errorf("build legacy options: %w", err)
 	}
 
-	var opts []grpc.ServerOption
-	grpcServer := grpc.NewServer(opts...)
-	remote.RegisterVClusterServer(grpcServer, m)
-	go func() {
-		err := grpcServer.Serve(lis)
-		if err != nil {
-			panic(err)
-		}
-	}()
+	err = m.legacyManager.Start(ctx, vConfig.WorkloadNamespace, vConfig.WorkloadTargetNamespace, virtualKubeConfig, vConfig.WorkloadConfig, syncerConfig, legacyOptions)
+	if err != nil {
+		return fmt.Errorf("start legacy plugins: %w", err)
+	}
 
-	return m.waitForPlugins(ctx, options)
-}
-
-func (m *manager) waitForPlugins(ctx context.Context, options *context2.VirtualClusterOptions) error {
-	for _, plugin := range options.Plugins {
-		klog.Infof("Waiting for plugin %s to register...", plugin)
-		err := wait.PollUntilContextTimeout(ctx, time.Millisecond*100, time.Minute*10, true, func(context.Context) (done bool, err error) {
-			m.pluginMutex.Lock()
-			defer m.pluginMutex.Unlock()
-
-			_, ok := m.pluginVersions[plugin]
-			return ok, nil
-		})
-		if err != nil {
-			return fmt.Errorf("error waiting for plugin %s: %v", plugin, err)
-		}
-		klog.Infof("Plugin %s has successfully registered", plugin)
+	err = m.pluginManager.Start(ctx, syncerConfig, vConfig)
+	if err != nil {
+		return fmt.Errorf("start plugins: %w", err)
 	}
 
 	return nil
 }
 
-func (m *manager) IsLeader(ctx context.Context, empty *remote.Empty) (*remote.LeaderInfo, error) {
-	return &remote.LeaderInfo{
-		Leader: m.isLeader.Load(),
-		RunID:  runID,
-	}, nil
+func (m *manager) SetLeader(ctx context.Context) error {
+	m.legacyManager.SetLeader(true)
+	return m.pluginManager.SetLeader(ctx)
 }
 
-func (m *manager) GetContext(ctx context.Context, empty *remote.Empty) (*remote.Context, error) {
-	return &remote.Context{
-		VirtualClusterConfig:  m.virtualKubeConfig,
-		PhysicalClusterConfig: m.physicalKubeConfig,
-		SyncerConfig:          m.syncerKubeConfig,
-		TargetNamespace:       m.targetNamespace,
-		CurrentNamespace:      m.currentNamespace,
-		Options:               m.options,
-	}, nil
+func (m *manager) MutateObject(ctx context.Context, obj client.Object, hookType string, scheme *runtime.Scheme) error {
+	err := m.legacyManager.MutateObject(ctx, obj, hookType, scheme)
+	if err != nil {
+		return err
+	}
+
+	err = m.pluginManager.MutateObject(ctx, obj, hookType, scheme)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (m *manager) RegisterPlugin(ctx context.Context, info *remote.RegisterPluginRequest) (*remote.RegisterPluginResult, error) {
-	if info != nil && info.Name != "" {
-		klog.Infof("Registering plugin %s", info.Name)
-
-		// copy map
-		m.pluginMutex.Lock()
-		defer m.pluginMutex.Unlock()
-
-		m.clientHooksMutex.Lock()
-		defer m.clientHooksMutex.Unlock()
-
-		newPlugins := map[string]*remote.RegisterPluginRequest{}
-		for k, v := range m.pluginVersions {
-			newPlugins[k] = v
-		}
-		newPlugins[info.Name] = info
-
-		// regenerate client hooks
-		newClientHooks, err := regenerateClientHooks(newPlugins)
-		if err != nil {
-			klog.Infof("Error regenerating client hooks for plugin %s: %v", info.Name, err)
-			return nil, errors.Wrap(err, "generate client hooks")
-		}
-
-		m.clientHooks = newClientHooks
-		m.pluginVersions = newPlugins
-	}
-
-	return &remote.RegisterPluginResult{}, nil
+func (m *manager) HasClientHooks() bool {
+	return m.legacyManager.HasClientHooks() || m.pluginManager.HasClientHooks()
 }
 
-// Register is deprecated and will be removed in future
-func (m *manager) Register(ctx context.Context, info *remote.PluginInfo) (*remote.Context, error) {
-	if info != nil && info.Name != "" {
-		klog.Infof("Registering plugin %s", info.Name)
-
-		m.pluginMutex.Lock()
-		defer m.pluginMutex.Unlock()
-
-		m.pluginVersions[info.Name] = &remote.RegisterPluginRequest{
-			Name: info.Name,
-		}
-	}
-
-	return &remote.Context{
-		VirtualClusterConfig:  m.virtualKubeConfig,
-		PhysicalClusterConfig: m.physicalKubeConfig,
-		SyncerConfig:          m.syncerKubeConfig,
-		TargetNamespace:       m.targetNamespace,
-		CurrentNamespace:      m.currentNamespace,
-		Options:               m.options,
-	}, nil
+func (m *manager) HasClientHooksForType(versionKindType plugintypes.VersionKindType) bool {
+	return m.legacyManager.HasClientHooksForType(versionKindType) || m.pluginManager.HasClientHooksForType(versionKindType)
 }
 
-func regenerateClientHooks(plugins map[string]*remote.RegisterPluginRequest) (map[VersionKindType][]*Plugin, error) {
-	retMap := map[VersionKindType][]*Plugin{}
-	for _, pluginInfo := range plugins {
-		plugin := &Plugin{
-			Name:    pluginInfo.Name,
-			Address: pluginInfo.Address,
-		}
-		for _, clientHookInfo := range pluginInfo.ClientHooks {
-			if clientHookInfo.ApiVersion == "" {
-				return nil, fmt.Errorf("api version is empty in plugin %s hook", plugin.Name)
-			} else if clientHookInfo.Kind == "" {
-				return nil, fmt.Errorf("kind is empty in plugin %s hook", plugin.Name)
-			}
-
-			for _, t := range clientHookInfo.Types {
-				if t == "" {
-					continue
-				}
-
-				versionKindType := VersionKindType{
-					APIVersion: clientHookInfo.ApiVersion,
-					Kind:       clientHookInfo.Kind,
-					Type:       t,
-				}
-				retMap[versionKindType] = append(retMap[versionKindType], plugin)
-			}
-
-			klog.Infof("Register client hook for %s %s in plugin %s", clientHookInfo.ApiVersion, clientHookInfo.Kind, plugin.Name)
-		}
-	}
-
-	return retMap, nil
+func (m *manager) HasPlugins() bool {
+	return m.legacyManager.HasPlugins() || m.pluginManager.HasPlugins()
 }
 
-func ConvertRestConfigToClientConfig(config *rest.Config) (clientcmd.ClientConfig, error) {
-	contextName := "local"
-	kubeConfig := clientcmdapi.NewConfig()
-	kubeConfig.Contexts = map[string]*clientcmdapi.Context{
-		contextName: {
-			Cluster:  contextName,
-			AuthInfo: contextName,
-		},
-	}
-	kubeConfig.Clusters = map[string]*clientcmdapi.Cluster{
-		contextName: {
-			Server:                   config.Host,
-			InsecureSkipTLSVerify:    config.Insecure,
-			CertificateAuthorityData: config.CAData,
-			CertificateAuthority:     config.CAFile,
-		},
-	}
-	kubeConfig.AuthInfos = map[string]*clientcmdapi.AuthInfo{
-		contextName: {
-			Token:                 config.BearerToken,
-			TokenFile:             config.BearerTokenFile,
-			Impersonate:           config.Impersonate.UserName,
-			ImpersonateGroups:     config.Impersonate.Groups,
-			ImpersonateUserExtra:  config.Impersonate.Extra,
-			ClientCertificate:     config.CertFile,
-			ClientCertificateData: config.CertData,
-			ClientKey:             config.KeyFile,
-			ClientKeyData:         config.KeyData,
-			Username:              config.Username,
-			Password:              config.Password,
-			AuthProvider:          config.AuthProvider,
-			Exec:                  config.ExecProvider,
-		},
-	}
-	kubeConfig.CurrentContext = contextName
+func (m *manager) SetProFeatures(proFeatures map[string]bool) {
+	m.pluginManager.ProFeatures = proFeatures
+}
 
-	// resolve certificate
-	if kubeConfig.Clusters[contextName].CertificateAuthorityData == nil && kubeConfig.Clusters[contextName].CertificateAuthority != "" {
-		o, err := os.ReadFile(kubeConfig.Clusters[contextName].CertificateAuthority)
-		if err != nil {
-			return nil, err
-		}
-
-		kubeConfig.Clusters[contextName].CertificateAuthority = ""
-		kubeConfig.Clusters[contextName].CertificateAuthorityData = o
-	}
-
-	// fill in data
-	if kubeConfig.AuthInfos[contextName].ClientCertificateData == nil && kubeConfig.AuthInfos[contextName].ClientCertificate != "" {
-		o, err := os.ReadFile(kubeConfig.AuthInfos[contextName].ClientCertificate)
-		if err != nil {
-			return nil, err
-		}
-
-		kubeConfig.AuthInfos[contextName].ClientCertificate = ""
-		kubeConfig.AuthInfos[contextName].ClientCertificateData = o
-	}
-	if kubeConfig.AuthInfos[contextName].ClientKeyData == nil && kubeConfig.AuthInfos[contextName].ClientKey != "" {
-		o, err := os.ReadFile(kubeConfig.AuthInfos[contextName].ClientKey)
-		if err != nil {
-			return nil, err
-		}
-
-		kubeConfig.AuthInfos[contextName].ClientKey = ""
-		kubeConfig.AuthInfos[contextName].ClientKeyData = o
-	}
-
-	return clientcmd.NewDefaultClientConfig(*kubeConfig, &clientcmd.ConfigOverrides{}), nil
+func (m *manager) WithInterceptors(next http.Handler) http.Handler {
+	return m.pluginManager.WithInterceptors(next)
 }

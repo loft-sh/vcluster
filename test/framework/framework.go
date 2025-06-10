@@ -7,13 +7,17 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/flags"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/log"
+	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	logutil "github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -23,10 +27,14 @@ import (
 )
 
 const (
+	PollInterval             = 5 * time.Second
 	PollTimeout              = time.Minute
-	DefaultVclusterName      = "vcluster"
-	DefaultVclusterNamespace = "vcluster"
+	PollTimeoutLong          = 2 * time.Minute
+	DefaultVClusterName      = "vcluster"
+	DefaultVClusterNamespace = "vcluster"
 	DefaultClientTimeout     = 32 * time.Second // the default in client-go is 32
+	DefaultClientBurst       = 100              // the default in client-go is 10 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
+	DefaultClientQPS         = 50               // the default in client-go is 5 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
 )
 
 var DefaultFramework = &Framework{}
@@ -35,12 +43,12 @@ type Framework struct {
 	// The context to use for testing
 	Context context.Context
 
-	// VclusterName is the name of the vcluster instance which we are testing
-	VclusterName string
+	// VClusterName is the name of the vcluster instance which we are testing
+	VClusterName string
 
-	// VclusterNamespace is the namespace in host cluster of the current
+	// VClusterNamespace is the namespace in host cluster of the current
 	// vcluster instance which we are testing
-	VclusterNamespace string
+	VClusterNamespace string
 
 	// The suffix to append to the synced resources in the host namespace
 	Suffix string
@@ -57,25 +65,22 @@ type Framework struct {
 	// host kubernetes cluster were we are testing in
 	HostCRClient client.Client
 
-	// VclusterConfig is the kubernetes rest config of the current
+	// VClusterConfig is the kubernetes rest config of the current
 	// vcluster instance which we are testing
-	VclusterConfig *rest.Config
+	VClusterConfig *rest.Config
 
-	// VclusterClient is the kubernetes client of the current
+	// VClusterClient is the kubernetes client of the current
 	// vcluster instance which we are testing
-	VclusterClient *kubernetes.Clientset
+	VClusterClient *kubernetes.Clientset
 
-	// VclusterCRClient is the controller runtime client of the current
+	// VClusterCRClient is the controller runtime client of the current
 	// vcluster instance which we are testing
-	VclusterCRClient client.Client
+	VClusterCRClient client.Client
 
-	// VclusterKubeconfigFile is a file containing kube config
+	// VClusterKubeConfigFile is a file containing kube config
 	// of the current vcluster instance which we are testing.
 	// This file shall be deleted in the end of the test suite execution.
-	VclusterKubeconfigFile *os.File
-
-	// Scheme is the global scheme to use
-	Scheme *runtime.Scheme
+	VClusterKubeConfigFile *os.File
 
 	// Log is the logger that should be used
 	Log log.Logger
@@ -83,22 +88,25 @@ type Framework struct {
 	// ClientTimeout value used in the clients
 	ClientTimeout time.Duration
 
-	// MultiNamespaceMode denotes whether the multi namespace mode is enabled for the virtualcluster
-	MultiNamespaceMode bool
+	// ClientBurst value used in the clients
+	ClientBurst int
+
+	// ClientQPS value used in the clients
+	ClientQPS float32
 }
 
-func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
+func CreateFramework(ctx context.Context) error {
 	// setup loggers
 	ctrl.SetLogger(logutil.NewLog(0))
 	l := log.GetInstance()
 
 	name := os.Getenv("VCLUSTER_NAME")
 	if name == "" {
-		name = DefaultVclusterName
+		name = DefaultVClusterName
 	}
 	ns := os.Getenv("VCLUSTER_NAMESPACE")
 	if ns == "" {
-		ns = DefaultVclusterNamespace
+		ns = DefaultVClusterNamespace
 	}
 	timeoutEnvVar := os.Getenv("VCLUSTER_CLIENT_TIMEOUT")
 	var timeout time.Duration
@@ -109,90 +117,134 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		timeout = DefaultClientTimeout
 	}
 
+	clientBurstEnvVar := os.Getenv("VCLUSTER_CLIENT_BURST")
+	var clientBurst int
+	clientBurst, err = strconv.Atoi(clientBurstEnvVar)
+	if err != nil {
+		clientBurst = DefaultClientBurst
+	}
+
+	clientQPSEnvVar := os.Getenv("VCLUSTER_CLIENT_QPS")
+	var clientQPS int
+	clientQPS, err = strconv.Atoi(clientQPSEnvVar)
+	if err != nil {
+		clientQPS = DefaultClientQPS
+	}
+
 	suffix := os.Getenv("VCLUSTER_SUFFIX")
 	if suffix == "" {
-		//TODO: maybe implement some autodiscovery of the suffix value that would work with dev and prod setups
+		// TODO: maybe implement some autodiscovery of the suffix value that would work with dev and prod setups
 		suffix = "vcluster"
 	}
-	translate.Suffix = suffix
+	translate.VClusterName = suffix
 
-	var multiNamespaceMode bool
-	if os.Getenv("MULTINAMESPACE_MODE") == "true" {
-		translate.Default = translate.NewMultiNamespaceTranslator(ns)
-		multiNamespaceMode = true
-	} else {
-		translate.Default = translate.NewSingleNamespaceTranslator(ns)
-	}
+	translate.Default = translate.NewSingleNamespaceTranslator(ns)
 
-	l.Infof("Testing Vcluster named: %s in namespace: %s", name, ns)
-
+	l.Infof("Testing vCluster named: %s in namespace: %s", name, ns)
 	hostConfig, err := ctrl.GetConfig()
 	if err != nil {
 		return err
 	}
 	hostConfig.Timeout = timeout
+	hostConfig.Burst = clientBurst
+	hostConfig.QPS = float32(clientQPS)
 
 	hostClient, err := kubernetes.NewForConfig(hostConfig)
 	if err != nil {
 		return err
 	}
 
-	hostCRClient, err := client.New(hostConfig, client.Options{Scheme: scheme})
+	hostCRClient, err := client.New(hostConfig, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
 		return err
 	}
 
+	// create the framework
+	DefaultFramework = &Framework{
+		Context:           ctx,
+		VClusterName:      name,
+		VClusterNamespace: ns,
+		Suffix:            suffix,
+		HostConfig:        hostConfig,
+		HostClient:        hostClient,
+		HostCRClient:      hostCRClient,
+		Log:               l,
+		ClientTimeout:     timeout,
+		ClientBurst:       clientBurst,
+		ClientQPS:         float32(clientQPS),
+	}
+
+	// init virtual client
+	if os.Getenv("VCLUSTER_SKIP_CONNECT") != "true" {
+		err = DefaultFramework.RefreshVirtualClient()
+		if err != nil {
+			return err
+		}
+	}
+
+	l.Done("Framework successfully initialized")
+	return nil
+}
+
+func (f *Framework) RefreshVirtualClient() error {
 	// run port forwarder and retrieve kubeconfig for the vcluster
 	vKubeconfigFile, err := os.CreateTemp(os.TempDir(), "vcluster_e2e_kubeconfig_")
 	if err != nil {
-		return fmt.Errorf("could not create a temporary file: %v", err)
+		return fmt.Errorf("could not create a temporary file: %w", err)
 	}
-	// vKubeconfigFile removal is done in the Framework.Cleanup() which gets called in ginkgo's AfterSuite()
 
+	// vKubeConfigFile removal is done in the Framework.Cleanup() which gets called in ginkgo's AfterSuite()
 	connectCmd := cmd.ConnectCmd{
-		Log: l,
+		CobraCmd: &cobra.Command{},
+		Log:      f.Log,
 		GlobalFlags: &flags.GlobalFlags{
-			Namespace: ns,
+			Namespace: f.VClusterNamespace,
 			Debug:     true,
 		},
-		KubeConfig: vKubeconfigFile.Name(),
-		LocalPort:  14550, // choosing a port that usually should be unused
+		ConnectOptions: cli.ConnectOptions{
+			KubeConfig:           vKubeconfigFile.Name(),
+			LocalPort:            14550, // choosing a port that usually should be unused
+			BackgroundProxy:      true,
+			BackgroundProxyImage: constants.DefaultBackgroundProxyImage(upgrade.GetVersion()),
+		},
 	}
-	err = connectCmd.Connect(ctx, name, nil)
+	err = connectCmd.Run(f.Context, []string{f.VClusterName})
 	if err != nil {
-		l.Fatalf("failed to connect to the vcluster: %v", err)
+		f.Log.Fatalf("failed to connect to the vcluster: %v", err)
 	}
 
-	var vclusterConfig *rest.Config
-	var vclusterClient *kubernetes.Clientset
-	var vclusterCRClient client.Client
+	var vClusterConfig *rest.Config
+	var vClusterClient *kubernetes.Clientset
+	var vClusterCRClient client.Client
 
-	err = wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*5, false, func(ctx context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*5, false, func(ctx context.Context) (bool, error) {
 		output, err := os.ReadFile(vKubeconfigFile.Name())
 		if err != nil {
 			return false, nil
 		}
 
 		// try to parse config from file with retry because the file content might not be written
-		vclusterConfig, err = clientcmd.RESTConfigFromKubeConfig(output)
+		vClusterConfig, err = clientcmd.RESTConfigFromKubeConfig(output)
 		if err != nil {
 			return false, err
 		}
-		vclusterConfig.Timeout = timeout
+		vClusterConfig.Timeout = f.ClientTimeout
+		vClusterConfig.Burst = f.ClientBurst
+		vClusterConfig.QPS = f.ClientQPS
 
 		// create kubernetes client using the config retry in case port forwarding is not ready yet
-		vclusterClient, err = kubernetes.NewForConfig(vclusterConfig)
+		vClusterClient, err = kubernetes.NewForConfig(vClusterConfig)
 		if err != nil {
 			return false, err
 		}
 
-		vclusterCRClient, err = client.New(vclusterConfig, client.Options{Scheme: scheme})
+		vClusterCRClient, err = client.New(vClusterConfig, client.Options{Scheme: scheme.Scheme})
 		if err != nil {
 			return false, err
 		}
 
 		// try to use the client with retry in case port forwarding is not ready yet
-		_, err = vclusterClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
+		_, err = vClusterClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -203,29 +255,13 @@ func CreateFramework(ctx context.Context, scheme *runtime.Scheme) error {
 		return err
 	}
 
-	// create the framework
-	DefaultFramework = &Framework{
-		Context:                ctx,
-		VclusterName:           name,
-		VclusterNamespace:      ns,
-		Suffix:                 suffix,
-		HostConfig:             hostConfig,
-		HostClient:             hostClient,
-		HostCRClient:           hostCRClient,
-		VclusterConfig:         vclusterConfig,
-		VclusterClient:         vclusterClient,
-		VclusterCRClient:       vclusterCRClient,
-		VclusterKubeconfigFile: vKubeconfigFile,
-		Scheme:                 scheme,
-		Log:                    l,
-		ClientTimeout:          timeout,
-		MultiNamespaceMode:     multiNamespaceMode,
-	}
-
-	l.Done("Framework successfully initialized")
+	f.VClusterConfig = vClusterConfig
+	f.VClusterClient = vClusterClient
+	f.VClusterCRClient = vClusterCRClient
+	f.VClusterKubeConfigFile = vKubeconfigFile
 	return nil
 }
 
 func (f *Framework) Cleanup() error {
-	return os.Remove(f.VclusterKubeconfigFile.Name())
+	return os.Remove(f.VClusterKubeConfigFile.Name())
 }

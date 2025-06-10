@@ -59,6 +59,9 @@ type NodeStats struct {
 	// Stats about the rlimit of system.
 	// +optional
 	Rlimit *RlimitStats `json:"rlimit,omitempty"`
+	// Stats pertaining to swap resources. This is reported to non-windows systems only.
+	// +optional
+	Swap *SwapStats `json:"swap,omitempty"`
 }
 
 // RlimitStats are stats rlimit of OS.
@@ -80,6 +83,11 @@ type RuntimeStats struct {
 	// Usage here refers to the total number of bytes occupied by images on the filesystem.
 	// +optional
 	ImageFs *FsStats `json:"imageFs,omitempty"`
+	// Stats about the underlying filesystem where container's writeable layer is stored.
+	// This filesystem could be the same as the primary (root) filesystem or the ImageFS.
+	// Usage here refers to the total number of bytes occupied by the writeable layer on the filesystem.
+	// +optional
+	ContainerFs *FsStats `json:"containerFs,omitempty"`
 }
 
 const (
@@ -91,6 +99,9 @@ const (
 	SystemContainerMisc = "misc"
 	// SystemContainerPods is the container name for the system container tracking user pods.
 	SystemContainerPods = "pods"
+	// SystemContainerWindowsGlobalCommitMemory (only used on Windows) is the container name for the system container
+	// tracking global commit memory usage and is used for memory-pressure eviction.
+	SystemContainerWindowsGlobalCommitMemory = "windows-global-commit-memory"
 )
 
 // ProcessStats are stats pertaining to processes.
@@ -131,6 +142,9 @@ type PodStats struct {
 	// ProcessStats pertaining to processes.
 	// +optional
 	ProcessStats *ProcessStats `json:"process_stats,omitempty"`
+	// Stats pertaining to swap resources. This is reported to non-windows systems only.
+	// +optional
+	Swap *SwapStats `json:"swap,omitempty"`
 }
 
 // ContainerStats holds container-level unprocessed sample stats.
@@ -159,6 +173,9 @@ type ContainerStats struct {
 	// +patchMergeKey=name
 	// +patchStrategy=merge
 	UserDefinedMetrics []UserDefinedMetric `json:"userDefinedMetrics,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	// Stats pertaining to swap resources. This is reported to non-windows systems only.
+	// +optional
+	Swap *SwapStats `json:"swap,omitempty"`
 }
 
 // PodReference contains enough information to locate the referenced pod.
@@ -235,6 +252,19 @@ type MemoryStats struct {
 	// Cumulative number of major page faults.
 	// +optional
 	MajorPageFaults *uint64 `json:"majorPageFaults,omitempty"`
+}
+
+// SwapStats contains data about memory usage
+type SwapStats struct {
+	// The time at which these stats were updated.
+	Time metav1.Time `json:"time"`
+	// Available swap memory for use.  This is defined as the <swap-limit> - <current-swap-usage>.
+	// If swap limit is undefined, this value is omitted.
+	// +optional
+	SwapAvailableBytes *uint64 `json:"swapAvailableBytes,omitempty"`
+	// Total swap memory in use.
+	// +optional
+	SwapUsageBytes *uint64 `json:"swapUsageBytes,omitempty"`
 }
 
 // AcceleratorStats contains stats for accelerators attached to the container.

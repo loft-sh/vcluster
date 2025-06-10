@@ -1,0 +1,9 @@
+{
+  "repoOwner": "loft-sh",
+  "repoName": "vcluster",
+  "targetBranchChoices": ["v0.19", "v0.20", "v0.21", "v0.22", "v0.23", "v0.24"],
+    "prDescription": "Backport from `{{sourceBranch}}` to `{{targetBranch}}`\n\nOriginal PR Nr.: #{{sourcePullRequest.number}}\n\n### Backported Commits:\n{{#each commits}}\n- {{shortSha this.sourceCommit.sha}} {{this.sourceCommit.message}}\n{{/each}}",
+  "branchLabelMapping": {
+    "^backport-to-(.+)$": "$1"
+  }
+}

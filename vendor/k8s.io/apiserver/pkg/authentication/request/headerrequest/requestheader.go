@@ -17,9 +17,7 @@ limitations under the License.
 package headerrequest
 
 import (
-	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,7 +25,6 @@ import (
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	x509request "k8s.io/apiserver/pkg/authentication/request/x509"
 	"k8s.io/apiserver/pkg/authentication/user"
-	utilcert "k8s.io/client-go/util/cert"
 )
 
 // StringSliceProvider is a way to get a string slice value.  It is heavily used for authentication headers among other places.
@@ -56,6 +53,9 @@ type requestHeaderAuthRequestHandler struct {
 	// nameHeaders are the headers to check (in order, case-insensitively) for an identity. The first header with a value wins.
 	nameHeaders StringSliceProvider
 
+	// nameHeaders are the headers to check (in order, case-insensitively) for an identity UID. The first header with a value wins.
+	uidHeaders StringSliceProvider
+
 	// groupHeaders are the headers to check (case-insensitively) for group membership.  All values of all headers will be added.
 	groupHeaders StringSliceProvider
 
@@ -64,8 +64,12 @@ type requestHeaderAuthRequestHandler struct {
 	extraHeaderPrefixes StringSliceProvider
 }
 
-func New(nameHeaders, groupHeaders, extraHeaderPrefixes []string) (authenticator.Request, error) {
+func New(nameHeaders, uidHeaders, groupHeaders, extraHeaderPrefixes []string) (authenticator.Request, error) {
 	trimmedNameHeaders, err := trimHeaders(nameHeaders...)
+	if err != nil {
+		return nil, err
+	}
+	trimmedUIDHeaders, err := trimHeaders(uidHeaders...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,14 +84,16 @@ func New(nameHeaders, groupHeaders, extraHeaderPrefixes []string) (authenticator
 
 	return NewDynamic(
 		StaticStringSlice(trimmedNameHeaders),
+		StaticStringSlice(trimmedUIDHeaders),
 		StaticStringSlice(trimmedGroupHeaders),
 		StaticStringSlice(trimmedExtraHeaderPrefixes),
 	), nil
 }
 
-func NewDynamic(nameHeaders, groupHeaders, extraHeaderPrefixes StringSliceProvider) authenticator.Request {
+func NewDynamic(nameHeaders, uidHeaders, groupHeaders, extraHeaderPrefixes StringSliceProvider) authenticator.Request {
 	return &requestHeaderAuthRequestHandler{
 		nameHeaders:         nameHeaders,
+		uidHeaders:          uidHeaders,
 		groupHeaders:        groupHeaders,
 		extraHeaderPrefixes: extraHeaderPrefixes,
 	}
@@ -106,50 +112,8 @@ func trimHeaders(headerNames ...string) ([]string, error) {
 	return ret, nil
 }
 
-func NewSecure(clientCA string, proxyClientNames []string, nameHeaders []string, groupHeaders []string, extraHeaderPrefixes []string) (authenticator.Request, error) {
-	if len(clientCA) == 0 {
-		return nil, fmt.Errorf("missing clientCA file")
-	}
-
-	// Wrap with an x509 verifier
-	caData, err := ioutil.ReadFile(clientCA)
-	if err != nil {
-		return nil, fmt.Errorf("error reading %s: %v", clientCA, err)
-	}
-	opts := x509request.DefaultVerifyOptions()
-	opts.Roots = x509.NewCertPool()
-	certs, err := utilcert.ParseCertsPEM(caData)
-	if err != nil {
-		return nil, fmt.Errorf("error loading certs from  %s: %v", clientCA, err)
-	}
-	for _, cert := range certs {
-		opts.Roots.AddCert(cert)
-	}
-
-	trimmedNameHeaders, err := trimHeaders(nameHeaders...)
-	if err != nil {
-		return nil, err
-	}
-	trimmedGroupHeaders, err := trimHeaders(groupHeaders...)
-	if err != nil {
-		return nil, err
-	}
-	trimmedExtraHeaderPrefixes, err := trimHeaders(extraHeaderPrefixes...)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewDynamicVerifyOptionsSecure(
-		x509request.StaticVerifierFn(opts),
-		StaticStringSlice(proxyClientNames),
-		StaticStringSlice(trimmedNameHeaders),
-		StaticStringSlice(trimmedGroupHeaders),
-		StaticStringSlice(trimmedExtraHeaderPrefixes),
-	), nil
-}
-
-func NewDynamicVerifyOptionsSecure(verifyOptionFn x509request.VerifyOptionFunc, proxyClientNames, nameHeaders, groupHeaders, extraHeaderPrefixes StringSliceProvider) authenticator.Request {
-	headerAuthenticator := NewDynamic(nameHeaders, groupHeaders, extraHeaderPrefixes)
+func NewDynamicVerifyOptionsSecure(verifyOptionFn x509request.VerifyOptionFunc, proxyClientNames, nameHeaders, uidHeaders, groupHeaders, extraHeaderPrefixes StringSliceProvider) authenticator.Request {
+	headerAuthenticator := NewDynamic(nameHeaders, uidHeaders, groupHeaders, extraHeaderPrefixes)
 
 	return x509request.NewDynamicCAVerifier(verifyOptionFn, headerAuthenticator, proxyClientNames)
 }
@@ -159,23 +123,28 @@ func (a *requestHeaderAuthRequestHandler) AuthenticateRequest(req *http.Request)
 	if len(name) == 0 {
 		return nil, false, nil
 	}
+	uid := headerValue(req.Header, a.uidHeaders.Value())
 	groups := allHeaderValues(req.Header, a.groupHeaders.Value())
 	extra := newExtra(req.Header, a.extraHeaderPrefixes.Value())
 
 	// clear headers used for authentication
-	ClearAuthenticationHeaders(req.Header, a.nameHeaders, a.groupHeaders, a.extraHeaderPrefixes)
+	ClearAuthenticationHeaders(req.Header, a.nameHeaders, a.uidHeaders, a.groupHeaders, a.extraHeaderPrefixes)
 
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
 			Name:   name,
+			UID:    uid,
 			Groups: groups,
 			Extra:  extra,
 		},
 	}, true, nil
 }
 
-func ClearAuthenticationHeaders(h http.Header, nameHeaders, groupHeaders, extraHeaderPrefixes StringSliceProvider) {
+func ClearAuthenticationHeaders(h http.Header, nameHeaders, uidHeaders, groupHeaders, extraHeaderPrefixes StringSliceProvider) {
 	for _, headerName := range nameHeaders.Value() {
+		h.Del(headerName)
+	}
+	for _, headerName := range uidHeaders.Value() {
 		h.Del(headerName)
 	}
 	for _, headerName := range groupHeaders.Value() {

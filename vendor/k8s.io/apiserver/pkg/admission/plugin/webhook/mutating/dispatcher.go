@@ -20,11 +20,12 @@ package mutating
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"go.opentelemetry.io/otel/attribute"
+	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -170,7 +171,10 @@ func (a *mutatingDispatcher) Dispatch(ctx context.Context, attr admission.Attrib
 			case *webhookutil.ErrCallingWebhook:
 				if !ignoreClientCallFailures {
 					rejected = true
-					admissionmetrics.Metrics.ObserveWebhookRejection(ctx, hook.Name, "admit", string(versionedAttr.Attributes.GetOperation()), admissionmetrics.WebhookRejectionCallingWebhookError, int(err.Status.ErrStatus.Code))
+					// Ignore context cancelled from webhook metrics
+					if !errors.Is(err.Reason, context.Canceled) {
+						admissionmetrics.Metrics.ObserveWebhookRejection(ctx, hook.Name, "admit", string(versionedAttr.Attributes.GetOperation()), admissionmetrics.WebhookRejectionCallingWebhookError, int(err.Status.ErrStatus.Code))
+					}
 				}
 				admissionmetrics.Metrics.ObserveWebhook(ctx, hook.Name, time.Since(t), rejected, versionedAttr.Attributes, "admit", int(err.Status.ErrStatus.Code))
 			case *webhookutil.ErrWebhookRejection:
@@ -186,7 +190,7 @@ func (a *mutatingDispatcher) Dispatch(ctx context.Context, attr admission.Attrib
 			admissionmetrics.Metrics.ObserveWebhook(ctx, hook.Name, time.Since(t), rejected, versionedAttr.Attributes, "admit", 200)
 		}
 		if changed {
-			// Patch had changed the object. Prepare to reinvoke all previous webhooks that are eligible for re-invocation.
+			// Patch had changed the object. Prepare to reinvoke all previous mutations that are eligible for re-invocation.
 			webhookReinvokeCtx.RequireReinvokingPreviouslyInvokedPlugins()
 			reinvokeCtx.SetShouldReinvoke()
 		}
@@ -199,10 +203,14 @@ func (a *mutatingDispatcher) Dispatch(ctx context.Context, attr admission.Attrib
 
 		if callErr, ok := err.(*webhookutil.ErrCallingWebhook); ok {
 			if ignoreClientCallFailures {
-				klog.Warningf("Failed calling webhook, failing open %v: %v", hook.Name, callErr)
-				admissionmetrics.Metrics.ObserveWebhookFailOpen(ctx, hook.Name, "admit")
-				annotator.addFailedOpenAnnotation()
-
+				// Ignore context cancelled from webhook metrics
+				if errors.Is(callErr.Reason, context.Canceled) {
+					klog.Warningf("Context canceled when calling webhook %v", hook.Name)
+				} else {
+					klog.Warningf("Failed calling webhook, failing open %v: %v", hook.Name, callErr)
+					admissionmetrics.Metrics.ObserveWebhookFailOpen(ctx, hook.Name, "admit")
+					annotator.addFailedOpenAnnotation()
+				}
 				utilruntime.HandleError(callErr)
 
 				select {
@@ -340,7 +348,7 @@ func (a *mutatingDispatcher) callAttrMutatingHook(ctx context.Context, h *admiss
 	}
 
 	var patchedJS []byte
-	jsonSerializer := json.NewSerializer(json.DefaultMetaFactory, o.GetObjectCreater(), o.GetObjectTyper(), false)
+	jsonSerializer := json.NewSerializerWithOptions(json.DefaultMetaFactory, o.GetObjectCreater(), o.GetObjectTyper(), json.SerializerOptions{})
 	switch result.PatchType {
 	// VerifyAdmissionResponse normalizes to v1 patch types, regardless of the AdmissionReview version used
 	case admissionv1.PatchTypeJSONPatch:

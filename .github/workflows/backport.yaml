@@ -1,0 +1,42 @@
+name: Automatic backport action
+
+on:
+  pull_request_target:
+    types: ["labeled", "closed"]
+
+jobs:
+  backport:
+    name: Backport PR
+    if: |
+      github.event.pull_request.merged == true &&
+      (
+        contains(
+          join(github.event.pull_request.labels.*.name, ','),
+          'backport-to-'
+        )
+      ) &&
+      (github.event.action == 'closed' || startsWith(github.event.label.name, 'backport-to-'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install GH CLI
+        uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
+
+      - name: Backport Action
+        uses: sorenlouv/backport-github-action@v9.5.1
+        with:
+          github_token: ${{ secrets.GH_ACCESS_TOKEN }}
+          auto_backport_label_prefix: backport-to-
+
+      - name: Info log
+        if: ${{ success() }}
+        run: cat ~/.backport/backport.info.log
+
+      - name: Debug log
+        if: ${{ failure() }}
+        run: cat ~/.backport/backport.debug.log
+

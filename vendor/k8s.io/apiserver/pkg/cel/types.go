@@ -27,7 +27,7 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
-	"google.golang.org/protobuf/proto"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -319,44 +319,58 @@ func (f *DeclField) EnumValues() []ref.Val {
 	return ev
 }
 
-// NewRuleTypes returns an Open API Schema-based type-system which is CEL compatible.
-func NewRuleTypes(kind string,
-	declType *DeclType,
-	res Resolver) (*RuleTypes, error) {
+func allTypesForDecl(declTypes []*DeclType) map[string]*DeclType {
+	if declTypes == nil {
+		return nil
+	}
+	allTypes := map[string]*DeclType{}
+	for _, declType := range declTypes {
+		for k, t := range FieldTypeMap(declType.TypeName(), declType) {
+			allTypes[k] = t
+		}
+	}
+
+	return allTypes
+}
+
+// NewDeclTypeProvider returns an Open API Schema-based type-system which is CEL compatible.
+func NewDeclTypeProvider(rootTypes ...*DeclType) *DeclTypeProvider {
 	// Note, if the schema indicates that it's actually based on another proto
 	// then prefer the proto definition. For expressions in the proto, a new field
 	// annotation will be needed to indicate the expected environment and type of
 	// the expression.
-	schemaTypes, err := newSchemaTypeProvider(kind, declType)
-	if err != nil {
-		return nil, err
+	allTypes := allTypesForDecl(rootTypes)
+	return &DeclTypeProvider{
+		registeredTypes: allTypes,
 	}
-	if schemaTypes == nil {
-		return nil, nil
-	}
-	return &RuleTypes{
-		ruleSchemaDeclTypes: schemaTypes,
-		resolver:            res,
-	}, nil
 }
 
-// RuleTypes extends the CEL ref.TypeProvider interface and provides an Open API Schema-based
+// DeclTypeProvider extends the CEL ref.TypeProvider interface and provides an Open API Schema-based
 // type-system.
-type RuleTypes struct {
-	ref.TypeProvider
-	ruleSchemaDeclTypes *schemaTypeProvider
-	typeAdapter         ref.TypeAdapter
-	resolver            Resolver
+type DeclTypeProvider struct {
+	registeredTypes             map[string]*DeclType
+	typeProvider                types.Provider
+	typeAdapter                 types.Adapter
+	recognizeKeywordAsFieldName bool
+}
+
+func (rt *DeclTypeProvider) SetRecognizeKeywordAsFieldName(recognize bool) {
+	rt.recognizeKeywordAsFieldName = recognize
+}
+
+func (rt *DeclTypeProvider) EnumValue(enumName string) ref.Val {
+	return rt.typeProvider.EnumValue(enumName)
+}
+
+func (rt *DeclTypeProvider) FindIdent(identName string) (ref.Val, bool) {
+	return rt.typeProvider.FindIdent(identName)
 }
 
 // EnvOptions returns a set of cel.EnvOption values which includes the declaration set
 // as well as a custom ref.TypeProvider.
 //
-// Note, the standard declaration set includes 'rule' which is defined as the top-level rule-schema
-// type if one is configured.
-//
-// If the RuleTypes value is nil, an empty []cel.EnvOption set is returned.
-func (rt *RuleTypes) EnvOptions(tp ref.TypeProvider) ([]cel.EnvOption, error) {
+// If the DeclTypeProvider value is nil, an empty []cel.EnvOption set is returned.
+func (rt *DeclTypeProvider) EnvOptions(tp types.Provider) ([]cel.EnvOption, error) {
 	if rt == nil {
 		return []cel.EnvOption{}, nil
 	}
@@ -367,102 +381,102 @@ func (rt *RuleTypes) EnvOptions(tp ref.TypeProvider) ([]cel.EnvOption, error) {
 	return []cel.EnvOption{
 		cel.CustomTypeProvider(rtWithTypes),
 		cel.CustomTypeAdapter(rtWithTypes),
-		cel.Variable("rule", rt.ruleSchemaDeclTypes.root.CelType()),
 	}, nil
 }
 
-// WithTypeProvider returns a new RuleTypes that sets the given TypeProvider
-// If the original RuleTypes is nil, the returned RuleTypes is still nil.
-func (rt *RuleTypes) WithTypeProvider(tp ref.TypeProvider) (*RuleTypes, error) {
+// WithTypeProvider returns a new DeclTypeProvider that sets the given TypeProvider
+// If the original DeclTypeProvider is nil, the returned DeclTypeProvider is still nil.
+func (rt *DeclTypeProvider) WithTypeProvider(tp types.Provider) (*DeclTypeProvider, error) {
 	if rt == nil {
 		return nil, nil
 	}
-	var ta ref.TypeAdapter = types.DefaultTypeAdapter
-	tpa, ok := tp.(ref.TypeAdapter)
+	var ta types.Adapter = types.DefaultTypeAdapter
+	tpa, ok := tp.(types.Adapter)
 	if ok {
 		ta = tpa
 	}
-	rtWithTypes := &RuleTypes{
-		TypeProvider:        tp,
-		typeAdapter:         ta,
-		ruleSchemaDeclTypes: rt.ruleSchemaDeclTypes,
-		resolver:            rt.resolver,
+	rtWithTypes := &DeclTypeProvider{
+		typeProvider:                tp,
+		typeAdapter:                 ta,
+		registeredTypes:             rt.registeredTypes,
+		recognizeKeywordAsFieldName: rt.recognizeKeywordAsFieldName,
 	}
-	for name, declType := range rt.ruleSchemaDeclTypes.types {
-		tpType, found := tp.FindType(name)
-		expT, err := declType.ExprType()
-		if err != nil {
-			return nil, fmt.Errorf("fail to get cel type: %s", err)
-		}
-		if found && !proto.Equal(tpType, expT) {
+	for name, declType := range rt.registeredTypes {
+		tpType, found := tp.FindStructType(name)
+		// cast celType to types.type
+
+		expT := declType.CelType()
+		if found && !expT.IsExactType(tpType) {
 			return nil, fmt.Errorf(
-				"type %s definition differs between CEL environment and rule", name)
+				"type %s definition differs between CEL environment and type provider", name)
 		}
+
 	}
 	return rtWithTypes, nil
 }
 
-// FindType attempts to resolve the typeName provided from the rule's rule-schema, or if not
+// FindStructType attempts to resolve the typeName provided from the rule's rule-schema, or if not
 // from the embedded ref.TypeProvider.
 //
-// FindType overrides the default type-finding behavior of the embedded TypeProvider.
+// FindStructType overrides the default type-finding behavior of the embedded TypeProvider.
 //
 // Note, when the type name is based on the Open API Schema, the name will reflect the object path
 // where the type definition appears.
-func (rt *RuleTypes) FindType(typeName string) (*exprpb.Type, bool) {
+func (rt *DeclTypeProvider) FindStructType(typeName string) (*types.Type, bool) {
 	if rt == nil {
 		return nil, false
 	}
 	declType, found := rt.findDeclType(typeName)
 	if found {
-		expT, err := declType.ExprType()
-		if err != nil {
-			return expT, false
-		}
-		return expT, found
+		expT := declType.CelType()
+		return types.NewTypeTypeWithParam(expT), found
 	}
-	return rt.TypeProvider.FindType(typeName)
+	return rt.typeProvider.FindStructType(typeName)
 }
 
 // FindDeclType returns the CPT type description which can be mapped to a CEL type.
-func (rt *RuleTypes) FindDeclType(typeName string) (*DeclType, bool) {
+func (rt *DeclTypeProvider) FindDeclType(typeName string) (*DeclType, bool) {
 	if rt == nil {
 		return nil, false
 	}
 	return rt.findDeclType(typeName)
 }
 
-// FindFieldType returns a field type given a type name and field name, if found.
+// FindStructFieldNames returns the field names associated with the type, if the type
+// is found.
+func (rt *DeclTypeProvider) FindStructFieldNames(typeName string) ([]string, bool) {
+	return []string{}, false
+}
+
+// FindStructFieldType returns a field type given a type name and field name, if found.
 //
 // Note, the type name for an Open API Schema type is likely to be its qualified object path.
 // If, in the future an object instance rather than a type name were provided, the field
 // resolution might more accurately reflect the expected type model. However, in this case
 // concessions were made to align with the existing CEL interfaces.
-func (rt *RuleTypes) FindFieldType(typeName, fieldName string) (*ref.FieldType, bool) {
+func (rt *DeclTypeProvider) FindStructFieldType(typeName, fieldName string) (*types.FieldType, bool) {
 	st, found := rt.findDeclType(typeName)
 	if !found {
-		return rt.TypeProvider.FindFieldType(typeName, fieldName)
+		return rt.typeProvider.FindStructFieldType(typeName, fieldName)
 	}
 
 	f, found := st.Fields[fieldName]
+	if rt.recognizeKeywordAsFieldName && !found && celReservedSymbols.Has(fieldName) {
+		f, found = st.Fields["__"+fieldName+"__"]
+	}
+
 	if found {
 		ft := f.Type
-		expT, err := ft.ExprType()
-		if err != nil {
-			return nil, false
-		}
-		return &ref.FieldType{
+		expT := ft.CelType()
+		return &types.FieldType{
 			Type: expT,
 		}, true
 	}
 	// This could be a dynamic map.
 	if st.IsMap() {
 		et := st.ElemType
-		expT, err := et.ExprType()
-		if err != nil {
-			return nil, false
-		}
-		return &ref.FieldType{
+		expT := et.CelType()
+		return &types.FieldType{
 			Type: expT,
 		}, true
 	}
@@ -471,48 +485,63 @@ func (rt *RuleTypes) FindFieldType(typeName, fieldName string) (*ref.FieldType, 
 
 // NativeToValue is an implementation of the ref.TypeAdapater interface which supports conversion
 // of rule values to CEL ref.Val instances.
-func (rt *RuleTypes) NativeToValue(val interface{}) ref.Val {
+func (rt *DeclTypeProvider) NativeToValue(val interface{}) ref.Val {
 	return rt.typeAdapter.NativeToValue(val)
 }
 
-// TypeNames returns the list of type names declared within the RuleTypes object.
-func (rt *RuleTypes) TypeNames() []string {
-	typeNames := make([]string, len(rt.ruleSchemaDeclTypes.types))
+func (rt *DeclTypeProvider) NewValue(typeName string, fields map[string]ref.Val) ref.Val {
+	// TODO: implement for OpenAPI types to enable CEL object instantiation, which is needed
+	// for mutating admission.
+	return rt.typeProvider.NewValue(typeName, fields)
+}
+
+// TypeNames returns the list of type names declared within the DeclTypeProvider object.
+func (rt *DeclTypeProvider) TypeNames() []string {
+	typeNames := make([]string, len(rt.registeredTypes))
 	i := 0
-	for name := range rt.ruleSchemaDeclTypes.types {
+	for name := range rt.registeredTypes {
 		typeNames[i] = name
 		i++
 	}
 	return typeNames
 }
 
-func (rt *RuleTypes) findDeclType(typeName string) (*DeclType, bool) {
-	declType, found := rt.ruleSchemaDeclTypes.types[typeName]
+func (rt *DeclTypeProvider) findDeclType(typeName string) (*DeclType, bool) {
+	declType, found := rt.registeredTypes[typeName]
 	if found {
 		return declType, true
 	}
-	declType, found = rt.resolver.FindType(typeName)
-	if found {
-		return declType, true
-	}
-	return nil, false
+	declType = findScalar(typeName)
+	return declType, declType != nil
 }
 
-func newSchemaTypeProvider(kind string, declType *DeclType) (*schemaTypeProvider, error) {
-	if declType == nil {
-		return nil, nil
+func findScalar(typename string) *DeclType {
+	switch typename {
+	case BoolType.TypeName():
+		return BoolType
+	case BytesType.TypeName():
+		return BytesType
+	case DoubleType.TypeName():
+		return DoubleType
+	case DurationType.TypeName():
+		return DurationType
+	case IntType.TypeName():
+		return IntType
+	case NullType.TypeName():
+		return NullType
+	case StringType.TypeName():
+		return StringType
+	case TimestampType.TypeName():
+		return TimestampType
+	case UintType.TypeName():
+		return UintType
+	case ListType.TypeName():
+		return ListType
+	case MapType.TypeName():
+		return MapType
+	default:
+		return nil
 	}
-	root := declType.MaybeAssignTypeName(kind)
-	types := FieldTypeMap(kind, root)
-	return &schemaTypeProvider{
-		root:  root,
-		types: types,
-	}, nil
-}
-
-type schemaTypeProvider struct {
-	root  *DeclType
-	types map[string]*DeclType
 }
 
 var (
@@ -553,6 +582,10 @@ var (
 	// Note that both the OpenAPI date and date-time types map onto TimestampType, so not all types
 	// labeled as Timestamp will necessarily have the same MinSerializedSize.
 	TimestampType = NewSimpleTypeWithMinSize("timestamp", cel.TimestampType, types.Timestamp{Time: time.Time{}}, JSONDateSize)
+
+	// QuantityDeclType wraps a [QuantityType] and makes it usable with functions that expect
+	// a [DeclType].
+	QuantityDeclType = NewSimpleTypeWithMinSize("quantity", QuantityType, Quantity{Quantity: resource.NewQuantity(0, resource.DecimalSI)}, 8)
 
 	// UintType is equivalent to the CEL 'uint' type.
 	UintType = NewSimpleTypeWithMinSize("uint", cel.UintType, types.Uint(0), 1)

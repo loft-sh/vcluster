@@ -1,11 +1,12 @@
 package k8sdefaultendpoint
 
 import (
+	"testing"
+
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
-	"testing"
 )
 
 func TestShouldUseLegacy(t *testing.T) {

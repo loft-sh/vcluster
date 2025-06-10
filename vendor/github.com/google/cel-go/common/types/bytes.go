@@ -22,7 +22,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/common/types/traits"
 
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -34,12 +33,6 @@ import (
 type Bytes []byte
 
 var (
-	// BytesType singleton.
-	BytesType = NewTypeValue("bytes",
-		traits.AdderType,
-		traits.ComparerType,
-		traits.SizerType)
-
 	// byteWrapperType golang reflected type for protobuf bytes wrapper type.
 	byteWrapperType = reflect.TypeOf(&wrapperspb.BytesValue{})
 )
@@ -63,9 +56,19 @@ func (b Bytes) Compare(other ref.Val) ref.Val {
 }
 
 // ConvertToNative implements the ref.Val interface method.
-func (b Bytes) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
+func (b Bytes) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	switch typeDesc.Kind() {
-	case reflect.Array, reflect.Slice:
+	case reflect.Array:
+		if len(b) != typeDesc.Len() {
+			return nil, fmt.Errorf("[%d]byte not assignable to [%d]byte array", len(b), typeDesc.Len())
+		}
+		refArrPtr := reflect.New(reflect.ArrayOf(len(b), typeDesc.Elem()))
+		refArr := refArrPtr.Elem()
+		for i, byt := range b {
+			refArr.Index(i).Set(reflect.ValueOf(byt).Convert(typeDesc.Elem()))
+		}
+		return refArr.Interface(), nil
+	case reflect.Slice:
 		return reflect.ValueOf(b).Convert(typeDesc).Interface(), nil
 	case reflect.Ptr:
 		switch typeDesc {
@@ -116,6 +119,11 @@ func (b Bytes) Equal(other ref.Val) ref.Val {
 	return Bool(ok && bytes.Equal(b, otherBytes))
 }
 
+// IsZeroValue returns true if the byte array is empty.
+func (b Bytes) IsZeroValue() bool {
+	return len(b) == 0
+}
+
 // Size implements the traits.Sizer interface method.
 func (b Bytes) Size() ref.Val {
 	return Int(len(b))
@@ -127,6 +135,6 @@ func (b Bytes) Type() ref.Type {
 }
 
 // Value implements the ref.Val interface method.
-func (b Bytes) Value() interface{} {
+func (b Bytes) Value() any {
 	return []byte(b)
 }

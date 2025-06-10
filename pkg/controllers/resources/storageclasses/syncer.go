@@ -1,74 +1,139 @@
 package storageclasses
 
 import (
-	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer"
-	synccontext "github.com/loft-sh/vcluster/pkg/controllers/syncer/context"
-	"github.com/loft-sh/vcluster/pkg/controllers/syncer/translator"
+	"fmt"
+
+	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	DefaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
-)
+var DefaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
 
-func New(ctx *synccontext.RegisterContext) (syncer.Object, error) {
+func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
+	mapper, err := ctx.Mappings.ByGVK(mappings.StorageClasses())
+	if err != nil {
+		return nil, err
+	}
+
 	return &storageClassSyncer{
-		Translator: translator.NewClusterTranslator(ctx, "storageclass", &storagev1.StorageClass{}, NewStorageClassTranslator(), DefaultStorageClassAnnotation),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "storageclass", &storagev1.StorageClass{}, mapper),
+
+		excludedAnnotations: []string{
+			DefaultStorageClassAnnotation,
+		},
 	}, nil
 }
 
 type storageClassSyncer struct {
-	translator.Translator
+	syncertypes.GenericTranslator
+
+	excludedAnnotations []string
 }
 
-var _ syncer.IndicesRegisterer = &storageClassSyncer{}
+var _ syncertypes.OptionsProvider = &storageClassSyncer{}
 
-func (s *storageClassSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
-	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &storagev1.StorageClass{}, constants.IndexByPhysicalName, func(rawObj client.Object) []string {
-		return []string{translateStorageClassName(rawObj.GetName())}
-	})
+func (s *storageClassSyncer) Options() *syncertypes.Options {
+	return &syncertypes.Options{
+		ObjectCaching: true,
+	}
 }
 
-var _ syncer.Syncer = &storageClassSyncer{}
+var _ syncertypes.Syncer = &storageClassSyncer{}
 
-func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	// did the storage class change?
-	updated := s.translateUpdate(ctx.Context, pObj.(*storagev1.StorageClass), vObj.(*storagev1.StorageClass))
-	if updated != nil {
-		ctx.Log.Infof("updating physical storage class %s, because virtual storage class has changed", updated.Name)
-		translator.PrintChanges(pObj, updated, ctx.Log)
-		err := ctx.PhysicalClient.Update(ctx.Context, updated)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+func (s *storageClassSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer(s)
+}
+
+func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
+	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
 
-	return ctrl.Result{}, nil
-}
+	newStorageClass := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name}, event.Virtual), s.excludedAnnotations...)
 
-func (s *storageClassSyncer) SyncDown(ctx *synccontext.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	newStorageClass := s.translate(ctx.Context, vObj.(*storagev1.StorageClass))
-	ctx.Log.Infof("create physical storage class %s", newStorageClass.Name)
-	err := ctx.PhysicalClient.Create(ctx.Context, newStorageClass)
+	err := pro.ApplyPatchesHostObject(ctx, nil, newStorageClass, event.Virtual, ctx.Config.Sync.ToHost.StorageClasses.Patches, false)
 	if err != nil {
-		ctx.Log.Infof("error syncing %s to physical cluster: %v", vObj.GetName(), err)
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("apply patches: %w", err)
 	}
+
+	return patcher.CreateHostObject(ctx, event.Virtual, newStorageClass, nil, false)
+}
+
+func (s *storageClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.StorageClasses.Patches, false))
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
+	}
+
+	defer func() {
+		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
+			retErr = utilerrors.NewAggregate([]error{retErr, err})
+		}
+	}()
+
+	// bi-directional sync of annotations and labels
+	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event, s.excludedAnnotations...)
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
+
+	// bidirectional sync
+	event.Virtual.Provisioner, event.Host.Provisioner = patcher.CopyBidirectional(
+		event.VirtualOld.Provisioner,
+		event.Virtual.Provisioner,
+		event.HostOld.Provisioner,
+		event.Host.Provisioner,
+	)
+	event.Virtual.Parameters, event.Host.Parameters = patcher.CopyBidirectional(
+		event.VirtualOld.Parameters,
+		event.Virtual.Parameters,
+		event.HostOld.Parameters,
+		event.Host.Parameters,
+	)
+	event.Virtual.ReclaimPolicy, event.Host.ReclaimPolicy = patcher.CopyBidirectional(
+		event.VirtualOld.ReclaimPolicy,
+		event.Virtual.ReclaimPolicy,
+		event.HostOld.ReclaimPolicy,
+		event.Host.ReclaimPolicy,
+	)
+	event.Virtual.MountOptions, event.Host.MountOptions = patcher.CopyBidirectional(
+		event.VirtualOld.MountOptions,
+		event.Virtual.MountOptions,
+		event.HostOld.MountOptions,
+		event.Host.MountOptions,
+	)
+	event.Virtual.AllowVolumeExpansion, event.Host.AllowVolumeExpansion = patcher.CopyBidirectional(
+		event.VirtualOld.AllowVolumeExpansion,
+		event.Virtual.AllowVolumeExpansion,
+		event.HostOld.AllowVolumeExpansion,
+		event.Host.AllowVolumeExpansion,
+	)
+	event.Virtual.VolumeBindingMode, event.Host.VolumeBindingMode = patcher.CopyBidirectional(
+		event.VirtualOld.VolumeBindingMode,
+		event.Virtual.VolumeBindingMode,
+		event.HostOld.VolumeBindingMode,
+		event.Host.VolumeBindingMode,
+	)
+	event.Virtual.AllowedTopologies, event.Host.AllowedTopologies = patcher.CopyBidirectional(
+		event.VirtualOld.AllowedTopologies,
+		event.Virtual.AllowedTopologies,
+		event.HostOld.AllowedTopologies,
+		event.Host.AllowedTopologies,
+	)
 
 	return ctrl.Result{}, nil
 }
 
-func NewStorageClassTranslator() translate.PhysicalNameTranslator {
-	return func(vName string, vObj client.Object) string {
-		return translateStorageClassName(vName)
-	}
-}
-
-func translateStorageClassName(name string) string {
-	// we have to prefix with vcluster as system is reserved
-	return translate.Default.PhysicalNameClusterScoped(name)
+func (s *storageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
+	// virtual object is not here anymore, so we delete
+	return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 }

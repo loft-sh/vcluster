@@ -32,9 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/util/jsonpath"
-	"k8s.io/utils/integer"
-
-	"github.com/fvbommel/sortorder"
 )
 
 // SortingPrinter sorts list types before delegating to another printer.
@@ -181,7 +178,7 @@ func isLess(i, j reflect.Value) (bool, error) {
 	case reflect.Float32, reflect.Float64:
 		return i.Float() < j.Float(), nil
 	case reflect.String:
-		return sortorder.NaturalLess(i.String(), j.String()), nil
+		return i.String() < j.String(), nil
 	case reflect.Pointer:
 		return isLess(i.Elem(), j.Elem())
 	case reflect.Struct:
@@ -206,7 +203,7 @@ func isLess(i, j reflect.Value) (bool, error) {
 		return true, nil
 	case reflect.Array, reflect.Slice:
 		// note: the length of i and j may be different
-		for idx := 0; idx < integer.IntMin(i.Len(), j.Len()); idx++ {
+		for idx := 0; idx < min(i.Len(), j.Len()); idx++ {
 			less, err := isLess(i.Index(idx), j.Index(idx))
 			if err != nil || !less {
 				return less, err
@@ -275,11 +272,11 @@ func isLess(i, j reflect.Value) (bool, error) {
 				// check if it's a Quantity
 				itypeQuantity, err := resource.ParseQuantity(itype)
 				if err != nil {
-					return sortorder.NaturalLess(itype, jtype), nil
+					return itype < jtype, nil
 				}
 				jtypeQuantity, err := resource.ParseQuantity(jtype)
 				if err != nil {
-					return sortorder.NaturalLess(itype, jtype), nil
+					return itype < jtype, nil
 				}
 				// Both strings are quantity
 				return itypeQuantity.Cmp(jtypeQuantity) < 0, nil

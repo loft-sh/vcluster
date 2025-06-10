@@ -1,0 +1,207 @@
+suite: External etcd StatefulSet
+templates:
+  - etcd-statefulset.yaml
+
+tests:
+  - it: check disabled
+    asserts:
+      - hasDocuments:
+          count: 0
+          
+  - it: check disabled for external etcd
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            external:
+              enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: check disabled headless
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+      experimental:
+        isolatedControlPlane:
+          headless: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: check default image registry
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                image:
+                  tag: "123"
+        advanced:
+          defaultImageRegistry: fabi.com
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: fabi.com/etcd:123
+
+  - it: disables serviceLinks for backingStore etcd pod
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                enabled: true
+                enableServiceLinks: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.enableServiceLinks
+          value: false
+
+  - it: change image registry
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                image:
+                  registry: fabi.com
+                  tag: "123"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: fabi.com/etcd:123
+
+  - it: check specified storage class is used
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                persistence:
+                  volumeClaim:
+                    storageClass: test-sc
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.storageClassName
+          value: test-sc
+
+  - it: enabled for k3s & non persistent
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                extraArgs:
+                  - "extra-arg"
+                env:
+                  - name: my-new-env
+                persistence:
+                  volumeClaim:
+                    enabled: false
+                  addVolumes:
+                    - name: my-new-volume
+                  addVolumeMounts:
+                    - name: my-new-volume
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: "data"
+            emptyDir: {}
+          count: 1
+      - notExists:
+          path: spec.volumeClaimTemplates
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: "my-new-volume"
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: "my-new-volume"
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: "my-new-env"
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].command
+          content: "extra-arg"
+          count: 1
+
+  - it: enable for k8s & defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+              statefulSet:
+                highAvailability:
+                  replicas: 3
+                annotations:
+                  test: test
+        distro:
+          k8s:
+            enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: my-release-etcd
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+      - equal:
+          path: metadata.annotations.test
+          value: test
+      - equal:
+          path: spec.replicas
+          value: 3
+      - lengthEqual:
+          path: spec.volumeClaimTemplates
+          count: 1
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 1
+      - lengthEqual:
+          path: spec.template.spec.containers[0].volumeMounts
+          count: 2
+      - lengthEqual:
+          path: spec.template.spec.containers[0].env
+          count: 1
+      - notExists:
+          path: spec.template.spec.containers[0].args
+      - contains:
+          path: spec.template.spec.containers[0].command
+          content: "--initial-cluster=my-release-etcd-0=https://my-release-etcd-0.my-release-etcd-headless.my-namespace:2380,my-release-etcd-1=https://my-release-etcd-1.my-release-etcd-headless.my-namespace:2380,my-release-etcd-2=https://my-release-etcd-2.my-release-etcd-headless.my-namespace:2380"
+          count: 1
