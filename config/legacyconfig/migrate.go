@@ -67,7 +67,7 @@ func migrateK8sAndEKS(oldValues string, newConfig *config.Config) error {
 	}
 	convertAPIValues(oldConfig.API, &newConfig.ControlPlane.Distro.K8S.APIServer)
 	convertControllerValues(oldConfig.Controller, &newConfig.ControlPlane.Distro.K8S.ControllerManager)
-	convertSchedulerValues(oldConfig.Scheduler, &newConfig.ControlPlane.Distro.K8S.Scheduler)
+	convertSchedulerValues(oldConfig, &newConfig.ControlPlane.Distro.K8S.Scheduler)
 
 	// convert etcd
 	err = convertEtcd(oldConfig.Etcd, newConfig)
@@ -143,6 +143,11 @@ func migrateK3s(distro, oldValues string, newConfig *config.Config) error {
 
 	// migrate embedded etcd
 	convertEmbeddedEtcd(oldConfig.EmbeddedEtcd, newConfig)
+
+	// migrate scheduler
+	if oldConfig.Sync.Nodes.EnableScheduler != nil {
+		newConfig.ControlPlane.Advanced.VirtualScheduler.Enabled = *oldConfig.Sync.Nodes.EnableScheduler
+	}
 
 	// convert the rest
 	return convertBaseValues(oldConfig.BaseHelm, newConfig)
@@ -222,8 +227,11 @@ func convertControllerValues(oldConfig ControllerValues, newContainer *config.Di
 	newContainer.ExtraArgs = oldConfig.ExtraArgs
 }
 
-func convertSchedulerValues(oldConfig SchedulerValues, newContainer *config.DistroContainerEnabled) {
-	newContainer.ExtraArgs = oldConfig.ExtraArgs
+func convertSchedulerValues(oldConfig *LegacyK8s, newContainer *config.DistroContainerEnabled) {
+	if oldConfig.Sync.Nodes.EnableScheduler != nil {
+		newContainer.Enabled = *oldConfig.Sync.Nodes.EnableScheduler
+	}
+	newContainer.ExtraArgs = oldConfig.Scheduler.ExtraArgs
 }
 
 func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
@@ -574,9 +582,6 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 	}
 	if oldConfig.Sync.Nodes.NodeSelector != "" {
 		newConfig.Sync.FromHost.Nodes.Selector.Labels = mergeIntoMap(make(map[string]string), strings.Split(oldConfig.Sync.Nodes.NodeSelector, ","))
-	}
-	if oldConfig.Sync.Nodes.EnableScheduler != nil {
-		newConfig.ControlPlane.Advanced.VirtualScheduler.Enabled = *oldConfig.Sync.Nodes.EnableScheduler
 	}
 	if oldConfig.Sync.Nodes.SyncNodeChanges != nil {
 		newConfig.Sync.FromHost.Nodes.SyncBackChanges = *oldConfig.Sync.Nodes.SyncNodeChanges
