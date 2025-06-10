@@ -27,6 +27,7 @@
     .Values.sync.fromHost.priorityClasses.enabled
     .Values.sync.toHost.volumeSnapshotContents.enabled
     .Values.sync.fromHost.volumeSnapshotClasses.enabled
+    (and .Values.controlPlane.distro.k8s.enabled .Values.controlPlane.distro.k8s.scheduler.enabled)
     .Values.controlPlane.advanced.virtualScheduler.enabled
     .Values.sync.toHost.pods.hybridScheduling.enabled
     .Values.sync.fromHost.ingressClasses.enabled
