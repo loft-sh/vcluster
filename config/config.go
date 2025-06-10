@@ -86,6 +86,9 @@ type Config struct {
 
 	// SleepMode holds the native sleep mode configuration for Pro clusters
 	SleepMode *SleepMode `json:"sleepMode,omitempty"`
+
+	// Logging specifies the format of vCluster logs, the values can be either console or json
+	Logging *Logging `json:"logging,omitempty"`
 }
 
 // PrivateNodes enables private nodes for vCluster. When turned on, vCluster will not sync resources to the host cluster
@@ -2987,4 +2990,8 @@ type AutoWakeup struct {
 // AutoSleepExclusion holds conifiguration for excluding workloads from sleeping by label(s)
 type AutoSleepExclusion struct {
 	Selector LabelSelector `json:"selector,omitempty"`
+}
+
+type Logging struct {
+	Encoding string `json:"encoding,omitempty"`
 }

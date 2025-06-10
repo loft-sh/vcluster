@@ -2624,6 +2624,15 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Logging": {
+      "properties": {
+        "encoding": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "MetricsServer": {
       "properties": {
         "enabled": {
@@ -4623,6 +4632,10 @@
     "sleepMode": {
       "$ref": "#/$defs/SleepMode",
       "description": "SleepMode holds the native sleep mode configuration for Pro clusters"
+    },
+    "logging": {
+      "$ref": "#/$defs/Logging",
+      "description": "Logging specifies the format of vCluster logs, the values can be either console or json"
     }
   },
   "additionalProperties": false,
