@@ -615,6 +615,21 @@ tests:
         distro:
           k8s:
             enabled: true
+            scheduler:
+              enabled: true
+    asserts:
+    - equal:
+        path: spec.template.spec.initContainers[0].image
+        value: ghcr.io/loft-sh/kubernetes:v1.32.1
+
+  - it: k8s version not set, default tag images used for apiServer and controllerManager (virtual scheduler enabled, deprecated)
+    chart:
+      version: "test-"
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
         advanced:
           virtualScheduler:
             enabled: true
@@ -630,6 +645,20 @@ tests:
           k8s:
             enabled: true
             version: v1.35.999
+            scheduler:
+              enabled: true
+    asserts:
+    - equal:
+        path: spec.template.spec.initContainers[0].image
+        value: ghcr.io/loft-sh/kubernetes:v1.35.999
+
+  - it: k8s version sets image tag for apiServer and controllerManager (virtual scheduler enabled, deprecated)
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            version: v1.35.999
         advanced:
           virtualScheduler:
             enabled: true
@@ -639,6 +668,22 @@ tests:
           value: ghcr.io/loft-sh/kubernetes:v1.35.999
 
   - it: k8s version set but not overridden by image tag for apiServer and controllerManager (virtual scheduler enabled)
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            version: v1.30.999
+            image:
+              tag: v99912
+            scheduler:
+              enabled: true
+    asserts:
+    - equal:
+        path: spec.template.spec.initContainers[0].image
+        value: ghcr.io/loft-sh/kubernetes:v1.30.999
+
+  - it: k8s version set but not overridden by image tag for apiServer and controllerManager (virtual scheduler enabled, deprecated)
     set:
       controlPlane:
         distro:
@@ -763,7 +808,7 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "additional secret must have name and/or namespace set, found: {\"server\":\"my-server\"}"
-          
+
   - it: must use Deployment for external etcd
     set:
       controlPlane:
@@ -832,7 +877,7 @@ tests:
       - equal:
           path: spec.template.spec.initContainers[0].image
           value: ghcr.io/loft-sh/kubernetes:v1.35.999
-          
+
   - it: sets custom probe configuration
     set:
       controlPlane:

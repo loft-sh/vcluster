@@ -55,6 +55,24 @@ tests:
   - it: enable scheduler
     set:
       controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            scheduler:
+              enabled: true
+    asserts:
+    - hasDocuments:
+        count: 1
+    - contains:
+        path: rules
+        content:
+          apiGroups: [ "storage.k8s.io" ]
+          resources: [ "storageclasses", "csinodes", "csidrivers", "csistoragecapacities" ]
+          verbs: [ "get", "watch", "list" ]
+
+  - it: enable scheduler (deprecated)
+    set:
+      controlPlane:
         advanced:
           virtualScheduler:
             enabled: true
