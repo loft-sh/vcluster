@@ -181,6 +181,10 @@ spec:
           env:
             - name: VCLUSTER_NAME
               value: "{{ .Release.Name }}"
+            {{- if .Values.logging }}
+            - name: LOFT_LOG_ENCODING
+              value: {{ default "console" .Values.logging.encoding }}
+            {{- end }}
             - name: POD_NAME
               valueFrom:
                 fieldRef:

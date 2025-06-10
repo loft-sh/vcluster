@@ -929,3 +929,19 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].startupProbe.failureThreshold
           value: 300
+
+  - it: should set logging format to json
+    set:
+      logging:
+        encoding: json
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[?(@.name=="LOFT_LOG_ENCODING")].value
+          value: json
+
+  - it: should set default logging format to console
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[?(@.name=="LOFT_LOG_ENCODING")].value
+          value: console
+

@@ -1153,3 +1153,8 @@ experimental:
 telemetry:
   # Enabled specifies that the telemetry for the vCluster control plane should be enabled.
   enabled: true
+
+# Logging provides structured logging options
+logging:
+  # Encoding specifies the format of vCluster logs, it can either be json or console.
+  encoding: console
