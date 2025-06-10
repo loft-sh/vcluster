@@ -713,6 +713,7 @@ controlPlane:
     # upload all required vCluster images to a single private repository and set this value. Workload images are not affected by this.
     defaultImageRegistry: ""
     # VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.
+    # Deprecated: Use ControlPlane.Distro.K8S.Scheduler instead.
     virtualScheduler:
       enabled: false
     # ServiceAccount specifies options for the vCluster control plane service account.
