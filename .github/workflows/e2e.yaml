@@ -274,6 +274,10 @@ jobs:
             test-suite-path: "./test/e2e_generic"
           - distribution: "k8s"
             test-suite-path: "./test/e2e_generic"
+          - distribution: "k3s"
+            test-suite-path: "./test/e2e_scheduler" # this is k8s-only
+          - distribution: "k8s"
+            test-suite-path: "./test/e2e_scheduler_deprecated" # this is k3s-only
 
     steps:
       - name: Checkout repository

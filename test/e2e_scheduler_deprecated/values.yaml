@@ -7,10 +7,9 @@ sync:
         all: true
 
 controlPlane:
-  distro:
-    k8s:
-      scheduler:
-        enabled: true
+  advanced:
+    virtualScheduler:
+      enabled: true
 
 experimental:
   deploy:
