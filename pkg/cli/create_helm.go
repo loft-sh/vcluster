@@ -357,7 +357,6 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		if err := config.ValidateChanges(currentVClusterConfig, vClusterConfig); err != nil {
 			return err
 		}
-
 	}
 
 	// create platform secret
@@ -442,8 +441,7 @@ func (cmd *createHelm) ValidatePlatformProjectChanges(ctx context.Context, vclus
 	// we check if the virtualcluster instance exists for this vcluster and if the project name set
 	// for virtual cluster instance is different from what is being passed in `projectName`. If its
 	// different , we dont allow to change it
-	return validateVclusterProject(ctx, managementClient, vclusterName, cmd.Namespace, projectName, cmd.log)
-
+	return validateVclusterProject(ctx, managementClient, vclusterName, cmd.Namespace, projectName)
 }
 
 func confirmExperimental(currentVClusterConfig *config.Config, currentValues string, log log.Logger) error {

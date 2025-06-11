@@ -64,7 +64,6 @@ func AddVClusterHelm(
 			return err
 		}
 		vClusters = append(vClusters, *vCluster)
-
 	}
 
 	if len(vClusters) == 0 {
@@ -115,7 +114,6 @@ func AddVClusterHelm(
 				vClusters[0].VirtualClusterInstance = &vci
 			}
 		}
-
 	}
 
 	for _, vCluster := range vClusters {
@@ -139,8 +137,7 @@ func validateVclusterProject(ctx context.Context,
 	managementClient kube.Interface,
 	vclusterName string,
 	vclusterNamespace string,
-	projectName string,
-	log log.Logger) error {
+	projectName string) error {
 	opts := metav1.ListOptions{}
 	virtualClusterInstancesList, err := managementClient.Loft().ManagementV1().VirtualClusterInstances("").List(ctx, opts)
 
@@ -155,8 +152,7 @@ func validateVclusterProject(ctx context.Context,
 
 		// project name should not be different from what is already set for the vcluster
 		if projectNamespace != "" && projectName != projectutil.ProjectFromNamespace(projectNamespace) {
-			return fmt.Errorf("Project name update not allowed for existing vcluster %s in namespace %s", vclusterName, vclusterNamespace)
-
+			return fmt.Errorf("project name update not allowed for existing vcluster %s in namespace %s", vclusterName, vclusterNamespace)
 		}
 	} else if !kerrors.IsNotFound(err) {
 		return err
