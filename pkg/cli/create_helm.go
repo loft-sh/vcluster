@@ -361,9 +361,6 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 
 	// create platform secret
 	if cmd.Add {
-		if err := cmd.ValidatePlatformProjectChanges(ctx, vClusterName, currentVClusterConfig, vClusterConfig); err != nil {
-			return err
-		}
 		err = cmd.addVCluster(ctx, vClusterName, vClusterConfig)
 		if err != nil {
 			return err
@@ -405,43 +402,6 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	}
 
 	return nil
-}
-
-func (cmd *createHelm) ValidatePlatformProjectChanges(ctx context.Context, vclusterName string, oldCfg, newCfg *config.Config) error {
-	// Do not allow changing project already set in external.platform.project
-	err := config.ValidateProjectConfigChanges(oldCfg, newCfg)
-	if err != nil {
-		return err
-	}
-
-	cfg := cmd.LoadedConfig(cmd.log)
-	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
-	if err != nil {
-		if newCfg.IsProFeatureEnabled() {
-			return fmt.Errorf("you have vCluster pro features enabled, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --add=false", err)
-		}
-		// return if vcluster platform is not installed, this is required
-		// for oss vclusters
-		cmd.log.Debugf("create platform client: %v", err)
-		return nil
-	}
-
-	managementClient, err := platformClient.Management()
-	if err != nil {
-		return err
-	}
-
-	platformConfig, err := newCfg.GetPlatformConfig()
-	if err != nil {
-		return fmt.Errorf("get platform config: %w", err)
-	}
-	projectName := cmd.getProjectName(platformConfig)
-
-	// When the project set earlier using cli `--project` option or is being changed using `--project`
-	// we check if the virtualcluster instance exists for this vcluster and if the project name set
-	// for virtual cluster instance is different from what is being passed in `projectName`. If its
-	// different , we dont allow to change it
-	return validateVclusterProject(ctx, managementClient, vclusterName, cmd.Namespace, projectName)
 }
 
 func confirmExperimental(currentVClusterConfig *config.Config, currentValues string, log log.Logger) error {
@@ -510,8 +470,7 @@ func (cmd *createHelm) addVCluster(ctx context.Context, name string, vClusterCon
 		return nil
 	}
 
-	cfg := cmd.LoadedConfig(cmd.log)
-	_, err = platform.InitClientFromConfig(ctx, cfg)
+	_, err = platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		if vClusterConfig.IsProFeatureEnabled() {
 			return fmt.Errorf("you have vCluster pro features enabled, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --add=false", err)

@@ -613,30 +613,7 @@ func ValidateChanges(oldCfg, newCfg *Config) error {
 	if err := ValidateNamespaceSyncChanges(oldCfg, newCfg); err != nil { //nolint:revive
 		return err
 	}
-
 	return nil
-}
-
-// ValidateProjectConfigChanges checks for disallowed config changes in project
-func ValidateProjectConfigChanges(oldCfg, newCfg *Config) error {
-	if oldCfg.PlatformProjectSet() && newCfg.PlatformProjectSet() {
-		if oldCfg.GetProject() != newCfg.GetProject() {
-			return fmt.Errorf("external.platform.project is not allowed to be changed from %s to %s", oldCfg.GetProject(), newCfg.GetProject())
-		}
-		return nil
-	}
-	return nil
-}
-
-func (c *Config) PlatformProjectSet() bool {
-	if c != nil && c.External != nil && c.External["platform"] == nil {
-		return false
-	}
-	return c.GetProject() != nil
-}
-
-func (c *Config) GetProject() interface{} {
-	return c.External["platform"]["project"]
 }
 
 // ValidateStoreChanges checks whether migrating from one store to the other is allowed.
@@ -2652,8 +2629,10 @@ type PlatformConfig struct {
 	// * environment variable called LICENSE
 	// * secret specified under external.platform.apiKey.secretName
 	// * secret called "vcluster-platform-api-key" in the vCluster namespace
-	APIKey  PlatformAPIKey `json:"apiKey,omitempty"`
-	Project string         `json:"project,omitempty"`
+	APIKey PlatformAPIKey `json:"apiKey,omitempty"`
+
+	// Project specifies which platform project the vcluster should be imported to
+	Project string `json:"project,omitempty"`
 }
 
 // PlatformAPIKey defines where to find the platform access key. The secret key name doesn't matter as long as the secret only contains a single key.
