@@ -591,8 +591,7 @@ func (c *Config) Distro() string {
 }
 
 func (c *Config) IsVirtualSchedulerEnabled() bool {
-	k8sDistro := c.ControlPlane.Distro.K8S
-	return k8sDistro.Enabled && k8sDistro.Scheduler.Enabled ||
+	return c.Distro() == K8SDistro && c.ControlPlane.Distro.K8S.Scheduler.Enabled ||
 		c.ControlPlane.Advanced.VirtualScheduler.Enabled
 }
 
