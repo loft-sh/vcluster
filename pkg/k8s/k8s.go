@@ -156,7 +156,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 					args = append(args, "--controllers=*,bootstrapsigner,tokencleaner")
 					args = append(args, "--allocate-node-cidrs=true")
 					args = append(args, "--cluster-cidr="+vConfig.Networking.PodCIDR)
-				} else if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled {
+				} else if vConfig.IsVirtualSchedulerEnabled() {
 					args = append(args, "--controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl")
 					args = append(args, "--node-monitor-grace-period=1h")
 					args = append(args, "--node-monitor-period=1h")
@@ -185,7 +185,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 
 	// start scheduler command
 	scheduler := vConfig.ControlPlane.Distro.K8S.Scheduler
-	if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled || vConfig.PrivateNodes.Enabled {
+	if vConfig.IsVirtualSchedulerEnabled() || vConfig.PrivateNodes.Enabled {
 		go func() {
 			// build flags
 			args := []string{}

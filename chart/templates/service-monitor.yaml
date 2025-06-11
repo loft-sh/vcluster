@@ -67,7 +67,10 @@ spec:
       keySecret:
         name: vc-{{ .Release.Name }}
         key: client-key
-  {{- if .Values.controlPlane.advanced.virtualScheduler.enabled }}
+  {{- if or
+      (and (eq (include "vcluster.distro" .) "k8s") .Values.controlPlane.distro.k8s.scheduler.enabled)
+      .Values.controlPlane.advanced.virtualScheduler.enabled
+      }}
   - interval: 30s
     port: https
     path: /scheduler/metrics

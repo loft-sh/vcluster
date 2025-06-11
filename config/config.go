@@ -593,6 +593,11 @@ func (c *Config) Distro() string {
 	return K8SDistro
 }
 
+func (c *Config) IsVirtualSchedulerEnabled() bool {
+	return c.Distro() == K8SDistro && c.ControlPlane.Distro.K8S.Scheduler.Enabled ||
+		c.ControlPlane.Advanced.VirtualScheduler.Enabled
+}
+
 func (c *Config) IsConfiguredForSleepMode() bool {
 	if c != nil && c.External != nil && c.External["platform"] == nil {
 		return false
@@ -1537,7 +1542,7 @@ type DistroK8s struct {
 	ControllerManager DistroContainerEnabled `json:"controllerManager,omitempty"`
 
 	// Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
-	Scheduler DistroContainer `json:"scheduler,omitempty"`
+	Scheduler DistroContainerEnabled `json:"scheduler,omitempty"`
 
 	DistroCommon `json:",inline"`
 }
@@ -1946,6 +1951,7 @@ type ControlPlaneAdvanced struct {
 	DefaultImageRegistry string `json:"defaultImageRegistry,omitempty"`
 
 	// VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.
+	// Deprecated: Use ControlPlane.Distro.K8S.Scheduler instead.
 	VirtualScheduler EnableSwitch `json:"virtualScheduler,omitempty"`
 
 	// ServiceAccount specifies options for the vCluster control plane service account.

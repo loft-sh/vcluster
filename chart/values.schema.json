@@ -315,7 +315,7 @@
         },
         "virtualScheduler": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster."
+          "description": "VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.\nDeprecated: Use ControlPlane.Distro.K8S.Scheduler instead."
         },
         "serviceAccount": {
           "$ref": "#/$defs/ControlPlaneServiceAccount",
@@ -977,26 +977,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "DistroContainer": {
-      "properties": {
-        "command": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "Command is the command to start the distro binary. This will override the existing command."
-        },
-        "extraArgs": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "ExtraArgs are additional arguments to pass to the distro binary."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "DistroContainerEnabled": {
       "properties": {
         "enabled": {
@@ -1091,7 +1071,7 @@
           "description": "ControllerManager holds configuration specific to starting the controller manager."
         },
         "scheduler": {
-          "$ref": "#/$defs/DistroContainer",
+          "$ref": "#/$defs/DistroContainerEnabled",
           "description": "Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled"
         },
         "image": {

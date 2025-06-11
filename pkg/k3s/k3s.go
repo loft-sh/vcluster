@@ -40,7 +40,7 @@ func StartK3S(ctx context.Context, vConfig *config.VirtualClusterConfig, service
 		args = append(args, "--egress-selector-mode=disabled")
 		args = append(args, "--flannel-backend=none")
 		args = append(args, "--kube-apiserver-arg=bind-address=127.0.0.1")
-		if vConfig.ControlPlane.Advanced.VirtualScheduler.Enabled {
+		if vConfig.IsVirtualSchedulerEnabled() {
 			args = append(args, "--kube-controller-manager-arg=controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl")
 			args = append(args, "--kube-apiserver-arg=endpoint-reconciler-type=none")
 			args = append(args, "--kube-controller-manager-arg=node-monitor-grace-period=1h")

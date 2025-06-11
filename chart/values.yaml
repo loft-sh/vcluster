@@ -252,6 +252,7 @@ controlPlane:
         extraArgs: []
       # Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
       scheduler:
+        enabled: false
         # Command is the command to start the distro binary. This will override the existing command.
         command: []
         # ExtraArgs are additional arguments to pass to the distro binary.
@@ -713,6 +714,7 @@ controlPlane:
     # upload all required vCluster images to a single private repository and set this value. Workload images are not affected by this.
     defaultImageRegistry: ""
     # VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.
+    # Deprecated: Use ControlPlane.Distro.K8S.Scheduler instead.
     virtualScheduler:
       enabled: false
     # ServiceAccount specifies options for the vCluster control plane service account.

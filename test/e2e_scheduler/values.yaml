@@ -10,6 +10,10 @@ controlPlane:
   advanced:
     virtualScheduler:
       enabled: true
+  distro:
+    k8s:
+      scheduler:
+        enabled: true
 
 experimental:
   deploy:

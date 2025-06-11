@@ -114,6 +114,7 @@ controlPlane:
         command: []
         extraArgs: []
       scheduler:
+        enabled: false
         command: []
         extraArgs: []
       env: []
