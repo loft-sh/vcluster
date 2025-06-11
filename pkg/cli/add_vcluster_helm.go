@@ -64,6 +64,7 @@ func AddVClusterHelm(
 			return err
 		}
 		vClusters = append(vClusters, *vCluster)
+
 	}
 
 	if len(vClusters) == 0 {
@@ -82,20 +83,48 @@ func AddVClusterHelm(
 	}
 
 	config := globalFlags.LoadedConfig(log)
-	platformClient, err := platform.InitClientFromConfig(ctx, config)
+	_, err = platform.InitClientFromConfig(ctx, config)
 	if err != nil {
 		return err
 	}
 
-	managementClient, err := platformClient.Management()
 	var addErrors []error
 	log.Debugf("trying to add %d vCluster instances to platform", len(vClusters))
+	projNamespace := "default"
+	if options.Project != "" {
+		projNamespace = options.Project
+	}
+
+	// When vclusters with same name exist in two different namespaces and same
+	// project, the virtual cluster instance names are different from vcluster names,
+	// in such cases, we specifically are getting the list of all the virtualclusterinstances
+	// and find the corresponding virtualclusterinstance for the vcluster.
+	// If `--all` flag is used, this is already handled when we call `find.ListVClusters`
+	if len(vClusters) == 1 && vClusters[0].VirtualClusterInstance == nil {
+		kubeClient, err := find.GetKubeClient(globalFlags.Context)
+		if err != nil {
+			return err
+		}
+		virtualClusterInstances, err := kubeClient.Loft().StorageV1().VirtualClusterInstances("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+
+		for _, vci := range virtualClusterInstances.Items {
+			if vci.Spec.ClusterRef.Namespace == vClusters[0].Namespace && vci.Spec.ClusterRef.VirtualCluster == vClusters[0].Name {
+				vClusters[0].VirtualClusterInstance = &vci
+			}
+		}
+
+	}
+
 	for _, vCluster := range vClusters {
 		log.Infof("adding %s vCluster to platform", vCluster.Name)
-		err := validateVclusterProject(ctx, managementClient, vCluster.Name, vCluster.Namespace, options.Project, log)
-		if err != nil {
-			log.Error(err)
-			continue
+		if vCluster.VirtualClusterInstance != nil {
+			if vCluster.VirtualClusterInstance.Namespace != projectutil.ProjectNamespace(projNamespace) {
+				log.Errorf("Project name update not allowed for existing vcluster %s in namespace %s", vCluster.Name, vCluster.Namespace)
+				continue
+			}
 		}
 		err = addVClusterHelm(ctx, options, globalFlags, vCluster.Name, &vCluster, kubeClient, log)
 		if err != nil {
@@ -112,20 +141,19 @@ func validateVclusterProject(ctx context.Context,
 	vclusterNamespace string,
 	projectName string,
 	log log.Logger) error {
-	opts := metav1.ListOptions{
-		FieldSelector: "metadata.name=" + vclusterName,
-	}
+	opts := metav1.ListOptions{}
 	virtualClusterInstancesList, err := managementClient.Loft().ManagementV1().VirtualClusterInstances("").List(ctx, opts)
 
 	if err == nil {
 		var projectNamespace string
 		for _, vci := range virtualClusterInstancesList.Items {
-			if vci.Spec.ClusterRef.Namespace == vclusterNamespace {
+			if vci.Spec.ClusterRef.Namespace == vclusterNamespace && vci.Spec.ClusterRef.VirtualCluster == vclusterName {
 				projectNamespace = vci.Namespace
 				break
 			}
 		}
 
+		// project name should not be different from what is already set for the vcluster
 		if projectNamespace != "" && projectName != projectutil.ProjectFromNamespace(projectNamespace) {
 			return fmt.Errorf("Project name update not allowed for existing vcluster %s in namespace %s", vclusterName, vclusterNamespace)
 

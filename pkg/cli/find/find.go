@@ -249,18 +249,11 @@ func FormatOptions(format string, options [][]string) []string {
 
 func ListVClusters(ctx context.Context, context, name, namespace string, log log.Logger) ([]VCluster, error) {
 	var err error
-	if context == "" {
-		var err error
-		context, _, err = CurrentContext()
-		if err != nil {
-			return nil, err
-		}
-	}
-	kubeClient, err := createKubeClient(context)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kube client: %w", err)
-	}
 
+	kubeClient, err := GetKubeClient(context)
+	if err != nil {
+		return nil, err
+	}
 	vClusters, err := ListOSSVClusters(ctx, kubeClient, context, name, namespace)
 	if err != nil {
 		log.Warnf("Error retrieving vclusters: %v", err)
@@ -310,6 +303,17 @@ func ListVClusters(ctx context.Context, context, name, namespace string, log log
 	}
 
 	return vClusters, nil
+}
+
+func GetKubeClient(context string) (kube.Interface, error) {
+	if context == "" {
+		var err error
+		context, _, err = CurrentContext()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return createKubeClient(context)
 }
 
 func ListOSSVClusters(ctx context.Context, kubeClient kube.Interface, context, name, namespace string) ([]VCluster, error) {

@@ -617,10 +617,11 @@ func ValidateChanges(oldCfg, newCfg *Config) error {
 	return nil
 }
 
-func ValidateProjectChanges(oldCfg, newCfg *Config) error {
+// ValidateProjectConfigChanges checks for disallowed config changes in project
+func ValidateProjectConfigChanges(oldCfg, newCfg *Config) error {
 	if oldCfg.PlatformProjectSet() && newCfg.PlatformProjectSet() {
 		if oldCfg.GetProject() != newCfg.GetProject() {
-			return fmt.Errorf("external.platform.project is not allowed to be changed")
+			return fmt.Errorf("external.platform.project is not allowed to be changed from %s to %s", oldCfg.GetProject(), newCfg.GetProject())
 		}
 		return nil
 	}
