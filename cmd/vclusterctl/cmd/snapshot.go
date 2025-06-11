@@ -54,5 +54,6 @@ vcluster snapshot my-vcluster container:///data/my-local-snapshot.tar.gz
 
 	// add storage flags
 	pod.AddFlags(cobraCmd.Flags(), &cmd.Pod, false)
+	snapshot.AddFlags(cobraCmd.Flags(), &cmd.Snapshot)
 	return cobraCmd
 }
