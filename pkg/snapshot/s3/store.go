@@ -25,6 +25,8 @@ import (
 	"os"
 	"slices"
 
+	"k8s.io/klog/v2"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -254,15 +256,18 @@ func (o *ObjectStore) PutObject(ctx context.Context, body io.Reader) error {
 	// if kmsKeyID is not empty, assume a server-side encryption (SSE)
 	// algorithm of "aws:kms"
 	case o.kmsKeyID != "":
+		klog.FromContext(ctx).Info("using aws:kms server-side encryption (SSE-KMS)", "kmsKeyId", o.kmsKeyID)
 		input.ServerSideEncryption = "aws:kms"
 		input.SSEKMSKeyId = &o.kmsKeyID
 	// if sseCustomerKey is not empty, assume SSE-C encryption with AES256 algorithm
 	case o.sseCustomerKey != "":
+		klog.FromContext(ctx).Info("using aws server-side encryption (SSE-C) with customer provided key")
 		input.SSECustomerAlgorithm = aws.String("AES256")
 		input.SSECustomerKey = &o.sseCustomerKey
 		input.SSECustomerKeyMD5 = &o.sseCustomerKeyMd5
 	// otherwise, use the SSE algorithm specified, if any
 	case o.serverSideEncryption != "":
+		klog.FromContext(ctx).Info("using aws server-side encryption (SSE)", "server-side-encryption", o.serverSideEncryption)
 		input.ServerSideEncryption = types.ServerSideEncryption(o.serverSideEncryption)
 	}
 
