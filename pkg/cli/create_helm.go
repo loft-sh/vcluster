@@ -475,28 +475,17 @@ func (cmd *createHelm) addVCluster(ctx context.Context, name string, vClusterCon
 		if vClusterConfig.IsProFeatureEnabled() {
 			return fmt.Errorf("you have vCluster pro features enabled, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --add=false", err)
 		}
+
 		cmd.log.Debugf("create platform client: %v", err)
 		return nil
 	}
 
-	projectName := cmd.getProjectName(platformConfig)
-
-	err = platform.ApplyPlatformSecret(ctx, cmd.LoadedConfig(cmd.log), cmd.kubeClient, "", name, cmd.Namespace, projectName, "", "", false, cmd.LoadedConfig(cmd.log).Platform.CertificateAuthorityData, cmd.log)
+	err = platform.ApplyPlatformSecret(ctx, cmd.LoadedConfig(cmd.log), cmd.kubeClient, "", name, cmd.Namespace, cmd.Project, "", "", false, cmd.LoadedConfig(cmd.log).Platform.CertificateAuthorityData, cmd.log)
 	if err != nil {
 		return fmt.Errorf("apply platform secret: %w", err)
 	}
 
 	return nil
-}
-
-func (cmd *createHelm) getProjectName(platformCfg *config.PlatformConfig) string {
-	if cmd.Project != "" {
-		return cmd.Project
-	}
-	if platformCfg.Project != "" {
-		return platformCfg.Project
-	}
-	return "default"
 }
 
 func (cmd *createHelm) isLoftAgentDeployed(ctx context.Context) (bool, error) {
