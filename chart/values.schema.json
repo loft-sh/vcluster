@@ -3009,6 +3009,10 @@
         "apiKey": {
           "$ref": "#/$defs/PlatformAPIKey",
           "description": "APIKey defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:\n* environment variable called LICENSE\n* secret specified under external.platform.apiKey.secretName\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
+        },
+        "project": {
+          "type": "string",
+          "description": "Project specifies which platform project the vcluster should be imported to"
         }
       },
       "type": "object",

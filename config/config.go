@@ -2636,6 +2636,9 @@ type PlatformConfig struct {
 	// * secret specified under external.platform.apiKey.secretName
 	// * secret called "vcluster-platform-api-key" in the vCluster namespace
 	APIKey PlatformAPIKey `json:"apiKey,omitempty"`
+
+	// Project specifies which platform project the vcluster should be imported to
+	Project string `json:"project,omitempty"`
 }
 
 // PlatformAPIKey defines where to find the platform access key. The secret key name doesn't matter as long as the secret only contains a single key.
