@@ -196,11 +196,7 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 
 	// if namespace sync is enabled, use cleanup handlers to handle namespace cleanup
 	if vclusterConfig.Sync.ToHost.Namespaces.Enabled {
-		runNamespaceCleanup, err := GetNamespaceCleanupHandler(vclusterConfig.Sync.ToHost.Namespaces.HostNamespaces.Cleanup)
-		if err != nil {
-			return fmt.Errorf("get cleanup handler: %w", err)
-		}
-		if err := runNamespaceCleanup(ctx, cmd.Namespace, vClusterName, vclusterConfig.Sync.ToHost.Namespaces, cmd.kubeClient, cmd.log); err != nil {
+		if err := CleanupSyncedNamespaces(ctx, cmd.Namespace, vClusterName, vclusterConfig.Sync.ToHost.Namespaces, cmd.kubeClient, cmd.log); err != nil {
 			return fmt.Errorf("run namespace cleanup: %w", err)
 		}
 	}
