@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/scheduling"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/token"
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -561,22 +563,24 @@ func (s *podSyncer) getNodeIP(ctx *synccontext.SyncContext, name string) (string
 }
 
 func (s *podSyncer) applyLimitByClass(ctx *synccontext.SyncContext, virtual *corev1.Pod) bool {
-	// Get the host priority class and check if it matches the selector under 'sync.fromHost.priorityClasses.selector'
-	if ctx.Config.Sync.FromHost.PriorityClasses.Enabled && virtual.Spec.PriorityClassName != "" {
-		pPriorityClass := &schedulingv1.PriorityClass{}
-		err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: virtual.Spec.PriorityClassName}, pPriorityClass)
-		if err != nil || pPriorityClass.GetDeletionTimestamp() != nil {
-			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q couldn't be reached in the host: %s", virtual.GetName(), virtual.Spec.PriorityClassName, err)
-			return true
-		}
-		matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(pPriorityClass)
-		if err != nil {
-			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host could not be checked against the selector under 'sync.fromHost.priorityClasses.selector': %s", virtual.GetName(), pPriorityClass.GetName(), err)
-			return true
-		}
-		if !matches {
-			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host does not match the selector under 'sync.fromHost.priorityClasses.selector'", virtual.GetName(), pPriorityClass.GetName())
-			return true
+	if !slices.Contains(constants.SystemPriorityClassesAllowList, virtual.Spec.PriorityClassName) {
+		// Get the host priority class and check if it matches the selector under 'sync.fromHost.priorityClasses.selector'
+		if ctx.Config.Sync.FromHost.PriorityClasses.Enabled && virtual.Spec.PriorityClassName != "" {
+			pPriorityClass := &schedulingv1.PriorityClass{}
+			err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: virtual.Spec.PriorityClassName}, pPriorityClass)
+			if err != nil || pPriorityClass.GetDeletionTimestamp() != nil {
+				s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q couldn't be reached in the host: %s", virtual.GetName(), virtual.Spec.PriorityClassName, err)
+				return true
+			}
+			matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(pPriorityClass)
+			if err != nil {
+				s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host could not be checked against the selector under 'sync.fromHost.priorityClasses.selector': %s", virtual.GetName(), pPriorityClass.GetName(), err)
+				return true
+			}
+			if !matches {
+				s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host does not match the selector under 'sync.fromHost.priorityClasses.selector'", virtual.GetName(), pPriorityClass.GetName())
+				return true
+			}
 		}
 	}
 
