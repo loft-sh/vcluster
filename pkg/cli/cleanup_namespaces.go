@@ -18,7 +18,7 @@ const (
 	vClusterMetadataPrefix = "vcluster.loft.sh/"
 )
 
-// cleanupSyncedNamespaces handles deletion of namespaces for the 'synced' policy.
+// CleanupSyncedNamespaces handles deletion of namespaces for the 'synced' policy.
 // It deletes namespaces from the host cluster that were created as a result of syncing process from vCluster,
 func CleanupSyncedNamespaces(
 	ctx context.Context,
