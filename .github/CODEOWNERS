@@ -7,24 +7,27 @@ netlify.toml @loft-sh/Eng-Docs-Admin
 
 /.github/workflows/e2e.yaml @FabianKramm
 /.github/workflows/release.yaml @FabianKramm
-/pkg/syncer/ @FabianKramm
+/pkg/syncer/ @FabianKramm @hidalgopl
 /pkg/controllers/resources/pods/ @FabianKramm
 /pkg/controllers/resources/services/ @FabianKramm
 /pkg/controllers/resources/endpoints/ @FabianKramm
 /pkg/controllers/resources/secrets/ @FabianKramm
 /pkg/controllers/resources/configmaps/ @FabianKramm
 /pkg/controllers/resources/events/ @FabianKramm
+/pkg/controllers/resources/*/from_host_syncer*.go @hidalgopl
 /pkg/controllers/k8sdefaultendpoint/ @FabianKramm
 /pkg/controllers/register.go @FabianKramm
 /pkg/mappings/ @FabianKramm
 /pkg/server/ @FabianKramm
 /pkg/k8s/ @FabianKramm
-/pkg/setup/ @FabianKramm
+/pkg/setup/ @FabianKramm @hidalgopl
 /pkg/plugin/ @FabianKramm
 /pkg/util/translate/ @FabianKramm
 /pkg/authentication/ @FabianKramm
 /pkg/authorization/ @FabianKramm
+/pkg/cli/ @hidalgopl
 /pkg/config/config.go @FabianKramm
-/config/ @FabianKramm
-/cmd/vcluster/ @FabianKramm
-/chart/ @FabianKramm
+/pkg/config/ @hidalgopl
+/config/ @FabianKramm @hidalgopl
+/cmd/vcluster/ @FabianKramm @hidalgopl
+/chart/ @FabianKramm @hidalgopl
