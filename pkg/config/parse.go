@@ -54,7 +54,7 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 		return nil, err
 	}
 
-	configLogger := loghelper.New("vcluster-config")
+	configLogger := loghelper.New("config")
 	warnings := Lint(retConfig.Config)
 	for _, warning := range warnings {
 		configLogger.Infof("Warning: %s", warning)
