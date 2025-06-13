@@ -362,6 +362,21 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "Hybrid scheduling is enabled",
+			config: &Config{
+				Sync: Sync{
+					ToHost: SyncToHost{
+						Pods: SyncPods{
+							HybridScheduling: HybridScheduling{
+								Enabled: true,
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {

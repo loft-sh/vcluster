@@ -731,6 +731,10 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
+	if c.Sync.ToHost.Pods.HybridScheduling.Enabled {
+		return true
+	}
+
 	return false
 }
 
