@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -150,7 +151,7 @@ func TestMatches(t *testing.T) {
 	t.Run("match host", func(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				got, _ := matchesHostObject(&synccontext.SyncContext{}, tc.hostName, tc.hostNs, tc.mappings, tc.vClusterHostNamespace, func(hostName, _ string) bool {
+				got, _ := matchesHostObject(&synccontext.SyncContext{Config: testingutil.NewFakeConfig()}, tc.hostName, tc.hostNs, tc.mappings, tc.vClusterHostNamespace, func(hostName, _ string) bool {
 					return hostName == "kube-root-ca.crt"
 				})
 				if got.Name == tc.virtualName && got.Namespace == tc.virtualNs {
