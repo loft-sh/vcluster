@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/scheduling"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/token"
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -101,6 +102,11 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		ctx.Config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
+	}
+	if ctx.Config.IsVirtualSchedulerEnabled() &&
+		ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled &&
+		len(ctx.Config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers) == 0 {
+		fmt.Printf("Warning: %s", config.HybridSchedulingNoEffectWarning)
 	}
 
 	return &podSyncer{

@@ -53,6 +53,11 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 		return nil, err
 	}
 
+	warnings := LintConfig(retConfig)
+	for _, warning := range warnings {
+		fmt.Printf("Warning: %s\n", warning)
+	}
+
 	return retConfig, nil
 }
 
