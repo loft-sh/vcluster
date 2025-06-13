@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/strvals"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -53,9 +54,10 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 		return nil, err
 	}
 
-	warnings := LintConfig(retConfig)
+	configLogger := loghelper.New("vcluster-config")
+	warnings := Lint(retConfig.Config)
 	for _, warning := range warnings {
-		fmt.Printf("Warning: %s\n", warning)
+		configLogger.Infof("Warning: %s", warning)
 	}
 
 	return retConfig, nil

@@ -1,5 +1,9 @@
 package config
 
+import (
+	"github.com/loft-sh/vcluster/config"
+)
+
 const (
 	// HybridSchedulingNoEffectWarning is displayed when both the virtual scheduler and the hybrid
 	// scheduling are enabled, but no host schedulers have been added.
@@ -10,13 +14,13 @@ const (
 		"scheduler, to sync.toHost.pods.hybridScheduling.hostSchedulers, or disabling the hybrid scheduling."
 )
 
-// LintConfig checks the virtual cluster config and returns warnings for the parts of the config
+// Lint checks the virtual cluster config and returns warnings for the parts of the config
 // that should be probably corrected, but are not breaking any functionality in the cluster.
-func LintConfig(vConfig *VirtualClusterConfig) []string {
+func Lint(config config.Config) []string {
 	var warnings []string
-	if vConfig.IsVirtualSchedulerEnabled() &&
-		vConfig.Sync.ToHost.Pods.HybridScheduling.Enabled &&
-		len(vConfig.Sync.ToHost.Pods.HybridScheduling.HostSchedulers) == 0 {
+	if config.IsVirtualSchedulerEnabled() &&
+		config.Sync.ToHost.Pods.HybridScheduling.Enabled &&
+		len(config.Sync.ToHost.Pods.HybridScheduling.HostSchedulers) == 0 {
 		warnings = append(warnings, HybridSchedulingNoEffectWarning)
 	}
 
