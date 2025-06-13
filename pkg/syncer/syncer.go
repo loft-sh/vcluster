@@ -200,7 +200,7 @@ func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) 
 		// make sure the object uid matches
 		pAnnotations := pObj.GetAnnotations()
 
-		if !r.config.Sync.ToHost.Namespaces.Enabled && // if we're running with namespace sync enabled, we don't want to remove any host object based on UID because they might have been imported by other vclusters.
+		if !r.config.Sync.ToHost.Namespaces.Enabled && // if we're running with namespace sync enabled, we don't want to remove any host object based on UID because they might have been previously imported by other vclusters.
 			!r.options.DisableUIDDeletion &&
 			pAnnotations[translate.UIDAnnotation] != "" &&
 			pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {

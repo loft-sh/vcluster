@@ -123,12 +123,6 @@ func cleanupNamespaceMetadata(
 	return nil
 }
 
-// isProtectedNamespace checks if a namespace should be protected from deletion.
-// Protected namespaces include 'default' and any namespace prefixed with 'kube-'.
-// func isProtectedNamespace(name string) bool {
-// 	return name == "default" || strings.HasPrefix(name, "kube-")
-// }
-
 // isImportedNamespace checks if a namespace was imported
 func isImportedNamespace(ns *corev1.Namespace) bool {
 	return ns.Annotations != nil && ns.Annotations[translate.ImportedMarkerAnnotation] == "true"

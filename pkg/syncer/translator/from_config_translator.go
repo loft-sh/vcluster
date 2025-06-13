@@ -113,8 +113,8 @@ func matchesHostObject(ctx *synccontext.SyncContext, hostName, hostNamespace str
 
 	// before we execute actual fromHostTranslate logic we want to check if we're running with
 	// namespace sync enabled and if this object comes from any of the mapped namespaces. If it
-	// does and is imported by this vCluster, we want to map the object regardless of whether
-	// specific mappings where defined or not.
+	// does and namespace is imported by this vCluster, we want to map the object regardless of
+	// whether specific mappings where defined or not.
 	if ctx.Config.Config.Sync.ToHost.Namespaces.Enabled {
 		ns := &corev1.Namespace{}
 		if err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: hostNamespace}, ns, &client.GetOptions{}); err != nil {
