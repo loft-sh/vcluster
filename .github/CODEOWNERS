@@ -1,33 +1,44 @@
 * @loft-sh/eng-dev-vcluster-platform
-/docs/ @loft-sh/Eng-Docs-Admin
-/test/ @loft-sh/eng-qa
-/.github/workflows/e2e.yaml @loft-sh/eng-qa
-/.github/workflows/backport.yaml @Piotr1215
-netlify.toml @loft-sh/Eng-Docs-Admin
 
+/.github/workflows/backport.yaml @Piotr1215
 /.github/workflows/e2e.yaml @FabianKramm
+/.github/workflows/e2e.yaml @loft-sh/eng-qa
 /.github/workflows/release.yaml @FabianKramm
-/pkg/syncer/ @FabianKramm @hidalgopl
-/pkg/controllers/resources/pods/ @FabianKramm
-/pkg/controllers/resources/services/ @FabianKramm
-/pkg/controllers/resources/endpoints/ @FabianKramm
-/pkg/controllers/resources/secrets/ @FabianKramm
-/pkg/controllers/resources/configmaps/ @FabianKramm
-/pkg/controllers/resources/events/ @FabianKramm
-/pkg/controllers/resources/*/from_host_syncer*.go @hidalgopl
-/pkg/controllers/k8sdefaultendpoint/ @FabianKramm
-/pkg/controllers/register.go @FabianKramm
-/pkg/mappings/ @FabianKramm
-/pkg/server/ @FabianKramm
-/pkg/k8s/ @FabianKramm
-/pkg/setup/ @FabianKramm @hidalgopl
-/pkg/plugin/ @FabianKramm
-/pkg/util/translate/ @FabianKramm
+
+/chart/ @FabianKramm @hidalgopl
+
+/cmd/vcluster/ @FabianKramm @hidalgopl
+
+/config/ @FabianKramm @hidalgopl
+
+/docs/ @loft-sh/Eng-Docs-Admin
+
 /pkg/authentication/ @FabianKramm
 /pkg/authorization/ @FabianKramm
+
 /pkg/cli/ @hidalgopl
-/pkg/config/config.go @FabianKramm
+
 /pkg/config/ @hidalgopl
-/config/ @FabianKramm @hidalgopl
-/cmd/vcluster/ @FabianKramm @hidalgopl
-/chart/ @FabianKramm @hidalgopl
+/pkg/config/config.go @FabianKramm
+
+/pkg/controllers/k8sdefaultendpoint/ @FabianKramm
+/pkg/controllers/register.go @FabianKramm
+/pkg/controllers/resources/*/from_host_syncer*.go @hidalgopl
+/pkg/controllers/resources/configmaps/ @FabianKramm
+/pkg/controllers/resources/endpoints/ @FabianKramm
+/pkg/controllers/resources/events/ @FabianKramm
+/pkg/controllers/resources/pods/ @FabianKramm
+/pkg/controllers/resources/secrets/ @FabianKramm
+/pkg/controllers/resources/services/ @FabianKramm
+
+/pkg/k8s/ @FabianKramm
+/pkg/mappings/ @FabianKramm
+/pkg/plugin/ @FabianKramm
+/pkg/server/ @FabianKramm
+/pkg/setup/ @FabianKramm @hidalgopl
+/pkg/syncer/ @FabianKramm @hidalgopl
+/pkg/util/translate/ @FabianKramm
+
+/test/ @loft-sh/eng-qa
+
+netlify.toml @loft-sh/Eng-Docs-Admin
