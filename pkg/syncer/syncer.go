@@ -199,11 +199,7 @@ func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) 
 	if vObj != nil && pObj != nil {
 		// make sure the object uid matches
 		pAnnotations := pObj.GetAnnotations()
-
-		if !r.config.Sync.ToHost.Namespaces.Enabled && // if we're running with namespace sync enabled, we don't want to remove any host object based on UID because they might have been previously imported by other vclusters.
-			!r.options.DisableUIDDeletion &&
-			pAnnotations[translate.UIDAnnotation] != "" &&
-			pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {
+		if !r.options.DisableUIDDeletion && pAnnotations[translate.UIDAnnotation] != "" && pAnnotations[translate.UIDAnnotation] != string(vObj.GetUID()) {
 			if pAnnotations[translate.KindAnnotation] == "" || pAnnotations[translate.KindAnnotation] == r.syncer.GroupVersionKind().String() {
 				// requeue if object is already being deleted
 				if pObj.GetDeletionTimestamp() != nil {

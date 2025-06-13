@@ -124,7 +124,7 @@ func (s *priorityClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event 
 	}
 
 	// virtual object is not here anymore, so we delete
-	if !s.fromHost || (event.VirtualOld != nil && s.toHost) || (translate.ShouldDeleteHostObject(ctx, event.Host) && !ctx.Config.Config.Sync.ToHost.Namespaces.Enabled) {
+	if !s.fromHost || (event.VirtualOld != nil && s.toHost) || translate.ShouldDeleteHostObject(event.Host) {
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 

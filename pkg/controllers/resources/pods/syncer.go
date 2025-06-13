@@ -418,7 +418,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 }
 
 func (s *podSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Pod]) (_ ctrl.Result, retErr error) {
-	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(ctx, event.Host) {
+	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(event.Host) {
 		// virtual object is not here anymore, so we delete
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}

@@ -173,7 +173,7 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, event *
 }
 
 func (s *persistentVolumeClaimSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.PersistentVolumeClaim]) (_ ctrl.Result, retErr error) {
-	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(ctx, event.Host) {
+	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(event.Host) {
 		// virtual object is not here anymore, so we delete
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}

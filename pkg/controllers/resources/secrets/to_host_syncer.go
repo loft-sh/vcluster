@@ -145,7 +145,7 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Syn
 }
 
 func (s *secretSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Secret]) (_ ctrl.Result, retErr error) {
-	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(ctx, event.Host) {
+	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(event.Host) {
 		// virtual object is not here anymore, so we delete
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
