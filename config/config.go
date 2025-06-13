@@ -1025,27 +1025,6 @@ type SyncToHostNamespaces struct {
 
 	// ExtraLabels are additional labels to add to the namespace in the host cluster.
 	ExtraLabels map[string]string `json:"extraLabels,omitempty"`
-
-	// HostNamespaces defines configuration for handling host namespaces.
-	HostNamespaces SyncHostSettings `json:"hostNamespaces,omitempty"`
-}
-
-// HostDeletionPolicy defines the policy for deletion of synced host resources.
-type HostDeletionPolicy string
-
-const (
-	// HostDeletionPolicyAll signifies a policy affecting all resources in host cluster matching any of syncing rules.
-	HostDeletionPolicyAll HostDeletionPolicy = "all"
-	// HostDeletionPolicySynced signifies a policy affecting only resources in host cluster created through syncing process from vCluster.
-	HostDeletionPolicySynced HostDeletionPolicy = "synced"
-	// HostDeletionPolicyNone signifies that no host resources are affected by this policy.
-	HostDeletionPolicyNone HostDeletionPolicy = "none"
-)
-
-type SyncHostSettings struct {
-	// Cleanup defines the cleanup policy for host resources when vCluster is deleted.
-	// Allowed values: "all", "synced", "none".
-	Cleanup HostDeletionPolicy `json:"cleanup,omitempty"`
 }
 
 type SyncToHostCustomResource struct {

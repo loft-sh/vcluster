@@ -3935,16 +3935,6 @@
         "scope"
       ]
     },
-    "SyncHostSettings": {
-      "properties": {
-        "cleanup": {
-          "type": "string",
-          "description": "Cleanup defines the cleanup policy for host resources when vCluster is deleted.\nAllowed values: \"all\", \"synced\", \"none\"."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "SyncNodeSelector": {
       "properties": {
         "all": {
@@ -4198,10 +4188,6 @@
           },
           "type": "object",
           "description": "ExtraLabels are additional labels to add to the namespace in the host cluster."
-        },
-        "hostNamespaces": {
-          "$ref": "#/$defs/SyncHostSettings",
-          "description": "HostNamespaces defines configuration for handling host namespaces."
         }
       },
       "additionalProperties": false,

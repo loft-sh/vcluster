@@ -188,6 +188,13 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return fmt.Errorf("namespace sync: %w", err)
 	}
 
+	// if we're runnign in with namespace sync enabled, we want to sync all objects.
+	// otherwise, objects created on host in synced namespaces won't get imported into vCluster.
+	if vConfig.Sync.ToHost.Namespaces.Enabled {
+		vConfig.Sync.ToHost.Secrets.All = true
+		vConfig.Sync.ToHost.ConfigMaps.All = true
+	}
+
 	// set service name
 	if vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name == "" {
 		vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + vConfig.Name
