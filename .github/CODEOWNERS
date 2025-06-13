@@ -10,8 +10,11 @@
 /chart/ @FabianKramm @hidalgopl
 
 /cmd/vcluster/ @FabianKramm @hidalgopl
+/cmd/vclusterctl/ @neogopher
 
-/config/ @FabianKramm @hidalgopl
+/config/ @FabianKramm @hidalgopl @neogopher
+
+/conformance/ @neogopher
 
 /docs/ @loft-sh/Eng-Docs-Admin
 
