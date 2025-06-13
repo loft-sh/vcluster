@@ -48,4 +48,9 @@ var (
 	// VClusterNamespaceInHostMappingSpecialCharacter is an empty string that mean vCluster host namespace
 	// in the config.sync.fromHost.*.selector.mappings
 	VClusterNamespaceInHostMappingSpecialCharacter = ""
+
+	SystemPriorityClassesAllowList = []string{
+		"system-node-critical",
+		"system-cluster-critical",
+	}
 )

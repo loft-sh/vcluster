@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -20,11 +21,6 @@ import (
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 )
-
-var systemPriorityClassesAllowList = []string{
-	"system-node-critical",
-	"system-cluster-critical",
-}
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	fromHost := ctx.Config.Sync.FromHost.PriorityClasses.Enabled
@@ -82,7 +78,7 @@ func (s *priorityClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 }
 
 func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*schedulingv1.PriorityClass]) (_ ctrl.Result, retErr error) {
-	if !slices.Contains(systemPriorityClassesAllowList, event.Host.Name) {
+	if !slices.Contains(constants.SystemPriorityClassesAllowList, event.Host.Name) {
 		matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("check priority class selector: %w", err)
@@ -122,7 +118,7 @@ func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 }
 
 func (s *priorityClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*schedulingv1.PriorityClass]) (_ ctrl.Result, retErr error) {
-	if !slices.Contains(systemPriorityClassesAllowList, event.Host.Name) {
+	if !slices.Contains(constants.SystemPriorityClassesAllowList, event.Host.Name) {
 		matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("check priority class selector: %w", err)
