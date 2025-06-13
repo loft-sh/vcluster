@@ -44,8 +44,8 @@ func getSyncers(ctx *synccontext.RegisterContext) []BuildController {
 	return append([]BuildController{
 		isEnabled(ctx.Config.Sync.ToHost.Services.Enabled, services.New),
 		isEnabled(ctx.Config.Sync.ToHost.ConfigMaps.Enabled, configmaps.New),
-		isEnabled(ctx.Config.Sync.FromHost.ConfigMaps.Enabled || ctx.Config.Sync.ToHost.Namespaces.Enabled, configmaps.NewFromHost),
-		isEnabled(ctx.Config.Sync.FromHost.Secrets.Enabled || ctx.Config.Sync.ToHost.Namespaces.Enabled, secrets.NewFromHost),
+		isEnabled(ctx.Config.Sync.FromHost.ConfigMaps.Enabled, configmaps.NewFromHost),
+		isEnabled(ctx.Config.Sync.FromHost.Secrets.Enabled, secrets.NewFromHost),
 		isEnabled(ctx.Config.Sync.ToHost.Secrets.Enabled, secrets.New),
 		isEnabled(ctx.Config.Sync.ToHost.Endpoints.Enabled, endpoints.New),
 		isEnabled(ctx.Config.Sync.ToHost.Pods.Enabled, pods.New),
