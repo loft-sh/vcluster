@@ -224,7 +224,7 @@ func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(event.Host) {
+	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(ctx, event.Host) {
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 

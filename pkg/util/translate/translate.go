@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/pkg/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -149,13 +150,18 @@ func addHostAnnotations(retMap map[string]string, vObj, pObj client.Object) {
 	}
 }
 
-func ShouldDeleteHostObject(pObj client.Object) bool {
+func ShouldDeleteHostObject(ctx *synccontext.SyncContext, pObj client.Object) bool {
 	// if host object is deleting we should delete it
 	if pObj.GetDeletionTimestamp() != nil {
 		return true
 	}
 
-	// if host object was synced before we should delete it as well
+	// if we're running with namespace sync enabled, we don't want to delete host synced objects
+	if ctx.Config.Config.Sync.ToHost.Namespaces.Enabled {
+		return false
+	}
+
+	// otherwise, if host object was synced before we should delete it as well
 	annotations := pObj.GetAnnotations()
 
 	// if kind annotation doesn't match we don't delete
