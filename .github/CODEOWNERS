@@ -1,3 +1,5 @@
+# Keep the entries sorted and optionally grouped.
+
 * @loft-sh/eng-dev-vcluster-platform
 
 /.github/workflows/backport.yaml @Piotr1215
