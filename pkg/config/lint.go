@@ -10,7 +10,7 @@ const (
 	HybridSchedulingNoEffectWarning = "You have enabled both the virtual scheduler and the hybrid scheduling, " +
 		"but you have not added any host scheduler to sync.toHost.pods.hybridScheduling.hostSchedulers config, " +
 		"so all the pods will be scheduled by the default scheduler in the virtual cluster. Enabling " +
-		"the hybrid scheduling  does not have any effect here. Consider either adding at least one host " +
+		"the hybrid scheduling does not have any effect here. Consider either adding at least one host " +
 		"scheduler, to sync.toHost.pods.hybridScheduling.hostSchedulers, or disabling the hybrid scheduling."
 )
 
