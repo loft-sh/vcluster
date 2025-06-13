@@ -11,7 +11,7 @@ const (
 		"but you have not added any host scheduler to sync.toHost.pods.hybridScheduling.hostSchedulers config, " +
 		"so all the pods will be scheduled by the default scheduler in the virtual cluster. Enabling " +
 		"the hybrid scheduling does not have any effect here. Consider either adding at least one host " +
-		"scheduler to sync.toHost.pods.hybridScheduling.hostSchedulers, or disabling the hybrid scheduling."
+		"scheduler to sync.toHost.pods.hybridScheduling.hostSchedulers, or disable the hybrid scheduling."
 )
 
 // Lint checks the virtual cluster config and returns warnings for the parts of the config
