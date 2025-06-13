@@ -678,13 +678,14 @@ func CreateClusterContextOptions(platformClient Client, config string, cluster *
 		CurrentNamespace: spaceName,
 		SetActive:        setActive,
 	}
-	host := platformClient.Config().Platform.Host
 	directHost, directInsecure := getDirectEndpointAndInsecureFromClusterAnnotations(cluster)
 
 	if directHost != "" {
-		host = directHost
+		contextOptions.Server = directHost + "/kubernetes/cluster"
+	} else {
+		contextOptions.Server = platformClient.Config().Platform.Host + "/kubernetes/cluster/" + cluster.Name
 	}
-	contextOptions.Server = host + "/kubernetes/cluster/" + cluster.Name
+
 	contextOptions.InsecureSkipTLSVerify = platformClient.Config().Platform.Insecure
 
 	if directInsecure != "" {
