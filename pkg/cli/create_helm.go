@@ -709,8 +709,8 @@ func (cmd *createHelm) ToChartOptions(kubernetesVersion *version.Info, log log.L
 
 	// check if we should create with node port
 	clusterType := localkubernetes.DetectClusterType(&cmd.rawConfig)
-	if cmd.ExposeLocal && clusterType.LocalKubernetes() {
-		cmd.log.Infof("Detected local kubernetes cluster %s. Will deploy vcluster with a NodePort & sync real nodes", clusterType)
+	if cmd.ExposeLocal && clusterType.LocalKubernetes() && clusterType != localkubernetes.ClusterTypeOrbstack {
+		cmd.log.Infof("Detected local kubernetes cluster %s. Will deploy vcluster with a NodePort", clusterType)
 		cmd.localCluster = true
 	}
 
