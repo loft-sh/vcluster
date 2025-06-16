@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -24,6 +26,9 @@ import (
 
 const (
 	vClusterMetadataPrefix = "vcluster.loft.sh/"
+
+	namespaceDeletionInterval = 2 * time.Second
+	namespaceDeletionTimeout  = 3 * time.Minute
 )
 
 // CleanupSyncedNamespaces identifies all physical namespaces that were managed by this vCluster.
@@ -125,17 +130,42 @@ func getManagedNamespaces(ctx context.Context, k8sClient *kubernetes.Clientset, 
 	return nsList.Items, nil
 }
 
-// deleteNamespace deletes namespace from host.
-func deleteNamespace(ctx context.Context, k8sClient *kubernetes.Clientset, nsName string, logger log.Logger) error {
-	logger.Infof("Deleting virtual cluster namespace '%s'", nsName)
+// deleteNamespace deletes a namespace and waits until it is fully terminated.
+func deleteNamespace(
+	ctx context.Context,
+	k8sClient *kubernetes.Clientset,
+	nsName string,
+	logger log.Logger,
+) error {
+	logger.Infof("Issuing delete for namespace '%s'", nsName)
 	err := k8sClient.CoreV1().Namespaces().Delete(ctx, nsName, metav1.DeleteOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			logger.Infof("Virtual cluster namespace '%s' was already deleted.", nsName)
+			logger.Infof("Namespace '%s' was already deleted.", nsName)
 			return nil
 		}
 		return fmt.Errorf("failed to delete namespace '%s': %w", nsName, err)
 	}
+
+	logger.Infof("Waiting for namespace '%s' to be fully terminated...", nsName)
+	err = wait.PollUntilContextTimeout(ctx, namespaceDeletionInterval, namespaceDeletionTimeout, true, func(ctx context.Context) (bool, error) {
+		// Check for the namespace's existence.
+		_, err := k8sClient.CoreV1().Namespaces().Get(ctx, nsName, metav1.GetOptions{})
+		if kerrors.IsNotFound(err) {
+			// The namespace is gone.
+			return true, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		// The namespace still exists. Continue polling.
+		return false, nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed while waiting for namespace '%s' to be deleted: %w", nsName, err)
+	}
+
 	logger.Infof("Successfully deleted virtual cluster namespace '%s'", nsName)
 	return nil
 }
