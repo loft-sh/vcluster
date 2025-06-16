@@ -982,6 +982,11 @@ type SyncFromHost struct {
 
 type StandardLabelSelector v1.LabelSelector
 
+func (s StandardLabelSelector) Empty() bool {
+	selector, err := s.ToSelector()
+	return err == nil && selector.Empty()
+}
+
 func (s StandardLabelSelector) Matches(obj client.Object) (bool, error) {
 	selector, err := s.ToSelector()
 	if err != nil {
