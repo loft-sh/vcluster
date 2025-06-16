@@ -1,6 +1,8 @@
 package namespaces
 
-import "strings"
+import (
+	"strings"
+)
 
 const (
 	// Name placeholder will be replaced with this virtual cluster name
@@ -39,4 +41,34 @@ func MatchAndExtractWildcard(name, pattern string) (wildcardValue string, matche
 // ProcessNamespaceName returns namespace name after applying all pre-processing to it
 func ProcessNamespaceName(namespaceName string, vclusterName string) string {
 	return strings.ReplaceAll(namespaceName, NamePlaceholder, vclusterName)
+}
+
+// TranslateHostNamespace returns virtual namespace name based on host namespace and mappings
+func TranslateHostNamespace(vClusterName, hostNamespace string, mappings map[string]string) (string, bool) {
+	// Priority 1: Exact host name to exact virtual name match
+	for vName, hName := range mappings {
+		if !IsPattern(hName) && !IsPattern(vName) {
+			hNameProcessed := ProcessNamespaceName(hName, vClusterName)
+			if hNameProcessed == hostNamespace {
+				virtualNameProcessed := ProcessNamespaceName(vName, vClusterName)
+				return virtualNameProcessed, true
+			}
+		}
+	}
+
+	// Priority 2: Pattern host name to pattern virtual name match
+	for vPattern, hPattern := range mappings {
+		if IsPattern(hPattern) && IsPattern(vPattern) {
+			hPatternProcessed := ProcessNamespaceName(hPattern, vClusterName)
+			wildcardValue, matched := MatchAndExtractWildcard(hostNamespace, hPatternProcessed)
+			if matched {
+				vPatternProcessed := ProcessNamespaceName(vPattern, vClusterName)
+				virtualName := strings.Replace(vPatternProcessed, WildcardChar, wildcardValue, 1)
+				return virtualName, true
+			}
+		}
+	}
+
+	// No mapping rule was found for the given host namespace.
+	return "", false
 }

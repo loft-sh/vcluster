@@ -327,6 +327,11 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		return err
 	}
 
+	warnings := pkgconfig.Lint(*vClusterConfig)
+	for _, warning := range warnings {
+		cmd.log.Warnf(warning)
+	}
+
 	if vClusterConfig.Sync.ToHost.Namespaces.Enabled {
 		if err := namespaces.ValidateNamespaceSyncConfig(vClusterConfig, vClusterName, cmd.Namespace); err != nil {
 			return err

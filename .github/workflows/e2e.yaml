@@ -120,8 +120,8 @@ jobs:
           set -x
           kubectl cluster-info
           kubectl get pods -n kube-system
-          echo "kubectl config current-context:" $(kubectl config current-context)
-          echo "KUBECONFIG env var:" ${KUBECONFIG}
+          echo "kubectl config current-context: $(kubectl config current-context)"
+          echo "KUBECONFIG env var: ${KUBECONFIG}"
 
       - name: Download vcluster cli
         uses: actions/download-artifact@v4

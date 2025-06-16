@@ -585,6 +585,7 @@ func TestReconcile(t *testing.T) {
 			options:       options,
 
 			objectCache: synccontext.NewBidirectionalObjectCache(syncer.Resource(), syncer),
+			config:      fakeContext.Config,
 		}
 
 		// create objects

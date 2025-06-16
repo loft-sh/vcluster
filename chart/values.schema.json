@@ -315,7 +315,7 @@
         },
         "virtualScheduler": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster."
+          "description": "VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.\nDeprecated: Use ControlPlane.Distro.K8S.Scheduler instead."
         },
         "serviceAccount": {
           "$ref": "#/$defs/ControlPlaneServiceAccount",
@@ -977,26 +977,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "DistroContainer": {
-      "properties": {
-        "command": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "Command is the command to start the distro binary. This will override the existing command."
-        },
-        "extraArgs": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "ExtraArgs are additional arguments to pass to the distro binary."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "DistroContainerEnabled": {
       "properties": {
         "enabled": {
@@ -1091,7 +1071,7 @@
           "description": "ControllerManager holds configuration specific to starting the controller manager."
         },
         "scheduler": {
-          "$ref": "#/$defs/DistroContainer",
+          "$ref": "#/$defs/DistroContainerEnabled",
           "description": "Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled"
         },
         "image": {
@@ -2624,6 +2604,17 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Logging": {
+      "properties": {
+        "encoding": {
+          "type": "string",
+          "description": "Encoding specifies the format of vCluster logs, it can either be json or console."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Logging holds the log encoding details"
+    },
     "MetricsServer": {
       "properties": {
         "enabled": {
@@ -3018,6 +3009,10 @@
         "apiKey": {
           "$ref": "#/$defs/PlatformAPIKey",
           "description": "APIKey defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:\n* environment variable called LICENSE\n* secret specified under external.platform.apiKey.secretName\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
+        },
+        "project": {
+          "type": "string",
+          "description": "Project specifies which platform project the vcluster should be imported to"
         }
       },
       "type": "object",
@@ -3940,16 +3935,6 @@
         "scope"
       ]
     },
-    "SyncHostSettings": {
-      "properties": {
-        "cleanup": {
-          "type": "string",
-          "description": "Cleanup defines the cleanup policy for host resources when vCluster is deleted.\nAllowed values: \"all\", \"synced\", \"none\"."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "SyncNodeSelector": {
       "properties": {
         "all": {
@@ -4203,10 +4188,6 @@
           },
           "type": "object",
           "description": "ExtraLabels are additional labels to add to the namespace in the host cluster."
-        },
-        "hostNamespaces": {
-          "$ref": "#/$defs/SyncHostSettings",
-          "description": "HostNamespaces defines configuration for handling host namespaces."
         }
       },
       "additionalProperties": false,
@@ -4623,6 +4604,10 @@
     "sleepMode": {
       "$ref": "#/$defs/SleepMode",
       "description": "SleepMode holds the native sleep mode configuration for Pro clusters"
+    },
+    "logging": {
+      "$ref": "#/$defs/Logging",
+      "description": "Logging provides structured logging options"
     }
   },
   "additionalProperties": false,

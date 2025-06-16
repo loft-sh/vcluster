@@ -86,6 +86,9 @@ type Config struct {
 
 	// SleepMode holds the native sleep mode configuration for Pro clusters
 	SleepMode *SleepMode `json:"sleepMode,omitempty"`
+
+	// Logging provides structured logging options
+	Logging *Logging `json:"logging,omitempty"`
 }
 
 // PrivateNodes enables private nodes for vCluster. When turned on, vCluster will not sync resources to the host cluster
@@ -590,6 +593,11 @@ func (c *Config) Distro() string {
 	return K8SDistro
 }
 
+func (c *Config) IsVirtualSchedulerEnabled() bool {
+	return c.Distro() == K8SDistro && c.ControlPlane.Distro.K8S.Scheduler.Enabled ||
+		c.ControlPlane.Advanced.VirtualScheduler.Enabled
+}
+
 func (c *Config) IsConfiguredForSleepMode() bool {
 	if c != nil && c.External != nil && c.External["platform"] == nil {
 		return false
@@ -720,6 +728,10 @@ func (c *Config) IsProFeatureEnabled() bool {
 	}
 
 	if c.Sync.ToHost.Namespaces.Enabled {
+		return true
+	}
+
+	if c.Sync.ToHost.Pods.HybridScheduling.Enabled {
 		return true
 	}
 
@@ -1013,27 +1025,6 @@ type SyncToHostNamespaces struct {
 
 	// ExtraLabels are additional labels to add to the namespace in the host cluster.
 	ExtraLabels map[string]string `json:"extraLabels,omitempty"`
-
-	// HostNamespaces defines configuration for handling host namespaces.
-	HostNamespaces SyncHostSettings `json:"hostNamespaces,omitempty"`
-}
-
-// HostDeletionPolicy defines the policy for deletion of synced host resources.
-type HostDeletionPolicy string
-
-const (
-	// HostDeletionPolicyAll signifies a policy affecting all resources in host cluster matching any of syncing rules.
-	HostDeletionPolicyAll HostDeletionPolicy = "all"
-	// HostDeletionPolicySynced signifies a policy affecting only resources in host cluster created through syncing process from vCluster.
-	HostDeletionPolicySynced HostDeletionPolicy = "synced"
-	// HostDeletionPolicyNone signifies that no host resources are affected by this policy.
-	HostDeletionPolicyNone HostDeletionPolicy = "none"
-)
-
-type SyncHostSettings struct {
-	// Cleanup defines the cleanup policy for host resources when vCluster is deleted.
-	// Allowed values: "all", "synced", "none".
-	Cleanup HostDeletionPolicy `json:"cleanup,omitempty"`
 }
 
 type SyncToHostCustomResource struct {
@@ -1534,7 +1525,7 @@ type DistroK8s struct {
 	ControllerManager DistroContainerEnabled `json:"controllerManager,omitempty"`
 
 	// Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
-	Scheduler DistroContainer `json:"scheduler,omitempty"`
+	Scheduler DistroContainerEnabled `json:"scheduler,omitempty"`
 
 	DistroCommon `json:",inline"`
 }
@@ -1943,6 +1934,7 @@ type ControlPlaneAdvanced struct {
 	DefaultImageRegistry string `json:"defaultImageRegistry,omitempty"`
 
 	// VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.
+	// Deprecated: Use ControlPlane.Distro.K8S.Scheduler instead.
 	VirtualScheduler EnableSwitch `json:"virtualScheduler,omitempty"`
 
 	// ServiceAccount specifies options for the vCluster control plane service account.
@@ -2627,6 +2619,9 @@ type PlatformConfig struct {
 	// * secret specified under external.platform.apiKey.secretName
 	// * secret called "vcluster-platform-api-key" in the vCluster namespace
 	APIKey PlatformAPIKey `json:"apiKey,omitempty"`
+
+	// Project specifies which platform project the vcluster should be imported to
+	Project string `json:"project,omitempty"`
 }
 
 // PlatformAPIKey defines where to find the platform access key. The secret key name doesn't matter as long as the secret only contains a single key.
@@ -2987,4 +2982,10 @@ type AutoWakeup struct {
 // AutoSleepExclusion holds conifiguration for excluding workloads from sleeping by label(s)
 type AutoSleepExclusion struct {
 	Selector LabelSelector `json:"selector,omitempty"`
+}
+
+// Logging holds the log encoding details
+type Logging struct {
+	// Encoding specifies the format of vCluster logs, it can either be json or console.
+	Encoding string `json:"encoding,omitempty"`
 }

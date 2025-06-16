@@ -1,11 +1,13 @@
 package translator
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncer "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/namespaces"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -78,20 +80,20 @@ func (c *fromHostTranslate) VirtualToHost(_ *synccontext.SyncContext, req types.
 	return nn
 }
 
-func (c *fromHostTranslate) HostToVirtual(_ *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
-	nn, ok := matchesHostObject(req.Name, req.Namespace, c.hostToVirtual, c.namespace, c.skipFuncs...)
+func (c *fromHostTranslate) HostToVirtual(ctx *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
+	nn, ok := matchesHostObject(ctx, req.Name, req.Namespace, c.hostToVirtual, c.namespace, c.skipFuncs...)
 	if !ok {
 		return types.NamespacedName{}
 	}
 	return nn
 }
 
-func (c *fromHostTranslate) IsManaged(_ *synccontext.SyncContext, pObj client.Object) (bool, error) {
+func (c *fromHostTranslate) IsManaged(ctx *synccontext.SyncContext, pObj client.Object) (bool, error) {
 	hostName, hostNs := pObj.GetName(), pObj.GetNamespace()
 	if _, ok := pObj.GetLabels()[translate.MarkerLabel]; ok {
 		return false, nil
 	}
-	_, managed := matchesHostObject(hostName, hostNs, c.hostToVirtual, c.namespace, c.skipFuncs...)
+	_, managed := matchesHostObject(ctx, hostName, hostNs, c.hostToVirtual, c.namespace, c.skipFuncs...)
 	return managed, nil
 }
 
@@ -99,7 +101,7 @@ func (c *fromHostTranslate) EventRecorder() record.EventRecorder {
 	return c.eventRecorder
 }
 
-func matchesHostObject(hostName, hostNamespace string, resourceMappings map[string]string, vClusterHostNamespace string, skippers ...ShouldSkipHostObjectFunc) (types.NamespacedName, bool) {
+func matchesHostObject(ctx *synccontext.SyncContext, hostName, hostNamespace string, resourceMappings map[string]string, vClusterHostNamespace string, skippers ...ShouldSkipHostObjectFunc) (types.NamespacedName, bool) {
 	for _, skipFunc := range skippers {
 		if skipFunc(hostName, hostNamespace) {
 			return types.NamespacedName{}, false
@@ -108,6 +110,26 @@ func matchesHostObject(hostName, hostNamespace string, resourceMappings map[stri
 
 	key := hostNamespace + "/" + hostName
 	matchesAllKeyInNamespaceKey := hostNamespace + "/*"
+
+	// before we execute actual fromHostTranslate logic we want to check if we're running with
+	// namespace sync enabled and if this object comes from any of the mapped namespaces. If it
+	// does and namespace is imported by this vCluster, we want to map the object regardless of
+	// whether specific mappings where defined or not.
+	if ctx.Config.Config.Sync.ToHost.Namespaces.Enabled {
+		ns := &corev1.Namespace{}
+		if err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: hostNamespace}, ns, &client.GetOptions{}); err != nil {
+			return types.NamespacedName{}, false
+		}
+
+		if isImportedByOthervCluster(ns, ctx.Config.Name, ctx.Config.ControlPlaneNamespace) {
+			return types.NamespacedName{}, false
+		}
+
+		vNamespace, matched := namespaces.TranslateHostNamespace(ctx.Config.Name, hostNamespace, ctx.Config.Config.Sync.ToHost.Namespaces.Mappings.ByName)
+		if matched {
+			return types.NamespacedName{Namespace: vNamespace, Name: hostName}, true
+		}
+	}
 
 	// first, let's try matching by namespace/name
 	if virtual, ok := resourceMappings[key]; ok {
@@ -190,4 +212,9 @@ func matchesVirtualObject(virtualNs, virtualName string, virtualToHost map[strin
 	}
 
 	return types.NamespacedName{}, false
+}
+
+func isImportedByOthervCluster(ns *corev1.Namespace, vcname, vcnamespace string) bool {
+	return ns.Annotations != nil && ns.Annotations[translate.ImportedMarkerAnnotation] == "true" &&
+		ns.Labels != nil && ns.Labels[translate.MarkerLabel] != fmt.Sprintf("%s-x-%s", vcnamespace, vcname)
 }

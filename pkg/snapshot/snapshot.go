@@ -8,6 +8,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/spf13/pflag"
+
 	"github.com/loft-sh/vcluster/pkg/snapshot/container"
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
 	"github.com/loft-sh/vcluster/pkg/snapshot/options"
@@ -147,4 +149,10 @@ func Validate(options *Options) error {
 	}
 
 	return nil
+}
+
+func AddFlags(flags *pflag.FlagSet, options *Options) {
+	flags.StringVarP(&options.S3.KmsKeyID, "kms-key-id", "", "", "AWS KMS key ID that is configured for given S3 bucket. If set, aws-kms SSE will be used")
+	flags.StringVarP(&options.S3.CustomerKeyEncryptionFile, "customer-key-encryption-file", "", "", "AWS customer key encryption file used for SSE-C. Mutually exclusive with kms-key-id")
+	flags.StringVarP(&options.S3.ServerSideEncryption, "server-side-encryption", "", "", "AWS Server-Side encryption algorithm")
 }

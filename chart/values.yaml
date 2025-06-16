@@ -108,11 +108,6 @@ sync:
       enabled: false
       # MappingsOnly defines if creation of namespaces not matched by mappings should be allowed.
       mappingsOnly: false
-      # HostNamespaces defines configuration for handling host namespaces.
-      hostNamespaces:
-        # Cleanup defines the cleanup policy for host resources when vCluster is deleted.
-        # Allowed values: "all", "synced", "none".
-        cleanup: "synced"
   
   # Configure what resources vCluster should sync from the host cluster to the virtual cluster.
   fromHost:
@@ -252,6 +247,7 @@ controlPlane:
         extraArgs: []
       # Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
       scheduler:
+        enabled: false
         # Command is the command to start the distro binary. This will override the existing command.
         command: []
         # ExtraArgs are additional arguments to pass to the distro binary.
@@ -713,6 +709,7 @@ controlPlane:
     # upload all required vCluster images to a single private repository and set this value. Workload images are not affected by this.
     defaultImageRegistry: ""
     # VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.
+    # Deprecated: Use ControlPlane.Distro.K8S.Scheduler instead.
     virtualScheduler:
       enabled: false
     # ServiceAccount specifies options for the vCluster control plane service account.
@@ -1153,3 +1150,8 @@ experimental:
 telemetry:
   # Enabled specifies that the telemetry for the vCluster control plane should be enabled.
   enabled: true
+
+# Logging provides structured logging options
+logging:
+  # Encoding specifies the format of vCluster logs, it can either be json or console.
+  encoding: console

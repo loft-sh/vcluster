@@ -57,8 +57,6 @@ sync:
     namespaces:
       enabled: false
       mappingsOnly: false
-      hostNamespaces:
-        cleanup: "synced"
 
   fromHost:
     events:
@@ -114,6 +112,7 @@ controlPlane:
         command: []
         extraArgs: []
       scheduler:
+        enabled: false
         command: []
         extraArgs: []
       env: []
@@ -629,3 +628,6 @@ experimental:
 
 telemetry:
   enabled: true
+
+logging:
+  encoding: console

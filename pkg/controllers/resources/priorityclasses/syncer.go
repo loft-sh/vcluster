@@ -3,6 +3,7 @@ package priorityclasses
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -19,6 +20,11 @@ import (
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 )
+
+var systemPriorityClassesAllowList = []string{
+	"system-node-critical",
+	"system-cluster-critical",
+}
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	fromHost := ctx.Config.Sync.FromHost.PriorityClasses.Enabled
@@ -76,12 +82,14 @@ func (s *priorityClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 }
 
 func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*schedulingv1.PriorityClass]) (_ ctrl.Result, retErr error) {
-	matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("check priority class selector: %w", err)
-	}
-	if !matches {
-		return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, fmt.Sprintf("did not sync priority class %q because it does not match the selector under 'sync.fromHost.priorityClasses.selector'", event.Host.Name))
+	if !slices.Contains(systemPriorityClassesAllowList, event.Host.Name) {
+		matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("check priority class selector: %w", err)
+		}
+		if !matches {
+			return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, fmt.Sprintf("did not sync priority class %q because it does not match the selector under 'sync.fromHost.priorityClasses.selector'", event.Host.Name))
+		}
 	}
 
 	// patch objects
@@ -114,13 +122,15 @@ func (s *priorityClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 }
 
 func (s *priorityClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*schedulingv1.PriorityClass]) (_ ctrl.Result, retErr error) {
-	matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("check priority class selector: %w", err)
-	}
-	if !matches {
-		ctx.Log.Infof("Warning: did not sync priority class %q because it does not match the selector under 'sync.fromHost.priorityClasses.selector'", event.Host.Name)
-		return ctrl.Result{}, nil
+	if !slices.Contains(systemPriorityClassesAllowList, event.Host.Name) {
+		matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(event.Host)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("check priority class selector: %w", err)
+		}
+		if !matches {
+			ctx.Log.Infof("Warning: did not sync priority class %q because it does not match the selector under 'sync.fromHost.priorityClasses.selector'", event.Host.Name)
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// virtual object is not here anymore, so we delete
@@ -129,7 +139,7 @@ func (s *priorityClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event 
 	}
 
 	newVirtualPC := s.translateFromHost(ctx, event.Host)
-	err = pro.ApplyPatchesVirtualObject(ctx, nil, newVirtualPC, event.Host, ctx.Config.Sync.FromHost.PriorityClasses.Patches, true)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, newVirtualPC, event.Host, ctx.Config.Sync.FromHost.PriorityClasses.Patches, true)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
