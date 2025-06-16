@@ -9,12 +9,14 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
 	"github.com/loft-sh/vcluster/pkg/util/certhelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,10 +36,14 @@ func GenAPIServerServingCerts(
 	currentCert,
 	currentKey []byte,
 ) ([]byte, []byte, []string, error) {
-	SANs, err := getExtraSANs(ctx, workloadNamespaceClient, vClient, vConfig)
+	sans, err := getExtraSANs(ctx, workloadNamespaceClient, vClient, vConfig)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("error getting extra sans: %w", err)
 	}
+
+	sans = lo.UniqBy(sans, func(s string) string {
+		return strings.ToLower(s)
+	})
 
 	regen := false
 	commonName := "kube-apiserver"
@@ -56,7 +62,7 @@ func GenAPIServerServingCerts(
 		IPs:      []net.IP{net.ParseIP("127.0.0.1")},
 	}
 
-	addSANs(altNames, SANs)
+	addSANs(altNames, sans)
 
 	altNamesSlice := []string{}
 	for _, ip := range altNames.IPs {
@@ -206,6 +212,26 @@ func getExtraSANs(ctx context.Context, workloadNamespaceClient, vClient client.C
 		return nil, fmt.Errorf("error getting vcluster service %s/%s: %w", vConfig.WorkloadNamespace, vConfig.WorkloadService, err)
 	} else if svc.Spec.ClusterIP == "" {
 		return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", vConfig.WorkloadNamespace, vConfig.WorkloadService)
+	}
+
+	// if the service is a node port, we need to add the node ips to the sans
+	if svc.Spec.Type == corev1.ServiceTypeNodePort {
+		pods := &corev1.PodList{}
+		err = workloadNamespaceClient.List(ctx, pods, client.InNamespace(vConfig.WorkloadNamespace), client.MatchingLabels{"app": "vcluster", "release": vConfig.Name})
+		if err != nil {
+			return nil, fmt.Errorf("error getting vcluster control plane pods: %w", err)
+		}
+		for _, pod := range pods.Items {
+			if len(pod.Status.HostIPs) > 0 {
+				for _, hostIP := range pod.Status.HostIPs {
+					if hostIP.IP == "" {
+						continue
+					}
+
+					retSANs = append(retSANs, hostIP.IP)
+				}
+			}
+		}
 	}
 
 	// add cluster ip
