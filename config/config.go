@@ -130,6 +130,9 @@ type Standalone struct {
 	// BundleRepository is the repository to use for downloading the Kubernetes bundle. Defaults to https://github.com/loft-sh/kubernetes/releases/download
 	BundleRepository string `json:"bundleRepository,omitempty"`
 
+	// Bundle is a path to a Kubernetes bundle to use for the standalone mode. If empty, will use the bundleRepository to download the bundle.
+	Bundle string `json:"bundle,omitempty"`
+
 	// JoinNode holds configuration for the standalone control plane node.
 	JoinNode StandaloneJoinNode `json:"joinNode,omitempty"`
 }
@@ -171,8 +174,53 @@ type ContainerdJoin struct {
 	// Enabled defines if containerd should be installed and configured by vCluster.
 	Enabled bool `json:"enabled,omitempty"`
 
+	// Registry holds configuration for how containerd should be configured to use a registries.
+	Registry ContainerdRegistry `json:"registry,omitempty"`
+
+	// ImportImages is a list of images to import into the containerd registry from local files. If the path is a folder, all files that end with .tar or .tar.gz in the folder will be imported.
+	ImportImages []string `json:"importImages,omitempty"`
+
 	// PauseImage is the image for the pause container.
 	PauseImage string `json:"pauseImage,omitempty"`
+}
+
+type ContainerdRegistry struct {
+	// ConfigPath is the path to the containerd registry config.
+	ConfigPath string `json:"configPath,omitempty"`
+
+	// Mirrors holds configuration for the containerd registry mirrors. E.g. myregistry.io:5000 or docker.io. See https://github.com/containerd/containerd/blob/main/docs/hosts.md for more details.
+	Mirrors map[string]ContainerdMirror `json:"mirrors,omitempty"`
+}
+
+type ContainerdMirror struct {
+	// Server is the fallback server to use for the containerd registry mirror. E.g. https://registry-1.docker.io. See https://github.com/containerd/containerd/blob/main/docs/hosts.md for more details.
+	Server string `json:"server,omitempty"`
+
+	// CACert are paths to CA certificates to use for the containerd registry mirror.
+	CACert []string `json:"caCert,omitempty"`
+
+	// SkipVerify is a boolean to skip the certificate verification for the containerd registry mirror and allows http connections.
+	SkipVerify bool `json:"skipVerify,omitempty"`
+
+	// Capabilities is a list of capabilities to enable for the containerd registry mirror. If empty, will use pull and resolve capabilities.
+	Capabilities []string `json:"capabilities,omitempty"`
+
+	// Hosts holds configuration for the containerd registry mirror hosts. See https://github.com/containerd/containerd/blob/main/docs/hosts.md for more details.
+	Hosts []ContainerdMirrorHost `json:"hosts,omitempty"`
+}
+
+type ContainerdMirrorHost struct {
+	// Server is the server to use for the containerd registry mirror host. E.g. http://192.168.31.250:5000.
+	Server string `json:"server,omitempty"`
+
+	// CACert are paths to CA certificates to use for the containerd registry mirror host.
+	CACert []string `json:"caCert,omitempty"`
+
+	// SkipVerify is a boolean to skip the certificate verification for the containerd registry mirror and allows http connections.
+	SkipVerify bool `json:"skipVerify,omitempty"`
+
+	// Capabilities is a list of capabilities to enable for the containerd registry mirror. If empty, will use pull and resolve capabilities.
+	Capabilities []string `json:"capabilities,omitempty"`
 }
 
 type NodeRegistration struct {
@@ -228,6 +276,9 @@ type LocalPathProvisioner struct {
 
 	// ImagePullPolicy is the policy how to pull the image.
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+
+	// NodePath is the path on the node where to create the persistent volume directories.
+	NodePath string `json:"nodePath,omitempty"`
 }
 
 type CNI struct {
