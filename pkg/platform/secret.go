@@ -179,10 +179,11 @@ func getAccessKey(ctx context.Context, kubeClient kubernetes.Interface, platform
 	} else if err == nil {
 		serviceUID := string(service.UID)
 
-		// find existing vCluster
-		virtualClusterList, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(projectutil.ProjectNamespace(project)).List(ctx, metav1.ListOptions{})
+		// Finding the virtualcluster instance without passing namespace because , virtual cluster instance that we are trying
+		// to create access key for may exist in another namespace. Hence we are listing all the virtualcluster instances
+		virtualClusterList, err := managementClient.Loft().ManagementV1().VirtualClusterInstances("").List(ctx, metav1.ListOptions{})
 		if err != nil {
-			return "", "", fmt.Errorf("could not list virtual cluster instances in project %s: %w", project, err)
+			return "", "", fmt.Errorf("could not list virtual cluster instances: %w", err)
 		}
 
 		// try to find vCluster
