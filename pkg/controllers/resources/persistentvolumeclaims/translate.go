@@ -75,9 +75,25 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 				if vPvc.Spec.Selector == nil && vPvc.Spec.VolumeName == "" {
 					err := ctx.PhysicalClient.Get(ctx, types.NamespacedName{Name: storageClassName}, &storagev1.StorageClass{})
 					if err != nil && kerrors.IsNotFound(err) {
-						translated := translate.Default.HostNameCluster(storageClassName)
-						delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
-						vPvc.Spec.StorageClassName = &translated
+						// We have to check for the case where the storageClassName acts as a "binding selector".
+						// In other words, even though the StorageClass does not exist, instead of specifying a selector or volumeName
+						// you can match a PV and PVC by setting the storageClass name to the same value in both.
+						// In that case we should not translate the storageClassName in the PVC.
+						var matchingPV bool
+						pvList := &corev1.PersistentVolumeList{}
+						err := ctx.VirtualClient.List(ctx.Context, pvList)
+						if err == nil {
+							for _, pv := range pvList.Items {
+								if pv.Spec.StorageClassName != "" && pv.Spec.StorageClassName == *vPvc.Spec.StorageClassName {
+									matchingPV = true
+								}
+							}
+						}
+						if !matchingPV {
+							translated := translate.Default.HostNameCluster(storageClassName)
+							delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
+							vPvc.Spec.StorageClassName = &translated
+						}
 					}
 				} else {
 					translated := translate.Default.HostNameCluster(storageClassName)
