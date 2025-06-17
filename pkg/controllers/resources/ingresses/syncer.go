@@ -129,23 +129,28 @@ func (s *ingressSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 }
 
 func (s *ingressSyncer) applyLimitByClass(ctx *synccontext.SyncContext, virtual *networkingv1.Ingress) bool {
-	// Get the host ingress class and check if it matches the selector
-	if ctx.Config.Sync.FromHost.IngressClasses.Enabled && virtual.Spec.IngressClassName != nil && *virtual.Spec.IngressClassName != "" {
-		pIngressClass := &networkingv1.IngressClass{}
-		err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.IngressClassName}, pIngressClass)
-		if err != nil || pIngressClass.GetDeletionTimestamp() != nil {
-			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync ingress %q to host because the ingress class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.IngressClassName, err)
-			return true
-		}
-		matches, err := ctx.Config.Sync.FromHost.IngressClasses.Selector.Matches(pIngressClass)
-		if err != nil {
-			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync ingress %q to host because the ingress class %q in the host could not be checked against the selector under 'sync.fromHost.ingressClasses.selector': %s", virtual.GetName(), pIngressClass.GetName(), err)
-			return true
-		}
-		if !matches {
-			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync ingress %q to host because the ingress class %q in the host does not match the selector under 'sync.fromHost.ingressClasses.selector'", virtual.GetName(), pIngressClass.GetName())
-			return true
-		}
+	if !ctx.Config.Sync.FromHost.IngressClasses.Enabled ||
+		ctx.Config.Sync.FromHost.IngressClasses.Selector.Empty() ||
+		virtual.Spec.IngressClassName == nil ||
+		*virtual.Spec.IngressClassName == "" {
+		return false
 	}
+
+	pIngressClass := &networkingv1.IngressClass{}
+	err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.IngressClassName}, pIngressClass)
+	if err != nil || pIngressClass.GetDeletionTimestamp() != nil {
+		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync ingress %q to host because the ingress class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.IngressClassName, err)
+		return true
+	}
+	matches, err := ctx.Config.Sync.FromHost.IngressClasses.Selector.Matches(pIngressClass)
+	if err != nil {
+		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync ingress %q to host because the ingress class %q in the host could not be checked against the selector under 'sync.fromHost.ingressClasses.selector': %s", virtual.GetName(), pIngressClass.GetName(), err)
+		return true
+	}
+	if !matches {
+		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync ingress %q to host because the ingress class %q in the host does not match the selector under 'sync.fromHost.ingressClasses.selector'", virtual.GetName(), pIngressClass.GetName())
+		return true
+	}
+
 	return false
 }

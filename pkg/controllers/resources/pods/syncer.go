@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/scheduling"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/token"
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -184,7 +186,7 @@ func (s *podSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Pod]) (ctrl.Result, error) {
-	if s.applyLimitByClass(ctx, event.Virtual) {
+	if s.applyLimitByClasses(ctx, event.Virtual) {
 		return ctrl.Result{}, nil
 	}
 
@@ -280,7 +282,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		err error
 	)
 
-	if s.applyLimitByClass(ctx, event.Virtual) {
+	if s.applyLimitByClasses(ctx, event.Virtual) {
 		return ctrl.Result{}, nil
 	}
 
@@ -560,43 +562,60 @@ func (s *podSyncer) getNodeIP(ctx *synccontext.SyncContext, name string) (string
 	return nodeService.Spec.ClusterIP, nil
 }
 
-func (s *podSyncer) applyLimitByClass(ctx *synccontext.SyncContext, virtual *corev1.Pod) bool {
-	// Get the host priority class and check if it matches the selector under 'sync.fromHost.priorityClasses.selector'
-	if ctx.Config.Sync.FromHost.PriorityClasses.Enabled && virtual.Spec.PriorityClassName != "" {
-		pPriorityClass := &schedulingv1.PriorityClass{}
-		err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: virtual.Spec.PriorityClassName}, pPriorityClass)
-		if err != nil || pPriorityClass.GetDeletionTimestamp() != nil {
-			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q couldn't be reached in the host: %s", virtual.GetName(), virtual.Spec.PriorityClassName, err)
-			return true
-		}
-		matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(pPriorityClass)
-		if err != nil {
-			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host could not be checked against the selector under 'sync.fromHost.priorityClasses.selector': %s", virtual.GetName(), pPriorityClass.GetName(), err)
-			return true
-		}
-		if !matches {
-			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host does not match the selector under 'sync.fromHost.priorityClasses.selector'", virtual.GetName(), pPriorityClass.GetName())
-			return true
-		}
+func (s *podSyncer) applyLimitByClasses(ctx *synccontext.SyncContext, virtual *corev1.Pod) bool {
+	return s.applyLimitByPriorityClass(ctx, virtual) || s.applyLimitByRuntimeClass(ctx, virtual)
+}
+
+func (s *podSyncer) applyLimitByPriorityClass(ctx *synccontext.SyncContext, virtual *corev1.Pod) bool {
+	if !ctx.Config.Sync.FromHost.PriorityClasses.Enabled ||
+		ctx.Config.Sync.FromHost.PriorityClasses.Selector.Empty() ||
+		virtual.Spec.PriorityClassName == "" ||
+		slices.Contains(constants.SystemPriorityClassesAllowList, virtual.Spec.PriorityClassName) {
+		return false
 	}
 
-	// Get the host runtime class and check if it matches the selector under 'sync.fromHost.runtimeClasses.selector'
-	if ctx.Config.Sync.FromHost.RuntimeClasses.Enabled && virtual.Spec.RuntimeClassName != nil && *virtual.Spec.RuntimeClassName != "" {
-		pRuntimeClass := &nodev1.RuntimeClass{}
-		err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.RuntimeClassName}, pRuntimeClass)
-		if err != nil || pRuntimeClass.GetDeletionTimestamp() != nil {
-			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.RuntimeClassName, err)
-			return true
-		}
-		matches, err := ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(pRuntimeClass)
-		if err != nil {
-			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q in the host could not be checked against the selector under 'sync.fromHost.runtimeClasses.selector': %s", virtual.GetName(), pRuntimeClass.GetName(), err)
-			return true
-		}
-		if !matches {
-			s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q in the host does not match the selector under 'sync.fromHost.runtimeClasses.selector'", virtual.GetName(), pRuntimeClass.GetName())
-			return true
-		}
+	pPriorityClass := &schedulingv1.PriorityClass{}
+	err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: virtual.Spec.PriorityClassName}, pPriorityClass)
+	if err != nil || pPriorityClass.GetDeletionTimestamp() != nil {
+		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q couldn't be reached in the host: %s", virtual.GetName(), virtual.Spec.PriorityClassName, err)
+		return true
 	}
+	matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(pPriorityClass)
+	if err != nil {
+		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host could not be checked against the selector under 'sync.fromHost.priorityClasses.selector': %s", virtual.GetName(), pPriorityClass.GetName(), err)
+		return true
+	}
+	if !matches {
+		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host does not match the selector under 'sync.fromHost.priorityClasses.selector'", virtual.GetName(), pPriorityClass.GetName())
+		return true
+	}
+
+	return false
+}
+
+func (s *podSyncer) applyLimitByRuntimeClass(ctx *synccontext.SyncContext, virtual *corev1.Pod) bool {
+	if !ctx.Config.Sync.FromHost.RuntimeClasses.Enabled ||
+		ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Empty() ||
+		virtual.Spec.RuntimeClassName == nil ||
+		*virtual.Spec.RuntimeClassName == "" {
+		return false
+	}
+
+	pRuntimeClass := &nodev1.RuntimeClass{}
+	err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.RuntimeClassName}, pRuntimeClass)
+	if err != nil || pRuntimeClass.GetDeletionTimestamp() != nil {
+		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.RuntimeClassName, err)
+		return true
+	}
+	matches, err := ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(pRuntimeClass)
+	if err != nil {
+		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q in the host could not be checked against the selector under 'sync.fromHost.runtimeClasses.selector': %s", virtual.GetName(), pRuntimeClass.GetName(), err)
+		return true
+	}
+	if !matches {
+		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q in the host does not match the selector under 'sync.fromHost.runtimeClasses.selector'", virtual.GetName(), pRuntimeClass.GetName())
+		return true
+	}
+
 	return false
 }
