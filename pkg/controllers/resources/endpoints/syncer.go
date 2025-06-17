@@ -72,19 +72,6 @@ func (s *endpointsSyncer) ModifyController(ctx *synccontext.RegisterContext, bld
             klog.Info("Received an object that is not a Service or is nil, skipping")
             return []ctrl.Request{}
         }
-        endpoint:= &corev1.Endpoints{}
-		err:= ctx.VirtualManager.GetClient().Get(ctx, types.NamespacedName{
-			Namespace: service.Namespace,
-			Name:      service.Name,
-		}, endpoint)
-		if err != nil {
-			if kerrors.IsNotFound(err) {
-				klog.Infof("Endpoints for Service %s/%s not found, skipping", service.Namespace, service.Name)
-				return []ctrl.Request{}
-			}
-			klog.Errorf("Error retrieving Endpoints for Service %s/%s: %v", service.Namespace, service.Name, err)
-			return []ctrl.Request{}
-		}
 
         klog.Infof("Enqueuing reconciliation request of Endpoint for Service: %s/%s", service.Namespace, service.Name)
 
