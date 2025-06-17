@@ -113,21 +113,36 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err = f.HostClient.CoreV1().PersistentVolumeClaims(testNamespace).Get(f.Context, fssdClassName, metav1.GetOptions{})
 		gomega.Expect(err).To(gomega.HaveOccurred())
 
-		ginkgo.By("There should be a warning message event in the describe of the created ingress")
-		eventList, err := f.VClusterClient.CoreV1().Events(testNamespace).List(f.Context, metav1.ListOptions{
-			FieldSelector: fmt.Sprintf("involvedObject.kind=PersistentVolumeClaim,involvedObject.name=%s", fstoragePvc),
-		})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		var found bool
-		for _, event := range eventList.Items {
-			if event.Type == corev1.EventTypeWarning && event.Reason == "SyncWarning" {
-				found = true
-				expectedSubstring := fmt.Sprintf(`did not sync persistent volume claim "%s" to host because the storage class "%s" in the host does not match the selector under 'sync.fromHost.storageClasses.selector'`, fstoragePvc, fsClassName)
-				gomega.Expect(event.Message).To(gomega.ContainSubstring(expectedSubstring))
-				break
+		ginkgo.By("There should be a warning message event in the describe of the created PVC")
+		// eventList, err := f.VClusterClient.CoreV1().Events(testNamespace).List(f.Context, metav1.ListOptions{
+		// 	FieldSelector: fmt.Sprintf("involvedObject.kind=PersistentVolumeClaim,involvedObject.name=%s", fstoragePvc),
+		// })
+		// gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		// var found bool
+		// for _, event := range eventList.Items {
+		// 	if event.Type == corev1.EventTypeWarning && event.Reason == "SyncWarning" {
+		// 		found = true
+		// 		expectedSubstring := fmt.Sprintf(`did not sync persistent volume claim "%s" to host because the storage class "%s" in the host does not match the selector under 'sync.fromHost.storageClasses.selector'`, fstoragePvc, fsClassName)
+		// 		gomega.Expect(event.Message).To(gomega.ContainSubstring(expectedSubstring))
+		// 		break
+		// 	}
+		// }
+		// gomega.Expect(found).To(gomega.BeTrue(), "Expected to find a SyncWarning event for the ingress with unavailable ingressClass")
+
+		gomega.Eventually(func() bool {
+			eventList, err := f.VClusterClient.CoreV1().Events(testNamespace).List(f.Context, metav1.ListOptions{
+				FieldSelector: fmt.Sprintf("involvedObject.kind=PersistentVolumeClaim,involvedObject.name=%s", fstoragePvc),
+			})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			for _, event := range eventList.Items {
+				if event.Type == corev1.EventTypeWarning && event.Reason == "SyncWarning" {
+					expectedSubstring := fmt.Sprintf(`did not sync persistent volume claim "%s" to host because the storage class "%s" in the host does not match the selector under 'sync.fromHost.storageClasses.selector'`, fstoragePvc, fsClassName)
+					gomega.Expect(event.Message).To(gomega.ContainSubstring(expectedSubstring))
+					return true
+				}
 			}
-		}
-		gomega.Expect(found).To(gomega.BeTrue(), "Expected to find a SyncWarning event for the ingress with unavailable ingressClass")
+			return false
+		}).WithTimeout(time.Minute).WithPolling(time.Second).Should(gomega.BeTrue(), "Timed out waiting for SyncWarning event for PVC %s", fstoragePvc)
 	})
 
 	ginkgo.It("should sync vcluster PVCs using allowed storageClass to host", func() {
