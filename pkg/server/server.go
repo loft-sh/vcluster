@@ -25,6 +25,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
@@ -198,6 +199,32 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 		},
 	}
 	redirectAuthResources = append(redirectAuthResources, s.redirectResources...)
+	if ctx.Config.Integrations.MetricsServer.Enabled {
+		redirectAuthResources = append(redirectAuthResources,
+			delegatingauthorizer.GroupVersionResourceVerb{
+				GroupVersionResource: schema.GroupVersionResource{
+					Group:    "metrics.k8s.io",
+					Version:  "*",
+					Resource: "*",
+				},
+				Verb:        "*",
+				SubResource: "*",
+			},
+		)
+	}
+	if ctx.Config.Integrations.KubeVirt.Enabled {
+		redirectAuthResources = append(redirectAuthResources,
+			delegatingauthorizer.GroupVersionResourceVerb{
+				GroupVersionResource: schema.GroupVersionResource{
+					Group:    "subresources.kubevirt.io",
+					Version:  "*",
+					Resource: "*",
+				},
+				Verb:        "*",
+				SubResource: "*",
+			},
+		)
+	}
 	serverConfig.Authorization.Authorizer = union.New(
 		kubeletauthorizer.New(s.uncachedVirtualClient),
 		delegatingauthorizer.New(s.uncachedVirtualClient, redirectAuthResources, nil),
