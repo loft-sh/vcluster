@@ -236,7 +236,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 	// update host object
 	if event.Virtual.Annotations[constants.HostClusterPersistentVolumeAnnotation] == "" {
 		// TODO: translate the storage secrets
-		event.Host.Spec.StorageClassName = mappings.VirtualToHostName(ctx, event.Virtual.Spec.StorageClassName, "", mappings.StorageClasses())
+		event.Host.Spec.StorageClassName = translate.Default.HostNameCluster(event.Virtual.Spec.StorageClassName)
 	}
 
 	// bi-directional sync of annotations and labels
