@@ -107,6 +107,9 @@ type PrivateNodes struct {
 	// Kubelet holds kubelet configuration that is used for all nodes.
 	Kubelet Kubelet `json:"kubelet,omitempty"`
 
+	// Metallb holds dedicated metallb configuration.
+	Metallb Metallb `json:"metallb,omitempty"`
+
 	// CNI holds dedicated CNI configuration.
 	CNI CNI `json:"cni,omitempty"`
 
@@ -118,6 +121,28 @@ type PrivateNodes struct {
 
 	// JoinNode holds configuration specifically used during joining the node (see "kubeadm join").
 	JoinNode JoinConfiguration `json:"joinNode,omitempty"`
+}
+
+type Metallb struct {
+	// Enabled defines if metallb should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// ControllerImage is the image for metallb controller.
+	ControllerImage string `json:"controllerImage,omitempty"`
+
+	// SpeakerImage is the image for metallb speaker.
+	SpeakerImage string `json:"speakerImage,omitempty"`
+
+	// IPAddressPool is the IP address pool to use for metallb.
+	IPAddressPool MetallbIPAddressPool `json:"ipAddressPool,omitempty"`
+}
+
+type MetallbIPAddressPool struct {
+	// Addresses is a list of IP addresses to use for the IP address pool.
+	Addresses []string `json:"addresses,omitempty"`
+
+	// L2Advertisement defines if L2 advertisement should be enabled for the IP address pool.
+	L2Advertisement bool `json:"l2Advertisement,omitempty"`
 }
 
 type Standalone struct {

@@ -801,6 +801,17 @@ privateNodes:
       # Enabled defines if Flannel should be enabled.
       enabled: true
   
+  # Metallb holds dedicated metallb configuration.
+  metallb:
+    # Enabled defines if metallb should be enabled.
+    enabled: false
+    # IPAddressPool is the IP address pool to use for metallb.
+    ipAddressPool:
+      # Addresses is a list of IP addresses to use for the IP address pool.
+      addresses: []
+      # L2Advertisement defines if L2 advertisement should be enabled for the IP address pool.
+      l2Advertisement: true
+  
   # KubeProxy holds dedicated kube proxy configuration.
   kubeProxy:
     # Enabled defines if the kube proxy should be enabled.

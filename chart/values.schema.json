@@ -2710,6 +2710,45 @@
       "type": "object",
       "description": "Logging holds the log encoding details"
     },
+    "Metallb": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if metallb should be enabled."
+        },
+        "controllerImage": {
+          "type": "string",
+          "description": "ControllerImage is the image for metallb controller."
+        },
+        "speakerImage": {
+          "type": "string",
+          "description": "SpeakerImage is the image for metallb speaker."
+        },
+        "ipAddressPool": {
+          "$ref": "#/$defs/MetallbIPAddressPool",
+          "description": "IPAddressPool is the IP address pool to use for metallb."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MetallbIPAddressPool": {
+      "properties": {
+        "addresses": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Addresses is a list of IP addresses to use for the IP address pool."
+        },
+        "l2Advertisement": {
+          "type": "boolean",
+          "description": "L2Advertisement defines if L2 advertisement should be enabled for the IP address pool."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "MetricsServer": {
       "properties": {
         "enabled": {
@@ -3363,6 +3402,10 @@
         "kubelet": {
           "$ref": "#/$defs/Kubelet",
           "description": "Kubelet holds kubelet configuration that is used for all nodes."
+        },
+        "metallb": {
+          "$ref": "#/$defs/Metallb",
+          "description": "Metallb holds dedicated metallb configuration."
         },
         "cni": {
           "$ref": "#/$defs/CNI",
