@@ -434,6 +434,11 @@ privateNodes:
   cni:
     flannel:
       enabled: true
+  metallb:
+    enabled: false
+    ipAddressPool:
+      addresses: []
+      l2Advertisement: true
   kubeProxy:
     enabled: true
     image: ""
