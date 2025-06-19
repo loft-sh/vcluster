@@ -762,6 +762,14 @@ controlPlane:
         extraEnv: []
         # ExtraArgs are additional arguments to pass to the konnectivity agent.
         extraArgs: []
+    # Registry allows enabling an embedded docker image registry in vCluster. This is useful for air-gapped environments or when you don't have a public registry available to distribute images.
+    registry:
+      # Enabled defines if the embedded registry should be enabled.
+      enabled: false
+      # AnonymousPull allows enabling anonymous pull for the embedded registry. This allows anybody to pull images from the registry without authentication.
+      anonymousPull: true
+      # Config is the regular docker registry config. See https://distribution.github.io/distribution/about/configuration/ for more details.
+      config: {}
     # GlobalMetadata is metadata that will be added to all resources deployed by Helm.
     globalMetadata:
       annotations: {}
@@ -788,7 +796,9 @@ privateNodes:
     containerd:
       # Enabled defines if containerd should be installed and configured by vCluster.
       enabled: true
-  
+
+# Deploy holds configuration for the deployment of vCluster.
+deploy:
   # LocalPathProvisioner holds dedicated local path provisioner configuration.
   localPathProvisioner:
     # Enabled defines if LocalPathProvisioner should be enabled.
@@ -800,17 +810,6 @@ privateNodes:
     flannel:
       # Enabled defines if Flannel should be enabled.
       enabled: true
-  
-  # Metallb holds dedicated metallb configuration.
-  metallb:
-    # Enabled defines if metallb should be enabled.
-    enabled: false
-    # IPAddressPool is the IP address pool to use for metallb.
-    ipAddressPool:
-      # Addresses is a list of IP addresses to use for the IP address pool.
-      addresses: []
-      # L2Advertisement defines if L2 advertisement should be enabled for the IP address pool.
-      l2Advertisement: true
   
   # KubeProxy holds dedicated kube proxy configuration.
   kubeProxy:
@@ -828,6 +827,24 @@ privateNodes:
     extraEnv: []
     # ExtraArgs are additional arguments to pass to the kube-proxy.
     extraArgs: []
+  
+  # Metallb holds dedicated metallb configuration.
+  metallb:
+    # Enabled defines if metallb should be enabled.
+    enabled: false
+    # IPAddressPool is the IP address pool to use for metallb.
+    ipAddressPool:
+      # Addresses is a list of IP addresses to use for the IP address pool.
+      addresses: []
+      # L2Advertisement defines if L2 advertisement should be enabled for the IP address pool.
+      l2Advertisement: true
+  
+  # IngressNginx holds dedicated ingress-nginx configuration.
+  ingressNginx:
+    # Enabled defines if ingress-nginx should be enabled.
+    enabled: false
+    # DefaultIngressClass defines if the deployed ingress class should be the default ingress class.
+    defaultIngressClass: true
 
 # Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
 integrations:

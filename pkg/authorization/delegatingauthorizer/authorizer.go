@@ -2,6 +2,7 @@ package delegatingauthorizer
 
 import (
 	"context"
+	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -93,17 +94,41 @@ func (l *delegatingAuthorizer) Authorize(ctx context.Context, a authorizer.Attri
 func applies(a authorizer.Attributes, resources []GroupVersionResourceVerb, nonResources []PathVerb) bool {
 	if a.IsResourceRequest() {
 		for _, gv := range resources {
-			if (gv.Group == "*" || gv.Group == a.GetAPIGroup()) && (gv.Version == "*" || gv.Version == a.GetAPIVersion()) && (gv.Resource == "*" || gv.Resource == a.GetResource()) && (gv.Verb == "*" || gv.Verb == a.GetVerb()) && (gv.SubResource == "*" || gv.SubResource == a.GetSubresource()) {
+			if (gv.Group == "*" || gv.Group == a.GetAPIGroup()) && (gv.Version == "*" || gv.Version == a.GetAPIVersion()) && (gv.Resource == "*" || gv.Resource == a.GetResource()) && verbMatches(gv.Verb, a.GetVerb()) && (gv.SubResource == "*" || gv.SubResource == a.GetSubresource()) {
 				return true
 			}
 		}
 	} else {
 		for _, p := range nonResources {
-			if p.Path == a.GetPath() && (p.Verb == "*" || p.Verb == a.GetVerb()) {
+			if p.Path == a.GetPath() && verbMatches(p.Verb, a.GetVerb()) {
+				return true
+			} else if strings.HasSuffix(p.Path, "*") && strings.HasPrefix(a.GetPath(), strings.TrimSuffix(p.Path, "*")) && verbMatches(p.Verb, a.GetVerb()) {
 				return true
 			}
 		}
 	}
 
 	return false
+}
+
+func verbMatches(ruleVerb, requestVerb string) bool {
+	// the logic is that if the ruleVerb is a list of verbs, and the requestVerb is in the list, then it matches
+	// if the ruleVerb is a single verb, and the requestVerb is the same, then it matches
+	// if the ruleVerb is a single verb, and the requestVerb is not the same, then it does not match
+	// if the ruleVerb is a list of verbs, and the requestVerb is not in the list, then it does not match
+	// if the ruleVerb is a single verb, and the requestVerb is not the same, then it does not match
+	negate := false
+	if strings.HasPrefix(ruleVerb, "!") {
+		negate = true
+		ruleVerb = strings.TrimPrefix(ruleVerb, "!")
+	}
+
+	verbs := strings.Split(ruleVerb, ",")
+	for _, verb := range verbs {
+		if verb == "*" || verb == requestVerb {
+			return !negate
+		}
+	}
+
+	return negate
 }

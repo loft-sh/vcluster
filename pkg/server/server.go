@@ -198,6 +198,7 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 			SubResource:          "",
 		},
 	}
+	redirectAuthNonResources := []delegatingauthorizer.PathVerb{}
 	redirectAuthResources = append(redirectAuthResources, s.redirectResources...)
 	if ctx.Config.Integrations.MetricsServer.Enabled {
 		redirectAuthResources = append(redirectAuthResources,
@@ -225,9 +226,26 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 			},
 		)
 	}
+	if ctx.Config.ControlPlane.Advanced.Registry.Enabled {
+		if !ctx.Config.ControlPlane.Advanced.Registry.AnonymousPull {
+			redirectAuthNonResources = append(redirectAuthNonResources,
+				delegatingauthorizer.PathVerb{
+					Path: "/v2*",
+					Verb: "*",
+				},
+			)
+		} else {
+			redirectAuthNonResources = append(redirectAuthNonResources,
+				delegatingauthorizer.PathVerb{
+					Path: "/v2*",
+					Verb: "!head,get",
+				},
+			)
+		}
+	}
 	serverConfig.Authorization.Authorizer = union.New(
 		kubeletauthorizer.New(s.uncachedVirtualClient),
-		delegatingauthorizer.New(s.uncachedVirtualClient, redirectAuthResources, nil),
+		delegatingauthorizer.New(s.uncachedVirtualClient, redirectAuthResources, redirectAuthNonResources),
 		impersonationauthorizer.New(s.uncachedVirtualClient),
 		allowall.New(),
 	)
