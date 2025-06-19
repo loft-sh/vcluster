@@ -424,6 +424,10 @@
           "$ref": "#/$defs/Konnectivity",
           "description": "Konnectivity holds dedicated konnectivity configuration. This is only available when privateNodes.enabled is true."
         },
+        "registry": {
+          "$ref": "#/$defs/Registry",
+          "description": "Registry allows enabling an embedded docker image registry in vCluster. This is useful for air-gapped environments or when you don't have a public registry available to distribute images."
+        },
         "globalMetadata": {
           "$ref": "#/$defs/ControlPlaneGlobalMetadata",
           "description": "GlobalMetadata is metadata that will be added to all resources deployed by Helm."
@@ -1049,6 +1053,32 @@
           },
           "type": "array",
           "description": "ExcludedUsers describe a list of users for which the checks will be skipped.\nImpersonation attempts on these users will still be subjected to the checks."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Deploy": {
+      "properties": {
+        "kubeProxy": {
+          "$ref": "#/$defs/KubeProxy",
+          "description": "KubeProxy holds dedicated kube proxy configuration."
+        },
+        "metallb": {
+          "$ref": "#/$defs/Metallb",
+          "description": "Metallb holds dedicated metallb configuration."
+        },
+        "cni": {
+          "$ref": "#/$defs/CNI",
+          "description": "CNI holds dedicated CNI configuration."
+        },
+        "localPathProvisioner": {
+          "$ref": "#/$defs/LocalPathProvisioner",
+          "description": "LocalPathProvisioner holds dedicated local path provisioner configuration."
+        },
+        "ingressNginx": {
+          "$ref": "#/$defs/IngressNginx",
+          "description": "IngressNginx holds dedicated ingress-nginx configuration."
         }
       },
       "additionalProperties": false,
@@ -2225,6 +2255,20 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "IngressNginx": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if ingress-nginx should be enabled."
+        },
+        "defaultIngressClass": {
+          "type": "boolean",
+          "description": "DefaultIngressClass defines if the deployed ingress class should be the default ingress class."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Integrations": {
       "properties": {
         "metricsServer": {
@@ -3395,25 +3439,9 @@
           "type": "boolean",
           "description": "ImportNodeBinaries defines to use the loft-sh/kubernetes:VERSION-full image to also copy the node binaries to the control plane. This allows upgrades and\njoining new nodes into the cluster without having to download the binaries from the internet."
         },
-        "kubeProxy": {
-          "$ref": "#/$defs/KubeProxy",
-          "description": "KubeProxy holds dedicated kube proxy configuration."
-        },
         "kubelet": {
           "$ref": "#/$defs/Kubelet",
           "description": "Kubelet holds kubelet configuration that is used for all nodes."
-        },
-        "metallb": {
-          "$ref": "#/$defs/Metallb",
-          "description": "Metallb holds dedicated metallb configuration."
-        },
-        "cni": {
-          "$ref": "#/$defs/CNI",
-          "description": "CNI holds dedicated CNI configuration."
-        },
-        "localPathProvisioner": {
-          "$ref": "#/$defs/LocalPathProvisioner",
-          "description": "LocalPathProvisioner holds dedicated local path provisioner configuration."
         },
         "autoUpgrade": {
           "$ref": "#/$defs/AutoUpgrade",
@@ -3560,6 +3588,23 @@
       "additionalProperties": false,
       "type": "object",
       "description": "ReadinessProbe defines the configuration for the readiness probe."
+    },
+    "Registry": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the embedded registry should be enabled."
+        },
+        "anonymousPull": {
+          "type": "boolean",
+          "description": "AnonymousPull allows enabling anonymous pull for the embedded registry. This allows anybody to pull images from the registry without authentication."
+        },
+        "config": {
+          "description": "Config is the regular docker registry config. See https://distribution.github.io/distribution/about/configuration/ for more details."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "ReplicateServices": {
       "properties": {
@@ -4658,6 +4703,10 @@
     "integrations": {
       "$ref": "#/$defs/Integrations",
       "description": "Integrations holds config for vCluster integrations with other operators or tools running on the host cluster"
+    },
+    "deploy": {
+      "$ref": "#/$defs/Deploy",
+      "description": "Deploy holds configuration for the deployment of vCluster."
     },
     "networking": {
       "$ref": "#/$defs/Networking",
