@@ -66,15 +66,28 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.It("should only sync priorityClasses to virtual with allowed label", func() {
 		ginkgo.By("Listing all priorityClasses in vcluster")
-		pcs, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		var names []string
-		for _, pc := range pcs.Items {
-			names = append(names, pc.Name)
-		}
-		gomega.Expect(names).To(gomega.ContainElement(hpriorityClassName))
+		gomega.Eventually(func() []string {
+			pcs, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			var names []string
+			for _, pc := range pcs.Items {
+				names = append(names, pc.Name)
+			}
+			return names
+		}).Should(gomega.ContainElement(hpriorityClassName))
+
 		ginkgo.By("Found high-priority in vcluster")
-		gomega.Expect(names).NotTo(gomega.ContainElement(lpriorityClassName))
+
+		gomega.Consistently(func() []string {
+			pcs, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			var names []string
+			for _, pc := range pcs.Items {
+				names = append(names, pc.Name)
+			}
+			return names
+		}).ShouldNot(gomega.ContainElement(lpriorityClassName))
+
 		ginkgo.By("low-priority is not available in vcluster")
 	})
 
@@ -122,6 +135,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		framework.ExpectNoError(err)
 
 		ginkgo.By("Pod should be synced to host")
+		ginkgo.By("Listing all pods in host's vcluster namespace")
 		gomega.Eventually(func() []string {
 			pods, err := f.HostClient.CoreV1().Pods(hostNamespace).List(f.Context, metav1.ListOptions{})
 			if err != nil {

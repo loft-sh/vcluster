@@ -61,16 +61,29 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("should only sync runtimeClasses to virtual with allowed label", func() {
-		ginkgo.By("Listing all runtimeClasses in the vCluster")
-		rcs, err := f.VClusterClient.NodeV1().RuntimeClasses().List(f.Context, metav1.ListOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		var names []string
-		for _, rc := range rcs.Items {
-			names = append(names, rc.Name)
-		}
-		gomega.Expect(names).To(gomega.ContainElement(runcClassName))
+		ginkgo.By("Listing all runtimeClasses in vCluster")
+		gomega.Eventually(func() []string {
+			rcs, err := f.VClusterClient.NodeV1().RuntimeClasses().List(f.Context, metav1.ListOptions{})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			var names []string
+			for _, rc := range rcs.Items {
+				names = append(names, rc.Name)
+			}
+			return names
+		}).Should(gomega.ContainElement(runcClassName))
+
 		ginkgo.By("Found runc in vcluster")
-		gomega.Expect(names).NotTo(gomega.ContainElement(runscClassName))
+
+		gomega.Consistently(func() []string {
+			rcs, err := f.VClusterClient.NodeV1().RuntimeClasses().List(f.Context, metav1.ListOptions{})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			var names []string
+			for _, rc := range rcs.Items {
+				names = append(names, rc.Name)
+			}
+			return names
+		}).ShouldNot(gomega.ContainElement(runscClassName))
+
 		ginkgo.By("runsc is not available in vcluster")
 	})
 
@@ -128,8 +141,9 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		framework.ExpectNoError(err)
 
 		ginkgo.By("Pod should be synced to host")
+		ginkgo.By("Listing all pods in host's vcluster namespace")
 		gomega.Eventually(func() []string {
-			pods, err := f.HostClient.CoreV1().Pods(hostNamespace).List(f.Context, metav1.ListOptions{}) // List all pods in the vCluster
+			pods, err := f.HostClient.CoreV1().Pods(hostNamespace).List(f.Context, metav1.ListOptions{})
 			if err != nil {
 				return nil
 			}

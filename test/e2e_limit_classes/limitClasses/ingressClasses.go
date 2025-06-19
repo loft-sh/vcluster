@@ -66,15 +66,28 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.It("should only sync ingressClasses with allowed label to vcluster", func() {
 		ginkgo.By("Listing all ingresssesClasses available in vcluster")
-		ics, err := f.VClusterClient.NetworkingV1().IngressClasses().List(f.Context, metav1.ListOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		var names []string
-		for _, ic := range ics.Items {
-			names = append(names, ic.Name)
-		}
-		gomega.Expect(names).To(gomega.ContainElement(nginxClassName))
+		gomega.Eventually(func() []string {
+			ics, err := f.VClusterClient.NetworkingV1().IngressClasses().List(f.Context, metav1.ListOptions{})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			var names []string
+			for _, ic := range ics.Items {
+				names = append(names, ic.Name)
+			}
+			return names
+		}).Should(gomega.ContainElement(nginxClassName))
+
 		ginkgo.By("Found nginx-ingressclass in vcluster")
-		gomega.Expect(names).NotTo(gomega.ContainElement(haproxyClassName))
+
+		gomega.Consistently(func() []string {
+			ics, err := f.VClusterClient.NetworkingV1().IngressClasses().List(f.Context, metav1.ListOptions{})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			var names []string
+			for _, ic := range ics.Items {
+				names = append(names, ic.Name)
+			}
+			return names
+		}).ShouldNot(gomega.ContainElement(haproxyClassName))
+
 		ginkgo.By("haproxy-ingressclass is not available in vcluster")
 	})
 
@@ -170,6 +183,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		framework.ExpectNoError(err)
 
 		ginkgo.By("Ingress should be synced to host")
+		ginkgo.By("Listing all Ingresses in host's vcluster namespace")
 		gomega.Eventually(func() []string {
 			igs, err := f.HostClient.NetworkingV1().Ingresses(hostNamespace).List(f.Context, metav1.ListOptions{})
 			if err != nil {
