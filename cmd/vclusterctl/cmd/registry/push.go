@@ -220,15 +220,9 @@ func (o *PushOptions) copyArchiveToRemote(ctx context.Context, path string, remo
 }
 
 func (o *PushOptions) pushImage(ctx context.Context, localRef name.Reference, image v1.Image, remoteRegistry name.Registry, transport http.RoundTripper) error {
-	localTag, ok := localRef.(name.Tag)
-	if !ok {
-		return fmt.Errorf("local reference is not a tag: %s", localRef.Name())
-	}
-	remoteTag := localTag
-	remoteTag.Repository.Registry = remoteRegistry
-	remoteRef, err := name.ParseReference(remoteTag.Name())
+	remoteRef, err := replaceRegistry(localRef, remoteRegistry)
 	if err != nil {
-		return fmt.Errorf("failed to parse remote reference: %w", err)
+		return err
 	}
 
 	o.Log.Infof("Pushing image %s to %s", localRef.String(), remoteRef.String())
@@ -237,7 +231,7 @@ func (o *PushOptions) pushImage(ctx context.Context, localRef name.Reference, im
 
 	// push image to remote registry
 	go func() {
-		errChan <- remote.Write(
+		errChan <- remote.Push(
 			remoteRef,
 			image,
 			remote.WithContext(ctx),
@@ -256,16 +250,10 @@ func (o *PushOptions) pushImage(ctx context.Context, localRef name.Reference, im
 			status = "Pushed"
 		}
 
-		jm := &jsonmessage.JSONMessage{
-			ID:     remoteRef.Identifier(),
-			Status: status,
-			Progress: &jsonmessage.JSONProgress{
-				Current: update.Complete,
-				Total:   update.Total,
-			},
-		}
-
-		_, err := fmt.Fprintf(os.Stdout, "%s %s\n", jm.Status, jm.Progress.String())
+		_, err := fmt.Fprintf(os.Stdout, "%s %s\n", status, (&jsonmessage.JSONProgress{
+			Current: update.Complete,
+			Total:   update.Total,
+		}).String())
 		if err != nil {
 			return err
 		}
@@ -278,6 +266,21 @@ func (o *PushOptions) pushImage(ctx context.Context, localRef name.Reference, im
 
 	o.Log.Infof("Successfully pushed image %s", remoteRef.String())
 	return nil
+}
+
+func replaceRegistry(localRef name.Reference, remoteRegistry name.Registry) (name.Reference, error) {
+	localTag, err := name.NewTag(localRef.Name())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse tag: %w", err)
+	}
+	remoteTag := localTag
+	remoteTag.Repository.Registry = remoteRegistry
+	remoteRef, err := name.ParseReference(remoteTag.Name())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse remote reference: %w", err)
+	}
+
+	return remoteRef, nil
 }
 
 func getClient(flags *flags.GlobalFlags) (*rest.Config, error) {
