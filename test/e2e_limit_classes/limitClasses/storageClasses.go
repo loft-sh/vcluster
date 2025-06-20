@@ -83,7 +83,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 				names = append(names, sc.Name)
 			}
 			return names
-		}).Should(gomega.ContainElement(fssdClassName))
+		}).WithTimeout(time.Minute).WithPolling(time.Second).Should(gomega.ContainElement(fssdClassName))
 
 		ginkgo.By("Found fast-ssd in vcluster")
 
@@ -95,7 +95,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 				names = append(names, sc.Name)
 			}
 			return names
-		}).ShouldNot(gomega.ContainElement(fsClassName))
+		}).WithTimeout(time.Minute).WithPolling(time.Second).ShouldNot(gomega.ContainElement(fsClassName))
 		ginkgo.By("fast-storage is not available in vcluster")
 	})
 

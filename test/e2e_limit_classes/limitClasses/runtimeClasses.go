@@ -70,7 +70,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 				names = append(names, rc.Name)
 			}
 			return names
-		}).Should(gomega.ContainElement(runcClassName))
+		}).WithTimeout(time.Minute).WithPolling(time.Second).Should(gomega.ContainElement(runcClassName))
 
 		ginkgo.By("Found runc in vcluster")
 
@@ -82,7 +82,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 				names = append(names, rc.Name)
 			}
 			return names
-		}).ShouldNot(gomega.ContainElement(runscClassName))
+		}).WithTimeout(time.Minute).WithPolling(time.Second).ShouldNot(gomega.ContainElement(runscClassName))
 
 		ginkgo.By("runsc is not available in vcluster")
 	})

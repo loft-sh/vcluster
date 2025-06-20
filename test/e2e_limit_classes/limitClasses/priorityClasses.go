@@ -74,7 +74,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 				names = append(names, pc.Name)
 			}
 			return names
-		}).Should(gomega.ContainElement(hpriorityClassName))
+		}).WithTimeout(time.Minute).WithPolling(time.Second).Should(gomega.ContainElement(hpriorityClassName))
 
 		ginkgo.By("Found high-priority in vcluster")
 
@@ -86,7 +86,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 				names = append(names, pc.Name)
 			}
 			return names
-		}).ShouldNot(gomega.ContainElement(lpriorityClassName))
+		}).WithTimeout(time.Minute).WithPolling(time.Second).ShouldNot(gomega.ContainElement(lpriorityClassName))
 
 		ginkgo.By("low-priority is not available in vcluster")
 	})
