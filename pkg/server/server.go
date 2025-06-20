@@ -381,7 +381,7 @@ func DefaultBuildHandlerChain(apiHandler http.Handler, c *server.Config) http.Ha
 	// Original line:
 	// handler = genericapifilters.WithMuxAndDiscoveryComplete(handler, c.lifecycleSignals.MuxAndDiscoveryComplete.Signaled())
 	handler = genericapifilters.WithMuxAndDiscoveryComplete(handler, make(chan struct{}))
-	handler = genericfilters.WithPanicRecovery(handler, c.RequestInfoResolver)
+	handler = filters.WithPanicRecovery(handler, c.RequestInfoResolver)
 	handler = genericapifilters.WithAuditInit(handler)
 	return handler
 }
