@@ -1,7 +1,6 @@
 package limitclasses
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/test/framework"
@@ -66,32 +65,40 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.It("should only sync ingressClasses with allowed label to vcluster", func() {
 		ginkgo.By("Listing all ingresssesClasses available in vcluster")
-		gomega.Eventually(func() []string {
-			ics, err := f.VClusterClient.NetworkingV1().IngressClasses().List(f.Context, metav1.ListOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			var names []string
-			for _, ic := range ics.Items {
-				names = append(names, ic.Name)
+		gomega.Eventually(func() bool {
+			ingressClasses, err := f.VClusterClient.NetworkingV1().IngressClasses().List(f.Context, metav1.ListOptions{})
+			if err != nil {
+				return false
 			}
-			return names
-		}).WithPolling(time.Second).WithTimeout(framework.PollTimeout).Should(gomega.ContainElement(nginxClassName))
-
-		ginkgo.By("Found nginx-ingressclass in vcluster")
-
-		gomega.Consistently(func() []string {
-			ics, err := f.VClusterClient.NetworkingV1().IngressClasses().List(f.Context, metav1.ListOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			var names []string
-			for _, ic := range ics.Items {
-				names = append(names, ic.Name)
+			for _, ingressClass := range ingressClasses.Items {
+				if ingressClass.Name == nginxClassName {
+					return true
+				}
 			}
-			return names
-		}).WithPolling(time.Second).WithTimeout(framework.PollTimeout).ShouldNot(gomega.ContainElement(haproxyClassName))
+			return false
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeTrue(), "Timed out waiting for listing all ingressClasses")
 
-		ginkgo.By("haproxy-ingressclass is not available in vcluster")
+		gomega.Consistently(func() bool {
+			ingressClasses, err := f.VClusterClient.NetworkingV1().IngressClasses().List(f.Context, metav1.ListOptions{})
+			if err != nil {
+				return false
+			}
+			for _, ingressClass := range ingressClasses.Items {
+				if ingressClass.Name == haproxyClassName {
+					return true
+				}
+			}
+			return false
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeFalse(), "Timed out waiting for listing all ingressClasses")
 	})
 
-	ginkgo.It("should not sync vcluster ingresses using a filtered ingressClass to host", func() {
+	ginkgo.It("should not sync vcluster ingresses created using an ingressClass not available in vCluster", func() {
 		ginkgo.By("Creating a haproxy-ingress using haproxy-ingressclass in vcluster")
 		haproxyIngress := &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
@@ -132,22 +139,22 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 		ginkgo.By("There should be a warning message event in the describe of the created ingress")
 		gomega.Eventually(func() bool {
-			eventList, err := f.VClusterClient.CoreV1().Events(testNamespace).List(f.Context, metav1.ListOptions{
-				FieldSelector: fmt.Sprintf("involvedObject.kind=Ingress,involvedObject.name=%s", haproxyIngressName),
-			})
+			eventList, err := f.VClusterClient.CoreV1().Events(testNamespace).List(f.Context, metav1.ListOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			for _, event := range eventList.Items {
-				if event.Type == corev1.EventTypeWarning && event.Reason == "SyncWarning" {
-					expectedSubstring := fmt.Sprintf(`did not sync ingress "%s" to host because the ingress class "%s" in the host does not match the selector under 'sync.fromHost.ingressClasses.selector'`, haproxyIngressName, haproxyClassName)
-					gomega.Expect(event.Message).To(gomega.ContainSubstring(expectedSubstring))
+				if event.InvolvedObject.Kind == "Ingress" && event.InvolvedObject.Name == haproxyIngressName && event.Type == corev1.EventTypeWarning && event.Reason == "SyncWarning" {
+					gomega.Expect(event.Message).To(gomega.ContainSubstring(`did not sync ingress "%s" to host because the ingress class "%s" in the host does not match the selector under 'sync.fromHost.ingressClasses.selector'`, haproxyIngressName, haproxyClassName))
 					return true
 				}
 			}
 			return false
-		}).WithTimeout(time.Minute).WithPolling(time.Second).Should(gomega.BeTrue(), "Timed out waiting for SyncWarning event for ingress %s", haproxyIngressName)
+		}).
+			WithTimeout(time.Minute).
+			WithPolling(time.Second).
+			Should(gomega.BeTrue(), "Timed out waiting for SyncWarning event for ingress %s", haproxyIngressName)
 	})
 
-	ginkgo.It("should sync vcluster ingresses using allowed ingressClass to host", func() {
+	ginkgo.It("should sync ingresses created in vcluster to host", func() {
 		ginkgo.By("Creating a nginx-ingress using nginx-ingressclass in vcluster")
 		nginxIngress := &networkingv1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
@@ -182,19 +189,22 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.VClusterClient.NetworkingV1().Ingresses(testNamespace).Create(f.Context, nginxIngress, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		ginkgo.By("Ingress should be synced to host")
+		ginkgo.By("should sync ingress created in vCluster to host using ingressClass synced from Host")
 		ginkgo.By("Listing all Ingresses in host's vcluster namespace")
-		gomega.Eventually(func() []string {
-			igs, err := f.HostClient.NetworkingV1().Ingresses(hostNamespace).List(f.Context, metav1.ListOptions{})
+		gomega.Eventually(func() bool {
+			ingresses, err := f.HostClient.NetworkingV1().Ingresses(hostNamespace).List(f.Context, metav1.ListOptions{})
 			if err != nil {
-				return nil
+				return false
 			}
-			var names []string
-			for _, igc := range igs.Items {
-				names = append(names, igc.Name)
+			for _, ingress := range ingresses.Items {
+				if ingress.Name == nginxIngressName+"-x-"+testNamespace+"-x-"+hostNamespace {
+					return true
+				}
 			}
-			return names
-		}).WithTimeout(time.Minute).WithPolling(time.Second).
-			Should(gomega.ContainElement(nginxIngressName + "-x-" + testNamespace + "-x-" + hostNamespace))
+			return false
+		}).
+			WithTimeout(time.Minute).
+			WithPolling(time.Second).
+			Should(gomega.BeTrue(), "Timed out waiting for listing all ingresses in host")
 	})
 })

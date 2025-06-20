@@ -1,7 +1,6 @@
 package limitclasses
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/test/framework"
@@ -75,31 +74,40 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 	ginkgo.It("should only sync storageClasses with allowed label to vcluster", func() {
 		ginkgo.By("Listing all storageClasses in vCluster")
-		gomega.Eventually(func() []string {
-			scs, err := f.VClusterClient.StorageV1().StorageClasses().List(f.Context, metav1.ListOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			var names []string
-			for _, sc := range scs.Items {
-				names = append(names, sc.Name)
+		gomega.Eventually(func() bool {
+			storageClasses, err := f.VClusterClient.StorageV1().StorageClasses().List(f.Context, metav1.ListOptions{})
+			if err != nil {
+				return false
 			}
-			return names
-		}).WithTimeout(time.Minute).WithPolling(time.Second).Should(gomega.ContainElement(fssdClassName))
-
-		ginkgo.By("Found fast-ssd in vcluster")
-
-		gomega.Consistently(func() []string {
-			scs, err := f.VClusterClient.StorageV1().StorageClasses().List(f.Context, metav1.ListOptions{})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			var names []string
-			for _, sc := range scs.Items {
-				names = append(names, sc.Name)
+			for _, storageClass := range storageClasses.Items {
+				if storageClass.Name == fssdClassName {
+					return true
+				}
 			}
-			return names
-		}).WithTimeout(time.Minute).WithPolling(time.Second).ShouldNot(gomega.ContainElement(fsClassName))
-		ginkgo.By("fast-storage is not available in vcluster")
+			return false
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeTrue(), "Timed out waiting for listing all storageClasses")
+
+		gomega.Consistently(func() bool {
+			storageClasses, err := f.VClusterClient.StorageV1().StorageClasses().List(f.Context, metav1.ListOptions{})
+			if err != nil {
+				return false
+			}
+			for _, storageClass := range storageClasses.Items {
+				if storageClass.Name == fsClassName {
+					return true
+				}
+			}
+			return false
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeFalse(), "Timed out waiting for listing all storageClasses")
 	})
 
-	ginkgo.It("should not sync vcluster PVCs using a filtered storageClasses to host", func() {
+	ginkgo.It("should not sync vcluster PVCs created using an storageClass not available in vCluster", func() {
 		ginkgo.By("Creating a PVC using fast-storage storageClass in vcluster")
 		fastStoragepvc := &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -128,22 +136,22 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 		ginkgo.By("There should be a warning message event in the describe of the created PVC")
 		gomega.Eventually(func() bool {
-			eventList, err := f.VClusterClient.CoreV1().Events(testNamespace).List(f.Context, metav1.ListOptions{
-				FieldSelector: fmt.Sprintf("involvedObject.kind=PersistentVolumeClaim,involvedObject.name=%s", fstoragePvc),
-			})
+			eventList, err := f.VClusterClient.CoreV1().Events(testNamespace).List(f.Context, metav1.ListOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			for _, event := range eventList.Items {
-				if event.Type == corev1.EventTypeWarning && event.Reason == "SyncWarning" {
-					expectedSubstring := fmt.Sprintf(`did not sync persistent volume claim "%s" to host because the storage class "%s" in the host does not match the selector under 'sync.fromHost.storageClasses.selector'`, fstoragePvc, fsClassName)
-					gomega.Expect(event.Message).To(gomega.ContainSubstring(expectedSubstring))
+				if event.InvolvedObject.Kind == "PersistentVolumeClaim" && event.InvolvedObject.Name == fstoragePvc && event.Type == corev1.EventTypeWarning && event.Reason == "SyncWarning" {
+					gomega.Expect(event.Message).To(gomega.ContainSubstring(`did not sync persistent volume claim "%s" to host because the storage class "%s" in the host does not match the selector under 'sync.fromHost.storageClasses.selector'`, fstoragePvc, fsClassName))
 					return true
 				}
 			}
 			return false
-		}).WithTimeout(time.Minute).WithPolling(time.Second).Should(gomega.BeTrue(), "Timed out waiting for SyncWarning event for PVC %s", fstoragePvc)
+		}).
+			WithTimeout(time.Minute).
+			WithPolling(time.Second).
+			Should(gomega.BeTrue(), "Timed out waiting for SyncWarning event for PVC %s", fstoragePvc)
 	})
 
-	ginkgo.It("should sync vcluster PVCs using allowed storageClass to host", func() {
+	ginkgo.It("should sync PVC created in vCluster to host using storageClass synced from Host", func() {
 		ginkgo.By("Creating a PVC using fast-ssd storageClass in vcluster")
 		fastssdpvc := &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -163,22 +171,23 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 				StorageClassName: func() *string { s := fssdClassName; return &s }(),
 			},
 		}
+		ginkgo.By("Listing all PVCs in host's vcluster namespace")
 		_, err := f.VClusterClient.CoreV1().PersistentVolumeClaims(testNamespace).Create(f.Context, fastssdpvc, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
-
-		ginkgo.By("PVC should be synced to host")
-		ginkgo.By("Listing all PVCs in host's vcluster namespace")
-		gomega.Eventually(func() []string {
-			scs, err := f.HostClient.CoreV1().PersistentVolumeClaims(hostNamespace).List(f.Context, metav1.ListOptions{})
+		gomega.Eventually(func() bool {
+			storageClasses, err := f.HostClient.CoreV1().PersistentVolumeClaims(hostNamespace).List(f.Context, metav1.ListOptions{})
 			if err != nil {
-				return nil
+				return false
 			}
-			var names []string
-			for _, sc := range scs.Items {
-				names = append(names, sc.Name)
+			for _, pvc := range storageClasses.Items {
+				if pvc.Name == fssdPvc+"-x-"+testNamespace+"-x-"+hostNamespace {
+					return true
+				}
 			}
-			return names
-		}).WithTimeout(time.Minute).WithPolling(time.Second).
-			Should(gomega.ContainElement(fssdPvc + "-x-" + testNamespace + "-x-" + hostNamespace))
+			return false
+		}).
+			WithTimeout(time.Minute).
+			WithPolling(time.Second).
+			Should(gomega.BeTrue(), "Timed out waiting for listing all PVCs in host")
 	})
 })
