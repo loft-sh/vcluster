@@ -86,7 +86,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 				names = append(names, ic.Name)
 			}
 			return names
-		}).WithPolling(time.Second).WithTimeout(framework.PollTimeout).Should(gomega.ContainElement(nginxClassName))
+		}).WithPolling(time.Second).WithTimeout(framework.PollTimeout).Should(gomega.ContainElement(haproxyClassName))
 
 		ginkgo.By("haproxy-ingressclass is not available in vcluster")
 	})
