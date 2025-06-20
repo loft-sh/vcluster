@@ -8,6 +8,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,16 +22,13 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const (
-	TokenLabelKey = "vcluster.loft.sh/token"
-)
-
 type CreateCmd struct {
 	*flags.GlobalFlags
 
-	Expires string
-	Kubeadm bool
-	Log     log.Logger
+	Expires      string
+	Kubeadm      bool
+	ControlPlane bool
+	Log          log.Logger
 }
 
 func NewCreateCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
@@ -58,10 +56,14 @@ Create a new node bootstrap token for a vCluster with private nodes enabled.
 
 	createCmd.Flags().StringVar(&cmd.Expires, "expires", "", "The duration the token will be valid for. Format: 1h, 1d, 1w, 1m, 1y. If empty, the token will never expire.")
 	createCmd.Flags().BoolVar(&cmd.Kubeadm, "kubeadm", false, "If enabled shows the raw kubeadm join command.")
+	createCmd.Flags().BoolVar(&cmd.ControlPlane, "control-plane", false, "If set the created token will be used to join the control plane node. Mutually exclusive with --kubeadm")
 	return createCmd
 }
 
 func (cmd *CreateCmd) Run(ctx context.Context) error {
+	if cmd.Kubeadm && cmd.ControlPlane {
+		return fmt.Errorf("--kubeadm and --control-plane are mutually exclusive")
+	}
 	// get the client
 	vClient, err := getClient(cmd.GlobalFlags)
 	if err != nil {
@@ -69,7 +71,7 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 	}
 
 	// create the token
-	apiEndpoint, token, caHash, err := CreateBootstrapToken(ctx, vClient, cmd.Expires)
+	apiEndpoint, token, caHash, err := CreateBootstrapToken(ctx, vClient, cmd.Expires, cmd.ControlPlane)
 	if err != nil {
 		return err
 	}
@@ -85,7 +87,7 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 }
 
 // CreateBootstrapToken attempts to create a token with the given ID. Its public because it's used in e2e tests.
-func CreateBootstrapToken(ctx context.Context, vClient *kubernetes.Clientset, expires string) (string, string, string, error) {
+func CreateBootstrapToken(ctx context.Context, vClient *kubernetes.Clientset, expires string, controlPlane bool) (string, string, string, error) {
 	// get api server endpoint
 	kubeadmConfig, err := vClient.CoreV1().ConfigMaps("kube-system").Get(ctx, "kubeadm-config", metav1.GetOptions{})
 	if err != nil {
@@ -112,6 +114,11 @@ func CreateBootstrapToken(ctx context.Context, vClient *kubernetes.Clientset, ex
 	tokenID := substrs[1]
 	tokenSecret := substrs[2]
 
+	tokenNodeType := constants.NodeTypeWorker
+	if controlPlane {
+		tokenNodeType = constants.NodeTypeControlPlane
+	}
+
 	// create the secret
 	secretName := bootstraputil.BootstrapTokenSecretName(tokenID)
 	secretToken := &corev1.Secret{
@@ -119,7 +126,8 @@ func CreateBootstrapToken(ctx context.Context, vClient *kubernetes.Clientset, ex
 			Name:      secretName,
 			Namespace: metav1.NamespaceSystem,
 			Labels: map[string]string{
-				TokenLabelKey: "true",
+				constants.TokenLabelKey:    "true",
+				constants.TokenNodeTypeKey: tokenNodeType,
 			},
 		},
 		Type: bootstrapapi.SecretTypeBootstrapToken,

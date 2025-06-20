@@ -136,7 +136,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 
 		ginkgo.By("There should be a warning message event in the describe of the created PVC")
 		gomega.Eventually(func() bool {
-			eventList, err := f.VClusterClient.CoreV1().Events(testNamespace).List(f.Context, metav1.ListOptions{})
+      eventList, err := f.VClusterClient.CoreV1().Events(testNamespace).List(f.Context, metav1.ListOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			for _, event := range eventList.Items {
 				if event.InvolvedObject.Kind == "PersistentVolumeClaim" && event.InvolvedObject.Name == fstoragePvc && event.Type == corev1.EventTypeWarning && event.Reason == "SyncWarning" {
