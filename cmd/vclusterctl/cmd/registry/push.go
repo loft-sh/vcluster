@@ -29,6 +29,9 @@ type PushOptions struct {
 	Images   []string
 	Archives []string
 
+	HelmCharts          []string
+	HelmChartRepository string
+
 	Log log.Logger
 }
 
@@ -48,6 +51,8 @@ func NewPushCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cmd.Flags().StringSliceVar(&o.Archives, "archive", []string{}, "Path to the archive.tar or archive.tar.gz file. Can also be a directory with .tar or .tar.gz files.")
+	cmd.Flags().StringSliceVar(&o.HelmCharts, "helm-chart", []string{}, "Path to the helm chart. Can also be a directory with .tgz files.")
+	cmd.Flags().StringVar(&o.HelmChartRepository, "helm-chart-repository", "charts", "Repository in the vCluster registry to push the helm chart to. E.g. charts will allow you to use the helm chart with oci://<vcluster-host>/charts/my-chart-name:version.")
 
 	return cmd
 }
@@ -57,8 +62,11 @@ func (o *PushOptions) Run(ctx context.Context, args []string) error {
 		o.Images = args
 	}
 
-	if len(o.Images) == 0 && len(o.Archives) == 0 {
-		return fmt.Errorf("either image or --archive is required")
+	// validate flags
+	if len(o.Images) == 0 && len(o.Archives) == 0 && len(o.HelmCharts) == 0 {
+		return fmt.Errorf("either image or --archive or --helm-chart is required")
+	} else if (len(o.Images) > 0 || len(o.Archives) > 0) && len(o.HelmCharts) > 0 {
+		return fmt.Errorf("cannot use --helm-chart with --image or --archive")
 	}
 
 	// get the client config
@@ -81,13 +89,22 @@ func (o *PushOptions) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("vCluster registry is not enabled or the target cluster is not a vCluster. Please make sure to enable the registry in the vCluster config and run `vcluster connect` to connect to the vCluster before pushing images")
 	}
 
+	// push helm charts
+	if len(o.HelmCharts) > 0 {
+		if err := o.pushHelmCharts(ctx, restConfig); err != nil {
+			return fmt.Errorf("failed to push helm charts: %w", err)
+		}
+
+		return nil
+	}
+
 	// save image to archive
 	if len(o.Images) > 0 {
 		o.Log.Infof("Saving image(s) %s to archive...", strings.Join(o.Images, ", "))
 
 		args := []string{"docker", "save", "-o", "image.tar"}
 		args = append(args, o.Images...)
-		if err := runCommand(args...); err != nil {
+		if err := runCommand(ctx, args...); err != nil {
 			return fmt.Errorf("failed to save image: %w", err)
 		}
 
@@ -140,6 +157,104 @@ func (o *PushOptions) Run(ctx context.Context, args []string) error {
 	return nil
 }
 
+func (o *PushOptions) pushHelmCharts(ctx context.Context, restConfig *rest.Config) error {
+	for _, helmChart := range o.HelmCharts {
+		stat, err := os.Stat(helmChart)
+		if err != nil {
+			return fmt.Errorf("failed to stat helm chart: %w", err)
+		}
+
+		// if the helm chart is a directory, push all tgz files in the directory
+		if stat.IsDir() {
+			files, err := os.ReadDir(helmChart)
+			if err != nil {
+				return fmt.Errorf("failed to read directory: %w", err)
+			}
+
+			// push all tgz files in the directory
+			for _, file := range files {
+				if !strings.HasSuffix(file.Name(), ".tgz") {
+					continue
+				}
+
+				if err := o.pushHelmChart(ctx, filepath.Join(helmChart, file.Name()), restConfig); err != nil {
+					return err
+				}
+			}
+		} else if err := o.pushHelmChart(ctx, helmChart, restConfig); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (o *PushOptions) pushHelmChart(ctx context.Context, helmChart string, restConfig *rest.Config) error {
+	// TODO: right now we only support certificate based authentication for pushing helm charts. Which will not work
+	// when using platform based authentication.
+
+	keyFile := restConfig.KeyFile
+	if keyFile == "" {
+		if len(restConfig.KeyData) == 0 {
+			return fmt.Errorf("no key data found in client config. Helm cannot use token based authentication for pushing")
+		}
+
+		tempFile, err := os.CreateTemp("", "vcluster-helm-chart-key")
+		if err != nil {
+			return fmt.Errorf("failed to create temp file: %w", err)
+		}
+		defer os.Remove(tempFile.Name())
+
+		if _, err := tempFile.Write(restConfig.KeyData); err != nil {
+			return fmt.Errorf("failed to write key data: %w", err)
+		}
+
+		keyFile = tempFile.Name()
+	}
+
+	certFile := restConfig.CertFile
+	if certFile == "" {
+		if len(restConfig.CertData) == 0 {
+			return fmt.Errorf("no cert data found in client config. Helm cannot use token based authentication for pushing")
+		}
+
+		tempFile, err := os.CreateTemp("", "vcluster-helm-chart-cert")
+		if err != nil {
+			return fmt.Errorf("failed to create temp file: %w", err)
+		}
+		defer os.Remove(tempFile.Name())
+
+		if _, err := tempFile.Write(restConfig.CertData); err != nil {
+			return fmt.Errorf("failed to write cert data: %w", err)
+		}
+
+		certFile = tempFile.Name()
+	}
+
+	endpoint, err := url.Parse(restConfig.Host)
+	if err != nil {
+		return fmt.Errorf("failed to parse endpoint: %w", err)
+	}
+
+	remoteRef := fmt.Sprintf("oci://%s/%s", endpoint.Host, o.HelmChartRepository)
+	o.Log.Infof("Pushing helm chart %s to %s", helmChart, remoteRef)
+	err = runCommand(
+		ctx,
+		"helm",
+		"push",
+		"--insecure-skip-tls-verify",
+		"--cert-file", certFile,
+		"--key-file", keyFile,
+		helmChart,
+		remoteRef,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to push helm chart %s: %w", helmChart, err)
+	}
+
+	return nil
+}
+
 func isRegistryEnabled(ctx context.Context, host string, transport http.RoundTripper) (bool, error) {
 	client := &http.Client{Transport: transport}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/v2/", host), nil)
@@ -156,8 +271,8 @@ func isRegistryEnabled(ctx context.Context, host string, transport http.RoundTri
 	return resp.StatusCode == http.StatusOK, nil
 }
 
-func runCommand(args ...string) error {
-	cmd := exec.Command(args[0], args[1:]...)
+func runCommand(ctx context.Context, args ...string) error {
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

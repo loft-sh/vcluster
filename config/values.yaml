@@ -457,6 +457,8 @@ deploy:
   ingressNginx:
     enabled: false
     defaultIngressClass: true
+  metricsServer:
+    enabled: false
 
 integrations:
   metricsServer:
