@@ -1079,6 +1079,20 @@
         "ingressNginx": {
           "$ref": "#/$defs/IngressNginx",
           "description": "IngressNginx holds dedicated ingress-nginx configuration."
+        },
+        "metricsServer": {
+          "$ref": "#/$defs/DeployMetricsServer",
+          "description": "MetricsServer holds dedicated metrics server configuration."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "DeployMetricsServer": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if metrics server should be enabled."
         }
       },
       "additionalProperties": false,

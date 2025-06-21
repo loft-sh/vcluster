@@ -129,6 +129,14 @@ type Deploy struct {
 
 	// IngressNginx holds dedicated ingress-nginx configuration.
 	IngressNginx IngressNginx `json:"ingressNginx,omitempty"`
+
+	// MetricsServer holds dedicated metrics server configuration.
+	MetricsServer DeployMetricsServer `json:"metricsServer,omitempty"`
+}
+
+type DeployMetricsServer struct {
+	// Enabled defines if metrics server should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 type IngressNginx struct {
