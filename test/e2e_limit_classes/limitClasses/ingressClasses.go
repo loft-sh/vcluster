@@ -81,7 +81,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 			WithTimeout(framework.PollTimeout).
 			Should(gomega.BeTrue(), "Timed out waiting for listing all ingressClasses")
 
-		gomega.Consistently(func() bool {
+		gomega.Eventually(func() bool {
 			ingressClasses, err := f.VClusterClient.NetworkingV1().IngressClasses().List(f.Context, metav1.ListOptions{})
 			if err != nil {
 				return false

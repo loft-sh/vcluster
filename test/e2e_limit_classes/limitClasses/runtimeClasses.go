@@ -77,7 +77,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 			WithTimeout(framework.PollTimeout).
 			Should(gomega.BeTrue(), "Timed out waiting for listing all runtimeClasses")
 
-		gomega.Consistently(func() bool {
+		gomega.Eventually(func() bool {
 			runtimeClasses, err := f.VClusterClient.NodeV1().RuntimeClasses().List(f.Context, metav1.ListOptions{})
 			if err != nil {
 				return false

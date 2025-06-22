@@ -90,7 +90,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 			WithTimeout(framework.PollTimeout).
 			Should(gomega.BeTrue(), "Timed out waiting for listing all storageClasses")
 
-		gomega.Consistently(func() bool {
+		gomega.Eventually(func() bool {
 			storageClasses, err := f.VClusterClient.StorageV1().StorageClasses().List(f.Context, metav1.ListOptions{})
 			if err != nil {
 				return false

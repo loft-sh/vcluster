@@ -81,7 +81,7 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 			WithTimeout(framework.PollTimeout).
 			Should(gomega.BeTrue(), "Timed out waiting for listing all priorityClasses")
 
-		gomega.Consistently(func() bool {
+		gomega.Eventually(func() bool {
 			priorityClasses, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{})
 			if err != nil {
 				return false
