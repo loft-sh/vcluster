@@ -66,32 +66,21 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 			if err != nil {
 				return false
 			}
+			foundRuncClass := false
+			foundRunscClass := false
 			for _, runtimeClass := range runtimeClasses.Items {
 				if runtimeClass.Name == runcClassName {
-					return true
+					foundRuncClass = true
 				}
-			}
-			return false
-		}).
-			WithPolling(time.Second).
-			WithTimeout(framework.PollTimeout).
-			Should(gomega.BeTrue(), "Timed out waiting for listing all runtimeClasses")
-
-		gomega.Eventually(func() bool {
-			runtimeClasses, err := f.VClusterClient.NodeV1().RuntimeClasses().List(f.Context, metav1.ListOptions{})
-			if err != nil {
-				return false
-			}
-			for _, runtimeClass := range runtimeClasses.Items {
 				if runtimeClass.Name == runscClassName {
-					return true
+					foundRunscClass = true
 				}
 			}
-			return false
+			return foundRuncClass && !foundRunscClass
 		}).
 			WithPolling(time.Second).
 			WithTimeout(framework.PollTimeout).
-			Should(gomega.BeFalse(), "Timed out waiting for listing all runtimeClasses")
+			Should(gomega.BeTrue(), "Timed out waiting for the runtimeClasses in vCluster")
 	})
 
 	ginkgo.It("should get an error for pod creation in vcluster using an unavailable runtimeClass", func() {

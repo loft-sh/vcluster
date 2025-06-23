@@ -70,32 +70,21 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 			if err != nil {
 				return false
 			}
+			foundhighPriorityClass := false
+			foundlowPriorityClass := false
 			for _, priorityClass := range priorityClasses.Items {
 				if priorityClass.Name == hpriorityClassName {
-					return true
+					foundhighPriorityClass = true
 				}
-			}
-			return false
-		}).
-			WithPolling(time.Second).
-			WithTimeout(framework.PollTimeout).
-			Should(gomega.BeTrue(), "Timed out waiting for listing all priorityClasses")
-
-		gomega.Eventually(func() bool {
-			priorityClasses, err := f.VClusterClient.SchedulingV1().PriorityClasses().List(f.Context, metav1.ListOptions{})
-			if err != nil {
-				return false
-			}
-			for _, priorityClass := range priorityClasses.Items {
 				if priorityClass.Name == lpriorityClassName {
-					return true
+					foundlowPriorityClass = true
 				}
 			}
-			return false
+			return foundhighPriorityClass && !foundlowPriorityClass
 		}).
 			WithPolling(time.Second).
 			WithTimeout(framework.PollTimeout).
-			Should(gomega.BeFalse(), "Timed out waiting for listing all priorityClasses")
+			Should(gomega.BeTrue(), "Timed out waiting for the priorityClasses in vCluster")
 	})
 
 	ginkgo.It("should get an error for pod creation in vcluster using an unavailable priorityClass", func() {

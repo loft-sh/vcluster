@@ -70,32 +70,21 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 			if err != nil {
 				return false
 			}
+			foundNginxIngressClass := false
+			foundHaproxyIngressClass := false
 			for _, ingressClass := range ingressClasses.Items {
 				if ingressClass.Name == nginxClassName {
-					return true
+					foundNginxIngressClass = true
 				}
-			}
-			return false
-		}).
-			WithPolling(time.Second).
-			WithTimeout(framework.PollTimeout).
-			Should(gomega.BeTrue(), "Timed out waiting for listing all ingressClasses")
-
-		gomega.Eventually(func() bool {
-			ingressClasses, err := f.VClusterClient.NetworkingV1().IngressClasses().List(f.Context, metav1.ListOptions{})
-			if err != nil {
-				return false
-			}
-			for _, ingressClass := range ingressClasses.Items {
 				if ingressClass.Name == haproxyClassName {
-					return true
+					foundHaproxyIngressClass = true
 				}
 			}
-			return false
+			return foundNginxIngressClass && !foundHaproxyIngressClass
 		}).
 			WithPolling(time.Second).
 			WithTimeout(framework.PollTimeout).
-			Should(gomega.BeFalse(), "Timed out waiting for listing all ingressClasses")
+			Should(gomega.BeTrue(), "Timed out waiting for the ingressClasses in vCluster")
 	})
 
 	ginkgo.It("should not sync vcluster ingresses created using an ingressClass not available in vCluster", func() {

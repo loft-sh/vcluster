@@ -79,32 +79,21 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 			if err != nil {
 				return false
 			}
+			foundfssdStorageClass := false
+			foundfastStorgaeClass := false
 			for _, storageClass := range storageClasses.Items {
 				if storageClass.Name == fssdClassName {
-					return true
+					foundfssdStorageClass = true
 				}
-			}
-			return false
-		}).
-			WithPolling(time.Second).
-			WithTimeout(framework.PollTimeout).
-			Should(gomega.BeTrue(), "Timed out waiting for listing all storageClasses")
-
-		gomega.Eventually(func() bool {
-			storageClasses, err := f.VClusterClient.StorageV1().StorageClasses().List(f.Context, metav1.ListOptions{})
-			if err != nil {
-				return false
-			}
-			for _, storageClass := range storageClasses.Items {
 				if storageClass.Name == fsClassName {
-					return true
+					foundfastStorgaeClass = true
 				}
 			}
-			return false
+			return foundfssdStorageClass && !foundfastStorgaeClass
 		}).
 			WithPolling(time.Second).
 			WithTimeout(framework.PollTimeout).
-			Should(gomega.BeFalse(), "Timed out waiting for listing all storageClasses")
+			Should(gomega.BeTrue(), "Timed out waiting for the storageClasses in vCluster")
 	})
 
 	ginkgo.It("should not sync vcluster PVCs created using an storageClass not available in vCluster", func() {
