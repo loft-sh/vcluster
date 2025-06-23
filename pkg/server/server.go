@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/authentication/delegatingauthenticator"
@@ -186,10 +187,18 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 		APIPrefixes:          sets.NewString("api", "apis"),
 		GrouplessAPIPrefixes: sets.NewString("api"),
 	}
-	serverConfig.LongRunningFunc = genericfilters.BasicLongRunningRequestCheck(
-		sets.NewString("watch", "proxy"),
-		sets.NewString("attach", "exec", "proxy", "log", "portforward"),
-	)
+	serverConfig.LongRunningFunc = func(r *http.Request, requestInfo *request.RequestInfo) bool {
+		// internal registry requests are long running
+		if !requestInfo.IsResourceRequest && strings.HasPrefix(requestInfo.Path, "/v2") {
+			return true
+		}
+
+		// use the default long running check
+		return genericfilters.BasicLongRunningRequestCheck(
+			sets.NewString("watch", "proxy"),
+			sets.NewString("attach", "exec", "proxy", "log", "portforward"),
+		)(r, requestInfo)
+	}
 
 	redirectAuthResources := []delegatingauthorizer.GroupVersionResourceVerb{
 		{
