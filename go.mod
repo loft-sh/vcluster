@@ -66,7 +66,7 @@ require (
 	k8s.io/kube-aggregator v0.32.1
 	k8s.io/kubectl v0.32.1
 	k8s.io/kubelet v0.32.1
-	k8s.io/kubernetes v1.32.1
+	k8s.io/kubernetes v1.32.6
 	k8s.io/metrics v0.32.1
 	k8s.io/pod-security-admission v0.32.1
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
