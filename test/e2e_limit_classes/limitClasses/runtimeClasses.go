@@ -1,7 +1,6 @@
 package limitclasses
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/test/framework"
@@ -61,20 +60,30 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("should only sync runtimeClasses to virtual with allowed label", func() {
-		ginkgo.By("Listing all runtimeClasses in the vCluster")
-		rcs, err := f.VClusterClient.NodeV1().RuntimeClasses().List(f.Context, metav1.ListOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		var names []string
-		for _, rc := range rcs.Items {
-			names = append(names, rc.Name)
-		}
-		gomega.Expect(names).To(gomega.ContainElement(runcClassName))
-		ginkgo.By("Found runc in vcluster")
-		gomega.Expect(names).NotTo(gomega.ContainElement(runscClassName))
-		ginkgo.By("runsc is not available in vcluster")
+		ginkgo.By("Listing all runtimeClasses in vCluster")
+		gomega.Eventually(func() bool {
+			runtimeClasses, err := f.VClusterClient.NodeV1().RuntimeClasses().List(f.Context, metav1.ListOptions{})
+			if err != nil {
+				return false
+			}
+			foundRuncClass := false
+			foundRunscClass := false
+			for _, runtimeClass := range runtimeClasses.Items {
+				if runtimeClass.Name == runcClassName {
+					foundRuncClass = true
+				}
+				if runtimeClass.Name == runscClassName {
+					foundRunscClass = true
+				}
+			}
+			return foundRuncClass && !foundRunscClass
+		}).
+			WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeTrue(), "Timed out waiting for the runtimeClasses in vCluster")
 	})
 
-	ginkgo.It("should get an error for pod creation using filtered runtimeClass to host", func() {
+	ginkgo.It("should get an error for pod creation in vcluster using an unavailable runtimeClass", func() {
 		ginkgo.By("Creating a pod using runsc runtimeClass in vcluster")
 		runscpod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -98,11 +107,10 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		}
 		_, err := f.VClusterClient.CoreV1().Pods(testNamespace).Create(f.Context, runscpod, metav1.CreateOptions{})
 		ginkgo.By("An error should be triggered")
-		expectedSubstring := fmt.Sprintf(`pods "%s" is forbidden: pod rejected: RuntimeClass "%s" not found`, rscPodName, runscClassName)
-		gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(expectedSubstring)))
+		gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(`pods "%s" is forbidden: pod rejected: RuntimeClass "%s" not found`, rscPodName, runscClassName)))
 	})
 
-	ginkgo.It("should sync vcluster pod created with allowed runtimeClass to host", func() {
+	ginkgo.It("should sync Pods created in vCluster to host using runtimeClass synced from Host", func() {
 		ginkgo.By("Creating a pod using runc runtimeClass in vcluster")
 		runcpod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -127,20 +135,21 @@ var _ = ginkgo.Describe("Test limitclass on fromHost", ginkgo.Ordered, func() {
 		_, err := f.VClusterClient.CoreV1().Pods(testNamespace).Create(f.Context, runcpod, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		ginkgo.By("Pod should be synced to host")
-		gomega.Eventually(func() []string {
-			pods, err := f.HostClient.CoreV1().Pods(hostNamespace).List(f.Context, metav1.ListOptions{}) // List all pods in the vCluster
+		ginkgo.By("Listing all Pods in host's vcluster namespace")
+		gomega.Eventually(func() bool {
+			pods, err := f.HostClient.CoreV1().Pods(hostNamespace).List(f.Context, metav1.ListOptions{})
 			if err != nil {
-				return nil
+				return false
 			}
-			var names []string
-			for _, po := range pods.Items {
-				names = append(names, po.Name)
+			for _, pod := range pods.Items {
+				if pod.Name == rcPodName+"-x-"+testNamespace+"-x-"+hostNamespace {
+					return true
+				}
 			}
-			return names
-		}).WithTimeout(time.Minute).WithPolling(time.Second).
-			Should(gomega.ContainElement(rcPodName + "-x-" + testNamespace + "-x-" + hostNamespace))
-
+			return false
+		}).
+			WithTimeout(time.Minute).
+			WithPolling(time.Second).
+			Should(gomega.BeTrue(), "Timed out waiting for listing all pods in host")
 	})
-
 })
