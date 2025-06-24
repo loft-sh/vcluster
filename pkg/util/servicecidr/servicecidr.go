@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
 	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/loft-sh/vcluster/config"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
@@ -38,6 +39,13 @@ func GetServiceCIDR(ctx context.Context, vConfig *config.Config, client kubernet
 	if vClusterService.Annotations[ServiceCIDRAnnotation] != "" {
 		klog.Infof("using cached service cidr from annotation: %s", vClusterService.Annotations[ServiceCIDRAnnotation])
 		return vClusterService.Annotations[ServiceCIDRAnnotation], nil
+	}
+
+	// Create a service to determine the supported IP Families for the cluster and use it's assigned IPs
+	// to determine the service CIDR
+	ipFamilyService, err := getIPFamilyService(ctx, client, vClusterNamespace)
+	if err != nil {
+		return "", fmt.Errorf("failed to get ip family service: %w", err)
 	}
 
 	// create function to check if the ip is in the service cidr
@@ -86,15 +94,15 @@ func GetServiceCIDR(ctx context.Context, vConfig *config.Config, client kubernet
 
 	// check if dual stack
 	serviceCIDRs := []string{}
-	for _, ip := range vClusterService.Spec.ClusterIPs {
+	for _, ip := range ipFamilyService.Spec.ClusterIPs {
 		// get the vCluster service ip
-		vClusterServiceIP := net.ParseIP(ip)
-		if vClusterServiceIP == nil {
-			return "", fmt.Errorf("failed to parse vCluster service %s cluster IP: %v", vClusterServiceName, ip)
+		parsedIP := net.ParseIP(ip)
+		if parsedIP == nil {
+			return "", fmt.Errorf("failed to parse service %s cluster IP: %v", ipFamilyService.Name, ip)
 		}
 
 		// get the prefix
-		serviceCIDRs = append(serviceCIDRs, DetectPrefix(vClusterServiceIP, isInRange))
+		serviceCIDRs = append(serviceCIDRs, DetectPrefix(parsedIP, isInRange))
 	}
 	if len(serviceCIDRs) == 0 {
 		return "", fmt.Errorf("no service cidrs found")
@@ -235,4 +243,75 @@ func detectIPv6Prefix(A net.IP, isInRange func(net.IP) bool) int {
 		}
 	}
 	return low
+}
+
+// getIPFamilyService tries to create a dual stack service to use when determining the service CIDR. Currently, this
+// tries a service with ipFamilyPolicy == PreferDualStack first, and falls back to SingleStack. It may not be necessary
+// to try and fallback, but keeping in case previous versions of Kubernetes fail if dual stack is not configured.
+func getIPFamilyService(ctx context.Context, client kubernetes.Interface, vClusterNamespace string) (*corev1.Service, error) {
+	var errs []error
+
+	for _, policy := range []corev1.IPFamilyPolicy{
+		corev1.IPFamilyPolicyPreferDualStack,
+		corev1.IPFamilyPolicySingleStack,
+	} {
+		if service, err := tryIPFamilyService(ctx, client, vClusterNamespace, policy); err != nil {
+			errs = append(errs, err)
+		} else if service != nil {
+			return service, nil
+		}
+	}
+
+	return nil, fmt.Errorf("failed to create service: %w", errors.Join(errs...))
+}
+
+func tryIPFamilyService(ctx context.Context, client kubernetes.Interface, vClusterNamespace string, ipFamilyPolicy corev1.IPFamilyPolicy) (*corev1.Service, error) {
+	testService, err := client.CoreV1().Services(vClusterNamespace).Create(ctx, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "test-service-delete-me-",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port: 80,
+				},
+			},
+			IPFamilyPolicy: &ipFamilyPolicy,
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		klog.Warningf("failed to create service with ipFamilyPolicy %s: %v", ipFamilyPolicy, err)
+		return nil, fmt.Errorf("create service: %w", err)
+	}
+
+	defer func() {
+		err := client.CoreV1().Services(vClusterNamespace).Delete(ctx, testService.GetName(), metav1.DeleteOptions{})
+		if err != nil && !kerrors.IsNotFound(err) {
+			klog.Warningf("failed to delete ipFamilyPolicy service %s: %v", testService.GetName(), err)
+		}
+	}()
+
+	// Return immediately if cluster ips are already assigned.
+	if len(testService.Spec.ClusterIPs) > 0 {
+		return testService, nil
+	}
+
+	// Wait for cluster IPs if not assigned
+	var ipAssignedService *corev1.Service
+	if err := wait.PollUntilContextTimeout(ctx, 500*time.Millisecond, time.Minute, true, func(ctx context.Context) (bool, error) {
+		var err error
+		ipAssignedService, err = client.CoreV1().Services(vClusterNamespace).Get(ctx, testService.GetName(), metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		if len(ipAssignedService.Spec.ClusterIPs) > 0 {
+			return true, nil
+		}
+
+		return false, nil
+	}); err != nil {
+		return nil, fmt.Errorf("wait for clusterIPs: %w", err)
+	}
+	return ipAssignedService, nil
 }
