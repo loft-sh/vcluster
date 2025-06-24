@@ -8,9 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
@@ -25,6 +27,10 @@ import (
 
 type PushOptions struct {
 	*flags.GlobalFlags
+
+	Architecture string
+
+	NoDocker bool
 
 	Images   []string
 	Archives []string
@@ -50,6 +56,8 @@ func NewPushCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&o.Architecture, "architecture", runtime.GOARCH, "Architecture of the image. E.g. amd64, arm64, etc. Only valid if used together with an image argument. E.g. vcluster registry push nginx --architecture amd64")
+	cmd.Flags().BoolVar(&o.NoDocker, "no-docker", false, "If true, the images will be downloaded and then pushed to the vCluster registry. This is useful if you haven't installed docker or if you want to push images from a different architecture.")
 	cmd.Flags().StringSliceVar(&o.Archives, "archive", []string{}, "Path to the archive.tar or archive.tar.gz file. Can also be a directory with .tar or .tar.gz files.")
 	cmd.Flags().StringSliceVar(&o.HelmCharts, "helm-chart", []string{}, "Path to the helm chart. Can also be a directory with .tgz files.")
 	cmd.Flags().StringVar(&o.HelmChartRepository, "helm-chart-repository", "charts", "Repository in the vCluster registry to push the helm chart to. E.g. charts will allow you to use the helm chart with oci://<vcluster-host>/charts/my-chart-name:version.")
@@ -98,21 +106,6 @@ func (o *PushOptions) Run(ctx context.Context, args []string) error {
 		return nil
 	}
 
-	// save image to archive
-	if len(o.Images) > 0 {
-		o.Log.Infof("Saving image(s) %s to archive...", strings.Join(o.Images, ", "))
-
-		args := []string{"docker", "save", "-o", "image.tar"}
-		args = append(args, o.Images...)
-		if err := runCommand(ctx, args...); err != nil {
-			return fmt.Errorf("failed to save image: %w", err)
-		}
-
-		// cleanup
-		defer os.Remove("image.tar")
-		o.Archives = append(o.Archives, "image.tar")
-	}
-
 	// get the vCluster host
 	vClusterHost, err := url.Parse(restConfig.Host)
 	if err != nil {
@@ -125,7 +118,36 @@ func (o *PushOptions) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to get remote registry: %w", err)
 	}
 
-	// try to push the image to the remote registry
+	// push images
+	if len(o.Images) > 0 {
+		// check if docker is installed
+		if _, err := exec.LookPath("docker"); err != nil {
+			o.Log.Infof("Docker is not installed, pushing images to vCluster registry directly without docker save...")
+			o.NoDocker = true
+		}
+
+		// push images without docker save
+		if o.NoDocker {
+			// push images directly to vCluster registry
+			if err := o.pushImages(ctx, remoteRegistry, transport, o.Images); err != nil {
+				return fmt.Errorf("failed to push images: %w", err)
+			}
+		} else {
+			// save images to archive
+			o.Log.Infof("Saving image(s) %s to archive...", strings.Join(o.Images, ", "))
+			args := []string{"docker", "save", "-o", "image.tar"}
+			args = append(args, o.Images...)
+			if err := runCommand(ctx, args...); err != nil {
+				return fmt.Errorf("failed to save image: %w", err)
+			}
+
+			// cleanup
+			defer os.Remove("image.tar")
+			o.Archives = append(o.Archives, "image.tar")
+		}
+	}
+
+	// push archives
 	for _, archive := range o.Archives {
 		stat, err := os.Stat(archive)
 		if err != nil {
@@ -145,11 +167,41 @@ func (o *PushOptions) Run(ctx context.Context, args []string) error {
 					continue
 				}
 
-				if err := o.copyArchiveToRemote(ctx, filepath.Join(archive, file.Name()), remoteRegistry, transport); err != nil {
+				if err := o.pushArchive(ctx, filepath.Join(archive, file.Name()), remoteRegistry, transport); err != nil {
 					return err
 				}
 			}
-		} else if err := o.copyArchiveToRemote(ctx, archive, remoteRegistry, transport); err != nil {
+		} else if err := o.pushArchive(ctx, archive, remoteRegistry, transport); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (o *PushOptions) pushImages(ctx context.Context, remoteRegistry name.Registry, transport http.RoundTripper, images []string) error {
+	puller, err := remote.NewPuller(remote.WithAuthFromKeychain(authn.DefaultKeychain), remote.WithPlatform(v1.Platform{Architecture: o.Architecture, OS: "linux"}))
+	if err != nil {
+		return fmt.Errorf("failed to create puller: %w", err)
+	}
+
+	for _, image := range images {
+		localRef, err := name.ParseReference(image)
+		if err != nil {
+			return fmt.Errorf("failed to parse image reference: %w", err)
+		}
+
+		descriptor, err := puller.Get(ctx, localRef)
+		if err != nil {
+			return fmt.Errorf("failed to pull image: %w", err)
+		}
+
+		image, err := descriptor.Image()
+		if err != nil {
+			return fmt.Errorf("failed to get image: %w", err)
+		}
+
+		if err := o.pushImage(ctx, localRef, image, remoteRegistry, transport); err != nil {
 			return err
 		}
 	}
@@ -278,7 +330,7 @@ func runCommand(ctx context.Context, args ...string) error {
 	return cmd.Run()
 }
 
-func (o *PushOptions) copyArchiveToRemote(ctx context.Context, path string, remoteRegistry name.Registry, transport http.RoundTripper) error {
+func (o *PushOptions) pushArchive(ctx context.Context, path string, remoteRegistry name.Registry, transport http.RoundTripper) error {
 	// create a temp directory to extract the archive to
 	tempDir, err := os.MkdirTemp("", "vcluster-image")
 	if err != nil {
