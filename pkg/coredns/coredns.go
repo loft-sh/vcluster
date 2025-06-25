@@ -9,7 +9,10 @@ import (
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/applier"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
@@ -99,4 +102,38 @@ func GetUserID() int64 {
 	}
 
 	return int64(uid)
+}
+
+func DeleteCoreDNSComponents(ctx context.Context, client *kubernetes.Clientset, namespace string) error {
+	labelSelector := labels.SelectorFromSet(labels.Set{"k8s-app": "vcluster-kube-dns"}).String()
+	deleteFuncs := []func() error{
+		func() error {
+			return client.AppsV1().Deployments(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector})
+		},
+		func() error {
+			return client.CoreV1().Pods(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector})
+		},
+		func() error {
+			services, err := client.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+			if err != nil {
+				return err
+			}
+			if len(services.Items) != 0 {
+				for _, svc := range services.Items {
+					err = client.CoreV1().Services(namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{})
+					if err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		},
+	}
+
+	for _, deleteFn := range deleteFuncs {
+		if err := deleteFn(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
