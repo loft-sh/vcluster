@@ -321,6 +321,7 @@ func startEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClust
 			false,
 			vConfig.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
 			true,
+			"",
 		)
 		if err != nil {
 			return fmt.Errorf("start embedded etcd: %w", err)

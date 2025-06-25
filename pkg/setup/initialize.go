@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
@@ -94,6 +95,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				true,
 				options.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
 				false,
+				"",
 			)
 			if err != nil {
 				return fmt.Errorf("start embedded etcd: %w", err)
@@ -128,6 +130,12 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		// should start embedded etcd?
 		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			// start embedded etcd
+			// trim suffix with port
+			ipAddress, _, found := strings.Cut(options.ControlPlane.Endpoint, ":")
+			if !found {
+				ipAddress = ""
+			}
+
 			err := pro.StartEmbeddedEtcd(
 				context.WithoutCancel(ctx),
 				options.Name,
@@ -139,6 +147,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				true,
 				options.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
 				false,
+				ipAddress,
 			)
 			if err != nil {
 				return fmt.Errorf("start embedded etcd: %w", err)
@@ -207,6 +216,10 @@ func GenerateCerts(ctx context.Context, serviceCIDR, certificatesDir string, opt
 		// this is for external etcd
 		etcdHostname := etcdService + "-" + strconv.Itoa(i)
 		extraSans = append(extraSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
+	}
+
+	if options.ControlPlane.Standalone.Enabled {
+		extraSans = append(extraSans, options.ControlPlane.Proxy.ExtraSANs...)
 	}
 
 	// create kubeadm config
