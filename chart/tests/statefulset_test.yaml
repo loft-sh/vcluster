@@ -620,7 +620,7 @@ tests:
     asserts:
     - equal:
         path: spec.template.spec.initContainers[0].image
-        value: ghcr.io/loft-sh/kubernetes:v1.32.1
+        value: ghcr.io/loft-sh/kubernetes:v1.33.0
 
   - it: k8s version not set, default tag images used for apiServer and controllerManager (virtual scheduler enabled, deprecated)
     chart:

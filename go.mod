@@ -60,6 +60,7 @@ require (
 	k8s.io/apiserver v0.33.0
 	k8s.io/cli-runtime v0.33.0
 	k8s.io/client-go v0.33.0
+	k8s.io/cluster-bootstrap v0.33.0
 	k8s.io/component-helpers v0.33.0
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-aggregator v0.33.0
@@ -144,13 +145,13 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241209162323-e6fa225c2576 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
-	k8s.io/cluster-bootstrap v0.33.0 // indirect
 	k8s.io/cri-api v0.33.0 // indirect
 	k8s.io/cri-client v0.33.0 // indirect
 	k8s.io/kms v0.33.0 // indirect
 	k8s.io/kube-proxy v0.33.0 // indirect
 	mvdan.cc/sh/v3 v3.6.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
+
 )
 
 require (
