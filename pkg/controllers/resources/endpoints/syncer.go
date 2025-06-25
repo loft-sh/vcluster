@@ -28,7 +28,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	return &endpointsSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "endpoints", &corev1.Endpoints{}, mapper), //nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+		GenericTranslator: translator.NewGenericTranslator(ctx, "endpoints", &corev1.Endpoints{}, mapper),
 
 		excludedAnnotations: []string{
 			"control-plane.alpha.kubernetes.io/leader",

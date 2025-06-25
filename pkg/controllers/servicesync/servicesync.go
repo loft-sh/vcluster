@@ -276,7 +276,8 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 
 			subsets = fromEndpoint.Subsets
 		} else {
-			subsets = append(subsets, corev1.EndpointSubset{ //nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+			//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+			subsets = append(subsets, corev1.EndpointSubset{
 				Addresses: []corev1.EndpointAddress{
 					{
 						IP: fromService.Spec.ClusterIP,
@@ -320,7 +321,8 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 
 		expectedSubsets = fromEndpoint.Subsets
 	} else {
-		expectedSubsets = []corev1.EndpointSubset{ //nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+		expectedSubsets = []corev1.EndpointSubset{
 			{
 				Addresses: []corev1.EndpointAddress{
 					{

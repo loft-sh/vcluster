@@ -189,10 +189,12 @@ func testMapping(ctx context.Context, fromClient kubernetes.Interface, fromNames
 
 func checkEndpointsSync(ctx context.Context, fromClient kubernetes.Interface, fromNamespace, fromName string, toClient kubernetes.Interface, toNamespace, toName string) {
 	var (
-		fromEndpoints *corev1.Endpoints //nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
-		toEndpoints   *corev1.Endpoints //nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
-		deployment    *appsv1.Deployment
-		err           error
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+		fromEndpoints *corev1.Endpoints
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+		toEndpoints *corev1.Endpoints
+		deployment  *appsv1.Deployment
+		err         error
 
 		two  int32 = 2
 		zero int32
