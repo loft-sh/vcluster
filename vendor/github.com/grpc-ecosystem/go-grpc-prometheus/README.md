@@ -5,7 +5,14 @@
 [![GoDoc](http://img.shields.io/badge/GoDoc-Reference-blue.svg)](https://godoc.org/github.com/grpc-ecosystem/go-grpc-prometheus)
 [![SourceGraph](https://sourcegraph.com/github.com/grpc-ecosystem/go-grpc-prometheus/-/badge.svg)](https://sourcegraph.com/github.com/grpc-ecosystem/go-grpc-prometheus/?badge)
 [![codecov](https://codecov.io/gh/grpc-ecosystem/go-grpc-prometheus/branch/master/graph/badge.svg)](https://codecov.io/gh/grpc-ecosystem/go-grpc-prometheus)
+[![Slack](https://img.shields.io/badge/join%20slack-%23go--grpc--prometheus-brightgreen.svg)](https://join.slack.com/t/improbable-eng/shared_invite/enQtMzQ1ODcyMzQ5MjM4LWY5ZWZmNGM2ODc5MmViNmQ3ZTA3ZTY3NzQwOTBlMTkzZmIxZTIxODk0OWU3YjZhNWVlNDU3MDlkZGViZjhkMjc)
 [![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
+> :warning: We consolidating projects and moving to single repo where we have more control and awareness. We are moving this codebase for longterm to https://github.com/grpc-ecosystem/go-grpc-middleware/tree/v2. Existing state of Prometheus middleware was moved to https://github.com/grpc-ecosystem/go-grpc-middleware/tree/v2/providers/openmetrics
+If you want to change something effectively long term, I would suggest proposing PR against https://github.com/grpc-ecosystem/go-grpc-middleware/tree/v2/providers/openmetrics instead (notice `v2 `branch, not master!).
+
+
+
 
 [Prometheus](https://prometheus.io/) monitoring for your [gRPC Go](https://github.com/grpc/grpc-go) servers and clients.
 
@@ -18,6 +25,8 @@ by a gRPC Server before the request is passed onto the user's application logic.
 common patterns: auth, logging and... monitoring.
 
 To use Interceptors in chains, please see [`go-grpc-middleware`](https://github.com/mwitkow/go-grpc-middleware).
+
+This library requires Go 1.9 or later.
 
 ## Usage
 

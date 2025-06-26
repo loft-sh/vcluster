@@ -14,11 +14,13 @@ func ExtractTarGz(bundlePath, targetDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open bundle: %w", err)
 	}
+	defer bundleReader.Close()
 
 	uncompressedStream, err := gzip.NewReader(bundleReader)
 	if err != nil {
 		return fmt.Errorf("failed to create gzip reader to extract bundle: %w", err)
 	}
+	defer uncompressedStream.Close()
 
 	return extract(uncompressedStream, targetDir)
 }
@@ -28,6 +30,7 @@ func ExtractTar(bundlePath, targetDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open bundle: %w", err)
 	}
+	defer bundleReader.Close()
 
 	return extract(bundleReader, targetDir)
 }
