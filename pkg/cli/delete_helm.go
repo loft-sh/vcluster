@@ -189,7 +189,7 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 	err = coredns.DeleteCoreDNSComponents(ctx, cmd.kubeClient, cmd.Namespace)
 	cmd.log.Info("Deleting CoreDNS components...")
 	if err != nil {
-		return fmt.Errorf("delete coreDNS components: %w", err)
+		cmd.log.Warnf("delete coreDNS components: %v", err)
 	}
 
 	// check if there are any other vclusters in the namespace you are deleting vcluster in.
