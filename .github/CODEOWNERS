@@ -10,6 +10,7 @@
 /chart/ @FabianKramm @hidalgopl
 
 /cmd/vcluster/ @FabianKramm @hidalgopl
+/cmd/vclusterctl/ @johannesfrey
 
 /config/ @FabianKramm @hidalgopl
 
@@ -18,9 +19,9 @@
 /pkg/authentication/ @FabianKramm
 /pkg/authorization/ @FabianKramm
 
-/pkg/cli/ @hidalgopl
+/pkg/cli/ @hidalgopl @johannesfrey
 
-/pkg/config/ @hidalgopl
+/pkg/config/ @hidalgopl @johannesfrey
 /pkg/config/config.go @FabianKramm
 
 /pkg/controllers/k8sdefaultendpoint/ @FabianKramm
@@ -35,6 +36,7 @@
 
 /pkg/k8s/ @FabianKramm
 /pkg/mappings/ @FabianKramm
+/pkg/platform/ @johannesfrey
 /pkg/plugin/ @FabianKramm
 /pkg/server/ @FabianKramm
 /pkg/setup/ @FabianKramm @hidalgopl
