@@ -190,9 +190,6 @@ type StandaloneJoinNode struct {
 	// Enabled defines if the standalone node should be joined into the cluster. If false, only the control plane binaries will be executed and no node will show up in the actual cluster.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// Name defines the name of the standalone node. If empty the node will get the hostname as name.
-	Name string `json:"name,omitempty"`
-
 	JoinConfiguration `json:",inline"`
 }
 

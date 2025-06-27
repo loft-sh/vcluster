@@ -209,6 +209,8 @@ func GenerateCerts(ctx context.Context, serviceCIDR, certificatesDir string, opt
 		extraSans = append(extraSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
 	}
 
+	extraSans = append(extraSans, options.ControlPlane.Proxy.ExtraSANs...)
+
 	// create kubeadm config
 	kubeadmConfig, err := kubeadm.InitKubeadmConfig(options, "", "127.0.0.1:6443", serviceCIDR, certificatesDir, extraSans)
 	if err != nil {
