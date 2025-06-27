@@ -7,3 +7,8 @@ var CoreDNSVersionMap = map[string]string{
 	"1.31": "coredns/coredns:1.11.3",
 	"1.30": "coredns/coredns:1.11.3",
 }
+
+var (
+	CoreDNSLabelKey   = "k8s-app"
+	CoreDNSLabelValue = "vcluster-kube-dns"
+)

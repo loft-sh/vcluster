@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
+	"github.com/loft-sh/vcluster/pkg/coredns"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
@@ -182,6 +183,13 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 		} else {
 			cmd.log.Donef("Successfully deleted ConfigMap %s in namespace %s", configMapName, cmd.Namespace)
 		}
+	}
+
+	// delete coreDNS components since they're separately deployed and not with the vCluster helm chart
+	err = coredns.DeleteCoreDNSComponents(ctx, cmd.kubeClient, cmd.Namespace)
+	cmd.log.Info("Deleting CoreDNS components...")
+	if err != nil {
+		cmd.log.Warnf("delete coreDNS components: %v", err)
 	}
 
 	// check if there are any other vclusters in the namespace you are deleting vcluster in.

@@ -185,7 +185,7 @@ func ApplyCoreDNS(controllerContext *synccontext.ControllerContext) {
 			// dns pod labels were changed to avoid conflict with apps running in the host cluster that select for the "kube-dns" label, e.g. cilium.
 			// If the deployment already exists with a label selector that is not "vcluster-kube-dns" then it needs to be deleted because the selector field is immutable.
 			// Otherwise, dns will break because the dns service will target the updated label but not match any deployments.
-			if dnsDeployment.Spec.Selector.MatchLabels["k8s-app"] != "vcluster-kube-dns" {
+			if dnsDeployment.Spec.Selector.MatchLabels[constants.CoreDNSLabelKey] != constants.CoreDNSLabelValue {
 				err = controllerContext.VirtualManager.GetClient().Delete(controllerContext.Context, dnsDeployment)
 				if err != nil && !kerrors.IsNotFound(err) {
 					return false, err
