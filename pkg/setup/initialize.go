@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
@@ -95,7 +94,6 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				true,
 				options.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
 				false,
-				"",
 			)
 			if err != nil {
 				return fmt.Errorf("start embedded etcd: %w", err)
@@ -130,12 +128,6 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		// should start embedded etcd?
 		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			// start embedded etcd
-			// trim suffix with port
-			ipAddress, _, found := strings.Cut(options.ControlPlane.Endpoint, ":")
-			if !found {
-				ipAddress = ""
-			}
-
 			err := pro.StartEmbeddedEtcd(
 				context.WithoutCancel(ctx),
 				options.Name,
@@ -147,7 +139,6 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				true,
 				options.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
 				false,
-				ipAddress,
 			)
 			if err != nil {
 				return fmt.Errorf("start embedded etcd: %w", err)
