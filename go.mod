@@ -67,7 +67,7 @@ require (
 	k8s.io/kube-aggregator v0.33.1
 	k8s.io/kubectl v0.33.1
 	k8s.io/kubelet v0.33.1
-	k8s.io/kubernetes v1.33.0
+	k8s.io/kubernetes v1.33.2
 	k8s.io/metrics v0.33.1
 	k8s.io/pod-security-admission v0.33.1
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
@@ -171,7 +171,6 @@ require (
 	k8s.io/kube-proxy v0.33.0 // indirect
 	mvdan.cc/sh/v3 v3.6.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-
 )
 
 require (
