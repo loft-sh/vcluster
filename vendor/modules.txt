@@ -2132,7 +2132,7 @@ k8s.io/kubectl/pkg/validation
 ## explicit; go 1.24.0
 k8s.io/kubelet/config/v1beta1
 k8s.io/kubelet/pkg/apis/stats/v1alpha1
-# k8s.io/kubernetes v1.33.0
+# k8s.io/kubernetes v1.33.2
 ## explicit; go 1.24.0
 k8s.io/kubernetes/cmd/kubeadm/app/apis/bootstraptoken/v1
 k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm
