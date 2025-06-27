@@ -3911,10 +3911,6 @@
           "type": "boolean",
           "description": "Enabled defines if the standalone node should be joined into the cluster. If false, only the control plane binaries will be executed and no node will show up in the actual cluster."
         },
-        "name": {
-          "type": "string",
-          "description": "Name defines the name of the standalone node. If empty the node will get the hostname as name."
-        },
         "preJoinCommands": {
           "items": {
             "type": "string"
