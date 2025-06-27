@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -20,10 +19,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
@@ -75,52 +72,6 @@ func EnsureCerts(
 	secretName := CertSecretName(options.Name)
 	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err == nil {
-		// download certs from secret
-		err = downloadCertsFromSecret(secret, certificateDir)
-		if err != nil {
-			return err
-		}
-
-		// update kube config
-		shouldUpdate, err := updateKubeconfigInSecret(secret)
-		if err != nil {
-			return err
-		} else if !shouldUpdate {
-			return nil
-		}
-
-		// delete the certs and recreate them
-		klog.Info("removing outdated certs")
-		err = os.Remove(filepath.Join(certificateDir, "apiserver.crt"))
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return err
-		}
-		err = os.Remove(filepath.Join(certificateDir, "apiserver.key"))
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return err
-		}
-
-		// only create the files if the files are not there yet
-		err = certs.CreatePKIAssets(kubeadmConfig)
-		if err != nil {
-			// ignore the error because some other certs are upsetting the function
-			klog.V(1).Info("create pki assets err:", err)
-		}
-		cert, err := os.ReadFile(filepath.Join(certificateDir, "apiserver.crt"))
-		if err != nil {
-			return err
-		}
-		key, err := os.ReadFile(filepath.Join(certificateDir, "apiserver.key"))
-		if err != nil {
-			return err
-		}
-		secret.Data["apiserver.crt"] = cert
-		secret.Data["apiserver.key"] = key
-		_, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Update(ctx, secret, metav1.UpdateOptions{})
-		if err != nil {
-			return err
-		}
-
 		return downloadCertsFromSecret(secret, certificateDir)
 	}
 
@@ -351,53 +302,6 @@ func extraFiles(certificateDir string) (map[string][]byte, error) {
 	}
 
 	return files, err
-}
-
-func updateKubeconfigToLocalhost(config *clientcmdapi.Config) bool {
-	updated := false
-	// not sure what that would do in case of multiple clusters,
-	// but this is not expected AFAIU
-	for k, v := range config.Clusters {
-		if v == nil {
-			continue
-		}
-
-		if v.Server != "https://127.0.0.1:6443" {
-			if config.Clusters[k] == nil {
-				config.Clusters[k] = &clientcmdapi.Cluster{}
-			}
-
-			config.Clusters[k].Server = "https://127.0.0.1:6443"
-			updated = true
-		}
-	}
-	return updated
-}
-
-func updateKubeconfigInSecret(secret *corev1.Secret) (shouldUpdate bool, err error) {
-	shouldUpdate = false
-	for k, v := range secret.Data {
-		if !strings.HasSuffix(k, ".conf") {
-			continue
-		}
-		config := &clientcmdapi.Config{}
-		err = runtime.DecodeInto(clientcmdlatest.Codec, v, config)
-		if err != nil {
-			return false, err
-		}
-		hasChanged := updateKubeconfigToLocalhost(config)
-		if !hasChanged {
-			continue
-		}
-		shouldUpdate = true
-
-		marshalled, err := runtime.Encode(clientcmdlatest.Codec, config)
-		if err != nil {
-			return false, err
-		}
-		secret.Data[k] = marshalled
-	}
-	return shouldUpdate, nil
 }
 
 // KubeConfigOptions struct holds info required to build a KubeConfig object
