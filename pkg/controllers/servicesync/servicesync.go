@@ -66,6 +66,7 @@ func (e *ServiceSyncer) Register() error {
 
 			return []reconcile.Request{{NamespacedName: from}}
 		}))).
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 		WatchesRawSource(source.Kind(e.From.GetCache(), &corev1.Endpoints{}, handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, object *corev1.Endpoints) []reconcile.Request {
 			if object == nil {
 				return nil
@@ -249,6 +250,7 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 	}
 
 	// check target endpoints
+	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 	toEndpoints := &corev1.Endpoints{}
 	err = e.To.GetClient().Get(ctx, to, toEndpoints)
 	if err != nil {
@@ -257,10 +259,12 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 		}
 
 		// copy subsets from endpoint
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 		subsets := []corev1.EndpointSubset{}
 
 		if fromService.Spec.ClusterIP == corev1.ClusterIPNone {
 			// fetch the corresponding endpoint and assign address from there to here
+			//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 			fromEndpoint := &corev1.Endpoints{}
 			err = e.From.GetClient().Get(ctx, types.NamespacedName{
 				Name:      fromService.GetName(),
@@ -272,6 +276,7 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 
 			subsets = fromEndpoint.Subsets
 		} else {
+			//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 			subsets = append(subsets, corev1.EndpointSubset{
 				Addresses: []corev1.EndpointAddress{
 					{
@@ -283,6 +288,7 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 		}
 
 		// create endpoints
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 		toEndpoints = &corev1.Endpoints{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      to.Name,
@@ -299,9 +305,11 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 	}
 
 	// check if update is needed
+	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 	var expectedSubsets []corev1.EndpointSubset
 	if fromService.Spec.ClusterIP == corev1.ClusterIPNone {
 		// fetch the corresponding endpoint and assign address from there to here
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 		fromEndpoint := &corev1.Endpoints{}
 		err = e.From.GetClient().Get(ctx, types.NamespacedName{
 			Name:      fromService.GetName(),
@@ -313,6 +321,7 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 
 		expectedSubsets = fromEndpoint.Subsets
 	} else {
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 		expectedSubsets = []corev1.EndpointSubset{
 			{
 				Addresses: []corev1.EndpointAddress{

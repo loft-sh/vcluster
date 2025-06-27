@@ -32,9 +32,9 @@ const (
 	PollTimeoutLong          = 2 * time.Minute
 	DefaultVClusterName      = "vcluster"
 	DefaultVClusterNamespace = "vcluster"
-	DefaultClientTimeout     = 32 * time.Second // the default in client-go is 32
-	DefaultClientBurst       = 100              // the default in client-go is 10 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
-	DefaultClientQPS         = 50               // the default in client-go is 5 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
+	DefaultClientTimeout     = 100 * time.Second // the default in client-go is 32 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
+	DefaultClientBurst       = 100               // the default in client-go is 10 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
+	DefaultClientQPS         = 50                // the default in client-go is 5 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
 )
 
 var DefaultFramework = &Framework{}
