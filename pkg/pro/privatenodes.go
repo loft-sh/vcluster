@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var StartPrivateNodesMode = func(ctx *synccontext.ControllerContext) error {
@@ -55,4 +56,8 @@ type StandaloneOptions struct {
 
 var StartStandalone = func(_ context.Context, _ *StandaloneOptions) error {
 	return NewFeatureError("private nodes standalone")
+}
+
+var StartKarpenterOperator = func(_ context.Context, _ client.Client, _ *config.VirtualClusterConfig) error {
+	return NewFeatureError("private nodes autoscaling")
 }
