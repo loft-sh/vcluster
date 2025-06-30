@@ -169,7 +169,6 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 	}
 
 	if vConfig.PrivateNodes.Enabled && vConfig.PrivateNodes.Karpenter.Enabled {
-		klog.Infof("deBuG - runnign in private nodes mode with autoscalling")
 		go func() {
 			err = pro.StartKarpenterOperator(ctx, controllerCtx.VirtualManager.GetClient(), vConfig)
 			if err != nil {
