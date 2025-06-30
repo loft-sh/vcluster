@@ -21,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 )
 
 type StartOptions struct {
@@ -165,6 +166,16 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 		if err != nil {
 			return fmt.Errorf("start integrated core dns: %w", err)
 		}
+	}
+
+	if vConfig.PrivateNodes.Enabled && vConfig.PrivateNodes.Karpenter.Enabled {
+		klog.Infof("deBuG - runnign in private nodes mode with autoscalling")
+		go func() {
+			err = pro.StartKarpenterOperator(ctx, controllerCtx.LocalManager.GetClient(), vConfig)
+			if err != nil {
+				klog.Infof("DEBUG - error - %v", err)
+			}
+		}()
 	}
 
 	// start leader election + controllers
