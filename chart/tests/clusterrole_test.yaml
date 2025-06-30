@@ -462,6 +462,9 @@ tests:
             test.test-group:
               enabled: true
               scope: Cluster
+            test.test-versioned-group/v1alpha1:
+              enabled: true
+              scope: Cluster
     release:
       name: my-release
       namespace: my-namespace
@@ -470,11 +473,17 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 3
       - contains:
           path: rules
           content:
             apiGroups: [ "test-group" ]
+            resources: [ "test" ]
+            verbs: [ "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "test-versioned-group" ]
             resources: [ "test" ]
             verbs: [ "get", "list", "watch" ]
       - contains:

@@ -140,8 +140,9 @@
 {{- if .Values.sync.toHost.customResources }}
 {{- range $crdName, $rule := .Values.sync.toHost.customResources }}
 {{- if $rule.enabled }}
-- resources: [ "{{ (splitn "." 2 $crdName)._0 }}" ]
-  apiGroups: [ "{{ (splitn "." 2 $crdName)._1 }}" ]
+{{- $crdNameWithoutVersion := (split "/" $crdName)._0 -}}  # Takes part before "/"
+- resources: [ "{{ (splitn "." 2 $crdNameWithoutVersion)._0 }}" ]
+  apiGroups: [ "{{ (splitn "." 2 $crdNameWithoutVersion)._1 }}" ]
   verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
 {{- end }}
 {{- end }}
@@ -155,8 +156,9 @@
 {{- if .Values.sync.fromHost.customResources }}
 {{- range $crdName, $rule := .Values.sync.fromHost.customResources }}
 {{- if $rule.enabled }}
-- resources: [ "{{ (splitn "." 2 $crdName)._0 }}" ]
-  apiGroups: [ "{{ (splitn "." 2 $crdName)._1 }}" ]
+{{- $crdNameWithoutVersion := (split "/" $crdName)._0 -}}  # Takes part before "/"
+- resources: [ "{{ (splitn "." 2 $crdNameWithoutVersion)._0 }}" ]
+  apiGroups: [ "{{ (splitn "." 2 $crdNameWithoutVersion)._1 }}" ]
   verbs: ["get", "list", "watch"]
 {{- end }}
 {{- end }}
