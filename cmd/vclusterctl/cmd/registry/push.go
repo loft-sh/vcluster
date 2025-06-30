@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +15,7 @@ import (
 	"github.com/loft-sh/image/types"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -71,22 +71,20 @@ func (o *PushOptions) Run(ctx context.Context, args []string) error {
 	}
 
 	// get the client config
-	restConfig, err := getClient(o.GlobalFlags)
+	restConfig, err := getConfig(ctx, o.GlobalFlags)
 	if err != nil {
 		return fmt.Errorf("failed to get client config: %w", err)
 	}
 
-	// check if registry is enabled
-	registryEnabled, err := isRegistryEnabled(ctx, restConfig)
-	if err != nil {
-		return fmt.Errorf("failed to check if registry is enabled: %w", err)
-	} else if !registryEnabled {
-		return fmt.Errorf("vCluster registry is not enabled or the target cluster is not a vCluster. Please make sure to enable the registry in the vCluster config and run `vcluster connect` to connect to the vCluster before pushing images")
+	// start the reverse proxy
+	localPort := clihelper.RandomPort()
+	if err := startReverseProxy(restConfig, localPort, o.Log); err != nil {
+		return fmt.Errorf("failed to start reverse proxy: %w", err)
 	}
 
 	// push helm charts
 	if len(o.HelmCharts) > 0 {
-		if err := o.pushHelmCharts(ctx, restConfig); err != nil {
+		if err := o.pushHelmCharts(ctx, localPort); err != nil {
 			return fmt.Errorf("failed to push helm charts: %w", err)
 		}
 
@@ -96,14 +94,14 @@ func (o *PushOptions) Run(ctx context.Context, args []string) error {
 	// push images
 	if len(o.Images) > 0 {
 		// push images directly to vCluster registry
-		if err := o.pushImages(ctx, restConfig, o.Images); err != nil {
+		if err := o.pushImages(ctx, localPort, o.Images); err != nil {
 			return fmt.Errorf("failed to push images: %w", err)
 		}
 	}
 
 	// push archives
 	if len(o.Archives) > 0 {
-		if err := o.pushArchives(ctx, restConfig, o.Archives); err != nil {
+		if err := o.pushArchives(ctx, localPort, o.Archives); err != nil {
 			return fmt.Errorf("failed to push archives: %w", err)
 		}
 	}
@@ -111,7 +109,7 @@ func (o *PushOptions) Run(ctx context.Context, args []string) error {
 	return nil
 }
 
-func (o *PushOptions) pushImages(ctx context.Context, restConfig *rest.Config, images []string) error {
+func (o *PushOptions) pushImages(ctx context.Context, localPort int, images []string) error {
 	for _, image := range images {
 		srcRef, err := alltransports.ParseImageName("docker://" + image)
 		if err != nil {
@@ -119,8 +117,8 @@ func (o *PushOptions) pushImages(ctx context.Context, restConfig *rest.Config, i
 		}
 
 		// push the image
-		o.Log.Infof("Pushing %s to vCluster at %s", image, restConfig.Host)
-		if err := o.pushImage(ctx, srcRef, srcRef.DockerReference().String(), restConfig); err != nil {
+		o.Log.Infof("Pushing %s to vCluster at %s", image, fmt.Sprintf("127.0.0.1:%d", localPort))
+		if err := o.pushImage(ctx, srcRef, srcRef.DockerReference().String(), localPort); err != nil {
 			return err
 		}
 	}
@@ -128,7 +126,7 @@ func (o *PushOptions) pushImages(ctx context.Context, restConfig *rest.Config, i
 	return nil
 }
 
-func (o *PushOptions) pushArchives(ctx context.Context, restConfig *rest.Config, archives []string) error {
+func (o *PushOptions) pushArchives(ctx context.Context, localPort int, archives []string) error {
 	for _, archive := range archives {
 		stat, err := os.Stat(archive)
 		if err != nil {
@@ -148,11 +146,11 @@ func (o *PushOptions) pushArchives(ctx context.Context, restConfig *rest.Config,
 					continue
 				}
 
-				if err := o.pushArchive(ctx, restConfig, filepath.Join(archive, file.Name())); err != nil {
+				if err := o.pushArchive(ctx, localPort, filepath.Join(archive, file.Name())); err != nil {
 					return err
 				}
 			}
-		} else if err := o.pushArchive(ctx, restConfig, archive); err != nil {
+		} else if err := o.pushArchive(ctx, localPort, archive); err != nil {
 			return err
 		}
 	}
@@ -160,7 +158,7 @@ func (o *PushOptions) pushArchives(ctx context.Context, restConfig *rest.Config,
 	return nil
 }
 
-func (o *PushOptions) pushArchive(ctx context.Context, restConfig *rest.Config, archive string) error {
+func (o *PushOptions) pushArchive(ctx context.Context, localPort int, archive string) error {
 	imageReference := filepath.Base(archive)
 	imageReference = strings.TrimSuffix(imageReference, filepath.Ext(imageReference))
 	imageReference = strings.ReplaceAll(imageReference, "_", "/")
@@ -174,10 +172,10 @@ func (o *PushOptions) pushArchive(ctx context.Context, restConfig *rest.Config, 
 
 	// push the image
 	o.Log.Infof("Pushing %s to %s", archive, imageReference)
-	return o.pushImage(ctx, srcRef, imageReference, restConfig)
+	return o.pushImage(ctx, srcRef, imageReference, localPort)
 }
 
-func (o *PushOptions) pushHelmCharts(ctx context.Context, restConfig *rest.Config) error {
+func (o *PushOptions) pushHelmCharts(ctx context.Context, localPort int) error {
 	for _, helmChart := range o.HelmCharts {
 		stat, err := os.Stat(helmChart)
 		if err != nil {
@@ -197,11 +195,11 @@ func (o *PushOptions) pushHelmCharts(ctx context.Context, restConfig *rest.Confi
 					continue
 				}
 
-				if err := o.pushHelmChart(ctx, filepath.Join(helmChart, file.Name()), restConfig); err != nil {
+				if err := o.pushHelmChart(ctx, filepath.Join(helmChart, file.Name()), localPort); err != nil {
 					return err
 				}
 			}
-		} else if err := o.pushHelmChart(ctx, helmChart, restConfig); err != nil {
+		} else if err := o.pushHelmChart(ctx, helmChart, localPort); err != nil {
 			return err
 		}
 	}
@@ -209,24 +207,14 @@ func (o *PushOptions) pushHelmCharts(ctx context.Context, restConfig *rest.Confi
 	return nil
 }
 
-func (o *PushOptions) pushHelmChart(ctx context.Context, helmChart string, restConfig *rest.Config) error {
-	// TODO: right now we only support certificate based authentication for pushing helm charts. Which will not work
-	// when using platform based authentication.
-	endpoint, tempDir, err := createCertFolder(restConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create cert folder: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	remoteRef := fmt.Sprintf("oci://%s/%s", endpoint, o.HelmChartRepository)
+func (o *PushOptions) pushHelmChart(ctx context.Context, helmChart string, localPort int) error {
+	remoteRef := fmt.Sprintf("oci://127.0.0.1:%d/%s", localPort, o.HelmChartRepository)
 	o.Log.Infof("Pushing helm chart %s to %s", helmChart, remoteRef)
-	err = runCommand(
+	err := runCommand(
 		ctx,
 		"helm",
 		"push",
-		"--insecure-skip-tls-verify",
-		"--cert-file", filepath.Join(tempDir, "vcluster.cert"),
-		"--key-file", filepath.Join(tempDir, "vcluster.key"),
+		"--plain-http",
 		helmChart,
 		remoteRef,
 	)
@@ -237,13 +225,7 @@ func (o *PushOptions) pushHelmChart(ctx context.Context, helmChart string, restC
 	return nil
 }
 
-func (o *PushOptions) pushImage(ctx context.Context, srcRef types.ImageReference, destImageName string, restConfig *rest.Config) error {
-	endpoint, tempDir, err := createCertFolder(restConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create cert folder: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
+func (o *PushOptions) pushImage(ctx context.Context, srcRef types.ImageReference, destImageName string, localPort int) error {
 	srcContext := &types.SystemContext{
 		OSChoice:                    "linux",
 		DockerInsecureSkipTLSVerify: types.OptionalBoolTrue,
@@ -251,7 +233,6 @@ func (o *PushOptions) pushImage(ctx context.Context, srcRef types.ImageReference
 	destContext := &types.SystemContext{
 		OSChoice:                    "linux",
 		DockerInsecureSkipTLSVerify: types.OptionalBoolTrue,
-		DockerCertPath:              tempDir,
 	}
 
 	// check if the image is a digest
@@ -269,7 +250,7 @@ func (o *PushOptions) pushImage(ctx context.Context, srcRef types.ImageReference
 	if len(parts) < 2 {
 		return fmt.Errorf("invalid destImageName: %s", destImageName)
 	}
-	parts[0] = endpoint
+	parts[0] = fmt.Sprintf("127.0.0.1:%d", localPort)
 	destImageName = strings.Join(parts, "/")
 	destRef, err := alltransports.ParseImageName(fmt.Sprintf("docker://%s", destImageName))
 	if err != nil {
@@ -323,58 +304,7 @@ func runCommand(ctx context.Context, args ...string) error {
 	return cmd.Run()
 }
 
-func createCertFolder(restConfig *rest.Config) (string, string, error) {
-	tempDir, err := os.MkdirTemp("", "vcluster-certs")
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create temp dir: %w", err)
-	}
-
-	keyBytes := restConfig.KeyData
-	if len(keyBytes) == 0 {
-		if len(restConfig.KeyFile) == 0 {
-			_ = os.RemoveAll(tempDir)
-			return "", "", fmt.Errorf("no key data found in client config. Helm cannot use token based authentication for pushing")
-		}
-
-		keyBytes, err = os.ReadFile(restConfig.KeyFile)
-		if err != nil {
-			_ = os.RemoveAll(tempDir)
-			return "", "", fmt.Errorf("failed to read key file: %w", err)
-		}
-	}
-	if err := os.WriteFile(filepath.Join(tempDir, "vcluster.key"), keyBytes, 0600); err != nil {
-		_ = os.RemoveAll(tempDir)
-		return "", "", fmt.Errorf("failed to write key data: %w", err)
-	}
-
-	certBytes := restConfig.CertData
-	if len(certBytes) == 0 {
-		if len(restConfig.CertFile) == 0 {
-			_ = os.RemoveAll(tempDir)
-			return "", "", fmt.Errorf("no cert data found in client config. Helm cannot use token based authentication for pushing")
-		}
-
-		certBytes, err = os.ReadFile(restConfig.CertFile)
-		if err != nil {
-			_ = os.RemoveAll(tempDir)
-			return "", "", fmt.Errorf("failed to read cert file: %w", err)
-		}
-	}
-	if err := os.WriteFile(filepath.Join(tempDir, "vcluster.cert"), certBytes, 0600); err != nil {
-		_ = os.RemoveAll(tempDir)
-		return "", "", fmt.Errorf("failed to write cert data: %w", err)
-	}
-
-	endpoint, err := url.Parse(restConfig.Host)
-	if err != nil {
-		_ = os.RemoveAll(tempDir)
-		return "", "", fmt.Errorf("failed to parse endpoint: %w", err)
-	}
-
-	return endpoint.Host, tempDir, nil
-}
-
-func getClient(flags *flags.GlobalFlags) (*rest.Config, error) {
+func getConfig(ctx context.Context, flags *flags.GlobalFlags) (*rest.Config, error) {
 	// first load the kube config
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
 		CurrentContext: flags.Context,
@@ -384,6 +314,14 @@ func getClient(flags *flags.GlobalFlags) (*rest.Config, error) {
 	restConfig, err := kubeClientConfig.ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client config: %w", err)
+	}
+
+	// check if registry is enabled
+	registryEnabled, err := isRegistryEnabled(ctx, restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if registry is enabled: %w", err)
+	} else if !registryEnabled {
+		return nil, fmt.Errorf("vCluster registry is not enabled or the target cluster is not a vCluster. Please make sure to enable the registry in the vCluster config and run `vcluster connect` to connect to the vCluster before pushing images")
 	}
 
 	return restConfig, nil

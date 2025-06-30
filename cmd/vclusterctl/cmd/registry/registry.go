@@ -18,5 +18,6 @@ func NewRegistryCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	registryCmd.AddCommand(NewPushCmd(globalFlags))
 	registryCmd.AddCommand(NewPullCmd(globalFlags))
+	registryCmd.AddCommand(NewProxyCmd(globalFlags))
 	return registryCmd
 }
