@@ -316,6 +316,10 @@ tests:
               enabled: true
             tests.my-group-3.com:
               enabled: true
+            tests.my-versioned-group-1/v1alpha1:
+              enabled: true
+            tests.my-versioned-group-2.com/v1beta1:
+              enabled: true
     release:
       name: my-release
       namespace: my-namespace
@@ -327,7 +331,7 @@ tests:
           value: Role
       - lengthEqual:
           path: rules
-          count: 7
+          count: 9
       - contains:
           path: rules
           content:
@@ -342,6 +346,20 @@ tests:
             resources: ["tests"]
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "my-versioned-group-1" ]
+            resources: [ "tests" ]
+            verbs:
+              [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "my-versioned-group-2.com" ]
+            resources: [ "tests" ]
+            verbs:
+              [ "create", "delete", "patch", "update", "get", "list", "watch" ]
 
   - it: patches
     set:
