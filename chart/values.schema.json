@@ -3885,6 +3885,10 @@
           "type": "boolean",
           "description": "Enabled defines if standalone mode should be enabled."
         },
+        "syncConfig": {
+          "$ref": "#/$defs/StandaloneSyncConfig",
+          "description": "SyncConfig allows controlling the vCluster config through a secret \"vcluster-config\" in the namespace \"kube-system\". vCluster will watch for changes in this secret and\nupdate the local config accordingly and restart vCluster if needed."
+        },
         "dataDir": {
           "type": "string",
           "description": "DataDir defines the data directory for the standalone mode."
@@ -3943,6 +3947,16 @@
         "nodeRegistration": {
           "$ref": "#/$defs/NodeRegistration",
           "description": "NodeRegistration holds configuration for the node registration similar to the kubeadm node registration."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "StandaloneSyncConfig": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if config syncing should be enabled."
         }
       },
       "additionalProperties": false,
