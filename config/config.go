@@ -173,6 +173,10 @@ type Standalone struct {
 	// Enabled defines if standalone mode should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
+	// SyncConfig allows controlling the vCluster config through a secret "vcluster-config" in the namespace "kube-system". vCluster will watch for changes in this secret and
+	// update the local config accordingly and restart vCluster if needed.
+	SyncConfig StandaloneSyncConfig `json:"syncConfig,omitempty"`
+
 	// DataDir defines the data directory for the standalone mode.
 	DataDir string `json:"dataDir,omitempty"`
 
@@ -184,6 +188,11 @@ type Standalone struct {
 
 	// JoinNode holds configuration for the standalone control plane node.
 	JoinNode StandaloneJoinNode `json:"joinNode,omitempty"`
+}
+
+type StandaloneSyncConfig struct {
+	// Enabled defines if config syncing should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 type StandaloneJoinNode struct {

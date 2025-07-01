@@ -548,6 +548,11 @@ controlPlane:
     dataDir: "/var/lib/vcluster"
     # BundleRepository is the repository to use for downloading the Kubernetes bundle. Defaults to https://github.com/loft-sh/kubernetes/releases/download
     bundleRepository: "https://github.com/loft-sh/kubernetes/releases/download"
+    # SyncConfig allows controlling the vCluster config through a secret "vcluster-config" in the namespace "kube-system". vCluster will watch for changes in this secret and
+    # update the local config accordingly and restart vCluster if needed.
+    syncConfig:
+      # Enabled defines if config syncing should be enabled.
+      enabled: true
     # JoinNode holds configuration for the standalone control plane node.
     joinNode:
       # Enabled defines if the standalone node should be joined into the cluster. If false, only the control plane binaries will be executed and no node will show up in the actual cluster.

@@ -286,6 +286,8 @@ controlPlane:
   standalone:
     dataDir: "/var/lib/vcluster"
     bundleRepository: "https://github.com/loft-sh/kubernetes/releases/download"
+    syncConfig:
+      enabled: true
     joinNode:
       enabled: true
       containerd:
