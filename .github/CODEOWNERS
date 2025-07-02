@@ -6,6 +6,7 @@
 /.github/workflows/e2e.yaml @FabianKramm
 /.github/workflows/e2e.yaml @loft-sh/eng-qa
 /.github/workflows/release.yaml @FabianKramm
+/.github/workflows/ @Piotr1215 @sydorovdmytro
 
 /chart/ @FabianKramm @hidalgopl
 
