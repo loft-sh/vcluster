@@ -34,14 +34,8 @@ spec:
       protocol: TCP
     {{- if .Values.privateNodes.enabled }}
     {{- if .Values.controlPlane.advanced.konnectivity.server.enabled }}
-    - name: kon-agent
+    - name: konnectivity
       port: 8132
-      protocol: TCP
-    - name: kon-admin
-      port: 8133
-      protocol: TCP
-    - name: kon-health
-      port: 8134
       protocol: TCP
     {{- end }}
     {{- end }}

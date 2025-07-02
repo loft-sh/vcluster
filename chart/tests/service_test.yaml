@@ -129,22 +129,10 @@ tests:
           count: 1
       - lengthEqual:
           path: spec.ports
-          count: 5
+          count: 3
       - contains:
           path: spec.ports
           content:
-            name: kon-agent
+            name: konnectivity
             protocol: TCP
             port: 8132
-      - contains:
-          path: spec.ports
-          content:
-            name: kon-admin
-            protocol: TCP
-            port: 8133
-      - contains:
-          path: spec.ports
-          content:
-            name: kon-health
-            protocol: TCP
-            port: 8134

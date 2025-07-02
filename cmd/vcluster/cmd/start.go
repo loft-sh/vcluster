@@ -152,6 +152,12 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 		return fmt.Errorf("start proxy: %w", err)
 	}
 
+	// start konnectivity server
+	err = pro.StartKonnectivity(controllerCtx)
+	if err != nil {
+		return fmt.Errorf("start konnectivity: %w", err)
+	}
+
 	// should start embedded coredns?
 	if vConfig.ControlPlane.CoreDNS.Embedded {
 		// write vCluster kubeconfig to /data/vcluster/admin.conf
