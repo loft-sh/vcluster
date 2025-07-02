@@ -27,10 +27,10 @@ rules:
   {{- else }}
   {{- if .Values.privateNodes.enabled}}
   - apiGroups: [""]
-    resources: ["secrets"]
+    resources: ["secrets", "configmaps"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   - apiGroups: [""]
-    resources: ["configmaps", "services", "pods", "persistentvolumeclaims"]
+    resources: ["services", "pods", "persistentvolumeclaims"]
     verbs: ["get", "list", "watch"]
   {{- else }}
   - apiGroups: [""]
