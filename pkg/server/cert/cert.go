@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func GenAPIServerServingCerts(
+func genAPIServerServingCerts(
 	ctx context.Context,
 	workloadNamespaceClient,
 	vClient client.Client,
@@ -55,6 +55,14 @@ func GenAPIServerServingCerts(
 		"kubernetes.default",
 		"kubernetes",
 		"localhost",
+	}
+
+	// if konnectivity is enabled, we need to add the konnectivity service to the sans
+	if vConfig.PrivateNodes.Enabled && vConfig.ControlPlane.Advanced.Konnectivity.Server.Enabled {
+		dnsNames = append(dnsNames, "konnectivity")
+		dnsNames = append(dnsNames, "konnectivity.kube-system")
+		dnsNames = append(dnsNames, "konnectivity.kube-system.svc")
+		dnsNames = append(dnsNames, "konnectivity.kube-system.svc."+vConfig.Networking.Advanced.ClusterDomain)
 	}
 
 	altNames := &certhelper.AltNames{
@@ -167,6 +175,11 @@ func getExtraSANs(ctx context.Context, workloadNamespaceClient, vClient client.C
 		}
 		retSANs = append(retSANs, svc.Spec.ClusterIP)
 
+		// get standalone endpoints via annotation
+		if svc.Annotations[constants.VClusterStandaloneEndpointsAnnotation] != "" {
+			retSANs = append(retSANs, strings.Split(svc.Annotations[constants.VClusterStandaloneEndpointsAnnotation], ",")...)
+		}
+
 		// get endpoint
 		clusterInfo := &corev1.ConfigMap{}
 		err = vClient.Get(ctx, types.NamespacedName{
@@ -213,6 +226,14 @@ func getExtraSANs(ctx context.Context, workloadNamespaceClient, vClient client.C
 	} else if svc.Spec.ClusterIP == "" {
 		return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", vConfig.WorkloadNamespace, vConfig.WorkloadService)
 	}
+
+	// append general hostnames
+	retSANs = append(
+		retSANs,
+		vConfig.WorkloadService,
+		vConfig.WorkloadService+"."+vConfig.WorkloadNamespace,
+		"*."+translate.VClusterName+"."+vConfig.WorkloadNamespace+"."+constants.NodeSuffix,
+	)
 
 	// if the service is a node port, we need to add the node ips to the sans
 	if svc.Spec.Type == corev1.ServiceTypeNodePort {
@@ -264,36 +285,6 @@ func getExtraSANs(ctx context.Context, workloadNamespaceClient, vClient client.C
 	podIP := os.Getenv("POD_IP")
 	if podIP != "" {
 		retSANs = append(retSANs, podIP)
-	}
-
-	// get cluster ip of load balancer service
-	lbSVC := &corev1.Service{}
-	err = workloadNamespaceClient.Get(ctx, types.NamespacedName{
-		Namespace: vConfig.WorkloadNamespace,
-		Name:      vConfig.WorkloadService,
-	}, lbSVC)
-	// proceed only if load balancer service exists
-	if !kerrors.IsNotFound(err) {
-		if err != nil {
-			return nil, fmt.Errorf("error getting vcluster load balancer service %s/%s: %w", vConfig.WorkloadNamespace, vConfig.WorkloadService, err)
-		} else if lbSVC.Spec.ClusterIP == "" {
-			return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", vConfig.WorkloadNamespace, vConfig.WorkloadService)
-		}
-
-		for _, ing := range lbSVC.Status.LoadBalancer.Ingress {
-			if ing.IP != "" {
-				retSANs = append(retSANs, ing.IP)
-			}
-			if ing.Hostname != "" {
-				retSANs = append(retSANs, ing.Hostname)
-			}
-		}
-		// append hostnames for load balancer service
-		retSANs = append(
-			retSANs,
-			vConfig.WorkloadService,
-			vConfig.WorkloadService+"."+vConfig.WorkloadNamespace, "*."+translate.VClusterName+"."+vConfig.WorkloadNamespace+"."+constants.NodeSuffix,
-		)
 	}
 
 	if vConfig.Networking.Advanced.ProxyKubelets.ByIP {

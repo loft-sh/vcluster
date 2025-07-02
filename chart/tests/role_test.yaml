@@ -437,6 +437,20 @@ tests:
       - contains:
           path: rules
           content:
+            apiGroups: [""]
+            resources: ["configmaps", "services", "pods", "persistentvolumeclaims"]
+            verbs:
+              ["get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: ["secrets"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
             apiGroups: ["coordination.k8s.io"]
             resources: ["leases"]
             verbs:

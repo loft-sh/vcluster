@@ -216,12 +216,6 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 		}()
 	}
 
-	// start konnectivity server
-	err = pro.StartKonnectivity(ctx, vConfig)
-	if err != nil {
-		return fmt.Errorf("error starting konnectivity: %w", err)
-	}
-
 	<-ctx.Done()
 	return ctx.Err()
 }
