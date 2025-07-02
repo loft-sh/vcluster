@@ -438,14 +438,14 @@ tests:
           path: rules
           content:
             apiGroups: [""]
-            resources: ["configmaps", "services", "pods", "persistentvolumeclaims"]
+            resources: ["services", "pods", "persistentvolumeclaims"]
             verbs:
               ["get", "list", "watch"]
       - contains:
           path: rules
           content:
             apiGroups: [""]
-            resources: ["secrets"]
+            resources: ["secrets", "configmaps"]
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
       - contains:
