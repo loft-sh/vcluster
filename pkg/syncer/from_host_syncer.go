@@ -1,6 +1,7 @@
 package syncer
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -202,8 +203,8 @@ func GetOptionsForMultiNamespaceManager(ctx *synccontext.RegisterContext, option
 	}
 }
 
-func additionalPermissionMissingHandler(ctx *synccontext.RegisterContext) func(r *toolscache.Reflector, err error) {
-	return func(r *toolscache.Reflector, err error) {
+func additionalPermissionMissingHandler(ctx *synccontext.RegisterContext) toolscache.WatchErrorHandlerWithContext {
+	return func(ctx context.Context, r *toolscache.Reflector, err error) {
 		if kerrors.IsForbidden(err) {
 			klog.FromContext(ctx).Error(err,
 				"trying to watch on a namespace that does not exists / have no permissions. "+

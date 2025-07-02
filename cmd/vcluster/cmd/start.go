@@ -173,6 +173,16 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 		}
 	}
 
+	if vConfig.PrivateNodes.Enabled && vConfig.PrivateNodes.Karpenter.Enabled {
+		go func() {
+			err = pro.StartKarpenterOperator(
+				ctx, controllerCtx.VirtualManager, controllerCtx.LocalManager.GetClient(), vConfig)
+			if err != nil {
+				logger.Infof("Failed to start Karpenter operator. err: %v", err)
+			}
+		}()
+	}
+
 	// start leader election + controllers
 	err = StartLeaderElection(controllerCtx, func() error {
 		return setup.StartControllers(controllerCtx, syncers)
