@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/certs"
@@ -18,24 +17,15 @@ import (
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 )
 
 // Initialize creates the required secrets and configmaps for the control plane to start
 func Initialize(ctx context.Context, options *config.VirtualClusterConfig) error {
-	// Ensure that service CIDR range is written into the expected location
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(waitCtx context.Context) (bool, error) {
-		err := initialize(waitCtx, options)
-		if err != nil {
-			klog.Errorf("error initializing service cidr, certs and token: %v", err)
-			return false, nil
-		}
-
-		return true, nil
-	})
+	// start kubernetes & etcd
+	err := initialize(ctx, options)
 	if err != nil {
-		return err
+		return fmt.Errorf("initialize: %w", err)
 	}
 
 	specialservices.Default = pro.InitDNSServiceSyncing(options)
