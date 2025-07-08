@@ -309,6 +309,9 @@ func (s *persistentVolumeSyncer) shouldSync(ctx *synccontext.SyncContext, pObj *
 		} else if translate.Default.IsManaged(ctx, pObj) {
 			return true, nil, nil
 		}
+		if translate.Default.IsTargetedNamespace(ctx, pObj.Spec.ClaimRef.Namespace) && pObj.Status.Phase == corev1.VolumeReleased {
+			return true, nil, nil
+		}
 
 		return translate.Default.IsTargetedNamespace(ctx, pObj.Spec.ClaimRef.Namespace) && pObj.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimRetain, nil, nil
 	}
