@@ -133,9 +133,12 @@ func (o *RestoreOptions) Run(ctx context.Context) error {
 
 		// transform pods to make sure they are not deleted on start
 		if strings.HasPrefix(string(key), "/registry/pods/") {
-			value, err = transformPod(value, decoder, encoder)
-			if err != nil {
-				return fmt.Errorf("transform value: %w", err)
+			// we need to only do this in shared nodes mode as otherwise kubelet will not update the status correctly
+			if !vConfig.PrivateNodes.Enabled {
+				value, err = transformPod(value, decoder, encoder)
+				if err != nil {
+					return fmt.Errorf("transform value: %w", err)
+				}
 			}
 		}
 

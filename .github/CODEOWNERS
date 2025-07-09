@@ -22,9 +22,9 @@
 /pkg/authentication/ @FabianKramm
 /pkg/authorization/ @FabianKramm
 
-/pkg/cli/ @hidalgopl @johannesfrey @zerbitx
+/pkg/cli/ @FabianKramm @hidalgopl @johannesfrey @zerbitx
 
-/pkg/config/ @hidalgopl @johannesfrey
+/pkg/config/ @FabianKramm @hidalgopl @johannesfrey
 /pkg/config/config.go @FabianKramm
 
 /pkg/controllers/k8sdefaultendpoint/ @FabianKramm
