@@ -841,6 +841,10 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
+	if c.PrivateNodes.Enabled {
+		return true
+	}
+
 	return false
 }
 
