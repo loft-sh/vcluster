@@ -27,13 +27,16 @@ var usage = fmt.Sprintf(`Usage:
   go run -mod vendor ./hack/assets/cmd/main.go [v]X.Y.Z [--optional]
   go run -mod vendor ./hack/assets/cmd/main.go [v]X.Y.Z [--kubernetes-distro <%s>] [--kubernetes-version X.Y.Z]
   go run -mod vendor ./hack/assets/cmd/main.go --list-distros
-  go run -mod vendor ./hack/assets/cmd/main.go --list-versions`,
+  go run -mod vendor ./hack/assets/cmd/main.go --list-versions
+  go run -mod vendor ./hack/assets/cmd/main.go --list-private-nodes-images --kubernetes-version X.Y.Z
+`,
 	strings.Join(GetSupportedDistros(), " | "))
 
 // Main is the entrypoint for the assets command
 func Main() {
 	listDistros := pflag.Bool("list-distros", false, "Only the list of supported Kubernetes distros is returned")
 	listVersions := pflag.Bool("list-versions", false, "Only the list of supported Kubernetes versions is returned")
+	listPrivateNodesImages := pflag.Bool("list-private-nodes-images", false, "Only the list of images needed on the private nodes")
 	optional := pflag.Bool("optional", false, "Include all images except the latest")
 
 	k8sSupportedVersions := GetSupportedKubernetesVersions()
@@ -43,6 +46,11 @@ func Main() {
 
 	if *listDistros && *listVersions {
 		fmt.Println("Flags --list-distros and --list-versions are not compatible")
+		os.Exit(1)
+	}
+
+	if *listPrivateNodesImages && (*listDistros || *listVersions) {
+		fmt.Println("Flags --list-private-nodes-images and --list-versions  --list-distros are not compatible")
 		os.Exit(1)
 	}
 
@@ -56,6 +64,24 @@ func Main() {
 	if *listVersions {
 		for _, v := range k8sSupportedVersions {
 			fmt.Println(v)
+		}
+		os.Exit(0)
+	}
+
+	if *listPrivateNodesImages && *kubernetesVersion == "" {
+		fmt.Println("--kubernetes-version X.Y.Z flag is required for private nodes images list")
+		fmt.Println(usage)
+		os.Exit(1)
+	}
+
+	if *listPrivateNodesImages {
+		privateNodesImages, err := constants.GetPrivateNodeImagesList(*kubernetesVersion)
+		if err != nil {
+			fmt.Printf("Cannot get private nodes images list: %s\n", err.Error())
+			os.Exit(1)
+		}
+		for _, image := range privateNodesImages {
+			fmt.Println(image)
 		}
 		os.Exit(0)
 	}

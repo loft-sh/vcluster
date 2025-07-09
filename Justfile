@@ -73,6 +73,18 @@ generate-matrix-specific-images version="0.0.0":
     done
   done
 
+# Generate versioned vCluster Private Nodes images files for multiple k8s versions
+[private]
+generate-matrix-private-nodes-images:
+  #!/usr/bin/env bash
+
+  versions=(`{{ASSETS_RUN}} --list-versions`)
+  echo "k8s versions: ${versions[@]}"
+  for version in "${versions[@]}"; do
+    {{ASSETS_RUN}} --list-private-nodes-images --kubernetes-version=$version > ./release/vcluster-private-nodes-images-$distro-$version.txt
+  done
+
+
 # Generate the vcluster.yaml config schema
 generate-config-schema:
   go run -mod vendor ./hack/schema/main.go
