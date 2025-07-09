@@ -472,6 +472,19 @@ integrations:
     webhook:
       enabled: false
     sync:
+      toHost:
+        externalSecrets:
+          selector:
+            matchLabels: {}
+        stores:
+          enabled: false
+          selector:
+            matchLabels: {}
+      fromHost:
+        clusterStores:
+          enabled: false
+          selector:
+            matchLabels: {}
       externalSecrets:
         enabled: true
       stores:

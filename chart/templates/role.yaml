@@ -104,12 +104,10 @@ rules:
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
   {{- if .Values.integrations.externalSecrets.enabled }}
-  {{- if .Values.integrations.externalSecrets.sync.externalSecrets.enabled }}
   - apiGroups: ["external-secrets.io"]
     resources: ["externalsecrets"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
-  {{- end }}
-  {{- if .Values.integrations.externalSecrets.sync.stores.enabled }}
+  {{- if or .Values.integrations.externalSecrets.sync.stores.enabled .Values.integrations.externalSecrets.sync.toHost.stores.enabled }}
   - apiGroups: ["external-secrets.io"]
     resources: ["secretstores"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]

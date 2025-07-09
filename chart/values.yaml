@@ -879,13 +879,35 @@ integrations:
       enabled: false
     # Sync defines the syncing behavior for the integration
     sync:
+      # ToHost defines what resources are synced from the virtual cluster to the host
+      toHost:
+        # ExternalSecrets allows to configure if only a subset of ExternalSecrets matching a label selector should get synced from the virtual cluster to the host cluster.
+        externalSecrets:
+          selector:
+            matchLabels: {}
+        # Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally.
+        stores:
+          # Enabled defines if this option should be enabled.
+          enabled: false
+          selector:
+            matchLabels: {}
+      # FromHost defines what resources are synced from the host cluster to the virtual cluster
+      fromHost:
+        # ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster.
+        clusterStores:
+          # Enabled defines if this option should be enabled.
+          enabled: false
+          selector:
+            matchLabels: {}
       # ExternalSecrets defines if external secrets should get synced from the virtual cluster to the host cluster.
       externalSecrets:
         enabled: true
       # Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally.
+      # Deprecated: Use Integrations.ExternalSecrets.Sync.ToHost.Stores instead.
       stores:
         enabled: false
       # ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster.
+      # Deprecated: Use Integrations.ExternalSecrets.Sync.FromHost.ClusterStores instead.
       clusterStores:
         # Enabled defines if this option should be enabled.
         enabled: false
