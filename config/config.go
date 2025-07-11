@@ -540,11 +540,17 @@ type ExternalSecrets struct {
 }
 
 type ExternalSecretsSync struct {
+	// ToHost defines what resources are synced from the virtual cluster to the host
+	ToHost ExternalSecretsSyncToHostConfig `json:"toHost,omitempty"`
+	// FromHost defines what resources are synced from the host cluster to the virtual cluster
+	FromHost ExternalSecretsSyncFromHostConfig `json:"fromHost,omitempty"`
 	// ExternalSecrets defines if external secrets should get synced from the virtual cluster to the host cluster.
 	ExternalSecrets EnableSwitch `json:"externalSecrets,omitempty"`
 	// Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally.
+	// Deprecated: Use Integrations.ExternalSecrets.Sync.ToHost.Stores instead.
 	Stores EnableSwitch `json:"stores,omitempty"`
 	// ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster.
+	// Deprecated: Use Integrations.ExternalSecrets.Sync.FromHost.ClusterStores instead.
 	ClusterStores ClusterStoresSyncConfig `json:"clusterStores,omitempty"`
 }
 
@@ -552,6 +558,27 @@ type ClusterStoresSyncConfig struct {
 	EnableSwitch
 	// Selector defines what cluster stores should be synced
 	Selector LabelSelector `json:"selector,omitempty"`
+}
+
+type ExternalSecretsSyncToHostConfig struct {
+	// ExternalSecrets allows to configure if only a subset of ExternalSecrets matching a label selector should get synced from the virtual cluster to the host cluster.
+	ExternalSecrets SelectorConfig `json:"externalSecrets,omitempty"`
+	// Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally.
+	Stores EnableSwitchSelector `json:"stores,omitempty"`
+}
+
+type ExternalSecretsSyncFromHostConfig struct {
+	// ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster.
+	ClusterStores EnableSwitchSelector `json:"clusterStores,omitempty"`
+}
+
+type SelectorConfig struct {
+	Selector StandardLabelSelector `json:"selector,omitempty"`
+}
+
+type EnableSwitchSelector struct {
+	SelectorConfig
+	EnableSwitch
 }
 
 type LabelSelector struct {

@@ -1298,6 +1298,19 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "EnableSwitchSelector": {
+      "properties": {
+        "selector": {
+          "$ref": "#/$defs/StandardLabelSelector"
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "EnableSwitchWithPatches": {
       "properties": {
         "enabled": {
@@ -2081,17 +2094,49 @@
     },
     "ExternalSecretsSync": {
       "properties": {
+        "toHost": {
+          "$ref": "#/$defs/ExternalSecretsSyncToHostConfig",
+          "description": "ToHost defines what resources are synced from the virtual cluster to the host"
+        },
+        "fromHost": {
+          "$ref": "#/$defs/ExternalSecretsSyncFromHostConfig",
+          "description": "FromHost defines what resources are synced from the host cluster to the virtual cluster"
+        },
         "externalSecrets": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "ExternalSecrets defines if external secrets should get synced from the virtual cluster to the host cluster."
         },
         "stores": {
           "$ref": "#/$defs/EnableSwitch",
-          "description": "Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally."
+          "description": "Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally.\nDeprecated: Use Integrations.ExternalSecrets.Sync.ToHost.Stores instead."
         },
         "clusterStores": {
           "$ref": "#/$defs/ClusterStoresSyncConfig",
+          "description": "ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster.\nDeprecated: Use Integrations.ExternalSecrets.Sync.FromHost.ClusterStores instead."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExternalSecretsSyncFromHostConfig": {
+      "properties": {
+        "clusterStores": {
+          "$ref": "#/$defs/EnableSwitchSelector",
           "description": "ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExternalSecretsSyncToHostConfig": {
+      "properties": {
+        "externalSecrets": {
+          "$ref": "#/$defs/SelectorConfig",
+          "description": "ExternalSecrets allows to configure if only a subset of ExternalSecrets matching a label selector should get synced from the virtual cluster to the host cluster."
+        },
+        "stores": {
+          "$ref": "#/$defs/EnableSwitchSelector",
+          "description": "Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally."
         }
       },
       "additionalProperties": false,
@@ -3794,6 +3839,15 @@
           },
           "type": "object",
           "description": "LabelSelector are the labels to select the object from"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SelectorConfig": {
+      "properties": {
+        "selector": {
+          "$ref": "#/$defs/StandardLabelSelector"
         }
       },
       "additionalProperties": false,
