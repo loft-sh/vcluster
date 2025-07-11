@@ -13,6 +13,7 @@ import (
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
@@ -351,7 +352,7 @@ func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterCon
 
 	// generate etcd certificates
 	certificatesDir := constants.PKIDir
-	err = setup.GenerateCerts(ctx, serviceCIDR, certificatesDir, vConfig)
+	err = certs.Generate(ctx, serviceCIDR, certificatesDir, vConfig)
 	if err != nil {
 		return "", err
 	}

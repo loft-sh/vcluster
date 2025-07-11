@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strconv"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/certs"
@@ -12,7 +11,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/k8s"
-	"github.com/loft-sh/vcluster/pkg/kubeadm"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
@@ -64,7 +62,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 
 		// generate etcd certificates
 		certificatesDir := "/data/pki"
-		err = GenerateCerts(ctx, serviceCIDR, certificatesDir, options)
+		err = certs.Generate(ctx, serviceCIDR, certificatesDir, options)
 		if err != nil {
 			return err
 		}
@@ -109,7 +107,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		// try to generate k8s certificates
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == constants.PKIDir {
-			err := GenerateCerts(ctx, serviceCIDR, certificatesDir, options)
+			err := certs.Generate(ctx, serviceCIDR, certificatesDir, options)
 			if err != nil {
 				return err
 			}
@@ -152,65 +150,11 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		certificatesDir := filepath.Dir(options.VirtualClusterKubeConfig().ServerCACert)
 		if certificatesDir == "/data/pki" {
 			// generate k8s certificates
-			err := GenerateCerts(ctx, serviceCIDR, certificatesDir, options)
+			err := certs.Generate(ctx, serviceCIDR, certificatesDir, options)
 			if err != nil {
 				return err
 			}
 		}
-	}
-
-	return nil
-}
-
-func GenerateCerts(ctx context.Context, serviceCIDR, certificatesDir string, options *config.VirtualClusterConfig) error {
-	clusterDomain := options.Networking.Advanced.ClusterDomain
-	currentNamespace := options.ControlPlaneNamespace
-	currentNamespaceClient := options.ControlPlaneClient
-
-	// generate etcd server and peer sans
-	etcdService := options.Name + "-etcd"
-	extraSans := []string{
-		"localhost",
-		etcdService,
-		etcdService + "-headless",
-		etcdService + "." + currentNamespace,
-		etcdService + "." + currentNamespace + ".svc",
-	}
-
-	// add wildcard
-	for _, service := range []string{options.Name, etcdService} {
-		extraSans = append(
-			extraSans,
-			"*."+service+"-headless",
-			"*."+service+"-headless"+"."+currentNamespace,
-			"*."+service+"-headless"+"."+currentNamespace+".svc",
-			"*."+service+"-headless"+"."+currentNamespace+".svc."+clusterDomain,
-		)
-	}
-
-	// expect up to 5 etcd members
-	for i := range 5 {
-		// this is for embedded etcd
-		hostname := options.Name + "-" + strconv.Itoa(i)
-		extraSans = append(extraSans, hostname, hostname+"."+options.Name+"-headless", hostname+"."+options.Name+"-headless"+"."+currentNamespace)
-
-		// this is for external etcd
-		etcdHostname := etcdService + "-" + strconv.Itoa(i)
-		extraSans = append(extraSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
-	}
-
-	extraSans = append(extraSans, options.ControlPlane.Proxy.ExtraSANs...)
-
-	// create kubeadm config
-	kubeadmConfig, err := kubeadm.InitKubeadmConfig(options, "", "127.0.0.1:6443", serviceCIDR, certificatesDir, extraSans)
-	if err != nil {
-		return fmt.Errorf("create kubeadm config: %w", err)
-	}
-
-	// generate certificates
-	err = certs.EnsureCerts(ctx, currentNamespace, currentNamespaceClient, certificatesDir, options, kubeadmConfig)
-	if err != nil {
-		return fmt.Errorf("ensure certs: %w", err)
 	}
 
 	return nil

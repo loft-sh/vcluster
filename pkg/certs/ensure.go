@@ -6,15 +6,18 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/kubeadm"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +41,67 @@ const (
 	CertSecretLabelAppValue        = "vcluster"
 	CertSecretLabelVclusterNameKey = "vcluster-name"
 )
+
+func Generate(ctx context.Context, serviceCIDR, certificatesDir string, options *config.VirtualClusterConfig) error {
+	currentNamespace := options.ControlPlaneNamespace
+	currentNamespaceClient := options.ControlPlaneClient
+
+	// create kubeadm config
+	kubeadmConfig, err := GenerateInitKubeadmConfig(serviceCIDR, certificatesDir, options)
+	if err != nil {
+		return fmt.Errorf("create kubeadm config: %w", err)
+	}
+
+	// generate certificates
+	err = EnsureCerts(ctx, currentNamespace, currentNamespaceClient, certificatesDir, options, kubeadmConfig)
+	if err != nil {
+		return fmt.Errorf("ensure certs: %w", err)
+	}
+
+	return nil
+}
+
+func GenerateInitKubeadmConfig(serviceCIDR, certificatesDir string, options *config.VirtualClusterConfig) (*kubeadmapi.InitConfiguration, error) {
+	clusterDomain := options.Networking.Advanced.ClusterDomain
+	currentNamespace := options.ControlPlaneNamespace
+
+	// generate etcd server and peer sans
+	etcdService := options.Name + "-etcd"
+	extraSans := []string{
+		"localhost",
+		etcdService,
+		etcdService + "-headless",
+		etcdService + "." + currentNamespace,
+		etcdService + "." + currentNamespace + ".svc",
+	}
+
+	// add wildcard
+	for _, service := range []string{options.Name, etcdService} {
+		extraSans = append(
+			extraSans,
+			"*."+service+"-headless",
+			"*."+service+"-headless"+"."+currentNamespace,
+			"*."+service+"-headless"+"."+currentNamespace+".svc",
+			"*."+service+"-headless"+"."+currentNamespace+".svc."+clusterDomain,
+		)
+	}
+
+	// expect up to 5 etcd members
+	for i := range 5 {
+		// this is for embedded etcd
+		hostname := options.Name + "-" + strconv.Itoa(i)
+		extraSans = append(extraSans, hostname, hostname+"."+options.Name+"-headless", hostname+"."+options.Name+"-headless"+"."+currentNamespace)
+
+		// this is for external etcd
+		etcdHostname := etcdService + "-" + strconv.Itoa(i)
+		extraSans = append(extraSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
+	}
+
+	extraSans = append(extraSans, options.ControlPlane.Proxy.ExtraSANs...)
+
+	// create kubeadm config
+	return kubeadm.InitKubeadmConfig(options, "", "127.0.0.1:6443", serviceCIDR, certificatesDir, extraSans)
+}
 
 func EnsureCerts(
 	ctx context.Context,
@@ -75,14 +139,9 @@ func EnsureCerts(
 		return downloadCertsFromSecret(secret, certificateDir)
 	}
 
-	// we check if the files are already there
-	_, err = os.Stat(filepath.Join(certificateDir, CAKeyName))
-	if errors.Is(err, fs.ErrNotExist) {
-		// try to generate the certificates
-		err = generateCertificates(certificateDir, kubeadmConfig)
-		if err != nil {
-			return err
-		}
+	err = generateCertificates(certificateDir, kubeadmConfig)
+	if err != nil {
+		return err
 	}
 
 	ownerRef := []metav1.OwnerReference{}
@@ -240,8 +299,36 @@ func downloadCertsFromSecret(
 }
 
 func splitCACert(certificateDir string) error {
+	// The CA cert might be a bundle containing multiple certificates.
+	// The csr-controller expects exactly 1 certificate, so we
+	// require the CA cert to be first in the bundle.
+	certBundle, err := os.ReadFile(filepath.Join(certificateDir, CACertName))
+	if err != nil {
+		return fmt.Errorf("reading ca.crt: %w", err)
+	}
+
+	block, _ := pem.Decode(certBundle)
+	if block == nil {
+		return fmt.Errorf("no PEM data found")
+	}
+
+	if block.Type != "CERTIFICATE" {
+		return fmt.Errorf("first PEM block is not a certificate")
+	}
+
+	tmp, err := os.MkdirTemp("", "")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmp)
+
+	fp := filepath.Join(tmp, "ca.pem")
+	if err := os.WriteFile(fp, pem.EncodeToMemory(block), 0640); err != nil {
+		return fmt.Errorf("writing ca.pem: %w", err)
+	}
+
 	// make sure to write server-ca and client-ca to file system
-	err := copyFileIfNotExists(filepath.Join(certificateDir, CACertName), filepath.Join(certificateDir, ServerCACertName))
+	err = copyFileIfNotExists(fp, filepath.Join(certificateDir, ServerCACertName))
 	if err != nil {
 		return fmt.Errorf("copy %s: %w", ServerCACertName, err)
 	}
@@ -249,7 +336,7 @@ func splitCACert(certificateDir string) error {
 	if err != nil {
 		return fmt.Errorf("copy %s: %w", ServerCAKeyName, err)
 	}
-	err = copyFileIfNotExists(filepath.Join(certificateDir, CACertName), filepath.Join(certificateDir, ClientCACertName))
+	err = copyFileIfNotExists(fp, filepath.Join(certificateDir, ClientCACertName))
 	if err != nil {
 		return fmt.Errorf("copy %s: %w", ClientCACertName, err)
 	}
