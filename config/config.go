@@ -112,6 +112,56 @@ type PrivateNodes struct {
 
 	// JoinNode holds configuration specifically used during joining the node (see "kubeadm join").
 	JoinNode JoinConfiguration `json:"joinNode,omitempty"`
+
+	// Karpenter stores karpenter configuration
+	Karpenter KarpenterConfig `json:"karpenter,omitempty"`
+}
+
+// KarpenterConfig stores Karpenter-specific configuration for private nodes.
+type KarpenterConfig struct {
+	// Enabled defines if Karpenter integration is active.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// NodePools is a list of node pool configurations. Each pool can be either static or dynamic.
+	NodePools []KarpenterNodePool `json:"nodePools,omitempty"`
+}
+
+// KarpenterNodePool represents a single node pool, which can be either static or dynamic.
+// For a single entry, only one of 'static' or 'dynamic' should be defined.
+type KarpenterNodePool struct {
+	// Name is the unique identifier for the node pool.
+	Name string `json:"name"`
+	// Static defines a "node pool" consisting of a set of existing nodes that are not managed by Karpenter.
+	Static *KarpenterStaticNodePool `json:"static,omitempty"`
+	// Dynamic defines a node pool that Karpenter will dynamically manage.
+	Dynamic *KarpenterDynamicNodePool `json:"dynamic,omitempty"`
+}
+
+// KarpenterStaticNodePool defines configuration of static node pool.
+type KarpenterStaticNodePool struct{}
+
+// KarpenterDynamicNodePool defines a dynamic node pool managed by Karpenter,
+// which corresponds to a Karpenter NodePool resource.
+type KarpenterDynamicNodePool struct {
+	// ReadOnly, if true, prevents the provisioner from being used for scheduling new pods.
+	ReadOnly bool `json:"readOnly,omitempty"`
+	// Requirements filter the types of nodes that can be provisioned by this pool.
+	// All requirements must be met for a node type to be eligible.
+	Requirements []KarpenterRequirement `json:"requirements,omitempty"`
+	// Limits specify the maximum resources that can be provisioned by this node pool,
+	// mapping to the 'limits' field in Karpenter's NodePool API.
+	Limits map[string]interface{} `json:"limits,omitempty"`
+}
+
+// KarpenterRequirement defines a scheduling requirement for a dynamic node pool.
+// It corresponds to an entry in the 'requirements' list of a Karpenter NodePool.
+type KarpenterRequirement struct {
+	// Key is the label key or field name to filter on.
+	Key string `json:"key"`
+	// Operator is the comparison operator, such as "In", "NotIn", "Exists".
+	Operator string `json:"operator"`
+	// Value is the list of values to use for the comparison.
+	Value []string `json:"value"`
 }
 
 type Deploy struct {
