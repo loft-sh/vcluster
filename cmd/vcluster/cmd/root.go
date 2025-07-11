@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	loftlogr "github.com/loft-sh/log/logr"
+	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/certs"
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/debug"
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/node"
 	"github.com/spf13/cobra"
@@ -64,5 +65,6 @@ func BuildRoot() *cobra.Command {
 	rootCmd.AddCommand(NewPortForwardCommand())
 	rootCmd.AddCommand(debug.NewDebugCmd())
 	rootCmd.AddCommand(node.NewNodeCmd())
+	rootCmd.AddCommand(certs.NewCertsCmd())
 	return rootCmd
 }

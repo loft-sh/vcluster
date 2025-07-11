@@ -7,26 +7,26 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/debug"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/node"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/registry"
-	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/token"
-	"github.com/loft-sh/vcluster/pkg/platform/defaults"
-	"github.com/mitchellh/go-homedir"
-
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/certs"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/convert"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/credits"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/debug"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/node"
 	cmdplatform "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/set"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/registry"
 	cmdtelemetry "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/token"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
 	"github.com/loft-sh/vcluster/pkg/cli/completion"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/mitchellh/go-homedir"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -138,6 +138,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, *flags.GlobalFlags, error) {
 	rootCmd.AddCommand(token.NewTokenCmd(globalFlags))
 	rootCmd.AddCommand(node.NewNodeCmd(globalFlags))
 	rootCmd.AddCommand(registry.NewRegistryCmd(globalFlags))
+	rootCmd.AddCommand(certs.NewCertsCmd(globalFlags))
 
 	// add platform commands
 	platformCmd, err := cmdplatform.NewPlatformCmd(globalFlags)

@@ -18,6 +18,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"k8s.io/klog/v2"
+	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 )
 
 // Initialize creates the required secrets and configmaps for the control plane to start
@@ -163,9 +164,27 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 }
 
 func GenerateCerts(ctx context.Context, serviceCIDR, certificatesDir string, options *config.VirtualClusterConfig) error {
-	clusterDomain := options.Networking.Advanced.ClusterDomain
 	currentNamespace := options.ControlPlaneNamespace
 	currentNamespaceClient := options.ControlPlaneClient
+
+	// create kubeadm config
+	kubeadmConfig, err := GenerateInitKubeadmConfig(serviceCIDR, certificatesDir, options)
+	if err != nil {
+		return fmt.Errorf("create kubeadm config: %w", err)
+	}
+
+	// generate certificates
+	err = certs.EnsureCerts(ctx, currentNamespace, currentNamespaceClient, certificatesDir, options, kubeadmConfig)
+	if err != nil {
+		return fmt.Errorf("ensure certs: %w", err)
+	}
+
+	return nil
+}
+
+func GenerateInitKubeadmConfig(serviceCIDR, certificatesDir string, options *config.VirtualClusterConfig) (*kubeadmapi.InitConfiguration, error) {
+	clusterDomain := options.Networking.Advanced.ClusterDomain
+	currentNamespace := options.ControlPlaneNamespace
 
 	// generate etcd server and peer sans
 	etcdService := options.Name + "-etcd"
@@ -202,16 +221,5 @@ func GenerateCerts(ctx context.Context, serviceCIDR, certificatesDir string, opt
 	extraSans = append(extraSans, options.ControlPlane.Proxy.ExtraSANs...)
 
 	// create kubeadm config
-	kubeadmConfig, err := kubeadm.InitKubeadmConfig(options, "", "127.0.0.1:6443", serviceCIDR, certificatesDir, extraSans)
-	if err != nil {
-		return fmt.Errorf("create kubeadm config: %w", err)
-	}
-
-	// generate certificates
-	err = certs.EnsureCerts(ctx, currentNamespace, currentNamespaceClient, certificatesDir, options, kubeadmConfig)
-	if err != nil {
-		return fmt.Errorf("ensure certs: %w", err)
-	}
-
-	return nil
+	return kubeadm.InitKubeadmConfig(options, "", "127.0.0.1:6443", serviceCIDR, certificatesDir, extraSans)
 }
