@@ -229,7 +229,7 @@ controlPlane:
         registry: ghcr.io
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "loft-sh/kubernetes"
-        # Tag is the tag of the container image, e.g. latest. If set to the default, it will use the host Kubernetes version.
+        # Tag is the tag of the container image, and is the default version.
         tag: "v1.33.1"
       # APIServer holds configuration specific to starting the api server.
       apiServer:
@@ -281,7 +281,7 @@ controlPlane:
         registry: ""
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "rancher/k3s"
-        # Tag is the tag of the container image, e.g. latest. If set to the default, it will use the host Kubernetes version.
+        # Tag is the tag of the container image, and is the default version.
         tag: "v1.33.1-k3s1"
       # Security options can be used for the distro init container
       securityContext: {}
@@ -369,7 +369,7 @@ controlPlane:
             registry: "registry.k8s.io"
             # Repository is the repository of the container image, e.g. my-repo/my-image
             repository: "etcd"
-            # Tag is the tag of the container image, e.g. latest. If set to the default, it will use the host Kubernetes version.
+            # Tag is the tag of the container image, and is the default version.
             tag: "3.5.21-0"
           # ImagePullPolicy is the pull policy for the external etcd image
           imagePullPolicy: ""

@@ -1702,7 +1702,7 @@ type Image struct {
 	// Repository is the repository of the container image, e.g. my-repo/my-image
 	Repository string `json:"repository,omitempty"`
 
-	// Tag is the tag of the container image, e.g. latest. If set to the default, it will use the host Kubernetes version.
+	// Tag is the tag of the container image, and is the default version.
 	Tag string `json:"tag,omitempty"`
 }
 
