@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -57,7 +58,7 @@ func EnsureCerts(
 		_, err := os.Stat(filepath.Join(certificateDir, CAKeyName))
 		if errors.Is(err, fs.ErrNotExist) {
 			// try to generate the certificates
-			err = generateCertificates(certificateDir, kubeadmConfig)
+			err = GenerateCertificates(certificateDir, kubeadmConfig)
 			if err != nil {
 				return err
 			}
@@ -75,14 +76,9 @@ func EnsureCerts(
 		return downloadCertsFromSecret(secret, certificateDir)
 	}
 
-	// we check if the files are already there
-	_, err = os.Stat(filepath.Join(certificateDir, CAKeyName))
-	if errors.Is(err, fs.ErrNotExist) {
-		// try to generate the certificates
-		err = generateCertificates(certificateDir, kubeadmConfig)
-		if err != nil {
-			return err
-		}
+	err = GenerateCertificates(certificateDir, kubeadmConfig)
+	if err != nil {
+		return err
 	}
 
 	ownerRef := []metav1.OwnerReference{}
@@ -159,7 +155,7 @@ func CertSecretName(vClusterName string) string {
 	return vClusterName + "-certs"
 }
 
-func generateCertificates(
+func GenerateCertificates(
 	certificateDir string,
 	kubeadmConfig *kubeadmapi.InitConfiguration,
 ) error {
@@ -187,7 +183,7 @@ func generateCertificates(
 		return fmt.Errorf("rename kube config: %w", err)
 	}
 
-	err = splitCACert(certificateDir)
+	err = SplitCACert(certificateDir)
 	if err != nil {
 		return fmt.Errorf("split ca cert: %w", err)
 	}
@@ -231,7 +227,7 @@ func downloadCertsFromSecret(
 		}
 	}
 
-	err := splitCACert(certificateDir)
+	err := SplitCACert(certificateDir)
 	if err != nil {
 		return fmt.Errorf("split ca cert: %w", err)
 	}
@@ -239,9 +235,37 @@ func downloadCertsFromSecret(
 	return nil
 }
 
-func splitCACert(certificateDir string) error {
+func SplitCACert(certificateDir string) error {
+	// The CA cert might be a bundle containing multiple certificates.
+	// The csr-controller expects exactly 1 certificate, so we
+	// require the CA cert to be first in the bundle.
+	certBundle, err := os.ReadFile(filepath.Join(certificateDir, CACertName))
+	if err != nil {
+		return fmt.Errorf("reading ca.crt: %w", err)
+	}
+
+	block, _ := pem.Decode(certBundle)
+	if block == nil {
+		return fmt.Errorf("no PEM data found")
+	}
+
+	if block.Type != "CERTIFICATE" {
+		return fmt.Errorf("first PEM block is not a certificate")
+	}
+
+	tmp, err := os.MkdirTemp("", "")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmp)
+
+	fp := filepath.Join(tmp, "ca.pem")
+	if err := os.WriteFile(fp, pem.EncodeToMemory(block), 0640); err != nil {
+		return fmt.Errorf("writing ca.pem: %w", err)
+	}
+
 	// make sure to write server-ca and client-ca to file system
-	err := copyFileIfNotExists(filepath.Join(certificateDir, CACertName), filepath.Join(certificateDir, ServerCACertName))
+	err = copyFileIfNotExists(fp, filepath.Join(certificateDir, ServerCACertName))
 	if err != nil {
 		return fmt.Errorf("copy %s: %w", ServerCACertName, err)
 	}
@@ -249,7 +273,7 @@ func splitCACert(certificateDir string) error {
 	if err != nil {
 		return fmt.Errorf("copy %s: %w", ServerCAKeyName, err)
 	}
-	err = copyFileIfNotExists(filepath.Join(certificateDir, CACertName), filepath.Join(certificateDir, ClientCACertName))
+	err = copyFileIfNotExists(fp, filepath.Join(certificateDir, ClientCACertName))
 	if err != nil {
 		return fmt.Errorf("copy %s: %w", ClientCACertName, err)
 	}

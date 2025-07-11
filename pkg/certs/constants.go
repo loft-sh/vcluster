@@ -140,6 +140,10 @@ const (
 	DefaultAPIServerBindAddress = "0.0.0.0"
 )
 
+func CertMap() map[string]string {
+	return certMap
+}
+
 // write needed files to secret
 var certMap = map[string]string{
 	AdminKubeConfigFileName:             AdminKubeConfigFileName,
