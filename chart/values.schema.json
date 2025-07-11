@@ -2218,7 +2218,7 @@
         },
         "tag": {
           "type": "string",
-          "description": "Tag is the tag of the container image, e.g. latest. If set to the default, it will use the host Kubernetes version."
+          "description": "Tag is the tag of the container image, and is the default version."
         }
       },
       "additionalProperties": false,
