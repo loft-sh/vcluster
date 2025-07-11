@@ -10,6 +10,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -83,6 +84,16 @@ func genAPIServerServingCerts(
 		return nil, nil, nil, err
 	}
 
+	caCert, err := certhelper.ParseCertsPEM(caBytes)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// check if caCert is expired.
+	if time.Now().After(caCert[0].NotAfter) {
+		return nil, nil, nil, fmt.Errorf("expired CA certificate: %s", caCertFile)
+	}
+
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM(caBytes)
 
@@ -107,11 +118,6 @@ func genAPIServerServingCerts(
 	}
 
 	caKey, err := certhelper.ParsePrivateKeyPEM(caKeyBytes)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	caCert, err := certhelper.ParseCertsPEM(caBytes)
 	if err != nil {
 		return nil, nil, nil, err
 	}
