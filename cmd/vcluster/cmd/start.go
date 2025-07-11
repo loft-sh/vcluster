@@ -153,7 +153,7 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 	}
 
 	// start konnectivity server
-	err = pro.StartKonnectivity(controllerCtx)
+	err = pro.StartKonnectivity(controllerCtx, vConfig)
 	if err != nil {
 		return fmt.Errorf("start konnectivity: %w", err)
 	}
@@ -173,7 +173,7 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 		}
 	}
 
-	if vConfig.PrivateNodes.Enabled && vConfig.PrivateNodes.Karpenter.Enabled {
+	if vConfig.PrivateNodes.Enabled && len(vConfig.PrivateNodes.NodePools.Dynamic) > 0 {
 		go func() {
 			err = pro.StartKarpenterOperator(
 				ctx, controllerCtx.VirtualManager, controllerCtx.LocalManager.GetClient(), vConfig)
