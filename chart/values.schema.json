@@ -3020,6 +3020,35 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "NodePool": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name is the name of this NodePool"
+        },
+        "readOnly": {
+          "type": "boolean",
+          "description": "ReadOnly, if true, prevents the provisioner from being used for scheduling new pods."
+        },
+        "requirements": {
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          },
+          "type": "array",
+          "description": "Requirements filter the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
+        },
+        "limits": {
+          "type": "object",
+          "description": "Limits specify the maximum resources that can be provisioned by this node pool,\nmapping to the 'limits' field in Karpenter's NodePool API."
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "Quantity is the number of nodes in this pool."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "NodeRegistration": {
       "properties": {
         "criSocket": {
@@ -3464,11 +3493,36 @@
         "joinNode": {
           "$ref": "#/$defs/JoinConfiguration",
           "description": "JoinNode holds configuration specifically used during joining the node (see \"kubeadm join\")."
+        },
+        "nodePools": {
+          "$ref": "#/$defs/PrivateNodesNodePools",
+          "description": "Karpenter stores karpenter configuration"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "PrivateNodes enables private nodes for vCluster."
+    },
+    "PrivateNodesNodePools": {
+      "properties": {
+        "static": {
+          "items": {
+            "$ref": "#/$defs/NodePool"
+          },
+          "type": "array",
+          "description": "Static defines static pool"
+        },
+        "dynamic": {
+          "items": {
+            "$ref": "#/$defs/NodePool"
+          },
+          "type": "array",
+          "description": "Dynamic defines dynamic pool"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "PrivateNodesNodePools defines node pools"
     },
     "RBAC": {
       "properties": {
@@ -3639,6 +3693,28 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "Requirement": {
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Key is the label key or field name to filter on."
+        },
+        "operator": {
+          "type": "string",
+          "description": "Operator is the comparison operator, such as \"In\", \"NotIn\", \"Exists\"."
+        },
+        "value": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Value is the list of values to use for the comparison."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "KarpenterRequirement defines a scheduling requirement for a dynamic node pool."
     },
     "ResolveDNS": {
       "properties": {

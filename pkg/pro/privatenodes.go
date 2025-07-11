@@ -3,7 +3,10 @@ package pro
 import (
 	"context"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var StartPrivateNodesMode = func(ctx *synccontext.ControllerContext) error {
@@ -24,7 +27,7 @@ var SyncKubernetesServiceDedicated = func(ctx *synccontext.SyncContext) error {
 	return NewFeatureError("private nodes")
 }
 
-var StartKonnectivity = func(ctx *synccontext.ControllerContext) error {
+var StartKonnectivity = func(ctx *synccontext.ControllerContext, vConfig *config.VirtualClusterConfig) error {
 	// skip if we are not in dedicated mode
 	if !ctx.Config.PrivateNodes.Enabled {
 		return nil
@@ -54,4 +57,8 @@ type StandaloneOptions struct {
 
 var StartStandalone = func(_ context.Context, _ *StandaloneOptions) error {
 	return NewFeatureError("private nodes standalone")
+}
+
+var StartKarpenterOperator = func(_ context.Context, _ manager.Manager, _ client.Client, _ *config.VirtualClusterConfig) error {
+	return NewFeatureError("private nodes autoscaling")
 }

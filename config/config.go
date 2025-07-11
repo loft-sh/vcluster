@@ -112,6 +112,44 @@ type PrivateNodes struct {
 
 	// JoinNode holds configuration specifically used during joining the node (see "kubeadm join").
 	JoinNode JoinConfiguration `json:"joinNode,omitempty"`
+
+	// Karpenter stores karpenter configuration
+	NodePools PrivateNodesNodePools `json:"nodePools,omitempty"`
+}
+
+// PrivateNodesNodePools defines node pools
+type PrivateNodesNodePools struct {
+	// Static defines static pool
+	Static []NodePool `json:"static"`
+
+	// Dynamic defines dynamic pool
+	Dynamic []NodePool `json:"dynamic"`
+}
+
+type NodePool struct {
+	// Name is the name of this NodePool
+	Name string `json:"name"`
+	// ReadOnly, if true, prevents the provisioner from being used for scheduling new pods.
+	ReadOnly bool `json:"readOnly,omitempty"`
+	// Requirements filter the types of nodes that can be provisioned by this pool.
+	// All requirements must be met for a node type to be eligible.
+	Requirements []Requirement `json:"requirements,omitempty"`
+	// Limits specify the maximum resources that can be provisioned by this node pool,
+	// mapping to the 'limits' field in Karpenter's NodePool API.
+	Limits map[string]interface{} `json:"limits,omitempty"`
+	// Quantity is the number of nodes in this pool.
+	Quantity int `json:"quantity,omitempty"`
+}
+
+// KarpenterRequirement defines a scheduling requirement for a dynamic node pool.
+// It corresponds to an entry in the 'requirements' list of a Karpenter NodePool.
+type Requirement struct {
+	// Key is the label key or field name to filter on.
+	Key string `json:"key"`
+	// Operator is the comparison operator, such as "In", "NotIn", "Exists".
+	Operator string `json:"operator"`
+	// Value is the list of values to use for the comparison.
+	Value []string `json:"value"`
 }
 
 type Deploy struct {

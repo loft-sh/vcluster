@@ -801,6 +801,13 @@ privateNodes:
     containerd:
       # Enabled defines if containerd should be installed and configured by vCluster.
       enabled: true
+  
+  # Karpenter stores karpenter configuration
+  nodePools:
+    # Static defines static pool
+    static: []
+    # Dynamic defines dynamic pool
+    dynamic: []
 
 # Deploy holds configuration for the deployment of vCluster.
 deploy:

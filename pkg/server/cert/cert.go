@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func genAPIServerServingCerts(
+func GenAPIServerServingCerts(
 	ctx context.Context,
 	workloadNamespaceClient,
 	vClient client.Client,
