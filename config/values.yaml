@@ -436,9 +436,9 @@ privateNodes:
   joinNode:
     containerd:
       enabled: true
-  karpenter:
-    enabled: false
-    nodePools: []
+  nodePools:
+    static: []
+    dynamic: []
 deploy:
   localPathProvisioner:
     enabled: true
