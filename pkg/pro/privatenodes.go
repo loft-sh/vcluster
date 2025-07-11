@@ -3,6 +3,7 @@ package pro
 import (
 	"context"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -26,7 +27,7 @@ var SyncKubernetesServiceDedicated = func(ctx *synccontext.SyncContext) error {
 	return NewFeatureError("private nodes")
 }
 
-var StartKonnectivity = func(ctx *synccontext.ControllerContext) error {
+var StartKonnectivity = func(ctx *synccontext.ControllerContext, vConfig *config.VirtualClusterConfig) error {
 	// skip if we are not in dedicated mode
 	if !ctx.Config.PrivateNodes.Enabled {
 		return nil

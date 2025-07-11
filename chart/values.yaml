@@ -803,11 +803,11 @@ privateNodes:
       enabled: true
   
   # Karpenter stores karpenter configuration
-  karpenter:
-    # Enabled defines if Karpenter integration is active.
-    enabled: false
-    # NodePools is a list of node pool configurations. Each pool can be either static or dynamic.
-    nodePools: []
+  nodePools:
+    # Static defines static pool
+    static: []
+    # Dynamic defines dynamic pool
+    dynamic: []
 
 # Deploy holds configuration for the deployment of vCluster.
 deploy:
