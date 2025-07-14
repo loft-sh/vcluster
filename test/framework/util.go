@@ -22,6 +22,29 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+func (f *Framework) WaitForVClusterReady() error {
+	return wait.PollUntilContextTimeout(f.Context, time.Second*5, PollTimeout, true, func(ctx context.Context) (bool, error) {
+		sts, err := f.HostClient.AppsV1().StatefulSets(f.VClusterNamespace).Get(ctx, f.VClusterName, metav1.GetOptions{})
+		if err == nil {
+			return sts.Status.ReadyReplicas == *sts.Spec.Replicas &&
+				sts.Status.UpdatedReplicas == *sts.Spec.Replicas &&
+				sts.Status.AvailableReplicas == *sts.Spec.Replicas, nil
+		}
+		if !kerrors.IsNotFound(err) {
+			return false, err
+		}
+
+		deploy, err := f.HostClient.AppsV1().Deployments(f.VClusterNamespace).Get(ctx, f.VClusterName, metav1.GetOptions{})
+		if err == nil {
+			return deploy.Status.ReadyReplicas == *deploy.Spec.Replicas &&
+				deploy.Status.UpdatedReplicas == *deploy.Spec.Replicas &&
+				deploy.Status.AvailableReplicas == *deploy.Spec.Replicas, nil
+		}
+
+		return false, err
+	})
+}
+
 func (f *Framework) WaitForPodRunning(podName string, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second*5, PollTimeout, true, func(ctx context.Context) (bool, error) {
 		pPodName := translate.Default.HostName(nil, podName, ns)
