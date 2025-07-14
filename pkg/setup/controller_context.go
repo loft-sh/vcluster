@@ -90,6 +90,17 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 		Metrics:        metricsserver.Options{BindAddress: virtualManagerMetrics},
 		LeaderElection: false,
 		NewClient:      pro.NewVirtualClient(options),
+		BaseContext: func() context.Context {
+			// setup karpenter context if enabled
+			if len(options.PrivateNodes.NodePools.Dynamic) > 0 {
+				ctx, err = pro.SetupKarpenterContext(ctx)
+				if err != nil {
+					panic(err)
+				}
+			}
+
+			return ctx
+		},
 	})
 	if err != nil {
 		return nil, err

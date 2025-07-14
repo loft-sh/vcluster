@@ -3044,6 +3044,10 @@
         "quantity": {
           "type": "integer",
           "description": "Quantity is the number of nodes in this pool."
+        },
+        "externalCCM": {
+          "type": "boolean",
+          "description": "ExternalCCM defines if there is an external cloud controller manager that is responsible for setting the providerID of the nodes."
         }
       },
       "additionalProperties": false,
@@ -3496,7 +3500,7 @@
         },
         "nodePools": {
           "$ref": "#/$defs/PrivateNodesNodePools",
-          "description": "Karpenter stores karpenter configuration"
+          "description": "NodePools stores karpenter node pool configuration"
         }
       },
       "additionalProperties": false,

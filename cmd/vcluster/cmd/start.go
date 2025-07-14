@@ -153,7 +153,7 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 	}
 
 	// start konnectivity server
-	err = pro.StartKonnectivity(controllerCtx, vConfig)
+	err = pro.StartKonnectivity(controllerCtx)
 	if err != nil {
 		return fmt.Errorf("start konnectivity: %w", err)
 	}
@@ -171,16 +171,6 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 		if err != nil {
 			return fmt.Errorf("start integrated core dns: %w", err)
 		}
-	}
-
-	if vConfig.PrivateNodes.Enabled && len(vConfig.PrivateNodes.NodePools.Dynamic) > 0 {
-		go func() {
-			err = pro.StartKarpenterOperator(
-				ctx, controllerCtx.VirtualManager, controllerCtx.LocalManager.GetClient(), vConfig)
-			if err != nil {
-				logger.Infof("Failed to start Karpenter operator. err: %v", err)
-			}
-		}()
 	}
 
 	// start leader election + controllers

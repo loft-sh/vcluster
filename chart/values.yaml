@@ -802,7 +802,7 @@ privateNodes:
       # Enabled defines if containerd should be installed and configured by vCluster.
       enabled: true
   
-  # Karpenter stores karpenter configuration
+  # NodePools stores karpenter node pool configuration
   nodePools:
     # Static defines static pool
     static: []

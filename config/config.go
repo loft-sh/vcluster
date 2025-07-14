@@ -113,17 +113,17 @@ type PrivateNodes struct {
 	// JoinNode holds configuration specifically used during joining the node (see "kubeadm join").
 	JoinNode JoinConfiguration `json:"joinNode,omitempty"`
 
-	// Karpenter stores karpenter configuration
+	// NodePools stores karpenter node pool configuration
 	NodePools PrivateNodesNodePools `json:"nodePools,omitempty"`
 }
 
 // PrivateNodesNodePools defines node pools
 type PrivateNodesNodePools struct {
 	// Static defines static pool
-	Static []NodePool `json:"static"`
+	Static []NodePool `json:"static,omitempty"`
 
 	// Dynamic defines dynamic pool
-	Dynamic []NodePool `json:"dynamic"`
+	Dynamic []NodePool `json:"dynamic,omitempty"`
 }
 
 type NodePool struct {
@@ -139,6 +139,8 @@ type NodePool struct {
 	Limits map[string]interface{} `json:"limits,omitempty"`
 	// Quantity is the number of nodes in this pool.
 	Quantity int `json:"quantity,omitempty"`
+	// ExternalCCM defines if there is an external cloud controller manager that is responsible for setting the providerID of the nodes.
+	ExternalCCM bool `json:"externalCCM,omitempty"`
 }
 
 // KarpenterRequirement defines a scheduling requirement for a dynamic node pool.
