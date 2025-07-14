@@ -44,7 +44,7 @@ var _ = ginkgo.Describe("Persistent volume synced from host cluster", func() {
 		framework.ExpectNoError(err)
 	})
 
-	ginkgo.It("Test pvc provisioned successfully and is synced back to vcluster", func() {
+	ginkgo.It("PVC binds to dynamically provisioned PV, is synced back to vcluster and cleaned up properly", func() {
 		pvcName := "test"
 		podName := "nginx-test"
 
@@ -114,5 +114,17 @@ var _ = ginkgo.Describe("Persistent volume synced from host cluster", func() {
 		framework.ExpectNoError(err)
 
 		framework.ExpectEqual(vpvc.Status, pvc.Status)
+
+		err = f.VClusterClient.CoreV1().PersistentVolumeClaims(ns).Delete(f.Context, pvcName, metav1.DeleteOptions{})
+		framework.ExpectNoError(err)
+
+		err = f.VClusterClient.CoreV1().Pods(ns).Delete(f.Context, podName, metav1.DeleteOptions{})
+		framework.ExpectNoError(err)
+
+		err = f.WaitForPVCDeletion(ns, pvcName)
+		framework.ExpectNoError(err)
+
+		err = f.WaitForPVDeletion(vpvc.Spec.VolumeName)
+		framework.ExpectNoError(err)
 	})
 })

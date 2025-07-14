@@ -180,6 +180,32 @@ func (f *Framework) WaitForServiceToUpdate(client *kubernetes.Clientset, service
 	})
 }
 
+func (f *Framework) WaitForPVCDeletion(namespace, name string) error {
+	return wait.PollUntilContextTimeout(f.Context, time.Second*5, PollTimeout, true, func(ctx context.Context) (bool, error) {
+		_, err := f.VClusterClient.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return true, nil
+			}
+			return false, err
+		}
+		return false, nil
+	})
+}
+
+func (f *Framework) WaitForPVDeletion(name string) error {
+	return wait.PollUntilContextTimeout(f.Context, time.Second*5, PollTimeout, true, func(ctx context.Context) (bool, error) {
+		_, err := f.VClusterClient.CoreV1().PersistentVolumes().Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return true, nil
+			}
+			return false, err
+		}
+		return false, nil
+	})
+}
+
 // Some vcluster operations list Service, e.g. pod translation.
 // To ensure expected results of such operation we need to wait until newly created Service is in syncer controller cache,
 // otherwise syncer will operate on slightly outdated resources, which is not good for test stability.
