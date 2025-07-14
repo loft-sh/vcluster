@@ -46,6 +46,4 @@
 /pkg/syncer/ @FabianKramm @hidalgopl
 /pkg/util/translate/ @FabianKramm
 
-/test/ @loft-sh/eng-qa
-
 netlify.toml @loft-sh/Eng-Docs-Admin
