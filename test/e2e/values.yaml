@@ -69,3 +69,10 @@ sync:
           "from-host-sync-test-2/dummy": "barfoo2/dummy"
           "default/my-secret": "barfoo2/secret-my"
           "/my-secret-in-default-ns": "barfoo2/secret-from-default-ns"
+    storageClasses:
+      enabled: true
+  toHost:
+    persistentVolumeClaims:
+      enabled: true
+    persistentVolumes:
+      enabled: true
