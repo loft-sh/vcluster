@@ -332,97 +332,123 @@ func applyMaps(fromMap, toMap map[string]string, opts ApplyMapsOptions) (map[str
 	return retMap, managedKeysStr
 }
 
-func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vConfig *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
-	var isClusterScoped, hasStatusSubresource bool
+func hasStatus(version apiextensionsv1.CustomResourceDefinitionVersion) bool {
+	return version.Subresources != nil && version.Subresources.Status != nil
+}
 
-	vClient, err := apiextensionsv1clientset.NewForConfig(vConfig)
+func getCrdVersionByName(crdVersions []apiextensionsv1.CustomResourceDefinitionVersion, versionName string) *apiextensionsv1.CustomResourceDefinitionVersion {
+	for _, version := range crdVersions {
+		if version.Name == versionName {
+			return &version
+		}
+	}
+	return nil
+}
+
+// checkSubresourceStatus checks if the CRD has the status subresource and returns whether it is cluster scoped and if the status subresource exists.
+// It returns true if the CRD is cluster scoped, and true if the status subresource exists.
+func checkSubresourceStatus(ctx context.Context, vClient *apiextensionsv1clientset.Clientset, apiResource metav1.APIResource, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
+	var err error
+	isClusterScoped := !apiResource.Namespaced
+	hasStatusSubresource := false
+
+	klog.FromContext(ctx).Info("CRD already exists in virtual cluster, checking for status subresource.", "apiResource", apiResource, "groupVersionKind", groupVersionKind)
+
+	crdName := apiResource.Name
+	if apiResource.Group != "" {
+		crdName += "." + apiResource.Group
+	} else if groupVersionKind.Group != "" {
+		crdName += "." + groupVersionKind.Group
+	}
+
+	crdDefinition, err := vClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
 	if err != nil {
+		klog.FromContext(ctx).Error(err, "Error getting CRD in the virtual cluster", "crd", crdName)
 		return isClusterScoped, hasStatusSubresource, err
 	}
 
-	if apiResource, err := KindExists(vConfig, groupVersionKind); err == nil {
-		// (ThomasK33): Check if the CRD has the status subresource
-		isClusterScoped = !apiResource.Namespaced
-
-		klog.FromContext(ctx).Info("CRD already exists in virtual cluster, checking for status subresource.", "apiResource", apiResource, "groupVersionKind", groupVersionKind)
-
-		crdName := apiResource.Name
-		if apiResource.Group != "" {
-			crdName += "." + apiResource.Group
-		} else if groupVersionKind.Group != "" {
-			crdName += "." + groupVersionKind.Group
+	for _, version := range crdDefinition.Spec.Versions {
+		if version.Name == groupVersionKind.Version && hasStatus(version) {
+			hasStatusSubresource = true
+			return isClusterScoped, hasStatusSubresource, err
 		}
+	}
+	return isClusterScoped, hasStatusSubresource, err
+}
 
-		crdDefinition, err := vClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdName, metav1.GetOptions{})
-		if err != nil {
-			klog.FromContext(ctx).Error(err, "Error getting CRD in the virtual cluster", "crd", crdName)
-			return isClusterScoped, hasStatusSubresource, nil
+func crdUpdateWithNewVersion(ctx context.Context, vClient *apiextensionsv1clientset.Clientset, pCrdDefinition, vCrdDefinition *apiextensionsv1.CustomResourceDefinition, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
+	var err error
+	isClusterScoped := vCrdDefinition.Spec.Scope == apiextensionsv1.ClusterScoped
+	hasStatusSubresource := false
+
+	// CRD exists but with different version. Need to add the new version to it, and set as storage version if it is not already set.
+	klog.FromContext(ctx).Info("CRD found in virtual cluster, checking versions", "crd", vCrdDefinition.Name, "groupVersionKind", groupVersionKind)
+
+	newVersions := []apiextensionsv1.CustomResourceDefinitionVersion{}
+	for _, version := range vCrdDefinition.Spec.Versions {
+		if version.Name == groupVersionKind.Version {
+			continue
 		}
-
-		for _, version := range crdDefinition.Spec.Versions {
-			if version.Name == groupVersionKind.Version {
-				if version.Subresources != nil && version.Subresources.Status != nil {
-					hasStatusSubresource = true
-				}
-				break
-			}
-		}
-
-		return isClusterScoped, hasStatusSubresource, nil
-	} else if !kerrors.IsNotFound(err) {
-		return isClusterScoped, hasStatusSubresource, fmt.Errorf("check virtual cluster kind: %w", err)
+		version.Storage = false
+		newVersions = append(newVersions, version)
 	}
 
-	// get resource from kind name in physical cluster
-	groupVersionResource, err := ConvertKindToResource(pConfig, groupVersionKind)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return isClusterScoped, hasStatusSubresource, fmt.Errorf("seems like resource %s is not available in the physical cluster or vcluster has no access to it", groupVersionKind.String())
-		}
-
+	// Version not found, we need to add it
+	klog.FromContext(ctx).Info("CRD version not found in virtual cluster, adding it", "version", groupVersionKind.Version, "crd", vCrdDefinition.Name)
+	newVersion := getCrdVersionByName(pCrdDefinition.Spec.Versions, groupVersionKind.Version)
+	if newVersion == nil {
+		err = fmt.Errorf("could not find version %q in physical CRD %q", groupVersionKind.Version, pCrdDefinition.Name)
 		return isClusterScoped, hasStatusSubresource, err
 	}
-
-	// get crd in physical cluster
-	pClient, err := apiextensionsv1clientset.NewForConfig(pConfig)
+	newVersion.Storage = true
+	newVersions = append(newVersions, *newVersion)
+	vCrdDefinition.Spec.Versions = newVersions
+	// Update the CRD in the virtual cluster
+	klog.FromContext(ctx).Info("Updating CRD in virtual cluster with new version", "crd", vCrdDefinition.Name, "version", groupVersionKind.Version)
+	_, err = vClient.ApiextensionsV1().CustomResourceDefinitions().Update(ctx, vCrdDefinition, metav1.UpdateOptions{})
 	if err != nil {
+		err = fmt.Errorf("update crd in virtual cluster: %w", err)
 		return isClusterScoped, hasStatusSubresource, err
 	}
-	crdDefinition, err := pClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, groupVersionResource.GroupResource().String(), metav1.GetOptions{})
-	if err != nil {
-		return isClusterScoped, hasStatusSubresource, errors.Wrap(err, "retrieve crd in host cluster")
-	}
+	// Check if the status subresource is set
+	hasStatusSubresource = hasStatus(*newVersion)
+	klog.FromContext(ctx).Info("CRD updated in virtual cluster", "crd", vCrdDefinition.Name, "version", groupVersionKind.Version, "hasStatusSubresource", hasStatusSubresource)
+	return isClusterScoped, hasStatusSubresource, err
+}
 
-	// now create crd in virtual cluster
-	crdDefinition.UID = ""
-	crdDefinition.ResourceVersion = ""
-	crdDefinition.ManagedFields = nil
-	crdDefinition.OwnerReferences = nil
-	crdDefinition.Status = apiextensionsv1.CustomResourceDefinitionStatus{}
-	crdDefinition.Spec.PreserveUnknownFields = false
-	crdDefinition.Spec.Conversion = nil
+func createCrdFromPhysicalCluster(ctx context.Context, vClient *apiextensionsv1clientset.Clientset, pCrdDefinition *apiextensionsv1.CustomResourceDefinition, groupVersionResource schema.GroupVersionResource, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
+	var err error
+	isClusterScoped := pCrdDefinition.Spec.Scope == apiextensionsv1.ClusterScoped
+	hasStatusSubresource := false
+
+	pCrdDefinition.UID = ""
+	pCrdDefinition.ResourceVersion = ""
+	pCrdDefinition.ManagedFields = nil
+	pCrdDefinition.OwnerReferences = nil
+	pCrdDefinition.Status = apiextensionsv1.CustomResourceDefinitionStatus{}
+	pCrdDefinition.Spec.PreserveUnknownFields = false
+	pCrdDefinition.Spec.Conversion = nil
 
 	// make sure we only store the version we care about
 	newVersions := []apiextensionsv1.CustomResourceDefinitionVersion{}
-	for _, version := range crdDefinition.Spec.Versions {
+	for _, version := range pCrdDefinition.Spec.Versions {
 		if version.Name == groupVersionKind.Version {
 			version.Served = true
 			version.Storage = true
 			newVersions = append(newVersions, version)
 
-			if version.Subresources != nil && version.Subresources.Status != nil {
-				hasStatusSubresource = true
-			}
+			hasStatusSubresource = hasStatus(version)
 			break
 		}
 	}
-	crdDefinition.Spec.Versions = newVersions
+	pCrdDefinition.Spec.Versions = newVersions
 
 	// apply the crd
 	klog.FromContext(ctx).Info("Create crd in virtual cluster", "crd", groupVersionKind.String())
-	_, err = vClient.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, crdDefinition, metav1.CreateOptions{})
+	_, err = vClient.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, pCrdDefinition, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return isClusterScoped, hasStatusSubresource, errors.Wrap(err, "create crd in virtual cluster")
+		err = errors.Wrap(err, "create crd in virtual cluster")
+		return isClusterScoped, hasStatusSubresource, err
 	}
 
 	// wait for crd to become ready
@@ -444,15 +470,57 @@ func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vCo
 		return false, nil
 	})
 	if err != nil {
-		return isClusterScoped, hasStatusSubresource, fmt.Errorf("failed to wait for CRD %s to become ready: %w", groupVersionKind.String(), err)
+		err = fmt.Errorf("failed to wait for CRD %s to become ready: %w", groupVersionKind.String(), err)
+	}
+	return isClusterScoped, hasStatusSubresource, err
+}
+
+func EnsureCRDFromPhysicalCluster(ctx context.Context, pConfig *rest.Config, vConfig *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
+	var isClusterScoped, hasStatusSubresource bool
+
+	vClient, err := apiextensionsv1clientset.NewForConfig(vConfig)
+	if err != nil {
+		return isClusterScoped, hasStatusSubresource, err
+	}
+	pClient, err := apiextensionsv1clientset.NewForConfig(pConfig)
+	if err != nil {
+		return isClusterScoped, hasStatusSubresource, err
 	}
 
-	// check if crd is cluster scoped
-	if crdDefinition.Spec.Scope == apiextensionsv1.ClusterScoped {
-		isClusterScoped = true
+	// get resource from kind name in physical cluster
+	groupVersionResource, err := ConvertKindToResource(pConfig, groupVersionKind)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return isClusterScoped, hasStatusSubresource, fmt.Errorf("seems like resource %s is not available in the physical cluster or vcluster has no access to it", groupVersionKind.String())
+		}
+		return isClusterScoped, hasStatusSubresource, err
 	}
 
-	return isClusterScoped, hasStatusSubresource, nil
+	pCrdDefinition, err := pClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, groupVersionResource.GroupResource().String(), metav1.GetOptions{})
+	if err != nil {
+		return isClusterScoped, hasStatusSubresource, errors.Wrap(err, "retrieve crd in host cluster")
+	}
+
+	vCrdDefinition, err := vClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, groupVersionResource.GroupResource().String(), metav1.GetOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return isClusterScoped, hasStatusSubresource, fmt.Errorf("retrieve crd in virtual cluster: %w", err)
+	}
+	vCrdExists := err == nil
+
+	apiResource, err := KindExists(vConfig, groupVersionKind)
+	if err != nil && !kerrors.IsNotFound(err) { // If the kind does not exist, we will create it in the virtual cluster
+		return isClusterScoped, hasStatusSubresource, fmt.Errorf("check virtual cluster kind: %w", err)
+	}
+	exactMatchInVCluster := err == nil
+
+	switch {
+	case exactMatchInVCluster: // CRD exists in the physical cluster and in the virtual cluster with the same GVK
+		return checkSubresourceStatus(ctx, vClient, apiResource, groupVersionKind)
+	case vCrdExists: // CRD exists in the virtual cluster but needs an update to add the new version
+		return crdUpdateWithNewVersion(ctx, vClient, pCrdDefinition, vCrdDefinition, groupVersionKind)
+	default: // CRD does not exist in the virtual cluster, need to create it
+		return createCrdFromPhysicalCluster(ctx, vClient, pCrdDefinition, groupVersionResource, groupVersionKind)
+	}
 }
 
 func ConvertKindToResource(config *rest.Config, groupVersionKind schema.GroupVersionKind) (schema.GroupVersionResource, error) {
