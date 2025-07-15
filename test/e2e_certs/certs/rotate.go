@@ -57,7 +57,8 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 			framework.ExpectNoError(err)
 		})
 
-		ginkgo.It("should successfully restart the vCluster pod", func() {
+		ginkgo.It("should wait until the virtual cluster is ready again", func() {
+			framework.ExpectNoError(f.WaitForVClusterReady())
 			gomega.Eventually(func() error {
 				pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
 					LabelSelector: "app=vcluster,release=" + f.VClusterName,
@@ -128,10 +129,6 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 		})
 	})
 
-	ginkgo.It("should wait until the virtual cluster is ready again", func() {
-		framework.ExpectNoError(f.WaitForVClusterReady())
-	})
-
 	ginkgo.Context("vCluster \"certs rotate-ca\"", ginkgo.Ordered, func() {
 		ginkgo.It("should execute \"certs rotate-ca\" command", func() {
 			certsCmd := certscmd.NewCertsCmd(&flags.GlobalFlags{Namespace: f.VClusterNamespace})
@@ -140,7 +137,8 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 			framework.ExpectNoError(err)
 		})
 
-		ginkgo.It("should successfully restart the vCluster pod", func() {
+		ginkgo.It("should wait until the virtual cluster is ready again", func() {
+			framework.ExpectNoError(f.WaitForVClusterReady())
 			gomega.Eventually(func() error {
 				pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
 					LabelSelector: "app=vcluster,release=" + f.VClusterName,
