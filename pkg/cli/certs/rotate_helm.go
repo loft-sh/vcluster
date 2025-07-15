@@ -11,6 +11,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -28,19 +30,31 @@ const (
 func Rotate(ctx context.Context, vClusterName string, rotationCmd RotationCmd, globalFlags *flags.GlobalFlags, log log.Logger) error {
 	vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
 	if err != nil {
-		return err
+		return fmt.Errorf("finding virtual cluster: %w", err)
 	}
 
 	// TODO(johannesfrey): Add min version check
 
 	kubeConfig, err := vCluster.ClientFactory.ClientConfig()
 	if err != nil {
-		return err
+		return fmt.Errorf("getting client config: %w", err)
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating kubernetes client: %w", err)
+	}
+
+	var restartETCD bool
+	sts, err := kubeClient.AppsV1().StatefulSets(vCluster.Namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=vcluster-etcd,release=" + vCluster.Name})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return fmt.Errorf("listing potential etcd statefulsets: %w", err)
+	}
+	if len(sts.Items) > 0 {
+		if sts.Items[0].Status.AvailableReplicas > 1 {
+			return fmt.Errorf("cert rotation with CA is currently not supported for deployed etcd in HA mode")
+		}
+		restartETCD = true
 	}
 
 	var cmd string
@@ -58,10 +72,10 @@ func Rotate(ctx context.Context, vClusterName string, rotationCmd RotationCmd, g
 		return fmt.Errorf("unknown rotation command: %s", rotationCmd)
 	}
 
-	return execRotate(ctx, "certs-rotate", cmd, kubeClient, vCluster, log)
+	return execRotate(ctx, "certs-rotate", cmd, restartETCD, kubeClient, vCluster, log)
 }
 
-func execRotate(ctx context.Context, containerName, cmd string, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) error {
+func execRotate(ctx context.Context, containerName, cmd string, restartETCD bool, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) error {
 	// TODO(johannesfrey): For standalone the flow would need to be something like:
 	// - systemctl stop vcluster.service
 	// - /var/lib/vcluster/bin/vcluster certs rotate
@@ -87,7 +101,15 @@ func execRotate(ctx context.Context, containerName, cmd string, kubeClient *kube
 		}
 
 		log.Infof("Resuming vCluster %s after it was paused", vCluster.Name)
-		return lifecycle.ResumeVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log)
+		if err := lifecycle.ResumeVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log); err != nil {
+			return fmt.Errorf("resuming virtual cluster %s: %w", vCluster.Name, err)
+		}
+
+		if restartETCD {
+			return lifecycle.DeletePods(ctx, kubeClient, "app=vcluster-etcd,release="+vCluster.Name, vCluster.Namespace)
+		}
+
+		return nil
 	}
 
 	if len(vCluster.Pods) == 0 {
@@ -109,10 +131,18 @@ func execRotate(ctx context.Context, containerName, cmd string, kubeClient *kube
 		Stderr:    os.Stdout,
 	})
 	if err != nil {
-		return fmt.Errorf("executing command in syncer pod")
+		return fmt.Errorf("executing command in syncer pod: %w", err)
 	}
 
-	return lifecycle.DeletePods(ctx, kubeClient, "app=vcluster,release="+vCluster.Name, vCluster.Namespace)
+	if err := lifecycle.DeletePods(ctx, kubeClient, "app=vcluster,release="+vCluster.Name, vCluster.Namespace); err != nil {
+		return fmt.Errorf("deleting pod of virtual cluster %s: %w", vCluster.Name, err)
+	}
+
+	if restartETCD {
+		return lifecycle.DeletePods(ctx, kubeClient, "app=vcluster-etcd,release="+vCluster.Name, vCluster.Namespace)
+	}
+
+	return nil
 }
 
 func usesPVC(vCluster *find.VCluster) (bool, error) {

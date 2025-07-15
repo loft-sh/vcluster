@@ -32,7 +32,7 @@ type Info struct {
 // Rotate rotates the certificates in the PKI directory.
 // If running non-standalone it also updates the cert secret to contain the newly created certificates.
 // Depending on the withCA argument this either means rotation the leaf certificates (withCA=false)
-// or the whole PKI infra (withCA=true). In both cases the current SA pub and private key are untouched.
+// or the whole PKI infra (withCA=true). In both cases the current SA pub and private keys are untouched.
 func Rotate(ctx context.Context,
 	vConfig *config.VirtualClusterConfig,
 	withCA bool,
