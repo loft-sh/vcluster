@@ -712,10 +712,6 @@ func (c *Config) IsConfiguredForSleepMode() bool {
 	return c.External["platform"]["autoSleep"] != nil || c.External["platform"]["autoDelete"] != nil
 }
 
-func (c *Config) StandaloneHAEnabled() bool {
-	return c.ControlPlane.Standalone.Enabled && c.BackingStoreType() == StoreTypeEmbeddedEtcd
-}
-
 // ValidateChanges checks for disallowed config changes.
 func ValidateChanges(oldCfg, newCfg *Config) error {
 	if err := ValidateDistroChanges(newCfg.Distro(), oldCfg.Distro()); err != nil {

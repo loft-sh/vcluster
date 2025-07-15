@@ -146,11 +146,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 				args = append(args, "--root-ca-file="+vConfig.VirtualClusterKubeConfig().ServerCACert)
 				args = append(args, "--service-account-private-key-file="+constants.SAKey)
 				args = append(args, "--use-service-account-credentials=true")
-				if vConfig.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 || vConfig.StandaloneHAEnabled() {
-					args = append(args, "--leader-elect=true")
-				} else {
-					args = append(args, "--leader-elect=false")
-				}
+				args = append(args, "--leader-elect=true")
 
 				if vConfig.PrivateNodes.Enabled {
 					args = append(args, "--controllers=*,bootstrapsigner,tokencleaner")
@@ -197,11 +193,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 				args = append(args, "--authorization-kubeconfig="+constants.SchedulerConf)
 				args = append(args, "--bind-address=127.0.0.1")
 				args = append(args, "--kubeconfig="+constants.SchedulerConf)
-				if vConfig.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 || vConfig.StandaloneHAEnabled() {
-					args = append(args, "--leader-elect=true")
-				} else {
-					args = append(args, "--leader-elect=false")
-				}
+				args = append(args, "--leader-elect=true")
 			}
 
 			// add extra args
