@@ -124,6 +124,7 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
     VCLUSTER_NAME=vcluster \
     VCLUSTER_NAMESPACE=vcluster \
     MULTINAMESPACE_MODE={{ multinamespace }} \
+    VCLUSTER_BACKGROUND_PROXY_IMAGE=vcluster:e2e-latest \
     KIND_NAME=vcluster \
     go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*' -ginkgo.fail-fast
 
