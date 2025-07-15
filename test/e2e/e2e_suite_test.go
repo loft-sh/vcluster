@@ -21,6 +21,7 @@ import (
 	_ "github.com/loft-sh/vcluster/test/e2e/node"
 	_ "github.com/loft-sh/vcluster/test/e2e/servicesync"
 	_ "github.com/loft-sh/vcluster/test/e2e/snapshot"
+	_ "github.com/loft-sh/vcluster/test/e2e/syncer/events"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/fromhost"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/networkpolicies"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pods"
