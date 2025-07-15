@@ -67,7 +67,7 @@ func (s *eventSyncer) forceTranslateEvent(pEvent, vEvent *corev1.Event) error {
 
 	tempEvent.DeepCopyInto(vEvent)
 	delete(vEvent.Annotations, constants.SyncResourceAnnotation)
-	vEvent.Namespace = "default"
+	vEvent.Namespace = resources.ForceSyncedEventNamespace
 	vEvent.InvolvedObject = corev1.ObjectReference{
 		Namespace: vEvent.Namespace,
 	}

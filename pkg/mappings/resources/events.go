@@ -17,6 +17,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const ForceSyncedEventNamespace = "default"
+
 var AcceptedKinds = map[schema.GroupVersionKind]bool{
 	corev1.SchemeGroupVersion.WithKind("Pod"):       true,
 	corev1.SchemeGroupVersion.WithKind("Service"):   true,
@@ -52,7 +54,7 @@ func (s *eventMapper) HostToVirtual(ctx *synccontext.SyncContext, req types.Name
 			klog.Infof("Error retrieving involved object for %s/%s: %v", req.Namespace, req.Name, err)
 		} else if pObj.GetAnnotations()[constants.SyncResourceAnnotation] == "true" {
 			return types.NamespacedName{
-				Namespace: "default",
+				Namespace: ForceSyncedEventNamespace,
 				Name:      pObj.GetName(),
 			}
 		}
