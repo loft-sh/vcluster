@@ -31,6 +31,7 @@ build-snapshot:
 
 # Create a local kind cluster
 create-kind:
+  kind delete cluster -n vcluster
   kind create cluster -n vcluster
 
 # Delete the local kind cluster
