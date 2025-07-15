@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/blang/semver"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/certs"
@@ -25,7 +26,14 @@ func Check(ctx context.Context, vClusterName string, globalFlags *flags.GlobalFl
 		return err
 	}
 
-	// TODO(johannesfrey): Add min version check
+	// check if check command is supported
+	version, err := semver.Parse(strings.TrimPrefix(vCluster.Version, "v"))
+	if err == nil {
+		// only check if version matches if vCluster actually has a parsable version
+		if version.LT(semver.MustParse(minVersion)) {
+			return fmt.Errorf("cert check is not supported in vCluster version %s", vCluster.Version)
+		}
+	}
 
 	var targetPod *corev1.Pod
 	for _, pod := range vCluster.Pods {

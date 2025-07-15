@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/blang/semver"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -23,6 +25,8 @@ const (
 	RotationCmdCACerts RotationCmd = "rotate-ca"
 )
 
+const minVersion = "0.27.0-alpha.0"
+
 // Rotate triggers the rotate commands in the backend.
 // Depending on if the virtual cluster has persistence it either:
 // - Pauses the current virtual cluster, spawns an extra pod, executes the rotation and resumes the virtual cluster.
@@ -33,7 +37,14 @@ func Rotate(ctx context.Context, vClusterName string, rotationCmd RotationCmd, g
 		return fmt.Errorf("finding virtual cluster: %w", err)
 	}
 
-	// TODO(johannesfrey): Add min version check
+	// check if rotate is supported
+	version, err := semver.Parse(strings.TrimPrefix(vCluster.Version, "v"))
+	if err == nil {
+		// only check if version matches if vCluster actually has a parsable version
+		if version.LT(semver.MustParse(minVersion)) {
+			return fmt.Errorf("cert rotation is not supported in vCluster version %s", vCluster.Version)
+		}
+	}
 
 	kubeConfig, err := vCluster.ClientFactory.ClientConfig()
 	if err != nil {
