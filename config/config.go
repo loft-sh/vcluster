@@ -1315,7 +1315,7 @@ type SyncRewriteHosts struct {
 
 type SyncRewriteHostsInitContainer struct {
 	// Image is the image virtual cluster should use to rewrite this FQDN.
-	Image string `json:"image,omitempty"`
+	Image Image `json:"image,omitempty"`
 
 	// Resources are the resources that should be assigned to the init container for each stateful set init container.
 	Resources Resources `json:"resources,omitempty"`
@@ -1722,15 +1722,18 @@ type StatefulSetImage struct {
 }
 
 type Image struct {
-	// Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
-	// overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+	// Registry is the registry of the container image reference, e.g. ghcr.io.
 	Registry string `json:"registry,omitempty"`
 
-	// Repository is the repository of the container image, e.g. my-repo/my-image
+	// Repository is the repository of the container image reference, e.g. my-repo/my-image.
 	Repository string `json:"repository,omitempty"`
 
-	// Tag is the tag of the container image, and is the default version.
+	// Tag is the tag of the container image reference, and is the default version.
 	Tag string `json:"tag,omitempty"`
+}
+
+func (i Image) String() string {
+	return fmt.Sprintf("%s/%s:%s", strings.TrimSuffix(i.Registry, "/"), i.Repository, i.Tag)
 }
 
 type ImagePullSecretName struct {

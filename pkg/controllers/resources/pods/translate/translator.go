@@ -1,6 +1,7 @@
 package translate
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -92,6 +93,13 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
 	}
 
+	overrideHostsImage := ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image
+	overrideHostsImage.Registry = cmp.Or(
+		overrideHostsImage.Registry,
+		ctx.Config.ControlPlane.Advanced.DefaultImageRegistry,
+		"docker.io",
+	)
+
 	return &translator{
 		vClientConfig: ctx.VirtualManager.GetConfig(),
 		vClient:       ctx.VirtualManager.GetClient(),
@@ -101,14 +109,12 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		eventRecorder:   eventRecorder,
 		log:             loghelper.New("pods-syncer-translator"),
 
-		defaultImageRegistry: ctx.Config.ControlPlane.Advanced.DefaultImageRegistry,
-
 		serviceAccountSecretsEnabled: ctx.Config.Sync.ToHost.Pods.UseSecretsForSATokens,
 		clusterDomain:                ctx.Config.Networking.Advanced.ClusterDomain,
 		serviceAccount:               ctx.Config.ControlPlane.Advanced.WorkloadServiceAccount.Name,
 
 		overrideHosts:          ctx.Config.Sync.ToHost.Pods.RewriteHosts.Enabled,
-		overrideHostsImage:     ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image,
+		overrideHostsImage:     overrideHostsImage.String(),
 		overrideHostsResources: resourceRequirements,
 
 		serviceAccountsEnabled:         ctx.Config.Sync.ToHost.ServiceAccounts.Enabled,
@@ -132,8 +138,6 @@ type translator struct {
 	imageTranslator ImageTranslator
 	eventRecorder   record.EventRecorder
 	log             loghelper.Logger
-
-	defaultImageRegistry string
 
 	// this is needed for host path mapper (legacy)
 	mountPhysicalHostPaths bool
