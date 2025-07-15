@@ -17,6 +17,8 @@
 
 /docs/ @loft-sh/Eng-Docs-Admin
 
+/tests/e2e/ @loft-sh/eng-qa @loft-sh/eng-dev-vcluster-platform
+
 /hack/email/ @zerbitx
 
 /pkg/authentication/ @FabianKramm
