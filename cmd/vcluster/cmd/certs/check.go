@@ -80,7 +80,7 @@ func (cmd *checkCmd) Run() error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("walking PKI dir: %w", err)
+		return fmt.Errorf("finding certificate information: %w", err)
 	}
 
 	if err := json.NewEncoder(os.Stdout).Encode(certificateInfos); err != nil {

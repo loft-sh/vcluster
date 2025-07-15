@@ -13,9 +13,12 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/pro"
+	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Info struct {
@@ -30,11 +33,20 @@ type Info struct {
 // If running non-standalone it also updates the cert secret to contain the newly created certificates.
 // Depending on the withCA argument this either means rotation the leaf certificates (withCA=false)
 // or the whole PKI infra (withCA=true). In both cases the current SA pub and private key are untouched.
-// IMPORTANT NOTE: The function expects the clients in vConfig to be populated.
 func Rotate(ctx context.Context,
 	vConfig *config.VirtualClusterConfig,
 	withCA bool,
 	log log.Logger) error {
+	var err error
+	vConfig.ControlPlaneConfig, vConfig.ControlPlaneNamespace, vConfig.ControlPlaneService, vConfig.WorkloadConfig, vConfig.WorkloadNamespace, vConfig.WorkloadService, err = pro.GetRemoteClient(vConfig)
+	if err != nil {
+		return fmt.Errorf("getting remote client: %w", err)
+	}
+
+	if err := setupconfig.InitClients(vConfig); err != nil {
+		return fmt.Errorf("initializing clients: %w", err)
+	}
+
 	serviceCIDR, err := servicecidr.GetServiceCIDR(ctx, &vConfig.Config, vConfig.WorkloadClient, vConfig.WorkloadService, vConfig.WorkloadNamespace)
 	if err != nil {
 		return fmt.Errorf("getting service cidr: %w", err)
@@ -87,8 +99,8 @@ func Rotate(ctx context.Context,
 		return nil
 	}
 
-	// Update the secret so in case of a restart without persistence we don't loose data.
-	return updateSecret(ctx, vConfig.ControlPlaneNamespace, CertSecretName(vConfig.Name), constants.PKIDir, vConfig.ControlPlaneClient)
+	// Patch the secret so in case of a restart without persistence we don't loose data.
+	return patchSecret(ctx, vConfig.ControlPlaneNamespace, CertSecretName(vConfig.Name), constants.PKIDir, vConfig.ControlPlaneClient)
 }
 
 func backupDirectory(src, dst string) error {
@@ -193,7 +205,7 @@ func excludeSAFiles(name string) bool {
 	return false
 }
 
-func updateSecret(ctx context.Context, secretNamespace, secretName, pkiPath string, client kubernetes.Interface) error {
+func patchSecret(ctx context.Context, secretNamespace, secretName, pkiPath string, client kubernetes.Interface) error {
 	secret, err := client.CoreV1().Secrets(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("getting cert secret %s: %w", secretName, err)
@@ -208,11 +220,18 @@ func updateSecret(ctx context.Context, secretNamespace, secretName, pkiPath stri
 
 		data[v] = d
 	}
-	secret.Data = data
 
-	_, err = client.CoreV1().Secrets(secretNamespace).Update(ctx, secret, metav1.UpdateOptions{})
+	oldSecret := secret.DeepCopy()
+	secret.Data = data
+	patch := crclient.MergeFrom(oldSecret)
+	patchBytes, err := patch.Data(secret)
 	if err != nil {
-		return fmt.Errorf("updating cert secret %s: %w", secretName, err)
+		return fmt.Errorf("creating patch for secret %s: %w", secretName, err)
+	}
+
+	_, err = client.CoreV1().Secrets(secretNamespace).Patch(ctx, secretName, patch.Type(), patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("patching cert secret %s: %w", secretName, err)
 	}
 
 	return nil

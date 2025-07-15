@@ -9,8 +9,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/pro"
-	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/spf13/cobra"
 )
 
@@ -54,15 +52,6 @@ func (cmd *rotateCmd) Run(ctx context.Context, withCA bool) error {
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
 		return fmt.Errorf("parsing vCluster config: %w", err)
-	}
-
-	vConfig.ControlPlaneConfig, vConfig.ControlPlaneNamespace, vConfig.ControlPlaneService, vConfig.WorkloadConfig, vConfig.WorkloadNamespace, vConfig.WorkloadService, err = pro.GetRemoteClient(vConfig)
-	if err != nil {
-		return fmt.Errorf("getting remote client: %w", err)
-	}
-
-	if err := setup.InitClients(vConfig); err != nil {
-		return fmt.Errorf("initializing clients: %w", err)
 	}
 
 	return certs.Rotate(ctx, vConfig, withCA, cmd.log)

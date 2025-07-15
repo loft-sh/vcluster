@@ -111,7 +111,7 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 			caFingerprintBefore = fingerprintAfter
 		})
 
-		ginkgo.It("should check that the certificate fingerprint is different and that it expires later", func() {
+		ginkgo.It("should check that the apiservcer certificate fingerprint is different and that it expires later", func() {
 			apiserverCertAfter, err := parseCertFromPEM(secret.Data[certs.APIServerCertName])
 			framework.ExpectNoError(err)
 
@@ -170,7 +170,7 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 			framework.ExpectNoError(err)
 		})
 
-		ginkgo.It("should check that the certificate fingerprints are different and that they expire later", func() {
+		ginkgo.It("should check that the CA and apiserver certificate fingerprints are different and that they expire later", func() {
 			apiserverCertAfter, err := parseCertFromPEM(secret.Data[certs.APIServerCertName])
 			framework.ExpectNoError(err)
 			caCertAfter, err := parseCertFromPEM(secret.Data[certs.CACertName])

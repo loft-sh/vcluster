@@ -19,7 +19,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/k8s"
 	"github.com/loft-sh/vcluster/pkg/pro"
-	"github.com/loft-sh/vcluster/pkg/setup"
+	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/spf13/cobra"
@@ -339,7 +339,7 @@ func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterCon
 	if err != nil {
 		return "", err
 	}
-	err = setup.InitClients(vConfig)
+	err = setupconfig.InitClients(vConfig)
 	if err != nil {
 		return "", err
 	}

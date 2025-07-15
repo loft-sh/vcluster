@@ -49,7 +49,7 @@ func WaitForReadyPod(ctx context.Context, kubeClient kubernetes.Interface, names
 
 				out, err := kubeClient.CoreV1().Pods(namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
 					Container: container,
-				}).Do(context.Background()).Raw()
+				}).Do(ctx).Raw()
 				if err != nil {
 					return false, fmt.Errorf("there seems to be an issue with pod %s/%s starting up: %s (%s)", namespace, name, message, reason)
 				}
@@ -92,16 +92,18 @@ func WaitForCompletedPod(ctx context.Context, kubeClient *kubernetes.Clientset, 
 			if containerStatus.Name != container {
 				continue
 			}
-
 			if containerStatus.State.Running != nil {
 				return false, nil
-			} else if containerStatus.State.Terminated != nil {
+			}
+			if containerStatus.State.Terminated != nil {
 				exitCode = containerStatus.State.Terminated.ExitCode
 				return true, nil
-			} else if containerStatus.State.Waiting != nil {
+			}
+			if containerStatus.State.Waiting != nil {
 				if containerStatus.State.Waiting.Message != "" {
 					return false, fmt.Errorf("error: %s container is waiting: %s (%s)", container, containerStatus.State.Waiting.Message, containerStatus.State.Waiting.Reason)
-				} else if containerStatus.State.Waiting.Reason != "" {
+				}
+				if containerStatus.State.Waiting.Reason != "" {
 					return false, fmt.Errorf("error: %s container is waiting: %s", container, containerStatus.State.Waiting.Reason)
 				}
 

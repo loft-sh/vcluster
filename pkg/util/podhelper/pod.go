@@ -167,7 +167,7 @@ func CreateSyncerPod(
 			GenerateName: fmt.Sprintf("vcluster-%s-", containerName),
 			Namespace:    vCluster.Namespace,
 			Labels: map[string]string{
-				"app": fmt.Sprintf("vcluster-%ss", containerName),
+				"app": fmt.Sprintf("vcluster-%s", containerName),
 			},
 		},
 		Spec: corev1.PodSpec{
