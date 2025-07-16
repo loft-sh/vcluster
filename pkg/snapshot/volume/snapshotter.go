@@ -1,0 +1,30 @@
+package volume
+
+import (
+	"context"
+	"errors"
+	corev1 "k8s.io/api/core/v1"
+)
+
+var (
+	// ErrPersistentVolumeNotSupported is an error that indicates that the snapshotter does not support
+	// creating snapshots for the specified PersistentVolume.
+	ErrPersistentVolumeNotSupported = errors.New("PersistentVolume is not supported by the snapshotter")
+)
+
+// Snapshotter creates and restores persistent volume snapshots.
+type Snapshotter interface {
+	// CheckIfPersistentVolumeIsSupported checks if the snapshotter can create a volume snapshot of
+	// the specified persistent volume.
+	//
+	//   - If it can create snapshots for the specified persistent volume, then this function returns
+	//     nil.
+	//
+	//   - If the persistent volume is not supported by definition (e.g. CSI snapshotter cannot create
+	//   snapshots for volumes that are not handled by CSI drivers), the function returns
+	//   ErrPersistentVolumeNotSupported (or an error that wraps ErrPersistentVolumeNotSupported).
+	CheckIfPersistentVolumeIsSupported(pv *corev1.PersistentVolume) error
+
+	// CreateSnapshots creates volume snapshots of the specified persistent volumes.
+	CreateSnapshots(ctx context.Context, persistentVolumes []corev1.PersistentVolume) error
+}
