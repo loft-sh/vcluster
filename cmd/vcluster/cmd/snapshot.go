@@ -7,16 +7,17 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume/auto"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume/csi"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume/filesystem"
 	"io"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/utils/ptr"
 	"os"
 	"path/filepath"
 	"time"
 
+	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
+	"github.com/loft-sh/log"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -30,21 +31,20 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/grpclog"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-
-	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
-	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 )
 
 type SnapshotOptions struct {
 	Snapshot snapshot.Options
 
-	vConfig        *config.VirtualClusterConfig
-	logger         log.Logger
-	kubeClient     *kubernetes.Clientset
-	snapshotClient *snapshotv1.Clientset
+	vConfig           *config.VirtualClusterConfig
+	logger            log.Logger
+	kubeClient        *kubernetes.Clientset
+	volumeSnapshotter volume.Snapshotter
 
 	// volumeSnapshotClasses maps CSI driver names to names of VolumeSnapshotClass resources that are used for creating
 	// volume snapshots.
@@ -73,16 +73,18 @@ func NewSnapshotCommand() *cobra.Command {
 }
 
 func (o *SnapshotOptions) Run(ctx context.Context) error {
-	err := o.init()
+	err := o.init(ctx)
 	if err != nil {
 		return fmt.Errorf("init snapshot command failed: %w", err)
 	}
 
 	// create volume snapshots
+	o.logger.Info("Starting creating volume snapshots...\n")
 	err = o.createVolumeSnapshots(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create volume snapshots: %w", err)
 	}
+	o.logger.Info("Finished creating volume snapshots...\n")
 
 	// create new etcd client
 	etcdClient, err := newEtcdClient(ctx, o.vConfig, false)
@@ -187,205 +189,9 @@ func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Cli
 	}
 }
 
-func (o *SnapshotOptions) mapCSIDriversToVolumeSnapshotClasses(ctx context.Context) (map[string]string, error) {
-	m := map[string]string{}
-
-	volumeSnapshotClasses, err := o.snapshotClient.SnapshotV1().VolumeSnapshotClasses().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list volume snapshot classes: %w", err)
-	}
-	for _, volumeSnapshotClass := range volumeSnapshotClasses.Items {
-		if volumeSnapshotClass.DeletionPolicy == snapshotv1api.VolumeSnapshotContentRetain {
-			m[volumeSnapshotClass.Driver] = volumeSnapshotClass.Name
-			o.logger.Debugf("Found VolumeSnapshotClass %q (with 'Retain' deletion policy) for CSI driver %q", volumeSnapshotClass.Name, volumeSnapshotClass.Driver)
-		}
-	}
-
-	return m, nil
-}
-
-func (o *SnapshotOptions) createVolumeSnapshots(ctx context.Context) error {
-	csiDriverToVolumeSnapshotClass, err := o.mapCSIDriversToVolumeSnapshotClasses(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to map CSI drivers to volume snapshot classes: %w", err)
-	}
-
-	// get all PVCs
-	pvs, err := o.kubeClient.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("could not list PersistentVolumes: %w", err)
-	}
-
-	// create dynamic volume snapshots for all PVCs
-	for _, pv := range pvs.Items {
-		o.logger.Debugf("Trying to snapshot PersistentVolume %s", pv.Name)
-
-		if !persistentVolumeHasClaim(&pv) {
-			o.logger.Debugf("Skipping PersistentVolume %s because it does not have assiciated PersistentVolumeClaim", pv.Name)
-			continue
-		}
-		if !persistentVolumeManagedByCSIDriver(&pv) {
-			o.logger.Debugf("Skipping PersistentVolume %s because it is not managed by a CSI driver", pv.Name)
-			continue
-		}
-		volumeSnapshotClass, ok := csiDriverToVolumeSnapshotClass[pv.Spec.CSI.Driver]
-		if !ok {
-			o.logger.Debugf("Skipping PersistentVolume %s because VolumeSnapshotClass with deletion policy retain has not been found for the CSI driver %s", pv.Name, pv.Spec.CSI.Driver)
-			continue
-		}
-
-		pvcName := pv.Spec.ClaimRef.Name
-		pvcNamespace := pv.Spec.ClaimRef.Namespace
-
-		volumeSnapshot := &snapshotv1api.VolumeSnapshot{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: fmt.Sprintf("%s-", pvcName),
-				Namespace:    pvcNamespace,
-				Labels: map[string]string{
-					"vcluster.loft.sh/snapshot": "",
-				},
-			},
-			Spec: snapshotv1api.VolumeSnapshotSpec{
-				Source: snapshotv1api.VolumeSnapshotSource{
-					PersistentVolumeClaimName: &pvcName,
-				},
-				VolumeSnapshotClassName: ptr.To(volumeSnapshotClass),
-			},
-		}
-		o.logger.Infof("Create volume snapshot for PVC %s", pvcName)
-		volumeSnapshot, err = o.snapshotClient.SnapshotV1().VolumeSnapshots(pvcNamespace).Create(ctx, volumeSnapshot, metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("could not create volume snapshot for PVC %s: %w", pvcName, err)
-		}
-		o.logger.Infof("Created volume snapshot '%s' for PVC %s", volumeSnapshot.Name, pvcName)
-		o.logger.Infof("Waiting for volume snapshot '%s' to be ready for use...", volumeSnapshot.Name)
-
-		// wait for the volume snapshot to be ready
-		err = wait.PollUntilContextTimeout(ctx, time.Second*5, time.Minute, true, func(ctx context.Context) (bool, error) {
-			volumeSnapshot, err := o.snapshotClient.SnapshotV1().VolumeSnapshots(volumeSnapshot.Namespace).Get(ctx, volumeSnapshot.Name, metav1.GetOptions{})
-			if err != nil {
-				return false, fmt.Errorf("could not get volume snapshot for PVC %s: %w", volumeSnapshot.Name, err)
-			}
-
-			if volumeSnapshot.Status == nil {
-				return false, nil
-			}
-
-			if volumeSnapshot.Status.ReadyToUse != nil && *volumeSnapshot.Status.ReadyToUse {
-				o.logger.Infof("Volume snapshot '%s' ready for use!", volumeSnapshot.Name)
-				return true, nil
-			}
-
-			if volumeSnapshot.Status.Error != nil {
-				var errorMessage string
-				if volumeSnapshot.Status.Error.Message != nil {
-					errorMessage = *volumeSnapshot.Status.Error.Message
-				}
-				return false, fmt.Errorf("VolumeSnapshot %s failed: %s", volumeSnapshot.Name, errorMessage)
-			}
-
-			// not ready, no error
-			return false, nil
-		})
-
-		if err != nil {
-			fmt.Printf("Failed to create VolumeSnapshot '%s' for PVC '%s': %v", volumeSnapshot.Name, pvcName, err)
-		}
-	}
-
-	// now we take all the dynamic snapshots and transform them into pre-provisioned snapshots
-	listOptions := metav1.ListOptions{
-		LabelSelector: "vcluster.loft.sh/snapshot",
-	}
-	dynamicVolumeSnapshots, err := o.snapshotClient.SnapshotV1().VolumeSnapshots("").List(ctx, listOptions)
-	if err != nil {
-		return fmt.Errorf("could not list dynamic VolumeSnapshots: %w", err)
-	}
-	// create pre-provisioned volume snapshots
-	for _, dynamicVolumeSnapshot := range dynamicVolumeSnapshots.Items {
-		if dynamicVolumeSnapshot.Spec.Source.PersistentVolumeClaimName == nil {
-			return fmt.Errorf("dynamic VolumeSnapshot '%s' does not have a PersistentVolumeClaim as a source", dynamicVolumeSnapshot.Name)
-		}
-		if dynamicVolumeSnapshot.Status == nil {
-			// this should never happen, because the ready-to-use check has been already done above
-			return fmt.Errorf("dynamic VolumeSnapshot '%s' does not have Status yet", dynamicVolumeSnapshot.Name)
-		}
-		if dynamicVolumeSnapshot.Status.ReadyToUse == nil || !*dynamicVolumeSnapshot.Status.ReadyToUse {
-			// this should never happen, because the ready-to-use check has been already done above
-			return fmt.Errorf("dynamic VolumeSnapshot %s is not ready to be used", dynamicVolumeSnapshot.Name)
-		}
-		boundVolumeSnapshotContentName := dynamicVolumeSnapshot.Status.BoundVolumeSnapshotContentName
-		if boundVolumeSnapshotContentName == nil || *boundVolumeSnapshotContentName == "" {
-			return fmt.Errorf("dynamic VolumeSnapshot does not have bound VolumeSnapshotContent name set")
-		}
-
-		// get VolumeSnapshotContent
-		dynamicVolumeSnapshotContent, err := o.snapshotClient.SnapshotV1().VolumeSnapshotContents().Get(ctx, *boundVolumeSnapshotContentName, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("could not get bound VolumeSnapshotContent '%s' for dynamic VolumeSnapshot '%s': %w", *boundVolumeSnapshotContentName, dynamicVolumeSnapshot.Name, err)
-		}
-
-		if dynamicVolumeSnapshotContent.Status.SnapshotHandle == nil {
-			return fmt.Errorf("dynamic VolumeSnapshotContent '%s' does not have a status.snapshotHandle set", dynamicVolumeSnapshotContent.Name)
-		}
-
-		pvcName := *dynamicVolumeSnapshot.Spec.Source.PersistentVolumeClaimName
-		preProvisionedVolumeSnapshotContentName := fmt.Sprintf("%s-snap-content", pvcName)
-		preProvisionedVolumeSnapshotName := fmt.Sprintf("%s-snap", pvcName)
-
-		preProvisionedVolumeSnapshotContent := &snapshotv1api.VolumeSnapshotContent{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      preProvisionedVolumeSnapshotContentName,
-				Namespace: dynamicVolumeSnapshot.Namespace,
-			},
-			Spec: snapshotv1api.VolumeSnapshotContentSpec{
-				DeletionPolicy: snapshotv1api.VolumeSnapshotContentRetain,
-				Driver:         dynamicVolumeSnapshotContent.Spec.Driver,
-				Source: snapshotv1api.VolumeSnapshotContentSource{
-					SnapshotHandle: dynamicVolumeSnapshotContent.Status.SnapshotHandle,
-				},
-				VolumeSnapshotClassName: dynamicVolumeSnapshotContent.Spec.VolumeSnapshotClassName,
-				VolumeSnapshotRef: corev1.ObjectReference{
-					Name:      preProvisionedVolumeSnapshotName,
-					Namespace: dynamicVolumeSnapshot.Namespace,
-				},
-				// TODO: set SourceVolumeMode by reading it from the PersistentVolume
-			},
-		}
-		_, err = o.snapshotClient.SnapshotV1().VolumeSnapshotContents().Create(ctx, preProvisionedVolumeSnapshotContent, metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to create the pre-provisioned VolumeSnapshotContent '%s': %w", preProvisionedVolumeSnapshotContent.Name, err)
-		}
-
-		preProvisionedVolumeSnapshot := snapshotv1api.VolumeSnapshot{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      preProvisionedVolumeSnapshotName,
-				Namespace: dynamicVolumeSnapshot.Namespace,
-			},
-			Spec: snapshotv1api.VolumeSnapshotSpec{
-				Source: snapshotv1api.VolumeSnapshotSource{
-					VolumeSnapshotContentName: &preProvisionedVolumeSnapshotContentName,
-				},
-				VolumeSnapshotClassName: dynamicVolumeSnapshot.Spec.VolumeSnapshotClassName,
-			},
-		}
-		_, err = o.snapshotClient.SnapshotV1().VolumeSnapshots(dynamicVolumeSnapshot.Namespace).Create(ctx, &preProvisionedVolumeSnapshot, metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to create the pre-provisioned VolumeSnapshot '%s/%s': %w", preProvisionedVolumeSnapshot.Namespace, preProvisionedVolumeSnapshot.Name, err)
-		}
-
-		// finally, delete the initially created dynamic VolumeSnapshot
-		err = o.snapshotClient.SnapshotV1().VolumeSnapshots(dynamicVolumeSnapshot.Namespace).Delete(ctx, dynamicVolumeSnapshot.Name, metav1.DeleteOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to delete the dynamic VolumeSnapshot '%s': %w", dynamicVolumeSnapshot.Name, err)
-		}
-	}
-
-	return nil
-}
-
-func (o *SnapshotOptions) init() error {
+func (o *SnapshotOptions) init(ctx context.Context) error {
 	o.logger = log.GetInstance()
+	o.logger.Infof("Init snapshot command....")
 
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
@@ -410,9 +216,30 @@ func (o *SnapshotOptions) init() error {
 		return fmt.Errorf("snapshot client is nil")
 	}
 
+	volumeSnapshotter, err := createVolumeSnapshotter(ctx, vConfig, snapshotClient, o.logger)
+	if err != nil {
+		return fmt.Errorf("could not create volume snapshotter: %w", err)
+	}
+
 	o.vConfig = vConfig
 	o.kubeClient = kubeClient
-	o.snapshotClient = snapshotClient
+	o.volumeSnapshotter = volumeSnapshotter
+	return nil
+}
+
+func (o *SnapshotOptions) createVolumeSnapshots(ctx context.Context) error {
+	// get all PVs
+	pvs, err := o.kubeClient.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("could not list PersistentVolumes: %w", err)
+	}
+
+	// Try creating snapshots for all PVs
+	err = o.volumeSnapshotter.CreateSnapshots(ctx, pvs.Items)
+	if err != nil {
+		return fmt.Errorf("could not create volume snapshots: %w", err)
+	}
+
 	return nil
 }
 
@@ -457,6 +284,22 @@ func createVirtualKubeClients(config *config.VirtualClusterConfig) (*kubernetes.
 	}
 
 	return kubeClient, snapshotClient, nil
+}
+
+func createVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterConfig, snapshotsClient *snapshotv1.Clientset, logger log.Logger) (volume.Snapshotter, error) {
+	csiVolumeSnapshotter, err := csi.NewVolumeSnapshotter(ctx, vConfig, snapshotsClient, logger)
+	if err != nil {
+		return nil, fmt.Errorf("could not create CSI volume snapshotter: %w", err)
+	}
+	filesystemSnapshotter, err := filesystem.NewVolumeSnapshotter(vConfig, logger)
+	if err != nil {
+		return nil, fmt.Errorf("could not create filesystem snapshotter: %w", err)
+	}
+	autoSnapshotter, err := auto.NewVolumeSnapshotter(logger, csiVolumeSnapshotter, filesystemSnapshotter)
+	if err != nil {
+		return nil, fmt.Errorf("could not create auto snapshotter: %w", err)
+	}
+	return autoSnapshotter, nil
 }
 
 func validateOptions(vConfig *config.VirtualClusterConfig, options *snapshot.Options, isRestore bool) error {

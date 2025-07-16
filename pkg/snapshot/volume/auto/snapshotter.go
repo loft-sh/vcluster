@@ -16,7 +16,7 @@ type VolumeSnapshotter struct {
 	snapshotters []volume.Snapshotter
 }
 
-func NewVolumeSnapshotter(snapshotters []volume.Snapshotter, logger log.Logger) (*VolumeSnapshotter, error) {
+func NewVolumeSnapshotter(logger log.Logger, snapshotters ...volume.Snapshotter) (*VolumeSnapshotter, error) {
 	if len(snapshotters) == 0 {
 		return nil, errors.New("at least one volume snapshotter must be set")
 	}
