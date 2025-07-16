@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sync"
 	"time"
 
@@ -14,13 +12,15 @@ import (
 	"github.com/loft-sh/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volume"
 )
 
-// VolumeSnapshotter is a volume.Snapshotter interface implementation that
+// VolumeSnapshotter is a volume.Snapshotter interface implementation that creates CSI volume snapshots.
 type VolumeSnapshotter struct {
 	vConfig         *config.VirtualClusterConfig
 	snapshotsClient *snapshotsv1.Clientset
@@ -88,7 +88,14 @@ func (s *VolumeSnapshotter) CheckIfPersistentVolumeIsSupported(pv *corev1.Persis
 }
 
 // CreateSnapshots creates CSI volume snapshots of the specified persistent volumes.
+//
+// All the snapshots will be created in parallel, where every snapshot is created in a separate
+// goroutine. This means that the total time to create all the snapshots should converge to the
+// time needed to create the slowest (and probably the largest) snapshot.
 func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolumes []corev1.PersistentVolume) error {
+	s.logger.Info("Start creating CSI VolumeSnapshots...")
+	defer s.logger.Info("Finished creating CSI VolumeSnapshots.")
+
 	var wg sync.WaitGroup
 	maxSnapshots := len(persistentVolumes)
 	errCh := make(chan error, maxSnapshots)
@@ -123,6 +130,8 @@ func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolum
 }
 
 func (s *VolumeSnapshotter) createVolumeSnapshot(ctx context.Context, pv *corev1.PersistentVolume) error {
+	s.logger.Infof("Create volume snapshot for PersistentVolume %s", pv.Name)
+
 	volumeSnapshotClass, ok := s.volumeSnapshotClasses[pv.Spec.CSI.Driver]
 	if !ok {
 		return fmt.Errorf("cannot create snapshot for the PersistentVolume %s because required VolumeSnapshotClass has not been found for the CSI driver %s", pv.Name, pv.Spec.CSI.Driver)
@@ -163,10 +172,13 @@ func (s *VolumeSnapshotter) createVolumeSnapshot(ctx context.Context, pv *corev1
 			err)
 	}
 
+	s.logger.Infof("Created volume snapshot for PersistentVolume %s", pv.Name)
 	return nil
 }
 
 func (s *VolumeSnapshotter) createDynamicVolumeSnapshot(ctx context.Context, pvc types.NamespacedName, volumeSnapshotClassName string) (*snapshotsv1api.VolumeSnapshot, *snapshotsv1api.VolumeSnapshotContent, error) {
+	s.logger.Debugf("Create dynamic VolumeSnapshot for PersistentVolumeClaim %s", pvc)
+
 	volumeSnapshot := &snapshotsv1api.VolumeSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-", pvc.Name),
@@ -182,14 +194,13 @@ func (s *VolumeSnapshotter) createDynamicVolumeSnapshot(ctx context.Context, pvc
 			VolumeSnapshotClassName: ptr.To(volumeSnapshotClassName),
 		},
 	}
-	s.logger.Infof("Create VolumeSnapshot resource for PersistentVolumeClaim %s", pvc)
 	var err error
 	volumeSnapshot, err = s.snapshotsClient.SnapshotV1().VolumeSnapshots(pvc.Namespace).Create(ctx, volumeSnapshot, metav1.CreateOptions{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create VolumeSnapshot resource for the PersistentVolumeClaim %s: %w", pvc, err)
 	}
-	s.logger.Infof("Created VolumeSnapshot resource '%s' for the PersistentVolumeClaim %s", volumeSnapshot.Name, pvc)
-	s.logger.Infof("Waiting for VolumeSnapshot resource '%s' to be ready for use...", volumeSnapshot.Name)
+	s.logger.Debugf("Created VolumeSnapshot resource %s for the PersistentVolumeClaim %s", volumeSnapshot.Name, pvc)
+	s.logger.Debugf("Waiting for VolumeSnapshot resource %s to be ready for use...", volumeSnapshot.Name)
 
 	var dynamicVolumeSnapshotContent *snapshotsv1api.VolumeSnapshotContent
 
@@ -209,9 +220,7 @@ func (s *VolumeSnapshotter) createDynamicVolumeSnapshot(ctx context.Context, pvc
 		}
 
 		if volumeSnapshot.Status.ReadyToUse != nil && *volumeSnapshot.Status.ReadyToUse {
-			s.logger.Debugf("Volume snapshot '%s' is ready for use!", volumeSnapshot.Name)
 			// get VolumeSnapshotContent resource and check it as well
-
 			boundVolumeSnapshotContentName := volumeSnapshot.Status.BoundVolumeSnapshotContentName
 			if boundVolumeSnapshotContentName == nil || *boundVolumeSnapshotContentName == "" {
 				return false, fmt.Errorf("dynamic VolumeSnapshot %s does not have bound VolumeSnapshotContent name set", volumeSnapshotName)
@@ -222,13 +231,15 @@ func (s *VolumeSnapshotter) createDynamicVolumeSnapshot(ctx context.Context, pvc
 			if err != nil {
 				return false, fmt.Errorf("could not get bound VolumeSnapshotContent '%s' for dynamic VolumeSnapshot '%s': %w", *boundVolumeSnapshotContentName, volumeSnapshotName, err)
 			}
-
+			if dynamicVolumeSnapshotContent.Status.ReadyToUse == nil || !*dynamicVolumeSnapshotContent.Status.ReadyToUse {
+				return false, nil
+			}
 			if dynamicVolumeSnapshotContent.Status.SnapshotHandle == nil {
 				return false, fmt.Errorf("dynamic VolumeSnapshotContent '%s' does not have status.snapshotHandle set", dynamicVolumeSnapshotContent.Name)
 			}
 
 			// VolumeSnapshot is created and ready to use!
-			// VolumeSnapshotContent is created and has a snapshot handle set!
+			// VolumeSnapshotContent is created, ready to use and has a snapshot handle set!
 			return true, nil
 		}
 
@@ -248,6 +259,8 @@ func (s *VolumeSnapshotter) createDynamicVolumeSnapshot(ctx context.Context, pvc
 		return nil, nil, fmt.Errorf("failed to create the dynamic VolumeSnapshot '%s' for the PersistentVolumeClaim %s: %w", volumeSnapshot.Name, pvc, err)
 	}
 
+	s.logger.Debugf("Dynamic VolumeSnapshot %s is ready for use!", volumeSnapshot.Name)
+	s.logger.Debugf("Dynamic VolumeSnapshotContent %s with snapshot handle '%s' is ready for use!", dynamicVolumeSnapshotContent, *dynamicVolumeSnapshotContent.Status.SnapshotHandle)
 	return volumeSnapshot, dynamicVolumeSnapshotContent, nil
 }
 
@@ -256,6 +269,7 @@ func (s *VolumeSnapshotter) transformDynamicVolumeSnapshotToPreprovisioned(ctx c
 		Namespace: dynamicVolumeSnapshot.Namespace,
 		Name:      dynamicVolumeSnapshot.Name,
 	}
+	s.logger.Debugf("Transform dynamic VolumeSnapshot %s into a pre-provisioned snapshot", dynamicVolumeSnapshotNamespacedName)
 
 	// Ensure that the dynamic VolumeSnapshot is ready to use.
 	// These checks are a safety net, but should never fail, because createDynamicVolumeSnapshot
@@ -317,11 +331,14 @@ func (s *VolumeSnapshotter) transformDynamicVolumeSnapshotToPreprovisioned(ctx c
 			// TODO: set SourceVolumeMode by reading it from the PersistentVolume
 		},
 	}
+	s.logger.Debugf("Create pre-provisioned VolumeSnapshotContent %s", preProvisionedVolumeSnapshotContentName)
 	_, err = s.snapshotsClient.SnapshotV1().VolumeSnapshotContents().Create(ctx, preProvisionedVolumeSnapshotContent, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create the pre-provisioned VolumeSnapshotContent '%s': %w", preProvisionedVolumeSnapshotContent.Name, err)
 	}
+	s.logger.Debugf("Created pre-provisioned VolumeSnapshotContent %s", preProvisionedVolumeSnapshotContentName)
 
+	s.logger.Debugf("Create pre-provisioned VolumeSnapshot %s/%s", dynamicVolumeSnapshot.Namespace, preProvisionedVolumeSnapshotName)
 	preProvisionedVolumeSnapshot := snapshotsv1api.VolumeSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      preProvisionedVolumeSnapshotName,
@@ -347,19 +364,32 @@ func (s *VolumeSnapshotter) transformDynamicVolumeSnapshotToPreprovisioned(ctx c
 	if err != nil {
 		return fmt.Errorf("failed to create the pre-provisioned VolumeSnapshot '%s/%s': %w", preProvisionedVolumeSnapshot.Namespace, preProvisionedVolumeSnapshot.Name, err)
 	}
-
+	s.logger.Debugf(
+		"Created pre-provisioned VolumeSnapshot %s/%s",
+		dynamicVolumeSnapshot.Namespace,
+		preProvisionedVolumeSnapshotName)
+	s.logger.Debugf(
+		"Transformed dynamic VolumeSnapshot %s into a pre-provisioned snapshot %s/%s",
+		dynamicVolumeSnapshotNamespacedName,
+		dynamicVolumeSnapshot.Namespace,
+		preProvisionedVolumeSnapshotName)
 	return nil
 }
 
 func (s *VolumeSnapshotter) deleteDynamicVolumeSnapshot(ctx context.Context, dynamicVolumeSnapshot *snapshotsv1api.VolumeSnapshot, dynamicVolumeSnapshotContent *snapshotsv1api.VolumeSnapshotContent) error {
+	s.logger.Debugf("Delete dynamic VolumeSnapshot %s/%s", dynamicVolumeSnapshot.Namespace, dynamicVolumeSnapshot.Name)
 	err := s.snapshotsClient.SnapshotV1().VolumeSnapshots(dynamicVolumeSnapshot.Namespace).Delete(ctx, dynamicVolumeSnapshot.Name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete the dynamic VolumeSnapshot '%s': %w", dynamicVolumeSnapshot.Name, err)
 	}
+	s.logger.Debugf("Deleted dynamic VolumeSnapshot %s/%s", dynamicVolumeSnapshot.Namespace, dynamicVolumeSnapshot.Name)
+
+	s.logger.Debugf("Delete dynamic VolumeSnapshotContent %s", dynamicVolumeSnapshotContent.Name)
 	err = s.snapshotsClient.SnapshotV1().VolumeSnapshotContents().Delete(ctx, dynamicVolumeSnapshotContent.Name, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to delete the dynamic VolumeSnapshotContents '%s': %w", dynamicVolumeSnapshotContent.Name, err)
 	}
+	s.logger.Debugf("Deleted dynamic VolumeSnapshotContent %s", dynamicVolumeSnapshotContent.Name)
 
 	return nil
 }

@@ -3,10 +3,11 @@ package filesystem
 import (
 	"context"
 	"errors"
-	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/config"
 
+	"github.com/loft-sh/log"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/loft-sh/vcluster/pkg/config"
 )
 
 type VolumeSnapshotter struct {
