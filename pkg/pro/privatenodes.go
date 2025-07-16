@@ -55,7 +55,3 @@ type StandaloneOptions struct {
 var StartStandalone = func(_ context.Context, _ *StandaloneOptions) error {
 	return NewFeatureError("private nodes standalone")
 }
-
-var SetupKarpenterContext = func(_ context.Context) (context.Context, error) {
-	return nil, NewFeatureError("private nodes karpenter")
-}
