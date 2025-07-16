@@ -48,6 +48,9 @@ experimental:
             namespace: fluent-bit
           timeout: "50s"
 sync:
+  toHost:
+    networkPolicies:
+      enabled: true
   fromHost:
     runtimeClasses:
       enabled: true
