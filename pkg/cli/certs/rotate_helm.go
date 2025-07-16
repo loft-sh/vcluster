@@ -62,7 +62,7 @@ func Rotate(ctx context.Context, vClusterName string, rotationCmd RotationCmd, g
 		return fmt.Errorf("listing potential etcd statefulsets: %w", err)
 	}
 	if len(sts.Items) > 0 {
-		if sts.Items[0].Status.AvailableReplicas > 1 {
+		if sts.Items[0].Status.AvailableReplicas > 1 && rotationCmd == RotationCmdCACerts {
 			return fmt.Errorf("cert rotation with CA is currently not supported for deployed etcd in HA mode")
 		}
 		restartETCD = true
