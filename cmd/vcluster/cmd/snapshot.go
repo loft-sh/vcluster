@@ -7,10 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volume"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volume/auto"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volume/csi"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volume/filesystem"
 	"io"
 	"os"
 	"path/filepath"
@@ -27,11 +23,15 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume/auto"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume/csi"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume/filesystem"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/grpclog"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -40,6 +40,7 @@ import (
 
 type SnapshotOptions struct {
 	Snapshot snapshot.Options
+	Debug    bool
 
 	vConfig           *config.VirtualClusterConfig
 	logger            log.Logger
@@ -52,7 +53,9 @@ type SnapshotOptions struct {
 }
 
 func NewSnapshotCommand() *cobra.Command {
-	options := &SnapshotOptions{}
+	options := &SnapshotOptions{
+		logger: log.GetInstance(),
+	}
 	envOptions, err := parseOptionsFromEnv()
 	if err != nil {
 		klog.Warningf("Error parsing environment variables: %v", err)
@@ -64,10 +67,17 @@ func NewSnapshotCommand() *cobra.Command {
 		Use:   "snapshot",
 		Short: "snapshot a vCluster",
 		Args:  cobra.NoArgs,
+		PersistentPreRun: func(_ *cobra.Command, _ []string) {
+			if options.Debug {
+				options.logger.SetLevel(logrus.DebugLevel)
+			}
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return options.Run(cmd.Context())
 		},
 	}
+
+	cmd.Flags().BoolVar(&options.Debug, "debug", false, "Prints debug logs and the stack trace if an error occurs")
 
 	return cmd
 }
@@ -188,7 +198,6 @@ func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Cli
 }
 
 func (o *SnapshotOptions) init(ctx context.Context) error {
-	o.logger = log.GetInstance()
 	o.logger.Infof("Init snapshot command....")
 
 	// parse vCluster config
@@ -536,15 +545,4 @@ func parseOptionsFromEnv() (*snapshot.Options, error) {
 	}
 
 	return options, nil
-}
-
-func persistentVolumeHasClaim(pv *corev1.PersistentVolume) bool {
-	return pv.Spec.ClaimRef != nil &&
-		pv.Spec.ClaimRef.Name != "" &&
-		pv.Spec.ClaimRef.Namespace != "" &&
-		pv.Spec.ClaimRef.Kind == "PersistentVolumeClaim"
-}
-
-func persistentVolumeManagedByCSIDriver(pv *corev1.PersistentVolume) bool {
-	return pv.Spec.CSI != nil && pv.Spec.CSI.Driver != ""
 }
