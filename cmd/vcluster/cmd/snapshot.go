@@ -79,12 +79,10 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	}
 
 	// create volume snapshots
-	o.logger.Info("Starting creating volume snapshots...\n")
 	err = o.createVolumeSnapshots(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create volume snapshots: %w", err)
 	}
-	o.logger.Info("Finished creating volume snapshots...\n")
 
 	// create new etcd client
 	etcdClient, err := newEtcdClient(ctx, o.vConfig, false)
