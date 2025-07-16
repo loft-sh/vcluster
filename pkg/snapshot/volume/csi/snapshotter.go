@@ -199,8 +199,8 @@ func (s *VolumeSnapshotter) createDynamicVolumeSnapshot(ctx context.Context, pvc
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create VolumeSnapshot resource for the PersistentVolumeClaim %s: %w", pvc, err)
 	}
-	s.logger.Debugf("Created VolumeSnapshot resource %s for the PersistentVolumeClaim %s", volumeSnapshot.Name, pvc)
-	s.logger.Debugf("Waiting for VolumeSnapshot resource %s to be ready for use...", volumeSnapshot.Name)
+	s.logger.Debugf("Created VolumeSnapshot resource %s/%s for the PersistentVolumeClaim %s", volumeSnapshot.Namespace, volumeSnapshot.Name, pvc)
+	s.logger.Debugf("Waiting for VolumeSnapshot resource %s/%s to be ready for use...", volumeSnapshot.Namespace, volumeSnapshot.Name)
 
 	var dynamicVolumeSnapshotContent *snapshotsv1api.VolumeSnapshotContent
 
@@ -259,8 +259,8 @@ func (s *VolumeSnapshotter) createDynamicVolumeSnapshot(ctx context.Context, pvc
 		return nil, nil, fmt.Errorf("failed to create the dynamic VolumeSnapshot '%s' for the PersistentVolumeClaim %s: %w", volumeSnapshot.Name, pvc, err)
 	}
 
-	s.logger.Debugf("Dynamic VolumeSnapshot %s is ready for use!", volumeSnapshot.Name)
-	s.logger.Debugf("Dynamic VolumeSnapshotContent %s with snapshot handle '%s' is ready for use!", dynamicVolumeSnapshotContent, *dynamicVolumeSnapshotContent.Status.SnapshotHandle)
+	s.logger.Debugf("Dynamic VolumeSnapshot %s/%s is ready for use!", volumeSnapshot.Namespace, volumeSnapshot.Name)
+	s.logger.Debugf("Dynamic VolumeSnapshotContent %s with snapshot handle '%s' is ready for use!", dynamicVolumeSnapshotContent.Name, *dynamicVolumeSnapshotContent.Status.SnapshotHandle)
 	return volumeSnapshot, dynamicVolumeSnapshotContent, nil
 }
 

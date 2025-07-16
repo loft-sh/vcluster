@@ -198,7 +198,7 @@ func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Cli
 }
 
 func (o *SnapshotOptions) init(ctx context.Context) error {
-	o.logger.Infof("Init snapshot command....")
+	o.logger.Debugf("Init snapshot command....")
 
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
@@ -251,11 +251,6 @@ func (o *SnapshotOptions) createVolumeSnapshots(ctx context.Context) error {
 }
 
 func createVirtualKubeClients(config *config.VirtualClusterConfig) (*kubernetes.Clientset, *snapshotv1.Clientset, error) {
-	fmt.Printf("ControlPlaneNamespace: %s\n", config.ControlPlaneNamespace)
-	fmt.Printf("WorkloadNamespace: %s\n", config.WorkloadNamespace)
-	fmt.Printf("WorkloadTargetNamespace: %s\n", config.WorkloadTargetNamespace)
-	fmt.Printf("VirtualClusterKubeConfig().KubeConfig: %s\n", config.VirtualClusterKubeConfig().KubeConfig)
-
 	// read kubeconfig
 	out, err := os.ReadFile(config.VirtualClusterKubeConfig().KubeConfig)
 	if err != nil {
