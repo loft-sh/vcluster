@@ -804,9 +804,10 @@ privateNodes:
   
   # NodePools stores karpenter node pool configuration
   nodePools:
-    # Static defines static pool
+    # Static defines static node pools. Static node pools have a fixed size and are not scaled automatically.
     static: []
-    # Dynamic defines dynamic pool
+    # Dynamic defines dynamic node pools. Dynamic node pools are scaled automatically based on the requirements within the cluster.
+    # Karpenter is used under the hood to handle the scheduling of the nodes.
     dynamic: []
 
 # Deploy holds configuration for the deployment of vCluster.
