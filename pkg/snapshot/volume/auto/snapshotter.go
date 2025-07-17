@@ -9,7 +9,7 @@ import (
 	"github.com/loft-sh/log"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	
+
 	"github.com/loft-sh/vcluster/pkg/snapshot/volume"
 )
 
@@ -118,4 +118,33 @@ func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolum
 	}
 
 	return errors.Join(allErrors...)
+}
+
+func (s *VolumeSnapshotter) Cleanup(ctx context.Context) error {
+	var wg sync.WaitGroup
+	maxSnapshotters := len(s.snapshotters)
+	errCh := make(chan error, maxSnapshotters)
+
+	for _, snapshotter := range s.snapshotters {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := snapshotter.Cleanup(ctx)
+			if err != nil {
+				errCh <- err
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(errCh)
+	}()
+
+	var allErrors []error
+	for err := range errCh {
+		allErrors = append(allErrors, err)
+	}
+
+	return nil
 }
