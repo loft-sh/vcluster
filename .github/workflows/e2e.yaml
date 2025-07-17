@@ -3,7 +3,7 @@ name: E2E CI
 on:
   release:
     types: [created]
-  pull_request:
+  pull_request_target:
     branches:
       - main
       - v*
@@ -34,12 +34,13 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'loft-sh' # do not run on forks
+    if: github.repository_owner == 'loft-sh'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - run: git fetch --force --tags
 
@@ -82,9 +83,12 @@ jobs:
 
   get-testsuites-dir:
     runs-on: ubuntu-latest
+    if: github.repository_owner == 'loft-sh'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
       - id: set-paths-matrix
         run: |
           set -x
@@ -96,12 +100,15 @@ jobs:
 
   vcluster-install-delete:
     name: Install and delete virtual cluster
-    needs: build
+    needs: [build]
+    if: github.repository_owner == 'loft-sh'
 
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - uses: azure/setup-helm@v4
         name: Setup Helm
@@ -151,6 +158,7 @@ jobs:
   download-latest-cli:
     name: Download the latest vCluster cli
     runs-on: ubuntu-latest
+    if: github.repository_owner == 'loft-sh'
     steps:
       - name: download current cli
         run: |
@@ -167,6 +175,7 @@ jobs:
     needs:
       - build
       - download-latest-cli
+    if: github.repository_owner == 'loft-sh'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -175,6 +184,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - uses: azure/setup-helm@v4
         name: Setup Helm
@@ -253,6 +264,7 @@ jobs:
     needs:
       - build
       - get-testsuites-dir
+    if: github.repository_owner == 'loft-sh'
 
     runs-on: ubuntu-latest
     strategy:
@@ -278,6 +290,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
