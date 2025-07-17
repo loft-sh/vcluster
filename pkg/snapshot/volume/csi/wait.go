@@ -6,6 +6,7 @@ import (
 	"time"
 
 	snapshotsv1api "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -65,4 +66,31 @@ func (s *VolumeSnapshotter) waitForReadyToUse(ctx context.Context, volumeSnapsho
 		return nil, nil, fmt.Errorf("error waiting for VolumeSnapshot %s/%s to be ready: %w", volumeSnapshotNamespace, volumeSnapshotName, err)
 	}
 	return volumeSnapshot, volumeSnapshotContent, nil
+}
+
+func (r *VolumeRestorer) waitForDeleted(ctx context.Context, persistentVolumeClaimNamespace, persistentVolumeClaimName string) error {
+	r.logger.Debugf(
+		"Wait until the PersistentVolumeClaim %s/%s has been deleted",
+		persistentVolumeClaimNamespace,
+		persistentVolumeClaimName)
+
+	err := wait.PollUntilContextTimeout(ctx, time.Second*5, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
+		_, err := r.kubeClient.CoreV1().PersistentVolumeClaims(persistentVolumeClaimNamespace).Get(ctx, persistentVolumeClaimName, metav1.GetOptions{})
+		if kerrors.IsNotFound(err) {
+			return true, nil
+		} else if err != nil {
+			return false, fmt.Errorf("failed to get PersistentVolumeClaim %s/%s: %w", persistentVolumeClaimNamespace, persistentVolumeClaimName, err)
+		}
+		return false, nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("error waiting for PersistentVolumeClaim %s/%s to be deleted: %w", persistentVolumeClaimNamespace, persistentVolumeClaimName, err)
+	}
+
+	r.logger.Debugf(
+		"PersistentVolumeClaim %s/%s has been successfully deleted",
+		persistentVolumeClaimNamespace,
+		persistentVolumeClaimName)
+	return nil
 }
