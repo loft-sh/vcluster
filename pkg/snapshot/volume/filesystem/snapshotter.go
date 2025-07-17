@@ -44,3 +44,7 @@ func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolum
 	}
 	return nil
 }
+
+func (s *VolumeSnapshotter) Cleanup(ctx context.Context) error {
+	return nil
+}

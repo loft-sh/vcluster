@@ -27,4 +27,9 @@ type Snapshotter interface {
 
 	// CreateSnapshots creates volume snapshots of the specified persistent volumes.
 	CreateSnapshots(ctx context.Context, persistentVolumes []corev1.PersistentVolume) error
+
+	// Cleanup does any necessary clean up of the cluster after taking the snapshot of the volumes.
+	// E.g. it can remove all the resources that were created by the snapshotter in order to create
+	// volume snapshots.
+	Cleanup(ctx context.Context) error
 }
