@@ -229,7 +229,7 @@ func (o *SnapshotOptions) init(ctx context.Context) error {
 		return fmt.Errorf("snapshot client is nil")
 	}
 
-	volumeSnapshotter, err := createVolumeSnapshotter(ctx, vConfig, snapshotClient, o.logger)
+	volumeSnapshotter, err := createVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotClient, o.logger)
 	if err != nil {
 		return fmt.Errorf("could not create volume snapshotter: %w", err)
 	}
@@ -294,8 +294,8 @@ func createVirtualKubeClients(config *config.VirtualClusterConfig) (*kubernetes.
 	return kubeClient, snapshotClient, nil
 }
 
-func createVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterConfig, snapshotsClient *snapshotv1.Clientset, logger log.Logger) (volume.Snapshotter, error) {
-	csiVolumeSnapshotter, err := csi.NewVolumeSnapshotter(ctx, vConfig, snapshotsClient, logger)
+func createVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotv1.Clientset, logger log.Logger) (volume.Snapshotter, error) {
+	csiVolumeSnapshotter, err := csi.NewVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotsClient, logger)
 	if err != nil {
 		return nil, fmt.Errorf("could not create CSI volume snapshotter: %w", err)
 	}

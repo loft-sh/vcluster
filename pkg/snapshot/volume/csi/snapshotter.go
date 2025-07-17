@@ -2,6 +2,7 @@ package csi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -19,14 +21,15 @@ import (
 )
 
 const (
-	dynamicVolumeSnapshotLabel        = "vcluster.loft.sh/dynamicvolumesnapshot"
-	preProvisionedVolumeSnapshotLabel = "vcluster.loft.sh/preprovisionedvolumesnapshot"
-	persistentVolumeClaimNameAnnotation
+	dynamicVolumeSnapshotLabel          = "vcluster.loft.sh/dynamicvolumesnapshot"
+	preProvisionedVolumeSnapshotLabel   = "vcluster.loft.sh/preprovisionedvolumesnapshot"
+	persistentVolumeClaimNameAnnotation = "vcluster.loft.sh/persistentvolumeclaim"
 )
 
 // VolumeSnapshotter is a volume.Snapshotter interface implementation that creates CSI volume snapshots.
 type VolumeSnapshotter struct {
 	vConfig         *config.VirtualClusterConfig
+	kubeClient      *kubernetes.Clientset
 	snapshotsClient *snapshotsv1.Clientset
 	logger          log.Logger
 
@@ -36,9 +39,12 @@ type VolumeSnapshotter struct {
 }
 
 // NewVolumeSnapshotter creates a new instance of the CSI volume snapshotter.
-func NewVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterConfig, snapshotsClient *snapshotsv1.Clientset, logger log.Logger) (*VolumeSnapshotter, error) {
+func NewVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, logger log.Logger) (*VolumeSnapshotter, error) {
 	if vConfig == nil {
 		return nil, errors.New("virtual cluster config is required")
+	}
+	if kubeClient == nil {
+		return nil, errors.New("kubernetes client is required")
 	}
 	if snapshotsClient == nil {
 		return nil, errors.New("snapshot client is required")
@@ -53,6 +59,7 @@ func NewVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterCon
 
 	snapshotter := &VolumeSnapshotter{
 		vConfig:               vConfig,
+		kubeClient:            kubeClient,
 		snapshotsClient:       snapshotsClient,
 		logger:                logger,
 		volumeSnapshotClasses: volumeSnapshotClasses,
@@ -271,7 +278,8 @@ func (s *VolumeSnapshotter) transformDynamicVolumeSnapshotToPreprovisioned(ctx c
 	// Ensure that the dynamic VolumeSnapshot is ready to use.
 	// These checks are a safety net, but should never fail, because createDynamicVolumeSnapshot
 	// function above should have made sure that the dynamic VolumeSnapshot is ready for use.
-	if dynamicVolumeSnapshot.Spec.Source.PersistentVolumeClaimName == nil || *dynamicVolumeSnapshot.Spec.Source.PersistentVolumeClaimName == "" {
+	persistentVolumeClaimName := dynamicVolumeSnapshot.Spec.Source.PersistentVolumeClaimName
+	if persistentVolumeClaimName == nil || *persistentVolumeClaimName == "" {
 		return fmt.Errorf("dynamic VolumeSnapshot '%s' does not have a PersistentVolumeClaim as a source", dynamicVolumeSnapshotNamespacedName)
 	}
 	if dynamicVolumeSnapshot.Status == nil {
@@ -296,6 +304,17 @@ func (s *VolumeSnapshotter) transformDynamicVolumeSnapshotToPreprovisioned(ctx c
 		return fmt.Errorf("dynamic VolumeSnapshotContent '%s' does not have status.snapshotHandle set", dynamicVolumeSnapshotContent.Name)
 	}
 
+	// get the source PersistentVolumeClaim
+	persistentVolumeClaim, err := s.kubeClient.CoreV1().PersistentVolumeClaims(dynamicVolumeSnapshot.Namespace).Get(ctx, *persistentVolumeClaimName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get PersistentVolumeClaim %s/%s: %w", dynamicVolumeSnapshot.Namespace, *persistentVolumeClaimName, err)
+	}
+
+	persistentVolumeClaimJSON, err := json.Marshal(persistentVolumeClaim)
+	if err != nil {
+		return fmt.Errorf("failed to marshal PersistentVolumeClaim %s/%s: %w", persistentVolumeClaim.Namespace, persistentVolumeClaim.Name, err)
+	}
+
 	snapshotNameBase := dynamicVolumeSnapshot.Name
 	preProvisionedVolumeSnapshotContentName := fmt.Sprintf("%s-snap-content", snapshotNameBase)
 	preProvisionedVolumeSnapshotName := fmt.Sprintf("%s-snap", snapshotNameBase)
@@ -308,10 +327,7 @@ func (s *VolumeSnapshotter) transformDynamicVolumeSnapshotToPreprovisioned(ctx c
 				preProvisionedVolumeSnapshotLabel: "",
 			},
 			Annotations: map[string]string{
-				persistentVolumeClaimNameAnnotation: fmt.Sprintf(
-					"%s/%s",
-					dynamicVolumeSnapshot.Namespace,
-					*dynamicVolumeSnapshot.Spec.Source.PersistentVolumeClaimName),
+				persistentVolumeClaimNameAnnotation: string(persistentVolumeClaimJSON),
 			},
 		},
 		Spec: snapshotsv1api.VolumeSnapshotContentSpec{
@@ -344,10 +360,7 @@ func (s *VolumeSnapshotter) transformDynamicVolumeSnapshotToPreprovisioned(ctx c
 				"vcluster.loft.sh/preprovisionedvolumesnapshot": "",
 			},
 			Annotations: map[string]string{
-				"vcluster.loft.sh/persistentvolumeclaim": fmt.Sprintf(
-					"%s/%s",
-					dynamicVolumeSnapshot.Namespace,
-					*dynamicVolumeSnapshot.Spec.Source.PersistentVolumeClaimName),
+				persistentVolumeClaimNameAnnotation: string(persistentVolumeClaimJSON),
 			},
 		},
 		Spec: snapshotsv1api.VolumeSnapshotSpec{
