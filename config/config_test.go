@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"gotest.tools/assert"
+	"gotest.tools/assert/cmp"
 )
 
 func TestConfig_Diff(t *testing.T) {
@@ -387,7 +388,7 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 }
 
 func TestImage_String(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name     string
 		image    Image
 		expected string
@@ -418,6 +419,13 @@ func TestImage_String(t *testing.T) {
 			expected: "alpine:3.20",
 		},
 		{
+			name: "may omit tag",
+			image: Image{
+				Repository: "alpine",
+			},
+			expected: "alpine",
+		},
+		{
 			name: "omit repo but not registry is library",
 			image: Image{
 				Registry:   "ghcr.io",
@@ -427,17 +435,40 @@ func TestImage_String(t *testing.T) {
 			expected: "ghcr.io/library/alpine:3.20",
 		},
 		{
-			name: "may omit tag",
+			name: "registry may have port",
 			image: Image{
-				Repository: "alpine",
+				Registry:   "host.docker.internal:5000",
+				Repository: "coredns/coredns",
+				Tag:        "1.11.3",
 			},
-			expected: "alpine",
+			expected: "host.docker.internal:5000/coredns/coredns:1.11.3",
+		},
+		{
+			name: "registry with port and omit tag",
+			image: Image{
+				Registry:   "localhost:5000",
+				Repository: "coredns/coredns",
+			},
+			expected: "localhost:5000/coredns/coredns",
+		},
+		{
+			name:     "empty image is nil value",
+			image:    Image{},
+			expected: "",
 		},
 	}
 
-	for _, tt := range tests {
-		if actual := tt.image.String(); actual != tt.expected {
-			t.Errorf("%s: expected %s, got %s", tt.name, tt.expected, actual)
-		}
+	for _, tt := range testCases {
+		t.Run("String(): "+tt.name, func(t *testing.T) {
+			if actual := tt.image.String(); actual != tt.expected {
+				t.Errorf("Expected %s, got %s", tt.expected, actual)
+			}
+		})
+
+		t.Run("ParseImageRef(): "+tt.name, func(t *testing.T) {
+			var image Image
+			ParseImageRef(tt.expected, &image)
+			assert.Check(t, cmp.DeepEqual(tt.image, image))
+		})
 	}
 }

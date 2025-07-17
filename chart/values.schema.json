@@ -779,8 +779,8 @@
           "description": "Additional labels or annotations for the statefulSet pods."
         },
         "image": {
-          "$ref": "#/$defs/StatefulSetImage",
-          "description": "Image is the image for the controlPlane statefulSet container"
+          "$ref": "#/$defs/Image",
+          "description": "Image is the image for the controlPlane statefulSet container\nIt defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.\nIf you still want to use the pure OSS build, set the repository to 'loft-sh/vcluster-oss'."
         },
         "imagePullPolicy": {
           "type": "string",
@@ -4056,24 +4056,6 @@
       "additionalProperties": false,
       "type": "object",
       "description": "StartupProbe defines the configuration for the startup probe."
-    },
-    "StatefulSetImage": {
-      "properties": {
-        "registry": {
-          "type": "string",
-          "description": "Configure the registry of the container image, e.g. my-registry.com or ghcr.io\nIt defaults to ghcr.io and can be overriding either by using this field or controlPlane.advanced.defaultImageRegistry"
-        },
-        "repository": {
-          "type": "string",
-          "description": "Configure the repository of the container image, e.g. my-repo/my-image.\nIt defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.\nIf you still want to use the pure OSS build, use 'loft-sh/vcluster-oss' instead."
-        },
-        "tag": {
-          "type": "string",
-          "description": "Tag is the tag of the container image, e.g. latest"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
     },
     "Sync": {
       "properties": {
