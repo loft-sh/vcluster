@@ -341,7 +341,7 @@ func (s *VolumeSnapshotter) transformDynamicVolumeSnapshotToPreprovisioned(ctx c
 				Name:      preProvisionedVolumeSnapshotName,
 				Namespace: dynamicVolumeSnapshot.Namespace,
 			},
-			// TODO: set SourceVolumeMode by reading it from the PersistentVolume
+			SourceVolumeMode: dynamicVolumeSnapshotContent.Spec.SourceVolumeMode,
 		},
 	}
 	s.logger.Debugf("Create pre-provisioned VolumeSnapshotContent %s", preProvisionedVolumeSnapshotContentName)
