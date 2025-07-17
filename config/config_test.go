@@ -385,3 +385,59 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 		})
 	}
 }
+
+func TestImage_String(t *testing.T) {
+	tests := []struct {
+		name     string
+		image    Image
+		expected string
+	}{
+		{
+			name: "complete image reference",
+			image: Image{
+				Registry:   "registry.k8s.io",
+				Repository: "coredns/coredns",
+				Tag:        "1.11.3",
+			},
+			expected: "registry.k8s.io/coredns/coredns:1.11.3",
+		},
+		{
+			name: "may omit registry",
+			image: Image{
+				Repository: "coredns/coredns",
+				Tag:        "1.11.3",
+			},
+			expected: "coredns/coredns:1.11.3",
+		},
+		{
+			name: "may omit registry and repo",
+			image: Image{
+				Repository: "alpine",
+				Tag:        "3.20",
+			},
+			expected: "alpine:3.20",
+		},
+		{
+			name: "omit repo but not registry is library",
+			image: Image{
+				Registry:   "ghcr.io",
+				Repository: "alpine",
+				Tag:        "3.20",
+			},
+			expected: "ghcr.io/library/alpine:3.20",
+		},
+		{
+			name: "may omit tag",
+			image: Image{
+				Repository: "alpine",
+			},
+			expected: "alpine",
+		},
+	}
+
+	for _, tt := range tests {
+		if actual := tt.image.String(); actual != tt.expected {
+			t.Errorf("%s: expected %s, got %s", tt.name, tt.expected, actual)
+		}
+	}
+}

@@ -56,11 +56,12 @@ sync:
         initContainer:
           # Image is the image virtual cluster should use to rewrite this FQDN.
           image:
-            # Registry is the registry of the container image reference, e.g. ghcr.io.
+            # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+            # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
             registry: ""
-            # Repository is the repository of the container image reference, e.g. my-repo/my-image.
+            # Repository is the repository of the container image, e.g. my-repo/my-image
             repository: library/alpine
-            # Tag is the tag of the container image reference, and is the default version.
+            # Tag is the tag of the container image, and is the default version.
             tag: "3.20"
           # Resources are the resources that should be assigned to the init container for each stateful set init container.
           resources:
@@ -230,11 +231,12 @@ controlPlane:
       imagePullPolicy: ""
       # Image is the distro image
       image:
-        # Registry is the registry of the container image reference, e.g. ghcr.io.
+        # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+        # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
         registry: ghcr.io
-        # Repository is the repository of the container image reference, e.g. my-repo/my-image.
+        # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "loft-sh/kubernetes"
-        # Tag is the tag of the container image reference, and is the default version.
+        # Tag is the tag of the container image, and is the default version.
         tag: "v1.33.1"
       # APIServer holds configuration specific to starting the api server.
       apiServer:
@@ -281,11 +283,12 @@ controlPlane:
       imagePullPolicy: ""
       # Image is the distro image
       image:
-        # Registry is the registry of the container image reference, e.g. ghcr.io.
+        # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+        # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
         registry: ""
-        # Repository is the repository of the container image reference, e.g. my-repo/my-image.
+        # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "rancher/k3s"
-        # Tag is the tag of the container image reference, and is the default version.
+        # Tag is the tag of the container image, and is the default version.
         tag: "v1.33.1-k3s1"
       # Security options can be used for the distro init container
       securityContext: {}
@@ -368,11 +371,12 @@ controlPlane:
           labels: {}
           # Image is the image to use for the external etcd statefulSet
           image:
-            # Registry is the registry of the container image reference, e.g. ghcr.io.
+            # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+            # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
             registry: "registry.k8s.io"
-            # Repository is the repository of the container image reference, e.g. my-repo/my-image.
+            # Repository is the repository of the container image, e.g. my-repo/my-image
             repository: "etcd"
-            # Tag is the tag of the container image reference, and is the default version.
+            # Tag is the tag of the container image, and is the default version.
             tag: "3.5.21-0"
           # ImagePullPolicy is the pull policy for the external etcd image
           imagePullPolicy: ""
