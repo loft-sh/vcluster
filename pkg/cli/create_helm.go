@@ -34,6 +34,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	platformclihelper "github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
@@ -240,8 +241,9 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				return err
 			}
 		} else {
-			// When a vCluster is not legacy, there should be a config secret and we will fetch the values from the secret
-			currentVClusterConfig, err = getConfigfileFromSecret(ctx, vClusterName, cmd.Namespace)
+			// When a vCluster is not legacy, there should be a config secret or configmap and we will fetch the values from the secret or configmap
+			kConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+			currentVClusterConfig, err = setup.GetVClusterConfig(ctx, kConf, vClusterName, cmd.Namespace)
 			if err != nil {
 				return err
 			}
@@ -961,37 +963,4 @@ func (cmd *createHelm) getVClusterConfigFromSnapshot(ctx context.Context) (strin
 	}
 
 	return "", nil
-}
-
-func getConfigfileFromSecret(ctx context.Context, name, namespace string) (*config.Config, error) {
-	secretName := "vc-config-" + name
-
-	kConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
-	clientConfig, err := kConf.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	clientset, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	configBytes, ok := secret.Data["config.yaml"]
-	if !ok {
-		return nil, fmt.Errorf("secret %s in namespace %s does not contain the expected 'config.yaml' field", secretName, namespace)
-	}
-
-	config := config.Config{}
-	err = yaml.Unmarshal(configBytes, &config)
-	if err != nil {
-		return nil, err
-	}
-
-	return &config, nil
 }

@@ -1,6 +1,6 @@
-{{- if .Values.controlPlane.advanced.useConfigAsSecret }}
+{{- if not .Values.controlPlane.advanced.useConfigAsSecret }}
 apiVersion: v1
-kind: Secret
+kind: ConfigMap
 metadata:
   name: "vc-config-{{ .Release.Name }}"
   namespace: {{ .Release.Namespace }}
@@ -13,7 +13,6 @@ metadata:
   annotations:
 {{ toYaml .Values.controlPlane.advanced.globalMetadata.annotations | indent 4 }}
   {{- end }}
-type: Opaque
 data:
-  config.yaml: {{ .Values | toYaml | b64enc | quote }}
+  config.yaml: {{ .Values | toYaml | quote }}
 {{- end }}

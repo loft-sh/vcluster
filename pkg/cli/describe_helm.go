@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"strings"
 
@@ -12,8 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"github.com/loft-sh/vcluster/pkg/setup"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -35,31 +33,21 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 		namespace = flags.Namespace
 	}
 
-	secretName := "vc-config-" + name
-
 	kConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 	rawConfig, err := kConf.RawConfig()
 	if err != nil {
 		return err
 	}
-	clientConfig, err := kConf.ClientConfig()
+
+	vclusterConfig, err := setup.GetVClusterConfig(ctx, kConf, name, namespace)
 	if err != nil {
 		return err
 	}
 
-	clientset, err := kubernetes.NewForConfig(clientConfig)
+	// Convert config to bytes for YAML/JSON output formats
+	configBytes, err := yaml.Marshal(vclusterConfig)
 	if err != nil {
 		return err
-	}
-
-	secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, secretName, v1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	configBytes, ok := secret.Data["config.yaml"]
-	if !ok {
-		return fmt.Errorf("secret %s in namespace %s does not contain the expected 'config.yaml' field", secretName, namespace)
 	}
 
 	switch format {
@@ -80,7 +68,7 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 	}
 
 	describeOutput := &DescribeOutput{}
-	err = extractFromValues(describeOutput, configBytes, format, fVcluster.Version, output)
+	err = extractFromValues(describeOutput, configBytes, vclusterConfig, format, fVcluster.Version, output)
 	if err != nil {
 		return err
 	}
@@ -96,12 +84,7 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 	return err
 }
 
-func extractFromValues(d *DescribeOutput, configBytes []byte, format, version string, output io.Writer) error {
-	conf := &config.Config{}
-	err := yaml.Unmarshal(configBytes, conf)
-	if err != nil {
-		return err
-	}
+func extractFromValues(d *DescribeOutput, configBytes []byte, conf *config.Config, format, version string, output io.Writer) error {
 
 	switch format {
 	case "yaml":

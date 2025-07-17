@@ -1,0 +1,38 @@
+suite: test config-configmap
+templates:
+  - config-configmap.yaml
+  - config-secret.yaml
+  - statefulset.yaml
+release:
+  name: release-name
+  namespace: test-namespace
+tests:
+  - it: should create a ConfigMap and not a Secret when useConfigAsSecret is false
+    set:
+      controlPlane.advanced.useConfigAsSecret: false
+    asserts:
+      - hasDocuments:
+          count: 1
+        template: config-configmap.yaml
+      - hasDocuments:
+          count: 0
+        template: config-secret.yaml
+      - matchRegex:
+          path: spec.template.spec.volumes[?(@.name=="vcluster-config")].configMap.name
+          pattern: vc-config-release-name
+        template: statefulset.yaml
+
+  - it: should create a Secret and not a ConfigMap when useConfigAsSecret is true
+    set:
+      controlPlane.advanced.useConfigAsSecret: true
+    asserts:
+      - hasDocuments:
+          count: 0
+        template: config-configmap.yaml
+      - hasDocuments:
+          count: 1
+        template: config-secret.yaml
+      - matchRegex:
+          path: spec.template.spec.volumes[?(@.name=="vcluster-config")].secret.secretName
+          pattern: vc-config-release-name
+        template: statefulset.yaml

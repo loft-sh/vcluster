@@ -404,6 +404,10 @@
           "type": "string",
           "description": "DefaultImageRegistry will be used as a prefix for all internal images deployed by vCluster or Helm. This makes it easy to\nupload all required vCluster images to a single private repository and set this value. Workload images are not affected by this."
         },
+        "useConfigAsSecret": {
+          "type": "boolean",
+          "description": "useConfigAsSecret defines if a Secret should be used instead of a ConfigMap for storing the vCluster configuration."
+        },
         "virtualScheduler": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "VirtualScheduler defines if a scheduler should be used within the virtual cluster or the scheduling decision for workloads will be made by the host cluster.\nDeprecated: Use ControlPlane.Distro.K8S.Scheduler instead."

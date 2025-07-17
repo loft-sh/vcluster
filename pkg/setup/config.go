@@ -3,24 +3,24 @@ package setup
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/tools/clientcmd"
 	"os"
 
 	"k8s.io/client-go/util/retry"
 
+	"github.com/ghodss/yaml"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/util/confighelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-)
-
-const (
-	AnnotationDistro = "vcluster.loft.sh/distro"
-	AnnotationStore  = "vcluster.loft.sh/store"
 )
 
 func InitClients(vConfig *config.VirtualClusterConfig) error {
@@ -96,33 +96,139 @@ func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterCo
 	return nil
 }
 
-// EnsureBackingStoreChanges ensures that only a certain set of allowed changes to the backing store and distro occur.
-func EnsureBackingStoreChanges(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) error {
-	if ok, err := CheckUsingSecretAnnotation(ctx, client, name, namespace, distro, backingStoreType); err != nil {
-		return fmt.Errorf("using secret annotations: %w", err)
-	} else if ok {
-		if err := updateSecretAnnotations(ctx, client, name, namespace, distro, backingStoreType); err != nil {
-			return fmt.Errorf("update secret annotations: %w", err)
+// GetVClusterConfig retrieves and parses the vCluster configuration from either Secret or ConfigMap.
+func GetVClusterConfig(ctx context.Context, kConf clientcmd.ClientConfig, name, namespace string) (*vclusterconfig.Config, error) {
+	clientConfig, err := kConf.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	clientset, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	configBytes, err := confighelper.GetVClusterConfigResource(ctx, clientset, name, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return UnmarshalConfig(configBytes)
+}
+
+// UnmarshalConfig parses YAML config bytes into a Config object
+func UnmarshalConfig(configBytes []byte) (*vclusterconfig.Config, error) {
+	vclusterConfig := &vclusterconfig.Config{}
+	if err := yaml.Unmarshal(configBytes, vclusterConfig); err != nil {
+		return nil, fmt.Errorf("failed to parse vCluster configuration: %w", err)
+	}
+	return vclusterConfig, nil
+}
+
+// CheckAnnotations validates the distro and store type annotations from either a Secret or ConfigMap
+func CheckAnnotations(annotations map[string]string, distro string, backingStoreType vclusterconfig.StoreType) (bool, error) {
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+
+	// (ThomasK33) If we already have an annotation set, we're dealing with an upgrade.
+	// Thus we can check if the distro has changed.
+	okCounter := 0
+	if annotatedDistro, ok := annotations[confighelper.AnnotationDistro]; ok {
+		if err := vclusterconfig.ValidateDistroChanges(distro, annotatedDistro); err != nil {
+			return false, err
+		}
+
+		okCounter++
+	}
+
+	if annotatedStore, ok := annotations[confighelper.AnnotationStore]; ok {
+		if err := vclusterconfig.ValidateStoreChanges(backingStoreType, vclusterconfig.StoreType(annotatedStore)); err != nil {
+			return false, err
+		}
+
+		okCounter++
+	}
+
+	return okCounter == 2, nil
+}
+
+// UpdateConfigAnnotations checks which resource (Secret or ConfigMap) exists and updates its annotations
+func UpdateConfigAnnotations(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) error {
+	configName := confighelper.ConfigNamePrefix + name
+
+	// Try Secret first
+	secret, secretErr := client.CoreV1().Secrets(namespace).Get(ctx, configName, metav1.GetOptions{})
+	if secretErr == nil {
+		return UpdateSecretAnnotations(ctx, client, secret, distro, backingStoreType)
+	}
+
+	// If Secret not found, try ConfigMap
+	if kerrors.IsNotFound(secretErr) {
+		configMap, cmErr := client.CoreV1().ConfigMaps(namespace).Get(ctx, configName, metav1.GetOptions{})
+		if cmErr != nil {
+			return fmt.Errorf("failed to get configuration from either Secret or ConfigMap: Secret error: %v, ConfigMap error: %v", secretErr, cmErr)
+		}
+
+		return UpdateConfigMapAnnotations(ctx, client, configMap, distro, backingStoreType)
+	}
+
+	return secretErr
+}
+
+// UpdateSecretAnnotations updates a Secret's annotations with the vCluster distro and backing store type.
+func UpdateSecretAnnotations(ctx context.Context, client kubernetes.Interface, secret *corev1.Secret, distro string, backingStoreType vclusterconfig.StoreType) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Apply annotations and check if changes were made
+		if !confighelper.UpdateAnnotations(&secret.Annotations, distro, string(backingStoreType)) {
+			return nil // No changes needed
+		}
+
+		// Update the Secret if changes were made
+		if _, err := client.CoreV1().Secrets(secret.Namespace).Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("update secret: %w", err)
 		}
 
 		return nil
+	})
+}
+
+// UpdateConfigMapAnnotations updates a ConfigMap's annotations with the vCluster distro and backing store type.
+func UpdateConfigMapAnnotations(ctx context.Context, client kubernetes.Interface, configMap *corev1.ConfigMap, distro string, backingStoreType vclusterconfig.StoreType) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Apply annotations and check if changes were made
+		if !confighelper.UpdateAnnotations(&configMap.Annotations, distro, string(backingStoreType)) {
+			return nil // No changes needed
+		}
+
+		// Update the ConfigMap if changes were made
+		if _, err := client.CoreV1().ConfigMaps(configMap.Namespace).Update(ctx, configMap, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("update configmap: %w", err)
+		}
+
+		return nil
+	})
+}
+
+// EnsureBackingStoreChanges ensures that only a certain set of allowed changes to the backing store and distro occur.
+func EnsureBackingStoreChanges(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) error {
+	// First, check using existing config annotations
+	if ok, err := CheckUsingConfigAnnotation(ctx, client, name, namespace, distro, backingStoreType); err != nil {
+		return fmt.Errorf("using config annotations: %w", err)
+	} else if ok {
+		return UpdateConfigAnnotations(ctx, client, name, namespace, distro, backingStoreType)
 	}
 
+	// If no config annotations or validation failed, try heuristic check
 	if ok, err := CheckUsingHeuristic(distro); err != nil {
 		return fmt.Errorf("using heuristic: %w", err)
 	} else if ok {
-		if err := updateSecretAnnotations(ctx, client, name, namespace, distro, backingStoreType); err != nil {
-			return fmt.Errorf("update secret annotations: %w", err)
-		}
-
-		return nil
+		return UpdateConfigAnnotations(ctx, client, name, namespace, distro, backingStoreType)
 	}
 
 	return nil
 }
 
 // CheckUsingHeuristic checks for known file path indicating the existence of a previous distro.
-//
 // It checks for the existence of the default K3s token path.
 func CheckUsingHeuristic(distro string) (bool, error) {
 	// check if previously we were using k3s as a default and now have switched to a different distro
@@ -136,64 +242,14 @@ func CheckUsingHeuristic(distro string) (bool, error) {
 	return true, nil
 }
 
-// CheckUsingSecretAnnotation checks for backend store and distro changes using annotations on the vCluster's secret annotations.
-// Returns true, if both annotations are set and the check was successful, otherwise false.
-func CheckUsingSecretAnnotation(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) (bool, error) {
-	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, "vc-config-"+name, metav1.GetOptions{})
+// CheckUsingConfigAnnotation checks for backend store and distro changes using annotations on the vCluster's configuration resource (Secret or ConfigMap).
+func CheckUsingConfigAnnotation(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) (bool, error) {
+	annotations, err := confighelper.GetResourceAnnotations(ctx, client, name, namespace)
 	if err != nil {
-		return false, fmt.Errorf("get secret: %w", err)
+		return false, err
 	}
 
-	if secret.Annotations == nil {
-		secret.Annotations = map[string]string{}
-	}
-
-	// (ThomasK33): If we already have an annotation set, we're dealing with an upgrade.
-	// Thus we can check if the distro has changed.
-	okCounter := 0
-	if annotatedDistro, ok := secret.Annotations[AnnotationDistro]; ok {
-		if err := vclusterconfig.ValidateDistroChanges(distro, annotatedDistro); err != nil {
-			return false, err
-		}
-
-		okCounter++
-	}
-
-	if annotatedStore, ok := secret.Annotations[AnnotationStore]; ok {
-		if err := vclusterconfig.ValidateStoreChanges(backingStoreType, vclusterconfig.StoreType(annotatedStore)); err != nil {
-			return false, err
-		}
-
-		okCounter++
-	}
-
-	return okCounter == 2, nil
-}
-
-// updateSecretAnnotations udates the vCluster's config secret with the currently used distro and backing store type.
-func updateSecretAnnotations(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		secret, err := client.CoreV1().Secrets(namespace).Get(ctx, "vc-config-"+name, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("get secret: %w", err)
-		}
-
-		if secret.Annotations == nil {
-			secret.Annotations = map[string]string{}
-		}
-		if secret.Annotations[AnnotationDistro] == distro && secret.Annotations[AnnotationStore] == string(backingStoreType) {
-			return nil
-		}
-
-		secret.Annotations[AnnotationDistro] = distro
-		secret.Annotations[AnnotationStore] = string(backingStoreType)
-
-		if _, err := client.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("update secret: %w", err)
-		}
-
-		return nil
-	})
+	return CheckAnnotations(annotations, distro, backingStoreType)
 }
 
 // SetGlobalOwner fetches the owning service and populates in translate.Owner if: the vcluster is configured to setOwner is,

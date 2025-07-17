@@ -2115,6 +2115,9 @@ type ControlPlaneAdvanced struct {
 
 	// GlobalMetadata is metadata that will be added to all resources deployed by Helm.
 	GlobalMetadata ControlPlaneGlobalMetadata `json:"globalMetadata,omitempty"`
+
+	// UseConfigAsSecret defines if a Secret should be used instead of a ConfigMap for storing the vCluster configuration.
+	UseConfigAsSecret bool `json:"useConfigAsSecret,omitempty"`
 }
 
 type Registry struct {
