@@ -370,14 +370,14 @@ func TestRewriteHostsTranslation(t *testing.T) {
 				c.ControlPlane.Advanced.DefaultImageRegistry = "my-registry"
 				c.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image = vclusterconfig.Image{
 					Registry:   "private",
-					Repository: "minimal-sed",
+					Repository: "minimal/sed",
 					Tag:        "very-specific-tag",
 				}
 			},
 			test: func(t *testing.T, p *corev1.Pod) {
 				assert.Equal(t, len(p.Spec.InitContainers), 1)
 				initC := p.Spec.InitContainers[0]
-				assert.Equal(t, initC.Image, "private/minimal-sed:very-specific-tag")
+				assert.Equal(t, initC.Image, "private/minimal/sed:very-specific-tag")
 			},
 		},
 	}
