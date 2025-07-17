@@ -21,6 +21,7 @@ import (
 const (
 	dynamicVolumeSnapshotLabel        = "vcluster.loft.sh/dynamicvolumesnapshot"
 	preProvisionedVolumeSnapshotLabel = "vcluster.loft.sh/preprovisionedvolumesnapshot"
+	persistentVolumeClaimNameAnnotation
 )
 
 // VolumeSnapshotter is a volume.Snapshotter interface implementation that creates CSI volume snapshots.
@@ -307,7 +308,7 @@ func (s *VolumeSnapshotter) transformDynamicVolumeSnapshotToPreprovisioned(ctx c
 				preProvisionedVolumeSnapshotLabel: "",
 			},
 			Annotations: map[string]string{
-				"vcluster.loft.sh/persistentvolumeclaim": fmt.Sprintf(
+				persistentVolumeClaimNameAnnotation: fmt.Sprintf(
 					"%s/%s",
 					dynamicVolumeSnapshot.Namespace,
 					*dynamicVolumeSnapshot.Spec.Source.PersistentVolumeClaimName),
