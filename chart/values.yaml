@@ -55,7 +55,14 @@ sync:
         # InitContainer holds extra options for the init container used by vCluster to rewrite the FQDN for stateful set pods.
         initContainer:
           # Image is the image virtual cluster should use to rewrite this FQDN.
-          image: "library/alpine:3.20"
+          image:
+            # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
+            # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
+            registry: ""
+            # Repository is the repository of the container image, e.g. my-repo/my-image
+            repository: library/alpine
+            # Tag is the tag of the container image, and is the default version.
+            tag: "3.20"
           # Resources are the resources that should be assigned to the init container for each stateful set init container.
           resources:
             # Limits are resource limits for the container

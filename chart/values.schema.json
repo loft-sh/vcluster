@@ -4314,7 +4314,7 @@
     "SyncRewriteHostsInitContainer": {
       "properties": {
         "image": {
-          "type": "string",
+          "$ref": "#/$defs/Image",
           "description": "Image is the image virtual cluster should use to rewrite this FQDN."
         },
         "resources": {

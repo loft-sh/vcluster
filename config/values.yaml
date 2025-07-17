@@ -28,7 +28,10 @@ sync:
       rewriteHosts:
         enabled: true
         initContainer:
-          image: "library/alpine:3.20"
+          image:
+            registry: ""
+            repository: library/alpine
+            tag: "3.20"
           resources:
             limits:
               cpu: 30m

@@ -148,7 +148,7 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 		EnforceNodeSelector:         true,
 		PluginListenAddress:         "localhost:10099",
 		OverrideHosts:               v.Sync.ToHost.Pods.RewriteHosts.Enabled,
-		OverrideHostsContainerImage: v.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image,
+		OverrideHostsContainerImage: v.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image.String(),
 		ServiceAccountTokenSecrets:  v.Sync.ToHost.Pods.UseSecretsForSATokens,
 		ClusterDomain:               v.Networking.Advanced.ClusterDomain,
 		LeaderElect:                 v.ControlPlane.StatefulSet.HighAvailability.Replicas > 1,

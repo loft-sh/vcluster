@@ -1315,7 +1315,7 @@ type SyncRewriteHosts struct {
 
 type SyncRewriteHostsInitContainer struct {
 	// Image is the image virtual cluster should use to rewrite this FQDN.
-	Image string `json:"image,omitempty"`
+	Image Image `json:"image,omitempty"`
 
 	// Resources are the resources that should be assigned to the init container for each stateful set init container.
 	Resources Resources `json:"resources,omitempty"`
@@ -1731,6 +1731,25 @@ type Image struct {
 
 	// Tag is the tag of the container image, and is the default version.
 	Tag string `json:"tag,omitempty"`
+}
+
+func (i Image) String() string {
+	ref := i.Registry
+	if ref != "" {
+		ref += "/"
+	}
+
+	if !strings.Contains(i.Repository, "/") {
+		if ref != "" {
+			ref += "library/"
+		}
+	}
+	ref += i.Repository
+
+	if i.Tag != "" {
+		ref += ":" + i.Tag
+	}
+	return ref
 }
 
 type ImagePullSecretName struct {

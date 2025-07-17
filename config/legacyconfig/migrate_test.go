@@ -695,6 +695,34 @@ exportKubeConfig:
   context: my-context
   server: https://my-vcluster.example.com`,
 		},
+		{
+			Name:   "migrate rewriteHosts image",
+			Distro: "k8s",
+			In: `syncer:
+  extraArgs:
+  - --override-hosts-container-image=my.registry:5000/some/repo:a-tag`,
+			Expected: `controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+  distro:
+    k8s:
+      enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+sync:
+  toHost:
+    pods:
+      rewriteHosts:
+        initContainer:
+          image:
+            registry: my.registry:5000
+            repository: some/repo
+            tag: a-tag
+`,
+		},
 	}
 
 	for _, testCase := range testCases {

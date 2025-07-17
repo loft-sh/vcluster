@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	vclusterconfig "github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	generictesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
@@ -299,6 +301,105 @@ func TestVolumeTranslation(t *testing.T) {
 			if len(testCase.expectedVolumeMounts) > 0 {
 				assert.Assert(t, cmp.DeepEqual(pPod.Spec.Containers[0].VolumeMounts, testCase.expectedVolumeMounts), "Unexpected translation of the Volume Mounts in the '%s' test case", testCase.name)
 			}
+		})
+	}
+}
+
+func TestRewriteHostsTranslation(t *testing.T) {
+	testCases := []struct {
+		name      string
+		configMod func(*config.VirtualClusterConfig)
+		pod       corev1.Pod
+		test      func(*testing.T, *corev1.Pod)
+	}{
+		{
+			name: "Add init container that rewrites /etc/hosts",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-name",
+					Namespace: "test-ns",
+				},
+				Spec: corev1.PodSpec{
+					Subdomain: "subdomain",
+					Containers: []corev1.Container{
+						{},
+					},
+				},
+			},
+			test: func(t *testing.T, p *corev1.Pod) {
+				assert.Equal(t, len(p.Spec.InitContainers), 1)
+				initC := p.Spec.InitContainers[0]
+				assert.Equal(t, initC.Args[1], `sed -E -e 's/^(\d+.\d+.\d+.\d+\s+)pod-name$/\1 pod-name.subdomain.test-ns.cluster.local pod-name/' /etc/hosts > /hosts/hosts`)
+				cont := p.Spec.Containers[0]
+				assert.Equal(t, len(cont.VolumeMounts), 1)
+				assert.Equal(t, cont.VolumeMounts[0].MountPath, "/etc/hosts")
+			},
+		},
+		{
+			name: "Use default registry if specified",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-name",
+					Namespace: "test-ns",
+				},
+				Spec: corev1.PodSpec{
+					Subdomain: "subdomain",
+				},
+			},
+			configMod: func(c *config.VirtualClusterConfig) {
+				c.ControlPlane.Advanced.DefaultImageRegistry = "my-registry"
+			},
+			test: func(t *testing.T, p *corev1.Pod) {
+				assert.Equal(t, len(p.Spec.InitContainers), 1)
+				initC := p.Spec.InitContainers[0]
+				assert.Equal(t, initC.Image, "my-registry/library/alpine:3.20")
+			},
+		},
+		{
+			name: "Use image overrides if specified",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-name",
+					Namespace: "test-ns",
+				},
+				Spec: corev1.PodSpec{
+					Subdomain: "subdomain",
+				},
+			},
+			configMod: func(c *config.VirtualClusterConfig) {
+				c.ControlPlane.Advanced.DefaultImageRegistry = "my-registry"
+				c.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image = vclusterconfig.Image{
+					Registry:   "private",
+					Repository: "minimal/sed",
+					Tag:        "very-specific-tag",
+				}
+			},
+			test: func(t *testing.T, p *corev1.Pod) {
+				assert.Equal(t, len(p.Spec.InitContainers), 1)
+				initC := p.Spec.InitContainers[0]
+				assert.Equal(t, initC.Image, "private/minimal/sed:very-specific-tag")
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			cfg := testingutil.NewFakeConfig()
+			if testCase.configMod != nil {
+				testCase.configMod(cfg)
+			}
+			pClient := testingutil.NewFakeClient(scheme.Scheme)
+			vClient := testingutil.NewFakeClient(scheme.Scheme)
+			registerCtx := generictesting.NewFakeRegisterContext(cfg, pClient, vClient)
+			fakeRecorder := record.NewFakeRecorder(10)
+
+			tr, err := NewTranslator(registerCtx, fakeRecorder)
+			assert.NilError(t, err)
+
+			pod := testCase.pod.DeepCopy()
+			tr.(*translator).rewritePodHostnameFQDN(pod, pod.Name, pod.Name, fmt.Sprintf("%s.%s.%s.cluster.local", pod.Name, pod.Spec.Subdomain, pod.Namespace))
+
+			testCase.test(t, pod)
 		})
 	}
 }
