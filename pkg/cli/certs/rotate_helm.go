@@ -56,28 +56,28 @@ func Rotate(ctx context.Context, vClusterName string, rotationCmd RotationCmd, g
 		return fmt.Errorf("creating kubernetes client: %w", err)
 	}
 
-	var restartETCD bool
-	sts, err := kubeClient.AppsV1().StatefulSets(vCluster.Namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=vcluster-etcd,release=" + vCluster.Name})
-	if err != nil && !kerrors.IsNotFound(err) {
-		return fmt.Errorf("listing potential etcd statefulsets: %w", err)
-	}
-	if len(sts.Items) > 0 {
-		if sts.Items[0].Status.AvailableReplicas > 1 && rotationCmd == RotationCmdCACerts {
-			return fmt.Errorf("cert rotation with CA is currently not supported for deployed etcd in HA mode")
-		}
-		restartETCD = true
-	}
-
 	var cmd string
 	dev, validityPeriod := os.Getenv("DEVELOPMENT"), os.Getenv("VCLUSTER_CERTS_VALIDITYPERIOD")
 	if dev == "true" && validityPeriod != "" {
 		cmd = fmt.Sprintf("DEVELOPMENT=true VCLUSTER_CERTS_VALIDITYPERIOD=%s ", validityPeriod)
 	}
 
+	var restartETCD bool
 	switch rotationCmd {
 	case RotationCmdCerts:
 		cmd = fmt.Sprintf("%s/vcluster certs %s", cmd, RotationCmdCerts)
 	case RotationCmdCACerts:
+		sts, err := kubeClient.AppsV1().StatefulSets(vCluster.Namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=vcluster-etcd,release=" + vCluster.Name})
+		if err != nil && !kerrors.IsNotFound(err) {
+			return fmt.Errorf("listing potential etcd statefulsets: %w", err)
+		}
+		if len(sts.Items) > 0 {
+			// 👇 only has to check replicas since we're in the CA case
+			if sts.Items[0].Status.AvailableReplicas > 1 {
+				return fmt.Errorf("cert rotation with CA is currently not supported for deployed etcd in HA mode")
+			}
+			restartETCD = true
+		}
 		cmd = fmt.Sprintf("%s/vcluster certs %s", cmd, RotationCmdCACerts)
 	default:
 		return fmt.Errorf("unknown rotation command: %s", rotationCmd)
