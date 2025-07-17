@@ -113,6 +113,12 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 		return err
 	}
 
+	// Cleanup the cluster after creating volume snapshots
+	err = o.volumeSnapshotter.Cleanup(ctx)
+	if err != nil {
+		return fmt.Errorf("could not cleanup virtual cluster after creating volume snapshots: %w", err)
+	}
+
 	klog.Infof("Successfully wrote snapshot to %s", objectStore.Target())
 	return nil
 }
