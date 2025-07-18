@@ -29,7 +29,7 @@ sync:
         enabled: true
         initContainer:
           image:
-            registry: ""
+            registry: "mirror.gcr.io"
             repository: library/alpine
             tag: "3.20"
           resources:
