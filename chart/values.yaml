@@ -58,7 +58,7 @@ sync:
           image:
             # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
             # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
-            registry: ""
+            registry: "mirror.gcr.io"
             # Repository is the repository of the container image, e.g. my-repo/my-image
             repository: library/alpine
             # Tag is the tag of the container image, and is the default version.
@@ -285,7 +285,7 @@ controlPlane:
       image:
         # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
         # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
-        registry: ""
+        registry: "mirror.gcr.io"
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "rancher/k3s"
         # Tag is the tag of the container image, and is the default version.
