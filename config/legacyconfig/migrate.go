@@ -63,7 +63,7 @@ func migrateK8sAndEKS(oldValues string, newConfig *config.Config) error {
 		if oldConfig.API.ImagePullPolicy != "" {
 			newConfig.ControlPlane.Distro.K8S.ImagePullPolicy = oldConfig.API.ImagePullPolicy
 		}
-		convertImage(oldConfig.API.Image, &newConfig.ControlPlane.Distro.K8S.Image)
+		config.ParseImageRef(oldConfig.API.Image, &newConfig.ControlPlane.Distro.K8S.Image)
 	}
 	convertAPIValues(oldConfig.API, &newConfig.ControlPlane.Distro.K8S.APIServer)
 	convertControllerValues(oldConfig.Controller, &newConfig.ControlPlane.Distro.K8S.ControllerManager)
@@ -170,7 +170,7 @@ func convertEtcd(oldConfig EtcdValues, newConfig *config.Config) error {
 		newConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.ImagePullPolicy = oldConfig.ImagePullPolicy
 	}
 	if oldConfig.Image != "" {
-		convertImage(oldConfig.Image, &newConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Image)
+		config.ParseImageRef(oldConfig.Image, &newConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.Image)
 	}
 	newConfig.ControlPlane.BackingStore.Etcd.Deploy.StatefulSet.ExtraArgs = oldConfig.ExtraArgs
 	if oldConfig.Resources != nil {
@@ -668,7 +668,9 @@ func convertK8sSyncerConfig(distro string, oldConfig K8sSyncerValues, newConfig 
 }
 
 func convertSyncerConfig(distro string, oldConfig SyncerValues, newConfig *config.Config) error {
-	convertStatefulSetImage(oldConfig.Image, &newConfig.ControlPlane.StatefulSet.Image)
+	if oldConfig.Image != "" {
+		config.ParseImageRef(oldConfig.Image, &newConfig.ControlPlane.StatefulSet.Image)
+	}
 	if oldConfig.ImagePullPolicy != "" {
 		newConfig.ControlPlane.StatefulSet.ImagePullPolicy = oldConfig.ImagePullPolicy
 	}
@@ -927,7 +929,7 @@ func migrateFlag(distro, key, value string, newConfig *config.Config) error {
 			return fmt.Errorf("value is missing")
 		}
 
-		convertImage(value, &newConfig.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image)
+		config.ParseImageRef(value, &newConfig.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image)
 	case "cluster-domain":
 		if value == "" {
 			return fmt.Errorf("value is missing")
@@ -1109,7 +1111,9 @@ func applyStorage(oldConfig Storage, newConfig *config.Config) {
 
 func convertVClusterConfig(oldConfig VClusterValues, retDistroCommon *config.DistroCommon, retDistroContainer *config.DistroContainer, newConfig *config.Config) error {
 	retDistroCommon.Env = oldConfig.Env
-	convertImage(oldConfig.Image, &retDistroCommon.Image)
+	if oldConfig.Image != "" {
+		config.ParseImageRef(oldConfig.Image, &retDistroCommon.Image)
+	}
 	if len(oldConfig.Resources) > 0 {
 		retDistroCommon.Resources = mergeMaps(retDistroCommon.Resources, oldConfig.Resources)
 	}
@@ -1131,22 +1135,6 @@ func convertVClusterConfig(oldConfig VClusterValues, retDistroCommon *config.Dis
 	newConfig.ControlPlane.StatefulSet.Persistence.AddVolumeMounts = append(newConfig.ControlPlane.StatefulSet.Persistence.AddVolumeMounts, oldConfig.ExtraVolumeMounts...)
 	newConfig.ControlPlane.StatefulSet.Persistence.AddVolumes = append(newConfig.ControlPlane.StatefulSet.Persistence.AddVolumes, oldConfig.VolumeMounts...)
 	return nil
-}
-
-func convertStatefulSetImage(image string, into *config.StatefulSetImage) {
-	if image == "" {
-		return
-	}
-
-	into.Registry, into.Repository, into.Tag = config.SplitImage(image)
-}
-
-func convertImage(image string, into *config.Image) {
-	if image == "" {
-		return
-	}
-
-	into.Registry, into.Repository, into.Tag = config.SplitImage(image)
 }
 
 func mergeIntoMap(retMap map[string]string, arr []string) map[string]string {

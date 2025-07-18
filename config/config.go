@@ -1609,7 +1609,9 @@ type ControlPlaneStatefulSet struct {
 	Pods LabelsAndAnnotations `json:"pods,omitempty"`
 
 	// Image is the image for the controlPlane statefulSet container
-	Image StatefulSetImage `json:"image,omitempty"`
+	// It defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.
+	// If you still want to use the pure OSS build, set the repository to 'loft-sh/vcluster-oss'.
+	Image Image `json:"image,omitempty"`
 
 	// ImagePullPolicy is the policy how to pull the image.
 	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
@@ -1707,20 +1709,6 @@ type DistroContainerEnabled struct {
 	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
-type StatefulSetImage struct {
-	// Configure the registry of the container image, e.g. my-registry.com or ghcr.io
-	// It defaults to ghcr.io and can be overriding either by using this field or controlPlane.advanced.defaultImageRegistry
-	Registry string `json:"registry,omitempty"`
-
-	// Configure the repository of the container image, e.g. my-repo/my-image.
-	// It defaults to the vCluster pro repository that includes the optional pro modules that are turned off by default.
-	// If you still want to use the pure OSS build, use 'loft-sh/vcluster-oss' instead.
-	Repository string `json:"repository,omitempty"`
-
-	// Tag is the tag of the container image, e.g. latest
-	Tag string `json:"tag,omitempty"`
-}
-
 type Image struct {
 	// Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
 	// overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
@@ -1733,22 +1721,20 @@ type Image struct {
 	Tag string `json:"tag,omitempty"`
 }
 
-func (i Image) String() string {
-	ref := i.Registry
-	if ref != "" {
-		ref += "/"
+func (i Image) String() (ref string) {
+	if i.Registry != "" {
+		ref = i.Registry + "/"
 	}
 
-	if !strings.Contains(i.Repository, "/") {
-		if ref != "" {
-			ref += "library/"
-		}
+	if i.Registry != "" && i.Repository != "" && !strings.ContainsRune(i.Repository, '/') {
+		ref += "library/"
 	}
 	ref += i.Repository
 
 	if i.Tag != "" {
 		ref += ":" + i.Tag
 	}
+
 	return ref
 }
 
