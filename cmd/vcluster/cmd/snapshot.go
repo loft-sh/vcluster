@@ -91,7 +91,13 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	// create volume snapshots
 	err = o.createVolumeSnapshots(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create volume snapshots: %w", err)
+		// This is the limitation of the current WIP implementation. The snapshots are created inside
+		// virtual cluster, and the testing was done locally with in kind environment, so this was needed
+		// in order to be able to access virtual cluster API server.
+		o.logger.Errorf(
+			"failed to create volume snapshots, if you are creating a snapshot for a vcluster with private nodes, "+
+				"please make sure to run `vcluster snapshot` command with `--pod-exec`, otherwise volume snapshots cannot be created: %v",
+			err)
 	}
 
 	// create new etcd client
@@ -304,13 +310,24 @@ func createVirtualKubeClients(config *config.VirtualClusterConfig) (*kubernetes.
 func createVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotv1.Clientset, logger log.Logger) (volume.Snapshotter, error) {
 	csiVolumeSnapshotter, err := csi.NewVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotsClient, logger)
 	if err != nil {
-		return nil, fmt.Errorf("could not create CSI volume snapshotter: %w", err)
+		logger.Errorf("could not create CSI volume snapshotter, CSI VolumeSnapshots will not be created: %v", err)
 	}
 	filesystemSnapshotter, err := filesystem.NewVolumeSnapshotter(vConfig, logger)
 	if err != nil {
 		return nil, fmt.Errorf("could not create filesystem snapshotter: %w", err)
 	}
-	autoSnapshotter, err := auto.NewVolumeSnapshotter(logger, csiVolumeSnapshotter, filesystemSnapshotter)
+
+	var snapshotters []volume.Snapshotter
+	if csiVolumeSnapshotter != nil {
+		// Use CSI volume snapshot only when it was successfully created.
+		// e.g. the CSI VolumeSnapshotter creation will fail when volume snapshot CRDs are not
+		// installed in the virtual cluster, so in that case the snapshot command will just not
+		// try to use CSI volume snapshotter for PVCs, and it will only use the file-system
+		// snapshotter.
+		snapshotters = append(snapshotters, csiVolumeSnapshotter)
+	}
+	snapshotters = append(snapshotters, filesystemSnapshotter)
+	autoSnapshotter, err := auto.NewVolumeSnapshotter(logger, snapshotters...)
 	if err != nil {
 		return nil, fmt.Errorf("could not create auto snapshotter: %w", err)
 	}
