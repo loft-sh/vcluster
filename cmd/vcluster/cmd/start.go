@@ -129,6 +129,12 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 		return fmt.Errorf("create controller context: %w", err)
 	}
 
+	// Try to restore volumes from snapshots
+	err = setup.RestoreVolumes(controllerCtx, logger)
+	if err != nil {
+		logger.Errorf("failed to restore volumes from VolumeSnapshots: %v", err)
+	}
+
 	// start license loader
 	err = pro.LicenseStart(controllerCtx)
 	if err != nil {
