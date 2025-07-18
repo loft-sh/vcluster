@@ -25,7 +25,7 @@ type VolumeRestorer struct {
 	logger          log.Logger
 }
 
-func NewVolumeRestorer(_ context.Context, vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, logger log.Logger) (*VolumeRestorer, error) {
+func NewVolumeRestorer(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, logger log.Logger) (*VolumeRestorer, error) {
 	if vConfig == nil {
 		return nil, errors.New("virtual cluster config is required")
 	}
@@ -82,7 +82,7 @@ func (r *VolumeRestorer) RestoreVolumes(ctx context.Context, volumeSnapshots []s
 }
 
 func (r *VolumeRestorer) restoreVolume(ctx context.Context, volumeSnapshot *snapshotsv1api.VolumeSnapshot) error {
-	r.logger.Debugf("Restore volume from VolumeSnapshot %s/%s", volumeSnapshot.Namespace, volumeSnapshot.Name)
+	r.logger.Infof("Restore volume from VolumeSnapshot %s/%s", volumeSnapshot.Namespace, volumeSnapshot.Name)
 	originalPVCJSON, ok := volumeSnapshot.Annotations[persistentVolumeClaimNameAnnotation]
 	if !ok {
 		return fmt.Errorf("VolumeSnapshot %s/%s does not have a PersistentVolumeClaim JSON annotation set", volumeSnapshot.Namespace, volumeSnapshot.Name)
@@ -112,17 +112,17 @@ func (r *VolumeRestorer) restoreVolume(ctx context.Context, volumeSnapshot *snap
 	}
 
 	// 3. Delete VolumeSnapshot resource
-	err = r.snapshotsClient.SnapshotV1().VolumeSnapshots(volumeSnapshot.Namespace).Delete(ctx, volumeSnapshot.Name, metav1.DeleteOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to delete VolumeSnapshot %s/%s: %w", volumeSnapshot.Namespace, volumeSnapshot.Name, err)
-	}
+	//err = r.snapshotsClient.SnapshotV1().VolumeSnapshots(volumeSnapshot.Namespace).Delete(ctx, volumeSnapshot.Name, metav1.DeleteOptions{})
+	//if err != nil {
+	//	return fmt.Errorf("failed to delete VolumeSnapshot %s/%s: %w", volumeSnapshot.Namespace, volumeSnapshot.Name, err)
+	//}
 
-	r.logger.Debugf("Restored volume from VolumeSnapshot %s/%s", volumeSnapshot.Namespace, volumeSnapshot.Name)
+	r.logger.Infof("Restored volume from VolumeSnapshot %s/%s", volumeSnapshot.Namespace, volumeSnapshot.Name)
 	return nil
 }
 
 func (r *VolumeRestorer) deleteOldPersistentVolumeClaim(ctx context.Context, pvcNamespace, pvcName string) error {
-	r.logger.Debugf("Delete original PersistentVolumeClaim %s/%s", pvcNamespace, pvcName)
+	r.logger.Infof("Delete original PersistentVolumeClaim %s/%s", pvcNamespace, pvcName)
 
 	// TODO: check if we want to delete the PersistentVolume here.
 	// If the PersistentVolume's spec.persistentVolumeReclaimPolicy is 'Delete', the PersistentVolume
@@ -135,17 +135,17 @@ func (r *VolumeRestorer) deleteOldPersistentVolumeClaim(ctx context.Context, pvc
 		return fmt.Errorf("failed to delete original PersistentVolumeClaim %s/%s: %w", pvcNamespace, pvcName, err)
 	}
 
-	err = r.waitForDeleted(ctx, pvcNamespace, pvcName)
+	err = r.waitForPersistentVolumeClaimDeleted(ctx, pvcNamespace, pvcName)
 	if err != nil {
 		return fmt.Errorf("failed to delete original PersistentVolumeClaim %s/%s: %w", pvcNamespace, pvcName, err)
 	}
 
-	r.logger.Debugf("Deleted original PersistentVolumeClaim %s/%s", pvcNamespace, pvcName)
+	r.logger.Infof("Deleted original PersistentVolumeClaim %s/%s", pvcNamespace, pvcName)
 	return nil
 }
 
 func (r *VolumeRestorer) createPersistentVolumeClaimFromSnapshot(ctx context.Context, volumeSnapshot *snapshotsv1api.VolumeSnapshot, originalPersistentVolumeClaim *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error) {
-	r.logger.Debugf(
+	r.logger.Infof(
 		"Create new PersistentVolumeClaim %s/%s from VolumeSnapshot %s/%s",
 		originalPersistentVolumeClaim.Namespace, originalPersistentVolumeClaim.Name,
 		volumeSnapshot.Namespace, volumeSnapshot.Name)
@@ -189,7 +189,7 @@ func (r *VolumeRestorer) createPersistentVolumeClaimFromSnapshot(ctx context.Con
 			err)
 	}
 
-	r.logger.Debugf(
+	r.logger.Infof(
 		"Created new PersistentVolumeClaim %s/%s from VolumeSnapshot %s/%s",
 		originalPersistentVolumeClaim.Namespace, originalPersistentVolumeClaim.Name,
 		volumeSnapshot.Namespace, volumeSnapshot.Name)

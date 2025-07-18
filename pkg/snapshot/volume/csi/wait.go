@@ -68,7 +68,48 @@ func (s *VolumeSnapshotter) waitForReadyToUse(ctx context.Context, volumeSnapsho
 	return volumeSnapshot, volumeSnapshotContent, nil
 }
 
-func (r *VolumeRestorer) waitForDeleted(ctx context.Context, persistentVolumeClaimNamespace, persistentVolumeClaimName string) error {
+func (r *VolumeSnapshotter) waitForVolumeSnapshotDeleted(ctx context.Context, volumeSnapshotNamespace, volumeSnapshotName, volumeSnapshotContentName string) error {
+	r.logger.Debugf(
+		"Wait until the VolumeSnapshot %s/%s has been deleted",
+		volumeSnapshotNamespace,
+		volumeSnapshotName)
+
+	err := wait.PollUntilContextTimeout(ctx, time.Second*5, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
+		_, err := r.snapshotsClient.SnapshotV1().VolumeSnapshots(volumeSnapshotNamespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
+		if kerrors.IsNotFound(err) {
+			return true, nil
+		} else if err != nil {
+			return false, fmt.Errorf("failed to get VolumeSnapshot %s/%s: %w", volumeSnapshotNamespace, volumeSnapshotName, err)
+		}
+		return false, nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("error waiting for VolumeSnapshot %s/%s to be deleted: %w", volumeSnapshotNamespace, volumeSnapshotName, err)
+	}
+
+	err = wait.PollUntilContextTimeout(ctx, time.Second*5, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
+		_, err := r.snapshotsClient.SnapshotV1().VolumeSnapshotContents().Get(ctx, volumeSnapshotContentName, metav1.GetOptions{})
+		if kerrors.IsNotFound(err) {
+			return true, nil
+		} else if err != nil {
+			return false, fmt.Errorf("failed to get VolumeSnapshotContent %s/%s: %w", volumeSnapshotNamespace, volumeSnapshotName, err)
+		}
+		return false, nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("error waiting for VolumeSnapshotContent %s to be deleted: %w", volumeSnapshotContentName, err)
+	}
+
+	r.logger.Debugf(
+		"PersistentVolumeClaim %s/%s has been successfully deleted",
+		volumeSnapshotNamespace,
+		volumeSnapshotName)
+	return nil
+}
+
+func (r *VolumeRestorer) waitForPersistentVolumeClaimDeleted(ctx context.Context, persistentVolumeClaimNamespace, persistentVolumeClaimName string) error {
 	r.logger.Debugf(
 		"Wait until the PersistentVolumeClaim %s/%s has been deleted",
 		persistentVolumeClaimNamespace,

@@ -22,7 +22,7 @@ import (
 
 const (
 	dynamicVolumeSnapshotLabel          = "vcluster.loft.sh/dynamicvolumesnapshot"
-	preProvisionedVolumeSnapshotLabel   = "vcluster.loft.sh/preprovisionedvolumesnapshot"
+	PreProvisionedVolumeSnapshotLabel   = "vcluster.loft.sh/preprovisionedvolumesnapshot"
 	persistentVolumeClaimNameAnnotation = "vcluster.loft.sh/persistentvolumeclaim"
 )
 
@@ -145,7 +145,7 @@ func (s *VolumeSnapshotter) Cleanup(ctx context.Context) error {
 
 	// get all volume snapshots by label
 	listOptions := metav1.ListOptions{
-		LabelSelector: preProvisionedVolumeSnapshotLabel,
+		LabelSelector: PreProvisionedVolumeSnapshotLabel,
 	}
 
 	// 1. Delete all VolumeSnapshot resources that have been created while creating vcluster snapshot.
@@ -324,7 +324,7 @@ func (s *VolumeSnapshotter) transformDynamicVolumeSnapshotToPreprovisioned(ctx c
 			Name:      preProvisionedVolumeSnapshotContentName,
 			Namespace: dynamicVolumeSnapshot.Namespace,
 			Labels: map[string]string{
-				preProvisionedVolumeSnapshotLabel: "",
+				PreProvisionedVolumeSnapshotLabel: "",
 			},
 			Annotations: map[string]string{
 				persistentVolumeClaimNameAnnotation: string(persistentVolumeClaimJSON),
@@ -357,7 +357,7 @@ func (s *VolumeSnapshotter) transformDynamicVolumeSnapshotToPreprovisioned(ctx c
 			Name:      preProvisionedVolumeSnapshotName,
 			Namespace: dynamicVolumeSnapshot.Namespace,
 			Labels: map[string]string{
-				"vcluster.loft.sh/preprovisionedvolumesnapshot": "",
+				PreProvisionedVolumeSnapshotLabel: "",
 			},
 			Annotations: map[string]string{
 				persistentVolumeClaimNameAnnotation: string(persistentVolumeClaimJSON),
@@ -415,6 +415,16 @@ func (s *VolumeSnapshotter) deleteDynamicVolumeSnapshot(ctx context.Context, dyn
 		return fmt.Errorf("failed to delete the dynamic VolumeSnapshotContents '%s': %w", dynamicVolumeSnapshotContent.Name, err)
 	}
 	s.logger.Debugf("Deleted dynamic VolumeSnapshotContent %s", dynamicVolumeSnapshotContent.Name)
+
+	err = s.waitForVolumeSnapshotDeleted(ctx, dynamicVolumeSnapshot.Namespace, dynamicVolumeSnapshot.Name, dynamicVolumeSnapshotContent.Name)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to delete the dynamic VolumeSnapshot %s/%s and VolumeSnapshotContent '%s': %w",
+			dynamicVolumeSnapshot.Namespace,
+			dynamicVolumeSnapshot.Name,
+			dynamicVolumeSnapshotContent.Name,
+			err)
+	}
 
 	return nil
 }
