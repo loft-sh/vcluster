@@ -274,6 +274,8 @@ jobs:
             test-suite-path: "./test/e2e_generic"
           - distribution: "k8s"
             test-suite-path: "./test/e2e_generic"
+          - distribution: "k3s"
+            test-suite-path: "./test/e2e_certs"
 
     steps:
       - name: Checkout repository

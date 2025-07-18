@@ -2,9 +2,11 @@ package certs
 
 import (
 	"crypto/sha256"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -17,6 +19,8 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
@@ -59,21 +63,22 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 
 		ginkgo.It("should wait until the virtual cluster is ready again", func() {
 			framework.ExpectNoError(f.WaitForVClusterReady())
-			gomega.Eventually(func() error {
+			gomega.Eventually(func(g gomega.Gomega) error {
 				pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
 					LabelSelector: "app=vcluster,release=" + f.VClusterName,
 				})
-				framework.ExpectNoError(err)
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(pods.Items).NotTo(gomega.BeEmpty())
 
 				for _, pod := range pods.Items {
-					if len(pod.Status.ContainerStatuses) == 0 {
-						return fmt.Errorf("pod %s has no container status", pod.Name)
-					}
+					g.Expect(pod.Status.ContainerStatuses).NotTo(gomega.BeEmpty(),
+						"pod %s should have container statuses", pod.Name)
 
-					for _, container := range pod.Status.ContainerStatuses {
-						if container.State.Running == nil || !container.Ready {
-							return fmt.Errorf("pod %s container %s is not running", pod.Name, container.Name)
-						}
+					for i, container := range pod.Status.ContainerStatuses {
+						g.Expect(container.State.Running).NotTo(gomega.BeNil(),
+							"container %d in pod %s should be running", i, pod.Name)
+						g.Expect(container.Ready).To(gomega.BeTrue(),
+							"container %d in pod %s should be ready", i, pod.Name)
 					}
 				}
 
@@ -139,21 +144,22 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 
 		ginkgo.It("should wait until the virtual cluster is ready again", func() {
 			framework.ExpectNoError(f.WaitForVClusterReady())
-			gomega.Eventually(func() error {
+			gomega.Eventually(func(g gomega.Gomega) error {
 				pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
 					LabelSelector: "app=vcluster,release=" + f.VClusterName,
 				})
-				framework.ExpectNoError(err)
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(pods.Items).NotTo(gomega.BeEmpty())
 
 				for _, pod := range pods.Items {
-					if len(pod.Status.ContainerStatuses) == 0 {
-						return fmt.Errorf("pod %s has no container status", pod.Name)
-					}
+					g.Expect(pod.Status.ContainerStatuses).NotTo(gomega.BeEmpty(),
+						"pod %s should have container statuses", pod.Name)
 
-					for _, container := range pod.Status.ContainerStatuses {
-						if container.State.Running == nil || !container.Ready {
-							return fmt.Errorf("pod %s container %s is not running", pod.Name, container.Name)
-						}
+					for i, container := range pod.Status.ContainerStatuses {
+						g.Expect(container.State.Running).NotTo(gomega.BeNil(),
+							"container %d in pod %s should be running", i, pod.Name)
+						g.Expect(container.Ready).To(gomega.BeTrue(),
+							"container %d in pod %s should be ready", i, pod.Name)
 					}
 				}
 
@@ -187,16 +193,137 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 		})
 	})
 
-	ginkgo.It("should wait until the virtual cluster is ready again", func() {
-		framework.ExpectNoError(f.WaitForVClusterReady())
+	ginkgo.AfterAll(func() {
+		framework.ExpectNoError(f.RefreshVirtualClient())
+	})
+})
+
+var _ = ginkgo.Describe("vCluster cert rotation kube config tests", ginkgo.Ordered, func() {
+	var (
+		f                *framework.Framework
+		restConfigBefore *rest.Config
+	)
+
+	ginkgo.JustBeforeEach(func() {
+		f = framework.DefaultFramework
+	})
+
+	ginkgo.It("should be able to use the virtual client", func() {
+		_, err := f.VClusterClient.CoreV1().Pods(corev1.NamespaceDefault).List(f.Context, metav1.ListOptions{})
+		framework.ExpectNoError(err)
+
+		restConfigBefore = f.VClusterConfig
+		vClusterClient, err := kubernetes.NewForConfig(restConfigBefore)
+		framework.ExpectNoError(err)
+
+		_, err = vClusterClient.CoreV1().Pods(corev1.NamespaceDefault).List(f.Context, metav1.ListOptions{})
+		framework.ExpectNoError(err)
+	})
+
+	ginkgo.Context("vCluster \"certs rotate\"", ginkgo.Ordered, func() {
+		ginkgo.It("should execute \"certs rotate\" command", func() {
+			certsCmd := certscmd.NewCertsCmd(&flags.GlobalFlags{Namespace: f.VClusterNamespace})
+			certsCmd.SetArgs([]string{"rotate", f.VClusterName})
+			framework.ExpectNoError(certsCmd.Execute())
+		})
+
+		ginkgo.It("should wait until the virtual cluster is ready again", func() {
+			framework.ExpectNoError(f.WaitForVClusterReady())
+			gomega.Eventually(func(g gomega.Gomega) error {
+				pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
+					LabelSelector: "app=vcluster,release=" + f.VClusterName,
+				})
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(pods.Items).NotTo(gomega.BeEmpty())
+
+				for _, pod := range pods.Items {
+					g.Expect(pod.Status.ContainerStatuses).NotTo(gomega.BeEmpty(),
+						"pod %s should have container statuses", pod.Name)
+
+					for i, container := range pod.Status.ContainerStatuses {
+						g.Expect(container.State.Running).NotTo(gomega.BeNil(),
+							"container %d in pod %s should be running", i, pod.Name)
+						g.Expect(container.Ready).To(gomega.BeTrue(),
+							"container %d in pod %s should be ready", i, pod.Name)
+					}
+				}
+
+				return nil
+			}).WithPolling(time.Second).
+				WithTimeout(framework.PollTimeoutLong).
+				Should(gomega.Succeed())
+		})
+
+		ginkgo.It("should not receive a tls verification error using the old tls config for the virtual client", func() {
+			framework.ExpectNoError(f.RefreshVirtualClient())
+
+			cfg := f.VClusterConfig
+			cfg.TLSClientConfig = restConfigBefore.TLSClientConfig
+
+			vClusterClient, err := kubernetes.NewForConfig(cfg)
+			framework.ExpectNoError(err)
+
+			_, err = vClusterClient.CoreV1().Pods(corev1.NamespaceDefault).List(f.Context, metav1.ListOptions{})
+			framework.ExpectNoError(err)
+		})
+	})
+
+	ginkgo.Context("vCluster \"certs rotate-ca\"", ginkgo.Ordered, func() {
+		ginkgo.It("should execute \"certs rotate-ca\" command", func() {
+			certsCmd := certscmd.NewCertsCmd(&flags.GlobalFlags{Namespace: f.VClusterNamespace})
+			certsCmd.SetArgs([]string{"rotate-ca", f.VClusterName})
+			framework.ExpectNoError(certsCmd.Execute())
+		})
+
+		ginkgo.It("should wait until the virtual cluster is ready again", func() {
+			framework.ExpectNoError(f.WaitForVClusterReady())
+			gomega.Eventually(func(g gomega.Gomega) error {
+				pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
+					LabelSelector: "app=vcluster,release=" + f.VClusterName,
+				})
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(pods.Items).NotTo(gomega.BeEmpty())
+
+				for _, pod := range pods.Items {
+					g.Expect(pod.Status.ContainerStatuses).NotTo(gomega.BeEmpty(),
+						"pod %s should have container statuses", pod.Name)
+
+					for i, container := range pod.Status.ContainerStatuses {
+						g.Expect(container.State.Running).NotTo(gomega.BeNil(),
+							"container %d in pod %s should be running", i, pod.Name)
+						g.Expect(container.Ready).To(gomega.BeTrue(),
+							"container %d in pod %s should be ready", i, pod.Name)
+					}
+				}
+
+				return nil
+			}).WithPolling(time.Second).
+				WithTimeout(framework.PollTimeoutLong).
+				Should(gomega.Succeed())
+		})
+
+		ginkgo.It("should receive a tls verification error using the old tls config for the virtual client", func() {
+			framework.ExpectNoError(f.RefreshVirtualClient())
+
+			cfg := f.VClusterConfig
+			cfg.TLSClientConfig = restConfigBefore.TLSClientConfig
+
+			vClusterClient, err := kubernetes.NewForConfig(cfg)
+			framework.ExpectNoError(err)
+
+			_, err = vClusterClient.CoreV1().Pods(corev1.NamespaceDefault).List(f.Context, metav1.ListOptions{})
+			framework.ExpectError(err)
+
+			var certErr *tls.CertificateVerificationError
+			if !errors.As(err, &certErr) {
+				framework.Failf("received non-tls verification error: %v", err)
+			}
+		})
 	})
 
 	ginkgo.AfterAll(func() {
-		// Wait for virtual cluster to be ready after cert rotation and refresh the virtual client.
-		framework.ExpectNoError(f.WaitForVClusterReady())
 		framework.ExpectNoError(f.RefreshVirtualClient())
 	})
-
 })
 
 func parseCertFromPEM(pemData []byte) (*x509.Certificate, error) {
