@@ -114,9 +114,11 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	}
 
 	// Cleanup the cluster after creating volume snapshots
-	err = o.volumeSnapshotter.Cleanup(ctx)
-	if err != nil {
-		return fmt.Errorf("could not cleanup virtual cluster after creating volume snapshots: %w", err)
+	if o.volumeSnapshotter != nil {
+		err = o.volumeSnapshotter.Cleanup(ctx)
+		if err != nil {
+			return fmt.Errorf("could not cleanup virtual cluster after creating volume snapshots: %w", err)
+		}
 	}
 
 	klog.Infof("Successfully wrote snapshot to %s", objectStore.Target())
@@ -231,7 +233,7 @@ func (o *SnapshotOptions) init(ctx context.Context) error {
 
 	volumeSnapshotter, err := createVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotClient, o.logger)
 	if err != nil {
-		return fmt.Errorf("could not create volume snapshotter: %w", err)
+		o.logger.Errorf("could not create volume snapshotter, volume snapshots will not be created: %v", err)
 	}
 
 	o.vConfig = vConfig
@@ -241,6 +243,11 @@ func (o *SnapshotOptions) init(ctx context.Context) error {
 }
 
 func (o *SnapshotOptions) createVolumeSnapshots(ctx context.Context) error {
+	if o.volumeSnapshotter == nil {
+		o.logger.Errorf("volume snapshotter cannot be created, volume snapshots will not be created")
+		return nil
+	}
+
 	// get all PVs
 	pvs, err := o.kubeClient.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
 	if err != nil {
