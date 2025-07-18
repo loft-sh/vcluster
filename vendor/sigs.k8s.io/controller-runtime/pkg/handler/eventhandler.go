@@ -18,7 +18,7 @@ package handler
 
 import (
 	"context"
-	"time"
+	"reflect"
 
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -108,10 +108,40 @@ type TypedFuncs[object any, request comparable] struct {
 	GenericFunc func(context.Context, event.TypedGenericEvent[object], workqueue.TypedRateLimitingInterface[request])
 }
 
+var typeForClientObject = reflect.TypeFor[client.Object]()
+
+func implementsClientObject[object any]() bool {
+	return reflect.TypeFor[object]().Implements(typeForClientObject)
+}
+
+func isPriorityQueue[request comparable](q workqueue.TypedRateLimitingInterface[request]) bool {
+	_, ok := q.(priorityqueue.PriorityQueue[request])
+	return ok
+}
+
 // Create implements EventHandler.
 func (h TypedFuncs[object, request]) Create(ctx context.Context, e event.TypedCreateEvent[object], q workqueue.TypedRateLimitingInterface[request]) {
 	if h.CreateFunc != nil {
-		h.CreateFunc(ctx, e, q)
+		if !implementsClientObject[object]() || !isPriorityQueue(q) || isNil(e.Object) {
+			h.CreateFunc(ctx, e, q)
+			return
+		}
+		wq := workqueueWithCustomAddFunc[request]{
+			TypedRateLimitingInterface: q,
+			// We already know that we have a priority queue, that event.Object implements
+			// client.Object and that its not nil
+			addFunc: func(item request, q workqueue.TypedRateLimitingInterface[request]) {
+				var priority int
+				if e.IsInInitialList {
+					priority = LowPriority
+				}
+				q.(priorityqueue.PriorityQueue[request]).AddWithOpts(
+					priorityqueue.AddOpts{Priority: priority},
+					item,
+				)
+			},
+		}
+		h.CreateFunc(ctx, e, wq)
 	}
 }
 
@@ -125,7 +155,27 @@ func (h TypedFuncs[object, request]) Delete(ctx context.Context, e event.TypedDe
 // Update implements EventHandler.
 func (h TypedFuncs[object, request]) Update(ctx context.Context, e event.TypedUpdateEvent[object], q workqueue.TypedRateLimitingInterface[request]) {
 	if h.UpdateFunc != nil {
-		h.UpdateFunc(ctx, e, q)
+		if !implementsClientObject[object]() || !isPriorityQueue(q) || isNil(e.ObjectOld) || isNil(e.ObjectNew) {
+			h.UpdateFunc(ctx, e, q)
+			return
+		}
+
+		wq := workqueueWithCustomAddFunc[request]{
+			TypedRateLimitingInterface: q,
+			// We already know that we have a priority queue, that event.ObjectOld and ObjectNew implement
+			// client.Object and that they are  not nil
+			addFunc: func(item request, q workqueue.TypedRateLimitingInterface[request]) {
+				var priority int
+				if any(e.ObjectOld).(client.Object).GetResourceVersion() == any(e.ObjectNew).(client.Object).GetResourceVersion() {
+					priority = LowPriority
+				}
+				q.(priorityqueue.PriorityQueue[request]).AddWithOpts(
+					priorityqueue.AddOpts{Priority: priority},
+					item,
+				)
+			},
+		}
+		h.UpdateFunc(ctx, e, wq)
 	}
 }
 
@@ -142,43 +192,10 @@ const LowPriority = -100
 // WithLowPriorityWhenUnchanged reduces the priority of events stemming from the initial listwatch or from a resync if
 // and only if a priorityqueue.PriorityQueue is used. If not, it does nothing.
 func WithLowPriorityWhenUnchanged[object client.Object, request comparable](u TypedEventHandler[object, request]) TypedEventHandler[object, request] {
+	// TypedFuncs already implements this so just wrap
 	return TypedFuncs[object, request]{
-		CreateFunc: func(ctx context.Context, tce event.TypedCreateEvent[object], trli workqueue.TypedRateLimitingInterface[request]) {
-			// Due to how the handlers are factored, we have to wrap the workqueue to be able
-			// to inject custom behavior.
-			u.Create(ctx, tce, workqueueWithCustomAddFunc[request]{
-				TypedRateLimitingInterface: trli,
-				addFunc: func(item request, q workqueue.TypedRateLimitingInterface[request]) {
-					priorityQueue, isPriorityQueue := q.(priorityqueue.PriorityQueue[request])
-					if !isPriorityQueue {
-						q.Add(item)
-						return
-					}
-					var priority int
-					if isObjectUnchanged(tce) {
-						priority = LowPriority
-					}
-					priorityQueue.AddWithOpts(priorityqueue.AddOpts{Priority: priority}, item)
-				},
-			})
-		},
-		UpdateFunc: func(ctx context.Context, tue event.TypedUpdateEvent[object], trli workqueue.TypedRateLimitingInterface[request]) {
-			u.Update(ctx, tue, workqueueWithCustomAddFunc[request]{
-				TypedRateLimitingInterface: trli,
-				addFunc: func(item request, q workqueue.TypedRateLimitingInterface[request]) {
-					priorityQueue, isPriorityQueue := q.(priorityqueue.PriorityQueue[request])
-					if !isPriorityQueue {
-						q.Add(item)
-						return
-					}
-					var priority int
-					if tue.ObjectOld.GetResourceVersion() == tue.ObjectNew.GetResourceVersion() {
-						priority = LowPriority
-					}
-					priorityQueue.AddWithOpts(priorityqueue.AddOpts{Priority: priority}, item)
-				},
-			})
-		},
+		CreateFunc:  u.Create,
+		UpdateFunc:  u.Update,
 		DeleteFunc:  u.Delete,
 		GenericFunc: u.Generic,
 	}
@@ -193,9 +210,34 @@ func (w workqueueWithCustomAddFunc[request]) Add(item request) {
 	w.addFunc(item, w.TypedRateLimitingInterface)
 }
 
-// isObjectUnchanged checks if the object in a create event is unchanged, for example because
-// we got it in our initial listwatch. The heuristic it uses is to check if the object is older
-// than one minute.
-func isObjectUnchanged[object client.Object](e event.TypedCreateEvent[object]) bool {
-	return e.Object.GetCreationTimestamp().Time.Before(time.Now().Add(-time.Minute))
+// addToQueueCreate adds the reconcile.Request to the priorityqueue in the handler
+// for Create requests if and only if the workqueue being used is of type priorityqueue.PriorityQueue[reconcile.Request]
+func addToQueueCreate[T client.Object, request comparable](q workqueue.TypedRateLimitingInterface[request], evt event.TypedCreateEvent[T], item request) {
+	priorityQueue, isPriorityQueue := q.(priorityqueue.PriorityQueue[request])
+	if !isPriorityQueue {
+		q.Add(item)
+		return
+	}
+
+	var priority int
+	if evt.IsInInitialList {
+		priority = LowPriority
+	}
+	priorityQueue.AddWithOpts(priorityqueue.AddOpts{Priority: priority}, item)
+}
+
+// addToQueueUpdate adds the reconcile.Request to the priorityqueue in the handler
+// for Update requests if and only if the workqueue being used is of type priorityqueue.PriorityQueue[reconcile.Request]
+func addToQueueUpdate[T client.Object, request comparable](q workqueue.TypedRateLimitingInterface[request], evt event.TypedUpdateEvent[T], item request) {
+	priorityQueue, isPriorityQueue := q.(priorityqueue.PriorityQueue[request])
+	if !isPriorityQueue {
+		q.Add(item)
+		return
+	}
+
+	var priority int
+	if evt.ObjectOld.GetResourceVersion() == evt.ObjectNew.GetResourceVersion() {
+		priority = LowPriority
+	}
+	priorityQueue.AddWithOpts(priorityqueue.AddOpts{Priority: priority}, item)
 }

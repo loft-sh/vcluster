@@ -46,7 +46,7 @@ spec:
   template:
     metadata:
       annotations:
-        vClusterConfigHash: {{ .Values | toYaml | b64enc | sha256sum | quote }}
+        vClusterConfigHash: {{ include "vcluster.vClusterConfigHash" . }}
       {{- if .Values.controlPlane.statefulSet.pods.annotations }}
 {{ toYaml .Values.controlPlane.statefulSet.pods.annotations | indent 8 }}
       {{- end }}
