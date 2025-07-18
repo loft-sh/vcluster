@@ -29,7 +29,7 @@ sync:
         enabled: true
         initContainer:
           image:
-            registry: ""
+            registry: "mirror.gcr.io"
             repository: library/alpine
             tag: "3.20"
           resources:
@@ -134,7 +134,7 @@ controlPlane:
       extraArgs: []
       imagePullPolicy: ""
       image:
-        registry: ""
+        registry: "mirror.gcr.io"
         repository: "rancher/k3s"
         tag: "v1.33.1-k3s1"
       securityContext: {}
