@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/setup"
+	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/pkg/errors"
@@ -75,7 +76,7 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 	}
 
 	// init config
-	err = setup.InitAndValidateConfig(ctx, vConfig)
+	err = setupconfig.InitAndValidateConfig(ctx, vConfig)
 	if err != nil {
 		return err
 	}
