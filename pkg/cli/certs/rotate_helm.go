@@ -25,7 +25,7 @@ const (
 	RotationCmdCACerts RotationCmd = "rotate-ca"
 )
 
-const minVersion = "0.27.0-alpha.0"
+const minVersion = "0.27.0-alpha.9"
 
 // Rotate triggers the rotate commands in the backend.
 // Depending on if the virtual cluster has persistence it either:
