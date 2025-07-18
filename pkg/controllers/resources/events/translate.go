@@ -1,8 +1,10 @@
 package events
 
 import (
+	"errors"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -13,6 +15,10 @@ func (s *eventSyncer) translateEvent(ctx *synccontext.SyncContext, pEvent, vEven
 	// retrieve involved object
 	involvedObject, err := resources.GetInvolvedObject(ctx, pEvent)
 	if err != nil {
+		if pEvent.GetAnnotations()[constants.SyncResourceAnnotation] == "true" &&
+			(errors.Is(err, resources.ErrNilPhysicalObject) || errors.Is(err, resources.ErrKindNotAccepted) || errors.Is(err, resources.ErrNotFound)) {
+			return s.forceTranslateEvent(pEvent, vEvent)
+		}
 		return err
 	}
 	tempEvent := pEvent.DeepCopy()
@@ -49,4 +55,21 @@ func hostEventNameToVirtual(hostName string, hostInvolvedObjectName, virtualInvo
 	}
 
 	return hostName
+}
+
+func (s *eventSyncer) forceTranslateEvent(pEvent, vEvent *corev1.Event) error {
+	tempEvent := pEvent.DeepCopy()
+
+	// keep the metadata from the virtual object
+	translate.ResetObjectMetadata(tempEvent)
+	tempEvent.ObjectMeta = vEvent.ObjectMeta
+	tempEvent.TypeMeta = vEvent.TypeMeta
+
+	tempEvent.DeepCopyInto(vEvent)
+	delete(vEvent.Annotations, constants.SyncResourceAnnotation)
+	vEvent.Namespace = resources.ForceSyncedEventNamespace
+	vEvent.InvolvedObject = corev1.ObjectReference{
+		Namespace: vEvent.Namespace,
+	}
+	return nil
 }
