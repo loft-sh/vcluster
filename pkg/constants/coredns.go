@@ -6,6 +6,7 @@ var CoreDNSVersionMap = map[string]string{
 	"1.32": "coredns/coredns:1.11.3",
 	"1.31": "coredns/coredns:1.11.3",
 	"1.30": "coredns/coredns:1.11.3",
+	"1.33": "coredns/coredns:1.12.0",
 }
 
 var (
