@@ -27,6 +27,24 @@ helm upgrade [RELEASE_NAME] loft-sh/vcluster -n [RELEASE_NAMESPACE] --create-nam
 
 See [vcluster docs](https://vcluster.com/docs) for configuration options.
 
+## CAST AI Integration
+
+vCluster supports integration with CAST AI for workload autoscaling and reporting. To enable CAST AI integration, configure the following values:
+
+```yaml
+castai:
+  enabled: true
+  workloadName: "my-vcluster-workload"
+```
+
+This will automatically add the required CAST AI labels to all pods synced from the virtual cluster to the host cluster:
+- `workloads.cast.ai/custom-workload`: Enables workload autoscaling
+- `reports.cast.ai/name`: Enables workload reporting and naming
+
+For more information about CAST AI workload configuration, see:
+- [Workload Autoscaling Configuration](https://docs.cast.ai/docs/workload-autoscaling-configuration#label-based-workload-selection)
+- [Workload Reporting](https://docs.cast.ai/docs/workloads#add-a-label-for-name-override)
+
 See [helm upgrade](https://helm.sh/docs/helm/helm_upgrade/) for command documentation.
 
 ## Connect to the vcluster

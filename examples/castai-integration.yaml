@@ -1,0 +1,28 @@
+# Example vCluster configuration with CAST AI integration
+# This configuration enables CAST AI workload autoscaling and reporting
+
+# CAST AI integration configuration
+castai:
+  enabled: true
+  workloadName: "my-vcluster-workload"  # Customize this name for your workload
+
+# Standard vCluster configuration
+sync:
+  toHost:
+    services:
+      enabled: true
+    endpoints:
+      enabled: true
+    persistentVolumeClaims:
+      enabled: true
+    pods:
+      enabled: true
+      # The CAST AI patches will be automatically added when castai.enabled is true
+      # This adds the following labels to all synced pods:
+      # - workloads.cast.ai/custom-workload: enables workload autoscaling
+      # - reports.cast.ai/name: enables workload reporting and naming
+
+controlPlane:
+  distro:
+    k8s:
+      enabled: true

@@ -1,3 +1,11 @@
+# CAST AI integration configuration
+castai:
+  # Enabled defines if CAST AI labels should be added to synced workloads
+  enabled: true
+  # WorkloadName is the name used for CAST AI workload identification
+  # This will be used for both workload autoscaling and reporting labels
+  workloadName: "vcluster-workload"
+
 # Sync describes how to sync resources from the virtual cluster to host cluster and back.
 sync:
   # Configure resources to sync from the virtual cluster to the host cluster.
@@ -33,6 +41,9 @@ sync:
       translateImage: {}
       # EnforceTolerations will add the specified tolerations to all pods synced by the virtual cluster.
       enforceTolerations: []
+      # Patches patch the resource according to the provided specification.
+      # CAST AI patches are automatically added when castai.enabled is true
+      patches: []
       # HybridScheduling is used to enable and configure hybrid scheduling for pods in the virtual cluster.
       hybridScheduling:
         # Enabled specifies if hybrid scheduling is enabled.

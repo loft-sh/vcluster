@@ -139,6 +139,21 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CastAI": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if CAST AI labels should be added to synced workloads."
+        },
+        "workloadName": {
+          "type": "string",
+          "description": "WorkloadName is the name used for CAST AI workload identification. This will be used for both workload autoscaling and reporting labels."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "CastAI holds configuration for CAST AI integration including workload autoscaling and reporting."
+    },
     "CentralAdmission": {
       "properties": {
         "validatingWebhooks": {
@@ -4755,6 +4770,10 @@
     "exportKubeConfig": {
       "$ref": "#/$defs/ExportKubeConfig",
       "description": "ExportKubeConfig describes how vCluster should export the vCluster kubeConfig file."
+    },
+    "castai": {
+      "$ref": "#/$defs/CastAI",
+      "description": "CAST AI integration configuration for workload autoscaling and reporting."
     },
     "sync": {
       "$ref": "#/$defs/Sync",
