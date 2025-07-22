@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/invopop/jsonschema"
+	yamlv3 "gopkg.in/yaml.v3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -1721,7 +1722,46 @@ type Image struct {
 	Tag string `json:"tag,omitempty"`
 }
 
-func (i Image) String() (ref string) {
+// UnmarshalJSON makes the schema change from string to Image backwards compatible
+func (i *Image) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		ParseImageRef(str, i)
+		return nil
+	}
+
+	type Alias Image // Prevent infinite recursion
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(i),
+	}
+
+	return json.Unmarshal(data, &aux)
+}
+
+// UnmarshalYAML makes the schema change from string to Image backwards compatible
+func (i *Image) UnmarshalYAML(node *yamlv3.Node) error {
+	if node.Kind == yamlv3.ScalarNode {
+		ParseImageRef(node.Value, i)
+		return nil
+	}
+
+	type Alias Image // Prevent infinite recursion
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(i),
+	}
+
+	return node.Decode(&aux)
+}
+
+func (i *Image) String() (ref string) {
+	if i == nil {
+		return
+	}
+
 	if i.Registry != "" {
 		ref = i.Registry + "/"
 	}
