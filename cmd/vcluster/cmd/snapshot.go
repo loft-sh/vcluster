@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"time"
 
+	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
+	"github.com/loft-sh/log"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -21,19 +23,39 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume/auto"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume/csi"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume/filesystem"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/grpclog"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 )
 
 type SnapshotOptions struct {
 	Snapshot snapshot.Options
+	Debug    bool
+
+	vConfig           *config.VirtualClusterConfig
+	logger            log.Logger
+	kubeClient        *kubernetes.Clientset
+	volumeSnapshotter volume.Snapshotter
+
+	// volumeSnapshotClasses maps CSI driver names to names of VolumeSnapshotClass resources that are used for creating
+	// volume snapshots.
+	volumeSnapshotClasses map[string]string
 }
 
 func NewSnapshotCommand() *cobra.Command {
-	options := &SnapshotOptions{}
+	options := &SnapshotOptions{
+		logger: log.GetInstance(),
+	}
 	envOptions, err := parseOptionsFromEnv()
 	if err != nil {
 		klog.Warningf("Error parsing environment variables: %v", err)
@@ -45,29 +67,41 @@ func NewSnapshotCommand() *cobra.Command {
 		Use:   "snapshot",
 		Short: "snapshot a vCluster",
 		Args:  cobra.NoArgs,
+		PersistentPreRun: func(_ *cobra.Command, _ []string) {
+			if options.Debug {
+				options.logger.SetLevel(logrus.DebugLevel)
+			}
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return options.Run(cmd.Context())
 		},
 	}
 
+	cmd.Flags().BoolVar(&options.Debug, "debug", false, "Prints debug logs and the stack trace if an error occurs")
+
 	return cmd
 }
 
 func (o *SnapshotOptions) Run(ctx context.Context) error {
-	// parse vCluster config
-	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
+	err := o.init(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("init snapshot command failed: %w", err)
 	}
 
-	// make sure to validate options
-	err = validateOptions(vConfig, &o.Snapshot, false)
+	// create volume snapshots
+	err = o.createVolumeSnapshots(ctx)
 	if err != nil {
-		return err
+		// This is the limitation of the current WIP implementation. The snapshots are created inside
+		// virtual cluster, and the testing was done locally with in kind environment, so this was needed
+		// in order to be able to access virtual cluster API server.
+		o.logger.Errorf(
+			"failed to create volume snapshots, if you are creating a snapshot for a vcluster with private nodes, "+
+				"please make sure to run `vcluster snapshot` command with `--pod-exec`, otherwise volume snapshots cannot be created: %v",
+			err)
 	}
 
 	// create new etcd client
-	etcdClient, err := newEtcdClient(ctx, vConfig, false)
+	etcdClient, err := newEtcdClient(ctx, o.vConfig, false)
 	if err != nil {
 		return fmt.Errorf("failed to create etcd client: %w", err)
 	}
@@ -83,6 +117,14 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	err = o.writeSnapshot(ctx, etcdClient, objectStore)
 	if err != nil {
 		return err
+	}
+
+	// Cleanup the cluster after creating volume snapshots
+	if o.volumeSnapshotter != nil {
+		err = o.volumeSnapshotter.Cleanup(ctx)
+		if err != nil {
+			return fmt.Errorf("could not cleanup virtual cluster after creating volume snapshots: %w", err)
+		}
 	}
 
 	klog.Infof("Successfully wrote snapshot to %s", objectStore.Target())
@@ -167,6 +209,129 @@ func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Cli
 			}
 		}
 	}
+}
+
+func (o *SnapshotOptions) init(ctx context.Context) error {
+	o.logger.Debugf("Init snapshot command....")
+
+	// parse vCluster config
+	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
+	if err != nil {
+		return err
+	}
+
+	// make sure to validate options
+	err = validateOptions(vConfig, &o.Snapshot, false)
+	if err != nil {
+		return fmt.Errorf("options validation failed: %w", err)
+	}
+
+	kubeClient, snapshotClient, err := createVirtualKubeClients(vConfig)
+	if err != nil {
+		return fmt.Errorf("could not create kube and/or snapshot client: %w", err)
+	}
+	if kubeClient == nil {
+		return fmt.Errorf("kubernetes client is nil")
+	}
+	if snapshotClient == nil {
+		return fmt.Errorf("snapshot client is nil")
+	}
+
+	volumeSnapshotter, err := createVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotClient, o.logger)
+	if err != nil {
+		o.logger.Errorf("could not create volume snapshotter, volume snapshots will not be created: %v", err)
+	}
+
+	o.vConfig = vConfig
+	o.kubeClient = kubeClient
+	o.volumeSnapshotter = volumeSnapshotter
+	return nil
+}
+
+func (o *SnapshotOptions) createVolumeSnapshots(ctx context.Context) error {
+	if o.volumeSnapshotter == nil {
+		o.logger.Errorf("volume snapshotter cannot be created, volume snapshots will not be created")
+		return nil
+	}
+
+	// get all PVs
+	pvs, err := o.kubeClient.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("could not list PersistentVolumes: %w", err)
+	}
+
+	// Try creating snapshots for all PVs
+	err = o.volumeSnapshotter.CreateSnapshots(ctx, pvs.Items)
+	if err != nil {
+		return fmt.Errorf("could not create volume snapshots: %w", err)
+	}
+
+	return nil
+}
+
+func createVirtualKubeClients(config *config.VirtualClusterConfig) (*kubernetes.Clientset, *snapshotv1.Clientset, error) {
+	// read kubeconfig
+	out, err := os.ReadFile(config.VirtualClusterKubeConfig().KubeConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not read kubeconfig file: %w", err)
+	}
+	clientConfig, err := clientcmd.NewClientConfigFromBytes(out)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create a client config from kubeconfig: %w", err)
+	}
+
+	//vCluster, err := find.GetVCluster(ctx, "", config.Name, config.WorkloadNamespace, log.GetInstance())
+	//if err != nil {
+	//	return nil, nil, fmt.Errorf("could not find vCluster: %w", err)
+	//}
+
+	//restConfig, err := vCluster.ClientFactory.ClientConfig() // TODO fix, get virtual cluster client, this gets host cluster
+	//if err != nil {
+	//	return nil, nil, fmt.Errorf("could not get REST config from client config: %w", err)
+	//}
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create a rest client config: %w", err)
+	}
+
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create kube client: %w", err)
+	}
+
+	snapshotClient, err := snapshotv1.NewForConfig(restConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create snapshot client: %w", err)
+	}
+
+	return kubeClient, snapshotClient, nil
+}
+
+func createVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotv1.Clientset, logger log.Logger) (volume.Snapshotter, error) {
+	csiVolumeSnapshotter, err := csi.NewVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotsClient, logger)
+	if err != nil {
+		logger.Errorf("could not create CSI volume snapshotter, CSI VolumeSnapshots will not be created: %v", err)
+	}
+	filesystemSnapshotter, err := filesystem.NewVolumeSnapshotter(vConfig, logger)
+	if err != nil {
+		return nil, fmt.Errorf("could not create filesystem snapshotter: %w", err)
+	}
+
+	var snapshotters []volume.Snapshotter
+	if csiVolumeSnapshotter != nil {
+		// Use CSI volume snapshot only when it was successfully created.
+		// e.g. the CSI VolumeSnapshotter creation will fail when volume snapshot CRDs are not
+		// installed in the virtual cluster, so in that case the snapshot command will just not
+		// try to use CSI volume snapshotter for PVCs, and it will only use the file-system
+		// snapshotter.
+		snapshotters = append(snapshotters, csiVolumeSnapshotter)
+	}
+	snapshotters = append(snapshotters, filesystemSnapshotter)
+	autoSnapshotter, err := auto.NewVolumeSnapshotter(logger, snapshotters...)
+	if err != nil {
+		return nil, fmt.Errorf("could not create auto snapshotter: %w", err)
+	}
+	return autoSnapshotter, nil
 }
 
 func validateOptions(vConfig *config.VirtualClusterConfig, options *snapshot.Options, isRestore bool) error {
