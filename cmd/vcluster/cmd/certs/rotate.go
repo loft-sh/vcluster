@@ -13,7 +13,8 @@ import (
 )
 
 type rotateCmd struct {
-	log log.Logger
+	log     log.Logger
+	pkiPath string
 }
 
 func rotate() *cobra.Command {
@@ -28,6 +29,8 @@ func rotate() *cobra.Command {
 		RunE: func(cobraCmd *cobra.Command, _ []string) error {
 			return cmd.Run(cobraCmd.Context(), false)
 		}}
+
+	rotateCmd.Flags().StringVar(&cmd.pkiPath, "path", constants.PKIDir, "The path to the PKI directory")
 
 	return rotateCmd
 }
@@ -45,6 +48,8 @@ func rotateCA() *cobra.Command {
 			return cmd.Run(cobraCmd.Context(), true)
 		}}
 
+	rotateCACmd.Flags().StringVar(&cmd.pkiPath, "path", constants.PKIDir, "The path to the PKI directory")
+
 	return rotateCACmd
 }
 
@@ -54,5 +59,5 @@ func (cmd *rotateCmd) Run(ctx context.Context, withCA bool) error {
 		return fmt.Errorf("parsing vCluster config: %w", err)
 	}
 
-	return certs.Rotate(ctx, vConfig, withCA, cmd.log)
+	return certs.Rotate(ctx, vConfig, cmd.pkiPath, withCA, cmd.log)
 }

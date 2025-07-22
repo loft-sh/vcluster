@@ -12,7 +12,6 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
@@ -35,6 +34,7 @@ type Info struct {
 // or the whole PKI infra (withCA=true). In both cases the current SA pub and private keys are untouched.
 func Rotate(ctx context.Context,
 	vConfig *config.VirtualClusterConfig,
+	pkiPath string,
 	withCA bool,
 	log log.Logger) error {
 	var err error
@@ -52,7 +52,7 @@ func Rotate(ctx context.Context,
 		return fmt.Errorf("getting service cidr: %w", err)
 	}
 
-	kubeadmConfig, err := GenerateInitKubeadmConfig(serviceCIDR, constants.PKIDir, vConfig)
+	kubeadmConfig, err := GenerateInitKubeadmConfig(serviceCIDR, pkiPath, vConfig)
 	if err != nil {
 		return fmt.Errorf("generating kubeadm config: %w", err)
 	}
@@ -74,9 +74,9 @@ func Rotate(ctx context.Context,
 
 	log.Info("Backing up previous PKI directory")
 	backupDirName := fmt.Sprintf("%d", time.Now().Unix())
-	backupDir := filepath.Join(constants.PKIDir, "../pki.bak/"+backupDirName)
-	if err := backupDirectory(constants.PKIDir, backupDir); err != nil {
-		return fmt.Errorf("backing up PKI directory")
+	backupDir := filepath.Join(pkiPath, "../pki.bak/"+backupDirName)
+	if err := backupDirectory(pkiPath, backupDir); err != nil {
+		return fmt.Errorf("backing up PKI directory: %w", err)
 	}
 	log.Infof("Backup available at %s", backupDir)
 
@@ -86,11 +86,11 @@ func Rotate(ctx context.Context,
 	}
 
 	log.Info("Removing relevant certificate files from PKI directory")
-	if err := removeFiles(constants.PKIDir, excludeFuncs...); err != nil {
+	if err := removeFiles(pkiPath, excludeFuncs...); err != nil {
 		return fmt.Errorf("removing files from PKI directory: %w", err)
 	}
 
-	if err := generateCertificates(constants.PKIDir, kubeadmConfig); err != nil {
+	if err := generateCertificates(pkiPath, kubeadmConfig); err != nil {
 		return fmt.Errorf("creating pki assets: %w", err)
 	}
 
@@ -100,7 +100,7 @@ func Rotate(ctx context.Context,
 	}
 
 	// Patch the secret so in case of a restart without persistence we don't loose data.
-	return patchSecret(ctx, vConfig.ControlPlaneNamespace, CertSecretName(vConfig.Name), constants.PKIDir, vConfig.ControlPlaneClient)
+	return patchSecret(ctx, vConfig.ControlPlaneNamespace, CertSecretName(vConfig.Name), pkiPath, vConfig.ControlPlaneClient)
 }
 
 func backupDirectory(src, dst string) error {

@@ -17,8 +17,8 @@ import (
 )
 
 type checkCmd struct {
-	Path string
-	log  log.Logger
+	pkiPath string
+	log     log.Logger
 }
 
 func check() *cobra.Command {
@@ -34,7 +34,7 @@ func check() *cobra.Command {
 			return cmd.Run()
 		}}
 
-	checkCmd.Flags().StringVar(&cmd.Path, "path", constants.PKIDir, "Destination path to the PKI directory")
+	checkCmd.Flags().StringVar(&cmd.pkiPath, "path", constants.PKIDir, "The path to the PKI directory")
 
 	return checkCmd
 }
@@ -43,7 +43,7 @@ func check() *cobra.Command {
 func (cmd *checkCmd) Run() error {
 	now := time.Now()
 	var certificateInfos []certs.Info
-	err := filepath.WalkDir(cmd.Path, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(cmd.pkiPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
