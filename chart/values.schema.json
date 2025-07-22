@@ -1207,7 +1207,7 @@
         },
         "scheduler": {
           "$ref": "#/$defs/DistroContainerEnabled",
-          "description": "Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled"
+          "description": "Scheduler holds configuration specific to starting the scheduler."
         },
         "image": {
           "$ref": "#/$defs/Image",
