@@ -72,6 +72,7 @@ func (o *DeleteOptions) Run(ctx context.Context, args []string) error {
 
 		Force:               true,
 		IgnoreAllDaemonSets: true,
+		DeleteEmptyDirData:  true,
 
 		Timeout: 30 * time.Minute,
 
