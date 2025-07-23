@@ -95,8 +95,8 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 
 	overrideHostsImage := ctx.Config.Sync.ToHost.Pods.RewriteHosts.InitContainer.Image
 	overrideHostsImage.Registry = cmp.Or(
-		overrideHostsImage.Registry,
 		ctx.Config.ControlPlane.Advanced.DefaultImageRegistry,
+		overrideHostsImage.Registry,
 		"docker.io",
 	)
 
