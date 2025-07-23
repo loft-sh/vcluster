@@ -252,7 +252,7 @@ controlPlane:
         command: []
         # ExtraArgs are additional arguments to pass to the distro binary.
         extraArgs: []
-      # Scheduler holds configuration specific to starting the scheduler. Enable this via controlPlane.advanced.virtualScheduler.enabled
+      # Scheduler holds configuration specific to starting the scheduler.
       scheduler:
         enabled: false
         # Command is the command to start the distro binary. This will override the existing command.
