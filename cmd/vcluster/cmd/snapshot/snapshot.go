@@ -1,4 +1,4 @@
-package cmd
+package snapshot
 
 import (
 	"archive/tar"
@@ -21,6 +21,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
+	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -49,6 +50,8 @@ func NewSnapshotCommand() *cobra.Command {
 			return options.Run(cmd.Context())
 		},
 	}
+
+	cmd.AddCommand(NewListCmd())
 
 	return cmd
 }
@@ -89,7 +92,30 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	return nil
 }
 
-func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore snapshot.Storage) error {
+func (o *SnapshotOptions) List(ctx context.Context) ([]types.Snapshot, error) {
+	// parse vCluster config
+	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// make sure to validate options
+	err = validateOptions(vConfig, &o.Snapshot, false)
+	if err != nil {
+		return nil, err
+	}
+
+	// create store
+	objectStore, err := snapshot.CreateStore(ctx, &o.Snapshot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create store: %w", err)
+	}
+
+	// list snapshots
+	return objectStore.List(ctx)
+}
+
+func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) error {
 	// now stream objects from etcd to object store
 	errChan := make(chan error)
 	reader, writer, err := os.Pipe()

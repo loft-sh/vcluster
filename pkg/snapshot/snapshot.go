@@ -3,17 +3,16 @@ package snapshot
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/url"
 	"path"
 	"strings"
-
-	"github.com/spf13/pflag"
 
 	"github.com/loft-sh/vcluster/pkg/snapshot/container"
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
 	"github.com/loft-sh/vcluster/pkg/snapshot/options"
 	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
+	"github.com/loft-sh/vcluster/pkg/snapshot/types"
+	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
 )
 
@@ -47,13 +46,7 @@ type VClusterConfig struct {
 	Values       string `json:"values"`
 }
 
-type Storage interface {
-	Target() string
-	PutObject(ctx context.Context, body io.Reader) error
-	GetObject(ctx context.Context) (io.ReadCloser, error)
-}
-
-func CreateStore(ctx context.Context, options *Options) (Storage, error) {
+func CreateStore(ctx context.Context, options *Options) (types.Storage, error) {
 	if options.Type == "s3" {
 		objectStore := s3.NewStore(klog.FromContext(ctx))
 		err := objectStore.Init(&options.S3)
