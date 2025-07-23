@@ -795,6 +795,12 @@ privateNodes:
   # joining new nodes into the cluster without having to download the binaries from the internet.
   importNodeBinaries: true
   
+  # Kubelet holds kubelet configuration that is used for all nodes.
+  kubelet:
+    # Config is the config for the kubelet that will be merged into the default kubelet config. More information can be found here:
+    # https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/#kubelet-config-k8s-io-v1beta1-KubeletConfiguration
+    config: {}
+  
   # AutoUpgrade holds configuration for auto upgrade.
   autoUpgrade:
     # Enabled defines if auto upgrade should be enabled.
@@ -839,6 +845,9 @@ deploy:
     extraEnv: []
     # ExtraArgs are additional arguments to pass to the kube-proxy.
     extraArgs: []
+    # Config is the config for the kube-proxy that will be merged into the default kube-proxy config. More information can be found here:
+    # https://kubernetes.io/docs/reference/config-api/kube-proxy-config.v1alpha1/#kubeproxy-config-k8s-io-v1alpha1-KubeProxyConfiguration
+    config: {}
   
   # Metallb holds dedicated metallb configuration.
   metallb:

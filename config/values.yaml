@@ -433,6 +433,8 @@ controlPlane:
 privateNodes:
   enabled: false
   importNodeBinaries: true
+  kubelet:
+    config: {}
   autoUpgrade:
     enabled: true
     concurrency: 1
@@ -454,6 +456,7 @@ deploy:
     tolerations: []
     extraEnv: []
     extraArgs: []
+    config: {}
   metallb:
     enabled: false
     ipAddressPool:
