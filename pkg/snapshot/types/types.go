@@ -17,4 +17,5 @@ type Storage interface {
 	PutObject(ctx context.Context, body io.Reader) error
 	GetObject(ctx context.Context) (io.ReadCloser, error)
 	List(ctx context.Context) ([]Snapshot, error)
+	Delete(ctx context.Context) error
 }

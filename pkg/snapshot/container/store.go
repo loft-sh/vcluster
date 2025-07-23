@@ -3,6 +3,7 @@ package container
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -49,7 +50,7 @@ func (s *Store) PutObject(_ context.Context, body io.Reader) error {
 	return err
 }
 
-func (s *Store) List(ctx context.Context) ([]types.Snapshot, error) {
+func (s *Store) List(_ context.Context) ([]types.Snapshot, error) {
 	path := s.path
 	fileInfo, err := os.Stat(path)
 	if err != nil {
@@ -90,4 +91,21 @@ func (s *Store) List(ctx context.Context) ([]types.Snapshot, error) {
 		})
 	}
 	return snapshots, nil
+}
+
+func (s *Store) Delete(_ context.Context) error {
+	fileInfo, err := os.Stat(s.path)
+	if err != nil {
+		return err
+	}
+
+	if fileInfo.IsDir() {
+		return fmt.Errorf("not a snapshot file")
+	}
+
+	if !strings.HasSuffix(s.path, "tar.gz") {
+		return fmt.Errorf("not a snapshot file")
+	}
+
+	return os.Remove(s.path)
 }

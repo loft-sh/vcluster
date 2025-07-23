@@ -223,6 +223,10 @@ func (s *Store) List(ctx context.Context) ([]types.Snapshot, error) {
 	return snapshots, nil
 }
 
+func (s *Store) Delete(ctx context.Context) error {
+	return fmt.Errorf("deleting OCI snapshots is not supported")
+}
+
 func hasLayerWithMediaType(img remotev1.Image, mediaType string) (bool, error) {
 	layers, err := img.Layers()
 	if err != nil {
