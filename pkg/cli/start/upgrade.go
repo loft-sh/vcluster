@@ -23,6 +23,10 @@ func (l *LoftStarter) upgradeLoft() error {
 	}
 	if l.Host != "" {
 		extraArgs = append(extraArgs, "--set", "ingress.enabled=true", "--set", "ingress.host="+l.Host)
+
+		if l.NoTunnel {
+			extraArgs = append(extraArgs, "--set", "config.loftHost="+l.Host)
+		}
 	}
 	if l.Version != "" {
 		extraArgs = append(extraArgs, "--version", l.Version)
