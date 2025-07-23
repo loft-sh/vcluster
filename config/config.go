@@ -1730,14 +1730,13 @@ func (i *Image) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	type Alias Image // Prevent infinite recursion
-	aux := &struct {
-		*Alias
-	}{
-		Alias: (*Alias)(i),
+	type Alias Image
+	var aux Alias
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
 	}
-
-	return json.Unmarshal(data, &aux)
+	*i = Image(aux)
+	return nil
 }
 
 // UnmarshalYAML makes the schema change from string to Image backwards compatible
@@ -1747,14 +1746,13 @@ func (i *Image) UnmarshalYAML(node *yamlv3.Node) error {
 		return nil
 	}
 
-	type Alias Image // Prevent infinite recursion
-	aux := &struct {
-		*Alias
-	}{
-		Alias: (*Alias)(i),
+	type Alias Image
+	var aux Alias
+	if err := node.Decode(&aux); err != nil {
+		return err
 	}
-
-	return node.Decode(&aux)
+	*i = Image(aux)
+	return nil
 }
 
 func (i *Image) String() (ref string) {
