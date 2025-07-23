@@ -382,8 +382,9 @@ type AutoUpgrade struct {
 }
 
 type Kubelet struct {
-	// CgroupDriver defines the cgroup driver to use for the kubelet.
-	CgroupDriver string `json:"cgroupDriver,omitempty"`
+	// Config is the config for the kubelet that will be merged into the default kubelet config. More information can be found here:
+	// https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/#kubelet-config-k8s-io-v1beta1-KubeletConfiguration
+	Config map[string]interface{} `json:"config,omitempty"`
 }
 
 type KubeProxy struct {
@@ -410,6 +411,10 @@ type KubeProxy struct {
 
 	// ExtraArgs are additional arguments to pass to the kube-proxy.
 	ExtraArgs []string `json:"extraArgs,omitempty"`
+
+	// Config is the config for the kube-proxy that will be merged into the default kube-proxy config. More information can be found here:
+	// https://kubernetes.io/docs/reference/config-api/kube-proxy-config.v1alpha1/#kubeproxy-config-k8s-io-v1alpha1-KubeProxyConfiguration
+	Config map[string]interface{} `json:"config,omitempty"`
 }
 
 type Konnectivity struct {
