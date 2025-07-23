@@ -10,10 +10,10 @@
 
 /chart/ @FabianKramm @hidalgopl @zerbitx
 
-/cmd/vcluster/ @FabianKramm @hidalgopl @zerbitx
-/cmd/vclusterctl/ @johannesfrey
+/cmd/vcluster/ @FabianKramm @hidalgopl @zerbitx @lizardruss
+/cmd/vclusterctl/ @johannesfrey @lizardruss
 
-/config/ @FabianKramm @hidalgopl @zerbitx
+/config/ @FabianKramm @hidalgopl @zerbitx @lizardruss
 
 /docs/ @loft-sh/Eng-Docs-Admin
 
@@ -24,10 +24,10 @@
 /pkg/authentication/ @FabianKramm
 /pkg/authorization/ @FabianKramm
 
-/pkg/cli/ @FabianKramm @hidalgopl @johannesfrey @zerbitx
+/pkg/cli/ @FabianKramm @hidalgopl @johannesfrey @zerbitx @lizardruss
 
 /pkg/config/ @FabianKramm @hidalgopl @johannesfrey
-/pkg/config/config.go @FabianKramm
+/pkg/config/config.go @FabianKramm @lizardruss
 
 /pkg/controllers/k8sdefaultendpoint/ @FabianKramm
 /pkg/controllers/register.go @FabianKramm
@@ -45,7 +45,9 @@
 /pkg/plugin/ @FabianKramm
 /pkg/server/ @FabianKramm
 /pkg/setup/ @FabianKramm @hidalgopl
-/pkg/syncer/ @FabianKramm @hidalgopl
+/pkg/syncer/ @FabianKramm @hidalgopl @lizardruss
+/pkg/util/portforward/ @FabianKramm @lizardruss
+/pkg/util/servicecidr/ @FabianKramm @lizardruss
 /pkg/util/translate/ @FabianKramm
 
 netlify.toml @loft-sh/Eng-Docs-Admin
