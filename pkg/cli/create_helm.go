@@ -34,6 +34,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	platformclihelper "github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
@@ -409,9 +410,13 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	return nil
 }
 
+var advisors = map[string]func() (warning string){
+	"sleepMode": sleepmode.Warning,
+}
+
 func confirmExperimental(currentVClusterConfig *config.Config, currentValues string, log log.Logger) error {
 	if err := currentVClusterConfig.UnmarshalYAMLStrict([]byte(currentValues)); err != nil {
-		warning := config.ExperimentalWarning(log, []byte(currentValues))
+		warning := config.ExperimentalWarning(log, []byte(currentValues), advisors)
 		if warning == "" {
 			warning = "The current configuration is not compatible with the version you're upgrading to."
 		}
