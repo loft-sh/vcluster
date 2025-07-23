@@ -29,12 +29,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type SnapshotOptions struct {
+type Options struct {
 	Snapshot snapshot.Options
 }
 
 func NewSnapshotCommand() *cobra.Command {
-	options := &SnapshotOptions{}
+	options := &Options{}
 	envOptions, err := parseOptionsFromEnv()
 	if err != nil {
 		klog.Warningf("Error parsing environment variables: %v", err)
@@ -52,11 +52,12 @@ func NewSnapshotCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(NewListCmd())
+	cmd.AddCommand(NewDeleteCmd())
 
 	return cmd
 }
 
-func (o *SnapshotOptions) Run(ctx context.Context) error {
+func (o *Options) Run(ctx context.Context) error {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
@@ -92,7 +93,7 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	return nil
 }
 
-func (o *SnapshotOptions) List(ctx context.Context) ([]types.Snapshot, error) {
+func (o *Options) List(ctx context.Context) ([]types.Snapshot, error) {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
@@ -115,7 +116,35 @@ func (o *SnapshotOptions) List(ctx context.Context) ([]types.Snapshot, error) {
 	return objectStore.List(ctx)
 }
 
-func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) error {
+func (o *Options) Delete(ctx context.Context) error {
+	// parse vCluster config
+	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
+	if err != nil {
+		return err
+	}
+
+	// make sure to validate options
+	err = validateOptions(vConfig, &o.Snapshot, false)
+	if err != nil {
+		return err
+	}
+
+	// create store
+	objectStore, err := snapshot.CreateStore(ctx, &o.Snapshot)
+	if err != nil {
+		return fmt.Errorf("failed to create store: %w", err)
+	}
+
+	// delete snapshot
+	if err := objectStore.Delete(ctx); err != nil {
+		return err
+	}
+
+	klog.Infof("Successfully deleted snapshot %s", objectStore.Target())
+	return nil
+}
+
+func (o *Options) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) error {
 	// now stream objects from etcd to object store
 	errChan := make(chan error)
 	reader, writer, err := os.Pipe()

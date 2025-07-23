@@ -223,6 +223,34 @@ func (s *Store) List(ctx context.Context) ([]types.Snapshot, error) {
 	return snapshots, nil
 }
 
+func (s *Store) Delete(ctx context.Context) error {
+	ref, err := name.ParseReference(s.options.Repository)
+	if err != nil {
+		return err
+	}
+
+	// Load the image to check for etcd layer
+	img, err := remote.Image(ref, remote.WithContext(ctx), remote.WithAuth(&authn.Basic{
+		Username: s.options.Username,
+		Password: s.options.Password,
+	}))
+	if err != nil {
+		return err
+	}
+
+	// Check that this is a snapshot image before deleting it
+	if ok, err := hasLayerWithMediaType(img, EtcdLayerMediaType); err != nil {
+		return nil
+	} else if !ok {
+		return fmt.Errorf("not a snapshot image")
+	}
+
+	return remote.Delete(ref, remote.WithContext(ctx), remote.WithAuth(&authn.Basic{
+		Username: s.options.Username,
+		Password: s.options.Password,
+	}))
+}
+
 func hasLayerWithMediaType(img remotev1.Image, mediaType string) (bool, error) {
 	layers, err := img.Layers()
 	if err != nil {

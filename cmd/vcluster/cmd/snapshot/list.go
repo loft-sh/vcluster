@@ -15,7 +15,7 @@ func NewListCmd() *cobra.Command {
 		Short: "list vCluster snapshots",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			options := &SnapshotOptions{}
+			options := &Options{}
 			envOptions, err := parseOptionsFromEnv()
 			if err != nil {
 				klog.Warningf("Error parsing environment variables: %v", err)

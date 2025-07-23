@@ -330,6 +330,14 @@ func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 	return snapshots, nil
 }
 
+func (o *ObjectStore) Delete(ctx context.Context) error {
+	_, err := o.s3.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(o.bucket),
+		Key:    aws.String(o.key),
+	})
+	return err
+}
+
 // this is required because os pipes cause trouble with aws uploader
 type wrapper struct {
 	io.Reader
