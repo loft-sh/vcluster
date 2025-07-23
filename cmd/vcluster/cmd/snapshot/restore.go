@@ -1,4 +1,4 @@
-package cmd
+package snapshot
 
 import (
 	"archive/tar"

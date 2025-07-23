@@ -24,18 +24,18 @@ import (
 	"io"
 	"os"
 	"slices"
-
-	"k8s.io/klog/v2"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/go-logr/logr"
-
+	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"github.com/pkg/errors"
+	"k8s.io/klog/v2"
 )
 
 type Options struct {
@@ -198,13 +198,13 @@ func (o *ObjectStore) Init(config *Options) error {
 		}
 		o.checksumAlg = config.ChecksumAlgorithm
 	} else {
-		o.checksumAlg = string(types.ChecksumAlgorithmCrc32)
+		o.checksumAlg = string(s3types.ChecksumAlgorithmCrc32)
 	}
 	return nil
 }
 
 func validChecksumAlg(alg string) bool {
-	typedAlg := types.ChecksumAlgorithm(alg)
+	typedAlg := s3types.ChecksumAlgorithm(alg)
 	return alg == "" || slices.Contains(typedAlg.Values(), typedAlg)
 }
 
@@ -268,11 +268,11 @@ func (o *ObjectStore) PutObject(ctx context.Context, body io.Reader) error {
 	// otherwise, use the SSE algorithm specified, if any
 	case o.serverSideEncryption != "":
 		klog.FromContext(ctx).Info("using aws server-side encryption (SSE)", "server-side-encryption", o.serverSideEncryption)
-		input.ServerSideEncryption = types.ServerSideEncryption(o.serverSideEncryption)
+		input.ServerSideEncryption = s3types.ServerSideEncryption(o.serverSideEncryption)
 	}
 
 	if o.checksumAlg != "" {
-		input.ChecksumAlgorithm = types.ChecksumAlgorithm(o.checksumAlg)
+		input.ChecksumAlgorithm = s3types.ChecksumAlgorithm(o.checksumAlg)
 	}
 
 	_, err := o.s3Uploader.Upload(ctx, input)
@@ -297,6 +297,37 @@ func (o *ObjectStore) GetObject(ctx context.Context) (io.ReadCloser, error) {
 	}
 
 	return output.Body, nil
+}
+
+func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
+	paginator := s3.NewListObjectsV2Paginator(o.s3, &s3.ListObjectsV2Input{
+		Bucket: aws.String(o.bucket),
+	})
+
+	var snapshots []types.Snapshot
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, obj := range output.Contents {
+			if obj.Key == nil || obj.LastModified == nil {
+				continue
+			}
+
+			if !strings.HasSuffix(*obj.Key, "tar.gz") {
+				continue
+			}
+
+			snapshots = append(snapshots, types.Snapshot{
+				ID:        *obj.Key,
+				URL:       "s3://" + o.bucket,
+				Timestamp: *obj.LastModified,
+			})
+		}
+	}
+	return snapshots, nil
 }
 
 // this is required because os pipes cause trouble with aws uploader

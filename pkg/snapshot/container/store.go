@@ -2,9 +2,13 @@ package container
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 )
 
 type Options struct {
@@ -43,4 +47,47 @@ func (s *Store) PutObject(_ context.Context, body io.Reader) error {
 
 	_, err = io.Copy(f, body)
 	return err
+}
+
+func (s *Store) List(ctx context.Context) ([]types.Snapshot, error) {
+	path := s.path
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if !fileInfo.IsDir() {
+		path = filepath.Dir(path)
+	}
+
+	var snapshots []types.Snapshot
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range entries {
+		eInfo, err := entry.Info()
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return nil, err
+		}
+
+		if eInfo.IsDir() {
+			continue
+		}
+
+		if !strings.HasSuffix(eInfo.Name(), "tar.gz") {
+			continue
+		}
+
+		snapshots = append(snapshots, types.Snapshot{
+			ID:        entry.Name(),
+			URL:       s.Target(),
+			Timestamp: eInfo.ModTime(),
+		})
+	}
+	return snapshots, nil
 }
