@@ -7,6 +7,7 @@ import (
 
 	"gotest.tools/assert"
 	"gotest.tools/assert/cmp"
+	"sigs.k8s.io/yaml"
 )
 
 func TestConfig_Diff(t *testing.T) {
@@ -383,6 +384,46 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.config.IsProFeatureEnabled(), tt.expected)
+		})
+	}
+}
+
+// We changed sync.toHost.pods.rewriteHosts.initContainer.image from a string to an object in 0.27.0.
+// We parse the previously used config on upgrade, so it must be backwards compatible.
+func TestImage_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name     string
+		yaml     string
+		expected Image
+	}{
+		{
+			name: "image as object",
+			yaml: `registry: registry:5000
+repository: some/repo
+tag: sometag`,
+			expected: Image{
+				Registry:   "registry:5000",
+				Repository: "some/repo",
+				Tag:        "sometag",
+			},
+		},
+		{
+			name: "image as string",
+			yaml: "registry:5000/some/repo:sometag",
+			expected: Image{
+				Registry:   "registry:5000",
+				Repository: "some/repo",
+				Tag:        "sometag",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var actual Image
+			err := yaml.Unmarshal([]byte(tt.yaml), &actual)
+			assert.NilError(t, err)
+			assert.DeepEqual(t, actual, tt.expected)
 		})
 	}
 }
