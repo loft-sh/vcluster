@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	remotev1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/loft-sh/vcluster/pkg/snapshot/oci/ghcr"
 	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	oras "oras.land/oras-go/v2"
@@ -243,6 +244,10 @@ func (s *Store) Delete(ctx context.Context) error {
 		return nil
 	} else if !ok {
 		return fmt.Errorf("not a snapshot image")
+	}
+
+	if ghcr.IsGHCRContainerRegistry(ref) {
+		return ghcr.NewImageDeleter(s.options.Password).Delete(ctx, ref)
 	}
 
 	return remote.Delete(ref, remote.WithContext(ctx), remote.WithAuth(&authn.Basic{
