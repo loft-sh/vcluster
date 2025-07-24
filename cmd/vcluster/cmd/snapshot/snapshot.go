@@ -65,7 +65,7 @@ func (o *Options) Run(ctx context.Context) error {
 	}
 
 	// make sure to validate options
-	err = validateOptions(vConfig, &o.Snapshot, false)
+	err = validateOptions(vConfig, &o.Snapshot, false, false)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (o *Options) List(ctx context.Context) ([]types.Snapshot, error) {
 	}
 
 	// make sure to validate options
-	err = validateOptions(vConfig, &o.Snapshot, false)
+	err = validateOptions(vConfig, &o.Snapshot, false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (o *Options) Delete(ctx context.Context) error {
 	}
 
 	// make sure to validate options
-	err = validateOptions(vConfig, &o.Snapshot, false)
+	err = validateOptions(vConfig, &o.Snapshot, false, false)
 	if err != nil {
 		return err
 	}
@@ -224,9 +224,9 @@ func (o *Options) writeSnapshot(ctx context.Context, etcdClient etcd.Client, obj
 	}
 }
 
-func validateOptions(vConfig *config.VirtualClusterConfig, options *snapshot.Options, isRestore bool) error {
+func validateOptions(vConfig *config.VirtualClusterConfig, options *snapshot.Options, isRestore, isList bool) error {
 	// storage needs to be either s3 or file
-	err := snapshot.Validate(options)
+	err := snapshot.Validate(options, isList)
 	if err != nil {
 		return err
 	}

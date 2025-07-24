@@ -81,7 +81,7 @@ func (o *RestoreOptions) Run(ctx context.Context) (retErr error) {
 	}
 
 	// make sure to validate options
-	err = validateOptions(vConfig, &o.Snapshot, true)
+	err = validateOptions(vConfig, &o.Snapshot, true, false)
 	if err != nil {
 		return err
 	}

@@ -120,10 +120,10 @@ func Parse(snapshotURL string, snapshotOptions *Options) error {
 	return nil
 }
 
-func Validate(options *Options) error {
+func Validate(options *Options, isList bool) error {
 	// storage needs to be either s3 or file
 	if options.Type == "s3" {
-		if options.S3.Key == "" {
+		if !isList && options.S3.Key == "" {
 			return fmt.Errorf("key must be specified via s3://BUCKET/KEY")
 		}
 		if options.S3.Bucket == "" {
