@@ -293,7 +293,7 @@ func startEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClust
 				return fmt.Errorf("failed to create directory %s: %w", filepath.Dir(constants.K3sSqliteDatabase), err)
 			}
 
-			k8s.StartKine(ctx, fmt.Sprintf("sqlite://%s?_journal=WAL&cache=shared&_busy_timeout=30000", constants.K3sSqliteDatabase), constants.K3sKineEndpoint, nil, nil)
+			k8s.StartKine(ctx, fmt.Sprintf("sqlite://%s%s", constants.K3sSqliteDatabase, k8s.SQLiteParams), constants.K3sKineEndpoint, nil, nil)
 		} else {
 			return fmt.Errorf("unsupported distro: %s", vConfig.Distro())
 		}
@@ -303,32 +303,39 @@ func startEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClust
 
 	// embedded etcd
 	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
-		klog.FromContext(ctx).Info("Starting embedded etcd...")
-		certificatesDir, err := generateCertificates(ctx, vConfig)
-		if err != nil {
-			return fmt.Errorf("failed to get certificates: %w", err)
-		}
-
-		// we need to run this with the parent ctx as otherwise this context
-		// will be cancelled by the wait loop in Initialize
-		err = pro.StartEmbeddedEtcd(
-			context.WithoutCancel(ctx),
-			vConfig.Name,
-			vConfig.ControlPlaneNamespace,
-			vConfig.ControlPlaneClient,
-			certificatesDir,
-			vConfig.ControlPlane.BackingStore.Etcd.Embedded.SnapshotCount,
-			"",
-			false,
-			vConfig.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
-			true,
-		)
+		_, err := startEmbeddedEtcd(context.WithoutCancel(ctx), vConfig)
 		if err != nil {
 			return fmt.Errorf("start embedded etcd: %w", err)
 		}
 	}
 
 	return nil
+}
+
+func startEmbeddedEtcd(ctx context.Context, vConfig *config.VirtualClusterConfig) (func(), error) {
+	klog.FromContext(ctx).Info("Starting embedded etcd...")
+	certificatesDir, err := generateCertificates(ctx, vConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get certificates: %w", err)
+	}
+
+	stop, err := pro.StartEmbeddedEtcd(
+		ctx,
+		vConfig.Name,
+		vConfig.ControlPlaneNamespace,
+		vConfig.ControlPlaneClient,
+		certificatesDir,
+		vConfig.ControlPlane.BackingStore.Etcd.Embedded.SnapshotCount,
+		"",
+		false,
+		vConfig.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
+		true,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("start embedded etcd: %w", err)
+	}
+
+	return stop, nil
 }
 
 func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterConfig) (string, error) {

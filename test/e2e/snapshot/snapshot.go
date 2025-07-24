@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -226,7 +227,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		framework.ExpectNoError(err)
 
 		// now create a service that should be deleted by restore
-		_, err = f.VClusterClient.CoreV1().Services(defaultNamespace).Create(f.Context, &corev1.Service{
+		serviceToDelete, err := f.VClusterClient.CoreV1().Services(defaultNamespace).Create(f.Context, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "snapshot-delete",
 				Namespace: defaultNamespace,
@@ -312,7 +313,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		err = f.RefreshVirtualClient()
 		framework.ExpectNoError(err)
 
-		//Check configmap created before snapshot is available
+		// Check configmap created before snapshot is available
 		configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).List(f.Context, metav1.ListOptions{
 			LabelSelector: "snapshot=restore",
 		})
@@ -322,7 +323,14 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		gomega.Expect(restoredConfigmap.Data).To(gomega.Equal(configMapToRestore.Data))
 		framework.ExpectNoError(err)
 
-		//Check secret created before snapshot is available
+		// make sure the new resourceVersion is bigger than the latest old one
+		newResourceVersion, err := strconv.ParseInt(restoredConfigmap.ResourceVersion, 10, 64)
+		framework.ExpectNoError(err)
+		oldResourceVersion, err := strconv.ParseInt(serviceToDelete.ResourceVersion, 10, 64)
+		framework.ExpectNoError(err)
+		gomega.Expect(newResourceVersion).To(gomega.BeNumerically(">", oldResourceVersion))
+
+		// Check secret created before snapshot is available
 		secrets, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
 			LabelSelector: "snapshot=restore",
 		})
@@ -332,7 +340,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		gomega.Expect(restoredSecret.Data).To(gomega.Equal(secretToRestore.Data))
 		framework.ExpectNoError(err)
 
-		//Check deployment created before snapshot is available
+		// Check deployment created before snapshot is available
 		deployment, err := f.VClusterClient.AppsV1().Deployments(defaultNamespace).List(f.Context, metav1.ListOptions{
 			LabelSelector: "snapshot=restore",
 		})
@@ -340,7 +348,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		gomega.Expect(deployment.Items).To(gomega.HaveLen(1))
 		framework.ExpectNoError(err)
 
-		//Check configmap created after snapshot is not available
+		// Check configmap created after snapshot is not available
 		gomega.Eventually(func() bool {
 			configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=delete",
@@ -355,7 +363,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			WithTimeout(framework.PollTimeout).
 			Should(gomega.BeTrue())
 
-		//Check secret created after snapshot is not available
+		// Check secret created after snapshot is not available
 		gomega.Eventually(func() bool {
 			secrets, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=delete",
@@ -392,7 +400,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).Delete(f.Context, configMapToRestore.Name, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 
-		//check configmap is deleted
+		// check configmap is deleted
 		gomega.Eventually(func() error {
 			_, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=restore",
@@ -409,7 +417,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		err = f.VClusterClient.CoreV1().Secrets(defaultNamespace).Delete(f.Context, secretToRestore.Name, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 
-		//check secret is deleted
+		// check secret is deleted
 		gomega.Eventually(func() error {
 			_, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=restore",
@@ -426,7 +434,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		err = f.VClusterClient.AppsV1().Deployments(defaultNamespace).Delete(f.Context, deploymentToRestore.Name, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 
-		//check deployment is deleted
+		// check deployment is deleted
 		gomega.Eventually(func() error {
 			_, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=restore",

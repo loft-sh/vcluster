@@ -23,6 +23,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	SQLiteParams = "?_journal=WAL&cache=shared&_busy_timeout=30000&_txlock=immediate"
+)
+
 func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualClusterConfig) error {
 	// start the backing store
 	etcdEndpoints, etcdCertificates, err := StartBackingStore(ctx, vConfig)
@@ -213,6 +217,23 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 }
 
 func StartKine(ctx context.Context, dataSource, listenAddress string, certificates *etcd.Certificates, extraArgs []string) {
+	// start kine
+	doneChan := StartKineWithDone(ctx, dataSource, listenAddress, certificates, extraArgs)
+
+	// wait for kine to finish
+	go func() {
+		err := <-doneChan
+		if err != nil {
+			klog.Fatalf("could not run kine: %s", err.Error())
+		}
+		klog.Info("kine finished")
+		os.Exit(0)
+	}()
+}
+
+func StartKineWithDone(ctx context.Context, dataSource, listenAddress string, certificates *etcd.Certificates, extraArgs []string) <-chan error {
+	doneChan := make(chan error)
+
 	// start embedded mode
 	go func() {
 		args := []string{}
@@ -235,12 +256,10 @@ func StartKine(ctx context.Context, dataSource, listenAddress string, certificat
 
 		// now start kine
 		err := command.RunCommand(ctx, args, "kine")
-		if err != nil {
-			klog.Fatal("could not run kine", err)
-		}
-		klog.Info("kine finished")
-		os.Exit(0)
+		doneChan <- err
 	}()
+
+	return doneChan
 }
 
 func StartBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig) (string, *etcd.Certificates, error) {
@@ -252,7 +271,7 @@ func StartBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig
 	if vConfig.EmbeddedDatabase() {
 		dataSource := vConfig.ControlPlane.BackingStore.Database.Embedded.DataSource
 		if dataSource == "" {
-			dataSource = fmt.Sprintf("sqlite://%s?_journal=WAL&cache=shared&_busy_timeout=30000&_txlock=immediate", constants.K8sSqliteDatabase)
+			dataSource = fmt.Sprintf("sqlite://%s%s", constants.K8sSqliteDatabase, SQLiteParams)
 		}
 
 		StartKine(ctx, dataSource, constants.K8sKineEndpoint, &etcd.Certificates{
