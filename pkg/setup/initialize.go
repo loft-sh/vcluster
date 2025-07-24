@@ -71,7 +71,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			// we need to run this with the parent ctx as otherwise this context
 			// will be cancelled by the wait loop in Initialize
-			err = pro.StartEmbeddedEtcd(
+			_, err = pro.StartEmbeddedEtcd(
 				context.WithoutCancel(ctx),
 				options.Name,
 				options.ControlPlaneNamespace,
@@ -116,7 +116,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		// should start embedded etcd?
 		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			// start embedded etcd
-			err := pro.StartEmbeddedEtcd(
+			_, err := pro.StartEmbeddedEtcd(
 				context.WithoutCancel(ctx),
 				options.Name,
 				options.ControlPlaneNamespace,

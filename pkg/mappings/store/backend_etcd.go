@@ -123,7 +123,8 @@ func (m *etcdBackend) Save(ctx context.Context, mapping *Mapping) error {
 		return err
 	}
 
-	return m.etcdClient.Put(ctx, mappingToKey(mapping), mappingBytes)
+	_, err = m.etcdClient.Put(ctx, mappingToKey(mapping), mappingBytes)
+	return err
 }
 
 func (m *etcdBackend) Delete(ctx context.Context, mapping *Mapping) error {

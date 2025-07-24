@@ -27,9 +27,10 @@ type Client interface {
 	ListStream(ctx context.Context, key string) <-chan *ValueOrError
 	Watch(ctx context.Context, key string) clientv3.WatchChan
 	Get(ctx context.Context, key string) (Value, error)
-	Put(ctx context.Context, key string, value []byte) error
+	Put(ctx context.Context, key string, value []byte) (int64, error)
 	Delete(ctx context.Context, key string) error
 	DeletePrefix(ctx context.Context, prefix string) error
+	Compact(ctx context.Context, revision int64) error
 	Close() error
 }
 
@@ -152,6 +153,11 @@ func (c *client) ListStream(ctx context.Context, key string) <-chan *ValueOrErro
 	return retChan
 }
 
+func (c *client) Compact(ctx context.Context, revision int64) error {
+	_, err := c.c.Compact(ctx, revision, clientv3.WithCompactPhysical())
+	return err
+}
+
 func (c *client) Watch(ctx context.Context, key string) clientv3.WatchChan {
 	return c.c.Watch(ctx, key, clientv3.WithPrefix(), clientv3.WithPrevKV(), clientv3.WithProgressNotify())
 }
@@ -191,10 +197,10 @@ func (c *client) Get(ctx context.Context, key string) (Value, error) {
 	return Value{}, ErrNotFound
 }
 
-func (c *client) Put(ctx context.Context, key string, value []byte) error {
+func (c *client) Put(ctx context.Context, key string, value []byte) (int64, error) {
 	val, err := c.Get(ctx, key)
 	if err != nil && !errors.Is(err, ErrNotFound) {
-		return err
+		return 0, err
 	}
 	if val.Modified == 0 {
 		return c.Create(ctx, key, value)
@@ -202,35 +208,35 @@ func (c *client) Put(ctx context.Context, key string, value []byte) error {
 	return c.Update(ctx, key, val.Modified, value)
 }
 
-func (c *client) Create(ctx context.Context, key string, value []byte) error {
+func (c *client) Create(ctx context.Context, key string, value []byte) (int64, error) {
 	resp, err := c.c.Txn(ctx).
 		If(clientv3.Compare(clientv3.ModRevision(key), "=", 0)).
 		Then(clientv3.OpPut(key, string(value))).
 		Commit()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if !resp.Succeeded {
-		return errors.New("key exists")
+		return 0, errors.New("key exists")
 	}
 
-	return nil
+	return resp.Header.Revision, nil
 }
 
-func (c *client) Update(ctx context.Context, key string, revision int64, value []byte) error {
+func (c *client) Update(ctx context.Context, key string, revision int64, value []byte) (int64, error) {
 	resp, err := c.c.Txn(ctx).
 		If(clientv3.Compare(clientv3.ModRevision(key), "=", revision)).
 		Then(clientv3.OpPut(key, string(value))).
 		Else(clientv3.OpGet(key)).
 		Commit()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if !resp.Succeeded {
-		return fmt.Errorf("revision %d doesnt match", revision)
+		return 0, fmt.Errorf("revision %d doesnt match", revision)
 	}
 
-	return nil
+	return resp.Header.Revision, nil
 }
 
 func (c *client) Delete(ctx context.Context, key string) error {

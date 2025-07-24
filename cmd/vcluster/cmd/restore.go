@@ -5,21 +5,28 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
+	"github.com/loft-sh/vcluster/pkg/k8s"
 	"github.com/loft-sh/vcluster/pkg/mappings/store"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/spf13/cobra"
+	"go.etcd.io/etcd/server/v3/storage/backend"
+	"go.etcd.io/etcd/server/v3/storage/mvcc"
+	"go.etcd.io/etcd/server/v3/storage/schema"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -35,6 +42,9 @@ type RestoreOptions struct {
 
 var (
 	podGVK = corev1.SchemeGroupVersion.WithKind("Pod")
+
+	// bump revision to make sure we invalidate caches. See https://github.com/kubernetes/kubernetes/issues/118501 for more details
+	BumpRevision = int64(1000)
 )
 
 func NewRestoreCommand() *cobra.Command {
@@ -59,7 +69,7 @@ func NewRestoreCommand() *cobra.Command {
 	return cmd
 }
 
-func (o *RestoreOptions) Run(ctx context.Context) error {
+func (o *RestoreOptions) Run(ctx context.Context) (retErr error) {
 	// create decoder and encoder
 	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
 	encoder := protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
@@ -74,12 +84,6 @@ func (o *RestoreOptions) Run(ctx context.Context) error {
 	err = validateOptions(vConfig, &o.Snapshot, true)
 	if err != nil {
 		return err
-	}
-
-	// create new etcd client
-	etcdClient, err := newRestoreEtcdClient(ctx, vConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create etcd client: %w", err)
 	}
 
 	// create store
@@ -105,11 +109,28 @@ func (o *RestoreOptions) Run(ctx context.Context) error {
 	}
 	defer gzipReader.Close()
 
+	// create new etcd client that will delete the existing data / recreate the database
+	etcdClient, revertBackup, err := newRestoreEtcdClient(ctx, vConfig)
+	if err != nil {
+		revertBackup()
+		return fmt.Errorf("failed to create etcd client: %w", err)
+	}
+	defer etcdClient.Close()
+
+	// revert backup if there is an error
+	defer func() {
+		if retErr != nil {
+			klog.Errorf("Reverting from backup due to error: %v", retErr)
+			revertBackup()
+		}
+	}()
+
 	// create a new tar reader
 	tarReader := tar.NewReader(gzipReader)
 
 	// now restore each key value
 	restoredKeys := 0
+	latestRevision := int64(0)
 	for {
 		// read from archive
 		key, value, err := readKeyValue(tarReader)
@@ -144,7 +165,7 @@ func (o *RestoreOptions) Run(ctx context.Context) error {
 
 		// write the value to etcd
 		klog.V(1).Infof("Restore key %s", string(key))
-		err = etcdClient.Put(ctx, string(key), value)
+		latestRevision, err = etcdClient.Put(ctx, string(key), value)
 		if err != nil {
 			return fmt.Errorf("restore etcd key %s: %w", string(key), err)
 		}
@@ -155,9 +176,16 @@ func (o *RestoreOptions) Run(ctx context.Context) error {
 			klog.Infof("Restored %d keys", restoredKeys)
 		}
 	}
+
+	// compact the database until that revision
+	klog.Infof("Compact etcd database until revision %d", latestRevision)
+	err = etcdClient.Compact(ctx, latestRevision)
+	if err != nil {
+		return fmt.Errorf("compact etcd database: %w", err)
+	}
+
 	klog.Infof("Successfully restored %d etcd keys from snapshot", restoredKeys)
 	klog.Infof("Successfully restored snapshot from %s", objectStore.Target())
-
 	return nil
 }
 
@@ -185,39 +213,114 @@ func transformPod(value []byte, decoder runtime.Decoder, encoder runtime.Encoder
 	return buf.Bytes(), nil
 }
 
-func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterConfig) (etcd.Client, error) {
+func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterConfig) (etcd.Client, func(), error) {
+	revertBackup := func() {}
+
 	// delete existing storage:
-	// * embedded etcd: just delete the files locally
+	// * embedded etcd: delete the files locally and make sure revision is not decreasing, this is important as otherwise watches will not work correctly
 	// * deploy etcd: range delete request
-	// * embedded database: just delete the files locally
+	// * embedded database: delete the files locally and make sure revision is not decreasing, this is important as otherwise watches will not work correctly
 	// * external database: we can't so we skip and then check later if there are any already
 	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedDatabase {
 		if vConfig.Distro() == vclusterconfig.K8SDistro {
-			// this is a little bit stupid since we cannot rename /data, so we have to snapshot the
-			// individual file.
-			err := backupFile(ctx, constants.K8sSqliteDatabase)
+			// get latest revision from database
+			latestRevision, err := getLatestRevisionSQLite(ctx, constants.K8sSqliteDatabase)
 			if err != nil {
-				return nil, err
+				return nil, revertBackup, fmt.Errorf("failed to get latest revision from database: %w", err)
 			}
-			_ = os.RemoveAll(constants.K8sSqliteDatabase + "-wal")
-			_ = os.RemoveAll(constants.K8sSqliteDatabase + "-shm")
-		} else if vConfig.Distro() == vclusterconfig.K3SDistro {
-			err := backupFolder(ctx, filepath.Dir(constants.K3sSqliteDatabase))
+
+			// this is a little bit stupid since we cannot rename /data, so we have to snapshot the
+			// individual files.
+			err = backupFile(ctx, constants.K8sSqliteDatabase)
 			if err != nil {
-				return nil, err
+				return nil, revertBackup, fmt.Errorf("failed to backup database: %w", err)
+			}
+			err = backupFile(ctx, constants.K8sSqliteDatabase+"-wal")
+			if err != nil {
+				return nil, revertBackup, fmt.Errorf("failed to backup database: %w", err)
+			}
+			err = backupFile(ctx, constants.K8sSqliteDatabase+"-shm")
+			if err != nil {
+				return nil, revertBackup, fmt.Errorf("failed to backup database: %w", err)
+			}
+
+			// create a restore function that will restore the database in case of an error
+			revertBackup = func() {
+				_ = os.RemoveAll(constants.K8sSqliteDatabase)
+				_ = os.RemoveAll(constants.K8sSqliteDatabase + "-wal")
+				_ = os.RemoveAll(constants.K8sSqliteDatabase + "-shm")
+				_ = os.Rename(constants.K8sSqliteDatabase+".backup", constants.K8sSqliteDatabase)
+				_ = os.Rename(constants.K8sSqliteDatabase+"-wal.backup", constants.K8sSqliteDatabase+"-wal")
+				_ = os.Rename(constants.K8sSqliteDatabase+"-shm.backup", constants.K8sSqliteDatabase+"-shm")
+			}
+
+			// set latest revision
+			if latestRevision > 0 {
+				err = setLatestRevisionSQLite(ctx, constants.K8sSqliteDatabase, latestRevision+BumpRevision)
+				if err != nil {
+					return nil, revertBackup, fmt.Errorf("failed to set latest revision: %w", err)
+				}
+			}
+		} else if vConfig.Distro() == vclusterconfig.K3SDistro {
+			// get latest revision from database
+			latestRevision, err := getLatestRevisionSQLite(ctx, constants.K3sSqliteDatabase)
+			if err != nil {
+				return nil, revertBackup, fmt.Errorf("failed to get latest revision from database: %w", err)
+			}
+
+			// backup database
+			err = backupFolder(ctx, filepath.Dir(constants.K3sSqliteDatabase))
+			if err != nil {
+				return nil, revertBackup, err
+			}
+
+			// create a restore function that will restore the database in case of an error
+			revertBackup = func() {
+				_ = os.RemoveAll(constants.K3sSqliteDatabase)
+				_ = os.Rename(constants.K3sSqliteDatabase+".backup", constants.K3sSqliteDatabase)
+			}
+
+			// set latest revision
+			if latestRevision > 0 {
+				err = setLatestRevisionSQLite(ctx, constants.K3sSqliteDatabase, latestRevision+BumpRevision)
+				if err != nil {
+					return nil, revertBackup, fmt.Errorf("failed to set latest revision: %w", err)
+				}
 			}
 		}
 	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
-		err := backupFolder(ctx, constants.EmbeddedEtcdData)
+		// get latest revision from etcd
+		etcdDBPath := filepath.Join(constants.EmbeddedEtcdData, "member", "snap", "db")
+		latestRevision, err := getLatestRevisionEtcd(ctx, etcdDBPath)
 		if err != nil {
-			return nil, err
+			return nil, revertBackup, fmt.Errorf("failed to get latest revision from etcd: %w", err)
+		}
+
+		// backup etcd data
+		err = backupFolder(ctx, constants.EmbeddedEtcdData)
+		if err != nil {
+			return nil, revertBackup, err
+		}
+
+		// create a restore function that will restore the database in case of an error
+		revertBackup = func() {
+			_ = os.RemoveAll(constants.EmbeddedEtcdData)
+			_ = os.Rename(constants.EmbeddedEtcdData+".backup", constants.EmbeddedEtcdData)
+		}
+
+		// set latest revision
+		if latestRevision > 0 {
+			err = setLatestRevisionEtcd(ctx, vConfig, etcdDBPath, latestRevision+BumpRevision)
+			if err != nil {
+				return nil, revertBackup, fmt.Errorf("failed to set latest revision: %w", err)
+			}
 		}
 	}
 
 	// now create the etcd client
 	etcdClient, err := newEtcdClient(ctx, vConfig, true)
 	if err != nil {
-		return nil, err
+		return nil, revertBackup, err
 	}
 
 	// delete contents in external etcd
@@ -225,11 +328,164 @@ func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterCon
 		klog.FromContext(ctx).Info("Delete existing etcd data before restore...")
 		err = etcdClient.DeletePrefix(ctx, "/")
 		if err != nil {
-			return nil, err
+			return nil, revertBackup, err
 		}
 	}
 
-	return etcdClient, nil
+	return etcdClient, revertBackup, nil
+}
+
+func setLatestRevisionSQLite(ctx context.Context, file string, revision int64) error {
+	klog.FromContext(ctx).Info("Setting latest revision for SQLite database...", "revision", revision)
+
+	// create a new context that can be cancelled
+	kineCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// start & stop kine to create the database
+	doneChan := k8s.StartKineWithDone(kineCtx, fmt.Sprintf("sqlite://%s%s", file, k8s.SQLiteParams), constants.K8sKineEndpoint, nil, nil)
+
+	// wait until file is created
+	for {
+		time.Sleep(1 * time.Second)
+		_, err := os.Stat(file)
+		if err == nil {
+			break
+		}
+	}
+
+	// stop kine
+	cancel()
+
+	// wait for kine to finish
+	<-doneChan
+
+	// set latest revision
+	db, err := sql.Open("sqlite", file+k8s.SQLiteParams)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	defer db.Close()
+
+	// set latest revision
+	_, err = db.ExecContext(ctx, "UPDATE SQLITE_SEQUENCE SET seq = ? WHERE name = 'kine'", revision)
+	if err != nil {
+		// try insert if it doesn't exist
+		_, err = db.ExecContext(ctx, "INSERT INTO SQLITE_SEQUENCE (name, seq) VALUES ('kine', ?)", revision)
+		if err != nil {
+			return fmt.Errorf("failed to set latest revision: %w", err)
+		}
+	}
+
+	klog.FromContext(ctx).Info("Successfully set latest revision for SQLite database", "revision", revision)
+	return nil
+}
+
+func getLatestRevisionSQLite(ctx context.Context, file string) (int64, error) {
+	// check if file exists
+	_, err := os.Stat(file)
+	if os.IsNotExist(err) {
+		return 0, nil
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// open sqlite database
+	db, err := sql.Open("sqlite", file+k8s.SQLiteParams)
+	if err != nil {
+		return 0, err
+	}
+	defer db.Close()
+
+	// get latest revision
+	row := db.QueryRowContext(ctx, "SELECT seq FROM SQLITE_SEQUENCE WHERE name = 'kine'")
+	var revision int64
+	err = row.Scan(&revision)
+	if err != nil {
+		return 0, err
+	}
+
+	klog.FromContext(ctx).Info("Successfully got latest revision for SQLite database", "revision", revision)
+	return revision, nil
+}
+
+func setLatestRevisionEtcd(ctx context.Context, vConfig *config.VirtualClusterConfig, file string, revision int64) error {
+	klog.FromContext(ctx).Info("Setting latest revision for etcd database...", "revision", revision)
+
+	// start embedded etcd
+	stop, err := startEmbeddedEtcd(ctx, vConfig)
+	if err != nil {
+		return fmt.Errorf("failed to start embedded etcd: %w", err)
+	}
+
+	// wait until etcd is ready
+	etcdClient, err := newEtcdClient(ctx, vConfig, false)
+	if err != nil {
+		return fmt.Errorf("failed to create etcd client: %w", err)
+	}
+	etcdClient.Close()
+
+	// stop embedded etcd
+	stop()
+
+	// set latest revision
+	err = unsafeSetLatestRevisionEtcd(file, revision)
+	if err != nil {
+		return fmt.Errorf("failed to set latest revision: %w", err)
+	}
+
+	klog.FromContext(ctx).Info("Successfully set latest revision for etcd database", "revision", revision)
+	return nil
+}
+
+func unsafeSetLatestRevisionEtcd(file string, revision int64) error {
+	// code is mostly from https://github.com/etcd-io/etcd/blob/c515c6acc15574a611d0f001a03030cb0ba945e6/etcdutl/snapshot/v3_snapshot.go#L373
+	be := backend.NewDefaultBackend(zap.L().Named("etcd-client"), file)
+	defer func() {
+		be.ForceCommit()
+		be.Close()
+	}()
+
+	tx := be.BatchTx()
+	tx.LockOutsideApply()
+	defer tx.Unlock()
+
+	k := mvcc.NewRevBytes()
+	k = mvcc.RevToBytes(mvcc.Revision{
+		Main: revision,
+		Sub:  0,
+	}, k)
+	tx.UnsafePut(schema.Key, k, []byte{})
+	return nil
+}
+
+func getLatestRevisionEtcd(ctx context.Context, file string) (int64, error) {
+	_, err := os.Stat(file)
+	if os.IsNotExist(err) {
+		return 0, nil
+	}
+
+	// code is mostly from https://github.com/etcd-io/etcd/blob/c515c6acc15574a611d0f001a03030cb0ba945e6/etcdutl/snapshot/v3_snapshot.go#L421
+	be := backend.NewDefaultBackend(zap.L().Named("etcd-client"), file)
+	defer be.Close()
+
+	tx := be.ReadTx()
+	tx.RLock()
+	defer tx.RUnlock()
+
+	var latest mvcc.Revision
+	err = tx.UnsafeForEach(schema.Key, func(k, _ []byte) (err error) {
+		rev := mvcc.BytesToRev(k)
+		if rev.GreaterThan(latest) {
+			latest = rev
+		}
+
+		return nil
+	})
+
+	klog.FromContext(ctx).Info("Successfully got latest revision for etcd database", "revision", latest.Main)
+	return latest.Main, err
 }
 
 func backupFile(ctx context.Context, file string) error {
