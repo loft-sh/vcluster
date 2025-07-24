@@ -1,8 +1,9 @@
 package snapshot
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 func NewDeleteCmd() *cobra.Command {
@@ -14,10 +15,10 @@ func NewDeleteCmd() *cobra.Command {
 			options := &Options{}
 			envOptions, err := parseOptionsFromEnv()
 			if err != nil {
-				klog.Warningf("Error parsing environment variables: %v", err)
-			} else {
-				options.Snapshot = *envOptions
+				return fmt.Errorf("failed to parse options from environment: %w", err)
 			}
+			options.Snapshot = *envOptions
+
 			return options.Delete(cmd.Context())
 		},
 	}

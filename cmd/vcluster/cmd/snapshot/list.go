@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 func NewListCmd() *cobra.Command {
@@ -18,19 +17,18 @@ func NewListCmd() *cobra.Command {
 			options := &Options{}
 			envOptions, err := parseOptionsFromEnv()
 			if err != nil {
-				klog.Warningf("Error parsing environment variables: %v", err)
-			} else {
-				options.Snapshot = *envOptions
+				return fmt.Errorf("failed to parse options from environment: %w", err)
 			}
+			options.Snapshot = *envOptions
 
 			snapshots, err := options.List(cmd.Context())
 			if err != nil {
-				return fmt.Errorf("list snapshots: %w", err)
+				return fmt.Errorf("failed to list snapshots: %w", err)
 			}
 
 			encodedBytes, err := json.Marshal(snapshots)
 			if err != nil {
-				return fmt.Errorf("json marshal: %w", err)
+				return fmt.Errorf("failed to marshal json: %w", err)
 			}
 
 			if _, err := os.Stdout.Write(encodedBytes); err != nil {
