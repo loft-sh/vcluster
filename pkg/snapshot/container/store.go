@@ -80,13 +80,13 @@ func (s *Store) List(_ context.Context) ([]types.Snapshot, error) {
 			continue
 		}
 
-		if !strings.HasSuffix(eInfo.Name(), "tar.gz") {
+		if !strings.HasSuffix(entry.Name(), "tar.gz") {
 			continue
 		}
 
 		snapshots = append(snapshots, types.Snapshot{
 			ID:        entry.Name(),
-			URL:       s.Target(),
+			URL:       "container://" + path + "/" + entry.Name(),
 			Timestamp: eInfo.ModTime(),
 		})
 	}

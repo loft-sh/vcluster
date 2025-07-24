@@ -215,7 +215,7 @@ func (s *Store) List(ctx context.Context) ([]types.Snapshot, error) {
 
 			snapshots = append(snapshots, types.Snapshot{
 				ID:        tag,
-				URL:       s.Target(),
+				URL:       repoTag.String(),
 				Timestamp: createdTime,
 			})
 		}

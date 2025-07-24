@@ -237,11 +237,7 @@ func readCustomerKey(customerKeyEncryptionFile string) (string, error) {
 }
 
 func (o *ObjectStore) Target() string {
-	target := "s3://" + o.bucket + "/" + o.key
-	if o.region != "" {
-		target += "?region=" + o.region
-	}
-	return target
+	return toS3URL(o.bucket, o.key, o.region)
 }
 
 func (o *ObjectStore) PutObject(ctx context.Context, body io.Reader) error {
@@ -322,7 +318,7 @@ func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 
 			snapshots = append(snapshots, types.Snapshot{
 				ID:        *obj.Key,
-				URL:       "s3://" + o.bucket,
+				URL:       toS3URL(o.bucket, *obj.Key, o.region),
 				Timestamp: *obj.LastModified,
 			})
 		}
@@ -341,4 +337,12 @@ func (o *ObjectStore) Delete(ctx context.Context) error {
 // this is required because os pipes cause trouble with aws uploader
 type wrapper struct {
 	io.Reader
+}
+
+func toS3URL(bucket, key, region string) string {
+	url := "s3://" + bucket + "/" + key
+	if region != "" {
+		url += "?region=" + region
+	}
+	return url
 }
