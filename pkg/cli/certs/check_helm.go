@@ -35,6 +35,11 @@ func Check(ctx context.Context, vClusterName string, globalFlags *flags.GlobalFl
 		}
 	}
 
+	// abort in case the virtual cluster has a non-running status.
+	if vCluster.Status != find.StatusRunning {
+		return fmt.Errorf("aborting operation because virtual cluster %q has status %q", vCluster.Name, vCluster.Status)
+	}
+
 	var targetPod *corev1.Pod
 	for _, pod := range vCluster.Pods {
 		if vCluster.StatefulSet != nil && strings.HasSuffix(pod.Name, "-0") {
