@@ -44,6 +44,11 @@ func Rotate(ctx context.Context, vClusterName string, rotationCmd RotationCmd, g
 		}
 	}
 
+	// abort in case the virtual cluster has a non-running status.
+	if vCluster.Status != find.StatusRunning {
+		return fmt.Errorf("aborting operation because virtual cluster %q has status %q", vCluster.Name, vCluster.Status)
+	}
+
 	kubeConfig, err := vCluster.ClientFactory.ClientConfig()
 	if err != nil {
 		return fmt.Errorf("getting client config: %w", err)
