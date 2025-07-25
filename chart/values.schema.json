@@ -1236,6 +1236,84 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "DynamicNodePool": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name is the name of this NodePool"
+        },
+        "requirements": {
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          },
+          "type": "array",
+          "description": "Requirements filter the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
+        },
+        "taints": {
+          "items": {
+            "$ref": "#/$defs/KubeletJoinTaint"
+          },
+          "type": "array",
+          "description": "Taints are the taints to apply to the nodes in this pool."
+        },
+        "limits": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Limits specify the maximum resources that can be provisioned by this node pool,\nmapping to the 'limits' field in Karpenter's NodePool API."
+        },
+        "disruption": {
+          "$ref": "#/$defs/DynamicNodePoolDisruption",
+          "description": "Disruption contains the parameters that relate to Karpenter's disruption logic"
+        },
+        "expireAfter": {
+          "type": "string",
+          "description": "The amount of time a Node can live on the cluster before being removed"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "DynamicNodePoolDisruption": {
+      "properties": {
+        "consolidateAfter": {
+          "type": "string",
+          "description": "ConsolidateAfter is the duration the controller will wait\nbefore attempting to terminate nodes that are underutilized.\nRefer to ConsolidationPolicy for how underutilization is considered."
+        },
+        "consolidationPolicy": {
+          "type": "string",
+          "description": "ConsolidationPolicy describes which nodes Karpenter can disrupt through its consolidation\nalgorithm. This policy defaults to \"WhenEmptyOrUnderutilized\" if not specified"
+        },
+        "budgets": {
+          "items": {
+            "$ref": "#/$defs/DynamicNodePoolDisruptionBudget"
+          },
+          "type": "array",
+          "description": "Budgets is a list of Budgets.\nIf there are multiple active budgets, Karpenter uses\nthe most restrictive value. If left undefined,\nthis will default to one budget with a value to 10%."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "DynamicNodePoolDisruptionBudget": {
+      "properties": {
+        "nodes": {
+          "type": "string",
+          "description": "Nodes dictates the maximum number of NodeClaims owned by this NodePool\nthat can be terminating at once. This is calculated by counting nodes that\nhave a deletion timestamp set, or are actively being deleted by Karpenter.\nThis field is required when specifying a budget."
+        },
+        "schedule": {
+          "type": "string",
+          "description": "Schedule specifies when a budget begins being active, following\nthe upstream cronjob syntax. If omitted, the budget is always active.\nTimezones are not supported."
+        },
+        "duration": {
+          "type": "string",
+          "description": "Duration determines how long a Budget is active since each Schedule hit.\nOnly minutes and hours are accepted, as cron does not work in seconds.\nIf omitted, the budget is always active.\nThis is required if Schedule is set."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "EnableAutoSwitchWithPatches": {
       "properties": {
         "enabled": {
@@ -3513,11 +3591,36 @@
         "joinNode": {
           "$ref": "#/$defs/JoinConfiguration",
           "description": "JoinNode holds configuration specifically used during joining the node (see \"kubeadm join\")."
+        },
+        "nodePools": {
+          "$ref": "#/$defs/PrivateNodesNodePools",
+          "description": "NodePools stores karpenter node pool configuration"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "PrivateNodes enables private nodes for vCluster."
+    },
+    "PrivateNodesNodePools": {
+      "properties": {
+        "static": {
+          "items": {
+            "$ref": "#/$defs/StaticNodePool"
+          },
+          "type": "array",
+          "description": "Static defines static node pools. Static node pools have a fixed size and are not scaled automatically."
+        },
+        "dynamic": {
+          "items": {
+            "$ref": "#/$defs/DynamicNodePool"
+          },
+          "type": "array",
+          "description": "Dynamic defines dynamic node pools. Dynamic node pools are scaled automatically based on the requirements within the cluster.\nKarpenter is used under the hood to handle the scheduling of the nodes."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "PrivateNodesNodePools defines node pools"
     },
     "RBAC": {
       "properties": {
@@ -3688,6 +3791,28 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "Requirement": {
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Key is the label key or field name to filter on."
+        },
+        "operator": {
+          "type": "string",
+          "description": "Operator is the comparison operator, such as \"In\", \"NotIn\", \"Exists\"."
+        },
+        "values": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Values is the list of values to use for the comparison."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "KarpenterRequirement defines a scheduling requirement for a dynamic node pool."
     },
     "ResolveDNS": {
       "properties": {
@@ -4060,6 +4185,34 @@
       "additionalProperties": false,
       "type": "object",
       "description": "StartupProbe defines the configuration for the startup probe."
+    },
+    "StaticNodePool": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name is the name of this static nodePool"
+        },
+        "requirements": {
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          },
+          "type": "array",
+          "description": "Requirements filter the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
+        },
+        "taints": {
+          "items": {
+            "$ref": "#/$defs/KubeletJoinTaint"
+          },
+          "type": "array",
+          "description": "Taints are the taints to apply to the nodes in this pool."
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "Quantity is the number of desired nodes in this pool."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Sync": {
       "properties": {
