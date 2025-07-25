@@ -254,13 +254,16 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		}
 
 		if s.fakeKubeletIPs {
-			nodeIP, err := s.getNodeIP(ctx, pPod.Spec.NodeName)
+			nodeService, err := s.ensureNodeService(ctx, pPod)
 			if err != nil {
+				if kerrors.IsNotFound(err) {
+					return ctrl.Result{RequeueAfter: time.Second}, nil
+				}
 				return ctrl.Result{}, err
 			}
 
-			pPod.Annotations[translatepods.HostIPAnnotation] = nodeIP
-			pPod.Annotations[translatepods.HostIPsAnnotation] = nodeIP
+			pPod.Annotations[translatepods.HostIPAnnotation] = nodeService.Spec.ClusterIP
+			pPod.Annotations[translatepods.HostIPsAnnotation] = nodeService.Spec.ClusterIP
 		}
 	}
 
@@ -347,9 +350,17 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	}
 
 	if s.fakeKubeletIPs && event.Host.Status.HostIP != "" {
-		err = s.rewriteFakeHostIPAddresses(ctx, event.Host)
+		nodeService, err := s.ensureNodeService(ctx, event.Host)
 		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return ctrl.Result{RequeueAfter: time.Second}, nil
+			}
 			return ctrl.Result{}, err
+		}
+
+		event.Host.Status.HostIP = nodeService.Spec.ClusterIP
+		event.Host.Status.HostIPs = []corev1.HostIP{
+			{IP: nodeService.Spec.ClusterIP},
 		}
 	}
 
@@ -536,30 +547,15 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 	return nil
 }
 
-func (s *podSyncer) rewriteFakeHostIPAddresses(ctx *synccontext.SyncContext, pPod *corev1.Pod) error {
-	nodeIP, err := s.getNodeIP(ctx, pPod.Spec.NodeName)
-	if err != nil {
-		return err
-	}
-
-	pPod.Status.HostIP = nodeIP
-	pPod.Status.HostIPs = []corev1.HostIP{
-		{IP: nodeIP},
-	}
-
-	return nil
-}
-
-func (s *podSyncer) getNodeIP(ctx *synccontext.SyncContext, name string) (string, error) {
-	serviceName := translate.SafeConcatName(translate.VClusterName, "node", strings.ReplaceAll(name, ".", "-"))
+func (s *podSyncer) ensureNodeService(ctx *synccontext.SyncContext, pPod *corev1.Pod) (*corev1.Service, error) {
+	serviceName := translate.SafeConcatName(translate.VClusterName, "node", strings.ReplaceAll(pPod.Spec.NodeName, ".", "-"))
 
 	nodeService := &corev1.Service{}
 	err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Name: serviceName, Namespace: ctx.CurrentNamespace}, nodeService)
-	if err != nil && !kerrors.IsNotFound(err) {
-		return "", fmt.Errorf("list services: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("get node service: %w", err)
 	}
-
-	return nodeService.Spec.ClusterIP, nil
+	return nodeService, nil
 }
 
 func (s *podSyncer) applyLimitByClasses(ctx *synccontext.SyncContext, virtual *corev1.Pod) bool {
