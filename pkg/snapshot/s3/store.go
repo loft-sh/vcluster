@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -296,11 +297,18 @@ func (o *ObjectStore) GetObject(ctx context.Context) (io.ReadCloser, error) {
 }
 
 func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
+	prefix := o.key
+	if strings.HasSuffix(prefix, "tar.gz") {
+		// Use the "parent dir" as the prefix if a file was given
+		prefix = filepath.Dir(prefix)
+	}
+
 	paginator := s3.NewListObjectsV2Paginator(o.s3, &s3.ListObjectsV2Input{
 		Bucket: aws.String(o.bucket),
+		Prefix: aws.String(prefix),
 	})
 
-	var snapshots []types.Snapshot
+	snapshots := make([]types.Snapshot, 0)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -312,12 +320,20 @@ func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 				continue
 			}
 
+			// Skip non *.tar.gz objects
 			if !strings.HasSuffix(*obj.Key, "tar.gz") {
 				continue
 			}
 
+			// Skip objects not in the "current directory"
+			id := strings.TrimPrefix(strings.TrimPrefix(*obj.Key, prefix), "/")
+			if filepath.Dir(id) != "." {
+				continue
+			}
+
+			// ID is the relative object name
 			snapshots = append(snapshots, types.Snapshot{
-				ID:        *obj.Key,
+				ID:        id,
 				URL:       toS3URL(o.bucket, *obj.Key, o.region),
 				Timestamp: *obj.LastModified,
 			})

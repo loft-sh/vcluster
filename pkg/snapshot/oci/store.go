@@ -223,7 +223,7 @@ func (s *Store) List(ctx context.Context) ([]types.Snapshot, error) {
 	return snapshots, nil
 }
 
-func (s *Store) Delete(ctx context.Context) error {
+func (s *Store) Delete(_ context.Context) error {
 	return fmt.Errorf("deleting OCI snapshots is not supported")
 }
 
