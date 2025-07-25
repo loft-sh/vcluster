@@ -301,6 +301,11 @@ func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 	if strings.HasSuffix(prefix, "tar.gz") {
 		// Use the "parent dir" as the prefix if a file was given
 		prefix = filepath.Dir(prefix)
+
+		// Handle if the key is at the root of the bucket.
+		if prefix == "." {
+			prefix = ""
+		}
 	}
 
 	paginator := s3.NewListObjectsV2Paginator(o.s3, &s3.ListObjectsV2Input{
