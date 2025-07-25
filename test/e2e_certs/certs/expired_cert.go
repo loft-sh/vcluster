@@ -30,9 +30,9 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 		framework.ExpectNoError(err)
 	})
 
-	ginkgo.It("setting validity of ca cert of vCluster to 10 seconds", func() {
+	ginkgo.It("setting validity of ca cert of vCluster to 30 seconds", func() {
 		os.Setenv("DEVELOPMENT", "true")
-		os.Setenv("VCLUSTER_CERTS_VALIDITYPERIOD", "10s	")
+		os.Setenv("VCLUSTER_CERTS_VALIDITYPERIOD", "30s")
 		defer os.Unsetenv("DEVELOPMENT")
 		defer os.Unsetenv("VCLUSTER_CERTS_VALIDITYPERIOD")
 
