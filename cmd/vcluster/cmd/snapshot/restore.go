@@ -1,4 +1,4 @@
-package cmd
+package snapshot
 
 import (
 	"archive/tar"
@@ -49,18 +49,18 @@ var (
 
 func NewRestoreCommand() *cobra.Command {
 	options := &RestoreOptions{}
-	envOptions, err := parseOptionsFromEnv()
-	if err != nil {
-		klog.Warningf("Error parsing environment variables: %v", err)
-	} else {
-		options.Snapshot = *envOptions
-	}
 
 	cmd := &cobra.Command{
 		Use:   "restore",
 		Short: "restore a vCluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			envOptions, err := parseOptionsFromEnv()
+			if err != nil {
+				return fmt.Errorf("failed to parse options from environment: %w", err)
+			}
+			options.Snapshot = *envOptions
+
 			return options.Run(cmd.Context())
 		},
 	}
@@ -81,7 +81,7 @@ func (o *RestoreOptions) Run(ctx context.Context) (retErr error) {
 	}
 
 	// make sure to validate options
-	err = validateOptions(vConfig, &o.Snapshot, true)
+	err = validateOptions(vConfig, &o.Snapshot, true, false)
 	if err != nil {
 		return err
 	}

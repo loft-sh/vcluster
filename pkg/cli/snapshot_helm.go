@@ -56,7 +56,7 @@ func fillSnapshotOptions(snapshotURL string, snapshotOptions *snapshot.Options) 
 	}
 
 	// storage needs to be either s3 or file
-	err = snapshot.Validate(snapshotOptions)
+	err = snapshot.Validate(snapshotOptions, false)
 	if err != nil {
 		return fmt.Errorf("validate: %w", err)
 	}

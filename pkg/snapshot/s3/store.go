@@ -23,19 +23,20 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
-
-	"k8s.io/klog/v2"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/go-logr/logr"
-
+	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"github.com/pkg/errors"
+	"k8s.io/klog/v2"
 )
 
 type Options struct {
@@ -198,13 +199,13 @@ func (o *ObjectStore) Init(config *Options) error {
 		}
 		o.checksumAlg = config.ChecksumAlgorithm
 	} else {
-		o.checksumAlg = string(types.ChecksumAlgorithmCrc32)
+		o.checksumAlg = string(s3types.ChecksumAlgorithmCrc32)
 	}
 	return nil
 }
 
 func validChecksumAlg(alg string) bool {
-	typedAlg := types.ChecksumAlgorithm(alg)
+	typedAlg := s3types.ChecksumAlgorithm(alg)
 	return alg == "" || slices.Contains(typedAlg.Values(), typedAlg)
 }
 
@@ -237,11 +238,7 @@ func readCustomerKey(customerKeyEncryptionFile string) (string, error) {
 }
 
 func (o *ObjectStore) Target() string {
-	target := "s3://" + o.bucket + "/" + o.key
-	if o.region != "" {
-		target += "?region=" + o.region
-	}
-	return target
+	return toS3URL(o.bucket, o.key, o.region)
 }
 
 func (o *ObjectStore) PutObject(ctx context.Context, body io.Reader) error {
@@ -268,11 +265,11 @@ func (o *ObjectStore) PutObject(ctx context.Context, body io.Reader) error {
 	// otherwise, use the SSE algorithm specified, if any
 	case o.serverSideEncryption != "":
 		klog.FromContext(ctx).Info("using aws server-side encryption (SSE)", "server-side-encryption", o.serverSideEncryption)
-		input.ServerSideEncryption = types.ServerSideEncryption(o.serverSideEncryption)
+		input.ServerSideEncryption = s3types.ServerSideEncryption(o.serverSideEncryption)
 	}
 
 	if o.checksumAlg != "" {
-		input.ChecksumAlgorithm = types.ChecksumAlgorithm(o.checksumAlg)
+		input.ChecksumAlgorithm = s3types.ChecksumAlgorithm(o.checksumAlg)
 	}
 
 	_, err := o.s3Uploader.Upload(ctx, input)
@@ -299,7 +296,74 @@ func (o *ObjectStore) GetObject(ctx context.Context) (io.ReadCloser, error) {
 	return output.Body, nil
 }
 
+func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
+	prefix := o.key
+	if strings.HasSuffix(prefix, "tar.gz") {
+		// Use the "parent dir" as the prefix if a file was given
+		prefix = filepath.Dir(prefix)
+
+		// Handle if the key is at the root of the bucket.
+		if prefix == "." {
+			prefix = ""
+		}
+	}
+
+	paginator := s3.NewListObjectsV2Paginator(o.s3, &s3.ListObjectsV2Input{
+		Bucket: aws.String(o.bucket),
+		Prefix: aws.String(prefix),
+	})
+
+	snapshots := make([]types.Snapshot, 0)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, obj := range output.Contents {
+			if obj.Key == nil || obj.LastModified == nil {
+				continue
+			}
+
+			// Skip non *.tar.gz objects
+			if !strings.HasSuffix(*obj.Key, "tar.gz") {
+				continue
+			}
+
+			// Skip objects not in the "current directory"
+			id := strings.TrimPrefix(strings.TrimPrefix(*obj.Key, prefix), "/")
+			if filepath.Dir(id) != "." {
+				continue
+			}
+
+			// ID is the relative object name
+			snapshots = append(snapshots, types.Snapshot{
+				ID:        id,
+				URL:       toS3URL(o.bucket, *obj.Key, o.region),
+				Timestamp: *obj.LastModified,
+			})
+		}
+	}
+	return snapshots, nil
+}
+
+func (o *ObjectStore) Delete(ctx context.Context) error {
+	_, err := o.s3.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(o.bucket),
+		Key:    aws.String(o.key),
+	})
+	return err
+}
+
 // this is required because os pipes cause trouble with aws uploader
 type wrapper struct {
 	io.Reader
+}
+
+func toS3URL(bucket, key, region string) string {
+	url := "s3://" + bucket + "/" + key
+	if region != "" {
+		url += "?region=" + region
+	}
+	return url
 }
