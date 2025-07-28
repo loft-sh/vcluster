@@ -1,4 +1,4 @@
-package cmd
+package snapshot
 
 import (
 	"archive/tar"
@@ -21,6 +21,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
+	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -28,32 +29,34 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type SnapshotOptions struct {
+type Options struct {
 	Snapshot snapshot.Options
 }
 
 func NewSnapshotCommand() *cobra.Command {
-	options := &SnapshotOptions{}
-	envOptions, err := parseOptionsFromEnv()
-	if err != nil {
-		klog.Warningf("Error parsing environment variables: %v", err)
-	} else {
-		options.Snapshot = *envOptions
-	}
-
 	cmd := &cobra.Command{
 		Use:   "snapshot",
 		Short: "snapshot a vCluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			options := &Options{}
+			envOptions, err := parseOptionsFromEnv()
+			if err != nil {
+				return fmt.Errorf("failed to parse options from environment: %w", err)
+			}
+			options.Snapshot = *envOptions
+
 			return options.Run(cmd.Context())
 		},
 	}
 
+	cmd.AddCommand(NewListCmd())
+	cmd.AddCommand(NewDeleteCmd())
+
 	return cmd
 }
 
-func (o *SnapshotOptions) Run(ctx context.Context) error {
+func (o *Options) Run(ctx context.Context) error {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
@@ -61,7 +64,7 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	}
 
 	// make sure to validate options
-	err = validateOptions(vConfig, &o.Snapshot, false)
+	err = validateOptions(vConfig, &o.Snapshot, false, false)
 	if err != nil {
 		return err
 	}
@@ -89,7 +92,58 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	return nil
 }
 
-func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore snapshot.Storage) error {
+func (o *Options) List(ctx context.Context) ([]types.Snapshot, error) {
+	// parse vCluster config
+	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// make sure to validate options
+	err = validateOptions(vConfig, &o.Snapshot, false, true)
+	if err != nil {
+		return nil, err
+	}
+
+	// create store
+	objectStore, err := snapshot.CreateStore(ctx, &o.Snapshot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create store: %w", err)
+	}
+
+	// list snapshots
+	return objectStore.List(ctx)
+}
+
+func (o *Options) Delete(ctx context.Context) error {
+	// parse vCluster config
+	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
+	if err != nil {
+		return err
+	}
+
+	// make sure to validate options
+	err = validateOptions(vConfig, &o.Snapshot, false, false)
+	if err != nil {
+		return err
+	}
+
+	// create store
+	objectStore, err := snapshot.CreateStore(ctx, &o.Snapshot)
+	if err != nil {
+		return fmt.Errorf("failed to create store: %w", err)
+	}
+
+	// delete snapshot
+	if err := objectStore.Delete(ctx); err != nil {
+		return err
+	}
+
+	klog.Infof("Successfully deleted snapshot %s", objectStore.Target())
+	return nil
+}
+
+func (o *Options) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) error {
 	// now stream objects from etcd to object store
 	errChan := make(chan error)
 	reader, writer, err := os.Pipe()
@@ -169,9 +223,9 @@ func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Cli
 	}
 }
 
-func validateOptions(vConfig *config.VirtualClusterConfig, options *snapshot.Options, isRestore bool) error {
+func validateOptions(vConfig *config.VirtualClusterConfig, options *snapshot.Options, isRestore, isList bool) error {
 	// storage needs to be either s3 or file
-	err := snapshot.Validate(options)
+	err := snapshot.Validate(options, isList)
 	if err != nil {
 		return err
 	}
