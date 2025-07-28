@@ -32,6 +32,7 @@ type VirtualClusterInstanceInterface interface {
 	GetKubeConfig(ctx context.Context, virtualClusterInstanceName string, virtualClusterInstanceKubeConfig *managementv1.VirtualClusterInstanceKubeConfig, opts metav1.CreateOptions) (*managementv1.VirtualClusterInstanceKubeConfig, error)
 	GetAccessKey(ctx context.Context, virtualClusterInstanceName string, options metav1.GetOptions) (*managementv1.VirtualClusterAccessKey, error)
 	GetExternalDatabase(ctx context.Context, virtualClusterInstanceName string, virtualClusterExternalDatabase *managementv1.VirtualClusterExternalDatabase, opts metav1.CreateOptions) (*managementv1.VirtualClusterExternalDatabase, error)
+	GetNodeAccessKey(ctx context.Context, virtualClusterInstanceName string, virtualClusterNodeAccessKey *managementv1.VirtualClusterNodeAccessKey, opts metav1.CreateOptions) (*managementv1.VirtualClusterNodeAccessKey, error)
 
 	VirtualClusterInstanceExpansion
 }
@@ -94,6 +95,21 @@ func (c *virtualClusterInstances) GetExternalDatabase(ctx context.Context, virtu
 		SubResource("externaldatabase").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(virtualClusterExternalDatabase).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// GetNodeAccessKey takes the representation of a virtualClusterNodeAccessKey and creates it.  Returns the server's representation of the virtualClusterNodeAccessKey, and an error, if there is any.
+func (c *virtualClusterInstances) GetNodeAccessKey(ctx context.Context, virtualClusterInstanceName string, virtualClusterNodeAccessKey *managementv1.VirtualClusterNodeAccessKey, opts metav1.CreateOptions) (result *managementv1.VirtualClusterNodeAccessKey, err error) {
+	result = &managementv1.VirtualClusterNodeAccessKey{}
+	err = c.GetClient().Post().
+		Namespace(c.GetNamespace()).
+		Resource("virtualclusterinstances").
+		Name(virtualClusterInstanceName).
+		SubResource("nodeaccesskey").
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(virtualClusterNodeAccessKey).
 		Do(ctx).
 		Into(result)
 	return
