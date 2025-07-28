@@ -33,7 +33,6 @@ type ClusterInterface interface {
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *managementv1.Cluster, err error)
 	ListAccess(ctx context.Context, clusterName string, options metav1.GetOptions) (*managementv1.ClusterMemberAccess, error)
 	ListMembers(ctx context.Context, clusterName string, options metav1.GetOptions) (*managementv1.ClusterMembers, error)
-	ListVirtualClusterDefaults(ctx context.Context, clusterName string, options metav1.GetOptions) (*managementv1.ClusterVirtualClusterDefaults, error)
 	GetAgentConfig(ctx context.Context, clusterName string, options metav1.GetOptions) (*managementv1.ClusterAgentConfig, error)
 	GetAccessKey(ctx context.Context, clusterName string, options metav1.GetOptions) (*managementv1.ClusterAccessKey, error)
 
@@ -79,19 +78,6 @@ func (c *clusters) ListMembers(ctx context.Context, clusterName string, options 
 		Resource("clusters").
 		Name(clusterName).
 		SubResource("members").
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// ListVirtualClusterDefaults takes name of the cluster, and returns the corresponding managementv1.ClusterVirtualClusterDefaults object, and an error if there is any.
-func (c *clusters) ListVirtualClusterDefaults(ctx context.Context, clusterName string, options metav1.GetOptions) (result *managementv1.ClusterVirtualClusterDefaults, err error) {
-	result = &managementv1.ClusterVirtualClusterDefaults{}
-	err = c.GetClient().Get().
-		Resource("clusters").
-		Name(clusterName).
-		SubResource("virtualclusterdefaults").
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do(ctx).
 		Into(result)

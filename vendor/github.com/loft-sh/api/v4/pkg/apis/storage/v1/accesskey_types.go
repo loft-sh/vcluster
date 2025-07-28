@@ -75,7 +75,7 @@ type AccessKeySpec struct {
 	// If available, contains information about the sso login data for this
 	// access key
 	// +optional
-	Identity *AccessKeyIdentity `json:"identity,omitempty"`
+	Identity *SSOIdentity `json:"identity,omitempty"`
 
 	// The last time the identity was refreshed
 	// +optional
@@ -210,6 +210,7 @@ const (
 	AccessKeyScopeRoleNetworkPeer AccessKeyScopeRoleName = "network-peer"
 	AccessKeyScopeRoleLoftCLI     AccessKeyScopeRoleName = "loft-cli"
 	AccessKeyScopeRoleRunner      AccessKeyScopeRoleName = "runner"
+	AccessKeyScopeRoleWorkspace   AccessKeyScopeRoleName = "workspace"
 )
 
 type AccessKeyScopeCluster struct {
@@ -343,7 +344,7 @@ type GroupResources struct {
 	ResourceNames []string `json:"resourceNames,omitempty" protobuf:"bytes,3,rep,name=resourceNames"`
 }
 
-type AccessKeyIdentity struct {
+type SSOIdentity struct {
 	// The subject of the user
 	// +optional
 	UserID string `json:"userId,omitempty"`
@@ -363,6 +364,11 @@ type AccessKeyIdentity struct {
 	// If the user email was verified
 	// +optional
 	EmailVerified bool `json:"emailVerified,omitempty"`
+
+	// ExtraClaims are claims that are not otherwise contained in this struct but may be provided by the OIDC
+	// provider. Only extra claims that are allowed by the auth config are included.
+	// +optional
+	ExtraClaims map[string]string `json:"extraClaims,omitempty"`
 
 	// The groups from the identity provider
 	// +optional
@@ -428,6 +434,7 @@ const (
 	AccessKeyTypeReset            AccessKeyType = "Reset"
 	AccessKeyTypeOIDCRefreshToken AccessKeyType = "OIDCRefreshToken"
 	AccessKeyTypeNetworkPeer      AccessKeyType = "NetworkPeer"
+	AccessKeyTypeWorkspace        AccessKeyType = "Workspace"
 )
 
 // AccessKeyStatus holds the status of an access key
