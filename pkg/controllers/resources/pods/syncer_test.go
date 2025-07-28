@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"testing"
+	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
@@ -676,6 +677,23 @@ func TestSync(t *testing.T) {
 				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).Sync(syncContext, synccontext.NewSyncEventWithOld(pPodFakeKubelet, pPodFakeKubelet, vPodWithNodeName, vPodWithNodeName))
 				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Fake Kubelet enabled with Node sync and node service not found",
+			InitialVirtualState:  []runtime.Object{testNode.DeepCopy(), vPodWithNodeName, vNamespace.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{testNode.DeepCopy(), pPodFakeKubelet.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodWithNodeName},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Config.Sync.FromHost.Nodes.Selector.All = true
+				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = true
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+
+				result, err := syncer.(*podSyncer).Sync(syncContext, synccontext.NewSyncEventWithOld(pPodFakeKubelet, pPodFakeKubelet, vPodWithNodeName, vPodWithNodeName))
+				assert.NilError(t, err)
+				assert.Equal(t, result.RequeueAfter, time.Second, "Should requeue if node service is not found")
 			},
 		},
 		{

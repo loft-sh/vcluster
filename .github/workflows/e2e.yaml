@@ -170,7 +170,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distribution: ["k3s", "k8s", "k0s"]
+        # Skip k0s upgrades since we dropped support in later CLI versions
+        distribution: ["k3s", "k8s"]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
