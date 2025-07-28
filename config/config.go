@@ -116,6 +116,23 @@ type PrivateNodes struct {
 
 	// NodePools stores karpenter node pool configuration
 	NodePools PrivateNodesNodePools `json:"nodePools,omitempty"`
+
+	// Tunnel holds configuration for the private nodes tunnel. This can be used to connect the private nodes to the control plane or
+	// connect the private nodes to each other if they are not running in the same network. Platform connection is required for the tunnel to work.
+	Tunnel PrivateNodesTunnel `json:"tunnel,omitempty"`
+}
+
+type PrivateNodesTunnel struct {
+	// Enabled defines if the private nodes tunnel should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// NodeToNode holds configuration for the node to node tunnel. This can be used to connect the private nodes to each other if they are not running in the same network.
+	NodeToNode PrivateNodesTunnelNodeToNode `json:"nodeToNode,omitempty"`
+}
+
+type PrivateNodesTunnelNodeToNode struct {
+	// Enabled defines if the node to node tunnel should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // PrivateNodesNodePools defines node pools
@@ -330,9 +347,6 @@ type ContainerdJoin struct {
 
 	// Registry holds configuration for how containerd should be configured to use a registries.
 	Registry ContainerdRegistry `json:"registry,omitempty"`
-
-	// ImportImages is a list of images to import into the containerd registry from local files. If the path is a folder, all files that end with .tar or .tar.gz in the folder will be imported.
-	ImportImages []string `json:"importImages,omitempty"`
 
 	// PauseImage is the image for the pause container.
 	PauseImage string `json:"pauseImage,omitempty"`

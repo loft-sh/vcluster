@@ -248,13 +248,6 @@
           "$ref": "#/$defs/ContainerdRegistry",
           "description": "Registry holds configuration for how containerd should be configured to use a registries."
         },
-        "importImages": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "ImportImages is a list of images to import into the containerd registry from local files. If the path is a folder, all files that end with .tar or .tar.gz in the folder will be imported."
-        },
         "pauseImage": {
           "type": "string",
           "description": "PauseImage is the image for the pause container."
@@ -3595,6 +3588,10 @@
         "nodePools": {
           "$ref": "#/$defs/PrivateNodesNodePools",
           "description": "NodePools stores karpenter node pool configuration"
+        },
+        "tunnel": {
+          "$ref": "#/$defs/PrivateNodesTunnel",
+          "description": "Tunnel holds configuration for the private nodes tunnel. This can be used to connect the private nodes to the control plane or\nconnect the private nodes to each other if they are not running in the same network. Platform connection is required for the tunnel to work."
         }
       },
       "additionalProperties": false,
@@ -3621,6 +3618,30 @@
       "additionalProperties": false,
       "type": "object",
       "description": "PrivateNodesNodePools defines node pools"
+    },
+    "PrivateNodesTunnel": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the private nodes tunnel should be enabled."
+        },
+        "nodeToNode": {
+          "$ref": "#/$defs/PrivateNodesTunnelNodeToNode",
+          "description": "NodeToNode holds configuration for the node to node tunnel. This can be used to connect the private nodes to each other if they are not running in the same network."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PrivateNodesTunnelNodeToNode": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the node to node tunnel should be enabled."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "RBAC": {
       "properties": {
