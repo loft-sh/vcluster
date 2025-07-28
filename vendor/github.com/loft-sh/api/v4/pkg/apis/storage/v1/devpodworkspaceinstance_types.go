@@ -2,7 +2,9 @@ package v1
 
 import (
 	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 )
 
 var (
@@ -27,15 +29,15 @@ var (
 	// DevPodWorkspaceSourceAnnotation holds the workspace source of the devpod workspace
 	DevPodWorkspaceSourceAnnotation = "loft.sh/workspace-source"
 
-	// DevPodWorkspaceRunnerNetworkPeerAnnotation holds the workspace runner network peer name of the devpod workspace
-	DevPodWorkspaceRunnerEndpointAnnotation = "loft.sh/runner-endpoint"
+	// DevPodClientsAnnotation holds the active clients for a workspace networpeer
+	DevPodClientsAnnotation = "loft.sh/devpod-clients"
 )
 
 var (
+	DevPodPlatformOptions = "DEVPOD_PLATFORM_OPTIONS"
+
 	DevPodFlagsUp     = "DEVPOD_FLAGS_UP"
 	DevPodFlagsDelete = "DEVPOD_FLAGS_DELETE"
-	DevPodFlagsStatus = "DEVPOD_FLAGS_STATUS"
-	DevPodFlagsSsh    = "DEVPOD_FLAGS_SSH"
 	DevPodFlagsStop   = "DEVPOD_FLAGS_STOP"
 )
 
@@ -107,8 +109,11 @@ type DevPodWorkspaceInstanceSpec struct {
 	// +optional
 	Template *DevPodWorkspaceTemplateDefinition `json:"template,omitempty"`
 
-	// RunnerRef is the reference to the connected runner holding
-	// this workspace
+	// Target is the reference to the cluster holding this workspace
+	// +optional
+	Target WorkspaceTarget `json:"target,omitempty"`
+
+	// RunnerRef is the reference to the runner holding this workspace
 	// +optional
 	RunnerRef RunnerRef `json:"runnerRef,omitempty"`
 
@@ -138,6 +143,48 @@ type PresetRef struct {
 	Version string `json:"version,omitempty"`
 }
 
+type WorkspaceTarget struct {
+	// Cluster is the reference to the cluster holding this workspace
+	// +optional
+	Cluster *WorkspaceTargetName `json:"cluster,omitempty"`
+
+	// Cluster is the reference to the virtual cluster holding this workspace
+	// +optional
+	VirtualCluster *WorkspaceTargetName `json:"virtualCluster,omitempty"`
+}
+
+type WorkspaceResolvedTarget struct {
+	// Cluster is the reference to the cluster holding this workspace
+	// +optional
+	Cluster *WorkspaceTargetNamespace `json:"cluster,omitempty"`
+
+	// Cluster is the reference to the virtual cluster holding this workspace
+	// +optional
+	VirtualCluster *WorkspaceTargetNamespace `json:"virtualCluster,omitempty"`
+
+	// Space is the reference to the space holding this workspace
+	// +optional
+	Space *WorkspaceTargetName `json:"space,omitempty"`
+}
+
+func (w WorkspaceResolvedTarget) Empty() bool {
+	return w == WorkspaceResolvedTarget{}
+}
+
+type WorkspaceTargetName struct {
+	// Name is the name of the target
+	Name string `json:"name"`
+}
+
+type WorkspaceTargetNamespace struct {
+	// Name is the name of the object
+	Name string `json:"name"`
+
+	// Namespace is the namespace within the cluster.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+}
+
 type RunnerRef struct {
 	// Runner is the connected runner the workspace will be created in
 	// +optional
@@ -154,6 +201,10 @@ type EnvironmentRef struct {
 }
 
 type DevPodWorkspaceInstanceStatus struct {
+	// ResolvedTarget is the resolved target of the workspace
+	// +optional
+	ResolvedTarget WorkspaceResolvedTarget `json:"resolvedTarget,omitempty"`
+
 	// LastWorkspaceStatus is the last workspace status reported by the runner.
 	// +optional
 	LastWorkspaceStatus WorkspaceStatus `json:"lastWorkspaceStatus,omitempty"`
@@ -184,9 +235,146 @@ type DevPodWorkspaceInstanceStatus struct {
 	// +optional
 	IgnoreReconciliation bool `json:"ignoreReconciliation,omitempty"`
 
-	// ClusterRef holds the runners cluster if the workspace is scheduled
-	// on kubernetes based runner
-	ClusterRef *ClusterRef `json:"clusterRef,omitempty"`
+	// Kubernetes is the status of the workspace on kubernetes
+	// +optional
+	Kubernetes *DevPodWorkspaceInstanceKubernetesStatus `json:"kubernetes,omitempty"`
+}
+
+type DevPodWorkspaceInstanceKubernetesStatus struct {
+	// Last time the condition transitioned from one status to another.
+	// +required
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+
+	// PodStatus is the status of the pod that is running the workspace
+	// +optional
+	PodStatus *DevPodWorkspaceInstancePodStatus `json:"podStatus,omitempty"`
+
+	// PersistentVolumeClaimStatus is the pvc that is used to store the workspace
+	// +optional
+	PersistentVolumeClaimStatus *DevPodWorkspaceInstancePersistentVolumeClaimStatus `json:"persistentVolumeClaimStatus,omitempty"`
+}
+
+type DevPodWorkspaceInstancePodStatus struct {
+	// The phase of a Pod is a simple, high-level summary of where the Pod is in its lifecycle.
+	// The conditions array, the reason and message fields, and the individual container status
+	// arrays contain more detail about the pod's status.
+	// There are five possible phase values:
+	//
+	// Pending: The pod has been accepted by the Kubernetes system, but one or more of the
+	// container images has not been created. This includes time before being scheduled as
+	// well as time spent downloading images over the network, which could take a while.
+	// Running: The pod has been bound to a node, and all of the containers have been created.
+	// At least one container is still running, or is in the process of starting or restarting.
+	// Succeeded: All containers in the pod have terminated in success, and will not be restarted.
+	// Failed: All containers in the pod have terminated, and at least one container has
+	// terminated in failure. The container either exited with non-zero status or was terminated
+	// by the system.
+	// Unknown: For some reason the state of the pod could not be obtained, typically due to an
+	// error in communicating with the host of the pod.
+	//
+	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-phase
+	// +optional
+	Phase corev1.PodPhase `json:"phase,omitempty" protobuf:"bytes,1,opt,name=phase,casttype=PodPhase"`
+	// Current service state of pod.
+	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []corev1.PodCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,2,rep,name=conditions"`
+	// A human readable message indicating details about why the pod is in this condition.
+	// +optional
+	Message string `json:"message,omitempty" protobuf:"bytes,3,opt,name=message"`
+	// A brief CamelCase message indicating details about why the pod is in this state.
+	// e.g. 'Evicted'
+	// +optional
+	Reason string `json:"reason,omitempty" protobuf:"bytes,4,opt,name=reason"`
+	// Statuses of init containers in this pod. The most recent successful non-restartable
+	// init container will have ready = true, the most recently started container will have
+	// startTime set.
+	// Each init container in the pod should have at most one status in this list,
+	// and all statuses should be for containers in the pod.
+	// However this is not enforced.
+	// If a status for a non-existent container is present in the list, or the list has duplicate names,
+	// the behavior of various Kubernetes components is not defined and those statuses might be
+	// ignored.
+	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-and-container-status
+	// +listType=atomic
+	InitContainerStatuses []corev1.ContainerStatus `json:"initContainerStatuses,omitempty" protobuf:"bytes,10,rep,name=initContainerStatuses"`
+	// Statuses of containers in this pod.
+	// Each container in the pod should have at most one status in this list,
+	// and all statuses should be for containers in the pod.
+	// However this is not enforced.
+	// If a status for a non-existent container is present in the list, or the list has duplicate names,
+	// the behavior of various Kubernetes components is not defined and those statuses might be
+	// ignored.
+	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status
+	// +optional
+	// +listType=atomic
+	ContainerStatuses []corev1.ContainerStatus `json:"containerStatuses,omitempty" protobuf:"bytes,8,rep,name=containerStatuses"`
+	// NodeName is the name of the node that is running the workspace
+	// +optional
+	NodeName string `json:"nodeName,omitempty"`
+	// Events are the events of the pod that is running the workspace. This will only be filled if the pod is not running.
+	// +optional
+	Events []DevPodWorkspaceInstanceEvent `json:"events,omitempty"`
+	// ContainerResources are the resources of the containers that are running the workspace
+	// +optional
+	ContainerResources []DevPodWorkspaceInstanceContainerResource `json:"containerResources,omitempty"`
+	// ContainerMetrics are the metrics of the pod that is running the workspace
+	// +optional
+	ContainerMetrics []metricsv1beta1.ContainerMetrics `json:"containerMetrics,omitempty"`
+}
+
+type DevPodWorkspaceInstanceContainerResource struct {
+	// Name is the name of the container
+	// +optional
+	Name string `json:"name,omitempty"`
+	// Resources is the resources of the container
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+type DevPodWorkspaceInstancePersistentVolumeClaimStatus struct {
+	// phase represents the current phase of PersistentVolumeClaim.
+	// +optional
+	Phase corev1.PersistentVolumeClaimPhase `json:"phase,omitempty" protobuf:"bytes,1,opt,name=phase,casttype=PersistentVolumeClaimPhase"`
+	// capacity represents the actual resources of the underlying volume.
+	// +optional
+	Capacity corev1.ResourceList `json:"capacity,omitempty" protobuf:"bytes,3,rep,name=capacity,casttype=ResourceList,castkey=ResourceName"`
+	// conditions is the current Condition of persistent volume claim. If underlying persistent volume is being
+	// resized then the Condition will be set to 'Resizing'.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []corev1.PersistentVolumeClaimCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,4,rep,name=conditions"`
+	// Events are the events of the pod that is running the workspace. This will only be filled if the persistent volume claim is not bound.
+	// +optional
+	Events []DevPodWorkspaceInstanceEvent `json:"events,omitempty"`
+}
+
+type DevPodWorkspaceInstanceEvent struct {
+	// This should be a short, machine understandable string that gives the reason
+	// for the transition into the object's current status.
+	// TODO: provide exact specification for format.
+	// +optional
+	Reason string `json:"reason,omitempty" protobuf:"bytes,3,opt,name=reason"`
+
+	// A human-readable description of the status of this operation.
+	// TODO: decide on maximum length.
+	// +optional
+	Message string `json:"message,omitempty" protobuf:"bytes,4,opt,name=message"`
+
+	// The time at which the most recent occurrence of this event was recorded.
+	// +optional
+	LastTimestamp metav1.Time `json:"lastTimestamp,omitempty" protobuf:"bytes,7,opt,name=lastTimestamp"`
+
+	// Type of this event (Normal, Warning), new types could be added in the future
+	// +optional
+	Type string `json:"type,omitempty" protobuf:"bytes,9,opt,name=type"`
 }
 
 type WorkspaceStatusResult struct {
