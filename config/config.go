@@ -112,6 +112,23 @@ type PrivateNodes struct {
 
 	// NodePools stores karpenter node pool configuration
 	NodePools PrivateNodesNodePools `json:"nodePools,omitempty"`
+
+	// Tunnel holds configuration for the private nodes tunnel. This can be used to connect the private nodes to the control plane or
+	// connect the private nodes to each other if they are not running in the same network. Platform connection is required for the tunnel to work.
+	Tunnel PrivateNodesTunnel `json:"tunnel,omitempty"`
+}
+
+type PrivateNodesTunnel struct {
+	// Enabled defines if the private nodes tunnel should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// NodeToNode holds configuration for the node to node tunnel. This can be used to connect the private nodes to each other if they are not running in the same network.
+	NodeToNode PrivateNodesTunnelNodeToNode `json:"nodeToNode,omitempty"`
+}
+
+type PrivateNodesTunnelNodeToNode struct {
+	// Enabled defines if the node to node tunnel should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // PrivateNodesNodePools defines node pools
