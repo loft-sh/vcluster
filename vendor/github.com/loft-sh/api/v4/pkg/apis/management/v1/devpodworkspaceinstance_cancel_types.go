@@ -6,13 +6,12 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// RunnerAccessKey holds the access key for the runner
 // +subresource-request
-type RunnerAccessKey struct {
+type DevPodWorkspaceInstanceCancel struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// AccessKey is the access key used by the runner
+	// TaskID is the id of the task that should get cancelled
 	// +optional
-	AccessKey string `json:"accessKey,omitempty"`
+	TaskID string `json:"taskId,omitempty"`
 }
