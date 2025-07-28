@@ -3,7 +3,6 @@ package snapshot
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/url"
 	"path"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
 	"github.com/loft-sh/vcluster/pkg/snapshot/options"
 	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
+	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"k8s.io/klog/v2"
 )
 
@@ -45,13 +45,7 @@ type VClusterConfig struct {
 	Values       string `json:"values"`
 }
 
-type Storage interface {
-	Target() string
-	PutObject(ctx context.Context, body io.Reader) error
-	GetObject(ctx context.Context) (io.ReadCloser, error)
-}
-
-func CreateStore(ctx context.Context, options *Options) (Storage, error) {
+func CreateStore(ctx context.Context, options *Options) (types.Storage, error) {
 	if options.Type == "s3" {
 		objectStore := s3.NewStore(klog.FromContext(ctx))
 		err := objectStore.Init(&options.S3)
@@ -125,10 +119,10 @@ func Parse(snapshotURL string, snapshotOptions *Options) error {
 	return nil
 }
 
-func Validate(options *Options) error {
+func Validate(options *Options, isList bool) error {
 	// storage needs to be either s3 or file
 	if options.Type == "s3" {
-		if options.S3.Key == "" {
+		if !isList && options.S3.Key == "" {
 			return fmt.Errorf("key must be specified via s3://BUCKET/KEY")
 		}
 		if options.S3.Bucket == "" {
