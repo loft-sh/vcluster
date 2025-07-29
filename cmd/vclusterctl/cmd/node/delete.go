@@ -9,8 +9,10 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubectl/pkg/drain"
 )
 
@@ -91,9 +93,17 @@ func (o *DeleteOptions) Run(ctx context.Context, args []string) error {
 
 	// drain node
 	if o.Drain {
+		errc := make(chan error)
+
 		o.Log.Infof("Draining node %s...", nodeName)
-		err = drain.RunNodeDrain(drainHelper, nodeName)
-		if err != nil {
+
+		// Poll for the node status, so we don't keep trying if it has been deleted or shutdown.
+		go o.pollNodeStatus(ctx, kubeClient, nodeName, errc)
+		go func() {
+			errc <- drain.RunNodeDrain(drainHelper, nodeName)
+		}()
+
+		if err = <-errc; err != nil {
 			return fmt.Errorf("failed to drain node: %w", err)
 		}
 	}
@@ -107,4 +117,24 @@ func (o *DeleteOptions) Run(ctx context.Context, args []string) error {
 
 	o.Log.Infof("Successfully deleted node %s", nodeName)
 	return nil
+}
+
+func (o *DeleteOptions) pollNodeStatus(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, errc chan error) {
+	for range time.Tick(time.Second * 5) {
+		node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+		// We don't care about an error here, as RunDrainNode should deal with errors in getting the Node resource.
+		// We're looking for the case where the Node is present and has a status indicating it that it can't be
+		// reached rather than the manifest/resource isn't there.
+		if err != nil {
+			continue
+		}
+
+		for _, s := range node.Status.Conditions {
+			if s.Status == corev1.ConditionUnknown && s.Message == "Kubelet stopped posting node status." {
+				o.Log.Warnf("The status of node %q is unknown. This may indicate the node was shutdown or lost connectivity.  If so, try rerunning with --drain=false", nodeName)
+				errc <- fmt.Errorf("node %q status unknown", nodeName)
+				return
+			}
+		}
+	}
 }
