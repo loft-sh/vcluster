@@ -8,6 +8,7 @@ import (
 	loftlogr "github.com/loft-sh/log/logr"
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/debug"
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/node"
+	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/snapshot"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,8 +60,8 @@ func BuildRoot() *cobra.Command {
 
 	// add top level commands
 	rootCmd.AddCommand(NewStartCommand())
-	rootCmd.AddCommand(NewSnapshotCommand())
-	rootCmd.AddCommand(NewRestoreCommand())
+	rootCmd.AddCommand(snapshot.NewSnapshotCommand())
+	rootCmd.AddCommand(snapshot.NewRestoreCommand())
 	rootCmd.AddCommand(NewPortForwardCommand())
 	rootCmd.AddCommand(debug.NewDebugCmd())
 	rootCmd.AddCommand(node.NewNodeCmd())
