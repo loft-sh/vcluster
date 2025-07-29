@@ -23,6 +23,12 @@ type VirtualClusterInstanceKubeConfigSpec struct {
 	// which is typically one year.
 	// +optional
 	CertificateTTL *int32 `json:"certificateTTL,omitempty"`
+	// Server allows user to override server in the kubeconfig.
+	// +optional
+	Server string `json:"server,omitempty"`
+	// ClientCert, if set to true, will return kube config with generated client certs instead of platform token
+	// +optional
+	ClientCert bool `json:"clientCert,omitempty"`
 }
 
 type VirtualClusterInstanceKubeConfigStatus struct {

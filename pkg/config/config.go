@@ -52,6 +52,9 @@ type VirtualClusterConfig struct {
 
 	// ControlPlaneNamespace is the namespace where the vCluster control plane is running
 	ControlPlaneNamespace string `json:"controlPlaneNamespace,omitempty"`
+
+	// Path is the path to the vCluster config
+	Path string `json:"path,omitempty"`
 }
 
 func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKubeConfig {

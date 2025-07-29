@@ -46,6 +46,7 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 		Config:              *rawConfig,
 		Name:                name,
 		ControlPlaneService: name,
+		Path:                path,
 	}
 
 	// validate config

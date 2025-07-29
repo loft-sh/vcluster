@@ -121,6 +121,11 @@ func (f *fakeInformer) AddEventHandlerWithResyncPeriod(_ toolscache.ResourceEven
 	return nil, nil
 }
 
+func (f *fakeInformer) AddEventHandlerWithOptions(_ toolscache.ResourceEventHandler, _ toolscache.HandlerOptions) (toolscache.ResourceEventHandlerRegistration, error) {
+	//nolint:nilnil
+	return nil, nil
+}
+
 func (f *fakeInformer) RemoveEventHandler(_ toolscache.ResourceEventHandlerRegistration) error {
 	return nil
 }

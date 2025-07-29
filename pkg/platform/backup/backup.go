@@ -122,15 +122,6 @@ func All(ctx context.Context, client clientpkg.Client, skip []string, infoFn Log
 			objects = append(objects, objs...)
 		}
 	}
-	if !contains(skip, "runners") {
-		infoFn("Backing up runners...")
-		objs, err := runners(ctx, client)
-		if err != nil {
-			backupErrors = append(backupErrors, errors.Wrap(err, "backup runners"))
-		} else {
-			objects = append(objects, objs...)
-		}
-	}
 	projects := []string{}
 	if !contains(skip, "projects") {
 		infoFn("Backing up projects...")
@@ -341,28 +332,6 @@ func clusters(ctx context.Context, client clientpkg.Client) ([]runtime.Object, e
 
 			retList = append(retList, secret)
 		}
-	}
-
-	return retList, nil
-}
-
-func runners(ctx context.Context, client clientpkg.Client) ([]runtime.Object, error) {
-	runnerList := &storagev1.RunnerList{}
-	err := client.List(ctx, runnerList)
-	if err != nil {
-		return nil, err
-	}
-
-	retList := []runtime.Object{}
-	for _, o := range runnerList.Items {
-		u := o
-		u.Status = storagev1.RunnerStatus{}
-		err := resetMetadata(client.Scheme(), &u)
-		if err != nil {
-			return nil, err
-		}
-
-		retList = append(retList, &u)
 	}
 
 	return retList, nil

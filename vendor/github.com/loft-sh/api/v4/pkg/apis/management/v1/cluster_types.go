@@ -10,7 +10,6 @@ import (
 // +genclient:nonNamespaced
 // +genclient:method=ListAccess,verb=get,subresource=memberaccess,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.ClusterMemberAccess
 // +genclient:method=ListMembers,verb=get,subresource=members,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.ClusterMembers
-// +genclient:method=ListVirtualClusterDefaults,verb=get,subresource=virtualclusterdefaults,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.ClusterVirtualClusterDefaults
 // +genclient:method=GetAgentConfig,verb=get,subresource=agentconfig,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.ClusterAgentConfig
 // +genclient:method=GetAccessKey,verb=get,subresource=accesskey,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.ClusterAccessKey
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -23,7 +22,6 @@ import (
 // +subresource:request=ClusterDomain,path=domain,kind=ClusterDomain,rest=ClusterDomainREST
 // +subresource:request=ClusterMembers,path=members,kind=ClusterMembers,rest=ClusterMembersREST
 // +subresource:request=ClusterCharts,path=charts,kind=ClusterCharts,rest=ClusterChartsREST
-// +subresource:request=ClusterVirtualClusterDefaults,path=virtualclusterdefaults,kind=ClusterVirtualClusterDefaults,rest=ClusterVirtualClusterDefaultsREST
 // +subresource:request=ClusterAgentConfig,path=agentconfig,kind=ClusterAgentConfig,rest=ClusterAgentConfigREST
 // +subresource:request=ClusterAccessKey,path=accesskey,kind=ClusterAccessKey,rest=ClusterAccessKeyREST
 type Cluster struct {

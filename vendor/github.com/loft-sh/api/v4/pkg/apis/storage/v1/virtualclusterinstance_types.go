@@ -318,6 +318,10 @@ type VirtualClusterHelmChart struct {
 	// the version of the helm chart to use
 	// +optional
 	Version string `json:"version,omitempty"`
+
+	// InsecureSkipTlsVerify skips the TLS verification for the helm chart
+	// +optional
+	InsecureSkipTlsVerify bool `json:"insecureSkipTlsVerify,omitempty"`
 }
 
 type PodSelector struct {

@@ -12,7 +12,7 @@ import (
 // +k8s:openapi-gen=true
 type NetworkPeer struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   NetworkPeerSpec   `json:"spec,omitempty"`
 	Status NetworkPeerStatus `json:"status,omitempty"`
