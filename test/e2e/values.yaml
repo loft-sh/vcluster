@@ -48,9 +48,6 @@ experimental:
             namespace: fluent-bit
           timeout: "50s"
 sync:
-  toHost:
-    networkPolicies:
-      enabled: true
   fromHost:
     runtimeClasses:
       enabled: true
@@ -73,6 +70,9 @@ sync:
           "default/my-secret": "barfoo2/secret-my"
           "/my-secret-in-default-ns": "barfoo2/secret-from-default-ns"
     storageClasses:
+      enabled: true
+  toHost:
+    networkPolicies:
       enabled: true
     persistentVolumeClaims:
       enabled: true
