@@ -1,0 +1,44 @@
+name: Publish Chart
+
+on:
+  workflow_call:
+    inputs:
+      release_version:
+        description: "The release version to publish"
+        required: true
+        type: string
+      ref:
+        description: "The git ref to checkout"
+        required: true
+        type: string
+
+jobs:
+  publish-chart:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Validate semantic version
+        id: semver
+        uses: loft-sh/github-actions/.github/actions/semver-validation@semver-validation/v1
+        with:
+          version: "${{ inputs.release_version }}"
+      - name: Check validation result
+        run: '[[ "${{ steps.semver.outputs.is_valid }}" == "true" ]] || (echo "Invalid version: ${{ inputs.release_version }}" && exit 1)'
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: azure/setup-helm@v4
+        with:
+          version: "v3.0.2"
+      - name: Publish Helm chart
+        run: |
+          set -euo pipefail
+          echo "Publishing Helm chart for version ${{ inputs.release_version }}"
+          helm plugin install https://github.com/chartmuseum/helm-push.git || true
+          helm repo add chartmuseum $CHART_MUSEUM_URL --username $CHART_MUSEUM_USER --password $CHART_MUSEUM_PASSWORD
+          helm cm-push --force --version="${{ inputs.release_version }}" --app-version="${{ inputs.release_version }}" chart chartmuseum
+        env:
+          CHART_MUSEUM_URL: "https://charts.loft.sh/"
+          CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
+          CHART_MUSEUM_PASSWORD: ${{ secrets.CHART_MUSEUM_PASSWORD }}

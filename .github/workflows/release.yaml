@@ -103,23 +103,12 @@ jobs:
   publish-chart:
     if: startsWith(github.ref, 'refs/tags/v') == true
     needs: [publish]
-    runs-on: ubuntu-22.04
+    uses: ./.github/workflows/publish-chart.yaml
+    with:
+      release_version: ${{ needs.publish.outputs.release_version }}
+      ref: ${{ github.ref }}
+    secrets: inherit
 
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
-        with:
-          version: "v3.0.2"
-      - run: |
-          RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/v!!p')
-          helm plugin install https://github.com/chartmuseum/helm-push.git
-          helm repo add chartmuseum $CHART_MUSEUM_URL --username $CHART_MUSEUM_USER --password $CHART_MUSEUM_PASSWORD
-          helm cm-push --force --version="$RELEASE_VERSION" --app-version="$RELEASE_VERSION" chart chartmuseum
-        env:
-          CHART_MUSEUM_URL: "https://charts.loft.sh/"
-          CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
-          CHART_MUSEUM_PASSWORD: ${{ secrets.CHART_MUSEUM_PASSWORD }}
   # The workflow will only trigger on non-draft releases
   # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#release
   notify_release:
@@ -189,8 +178,8 @@ jobs:
         with:
           version: ${{ needs.publish.outputs.release_version }}
           previous_tag: ${{ needs.publish.outputs.previous_tag }}
-          changes: 'See changelog link below'
-          target_repo: 'loft-sh/vcluster'
-          product: 'vCluster'
+          changes: "See changelog link below"
+          target_repo: "loft-sh/vcluster"
+          product: "vCluster"
           base_branch: ${{ steps.get_base_branch.outputs.base_branch }}
           webhook_url: ${{ secrets.SLACK_WEBHOOK_URL_PRODUCT_RELEASES }}
