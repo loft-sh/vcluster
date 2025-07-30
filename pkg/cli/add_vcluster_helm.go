@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -10,13 +9,14 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 )
 
 type AddVClusterOptions struct {
@@ -32,36 +32,11 @@ type AddVClusterOptions struct {
 
 func AddVClusterHelm(
 	ctx context.Context,
+	log log.Logger,
 	options *AddVClusterOptions,
 	globalFlags *flags.GlobalFlags,
-	args []string,
-	log log.Logger,
+	vClusters []find.VCluster,
 ) error {
-	var vClusters []find.VCluster
-	if len(args) == 0 && !options.All {
-		return errors.New("empty vCluster name but no --all flag set, please either set vCluster name to add one cluster or set --all flag to add all of them")
-	}
-	if options.All {
-		log.Info("looking for vCluster instances in all namespaces")
-		vClustersInNamespace, err := find.ListVClusters(ctx, globalFlags.Context, "", "", log)
-		if err != nil {
-			return err
-		}
-		if len(vClustersInNamespace) == 0 {
-			log.Infof("no vCluster instances found in context %s", globalFlags.Context)
-		} else {
-			vClusters = append(vClusters, vClustersInNamespace...)
-		}
-	} else {
-		// check if vCluster exists
-		vClusterName := args[0]
-		vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
-		if err != nil {
-			return err
-		}
-		vClusters = append(vClusters, *vCluster)
-	}
-
 	if len(vClusters) == 0 {
 		return nil
 	}
