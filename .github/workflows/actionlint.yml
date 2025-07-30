@@ -3,7 +3,7 @@ name: Workflow Linting
 on:
   pull_request:
     paths:
-      - '.github/workflows/**'
+      - ".github/workflows/**"
 
 permissions:
   contents: read
@@ -30,9 +30,9 @@ jobs:
         uses: reviewdog/action-actionlint@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-pr-review
+          reporter: github-pr-check
           filter_mode: file
-          fail_on_error: true
+          fail_level: error
 
       - name: No workflow files changed
         if: steps.changed-files.outputs.any_changed != 'true'
