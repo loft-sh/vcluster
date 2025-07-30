@@ -2,11 +2,18 @@ package add
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/pkg/cli"
-	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/projectutil"
 )
 
 type VClusterCmd struct {
@@ -60,5 +67,83 @@ vcluster platform add vcluster --project my-project --all
 
 // Run executes the functionality
 func (cmd *VClusterCmd) Run(ctx context.Context, args []string) error {
-	return cli.AddVClusterHelm(ctx, &cmd.AddVClusterOptions, cmd.GlobalFlags, args, cmd.Log)
+	localVClusters, err := cmd.localVClustersFromOptions(ctx, cmd.Log, cmd.GlobalFlags, args, cmd.AddVClusterOptions)
+	if err != nil {
+		return err
+	}
+
+	if err := cmd.validateForPreExistence(ctx, localVClusters); err != nil {
+		return err
+	}
+
+	return cli.AddVClusterHelm(ctx, cmd.Log, &cmd.AddVClusterOptions, cmd.GlobalFlags, localVClusters)
+}
+
+func (cmd *VClusterCmd) validateForPreExistence(ctx context.Context, localVClusters []find.VCluster) error {
+	targetProject := cmd.Project
+	if targetProject == "" {
+		targetProject = "default"
+	}
+
+	byNameMap := make(map[string]bool, len(localVClusters))
+	for _, v := range localVClusters {
+		byNameMap[v.Name] = true
+	}
+
+	platformClient, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.Log))
+	if err != nil {
+		return fmt.Errorf("new client from path: %w", err)
+	}
+
+	managementClient, err := platformClient.Management()
+	if err != nil {
+		return fmt.Errorf("create management client: %w", err)
+	}
+
+	vcInstanceList, err := managementClient.Loft().ManagementV1().VirtualClusterInstances("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	for _, vClusterInstance := range vcInstanceList.Items {
+		if !byNameMap[vClusterInstance.Name] {
+			continue
+		}
+		projectFromVirtualCluster := projectutil.ProjectFromNamespace(vClusterInstance.Namespace)
+		if projectFromVirtualCluster != targetProject {
+			return fmt.Errorf("vClusterInstance %q already exists in project %q, moving vCluster from projects is not allowed", vClusterInstance.Name, projectFromVirtualCluster)
+		}
+	}
+
+	return nil
+}
+
+func (cmd *VClusterCmd) localVClustersFromOptions(ctx context.Context, log log.Logger, globalFlags *flags.GlobalFlags, args []string, options cli.AddVClusterOptions) ([]find.VCluster, error) {
+	var vClusters []find.VCluster
+
+	if len(args) == 0 && !options.All {
+		return nil, errors.New("empty vCluster name but no --all flag set, please either set vCluster name to add one cluster or set --all flag to add all of them")
+	}
+	if options.All {
+		log.Info("looking for vCluster instances in all namespaces")
+		vClustersInNamespace, err := find.ListVClusters(ctx, globalFlags.Context, "", "", log)
+		if err != nil {
+			return nil, err
+		}
+		if len(vClustersInNamespace) == 0 {
+			log.Infof("no vCluster instances found in context %s", globalFlags.Context)
+		} else {
+			vClusters = append(vClusters, vClustersInNamespace...)
+		}
+	} else {
+		// check if vCluster exists
+		vClusterName := args[0]
+		vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
+		if err != nil {
+			return nil, err
+		}
+		vClusters = append(vClusters, *vCluster)
+	}
+
+	return vClusters, nil
 }
