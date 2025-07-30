@@ -336,14 +336,25 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 		f = framework.DefaultFramework
 	})
 
-	ginkgo.It("should obtain the current cert secret of vCluster", func() {
-		_, err := f.HostClient.CoreV1().Secrets(f.VClusterNamespace).Get(f.Context, certs.CertSecretName(f.VClusterName), metav1.GetOptions{})
+	ginkgo.It("checking current validity date of CA cert of vCluster", func() {
+		secret, err := f.HostClient.CoreV1().Secrets(f.VClusterNamespace).Get(
+			f.Context, certs.CertSecretName(f.VClusterName), metav1.GetOptions{})
 		framework.ExpectNoError(err)
+
+		certPEM := secret.Data["ca.crt"]
+
+		block, _ := pem.Decode(certPEM)
+		gomega.Expect(block).NotTo(gomega.BeNil(), "Failed to decode PEM block")
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		framework.ExpectNoError(err)
+
+		gomega.Expect(cert.NotAfter.After(time.Now())).To(gomega.BeTrue(), "CA cert is valid")
 	})
 
-	ginkgo.It("setting validity of ca cert of vCluster to 30 seconds", func() {
+	ginkgo.It("setting validity of ca cert of vCluster to 10 seconds", func() {
 		os.Setenv("DEVELOPMENT", "true")
-		os.Setenv("VCLUSTER_CERTS_VALIDITYPERIOD", "30s")
+		os.Setenv("VCLUSTER_CERTS_VALIDITYPERIOD", "10s")
 		defer os.Unsetenv("DEVELOPMENT")
 		defer os.Unsetenv("VCLUSTER_CERTS_VALIDITYPERIOD")
 
@@ -355,28 +366,18 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("should check if CA cert of vCluster is expired", func() {
-		gomega.Eventually(func() error {
+		gomega.Eventually(func(g gomega.Gomega) {
 			secret, err := f.HostClient.CoreV1().Secrets(f.VClusterNamespace).Get(
 				f.Context, certs.CertSecretName(f.VClusterName), metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
+			g.Expect(err).NotTo(gomega.HaveOccurred())
 
 			certPEM := secret.Data["ca.crt"]
 			block, _ := pem.Decode(certPEM)
-			if block == nil {
-				return fmt.Errorf("failed to decode PEM block")
-			}
+			g.Expect(block).NotTo(gomega.BeNil())
 
 			cert, err := x509.ParseCertificate(block.Bytes)
-			if err != nil {
-				return err
-			}
-
-			if cert.NotAfter.Before(time.Now()) {
-				return nil
-			}
-			return fmt.Errorf("CA cert not expired yet (expires at %s)", cert.NotAfter)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(cert.NotAfter.Before(time.Now())).To(gomega.BeTrue())
 		}).
 			WithPolling(time.Second).
 			WithTimeout(framework.PollTimeoutLong).
@@ -401,25 +402,24 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 
 	ginkgo.It("should wait until the vCluster is ready again", func() {
 		framework.ExpectNoError(f.WaitForVClusterReady())
-		gomega.Eventually(func() error {
+		gomega.Eventually(func(g gomega.Gomega) error {
 			pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "app=vcluster,release=" + f.VClusterName,
 			})
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			gomega.Expect(pods.Items).NotTo(gomega.BeEmpty())
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(pods.Items).NotTo(gomega.BeEmpty())
 
 			for _, pod := range pods.Items {
-				gomega.Expect(pod.Status.ContainerStatuses).NotTo(gomega.BeEmpty(),
+				g.Expect(pod.Status.ContainerStatuses).NotTo(gomega.BeEmpty(),
 					"pod %s should have container statuses", pod.Name)
 
 				for i, container := range pod.Status.ContainerStatuses {
-					gomega.Expect(container.State.Running).NotTo(gomega.BeNil(),
+					g.Expect(container.State.Running).NotTo(gomega.BeNil(),
 						"container %d in pod %s should be running", i, pod.Name)
-					gomega.Expect(container.Ready).To(gomega.BeTrue(),
+					g.Expect(container.Ready).To(gomega.BeTrue(),
 						"container %d in pod %s should be ready", i, pod.Name)
 				}
 			}
-
 			return nil
 		}).WithPolling(time.Second).
 			WithTimeout(framework.PollTimeoutLong).
@@ -440,7 +440,6 @@ var _ = ginkgo.Describe("vCluster cert rotation tests", ginkgo.Ordered, func() {
 		framework.ExpectNoError(err)
 
 		certPEM := secret.Data["ca.crt"]
-
 		block, _ := pem.Decode(certPEM)
 		gomega.Expect(block).NotTo(gomega.BeNil(), "Failed to decode PEM block")
 
