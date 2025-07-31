@@ -229,9 +229,9 @@ var _ = ginkgo.Describe("vCluster cert rotation expiration tests", ginkgo.Ordere
 		gomega.Expect(cert.NotAfter.After(time.Now())).To(gomega.BeTrue(), "CA cert is valid")
 	})
 
-	ginkgo.It("setting validity of ca cert of vCluster to 15 seconds", func() {
+	ginkgo.It("setting validity of ca cert of vCluster to 1 seconds", func() {
 		os.Setenv("DEVELOPMENT", "true")
-		os.Setenv("VCLUSTER_CERTS_VALIDITYPERIOD", "15s")
+		os.Setenv("VCLUSTER_CERTS_VALIDITYPERIOD", "1s")
 		defer os.Unsetenv("DEVELOPMENT")
 		defer os.Unsetenv("VCLUSTER_CERTS_VALIDITYPERIOD")
 
@@ -240,6 +240,32 @@ var _ = ginkgo.Describe("vCluster cert rotation expiration tests", ginkgo.Ordere
 
 		err := certsCmd.Execute()
 		framework.ExpectNoError(err)
+	})
+
+	ginkgo.It("should wait until the vCluster is ready again", func() {
+		framework.ExpectNoError(f.WaitForVClusterReady())
+		gomega.Eventually(func(g gomega.Gomega) error {
+			pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
+				LabelSelector: "app=vcluster,release=" + f.VClusterName,
+			})
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(pods.Items).NotTo(gomega.BeEmpty())
+
+			for _, pod := range pods.Items {
+				g.Expect(pod.Status.ContainerStatuses).NotTo(gomega.BeEmpty(),
+					"pod %s should have container statuses", pod.Name)
+
+				for i, container := range pod.Status.ContainerStatuses {
+					g.Expect(container.State.Running).NotTo(gomega.BeNil(),
+						"container %d in pod %s should be running", i, pod.Name)
+					g.Expect(container.Ready).To(gomega.BeTrue(),
+						"container %d in pod %s should be ready", i, pod.Name)
+				}
+			}
+			return nil
+		}).WithPolling(time.Second).
+			WithTimeout(framework.PollTimeoutLong).
+			Should(gomega.Succeed())
 	})
 
 	ginkgo.It("should check if CA cert of vCluster is expired", func() {
