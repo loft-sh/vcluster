@@ -124,6 +124,8 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 	var err error
 	if cmd.AccessKey != "" {
 		err = loginClient.LoginWithAccessKey(url, cmd.AccessKey, cmd.Insecure)
+	} else if cfg.Platform.AccessKey != "" {
+		err = loginClient.LoginWithAccessKey(url, cfg.Platform.AccessKey, cmd.Insecure)
 	} else {
 		err = loginClient.Login(url, cmd.Insecure, cmd.Log)
 	}
