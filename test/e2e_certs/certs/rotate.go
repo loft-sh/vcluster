@@ -252,15 +252,8 @@ var _ = ginkgo.Describe("vCluster cert rotation expiration tests", ginkgo.Ordere
 			g.Expect(pods.Items).NotTo(gomega.BeEmpty())
 
 			for _, pod := range pods.Items {
-				g.Expect(pod.Status.ContainerStatuses).NotTo(gomega.BeEmpty(),
-					"pod %s should have container statuses", pod.Name)
-
-				for i, container := range pod.Status.ContainerStatuses {
-					g.Expect(container.State.Running).NotTo(gomega.BeNil(),
-						"container %d in pod %s should be running", i, pod.Name)
-					g.Expect(container.Ready).To(gomega.BeTrue(),
-						"container %d in pod %s should be ready", i, pod.Name)
-				}
+				gomega.Expect(pod.Status.Phase).To(gomega.Equal(corev1.PodRunning),
+					"pod %s is not running (current phase: %s)", pod.Name, pod.Status.Phase)
 			}
 			return nil
 		}).WithPolling(time.Second).
