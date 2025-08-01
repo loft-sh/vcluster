@@ -1,0 +1,11 @@
+controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+        statefulSet:
+          highAvailability:
+            replicas: 3
+  statefulSet:
+    highAvailability:
+      replicas: 3
