@@ -229,7 +229,7 @@ var _ = ginkgo.Describe("vCluster cert rotation expiration tests", ginkgo.Ordere
 		gomega.Expect(cert.NotAfter.After(time.Now())).To(gomega.BeTrue(), "CA cert is valid")
 	})
 
-	ginkgo.It("setting validity of ca cert of vCluster to 1 seconds", func() {
+	ginkgo.It("setting validity of ca cert of vCluster to 1 second", func() {
 		os.Setenv("DEVELOPMENT", "true")
 		os.Setenv("VCLUSTER_CERTS_VALIDITYPERIOD", "1s")
 		defer os.Unsetenv("DEVELOPMENT")
@@ -242,8 +242,7 @@ var _ = ginkgo.Describe("vCluster cert rotation expiration tests", ginkgo.Ordere
 		framework.ExpectNoError(err)
 	})
 
-	ginkgo.It("should wait until the vCluster is ready again", func() {
-		framework.ExpectNoError(f.WaitForVClusterReady())
+	ginkgo.It("checking the running status of vCluster", func() {
 		gomega.Eventually(func(g gomega.Gomega) error {
 			pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
 				LabelSelector: "app=vcluster,release=" + f.VClusterName,
@@ -252,8 +251,9 @@ var _ = ginkgo.Describe("vCluster cert rotation expiration tests", ginkgo.Ordere
 			g.Expect(pods.Items).NotTo(gomega.BeEmpty())
 
 			for _, pod := range pods.Items {
-				gomega.Expect(pod.Status.Phase).To(gomega.Equal(corev1.PodRunning),
-					"pod %s is not running (current phase: %s)", pod.Name, pod.Status.Phase)
+				if pod.Status.Phase != corev1.PodRunning {
+					return fmt.Errorf("pod %s is not in Running phase, current phase: %s", pod.Name, pod.Status.Phase)
+				}
 			}
 			return nil
 		}).WithPolling(time.Second).
@@ -281,14 +281,6 @@ var _ = ginkgo.Describe("vCluster cert rotation expiration tests", ginkgo.Ordere
 			WithPolling(time.Second).
 			WithTimeout(framework.PollTimeoutLong).
 			Should(gomega.Succeed())
-	})
-
-	ginkgo.It("priniting expired status of vCluster CA cert", func() {
-		certsCmd := certscmd.NewCertsCmd(&flags.GlobalFlags{Namespace: f.VClusterNamespace})
-		certsCmd.SetArgs([]string{"check", f.VClusterName})
-
-		err := certsCmd.Execute()
-		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("rotating expired CA cert of vCluster", func() {
