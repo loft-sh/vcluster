@@ -208,11 +208,6 @@ var _ = ginkgo.Describe("vCluster cert rotation expiration tests", ginkgo.Ordere
 		f = framework.DefaultFramework
 	})
 
-	ginkgo.It("should obtain the current cert secret of vCluster", func() {
-		_, err := f.HostClient.CoreV1().Secrets(f.VClusterNamespace).Get(f.Context, certs.CertSecretName(f.VClusterName), metav1.GetOptions{})
-		framework.ExpectNoError(err)
-	})
-
 	ginkgo.It("checking current validity date of CA cert of vCluster", func() {
 		secret, err := f.HostClient.CoreV1().Secrets(f.VClusterNamespace).Get(
 			f.Context, certs.CertSecretName(f.VClusterName), metav1.GetOptions{})
@@ -227,6 +222,12 @@ var _ = ginkgo.Describe("vCluster cert rotation expiration tests", ginkgo.Ordere
 		framework.ExpectNoError(err)
 
 		gomega.Expect(cert.NotAfter.After(time.Now())).To(gomega.BeTrue(), "CA cert is valid")
+
+		certsCmd := certscmd.NewCertsCmd(&flags.GlobalFlags{Namespace: f.VClusterNamespace})
+		certsCmd.SetArgs([]string{"check", f.VClusterName})
+
+		err = certsCmd.Execute()
+		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("setting validity of ca cert of vCluster to 1 second", func() {
