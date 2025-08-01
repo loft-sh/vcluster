@@ -152,6 +152,9 @@ type DynamicNodePool struct {
 	// Taints are the taints to apply to the nodes in this pool.
 	Taints []KubeletJoinTaint `json:"taints,omitempty"`
 
+	// NodeLabels are the labels to apply to the nodes in this pool.
+	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
+
 	// Limits specify the maximum resources that can be provisioned by this node pool,
 	// mapping to the 'limits' field in Karpenter's NodePool API.
 	Limits map[string]string `json:"limits,omitempty"`
@@ -161,6 +164,9 @@ type DynamicNodePool struct {
 
 	// The amount of time a Node can live on the cluster before being removed
 	ExpireAfter string `json:"expireAfter,omitempty"`
+
+	// Weight is the weight of this node pool.
+	Weight int `json:"weight,omitempty"`
 }
 
 type DynamicNodePoolDisruption struct {
@@ -208,6 +214,9 @@ type StaticNodePool struct {
 
 	// Taints are the taints to apply to the nodes in this pool.
 	Taints []KubeletJoinTaint `json:"taints,omitempty"`
+
+	// NodeLabels are the labels to apply to the nodes in this pool.
+	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
 
 	// Quantity is the number of desired nodes in this pool.
 	Quantity int `json:"quantity,omitempty"`

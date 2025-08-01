@@ -1245,6 +1245,13 @@
           "type": "array",
           "description": "Taints are the taints to apply to the nodes in this pool."
         },
+        "nodeLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "NodeLabels are the labels to apply to the nodes in this pool."
+        },
         "limits": {
           "additionalProperties": {
             "type": "string"
@@ -1259,6 +1266,10 @@
         "expireAfter": {
           "type": "string",
           "description": "The amount of time a Node can live on the cluster before being removed"
+        },
+        "weight": {
+          "type": "integer",
+          "description": "Weight is the weight of this node pool."
         }
       },
       "additionalProperties": false,
@@ -4232,6 +4243,13 @@
           },
           "type": "array",
           "description": "Taints are the taints to apply to the nodes in this pool."
+        },
+        "nodeLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "NodeLabels are the labels to apply to the nodes in this pool."
         },
         "quantity": {
           "type": "integer",
