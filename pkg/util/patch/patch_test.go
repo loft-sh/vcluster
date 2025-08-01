@@ -481,6 +481,175 @@ spec:
 				p.Set("spec.other.test[2].other", "test1234")
 			},
 		},
+		{
+			Name: "Complex Bracket Notation",
+
+			Object: `metadata:
+  annotations:
+    app.kubernetes.io/name: test
+    app.kubernetes.io/version: "1.0"
+  labels:
+    environment: prod`,
+
+			ExpectedObject: `metadata:
+  annotations:
+    app.kubernetes.io/name: test-modified
+    app.kubernetes.io/version: "2.0"
+  labels:
+    environment: prod-updated`,
+
+			Adjust: func(p Patch) {
+				p.MustTranslate("metadata.annotations[\"app.kubernetes.io/name\"]", func(_ string, val interface{}) (interface{}, error) {
+					return val.(string) + "-modified", nil
+				})
+				p.Set("metadata.annotations[\"app.kubernetes.io/version\"]", "2.0")
+				p.MustTranslate("metadata.labels[\"environment\"]", func(_ string, val interface{}) (interface{}, error) {
+					return val.(string) + "-updated", nil
+				})
+			},
+		},
+		{
+			Name: "Mixed Notation Access",
+
+			Object: `config:
+  servers:
+    server.domain.com:
+      port: 8080
+      ssl: true
+  databases:
+  - name: primary
+    host: db1.domain.com
+  - name: secondary
+    host: db2.domain.com`,
+
+			ExpectedObject: `config:
+  databases:
+  - host: new-db1.domain.com
+    name: primary
+  - host: new-db2.domain.com
+    name: secondary
+  servers:
+    server.domain.com:
+      port: 9090
+      ssl: true`,
+
+			Adjust: func(p Patch) {
+				p.Set("config.servers[\"server.domain.com\"].port", 9090)
+				p.MustTranslate("config.databases[*].host", func(_ string, val interface{}) (interface{}, error) {
+					return "new-" + val.(string), nil
+				})
+			},
+		},
+		{
+			Name: "Nested Bracket Operations",
+
+			Object: `spec:
+  ingress:
+    rules:
+      api.example.com:
+        paths:
+        - path: /v1
+          backend: service1
+        - path: /v2
+          backend: service2`,
+
+			ExpectedObject: `spec:
+  ingress:
+    rules:
+      api.example.com:
+        paths:
+        - backend: updated-service1
+          path: /v1
+        - backend: updated-service2
+          path: /v2`,
+
+			Adjust: func(p Patch) {
+				p.MustTranslate("spec.ingress.rules[\"api.example.com\"].paths[*].backend", func(_ string, val interface{}) (interface{}, error) {
+					return "updated-" + val.(string), nil
+				})
+			},
+		},
+		{
+			Name: "Special Characters in Keys",
+
+			Object: `data:
+  config.yaml: |
+    key: value
+  secret-123: encrypted
+  "my/special@key": special-value`,
+
+			ExpectedObject: `data:
+  config.yaml: |
+    key: modified-value
+  my/special@key: updated-special-value
+  secret-123: encrypted-updated`,
+
+			Adjust: func(p Patch) {
+				p.MustTranslate("data[\"config.yaml\"]", func(_ string, val interface{}) (interface{}, error) {
+					return strings.Replace(val.(string), "value", "modified-value", 1), nil
+				})
+				p.Set("data[\"my/special@key\"]", "updated-special-value")
+				p.MustTranslate("data[\"secret-123\"]", func(_ string, val interface{}) (interface{}, error) {
+					return val.(string) + "-updated", nil
+				})
+			},
+		},
+		{
+			Name: "Array and Map Wildcard Mix",
+
+			Object: `services:
+- name: frontend
+  endpoints:
+    api.example.com: active
+    cdn.example.com: disabled
+- name: backend
+  endpoints:
+    db.example.com: active`,
+
+			ExpectedObject: `services:
+- endpoints:
+    api.example.com: updated
+    cdn.example.com: updated
+  name: frontend
+- endpoints:
+    db.example.com: updated
+  name: backend`,
+
+			Adjust: func(p Patch) {
+				p.Set("services[*].endpoints[*]", "updated")
+			},
+		},
+		{
+			Name: "Has Method with Brackets",
+
+			Object: `metadata:
+  annotations:
+    cert-manager.io/issuer: letsencrypt
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  labels:
+    app: myapp`,
+
+			ExpectedObject: `metadata:
+  annotations:
+    cert-manager.io/issuer: letsencrypt
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  labels:
+    app: myapp
+    verified: "true"`,
+
+			Adjust: func(p Patch) {
+				if !p.Has("metadata.annotations[\"cert-manager.io/issuer\"]") {
+					panic("expected cert-manager.io/issuer annotation")
+				}
+				if !p.Has("metadata.annotations[\"nginx.ingress.kubernetes.io/rewrite-target\"]") {
+					panic("expected nginx rewrite annotation")
+				}
+				if p.Has("metadata.annotations[\"nonexistent.key\"]") {
+					panic("unexpected nonexistent key")
+				}
+				p.Set("metadata.labels[\"verified\"]", "true")
+			},
+		},
 	}
 
 	for _, singleTest := range tests {

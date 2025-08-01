@@ -65,7 +65,7 @@ func (p Patch) MustTranslate(path string, translate func(path string, val interf
 
 // Translate changes existing (!) values on the given path. If you want to set a value, use the set function instead.
 func (p Patch) Translate(path string, translate func(path string, val interface{}) (interface{}, error)) error {
-	parsedPath, err := parsePath(path)
+	parsedPath, err := parsePathWithIndexing(path, true)
 	if err != nil {
 		panic(err)
 	} else if len(parsedPath) == 0 {
@@ -95,6 +95,7 @@ func (p Patch) Translate(path string, translate func(path string, val interface{
 
 		switch t := cur.Value.(type) {
 		case []interface{}:
+			segment = trimBracketsPair(segment)
 			if segment == "*" {
 				for k := range t {
 					t[k], err = translate(addPathElement(cur.Path, strconv.Itoa(k)), t[k])
@@ -122,22 +123,35 @@ func (p Patch) Translate(path string, translate func(path string, val interface{
 			t[index] = ret
 
 		case map[string]interface{}:
-			if segment == "*" {
+			switch {
+			case segment == "[*]":
 				for k := range t {
 					t[k], err = translate(addPathElement(cur.Path, k), t[k])
 					if err != nil {
 						return err
 					}
 				}
-
-				continue
-			}
-
-			val, ok := t[segment]
-			if ok {
-				t[segment], err = translate(JoinPath(cur.Path, segment), val)
+			case isBracketEnclosed(segment): // a.path.to.some["segment"] case
+				key := trimBracketsPair(segment)
+				if key == "" {
+					return fmt.Errorf("empty key in bracket notation in path %q", segment)
+				}
+				valueFromExpression, err := translate(cur.Path, t[key])
 				if err != nil {
-					return err
+					return fmt.Errorf("translate value for key %q in path %q: %w", key, cur.Path, err)
+				}
+				if valueFromExpression == nil {
+					p.Delete(JoinPath(cur.Path, key))
+					continue
+				}
+				t[key] = valueFromExpression
+
+			default: // a.path.to.some.segment case
+				if val, ok := t[segment]; ok {
+					t[segment], err = translate(JoinPath(cur.Path, segment), val)
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -190,7 +204,8 @@ func (p Patch) Delete(path string) {
 
 	// delete last element, we only support maps here for now.
 	for _, cur := range curs {
-		if parsedPath[len(parsedPath)-1] == "*" {
+		segment := parsedPath[len(parsedPath)-1]
+		if segment == "*" {
 			if t, ok := cur.Value.(map[string]interface{}); ok {
 				for k := range t {
 					delete(t, k)
@@ -200,7 +215,7 @@ func (p Patch) Delete(path string) {
 		}
 
 		if t, ok := cur.Value.(map[string]interface{}); ok {
-			delete(t, parsedPath[len(parsedPath)-1])
+			delete(t, segment)
 		}
 	}
 
@@ -369,9 +384,10 @@ func nextValue(parsedPath []string, index int, cur *PathValue, create bool) ([]P
 		return []PathValue{*cur}, true
 	}
 
+	firstPath := trimBracketsPair(parsedPath[0])
 	switch val := cur.Value.(type) {
 	case map[string]interface{}:
-		if parsedPath[0] == "*" {
+		if firstPath == "*" {
 			retVals := make([]PathValue, 0, len(val))
 			for k := range val {
 				retVal, ok := nextValue(parsedPath[1:], index, &PathValue{
@@ -391,23 +407,23 @@ func nextValue(parsedPath []string, index int, cur *PathValue, create bool) ([]P
 			return retVals, true
 		}
 
-		mapValue, ok := val[parsedPath[0]]
+		mapValue, ok := val[firstPath]
 		if !ok && !create {
 			return nil, false
 		} else if create && (!ok || mapValue == nil) {
-			val[parsedPath[0]] = createValue(parsedPath[1:])
-			mapValue = val[parsedPath[0]]
+			val[firstPath] = createValue(parsedPath[1:])
+			mapValue = val[firstPath]
 		}
 
 		return nextValue(parsedPath[1:], index, &PathValue{
 			Parent: cur,
 			Value:  mapValue,
-			Key:    parsedPath[0],
-			Path:   addPathElement(cur.Path, parsedPath[0]),
+			Key:    firstPath,
+			Path:   addPathElement(cur.Path, firstPath),
 		}, create)
 	case []interface{}:
 		// try to match all
-		if parsedPath[0] == "*" {
+		if firstPath == "*" {
 			retVals := make([]PathValue, 0, len(val))
 			for i := range val {
 				retVal, ok := nextValue(parsedPath[1:], index, &PathValue{
@@ -428,7 +444,7 @@ func nextValue(parsedPath []string, index int, cur *PathValue, create bool) ([]P
 		}
 
 		// try to get index
-		indexSegment, err := strconv.Atoi(parsedPath[0])
+		indexSegment, err := strconv.Atoi(firstPath)
 		if err != nil {
 			return nil, false
 		}
@@ -454,7 +470,7 @@ func nextValue(parsedPath []string, index int, cur *PathValue, create bool) ([]P
 			Parent: cur,
 			Value:  arrVal,
 			Index:  indexSegment,
-			Path:   addPathElement(cur.Path, parsedPath[0]),
+			Path:   addPathElement(cur.Path, firstPath),
 		}, create)
 	}
 
@@ -466,7 +482,8 @@ func createValue(pathSegment []string) interface{} {
 		return map[string]interface{}{}
 	}
 
-	intVal, err := strconv.Atoi(pathSegment[0])
+	segment := trimBracketsPair(pathSegment[0])
+	intVal, err := strconv.Atoi(segment)
 	if err == nil {
 		newVal := make([]interface{}, 0, intVal+1)
 		for i := 0; i <= intVal; i++ {
@@ -496,4 +513,18 @@ func JoinPath(root, next string) string {
 		return next
 	}
 	return root + "." + next
+}
+
+func trimBracketsPair(segment string) string {
+	if isBracketEnclosed(segment) {
+		return segment[1 : len(segment)-1]
+	}
+	return segment
+}
+
+func isBracketEnclosed(segment string) bool {
+	if len(segment) < 2 {
+		return false
+	}
+	return segment[0] == '[' && segment[len(segment)-1] == ']'
 }
