@@ -35,10 +35,10 @@ func Test(t *testing.T) {
   namespace: test`,
 
 			Adjust: func(p Patch) {
-				p.MustTranslate("metadata.finalizers[0]", func(_ string, val interface{}) (interface{}, error) {
+				p.MustTranslate("metadata.finalizers[0]", func(_ string, val interface{}, _ bool) (interface{}, error) {
 					return val.(string) + "-translated", nil
 				})
-				p.MustTranslate("metadata.name", func(_ string, val interface{}) (interface{}, error) {
+				p.MustTranslate("metadata.name", func(_ string, val interface{}, _ bool) (interface{}, error) {
 					return val.(string) + "-translated", nil
 				})
 			},
@@ -61,7 +61,7 @@ func Test(t *testing.T) {
   namespace: test`,
 
 			Adjust: func(p Patch) {
-				p.MustTranslate("metadata.finalizers[1]", func(_ string, val interface{}) (interface{}, error) {
+				p.MustTranslate("metadata.finalizers[1]", func(_ string, val interface{}, _ bool) (interface{}, error) {
 					return val.(string) + "-translated", nil
 				})
 			},
@@ -116,7 +116,7 @@ metadata:
 
 			Adjust: func(p Patch) {
 				name, _ := p.String("metadata.name")
-				p.MustTranslate("metadata.namespace", func(_ string, _ interface{}) (interface{}, error) {
+				p.MustTranslate("metadata.namespace", func(_ string, _ interface{}, _ bool) (interface{}, error) {
 					return name, nil
 				})
 			},
@@ -255,7 +255,7 @@ spec:
   - host: vcluster.*.foo.com`,
 
 			Adjust: func(p Patch) {
-				p.MustTranslate("spec.rules[*].host", func(_ string, val interface{}) (interface{}, error) {
+				p.MustTranslate("spec.rules[*].host", func(_ string, val interface{}, _ bool) (interface{}, error) {
 					return "vcluster." + val.(string), nil
 				})
 			},
@@ -278,7 +278,7 @@ spec:
       host: vcluster.*.foo.com`,
 
 			Adjust: func(p Patch) {
-				p.MustTranslate("spec.rules.*.host", func(_ string, val interface{}) (interface{}, error) {
+				p.MustTranslate("spec.rules.*.host", func(_ string, val interface{}, _ bool) (interface{}, error) {
 					return "vcluster." + val.(string), nil
 				})
 			},
@@ -338,10 +338,10 @@ spec:
     - added`,
 
 			Adjust: func(p Patch) {
-				p.MustTranslate("spec.rules[*][*]", func(path string, _ interface{}) (interface{}, error) {
+				p.MustTranslate("spec.rules[*][*]", func(path string, _ interface{}, _ bool) (interface{}, error) {
 					return path, nil
 				})
-				p.MustTranslate("spec.rules[\"test.object.other\"]", func(_ string, val interface{}) (interface{}, error) {
+				p.MustTranslate("spec.rules[\"test.object.other\"]", func(_ string, val interface{}, _ bool) (interface{}, error) {
 					valArr := val.([]interface{})
 					valArr = append(valArr, "added")
 					return valArr, nil
@@ -403,7 +403,7 @@ spec:
 `,
 
 			Adjust: func(p Patch) {
-				p.MustTranslate("spec.servers[*].hosts[*]", func(_ string, val interface{}) (interface{}, error) {
+				p.MustTranslate("spec.servers[*].hosts[*]", func(_ string, val interface{}, _ bool) (interface{}, error) {
 					valString, ok := val.(string)
 					if !ok {
 						return val, nil
@@ -427,7 +427,7 @@ spec:
   rules: test`,
 
 			Adjust: func(p Patch) {
-				p.MustTranslate("spec.rules", func(_ string, val interface{}) (interface{}, error) {
+				p.MustTranslate("spec.rules", func(_ string, val interface{}, _ bool) (interface{}, error) {
 					_, ok := val.(string)
 					if !ok {
 						return "test", nil
@@ -479,6 +479,234 @@ spec:
 				p.Set("spec.containers[*].test.test", "test1234")
 				p.Set("spec.other123.test", "test1234")
 				p.Set("spec.other.test[2].other", "test1234")
+			},
+		},
+		{
+			Name: "Complex Bracket Notation",
+
+			Object: `metadata:
+  annotations:
+    app.kubernetes.io/name: test
+    app.kubernetes.io/version: "1.0"
+  labels:
+    environment: prod`,
+
+			ExpectedObject: `metadata:
+  annotations:
+    app.kubernetes.io/name: test-modified
+    app.kubernetes.io/version: "2.0"
+  labels:
+    environment: prod-updated`,
+
+			Adjust: func(p Patch) {
+				p.MustTranslate("metadata.annotations[\"app.kubernetes.io/name\"]", func(_ string, val interface{}, _ bool) (interface{}, error) {
+					return val.(string) + "-modified", nil
+				})
+				p.Set("metadata.annotations[\"app.kubernetes.io/version\"]", "2.0")
+				p.MustTranslate("metadata.labels[\"environment\"]", func(_ string, val interface{}, _ bool) (interface{}, error) {
+					return val.(string) + "-updated", nil
+				})
+			},
+		},
+		{
+			Name: "Mixed Notation Access",
+
+			Object: `config:
+  servers:
+    server.domain.com:
+      port: 8080
+      ssl: true
+  databases:
+  - name: primary
+    host: db1.domain.com
+  - name: secondary
+    host: db2.domain.com`,
+
+			ExpectedObject: `config:
+  databases:
+  - host: new-db1.domain.com
+    name: primary
+  - host: new-db2.domain.com
+    name: secondary
+  servers:
+    server.domain.com:
+      port: 9090
+      ssl: true`,
+
+			Adjust: func(p Patch) {
+				p.Set("config.servers[\"server.domain.com\"].port", 9090)
+				p.MustTranslate("config.databases[*].host", func(_ string, val interface{}, _ bool) (interface{}, error) {
+					return "new-" + val.(string), nil
+				})
+			},
+		},
+		{
+			Name: "Nested Bracket Operations",
+
+			Object: `spec:
+  ingress:
+    rules:
+      api.example.com:
+        paths:
+        - path: /v1
+          backend: service1
+        - path: /v2
+          backend: service2`,
+
+			ExpectedObject: `spec:
+  ingress:
+    rules:
+      api.example.com:
+        paths:
+        - backend: updated-service1
+          path: /v1
+        - backend: updated-service2
+          path: /v2`,
+
+			Adjust: func(p Patch) {
+				p.MustTranslate("spec.ingress.rules[\"api.example.com\"].paths[*].backend", func(_ string, val interface{}, _ bool) (interface{}, error) {
+					return "updated-" + val.(string), nil
+				})
+			},
+		},
+		{
+			Name: "Special Characters in Keys",
+
+			Object: `data:
+  config.yaml: |
+    key: value
+  secret-123: encrypted
+  "my/special@key": special-value`,
+
+			ExpectedObject: `data:
+  config.yaml: |
+    key: modified-value
+  my/special@key: updated-special-value
+  secret-123: encrypted-updated`,
+
+			Adjust: func(p Patch) {
+				p.MustTranslate("data[\"config.yaml\"]", func(_ string, val interface{}, _ bool) (interface{}, error) {
+					return strings.Replace(val.(string), "value", "modified-value", 1), nil
+				})
+				p.Set("data[\"my/special@key\"]", "updated-special-value")
+				p.MustTranslate("data[\"secret-123\"]", func(_ string, val interface{}, _ bool) (interface{}, error) {
+					return val.(string) + "-updated", nil
+				})
+			},
+		},
+		{
+			Name: "Array and Map Wildcard Mix",
+
+			Object: `services:
+- name: frontend
+  endpoints:
+    api.example.com: active
+    cdn.example.com: disabled
+- name: backend
+  endpoints:
+    db.example.com: active`,
+
+			ExpectedObject: `services:
+- endpoints:
+    api.example.com: updated
+    cdn.example.com: updated
+  name: frontend
+- endpoints:
+    db.example.com: updated
+  name: backend`,
+
+			Adjust: func(p Patch) {
+				p.Set("services[*].endpoints[*]", "updated")
+			},
+		},
+		{
+			Name: "Has Method with Brackets",
+
+			Object: `metadata:
+  annotations:
+    cert-manager.io/issuer: letsencrypt
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  labels:
+    app: myapp`,
+
+			ExpectedObject: `metadata:
+  annotations:
+    cert-manager.io/issuer: letsencrypt
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  labels:
+    app: myapp
+    verified: "true"`,
+
+			Adjust: func(p Patch) {
+				if !p.Has("metadata.annotations[\"cert-manager.io/issuer\"]") {
+					panic("expected cert-manager.io/issuer annotation")
+				}
+				if !p.Has("metadata.annotations[\"nginx.ingress.kubernetes.io/rewrite-target\"]") {
+					panic("expected nginx rewrite annotation")
+				}
+				if p.Has("metadata.annotations[\"nonexistent.key\"]") {
+					panic("unexpected nonexistent key")
+				}
+				p.Set("metadata.labels[\"verified\"]", "true")
+			},
+		},
+		{
+			Name: "Undefined vs Null Values",
+
+			Object: `metadata:
+  annotations:
+    existing-key: "value"
+    null-key: null
+  labels:
+    app: myapp`,
+
+			ExpectedObject: `metadata:
+  annotations:
+    existing-key: value-modified
+    new-key: created
+    null-key: was-null
+    undefined-key: was-undefined-value
+  labels:
+    app: myapp`,
+
+			Adjust: func(p Patch) {
+				// Modify existing key
+				p.MustTranslate("metadata.annotations[\"existing-key\"]", func(_ string, val interface{}, exists bool) (interface{}, error) {
+					if !exists {
+						panic("expected existing-key to exist")
+					}
+					return val.(string) + "-modified", nil
+				})
+
+				// Handle null value
+				p.MustTranslate("metadata.annotations[\"null-key\"]", func(_ string, val interface{}, exists bool) (interface{}, error) {
+					if !exists {
+						panic("expected null-key to exist")
+					}
+					if val == nil {
+						return "was-null", nil
+					}
+					return val, nil
+				})
+
+				// Handle undefined/non-existent key
+				p.MustTranslate("metadata.annotations[\"undefined-key\"]", func(_ string, _ interface{}, exists bool) (interface{}, error) {
+					if exists {
+						panic("unexpected undefined-key to exist")
+					}
+					return "was-undefined-value", nil
+				})
+
+				// Set a new key to show creation works
+				p.Set("metadata.annotations[\"new-key\"]", "created")
+
+				// Verify Has method behavior
+				if !p.Has("metadata.annotations[\"existing-key\"]") {
+					panic("expected existing-key")
+				}
+				if !p.Has("metadata.annotations[\"null-key\"]") {
+					panic("expected null-key to exist (even though value is null)")
+				}
 			},
 		},
 	}
