@@ -2476,19 +2476,26 @@
     },
     "JoinConfiguration": {
       "properties": {
+        "preInstallCommands": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "PreInstallCommands are commands that will be executed before containerd, kubelet etc. is installed."
+        },
         "preJoinCommands": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "PreJoinCommands are commands that will be executed before the join process starts."
+          "description": "PreJoinCommands are commands that will be executed before kubeadm join is executed."
         },
         "postJoinCommands": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "PostJoinCommands are commands that will be executed after the join process starts."
+          "description": "PostJoinCommands are commands that will be executed after kubeadm join is executed."
         },
         "containerd": {
           "$ref": "#/$defs/ContainerdJoin",
@@ -4130,19 +4137,26 @@
           "type": "boolean",
           "description": "Enabled defines if the standalone node should be joined into the cluster. If false, only the control plane binaries will be executed and no node will show up in the actual cluster."
         },
+        "preInstallCommands": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "PreInstallCommands are commands that will be executed before containerd, kubelet etc. is installed."
+        },
         "preJoinCommands": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "PreJoinCommands are commands that will be executed before the join process starts."
+          "description": "PreJoinCommands are commands that will be executed before kubeadm join is executed."
         },
         "postJoinCommands": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "PostJoinCommands are commands that will be executed after the join process starts."
+          "description": "PostJoinCommands are commands that will be executed after kubeadm join is executed."
         },
         "containerd": {
           "$ref": "#/$defs/ContainerdJoin",
