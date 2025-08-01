@@ -5,9 +5,15 @@ import (
 	"strings"
 )
 
-// parsePath parses a given json path into different segments
-// which can be used to navigate an object.
 func parsePath(path string) ([]string, error) {
+	return parsePathWithIndexing(path, false)
+}
+
+// parsePathWithIndexing parses a given json path into different segments
+// which can be used to navigate an object. If preserveIndexNotation is true,
+// it will keep the index notation (e.g. [0]) in the segments, otherwise
+// it will split the segments at the index notation and return only the key names.
+func parsePathWithIndexing(path string, preserveIndexNotation bool) ([]string, error) {
 	path = strings.TrimSpace(path)
 	retSegments := []string{}
 
@@ -42,7 +48,11 @@ func parsePath(path string) ([]string, error) {
 			}
 
 			bracketOpen = false
-			retSegments = append(retSegments, string(curSegment))
+			retSegment := string(curSegment)
+			if preserveIndexNotation {
+				retSegment = fmt.Sprintf("[%s]", retSegment)
+			}
+			retSegments = append(retSegments, retSegment)
 			curSegment = []byte{}
 		} else {
 			curSegment = append(curSegment, byte(v))
