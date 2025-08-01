@@ -328,10 +328,13 @@ type StandaloneJoinNode struct {
 }
 
 type JoinConfiguration struct {
-	// PreJoinCommands are commands that will be executed before the join process starts.
+	// PreInstallCommands are commands that will be executed before containerd, kubelet etc. is installed.
+	PreInstallCommands []string `json:"preInstallCommands,omitempty"`
+
+	// PreJoinCommands are commands that will be executed before kubeadm join is executed.
 	PreJoinCommands []string `json:"preJoinCommands,omitempty"`
 
-	// PostJoinCommands are commands that will be executed after the join process starts.
+	// PostJoinCommands are commands that will be executed after kubeadm join is executed.
 	PostJoinCommands []string `json:"postJoinCommands,omitempty"`
 
 	// Containerd holds configuration for the containerd join process.
