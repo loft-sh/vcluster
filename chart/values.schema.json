@@ -1267,6 +1267,10 @@
           "$ref": "#/$defs/DynamicNodePoolDisruption",
           "description": "Disruption contains the parameters that relate to Karpenter's disruption logic"
         },
+        "terminationGracePeriod": {
+          "type": "string",
+          "description": "TerminationGracePeriod is the maximum duration the controller will wait before forcefully deleting the pods on a node, measured from when deletion is first initiated.\n\nWarning: this feature takes precedence over a Pod's terminationGracePeriodSeconds value, and bypasses any blocked PDBs or the karpenter.sh/do-not-disrupt annotation.\n\nThis field is intended to be used by cluster administrators to enforce that nodes can be cycled within a given time period.\nWhen set, drifted nodes will begin draining even if there are pods blocking eviction. Draining will respect PDBs and the do-not-disrupt annotation until the TGP is reached.\n\nKarpenter will preemptively delete pods so their terminationGracePeriodSeconds align with the node's terminationGracePeriod.\nIf a pod would be terminated without being granted its full terminationGracePeriodSeconds prior to the node timeout,\nthat pod will be deleted at T = node timeout - pod terminationGracePeriodSeconds.\n\nThe feature can also be used to allow maximum time limits for long-running jobs which can delay node termination with preStop hooks.\nDefaults to 30s. Set to Never to wait indefinitely for pods to be drained."
+        },
         "expireAfter": {
           "type": "string",
           "description": "The amount of time a Node can live on the cluster before being removed"
