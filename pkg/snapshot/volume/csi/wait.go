@@ -3,6 +3,9 @@ package csi
 import (
 	"context"
 	"fmt"
+	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
+	"github.com/loft-sh/log"
+	"k8s.io/client-go/kubernetes"
 	"time"
 
 	snapshotsv1api "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
@@ -11,7 +14,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func (s *VolumeSnapshotter) waitForReadyToUse(ctx context.Context, volumeSnapshotNamespace, volumeSnapshotName string) (*snapshotsv1api.VolumeSnapshot, *snapshotsv1api.VolumeSnapshotContent, error) {
+type snapshotHandler struct {
+	kubeClient      *kubernetes.Clientset
+	snapshotsClient *snapshotsv1.Clientset
+	logger          log.Logger
+}
+
+func (s *snapshotHandler) waitForReadyToUse(ctx context.Context, volumeSnapshotNamespace, volumeSnapshotName string) (*snapshotsv1api.VolumeSnapshot, *snapshotsv1api.VolumeSnapshotContent, error) {
 	var err error
 	var volumeSnapshot *snapshotsv1api.VolumeSnapshot
 	var volumeSnapshotContent *snapshotsv1api.VolumeSnapshotContent
@@ -68,14 +77,14 @@ func (s *VolumeSnapshotter) waitForReadyToUse(ctx context.Context, volumeSnapsho
 	return volumeSnapshot, volumeSnapshotContent, nil
 }
 
-func (r *VolumeSnapshotter) waitForVolumeSnapshotDeleted(ctx context.Context, volumeSnapshotNamespace, volumeSnapshotName, volumeSnapshotContentName string) error {
-	r.logger.Debugf(
+func (s *snapshotHandler) waitForVolumeSnapshotDeleted(ctx context.Context, volumeSnapshotNamespace, volumeSnapshotName, volumeSnapshotContentName string) error {
+	s.logger.Debugf(
 		"Wait until the VolumeSnapshot %s/%s has been deleted",
 		volumeSnapshotNamespace,
 		volumeSnapshotName)
 
 	err := wait.PollUntilContextTimeout(ctx, time.Second*5, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
-		_, err := r.snapshotsClient.SnapshotV1().VolumeSnapshots(volumeSnapshotNamespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
+		_, err := s.snapshotsClient.SnapshotV1().VolumeSnapshots(volumeSnapshotNamespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			return true, nil
 		} else if err != nil {
@@ -89,7 +98,7 @@ func (r *VolumeSnapshotter) waitForVolumeSnapshotDeleted(ctx context.Context, vo
 	}
 
 	err = wait.PollUntilContextTimeout(ctx, time.Second*5, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
-		_, err := r.snapshotsClient.SnapshotV1().VolumeSnapshotContents().Get(ctx, volumeSnapshotContentName, metav1.GetOptions{})
+		_, err := s.snapshotsClient.SnapshotV1().VolumeSnapshotContents().Get(ctx, volumeSnapshotContentName, metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			return true, nil
 		} else if err != nil {
@@ -102,14 +111,14 @@ func (r *VolumeSnapshotter) waitForVolumeSnapshotDeleted(ctx context.Context, vo
 		return fmt.Errorf("error waiting for VolumeSnapshotContent %s to be deleted: %w", volumeSnapshotContentName, err)
 	}
 
-	r.logger.Debugf(
+	s.logger.Debugf(
 		"PersistentVolumeClaim %s/%s has been successfully deleted",
 		volumeSnapshotNamespace,
 		volumeSnapshotName)
 	return nil
 }
 
-func (r *VolumeRestorer) waitForPersistentVolumeClaimDeleted(ctx context.Context, persistentVolumeClaimNamespace, persistentVolumeClaimName string) error {
+func (r *snapshotHandler) waitForPersistentVolumeClaimDeleted(ctx context.Context, persistentVolumeClaimNamespace, persistentVolumeClaimName string) error {
 	r.logger.Debugf(
 		"Wait until the PersistentVolumeClaim %s/%s has been deleted",
 		persistentVolumeClaimNamespace,

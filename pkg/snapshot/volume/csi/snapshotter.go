@@ -21,6 +21,7 @@ import (
 )
 
 const (
+	VolumeSnapshotsAnnotation           = "vcluster.loft.sh/volumesnapshots"
 	dynamicVolumeSnapshotLabel          = "vcluster.loft.sh/dynamicvolumesnapshot"
 	PreProvisionedVolumeSnapshotLabel   = "vcluster.loft.sh/preprovisionedvolumesnapshot"
 	persistentVolumeClaimNameAnnotation = "vcluster.loft.sh/persistentvolumeclaim"
@@ -28,10 +29,10 @@ const (
 
 // VolumeSnapshotter is a volume.Snapshotter interface implementation that creates CSI volume snapshots.
 type VolumeSnapshotter struct {
-	vConfig         *config.VirtualClusterConfig
-	kubeClient      *kubernetes.Clientset
-	snapshotsClient *snapshotsv1.Clientset
-	logger          log.Logger
+	snapshotHandler
+
+	vConfig              *config.VirtualClusterConfig
+	etcdSnapshotLocation string
 
 	// volumeSnapshotClasses maps CSI driver names to names of VolumeSnapshotClass resources that are used for creating
 	// volume snapshots.
@@ -39,7 +40,7 @@ type VolumeSnapshotter struct {
 }
 
 // NewVolumeSnapshotter creates a new instance of the CSI volume snapshotter.
-func NewVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, logger log.Logger) (*VolumeSnapshotter, error) {
+func NewVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, etcdSnapshotLocation string, logger log.Logger) (*VolumeSnapshotter, error) {
 	if vConfig == nil {
 		return nil, errors.New("virtual cluster config is required")
 	}
@@ -48,6 +49,9 @@ func NewVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterCon
 	}
 	if snapshotsClient == nil {
 		return nil, errors.New("snapshot client is required")
+	}
+	if etcdSnapshotLocation == "" {
+		return nil, errors.New("etcd snapshot location is required")
 	}
 	if logger == nil {
 		return nil, errors.New("logger is required")
@@ -58,10 +62,13 @@ func NewVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterCon
 	}
 
 	snapshotter := &VolumeSnapshotter{
+		snapshotHandler: snapshotHandler{
+			kubeClient:      kubeClient,
+			snapshotsClient: snapshotsClient,
+			logger:          logger,
+		},
 		vConfig:               vConfig,
-		kubeClient:            kubeClient,
-		snapshotsClient:       snapshotsClient,
-		logger:                logger,
+		etcdSnapshotLocation:  etcdSnapshotLocation,
 		volumeSnapshotClasses: volumeSnapshotClasses,
 	}
 	return snapshotter, nil
@@ -103,13 +110,14 @@ func (s *VolumeSnapshotter) CheckIfPersistentVolumeIsSupported(pv *corev1.Persis
 // All the snapshots will be created in parallel, where every snapshot is created in a separate
 // goroutine. This means that the total time to create all the snapshots should converge to the
 // time needed to create the slowest (and probably the largest) snapshot.
-func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolumes []corev1.PersistentVolume) error {
+func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolumes []corev1.PersistentVolume) (volume.CreateSnapshotsResult, error) {
 	s.logger.Info("Start creating CSI VolumeSnapshots...")
 	defer s.logger.Info("Finished creating CSI VolumeSnapshots.")
 
 	var wg sync.WaitGroup
 	maxSnapshots := len(persistentVolumes)
 	errCh := make(chan error, maxSnapshots)
+	persistentVolumeRefCh := make(chan volume.PersistentVolumeReference, maxSnapshots)
 
 	// Since snapshot creation can be a very long-running operation (depending on the size of the
 	// volume), every persistent volume snapshot is created in a separate go routine. This way
@@ -121,6 +129,15 @@ func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolum
 			err := s.createVolumeSnapshot(ctx, &persistentVolume)
 			if err != nil {
 				errCh <- err
+			} else {
+				persistentVolumeRef := volume.PersistentVolumeReference{
+					PersistentVolumeClaim: types.NamespacedName{
+						Name:      persistentVolume.Spec.ClaimRef.Name,
+						Namespace: persistentVolume.Spec.ClaimRef.Namespace,
+					},
+					PersistentVolumeName: persistentVolume.Name,
+				}
+				persistentVolumeRefCh <- persistentVolumeRef
 			}
 		}()
 	}
@@ -129,6 +146,7 @@ func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolum
 	go func() {
 		wg.Wait()
 		close(errCh)
+		close(persistentVolumeRefCh)
 	}()
 
 	// aggregate all the errors
@@ -136,8 +154,12 @@ func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolum
 	for err := range errCh {
 		allErrors = append(allErrors, err)
 	}
+	result := volume.CreateSnapshotsResult{}
+	for persistentVolumeRef := range persistentVolumeRefCh {
+		result.SnapshottedPersistentVolumes = append(result.SnapshottedPersistentVolumes, persistentVolumeRef)
+	}
 
-	return errors.Join(allErrors...)
+	return result, errors.Join(allErrors...)
 }
 
 func (s *VolumeSnapshotter) Cleanup(ctx context.Context) error {
@@ -397,6 +419,44 @@ func (s *VolumeSnapshotter) transformDynamicVolumeSnapshotToPreprovisioned(ctx c
 	s.logger.Debugf(
 		"Pre-provisioned VolumeSnapshotContent %s with snapshot handle '%s' is ready for use!",
 		preProvisionedVolumeSnapshotContent.Name, *preProvisionedVolumeSnapshotContent.Status.SnapshotHandle)
+
+	// update PVC's VolumeSnapshots annotation
+	var volumeSnapshotsMap map[string]string
+	volumeSnapshotsMapJson, ok := persistentVolumeClaim.Annotations[VolumeSnapshotsAnnotation]
+	if ok {
+		err = json.Unmarshal([]byte(volumeSnapshotsMapJson), &volumeSnapshotsMap)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal VolumeSnapshots map from annotation {%s: %s}: %w", VolumeSnapshotsAnnotation, volumeSnapshotsMapJson, err)
+		}
+	}
+	if volumeSnapshotsMap == nil {
+		volumeSnapshotsMap = make(map[string]string)
+	}
+	volumeSnapshotsMap[s.etcdSnapshotLocation] = preProvisionedVolumeSnapshot.Name
+	volumeSnapshotsMapJsonBytes, err := json.Marshal(volumeSnapshotsMap)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated VolumeSnapshots map annotation %s: %w", VolumeSnapshotsAnnotation, err)
+	}
+	annotationPatch := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"annotations": map[string]string{
+				VolumeSnapshotsAnnotation: string(volumeSnapshotsMapJsonBytes),
+			},
+		},
+	}
+	annotationPatchBytes, err := json.Marshal(annotationPatch)
+	if err != nil {
+		return fmt.Errorf("failed to marshal PVC annotation '%s' patch: %w", VolumeSnapshotsAnnotation, err)
+	}
+
+	_, err = s.kubeClient.CoreV1().PersistentVolumeClaims(dynamicVolumeSnapshot.Namespace).Patch(ctx, persistentVolumeClaim.Name, types.StrategicMergePatchType, annotationPatchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to patch PersistentVolumeClaim annotation '%s': %w", VolumeSnapshotsAnnotation, err)
+	}
+	_, err = s.kubeClient.CoreV1().PersistentVolumes().Patch(ctx, persistentVolumeClaim.Spec.VolumeName, types.StrategicMergePatchType, annotationPatchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to patch PersistentVolume annotation '%s': %w", VolumeSnapshotsAnnotation, err)
+	}
 
 	return nil
 }

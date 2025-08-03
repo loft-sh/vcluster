@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var (
@@ -11,6 +12,15 @@ var (
 	// creating snapshots for the specified PersistentVolume.
 	ErrPersistentVolumeNotSupported = errors.New("PersistentVolume is not supported by the snapshotter")
 )
+
+type PersistentVolumeReference struct {
+	PersistentVolumeClaim types.NamespacedName
+	PersistentVolumeName  string
+}
+
+type CreateSnapshotsResult struct {
+	SnapshottedPersistentVolumes []PersistentVolumeReference
+}
 
 // Snapshotter creates and restores persistent volume snapshots.
 type Snapshotter interface {
@@ -26,7 +36,7 @@ type Snapshotter interface {
 	CheckIfPersistentVolumeIsSupported(pv *corev1.PersistentVolume) error
 
 	// CreateSnapshots creates volume snapshots of the specified persistent volumes.
-	CreateSnapshots(ctx context.Context, persistentVolumes []corev1.PersistentVolume) error
+	CreateSnapshots(ctx context.Context, persistentVolumes []corev1.PersistentVolume) (CreateSnapshotsResult, error)
 
 	// Cleanup does any necessary clean up of the cluster after taking the snapshot of the volumes.
 	// E.g. it can remove all the resources that were created by the snapshotter in order to create

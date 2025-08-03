@@ -52,7 +52,7 @@ func (s *VolumeSnapshotter) CheckIfPersistentVolumeIsSupported(pv *corev1.Persis
 	return nil
 }
 
-func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolumes []corev1.PersistentVolume) error {
+func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolumes []corev1.PersistentVolume) (volume.CreateSnapshotsResult, error) {
 	s.logger.Info("Start creating volume snapshots")
 	defer s.logger.Info("Finished creating volume snapshots")
 
@@ -89,6 +89,7 @@ func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolum
 	var wg sync.WaitGroup
 	maxSnapshotters := len(s.snapshotters)
 	errCh := make(chan error, maxSnapshotters)
+	var autoSnapshotterResult volume.CreateSnapshotsResult
 
 	for i, snapshotter := range s.snapshotters {
 		supportedPersistentVolumes := persistentVolumesPerSnapshotter[i]
@@ -98,10 +99,11 @@ func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolum
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := snapshotter.CreateSnapshots(ctx, supportedPersistentVolumes)
+			result, err := snapshotter.CreateSnapshots(ctx, supportedPersistentVolumes)
 			if err != nil {
 				errCh <- err
 			}
+			autoSnapshotterResult.SnapshottedPersistentVolumes = append(autoSnapshotterResult.SnapshottedPersistentVolumes, result.SnapshottedPersistentVolumes...)
 		}()
 	}
 
@@ -117,7 +119,7 @@ func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolum
 		allErrors = append(allErrors, err)
 	}
 
-	return errors.Join(allErrors...)
+	return autoSnapshotterResult, errors.Join(allErrors...)
 }
 
 func (s *VolumeSnapshotter) Cleanup(ctx context.Context) error {

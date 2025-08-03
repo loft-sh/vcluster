@@ -3,6 +3,7 @@ package filesystem
 import (
 	"context"
 	"errors"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume"
 
 	"github.com/loft-sh/log"
 	corev1 "k8s.io/api/core/v1"
@@ -37,12 +38,12 @@ func (s *VolumeSnapshotter) CheckIfPersistentVolumeIsSupported(pv *corev1.Persis
 	return nil
 }
 
-func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolumes []corev1.PersistentVolume) error {
+func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolumes []corev1.PersistentVolume) (volume.CreateSnapshotsResult, error) {
 	//TODO implement me
 	for _, pv := range persistentVolumes {
 		s.logger.Infof("Skipped creating file-system snapshot for PersistentVolume %s because file-system snapshots have not been implemented yet.", pv.Name)
 	}
-	return nil
+	return volume.CreateSnapshotsResult{}, nil
 }
 
 func (s *VolumeSnapshotter) Cleanup(ctx context.Context) error {

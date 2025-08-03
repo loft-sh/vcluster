@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
@@ -89,7 +90,7 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	}
 
 	// create volume snapshots
-	err = o.createVolumeSnapshots(ctx)
+	result, err := o.createVolumeSnapshots(ctx)
 	if err != nil {
 		// This is the limitation of the current WIP implementation. The snapshots are created inside
 		// virtual cluster, and the testing was done locally with in kind environment, so this was needed
@@ -114,7 +115,7 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 
 	// write the snapshot
 	klog.Infof("Start writing etcd snapshot %s...", objectStore.Target())
-	err = o.writeSnapshot(ctx, etcdClient, objectStore)
+	err = o.writeSnapshot(ctx, etcdClient, objectStore, result.SnapshottedPersistentVolumes)
 	if err != nil {
 		return err
 	}
@@ -131,7 +132,7 @@ func (o *SnapshotOptions) Run(ctx context.Context) error {
 	return nil
 }
 
-func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore snapshot.Storage) error {
+func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore snapshot.Storage, snapshottedVolumes []volume.PersistentVolumeReference) error {
 	// now stream objects from etcd to object store
 	errChan := make(chan error)
 	reader, writer, err := os.Pipe()
@@ -168,6 +169,13 @@ func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Cli
 		}
 	}
 
+	snapshottedPvcsMap := make(map[string]struct{}, len(snapshottedVolumes))
+	snapshottedPvsMap := make(map[string]struct{}, len(snapshottedVolumes))
+	for _, snapshottedVolume := range snapshottedVolumes {
+		snapshottedPvcsMap[snapshottedVolume.PersistentVolumeClaim.String()] = struct{}{}
+		snapshottedPvsMap[snapshottedVolume.PersistentVolumeName] = struct{}{}
+	}
+
 	// now write the snapshot
 	backedUpKeys := 0
 	for {
@@ -187,16 +195,21 @@ func (o *SnapshotOptions) writeSnapshot(ctx context.Context, etcdClient etcd.Cli
 				}
 
 				// write the object into the store
-				klog.V(1).Infof("Snapshot key %s", string(obj.Value.Key))
-				err := writeKeyValue(tarWriter, obj.Value.Key, obj.Value.Data)
-				if err != nil {
-					return fmt.Errorf("failed to snapshot key %s: %w", string(obj.Value.Key), err)
-				}
+				skip := isPvOrPvcWithSnapshot(string(obj.Value.Key), snapshottedPvcsMap, snapshottedPvsMap)
+				if !skip {
+					klog.V(1).Infof("Snapshot key %s", string(obj.Value.Key))
+					err := writeKeyValue(tarWriter, obj.Value.Key, obj.Value.Data)
+					if err != nil {
+						return fmt.Errorf("failed to snapshot key %s: %w", string(obj.Value.Key), err)
+					}
 
-				// print status update
-				backedUpKeys++
-				if backedUpKeys%100 == 0 {
-					klog.Infof("Backed up %d keys", backedUpKeys)
+					// print status update
+					backedUpKeys++
+					if backedUpKeys%100 == 0 {
+						klog.Infof("Backed up %d keys", backedUpKeys)
+					}
+				} else {
+					klog.Infof("Skip backing up object with key %s", string(obj.Value.Key))
 				}
 			} else {
 				klog.Infof("Successfully backed up %d etcd keys", backedUpKeys)
@@ -237,36 +250,62 @@ func (o *SnapshotOptions) init(ctx context.Context) error {
 		return fmt.Errorf("snapshot client is nil")
 	}
 
-	volumeSnapshotter, err := createVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotClient, o.logger)
-	if err != nil {
-		o.logger.Errorf("could not create volume snapshotter, volume snapshots will not be created: %v", err)
+	etcdSnapshotLocation, err := o.Snapshot.SnapshotLocation()
+	if err == nil {
+		volumeSnapshotter, err := createVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotClient, etcdSnapshotLocation, o.logger)
+		if err == nil {
+			o.volumeSnapshotter = volumeSnapshotter
+		} else {
+			o.logger.Errorf("could not create volume snapshotter, volume snapshots will not be created: %v", err)
+		}
+	} else {
+		o.logger.Errorf("error when getting etcd snapshot location, could not create volume snapshotter, volume snapshots will not be created: %v", err)
 	}
 
 	o.vConfig = vConfig
 	o.kubeClient = kubeClient
-	o.volumeSnapshotter = volumeSnapshotter
 	return nil
 }
 
-func (o *SnapshotOptions) createVolumeSnapshots(ctx context.Context) error {
+func (o *SnapshotOptions) createVolumeSnapshots(ctx context.Context) (volume.CreateSnapshotsResult, error) {
 	if o.volumeSnapshotter == nil {
 		o.logger.Errorf("volume snapshotter cannot be created, volume snapshots will not be created")
-		return nil
+		return volume.CreateSnapshotsResult{}, nil
 	}
 
 	// get all PVs
 	pvs, err := o.kubeClient.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("could not list PersistentVolumes: %w", err)
+		return volume.CreateSnapshotsResult{}, fmt.Errorf("could not list PersistentVolumes: %w", err)
 	}
 
 	// Try creating snapshots for all PVs
-	err = o.volumeSnapshotter.CreateSnapshots(ctx, pvs.Items)
+	result, err := o.volumeSnapshotter.CreateSnapshots(ctx, pvs.Items)
 	if err != nil {
-		return fmt.Errorf("could not create volume snapshots: %w", err)
+		return volume.CreateSnapshotsResult{}, fmt.Errorf("could not create volume snapshots: %w", err)
 	}
 
-	return nil
+	return result, nil
+}
+
+func isPvOrPvcWithSnapshot(etcdObjectKey string, snapshottedPvcs, snapshottedPvs map[string]struct{}) bool {
+	const (
+		// TODO check if vcluster always uses prefix '/registry' for etcd keys
+		pvPrefix  = "/registry/persistentvolumes/"
+		pvcPrefix = "/registry/persistentvolumeclaims/"
+	)
+	if strings.HasPrefix(etcdObjectKey, pvPrefix) {
+		pvName := strings.TrimPrefix(etcdObjectKey, pvPrefix)
+		if _, ok := snapshottedPvs[pvName]; ok {
+			return true
+		}
+	} else if strings.HasPrefix(etcdObjectKey, pvcPrefix) {
+		pvcName := strings.TrimPrefix(etcdObjectKey, pvcPrefix)
+		if _, ok := snapshottedPvcs[pvcName]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func createVirtualKubeClients(config *config.VirtualClusterConfig) (*kubernetes.Clientset, *snapshotv1.Clientset, error) {
@@ -307,8 +346,8 @@ func createVirtualKubeClients(config *config.VirtualClusterConfig) (*kubernetes.
 	return kubeClient, snapshotClient, nil
 }
 
-func createVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotv1.Clientset, logger log.Logger) (volume.Snapshotter, error) {
-	csiVolumeSnapshotter, err := csi.NewVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotsClient, logger)
+func createVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotv1.Clientset, etcdSnapshotLocation string, logger log.Logger) (volume.Snapshotter, error) {
+	csiVolumeSnapshotter, err := csi.NewVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotsClient, etcdSnapshotLocation, logger)
 	if err != nil {
 		logger.Errorf("could not create CSI volume snapshotter, CSI VolumeSnapshots will not be created: %v", err)
 	}
