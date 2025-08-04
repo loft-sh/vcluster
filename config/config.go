@@ -143,7 +143,7 @@ type PrivateNodesNodePools struct {
 
 type DynamicNodePool struct {
 	// Name is the name of this NodePool
-	Name string `json:"name"`
+	Name string `json:"name" jsonschema:"required"`
 
 	// Requirements filter the types of nodes that can be provisioned by this pool.
 	// All requirements must be met for a node type to be eligible.
@@ -221,7 +221,7 @@ type DynamicNodePoolDisruptionBudget struct {
 
 type StaticNodePool struct {
 	// Name is the name of this static nodePool
-	Name string `json:"name"`
+	Name string `json:"name" jsonschema:"required"`
 
 	// Requirements filter the types of nodes that can be provisioned by this pool.
 	// All requirements must be met for a node type to be eligible.
@@ -249,7 +249,7 @@ type StaticNodePool struct {
 	TerminationGracePeriod string `json:"terminationGracePeriod,omitempty"`
 
 	// Quantity is the number of desired nodes in this pool.
-	Quantity int `json:"quantity,omitempty"`
+	Quantity int `json:"quantity" jsonschema:"required"`
 }
 
 // KarpenterRequirement defines a scheduling requirement for a dynamic node pool.
