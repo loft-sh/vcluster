@@ -45,7 +45,11 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 	}
 
 	// run snapshot pod
-	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot"}, vCluster, podOptions, snapshotOpts, log)
+	command := []string{"/vcluster", "snapshot"}
+	if globalFlags.Debug {
+		command = append(command, "--debug")
+	}
+	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOptions, snapshotOpts, log)
 }
 
 func fillSnapshotOptions(snapshotURL string, snapshotOptions *snapshot.Options) error {

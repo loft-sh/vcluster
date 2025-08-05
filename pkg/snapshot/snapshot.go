@@ -31,6 +31,24 @@ type Options struct {
 	Release *HelmRelease `json:"release,omitempty"`
 }
 
+func (o *Options) SnapshotLocation() (string, error) {
+	var snapshotLocation string
+	var err error
+	switch o.Type {
+	case "s3":
+		snapshotLocation, err = url.JoinPath(o.S3.Bucket, o.S3.Key)
+		if err != nil {
+			return "", fmt.Errorf("failed to get the path for the S3 snapshot destination: %w", err)
+		}
+	case "container":
+		snapshotLocation = o.Container.Path
+	case "oci":
+		snapshotLocation = o.OCI.Repository
+	}
+
+	return snapshotLocation, nil
+}
+
 type HelmRelease struct {
 	ReleaseName      string `json:"releaseName"`
 	ReleaseNamespace string `json:"releaseNamespace"`
