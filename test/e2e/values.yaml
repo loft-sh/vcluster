@@ -74,6 +74,11 @@ sync:
   toHost:
     networkPolicies:
       enabled: true
+    pods:
+      enabled: true
+      patches:
+      - path: metadata.annotations["vcluster-annotation-js"]
+        expression: btoa(atob(value).replace("testing sync", "testing js patch"))
     persistentVolumeClaims:
       enabled: true
     persistentVolumes:
