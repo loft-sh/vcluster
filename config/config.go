@@ -2885,7 +2885,14 @@ type Hook struct {
 }
 
 type ExperimentalCSIVolumeSnapshots struct {
-	SnapshotController EnableSwitch `json:"snapshotController,omitempty"`
+	SnapshotController EnableSwitch                      `json:"snapshotController,omitempty"`
+	Drivers            CSIVolumeSnapshotsCSIDriverConfig `json:"drivers,omitempty"`
+}
+
+type CSIVolumeSnapshotsCSIDriverConfig map[string]CSIVolumeSnapshotsConfig
+
+type CSIVolumeSnapshotsConfig struct {
+	VolumeSnapshotClass string `json:"volumeSnapshotClass,omitempty"`
 }
 
 type Import struct {

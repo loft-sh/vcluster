@@ -1225,6 +1225,7 @@ experimental:
   csiVolumeSnapshots:
     snapshotController:
       enabled: false
+    drivers: {}
 
 # Configuration related to telemetry gathered about vCluster usage.
 telemetry:

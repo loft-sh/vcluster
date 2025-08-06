@@ -139,6 +139,21 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CSIVolumeSnapshotsCSIDriverConfig": {
+      "additionalProperties": {
+        "$ref": "#/$defs/CSIVolumeSnapshotsConfig"
+      },
+      "type": "object"
+    },
+    "CSIVolumeSnapshotsConfig": {
+      "properties": {
+        "volumeSnapshotClass": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "CentralAdmission": {
       "properties": {
         "validatingWebhooks": {
@@ -1620,6 +1635,9 @@
       "properties": {
         "snapshotController": {
           "$ref": "#/$defs/EnableSwitch"
+        },
+        "drivers": {
+          "$ref": "#/$defs/CSIVolumeSnapshotsCSIDriverConfig"
         }
       },
       "additionalProperties": false,

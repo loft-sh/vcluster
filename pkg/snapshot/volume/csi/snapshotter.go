@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 
 	snapshotsv1api "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
@@ -27,16 +28,16 @@ const (
 	persistentVolumeClaimNameAnnotation = "vcluster.loft.sh/persistentvolumeclaim"
 )
 
+var (
+	ErrVolumeSnapshotClassNotFound = errors.New("VolumeSnapshotClass error")
+)
+
 // VolumeSnapshotter is a volume.Snapshotter interface implementation that creates CSI volume snapshots.
 type VolumeSnapshotter struct {
 	snapshotHandler
 
 	vConfig              *config.VirtualClusterConfig
 	etcdSnapshotLocation string
-
-	// volumeSnapshotClasses maps CSI driver names to names of VolumeSnapshotClass resources that are used for creating
-	// volume snapshots.
-	volumeSnapshotClasses map[string]string
 }
 
 // NewVolumeSnapshotter creates a new instance of the CSI volume snapshotter.
@@ -56,10 +57,6 @@ func NewVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterCon
 	if logger == nil {
 		return nil, errors.New("logger is required")
 	}
-	volumeSnapshotClasses, err := mapCSIDriversToVolumeSnapshotClasses(ctx, snapshotsClient, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to map CSI drivers to VolumeSnapshotClasses: %w", err)
-	}
 
 	snapshotter := &VolumeSnapshotter{
 		snapshotHandler: snapshotHandler{
@@ -67,9 +64,8 @@ func NewVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterCon
 			snapshotsClient: snapshotsClient,
 			logger:          logger,
 		},
-		vConfig:               vConfig,
-		etcdSnapshotLocation:  etcdSnapshotLocation,
-		volumeSnapshotClasses: volumeSnapshotClasses,
+		vConfig:              vConfig,
+		etcdSnapshotLocation: etcdSnapshotLocation,
 	}
 	return snapshotter, nil
 }
@@ -93,10 +89,10 @@ func (s *VolumeSnapshotter) CheckIfPersistentVolumeIsSupported(pv *corev1.Persis
 	// In the current implementation, VolumeSnapshotClass with deletion policy 'Retain' must be
 	// created before creating persistent volume snapshots.
 	// Automatic creation of required VolumeSnapshotClasses will be implemented later.
-	_, ok := s.volumeSnapshotClasses[pv.Spec.CSI.Driver]
+	_, ok := s.vConfig.Experimental.CSIVolumeSnapshots.Drivers[pv.Spec.CSI.Driver]
 	if !ok {
 		return fmt.Errorf(
-			"cannnot create snapshot for the specified PersistentVolume %s because VolumeSnapshotClass with deletion policy 'Retain' has not been found for the CSI driver %s: %w",
+			"cannnot create snapshot for the specified PersistentVolume %s because VolumeSnapshotClass has not been configured for the CSI driver %s: %w",
 			pv.Name,
 			pv.Spec.CSI.Driver,
 			volume.ErrPersistentVolumeNotSupported)
@@ -114,6 +110,11 @@ func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolum
 	s.logger.Info("Start creating CSI VolumeSnapshots...")
 	defer s.logger.Info("Finished creating CSI VolumeSnapshots.")
 
+	volumeSnapshotClasses, err := s.mapCSIDriversToVolumeSnapshotClasses(ctx)
+	if err != nil {
+		return volume.CreateSnapshotsResult{}, fmt.Errorf("failed to map CSI drivers to VolumeSnapshotClasses: %w", err)
+	}
+
 	var wg sync.WaitGroup
 	maxSnapshots := len(persistentVolumes)
 	errCh := make(chan error, maxSnapshots)
@@ -126,7 +127,8 @@ func (s *VolumeSnapshotter) CreateSnapshots(ctx context.Context, persistentVolum
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := s.createVolumeSnapshot(ctx, &persistentVolume)
+			volumeSnapshotClassesForDriver := volumeSnapshotClasses[persistentVolume.Spec.CSI.Driver]
+			err := s.createVolumeSnapshot(ctx, &persistentVolume, volumeSnapshotClassesForDriver)
 			if err != nil {
 				errCh <- err
 			} else {
@@ -206,12 +208,15 @@ func (s *VolumeSnapshotter) Cleanup(ctx context.Context) error {
 	return nil
 }
 
-func (s *VolumeSnapshotter) createVolumeSnapshot(ctx context.Context, pv *corev1.PersistentVolume) error {
+func (s *VolumeSnapshotter) createVolumeSnapshot(ctx context.Context, pv *corev1.PersistentVolume, volumeSnapshotClasses []string) error {
 	s.logger.Infof("Create volume snapshot for PersistentVolume %s", pv.Name)
 
-	volumeSnapshotClass, ok := s.volumeSnapshotClasses[pv.Spec.CSI.Driver]
+	driverConfig, ok := s.vConfig.Experimental.CSIVolumeSnapshots.Drivers[pv.Spec.CSI.Driver]
 	if !ok {
-		return fmt.Errorf("cannot create snapshot for the PersistentVolume %s because required VolumeSnapshotClass has not been found for the CSI driver %s", pv.Name, pv.Spec.CSI.Driver)
+		return fmt.Errorf("volume snapshots are not configured for CSI driver %s", pv.Spec.CSI.Driver)
+	}
+	if !slices.Contains(volumeSnapshotClasses, driverConfig.VolumeSnapshotClass) {
+		return fmt.Errorf("VolumeSnapshotClass %s with delete policy 'Retain', which is configured for CSI driver %s, is not found: %w", driverConfig.VolumeSnapshotClass, pv.Spec.CSI.Driver, ErrVolumeSnapshotClassNotFound)
 	}
 
 	// VolumeSnapshot is created from a PVC, so we need PVC namespace and name
@@ -221,7 +226,7 @@ func (s *VolumeSnapshotter) createVolumeSnapshot(ctx context.Context, pv *corev1
 	}
 
 	// Step 1 - create a dynamic VolumeSnapshot from the existing PersistentVolumeClaim
-	volumeSnapshot, volumeSnapshotContent, err := s.createDynamicVolumeSnapshot(ctx, pvc, volumeSnapshotClass)
+	volumeSnapshot, volumeSnapshotContent, err := s.createDynamicVolumeSnapshot(ctx, pvc, driverConfig.VolumeSnapshotClass)
 	if err != nil {
 		return fmt.Errorf("failed to create a dynamic VolumeSnapshot for the PersistentVolumeClaim %s: %w", pvc, err)
 	}
