@@ -1608,6 +1608,18 @@
           "type": "array",
           "description": "DenyProxyRequests denies certain requests in the vCluster proxy.",
           "pro": true
+        },
+        "csiVolumeSnapshots": {
+          "$ref": "#/$defs/ExperimentalCSIVolumeSnapshots"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExperimentalCSIVolumeSnapshots": {
+      "properties": {
+        "snapshotController": {
+          "$ref": "#/$defs/EnableSwitch"
         }
       },
       "additionalProperties": false,

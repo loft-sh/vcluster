@@ -1221,6 +1221,10 @@ experimental:
       extraRules: []
     role:
       extraRules: []
+  
+  csiVolumeSnapshots:
+    snapshotController:
+      enabled: false
 
 # Configuration related to telemetry gathered about vCluster usage.
 telemetry:

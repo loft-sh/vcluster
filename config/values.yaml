@@ -664,6 +664,10 @@ experimental:
     role:
       extraRules: []
 
+  csiVolumeSnapshots:
+    snapshotController:
+      enabled: false
+
 telemetry:
   enabled: true
 
