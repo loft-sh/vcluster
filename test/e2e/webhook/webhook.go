@@ -88,7 +88,10 @@ var _ = ginkgo.Describe("AdmissionWebhook", ginkgo.Ordered, func() {
 		namespace based on the webhook namespace selector MUST be allowed.
 	*/
 	ginkgo.It("should be able to deny pod and configmap creation", func() {
-		webhookCleanup := registerWebhook(f, uniqueName, certCtx, servicePort, ns)
+		const (
+			webhookConfigurationName = "deny-pod-and-configmap-creation"
+		)
+		webhookCleanup := registerWebhook(f, webhookConfigurationName, certCtx, servicePort, ns)
 		defer webhookCleanup()
 		testWebhook(f, ns)
 	})
@@ -100,7 +103,10 @@ var _ = ginkgo.Describe("AdmissionWebhook", ginkgo.Ordered, func() {
 		Attempts to attach MUST be denied.
 	*/
 	ginkgo.It("should be able to deny attaching pod", func() {
-		webhookCleanup := registerWebhookForAttachingPod(f, uniqueName, certCtx, servicePort, ns)
+		const (
+			webhookConfigurationName = "deny-attaching-to-pod"
+		)
+		webhookCleanup := registerWebhookForAttachingPod(f, webhookConfigurationName, certCtx, servicePort, ns)
 		defer webhookCleanup()
 		testAttachingPodWebhook(f, ns)
 	})
