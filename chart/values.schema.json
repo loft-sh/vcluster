@@ -3832,24 +3832,31 @@
     },
     "Requirement": {
       "properties": {
-        "key": {
+        "property": {
           "type": "string",
-          "description": "Key is the label key or field name to filter on."
+          "description": "Property is the property on the node type to select."
         },
         "operator": {
           "type": "string",
-          "description": "Operator is the comparison operator, such as \"In\", \"NotIn\", \"Exists\"."
+          "description": "Operator is the comparison operator, such as \"In\", \"NotIn\", \"Exists\". If empty, defaults to \"In\"."
         },
         "values": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Values is the list of values to use for the comparison."
+          "description": "Values is the list of values to use for comparison. This is mutually exclusive with value."
+        },
+        "value": {
+          "type": "string",
+          "description": "Value is the value to use for comparison. This is mutually exclusive with values."
         }
       },
       "additionalProperties": false,
       "type": "object",
+      "required": [
+        "property"
+      ],
       "description": "KarpenterRequirement defines a scheduling requirement for a dynamic node pool."
     },
     "ResolveDNS": {

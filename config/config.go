@@ -255,14 +255,17 @@ type StaticNodePool struct {
 // KarpenterRequirement defines a scheduling requirement for a dynamic node pool.
 // It corresponds to an entry in the 'requirements' list of a Karpenter NodePool.
 type Requirement struct {
-	// Key is the label key or field name to filter on.
-	Key string `json:"key,omitempty"`
+	// Property is the property on the node type to select.
+	Property string `json:"property" jsonschema:"required"`
 
-	// Operator is the comparison operator, such as "In", "NotIn", "Exists".
+	// Operator is the comparison operator, such as "In", "NotIn", "Exists". If empty, defaults to "In".
 	Operator string `json:"operator,omitempty"`
 
-	// Values is the list of values to use for the comparison.
+	// Values is the list of values to use for comparison. This is mutually exclusive with value.
 	Values []string `json:"values,omitempty"`
+
+	// Value is the value to use for comparison. This is mutually exclusive with values.
+	Value string `json:"value,omitempty"`
 }
 
 type Deploy struct {
