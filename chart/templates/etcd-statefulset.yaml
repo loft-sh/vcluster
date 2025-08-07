@@ -187,7 +187,7 @@ spec:
 {{ toYaml $externalEtcd.resources | indent 10 }}
         livenessProbe:
           httpGet:
-            path: /health
+            path: /health?exclude=NOSPACE&serializable=true
             port: 2381
             scheme: HTTP
           initialDelaySeconds: 10
@@ -197,7 +197,7 @@ spec:
           failureThreshold: 8
         startupProbe:
           httpGet:
-            path: /health
+            path: /health?serializable=false
             port: 2381
             scheme: HTTP
           initialDelaySeconds: 10
