@@ -1226,6 +1226,7 @@ experimental:
     snapshotController:
       enabled: false
     byDriver: {}
+    byPersistentVolumeClaim: {}
 
 # Configuration related to telemetry gathered about vCluster usage.
 telemetry:

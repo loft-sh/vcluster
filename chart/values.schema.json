@@ -139,6 +139,12 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CSIVolumeSnapshotsByPersistentVolumeClaimConfig": {
+      "additionalProperties": {
+        "$ref": "#/$defs/CSIVolumeSnapshotsConfig"
+      },
+      "type": "object"
+    },
     "CSIVolumeSnapshotsCSIDriverConfig": {
       "additionalProperties": {
         "$ref": "#/$defs/CSIVolumeSnapshotsConfig"
@@ -1638,6 +1644,9 @@
         },
         "byDriver": {
           "$ref": "#/$defs/CSIVolumeSnapshotsCSIDriverConfig"
+        },
+        "byPersistentVolumeClaim": {
+          "$ref": "#/$defs/CSIVolumeSnapshotsByPersistentVolumeClaimConfig"
         }
       },
       "additionalProperties": false,

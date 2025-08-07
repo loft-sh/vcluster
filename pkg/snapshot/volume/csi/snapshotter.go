@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"sync"
 
 	snapshotsv1api "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
@@ -29,7 +28,8 @@ const (
 )
 
 var (
-	ErrVolumeSnapshotClassNotFound = errors.New("VolumeSnapshotClass error")
+	ErrVolumeSnapshotConfigNotValid = errors.New("volume snapshots config is not valid")
+	ErrVolumeSnapshotClassNotFound  = errors.New("VolumeSnapshotClass error")
 )
 
 // VolumeSnapshotter is a volume.Snapshotter interface implementation that creates CSI volume snapshots.
@@ -209,36 +209,39 @@ func (s *VolumeSnapshotter) Cleanup(ctx context.Context) error {
 }
 
 func (s *VolumeSnapshotter) createVolumeSnapshot(ctx context.Context, pv *corev1.PersistentVolume, volumeSnapshotClasses []string) error {
-	s.logger.Infof("Create volume snapshot for PersistentVolume %s", pv.Name)
-
-	driverConfig, ok := s.vConfig.Experimental.CSIVolumeSnapshots.ByDriver[pv.Spec.CSI.Driver]
-	if !ok {
-		return fmt.Errorf("volume snapshots are not configured for CSI driver %s", pv.Spec.CSI.Driver)
-	}
-	if !slices.Contains(volumeSnapshotClasses, driverConfig.VolumeSnapshotClass) {
-		return fmt.Errorf("VolumeSnapshotClass %s with delete policy 'Retain', which is configured for CSI driver %s, is not found: %w", driverConfig.VolumeSnapshotClass, pv.Spec.CSI.Driver, ErrVolumeSnapshotClassNotFound)
+	s.logger.Debugf("Create volume snapshot for PersistentVolume %s", pv.Name)
+	if pv.Spec.ClaimRef == nil {
+		s.logger.Debugf("Skipped creating volume snapshot for PersistentVolume %s/%s because it's not claimed by any PersistentVolumeClaim (.spec.claimRef is not set)", pv.Namespace, pv.Name)
+		return nil
 	}
 
-	// VolumeSnapshot is created from a PVC, so we need PVC namespace and name
-	pvc := types.NamespacedName{
+	// VolumeSnapshot is created from a PVC, so we need the PVC namespace and name
+	pvcName := types.NamespacedName{
 		Namespace: pv.Spec.ClaimRef.Namespace,
 		Name:      pv.Spec.ClaimRef.Name,
 	}
+	s.logger.Infof("Create volume snapshot for PersistentVolumeClaim %s", pvcName)
+
+	// Get a VolumeSnapshotClass that will be used to create a VolumeSnapshot
+	volumeSnapshotClass, err := s.getVolumeSnapshotClass(pv, volumeSnapshotClasses)
+	if err != nil {
+		return fmt.Errorf("failed to get a VolumeSnapshotClass for PersistentVolumeClaim %s: %w", pvcName, err)
+	}
 
 	// Step 1 - create a dynamic VolumeSnapshot from the existing PersistentVolumeClaim
-	volumeSnapshot, volumeSnapshotContent, err := s.createDynamicVolumeSnapshot(ctx, pvc, driverConfig.VolumeSnapshotClass)
+	volumeSnapshot, volumeSnapshotContent, err := s.createDynamicVolumeSnapshot(ctx, pvcName, volumeSnapshotClass)
 	if err != nil {
-		return fmt.Errorf("failed to create a dynamic VolumeSnapshot for the PersistentVolumeClaim %s: %w", pvc, err)
+		return fmt.Errorf("failed to create a dynamic VolumeSnapshot for the PersistentVolumeClaim %s: %w", pvcName, err)
 	}
 
 	// Step 2 - create a pre-provisioned VolumeSnapshot from the previously created dynamic VolumeSnapshot
 	//
 	// The pre-provisioned VolumeSnapshot will not depend on the PersistentVolumeClaim from which the
 	// dynamic snapshot has been created, so it can be restored when the original PersistentVolumeClaim
-	// does not exist, e.g. in another virtual cluster.
+	// does not exist, e.g., in another virtual cluster.
 	err = s.transformDynamicVolumeSnapshotToPreprovisioned(ctx, volumeSnapshot)
 	if err != nil {
-		return fmt.Errorf("failed to create a preprovisioned VolumeSnapshot for the PersistentVolume %s: %w", pvc, err)
+		return fmt.Errorf("failed to create a preprovisioned VolumeSnapshot for the PersistentVolume %s: %w", pvcName, err)
 	}
 
 	// Step 3 - delete the dynamic VolumeSnapshot and VolumeSnapshotContent because we only need the
@@ -250,11 +253,12 @@ func (s *VolumeSnapshotter) createVolumeSnapshot(ctx context.Context, pv *corev1
 			volumeSnapshot.Namespace,
 			volumeSnapshot.Name,
 			volumeSnapshotContent.Name,
-			pvc,
+			pvcName,
 			err)
 	}
 
-	s.logger.Infof("Created volume snapshot for PersistentVolume %s", pv.Name)
+	s.logger.Infof("Created volume snapshot for PersistentVolumeClaim %s", pvcName)
+	s.logger.Debugf("Created volume snapshot for PersistentVolume %s", pv.Name)
 	return nil
 }
 

@@ -668,6 +668,7 @@ experimental:
     snapshotController:
       enabled: false
     byDriver: {}
+    byPersistentVolumeClaim: {}
 
 telemetry:
   enabled: true
