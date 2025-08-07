@@ -130,12 +130,6 @@ func validateToHostPatternNamespaceMappingPart(pattern, vclusterName, partIdenti
 	}
 
 	literalPrefixForValidation := strings.ReplaceAll(prefix, NamePlaceholder, vclusterName)
-
-	if len(literalPrefixForValidation) == 0 {
-		// This is a case where we're handling a catch-all '*' pattern - since we removed the wildcard suffix now we're working with empty string
-		return nil
-	}
-
 	if len(literalPrefixForValidation) > 32 {
 		return fmt.Errorf("%s: literal parts of %s pattern prefix '%s' (from '%s') cannot be longer than 32 characters (literal length: %d)", configPathIdentifier, partIdentifier, prefix, pattern, len(literalPrefixForValidation))
 	}
