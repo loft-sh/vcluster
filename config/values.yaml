@@ -667,7 +667,7 @@ experimental:
   csiVolumeSnapshots:
     snapshotController:
       enabled: false
-    drivers: {}
+    byDriver: {}
 
 telemetry:
   enabled: true

@@ -89,7 +89,7 @@ func (s *VolumeSnapshotter) CheckIfPersistentVolumeIsSupported(pv *corev1.Persis
 	// In the current implementation, VolumeSnapshotClass with deletion policy 'Retain' must be
 	// created before creating persistent volume snapshots.
 	// Automatic creation of required VolumeSnapshotClasses will be implemented later.
-	_, ok := s.vConfig.Experimental.CSIVolumeSnapshots.Drivers[pv.Spec.CSI.Driver]
+	_, ok := s.vConfig.Experimental.CSIVolumeSnapshots.ByDriver[pv.Spec.CSI.Driver]
 	if !ok {
 		return fmt.Errorf(
 			"cannnot create snapshot for the specified PersistentVolume %s because VolumeSnapshotClass has not been configured for the CSI driver %s: %w",
@@ -211,7 +211,7 @@ func (s *VolumeSnapshotter) Cleanup(ctx context.Context) error {
 func (s *VolumeSnapshotter) createVolumeSnapshot(ctx context.Context, pv *corev1.PersistentVolume, volumeSnapshotClasses []string) error {
 	s.logger.Infof("Create volume snapshot for PersistentVolume %s", pv.Name)
 
-	driverConfig, ok := s.vConfig.Experimental.CSIVolumeSnapshots.Drivers[pv.Spec.CSI.Driver]
+	driverConfig, ok := s.vConfig.Experimental.CSIVolumeSnapshots.ByDriver[pv.Spec.CSI.Driver]
 	if !ok {
 		return fmt.Errorf("volume snapshots are not configured for CSI driver %s", pv.Spec.CSI.Driver)
 	}

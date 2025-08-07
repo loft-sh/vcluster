@@ -1636,7 +1636,7 @@
         "snapshotController": {
           "$ref": "#/$defs/EnableSwitch"
         },
-        "drivers": {
+        "byDriver": {
           "$ref": "#/$defs/CSIVolumeSnapshotsCSIDriverConfig"
         }
       },

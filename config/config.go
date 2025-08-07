@@ -2886,7 +2886,7 @@ type Hook struct {
 
 type ExperimentalCSIVolumeSnapshots struct {
 	SnapshotController EnableSwitch                      `json:"snapshotController,omitempty"`
-	Drivers            CSIVolumeSnapshotsCSIDriverConfig `json:"drivers,omitempty"`
+	ByDriver           CSIVolumeSnapshotsCSIDriverConfig `json:"byDriver,omitempty"`
 }
 
 type CSIVolumeSnapshotsCSIDriverConfig map[string]CSIVolumeSnapshotsConfig
