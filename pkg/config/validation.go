@@ -933,6 +933,64 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 		return fmt.Errorf("private nodes mode is only supported for kubernetes")
 	}
 
+	// validate node pools
+	for _, nodePool := range vConfig.PrivateNodes.NodePools.Static {
+		if nodePool.Name == "" {
+			return fmt.Errorf("node pool name is required")
+		}
+
+		if err := validateRequirements(nodePool.Requirements); err != nil {
+			return fmt.Errorf("invalid requirements for node pool %s: %w", nodePool.Name, err)
+		}
+	}
+	for _, nodePool := range vConfig.PrivateNodes.NodePools.Dynamic {
+		if nodePool.Name == "" {
+			return fmt.Errorf("node pool name is required")
+		}
+
+		if err := validateRequirements(nodePool.Requirements); err != nil {
+			return fmt.Errorf("invalid requirements for node pool %s: %w", nodePool.Name, err)
+		}
+	}
+
+	return nil
+}
+
+var allowedOperators = []string{"", "In", "NotIn", "Exists", "DoesNotExist", "Gt", "Lt"}
+
+func validateRequirements(requirements []config.Requirement) error {
+	for _, requirement := range requirements {
+		if requirement.Property == "" {
+			return fmt.Errorf("requirement property is required")
+		}
+
+		if !slices.Contains(allowedOperators, requirement.Operator) {
+			return fmt.Errorf("invalid operator %s for property %s, allowed operators are: %s", requirement.Operator, requirement.Property, strings.Join(allowedOperators, ", "))
+		}
+
+		if requirement.Value != "" && len(requirement.Values) > 0 {
+			return fmt.Errorf("requirement value and values cannot be set at the same time")
+		}
+
+		if requirement.Operator == "" || requirement.Operator == "In" || requirement.Operator == "NotIn" {
+			if requirement.Value == "" && len(requirement.Values) == 0 {
+				return fmt.Errorf("requirement value or values is required if operator is empty, In or NotIn")
+			}
+		}
+
+		if requirement.Operator == "Exists" || requirement.Operator == "DoesNotExist" {
+			if requirement.Value != "" || len(requirement.Values) > 0 {
+				return fmt.Errorf("value or values is not allowed for operator %s", requirement.Operator)
+			}
+		}
+
+		if requirement.Operator == "Gt" || requirement.Operator == "Lt" {
+			if requirement.Value == "" && len(requirement.Values) == 0 {
+				return fmt.Errorf("value or values is required for operator %s", requirement.Operator)
+			}
+		}
+	}
+
 	return nil
 }
 
