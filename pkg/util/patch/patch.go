@@ -67,6 +67,9 @@ func (p Patch) MustTranslate(path string, translate translateFn) {
 
 // Translate changes values on the given path.
 func (p Patch) Translate(path string, translate translateFn) error {
+	if p == nil {
+		return nil
+	}
 	parsedPath, err := parsePathWithIndexing(path, true)
 	if err != nil {
 		panic(err)
@@ -86,9 +89,8 @@ func (p Patch) Translate(path string, translate translateFn) error {
 
 	// get last map / array
 	curs, ok := p.getValue(parsedPath, 1)
-
 	if !ok {
-		return nil
+		return fmt.Errorf("could not find path %q in patch", path)
 	}
 
 	// get last element
