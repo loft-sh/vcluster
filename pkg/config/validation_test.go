@@ -1301,6 +1301,18 @@ func TestValidateToHostNamespaceSyncMappings(t *testing.T) {
 			checkErr: noErrExpected,
 		},
 		{
+			name: "Invalid: Host mapping is a catch-all wildcard",
+			vclusterConfig: &VirtualClusterConfig{
+				Name: "test-vc",
+				Config: config.Config{
+					Sync: config.Sync{ToHost: config.SyncToHost{Namespaces: config.SyncToHostNamespaces{
+						Enabled:  true,
+						Mappings: config.FromHostMappings{ByName: map[string]string{"*": "*"}},
+					}}},
+				},
+			},
+			checkErr: expectErr("config.sync.toHost.namespaces.mappings.byName: host pattern mappings must use a prefix before wildcard: *")},
+		{
 			name: "Invalid: Mismatched types (exact-to-pattern)",
 			vclusterConfig: &VirtualClusterConfig{
 				Name: "test-vc",
