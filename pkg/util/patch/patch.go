@@ -8,6 +8,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/samber/lo"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -70,7 +71,8 @@ func (p Patch) Translate(path string, translate translateFn) error {
 	parsedPath, err := parsePathWithIndexing(path, true)
 	if err != nil {
 		panic(err)
-	} else if len(parsedPath) == 0 {
+	}
+	if len(parsedPath) == 0 {
 		retVal, err := translate("", map[string]interface{}(p), true)
 		if err != nil {
 			return err
@@ -86,8 +88,8 @@ func (p Patch) Translate(path string, translate translateFn) error {
 
 	// get last map / array
 	curs, ok := p.getValue(parsedPath, 1)
-
 	if !ok {
+		klog.V(0).ErrorS(fmt.Errorf("could not find path %q in patch", path), "not found", "path", path)
 		return nil
 	}
 
