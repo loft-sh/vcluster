@@ -344,8 +344,20 @@ type Standalone struct {
 	// Bundle is a path to a Kubernetes bundle to use for the standalone mode. If empty, will use the bundleRepository to download the bundle.
 	Bundle string `json:"bundle,omitempty"`
 
+	// Nodes is a list of nodes to deploy for standalone mode.
+	Nodes StandaloneNodes `json:"nodes,omitempty"`
+
 	// JoinNode holds configuration for the standalone control plane node.
 	JoinNode StandaloneJoinNode `json:"joinNode,omitempty"`
+}
+
+type StandaloneNodes struct {
+	// Quantity is the number of nodes to deploy for standalone mode.
+	Quantity int `json:"quantity,omitempty"`
+
+	// Requirements filter the types of nodes that can be provisioned by this pool.
+	// All requirements must be met for a node type to be eligible.
+	Requirements []Requirement `json:"requirements,omitempty"`
 }
 
 type StandaloneSyncConfig struct {
