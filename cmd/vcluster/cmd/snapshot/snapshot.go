@@ -34,8 +34,7 @@ import (
 
 type Options struct {
 	Snapshot snapshot.Options
-
-	logger log.Logger
+	logger   log.Logger
 }
 
 func NewSnapshotCommand() *cobra.Command {
@@ -43,8 +42,6 @@ func NewSnapshotCommand() *cobra.Command {
 		Use:   "snapshot",
 		Short: "snapshot a vCluster",
 		Args:  cobra.NoArgs,
-		PersistentPreRun: func(_ *cobra.Command, _ []string) {
-		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			options := &Options{
 				logger: log.GetInstance(),
