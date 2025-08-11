@@ -24,6 +24,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volume"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume/csi"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -84,27 +85,21 @@ func (o *Options) Run(ctx context.Context) error {
 	}
 
 	etcdSnapshotLocation, err := o.Snapshot.SnapshotLocation()
+	if err != nil {
+		return fmt.Errorf("could not determine snapshot location: %w", err)
+	}
 	var volumeSnapshotter volume.Snapshotter
 	var result volume.CreateSnapshotsResult
-	if err == nil {
-		volumeSnapshotter, err = CreateVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotClient, etcdSnapshotLocation, o.logger)
-		if err == nil {
-			// create volume snapshots
-			result, err = CreateVolumeSnapshots(ctx, volumeSnapshotter, kubeClient)
-			if err != nil {
-				// This is the limitation of the current WIP implementation. The snapshots are created inside
-				// virtual cluster, and the testing was done locally with in kind environment, so this was needed
-				// in order to be able to access virtual cluster API server.
-				o.logger.Errorf(
-					"failed to create volume snapshots, if you are creating a snapshot for a vcluster with private nodes, "+
-						"please make sure to run `vcluster snapshot` command with `--pod-exec`, otherwise volume snapshots cannot be created: %v",
-					err)
-			}
-		} else {
-			o.logger.Errorf("could not create volume snapshotter, volume snapshots will not be created: %v", err)
+	if vConfig.VolumeSnapshotsEnabled() {
+		volumeSnapshotter, err = csi.NewVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotClient, etcdSnapshotLocation, o.logger)
+		if err != nil {
+			return fmt.Errorf("failed to create volume snapshotter: %w", err)
 		}
-	} else {
-		o.logger.Errorf("error when getting etcd snapshot location, could not create volume snapshotter, volume snapshots will not be created: %v", err)
+		// create volume snapshots
+		result, err = CreateVolumeSnapshots(ctx, volumeSnapshotter, kubeClient)
+		if err != nil {
+			return fmt.Errorf("failed to create volume snapshots: %w", err)
+		}
 	}
 
 	// create new etcd client
@@ -127,7 +122,7 @@ func (o *Options) Run(ctx context.Context) error {
 	}
 
 	// Cleanup the cluster after creating volume snapshots
-	if volumeSnapshotter != nil {
+	if vConfig.VolumeSnapshotsEnabled() && volumeSnapshotter != nil {
 		err = volumeSnapshotter.Cleanup(ctx)
 		if err != nil {
 			return fmt.Errorf("could not cleanup virtual cluster after creating volume snapshots: %w", err)

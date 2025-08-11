@@ -7,16 +7,12 @@ import (
 	"strings"
 
 	"github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
-	"github.com/loft-sh/log"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volume"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volume/auto"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volume/csi"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volume/filesystem"
 )
 
 func CreateVolumeSnapshots(ctx context.Context, volumeSnapshotter volume.Snapshotter, kubeClient *kubernetes.Clientset) (volume.CreateSnapshotsResult, error) {
@@ -82,31 +78,4 @@ func CreateVirtualKubeClients(config *config.VirtualClusterConfig) (*kubernetes.
 	}
 
 	return kubeClient, snapshotClient, nil
-}
-
-func CreateVolumeSnapshotter(ctx context.Context, vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *versioned.Clientset, etcdSnapshotLocation string, logger log.Logger) (volume.Snapshotter, error) {
-	csiVolumeSnapshotter, err := csi.NewVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotsClient, etcdSnapshotLocation, logger)
-	if err != nil {
-		logger.Errorf("could not create CSI volume snapshotter, CSI VolumeSnapshots will not be created: %v", err)
-	}
-	filesystemSnapshotter, err := filesystem.NewVolumeSnapshotter(vConfig, logger)
-	if err != nil {
-		return nil, fmt.Errorf("could not create filesystem snapshotter: %w", err)
-	}
-
-	var snapshotters []volume.Snapshotter
-	if csiVolumeSnapshotter != nil {
-		// Use CSI volume snapshot only when it was successfully created.
-		// e.g. the CSI VolumeSnapshotter creation will fail when volume snapshot CRDs are not
-		// installed in the virtual cluster, so in that case the snapshot command will just not
-		// try to use CSI volume snapshotter for PVCs, and it will only use the file-system
-		// snapshotter.
-		snapshotters = append(snapshotters, csiVolumeSnapshotter)
-	}
-	snapshotters = append(snapshotters, filesystemSnapshotter)
-	autoSnapshotter, err := auto.NewVolumeSnapshotter(logger, snapshotters...)
-	if err != nil {
-		return nil, fmt.Errorf("could not create auto snapshotter: %w", err)
-	}
-	return autoSnapshotter, nil
 }
