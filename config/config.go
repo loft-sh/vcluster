@@ -2708,6 +2708,8 @@ type Experimental struct {
 
 	// DenyProxyRequests denies certain requests in the vCluster proxy.
 	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" product:"pro"`
+
+	CSIVolumeSnapshots ExperimentalCSIVolumeSnapshots `json:"csiVolumeSnapshots,omitempty"`
 }
 
 func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
@@ -2873,6 +2875,20 @@ type Hook struct {
 
 	// Patches are the patches to apply on the object to be synced
 	Patches []*Patch `json:"patches,omitempty" yaml:"patches,omitempty"`
+}
+
+type ExperimentalCSIVolumeSnapshots struct {
+	SnapshotController      EnableSwitch                                    `json:"snapshotController,omitempty"`
+	ByDriver                CSIVolumeSnapshotsCSIDriverConfig               `json:"byDriver,omitempty"`
+	ByPersistentVolumeClaim CSIVolumeSnapshotsByPersistentVolumeClaimConfig `json:"byPersistentVolumeClaim,omitempty"`
+}
+
+type CSIVolumeSnapshotsCSIDriverConfig map[string]CSIVolumeSnapshotsConfig
+
+type CSIVolumeSnapshotsByPersistentVolumeClaimConfig map[string]CSIVolumeSnapshotsConfig
+
+type CSIVolumeSnapshotsConfig struct {
+	VolumeSnapshotClass string `json:"volumeSnapshotClass,omitempty"`
 }
 
 type Import struct {

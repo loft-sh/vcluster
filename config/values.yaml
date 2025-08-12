@@ -663,6 +663,12 @@ experimental:
     role:
       extraRules: []
 
+  csiVolumeSnapshots:
+    snapshotController:
+      enabled: false
+    byDriver: {}
+    byPersistentVolumeClaim: {}
+
 telemetry:
   enabled: true
 

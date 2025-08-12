@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/loft-sh/log"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -22,6 +23,8 @@ import (
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/types"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volume/csi"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -31,6 +34,7 @@ import (
 
 type Options struct {
 	Snapshot snapshot.Options
+	logger   log.Logger
 }
 
 func NewSnapshotCommand() *cobra.Command {
@@ -39,7 +43,9 @@ func NewSnapshotCommand() *cobra.Command {
 		Short: "snapshot a vCluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			options := &Options{}
+			options := &Options{
+				logger: log.GetInstance(),
+			}
 			envOptions, err := parseOptionsFromEnv()
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
@@ -66,7 +72,31 @@ func (o *Options) Run(ctx context.Context) error {
 	// make sure to validate options
 	err = validateOptions(vConfig, &o.Snapshot, false, false)
 	if err != nil {
-		return err
+		return fmt.Errorf("options validation failed: %w", err)
+	}
+
+	// create Kubernetes clients
+	kubeClient, snapshotClient, err := CreateVirtualKubeClients(vConfig)
+	if err != nil {
+		return fmt.Errorf("could not create kube and/or snapshot client: %w", err)
+	}
+
+	etcdSnapshotLocation, err := o.Snapshot.SnapshotLocation()
+	if err != nil {
+		return fmt.Errorf("could not determine snapshot location: %w", err)
+	}
+	var volumeSnapshotter volume.Snapshotter
+	var result volume.CreateSnapshotsResult
+	if vConfig.VolumeSnapshotsEnabled() {
+		volumeSnapshotter, err = csi.NewVolumeSnapshotter(ctx, vConfig, kubeClient, snapshotClient, etcdSnapshotLocation, o.logger)
+		if err != nil {
+			return fmt.Errorf("failed to create volume snapshotter: %w", err)
+		}
+		// create volume snapshots
+		result, err = CreateVolumeSnapshots(ctx, volumeSnapshotter, kubeClient)
+		if err != nil {
+			return fmt.Errorf("failed to create volume snapshots: %w", err)
+		}
 	}
 
 	// create new etcd client
@@ -83,9 +113,17 @@ func (o *Options) Run(ctx context.Context) error {
 
 	// write the snapshot
 	klog.Infof("Start writing etcd snapshot %s...", objectStore.Target())
-	err = o.writeSnapshot(ctx, etcdClient, objectStore)
+	err = o.writeSnapshot(ctx, etcdClient, objectStore, result.SnapshottedPersistentVolumes)
 	if err != nil {
 		return err
+	}
+
+	// Cleanup the cluster after creating volume snapshots
+	if vConfig.VolumeSnapshotsEnabled() && volumeSnapshotter != nil {
+		err = volumeSnapshotter.Cleanup(ctx)
+		if err != nil {
+			return fmt.Errorf("could not cleanup virtual cluster after creating volume snapshots: %w", err)
+		}
 	}
 
 	klog.Infof("Successfully wrote snapshot to %s", objectStore.Target())
@@ -143,7 +181,7 @@ func (o *Options) Delete(ctx context.Context) error {
 	return nil
 }
 
-func (o *Options) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) error {
+func (o *Options) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage, snapshottedVolumes []volume.PersistentVolumeReference) error {
 	// now stream objects from etcd to object store
 	errChan := make(chan error)
 	reader, writer, err := os.Pipe()
@@ -180,6 +218,13 @@ func (o *Options) writeSnapshot(ctx context.Context, etcdClient etcd.Client, obj
 		}
 	}
 
+	snapshottedPvcsMap := make(map[string]struct{}, len(snapshottedVolumes))
+	snapshottedPvsMap := make(map[string]struct{}, len(snapshottedVolumes))
+	for _, snapshottedVolume := range snapshottedVolumes {
+		snapshottedPvcsMap[snapshottedVolume.PersistentVolumeClaim.String()] = struct{}{}
+		snapshottedPvsMap[snapshottedVolume.PersistentVolumeName] = struct{}{}
+	}
+
 	// now write the snapshot
 	backedUpKeys := 0
 	for {
@@ -199,16 +244,21 @@ func (o *Options) writeSnapshot(ctx context.Context, etcdClient etcd.Client, obj
 				}
 
 				// write the object into the store
-				klog.V(1).Infof("Snapshot key %s", string(obj.Value.Key))
-				err := writeKeyValue(tarWriter, obj.Value.Key, obj.Value.Data)
-				if err != nil {
-					return fmt.Errorf("failed to snapshot key %s: %w", string(obj.Value.Key), err)
-				}
+				skip := IsPvOrPvcWithSnapshot(string(obj.Value.Key), snapshottedPvcsMap, snapshottedPvsMap)
+				if !skip {
+					klog.V(1).Infof("Snapshot key %s", string(obj.Value.Key))
+					err := writeKeyValue(tarWriter, obj.Value.Key, obj.Value.Data)
+					if err != nil {
+						return fmt.Errorf("failed to snapshot key %s: %w", string(obj.Value.Key), err)
+					}
 
-				// print status update
-				backedUpKeys++
-				if backedUpKeys%100 == 0 {
-					klog.Infof("Backed up %d keys", backedUpKeys)
+					// print status update
+					backedUpKeys++
+					if backedUpKeys%100 == 0 {
+						klog.Infof("Backed up %d keys", backedUpKeys)
+					}
+				} else {
+					klog.Infof("Skip backing up object with key %s", string(obj.Value.Key))
 				}
 			} else {
 				klog.Infof("Successfully backed up %d etcd keys", backedUpKeys)

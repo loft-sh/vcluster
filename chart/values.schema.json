@@ -135,6 +135,27 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CSIVolumeSnapshotsByPersistentVolumeClaimConfig": {
+      "additionalProperties": {
+        "$ref": "#/$defs/CSIVolumeSnapshotsConfig"
+      },
+      "type": "object"
+    },
+    "CSIVolumeSnapshotsCSIDriverConfig": {
+      "additionalProperties": {
+        "$ref": "#/$defs/CSIVolumeSnapshotsConfig"
+      },
+      "type": "object"
+    },
+    "CSIVolumeSnapshotsConfig": {
+      "properties": {
+        "volumeSnapshotClass": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "CentralAdmission": {
       "properties": {
         "validatingWebhooks": {
@@ -1597,6 +1618,24 @@
           "type": "array",
           "description": "DenyProxyRequests denies certain requests in the vCluster proxy.",
           "pro": true
+        },
+        "csiVolumeSnapshots": {
+          "$ref": "#/$defs/ExperimentalCSIVolumeSnapshots"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExperimentalCSIVolumeSnapshots": {
+      "properties": {
+        "snapshotController": {
+          "$ref": "#/$defs/EnableSwitch"
+        },
+        "byDriver": {
+          "$ref": "#/$defs/CSIVolumeSnapshotsCSIDriverConfig"
+        },
+        "byPersistentVolumeClaim": {
+          "$ref": "#/$defs/CSIVolumeSnapshotsByPersistentVolumeClaimConfig"
         }
       },
       "additionalProperties": false,

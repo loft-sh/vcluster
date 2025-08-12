@@ -217,6 +217,20 @@ func (v VirtualClusterConfig) SchedulingInVirtualClusterEnabled() bool {
 	return v.IsVirtualSchedulerEnabled() || v.Sync.ToHost.Pods.HybridScheduling.Enabled
 }
 
+func (v VirtualClusterConfig) VolumeSnapshotsEnabled() bool {
+	if !v.Experimental.CSIVolumeSnapshots.SnapshotController.Enabled {
+		return false
+	}
+
+	// volume snapshots config exists for CSI driver or specific PVCs
+	if len(v.Experimental.CSIVolumeSnapshots.ByDriver) > 0 ||
+		len(v.Experimental.CSIVolumeSnapshots.ByPersistentVolumeClaim) > 0 {
+		return true
+	}
+
+	return false
+}
+
 func findResource(resources *metav1.APIResourceList, resourcePlural string) bool {
 	if resources != nil {
 		for _, r := range resources.APIResources {

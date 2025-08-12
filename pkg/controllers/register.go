@@ -21,6 +21,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
 	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
+	csivolumesnapshots "github.com/loft-sh/vcluster/pkg/snapshot/volume/csi/deploy"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 )
@@ -37,6 +38,13 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 	// register controller that maintains pod security standard check
 	if ctx.Config.Policies.PodSecurityStandard != "" {
 		err := registerPodSecurityController(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	if ctx.Config.Experimental.CSIVolumeSnapshots.SnapshotController.Enabled && ctx.Config.PrivateNodes.Enabled {
+		err := registerSnapshotController(ctx)
 		if err != nil {
 			return err
 		}
@@ -265,6 +273,14 @@ func registerPodSecurityController(ctx *synccontext.ControllerContext) error {
 	err := controller.SetupWithManager(ctx.VirtualManager)
 	if err != nil {
 		return fmt.Errorf("unable to setup pod security controller: %w", err)
+	}
+	return nil
+}
+
+func registerSnapshotController(ctx *synccontext.ControllerContext) error {
+	err := csivolumesnapshots.Deploy(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to deploy required CSI volume snapshot compoments: %w", err)
 	}
 	return nil
 }
