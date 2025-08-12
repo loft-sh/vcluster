@@ -299,7 +299,7 @@ jobs:
           skipClusterLogsExport: "true"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4.3.1
         with:
           role-to-assume: arn:aws:iam::585768162836:role/GitHubActionsS3Role
           aws-region: eu-central-1
