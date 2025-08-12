@@ -432,7 +432,6 @@ controlPlane:
 
 privateNodes:
   enabled: false
-  importNodeBinaries: true
   kubelet:
     config: {}
   autoUpgrade:
