@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -558,6 +559,168 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			Should(gomega.BeTrue())
 	})
 
+	ginkgo.It("Snapshot and restore to new vcluster", func() {
+		ginkgo.By("Snapshot vcluster to S3")
+
+		randomSnapshotName := random.String(5) + "-" + strconv.FormatInt(time.Now().Unix(), 10)
+		s3name := "s3://vcluster-e2e-tests/" + randomSnapshotName
+
+		pods, err := f.HostClient.CoreV1().Pods(vClusterDefaultNamespace).List(f.Context, metav1.ListOptions{
+			LabelSelector: "app=vcluster",
+		})
+		framework.ExpectNoError(err)
+		framework.ExpectEqual(true, len(pods.Items) > 0)
+
+		isK0s := false
+		for _, pod := range pods.Items {
+			for _, container := range pod.Spec.InitContainers {
+				if strings.Contains(container.Image, "k0s") {
+					isK0s = true
+					break
+				}
+			}
+		}
+
+		ginkgo.By("Snapshot vcluster")
+		if isK0s {
+			cmd := exec.Command(
+				"vcluster",
+				"snapshot",
+				f.VClusterName,
+				s3name,
+				"-n", f.VClusterNamespace,
+			)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			err = cmd.Run()
+			framework.ExpectNoError(err)
+			ginkgo.Skip("Skip restore because this is unsupported in k0s")
+		}
+
+		// regular snapshot
+		cmd := exec.Command(
+			"vcluster",
+			"snapshot",
+			f.VClusterName,
+			s3name,
+			"-n", f.VClusterNamespace,
+		)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		framework.ExpectNoError(err)
+
+		cmd = exec.Command(
+			"vcluster",
+			"delete",
+			f.VClusterName,
+		)
+		//cmd.Stdout = os.Stdout
+		//cmd.Stderr = os.Stderr
+		//err = cmd.Run()
+		//framework.ExpectNoError(err)
+
+		fmt.Println()
+		envs := os.Environ()
+		for _, e := range envs {
+			fmt.Println(e)
+		}
+
+		// now restore and create the vCluster
+		ginkgo.By("Restore and create vCluster")
+		cmd = exec.Command(
+			"vcluster",
+			"create",
+			f.VClusterName,
+			"--restore",
+			s3name,
+			"--background-proxy-image=vcluster:e2e-latest",
+		)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		framework.ExpectNoError(err)
+
+		// wait until vCluster is running
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (done bool, err error) {
+			newPods, _ := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(ctx, metav1.ListOptions{
+				LabelSelector: "app=vcluster",
+			})
+			p := len(newPods.Items)
+			if p > 0 {
+				// rp, running pod counter
+				rp := 0
+				for _, pod := range newPods.Items {
+					if pod.Status.Phase == corev1.PodRunning {
+						rp = rp + 1
+					}
+				}
+				if rp == p {
+					return true, nil
+				}
+			}
+			return false, nil
+		})
+		framework.ExpectNoError(err)
+
+		ginkgo.By("Verify only resources created before snapshot are available")
+		// wait until all vCluster replicas are running
+		gomega.Eventually(func() error {
+			pods, err := f.HostClient.CoreV1().Pods(vClusterDefaultNamespace).List(f.Context, metav1.ListOptions{
+				LabelSelector: "app=vcluster,release=" + f.VClusterName,
+			})
+			framework.ExpectNoError(err)
+
+			for _, pod := range pods.Items {
+				if len(pod.Status.ContainerStatuses) == 0 {
+					return fmt.Errorf("pod %s has no container status", pod.Name)
+				}
+
+				for _, container := range pod.Status.ContainerStatuses {
+					if container.State.Running == nil || !container.Ready {
+						return fmt.Errorf("pod %s container %s is not running", pod.Name, container.Name)
+					}
+				}
+			}
+
+			return nil
+		}).WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.Succeed())
+
+		// refresh the connection
+		err = f.RefreshVirtualClient()
+		framework.ExpectNoError(err)
+
+		// Check configmap created before snapshot is available
+		configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).List(f.Context, metav1.ListOptions{
+			LabelSelector: "snapshot=restore",
+		})
+
+		gomega.Expect(configmaps.Items).To(gomega.HaveLen(1))
+		restoredConfigmap := configmaps.Items[0]
+		gomega.Expect(restoredConfigmap.Data).To(gomega.Equal(configMapToRestore.Data))
+		framework.ExpectNoError(err)
+
+		// Check secret created before snapshot is available
+		secrets, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
+			LabelSelector: "snapshot=restore",
+		})
+
+		gomega.Expect(secrets.Items).To(gomega.HaveLen(1))
+		restoredSecret := secrets.Items[0]
+		gomega.Expect(restoredSecret.Data).To(gomega.Equal(secretToRestore.Data))
+		framework.ExpectNoError(err)
+
+		// Check deployment created before snapshot is available
+		deployment, err := f.VClusterClient.AppsV1().Deployments(defaultNamespace).List(f.Context, metav1.ListOptions{
+			LabelSelector: "snapshot=restore",
+		})
+
+		gomega.Expect(deployment.Items).To(gomega.HaveLen(1))
+		framework.ExpectNoError(err)
+	})
+
 	ginkgo.AfterAll(func() {
 		// delete the snapshot pvc
 		err := f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(f.Context, pvc.Name, metav1.DeleteOptions{})
@@ -587,17 +750,6 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 
 		// delete the namespace
 		err = f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, "snapshot-test", metav1.DeleteOptions{})
-		framework.ExpectNoError(err)
-
-		// delete vcluster
-		cmd := exec.Command(
-			"vcluster",
-			"delete",
-			f.VClusterName,
-		)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err = cmd.Run()
 		framework.ExpectNoError(err)
 	})
 
