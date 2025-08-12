@@ -198,12 +198,12 @@ func GetOptionsForMultiNamespaceManager(ctx *synccontext.RegisterContext, option
 		Cache: cache.Options{
 			Mapper:                   ctx.PhysicalManager.GetRESTMapper(),
 			DefaultNamespaces:        options.DefaultNamespaces,
-			DefaultWatchErrorHandler: additionalPermissionMissingHandler(ctx),
+			DefaultWatchErrorHandler: additionalPermissionMissingHandler(),
 		},
 	}
 }
 
-func additionalPermissionMissingHandler(ctx *synccontext.RegisterContext) toolscache.WatchErrorHandlerWithContext {
+func additionalPermissionMissingHandler() toolscache.WatchErrorHandlerWithContext {
 	return func(ctx context.Context, r *toolscache.Reflector, err error) {
 		if kerrors.IsForbidden(err) {
 			klog.FromContext(ctx).Error(err,

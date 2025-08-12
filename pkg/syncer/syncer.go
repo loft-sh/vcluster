@@ -131,7 +131,7 @@ func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) 
 	if ok {
 		// put this into the cache again if we requeue
 		defer func() {
-			if res.Requeue || res.RequeueAfter > 0 || retErr != nil {
+			if res.Requeue || res.RequeueAfter > 0 || retErr != nil { //nolint:staticcheck
 				r.setHostRequest(vReq, pReq)
 			}
 		}()
@@ -167,7 +167,7 @@ func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) 
 		return ctrl.Result{}, err
 	}
 	defer func() {
-		if !res.Requeue && res.RequeueAfter == 0 && retErr == nil {
+		if !res.Requeue && res.RequeueAfter == 0 && retErr == nil { //nolint:staticcheck
 			r.updateObjectCache(vObjOld, vObj, pObjOld, pObj)
 		}
 	}()
