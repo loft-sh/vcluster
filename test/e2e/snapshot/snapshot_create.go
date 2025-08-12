@@ -330,17 +330,6 @@ var _ = ginkgo.Describe("Snapshot and restore with create vCluster", ginkgo.Orde
 		// delete the namespace
 		err = f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, "snapshot-test", metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
-
-		// delete vcluster
-		cmd := exec.Command(
-			"vcluster",
-			"delete",
-			f.VClusterName,
-		)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err = cmd.Run()
-		framework.ExpectNoError(err)
 	})
 
 })
