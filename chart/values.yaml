@@ -791,10 +791,6 @@ privateNodes:
   # Enabled defines if dedicated nodes should be enabled.
   enabled: false
   
-  # ImportNodeBinaries defines to use the loft-sh/kubernetes:VERSION-full image to also copy the node binaries to the control plane. This allows upgrades and
-  # joining new nodes into the cluster without having to download the binaries from the internet.
-  importNodeBinaries: true
-  
   # Kubelet holds kubelet configuration that is used for all nodes.
   kubelet:
     # Config is the config for the kubelet that will be merged into the default kubelet config. More information can be found here:

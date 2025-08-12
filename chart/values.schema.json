@@ -63,10 +63,6 @@
           "type": "object",
           "description": "NodeSelector is the node selector for the auto upgrade. If empty will select all worker nodes."
         },
-        "bundleRepository": {
-          "type": "string",
-          "description": "BundleRepository is the repository to use for downloading the Kubernetes bundle. Defaults to https://github.com/loft-sh/kubernetes/releases/download"
-        },
         "binariesPath": {
           "type": "string",
           "description": "BinariesPath is the base path for the kubeadm binaries. Defaults to /usr/local/bin"
@@ -247,13 +243,6 @@
         "registry": {
           "$ref": "#/$defs/ContainerdRegistry",
           "description": "Registry holds configuration for how containerd should be configured to use a registries."
-        },
-        "importImages": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "ImportImages is a list of images to import into the containerd registry from local files. If the path is a folder, all files that end with .tar or .tar.gz in the folder will be imported."
         },
         "pauseImage": {
           "type": "string",
@@ -2394,19 +2383,26 @@
     },
     "JoinConfiguration": {
       "properties": {
+        "preInstallCommands": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "PreInstallCommands are commands that will be executed before containerd, kubelet etc. is installed."
+        },
         "preJoinCommands": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "PreJoinCommands are commands that will be executed before the join process starts."
+          "description": "PreJoinCommands are commands that will be executed before kubeadm join is executed."
         },
         "postJoinCommands": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "PostJoinCommands are commands that will be executed after the join process starts."
+          "description": "PostJoinCommands are commands that will be executed after kubeadm join is executed."
         },
         "containerd": {
           "$ref": "#/$defs/ContainerdJoin",
@@ -3498,10 +3494,6 @@
           "type": "boolean",
           "description": "Enabled defines if dedicated nodes should be enabled."
         },
-        "importNodeBinaries": {
-          "type": "boolean",
-          "description": "ImportNodeBinaries defines to use the loft-sh/kubernetes:VERSION-full image to also copy the node binaries to the control plane. This allows upgrades and\njoining new nodes into the cluster without having to download the binaries from the internet."
-        },
         "kubelet": {
           "$ref": "#/$defs/Kubelet",
           "description": "Kubelet holds kubelet configuration that is used for all nodes."
@@ -3973,19 +3965,26 @@
           "type": "boolean",
           "description": "Enabled defines if the standalone node should be joined into the cluster. If false, only the control plane binaries will be executed and no node will show up in the actual cluster."
         },
+        "preInstallCommands": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "PreInstallCommands are commands that will be executed before containerd, kubelet etc. is installed."
+        },
         "preJoinCommands": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "PreJoinCommands are commands that will be executed before the join process starts."
+          "description": "PreJoinCommands are commands that will be executed before kubeadm join is executed."
         },
         "postJoinCommands": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "PostJoinCommands are commands that will be executed after the join process starts."
+          "description": "PostJoinCommands are commands that will be executed after kubeadm join is executed."
         },
         "containerd": {
           "$ref": "#/$defs/ContainerdJoin",
