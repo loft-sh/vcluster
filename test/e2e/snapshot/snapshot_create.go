@@ -210,9 +210,9 @@ var _ = ginkgo.Describe("Snapshot and restore with create vCluster", ginkgo.Orde
 		ginkgo.By("Restore and create vCluster")
 		cmd = exec.Command(
 			"vcluster",
-			"restore",
-			"--create",
+			"create",
 			f.VClusterName,
+			"--restore",
 			"s3://vcluster-e2e-tests/"+randomSnapshotName,
 		)
 		cmd.Stdout = os.Stdout
