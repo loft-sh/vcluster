@@ -255,6 +255,9 @@ jobs:
       - get-testsuites-dir
 
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # needed for OIDC → AWS
+      contents: read
     strategy:
       fail-fast: false
       matrix:
