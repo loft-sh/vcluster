@@ -185,7 +185,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		_, err = f.VClusterClient.AppsV1().Deployments(defaultNamespace).Create(f.Context, deploymentToRestore, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
-		ginkgo.By("Snapshot vcluster using S3 ")
+		ginkgo.By("Snapshot vcluster")
 		if isK0s {
 			cmd := exec.Command(
 				"vcluster",
@@ -207,9 +207,9 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			"vcluster",
 			"snapshot",
 			f.VClusterName,
-			"s3://vcluster-e2e-tests/adrian-test",
-			//"-n", f.VClusterNamespace,
-			//"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
+			"container:///snapshot-pvc/snapshot.tar",
+			"-n", f.VClusterNamespace,
+			"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
 		)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
