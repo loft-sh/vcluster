@@ -835,21 +835,6 @@ tests:
           path: spec.template.spec.initContainers[0].image
           value: ghcr.io/loft-sh/kubernetes:v1.35.999-full
 
-  - it: private nodes k8s full image disabled
-    set:
-      controlPlane:
-        distro:
-          k8s:
-            image:
-              tag: v1.35.999
-      privateNodes:
-        enabled: true
-        importNodeBinaries: false
-    asserts:
-      - equal:
-          path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v1.35.999
-
   - it: private nodes k8s full image version
     set:
       controlPlane:
@@ -862,21 +847,6 @@ tests:
       - equal:
           path: spec.template.spec.initContainers[0].image
           value: ghcr.io/loft-sh/kubernetes:v1.35.999-full
-
-  - it: private nodes k8s full image disabled version
-    set:
-      controlPlane:
-        distro:
-          k8s:
-            image:
-              tag: v1.35.999
-      privateNodes:
-        enabled: true
-        importNodeBinaries: false
-    asserts:
-      - equal:
-          path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v1.35.999
 
   - it: sets custom probe configuration
     set:

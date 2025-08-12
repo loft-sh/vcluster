@@ -101,10 +101,6 @@ type PrivateNodes struct {
 	// Enabled defines if dedicated nodes should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// ImportNodeBinaries defines to use the loft-sh/kubernetes:VERSION-full image to also copy the node binaries to the control plane. This allows upgrades and
-	// joining new nodes into the cluster without having to download the binaries from the internet.
-	ImportNodeBinaries bool `json:"importNodeBinaries,omitempty"`
-
 	// Kubelet holds kubelet configuration that is used for all nodes.
 	Kubelet Kubelet `json:"kubelet,omitempty"`
 
@@ -204,10 +200,13 @@ type StandaloneJoinNode struct {
 }
 
 type JoinConfiguration struct {
-	// PreJoinCommands are commands that will be executed before the join process starts.
+	// PreInstallCommands are commands that will be executed before containerd, kubelet etc. is installed.
+	PreInstallCommands []string `json:"preInstallCommands,omitempty"`
+
+	// PreJoinCommands are commands that will be executed before kubeadm join is executed.
 	PreJoinCommands []string `json:"preJoinCommands,omitempty"`
 
-	// PostJoinCommands are commands that will be executed after the join process starts.
+	// PostJoinCommands are commands that will be executed after kubeadm join is executed.
 	PostJoinCommands []string `json:"postJoinCommands,omitempty"`
 
 	// Containerd holds configuration for the containerd join process.
@@ -232,9 +231,6 @@ type ContainerdJoin struct {
 
 	// Registry holds configuration for how containerd should be configured to use a registries.
 	Registry ContainerdRegistry `json:"registry,omitempty"`
-
-	// ImportImages is a list of images to import into the containerd registry from local files. If the path is a folder, all files that end with .tar or .tar.gz in the folder will be imported.
-	ImportImages []string `json:"importImages,omitempty"`
 
 	// PauseImage is the image for the pause container.
 	PauseImage string `json:"pauseImage,omitempty"`
@@ -368,9 +364,6 @@ type AutoUpgrade struct {
 
 	// NodeSelector is the node selector for the auto upgrade. If empty will select all worker nodes.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-
-	// BundleRepository is the repository to use for downloading the Kubernetes bundle. Defaults to https://github.com/loft-sh/kubernetes/releases/download
-	BundleRepository string `json:"bundleRepository,omitempty"`
 
 	// BinariesPath is the base path for the kubeadm binaries. Defaults to /usr/local/bin
 	BinariesPath string `json:"binariesPath,omitempty"`
