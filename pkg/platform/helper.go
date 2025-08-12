@@ -596,43 +596,45 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 }
 
 func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, config string, projectName string, virtualClusterInstance *managementv1.VirtualClusterInstance, setActive bool) (kubeconfig.ContextOptions, error) {
-	var cluster *managementv1.Cluster
-
-	var err error
-	cluster, err = findProjectCluster(ctx, client, projectName, virtualClusterInstance.Spec.ClusterRef.Cluster)
-	if err != nil {
-		return kubeconfig.ContextOptions{}, fmt.Errorf("find space instance cluster: %w", err)
-	}
-
 	host := client.Config().Platform.Host
+	insecure := client.Config().Platform.Insecure
+	var caData []byte
 
-	directHost, directInsecure := getDirectEndpointAndInsecureFromClusterAnnotations(cluster)
-
-	if directHost != "" {
-		host = directHost
-	}
-
-	contextOptions := kubeconfig.ContextOptions{
-		Name:       kubeconfig.VirtualClusterInstanceContextName(projectName, virtualClusterInstance.Name),
-		ConfigPath: config,
-		SetActive:  setActive,
-	}
-	contextOptions.Server = host + "/kubernetes/project/" + projectName + "/virtualcluster/" + virtualClusterInstance.Name
-	contextOptions.InsecureSkipTLSVerify = client.Config().Platform.Insecure
-
-	if directInsecure != "" {
-		insecure, _ := strconv.ParseBool(directInsecure)
-		contextOptions.InsecureSkipTLSVerify = insecure
-	}
-	if !virtualClusterInstance.Spec.NetworkPeer {
-		data, err := RetrieveCaData(cluster)
+	// if cluster ref is set, try to use the direct host and insecure from the cluster
+	if virtualClusterInstance.Spec.ClusterRef.Cluster != "" {
+		cluster, err := findProjectCluster(ctx, client, projectName, virtualClusterInstance.Spec.ClusterRef.Cluster)
 		if err != nil {
-			return kubeconfig.ContextOptions{}, err
+			return kubeconfig.ContextOptions{}, fmt.Errorf("find virtual cluster instance cluster: %w", err)
 		}
-		contextOptions.CaData = data
+		directHost, directInsecure := getDirectEndpointAndInsecureFromClusterAnnotations(cluster)
+
+		// exchange host if direct host is set
+		if directHost != "" {
+			host = directHost
+		}
+
+		// exchange insecure if direct insecure is set
+		if directInsecure != "" && !insecure {
+			insecure, _ = strconv.ParseBool(directInsecure)
+		}
+
+		// retrieve ca data if not insecure
+		if !insecure {
+			caData, err = RetrieveCaData(cluster)
+			if err != nil {
+				return kubeconfig.ContextOptions{}, err
+			}
+		}
 	}
 
-	return contextOptions, nil
+	return kubeconfig.ContextOptions{
+		Name:                  kubeconfig.VirtualClusterInstanceContextName(projectName, virtualClusterInstance.Name),
+		ConfigPath:            config,
+		SetActive:             setActive,
+		Server:                host + "/kubernetes/project/" + projectName + "/virtualcluster/" + virtualClusterInstance.Name,
+		InsecureSkipTLSVerify: insecure,
+		CaData:                caData,
+	}, nil
 }
 
 func CreateSpaceInstanceOptions(ctx context.Context, client Client, config string, projectName string, spaceInstance *managementv1.SpaceInstance, setActive, disableDirectEndpoint bool) (kubeconfig.ContextOptions, error) {
