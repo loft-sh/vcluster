@@ -60,6 +60,7 @@ type Client interface {
 	VirtualCluster(cluster, namespace, virtualCluster string) (kube.Interface, error)
 
 	ManagementConfig() (*rest.Config, error)
+	RestConfig(hostSuffix string) (*rest.Config, error)
 
 	Config() *config.CLI
 	Save() error
@@ -163,7 +164,7 @@ func (c *client) Delete() error {
 }
 
 func (c *client) ManagementConfig() (*rest.Config, error) {
-	return c.restConfig("/kubernetes/management")
+	return c.RestConfig("/kubernetes/management")
 }
 
 func (c *client) Management() (kube.Interface, error) {
@@ -176,7 +177,7 @@ func (c *client) Management() (kube.Interface, error) {
 }
 
 func (c *client) SpaceInstanceConfig(project, name string) (*rest.Config, error) {
-	return c.restConfig("/kubernetes/project/" + project + "/space/" + name)
+	return c.RestConfig("/kubernetes/project/" + project + "/space/" + name)
 }
 
 func (c *client) SpaceInstance(project, name string) (kube.Interface, error) {
@@ -189,7 +190,7 @@ func (c *client) SpaceInstance(project, name string) (kube.Interface, error) {
 }
 
 func (c *client) VirtualClusterInstanceConfig(project, name string) (*rest.Config, error) {
-	return c.restConfig("/kubernetes/project/" + project + "/virtualcluster/" + name)
+	return c.RestConfig("/kubernetes/project/" + project + "/virtualcluster/" + name)
 }
 
 func (c *client) VirtualClusterInstance(project, name string) (kube.Interface, error) {
@@ -202,7 +203,7 @@ func (c *client) VirtualClusterInstance(project, name string) (kube.Interface, e
 }
 
 func (c *client) ClusterConfig(cluster string) (*rest.Config, error) {
-	return c.restConfig("/kubernetes/cluster/" + cluster)
+	return c.RestConfig("/kubernetes/cluster/" + cluster)
 }
 
 func (c *client) Cluster(cluster string) (kube.Interface, error) {
@@ -215,7 +216,7 @@ func (c *client) Cluster(cluster string) (kube.Interface, error) {
 }
 
 func (c *client) VirtualClusterConfig(cluster, namespace, virtualCluster string) (*rest.Config, error) {
-	return c.restConfig("/kubernetes/virtualcluster/" + cluster + "/" + namespace + "/" + virtualCluster)
+	return c.RestConfig("/kubernetes/virtualcluster/" + cluster + "/" + namespace + "/" + virtualCluster)
 }
 
 func (c *client) VirtualCluster(cluster, namespace, virtualCluster string) (kube.Interface, error) {
@@ -240,7 +241,7 @@ func verifyHost(host string) error {
 }
 
 func (c *client) Version() (*auth.Version, error) {
-	restConfig, err := c.restConfig("")
+	restConfig, err := c.RestConfig("")
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +376,7 @@ func (c *client) mgmtLogin(host, accessKey string, insecure bool) error {
 	return nil
 }
 
-func (c *client) restConfig(hostSuffix string) (*rest.Config, error) {
+func (c *client) RestConfig(hostSuffix string) (*rest.Config, error) {
 	if c.config == nil {
 		return nil, perrors.New("no config loaded")
 	} else if c.config.Platform.Host == "" || c.config.Platform.AccessKey == "" {
