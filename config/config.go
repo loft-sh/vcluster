@@ -462,6 +462,9 @@ type ContainerdMirrorHost struct {
 
 	// Capabilities is a list of capabilities to enable for the containerd registry mirror. If empty, will use pull and resolve capabilities.
 	Capabilities []string `json:"capabilities,omitempty"`
+
+	// OverridePath is a boolean to override the path for the containerd registry mirror.
+	OverridePath bool `json:"overridePath,omitempty"`
 }
 
 type NodeRegistration struct {

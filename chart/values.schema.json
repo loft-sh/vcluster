@@ -314,6 +314,10 @@
           },
           "type": "array",
           "description": "Capabilities is a list of capabilities to enable for the containerd registry mirror. If empty, will use pull and resolve capabilities."
+        },
+        "overridePath": {
+          "type": "boolean",
+          "description": "OverridePath is a boolean to override the path for the containerd registry mirror."
         }
       },
       "additionalProperties": false,
