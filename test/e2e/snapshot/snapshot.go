@@ -615,16 +615,10 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			"delete",
 			f.VClusterName,
 		)
-		//cmd.Stdout = os.Stdout
-		//cmd.Stderr = os.Stderr
-		//err = cmd.Run()
-		//framework.ExpectNoError(err)
-
-		fmt.Println()
-		envs := os.Environ()
-		for _, e := range envs {
-			fmt.Println(e)
-		}
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		framework.ExpectNoError(err)
 
 		// now restore and create the vCluster
 		ginkgo.By("Restore and create vCluster")
@@ -635,7 +629,9 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			"--restore",
 			s3name,
 			"--background-proxy-image=vcluster:e2e-latest",
-		)
+			"--local-chart-dir", os.Getenv("CHART_DIR"),
+			"--add=false")
+
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err = cmd.Run()
