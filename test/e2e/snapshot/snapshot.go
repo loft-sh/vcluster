@@ -583,17 +583,6 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 
 		ginkgo.By("Snapshot vcluster")
 		if isK0s {
-			cmd := exec.Command(
-				"vcluster",
-				"snapshot",
-				f.VClusterName,
-				s3name,
-				"-n", f.VClusterNamespace,
-			)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err = cmd.Run()
-			framework.ExpectNoError(err)
 			ginkgo.Skip("Skip restore because this is unsupported in k0s")
 		}
 
@@ -635,6 +624,10 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err = cmd.Run()
+		framework.ExpectNoError(err)
+
+		// refresh the connection
+		err = f.RefreshVirtualClient()
 		framework.ExpectNoError(err)
 
 		// wait until vCluster is running
