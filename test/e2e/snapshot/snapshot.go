@@ -620,6 +620,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			"-n", f.VClusterNamespace,
 			"--local-chart-dir", os.Getenv("CHART_DIR"),
 			"--add=false",
+			"--background-proxy-image=vcluster:e2e-latest",
 			"--connect=false")
 
 		cmd.Stdout = os.Stdout
