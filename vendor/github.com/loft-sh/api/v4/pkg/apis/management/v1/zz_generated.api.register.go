@@ -76,8 +76,11 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&LoftUpgradeList{},
 		&NodeClaim{},
 		&NodeClaimList{},
+		&NodeEnvironment{},
+		&NodeEnvironmentList{},
 		&NodeProvider{},
 		&NodeProviderList{},
+		&NodeProviderExec{},
 		&NodeType{},
 		&NodeTypeList{},
 		&OIDCClient{},
@@ -93,6 +96,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ProjectMembers{},
 		&ProjectMigrateSpaceInstance{},
 		&ProjectMigrateVirtualClusterInstance{},
+		&ProjectNodeTypes{},
 		&ProjectTemplates{},
 		&ProjectSecret{},
 		&ProjectSecretList{},
@@ -289,12 +293,24 @@ var (
 			func() runtime.Object { return &NodeClaim{} },     // Register versioned resource
 			func() runtime.Object { return &NodeClaimList{} }, // Register versioned resource list
 			management.NewNodeClaimStatusREST),
+		management.ManagementNodeEnvironmentStorage,
+		builders.NewApiResourceWithStorage(
+			management.InternalNodeEnvironmentStatus,
+			func() runtime.Object { return &NodeEnvironment{} },     // Register versioned resource
+			func() runtime.Object { return &NodeEnvironmentList{} }, // Register versioned resource list
+			management.NewNodeEnvironmentStatusREST),
 		management.ManagementNodeProviderStorage,
 		builders.NewApiResourceWithStorage(
 			management.InternalNodeProviderStatus,
 			func() runtime.Object { return &NodeProvider{} },     // Register versioned resource
 			func() runtime.Object { return &NodeProviderList{} }, // Register versioned resource list
 			management.NewNodeProviderStatusREST),
+		builders.NewApiResourceWithStorage(
+			management.InternalNodeProviderExecREST,
+			func() runtime.Object { return &NodeProviderExec{} }, // Register versioned resource
+			nil,
+			management.NewNodeProviderExecREST,
+		),
 		management.ManagementNodeTypeStorage,
 		builders.NewApiResourceWithStorage(
 			management.InternalNodeTypeStatus,
@@ -350,6 +366,12 @@ var (
 			func() runtime.Object { return &ProjectMigrateVirtualClusterInstance{} }, // Register versioned resource
 			nil,
 			management.NewProjectMigrateVirtualClusterInstanceREST,
+		),
+		builders.NewApiResourceWithStorage(
+			management.InternalProjectNodeTypesREST,
+			func() runtime.Object { return &ProjectNodeTypes{} }, // Register versioned resource
+			nil,
+			management.NewProjectNodeTypesREST,
 		),
 		builders.NewApiResourceWithStorage(
 			management.InternalProjectTemplatesREST,
@@ -817,10 +839,26 @@ type NodeClaimList struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+type NodeEnvironmentList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []NodeEnvironment `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type NodeProviderList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []NodeProvider `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NodeProviderExecList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []NodeProviderExec `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -909,6 +947,14 @@ type ProjectMigrateVirtualClusterInstanceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ProjectMigrateVirtualClusterInstance `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ProjectNodeTypesList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ProjectNodeTypes `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

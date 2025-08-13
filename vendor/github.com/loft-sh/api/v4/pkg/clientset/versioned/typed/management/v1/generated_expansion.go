@@ -46,6 +46,8 @@ type LoftUpgradeExpansion interface{}
 
 type NodeClaimExpansion interface{}
 
+type NodeEnvironmentExpansion interface{}
+
 type NodeProviderExpansion interface{}
 
 type NodeTypeExpansion interface{}

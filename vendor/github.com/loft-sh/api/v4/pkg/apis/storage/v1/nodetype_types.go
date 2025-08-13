@@ -131,11 +131,18 @@ func (a *NodeType) GetAllProperties() []corev1.NodeSelectorRequirement {
 
 	// add custom properties
 	for key, value := range a.Spec.Properties {
-		allProperties = append(allProperties, corev1.NodeSelectorRequirement{
-			Key:      key,
-			Operator: corev1.NodeSelectorOpIn,
-			Values:   strings.Split(value, ","),
-		})
+		if value == "*" {
+			allProperties = append(allProperties, corev1.NodeSelectorRequirement{
+				Key:      key,
+				Operator: corev1.NodeSelectorOpExists,
+			})
+		} else {
+			allProperties = append(allProperties, corev1.NodeSelectorRequirement{
+				Key:      key,
+				Operator: corev1.NodeSelectorOpIn,
+				Values:   strings.Split(value, ","),
+			})
+		}
 	}
 
 	return allProperties
@@ -174,6 +181,10 @@ type NodeTypeStatus struct {
 	// +optional
 	Message string `json:"message,omitempty"`
 
+	// Cost is the calculated instance cost from the resources specified or the price specified from spec. The higher the cost, the less likely it is to be selected.
+	// +optional
+	Cost int64 `json:"cost,omitempty"`
+
 	// Capacity is the capacity of the node type.
 	// +optional
 	Capacity *NodeTypeCapacity `json:"capacity,omitempty"`
@@ -183,18 +194,17 @@ type NodeTypeStatus struct {
 	Conditions agentstoragev1.Conditions `json:"conditions,omitempty"`
 }
 
+// IMPORTANT: DO NOT use omitempty for values in NodeTypeCapacity.
+// The values are used in NodePool calculations and for UI.
 type NodeTypeCapacity struct {
 	// Total is the total number of nodes of this type
-	// +optional
-	Total int `json:"total,omitempty"`
+	Total int `json:"total"`
 
 	// Available is the number of available nodes of this type
-	// +optional
-	Available int `json:"available,omitempty"`
+	Available int `json:"available"`
 
 	// Provisioned is the number of already provisioned nodes of this type
-	// +optional
-	Provisioned int `json:"provisioned,omitempty"`
+	Provisioned int `json:"provisioned"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

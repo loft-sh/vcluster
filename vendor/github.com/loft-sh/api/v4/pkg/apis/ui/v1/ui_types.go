@@ -41,6 +41,10 @@ type UISettingsSpec struct {
 	// DefaultVClusterVersion is the default version of vClusters
 	DefaultVClusterVersion string `json:"defaultVClusterVersion,omitempty"`
 
+	// AvailableVClusterVersions lists all virtual cluster versions available to the platform instance
+	// +optional
+	AvailableVClusterVersions []VClusterVersion `json:"availableVClusterVersions,omitempty"`
+
 	// LoftHosted indicates whether the vCluster Platform instance
 	// is hosted and operated by Loft Labs Inc.
 	LoftHosted bool `json:"loftHosted,omitempty"`
@@ -137,4 +141,12 @@ type CspPolicy struct {
 	Connect string
 	Frame   string
 	Font    string
+}
+
+type VClusterVersion struct {
+	// TagName is the full tag name
+	Tag string `json:"tagName,omitempty"`
+
+	// PreRelease determines if the version is marked as prerelease
+	PreRelease bool `json:"prerelease,omitempty"`
 }
