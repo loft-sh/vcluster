@@ -409,7 +409,7 @@ jobs:
           VCLUSTER_BACKGROUND_PROXY_IMAGE=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} \
           CHART_DIR=$(git rev-parse --show-toplevel)/chart \
           go test -timeout 40m -mod=vendor -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast ${{ matrix.test-suite-path }}
-          if kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p >/dev/null 2>/dev/null; then
+          if kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 --since=1h >/dev/null 2>/dev/null; then
             echo "vCluster has restarted during testing, failing..."
             exit 1
           fi
