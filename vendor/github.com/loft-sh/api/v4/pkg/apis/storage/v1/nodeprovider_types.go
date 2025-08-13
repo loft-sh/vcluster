@@ -6,9 +6,9 @@ import (
 )
 
 const (
-	NodeProviderTypeBCM      string = "bcm"
-	NodeProviderTypePods     string = "pods"
-	NodeProviderTypeKubeVirt string = "kubeVirt"
+	NodeProviderTypeBCM       string = "bcm"
+	NodeProviderTypeKubeVirt  string = "kubeVirt"
+	NodeProviderTypeTerraform string = "terraform"
 
 	// NodeProviderConditionTypeInitialized is the condition that indicates if the node provider is initialized.
 	NodeProviderConditionTypeInitialized = "Initialized"
@@ -64,11 +64,6 @@ func (a *NodeProvider) SetConditions(conditions agentstoragev1.Conditions) {
 // NodeProviderSpec defines the desired state of NodeProvider.
 // Only one of the provider types (Pods, BCM, Kubevirt) should be specified at a time.
 type NodeProviderSpec struct {
-	// Pods configures a node provider based on Kubernetes Pods.
-	// This can be used for simpler, pod-based node provisioning for testing or demos.
-	// +optional
-	Pods *NodeProviderPods `json:"pods,omitempty"`
-
 	// BCM configures a node provider for BCM Bare Metal Cloud environments.
 	// +optional
 	BCM *NodeProviderBCM `json:"bcm,omitempty"`
@@ -78,15 +73,13 @@ type NodeProviderSpec struct {
 	// +optional
 	KubeVirt *NodeProviderKubeVirt `json:"kubeVirt,omitempty"`
 
+	// Terraform configures a node provider using Terraform, enabling nodes to be provisioned using Terraform.
+	// +optional
+	Terraform *NodeProviderTerraform `json:"terraform,omitempty"`
+
 	// DisplayName is the name that should be displayed in the UI
 	// +optional
 	DisplayName string `json:"displayName,omitempty"`
-}
-
-// NodeProviderPodsSpec defines the configuration for a pod-based node provider.
-type NodeProviderPods struct {
-	// Image is the container image to use for the pod-based node provider.
-	Image string `json:"image,omitempty"`
 }
 
 // NodeProviderBCMSpec defines the configuration for a BCM node provider.
@@ -99,6 +92,75 @@ type NodeProviderBCM struct {
 
 	// NodeTypes define NodeTypes that should be automatically created for this provider.
 	NodeTypes []BCMNodeTypeSpec `json:"nodeTypes,omitempty"`
+}
+
+type NodeProviderTerraform struct {
+	// NodeTemplate is the template to use for this node provider.
+	NodeTemplate *TerraformTemplate `json:"nodeTemplate,omitempty"`
+
+	// NodeEnvironmentTemplate is the template to use for this node environment.
+	NodeEnvironmentTemplate *TerraformTemplate `json:"nodeEnvironmentTemplate,omitempty"`
+
+	// NodeTypes define NodeTypes that should be automatically created for this provider.
+	NodeTypes []TerraformNodeTypeSpec `json:"nodeTypes,omitempty"`
+}
+
+type TerraformTemplate struct {
+	// Inline is the inline template to use for this node type.
+	Inline string `json:"inline,omitempty"`
+
+	// Git is the git repository to use for this node type.
+	Git *TerraformTemplateSourceGit `json:"git,omitempty"`
+
+	// Timeout is the timeout to use for the terraform operations. Defaults to 60m.
+	Timeout string `json:"timeout,omitempty"`
+
+	// DriftDetection is the drift detection configuration to use for this node type.
+	DriftDetection TerraformTemplateDriftDetection `json:"driftDetection,omitempty"`
+}
+
+type TerraformTemplateDriftDetection struct {
+	// Enabled is the flag to enable drift detection.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Interval is the interval to use for drift detection. Defaults to 10m.
+	Interval string `json:"interval,omitempty"`
+}
+
+type TerraformTemplateSourceGit struct {
+	// Repository is the repository to clone
+	Repository string `json:"repository,omitempty"`
+
+	// Branch is the branch to use
+	Branch string `json:"branch,omitempty"`
+
+	// Commit is the commit SHA to checkout
+	Commit string `json:"commit,omitempty"`
+
+	// SubPath is the subpath in the repo to use
+	SubPath string `json:"subPath,omitempty"`
+
+	// Username is the reference to a secret containing the username for the git repository.
+	Username *SecretRef `json:"username,omitempty"`
+
+	// Password is the reference to a secret containing the password for the git repository.
+	Password *SecretRef `json:"password,omitempty"`
+
+	// FetchInterval is the interval to use for refetching the git repository. Defaults to 5m. Refetching only checks for remote changes but does not do a complete repull.
+	FetchInterval string `json:"fetchInterval,omitempty"`
+
+	// ExtraEnv is the extra environment variables to use for the clone
+	ExtraEnv []string `json:"extraEnv,omitempty"`
+}
+
+type TerraformNodeTypeSpec struct {
+	NodeTypeSpec `json:",inline"`
+
+	// Name is the name of this node type.
+	Name string `json:"name"`
+
+	// NodeTemplate is the template to use for this node type.
+	NodeTemplate *TerraformTemplate `json:"nodeTemplate,omitempty"`
 }
 
 type BCMNodeTypeSpec struct {
@@ -122,17 +184,7 @@ type NamespacedRef struct {
 }
 
 // NodeProviderKubeVirt defines the configuration for a KubeVirt node provider.
-type NodeProviderKubeVirt struct {
-	// If KubeVirt is deployed inside one of the vClusters, reference this vCluster here.
-	// Otherwise it will be assumed to run in the same host cluster as platform.
-	// +optional
-	VirtualClusterRef *VirtualClusterClusterRef `json:"virtualClusterRef,omitempty"`
-
-	// TargetNamespace is the namespace within the KubeVirt cluster where the
-	// VirtualMachines and their secrets will be created.
-	// +optional
-	TargetNamespace string `json:"targetNamespace,omitempty"`
-}
+type NodeProviderKubeVirt struct{}
 
 // NodeProviderStatus defines the observed state of NodeProvider.
 type NodeProviderStatus struct {

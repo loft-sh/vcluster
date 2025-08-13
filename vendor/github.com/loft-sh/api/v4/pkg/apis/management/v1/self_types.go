@@ -67,6 +67,10 @@ type SelfStatus struct {
 	// +optional
 	InstanceID string `json:"instanceID,omitempty"`
 
+	// LoftHost is the host of the loft instance
+	// +optional
+	LoftHost string `json:"loftHost,omitempty"`
+
 	// ProjectNamespacePrefix is the prefix used to name project namespaces after defaulting has been applied
 	// +optional
 	ProjectNamespacePrefix *string `json:"projectNamespacePrefix,omitempty"`

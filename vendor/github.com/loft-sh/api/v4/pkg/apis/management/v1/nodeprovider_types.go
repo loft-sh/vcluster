@@ -13,6 +13,7 @@ import (
 // This resource defines various ways a node can be provisioned or configured.
 // +k8s:openapi-gen=true
 // +resource:path=nodeproviders,rest=NodeProviderREST,statusRest=NodeProviderStatusREST
+// +subresource:request=NodeProviderExec,path=exec,kind=NodeProviderExec,rest=NodeProviderExecREST
 type NodeProvider struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

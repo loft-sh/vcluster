@@ -23,6 +23,7 @@ type StorageV1Interface interface {
 	DevPodWorkspaceTemplatesGetter
 	NetworkPeersGetter
 	NodeClaimsGetter
+	NodeEnvironmentsGetter
 	NodeProvidersGetter
 	NodeTypesGetter
 	ProjectsGetter
@@ -83,6 +84,10 @@ func (c *StorageV1Client) NetworkPeers() NetworkPeerInterface {
 
 func (c *StorageV1Client) NodeClaims(namespace string) NodeClaimInterface {
 	return newNodeClaims(c, namespace)
+}
+
+func (c *StorageV1Client) NodeEnvironments(namespace string) NodeEnvironmentInterface {
+	return newNodeEnvironments(c, namespace)
 }
 
 func (c *StorageV1Client) NodeProviders() NodeProviderInterface {

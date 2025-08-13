@@ -8,15 +8,17 @@ import (
 
 const (
 	// NodeClaim conditions
-	ConditionTypeProvisioned = "Provisioned"
+	NodeClaimConditionTypeProvisioned = "Provisioned"
 	// ConditionTypeScheduled is the condition that indicates if the node claim is scheduled.
-	ConditionTypeScheduled = "Scheduled"
+	NodeClaimConditionTypeScheduled = "Scheduled"
+	// NodeClaimConditionTypeNotDrifted is the condition that indicates if the node claim is not drifted from the desired state.
+	NodeClaimConditionTypeNotDrifted = "NotDrifted"
 )
 
 var (
 	NodeClaimConditions = []agentstoragev1.ConditionType{
-		ConditionTypeProvisioned,
-		ConditionTypeScheduled,
+		NodeClaimConditionTypeProvisioned,
+		NodeClaimConditionTypeScheduled,
 	}
 )
 
@@ -85,6 +87,10 @@ type NodeClaimSpec struct {
 
 	// VClusterRef references source vCluster. This is required.
 	VClusterRef string `json:"vClusterRef"`
+
+	// ControlPlane indicates if the node claim is for a control plane node.
+	// +optional
+	ControlPlane bool `json:"controlPlane,omitempty"`
 }
 
 type NodeClaimStatus struct {

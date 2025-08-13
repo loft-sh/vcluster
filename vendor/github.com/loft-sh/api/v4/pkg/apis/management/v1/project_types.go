@@ -26,6 +26,7 @@ import (
 // +subresource:request=ProjectMigrateVirtualClusterInstance,path=migratevirtualclusterinstance,kind=ProjectMigrateVirtualClusterInstance,rest=ProjectMigrateVirtualClusterInstanceREST
 // +subresource:request=ProjectImportSpace,path=importspace,kind=ProjectImportSpace,rest=ProjectImportSpaceREST
 // +subresource:request=ProjectMigrateSpaceInstance,path=migratespaceinstance,kind=ProjectMigrateSpaceInstance,rest=ProjectMigrateSpaceInstanceREST
+// +subresource:request=ProjectNodeTypes,path=nodetypes,kind=ProjectNodeTypes,rest=ProjectNodeTypesREST
 type Project struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
