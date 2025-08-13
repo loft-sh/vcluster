@@ -619,11 +619,16 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			s3name,
 			"-n", f.VClusterNamespace,
 			"--local-chart-dir", os.Getenv("CHART_DIR"),
-			"--add=false")
+			"--add=false",
+			"--connect=false")
 
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err = cmd.Run()
+		framework.ExpectNoError(err)
+
+		// refresh the connection
+		err = f.RefreshVirtualClient()
 		framework.ExpectNoError(err)
 
 		// wait until vCluster is running
