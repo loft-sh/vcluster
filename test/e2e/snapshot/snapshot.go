@@ -626,10 +626,6 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		err = cmd.Run()
 		framework.ExpectNoError(err)
 
-		// refresh the connection
-		err = f.RefreshVirtualClient()
-		framework.ExpectNoError(err)
-
 		// wait until vCluster is running
 		err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (done bool, err error) {
 			newPods, _ := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(ctx, metav1.ListOptions{
