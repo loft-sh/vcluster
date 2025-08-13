@@ -44,6 +44,12 @@ type LicenseTokenExpansion interface{}
 
 type LoftUpgradeExpansion interface{}
 
+type NodeClaimExpansion interface{}
+
+type NodeProviderExpansion interface{}
+
+type NodeTypeExpansion interface{}
+
 type OIDCClientExpansion interface{}
 
 type OwnedAccessKeyExpansion interface{}
@@ -57,8 +63,6 @@ type RedirectTokenExpansion interface{}
 type RegisterVirtualClusterExpansion interface{}
 
 type ResetAccessKeyExpansion interface{}
-
-type RunnerExpansion interface{}
 
 type SelfExpansion interface{}
 

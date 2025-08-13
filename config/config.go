@@ -109,6 +109,163 @@ type PrivateNodes struct {
 
 	// JoinNode holds configuration specifically used during joining the node (see "kubeadm join").
 	JoinNode JoinConfiguration `json:"joinNode,omitempty"`
+
+	// NodePools stores karpenter node pool configuration
+	NodePools PrivateNodesNodePools `json:"nodePools,omitempty"`
+
+	// Tunnel holds configuration for the private nodes tunnel. This can be used to connect the private nodes to the control plane or
+	// connect the private nodes to each other if they are not running in the same network. Platform connection is required for the tunnel to work.
+	Tunnel PrivateNodesTunnel `json:"tunnel,omitempty"`
+}
+
+type PrivateNodesTunnel struct {
+	// Enabled defines if the private nodes tunnel should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// NodeToNode holds configuration for the node to node tunnel. This can be used to connect the private nodes to each other if they are not running in the same network.
+	NodeToNode PrivateNodesTunnelNodeToNode `json:"nodeToNode,omitempty"`
+}
+
+type PrivateNodesTunnelNodeToNode struct {
+	// Enabled defines if the node to node tunnel should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// PrivateNodesNodePools defines node pools
+type PrivateNodesNodePools struct {
+	// Static defines static node pools. Static node pools have a fixed size and are not scaled automatically.
+	Static []StaticNodePool `json:"static,omitempty"`
+
+	// Dynamic defines dynamic node pools. Dynamic node pools are scaled automatically based on the requirements within the cluster.
+	// Karpenter is used under the hood to handle the scheduling of the nodes.
+	Dynamic []DynamicNodePool `json:"dynamic,omitempty"`
+}
+
+type DynamicNodePool struct {
+	// Name is the name of this NodePool
+	Name string `json:"name" jsonschema:"required"`
+
+	// Requirements filter the types of nodes that can be provisioned by this pool.
+	// All requirements must be met for a node type to be eligible.
+	Requirements []Requirement `json:"requirements,omitempty"`
+
+	// Taints are the taints to apply to the nodes in this pool.
+	Taints []KubeletJoinTaint `json:"taints,omitempty"`
+
+	// NodeLabels are the labels to apply to the nodes in this pool.
+	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
+
+	// Limits specify the maximum resources that can be provisioned by this node pool,
+	// mapping to the 'limits' field in Karpenter's NodePool API.
+	Limits map[string]string `json:"limits,omitempty"`
+
+	// Disruption contains the parameters that relate to Karpenter's disruption logic
+	Disruption DynamicNodePoolDisruption `json:"disruption,omitempty"`
+
+	// TerminationGracePeriod is the maximum duration the controller will wait before forcefully deleting the pods on a node, measured from when deletion is first initiated.
+	//
+	// Warning: this feature takes precedence over a Pod's terminationGracePeriodSeconds value, and bypasses any blocked PDBs or the karpenter.sh/do-not-disrupt annotation.
+	//
+	// This field is intended to be used by cluster administrators to enforce that nodes can be cycled within a given time period.
+	// When set, drifted nodes will begin draining even if there are pods blocking eviction. Draining will respect PDBs and the do-not-disrupt annotation until the TGP is reached.
+	//
+	// Karpenter will preemptively delete pods so their terminationGracePeriodSeconds align with the node's terminationGracePeriod.
+	// If a pod would be terminated without being granted its full terminationGracePeriodSeconds prior to the node timeout,
+	// that pod will be deleted at T = node timeout - pod terminationGracePeriodSeconds.
+	//
+	// The feature can also be used to allow maximum time limits for long-running jobs which can delay node termination with preStop hooks.
+	// Defaults to 30s. Set to Never to wait indefinitely for pods to be drained.
+	TerminationGracePeriod string `json:"terminationGracePeriod,omitempty"`
+
+	// The amount of time a Node can live on the cluster before being removed
+	ExpireAfter string `json:"expireAfter,omitempty"`
+
+	// Weight is the weight of this node pool.
+	Weight int `json:"weight,omitempty"`
+}
+
+type DynamicNodePoolDisruption struct {
+	// ConsolidateAfter is the duration the controller will wait
+	// before attempting to terminate nodes that are underutilized.
+	// Refer to ConsolidationPolicy for how underutilization is considered.
+	ConsolidateAfter string `json:"consolidateAfter,omitempty"`
+
+	// ConsolidationPolicy describes which nodes Karpenter can disrupt through its consolidation
+	// algorithm. This policy defaults to "WhenEmptyOrUnderutilized" if not specified
+	ConsolidationPolicy string `json:"consolidationPolicy,omitempty"`
+
+	// Budgets is a list of Budgets.
+	// If there are multiple active budgets, Karpenter uses
+	// the most restrictive value. If left undefined,
+	// this will default to one budget with a value to 10%.
+	Budgets []DynamicNodePoolDisruptionBudget `json:"budgets,omitempty"`
+}
+type DynamicNodePoolDisruptionBudget struct {
+	// Nodes dictates the maximum number of NodeClaims owned by this NodePool
+	// that can be terminating at once. This is calculated by counting nodes that
+	// have a deletion timestamp set, or are actively being deleted by Karpenter.
+	// This field is required when specifying a budget.
+	Nodes string `json:"nodes,omitempty"`
+
+	// Schedule specifies when a budget begins being active, following
+	// the upstream cronjob syntax. If omitted, the budget is always active.
+	// Timezones are not supported.
+	Schedule string `json:"schedule,omitempty"`
+
+	// Duration determines how long a Budget is active since each Schedule hit.
+	// Only minutes and hours are accepted, as cron does not work in seconds.
+	// If omitted, the budget is always active.
+	// This is required if Schedule is set.
+	Duration string `json:"duration,omitempty"`
+}
+
+type StaticNodePool struct {
+	// Name is the name of this static nodePool
+	Name string `json:"name" jsonschema:"required"`
+
+	// Requirements filter the types of nodes that can be provisioned by this pool.
+	// All requirements must be met for a node type to be eligible.
+	Requirements []Requirement `json:"requirements,omitempty"`
+
+	// Taints are the taints to apply to the nodes in this pool.
+	Taints []KubeletJoinTaint `json:"taints,omitempty"`
+
+	// NodeLabels are the labels to apply to the nodes in this pool.
+	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
+
+	// TerminationGracePeriod is the maximum duration the controller will wait before forcefully deleting the pods on a node, measured from when deletion is first initiated.
+	//
+	// Warning: this feature takes precedence over a Pod's terminationGracePeriodSeconds value, and bypasses any blocked PDBs or the karpenter.sh/do-not-disrupt annotation.
+	//
+	// This field is intended to be used by cluster administrators to enforce that nodes can be cycled within a given time period.
+	// When set, drifted nodes will begin draining even if there are pods blocking eviction. Draining will respect PDBs and the do-not-disrupt annotation until the TGP is reached.
+	//
+	// Karpenter will preemptively delete pods so their terminationGracePeriodSeconds align with the node's terminationGracePeriod.
+	// If a pod would be terminated without being granted its full terminationGracePeriodSeconds prior to the node timeout,
+	// that pod will be deleted at T = node timeout - pod terminationGracePeriodSeconds.
+	//
+	// The feature can also be used to allow maximum time limits for long-running jobs which can delay node termination with preStop hooks.
+	// Defaults to 30s. Set to Never to wait indefinitely for pods to be drained.
+	TerminationGracePeriod string `json:"terminationGracePeriod,omitempty"`
+
+	// Quantity is the number of desired nodes in this pool.
+	Quantity int `json:"quantity" jsonschema:"required"`
+}
+
+// KarpenterRequirement defines a scheduling requirement for a dynamic node pool.
+// It corresponds to an entry in the 'requirements' list of a Karpenter NodePool.
+type Requirement struct {
+	// Property is the property on the node type to select.
+	Property string `json:"property" jsonschema:"required"`
+
+	// Operator is the comparison operator, such as "In", "NotIn", "Exists". If empty, defaults to "In".
+	Operator string `json:"operator,omitempty"`
+
+	// Values is the list of values to use for comparison. This is mutually exclusive with value.
+	Values []string `json:"values,omitempty"`
+
+	// Value is the value to use for comparison. This is mutually exclusive with values.
+	Value string `json:"value,omitempty"`
 }
 
 type Deploy struct {
@@ -183,8 +340,20 @@ type Standalone struct {
 	// Bundle is a path to a Kubernetes bundle to use for the standalone mode. If empty, will use the bundleRepository to download the bundle.
 	Bundle string `json:"bundle,omitempty"`
 
+	// Nodes is a list of nodes to deploy for standalone mode.
+	Nodes StandaloneNodes `json:"nodes,omitempty"`
+
 	// JoinNode holds configuration for the standalone control plane node.
 	JoinNode StandaloneJoinNode `json:"joinNode,omitempty"`
+}
+
+type StandaloneNodes struct {
+	// Quantity is the number of nodes to deploy for standalone mode.
+	Quantity int `json:"quantity,omitempty"`
+
+	// Requirements filter the types of nodes that can be provisioned by this pool.
+	// All requirements must be met for a node type to be eligible.
+	Requirements []Requirement `json:"requirements,omitempty"`
 }
 
 type StandaloneSyncConfig struct {

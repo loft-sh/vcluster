@@ -440,7 +440,13 @@ privateNodes:
   joinNode:
     containerd:
       enabled: true
-
+  nodePools:
+    static: []
+    dynamic: []
+  tunnel:
+    enabled: false
+    nodeToNode:
+      enabled: false
 deploy:
   localPathProvisioner:
     enabled: true

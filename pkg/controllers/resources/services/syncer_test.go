@@ -447,7 +447,7 @@ func TestSync(t *testing.T) {
 				vObj := baseService.DeepCopy()
 				result, err := syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(baseService.DeepCopy(), pObj, vObj, vObj))
 				assert.NilError(t, err)
-				assert.Equal(t, result.Requeue, true)
+				assert.Equal(t, result.Requeue, true) //nolint:staticcheck
 
 				err = ctx.VirtualManager.GetClient().Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: vObj.Name}, vObj)
 				assert.NilError(t, err)

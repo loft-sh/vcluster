@@ -12,7 +12,7 @@ require (
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/docker/cli v28.2.2+incompatible
 	github.com/docker/docker v28.3.3+incompatible
-	github.com/evanphx/json-patch/v5 v5.9.0
+	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-openapi/loads v0.22.0
@@ -24,24 +24,24 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/invopop/jsonschema v0.12.0
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
-	github.com/loft-sh/admin-apis v0.0.0-20250429193833-4e0a455c33dd
-	github.com/loft-sh/agentapi/v4 v4.3.0-alpha.39
+	github.com/loft-sh/admin-apis v0.0.0-20250521064618-068d5f25cdae
+	github.com/loft-sh/agentapi/v4 v4.4.0-next.0
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
-	github.com/loft-sh/api/v4 v4.3.0-alpha.32
+	github.com/loft-sh/api/v4 v4.4.0-next.0
 	github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.5.2
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/ginkgo/v2 v2.21.0
-	github.com/onsi/gomega v1.35.1
+	github.com/onsi/ginkgo/v2 v2.23.4
+	github.com/onsi/gomega v1.37.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.62.0
 	github.com/rhysd/go-github-selfupdate v1.2.3
-	github.com/samber/lo v1.38.1
+	github.com/samber/lo v1.51.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/spf13/cobra v1.9.1
@@ -56,12 +56,12 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
 	gotest.tools/v3 v3.5.2
-	k8s.io/api v0.33.1
+	k8s.io/api v0.33.2
 	k8s.io/apiextensions-apiserver v0.33.1
-	k8s.io/apimachinery v0.33.1
+	k8s.io/apimachinery v0.33.2
 	k8s.io/apiserver v0.33.1
 	k8s.io/cli-runtime v0.33.1
-	k8s.io/client-go v0.33.1
+	k8s.io/client-go v0.33.2
 	k8s.io/cluster-bootstrap v0.33.1
 	k8s.io/component-helpers v0.33.1
 	k8s.io/klog/v2 v2.130.1
@@ -74,8 +74,8 @@ require (
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
 	modernc.org/sqlite v1.29.10
 	oras.land/oras-go/v2 v2.5.0
-	sigs.k8s.io/controller-runtime v0.20.1
-	sigs.k8s.io/yaml v1.4.0
+	sigs.k8s.io/controller-runtime v0.21.0
+	sigs.k8s.io/yaml v1.5.0
 )
 
 require (
@@ -137,7 +137,7 @@ require (
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lithammer/dedent v1.1.0 // indirect
-	github.com/loft-sh/apiserver v0.0.0-20250206205835-422f1d472459 // indirect
+	github.com/loft-sh/apiserver v0.0.0-20250704091321-0966a6ee77b2 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
@@ -168,6 +168,9 @@ require (
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.34.0 // indirect
+	go.uber.org/automaxprocs v1.6.0 // indirect
+	go.yaml.in/yaml/v2 v2.4.2 // indirect
+	go.yaml.in/yaml/v3 v3.0.3 // indirect
 	golang.org/x/sync v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4 // indirect
@@ -216,7 +219,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-github/v30 v30.1.0
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect
+	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
@@ -266,7 +269,7 @@ require (
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.26.0 // indirect
-	golang.org/x/time v0.11.0 // indirect
+	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.33.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
