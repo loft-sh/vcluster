@@ -11,6 +11,7 @@ on:
         description: "The git ref to checkout"
         required: true
         type: string
+  workflow_dispatch:
 
 jobs:
   publish-chart:
@@ -34,10 +35,11 @@ jobs:
       - name: Publish Helm chart
         run: |
           set -euo pipefail
-          echo "Publishing Helm chart for version ${{ inputs.release_version }}"
+          CHART_VERSION=$(echo "${{ inputs.release_version }}" | sed -nE 's!^v(.*)!\1!p')
+          echo "Publishing Helm chart for version $CHART_VERSION"
           helm plugin install https://github.com/chartmuseum/helm-push.git || true
-          helm repo add chartmuseum $CHART_MUSEUM_URL --username $CHART_MUSEUM_USER --password $CHART_MUSEUM_PASSWORD
-          helm cm-push --force --version="${{ inputs.release_version }}" --app-version="${{ inputs.release_version }}" chart chartmuseum
+          helm repo add chartmuseum "$CHART_MUSEUM_URL" --username "$CHART_MUSEUM_USER" --password "$CHART_MUSEUM_PASSWORD"
+          helm cm-push --force --version="$CHART_VERSION" --app-version="$CHART_VERSION" chart chartmuseum
         env:
           CHART_MUSEUM_URL: "https://charts.loft.sh/"
           CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
