@@ -712,10 +712,6 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 	})
 
 	ginkgo.AfterAll(func() {
-		// delete the snapshot pvc
-		err := f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(f.Context, pvc.Name, metav1.DeleteOptions{})
-		framework.ExpectNoError(err)
-
 		gomega.Eventually(func() error {
 			// create namespace
 			_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{
@@ -739,7 +735,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			Should(gomega.Succeed())
 
 		// delete the namespace
-		err = f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, "snapshot-test", metav1.DeleteOptions{})
+		err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, "snapshot-test", metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 	})
 
