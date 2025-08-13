@@ -609,6 +609,15 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		err = cmd.Run()
 		framework.ExpectNoError(err)
 
+		ginkgo.By("Check vcluster namespace is deleted")
+		gomega.Eventually(func() bool {
+			_, err := f.HostClient.CoreV1().Namespaces().Get(f.Context, f.VClusterNamespace, metav1.GetOptions{})
+
+			return kerrors.IsNotFound(err)
+		}).WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.BeTrue(), "Namespace should be deleted")
+
 		// now restore and create the vCluster
 		ginkgo.By("Restore and create vCluster")
 		cmd = exec.Command(
