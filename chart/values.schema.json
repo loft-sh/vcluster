@@ -276,6 +276,10 @@
           "type": "array",
           "description": "Capabilities is a list of capabilities to enable for the containerd registry mirror. If empty, will use pull and resolve capabilities."
         },
+        "overridePath": {
+          "type": "boolean",
+          "description": "OverridePath is a boolean to override the path for the containerd registry mirror."
+        },
         "hosts": {
           "items": {
             "$ref": "#/$defs/ContainerdMirrorHost"
@@ -310,6 +314,10 @@
           },
           "type": "array",
           "description": "Capabilities is a list of capabilities to enable for the containerd registry mirror. If empty, will use pull and resolve capabilities."
+        },
+        "overridePath": {
+          "type": "boolean",
+          "description": "OverridePath is a boolean to override the path for the containerd registry mirror."
         }
       },
       "additionalProperties": false,
@@ -327,6 +335,35 @@
           },
           "type": "object",
           "description": "Mirrors holds configuration for the containerd registry mirrors. E.g. myregistry.io:5000 or docker.io. See https://github.com/containerd/containerd/blob/main/docs/hosts.md for more details."
+        },
+        "auth": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ContainerdRegistryAuth"
+          },
+          "type": "object",
+          "description": "Auth holds configuration for the containerd registry auth. See https://github.com/containerd/containerd/blob/main/docs/cri/registry.md#configure-registry-credentials for more details."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ContainerdRegistryAuth": {
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "Username is the username for the containerd registry."
+        },
+        "password": {
+          "type": "string",
+          "description": "Password is the password for the containerd registry."
+        },
+        "identityToken": {
+          "type": "string",
+          "description": "IdentityToken is the token for the containerd registry."
+        },
+        "auth": {
+          "type": "string",
+          "description": "Auth is the auth config for the containerd registry."
         }
       },
       "additionalProperties": false,

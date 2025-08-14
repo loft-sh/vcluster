@@ -242,6 +242,23 @@ type ContainerdRegistry struct {
 
 	// Mirrors holds configuration for the containerd registry mirrors. E.g. myregistry.io:5000 or docker.io. See https://github.com/containerd/containerd/blob/main/docs/hosts.md for more details.
 	Mirrors map[string]ContainerdMirror `json:"mirrors,omitempty"`
+
+	// Auth holds configuration for the containerd registry auth. See https://github.com/containerd/containerd/blob/main/docs/cri/registry.md#configure-registry-credentials for more details.
+	Auth map[string]ContainerdRegistryAuth `json:"auth,omitempty"`
+}
+
+type ContainerdRegistryAuth struct {
+	// Username is the username for the containerd registry.
+	Username string `json:"username,omitempty"`
+
+	// Password is the password for the containerd registry.
+	Password string `json:"password,omitempty"`
+
+	// IdentityToken is the token for the containerd registry.
+	IdentityToken string `json:"identityToken,omitempty"`
+
+	// Auth is the auth config for the containerd registry.
+	Auth string `json:"auth,omitempty"`
 }
 
 type ContainerdMirror struct {
@@ -256,6 +273,9 @@ type ContainerdMirror struct {
 
 	// Capabilities is a list of capabilities to enable for the containerd registry mirror. If empty, will use pull and resolve capabilities.
 	Capabilities []string `json:"capabilities,omitempty"`
+
+	// OverridePath is a boolean to override the path for the containerd registry mirror.
+	OverridePath bool `json:"overridePath,omitempty"`
 
 	// Hosts holds configuration for the containerd registry mirror hosts. See https://github.com/containerd/containerd/blob/main/docs/hosts.md for more details.
 	Hosts []ContainerdMirrorHost `json:"hosts,omitempty"`
@@ -273,6 +293,9 @@ type ContainerdMirrorHost struct {
 
 	// Capabilities is a list of capabilities to enable for the containerd registry mirror. If empty, will use pull and resolve capabilities.
 	Capabilities []string `json:"capabilities,omitempty"`
+
+	// OverridePath is a boolean to override the path for the containerd registry mirror.
+	OverridePath bool `json:"overridePath,omitempty"`
 }
 
 type NodeRegistration struct {
