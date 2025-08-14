@@ -31,7 +31,7 @@ jobs:
             final_tag=${{ github.event.release.tag_name }}
           fi
           echo "release_tag=${final_tag}" >> "$GITHUB_OUTPUT"
-          if [[ ${final_tag} == *"-alpha."* ]]; then
+          if [[ ${final_tag} == *"-alpha."*  || ${final_tag} == *"-next."* ]]; then
             echo "is_alpha_version=true" >> "$GITHUB_OUTPUT"
             echo "is_stable_version=false" >> "$GITHUB_OUTPUT"
           else
