@@ -20,13 +20,6 @@ controlPlane:
   statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady
-    image:
-      registry: ""
-      repository: ghcr.io/loft-sh/loft-enterprise/vcluster
-      tag: ""
-    env:
-      - name: DEBUG
-        value: "true"
 
 networking:
   advanced:
