@@ -34,7 +34,7 @@
   command:
     - cp
   args:
-    - -a
+    - -r 
     - /kubernetes/.
     - /binaries/
   {{- if .Values.controlPlane.distro.k8s.imagePullPolicy }}
