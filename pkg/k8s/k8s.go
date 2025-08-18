@@ -156,6 +156,9 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 					args = append(args, "--controllers=*,bootstrapsigner,tokencleaner")
 					args = append(args, "--allocate-node-cidrs=true")
 					args = append(args, "--cluster-cidr="+vConfig.Networking.PodCIDR)
+					// we set cloud provider to external as we either want to use an external cloud controller manager
+					// such as AWS or GCP or we fallback to our in-built cloud controller manager.
+					args = append(args, "--cloud-provider=external")
 				} else if vConfig.IsVirtualSchedulerEnabled() {
 					args = append(args, "--controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl")
 					args = append(args, "--node-monitor-grace-period=1h")

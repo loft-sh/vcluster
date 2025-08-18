@@ -422,6 +422,9 @@ controlPlane:
         extraEnv: []
         extraArgs: []
 
+    cloudControllerManager:
+      enabled: true
+
     registry:
       enabled: false
       anonymousPull: true

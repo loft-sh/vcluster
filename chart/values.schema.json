@@ -206,6 +206,16 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CloudControllerManager": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the embedded cloud controller manager should be enabled. This defaults to true, but can be disabled if you want to use\nan external cloud controller manager such as AWS or GCP. The cloud controller manager is responsible for setting the node's ip addresses as well\nas the provider id for the node and other node metadata."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ClusterIssuersSyncConfig": {
       "properties": {
         "enabled": {
@@ -453,6 +463,10 @@
         "registry": {
           "$ref": "#/$defs/Registry",
           "description": "Registry allows enabling an embedded docker image registry in vCluster. This is useful for air-gapped environments or when you don't have a public registry available to distribute images."
+        },
+        "cloudControllerManager": {
+          "$ref": "#/$defs/CloudControllerManager",
+          "description": "CloudControllerManager holds configuration for the embedded cloud controller manager. This is only available when private nodes are enabled.\nThe cloud controller manager is responsible for setting the node's ip addresses as well as the provider id for the node and other node metadata."
         },
         "globalMetadata": {
           "$ref": "#/$defs/ControlPlaneGlobalMetadata",

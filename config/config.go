@@ -118,6 +118,13 @@ type PrivateNodes struct {
 	Tunnel PrivateNodesTunnel `json:"tunnel,omitempty"`
 }
 
+type CloudControllerManager struct {
+	// Enabled defines if the embedded cloud controller manager should be enabled. This defaults to true, but can be disabled if you want to use
+	// an external cloud controller manager such as AWS or GCP. The cloud controller manager is responsible for setting the node's ip addresses as well
+	// as the provider id for the node and other node metadata.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
 type PrivateNodesTunnel struct {
 	// Enabled defines if the private nodes tunnel should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
@@ -2326,6 +2333,10 @@ type ControlPlaneAdvanced struct {
 
 	// Registry allows enabling an embedded docker image registry in vCluster. This is useful for air-gapped environments or when you don't have a public registry available to distribute images.
 	Registry Registry `json:"registry,omitempty"`
+
+	// CloudControllerManager holds configuration for the embedded cloud controller manager. This is only available when private nodes are enabled.
+	// The cloud controller manager is responsible for setting the node's ip addresses as well as the provider id for the node and other node metadata.
+	CloudControllerManager CloudControllerManager `json:"cloudControllerManager,omitempty"`
 
 	// GlobalMetadata is metadata that will be added to all resources deployed by Helm.
 	GlobalMetadata ControlPlaneGlobalMetadata `json:"globalMetadata,omitempty"`
