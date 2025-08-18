@@ -334,18 +334,8 @@ type Standalone struct {
 	// Enabled defines if standalone mode should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// SyncConfig allows controlling the vCluster config through a secret "vcluster-config" in the namespace "kube-system". vCluster will watch for changes in this secret and
-	// update the local config accordingly and restart vCluster if needed.
-	SyncConfig StandaloneSyncConfig `json:"syncConfig,omitempty"`
-
 	// DataDir defines the data directory for the standalone mode.
 	DataDir string `json:"dataDir,omitempty"`
-
-	// BundleRepository is the repository to use for downloading the Kubernetes bundle. Defaults to https://github.com/loft-sh/kubernetes/releases/download
-	BundleRepository string `json:"bundleRepository,omitempty"`
-
-	// Bundle is a path to a Kubernetes bundle to use for the standalone mode. If empty, will use the bundleRepository to download the bundle.
-	Bundle string `json:"bundle,omitempty"`
 
 	// Nodes is a list of nodes to deploy for standalone mode.
 	Nodes StandaloneNodes `json:"nodes,omitempty"`
@@ -361,11 +351,6 @@ type StandaloneNodes struct {
 	// Requirements filter the types of nodes that can be provisioned by this pool.
 	// All requirements must be met for a node type to be eligible.
 	Requirements []Requirement `json:"requirements,omitempty"`
-}
-
-type StandaloneSyncConfig struct {
-	// Enabled defines if config syncing should be enabled.
-	Enabled bool `json:"enabled,omitempty"`
 }
 
 type StandaloneJoinNode struct {
