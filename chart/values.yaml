@@ -553,13 +553,6 @@ controlPlane:
   standalone:
     # DataDir defines the data directory for the standalone mode.
     dataDir: "/var/lib/vcluster"
-    # BundleRepository is the repository to use for downloading the Kubernetes bundle. Defaults to https://github.com/loft-sh/kubernetes/releases/download
-    bundleRepository: "https://github.com/loft-sh/kubernetes/releases/download"
-    # SyncConfig allows controlling the vCluster config through a secret "vcluster-config" in the namespace "kube-system". vCluster will watch for changes in this secret and
-    # update the local config accordingly and restart vCluster if needed.
-    syncConfig:
-      # Enabled defines if config syncing should be enabled.
-      enabled: true
     # JoinNode holds configuration for the standalone control plane node.
     joinNode:
       # Enabled defines if the standalone node should be joined into the cluster. If false, only the control plane binaries will be executed and no node will show up in the actual cluster.
@@ -774,6 +767,13 @@ controlPlane:
         extraEnv: []
         # ExtraArgs are additional arguments to pass to the konnectivity agent.
         extraArgs: []
+    # CloudControllerManager holds configuration for the embedded cloud controller manager. This is only available when private nodes are enabled.
+    # The cloud controller manager is responsible for setting the node's ip addresses as well as the provider id for the node and other node metadata.
+    cloudControllerManager:
+      # Enabled defines if the embedded cloud controller manager should be enabled. This defaults to true, but can be disabled if you want to use
+      # an external cloud controller manager such as AWS or GCP. The cloud controller manager is responsible for setting the node's ip addresses as well
+      # as the provider id for the node and other node metadata.
+      enabled: true
     # Registry allows enabling an embedded docker image registry in vCluster. This is useful for air-gapped environments or when you don't have a public registry available to distribute images.
     registry:
       # Enabled defines if the embedded registry should be enabled.

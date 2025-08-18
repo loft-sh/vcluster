@@ -118,6 +118,13 @@ type PrivateNodes struct {
 	Tunnel PrivateNodesTunnel `json:"tunnel,omitempty"`
 }
 
+type CloudControllerManager struct {
+	// Enabled defines if the embedded cloud controller manager should be enabled. This defaults to true, but can be disabled if you want to use
+	// an external cloud controller manager such as AWS or GCP. The cloud controller manager is responsible for setting the node's ip addresses as well
+	// as the provider id for the node and other node metadata.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
 type PrivateNodesTunnel struct {
 	// Enabled defines if the private nodes tunnel should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
@@ -327,18 +334,8 @@ type Standalone struct {
 	// Enabled defines if standalone mode should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// SyncConfig allows controlling the vCluster config through a secret "vcluster-config" in the namespace "kube-system". vCluster will watch for changes in this secret and
-	// update the local config accordingly and restart vCluster if needed.
-	SyncConfig StandaloneSyncConfig `json:"syncConfig,omitempty"`
-
 	// DataDir defines the data directory for the standalone mode.
 	DataDir string `json:"dataDir,omitempty"`
-
-	// BundleRepository is the repository to use for downloading the Kubernetes bundle. Defaults to https://github.com/loft-sh/kubernetes/releases/download
-	BundleRepository string `json:"bundleRepository,omitempty"`
-
-	// Bundle is a path to a Kubernetes bundle to use for the standalone mode. If empty, will use the bundleRepository to download the bundle.
-	Bundle string `json:"bundle,omitempty"`
 
 	// Nodes is a list of nodes to deploy for standalone mode.
 	Nodes StandaloneNodes `json:"nodes,omitempty"`
@@ -354,11 +351,6 @@ type StandaloneNodes struct {
 	// Requirements filter the types of nodes that can be provisioned by this pool.
 	// All requirements must be met for a node type to be eligible.
 	Requirements []Requirement `json:"requirements,omitempty"`
-}
-
-type StandaloneSyncConfig struct {
-	// Enabled defines if config syncing should be enabled.
-	Enabled bool `json:"enabled,omitempty"`
 }
 
 type StandaloneJoinNode struct {
@@ -2326,6 +2318,10 @@ type ControlPlaneAdvanced struct {
 
 	// Registry allows enabling an embedded docker image registry in vCluster. This is useful for air-gapped environments or when you don't have a public registry available to distribute images.
 	Registry Registry `json:"registry,omitempty"`
+
+	// CloudControllerManager holds configuration for the embedded cloud controller manager. This is only available when private nodes are enabled.
+	// The cloud controller manager is responsible for setting the node's ip addresses as well as the provider id for the node and other node metadata.
+	CloudControllerManager CloudControllerManager `json:"cloudControllerManager,omitempty"`
 
 	// GlobalMetadata is metadata that will be added to all resources deployed by Helm.
 	GlobalMetadata ControlPlaneGlobalMetadata `json:"globalMetadata,omitempty"`
