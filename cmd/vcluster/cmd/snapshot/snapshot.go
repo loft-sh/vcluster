@@ -375,14 +375,10 @@ func startEmbeddedEtcd(ctx context.Context, vConfig *config.VirtualClusterConfig
 
 	stop, err := pro.StartEmbeddedEtcd(
 		ctx,
-		vConfig.Name,
-		vConfig.HostNamespace,
-		vConfig.HostClient,
+		vConfig,
 		certificatesDir,
-		vConfig.ControlPlane.BackingStore.Etcd.Embedded.SnapshotCount,
 		"",
 		false,
-		vConfig.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
 		true,
 	)
 	if err != nil {
