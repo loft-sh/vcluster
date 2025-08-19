@@ -1,6 +1,3 @@
-ARG KINE_VERSION="v0.13.14"
-FROM rancher/kine:${KINE_VERSION} AS kine
-
 # Build program
 FROM golang:1.24 AS builder
 
@@ -9,19 +6,12 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG BUILD_VERSION=dev
 ARG TELEMETRY_PRIVATE_KEY=""
-ARG HELM_VERSION="v3.17.3"
 
 # Install kubectl for development
 RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl && chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl
 
-# Install helm binary
-RUN curl -s https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz > helm3.tar.gz && tar -zxvf helm3.tar.gz linux-${TARGETARCH}/helm && chmod +x linux-${TARGETARCH}/helm && mv linux-${TARGETARCH}/helm /usr/local/bin/helm && rm helm3.tar.gz && rm -R linux-${TARGETARCH}
-
 # Install Delve for debugging
 RUN if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "arm64" ]; then go install github.com/go-delve/delve/cmd/dlv@latest; fi
-
-# Install kine
-COPY --from=kine /bin/kine /usr/local/bin/kine
 
 # Copy the Go Modules manifests
 COPY go.mod go.mod
@@ -65,9 +55,7 @@ RUN apk add --no-cache ca-certificates zstd tzdata
 # Set root path as working directory
 WORKDIR /
 
-COPY --from=kine /bin/kine /usr/local/bin/kine
 COPY --from=builder /vcluster .
-COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
 
 # RUN useradd -u 12345 nonroot
 # USER nonroot
