@@ -1,0 +1,46 @@
+controlPlane:
+  backingStore:
+    etcd:
+      deploy:
+        enabled: true
+        statefulSet:
+          image:
+            tag: 3.5.21-0
+  distro:
+    k8s:
+      apiServer:
+        extraArgs:
+          - --service-account-jwks-uri=https://kubernetes.default.svc.cluster.local/openid/v1/jwks
+        enabled: true
+      controllerManager:
+        enabled: true
+      image:
+        tag: v1.33.1
+      enabled: true
+      scheduler:
+        enabled: true
+  statefulSet:
+    scheduling:
+      podManagementPolicy: OrderedReady
+  service:
+    spec:
+      type: LoadBalancer
+networking:
+  advanced:
+    proxyKubelets:
+      byHostname: false
+      byIP: false
+    # Specify the pod cidr
+  podCIDR: 10.64.0.0/16
+  # Specify the service cidr
+  serviceCIDR: 10.128.0.0/16
+
+sync:
+  fromHost:
+    nodes:
+      enabled: true
+      selector:
+        all: true
+# Enable private nodes
+privateNodes:
+  enabled: true
