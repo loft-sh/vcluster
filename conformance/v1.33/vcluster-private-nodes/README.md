@@ -11,7 +11,16 @@ We executed the test on a minikube instance with docker driver
 minikube start --kubernetes-version 1.33.1 --nodes=2
 ```
 
-## 2. Create the vcluster
+## 2. Start vcluster platform
+
+Start vcluster platform using `vcluster version 0.27.0` (latest) using
+the following command:
+
+```bash
+vcluster platform start
+```
+
+## 3. Create the vcluster
 
 Create a file called `vcluster.yaml` with the following content:
 
@@ -69,12 +78,12 @@ the following command:
 vcluster create vcluster -n vcluster -f vcluster.yaml
 ```
 
-## 3. Add private nodes to vcluster
+## 4. Add private nodes to vcluster
 
 Follow the [private nodes](https://www.vcluster.com/docs/vcluster/deploy/worker-nodes/private-nodes/join) documentation to
 add 2 private nodes to vcluster.
 
-## 4. Run Tests
+## 5. Run Tests
 
 Download a binary release of the CLI, or build it yourself by running:
 
@@ -85,7 +94,7 @@ go install github.com/vmware-tanzu/sonobuoy@latest
 Deploy a Sonobuoy pod to your cluster with:
 
 ```bash
-sonobuoy run --mode=certified-conformance
+sonobuoy run --mode=certified-conformance --dns-pod-labels=k8s-app=vcluster-kube-dns
 ```
 
 View actively running pods:

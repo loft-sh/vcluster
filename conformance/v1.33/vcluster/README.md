@@ -83,7 +83,7 @@ go install github.com/vmware-tanzu/sonobuoy@latest
 Deploy a Sonobuoy pod to your cluster with:
 
 ```bash
-sonobuoy run --mode=certified-conformance
+sonobuoy run --mode=certified-conformance --dns-pod-labels=k8s-app=vcluster-kube-dns
 ```
 
 View actively running pods:
