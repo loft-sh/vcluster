@@ -48,7 +48,7 @@ func NewSyncerPatcher(ctx *synccontext.SyncContext, pObj, vObj client.Object, op
 	vPatcher.direction = synccontext.SyncHostToVirtual
 
 	// host cluster patcher
-	pPatcher, err := NewPatcher(pObj, ctx.PhysicalClient, options...)
+	pPatcher, err := NewPatcher(pObj, ctx.HostClient, options...)
 	if err != nil {
 		return nil, fmt.Errorf("create virtual patcher: %w", err)
 	}

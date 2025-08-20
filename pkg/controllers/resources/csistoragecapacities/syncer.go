@@ -34,13 +34,13 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 
 		storageClassSyncEnabled:     ctx.Config.Sync.ToHost.StorageClasses.Enabled,
 		hostStorageClassSyncEnabled: ctx.Config.Sync.FromHost.StorageClasses.Enabled == "true",
-		physicalClient:              ctx.PhysicalManager.GetClient(),
+		hostClient:                  ctx.HostManager.GetClient(),
 	}, nil
 }
 
 type csistoragecapacitySyncer struct {
 	synccontext.Mapper
-	physicalClient              client.Client
+	hostClient                  client.Client
 	storageClassSyncEnabled     bool
 	hostStorageClassSyncEnabled bool
 }
@@ -111,12 +111,12 @@ func (s *csistoragecapacitySyncer) SyncToHost(ctx *synccontext.SyncContext, even
 func (s *csistoragecapacitySyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	// the default cache is configured to look at only the target namespaces, create an event source from
 	// a cache that watches all namespaces
-	allNSCache, err := cache.New(ctx.PhysicalManager.GetConfig(), cache.Options{Mapper: ctx.PhysicalManager.GetRESTMapper()})
+	allNSCache, err := cache.New(ctx.HostManager.GetConfig(), cache.Options{Mapper: ctx.HostManager.GetRESTMapper()})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create allNSCache: %w", err)
 	}
 
-	err = ctx.PhysicalManager.Add(allNSCache)
+	err = ctx.HostManager.Add(allNSCache)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add allNSCache to physical manager: %w", err)
 	}

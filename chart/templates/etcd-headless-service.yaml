@@ -1,4 +1,3 @@
-{{- if not .Values.experimental.isolatedControlPlane.headless }}
 {{- if or .Values.controlPlane.backingStore.etcd.deploy.enabled (include "vcluster.etcd.embedded.migrate" .) }}
 apiVersion: v1
 kind: Service
@@ -30,5 +29,4 @@ spec:
   selector:
     app: vcluster-etcd
     release: "{{ .Release.Name }}"
-{{- end }}
 {{- end }}

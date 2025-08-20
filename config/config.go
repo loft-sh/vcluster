@@ -1027,10 +1027,6 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
-	if c.Experimental.IsolatedControlPlane.Enabled {
-		return true
-	}
-
 	if len(c.Experimental.DenyProxyRequests) > 0 {
 		return true
 	}
@@ -2888,9 +2884,6 @@ type Experimental struct {
 	// GenericSync holds options to generically sync resources from virtual cluster to host.
 	GenericSync ExperimentalGenericSync `json:"genericSync,omitempty"`
 
-	// IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
-	IsolatedControlPlane ExperimentalIsolatedControlPlane `json:"isolatedControlPlane,omitempty" product:"pro"`
-
 	// VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config.
 	VirtualClusterKubeConfig VirtualClusterKubeConfig `json:"virtualClusterKubeConfig,omitempty"`
 
@@ -2900,23 +2893,6 @@ type Experimental struct {
 
 func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
 	addProToJSONSchema(base, reflect.TypeOf(e))
-}
-
-type ExperimentalIsolatedControlPlane struct {
-	// Enabled specifies if the isolated control plane feature should be enabled.
-	Enabled bool `json:"enabled,omitempty" product:"pro"`
-
-	// Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane.
-	Headless bool `json:"headless,omitempty"`
-
-	// KubeConfig is the path where to find the remote workload cluster kubeconfig.
-	KubeConfig string `json:"kubeConfig,omitempty"`
-
-	// Namespace is the namespace where to sync the workloads into.
-	Namespace string `json:"namespace,omitempty"`
-
-	// Service is the vCluster service in the remote cluster.
-	Service string `json:"service,omitempty"`
 }
 
 type ExperimentalSyncSettings struct {

@@ -259,7 +259,6 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 		}
 	}
 
-	newConfig.Experimental.IsolatedControlPlane.Headless = oldConfig.Headless
 	newConfig.ControlPlane.Advanced.DefaultImageRegistry = strings.TrimSuffix(oldConfig.DefaultImageRegistry, "/")
 
 	if len(oldConfig.Plugin) > 0 {
@@ -766,21 +765,11 @@ func migrateFlag(distro, key, value string, newConfig *config.Config) error {
 	case "pro-license-secret":
 		return fmt.Errorf("cannot be used directly, use proLicenseSecret value")
 	case "remote-kube-config":
-		if value == "" {
-			return fmt.Errorf("value is missing")
-		}
-		newConfig.Experimental.IsolatedControlPlane.Enabled = true
-		newConfig.Experimental.IsolatedControlPlane.KubeConfig = value
+		return fmt.Errorf("this feature is not supported anymore")
 	case "remote-namespace":
-		if value == "" {
-			return fmt.Errorf("value is missing")
-		}
-		newConfig.Experimental.IsolatedControlPlane.Namespace = value
+		return fmt.Errorf("this feature is not supported anymore")
 	case "remote-service-name":
-		if value == "" {
-			return fmt.Errorf("value is missing")
-		}
-		newConfig.Experimental.IsolatedControlPlane.Service = value
+		return fmt.Errorf("this feature is not supported anymore")
 	case "integrated-coredns":
 		return fmt.Errorf("cannot be used directly")
 	case "use-coredns-plugin":

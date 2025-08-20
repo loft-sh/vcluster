@@ -43,13 +43,10 @@ import (
 
 func StartControllers(controllerContext *synccontext.ControllerContext, syncers []syncertypes.Object) error {
 	// exchange control plane client
-	controlPlaneClient, err := pro.ExchangeControlPlaneClient(controllerContext)
-	if err != nil {
-		return err
-	}
+	controlPlaneClient := controllerContext.HostNamespaceClient
 
 	// migrate k3s to k8s if needed
-	err = k8s.MigrateK3sToK8sStateless(controllerContext.Context, controllerContext.Config.ControlPlaneClient, controllerContext.Config.ControlPlaneNamespace, controllerContext.VirtualManager.GetClient(), controllerContext.Config)
+	err := k8s.MigrateK3sToK8sStateless(controllerContext.Context, controllerContext.Config.HostClient, controllerContext.Config.HostNamespace, controllerContext.VirtualManager.GetClient(), controllerContext.Config)
 	if err != nil {
 		return err
 	}
@@ -80,26 +77,6 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 			}
 		}
 	}()
-
-	// sync remote Endpoints
-	if controllerContext.Config.Experimental.IsolatedControlPlane.KubeConfig != "" {
-		err := pro.SyncRemoteEndpoints(
-			controllerContext.Context,
-			types.NamespacedName{
-				Namespace: controllerContext.Config.ControlPlaneNamespace,
-				Name:      controllerContext.Config.ControlPlaneService,
-			},
-			controlPlaneClient,
-			types.NamespacedName{
-				Namespace: controllerContext.Config.WorkloadNamespace,
-				Name:      controllerContext.Config.WorkloadService,
-			},
-			controllerContext.WorkloadNamespaceClient,
-		)
-		if err != nil {
-			return errors.Wrap(err, "sync remote endpoints")
-		}
-	}
 
 	// migrate mappers
 	err = MigrateMappers(controllerContext.ToRegisterContext(), syncers)
@@ -135,7 +112,7 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 	// write the kube config to secret
 	go func() {
 		_ = wait.PollUntilContextCancel(controllerContext, time.Second*10, true, func(ctx context.Context) (bool, error) {
-			err := WriteKubeConfigToSecret(ctx, controllerContext.VirtualManager.GetConfig(), controllerContext.Config.ControlPlaneNamespace, controlPlaneClient, controllerContext.Config, controllerContext.VirtualRawConfig)
+			err := WriteKubeConfigToSecret(ctx, controllerContext.VirtualManager.GetConfig(), controllerContext.Config.HostNamespace, controlPlaneClient, controllerContext.Config, controllerContext.VirtualRawConfig)
 			if err != nil {
 				klog.Errorf("Error writing kube config to secret: %v", err)
 				return false, nil
@@ -217,8 +194,8 @@ func SyncKubernetesService(ctx *synccontext.ControllerContext) error {
 	} else {
 		err = specialservices.SyncKubernetesService(
 			ctx.ToRegisterContext().ToSyncContext("sync-kubernetes-service"),
-			ctx.Config.WorkloadNamespace,
-			ctx.Config.WorkloadService,
+			ctx.Config.HostNamespace,
+			ctx.Config.Name,
 			types.NamespacedName{
 				Name:      specialservices.DefaultKubernetesSVCName,
 				Namespace: specialservices.DefaultKubernetesSVCNamespace,
@@ -340,8 +317,8 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 
 		return nil
 	}
-	isIsolatedControlPlaneKubeConfigSet := options.Experimental.IsolatedControlPlane.KubeConfig != ""
-	err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, defaultKubeConfig, isIsolatedControlPlaneKubeConfigSet, options.Name)
+
+	err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, defaultKubeConfig, options.Name)
 	if err != nil {
 		return fmt.Errorf("creating the default kubeconfig secret in the %s ns failed: %w", currentNamespace, err)
 	}
@@ -371,7 +348,7 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 		}
 
 		// write the additional kubeconfig secret
-		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, secretName, secretNamespace, additionalKubeConfig, isIsolatedControlPlaneKubeConfigSet, options.Name)
+		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, secretName, secretNamespace, additionalKubeConfig, options.Name)
 		if err != nil {
 			return fmt.Errorf("creating additional secret %s in the %s ns failed: %w", secretName, secretNamespace, err)
 		}

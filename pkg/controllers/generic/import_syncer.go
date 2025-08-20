@@ -50,7 +50,7 @@ func CreateImporters(ctx *synccontext.ControllerContext) error {
 		// cluster scoped resources is registered and set properly
 		isClusterScoped, hasStatusSubresource, err := translate.EnsureCRDFromPhysicalCluster(
 			registerCtx,
-			registerCtx.PhysicalManager.GetConfig(),
+			registerCtx.HostManager.GetConfig(),
 			registerCtx.VirtualManager.GetConfig(),
 			gvk)
 		if err != nil {
@@ -87,7 +87,7 @@ func createImporter(ctx *synccontext.RegisterContext, config *vclusterconfig.Imp
 			virtualClient: ctx.VirtualManager.GetClient(),
 		},
 
-		patcher: NewPatcher(ctx.PhysicalManager.GetClient(), ctx.VirtualManager.GetClient(), hasStatusSubresource, log.New(controllerID)),
+		patcher: NewPatcher(ctx.HostManager.GetClient(), ctx.VirtualManager.GetClient(), hasStatusSubresource, log.New(controllerID)),
 		gvk:     gvk,
 
 		replaceWhenInvalid: config.ReplaceWhenInvalid,
@@ -150,7 +150,7 @@ func (s *importer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontex
 	pAnnotations := event.Host.GetAnnotations()
 	if pAnnotations != nil && pAnnotations[translate.ControllerLabel] == s.Name() && !s.syncerOptions.IsClusterScopedCRD { // only delete pObj if its not cluster scoped
 		ctx.Log.Infof("Delete physical %s %s/%s, since virtual is missing, but physical object was already synced", s.gvk.Kind, event.Host.GetNamespace(), event.Host.GetName())
-		err := ctx.PhysicalClient.Delete(ctx, event.Host)
+		err := ctx.HostClient.Delete(ctx, event.Host)
 		if err != nil && !kerrors.IsNotFound(err) {
 			return ctrl.Result{}, err
 		}
@@ -249,7 +249,7 @@ func (s *importer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEve
 	if event.Virtual.GetDeletionTimestamp() != nil || event.Host.GetDeletionTimestamp() != nil {
 		if event.Host.GetDeletionTimestamp() == nil && !s.syncerOptions.IsClusterScopedCRD {
 			ctx.Log.Infof("delete physical object %s/%s, because the virtual object is being deleted", event.Host.GetNamespace(), event.Host.GetName())
-			if err := ctx.PhysicalClient.Delete(ctx, event.Host); err != nil {
+			if err := ctx.HostClient.Delete(ctx, event.Host); err != nil {
 				return ctrl.Result{}, err
 			}
 		} else if event.Virtual.GetDeletionTimestamp() == nil {
@@ -462,5 +462,5 @@ func (s *importer) addAnnotationsToPhysicalObject(ctx *synccontext.SyncContext, 
 	}
 
 	ctx.Log.Infof("Patch controlled-by annotation on %s %s/%s", s.gvk.Kind, pObj.GetNamespace(), pObj.GetName())
-	return ctx.PhysicalClient.Patch(ctx, pObj, patch)
+	return ctx.HostClient.Patch(ctx, pObj, patch)
 }

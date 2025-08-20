@@ -565,7 +565,7 @@ func TestSync(t *testing.T) {
 				err = ctx.VirtualManager.GetClient().Get(ctx, types.NamespacedName{Namespace: pObjOld.Namespace, Name: pObjOld.Name}, pObjOld)
 				assert.NilError(t, err)
 
-				err = ctx.PhysicalManager.GetClient().Get(ctx, types.NamespacedName{Namespace: pObjNew.Namespace, Name: pObjNew.Name}, pObjNew)
+				err = ctx.HostManager.GetClient().Get(ctx, types.NamespacedName{Namespace: pObjNew.Namespace, Name: pObjNew.Name}, pObjNew)
 				assert.NilError(t, err)
 
 				pObjOld.Spec.ExternalName = pObjNew.Spec.ExternalName
@@ -594,7 +594,7 @@ func TestSync(t *testing.T) {
 				err = ctx.VirtualManager.GetClient().Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: vObj.Name}, vObj)
 				assert.NilError(t, err)
 
-				err = ctx.PhysicalManager.GetClient().Get(ctx, types.NamespacedName{Namespace: pObj.Namespace, Name: pObj.Name}, pObj)
+				err = ctx.HostManager.GetClient().Get(ctx, types.NamespacedName{Namespace: pObj.Namespace, Name: pObj.Name}, pObj)
 				assert.NilError(t, err)
 
 				pObj.Spec.ExternalName = updateBackwardSpecService.Spec.ExternalName

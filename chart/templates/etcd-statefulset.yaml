@@ -1,4 +1,3 @@
-{{- if not .Values.experimental.isolatedControlPlane.headless }}
 {{- if or .Values.controlPlane.backingStore.etcd.deploy.enabled (include "vcluster.etcd.embedded.migrate" .) }}
 {{- if .Values.controlPlane.backingStore.etcd.deploy.statefulSet.enabled }}
 {{- $externalEtcd := .Values.controlPlane.backingStore.etcd.deploy.statefulSet }}
@@ -208,6 +207,5 @@ spec:
         {{- if $externalEtcd.imagePullPolicy }}
         imagePullPolicy: {{ $externalEtcd.imagePullPolicy }}
         {{- end }}
-{{- end }}
 {{- end }}
 {{- end }}

@@ -51,9 +51,9 @@ func newControlPlaneCollector(config *config.VirtualClusterConfig) (*controlPlan
 
 		log: loghelper.New("telemetry"),
 
-		hostClient:    config.ControlPlaneClient,
-		hostNamespace: config.ControlPlaneNamespace,
-		hostService:   config.ControlPlaneService,
+		hostClient:    config.HostClient,
+		hostNamespace: config.HostNamespace,
+		hostService:   config.Name,
 	}
 
 	go collector.startReportStatus(context.Background(), config.Telemetry.PlatformUserID, config.Telemetry.PlatformInstanceID, config.Telemetry.MachineID)

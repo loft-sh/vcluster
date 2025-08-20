@@ -19,7 +19,7 @@ func RegisterFakeSyncer(ctx *synccontext.RegisterContext, syncer syncertypes.Fak
 	controller := &fakeSyncer{
 		syncer:         syncer,
 		log:            loghelper.New(syncer.Name()),
-		physicalClient: ctx.PhysicalManager.GetClient(),
+		physicalClient: ctx.HostManager.GetClient(),
 
 		currentNamespace:       ctx.CurrentNamespace,
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
@@ -56,7 +56,7 @@ func (r *fakeSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		Context:                ctx,
 		Log:                    log,
 		Config:                 r.config,
-		PhysicalClient:         r.physicalClient,
+		HostClient:             r.physicalClient,
 		CurrentNamespace:       r.currentNamespace,
 		CurrentNamespaceClient: r.currentNamespaceClient,
 		VirtualClient:          r.virtualClient,

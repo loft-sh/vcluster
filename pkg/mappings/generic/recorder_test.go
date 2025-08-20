@@ -129,15 +129,15 @@ func TestRecorderMigrate(t *testing.T) {
 
 			// check recording
 			registerContext := &synccontext.RegisterContext{
-				Context:         context.TODO(),
-				Config:          vConfig,
-				Mappings:        mappingsRegistry,
-				PhysicalManager: testingutil.NewFakeManager(testingutil.NewFakeClient(scheme.Scheme)),
-				VirtualManager:  testingutil.NewFakeManager(testingutil.NewFakeClient(scheme.Scheme)),
+				Context:        context.TODO(),
+				Config:         vConfig,
+				Mappings:       mappingsRegistry,
+				HostManager:    testingutil.NewFakeManager(testingutil.NewFakeClient(scheme.Scheme)),
+				VirtualManager: testingutil.NewFakeManager(testingutil.NewFakeClient(scheme.Scheme)),
 			}
 
 			// create objects
-			err = registerContext.PhysicalManager.GetClient().Create(registerContext, testCase.Object)
+			err = registerContext.HostManager.GetClient().Create(registerContext, testCase.Object)
 			assert.NilError(t, err)
 
 			// create mapper

@@ -339,10 +339,6 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		}
 	}
 
-	if vClusterConfig.Experimental.IsolatedControlPlane.Headless {
-		cmd.Connect = false
-	}
-
 	if vClusterConfig.IsConfiguredForSleepMode() {
 		if agentDeployed, err := cmd.isLoftAgentDeployed(ctx); err != nil {
 			return fmt.Errorf("is agent deployed: %w", err)

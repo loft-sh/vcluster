@@ -344,7 +344,7 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 
 				pPVC := &corev1.PersistentVolumeClaim{}
-				err = syncCtx.PhysicalClient.Get(syncCtx, types.NamespacedName{
+				err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{
 					Namespace: pObjectMeta.Namespace,
 					Name:      pObjectMeta.Name,
 				}, pPVC)

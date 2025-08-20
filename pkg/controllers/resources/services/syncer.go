@@ -45,7 +45,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 			RancherPublicEndpointsAnnotation,
 		},
 
-		serviceName: ctx.Config.WorkloadService,
+		serviceName: ctx.Config.Name,
 	}, nil
 }
 

@@ -43,8 +43,8 @@ const (
 )
 
 func Generate(ctx context.Context, serviceCIDR, certificatesDir string, options *config.VirtualClusterConfig) error {
-	currentNamespace := options.ControlPlaneNamespace
-	currentNamespaceClient := options.ControlPlaneClient
+	currentNamespace := options.HostNamespace
+	currentNamespaceClient := options.HostClient
 
 	// create kubeadm config
 	kubeadmConfig, err := GenerateInitKubeadmConfig(serviceCIDR, certificatesDir, options)
@@ -63,7 +63,7 @@ func Generate(ctx context.Context, serviceCIDR, certificatesDir string, options 
 
 func GenerateInitKubeadmConfig(serviceCIDR, certificatesDir string, options *config.VirtualClusterConfig) (*kubeadmapi.InitConfiguration, error) {
 	clusterDomain := options.Networking.Advanced.ClusterDomain
-	currentNamespace := options.ControlPlaneNamespace
+	currentNamespace := options.HostNamespace
 
 	// generate etcd server and peer sans
 	etcdService := options.Name + "-etcd"

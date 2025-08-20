@@ -71,7 +71,7 @@ func NewSyncer(ctx *synccontext.RegisterContext, nodeServiceProvider nodeservice
 		fakeKubeletIPs:       ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 		fakeKubeletHostnames: ctx.Config.Networking.Advanced.ProxyKubelets.ByHostname,
 
-		physicalClient:      ctx.PhysicalManager.GetClient(),
+		hostClient:          ctx.HostManager.GetClient(),
 		virtualClient:       ctx.VirtualManager.GetClient(),
 		nodeServiceProvider: nodeServiceProvider,
 		enforcedTolerations: tolerations,
@@ -82,7 +82,7 @@ type nodeSyncer struct {
 	synccontext.Mapper
 
 	nodeSelector         labels.Selector
-	physicalClient       client.Client
+	hostClient           client.Client
 	virtualClient        client.Client
 	unmanagedPodCache    client.Reader
 	nodeServiceProvider  nodeservice.Provider
@@ -118,9 +118,9 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 			return bld, fmt.Errorf("constructing label selector for non-vcluster pods: %w", err)
 		}
 		// create a pod cache containing pods from all namespaces for calculating the correct node resources
-		podCache, err := cache.New(ctx.PhysicalManager.GetConfig(), cache.Options{
-			Scheme: ctx.PhysicalManager.GetScheme(),
-			Mapper: ctx.PhysicalManager.GetRESTMapper(),
+		podCache, err := cache.New(ctx.HostManager.GetConfig(), cache.Options{
+			Scheme: ctx.HostManager.GetScheme(),
+			Mapper: ctx.HostManager.GetRESTMapper(),
 			// omits pods managed by the vcluster
 			DefaultLabelSelector: labels.NewSelector().Add(*notManagedSelector),
 		})
@@ -207,7 +207,7 @@ func modifyController(ctx *synccontext.RegisterContext, nodeServiceProvider node
 		nodeServiceProvider.Start(ctx)
 	}()
 
-	bld = bld.WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), &corev1.Pod{}, handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, pod *corev1.Pod) []reconcile.Request {
+	bld = bld.WatchesRawSource(source.Kind(ctx.HostManager.GetCache(), &corev1.Pod{}, handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, pod *corev1.Pod) []reconcile.Request {
 		isManaged, err := mappings.IsManaged(ctx.ToSyncContext("nodes-mapper"), pod)
 		if err != nil {
 			klog.FromContext(ctx).Error(err, "is pod managed")
@@ -248,7 +248,7 @@ func (s *nodeSyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
 }
 
 func registerIndices(ctx *synccontext.RegisterContext) error {
-	err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
+	err := ctx.HostManager.GetFieldIndexer().IndexField(ctx, &corev1.Pod{}, constants.IndexByAssigned, func(rawObj client.Object) []string {
 		pod := rawObj.(*corev1.Pod)
 		isManaged, err := mappings.IsManaged(ctx.ToSyncContext("nodes-syncer"), pod)
 		if err != nil {
@@ -361,13 +361,13 @@ func (s *nodeSyncer) shouldSync(ctx context.Context, pObj *corev1.Node) (bool, e
 
 		matched := s.nodeSelector.Matches(ls)
 		if !matched && !s.enforceNodeSelector {
-			return isNodeNeededByPod(ctx, s.virtualClient, s.physicalClient, pObj.Name)
+			return isNodeNeededByPod(ctx, s.virtualClient, s.hostClient, pObj.Name)
 		}
 
 		return matched, nil
 	}
 
-	return isNodeNeededByPod(ctx, s.virtualClient, s.physicalClient, pObj.Name)
+	return isNodeNeededByPod(ctx, s.virtualClient, s.hostClient, pObj.Name)
 }
 
 func isNodeNeededByPod(ctx context.Context, virtualClient client.Client, physicalClient client.Client, nodeName string) (bool, error) {

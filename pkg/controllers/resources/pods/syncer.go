@@ -58,7 +58,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	if err != nil {
 		return nil, err
 	}
-	physicalClusterClient, err := kubernetes.NewForConfig(ctx.PhysicalManager.GetConfig())
+	physicalClusterClient, err := kubernetes.NewForConfig(ctx.HostManager.GetConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -109,13 +109,13 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		GenericTranslator: genericTranslator,
 		Importer:          pro.NewImporter(podsMapper),
 
-		serviceName:      ctx.Config.WorkloadService,
+		serviceName:      ctx.Config.Name,
 		schedulingConfig: schedulingConfig,
 		fakeKubeletIPs:   ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
 
 		virtualClusterClient:  virtualClusterClient,
 		physicalClusterClient: physicalClusterClient,
-		physicalClusterConfig: ctx.PhysicalManager.GetConfig(),
+		physicalClusterConfig: ctx.HostManager.GetConfig(),
 		podTranslator:         podTranslator,
 		nodeSelector:          nodeSelector,
 		tolerations:           tolerations,
@@ -383,7 +383,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	}
 
 	// set pod owner as sa token
-	err = setSATokenSecretAsOwner(ctx, ctx.PhysicalClient, event.Virtual, event.Host)
+	err = setSATokenSecretAsOwner(ctx, ctx.HostClient, event.Virtual, event.Host)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -571,7 +571,7 @@ func (s *podSyncer) applyLimitByPriorityClass(ctx *synccontext.SyncContext, virt
 	}
 
 	pPriorityClass := &schedulingv1.PriorityClass{}
-	err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: virtual.Spec.PriorityClassName}, pPriorityClass)
+	err := ctx.HostClient.Get(ctx.Context, types.NamespacedName{Name: virtual.Spec.PriorityClassName}, pPriorityClass)
 	if err != nil || pPriorityClass.GetDeletionTimestamp() != nil {
 		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q couldn't be reached in the host: %s", virtual.GetName(), virtual.Spec.PriorityClassName, err)
 		return true
@@ -598,7 +598,7 @@ func (s *podSyncer) applyLimitByRuntimeClass(ctx *synccontext.SyncContext, virtu
 	}
 
 	pRuntimeClass := &nodev1.RuntimeClass{}
-	err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.RuntimeClassName}, pRuntimeClass)
+	err := ctx.HostClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.RuntimeClassName}, pRuntimeClass)
 	if err != nil || pRuntimeClass.GetDeletionTimestamp() != nil {
 		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.RuntimeClassName, err)
 		return true

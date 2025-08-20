@@ -46,7 +46,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 	}
 
 	// retrieve service cidr
-	serviceCIDR, err := servicecidr.GetServiceCIDR(ctx, &options.Config, options.WorkloadClient, options.WorkloadService, options.WorkloadNamespace)
+	serviceCIDR, err := servicecidr.GetServiceCIDR(ctx, &options.Config, options.HostClient, options.Name, options.HostNamespace)
 	if err != nil {
 		return fmt.Errorf("failed to get service cidr: %w", err)
 	}
@@ -55,7 +55,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 	switch distro {
 	case vclusterconfig.K3SDistro:
 		// its k3s, let's create the token secret
-		k3sToken, err := k3s.EnsureK3SToken(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options.Name, options)
+		k3sToken, err := k3s.EnsureK3SToken(ctx, options.HostClient, options.HostNamespace, options.Name, options)
 		if err != nil {
 			return err
 		}
@@ -74,8 +74,8 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 			_, err = pro.StartEmbeddedEtcd(
 				context.WithoutCancel(ctx),
 				options.Name,
-				options.ControlPlaneNamespace,
-				options.ControlPlaneClient,
+				options.HostNamespace,
+				options.HostClient,
 				certificatesDir,
 				options.ControlPlane.BackingStore.Etcd.Embedded.SnapshotCount,
 				migrateFrom,
@@ -99,7 +99,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		}()
 	case vclusterconfig.K8SDistro:
 		// migrate k3s to k8s if needed
-		err := k8s.MigrateK3sToK8s(ctx, options.ControlPlaneClient, options.ControlPlaneNamespace, options)
+		err := k8s.MigrateK3sToK8s(ctx, options.HostClient, options.HostNamespace, options)
 		if err != nil {
 			return fmt.Errorf("migrate k3s to k8s: %w", err)
 		}
@@ -119,8 +119,8 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 			_, err := pro.StartEmbeddedEtcd(
 				context.WithoutCancel(ctx),
 				options.Name,
-				options.ControlPlaneNamespace,
-				options.ControlPlaneClient,
+				options.HostNamespace,
+				options.HostClient,
 				certificatesDir,
 				options.ControlPlane.BackingStore.Etcd.Embedded.SnapshotCount,
 				migrateFrom,

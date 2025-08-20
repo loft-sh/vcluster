@@ -27,9 +27,7 @@ spec:
   ports:
     - name: https
       port: 443
-      {{- if not .Values.experimental.isolatedControlPlane.headless }}
       targetPort: 8443
-      {{- end }}
       nodePort: {{ .Values.controlPlane.service.httpsNodePort }}
       protocol: TCP
     {{- if .Values.privateNodes.enabled }}
@@ -48,14 +46,12 @@ spec:
    {{- if and .Values.networking.advanced.proxyKubelets.byHostname (not (eq .Values.controlPlane.service.spec.type "LoadBalancer")) }}
     - name: kubelet
       port: 10250
-      {{- if not .Values.experimental.isolatedControlPlane.headless }}
       targetPort: 8443
-      {{- end }}
       nodePort: {{ .Values.controlPlane.service.kubeletNodePort }}
       protocol: TCP
     {{- end }}
   {{- end }}
-  {{- if and (not .Values.controlPlane.service.spec.selector) (not .Values.experimental.isolatedControlPlane.headless) }}
+  {{- if not .Values.controlPlane.service.spec.selector }}
   selector:
     app: vcluster
     release: {{ .Release.Name }}

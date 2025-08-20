@@ -33,7 +33,7 @@ func (n *recorder) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.
 	}
 
 	// migrate host objects first
-	hostObjects, err := listObjects(ctx, ctx.PhysicalManager.GetClient(), listGvk)
+	hostObjects, err := listObjects(ctx, ctx.HostManager.GetClient(), listGvk)
 	if err != nil {
 		return err
 	}

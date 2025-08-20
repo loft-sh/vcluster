@@ -376,8 +376,8 @@ func startEmbeddedEtcd(ctx context.Context, vConfig *config.VirtualClusterConfig
 	stop, err := pro.StartEmbeddedEtcd(
 		ctx,
 		vConfig.Name,
-		vConfig.ControlPlaneNamespace,
-		vConfig.ControlPlaneClient,
+		vConfig.HostNamespace,
+		vConfig.HostClient,
 		certificatesDir,
 		vConfig.ControlPlane.BackingStore.Etcd.Embedded.SnapshotCount,
 		"",
@@ -396,7 +396,7 @@ func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterCon
 	var err error
 
 	// init the clients
-	vConfig.ControlPlaneConfig, vConfig.ControlPlaneNamespace, vConfig.ControlPlaneService, vConfig.WorkloadConfig, vConfig.WorkloadNamespace, vConfig.WorkloadService, err = pro.GetRemoteClient(vConfig)
+	vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
 	if err != nil {
 		return "", err
 	}
@@ -406,7 +406,7 @@ func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterCon
 	}
 
 	// retrieve service cidr
-	serviceCIDR, err := servicecidr.GetServiceCIDR(ctx, &vConfig.Config, vConfig.WorkloadClient, vConfig.WorkloadService, vConfig.WorkloadNamespace)
+	serviceCIDR, err := servicecidr.GetServiceCIDR(ctx, &vConfig.Config, vConfig.HostClient, vConfig.Name, vConfig.HostNamespace)
 	if err != nil {
 		return "", fmt.Errorf("failed to get service cidr: %w", err)
 	}

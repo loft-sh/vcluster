@@ -22,12 +22,10 @@ func NewFakeConfig() *config.VirtualClusterConfig {
 
 	// parse config
 	vConfig := &config.VirtualClusterConfig{
-		Config:                  *defaultConfig,
-		Name:                    DefaultTestVClusterName,
-		ControlPlaneService:     DefaultTestVClusterName,
-		WorkloadService:         DefaultTestVClusterServiceName,
-		WorkloadNamespace:       DefaultTestTargetNamespace,
-		WorkloadTargetNamespace: DefaultTestTargetNamespace,
+		Config:              *defaultConfig,
+		Name:                DefaultTestVClusterName,
+		HostNamespace:       DefaultTestTargetNamespace,
+		HostTargetNamespace: DefaultTestTargetNamespace,
 	}
 
 	err = config.ValidateConfigAndSetDefaults(vConfig)
@@ -35,8 +33,8 @@ func NewFakeConfig() *config.VirtualClusterConfig {
 		panic(err.Error())
 	}
 
-	// SyncController builder expects non-nil WorkloadConfig
-	vConfig.WorkloadConfig = &rest.Config{
+	// SyncController builder expects non-nil HostConfig
+	vConfig.HostConfig = &rest.Config{
 		Host:    "",
 		APIPath: "",
 	}

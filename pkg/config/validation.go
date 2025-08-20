@@ -183,7 +183,7 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	}
 
 	// sync.toHost.namespaces validation
-	err = namespaces.ValidateNamespaceSyncConfig(&vConfig.Config, vConfig.Name, vConfig.ControlPlaneNamespace)
+	err = namespaces.ValidateNamespaceSyncConfig(&vConfig.Config, vConfig.Name, vConfig.HostNamespace)
 	if err != nil {
 		return fmt.Errorf("namespace sync: %w", err)
 	}
@@ -921,11 +921,6 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 	// multi-namespace mode is not supported in private nodes mode
 	if vConfig.Sync.ToHost.Namespaces.Enabled {
 		return fmt.Errorf("multi-namespace mode is not supported in private nodes mode")
-	}
-
-	// isolated control plane is not supported in dedicated mode
-	if vConfig.Experimental.IsolatedControlPlane.Enabled {
-		return fmt.Errorf("isolated control plane is not supported in private nodes mode")
 	}
 
 	// dedicated mode is only supported for kubernetes distro

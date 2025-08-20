@@ -1,5 +1,4 @@
 {{- include "vcluster.exportKubeConfig.validate" . }}
-{{- if not .Values.experimental.isolatedControlPlane.headless }}
 apiVersion: apps/v1
 kind: {{ include "vcluster.kind" . }}
 metadata:
@@ -227,4 +226,3 @@ spec:
 {{ toYaml .Values.controlPlane.statefulSet.persistence.addVolumeMounts | indent 12 }}
             {{- end }}
 {{- include "vcluster.legacyPlugins.containers" . | indent 8 }}
-{{- end }}

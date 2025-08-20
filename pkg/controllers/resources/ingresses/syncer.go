@@ -137,7 +137,7 @@ func (s *ingressSyncer) applyLimitByClass(ctx *synccontext.SyncContext, virtual 
 	}
 
 	pIngressClass := &networkingv1.IngressClass{}
-	err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.IngressClassName}, pIngressClass)
+	err := ctx.HostClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.IngressClassName}, pIngressClass)
 	if err != nil || pIngressClass.GetDeletionTimestamp() != nil {
 		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync ingress %q to host because the ingress class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.IngressClassName, err)
 		return true

@@ -104,7 +104,7 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		vClientConfig: ctx.VirtualManager.GetConfig(),
 		vClient:       ctx.VirtualManager.GetClient(),
 
-		pClient:         ctx.PhysicalManager.GetClient(),
+		pClient:         ctx.HostManager.GetClient(),
 		imageTranslator: imageTranslator,
 		eventRecorder:   eventRecorder,
 		log:             loghelper.New("pods-syncer-translator"),

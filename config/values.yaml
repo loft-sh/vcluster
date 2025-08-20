@@ -651,9 +651,6 @@ experimental:
     targetNamespace: ""
     setOwner: true
 
-  isolatedControlPlane:
-    headless: false
-
   deploy:
     host:
       manifests: ""
