@@ -66,35 +66,41 @@ func GenerateInitKubeadmConfig(serviceCIDR, certificatesDir string, options *con
 	currentNamespace := options.HostNamespace
 
 	// generate etcd server and peer sans
-	etcdService := options.Name + "-etcd"
 	extraSans := []string{
 		"localhost",
-		etcdService,
-		etcdService + "-headless",
-		etcdService + "." + currentNamespace,
-		etcdService + "." + currentNamespace + ".svc",
 	}
 
-	// add wildcard
-	for _, service := range []string{options.Name, etcdService} {
-		extraSans = append(
-			extraSans,
-			"*."+service+"-headless",
-			"*."+service+"-headless"+"."+currentNamespace,
-			"*."+service+"-headless"+"."+currentNamespace+".svc",
-			"*."+service+"-headless"+"."+currentNamespace+".svc."+clusterDomain,
+	if options.ControlPlane.Standalone.Enabled {
+		extraSans = append(extraSans, "127.0.0.1", "0.0.0.0")
+	} else {
+		etcdService := options.Name + "-etcd"
+		extraSans = append(extraSans,
+			etcdService,
+			etcdService+"-headless",
+			etcdService+"."+currentNamespace,
+			etcdService+"."+currentNamespace+".svc",
 		)
-	}
+		// add wildcard
+		for _, service := range []string{options.Name, etcdService} {
+			extraSans = append(
+				extraSans,
+				"*."+service+"-headless",
+				"*."+service+"-headless"+"."+currentNamespace,
+				"*."+service+"-headless"+"."+currentNamespace+".svc",
+				"*."+service+"-headless"+"."+currentNamespace+".svc."+clusterDomain,
+			)
+		}
 
-	// expect up to 5 etcd members
-	for i := range 5 {
-		// this is for embedded etcd
-		hostname := options.Name + "-" + strconv.Itoa(i)
-		extraSans = append(extraSans, hostname, hostname+"."+options.Name+"-headless", hostname+"."+options.Name+"-headless"+"."+currentNamespace)
+		// expect up to 5 etcd members
+		for i := range 5 {
+			// this is for embedded etcd
+			hostname := options.Name + "-" + strconv.Itoa(i)
+			extraSans = append(extraSans, hostname, hostname+"."+options.Name+"-headless", hostname+"."+options.Name+"-headless"+"."+currentNamespace)
 
-		// this is for external etcd
-		etcdHostname := etcdService + "-" + strconv.Itoa(i)
-		extraSans = append(extraSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
+			// this is for external etcd
+			etcdHostname := etcdService + "-" + strconv.Itoa(i)
+			extraSans = append(extraSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
+		}
 	}
 
 	extraSans = append(extraSans, options.ControlPlane.Proxy.ExtraSANs...)
