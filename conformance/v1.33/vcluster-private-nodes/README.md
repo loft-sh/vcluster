@@ -57,8 +57,6 @@ networking:
     proxyKubelets:
       byHostname: false
       byIP: false
-  podCIDR: 10.64.0.0/16
-  serviceCIDR: 10.128.0.0/16
 
 sync:
   fromHost:

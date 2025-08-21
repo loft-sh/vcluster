@@ -30,17 +30,7 @@ networking:
     proxyKubelets:
       byHostname: false
       byIP: false
-    # Specify the pod cidr
-  podCIDR: 10.64.0.0/16
-  # Specify the service cidr
-  serviceCIDR: 10.128.0.0/16
 
-sync:
-  fromHost:
-    nodes:
-      enabled: true
-      selector:
-        all: true
 # Enable private nodes
 privateNodes:
   enabled: true
