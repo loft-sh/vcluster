@@ -73,14 +73,10 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 			// will be cancelled by the wait loop in Initialize
 			_, err = pro.StartEmbeddedEtcd(
 				context.WithoutCancel(ctx),
-				options.Name,
-				options.HostNamespace,
-				options.HostClient,
+				options,
 				certificatesDir,
-				options.ControlPlane.BackingStore.Etcd.Embedded.SnapshotCount,
 				migrateFrom,
 				true,
-				options.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
 				false,
 			)
 			if err != nil {
@@ -118,14 +114,10 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 			// start embedded etcd
 			_, err := pro.StartEmbeddedEtcd(
 				context.WithoutCancel(ctx),
-				options.Name,
-				options.HostNamespace,
-				options.HostClient,
+				options,
 				certificatesDir,
-				options.ControlPlane.BackingStore.Etcd.Embedded.SnapshotCount,
 				migrateFrom,
 				true,
-				options.ControlPlane.BackingStore.Etcd.Embedded.ExtraArgs,
 				false,
 			)
 			if err != nil {

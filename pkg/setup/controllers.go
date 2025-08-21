@@ -79,9 +79,11 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 	}()
 
 	// migrate mappers
-	err = MigrateMappers(controllerContext.ToRegisterContext(), syncers)
-	if err != nil {
-		return err
+	if !controllerContext.Config.PrivateNodes.Enabled {
+		err = MigrateMappers(controllerContext.ToRegisterContext(), syncers)
+		if err != nil {
+			return err
+		}
 	}
 
 	// make sure the kubernetes service is synced
@@ -128,8 +130,10 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 		return fmt.Errorf("plugin set leader: %w", err)
 	}
 
-	// start mappings store garbage collection
-	controllerContext.Mappings.Store().StartGarbageCollection(controllerContext.Context)
+	if !controllerContext.Config.PrivateNodes.Enabled {
+		// start mappings store garbage collection
+		controllerContext.Mappings.Store().StartGarbageCollection(controllerContext.Context)
+	}
 
 	// When the user disables from host syncing for some kind, the previously synced resources will
 	// stay in the virtual cluster. Since the controllers for those resources do not exist anymore,
