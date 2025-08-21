@@ -307,7 +307,7 @@ func (s *persistentVolumeClaimSyncer) applyLimitByClass(ctx *synccontext.SyncCon
 	}
 
 	pStorageClass := &storagev1.StorageClass{}
-	err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.StorageClassName}, pStorageClass)
+	err := ctx.HostClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.StorageClassName}, pStorageClass)
 	if err != nil || pStorageClass.GetDeletionTimestamp() != nil {
 		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync persistent volume claim %q to host because the storage class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.StorageClassName, err)
 		return true

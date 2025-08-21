@@ -42,7 +42,7 @@ func NewFromHostTranslatorForGVK(ctx *synccontext.RegisterContext, gvk schema.Gr
 		eventRecorder:  ctx.VirtualManager.GetEventRecorderFor("from-host-" + strings.ToLower(gvk.Kind) + "-syncer"),
 		virtualToHost:  virtualToHost,
 		hostToVirtual:  hostToVirtual,
-		namespace:      ctx.Config.ControlPlaneNamespace,
+		namespace:      ctx.Config.HostNamespace,
 		translatorName: "from-host-" + strings.ToLower(gvk.Kind),
 		skipFuncs:      skipFuncs,
 	}, nil
@@ -117,11 +117,11 @@ func matchesHostObject(ctx *synccontext.SyncContext, hostName, hostNamespace str
 	// whether specific mappings where defined or not.
 	if ctx.Config.Config.Sync.ToHost.Namespaces.Enabled {
 		ns := &corev1.Namespace{}
-		if err := ctx.PhysicalClient.Get(ctx.Context, types.NamespacedName{Name: hostNamespace}, ns, &client.GetOptions{}); err != nil {
+		if err := ctx.HostClient.Get(ctx.Context, types.NamespacedName{Name: hostNamespace}, ns, &client.GetOptions{}); err != nil {
 			return types.NamespacedName{}, false
 		}
 
-		if isImportedByOthervCluster(ns, ctx.Config.Name, ctx.Config.ControlPlaneNamespace) {
+		if isImportedByOthervCluster(ns, ctx.Config.Name, ctx.Config.HostNamespace) {
 			return types.NamespacedName{}, false
 		}
 

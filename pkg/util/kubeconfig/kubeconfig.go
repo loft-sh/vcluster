@@ -37,7 +37,7 @@ const (
 	KubeConfigSecretVclusterNameKey = "vcluster-name"
 )
 
-func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, secretName, secretNamespace string, config *clientcmdapi.Config, isRemote bool, vClusterName string) error {
+func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, secretName, secretNamespace string, config *clientcmdapi.Config, vClusterName string) error {
 	out, err := clientcmd.Write(*config)
 	if err != nil {
 		return err
@@ -91,7 +91,7 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 			kubeConfigSecret.Data[TokenSecretKey] = []byte(token)
 
 			// set owner reference
-			if !isRemote && translate.Owner != nil && translate.Owner.GetNamespace() == kubeConfigSecret.Namespace {
+			if translate.Owner != nil && translate.Owner.GetNamespace() == kubeConfigSecret.Namespace {
 				kubeConfigSecret.OwnerReferences = translate.GetOwnerReference(nil)
 			}
 			return nil

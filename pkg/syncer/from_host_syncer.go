@@ -164,12 +164,12 @@ func (s *genericFromHostSyncer) ConfigureAndStartManager(ctx *synccontext.Regist
 		return nil, fmt.Errorf("cache was not synced for custom physical manager for %s syncer", s.Name())
 	}
 
-	newCtx.PhysicalManager = localMultiNamespaceManager
+	newCtx.HostManager = localMultiNamespaceManager
 	return &newCtx, nil
 }
 
 func ConfigureNewLocalManager(ctx *synccontext.RegisterContext, mappings map[string]string, syncerName string) (ctrl.Manager, bool, error) {
-	multiNsCacheConfig, customManagerNeeded := vclusterconfig.GetLocalCacheOptionsFromConfigMappings(mappings, ctx.Config.ControlPlaneNamespace)
+	multiNsCacheConfig, customManagerNeeded := vclusterconfig.GetLocalCacheOptionsFromConfigMappings(mappings, ctx.Config.HostNamespace)
 	if !customManagerNeeded {
 		return nil, true, nil
 	}
@@ -178,7 +178,7 @@ func ConfigureNewLocalManager(ctx *synccontext.RegisterContext, mappings map[str
 		logNs = append(logNs, k)
 	}
 	klog.FromContext(ctx).Info("Setting up custom physical multi-namespace manager for", "namespaces", logNs, "syncer", syncerName)
-	localMultiNamespaceManager, err := ctrl.NewManager(ctx.Config.WorkloadConfig, GetOptionsForMultiNamespaceManager(ctx, multiNsCacheConfig))
+	localMultiNamespaceManager, err := ctrl.NewManager(ctx.Config.HostConfig, GetOptionsForMultiNamespaceManager(ctx, multiNsCacheConfig))
 	if err != nil {
 		return nil, false, fmt.Errorf("unable to create custom physical manager for syncer %s: %w", syncerName, err)
 	}
@@ -196,7 +196,7 @@ func GetOptionsForMultiNamespaceManager(ctx *synccontext.RegisterContext, option
 		NewClient:        pro.NewVirtualClient(ctx.Config),
 		WebhookServer:    nil,
 		Cache: cache.Options{
-			Mapper:                   ctx.PhysicalManager.GetRESTMapper(),
+			Mapper:                   ctx.HostManager.GetRESTMapper(),
 			DefaultNamespaces:        options.DefaultNamespaces,
 			DefaultWatchErrorHandler: additionalPermissionMissingHandler(),
 		},

@@ -40,7 +40,7 @@ type NameserverFinder struct {
 }
 
 func (f *NameserverFinder) DNSNamespace(ctx *synccontext.SyncContext) (client.Client, string) {
-	return ctx.PhysicalClient, mappings.VirtualToHostNamespace(ctx, DefaultKubeDNSServiceNamespace)
+	return ctx.HostClient, mappings.VirtualToHostNamespace(ctx, DefaultKubeDNSServiceNamespace)
 }
 
 func (f *NameserverFinder) SpecialServicesToSync() map[types.NamespacedName]SpecialServiceSyncer {

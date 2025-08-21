@@ -34,24 +34,6 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: enable isolated control plane
-    set:
-      experimental:
-        isolatedControlPlane:
-          enabled: true
-    asserts:
-      - hasDocuments:
-          count: 1
-      - lengthEqual:
-          path: rules
-          count: 1
-      - contains:
-          path: rules
-          content:
-            apiGroups: [ "" ]
-            resources: [ "nodes" ]
-            verbs: [ "get", "watch", "list" ]
-
   - it: enable scheduler (k8s distro explicitly enabled)
     set:
       controlPlane:

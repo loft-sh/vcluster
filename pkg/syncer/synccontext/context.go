@@ -16,14 +16,13 @@ import (
 type ControllerContext struct {
 	context.Context
 
-	LocalManager          ctrl.Manager
+	HostManager           ctrl.Manager
+	HostNamespaceClient   client.Client
 	VirtualManager        ctrl.Manager
 	VirtualRawConfig      *clientcmdapi.Config
 	VirtualClusterVersion *version.Info
 
 	EtcdClient etcd.Client
-
-	WorkloadNamespaceClient client.Client
 
 	Config   *config.VirtualClusterConfig
 	StopChan <-chan struct{}
@@ -51,8 +50,8 @@ type RegisterContext struct {
 
 	Mappings MappingsRegistry
 
-	VirtualManager  ctrl.Manager
-	PhysicalManager ctrl.Manager
+	VirtualManager ctrl.Manager
+	HostManager    ctrl.Manager
 }
 
 type Filter func(http.Handler, *ControllerContext) http.Handler
@@ -65,11 +64,11 @@ func (c *ControllerContext) ToRegisterContext() *RegisterContext {
 
 		Config: c.Config,
 
-		CurrentNamespace:       c.Config.WorkloadNamespace,
-		CurrentNamespaceClient: c.WorkloadNamespaceClient,
+		CurrentNamespace:       c.Config.HostNamespace,
+		CurrentNamespaceClient: c.HostNamespaceClient,
 
-		VirtualManager:  c.VirtualManager,
-		PhysicalManager: c.LocalManager,
+		VirtualManager: c.VirtualManager,
+		HostManager:    c.HostManager,
 
 		Mappings: c.Mappings,
 	}
@@ -84,8 +83,8 @@ func (r *RegisterContext) ToSyncContext(logName string) *SyncContext {
 		CurrentNamespaceClient: r.CurrentNamespaceClient,
 		Mappings:               r.Mappings,
 	}
-	if r.PhysicalManager != nil {
-		syncCtx.PhysicalClient = r.PhysicalManager.GetClient()
+	if r.HostManager != nil {
+		syncCtx.HostClient = r.HostManager.GetClient()
 	}
 	if r.VirtualManager != nil {
 		syncCtx.VirtualClient = r.VirtualManager.GetClient()

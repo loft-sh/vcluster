@@ -637,7 +637,7 @@ func (m *Manager) buildInitRequest(
 	}
 
 	// Physical client config
-	convertedPhysicalConfig, err := kubeconfig.ConvertRestConfigToClientConfig(vConfig.WorkloadConfig)
+	convertedPhysicalConfig, err := kubeconfig.ConvertRestConfigToClientConfig(vConfig.HostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("convert physical client config: %w", err)
 	}
@@ -649,7 +649,7 @@ func (m *Manager) buildInitRequest(
 	if err != nil {
 		return nil, fmt.Errorf("marshal physical client config: %w", err)
 	}
-	convertedControlPlaneConfig, err := kubeconfig.ConvertRestConfigToClientConfig(vConfig.ControlPlaneConfig)
+	convertedControlPlaneConfig, err := kubeconfig.ConvertRestConfigToClientConfig(vConfig.HostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("convert control plane client config: %w", err)
 	}
@@ -681,7 +681,7 @@ func (m *Manager) buildInitRequest(
 		ControlPlaneConfig: controlPlaneConfigBytes,
 
 		SyncerConfig:     syncerConfigBytes,
-		CurrentNamespace: vConfig.WorkloadNamespace,
+		CurrentNamespace: vConfig.HostNamespace,
 		Config:           encodedConfig,
 		Options:          encodedLegacyOptions,
 		WorkingDir:       workingDir,

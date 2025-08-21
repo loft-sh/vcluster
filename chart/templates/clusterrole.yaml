@@ -29,11 +29,6 @@ rules:
     resources: ["pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy"]
     verbs: ["get", "watch", "list"]
   {{- end }}
-  {{- if .Values.experimental.isolatedControlPlane.enabled }}
-  - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["get", "watch", "list"]
-  {{- end }}
   {{- if and .Values.sync.fromHost.nodes.enabled .Values.sync.fromHost.nodes.syncBackChanges }}
   - apiGroups: [""]
     resources: ["nodes", "nodes/status"]

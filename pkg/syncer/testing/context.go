@@ -67,7 +67,7 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 		CurrentNamespace:       testingutil.DefaultTestCurrentNamespace,
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         testingutil.NewFakeManager(vClient),
-		PhysicalManager:        testingutil.NewFakeManager(pClient),
+		HostManager:            testingutil.NewFakeManager(pClient),
 	}
 
 	// create new store

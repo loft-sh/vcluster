@@ -22,7 +22,7 @@ import (
 )
 
 func StartLeaderElection(ctx *synccontext.ControllerContext, scheme *runtime.Scheme, run func() error) error {
-	localConfig := ctx.LocalManager.GetConfig()
+	localConfig := ctx.HostManager.GetConfig()
 
 	// create the event recorder
 	recorderClient, err := kubernetes.NewForConfig(localConfig)
@@ -31,7 +31,7 @@ func StartLeaderElection(ctx *synccontext.ControllerContext, scheme *runtime.Sch
 	}
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(func(format string, args ...interface{}) { klog.Infof(format, args...) })
-	eventBroadcaster.StartRecordingToSink(&clientv1.EventSinkImpl{Interface: recorderClient.CoreV1().Events(ctx.Config.WorkloadNamespace)})
+	eventBroadcaster.StartRecordingToSink(&clientv1.EventSinkImpl{Interface: recorderClient.CoreV1().Events(ctx.Config.HostNamespace)})
 	recorder := eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "vcluster"})
 
 	// create the leader election client
@@ -49,7 +49,7 @@ func StartLeaderElection(ctx *synccontext.ControllerContext, scheme *runtime.Sch
 	// Lock required for leader election
 	rl, err := resourcelock.New(
 		resourcelock.LeasesResourceLock,
-		ctx.Config.WorkloadNamespace,
+		ctx.Config.HostNamespace,
 		translate.SafeConcatName("vcluster", translate.VClusterName, "controller"),
 		leaderElectionClient.CoreV1(),
 		leaderElectionClient.CoordinationV1(),

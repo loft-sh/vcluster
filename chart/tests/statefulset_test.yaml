@@ -3,15 +3,6 @@ templates:
   - statefulset.yaml
 
 tests:
-  - it: should not create control-plane
-    set:
-      experimental:
-        isolatedControlPlane:
-          headless: true
-    asserts:
-      - hasDocuments:
-          count: 0
-
   - it: image name
     set:
       controlPlane:

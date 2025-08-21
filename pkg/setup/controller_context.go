@@ -71,8 +71,8 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 	// create physical manager
 	var localManager ctrl.Manager
 	if !options.ControlPlane.Standalone.Enabled {
-		klog.Info("Using physical cluster at " + options.WorkloadConfig.Host)
-		localManager, err = NewLocalManager(options.WorkloadConfig, ctrl.Options{
+		klog.Info("Using physical cluster at " + options.HostConfig.Host)
+		localManager, err = NewLocalManager(options.HostConfig, ctrl.Options{
 			Scheme:         scheme.Scheme,
 			Metrics:        metricsserver.Options{BindAddress: localManagerMetrics},
 			LeaderElection: false,
@@ -114,7 +114,7 @@ func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 	// is multi namespace mode?
 	defaultNamespaces := make(map[string]cache.Config)
 	if !options.Sync.ToHost.Namespaces.Enabled {
-		defaultNamespaces[options.WorkloadTargetNamespace] = cache.Config{}
+		defaultNamespaces[options.HostTargetNamespace] = cache.Config{}
 	}
 	// do we need access to another namespace to export the kubeconfig ?
 	// we will need access to all the objects that the vcluster usually has access to
@@ -389,8 +389,8 @@ func initControllerContext(
 	}
 
 	controllerContext := &synccontext.ControllerContext{
-		Context:      ctx,
-		LocalManager: localManager,
+		Context:     ctx,
+		HostManager: localManager,
 
 		VirtualManager:        virtualManager,
 		VirtualRawConfig:      virtualRawConfig,
@@ -398,7 +398,7 @@ func initControllerContext(
 
 		EtcdClient: etcdClient,
 
-		WorkloadNamespaceClient: currentNamespaceClient,
+		HostNamespaceClient: currentNamespaceClient,
 
 		StopChan: stopChan,
 		Config:   vClusterOptions,
@@ -440,11 +440,11 @@ func newCurrentNamespaceClient(ctx context.Context, localManager ctrl.Manager, o
 	// as the regular cache is scoped to the options.TargetNamespace and cannot return
 	// objects from the current namespace.
 	currentNamespaceCache := localManager.GetCache()
-	if !options.Sync.ToHost.Namespaces.Enabled && options.WorkloadNamespace != options.WorkloadTargetNamespace {
+	if !options.Sync.ToHost.Namespaces.Enabled && options.HostNamespace != options.HostTargetNamespace {
 		currentNamespaceCache, err = cache.New(localManager.GetConfig(), cache.Options{
 			Scheme:            localManager.GetScheme(),
 			Mapper:            localManager.GetRESTMapper(),
-			DefaultNamespaces: map[string]cache.Config{options.WorkloadNamespace: {}},
+			DefaultNamespaces: map[string]cache.Config{options.HostNamespace: {}},
 		})
 		if err != nil {
 			return nil, err

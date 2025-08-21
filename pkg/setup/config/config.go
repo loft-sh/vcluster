@@ -11,11 +11,14 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -23,35 +26,49 @@ const (
 	AnnotationStore  = "vcluster.loft.sh/store"
 )
 
+func InitClientConfig() (*rest.Config, string, error) {
+	inClusterConfig, err := ctrl.GetConfig()
+	if err != nil {
+		return nil, "", fmt.Errorf("getting in cluster config: %w", err)
+	}
+
+	// We increase the limits here so that we don't get any problems later on
+	inClusterConfig.QPS = 40
+	inClusterConfig.Burst = 80
+	inClusterConfig.Timeout = 0
+
+	// get current namespace
+	currentNamespace, err := clienthelper.CurrentNamespace()
+	if err != nil {
+		return nil, "", err
+	}
+
+	return inClusterConfig, currentNamespace, nil
+}
+
 func InitClients(vConfig *config.VirtualClusterConfig) error {
 	var err error
 
 	// get host cluster client
-	vConfig.ControlPlaneClient, err = kubernetes.NewForConfig(vConfig.ControlPlaneConfig)
-	if err != nil {
-		return err
-	}
-
-	// get workload client
-	vConfig.WorkloadClient, err = kubernetes.NewForConfig(vConfig.WorkloadConfig)
+	vConfig.HostClient, err = kubernetes.NewForConfig(vConfig.HostConfig)
 	if err != nil {
 		return err
 	}
 
 	// ensure target namespace
-	vConfig.WorkloadTargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace
-	if vConfig.WorkloadTargetNamespace == "" {
-		vConfig.WorkloadTargetNamespace = vConfig.WorkloadNamespace
+	vConfig.HostTargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace
+	if vConfig.HostTargetNamespace == "" {
+		vConfig.HostTargetNamespace = vConfig.HostNamespace
 	}
 
 	// get workload target namespace translator
 	if vConfig.Sync.ToHost.Namespaces.Enabled {
-		translate.Default, err = pro.GetWithSyncedNamespacesTranslator(vConfig.WorkloadTargetNamespace, vConfig.Sync.ToHost.Namespaces.Mappings)
+		translate.Default, err = pro.GetWithSyncedNamespacesTranslator(vConfig.HostTargetNamespace, vConfig.Sync.ToHost.Namespaces.Mappings)
 		if err != nil {
 			return err
 		}
 	} else {
-		translate.Default = translate.NewSingleNamespaceTranslator(vConfig.WorkloadTargetNamespace)
+		translate.Default = translate.NewSingleNamespaceTranslator(vConfig.HostTargetNamespace)
 	}
 
 	return nil
@@ -62,7 +79,7 @@ func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterCo
 	translate.VClusterName = vConfig.Name
 
 	// set workload namespace
-	err := os.Setenv("NAMESPACE", vConfig.WorkloadNamespace)
+	err := os.Setenv("NAMESPACE", vConfig.HostNamespace)
 	if err != nil {
 		return fmt.Errorf("set NAMESPACE env var: %w", err)
 	}
@@ -75,9 +92,9 @@ func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterCo
 
 	if err := EnsureBackingStoreChanges(
 		ctx,
-		vConfig.ControlPlaneClient,
+		vConfig.HostClient,
 		vConfig.Name,
-		vConfig.ControlPlaneNamespace,
+		vConfig.HostNamespace,
 		vConfig.Distro(),
 		vConfig.BackingStoreType(),
 	); err != nil {
@@ -212,17 +229,17 @@ func SetGlobalOwner(ctx context.Context, vConfig *config.VirtualClusterConfig) e
 		return nil
 	}
 
-	if vConfig.WorkloadNamespace != vConfig.WorkloadTargetNamespace {
-		klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", vConfig.WorkloadNamespace, vConfig.WorkloadTargetNamespace)
+	if vConfig.HostNamespace != vConfig.HostTargetNamespace {
+		klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", vConfig.HostNamespace, vConfig.HostTargetNamespace)
 
 		return nil
 	}
 
-	if vConfig.WorkloadClient == nil {
-		return errors.New("nil WorkloadClient")
+	if vConfig.HostClient == nil {
+		return errors.New("nil HostClient")
 	}
 
-	service, err := vConfig.WorkloadClient.CoreV1().Services(vConfig.WorkloadNamespace).Get(ctx, vConfig.WorkloadService, metav1.GetOptions{})
+	service, err := vConfig.HostClient.CoreV1().Services(vConfig.HostNamespace).Get(ctx, vConfig.Name, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "get vcluster service")
 	}

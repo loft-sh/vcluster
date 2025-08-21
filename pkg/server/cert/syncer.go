@@ -31,7 +31,7 @@ func NewSyncer(ctx *synccontext.ControllerContext) (Syncer, error) {
 		serverCaCert: ctx.Config.VirtualClusterKubeConfig().ServerCACert,
 
 		vClient:                 ctx.VirtualManager.GetClient(),
-		workloadNamespaceClient: ctx.WorkloadNamespaceClient,
+		workloadNamespaceClient: ctx.HostNamespaceClient,
 		vConfig:                 ctx.Config,
 
 		listeners: []dynamiccertificates.Listener{},

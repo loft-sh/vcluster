@@ -105,7 +105,7 @@ func rewritePrometheusMetrics(ctx *synccontext.SyncContext, req *http.Request, d
 func handleNodeRequest(ctx *synccontext.RegisterContext, w http.ResponseWriter, req *http.Request) (bool, error) {
 	// authorization was done here already so we will just go forward with the rewrite
 	req.Header.Del("Authorization")
-	h, err := handler.Handler("", ctx.PhysicalManager.GetConfig(), nil)
+	h, err := handler.Handler("", ctx.HostManager.GetConfig(), nil)
 	if err != nil {
 		return false, err
 	}

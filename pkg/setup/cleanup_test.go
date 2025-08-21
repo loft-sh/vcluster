@@ -154,7 +154,7 @@ func TestDeletePreviouslyReplicatedServices(t *testing.T) {
 			fakeConfig := testingutil.NewFakeConfig()
 			fakeConfig.Networking.ReplicateServices = tc.replicateServicesConfig
 			if tc.workloadTargetNamespace != "" {
-				fakeConfig.WorkloadTargetNamespace = tc.workloadTargetNamespace
+				fakeConfig.HostTargetNamespace = tc.workloadTargetNamespace
 			}
 			pClient := testingutil.NewFakeClient(scheme.Scheme, tc.initialHostServicesBeforeCleanup...)
 			vClient := testingutil.NewFakeClient(scheme.Scheme, tc.initialVirtualServicesBeforeCleanup...)
@@ -183,7 +183,7 @@ func NewFakeControllerContext(ctx context.Context, config *config.VirtualCluster
 	virtualManager := testingutil.NewFakeManager(virtualClient)
 	return &synccontext.ControllerContext{
 		Context:        ctx,
-		LocalManager:   hostManager,
+		HostManager:    hostManager,
 		VirtualManager: virtualManager,
 		Config:         config,
 	}

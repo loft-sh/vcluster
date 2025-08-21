@@ -56,7 +56,7 @@ func (o *BidirectionalObjectCache) Start(ctx *RegisterContext) error {
 			o.pCache.cache.Range(func(key, _ any) bool {
 				// check physical object
 				pName := key.(types.NamespacedName)
-				if objectExists(ctx, ctx.PhysicalManager.GetClient(), pName, o.obj.DeepCopyObject().(client.Object)) {
+				if objectExists(ctx, ctx.HostManager.GetClient(), pName, o.obj.DeepCopyObject().(client.Object)) {
 					return true
 				}
 
@@ -91,7 +91,7 @@ func (o *BidirectionalObjectCache) Start(ctx *RegisterContext) error {
 					o.vCache.cache.Delete(key)
 					klog.FromContext(syncContext).V(1).Info("Delete from virtual cache", "gvk", gvk.String(), "key", vName.String())
 					return true
-				} else if objectExists(ctx, ctx.PhysicalManager.GetClient(), pName, o.obj.DeepCopyObject().(client.Object)) {
+				} else if objectExists(ctx, ctx.HostManager.GetClient(), pName, o.obj.DeepCopyObject().(client.Object)) {
 					return true
 				}
 

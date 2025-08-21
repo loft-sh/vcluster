@@ -70,7 +70,7 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 	}
 
 	// get current namespace
-	vConfig.ControlPlaneConfig, vConfig.ControlPlaneNamespace, vConfig.ControlPlaneService, vConfig.WorkloadConfig, vConfig.WorkloadNamespace, vConfig.WorkloadService, err = pro.GetRemoteClient(vConfig)
+	vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
 	if err != nil {
 		return err
 	}
@@ -101,17 +101,18 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 	}
 
 	logger := log.GetInstance()
+
 	// check if there are existing vClusters in the current namespace
-	vClusters, err := find.ListVClusters(ctx, "", "", vConfig.ControlPlaneNamespace, logger)
+	vClusters, err := find.ListVClusters(ctx, "", "", vConfig.HostNamespace, logger)
 	if err != nil {
 		return err
 	}
 
 	// from v0.25 onwards, creation of multiple vClusters inside the same ns is not allowed
 	for _, v := range vClusters {
-		if v.Namespace == vConfig.ControlPlaneNamespace && v.Name != vClusterName {
+		if v.Namespace == vConfig.HostNamespace && v.Name != vClusterName {
 			return fmt.Errorf("there is already a virtual cluster in namespace %s; "+
-				"creating multiple virtual clusters inside the same namespace is not supported", vConfig.ControlPlaneNamespace)
+				"creating multiple virtual clusters inside the same namespace is not supported", vConfig.HostNamespace)
 		}
 	}
 

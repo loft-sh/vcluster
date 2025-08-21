@@ -219,32 +219,32 @@ func getExtraSANs(ctx context.Context, workloadNamespaceClient, vClient client.C
 	}
 
 	// add default sans
-	retSANs = append(retSANs, vConfig.WorkloadService, vConfig.WorkloadService+"."+vConfig.WorkloadNamespace, "*."+constants.NodeSuffix)
+	retSANs = append(retSANs, vConfig.Name, vConfig.Name+"."+vConfig.HostNamespace, "*."+constants.NodeSuffix)
 
 	// get cluster ip of target service
 	svc := &corev1.Service{}
 	err := workloadNamespaceClient.Get(ctx, types.NamespacedName{
-		Namespace: vConfig.WorkloadNamespace,
-		Name:      vConfig.WorkloadService,
+		Namespace: vConfig.HostNamespace,
+		Name:      vConfig.Name,
 	}, svc)
 	if err != nil {
-		return nil, fmt.Errorf("error getting vcluster service %s/%s: %w", vConfig.WorkloadNamespace, vConfig.WorkloadService, err)
+		return nil, fmt.Errorf("error getting vcluster service %s/%s: %w", vConfig.HostNamespace, vConfig.Name, err)
 	} else if svc.Spec.ClusterIP == "" {
-		return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", vConfig.WorkloadNamespace, vConfig.WorkloadService)
+		return nil, fmt.Errorf("target service %s/%s is missing a clusterIP", vConfig.HostNamespace, vConfig.Name)
 	}
 
 	// append general hostnames
 	retSANs = append(
 		retSANs,
-		vConfig.WorkloadService,
-		vConfig.WorkloadService+"."+vConfig.WorkloadNamespace,
-		"*."+translate.VClusterName+"."+vConfig.WorkloadNamespace+"."+constants.NodeSuffix,
+		vConfig.Name,
+		vConfig.Name+"."+vConfig.HostNamespace,
+		"*."+translate.VClusterName+"."+vConfig.HostNamespace+"."+constants.NodeSuffix,
 	)
 
 	// if the service is a node port, we need to add the node ips to the sans
 	if svc.Spec.Type == corev1.ServiceTypeNodePort {
 		pods := &corev1.PodList{}
-		err = workloadNamespaceClient.List(ctx, pods, client.InNamespace(vConfig.WorkloadNamespace), client.MatchingLabels{"app": "vcluster", "release": vConfig.Name})
+		err = workloadNamespaceClient.List(ctx, pods, client.InNamespace(vConfig.HostNamespace), client.MatchingLabels{"app": "vcluster", "release": vConfig.Name})
 		if err != nil {
 			return nil, fmt.Errorf("error getting vcluster control plane pods: %w", err)
 		}
@@ -296,7 +296,7 @@ func getExtraSANs(ctx context.Context, workloadNamespaceClient, vClient client.C
 	if vConfig.Networking.Advanced.ProxyKubelets.ByIP {
 		// get cluster ips of node services
 		svcs := &corev1.ServiceList{}
-		err = workloadNamespaceClient.List(ctx, svcs, client.InNamespace(vConfig.WorkloadNamespace), client.MatchingLabels{nodeservice.ServiceClusterLabel: translate.VClusterName})
+		err = workloadNamespaceClient.List(ctx, svcs, client.InNamespace(vConfig.HostNamespace), client.MatchingLabels{nodeservice.ServiceClusterLabel: translate.VClusterName})
 		if err != nil {
 			return nil, err
 		}

@@ -133,7 +133,7 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 	} else if svc.Spec.Selector != nil {
 		// check if it was a managed endpoints object before and delete it
 		endpoints := &corev1.Endpoints{}
-		err = ctx.PhysicalClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpoints)
+		err = ctx.HostClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpoints)
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
 				klog.Infof("Error retrieving endpoints: %v", err)
@@ -150,7 +150,7 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 			// to the same endpoints resulting in wrong DNS and cluster networking. Hence, deleting the previously
 			// managed endpoints signals the Kubernetes controller to recreate the endpoints from the selector.
 			klog.Infof("Refresh endpoints in physical cluster because they shouldn't be managed by vcluster anymore")
-			err = ctx.PhysicalClient.Delete(ctx, endpoints)
+			err = ctx.HostClient.Delete(ctx, endpoints)
 			if err != nil {
 				klog.Infof("Error deleting endpoints %s/%s: %v", endpoints.Namespace, endpoints.Name, err)
 				return true, err
@@ -162,10 +162,10 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 
 	// check if it was a Kubernetes managed endpoints object before and delete it
 	endpoints := &corev1.Endpoints{}
-	err = ctx.PhysicalClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpoints)
+	err = ctx.HostClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpoints)
 	if err == nil && (endpoints.Annotations == nil || endpoints.Annotations[translate.NameAnnotation] == "") {
 		klog.Infof("Refresh endpoints in physical cluster because they should be managed by vCluster now")
-		err = ctx.PhysicalClient.Delete(ctx, endpoints)
+		err = ctx.HostClient.Delete(ctx, endpoints)
 		if err != nil {
 			klog.Infof("Error deleting endpoints %s/%s: %v", endpoints.Namespace, endpoints.Name, err)
 			return true, err

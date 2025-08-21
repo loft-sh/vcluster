@@ -19,19 +19,6 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: check disabled headless
-    set:
-      controlPlane:
-        distro:
-          k8s:
-            enabled: true
-      experimental:
-        isolatedControlPlane:
-          headless: true
-    asserts:
-      - hasDocuments:
-          count: 0
-
   - it: check default image registry
     set:
       controlPlane:

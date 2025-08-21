@@ -50,9 +50,9 @@ func NewEndpointController(ctx *synccontext.ControllerContext, provider provider
 		VirtualClient:       ctx.VirtualManager.GetClient(),
 		VirtualManagerCache: ctx.VirtualManager.GetCache(),
 
-		ServiceName:      ctx.Config.WorkloadService,
-		ServiceNamespace: ctx.Config.WorkloadNamespace,
-		ServiceClient:    ctx.WorkloadNamespaceClient,
+		ServiceName:      ctx.Config.Name,
+		ServiceNamespace: ctx.Config.HostNamespace,
+		ServiceClient:    ctx.HostNamespaceClient,
 
 		Log:      loghelper.New("kubernetes-default-endpoint-controller"),
 		provider: provider,

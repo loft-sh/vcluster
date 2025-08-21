@@ -1728,11 +1728,6 @@
           "$ref": "#/$defs/ExperimentalGenericSync",
           "description": "GenericSync holds options to generically sync resources from virtual cluster to host."
         },
-        "isolatedControlPlane": {
-          "$ref": "#/$defs/ExperimentalIsolatedControlPlane",
-          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.",
-          "pro": true
-        },
         "virtualClusterKubeConfig": {
           "$ref": "#/$defs/VirtualClusterKubeConfig",
           "description": "VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config."
@@ -1901,32 +1896,6 @@
         "extraRules": {
           "items": true,
           "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ExperimentalIsolatedControlPlane": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled specifies if the isolated control plane feature should be enabled."
-        },
-        "headless": {
-          "type": "boolean",
-          "description": "Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane."
-        },
-        "kubeConfig": {
-          "type": "string",
-          "description": "KubeConfig is the path where to find the remote workload cluster kubeconfig."
-        },
-        "namespace": {
-          "type": "string",
-          "description": "Namespace is the namespace where to sync the workloads into."
-        },
-        "service": {
-          "type": "string",
-          "description": "Service is the vCluster service in the remote cluster."
         }
       },
       "additionalProperties": false,

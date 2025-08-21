@@ -12,7 +12,6 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/pro"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +37,7 @@ func Rotate(ctx context.Context,
 	withCA bool,
 	log log.Logger) error {
 	var err error
-	vConfig.ControlPlaneConfig, vConfig.ControlPlaneNamespace, vConfig.ControlPlaneService, vConfig.WorkloadConfig, vConfig.WorkloadNamespace, vConfig.WorkloadService, err = pro.GetRemoteClient(vConfig)
+	vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
 	if err != nil {
 		return fmt.Errorf("getting remote client: %w", err)
 	}
@@ -47,7 +46,7 @@ func Rotate(ctx context.Context,
 		return fmt.Errorf("initializing clients: %w", err)
 	}
 
-	serviceCIDR, err := servicecidr.GetServiceCIDR(ctx, &vConfig.Config, vConfig.WorkloadClient, vConfig.WorkloadService, vConfig.WorkloadNamespace)
+	serviceCIDR, err := servicecidr.GetServiceCIDR(ctx, &vConfig.Config, vConfig.HostClient, vConfig.Name, vConfig.HostNamespace)
 	if err != nil {
 		return fmt.Errorf("getting service cidr: %w", err)
 	}
@@ -100,7 +99,7 @@ func Rotate(ctx context.Context,
 	}
 
 	// Patch the secret so in case of a restart without persistence we don't loose data.
-	return patchSecret(ctx, vConfig.ControlPlaneNamespace, CertSecretName(vConfig.Name), pkiPath, vConfig.ControlPlaneClient)
+	return patchSecret(ctx, vConfig.HostNamespace, CertSecretName(vConfig.Name), pkiPath, vConfig.HostClient)
 }
 
 func backupDirectory(src, dst string) error {

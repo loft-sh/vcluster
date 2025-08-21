@@ -139,10 +139,10 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 
 	// add filters if not dedicated
 	if !ctx.Config.PrivateNodes.Enabled {
-		localConfig := ctx.LocalManager.GetConfig()
+		localConfig := ctx.HostManager.GetConfig()
 		uncachedLocalClient, err := client.New(localConfig, client.Options{
-			Scheme: ctx.LocalManager.GetScheme(),
-			Mapper: ctx.LocalManager.GetRESTMapper(),
+			Scheme: ctx.HostManager.GetScheme(),
+			Mapper: ctx.HostManager.GetRESTMapper(),
 		})
 		if err != nil {
 			return nil, err
@@ -303,7 +303,7 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 func (s *Server) buildHandlerChain(ctx *synccontext.ControllerContext, serverConfig *server.Config) http.Handler {
 	defaultHandler := DefaultBuildHandlerChain(s.handler, serverConfig)
 	if !ctx.Config.PrivateNodes.Enabled {
-		defaultHandler = filters.WithNodeName(defaultHandler, ctx.Config.WorkloadNamespace, ctx.Config.Networking.Advanced.ProxyKubelets.ByIP, s.cachedVirtualClient, ctx.WorkloadNamespaceClient)
+		defaultHandler = filters.WithNodeName(defaultHandler, ctx.Config.HostNamespace, ctx.Config.Networking.Advanced.ProxyKubelets.ByIP, s.cachedVirtualClient, ctx.HostNamespaceClient)
 	}
 	return defaultHandler
 }

@@ -1207,11 +1207,6 @@ experimental:
     # SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.
     setOwner: true
   
-  # IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
-  isolatedControlPlane:
-    # Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane.
-    headless: false
-  
   # Deploy allows you to configure manifests and Helm charts to deploy within the host or virtual cluster.
   deploy:
     # Host defines what manifests to deploy into the host cluster

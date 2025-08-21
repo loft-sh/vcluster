@@ -55,7 +55,7 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 
 		log:            loghelper.New(syncer.Name()),
 		vEventRecorder: ctx.VirtualManager.GetEventRecorderFor(syncer.Name() + "-syncer"),
-		physicalClient: ctx.PhysicalManager.GetClient(),
+		physicalClient: ctx.HostManager.GetClient(),
 
 		currentNamespace:       ctx.CurrentNamespace,
 		currentNamespaceClient: ctx.CurrentNamespaceClient,
@@ -115,7 +115,7 @@ func (r *SyncController) newSyncContext(ctx context.Context, logName string) *sy
 		Context:                ctx,
 		Config:                 r.config,
 		Log:                    loghelper.NewFromExisting(r.log.Base(), logName),
-		PhysicalClient:         r.physicalClient,
+		HostClient:             r.physicalClient,
 		ObjectCache:            r.objectCache,
 		CurrentNamespace:       r.currentNamespace,
 		CurrentNamespaceClient: r.currentNamespaceClient,
@@ -465,7 +465,7 @@ func (r *SyncController) Build(ctx *synccontext.RegisterContext) (controller.Con
 		}).
 		Named(r.syncer.Name()).
 		Watches(r.syncer.Resource(), newEventHandler(r.enqueueVirtual)).
-		WatchesRawSource(source.Kind(ctx.PhysicalManager.GetCache(), r.syncer.Resource(), newEventHandler(r.enqueuePhysical)))
+		WatchesRawSource(source.Kind(ctx.HostManager.GetCache(), r.syncer.Resource(), newEventHandler(r.enqueuePhysical)))
 
 	// should add extra stuff?
 	modifier, isControllerModifier := r.syncer.(syncertypes.ControllerModifier)

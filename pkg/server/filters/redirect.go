@@ -67,7 +67,7 @@ func WithRedirect(h http.Handler, registerCtx *synccontext.RegisterContext, unca
 				}
 			}
 
-			h, err := handler.Handler("", registerCtx.PhysicalManager.GetConfig(), nil)
+			h, err := handler.Handler("", registerCtx.HostManager.GetConfig(), nil)
 			if err != nil {
 				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
 				return

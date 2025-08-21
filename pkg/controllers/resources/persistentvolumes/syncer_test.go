@@ -300,7 +300,7 @@ func TestSync(t *testing.T) {
 				err = syncContext.VirtualClient.Get(ctx, types.NamespacedName{Name: baseVPv.Name}, baseVPv)
 				assert.NilError(t, err)
 
-				err = syncContext.PhysicalClient.Get(ctx, types.NamespacedName{Name: backwardUpdatePPv.Name}, backwardUpdatePPv)
+				err = syncContext.HostClient.Get(ctx, types.NamespacedName{Name: backwardUpdatePPv.Name}, backwardUpdatePPv)
 				assert.NilError(t, err)
 
 				pObj2 := backwardUpdatePPv
@@ -420,7 +420,7 @@ func TestSync(t *testing.T) {
 				}
 
 				pObjOld := &corev1.PersistentVolume{}
-				err := syncContext.PhysicalClient.Get(ctx, types.NamespacedName{Name: basePPv.Name}, pObjOld)
+				err := syncContext.HostClient.Get(ctx, types.NamespacedName{Name: basePPv.Name}, pObjOld)
 				assert.NilError(t, err)
 
 				pObj := pObjOld.DeepCopy()

@@ -122,7 +122,7 @@ func (s *namespaceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syn
 	}
 
 	// add marker annotation to host object and update it
-	_, err := controllerutil.CreateOrPatch(ctx, ctx.PhysicalClient, event.Host, func() error {
+	_, err := controllerutil.CreateOrPatch(ctx, ctx.HostClient, event.Host, func() error {
 		if event.Host.Annotations == nil {
 			event.Host.Annotations = map[string]string{}
 		}
@@ -154,6 +154,6 @@ func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncCont
 			Name:      s.workloadServiceAccountName,
 		},
 	}
-	_, err := controllerutil.CreateOrPatch(ctx, ctx.PhysicalClient, svc, func() error { return nil })
+	_, err := controllerutil.CreateOrPatch(ctx, ctx.HostClient, svc, func() error { return nil })
 	return err
 }

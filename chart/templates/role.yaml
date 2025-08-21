@@ -46,7 +46,7 @@ rules:
   - apiGroups: [""]
     resources: ["endpoints", "events", "pods/log"]
     verbs: ["get", "list", "watch"]
-  {{- if or .Values.sync.toHost.endpoints.enabled .Values.experimental.isolatedControlPlane.headless }}
+  {{- if .Values.sync.toHost.endpoints.enabled }}
   - apiGroups: [""]
     resources: ["endpoints"]
     verbs: ["create", "delete", "patch", "update"]
