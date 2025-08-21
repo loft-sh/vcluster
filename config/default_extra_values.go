@@ -23,7 +23,7 @@ const (
 
 // K3SVersionMap holds the supported k3s versions
 var K3SVersionMap = map[string]string{
-	"1.33": "rancher/k3s:v1.33.1-k3s1",
+	"1.33": "rancher/k3s:v1.33.3-k3s1",
 	"1.32": "rancher/k3s:v1.32.1-k3s1",
 	"1.31": "rancher/k3s:v1.31.1-k3s1",
 	"1.30": "rancher/k3s:v1.30.2-k3s1",
@@ -31,7 +31,7 @@ var K3SVersionMap = map[string]string{
 
 // K8SVersionMap holds the supported k8s api servers
 var K8SVersionMap = map[string]string{
-	"1.33": "ghcr.io/loft-sh/kubernetes:v1.33.1",
+	"1.33": "ghcr.io/loft-sh/kubernetes:v1.33.4",
 	"1.32": "ghcr.io/loft-sh/kubernetes:v1.32.1",
 	"1.31": "ghcr.io/loft-sh/kubernetes:v1.31.1",
 	"1.30": "ghcr.io/loft-sh/kubernetes:v1.30.2",

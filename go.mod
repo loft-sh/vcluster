@@ -56,21 +56,21 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
 	gotest.tools/v3 v3.5.2
-	k8s.io/api v0.33.2
-	k8s.io/apiextensions-apiserver v0.33.1
-	k8s.io/apimachinery v0.33.2
-	k8s.io/apiserver v0.33.1
-	k8s.io/cli-runtime v0.33.1
-	k8s.io/client-go v0.33.2
-	k8s.io/cluster-bootstrap v0.33.1
-	k8s.io/component-helpers v0.33.1
+	k8s.io/api v0.33.4
+	k8s.io/apiextensions-apiserver v0.33.4
+	k8s.io/apimachinery v0.33.4
+	k8s.io/apiserver v0.33.4
+	k8s.io/cli-runtime v0.33.4
+	k8s.io/client-go v0.33.4
+	k8s.io/cluster-bootstrap v0.33.4
+	k8s.io/component-helpers v0.33.4
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kube-aggregator v0.33.1
-	k8s.io/kubectl v0.33.1
-	k8s.io/kubelet v0.33.1
-	k8s.io/kubernetes v1.33.0
-	k8s.io/metrics v0.33.1
-	k8s.io/pod-security-admission v0.33.1
+	k8s.io/kube-aggregator v0.33.4
+	k8s.io/kubectl v0.33.4
+	k8s.io/kubelet v0.33.4
+	k8s.io/kubernetes v1.33.4
+	k8s.io/metrics v0.33.4
+	k8s.io/pod-security-admission v0.33.4
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
 	modernc.org/sqlite v1.29.10
 	oras.land/oras-go/v2 v2.5.0
@@ -175,9 +175,9 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
-	k8s.io/cri-api v0.33.1 // indirect
+	k8s.io/cri-api v0.33.4 // indirect
 	k8s.io/cri-client v0.33.0 // indirect
-	k8s.io/kms v0.33.1 // indirect
+	k8s.io/kms v0.33.4 // indirect
 	k8s.io/kube-proxy v0.33.0 // indirect
 	modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6 // indirect
 	modernc.org/libc v1.49.3 // indirect
@@ -275,7 +275,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/component-base v0.33.1 // indirect
+	k8s.io/component-base v0.33.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
