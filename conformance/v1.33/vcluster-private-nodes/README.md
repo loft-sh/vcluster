@@ -38,32 +38,12 @@ controlPlane:
       apiServer:
         extraArgs:
           - --service-account-jwks-uri=https://kubernetes.default.svc.cluster.local/openid/v1/jwks
-        enabled: true
-      controllerManager:
-        enabled: true
       image:
         tag: v1.33.1
       enabled: true
-      scheduler:
-        enabled: true
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady
   service:
     spec:
       type: LoadBalancer
-networking:
-  advanced:
-    proxyKubelets:
-      byHostname: false
-      byIP: false
-
-sync:
-  fromHost:
-    nodes:
-      enabled: true
-      selector:
-        all: true
 privateNodes:
   enabled: true
 ```
