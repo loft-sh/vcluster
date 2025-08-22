@@ -17,8 +17,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type Options struct {
-	Snapshot snapshot.Options
+type Client struct {
+	Options snapshot.Options
 }
 
 func NewSnapshotCommand() *cobra.Command {
@@ -27,12 +27,12 @@ func NewSnapshotCommand() *cobra.Command {
 		Short: "snapshot a vCluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			options := &Options{}
+			options := &Client{}
 			envOptions, err := snapshot.ParseOptionsFromEnv()
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
 			}
-			options.Snapshot = *envOptions
+			options.Options = *envOptions
 
 			return options.Run(cmd.Context())
 		},
@@ -44,7 +44,7 @@ func NewSnapshotCommand() *cobra.Command {
 	return cmd
 }
 
-func (o *Options) Run(ctx context.Context) error {
+func (c *Client) Run(ctx context.Context) error {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
@@ -52,7 +52,7 @@ func (o *Options) Run(ctx context.Context) error {
 	}
 
 	// make sure to validate options
-	err = snapshot.ValidateConfigAndOptions(vConfig, &o.Snapshot, false, false)
+	err = snapshot.ValidateConfigAndOptions(vConfig, &c.Options, false, false)
 	if err != nil {
 		return err
 	}
@@ -64,14 +64,14 @@ func (o *Options) Run(ctx context.Context) error {
 	}
 
 	// create store
-	objectStore, err := snapshot.CreateStore(ctx, &o.Snapshot)
+	objectStore, err := snapshot.CreateStore(ctx, &c.Options)
 	if err != nil {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
 
 	// write the snapshot
 	klog.Infof("Start writing etcd snapshot %s...", objectStore.Target())
-	err = o.writeSnapshot(ctx, etcdClient, objectStore)
+	err = c.writeSnapshot(ctx, etcdClient, objectStore)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (o *Options) Run(ctx context.Context) error {
 	return nil
 }
 
-func (o *Options) List(ctx context.Context) ([]types.Snapshot, error) {
+func (c *Client) List(ctx context.Context) ([]types.Snapshot, error) {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
@@ -88,13 +88,13 @@ func (o *Options) List(ctx context.Context) ([]types.Snapshot, error) {
 	}
 
 	// make sure to validate options
-	err = snapshot.ValidateConfigAndOptions(vConfig, &o.Snapshot, false, true)
+	err = snapshot.ValidateConfigAndOptions(vConfig, &c.Options, false, true)
 	if err != nil {
 		return nil, err
 	}
 
 	// create store
-	objectStore, err := snapshot.CreateStore(ctx, &o.Snapshot)
+	objectStore, err := snapshot.CreateStore(ctx, &c.Options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create store: %w", err)
 	}
@@ -103,7 +103,7 @@ func (o *Options) List(ctx context.Context) ([]types.Snapshot, error) {
 	return objectStore.List(ctx)
 }
 
-func (o *Options) Delete(ctx context.Context) error {
+func (c *Client) Delete(ctx context.Context) error {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
@@ -111,13 +111,13 @@ func (o *Options) Delete(ctx context.Context) error {
 	}
 
 	// make sure to validate options
-	err = snapshot.ValidateConfigAndOptions(vConfig, &o.Snapshot, false, false)
+	err = snapshot.ValidateConfigAndOptions(vConfig, &c.Options, false, false)
 	if err != nil {
 		return err
 	}
 
 	// create store
-	objectStore, err := snapshot.CreateStore(ctx, &o.Snapshot)
+	objectStore, err := snapshot.CreateStore(ctx, &c.Options)
 	if err != nil {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
@@ -131,7 +131,7 @@ func (o *Options) Delete(ctx context.Context) error {
 	return nil
 }
 
-func (o *Options) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) error {
+func (c *Client) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) error {
 	// now stream objects from etcd to object store
 	errChan := make(chan error)
 	reader, writer, err := os.Pipe()
@@ -156,8 +156,8 @@ func (o *Options) writeSnapshot(ctx context.Context, etcdClient etcd.Client, obj
 	defer tarWriter.Close()
 
 	// write the vCluster config as first thing
-	if o.Snapshot.Release != nil {
-		releaseBytes, err := json.Marshal(o.Snapshot.Release)
+	if c.Options.Release != nil {
+		releaseBytes, err := json.Marshal(c.Options.Release)
 		if err != nil {
 			return fmt.Errorf("failed to marshal vCluster release: %w", err)
 		}
