@@ -110,8 +110,8 @@ type PrivateNodes struct {
 	// JoinNode holds configuration specifically used during joining the node (see "kubeadm join").
 	JoinNode JoinConfiguration `json:"joinNode,omitempty"`
 
-	// NodePools stores karpenter node pool configuration
-	NodePools PrivateNodesNodePools `json:"nodePools,omitempty"`
+	// AutoNodes stores Auto Nodes configuration static and dynamic NodePools managed by Karpenter
+	AutoNodes PrivateNodesAutoNodes `json:"autoNodes,omitempty"`
 
 	// Tunnel holds configuration for the private nodes tunnel. This can be used to connect the private nodes to the control plane or
 	// connect the private nodes to each other if they are not running in the same network. Platform connection is required for the tunnel to work.
@@ -138,8 +138,8 @@ type PrivateNodesTunnelNodeToNode struct {
 	Enabled bool `json:"enabled,omitempty"`
 }
 
-// PrivateNodesNodePools defines node pools
-type PrivateNodesNodePools struct {
+// PrivateNodesAutoNodes defines auto nodes
+type PrivateNodesAutoNodes struct {
 	// Static defines static node pools. Static node pools have a fixed size and are not scaled automatically.
 	Static []StaticNodePool `json:"static,omitempty"`
 

@@ -811,8 +811,8 @@ privateNodes:
       # Enabled defines if containerd should be installed and configured by vCluster.
       enabled: true
   
-  # NodePools stores karpenter node pool configuration
-  nodePools:
+  # AutoNodes stores Auto Nodes configuration static and dynamic NodePools managed by Karpenter
+  autoNodes:
     # Static defines static node pools. Static node pools have a fixed size and are not scaled automatically.
     static: []
     # Dynamic defines dynamic node pools. Dynamic node pools are scaled automatically based on the requirements within the cluster.
