@@ -1730,7 +1730,7 @@
         },
         "virtualClusterKubeConfig": {
           "$ref": "#/$defs/VirtualClusterKubeConfig",
-          "description": "VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config."
+          "description": "VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config.\nDeprecated: Removed in 0.29.0."
         },
         "denyProxyRequests": {
           "items": {

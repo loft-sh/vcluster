@@ -2885,6 +2885,7 @@ type Experimental struct {
 	GenericSync ExperimentalGenericSync `json:"genericSync,omitempty"`
 
 	// VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config.
+	// Deprecated: Removed in 0.29.0.
 	VirtualClusterKubeConfig VirtualClusterKubeConfig `json:"virtualClusterKubeConfig,omitempty"`
 
 	// DenyProxyRequests denies certain requests in the vCluster proxy.
