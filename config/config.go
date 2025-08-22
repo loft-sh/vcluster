@@ -716,6 +716,8 @@ type IstioSyncToHost struct {
 type ExternalSecrets struct {
 	// Enabled defines whether the external secret integration is enabled or not
 	Enabled bool `json:"enabled,omitempty"`
+	// Version defines the version of the external secrets operator to use. If empty, the storage version will be used.
+	Version string `json:"version,omitempty"`
 	// Webhook defines whether the host webhooks are reused or not
 	Webhook EnableSwitch `json:"webhook,omitempty"`
 	// Sync defines the syncing behavior for the integration

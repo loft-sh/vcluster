@@ -2184,6 +2184,10 @@
           "type": "boolean",
           "description": "Enabled defines whether the external secret integration is enabled or not"
         },
+        "version": {
+          "type": "string",
+          "description": "Version defines the version of the external secrets operator to use. If empty, the storage version will be used."
+        },
         "webhook": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "Webhook defines whether the host webhooks are reused or not"
