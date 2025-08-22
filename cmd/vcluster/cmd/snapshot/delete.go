@@ -13,7 +13,7 @@ func NewDeleteCmd() *cobra.Command {
 		Short: "delete vCluster snapshot",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			client := &Client{}
+			client := &snapshot.Client{}
 			envOptions, err := snapshot.ParseOptionsFromEnv()
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
