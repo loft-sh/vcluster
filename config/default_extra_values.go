@@ -23,7 +23,7 @@ const (
 
 // K3SVersionMap holds the supported k3s versions
 var K3SVersionMap = map[string]string{
-	"1.33": "rancher/k3s:v1.33.4-k3s1",
+	"1.33": "rancher/k3s:v1.33.3-k3s1",
 	"1.32": "rancher/k3s:v1.32.1-k3s1",
 	"1.31": "rancher/k3s:v1.31.1-k3s1",
 	"1.30": "rancher/k3s:v1.30.2-k3s1",
