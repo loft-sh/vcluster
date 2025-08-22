@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 
-	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
@@ -53,7 +52,7 @@ func (o *Options) Run(ctx context.Context) error {
 	}
 
 	// make sure to validate options
-	err = validateOptions(vConfig, &o.Snapshot, false, false)
+	err = snapshot.ValidateConfigAndOptions(vConfig, &o.Snapshot, false, false)
 	if err != nil {
 		return err
 	}
@@ -89,7 +88,7 @@ func (o *Options) List(ctx context.Context) ([]types.Snapshot, error) {
 	}
 
 	// make sure to validate options
-	err = validateOptions(vConfig, &o.Snapshot, false, true)
+	err = snapshot.ValidateConfigAndOptions(vConfig, &o.Snapshot, false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +111,7 @@ func (o *Options) Delete(ctx context.Context) error {
 	}
 
 	// make sure to validate options
-	err = validateOptions(vConfig, &o.Snapshot, false, false)
+	err = snapshot.ValidateConfigAndOptions(vConfig, &o.Snapshot, false, false)
 	if err != nil {
 		return err
 	}
@@ -210,21 +209,6 @@ func (o *Options) writeSnapshot(ctx context.Context, etcdClient etcd.Client, obj
 			}
 		}
 	}
-}
-
-func validateOptions(vConfig *config.VirtualClusterConfig, options *snapshot.Options, isRestore, isList bool) error {
-	// storage needs to be either s3 or file
-	err := snapshot.Validate(options, isList)
-	if err != nil {
-		return err
-	}
-
-	// only support k3s and k8s distro
-	if isRestore && vConfig.Distro() != vclusterconfig.K8SDistro && vConfig.Distro() != vclusterconfig.K3SDistro {
-		return fmt.Errorf("unsupported distro: %s", vConfig.Distro())
-	}
-
-	return nil
 }
 
 func writeKeyValue(tarWriter *tar.Writer, key, value []byte) error {
