@@ -551,7 +551,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v1.33.1
+          value: ghcr.io/loft-sh/kubernetes:v1.33.4
 
   - it: k8s override image tag
     set:
@@ -620,7 +620,7 @@ tests:
     asserts:
     - equal:
         path: spec.template.spec.initContainers[0].image
-        value: ghcr.io/loft-sh/kubernetes:v1.33.1
+        value: ghcr.io/loft-sh/kubernetes:v1.33.4
 
   - it: k8s version not set, default tag images used for apiServer and controllerManager (virtual scheduler enabled, deprecated)
     chart:
@@ -636,7 +636,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v1.33.1
+          value: ghcr.io/loft-sh/kubernetes:v1.33.4
 
   - it: k8s version sets image tag for apiServer and controllerManager (virtual scheduler enabled)
     set:
