@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +16,7 @@ func NewListCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			options := &Options{}
-			envOptions, err := ParseOptionsFromEnv()
+			envOptions, err := snapshot.ParseOptionsFromEnv()
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
 			}

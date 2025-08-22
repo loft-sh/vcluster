@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -40,7 +39,7 @@ func NewSnapshotCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			options := &Options{}
-			envOptions, err := ParseOptionsFromEnv()
+			envOptions, err := snapshot.ParseOptionsFromEnv()
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
 			}
@@ -435,24 +434,4 @@ func writeKeyValue(tarWriter *tar.Writer, key, value []byte) error {
 	}
 
 	return nil
-}
-
-func ParseOptionsFromEnv() (*snapshot.Options, error) {
-	snapshotOptions := os.Getenv("VCLUSTER_STORAGE_OPTIONS")
-	if snapshotOptions == "" {
-		return &snapshot.Options{}, nil
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(snapshotOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode storage options from env: %w", err)
-	}
-
-	options := &snapshot.Options{}
-	err = json.Unmarshal(decoded, options)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal storage options from env: %w", err)
-	}
-
-	return options, nil
 }
