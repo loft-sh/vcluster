@@ -28,19 +28,6 @@ tests:
       - hasDocuments:
           count: 1
 
-  - it: enable by generic sync
-    set:
-      experimental:
-        genericSync:
-          clusterRole:
-            extraRules:
-              - apiGroups: [""]
-                resources: ["test"]
-                verbs: ["test"]
-    asserts:
-      - hasDocuments:
-          count: 1
-
   - it: enable by plugins
     set:
       plugins:

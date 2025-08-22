@@ -17,7 +17,6 @@
     .Values.rbac.clusterRole.overwriteRules
     (not (empty (include "vcluster.rbac.clusterRoleExtraRules" . )))
     (not (empty (include "vcluster.plugin.clusterRoleExtraRules" . )))
-    (not (empty (include "vcluster.generic.clusterRoleExtraRules" . )))
     .Values.networking.replicateServices.fromHost
     .Values.pro
     .Values.sync.toHost.storageClasses.enabled
@@ -122,19 +121,6 @@
 {{/*
   Role rules defined in generic syncer
 */}}
-{{- define "vcluster.generic.roleExtraRules" -}}
-{{- if .Values.experimental.genericSync.role }}
-{{- if .Values.experimental.genericSync.role.extraRules }}
-{{- range $ruleIndex, $rule := .Values.experimental.genericSync.role.extraRules }}
-- {{ toJson $rule }}
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end -}}
-
-{{/*
-  Role rules defined in generic syncer
-*/}}
 {{- define "vcluster.customResources.roleExtraRules" -}}
 {{- if .Values.sync.toHost.customResources }}
 {{- range $crdName, $rule := .Values.sync.toHost.customResources }}
@@ -159,19 +145,6 @@
 - resources: [ "{{ (splitn "." 2 $crdNameWithoutVersion)._0 }}" ]
   apiGroups: [ "{{ (splitn "." 2 $crdNameWithoutVersion)._1 }}" ]
   verbs: ["get", "list", "watch"]
-{{- end }}
-{{- end }}
-{{- end }}
-{{- end -}}
-
-{{/*
-  Cluster role rules defined in generic syncer
-*/}}
-{{- define "vcluster.generic.clusterRoleExtraRules" -}}
-{{- if .Values.experimental.genericSync.clusterRole }}
-{{- if .Values.experimental.genericSync.clusterRole.extraRules }}
-{{- range $ruleIndex, $rule := .Values.experimental.genericSync.clusterRole.extraRules }}
-- {{ toJson $rule }}
 {{- end }}
 {{- end }}
 {{- end }}

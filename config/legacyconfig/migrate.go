@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/config"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -619,13 +618,7 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 		newConfig.Sync.FromHost.CSIDrivers.Enabled = config.StrBool(strconv.FormatBool(*oldConfig.Sync.CSIDrivers.Enabled))
 	}
 	if oldConfig.Sync.Generic.Config != "" {
-		genericSyncConfig := &config.ExperimentalGenericSync{}
-		err := yaml.Unmarshal([]byte(oldConfig.Sync.Generic.Config), genericSyncConfig)
-		if err != nil {
-			return fmt.Errorf("decode sync.generic.config: %w", err)
-		}
-
-		newConfig.Experimental.GenericSync = *genericSyncConfig
+		return fmt.Errorf("generic sync is no longer supported, please use sync.toHost.customResources and sync.fromHost.customResources instead")
 	}
 
 	return nil
