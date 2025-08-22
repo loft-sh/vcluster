@@ -237,7 +237,7 @@ controlPlane:
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "loft-sh/kubernetes"
         # Tag is the tag of the container image, and is the default version.
-        tag: "v1.33.1"
+        tag: "v1.33.4"
       # APIServer holds configuration specific to starting the api server.
       apiServer:
         enabled: true
@@ -289,7 +289,7 @@ controlPlane:
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "rancher/k3s"
         # Tag is the tag of the container image, and is the default version.
-        tag: "v1.33.1-k3s1"
+        tag: "v1.33.4-k3s1"
       # Security options can be used for the distro init container
       securityContext: {}
       # Resources for the distro init container
