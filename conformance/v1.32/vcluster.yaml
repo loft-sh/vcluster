@@ -15,14 +15,14 @@ controlPlane:
         extraArgs:
           - --service-account-jwks-uri=https://kubernetes.default.svc.cluster.local/openid/v1/jwks
         image:
-          tag: v1.32.1
+          tag: v1.32.8
       controllerManager:
         image:
-          tag: v1.32.1
+          tag: v1.32.8
       enabled: true
       scheduler:
         image:
-          tag: v1.32.1
+          tag: v1.32.8
   statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady
