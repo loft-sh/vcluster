@@ -19,6 +19,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -77,7 +78,7 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 			Metrics:        metricsserver.Options{BindAddress: localManagerMetrics},
 			LeaderElection: false,
 			Cache:          getLocalCacheOptions(options),
-			NewClient:      pro.NewPhysicalClient(options),
+			NewClient:      pluginhookclient.NewPhysicalPluginClientFactory(blockingcacheclient.NewCacheClient),
 		})
 		if err != nil {
 			return nil, err
@@ -89,7 +90,7 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 		Scheme:         scheme.Scheme,
 		Metrics:        metricsserver.Options{BindAddress: virtualManagerMetrics},
 		LeaderElection: false,
-		NewClient:      pro.NewVirtualClient(options),
+		NewClient:      pluginhookclient.NewVirtualPluginClientFactory(blockingcacheclient.NewCacheClient),
 	})
 	if err != nil {
 		return nil, err

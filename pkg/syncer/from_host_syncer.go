@@ -13,6 +13,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -193,7 +195,7 @@ func GetOptionsForMultiNamespaceManager(ctx *synccontext.RegisterContext, option
 		},
 		PprofBindAddress: "0",
 		LeaderElection:   false,
-		NewClient:        pro.NewVirtualClient(ctx.Config),
+		NewClient:        pluginhookclient.NewVirtualPluginClientFactory(blockingcacheclient.NewCacheClient),
 		WebhookServer:    nil,
 		Cache: cache.Options{
 			Mapper:                   ctx.HostManager.GetRESTMapper(),
