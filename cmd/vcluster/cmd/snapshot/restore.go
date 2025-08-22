@@ -55,7 +55,7 @@ func NewRestoreCommand() *cobra.Command {
 		Short: "restore a vCluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			envOptions, err := parseOptionsFromEnv()
+			envOptions, err := ParseOptionsFromEnv()
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
 			}

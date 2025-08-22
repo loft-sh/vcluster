@@ -40,7 +40,7 @@ func NewSnapshotCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			options := &Options{}
-			envOptions, err := parseOptionsFromEnv()
+			envOptions, err := ParseOptionsFromEnv()
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
 			}
@@ -437,7 +437,7 @@ func writeKeyValue(tarWriter *tar.Writer, key, value []byte) error {
 	return nil
 }
 
-func parseOptionsFromEnv() (*snapshot.Options, error) {
+func ParseOptionsFromEnv() (*snapshot.Options, error) {
 	snapshotOptions := os.Getenv("VCLUSTER_STORAGE_OPTIONS")
 	if snapshotOptions == "" {
 		return &snapshot.Options{}, nil
