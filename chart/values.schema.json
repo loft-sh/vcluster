@@ -1905,7 +1905,7 @@
       "properties": {
         "targetNamespace": {
           "type": "string",
-          "description": "TargetNamespace is the namespace where the workloads should get synced to."
+          "description": "TargetNamespace is the namespace where the workloads should get synced to.\nDeprecated: Removed in 0.29.0."
         },
         "setOwner": {
           "type": "boolean",

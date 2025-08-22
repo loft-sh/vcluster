@@ -1203,6 +1203,7 @@ experimental:
   # SyncSettings are advanced settings for the syncer controller.
   syncSettings:
     # TargetNamespace is the namespace where the workloads should get synced to.
+    # Deprecated: Removed in 0.29.0.
     targetNamespace: ""
     # SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.
     setOwner: true
