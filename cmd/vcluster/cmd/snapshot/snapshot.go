@@ -27,14 +27,14 @@ func NewSnapshotCommand() *cobra.Command {
 		Short: "snapshot a vCluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			options := &Client{}
+			client := &Client{}
 			envOptions, err := snapshot.ParseOptionsFromEnv()
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
 			}
-			options.Options = *envOptions
+			client.Options = *envOptions
 
-			return options.Run(cmd.Context())
+			return client.Run(cmd.Context())
 		},
 	}
 
