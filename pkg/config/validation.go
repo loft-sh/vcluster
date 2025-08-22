@@ -929,7 +929,7 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 	}
 
 	// validate node pools
-	for _, nodePool := range vConfig.PrivateNodes.NodePools.Static {
+	for _, nodePool := range vConfig.PrivateNodes.AutoNodes.Static {
 		if nodePool.Name == "" {
 			return fmt.Errorf("node pool name is required")
 		}
@@ -938,7 +938,7 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 			return fmt.Errorf("invalid requirements for node pool %s: %w", nodePool.Name, err)
 		}
 	}
-	for _, nodePool := range vConfig.PrivateNodes.NodePools.Dynamic {
+	for _, nodePool := range vConfig.PrivateNodes.AutoNodes.Dynamic {
 		if nodePool.Name == "" {
 			return fmt.Errorf("node pool name is required")
 		}

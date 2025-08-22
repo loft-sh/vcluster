@@ -3622,9 +3622,9 @@
           "$ref": "#/$defs/JoinConfiguration",
           "description": "JoinNode holds configuration specifically used during joining the node (see \"kubeadm join\")."
         },
-        "nodePools": {
-          "$ref": "#/$defs/PrivateNodesNodePools",
-          "description": "NodePools stores karpenter node pool configuration"
+        "autoNodes": {
+          "$ref": "#/$defs/PrivateNodesAutoNodes",
+          "description": "AutoNodes stores Auto Nodes configuration static and dynamic NodePools managed by Karpenter"
         },
         "tunnel": {
           "$ref": "#/$defs/PrivateNodesTunnel",
@@ -3635,7 +3635,7 @@
       "type": "object",
       "description": "PrivateNodes enables private nodes for vCluster."
     },
-    "PrivateNodesNodePools": {
+    "PrivateNodesAutoNodes": {
       "properties": {
         "static": {
           "items": {
@@ -3654,7 +3654,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "PrivateNodesNodePools defines node pools"
+      "description": "PrivateNodesAutoNodes defines auto nodes"
     },
     "PrivateNodesTunnel": {
       "properties": {
