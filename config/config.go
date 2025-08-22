@@ -2885,6 +2885,7 @@ type Experimental struct {
 	GenericSync ExperimentalGenericSync `json:"genericSync,omitempty"`
 
 	// VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config.
+	// Deprecated: Removed in 0.29.0.
 	VirtualClusterKubeConfig VirtualClusterKubeConfig `json:"virtualClusterKubeConfig,omitempty"`
 
 	// DenyProxyRequests denies certain requests in the vCluster proxy.
@@ -2897,6 +2898,7 @@ func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
 
 type ExperimentalSyncSettings struct {
 	// TargetNamespace is the namespace where the workloads should get synced to.
+	// Deprecated: Removed in 0.29.0.
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 
 	// SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.
