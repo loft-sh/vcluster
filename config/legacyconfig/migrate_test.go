@@ -87,56 +87,6 @@ sync:
       enabled: true`,
 		},
 		{
-			Name:   "generic sync example",
-			Distro: "k3s",
-			In: `multiNamespaceMode:
-  enabled: true
-sync:
-  generic:
-    role:
-      extraRules:
-        - apiGroups: ["cert-manager.io"]
-          resources: ["issuers", "certificates"]
-          verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
-    clusterRole:
-      extraRules:
-        - apiGroups: ["apiextensions.k8s.io"]
-          resources: ["customresourcedefinitions"]
-          verbs: ["get", "list", "watch"]
-    config: |-
-      version: v1beta1
-      export:
-        - apiVersion: cert-manager.io/v1
-          kind: Issuer
-        - apiVersion: cert-manager.io/v1
-          kind: Certificate
-      import:
-        - kind: Secret
-          apiVersion: v1`,
-			Expected: `controlPlane:
-  distro:
-    k3s:
-      enabled: true
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady
-experimental:
-  genericSync:
-    export:
-    - apiVersion: cert-manager.io/v1
-      kind: Issuer
-    - apiVersion: cert-manager.io/v1
-      kind: Certificate
-    import:
-    - apiVersion: v1
-      kind: Secret
-    version: v1beta1
-sync:
-  toHost:
-    namespaces:
-      enabled: true`,
-		},
-		{
 			Name:   "persistence false",
 			Distro: "k3s",
 			In: `syncer:

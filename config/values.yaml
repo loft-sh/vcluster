@@ -660,12 +660,6 @@ experimental:
       manifestsTemplate: ""
       helm: []
 
-  genericSync:
-    clusterRole:
-      extraRules: []
-    role:
-      extraRules: []
-
 telemetry:
   enabled: true
 

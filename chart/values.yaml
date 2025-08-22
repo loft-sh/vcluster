@@ -1224,13 +1224,6 @@ experimental:
       manifestsTemplate: ""
       # Helm are Helm charts that should get deployed into the virtual cluster
       helm: []
-  
-  # GenericSync holds options to generically sync resources from virtual cluster to host.
-  genericSync:
-    clusterRole:
-      extraRules: []
-    role:
-      extraRules: []
 
 # Configuration related to telemetry gathered about vCluster usage.
 telemetry:

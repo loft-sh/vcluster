@@ -135,7 +135,6 @@ rules:
   {{- end }}
   {{- include "vcluster.customResources.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
-  {{- include "vcluster.generic.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.rbac.roleExtraRules" . | indent 2 }}
   {{- end }}
 {{- end }}
