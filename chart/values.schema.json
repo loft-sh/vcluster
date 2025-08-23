@@ -3874,13 +3874,30 @@
           "type": "string",
           "description": "DataDir defines the data directory for the standalone mode."
         },
-        "nodes": {
-          "$ref": "#/$defs/StandaloneNodes",
-          "description": "Nodes is a list of nodes to deploy for standalone mode."
+        "autoNodes": {
+          "$ref": "#/$defs/StandaloneAutoNodes",
+          "description": "AutoNodes automatically deploys nodes for standalone mode."
         },
         "joinNode": {
           "$ref": "#/$defs/StandaloneJoinNode",
           "description": "JoinNode holds configuration for the standalone control plane node."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "StandaloneAutoNodes": {
+      "properties": {
+        "quantity": {
+          "type": "integer",
+          "description": "Quantity is the number of nodes to deploy for standalone mode."
+        },
+        "requirements": {
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          },
+          "type": "array",
+          "description": "Requirements filter the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
         }
       },
       "additionalProperties": false,
@@ -3931,23 +3948,6 @@
         "nodeRegistration": {
           "$ref": "#/$defs/NodeRegistration",
           "description": "NodeRegistration holds configuration for the node registration similar to the kubeadm node registration."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "StandaloneNodes": {
-      "properties": {
-        "quantity": {
-          "type": "integer",
-          "description": "Quantity is the number of nodes to deploy for standalone mode."
-        },
-        "requirements": {
-          "items": {
-            "$ref": "#/$defs/Requirement"
-          },
-          "type": "array",
-          "description": "Requirements filter the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
         }
       },
       "additionalProperties": false,
