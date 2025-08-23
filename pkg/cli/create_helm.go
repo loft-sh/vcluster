@@ -23,6 +23,17 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
+	"golang.org/x/mod/semver"
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/config/legacyconfig"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
@@ -43,16 +54,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
 	"github.com/loft-sh/vcluster/pkg/util/namespaces"
-	"golang.org/x/mod/semver"
-	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/version"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 // CreateOptions holds the create cmd options
@@ -363,6 +364,10 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 
 	// create platform secret
 	if cmd.Add {
+		err = pkgconfig.ValidatePlatformProject(ctx, vClusterConfig, cmd.LoadedConfig(cmd.log))
+		if err != nil {
+			return err
+		}
 		err = cmd.addVCluster(ctx, vClusterName, vClusterConfig)
 		if err != nil {
 			return err
