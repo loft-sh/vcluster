@@ -336,14 +336,14 @@ type Standalone struct {
 	// DataDir defines the data directory for the standalone mode.
 	DataDir string `json:"dataDir,omitempty"`
 
-	// Nodes is a list of nodes to deploy for standalone mode.
-	Nodes StandaloneNodes `json:"nodes,omitempty"`
+	// AutoNodes automatically deploys nodes for standalone mode.
+	AutoNodes StandaloneAutoNodes `json:"autoNodes,omitempty"`
 
 	// JoinNode holds configuration for the standalone control plane node.
 	JoinNode StandaloneJoinNode `json:"joinNode,omitempty"`
 }
 
-type StandaloneNodes struct {
+type StandaloneAutoNodes struct {
 	// Quantity is the number of nodes to deploy for standalone mode.
 	Quantity int `json:"quantity,omitempty"`
 
