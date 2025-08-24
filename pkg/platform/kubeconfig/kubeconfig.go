@@ -45,7 +45,7 @@ func SpaceContextName(clusterName, namespaceName string) string {
 }
 
 func ManagementContextName() string {
-	return "vcluster-platform-management"
+	return "vcluster-platform_management"
 }
 
 // DeleteContext deletes the context with the given name from the kube config
