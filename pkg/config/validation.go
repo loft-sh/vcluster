@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -12,14 +11,10 @@ import (
 
 	"github.com/ghodss/yaml"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/loft-sh/vcluster/config"
-	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/util/namespaces"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 )
@@ -267,26 +262,6 @@ func validatePatches(patchesValidation ...patchesValidation) error {
 				return fmt.Errorf("%s.patches[%d] and %s.patches[%d] have the same path %q", basePath, j, basePath, idx, patch.Path)
 			}
 			usedPaths[patch.Path] = idx
-		}
-	}
-
-	return nil
-}
-
-func ValidatePlatformProject(ctx context.Context, config *config.Config, loadedConfig *cliconfig.CLI) error {
-	platformConfig, err := config.GetPlatformConfig()
-	if err != nil {
-		return fmt.Errorf("get platform config: %w", err)
-	}
-	if platformConfig.Project != "" {
-		platformClient := platform.NewClientFromConfig(loadedConfig)
-		management, err := platformClient.Management()
-		if err != nil {
-			return err
-		}
-		_, err = management.Loft().ManagementV1().Projects().Get(ctx, platformConfig.Project, metav1.GetOptions{})
-		if kerrors.IsNotFound(err) {
-			return fmt.Errorf("platform project %q not found", platformConfig.Project)
 		}
 	}
 
