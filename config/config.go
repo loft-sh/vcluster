@@ -112,9 +112,9 @@ type PrivateNodes struct {
 	// AutoNodes stores Auto Nodes configuration static and dynamic NodePools managed by Karpenter
 	AutoNodes PrivateNodesAutoNodes `json:"autoNodes,omitempty"`
 
-	// Tunnel holds configuration for the private nodes tunnel. This can be used to connect the private nodes to the control plane or
-	// connect the private nodes to each other if they are not running in the same network. Platform connection is required for the tunnel to work.
-	Tunnel PrivateNodesTunnel `json:"tunnel,omitempty"`
+	// VPN holds configuration for the private nodes vpn. This can be used to connect the private nodes to the control plane or
+	// connect the private nodes to each other if they are not running in the same network. Platform connection is required for the vpn to work.
+	VPN PrivateNodesVPN `json:"vpn,omitempty"`
 }
 
 type CloudControllerManager struct {
@@ -124,16 +124,16 @@ type CloudControllerManager struct {
 	Enabled bool `json:"enabled,omitempty"`
 }
 
-type PrivateNodesTunnel struct {
-	// Enabled defines if the private nodes tunnel should be enabled.
+type PrivateNodesVPN struct {
+	// Enabled defines if the private nodes vpn should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// NodeToNode holds configuration for the node to node tunnel. This can be used to connect the private nodes to each other if they are not running in the same network.
-	NodeToNode PrivateNodesTunnelNodeToNode `json:"nodeToNode,omitempty"`
+	// NodeToNode holds configuration for the node to node vpn. This can be used to connect the private nodes to each other if they are not running in the same network.
+	NodeToNode PrivateNodesVPNNodeToNode `json:"nodeToNode,omitempty"`
 }
 
-type PrivateNodesTunnelNodeToNode struct {
-	// Enabled defines if the node to node tunnel should be enabled.
+type PrivateNodesVPNNodeToNode struct {
+	// Enabled defines if the node to node vpn should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 }
 

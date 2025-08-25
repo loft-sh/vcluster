@@ -819,14 +819,14 @@ privateNodes:
     # Karpenter is used under the hood to handle the scheduling of the nodes.
     dynamic: []
   
-  # Tunnel holds configuration for the private nodes tunnel. This can be used to connect the private nodes to the control plane or
-  # connect the private nodes to each other if they are not running in the same network. Platform connection is required for the tunnel to work.
-  tunnel:
-    # Enabled defines if the private nodes tunnel should be enabled.
+  # VPN holds configuration for the private nodes vpn. This can be used to connect the private nodes to the control plane or
+  # connect the private nodes to each other if they are not running in the same network. Platform connection is required for the vpn to work.
+  vpn:
+    # Enabled defines if the private nodes vpn should be enabled.
     enabled: false
-    # NodeToNode holds configuration for the node to node tunnel. This can be used to connect the private nodes to each other if they are not running in the same network.
+    # NodeToNode holds configuration for the node to node vpn. This can be used to connect the private nodes to each other if they are not running in the same network.
     nodeToNode:
-      # Enabled defines if the node to node tunnel should be enabled.
+      # Enabled defines if the node to node vpn should be enabled.
       enabled: false
 
 # Deploy holds configuration for the deployment of vCluster.

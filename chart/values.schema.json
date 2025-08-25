@@ -3376,9 +3376,9 @@
           "$ref": "#/$defs/PrivateNodesAutoNodes",
           "description": "AutoNodes stores Auto Nodes configuration static and dynamic NodePools managed by Karpenter"
         },
-        "tunnel": {
-          "$ref": "#/$defs/PrivateNodesTunnel",
-          "description": "Tunnel holds configuration for the private nodes tunnel. This can be used to connect the private nodes to the control plane or\nconnect the private nodes to each other if they are not running in the same network. Platform connection is required for the tunnel to work."
+        "vpn": {
+          "$ref": "#/$defs/PrivateNodesVPN",
+          "description": "VPN holds configuration for the private nodes vpn. This can be used to connect the private nodes to the control plane or\nconnect the private nodes to each other if they are not running in the same network. Platform connection is required for the vpn to work."
         }
       },
       "additionalProperties": false,
@@ -3406,25 +3406,25 @@
       "type": "object",
       "description": "PrivateNodesAutoNodes defines auto nodes"
     },
-    "PrivateNodesTunnel": {
+    "PrivateNodesVPN": {
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled defines if the private nodes tunnel should be enabled."
+          "description": "Enabled defines if the private nodes vpn should be enabled."
         },
         "nodeToNode": {
-          "$ref": "#/$defs/PrivateNodesTunnelNodeToNode",
-          "description": "NodeToNode holds configuration for the node to node tunnel. This can be used to connect the private nodes to each other if they are not running in the same network."
+          "$ref": "#/$defs/PrivateNodesVPNNodeToNode",
+          "description": "NodeToNode holds configuration for the node to node vpn. This can be used to connect the private nodes to each other if they are not running in the same network."
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "PrivateNodesTunnelNodeToNode": {
+    "PrivateNodesVPNNodeToNode": {
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled defines if the node to node tunnel should be enabled."
+          "description": "Enabled defines if the node to node vpn should be enabled."
         }
       },
       "additionalProperties": false,
