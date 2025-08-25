@@ -34,7 +34,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type RestoreOptions struct {
+type RestoreClient struct {
 	Snapshot snapshot.Options
 
 	NewVCluster bool
@@ -48,7 +48,7 @@ var (
 )
 
 func NewRestoreCommand() *cobra.Command {
-	options := &RestoreOptions{}
+	restoreClient := &RestoreClient{}
 
 	cmd := &cobra.Command{
 		Use:   "restore",
@@ -59,17 +59,17 @@ func NewRestoreCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
 			}
-			options.Snapshot = *envOptions
+			restoreClient.Snapshot = *envOptions
 
-			return options.Run(cmd.Context())
+			return restoreClient.Run(cmd.Context())
 		},
 	}
 
-	cmd.Flags().BoolVar(&options.NewVCluster, "new-vcluster", false, "Restore a new vCluster from snapshot instead of restoring into an existing vCluster")
+	cmd.Flags().BoolVar(&restoreClient.NewVCluster, "new-vcluster", false, "Restore a new vCluster from snapshot instead of restoring into an existing vCluster")
 	return cmd
 }
 
-func (o *RestoreOptions) Run(ctx context.Context) (retErr error) {
+func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	// create decoder and encoder
 	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
 	encoder := protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
