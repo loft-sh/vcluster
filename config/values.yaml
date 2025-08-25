@@ -443,7 +443,7 @@ privateNodes:
   autoNodes:
     static: []
     dynamic: []
-  tunnel:
+  vpn:
     enabled: false
     nodeToNode:
       enabled: false
