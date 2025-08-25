@@ -2,8 +2,11 @@ package snapshot
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 
@@ -118,6 +121,26 @@ func Parse(snapshotURL string, snapshotOptions *Options) error {
 	}
 
 	return nil
+}
+
+func ParseOptionsFromEnv() (*Options, error) {
+	snapshotOptions := os.Getenv("VCLUSTER_STORAGE_OPTIONS")
+	if snapshotOptions == "" {
+		return &Options{}, nil
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(snapshotOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode storage options from env: %w", err)
+	}
+
+	opts := &Options{}
+	err = json.Unmarshal(decoded, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal storage options from env: %w", err)
+	}
+
+	return opts, nil
 }
 
 func Validate(options *Options, isList bool) error {
