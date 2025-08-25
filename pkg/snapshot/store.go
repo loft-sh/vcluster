@@ -22,31 +22,31 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func NewEtcdClient(ctx context.Context, vConfig *config.VirtualClusterConfig, isRestore bool) (etcd.Client, error) {
+func newEtcdClient(ctx context.Context, vConfig *config.VirtualClusterConfig, isRestore bool) (etcd.Client, error) {
 	// get etcd endpoint
 	etcdEndpoint, etcdCertificates := etcd.GetEtcdEndpoint(vConfig)
 
 	// we need to start etcd ourselves when it's embedded etcd or kine based
 	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedDatabase || vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
-		if isRestore && !IsEtcdReachable(ctx, etcdEndpoint, etcdCertificates) {
+		if isRestore && !isEtcdReachable(ctx, etcdEndpoint, etcdCertificates) {
 			klog.FromContext(ctx).Info(fmt.Sprintf("Embedded backing store %s is not reachable", etcdEndpoint))
-			err := StartEmbeddedBackingStore(ctx, vConfig)
+			err := startEmbeddedBackingStore(ctx, vConfig)
 			if err != nil {
 				return nil, fmt.Errorf("start embedded backing store: %w", err)
 			}
-		} else if !isRestore && vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd && !IsEtcdReachable(ctx, etcdEndpoint, etcdCertificates) { // this is needed for embedded etcd
+		} else if !isRestore && vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd && !isEtcdReachable(ctx, etcdEndpoint, etcdCertificates) { // this is needed for embedded etcd
 			etcdEndpoint = "https://" + vConfig.Name + "-0." + vConfig.Name + "-headless:2379"
 		}
 	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeExternalDatabase {
-		if !IsEtcdReachable(ctx, etcdEndpoint, etcdCertificates) {
+		if !isEtcdReachable(ctx, etcdEndpoint, etcdCertificates) {
 			klog.FromContext(ctx).Info(fmt.Sprintf("External database backing store %s is not reachable, starting...", etcdEndpoint))
-			err := StartExternalDatabaseBackingStore(ctx, vConfig)
+			err := startExternalDatabaseBackingStore(ctx, vConfig)
 			if err != nil {
 				return nil, fmt.Errorf("start external database backing store: %w", err)
 			}
 		}
 	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeDeployedEtcd {
-		_, err := GenerateCertificates(ctx, vConfig)
+		_, err := generateCertificates(ctx, vConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get certificates: %w", err)
 		}
@@ -62,7 +62,7 @@ func NewEtcdClient(ctx context.Context, vConfig *config.VirtualClusterConfig, is
 	return etcdClient, nil
 }
 
-func IsEtcdReachable(ctx context.Context, endpoint string, certificates *etcd.Certificates) bool {
+func isEtcdReachable(ctx context.Context, endpoint string, certificates *etcd.Certificates) bool {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -85,7 +85,7 @@ func IsEtcdReachable(ctx context.Context, endpoint string, certificates *etcd.Ce
 	return false
 }
 
-func StartExternalDatabaseBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
+func startExternalDatabaseBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
 	kineAddress := constants.K8sKineEndpoint
 	if vConfig.Distro() == vclusterconfig.K3SDistro {
 		kineAddress = constants.K3sKineEndpoint
@@ -94,7 +94,7 @@ func StartExternalDatabaseBackingStore(ctx context.Context, vConfig *config.Virt
 	// make sure to start license if using a connector
 	if vConfig.ControlPlane.BackingStore.Database.External.Connector != "" {
 		// make sure clients and config are correctly initialized
-		_, err := GenerateCertificates(ctx, vConfig)
+		_, err := generateCertificates(ctx, vConfig)
 		if err != nil {
 			return fmt.Errorf("failed to get certificates: %w", err)
 		}
@@ -115,7 +115,7 @@ func StartExternalDatabaseBackingStore(ctx context.Context, vConfig *config.Virt
 	return nil
 }
 
-func StartEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
+func startEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
 	// embedded database
 	if vConfig.EmbeddedDatabase() {
 		if vConfig.Distro() == vclusterconfig.K8SDistro {
@@ -141,7 +141,7 @@ func StartEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClust
 
 	// embedded etcd
 	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
-		_, err := StartEmbeddedEtcd(context.WithoutCancel(ctx), vConfig)
+		_, err := startEmbeddedEtcd(context.WithoutCancel(ctx), vConfig)
 		if err != nil {
 			return fmt.Errorf("start embedded etcd: %w", err)
 		}
@@ -150,9 +150,9 @@ func StartEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClust
 	return nil
 }
 
-func StartEmbeddedEtcd(ctx context.Context, vConfig *config.VirtualClusterConfig) (func(), error) {
+func startEmbeddedEtcd(ctx context.Context, vConfig *config.VirtualClusterConfig) (func(), error) {
 	klog.FromContext(ctx).Info("Starting embedded etcd...")
-	certificatesDir, err := GenerateCertificates(ctx, vConfig)
+	certificatesDir, err := generateCertificates(ctx, vConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get certificates: %w", err)
 	}
@@ -172,7 +172,7 @@ func StartEmbeddedEtcd(ctx context.Context, vConfig *config.VirtualClusterConfig
 	return stop, nil
 }
 
-func GenerateCertificates(ctx context.Context, vConfig *config.VirtualClusterConfig) (string, error) {
+func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterConfig) (string, error) {
 	var err error
 
 	// init the clients

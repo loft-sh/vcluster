@@ -294,7 +294,7 @@ func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterCon
 	}
 
 	// now create the etcd client
-	etcdClient, err := NewEtcdClient(ctx, vConfig, true)
+	etcdClient, err := newEtcdClient(ctx, vConfig, true)
 	if err != nil {
 		return nil, revertBackup, err
 	}
@@ -390,13 +390,13 @@ func setLatestRevisionEtcd(ctx context.Context, vConfig *config.VirtualClusterCo
 	klog.FromContext(ctx).Info("Setting latest revision for etcd database...", "revision", revision)
 
 	// start embedded etcd
-	stop, err := StartEmbeddedEtcd(ctx, vConfig)
+	stop, err := startEmbeddedEtcd(ctx, vConfig)
 	if err != nil {
 		return fmt.Errorf("failed to start embedded etcd: %w", err)
 	}
 
 	// wait until etcd is ready
-	etcdClient, err := NewEtcdClient(ctx, vConfig, false)
+	etcdClient, err := newEtcdClient(ctx, vConfig, false)
 	if err != nil {
 		return fmt.Errorf("failed to create etcd client: %w", err)
 	}

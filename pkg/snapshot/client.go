@@ -34,7 +34,7 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 
 	// create new etcd client
-	etcdClient, err := NewEtcdClient(ctx, vConfig, false)
+	etcdClient, err := newEtcdClient(ctx, vConfig, false)
 	if err != nil {
 		return fmt.Errorf("failed to create etcd client: %w", err)
 	}
