@@ -61,6 +61,7 @@ for i in "${linux_images[@]}"; do
     image_name=$(echo $i | sed 's/ghcr\.io\///')
     image_name=$(echo $image_name | sed 's/registry\.k8s\.io\///')
     image_name=$(echo $image_name | sed 's/quay\.io\///')
+    image_name=$(echo $image_name | sed 's/docker\.io\///')
 
     echo "Push ${i} as ${reg}/${image_name}"
     docker tag "${i}" "${reg}/${image_name}"
