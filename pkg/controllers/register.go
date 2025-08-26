@@ -20,6 +20,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
 	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
+	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 )
@@ -39,6 +40,12 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 		if err != nil {
 			return err
 		}
+	}
+
+	// register vcluster snapshot controller
+	err = registerSnapshotController(registerContext)
+	if err != nil {
+		return err
 	}
 
 	// skip if we run in dedicated mode
@@ -245,5 +252,18 @@ func registerPodSecurityController(ctx *synccontext.ControllerContext) error {
 	if err != nil {
 		return fmt.Errorf("unable to setup pod security controller: %w", err)
 	}
+	return nil
+}
+
+func registerSnapshotController(registerContext *synccontext.RegisterContext) error {
+	controller, err := snapshot.NewController(registerContext)
+	if err != nil {
+		return fmt.Errorf("unable to create vcluster snapshot controller: %w", err)
+	}
+	err = controller.Register()
+	if err != nil {
+		return fmt.Errorf("unable to register vcluster snapshot controller: %w", err)
+	}
+
 	return nil
 }
