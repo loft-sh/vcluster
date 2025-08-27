@@ -51,11 +51,14 @@ docker load --input ${images}
 linux_images=()
 while IFS= read -r i; do
     [ -z "${i}" ] && continue
+    [[ "${i}" == "#"* ]] && continue
+    
     linux_images+=("${i}");
 done < "${list}"
 
 for i in "${linux_images[@]}"; do
     [ -z "${i}" ] && continue
+    [[ "${i}" == "#"* ]] && continue
 
     # trim ghcr.io & registry.k8s.io & quay.io
     image_name=$(echo $i | sed 's/ghcr\.io\///')
