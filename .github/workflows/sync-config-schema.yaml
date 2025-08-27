@@ -134,9 +134,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+          PARSED_VERSION: ${{ steps.semver.outputs.parsed_version }}
         run: |
           rm -rf vcluster-config/ || true
-          git clone --single-branch https://github.com/loft-sh/vcluster-config.git
+          git clone https://github.com/loft-sh/vcluster-config.git
           # copy generated schema from vcluster chart values to vcluster-config
           cp chart/values.schema.json vcluster-config/values.schema.json
           cp -R config/. vcluster-config/config/
@@ -158,7 +159,19 @@ jobs:
           fi
           echo "Changes detected"
 
+          # Determine the tag to update based on the release version
+          # Use parsed version from semver action
+          MAJOR_VERSION=$(echo "${PARSED_VERSION}" | jq -r '.major')
+          MINOR_VERSION=$(echo "${PARSED_VERSION}" | jq -r '.minor')
+          
+          # Use the vcluster-vX.Y format for tags
+          TARGET_TAG="vcluster-v${MAJOR_VERSION}.${MINOR_VERSION}"
+          
           # commit changes
           git commit -m "chore: sync config/*.go and values.schema.json to vCluster version ${RELEASE_TAG}"
-          git push -u origin -f main
-          echo "vcluster-config values.schema.json updated to the version ${RELEASE_TAG}"
+          
+          # Update the existing tag to point to the new commit
+          git tag -f "${TARGET_TAG}"
+          git push -u origin -f "${TARGET_TAG}"
+          
+          echo "vcluster-config tag ${TARGET_TAG} updated to vCluster version ${RELEASE_TAG}"
