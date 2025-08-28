@@ -1192,6 +1192,10 @@ exportKubeConfig:
     # where you deployed vCluster, you need to make sure vCluster has access to this other namespace.
     namespace: ""
 
+  # AdditionalSecrets specifies the additional host cluster secrets in which vCluster will store the
+  # generated virtual cluster kubeconfigs.
+  additionalSecrets: []
+  
 # External holds configuration for tools that are external to the vCluster.
 external: {}
 
