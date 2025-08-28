@@ -2,6 +2,7 @@ package translate
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -9,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -83,11 +85,26 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 		delete(event.Host.Annotations, OwnerSetKind)
 	}
 
+	if t.fakeKubeletIPs && event.Host.Status.HostIP != "" {
+		nodeService, err := ensureNodeService(ctx, event.Host)
+		if err != nil {
+			return err
+		}
+
+		event.Virtual.Status.HostIP = nodeService.Spec.ClusterIP
+		event.Virtual.Status.HostIPs = []corev1.HostIP{
+			{IP: nodeService.Spec.ClusterIP},
+		}
+
+		event.Host.Annotations[HostIPAnnotation] = nodeService.Spec.ClusterIP
+		event.Host.Annotations[HostIPsAnnotation] = nodeService.Spec.ClusterIP
+	}
+
 	return nil
 }
 
 func GetExcludedAnnotations(pPod *corev1.Pod) []string {
-	annotations := []string{ClusterAutoScalerAnnotation, OwnerReferences, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, VClusterLabelsAnnotation}
+	annotations := []string{ClusterAutoScalerAnnotation, OwnerReferences, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, VClusterLabelsAnnotation, HostIPAnnotation, HostIPsAnnotation}
 	if pPod != nil {
 		for _, v := range pPod.Spec.Volumes {
 			if v.Projected != nil {
@@ -111,6 +128,17 @@ func GetExcludedAnnotations(pPod *corev1.Pod) []string {
 	}
 
 	return annotations
+}
+
+func ensureNodeService(ctx *synccontext.SyncContext, pPod *corev1.Pod) (*corev1.Service, error) {
+	serviceName := translate.SafeConcatName(translate.VClusterName, "node", strings.ReplaceAll(pPod.Spec.NodeName, ".", "-"))
+
+	nodeService := &corev1.Service{}
+	err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Name: serviceName, Namespace: ctx.CurrentNamespace}, nodeService)
+	if err != nil {
+		return nil, fmt.Errorf("get node service: %w", err)
+	}
+	return nodeService, nil
 }
 
 // Changeable fields within the pod:

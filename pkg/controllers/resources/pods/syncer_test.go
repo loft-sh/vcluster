@@ -602,6 +602,10 @@ func TestSync(t *testing.T) {
 		{IP: "3.3.3.3"},
 	}
 
+	pPodFakeKubeletHostIPs := pPodFakeKubelet.DeepCopy()
+	pPodFakeKubeletHostIPs.Annotations[podtranslate.HostIPAnnotation] = pVclusterService.Spec.ClusterIP
+	pPodFakeKubeletHostIPs.Annotations[podtranslate.HostIPsAnnotation] = pVclusterService.Spec.ClusterIP
+
 	vPodWithNodeName := &corev1.Pod{
 		ObjectMeta: vObjectMeta,
 		Spec: corev1.PodSpec{
@@ -675,8 +679,13 @@ func TestSync(t *testing.T) {
 			Name:                 "Fake Kubelet enabled with Node sync",
 			InitialVirtualState:  []runtime.Object{testNode.DeepCopy(), vPodWithNodeName, vNamespace.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{testNode.DeepCopy(), pVclusterNodeService.DeepCopy(), pPodFakeKubelet.DeepCopy()},
+			// The virtual pod should have the host IPs of the node service in its status.
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodWithHostIP},
+			},
+			// The physical pod should have the host IPs of the node service in its annotations.
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodFakeKubeletHostIPs},
 			},
 			Sync: func(ctx *synccontext.RegisterContext) {
 				ctx.Config.Sync.FromHost.Nodes.Selector.All = true
