@@ -442,7 +442,7 @@ func (t *translator) translateVolumes(ctx *synccontext.SyncContext, pPod *corev1
 		}
 		if pPod.Spec.Volumes[i].DownwardAPI != nil {
 			for j := range pPod.Spec.Volumes[i].DownwardAPI.Items {
-				translateFieldRef(pPod.Spec.Volumes[i].DownwardAPI.Items[j].FieldRef, t.fakeKubeletIPs, t.schedulingConfig.IsSchedulerFromVirtualCluster(pPod.Spec.SchedulerName))
+				translateFieldRef(pPod.Spec.Volumes[i].DownwardAPI.Items[j].FieldRef, t.fakeKubeletIPs)
 			}
 		}
 		if pPod.Spec.Volumes[i].ISCSI != nil && pPod.Spec.Volumes[i].ISCSI.SecretRef != nil {
@@ -508,7 +508,7 @@ func (t *translator) translateProjectedVolume(
 		}
 		if projectedVolume.Sources[i].DownwardAPI != nil {
 			for j := range projectedVolume.Sources[i].DownwardAPI.Items {
-				translateFieldRef(projectedVolume.Sources[i].DownwardAPI.Items[j].FieldRef, t.fakeKubeletIPs, t.schedulingConfig.IsSchedulerFromVirtualCluster(pPod.Spec.SchedulerName))
+				translateFieldRef(projectedVolume.Sources[i].DownwardAPI.Items[j].FieldRef, t.fakeKubeletIPs)
 			}
 		}
 		if projectedVolume.Sources[i].ServiceAccountToken != nil {
@@ -607,7 +607,7 @@ func (t *translator) translateProjectedVolume(
 	return nil
 }
 
-func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector, fakeKubeletIPs, enableScheduler bool) {
+func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector, fakeKubeletIPs bool) {
 	if fieldSelector == nil {
 		return
 	}
@@ -632,11 +632,11 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector, fakeKubeletIPs
 		fieldSelector.FieldPath = "metadata.annotations['" + ServiceAccountNameAnnotation + "']"
 	// translate downward API references for status.hostIP(s) only when both virtual scheduler & fakeKubeletIPs are enabled
 	case "status.hostIP":
-		if fakeKubeletIPs && enableScheduler {
+		if fakeKubeletIPs {
 			fieldSelector.FieldPath = "metadata.annotations['" + HostIPAnnotation + "']"
 		}
 	case "status.hostIPs":
-		if fakeKubeletIPs && enableScheduler {
+		if fakeKubeletIPs {
 			fieldSelector.FieldPath = "metadata.annotations['" + HostIPsAnnotation + "']"
 		}
 	}
@@ -645,7 +645,7 @@ func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector, fakeKubeletIPs
 func (t *translator) TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 	envNameMap := make(map[string]struct{})
 	for j, env := range envVar {
-		translateDownwardAPI(&envVar[j], t.fakeKubeletIPs, t.schedulingConfig.IsSchedulerFromVirtualCluster(vPod.Spec.SchedulerName))
+		translateDownwardAPI(&envVar[j], t.fakeKubeletIPs)
 		if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil && env.ValueFrom.ConfigMapKeyRef.Name != "" {
 			envVar[j].ValueFrom.ConfigMapKeyRef.Name = mappings.VirtualToHostName(ctx, envVar[j].ValueFrom.ConfigMapKeyRef.Name, vPod.Namespace, mappings.ConfigMaps())
 		}
@@ -686,14 +686,14 @@ func (t *translator) TranslateContainerEnv(ctx *synccontext.SyncContext, envVar 
 	return envVar, envFrom, nil
 }
 
-func translateDownwardAPI(env *corev1.EnvVar, fakeKubeletIPs, enableScheduler bool) {
+func translateDownwardAPI(env *corev1.EnvVar, fakeKubeletIPs bool) {
 	if env.ValueFrom == nil {
 		return
 	}
 	if env.ValueFrom.FieldRef == nil {
 		return
 	}
-	translateFieldRef(env.ValueFrom.FieldRef, fakeKubeletIPs, enableScheduler)
+	translateFieldRef(env.ValueFrom.FieldRef, fakeKubeletIPs)
 }
 
 func (t *translator) translateDNSConfig(pPod *corev1.Pod, vPod *corev1.Pod, nameServer string) {
