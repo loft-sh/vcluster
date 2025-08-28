@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
-	"strings"
 	"time"
 
 	nodev1 "k8s.io/api/node/v1"
@@ -252,19 +251,6 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		if pPod.Spec.NodeName == "" {
 			return ctrl.Result{}, nil
 		}
-
-		if s.fakeKubeletIPs {
-			nodeService, err := s.ensureNodeService(ctx, pPod)
-			if err != nil {
-				if kerrors.IsNotFound(err) {
-					return ctrl.Result{RequeueAfter: time.Second}, nil
-				}
-				return ctrl.Result{}, err
-			}
-
-			pPod.Annotations[translatepods.HostIPAnnotation] = nodeService.Spec.ClusterIP
-			pPod.Annotations[translatepods.HostIPsAnnotation] = nodeService.Spec.ClusterIP
-		}
 	}
 
 	err = pro.ApplyPatchesHostObject(ctx, nil, pPod, event.Virtual, ctx.Config.Sync.ToHost.Pods.Patches, false)
@@ -349,21 +335,6 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		return patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.Host, "node name is different between the two", &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
 	}
 
-	if s.fakeKubeletIPs && event.Host.Status.HostIP != "" {
-		nodeService, err := s.ensureNodeService(ctx, event.Host)
-		if err != nil {
-			if kerrors.IsNotFound(err) {
-				return ctrl.Result{RequeueAfter: time.Second}, nil
-			}
-			return ctrl.Result{}, err
-		}
-
-		event.Host.Status.HostIP = nodeService.Spec.ClusterIP
-		event.Host.Status.HostIPs = []corev1.HostIP{
-			{IP: nodeService.Spec.ClusterIP},
-		}
-	}
-
 	// validate virtual pod before syncing it to the host cluster
 	if s.podSecurityStandard != "" {
 		valid, err := s.isPodSecurityStandardsValid(ctx, event.Virtual, ctx.Log)
@@ -424,6 +395,10 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	// update the virtual pod if the spec has changed
 	err = s.podTranslator.Diff(ctx, event)
 	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return ctrl.Result{RequeueAfter: time.Second}, nil
+		}
+
 		return ctrl.Result{}, err
 	}
 
@@ -545,17 +520,6 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 	}
 
 	return nil
-}
-
-func (s *podSyncer) ensureNodeService(ctx *synccontext.SyncContext, pPod *corev1.Pod) (*corev1.Service, error) {
-	serviceName := translate.SafeConcatName(translate.VClusterName, "node", strings.ReplaceAll(pPod.Spec.NodeName, ".", "-"))
-
-	nodeService := &corev1.Service{}
-	err := ctx.CurrentNamespaceClient.Get(ctx.Context, types.NamespacedName{Name: serviceName, Namespace: ctx.CurrentNamespace}, nodeService)
-	if err != nil {
-		return nil, fmt.Errorf("get node service: %w", err)
-	}
-	return nodeService, nil
 }
 
 func (s *podSyncer) applyLimitByClasses(ctx *synccontext.SyncContext, virtual *corev1.Pod) bool {
