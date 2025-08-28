@@ -34,6 +34,9 @@ type InstanceCreateInput struct {
 	// Should never be sent from production instances.
 	// Requires authentication via an access key.
 	DebugInstanceID *string `json:"debugInstanceID,omitempty" form:"debugInstanceID" hash:"-"`
+
+	// PlatformDatabase reports details about the platform database to the license service
+	PlatformDatabase PlatformDatabase `json:"isPlatformDatabaseReady,omitempty" form:"isPlatformDatabaseReady"`
 }
 
 // InstanceCreateOutput is the struct holding all information returned from "instance create"
@@ -43,4 +46,9 @@ type InstanceCreateOutput struct {
 	// License is the license data for the requested Loft instance.
 	License     *License `json:"license,omitempty"`
 	CurrentTime int64    `json:"currentTime"`
+}
+
+type PlatformDatabase struct {
+	IsReady           bool   `json:"isReady"`
+	CreationTimestamp string `json:"creationTimestamp"`
 }

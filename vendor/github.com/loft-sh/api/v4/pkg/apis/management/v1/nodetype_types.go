@@ -2,7 +2,6 @@ package v1
 
 import (
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -23,14 +22,6 @@ type NodeType struct {
 
 	Spec   NodeTypeSpec   `json:"spec,omitempty"`
 	Status NodeTypeStatus `json:"status,omitempty"`
-}
-
-func (a *NodeType) GetAllProperties() []corev1.NodeSelectorRequirement {
-	return (&storagev1.NodeType{
-		ObjectMeta: a.ObjectMeta,
-		Spec:       a.Spec.NodeTypeSpec,
-		Status:     a.Status.NodeTypeStatus,
-	}).GetAllProperties()
 }
 
 type NodeTypeSpec struct {

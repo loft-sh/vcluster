@@ -682,6 +682,11 @@ func (in *ResourceCount) DeepCopyInto(out *ResourceCount) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.Committed != nil {
+		in, out := &in.Committed, &out.Committed
+		*out = new(int64)
+		**out = **in
+	}
 	return
 }
 

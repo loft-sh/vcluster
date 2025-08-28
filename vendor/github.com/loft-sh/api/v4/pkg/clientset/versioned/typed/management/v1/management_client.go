@@ -53,6 +53,7 @@ type ManagementV1Interface interface {
 	TasksGetter
 	TeamsGetter
 	TranslateVClusterResourceNamesGetter
+	UsageDownloadsGetter
 	UsersGetter
 	VirtualClusterInstancesGetter
 	VirtualClusterSchemasGetter
@@ -226,6 +227,10 @@ func (c *ManagementV1Client) Teams() TeamInterface {
 
 func (c *ManagementV1Client) TranslateVClusterResourceNames() TranslateVClusterResourceNameInterface {
 	return newTranslateVClusterResourceNames(c)
+}
+
+func (c *ManagementV1Client) UsageDownloads() UsageDownloadInterface {
+	return newUsageDownloads(c)
 }
 
 func (c *ManagementV1Client) Users() UserInterface {
