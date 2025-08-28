@@ -13,4 +13,8 @@ type ResourceCount struct {
 	// TotalCreated is a continuous counter of the amount of resources ever created.
 	// +optional
 	TotalCreated *int64 `json:"created,omitempty"`
+	// Committed specifies the amount of resource consumption customers have committed to for a given billing period.
+	// It can be exceeded and will then be charged with overage fees.
+	// +optional
+	Committed *int64 `json:"committed,omitempty"`
 }

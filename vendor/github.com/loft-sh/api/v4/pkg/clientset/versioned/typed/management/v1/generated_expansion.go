@@ -84,6 +84,8 @@ type TeamExpansion interface{}
 
 type TranslateVClusterResourceNameExpansion interface{}
 
+type UsageDownloadExpansion interface{}
+
 type UserExpansion interface{}
 
 type VirtualClusterInstanceExpansion interface{}

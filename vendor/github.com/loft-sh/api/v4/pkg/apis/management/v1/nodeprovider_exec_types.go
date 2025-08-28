@@ -35,10 +35,86 @@ type NodeProviderBCMNodeWithResources struct {
 
 type NodeProviderBCMGetResourcesResult struct {
 	Nodes      []NodeProviderBCMNodeWithResources `json:"nodes"`
-	NodeGroups []string                           `json:"nodeGroups"`
+	NodeGroups []NodeProviderBCMNodeGroup         `json:"nodeGroups"`
+}
+
+type NodeProviderBCMNodeGroup struct {
+	Name  string   `json:"name"`
+	Nodes []string `json:"nodes"`
 }
 
 type NodeProviderBCMTestConnectionResult struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
+}
+
+type NodeProviderCalculateCostResult struct {
+	Cost int64 `json:"cost"`
+}
+
+type NodeProviderTerraformValidateResult struct {
+	Success bool   `json:"success"`
+	Output  string `json:"output"`
+}
+
+type NamespacedNameArgs struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+}
+
+type NodeProviderExecResult struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+type NodeClaimData struct {
+	// UserData that should be used to start the node.
+	UserData string `json:"userData,omitempty"`
+
+	// Terraform state of the node claim.
+	State []byte `json:"state,omitempty"`
+
+	// Operations that were applied to the node claim.
+	Operations map[string]*Operation `json:"operations,omitempty"`
+}
+
+type NodeEnvironmentData struct {
+	// Outputs of the node environment.
+	Outputs []byte `json:"outputs,omitempty"`
+
+	// Terraform state of the node environment.
+	State []byte `json:"state,omitempty"` //nolint:gosec
+
+	// Operations that were applied to the node environment.
+	Operations map[string]*Operation `json:"operations,omitempty"`
+}
+
+const (
+	OperationDrift   = "drift"
+	OperationApply   = "apply"
+	OperationDestroy = "destroy"
+)
+
+type OperationPhase string
+
+const (
+	OperationPhaseRunning OperationPhase = "Running"
+	OperationPhaseSuccess OperationPhase = "Success"
+	OperationPhaseFailed  OperationPhase = "Failed"
+)
+
+type Operation struct {
+	// StartTimestamp of the operation.
+	StartTimestamp metav1.Time `json:"startTimestamp,omitempty"`
+
+	// EndTimestamp of the operation.
+	EndTimestamp metav1.Time `json:"endTimestamp,omitempty"`
+
+	// Phase of the operation.
+	Phase OperationPhase `json:"phase,omitempty"`
+
+	// Logs of the operation.
+	Logs []byte `json:"logs,omitempty"`
+
+	// Error of the operation.
+	Error string `json:"error,omitempty"`
 }

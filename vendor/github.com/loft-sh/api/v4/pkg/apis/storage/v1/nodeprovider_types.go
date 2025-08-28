@@ -3,6 +3,7 @@ package v1
 import (
 	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -33,9 +34,15 @@ const (
 	// NodeProvider specific label
 	NodeProvidedManagedTypeIndicatorLabel = "autoscaling.loft.sh/managed-by"
 
+	// NodeTypeMaxCapacityAnnotation is the annotation used to store the maximum capacity of a NodeType
+	NodeTypeMaxCapacityAnnotation = "autoscaling.loft.sh/max-capacity"
+
 	// BCM specific annotations
 	NodeTypeNodesAnnotation      = "bcm.loft.sh/nodes"
 	NodeTypeNodeGroupsAnnotation = "bcm.loft.sh/node-groups"
+
+	// KubeVirt specific annotations
+	NodeTypeVMTemplateAnnotation = "kubevirt.loft.sh/vm-template"
 )
 
 // +genclient
@@ -140,11 +147,8 @@ type TerraformTemplateSourceGit struct {
 	// SubPath is the subpath in the repo to use
 	SubPath string `json:"subPath,omitempty"`
 
-	// Username is the reference to a secret containing the username for the git repository.
-	Username *SecretRef `json:"username,omitempty"`
-
-	// Password is the reference to a secret containing the password for the git repository.
-	Password *SecretRef `json:"password,omitempty"`
+	// Credentials is the reference to a secret containing the username and password for the git repository.
+	Credentials *SecretRef `json:"credentials,omitempty"`
 
 	// FetchInterval is the interval to use for refetching the git repository. Defaults to 5m. Refetching only checks for remote changes but does not do a complete repull.
 	FetchInterval string `json:"fetchInterval,omitempty"`
@@ -161,6 +165,9 @@ type TerraformNodeTypeSpec struct {
 
 	// NodeTemplate is the template to use for this node type.
 	NodeTemplate *TerraformTemplate `json:"nodeTemplate,omitempty"`
+
+	// MaxCapacity is the maximum number of nodes that can be created for this NodeType.
+	MaxCapacity int `json:"maxCapacity,omitempty"`
 }
 
 type BCMNodeTypeSpec struct {
@@ -183,8 +190,45 @@ type NamespacedRef struct {
 	Namespace string `json:"namespace"`
 }
 
+// KubeVirtNodeTypeSpec defines single NodeType spec for KubeVirt provider type.
+type KubeVirtNodeTypeSpec struct {
+	NodeTypeSpec `json:",inline"`
+
+	// Name is the name of this node type.
+	Name string `json:"name"`
+
+	// VirtualMachineTemplate is a full KubeVirt VirtualMachine template to use for this NodeType.
+	// This is mutually exclusive with MergeVirtualMachineTemplate
+	VirtualMachineTemplate *runtime.RawExtension `json:"virtualMachineTemplate,omitempty"`
+
+	// MergeVirtualMachineTemplate will be merged into base VirtualMachine template for this NodeProvider.
+	// This allows overwriting of specific fields from top level template by individual NodeTypes
+	// This is mutually exclusive with VirtualMachineTemplate
+	MergeVirtualMachineTemplate *runtime.RawExtension `json:"mergeVirtualMachineTemplate,omitempty"`
+
+	// MaxCapacity is the maximum number of nodes that can be created for this NodeType.
+	MaxCapacity int `json:"maxCapacity,omitempty"`
+}
+
 // NodeProviderKubeVirt defines the configuration for a KubeVirt node provider.
-type NodeProviderKubeVirt struct{}
+type NodeProviderKubeVirt struct {
+	// ClusterRef is a reference to connected host cluster in which KubeVirt operator is running
+	ClusterRef *KubeVirtClusterRef `json:"clusterRef,omitempty"`
+
+	// VirtualMachineTemplate is a KubeVirt VirtualMachine template to use by NodeTypes managed by this NodeProvider
+	VirtualMachineTemplate *runtime.RawExtension `json:"virtualMachineTemplate,omitempty"`
+
+	// NodeTypes define NodeTypes that should be automatically created for this provider.
+	NodeTypes []KubeVirtNodeTypeSpec `json:"nodeTypes"`
+}
+
+type KubeVirtClusterRef struct {
+	// Cluster is the connected cluster the VMs will be created in
+	Cluster string `json:"cluster"`
+
+	// Namespace is the namespace inside the connected cluster holding VMs
+	Namespace string `json:"namespace"`
+}
 
 // NodeProviderStatus defines the observed state of NodeProvider.
 type NodeProviderStatus struct {

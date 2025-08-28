@@ -92,15 +92,16 @@ type UISettingsConfig struct {
 }
 
 type ExternalURLs struct {
-	// Enabled determines if requests to external URLs from the UI should be allowed at all
+	// Block determines if requests to external URLs from the UI should be blocked
 	// +optional
-	Enabled bool `json:"enabled,omitempty"`
+	Block bool `json:"block,omitempty"`
 
 	// Allow specifies which external URLs can be called. In addition to the predefined modules,
 	// - "vcluster" (license page, feature descriptions, ...)
 	// - "gtm" (google tag manager)
-	// - "featurebase"
+	// - "featurebase" (changelog)
 	// any URL can be added to this list. This will allow the UI to make any request to this URL.
+	// This is only active when Block is true.
 	// +optional
 	Allow []string `json:"allow,omitempty"`
 }
@@ -132,12 +133,10 @@ type UISettingsStatus struct {
 	CspConfig string `json:"cspConfig,omitempty"`
 }
 
-
 type Csps map[string]CspPolicy
 
 type CspPolicy struct {
 	Script  string
-	Image   string
 	Connect string
 	Frame   string
 	Font    string

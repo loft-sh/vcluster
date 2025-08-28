@@ -2,13 +2,13 @@ package v1
 
 import (
 	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	// NodeEnvironment conditions
 	NodeEnvironmentConditionTypeProvisioned = "Provisioned"
+	NodeEnvironmentConditionTypeSynced      = "Synced"
 )
 
 var (
@@ -56,8 +56,8 @@ func (a *NodeEnvironment) SetConditions(conditions agentstoragev1.Conditions) {
 
 // NodeEnvironmentSpec defines spec of node environment.
 type NodeEnvironmentSpec struct {
-	// Requirements are the requirements for the NodeEnvironment.
-	Requirements []corev1.NodeSelectorRequirement `json:"requirements,omitempty"`
+	// Properties are the properties for the NodeEnvironment.
+	Properties map[string]string `json:"properties,omitempty"`
 
 	// ProviderRef is the name of the NodeProvider that this NodeEnvironment is based on.
 	ProviderRef string `json:"providerRef"`
