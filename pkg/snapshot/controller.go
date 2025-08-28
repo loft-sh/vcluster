@@ -20,29 +20,33 @@ import (
 type Reconciler struct {
 	vConfig *config.VirtualClusterConfig
 	manager ctrl.Manager
-	log     loghelper.Logger
+	logger  loghelper.Logger
 }
 
 func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, error) {
+	logger := loghelper.New("vcluster-snapshot-controller")
+
 	if registerContext == nil {
 		return nil, errors.New("register context is nil")
 	}
 	var manager ctrl.Manager
 	if registerContext.Config.PrivateNodes.Enabled {
+		logger.Infof("Registering vcluster-snapshot-controller to watch for volume snapshot requests in the virtual cluster")
 		manager = registerContext.VirtualManager
 	} else {
+		logger.Infof("Registering vcluster-snapshot-controller to watch for volume snapshot requests in the host cluster")
 		manager = registerContext.HostManager
 	}
 
 	return &Reconciler{
 		vConfig: registerContext.Config,
 		manager: manager,
-		log:     loghelper.New("vcluster-snapshot-controller"),
+		logger:  logger,
 	}, nil
 }
 
 func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	c.log.Infof("Reconciling vcluster snapshot request %s", req.NamespacedName)
+	c.logger.Infof("Reconciling vcluster snapshot request %s", req.NamespacedName)
 	var configMap corev1.ConfigMap
 	err := c.client().Get(ctx, req.NamespacedName, &configMap)
 	if kerrors.IsNotFound(err) {
@@ -50,15 +54,14 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	} else if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get ConfigMap %s/%s with vcluster snapshot request: %w", req.Namespace, req.Name, err)
 	}
-	c.log.Debugf("Found ConfigMap %s/%s with vcluster snapshot request", configMap.Namespace, configMap.Name)
+	c.logger.Debugf("Found ConfigMap %s/%s with vcluster snapshot request", configMap.Namespace, configMap.Name)
 
 	snapshotRequest, err := UnmarshalSnapshotRequest(&configMap)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
-	c.log.Debugf("Unmarshalled vcluster snapshot request from ConfigMap %s/%s", configMap.Namespace, configMap.Name)
 
-	c.log.Infof("Snapshot request %v", snapshotRequest)
+	c.logger.Debugf("Snapshot request %v", snapshotRequest)
 	return ctrl.Result{}, nil
 }
 
