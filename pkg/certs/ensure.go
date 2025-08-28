@@ -62,48 +62,8 @@ func Generate(ctx context.Context, serviceCIDR, certificatesDir string, options 
 }
 
 func GenerateInitKubeadmConfig(serviceCIDR, certificatesDir string, options *config.VirtualClusterConfig) (*kubeadmapi.InitConfiguration, error) {
-	clusterDomain := options.Networking.Advanced.ClusterDomain
-	currentNamespace := options.HostNamespace
-
 	// generate etcd server and peer sans
-	extraSans := []string{
-		"localhost",
-	}
-
-	if options.ControlPlane.Standalone.Enabled {
-		extraSans = append(extraSans, "127.0.0.1", "0.0.0.0")
-	} else {
-		etcdService := options.Name + "-etcd"
-		extraSans = append(extraSans,
-			etcdService,
-			etcdService+"-headless",
-			etcdService+"."+currentNamespace,
-			etcdService+"."+currentNamespace+".svc",
-		)
-		// add wildcard
-		for _, service := range []string{options.Name, etcdService} {
-			extraSans = append(
-				extraSans,
-				"*."+service+"-headless",
-				"*."+service+"-headless"+"."+currentNamespace,
-				"*."+service+"-headless"+"."+currentNamespace+".svc",
-				"*."+service+"-headless"+"."+currentNamespace+".svc."+clusterDomain,
-			)
-		}
-
-		// expect up to 5 etcd members
-		for i := range 5 {
-			// this is for embedded etcd
-			hostname := options.Name + "-" + strconv.Itoa(i)
-			extraSans = append(extraSans, hostname, hostname+"."+options.Name+"-headless", hostname+"."+options.Name+"-headless"+"."+currentNamespace)
-
-			// this is for external etcd
-			etcdHostname := etcdService + "-" + strconv.Itoa(i)
-			extraSans = append(extraSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
-		}
-	}
-
-	extraSans = append(extraSans, options.ControlPlane.Proxy.ExtraSANs...)
+	extraSans := GetEtcdExtraSANs(options)
 
 	// create kubeadm config
 	return kubeadm.InitKubeadmConfig(options, "", "127.0.0.1:6443", serviceCIDR, certificatesDir, extraSans)
@@ -470,4 +430,49 @@ func BuildKubeConfig(spec *KubeConfigOptions) (*clientcmdapi.Config, error) {
 		encodedClientKey,
 		pkiutil.EncodeCertPEM(clientCert),
 	), nil
+}
+
+func GetEtcdExtraSANs(options *config.VirtualClusterConfig) []string {
+	clusterDomain := options.Networking.Advanced.ClusterDomain
+	currentNamespace := options.HostNamespace
+	// generate etcd server and peer sans
+	extraSans := []string{
+		"localhost",
+	}
+
+	if options.ControlPlane.Standalone.Enabled {
+		extraSans = append(extraSans, "127.0.0.1", "0.0.0.0")
+	} else {
+		etcdService := options.Name + "-etcd"
+		extraSans = append(extraSans,
+			etcdService,
+			etcdService+"-headless",
+			etcdService+"."+currentNamespace,
+			etcdService+"."+currentNamespace+".svc",
+		)
+		// add wildcard
+		for _, service := range []string{options.Name, etcdService} {
+			extraSans = append(
+				extraSans,
+				"*."+service+"-headless",
+				"*."+service+"-headless"+"."+currentNamespace,
+				"*."+service+"-headless"+"."+currentNamespace+".svc",
+				"*."+service+"-headless"+"."+currentNamespace+".svc."+clusterDomain,
+			)
+		}
+
+		// expect up to 5 etcd members
+		for i := range 5 {
+			// this is for embedded etcd
+			hostname := options.Name + "-" + strconv.Itoa(i)
+			extraSans = append(extraSans, hostname, hostname+"."+options.Name+"-headless", hostname+"."+options.Name+"-headless"+"."+currentNamespace)
+
+			// this is for external etcd
+			etcdHostname := etcdService + "-" + strconv.Itoa(i)
+			extraSans = append(extraSans, etcdHostname, etcdHostname+"."+etcdService+"-headless", etcdHostname+"."+etcdService+"-headless"+"."+currentNamespace)
+		}
+	}
+
+	extraSans = append(extraSans, options.ControlPlane.Proxy.ExtraSANs...)
+	return extraSans
 }
