@@ -243,7 +243,7 @@ require (
 	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/tcnksm/go-gitconfig v0.1.2
-	github.com/ulikunitz/xz v0.5.12 // indirect
+	github.com/ulikunitz/xz v0.5.14 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.etcd.io/etcd/api/v3 v3.6.3
 	go.etcd.io/etcd/client/pkg/v3 v3.6.3 // indirect
