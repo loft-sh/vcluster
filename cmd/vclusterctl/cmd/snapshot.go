@@ -17,7 +17,8 @@ type SnapshotCmd struct {
 	Snapshot snapshot.Options
 	Pod      pod.Options
 
-	Log log.Logger
+	Log   log.Logger
+	Async bool
 }
 
 // NewSnapshot creates a new command
@@ -48,12 +49,13 @@ vcluster snapshot my-vcluster container:///data/my-local-snapshot.tar.gz
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.Snapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, &cmd.Pod, cmd.Log)
+			return cli.Snapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, &cmd.Pod, cmd.Log, cmd.Async)
 		},
 	}
 
 	// add storage flags
 	pod.AddFlags(cobraCmd.Flags(), &cmd.Pod, false)
 	snapshot.AddFlags(cobraCmd.Flags(), &cmd.Snapshot)
+	cobraCmd.Flags().BoolVar(&cmd.Async, "async", false, "Create snapshot asynchronously. Command returns immediately and the snapshot is created in the background.")
 	return cobraCmd
 }
