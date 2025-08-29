@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"time"
 )
 
 type Reconciler struct {
@@ -45,23 +46,100 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 	}, nil
 }
 
-func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	c.logger.Infof("Reconciling vcluster snapshot request %s", req.NamespacedName)
+func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, reterr error) {
+	c.logger.Infof("Reconciling vcluster snapshot request ConfigMap %s", req.NamespacedName)
+
 	var configMap corev1.ConfigMap
 	err := c.client().Get(ctx, req.NamespacedName, &configMap)
 	if kerrors.IsNotFound(err) {
-		return ctrl.Result{}, nil
+		c.logger.Infof("Can't find vcluster snapshot request ConfigMap %s, requeuing", req.NamespacedName)
+		return ctrl.Result{
+			RequeueAfter: 10 * time.Second,
+		}, nil
 	} else if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get ConfigMap %s/%s with vcluster snapshot request: %w", req.Namespace, req.Name, err)
 	}
-	c.logger.Debugf("Found ConfigMap %s/%s with vcluster snapshot request", configMap.Namespace, configMap.Name)
+	c.logger.Infof("Found ConfigMap %s/%s with vcluster snapshot request", configMap.Namespace, configMap.Name)
 
-	snapshotRequest, err := UnmarshalSnapshotRequest(&configMap)
+	// Find snapshot request secret
+	var secret corev1.Secret
+	secretObjectKey := client.ObjectKey{
+		Namespace: configMap.Namespace,
+		Name:      configMap.Name,
+	}
+	err = c.client().Get(ctx, secretObjectKey, &secret)
+	if kerrors.IsNotFound(err) {
+		// requeue if new snapshot request
+		if time.Now().Sub(configMap.CreationTimestamp.Time) < 10*time.Second {
+			return ctrl.Result{
+				RequeueAfter: 10 * time.Second,
+			}, nil
+		}
+
+		return ctrl.Result{}, fmt.Errorf("can't find Secret %s/%s with vcluster snapshot request options: %w", configMap.Namespace, configMap.Name, err)
+	} else if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get Secret %s/%s with vcluster snapshot request: %w", configMap.Namespace, configMap.Name, err)
+	}
+	c.logger.Infof("Found Secret %s/%s with vcluster snapshot request", secret.Namespace, secret.Name)
+
+	// Handle deletion
+	if !configMap.DeletionTimestamp.IsZero() {
+		// snapshot request ConfigMap deleted, so delete Secret as well
+		c.logger.Infof(
+			"snapshot request ConfigMap %s/%s deleted, deleting snapshot request Secret %s/%s",
+			configMap.Namespace, configMap.Name,
+			secret.Namespace, secret.Name)
+		err = c.client().Delete(ctx, &secret)
+		if err != nil && !kerrors.IsNotFound(err) {
+			return ctrl.Result{}, fmt.Errorf("failed to delete Secret %s/%s with vcluster snapshot request: %w", secret.Namespace, secret.Name, err)
+		}
+		c.logger.Infof("deleted snapshot request Secret %s/%s", secret.Namespace, secret.Name)
+		return ctrl.Result{}, nil
+	}
+
+	snapshotRequest, err := UnmarshalSnapshotRequest(&configMap, &secret)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
 
-	c.logger.Debugf("Snapshot request %v", snapshotRequest)
+	if snapshotRequest.Status.Phase == "" {
+		// update phase to InProgress
+		_, err = c.setRequestPhase(ctx, &configMap, *snapshotRequest, RequestPhaseInProgress)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update vcluster snapshot request %s/%s status: %w", configMap.Namespace, configMap.Name, err)
+		}
+		return ctrl.Result{}, nil
+	} else if snapshotRequest.Status.Phase == RequestPhaseCompleted {
+		c.logger.Infof("snapshot request from ConfigMap %s/%s has been completed, deleting snapshot request ConfigMap", configMap.Namespace, configMap.Name)
+		err = c.client().Delete(ctx, &configMap)
+		if err != nil && !kerrors.IsNotFound(err) {
+			return ctrl.Result{}, fmt.Errorf("failed to delete ConfigMap %s/%s with vcluster snapshot request: %w", configMap.Namespace, configMap.Name, err)
+		}
+		return ctrl.Result{}, nil
+	} else if snapshotRequest.Status.Phase == RequestPhaseFailed {
+		c.logger.Errorf("snapshot request from ConfigMap %s/%s has failed, deleting snapshot request ConfigMap", configMap.Namespace, configMap.Name)
+		err = c.client().Delete(ctx, &configMap)
+		if err != nil && !kerrors.IsNotFound(err) {
+			return ctrl.Result{}, fmt.Errorf("failed to delete ConfigMap %s/%s with vcluster snapshot request: %w", configMap.Namespace, configMap.Name, err)
+		}
+		return ctrl.Result{}, nil
+	}
+
+	c.logger.Infof("Creating vCluster snapshot in storage type %q", snapshotRequest.Spec.Options.Type)
+	snapshotClient := &Client{
+		Options: snapshotRequest.Spec.Options,
+	}
+	err = snapshotClient.Run(ctx)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to run snapshot client: %w", err)
+	}
+	c.logger.Infof("Created vCluster snapshot in storage type %q", snapshotRequest.Spec.Options.Type)
+
+	// update phase to Completed
+	_, err = c.setRequestPhase(ctx, &configMap, *snapshotRequest, RequestPhaseCompleted)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to update vcluster snapshot request %s/%s status: %w", configMap.Namespace, configMap.Name, err)
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -78,7 +156,7 @@ func (c *Reconciler) Register() error {
 		if annotations == nil {
 			return false
 		}
-		_, ok := annotations[snapshotRequestAnnotation]
+		_, ok := annotations[requestAnnotation]
 		return ok
 	})
 
@@ -97,4 +175,24 @@ func (c *Reconciler) client() client.Client {
 
 func (c *Reconciler) isHostMode() bool {
 	return !c.vConfig.PrivateNodes.Enabled
+}
+
+func (c *Reconciler) setRequestPhase(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest Request, phase RequestPhase) (bool, error) {
+	if snapshotRequest.Status.Phase == phase {
+		return false, nil
+	}
+	// update phase to InProgress
+	snapshotRequest.Status.Phase = phase
+	updatedConfigMap, _, err := MarshalSnapshotRequest(configMap.Namespace, &snapshotRequest)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal vCluster snapshot request (with updated phase) to ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
+	}
+	// configMap data patch
+	configMap.Data = updatedConfigMap.Data
+	err = c.client().Update(ctx, configMap)
+	if err != nil {
+		return false, fmt.Errorf("failed to update ConfigMap %s/%s with updated vCluster snapshot request: %w", configMap.Namespace, configMap.Name, err)
+	}
+	c.logger.Infof("updated vCluster snapshot request %s/%s status, set phase to %s", configMap.Namespace, configMap.Name, phase)
+	return true, nil
 }
