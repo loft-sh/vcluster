@@ -310,6 +310,12 @@ jobs:
           image: kindest/node:v1.33.1@sha256:050072256b9a903bd914c0b2866828150cb229cea0efe5892e2b644d5dd3b34f
           skipClusterLogsExport: "true"
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4.3.1
+        with:
+          role-to-assume: arn:aws:iam::585768162836:role/GitHubActionsS3Role
+          aws-region: eu-central-1
+
       - name: Testing kind cluster set-up
         run: |
           set -x
@@ -410,6 +416,7 @@ jobs:
           VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} \
           VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} \
           VCLUSTER_BACKGROUND_PROXY_IMAGE=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} \
+          CHART_DIR=$(git rev-parse --show-toplevel)/chart \
           go test -timeout 40m -mod=vendor -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast ${{ matrix.test-suite-path }}
           if kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p >/dev/null 2>/dev/null; then
             echo "vCluster has restarted during testing, failing..."
