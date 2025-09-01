@@ -595,7 +595,7 @@ controlPlane:
         memory: 2Gi
       # Requests are minimal resources that will be consumed by the container
       requests:
-        ephemeral-storage: 400Mi
+        ephemeral-storage: 1Gi
         cpu: 200m
         memory: 256Mi
     # Additional labels or annotations for the statefulSet pods.
