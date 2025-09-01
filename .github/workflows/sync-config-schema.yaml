@@ -31,11 +31,11 @@ jobs:
             final_tag="${{ github.event.release.tag_name }}"
           fi
           echo "release_tag=${final_tag}" >> "$GITHUB_OUTPUT"
-          
+
           # Remove 'v' prefix if present for semver validation
           version_without_v="${final_tag#v}"
           echo "version_without_v=${version_without_v}" >> "$GITHUB_OUTPUT"
-          
+
           if [[ "${final_tag}" == *"-alpha."*  || "${final_tag}" == *"-next."* ]]; then
             echo "is_alpha_version=true" >> "$GITHUB_OUTPUT"
             echo "is_stable_version=false" >> "$GITHUB_OUTPUT"
@@ -47,7 +47,7 @@ jobs:
           else
             echo "is_stable_version=true" >> "$GITHUB_OUTPUT"
           fi
-      
+
       - name: Parse version with semver
         if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
         id: semver
@@ -95,11 +95,11 @@ jobs:
           # Use parsed version from semver action
           MAJOR_VERSION=$(echo "${PARSED_VERSION}" | jq -r '.major')
           MINOR_VERSION=$(echo "${PARSED_VERSION}" | jq -r '.minor')
-          
+
           # For RC releases, we use major.minor.0 format for the docs folder
           MINOR_VERSION_WITH_PATCH="${MAJOR_VERSION}.${MINOR_VERSION}.0"
           echo "Extracted minor version: ${MINOR_VERSION_WITH_PATCH} from tag: ${RELEASE_TAG}"
-          
+
           # Determine target folder - use version folder for RC releases, main for beta
           if [[ "${RELEASE_TAG}" == *"-rc"* ]]; then
             TARGET_VERSION="${MINOR_VERSION_WITH_PATCH}"
@@ -137,7 +137,7 @@ jobs:
           # generate vcluster partials for target version
           go mod tidy
           go mod vendor
-          
+
           # Determine output path based on target version
           if [[ "${TARGET_VERSION}" == "main" ]]; then
             OUTPUT_PATH="vcluster/_partials/config"
@@ -146,7 +146,7 @@ jobs:
             # Ensure versioned directory exists
             mkdir -p "vcluster_versioned_docs/version-${TARGET_VERSION}"
           fi
-          
+
           go run hack/vcluster/partials/main.go "configsrc/vcluster/${TARGET_VERSION}" "${OUTPUT_PATH}"
 
           # set git info
@@ -164,6 +164,8 @@ jobs:
           # create a PR in vcluster-docs with generated partials
           git commit -m "chore: generate vCluster partials for ${TARGET_VERSION} version based on values.schema.json in vCluster ${RELEASE_TAG}"
           git push -u origin -f "${branch_name}"
+
+          gh pr close "${branch_name}" || true
           gh pr create --fill --head "${branch_name}"
           echo "Create PR in vcluster-docs"
 
@@ -203,15 +205,15 @@ jobs:
           # Use parsed version from semver action
           MAJOR_VERSION=$(echo "${PARSED_VERSION}" | jq -r '.major')
           MINOR_VERSION=$(echo "${PARSED_VERSION}" | jq -r '.minor')
-          
+
           # Use the vcluster-vX.Y format for tags
           TARGET_TAG="vcluster-v${MAJOR_VERSION}.${MINOR_VERSION}"
-          
+
           # commit changes
           git commit -m "chore: sync config/*.go and values.schema.json to vCluster version ${RELEASE_TAG}"
-          
+
           # Update the existing tag to point to the new commit
           git tag -f "${TARGET_TAG}"
           git push -u origin -f "${TARGET_TAG}"
-          
+
           echo "vcluster-config tag ${TARGET_TAG} updated to vCluster version ${RELEASE_TAG}"
