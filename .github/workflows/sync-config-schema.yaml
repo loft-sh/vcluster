@@ -165,7 +165,7 @@ jobs:
           git commit -m "chore: generate vCluster partials for ${TARGET_VERSION} version based on values.schema.json in vCluster ${RELEASE_TAG}"
           git push -u origin -f "${branch_name}"
 
-          gh pr close "${branch_name}" || true
+          gh pr close "${branch_name}" --comment "Closing to recreate with updated changes from ${RELEASE_TAG}" || true
           gh pr create --fill --head "${branch_name}"
           echo "Create PR in vcluster-docs"
 
