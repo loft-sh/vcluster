@@ -67,6 +67,10 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 			return fmt.Errorf("failed to create a snapshot request configmap: %w", err)
 		}
 
+		log.Infof(
+			"Snapshot request %s/%s created, you can check it by running `kubectl get configmap -n %s %s`",
+			configMap.Namespace, configMap.Name,
+			configMap.Namespace, configMap.Name)
 		return nil
 	} else {
 		// run snapshot pod
