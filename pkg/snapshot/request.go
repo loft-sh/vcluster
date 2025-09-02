@@ -82,7 +82,6 @@ func MarshalSnapshotRequest(vClusterNamespace string, snapshotRequest *Request) 
 	}
 
 	// snapshot request, part 1 - ConfigMap
-	const snapshotName = "test-snapshot-request"
 	snapshotRequestJSON, err := json.Marshal(snapshotRequest)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to marshal snapshot request: %w", err)
@@ -91,7 +90,6 @@ func MarshalSnapshotRequest(vClusterNamespace string, snapshotRequest *Request) 
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Namespace: vClusterNamespace,
-			Name:      snapshotName,
 			Annotations: map[string]string{
 				requestAnnotation: "",
 			},
@@ -111,7 +109,6 @@ func MarshalSnapshotRequest(vClusterNamespace string, snapshotRequest *Request) 
 	secret := &corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Namespace: vClusterNamespace,
-			Name:      snapshotName,
 			Annotations: map[string]string{
 				requestAnnotation: "",
 			},

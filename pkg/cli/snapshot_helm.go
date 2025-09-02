@@ -56,12 +56,14 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 		if err != nil {
 			return fmt.Errorf("failed to marshal snapshot request: %w", err)
 		}
-		// create secret
-		_, err = kubeClient.CoreV1().Secrets(vCluster.Namespace).Create(ctx, secret, metav1.CreateOptions{})
+		// create snapshot request Secret
+		secret.GenerateName = "snapshot-request-"
+		secret, err = kubeClient.CoreV1().Secrets(vCluster.Namespace).Create(ctx, secret, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to create a snapshot request secret: %w", err)
 		}
-		// create ConfigMap
+		// create snapshot request ConfigMap
+		configMap.Name = secret.Name
 		_, err = kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to create a snapshot request configmap: %w", err)
