@@ -1,4 +1,4 @@
-package cmd
+package snapshot
 
 import (
 	"github.com/loft-sh/log"
@@ -17,8 +17,7 @@ type SnapshotCmd struct {
 	Snapshot snapshot.Options
 	Pod      pod.Options
 
-	Log   log.Logger
-	Async bool
+	Log log.Logger
 }
 
 // NewSnapshot creates a new command
@@ -31,7 +30,7 @@ func NewSnapshot(globalFlags *flags.GlobalFlags) *cobra.Command {
 	useLine, nameValidator := util.NamedPositionalArgsValidator(true, false, "VCLUSTER_NAME")
 	cobraCmd := &cobra.Command{
 		Use:   "snapshot" + useLine,
-		Short: "Snapshot a virtual cluster",
+		Short: "Snapshot a virtual cluster (deprecated, use `vcluster snapshot create` instead)",
 		Long: `#######################################################
 ################# vcluster snapshot ###################
 #######################################################
@@ -49,13 +48,16 @@ vcluster snapshot my-vcluster container:///data/my-local-snapshot.tar.gz
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.Snapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, &cmd.Pod, cmd.Log, cmd.Async)
+			return cli.Snapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, &cmd.Pod, cmd.Log, false)
 		},
 	}
 
 	// add storage flags
 	pod.AddFlags(cobraCmd.Flags(), &cmd.Pod, false)
 	snapshot.AddFlags(cobraCmd.Flags(), &cmd.Snapshot)
-	cobraCmd.Flags().BoolVar(&cmd.Async, "async", false, "Create snapshot asynchronously. Command returns immediately and the snapshot is created in the background.")
+
+	// add subcommands
+	cobraCmd.AddCommand(NewCreateCmd(globalFlags))
+
 	return cobraCmd
 }
