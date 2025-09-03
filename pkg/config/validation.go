@@ -763,6 +763,9 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 		if nodePool.Name == "" {
 			return fmt.Errorf("node pool name is required")
 		}
+		if nodePool.Provider == "" {
+			return fmt.Errorf("node pool provider is required")
+		}
 
 		if err := validateRequirements(nodePool.Requirements); err != nil {
 			return fmt.Errorf("invalid requirements for node pool %s: %w", nodePool.Name, err)
@@ -771,6 +774,9 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 	for _, nodePool := range vConfig.PrivateNodes.AutoNodes.Dynamic {
 		if nodePool.Name == "" {
 			return fmt.Errorf("node pool name is required")
+		}
+		if nodePool.Provider == "" {
+			return fmt.Errorf("node pool provider is required")
 		}
 
 		if err := validateRequirements(nodePool.Requirements); err != nil {

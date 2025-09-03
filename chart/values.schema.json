@@ -1282,6 +1282,10 @@
           "type": "string",
           "description": "Name is the name of this NodePool"
         },
+        "provider": {
+          "type": "string",
+          "description": "Provider is the node provider of the nodes in this pool."
+        },
         "requirements": {
           "items": {
             "$ref": "#/$defs/Requirement"
@@ -1330,7 +1334,8 @@
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "name"
+        "name",
+        "provider"
       ]
     },
     "DynamicNodePoolDisruption": {
@@ -3888,6 +3893,10 @@
     },
     "StandaloneAutoNodes": {
       "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Provider is the node provider of the nodes in this pool."
+        },
         "quantity": {
           "type": "integer",
           "description": "Quantity is the number of nodes to deploy for standalone mode."
@@ -4000,6 +4009,10 @@
           "type": "string",
           "description": "Name is the name of this static nodePool"
         },
+        "provider": {
+          "type": "string",
+          "description": "Provider is the node provider of the nodes in this pool."
+        },
         "requirements": {
           "items": {
             "$ref": "#/$defs/Requirement"
@@ -4034,6 +4047,7 @@
       "type": "object",
       "required": [
         "name",
+        "provider",
         "quantity"
       ]
     },
