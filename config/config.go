@@ -151,6 +151,9 @@ type DynamicNodePool struct {
 	// Name is the name of this NodePool
 	Name string `json:"name" jsonschema:"required"`
 
+	// Provider is the node provider of the nodes in this pool.
+	Provider string `json:"provider,omitempty" jsonschema:"required"`
+
 	// Requirements filter the types of nodes that can be provisioned by this pool.
 	// All requirements must be met for a node type to be eligible.
 	Requirements []Requirement `json:"requirements,omitempty"`
@@ -228,6 +231,9 @@ type DynamicNodePoolDisruptionBudget struct {
 type StaticNodePool struct {
 	// Name is the name of this static nodePool
 	Name string `json:"name" jsonschema:"required"`
+
+	// Provider is the node provider of the nodes in this pool.
+	Provider string `json:"provider,omitempty" jsonschema:"required"`
 
 	// Requirements filter the types of nodes that can be provisioned by this pool.
 	// All requirements must be met for a node type to be eligible.
@@ -344,6 +350,9 @@ type Standalone struct {
 }
 
 type StandaloneAutoNodes struct {
+	// Provider is the node provider of the nodes in this pool.
+	Provider string `json:"provider,omitempty"`
+
 	// Quantity is the number of nodes to deploy for standalone mode.
 	Quantity int `json:"quantity,omitempty"`
 
