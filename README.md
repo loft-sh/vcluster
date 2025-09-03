@@ -43,6 +43,11 @@ Before creating a virtual cluster, ensure you have access to a running Kubernete
 ```bash
 vcluster create my-vcluster --namespace team-x
 ```
+#### Step 3: Connect to the Virtual Cluster
+
+```bash
+./vcluster connect my-vcluster --namespace team-x
+```
 
 ![vCluster gif](./docs/static/media/vcluster-github-gif-1280.gif)
 
