@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type SnapshotCmd struct {
+type RootCmd struct {
 	*flags.GlobalFlags
 
 	Snapshot snapshot.Options
@@ -22,7 +22,7 @@ type SnapshotCmd struct {
 
 // NewSnapshot creates a new command
 func NewSnapshot(globalFlags *flags.GlobalFlags) *cobra.Command {
-	cmd := &SnapshotCmd{
+	rootCmd := &RootCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
@@ -48,13 +48,13 @@ vcluster snapshot my-vcluster container:///data/my-local-snapshot.tar.gz
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.Snapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, &cmd.Pod, cmd.Log, false)
+			return cli.Snapshot(cobraCmd.Context(), args, rootCmd.GlobalFlags, &rootCmd.Snapshot, &rootCmd.Pod, rootCmd.Log, false)
 		},
 	}
 
 	// add storage flags
-	pod.AddFlags(cobraCmd.Flags(), &cmd.Pod, false)
-	snapshot.AddFlags(cobraCmd.Flags(), &cmd.Snapshot)
+	pod.AddFlags(cobraCmd.Flags(), &rootCmd.Pod, false)
+	snapshot.AddFlags(cobraCmd.Flags(), &rootCmd.Snapshot)
 
 	// add subcommands
 	cobraCmd.AddCommand(NewCreateCmd(globalFlags))

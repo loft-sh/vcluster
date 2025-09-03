@@ -94,7 +94,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	err = c.client().Get(ctx, secretObjectKey, &secret)
 	if kerrors.IsNotFound(err) {
 		// Too soon? Requeue if this is a recently created snapshot request.
-		if time.Now().Sub(configMap.CreationTimestamp.Time) < 10*time.Second {
+		if time.Since(configMap.CreationTimestamp.Time) < 10*time.Second {
 			return ctrl.Result{
 				RequeueAfter: 10 * time.Second,
 			}, nil
