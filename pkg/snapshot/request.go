@@ -3,14 +3,15 @@ package snapshot
 import (
 	"encoding/json"
 	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	requestAnnotation = "vcluster.loft.sh/snapshot-request"
-	requestKey        = "snapshotRequest"
-	optionsKey        = "snapshotOptions"
+	requestLabel = "vcluster.loft.sh/snapshot-request"
+	requestKey   = "snapshotRequest"
+	optionsKey   = "snapshotOptions"
 
 	RequestPhaseInProgress RequestPhase = "InProgress"
 	RequestPhaseCompleted  RequestPhase = "Completed"
@@ -40,12 +41,12 @@ func UnmarshalSnapshotRequest(configMap *corev1.ConfigMap, secret *corev1.Secret
 		return nil, fmt.Errorf("secret is nil")
 	}
 
-	// check if both ConfigMap and Secret have the required snapshot annotation
-	if _, ok := configMap.Annotations[requestAnnotation]; !ok {
-		return nil, fmt.Errorf("config map does not have the snapshot request annotation")
+	// check if both ConfigMap and Secret have the required snapshot request label
+	if _, ok := configMap.Labels[requestLabel]; !ok {
+		return nil, fmt.Errorf("config map does not have the snapshot request label")
 	}
-	if _, ok := secret.Annotations[requestAnnotation]; !ok {
-		return nil, fmt.Errorf("secret does not have the snapshot request annotation")
+	if _, ok := secret.Labels[requestLabel]; !ok {
+		return nil, fmt.Errorf("secret does not have the snapshot request label")
 	}
 
 	// snapshot request, part 1 - ConfigMap with snapshot request phase (volume snapshot details will be added here)
@@ -88,10 +89,10 @@ func MarshalSnapshotRequest(vClusterNamespace string, snapshotRequest *Request) 
 	}
 
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: vClusterNamespace,
-			Annotations: map[string]string{
-				requestAnnotation: "",
+			Labels: map[string]string{
+				requestLabel: "",
 			},
 		},
 		Data: map[string]string{
@@ -107,10 +108,10 @@ func MarshalSnapshotRequest(vClusterNamespace string, snapshotRequest *Request) 
 
 	// Write snapshot options
 	secret := &corev1.Secret{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: vClusterNamespace,
-			Annotations: map[string]string{
-				requestAnnotation: "",
+			Labels: map[string]string{
+				requestLabel: "",
 			},
 		},
 		Data: map[string][]byte{
