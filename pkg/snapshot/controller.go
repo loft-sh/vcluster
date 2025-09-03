@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -16,7 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"time"
 )
 
 const (
@@ -160,11 +161,11 @@ func (c *Reconciler) Register() error {
 			}
 		}
 
-		annotations := obj.GetAnnotations()
-		if annotations == nil {
+		labels := obj.GetLabels()
+		if labels == nil {
 			return false
 		}
-		_, ok := annotations[requestAnnotation]
+		_, ok := labels[requestLabel]
 		return ok
 	})
 
@@ -192,7 +193,7 @@ func (c *Reconciler) reconcileDelete(ctx context.Context, configMap *corev1.Conf
 		// deletion successfully reconciled, remove the finalizer
 		err := c.removeFinalizer(ctx, configMap)
 		if err != nil {
-			retErr = fmt.Errorf("failed to remove vCluster snapshot controller finalizer from the snapshot request ConfigMap %s/%s: %v", configMap.Namespace, configMap.Name, err)
+			retErr = fmt.Errorf("failed to remove vCluster snapshot controller finalizer from the snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
 	}()
 
