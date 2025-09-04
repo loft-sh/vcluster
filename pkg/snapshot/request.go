@@ -33,23 +33,16 @@ type RequestStatus struct {
 	Phase RequestPhase `json:"phase,omitempty"`
 }
 
-func UnmarshalSnapshotRequest(configMap *corev1.ConfigMap, secret *corev1.Secret) (*Request, error) {
+func UnmarshalSnapshotRequest(configMap *corev1.ConfigMap) (*Request, error) {
 	if configMap == nil {
 		return nil, fmt.Errorf("config map is nil")
 	}
-	if secret == nil {
-		return nil, fmt.Errorf("secret is nil")
-	}
-
-	// check if both ConfigMap and Secret have the required snapshot request label
+	// check if ConfigMap has the required snapshot request label
 	if _, ok := configMap.Labels[requestLabel]; !ok {
 		return nil, fmt.Errorf("config map does not have the snapshot request label")
 	}
-	if _, ok := secret.Labels[requestLabel]; !ok {
-		return nil, fmt.Errorf("secret does not have the snapshot request label")
-	}
 
-	// snapshot request, part 1 - ConfigMap with snapshot request phase (volume snapshot details will be added here)
+	// extract the snapshot request from the ConfigMap (volume snapshot details will be added here)
 	snapshotRequestJSON, ok := configMap.Data[requestKey]
 	if !ok {
 		return nil, fmt.Errorf("config map does not have the snapshot request")
@@ -60,32 +53,45 @@ func UnmarshalSnapshotRequest(configMap *corev1.ConfigMap, secret *corev1.Secret
 		return nil, fmt.Errorf("failed to unmarshal snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
 
-	// unmarshal snapshot request from the Secret
+	return &snapshotRequest, nil
+}
+
+func UnmarshalSnapshotOptions(secret *corev1.Secret) (*Options, error) {
+	if secret == nil {
+		return nil, fmt.Errorf("secret is nil")
+	}
+
+	// check if Secret has the required snapshot request label
+	if _, ok := secret.Labels[requestLabel]; !ok {
+		return nil, fmt.Errorf("secret does not have the snapshot request label")
+	}
+
+	// extract snapshot options from the Secret
 	optionsJSON, ok := secret.Data[optionsKey]
 	if !ok {
 		return nil, fmt.Errorf("secret does not have the snapshot options")
 	}
-	var options Options
-	err = json.Unmarshal(optionsJSON, &options)
+	var snapshotOptions Options
+	err := json.Unmarshal(optionsJSON, &snapshotOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal snapshot options: %w", err)
 	}
-	snapshotRequest.Spec.Options = options
-	return &snapshotRequest, nil
+
+	return &snapshotOptions, nil
 }
 
-func MarshalSnapshotRequest(vClusterNamespace string, snapshotRequest *Request) (*corev1.ConfigMap, *corev1.Secret, error) {
+func CreateSnapshotRequestConfigMap(vClusterNamespace string, snapshotRequest *Request) (*corev1.ConfigMap, error) {
 	if vClusterNamespace == "" {
-		return nil, nil, fmt.Errorf("vClusterNamespace is not set")
+		return nil, fmt.Errorf("vClusterNamespace is not set")
 	}
 	if snapshotRequest == nil {
-		return nil, nil, fmt.Errorf("snapshotRequest is nil")
+		return nil, fmt.Errorf("snapshotRequest is nil")
 	}
 
 	// snapshot request, part 1 - ConfigMap
 	snapshotRequestJSON, err := json.Marshal(snapshotRequest)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to marshal snapshot request: %w", err)
+		return nil, fmt.Errorf("failed to marshal snapshot request: %w", err)
 	}
 
 	configMap := &corev1.ConfigMap{
@@ -100,13 +106,21 @@ func MarshalSnapshotRequest(vClusterNamespace string, snapshotRequest *Request) 
 		},
 	}
 
-	// snapshot request, part 2 - Secret with snapshot options (might contain credentials, hence using a Secret)
-	optionsJSON, err := json.Marshal(snapshotRequest.Spec.Options)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to marshal snapshot options: %w", err)
+	return configMap, nil
+}
+
+func CreateSnapshotOptionsSecret(vClusterNamespace string, snapshotOptions *Options) (*corev1.Secret, error) {
+	if vClusterNamespace == "" {
+		return nil, fmt.Errorf("vClusterNamespace is not set")
+	}
+	if snapshotOptions == nil {
+		return nil, fmt.Errorf("snapshotOptions is nil")
 	}
 
-	// Write snapshot options
+	optionsJSON, err := json.Marshal(snapshotOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal snapshot options: %w", err)
+	}
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: vClusterNamespace,
@@ -119,5 +133,5 @@ func MarshalSnapshotRequest(vClusterNamespace string, snapshotRequest *Request) 
 		},
 	}
 
-	return configMap, secret, nil
+	return secret, nil
 }
