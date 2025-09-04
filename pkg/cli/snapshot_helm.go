@@ -13,13 +13,14 @@ import (
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 var minSnapshotVersion = "0.23.0-alpha.8"
 
-func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger) error {
+func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger, async bool) error {
 	// init kube client and vCluster
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log)
 	if err != nil {
@@ -44,8 +45,44 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 		}
 	}
 
-	// run snapshot pod
-	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot"}, vCluster, podOptions, snapshotOpts, log)
+	if !async {
+		// run snapshot pod
+		return pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot"}, vCluster, podOptions, snapshotOpts, log)
+	}
+
+	// create snapshot request Secret
+	secret, err := snapshot.CreateSnapshotOptionsSecret(vCluster.Namespace, snapshotOpts)
+	if err != nil {
+		return fmt.Errorf("failed to marshal snapshot options: %w", err)
+	}
+	secret.GenerateName = "snapshot-request-"
+	secret, err = kubeClient.CoreV1().Secrets(vCluster.Namespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create a snapshot request secret: %w", err)
+	}
+
+	// create snapshot request ConfigMap
+	snapshotRequest := &snapshot.Request{
+		Spec: snapshot.RequestSpec{
+			Options: *snapshotOpts,
+		},
+	}
+	configMap, err := snapshot.CreateSnapshotRequestConfigMap(vCluster.Namespace, snapshotRequest)
+	if err != nil {
+		return fmt.Errorf("failed to marshal snapshot request: %w", err)
+	}
+	configMap.Name = secret.Name
+	_, err = kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create a snapshot request configmap: %w", err)
+	}
+
+	log.Infof(
+		"Snapshot request %s/%s created, you can check it by running `kubectl get configmap -n %s %s`",
+		configMap.Namespace, configMap.Name,
+		configMap.Namespace, configMap.Name)
+
+	return nil
 }
 
 func fillSnapshotOptions(snapshotURL string, snapshotOptions *snapshot.Options) error {

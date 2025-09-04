@@ -44,8 +44,11 @@ rules:
     resources: ["statefulsets", "replicasets", "deployments"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
-    resources: ["endpoints", "events", "pods/log"]
+    resources: ["endpoints", "pods/log"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: [ "" ]
+    resources: [ "events", ]
+    verbs: [ "create", "get", "list", "watch" ]
   {{- if .Values.sync.toHost.endpoints.enabled }}
   - apiGroups: [""]
     resources: ["endpoints"]
