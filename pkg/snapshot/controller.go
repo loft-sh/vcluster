@@ -13,6 +13,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,9 +28,10 @@ const (
 )
 
 type Reconciler struct {
-	vConfig *config.VirtualClusterConfig
-	manager ctrl.Manager
-	logger  loghelper.Logger
+	vConfig       *config.VirtualClusterConfig
+	manager       ctrl.Manager
+	logger        loghelper.Logger
+	eventRecorder record.EventRecorder
 }
 
 func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, error) {
@@ -48,9 +50,10 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 	}
 
 	return &Reconciler{
-		vConfig: registerContext.Config,
-		manager: manager,
-		logger:  logger,
+		vConfig:       registerContext.Config,
+		manager:       manager,
+		logger:        logger,
+		eventRecorder: manager.GetEventRecorderFor(controllerName),
 	}, nil
 }
 
@@ -98,6 +101,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return
 		}
 		// something went wrong, recorde error and update snapshot request phase to Failed
+		c.eventRecorder.Eventf(&configMap, corev1.EventTypeWarning, "SnapshotRequestFailed", "Snapshot request %s/%s has failed with error: %v", configMap.Namespace, configMap.Name, retErr)
 		_, err = c.updateRequestPhase(ctx, &configMap, *snapshotRequest, RequestPhaseFailed)
 		if err != nil {
 			retErr = fmt.Errorf("failed to update snapshot request phase to %s: %w", RequestPhaseFailed, err)
@@ -165,10 +169,12 @@ func (c *Reconciler) Register() error {
 
 // reconcileNewRequest updates the snapshot request phase to "InProgress".
 func (c *Reconciler) reconcileNewRequest(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *Request) error {
+	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCreated", "Snapshot request %s/%s has been created", configMap.Namespace, configMap.Name)
 	_, err := c.updateRequestPhase(ctx, configMap, *snapshotRequest, RequestPhaseInProgress)
 	if err != nil {
 		return fmt.Errorf("failed to update snapshot request phase to %s: %w", RequestPhaseInProgress, err)
 	}
+	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestInProgress", "Snapshot request %s/%s is in progress", configMap.Namespace, configMap.Name)
 	return nil
 }
 
@@ -216,7 +222,7 @@ func (c *Reconciler) reconcileInProgressRequest(ctx context.Context, configMap *
 	if err != nil {
 		return false, fmt.Errorf("failed to update snapshot request phase to %s: %w", RequestPhaseCompleted, err)
 	}
-	return nil
+	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCompleted", "Snapshot request %s/%s has been completed", configMap.Namespace, configMap.Name)
 	return false, nil
 }
 
@@ -359,6 +365,7 @@ func (c *Reconciler) deleteSnapshotRequestSecret(ctx context.Context, configMap 
 	}
 
 	c.logger.Debugf("deleted snapshot request Secret %s/%s", namespace, name)
+	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCleanup", "Snapshot request Secret %s/%s has been deleted", configMap.Namespace, configMap.Name)
 	return nil
 }
 
