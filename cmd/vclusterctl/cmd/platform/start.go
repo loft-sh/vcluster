@@ -94,10 +94,6 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 		}
 	}
 
-	if cmd.NoTunnel && cmd.Host == "" {
-		return fmt.Errorf("%q flag must be set when %q is set to true", "host", "no-tunnel")
-	}
-
 	// if < v4.0.0 then use ChartName loft
 	parsedVersion, err := semver.Parse(strings.TrimPrefix(cmd.Version, "v"))
 	if err != nil {
