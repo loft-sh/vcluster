@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -138,7 +139,7 @@ func toValues(vClusters []ListVCluster) [][]string {
 			vCluster.Status,
 			vCluster.Version,
 			isConnected,
-			time.Since(vCluster.Created).Round(1 * time.Second).String(),
+			duration.HumanDuration(time.Since(vCluster.Created)),
 		})
 	}
 	return values

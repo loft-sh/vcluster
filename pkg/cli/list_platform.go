@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -131,7 +132,7 @@ func toTableValues(vClusters []ListProVCluster) [][]string {
 			vCluster.Status,
 			vCluster.Version,
 			isConnected,
-			time.Since(vCluster.Created).Round(1 * time.Second).String(),
+			duration.HumanDuration(time.Since(vCluster.Created)),
 		})
 	}
 	return values
