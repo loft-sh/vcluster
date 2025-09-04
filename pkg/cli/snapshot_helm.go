@@ -50,23 +50,27 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 		return pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot"}, vCluster, podOptions, snapshotOpts, log)
 	}
 
-	// create a snapshot request
-	snapshotRequest := &snapshot.Request{
-		Spec: snapshot.RequestSpec{
-			Options: *snapshotOpts,
-		},
-	}
-	configMap, secret, err := snapshot.MarshalSnapshotRequest(vCluster.Namespace, snapshotRequest)
-	if err != nil {
-		return fmt.Errorf("failed to marshal snapshot request: %w", err)
-	}
 	// create snapshot request Secret
+	secret, err := snapshot.CreateSnapshotOptionsSecret(vCluster.Namespace, snapshotOpts)
+	if err != nil {
+		return fmt.Errorf("failed to marshal snapshot options: %w", err)
+	}
 	secret.GenerateName = "snapshot-request-"
 	secret, err = kubeClient.CoreV1().Secrets(vCluster.Namespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create a snapshot request secret: %w", err)
 	}
+
 	// create snapshot request ConfigMap
+	snapshotRequest := &snapshot.Request{
+		Spec: snapshot.RequestSpec{
+			Options: *snapshotOpts,
+		},
+	}
+	configMap, err := snapshot.CreateSnapshotRequestConfigMap(vCluster.Namespace, snapshotRequest)
+	if err != nil {
+		return fmt.Errorf("failed to marshal snapshot request: %w", err)
+	}
 	configMap.Name = secret.Name
 	_, err = kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
 	if err != nil {

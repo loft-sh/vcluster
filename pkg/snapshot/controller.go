@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -22,6 +23,7 @@ import (
 
 const (
 	ControllerFinalizer = "vcluster.loft.sh/snapshot-controller"
+	controllerName      = "vcluster-snapshot-controller"
 )
 
 type Reconciler struct {
@@ -31,7 +33,7 @@ type Reconciler struct {
 }
 
 func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, error) {
-	logger := loghelper.New("vcluster-snapshot-controller")
+	logger := loghelper.New(controllerName)
 
 	if registerContext == nil {
 		return nil, errors.New("register context is nil")
@@ -85,31 +87,22 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	// Find snapshot request secret, it contains snapshot options (with the storage credentials) 🪪
-	var secret corev1.Secret
-	secretObjectKey := client.ObjectKey{
-		Namespace: configMap.Namespace,
-		Name:      configMap.Name,
-	}
-	err = c.client().Get(ctx, secretObjectKey, &secret)
-	if kerrors.IsNotFound(err) {
-		// Too soon? Requeue if this is a recently created snapshot request.
-		if time.Since(configMap.CreationTimestamp.Time) < 10*time.Second {
-			return ctrl.Result{
-				RequeueAfter: 10 * time.Second,
-			}, nil
-		}
-		return ctrl.Result{}, fmt.Errorf("can't find snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
-	} else if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
-	}
-	c.logger.Infof("found snapshot request Secret %s/%s", secret.Namespace, secret.Name)
-
 	// Extract snapshot request details from the ConfigMap and the Secret 🔎
-	snapshotRequest, err := UnmarshalSnapshotRequest(&configMap, &secret)
+	snapshotRequest, err := UnmarshalSnapshotRequest(&configMap)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
+
+	defer func() {
+		if retErr == nil {
+			return
+		}
+		// something went wrong, recorde error and update snapshot request phase to Failed
+		_, err = c.updateRequestPhase(ctx, &configMap, *snapshotRequest, RequestPhaseFailed)
+		if err != nil {
+			retErr = fmt.Errorf("failed to update snapshot request phase to %s: %w", RequestPhaseFailed, err)
+		}
+	}()
 
 	switch snapshotRequest.Status.Phase {
 	case "":
@@ -118,9 +111,14 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile new snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
 	case RequestPhaseInProgress:
-		err = c.reconcileInProgressRequest(ctx, &configMap, snapshotRequest)
+		requeue, err := c.reconcileInProgressRequest(ctx, &configMap, snapshotRequest)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile in-progress snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
+		}
+		if requeue {
+			return ctrl.Result{
+				RequeueAfter: 10 * time.Second,
+			}, nil
 		}
 	case RequestPhaseCompleted:
 		err = c.reconcileCompletedRequest(ctx, &configMap)
@@ -176,45 +174,69 @@ func (c *Reconciler) reconcileNewRequest(ctx context.Context, configMap *corev1.
 
 // reconcileInProgressRequest creates the snapshot, uploads it to the specified storage, and updates
 // the snapshot request phase to "Completed".
-func (c *Reconciler) reconcileInProgressRequest(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *Request) error {
-	// Create and save the snapshot! 💾
-	c.logger.Infof("creating vCluster snapshot in storage type %q", snapshotRequest.Spec.Options.Type)
-	snapshotClient := &Client{
-		Options: snapshotRequest.Spec.Options,
+func (c *Reconciler) reconcileInProgressRequest(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *Request) (bool, error) {
+	// Find snapshot request secret, it contains snapshot options (with the storage credentials) 🪪
+	var secret corev1.Secret
+	secretObjectKey := client.ObjectKey{
+		Namespace: configMap.Namespace,
+		Name:      configMap.Name,
 	}
-	err := snapshotClient.Run(ctx)
+	err := c.client().Get(ctx, secretObjectKey, &secret)
+	if kerrors.IsNotFound(err) {
+		// Too soon? Requeue if this is a recently created snapshot request.
+		if time.Since(configMap.CreationTimestamp.Time) < 10*time.Second {
+			return true, nil
+		}
+		return false, fmt.Errorf("can't find snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
+	} else if err != nil {
+		return false, fmt.Errorf("failed to get snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
+	}
+	c.logger.Infof("found snapshot request Secret %s/%s", secret.Namespace, secret.Name)
+
+	// Extract snapshot options from the Secret 🔎
+	snapshotOptions, err := UnmarshalSnapshotOptions(&secret)
 	if err != nil {
-		return fmt.Errorf("failed to run snapshot client: %w", err)
+		return false, fmt.Errorf("failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
-	c.logger.Infof("created vCluster snapshot in storage type %q", snapshotRequest.Spec.Options.Type)
+	snapshotRequest.Spec.Options = *snapshotOptions
+
+	// Create and save the snapshot! 💾
+	c.logger.Infof("creating vCluster snapshot in storage type %q", snapshotOptions.Type)
+	snapshotClient := &Client{
+		Options: *snapshotOptions,
+	}
+	err = snapshotClient.Run(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to run snapshot client: %w", err)
+	}
+	c.logger.Infof("created vCluster snapshot in storage type %q", snapshotOptions.Type)
 
 	// All done, now update the snapshot request phase to "Completed"! ✅
 	_, err = c.updateRequestPhase(ctx, configMap, *snapshotRequest, RequestPhaseCompleted)
 	if err != nil {
-		return fmt.Errorf("failed to update snapshot request phase to %s: %w", RequestPhaseCompleted, err)
+		return false, fmt.Errorf("failed to update snapshot request phase to %s: %w", RequestPhaseCompleted, err)
 	}
 	return nil
+	return false, nil
 }
 
 // reconcileCompletedRequest cleans up the completed snapshot request resources.
 func (c *Reconciler) reconcileCompletedRequest(ctx context.Context, configMap *corev1.ConfigMap) error {
-	c.logger.Infof("snapshot request from ConfigMap %s/%s has been completed, deleting snapshot request ConfigMap", configMap.Namespace, configMap.Name)
-	err := c.client().Delete(ctx, configMap)
+	c.logger.Infof("snapshot request from ConfigMap %s/%s has been completed", configMap.Namespace, configMap.Name)
+	err := c.deleteSnapshotRequestSecret(ctx, configMap)
 	if err != nil {
-		return fmt.Errorf("failed to delete snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
+		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
-	c.logger.Infof("deleted snapshot request ConfigMap %s/%s", configMap.Namespace, configMap.Name)
 	return nil
 }
 
 // reconcileFailedRequest cleans up the failed snapshot request resources.
 func (c *Reconciler) reconcileFailedRequest(ctx context.Context, configMap *corev1.ConfigMap) error {
-	c.logger.Infof("snapshot request from ConfigMap %s/%s has failed, deleting snapshot request ConfigMap", configMap.Namespace, configMap.Name)
-	err := c.client().Delete(ctx, configMap)
+	c.logger.Errorf("snapshot request from ConfigMap %s/%s has failed", configMap.Namespace, configMap.Name)
+	err := c.deleteSnapshotRequestSecret(ctx, configMap)
 	if err != nil {
-		return fmt.Errorf("failed to delete snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
+		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
-	c.logger.Infof("deleted snapshot request ConfigMap %s/%s", configMap.Namespace, configMap.Name)
 	return nil
 }
 
@@ -239,30 +261,10 @@ func (c *Reconciler) reconcileDeletedRequest(ctx context.Context, configMap *cor
 		}
 	}()
 
-	// Find snapshot request secret
-	var secret corev1.Secret
-	secretObjectKey := client.ObjectKey{
-		Namespace: configMap.Namespace,
-		Name:      configMap.Name,
+	err := c.deleteSnapshotRequestSecret(ctx, configMap)
+	if err != nil {
+		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
-	err := c.client().Get(ctx, secretObjectKey, &secret)
-	if kerrors.IsNotFound(err) {
-		c.logger.Infof("snapshot request Secret %s/%s aleady deleted", configMap.Namespace, configMap.Name)
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to get snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
-	}
-
-	// Delete snapshot request secret
-	err = c.client().Delete(ctx, &secret)
-	if kerrors.IsNotFound(err) {
-		c.logger.Infof("snapshot request Secret %s/%s aleady deleted", secret.Namespace, secret.Name)
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", secret.Namespace, secret.Name, err)
-	}
-
-	c.logger.Infof("deleted snapshot request Secret %s/%s", secret.Namespace, secret.Name)
 	return nil
 }
 
@@ -328,6 +330,38 @@ func (c *Reconciler) removeFinalizer(ctx context.Context, configMap *corev1.Conf
 	return nil
 }
 
+func (c *Reconciler) deleteSnapshotRequestSecret(ctx context.Context, configMap *corev1.ConfigMap) error {
+	namespace := configMap.Namespace
+	name := configMap.Name
+	c.logger.Debugf("deleting snapshot request Secret %s/%s", namespace, name)
+
+	// find snapshot request secret
+	var secret corev1.Secret
+	secretObjectKey := client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}
+	err := c.client().Get(ctx, secretObjectKey, &secret)
+	if kerrors.IsNotFound(err) {
+		c.logger.Debugf("snapshot request Secret %s/%s aleady deleted", namespace, name)
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get snapshot request Secret %s/%s: %w", namespace, name, err)
+	}
+
+	// delete snapshot request secret
+	err = c.client().Delete(ctx, &secret)
+	if kerrors.IsNotFound(err) {
+		c.logger.Debugf("snapshot request Secret %s/%s aleady deleted", namespace, name)
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", namespace, name, err)
+	}
+
+	c.logger.Debugf("deleted snapshot request Secret %s/%s", namespace, name)
+	return nil
+}
+
 func (c *Reconciler) client() client.Client {
 	return c.manager.GetClient()
 }
@@ -340,17 +374,22 @@ func (c *Reconciler) updateRequestPhase(ctx context.Context, configMap *corev1.C
 	if snapshotRequest.Status.Phase == phase {
 		return false, nil
 	}
+
+	// before the change
+	oldConfigMap := client.MergeFrom(configMap.DeepCopy())
+
 	// update phase to InProgress
 	snapshotRequest.Status.Phase = phase
-	updatedConfigMap, _, err := MarshalSnapshotRequest(configMap.Namespace, &snapshotRequest)
+	snapshotRequestJSON, err := json.Marshal(snapshotRequest)
 	if err != nil {
-		return false, fmt.Errorf("failed to marshal snapshot request (with phase updated to %s) to ConfigMap %s/%s: %w", phase, configMap.Namespace, configMap.Name, err)
+		return false, fmt.Errorf("failed to marshal snapshot request (with phase updated to %s) to JSON: %w", phase, err)
 	}
-	// configMap data patch
-	configMap.Data = updatedConfigMap.Data
-	err = c.client().Update(ctx, configMap)
+	configMap.Data[requestKey] = string(snapshotRequestJSON)
+
+	// patch snapshot request ConfigMap
+	err = c.client().Patch(ctx, configMap, oldConfigMap)
 	if err != nil {
-		return false, fmt.Errorf("failed to update snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
+		return false, fmt.Errorf("failed to patch snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
 	c.logger.Infof("updated snapshot request %s/%s status, set phase to %s", configMap.Namespace, configMap.Name, phase)
 	return true, nil
