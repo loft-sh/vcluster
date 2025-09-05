@@ -105,7 +105,7 @@ jobs:
           if [[ "${RELEASE_TAG}" == *"-rc"* ]]; then
             TARGET_VERSION="${MINOR_VERSION_WITH_PATCH}"
             echo "RC release detected, using versioned folder: ${TARGET_VERSION}"
-            VCLUSTER_CONFIG_BRANCH="vcluster-v${TARGET_VERSION}"
+            VCLUSTER_CONFIG_BRANCH="vcluster-v${MAJOR_VERSION}.${MINOR_VERSION}"
           else
             TARGET_VERSION="main"
             echo "Beta release detected, using main folder"
