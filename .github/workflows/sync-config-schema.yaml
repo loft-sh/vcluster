@@ -101,17 +101,22 @@ jobs:
           echo "Extracted minor version: ${MINOR_VERSION_WITH_PATCH} from tag: ${RELEASE_TAG}"
 
           # Determine target folder - use version folder for RC releases, main for beta
+          VCLUSTER_CONFIG_BRANCH="main"
           if [[ "${RELEASE_TAG}" == *"-rc"* ]]; then
             TARGET_VERSION="${MINOR_VERSION_WITH_PATCH}"
             echo "RC release detected, using versioned folder: ${TARGET_VERSION}"
+            VCLUSTER_CONFIG_BRANCH="vcluster-v${TARGET_VERSION}"
           else
             TARGET_VERSION="main"
             echo "Beta release detected, using main folder"
           fi
+          echo "Using vcluster-config tag: ${VCLUSTER_CONFIG_BRANCH}"
 
           # clone vcluster-config and vcluster-docs
           git clone --single-branch https://github.com/loft-sh/vcluster-docs.git
-          git clone --single-branch https://github.com/loft-sh/vcluster-config.git
+
+          # try to clone the tagged version, if it does not exist, fallback to main
+          git clone --branch ${VCLUSTER_CONFIG_BRANCH} --depth 1 https://github.com/loft-sh/vcluster-config.git || git clone --single-branch https://github.com/loft-sh/vcluster-config.git
 
           # generate vcluster.schema.json based on the current platform.schema.json in vcluster-config
           # and values.schema.json from alpha / beta release
