@@ -28,9 +28,25 @@
 
 Deploy your first virtual cluster with minimal effort:
 
+#### Step 1: Install vCluster CLI
 ```bash
 brew install loft-sh/tap/vcluster
+```
+#### Prerequisite: Set Up a Kubernetes Cluster
+Before creating a virtual cluster, ensure you have access to a running Kubernetes cluster. Examples of lightweight clusters you can use:
+- [kind](https://kind.sigs.k8s.io/)
+- [minikube](https://minikube.sigs.k8s.io/)
+- [Docker Desktop (with Kubernetes enabled)](https://www.docker.com/products/docker-desktop/)
+
+#### Step 2: Create a Virtual Cluster in the `team-x` namespace
+
+```bash
 vcluster create my-vcluster --namespace team-x
+```
+#### Step 3: Connect to the Virtual Cluster
+
+```bash
+./vcluster connect my-vcluster --namespace team-x
 ```
 
 ![vCluster gif](./docs/static/media/vcluster-github-gif-1280.gif)
