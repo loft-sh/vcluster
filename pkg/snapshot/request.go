@@ -25,6 +25,10 @@ type Request struct {
 	Status RequestStatus `json:"status"`
 }
 
+func (r *Request) Done() bool {
+	return r.Status.Phase == RequestPhaseCompleted || r.Status.Phase == RequestPhaseFailed
+}
+
 type RequestSpec struct {
 	Options Options `json:"-"`
 }

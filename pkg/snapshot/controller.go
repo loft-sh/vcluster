@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -211,6 +213,18 @@ func (c *Reconciler) reconcileInProgressRequest(ctx context.Context, configMap *
 	snapshotClient := &Client{
 		Options: *snapshotOptions,
 	}
+	if !c.isHostMode() {
+		configMapsToSkip, secretsToSkip, err := c.getOngoingSnapshotRequestsResourceNames(ctx)
+		if err != nil {
+			return false, fmt.Errorf("failed to get ongoing snapshot requests resource names: %w", err)
+		}
+		for _, configMapNamespacedName := range configMapsToSkip {
+			snapshotClient.addResourceToSkip(string(corev1.ResourceConfigMaps), configMapNamespacedName.String())
+		}
+		for _, secretNamespacedName := range secretsToSkip {
+			snapshotClient.addResourceToSkip(string(corev1.ResourceSecrets), secretNamespacedName.String())
+		}
+	}
 	err = snapshotClient.Run(ctx)
 	if err != nil {
 		return false, fmt.Errorf("failed to run snapshot client: %w", err)
@@ -400,4 +414,50 @@ func (c *Reconciler) updateRequestPhase(ctx context.Context, configMap *corev1.C
 	}
 	c.logger.Infof("updated snapshot request %s/%s status, set phase to %s", configMap.Namespace, configMap.Name, phase)
 	return true, nil
+}
+
+func (c *Reconciler) getOngoingSnapshotRequestsResourceNames(ctx context.Context) ([]types.NamespacedName, []types.NamespacedName, error) {
+	// list options with label selector
+	var configMaps corev1.ConfigMapList
+	listOptions := &client.ListOptions{
+		Namespace: c.vConfig.HostNamespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			requestLabel: "",
+		}),
+	}
+	err := c.client().List(ctx, &configMaps, listOptions)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to list snapshot requests: %w", err)
+	}
+
+	ongoingRequestConfigMaps := make([]types.NamespacedName, len(configMaps.Items))
+	for _, configMap := range configMaps.Items {
+		snapshotRequest, err := UnmarshalSnapshotRequest(&configMap)
+		if err != nil {
+			c.logger.Errorf("failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %v", configMap.Namespace, configMap.Name, err)
+		}
+		if !snapshotRequest.Done() {
+			namespacedName := types.NamespacedName{
+				Namespace: configMap.Namespace,
+				Name:      configMap.Name,
+			}
+			ongoingRequestConfigMaps = append(ongoingRequestConfigMaps, namespacedName)
+		}
+	}
+
+	ongoingRequestSecrets := make([]types.NamespacedName, len(configMaps.Items))
+	var secrets corev1.SecretList
+	err = c.client().List(ctx, &secrets, listOptions)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to list snapshot request Secrets: %w", err)
+	}
+	for _, secret := range secrets.Items {
+		namespacedName := types.NamespacedName{
+			Namespace: secret.Namespace,
+			Name:      secret.Name,
+		}
+		ongoingRequestSecrets = append(ongoingRequestSecrets, namespacedName)
+	}
+
+	return ongoingRequestConfigMaps, ongoingRequestSecrets, nil
 }
