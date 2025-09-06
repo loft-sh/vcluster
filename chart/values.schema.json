@@ -545,6 +545,10 @@
           "type": "string",
           "description": "PathType is the path type of the ingress"
         },
+        "ingressClassName": {
+          "type": "string",
+          "description": "IngressClassName allows targeting a specific ingress controller (e.g. nginx, traefik, cloudflare)"
+        },
         "spec": {
           "type": "object",
           "description": "Spec allows you to configure extra ingress options."
