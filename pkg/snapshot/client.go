@@ -18,7 +18,7 @@ import (
 
 type Client struct {
 	Options  Options
-	skipKeys map[string]interface{}
+	skipKeys map[string]struct{}
 }
 
 func (c *Client) Run(ctx context.Context) error {
@@ -195,10 +195,10 @@ func (c *Client) writeSnapshot(ctx context.Context, etcdClient etcd.Client, obje
 
 func (c *Client) addResourceToSkip(kindPlural, namespacedName string) {
 	if c.skipKeys == nil {
-		c.skipKeys = make(map[string]interface{})
+		c.skipKeys = make(map[string]struct{})
 	}
 
-	c.skipKeys[fmt.Sprintf("/registry/%s/%s", kindPlural, namespacedName)] = true
+	c.skipKeys[fmt.Sprintf("/registry/%s/%s", kindPlural, namespacedName)] = struct{}{}
 }
 
 func writeKeyValue(tarWriter *tar.Writer, key, value []byte) error {

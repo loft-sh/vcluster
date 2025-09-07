@@ -145,15 +145,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 func (c *Reconciler) Register() error {
 	isVolumeSnapshotsConfig := predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		var snapshotRequestNamespace string
-		if c.isHostMode() {
-			// shared nodes - snapshot request configMap must be in the vCluster namespace!
-			snapshotRequestNamespace = c.vConfig.HostNamespace
-		} else {
-			// private nodes - snapshot request configMap must be in the kube-system namespace!
-			snapshotRequestNamespace = "kube-system"
-		}
-		if obj.GetNamespace() != snapshotRequestNamespace {
+		if obj.GetNamespace() != c.getSnapshotRequestNamespace() {
 			return false
 		}
 
@@ -396,6 +388,13 @@ func (c *Reconciler) isHostMode() bool {
 	return !c.vConfig.PrivateNodes.Enabled
 }
 
+func (c *Reconciler) getSnapshotRequestNamespace() string {
+	if c.isHostMode() {
+		return c.vConfig.HostNamespace
+	}
+	return "kube-system"
+}
+
 func (c *Reconciler) updateRequestPhase(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest Request, phase RequestPhase) (bool, error) {
 	if snapshotRequest.Status.Phase == phase {
 		return false, nil
@@ -425,7 +424,7 @@ func (c *Reconciler) getOngoingSnapshotRequestsResourceNames(ctx context.Context
 	// list options with label selector
 	var configMaps corev1.ConfigMapList
 	listOptions := &client.ListOptions{
-		Namespace: c.vConfig.HostNamespace,
+		Namespace: c.getSnapshotRequestNamespace(),
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			requestLabel: "",
 		}),
