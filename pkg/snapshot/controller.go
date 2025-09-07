@@ -145,18 +145,23 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 func (c *Reconciler) Register() error {
 	isVolumeSnapshotsConfig := predicate.NewPredicateFuncs(func(obj client.Object) bool {
+		var snapshotRequestNamespace string
 		if c.isHostMode() {
-			// Host mode with shared nodes - snapshot request configMap must be in the vCluster namespace!
-			if obj.GetNamespace() != c.vConfig.HostNamespace {
-				return false
-			}
+			// shared nodes - snapshot request configMap must be in the vCluster namespace!
+			snapshotRequestNamespace = c.vConfig.HostNamespace
+		} else {
+			// private nodes - snapshot request configMap must be in the kube-system namespace!
+			snapshotRequestNamespace = "kube-system"
 		}
-
-		labels := obj.GetLabels()
-		if labels == nil {
+		if obj.GetNamespace() != snapshotRequestNamespace {
 			return false
 		}
-		_, ok := labels[requestLabel]
+
+		objLabels := obj.GetLabels()
+		if objLabels == nil {
+			return false
+		}
+		_, ok := objLabels[requestLabel]
 		return ok
 	})
 
