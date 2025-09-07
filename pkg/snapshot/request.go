@@ -10,8 +10,8 @@ import (
 
 const (
 	requestLabel = "vcluster.loft.sh/snapshot-request"
-	requestKey   = "snapshotRequest"
-	optionsKey   = "snapshotOptions"
+	RequestKey   = "snapshotRequest"
+	OptionsKey   = "snapshotOptions"
 
 	RequestPhaseInProgress RequestPhase = "InProgress"
 	RequestPhaseCompleted  RequestPhase = "Completed"
@@ -21,6 +21,7 @@ const (
 type RequestPhase string
 
 type Request struct {
+	Name   string        `json:"name"`
 	Spec   RequestSpec   `json:"spec"`
 	Status RequestStatus `json:"status"`
 }
@@ -47,7 +48,7 @@ func UnmarshalSnapshotRequest(configMap *corev1.ConfigMap) (*Request, error) {
 	}
 
 	// extract the snapshot request from the ConfigMap (volume snapshot details will be added here)
-	snapshotRequestJSON, ok := configMap.Data[requestKey]
+	snapshotRequestJSON, ok := configMap.Data[RequestKey]
 	if !ok {
 		return nil, fmt.Errorf("config map does not have the snapshot request")
 	}
@@ -71,7 +72,7 @@ func UnmarshalSnapshotOptions(secret *corev1.Secret) (*Options, error) {
 	}
 
 	// extract snapshot options from the Secret
-	optionsJSON, ok := secret.Data[optionsKey]
+	optionsJSON, ok := secret.Data[OptionsKey]
 	if !ok {
 		return nil, fmt.Errorf("secret does not have the snapshot options")
 	}
@@ -106,7 +107,7 @@ func CreateSnapshotRequestConfigMap(vClusterNamespace string, snapshotRequest *R
 			},
 		},
 		Data: map[string]string{
-			requestKey: string(snapshotRequestJSON),
+			RequestKey: string(snapshotRequestJSON),
 		},
 	}
 
@@ -133,7 +134,7 @@ func CreateSnapshotOptionsSecret(vClusterNamespace string, snapshotOptions *Opti
 			},
 		},
 		Data: map[string][]byte{
-			optionsKey: optionsJSON,
+			OptionsKey: optionsJSON,
 		},
 	}
 
