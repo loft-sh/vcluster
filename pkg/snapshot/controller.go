@@ -410,7 +410,7 @@ func (c *Reconciler) updateRequestPhase(ctx context.Context, configMap *corev1.C
 	if err != nil {
 		return false, fmt.Errorf("failed to marshal snapshot request (with phase updated to %s) to JSON: %w", phase, err)
 	}
-	configMap.Data[requestKey] = string(snapshotRequestJSON)
+	configMap.Data[RequestKey] = string(snapshotRequestJSON)
 
 	// patch snapshot request ConfigMap
 	err = c.client().Patch(ctx, configMap, oldConfigMap)

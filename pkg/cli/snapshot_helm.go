@@ -1,8 +1,12 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/blang/semver/v4"
@@ -11,9 +15,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/helm"
+	"github.com/loft-sh/vcluster/pkg/server/routes"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -50,38 +55,56 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 		return pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot"}, vCluster, podOptions, snapshotOpts, log)
 	}
 
-	// create snapshot request Secret
-	secret, err := snapshot.CreateSnapshotOptionsSecret(vCluster.Namespace, snapshotOpts)
+	// get virtual kube config & client
+	vKubeConfig, err := clihelper.GetVClusterKubeConfig(ctx, restConfig, kubeClient, vCluster, log)
 	if err != nil {
-		return fmt.Errorf("failed to marshal snapshot options: %w", err)
+		return fmt.Errorf("failed to get virtual cluster config: %w", err)
 	}
-	secret.GenerateName = "snapshot-request-"
-	secret, err = kubeClient.CoreV1().Secrets(vCluster.Namespace).Create(ctx, secret, metav1.CreateOptions{})
+	virtualHttpClient, err := rest.HTTPClientFor(vKubeConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create a snapshot request secret: %w", err)
+		return fmt.Errorf("failed to get http client: %w", err)
+	}
+	requestURL, err := url.JoinPath(vKubeConfig.Host, routes.PostSnapshotsURL)
+	if err != nil {
+		return fmt.Errorf("failed to join url: %w", err)
 	}
 
 	// create snapshot request ConfigMap
 	snapshotRequest := &snapshot.Request{
-		Spec: snapshot.RequestSpec{
-			Options: *snapshotOpts,
-		},
+		Spec: snapshot.RequestSpec{},
 	}
-	configMap, err := snapshot.CreateSnapshotRequestConfigMap(vCluster.Namespace, snapshotRequest)
-	if err != nil {
-		return fmt.Errorf("failed to marshal snapshot request: %w", err)
+	snapshotRequestData := map[string]interface{}{
+		snapshot.RequestKey: snapshotRequest,
+		snapshot.OptionsKey: snapshotOpts,
 	}
-	configMap.Name = secret.Name
-	_, err = kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
+	snapshotRequestDataJSON, err := json.Marshal(snapshotRequestData)
 	if err != nil {
-		return fmt.Errorf("failed to create a snapshot request configmap: %w", err)
+		return fmt.Errorf("failed to marshal snapshot request data: %w", err)
+	}
+	httpRequest, err := http.NewRequest("POST", requestURL, bytes.NewReader(snapshotRequestDataJSON))
+	if err != nil {
+		return fmt.Errorf("failed to create http request: %w", err)
+	}
+	response, err := virtualHttpClient.Do(httpRequest)
+	if err != nil {
+		return fmt.Errorf("failed to post snapshot request: %w", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to post snapshot request, status code: %d", response.StatusCode)
+	}
+	responseBody := &bytes.Buffer{}
+	_, err = responseBody.ReadFrom(response.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+	snapshotRequestResultJSON := responseBody.Bytes()
+	var snapshotRequestResult snapshot.Request
+	err = json.Unmarshal(snapshotRequestResultJSON, &snapshotRequestResult)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal snapshot request result: %w", err)
 	}
 
-	log.Infof(
-		"Snapshot request %s/%s created, you can check it by running `kubectl get configmap -n %s %s`",
-		configMap.Namespace, configMap.Name,
-		configMap.Namespace, configMap.Name)
-
+	fmt.Printf("Created snapshot request %s\n", snapshotRequestResult.Name)
 	return nil
 }
 
