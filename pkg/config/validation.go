@@ -766,6 +766,9 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 		if nodePool.Provider == "" {
 			return fmt.Errorf("node pool provider is required")
 		}
+		if nodePool.Quantity < 0 {
+			return fmt.Errorf("node pool quantity cannot be negative")
+		}
 
 		if err := validateRequirements(nodePool.Requirements); err != nil {
 			return fmt.Errorf("invalid requirements for node pool %s: %w", nodePool.Name, err)
