@@ -72,17 +72,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 	c.logger.Infof("found ConfigMap %s/%s with vcluster snapshot request", configMap.Namespace, configMap.Name)
 
-	// First reconciliation -> add finalizer 🔒
-	if configMap.DeletionTimestamp.IsZero() {
-		updated, err := c.addFinalizer(ctx, &configMap)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add vCluster snapshot controller finalizer to the snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
-		}
-		if updated {
-			return ctrl.Result{}, nil
-		}
-	}
-
 	// Snapshot request ConfigMap deleted -> we've got some cleaning up to do 🧹
 	if !configMap.DeletionTimestamp.IsZero() {
 		err = c.reconcileDeletedRequest(ctx, &configMap)
@@ -96,6 +85,17 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	snapshotRequest, err := UnmarshalSnapshotRequest(&configMap)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
+	}
+
+	// Not done? Add finalizer! 🔒
+	if !snapshotRequest.Done() {
+		updated, err := c.addFinalizer(ctx, &configMap)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to add vCluster snapshot controller finalizer to the snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
+		}
+		if updated {
+			return ctrl.Result{}, nil
+		}
 	}
 
 	defer func() {
@@ -240,7 +240,7 @@ func (c *Reconciler) reconcileInProgressRequest(ctx context.Context, configMap *
 // reconcileCompletedRequest cleans up the completed snapshot request resources.
 func (c *Reconciler) reconcileCompletedRequest(ctx context.Context, configMap *corev1.ConfigMap) error {
 	c.logger.Infof("snapshot request from ConfigMap %s/%s has been completed", configMap.Namespace, configMap.Name)
-	err := c.deleteSnapshotRequestSecret(ctx, configMap)
+	err := c.reconcileDoneRequest(ctx, configMap)
 	if err != nil {
 		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
@@ -250,7 +250,7 @@ func (c *Reconciler) reconcileCompletedRequest(ctx context.Context, configMap *c
 // reconcileFailedRequest cleans up the failed snapshot request resources.
 func (c *Reconciler) reconcileFailedRequest(ctx context.Context, configMap *corev1.ConfigMap) error {
 	c.logger.Errorf("snapshot request from ConfigMap %s/%s has failed", configMap.Namespace, configMap.Name)
-	err := c.deleteSnapshotRequestSecret(ctx, configMap)
+	err := c.reconcileDoneRequest(ctx, configMap)
 	if err != nil {
 		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
@@ -261,17 +261,23 @@ func (c *Reconciler) reconcileFailedRequest(ctx context.Context, configMap *core
 // snapshot request ConfigMap.
 func (c *Reconciler) reconcileDeletedRequest(ctx context.Context, configMap *corev1.ConfigMap) (retErr error) {
 	// snapshot request ConfigMap deleted, so delete Secret as well
-	c.logger.Infof(
-		"snapshot request ConfigMap %s/%s deleted, deleting snapshot request Secret %s/%s",
-		configMap.Namespace, configMap.Name,
-		configMap.Namespace, configMap.Name)
+	c.logger.Infof("snapshot request ConfigMap %s/%s deleted", configMap.Namespace, configMap.Name)
 
+	err := c.reconcileDoneRequest(ctx, configMap)
+	if err != nil {
+		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
+	}
+	return nil
+}
+
+// reconcileDoneRequest deletes the snapshot request Secret and removes the finalizer from the
+// snapshot request ConfigMap.
+func (c *Reconciler) reconcileDoneRequest(ctx context.Context, configMap *corev1.ConfigMap) (retErr error) {
 	defer func() {
 		if retErr != nil {
 			// an error occurred, don't remove the finalizer
 			return
 		}
-		// deletion successfully reconciled, remove the finalizer
 		err := c.removeFinalizer(ctx, configMap)
 		if err != nil {
 			retErr = fmt.Errorf("failed to remove vCluster snapshot controller finalizer from the snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
