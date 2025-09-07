@@ -60,7 +60,7 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 	if err != nil {
 		return fmt.Errorf("failed to get virtual cluster config: %w", err)
 	}
-	virtualHttpClient, err := rest.HTTPClientFor(vKubeConfig)
+	virtualHTTPClient, err := rest.HTTPClientFor(vKubeConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get http client: %w", err)
 	}
@@ -81,11 +81,11 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 	if err != nil {
 		return fmt.Errorf("failed to marshal snapshot request data: %w", err)
 	}
-	httpRequest, err := http.NewRequest("POST", requestURL, bytes.NewReader(snapshotRequestDataJSON))
+	httpRequest, err := http.NewRequest(http.MethodPost, requestURL, bytes.NewReader(snapshotRequestDataJSON))
 	if err != nil {
 		return fmt.Errorf("failed to create http request: %w", err)
 	}
-	response, err := virtualHttpClient.Do(httpRequest)
+	response, err := virtualHTTPClient.Do(httpRequest)
 	if err != nil {
 		return fmt.Errorf("failed to post snapshot request: %w", err)
 	}

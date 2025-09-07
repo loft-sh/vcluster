@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -15,6 +13,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -435,7 +435,7 @@ func (c *Reconciler) getOngoingSnapshotRequestsResourceNames(ctx context.Context
 		return nil, nil, fmt.Errorf("failed to list snapshot requests: %w", err)
 	}
 
-	ongoingRequestConfigMaps := make([]types.NamespacedName, len(configMaps.Items))
+	var ongoingRequestConfigMaps []types.NamespacedName
 	for _, configMap := range configMaps.Items {
 		snapshotRequest, err := UnmarshalSnapshotRequest(&configMap)
 		if err != nil {
@@ -450,7 +450,7 @@ func (c *Reconciler) getOngoingSnapshotRequestsResourceNames(ctx context.Context
 		}
 	}
 
-	ongoingRequestSecrets := make([]types.NamespacedName, len(configMaps.Items))
+	var ongoingRequestSecrets []types.NamespacedName
 	var secrets corev1.SecretList
 	err = c.client().List(ctx, &secrets, listOptions)
 	if err != nil {

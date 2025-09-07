@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"github.com/loft-sh/vcluster/pkg/server/routes"
 	"io"
 	"net"
 	"net/http"
@@ -21,6 +20,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/server/cert"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
+	"github.com/loft-sh/vcluster/pkg/server/routes"
 	servertypes "github.com/loft-sh/vcluster/pkg/server/types"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"

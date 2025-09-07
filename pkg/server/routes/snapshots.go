@@ -60,7 +60,6 @@ func WithSnapshotsCreate(ctx context.Context, uncachedLocalClient, uncachedVirtu
 		} else {
 			kubeClient = uncachedLocalClient
 			snapshotRequestNamespace = vConfig.HostNamespace
-
 		}
 
 		// create snapshot request Secret
