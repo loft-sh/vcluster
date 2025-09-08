@@ -20,133 +20,149 @@ import (
 )
 
 var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, func() {
-	f := framework.DefaultFramework
-	vClusterDefaultNamespace := f.VClusterNamespace
-	defaultNamespace := "default"
-	cmd := &exec.Cmd{}
+	const snapshotPath = "container:///snapshot-pvc/snapshot.tar"
 
-	configMapToRestore := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "configmap-restore",
-			Namespace: defaultNamespace,
-			Labels: map[string]string{
-				"snapshot": "restore",
-			},
-		},
-		Data: map[string]string{
-			"somekey": "somevalue",
-		},
-	}
+	var (
+		f                        *framework.Framework
+		vClusterDefaultNamespace string
+		defaultNamespace         string
+		cmd                      *exec.Cmd
+		configMapToRestore       *corev1.ConfigMap
+		configMapToDelete        *corev1.ConfigMap
+		secretToRestore          *corev1.Secret
+		secretToDelete           *corev1.Secret
+		deploymentToRestore      *appsv1.Deployment
+		serviceToRestore         *corev1.Service
+		pvc                      *corev1.PersistentVolumeClaim
+	)
 
-	configMapToDelete := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "configmap-delete",
-			Namespace: defaultNamespace,
-			Labels: map[string]string{
-				"snapshot": "delete",
-			},
-		},
-		Data: map[string]string{
-			"somesome": "somevalue",
-		},
-	}
+	ginkgo.BeforeAll(func() {
+		f = framework.DefaultFramework
+		vClusterDefaultNamespace = f.VClusterNamespace
+		defaultNamespace = "default"
+		cmd = &exec.Cmd{}
 
-	secretToRestore := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "secret-restore",
-			Namespace: defaultNamespace,
-			Labels: map[string]string{
-				"snapshot": "restore",
-			},
-		},
-		Data: map[string][]byte{
-			"BOO_BAR": []byte("hello-world"),
-		},
-	}
-
-	secretToDelete := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "secret-delete",
-			Namespace: defaultNamespace,
-			Labels: map[string]string{
-				"snapshot": "delete",
-			},
-		},
-		Data: map[string][]byte{
-			"ANOTHER_ENV": []byte("another-hello-world"),
-		},
-	}
-
-	deploymentToRestore := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "deployment-restore",
-			Labels: map[string]string{"snapshot": "restore"},
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: intRef(1),
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
+		configMapToRestore = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "configmap-restore",
+				Namespace: defaultNamespace,
+				Labels: map[string]string{
 					"snapshot": "restore",
 				},
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
+			Data: map[string]string{
+				"somekey": "somevalue",
+			},
+		}
+
+		configMapToDelete = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "configmap-delete",
+				Namespace: defaultNamespace,
+				Labels: map[string]string{
+					"snapshot": "delete",
+				},
+			},
+			Data: map[string]string{
+				"somesome": "somevalue",
+			},
+		}
+
+		secretToRestore = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "secret-restore",
+				Namespace: defaultNamespace,
+				Labels: map[string]string{
+					"snapshot": "restore",
+				},
+			},
+			Data: map[string][]byte{
+				"BOO_BAR": []byte("hello-world"),
+			},
+		}
+
+		secretToDelete = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "secret-delete",
+				Namespace: defaultNamespace,
+				Labels: map[string]string{
+					"snapshot": "delete",
+				},
+			},
+			Data: map[string][]byte{
+				"ANOTHER_ENV": []byte("another-hello-world"),
+			},
+		}
+
+		deploymentToRestore = &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "deployment-restore",
+				Labels: map[string]string{"snapshot": "restore"},
+			},
+			Spec: appsv1.DeploymentSpec{
+				Replicas: intRef(1),
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
 						"snapshot": "restore",
 					},
 				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "example-container",
-							Image: "nginx:1.25.0",
-							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: 80,
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							"snapshot": "restore",
+						},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "example-container",
+								Image: "nginx:1.25.0",
+								Ports: []corev1.ContainerPort{
+									{
+										ContainerPort: 80,
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-		},
-	}
+		}
 
-	serviceToRestore := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "snapshot-restore",
-			Namespace: defaultNamespace,
-			Labels: map[string]string{
-				"snapshot": "restore",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name: "https",
-					Port: 443,
+		serviceToRestore = &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "snapshot-restore",
+				Namespace: defaultNamespace,
+				Labels: map[string]string{
+					"snapshot": "restore",
 				},
 			},
-			Type: corev1.ServiceTypeClusterIP,
-		},
-	}
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Name: "https",
+						Port: 443,
+					},
+				},
+				Type: corev1.ServiceTypeClusterIP,
+			},
+		}
 
-	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "snapshot-pvc",
-			Namespace: vClusterDefaultNamespace,
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources: corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse("5Gi"),
+		pvc = &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "snapshot-pvc",
+				Namespace: vClusterDefaultNamespace,
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: resource.MustParse("5Gi"),
+					},
 				},
 			},
-		},
-	}
+		}
 
-	ginkgo.BeforeAll(func() {
 		pods, err := f.HostClient.CoreV1().Pods(vClusterDefaultNamespace).List(f.Context, metav1.ListOptions{
 			LabelSelector: "app=vcluster",
 		})
@@ -179,7 +195,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			"vcluster",
 			"snapshot",
 			f.VClusterName,
-			"container:///snapshot-pvc/snapshot.tar",
+			snapshotPath,
 			"-n", f.VClusterNamespace,
 			"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
 		)
@@ -225,7 +241,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			"vcluster",
 			"restore",
 			f.VClusterName,
-			"container:///snapshot-pvc/snapshot.tar",
+			snapshotPath,
 			"-n", f.VClusterNamespace,
 			"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
 		)
@@ -426,7 +442,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 			"vcluster",
 			"restore",
 			f.VClusterName,
-			"container:///snapshot-pvc/snapshot.tar",
+			snapshotPath,
 			"-n", f.VClusterNamespace,
 			"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
 		)
