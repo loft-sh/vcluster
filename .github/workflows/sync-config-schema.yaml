@@ -80,7 +80,7 @@ jobs:
 
       - name: Set up Go
         if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
