@@ -25,7 +25,6 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 	var (
 		f                        *framework.Framework
 		vClusterDefaultNamespace string
-		defaultNamespace         string
 		cmd                      *exec.Cmd
 		configMapToRestore       *corev1.ConfigMap
 		configMapToDelete        *corev1.ConfigMap
@@ -36,16 +35,21 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		pvc                      *corev1.PersistentVolumeClaim
 	)
 
-	beforeAll := func() {
+	beforeAll := func(testNamespace string) {
 		f = framework.DefaultFramework
 		vClusterDefaultNamespace = f.VClusterNamespace
-		defaultNamespace = "default"
 		cmd = &exec.Cmd{}
+
+		testNamespaceObj := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: testNamespace,
+			},
+		}
 
 		configMapToRestore = &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "configmap-restore",
-				Namespace: defaultNamespace,
+				Namespace: testNamespace,
 				Labels: map[string]string{
 					"snapshot": "restore",
 				},
@@ -58,7 +62,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		configMapToDelete = &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "configmap-delete",
-				Namespace: defaultNamespace,
+				Namespace: testNamespace,
 				Labels: map[string]string{
 					"snapshot": "delete",
 				},
@@ -71,7 +75,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		secretToRestore = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "secret-restore",
-				Namespace: defaultNamespace,
+				Namespace: testNamespace,
 				Labels: map[string]string{
 					"snapshot": "restore",
 				},
@@ -84,7 +88,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		secretToDelete = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "secret-delete",
-				Namespace: defaultNamespace,
+				Namespace: testNamespace,
 				Labels: map[string]string{
 					"snapshot": "delete",
 				},
@@ -96,8 +100,9 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 		deploymentToRestore = &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:   "deployment-restore",
-				Labels: map[string]string{"snapshot": "restore"},
+				Name:      "deployment-restore",
+				Namespace: testNamespace,
+				Labels:    map[string]string{"snapshot": "restore"},
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: intRef(1),
@@ -132,7 +137,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		serviceToRestore = &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "snapshot-restore",
-				Namespace: defaultNamespace,
+				Namespace: testNamespace,
 				Labels: map[string]string{
 					"snapshot": "restore",
 				},
@@ -173,20 +178,24 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		_, err = f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(f.Context, pvc, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
+		// create the test namespace
+		_, err = f.VClusterClient.CoreV1().Namespaces().Create(f.Context, testNamespaceObj, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
 		// now create a service that should be there when we restore again
-		_, err = f.VClusterClient.CoreV1().Services(defaultNamespace).Create(f.Context, serviceToRestore, metav1.CreateOptions{})
+		_, err = f.VClusterClient.CoreV1().Services(testNamespace).Create(f.Context, serviceToRestore, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		// now create a configmap that should be there when we restore again
-		_, err = f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).Create(f.Context, configMapToRestore, metav1.CreateOptions{})
+		_, err = f.VClusterClient.CoreV1().ConfigMaps(testNamespace).Create(f.Context, configMapToRestore, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		// now create a secret that should be there when we restore again
-		_, err = f.VClusterClient.CoreV1().Secrets(defaultNamespace).Create(f.Context, secretToRestore, metav1.CreateOptions{})
+		_, err = f.VClusterClient.CoreV1().Secrets(testNamespace).Create(f.Context, secretToRestore, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		// now create a deployment that should be there when we restore again
-		_, err = f.VClusterClient.AppsV1().Deployments(defaultNamespace).Create(f.Context, deploymentToRestore, metav1.CreateOptions{})
+		_, err = f.VClusterClient.AppsV1().Deployments(testNamespace).Create(f.Context, deploymentToRestore, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
 
 		By("Snapshot vcluster")
@@ -237,21 +246,21 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		framework.ExpectNoError(err)
 	}
 
-	runSpecs := func() {
+	runSpecs := func(testNamespaceName string) {
 		It("Verify if only the resources in snapshot are available in vCluster after restore", func() {
 			// now create a configmap that should be deleted by restore
-			_, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).Create(f.Context, configMapToDelete, metav1.CreateOptions{})
+			_, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).Create(f.Context, configMapToDelete, metav1.CreateOptions{})
 			framework.ExpectNoError(err)
 
 			// now create a secret that should be deleted by restore
-			_, err = f.VClusterClient.CoreV1().Secrets(defaultNamespace).Create(f.Context, secretToDelete, metav1.CreateOptions{})
+			_, err = f.VClusterClient.CoreV1().Secrets(testNamespaceName).Create(f.Context, secretToDelete, metav1.CreateOptions{})
 			framework.ExpectNoError(err)
 
 			// now create a service that should be deleted by restore
-			serviceToDelete, err := f.VClusterClient.CoreV1().Services(defaultNamespace).Create(f.Context, &corev1.Service{
+			serviceToDelete, err := f.VClusterClient.CoreV1().Services(testNamespaceName).Create(f.Context, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "snapshot-delete",
-					Namespace: defaultNamespace,
+					Namespace: testNamespaceName,
 					Labels: map[string]string{
 						"snapshot": "delete",
 					},
@@ -335,7 +344,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			framework.ExpectNoError(err)
 
 			// Check configmap created before snapshot is available
-			configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).List(f.Context, metav1.ListOptions{
+			configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=restore",
 			})
 
@@ -352,7 +361,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			Expect(newResourceVersion).To(BeNumerically(">", oldResourceVersion))
 
 			// Check secret created before snapshot is available
-			secrets, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
+			secrets, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=restore",
 			})
 
@@ -362,7 +371,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			framework.ExpectNoError(err)
 
 			// Check deployment created before snapshot is available
-			deployment, err := f.VClusterClient.AppsV1().Deployments(defaultNamespace).List(f.Context, metav1.ListOptions{
+			deployment, err := f.VClusterClient.AppsV1().Deployments(testNamespaceName).List(f.Context, metav1.ListOptions{
 				LabelSelector: "snapshot=restore",
 			})
 
@@ -371,7 +380,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 			// Check configmap created after snapshot is not available
 			Eventually(func() bool {
-				configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).List(f.Context, metav1.ListOptions{
+				configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).List(f.Context, metav1.ListOptions{
 					LabelSelector: "snapshot=delete",
 				})
 
@@ -386,7 +395,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 			// Check secret created after snapshot is not available
 			Eventually(func() bool {
-				secrets, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
+				secrets, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(f.Context, metav1.ListOptions{
 					LabelSelector: "snapshot=delete",
 				})
 
@@ -401,7 +410,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 			//Check service created after snapshot is not available
 			Eventually(func() bool {
-				deployment, err := f.VClusterClient.CoreV1().Services(defaultNamespace).List(f.Context, metav1.ListOptions{
+				deployment, err := f.VClusterClient.CoreV1().Services(testNamespaceName).List(f.Context, metav1.ListOptions{
 					LabelSelector: "snapshot=delete",
 				})
 
@@ -418,12 +427,12 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		It("Verify if deleted resources are recreated in vCluster after restore", func() {
 
 			By("Delete resources that going to be restored")
-			err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).Delete(f.Context, configMapToRestore.Name, metav1.DeleteOptions{})
+			err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).Delete(f.Context, configMapToRestore.Name, metav1.DeleteOptions{})
 			framework.ExpectNoError(err)
 
 			// check configmap is deleted
 			Eventually(func() error {
-				_, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).List(f.Context, metav1.ListOptions{
+				_, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).List(f.Context, metav1.ListOptions{
 					LabelSelector: "snapshot=restore",
 				})
 
@@ -435,12 +444,12 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				WithTimeout(framework.PollTimeout).
 				Should(Succeed())
 
-			err = f.VClusterClient.CoreV1().Secrets(defaultNamespace).Delete(f.Context, secretToRestore.Name, metav1.DeleteOptions{})
+			err = f.VClusterClient.CoreV1().Secrets(testNamespaceName).Delete(f.Context, secretToRestore.Name, metav1.DeleteOptions{})
 			framework.ExpectNoError(err)
 
 			// check secret is deleted
 			Eventually(func() error {
-				_, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
+				_, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(f.Context, metav1.ListOptions{
 					LabelSelector: "snapshot=restore",
 				})
 
@@ -452,12 +461,12 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				WithTimeout(framework.PollTimeout).
 				Should(Succeed())
 
-			err = f.VClusterClient.AppsV1().Deployments(defaultNamespace).Delete(f.Context, deploymentToRestore.Name, metav1.DeleteOptions{})
+			err = f.VClusterClient.AppsV1().Deployments(testNamespaceName).Delete(f.Context, deploymentToRestore.Name, metav1.DeleteOptions{})
 			framework.ExpectNoError(err)
 
 			// check deployment is deleted
 			Eventually(func() error {
-				_, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
+				_, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(f.Context, metav1.ListOptions{
 					LabelSelector: "snapshot=restore",
 				})
 
@@ -535,7 +544,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 			By("Verify resources delete before snapshot are available")
 			Eventually(func() map[string]string {
-				configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).List(f.Context, metav1.ListOptions{
+				configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).List(f.Context, metav1.ListOptions{
 					LabelSelector: "snapshot=restore",
 				})
 
@@ -550,7 +559,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				Should(Equal(configMapToRestore.Data))
 
 			Eventually(func() map[string][]byte {
-				secrets, err := f.VClusterClient.CoreV1().Secrets(defaultNamespace).List(f.Context, metav1.ListOptions{
+				secrets, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(f.Context, metav1.ListOptions{
 					LabelSelector: "snapshot=restore",
 				})
 
@@ -565,7 +574,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				Should(Equal(secretToRestore.Data))
 
 			Eventually(func() bool {
-				deployment, err := f.VClusterClient.AppsV1().Deployments(defaultNamespace).List(f.Context, metav1.ListOptions{
+				deployment, err := f.VClusterClient.AppsV1().Deployments(testNamespaceName).List(f.Context, metav1.ListOptions{
 					LabelSelector: "snapshot=restore",
 				})
 
@@ -581,11 +590,13 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 	}
 
 	Describe("CLI-based snapshot", Ordered, func() {
+		const cliTestNamespaceName = "cli-snapshot-test"
+
 		BeforeAll(func() {
-			beforeAll()
+			beforeAll(cliTestNamespaceName)
 		})
 
-		runSpecs()
+		runSpecs(cliTestNamespaceName)
 
 		AfterAll(func() {
 			afterAll()
