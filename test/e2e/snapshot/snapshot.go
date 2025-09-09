@@ -36,7 +36,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		pvc                      *corev1.PersistentVolumeClaim
 	)
 
-	ginkgo.BeforeAll(func() {
+	beforeAll := func() {
 		f = framework.DefaultFramework
 		vClusterDefaultNamespace = f.VClusterNamespace
 		defaultNamespace = "default"
@@ -203,6 +203,10 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		cmd.Stderr = os.Stderr
 		err = cmd.Run()
 		framework.ExpectNoError(err)
+	}
+
+	ginkgo.BeforeAll(func() {
+		beforeAll()
 	})
 
 	ginkgo.It("Verify if only the resources in snapshot are available in vCluster after restore", func() {
