@@ -228,7 +228,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		framework.ExpectNoError(err)
 	}
 
-	afterAll := func(useNewCommand bool) {
+	afterAll := func(useNewCommand bool, snapshotTestNamespace string) {
 		if !useNewCommand {
 			// delete the snapshot pvc
 			err := f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(f.Context, pvc.Name, metav1.DeleteOptions{})
@@ -239,7 +239,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			// create namespace
 			_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "snapshot-test",
+					Name: snapshotTestNamespace,
 				},
 			}, metav1.CreateOptions{})
 			if err != nil && !kerrors.IsAlreadyExists(err) {
@@ -247,7 +247,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			}
 
 			// wait until the default service account gets created
-			_, err = f.VClusterClient.CoreV1().ServiceAccounts("snapshot-test").Get(f.Context, "default", metav1.GetOptions{})
+			_, err = f.VClusterClient.CoreV1().ServiceAccounts(snapshotTestNamespace).Get(f.Context, "default", metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -258,7 +258,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			Should(Succeed())
 
 		// delete the namespace
-		err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, "snapshot-test", metav1.DeleteOptions{})
+		err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, snapshotTestNamespace, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 	}
 
@@ -633,7 +633,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		runSpecs(cliTestNamespaceName, false, snapshotPath)
 
 		AfterAll(func() {
-			afterAll(false)
+			afterAll(false, "cli-snapshot-test-afterall")
 		})
 	})
 
@@ -672,7 +672,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		runSpecs(controllerTestNamespaceName, true, snapshotPath)
 
 		AfterAll(func() {
-			afterAll(true)
+			afterAll(true, "controller-snapshot-test-afterall")
 		})
 	})
 })
