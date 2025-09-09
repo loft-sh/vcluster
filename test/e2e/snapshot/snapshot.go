@@ -580,16 +580,17 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		})
 	}
 
-	BeforeAll(func() {
-		beforeAll()
+	Describe("CLI-based snapshot", Ordered, func() {
+		BeforeAll(func() {
+			beforeAll()
+		})
+
+		runSpecs()
+
+		AfterAll(func() {
+			afterAll()
+		})
 	})
-
-	runSpecs()
-
-	AfterAll(func() {
-		afterAll()
-	})
-
 })
 
 func intRef(i int32) *int32 {
