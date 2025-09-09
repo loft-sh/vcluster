@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/test/framework"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,7 +34,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		serviceToRestore         *corev1.Service
 	)
 
-	beforeAll := func(testNamespace string) {
+	beforeAll := func(testNamespace string, useNewCommand bool) {
 		f = framework.DefaultFramework
 		vClusterDefaultNamespace = f.VClusterNamespace
 		cmd = &exec.Cmd{}
@@ -180,14 +181,27 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		framework.ExpectNoError(err)
 
 		By("Snapshot vcluster")
-		// regular snapshot
-		cmd := exec.Command(
-			"vcluster",
-			"snapshot",
-			f.VClusterName,
-			snapshotPath,
-			"-n", f.VClusterNamespace,
-		)
+		var cmd *exec.Cmd
+		if useNewCommand {
+			// regular snapshot
+			cmd = exec.Command(
+				"vcluster",
+				"snapshot",
+				"create",
+				f.VClusterName,
+				snapshotPath,
+				"-n", f.VClusterNamespace,
+			)
+		} else {
+			// regular snapshot
+			cmd = exec.Command(
+				"vcluster",
+				"snapshot",
+				f.VClusterName,
+				snapshotPath,
+				"-n", f.VClusterNamespace,
+			)
+		}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err = cmd.Run()
@@ -567,10 +581,46 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		const cliTestNamespaceName = "cli-snapshot-test"
 
 		BeforeAll(func() {
-			beforeAll(cliTestNamespaceName)
+			beforeAll(cliTestNamespaceName, false)
 		})
 
 		runSpecs(cliTestNamespaceName)
+
+		AfterAll(func() {
+			afterAll()
+		})
+	})
+
+	Describe("controller-based snapshot", Ordered, func() {
+		const controllerTestNamespaceName = "controller-snapshot-test"
+
+		BeforeAll(func() {
+			beforeAll(controllerTestNamespaceName, true)
+			Eventually(func() error {
+				listOptions := metav1.ListOptions{
+					LabelSelector: snapshot.RequestLabel,
+				}
+				snapshotRequestConfigMaps, err := f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).List(f.Context, listOptions)
+				framework.ExpectNoError(err)
+				Expect(snapshotRequestConfigMaps.Items).To(HaveLen(1))
+
+				// extract snapshot request
+				snapshotRequestConfigMap := snapshotRequestConfigMaps.Items[0]
+				snapshotRequest, err := snapshot.UnmarshalSnapshotRequest(&snapshotRequestConfigMap)
+				framework.ExpectNoError(err)
+
+				// check if the snapshot request has been completed
+				if snapshotRequest.Status.Phase != snapshot.RequestPhaseCompleted {
+					return fmt.Errorf("snapshot request is not completed, current phase is %s", snapshotRequest.Status.Phase)
+				}
+				return nil
+			}).
+				WithPolling(framework.PollInterval).
+				WithTimeout(framework.PollTimeout).
+				Should(Succeed())
+		})
+
+		runSpecs(controllerTestNamespaceName)
 
 		AfterAll(func() {
 			afterAll()

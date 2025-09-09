@@ -153,7 +153,7 @@ func (c *Reconciler) Register() error {
 		if objLabels == nil {
 			return false
 		}
-		_, ok := objLabels[requestLabel]
+		_, ok := objLabels[RequestLabel]
 		return ok
 	})
 
@@ -432,7 +432,7 @@ func (c *Reconciler) getOngoingSnapshotRequestsResourceNames(ctx context.Context
 	listOptions := &client.ListOptions{
 		Namespace: c.getSnapshotRequestNamespace(),
 		LabelSelector: labels.SelectorFromSet(map[string]string{
-			requestLabel: "",
+			RequestLabel: "",
 		}),
 	}
 	err := c.client().List(ctx, &configMaps, listOptions)

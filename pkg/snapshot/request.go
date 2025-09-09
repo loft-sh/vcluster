@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	requestLabel = "vcluster.loft.sh/snapshot-request"
+	RequestLabel = "vcluster.loft.sh/snapshot-request"
 	RequestKey   = "snapshotRequest"
 	OptionsKey   = "snapshotOptions"
 
@@ -43,7 +43,7 @@ func UnmarshalSnapshotRequest(configMap *corev1.ConfigMap) (*Request, error) {
 		return nil, fmt.Errorf("config map is nil")
 	}
 	// check if ConfigMap has the required snapshot request label
-	if _, ok := configMap.Labels[requestLabel]; !ok {
+	if _, ok := configMap.Labels[RequestLabel]; !ok {
 		return nil, fmt.Errorf("config map does not have the snapshot request label")
 	}
 
@@ -67,7 +67,7 @@ func UnmarshalSnapshotOptions(secret *corev1.Secret) (*Options, error) {
 	}
 
 	// check if Secret has the required snapshot request label
-	if _, ok := secret.Labels[requestLabel]; !ok {
+	if _, ok := secret.Labels[RequestLabel]; !ok {
 		return nil, fmt.Errorf("secret does not have the snapshot request label")
 	}
 
@@ -103,7 +103,7 @@ func CreateSnapshotRequestConfigMap(vClusterNamespace string, snapshotRequest *R
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: vClusterNamespace,
 			Labels: map[string]string{
-				requestLabel: "",
+				RequestLabel: "",
 			},
 		},
 		Data: map[string]string{
@@ -130,7 +130,7 @@ func CreateSnapshotOptionsSecret(vClusterNamespace string, snapshotOptions *Opti
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: vClusterNamespace,
 			Labels: map[string]string{
-				requestLabel: "",
+				RequestLabel: "",
 			},
 		},
 		Data: map[string][]byte{
