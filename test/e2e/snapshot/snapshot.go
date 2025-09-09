@@ -15,13 +15,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var _ = Describe("snapshot and restore", Ordered, func() {
-	const snapshotPath = "container:///data/snapshot-1.tar"
-
 	var (
 		f                        *framework.Framework
 		vClusterDefaultNamespace string
@@ -32,9 +31,10 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		secretToDelete           *corev1.Secret
 		deploymentToRestore      *appsv1.Deployment
 		serviceToRestore         *corev1.Service
+		pvc                      *corev1.PersistentVolumeClaim
 	)
 
-	beforeAll := func(testNamespace string, useNewCommand bool) {
+	beforeAll := func(testNamespace string, useNewCommand bool, snapshotPath string) {
 		f = framework.DefaultFramework
 		vClusterDefaultNamespace = f.VClusterNamespace
 		cmd = &exec.Cmd{}
@@ -152,6 +152,23 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			},
 		}
 
+		if !useNewCommand {
+			pvc = &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "snapshot-pvc",
+					Namespace: vClusterDefaultNamespace,
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("5Gi"),
+						},
+					},
+				},
+			}
+		}
+
 		pods, err := f.HostClient.CoreV1().Pods(vClusterDefaultNamespace).List(f.Context, metav1.ListOptions{
 			LabelSelector: "app=vcluster",
 		})
@@ -159,6 +176,10 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		framework.ExpectEqual(true, len(pods.Items) > 0)
 
 		By("Create test resources")
+		if !useNewCommand {
+			_, err = f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(f.Context, pvc, metav1.CreateOptions{})
+			framework.ExpectNoError(err)
+		}
 
 		// create the test namespace
 		_, err = f.VClusterClient.CoreV1().Namespaces().Create(f.Context, testNamespaceObj, metav1.CreateOptions{})
@@ -200,6 +221,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				f.VClusterName,
 				snapshotPath,
 				"-n", f.VClusterNamespace,
+				"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
 			)
 		}
 		cmd.Stdout = os.Stdout
@@ -208,7 +230,13 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		framework.ExpectNoError(err)
 	}
 
-	afterAll := func() {
+	afterAll := func(useNewCommand bool) {
+		if !useNewCommand {
+			// delete the snapshot pvc
+			err := f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(f.Context, pvc.Name, metav1.DeleteOptions{})
+			framework.ExpectNoError(err)
+		}
+
 		Eventually(func() error {
 			// create namespace
 			_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{
@@ -236,7 +264,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		framework.ExpectNoError(err)
 	}
 
-	runSpecs := func(testNamespaceName string) {
+	runSpecs := func(testNamespaceName string, useNewCommand bool, snapshotPath string) {
 		It("Verify if only the resources in snapshot are available in vCluster after restore", func() {
 			// now create a configmap that should be deleted by restore
 			_, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).Create(f.Context, configMapToDelete, metav1.CreateOptions{})
@@ -269,12 +297,21 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 			// now restore the vCluster
 			By("Restore vCluster")
-			cmd = exec.Command(
-				"vcluster",
+			restoreArgs := []string{
 				"restore",
 				f.VClusterName,
 				snapshotPath,
 				"-n", f.VClusterNamespace,
+			}
+			if !useNewCommand {
+				restoreArgs = append(
+					restoreArgs,
+					"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc")
+			}
+
+			cmd = exec.Command(
+				"vcluster",
+				restoreArgs...,
 			)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
@@ -469,12 +506,20 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 			// now restore the vCluster
 			By("Restore vCluster")
-			cmd = exec.Command(
-				"vcluster",
+			restoreArgs := []string{
 				"restore",
 				f.VClusterName,
 				snapshotPath,
 				"-n", f.VClusterNamespace,
+			}
+			if !useNewCommand {
+				restoreArgs = append(
+					restoreArgs,
+					"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc")
+			}
+			cmd = exec.Command(
+				"vcluster",
+				restoreArgs...,
 			)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
@@ -578,24 +623,30 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 	}
 
 	Describe("CLI-based snapshot", Ordered, func() {
-		const cliTestNamespaceName = "cli-snapshot-test"
+		const (
+			cliTestNamespaceName = "cli-snapshot-test"
+			snapshotPath         = "container:///snapshot-pvc/snapshot.tar"
+		)
 
 		BeforeAll(func() {
-			beforeAll(cliTestNamespaceName, false)
+			beforeAll(cliTestNamespaceName, false, snapshotPath)
 		})
 
-		runSpecs(cliTestNamespaceName)
+		runSpecs(cliTestNamespaceName, false, snapshotPath)
 
 		AfterAll(func() {
-			afterAll()
+			afterAll(false)
 		})
 	})
 
 	Describe("controller-based snapshot", Ordered, func() {
-		const controllerTestNamespaceName = "controller-snapshot-test"
+		const (
+			controllerTestNamespaceName = "controller-snapshot-test"
+			snapshotPath                = "container:///data/snapshot-1.tar"
+		)
 
 		BeforeAll(func() {
-			beforeAll(controllerTestNamespaceName, true)
+			beforeAll(controllerTestNamespaceName, true, snapshotPath)
 			Eventually(func() error {
 				listOptions := metav1.ListOptions{
 					LabelSelector: snapshot.RequestLabel,
@@ -620,10 +671,10 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				Should(Succeed())
 		})
 
-		runSpecs(controllerTestNamespaceName)
+		runSpecs(controllerTestNamespaceName, true, snapshotPath)
 
 		AfterAll(func() {
-			afterAll()
+			afterAll(true)
 		})
 	})
 })
