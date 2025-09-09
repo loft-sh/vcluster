@@ -7,14 +7,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
-	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/spf13/cobra"
 )
 
 type CreateCmd struct {
 	*flags.GlobalFlags
 	Snapshot snapshot.Options
-	Pod      pod.Options // TODO: check if all the flags can work with a controller-based design
 	Log      log.Logger
 }
 
@@ -47,12 +45,11 @@ vcluster snapshot create my-vcluster container:///data/my-local-snapshot.tar.gz
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.Snapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, &cmd.Pod, cmd.Log, true)
+			return cli.Snapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, nil, cmd.Log, true)
 		},
 	}
 
 	// add storage flags
-	pod.AddFlags(createCmd.Flags(), &cmd.Pod, false)
 	snapshot.AddFlags(createCmd.Flags(), &cmd.Snapshot)
 
 	return createCmd
