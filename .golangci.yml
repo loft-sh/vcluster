@@ -56,6 +56,12 @@ linters:
           alias: kerrors
         - pkg: k8s.io/apimachinery/pkg/apis/meta/internalversion
           alias: metainternalversion
+    revive:
+      rules:
+        - name: dot-imports
+          disabled: false
+          arguments:
+            - allowed-packages: [ "github.com/onsi/ginkgo/v2", "github.com/onsi/gomega" ]
     tagalign:
       order:
         - protobuf
