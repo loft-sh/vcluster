@@ -53,6 +53,8 @@ type PodResourcesOptions struct {
 	// from the calculation. If pod-level resources are not set in PodSpec,
 	// pod-level resources will always be skipped.
 	SkipPodLevelResources bool
+	// SkipContainerLevelResources
+	SkipContainerLevelResources bool
 }
 
 var supportedPodLevelResources = sets.New(v1.ResourceCPU, v1.ResourceMemory)
@@ -114,13 +116,37 @@ func IsPodLevelRequestsSet(pod *v1.Pod) bool {
 	return false
 }
 
+// IsPodLevelLimitsSet checks if pod-level limits are set. It returns true if
+// Limits map is non-empty and contains at least one supported pod-level resource.
+func IsPodLevelLimitsSet(pod *v1.Pod) bool {
+	if pod.Spec.Resources == nil {
+		return false
+	}
+
+	if len(pod.Spec.Resources.Limits) == 0 {
+		return false
+	}
+
+	for resourceName := range pod.Spec.Resources.Limits {
+		if IsSupportedPodLevelResource(resourceName) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // PodRequests computes the total pod requests per the PodResourcesOptions supplied.
 // If PodResourcesOptions is nil, then the requests are returned including pod overhead.
 // If the PodLevelResources feature is enabled AND the pod-level resources are set,
 // those pod-level values are used in calculating Pod Requests.
 // The computation is part of the API and must be reviewed as an API change.
 func PodRequests(pod *v1.Pod, opts PodResourcesOptions) v1.ResourceList {
-	reqs := AggregateContainerRequests(pod, opts)
+	reqs := v1.ResourceList{}
+	if !opts.SkipContainerLevelResources {
+		reqs = AggregateContainerRequests(pod, opts)
+	}
+
 	if !opts.SkipPodLevelResources && IsPodLevelRequestsSet(pod) {
 		for resourceName, quantity := range pod.Spec.Resources.Requests {
 			if IsSupportedPodLevelResource(resourceName) {
