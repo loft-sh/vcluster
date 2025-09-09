@@ -173,7 +173,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	k8s.io/cri-api v0.34.0 // indirect
-	k8s.io/cri-client v0.33.0 // indirect
+	k8s.io/cri-client v0.34.0 // indirect
 	k8s.io/kms v0.34.0 // indirect
 	k8s.io/kube-proxy v0.33.0 // indirect
 	modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6 // indirect

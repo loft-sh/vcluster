@@ -2076,7 +2076,7 @@ k8s.io/component-helpers/storage/ephemeral
 ## explicit; go 1.24.0
 k8s.io/cri-api/pkg/apis
 k8s.io/cri-api/pkg/apis/runtime/v1
-# k8s.io/cri-client v0.33.0
+# k8s.io/cri-client v0.34.0
 ## explicit; go 1.24.0
 k8s.io/cri-client/pkg
 k8s.io/cri-client/pkg/internal
