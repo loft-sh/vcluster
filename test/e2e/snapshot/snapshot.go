@@ -205,6 +205,38 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		framework.ExpectNoError(err)
 	}
 
+	afterAll := func() {
+		// delete the snapshot pvc
+		err := f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(f.Context, pvc.Name, metav1.DeleteOptions{})
+		framework.ExpectNoError(err)
+
+		gomega.Eventually(func() error {
+			// create namespace
+			_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "snapshot-test",
+				},
+			}, metav1.CreateOptions{})
+			if err != nil && !kerrors.IsAlreadyExists(err) {
+				return err
+			}
+
+			// wait until the default service account gets created
+			_, err = f.VClusterClient.CoreV1().ServiceAccounts("snapshot-test").Get(f.Context, "default", metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}).WithPolling(time.Second).
+			WithTimeout(framework.PollTimeout).
+			Should(gomega.Succeed())
+
+		// delete the namespace
+		err = f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, "snapshot-test", metav1.DeleteOptions{})
+		framework.ExpectNoError(err)
+	}
+
 	ginkgo.BeforeAll(func() {
 		beforeAll()
 	})
@@ -551,35 +583,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 	})
 
 	ginkgo.AfterAll(func() {
-		// delete the snapshot pvc
-		err := f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(f.Context, pvc.Name, metav1.DeleteOptions{})
-		framework.ExpectNoError(err)
-
-		gomega.Eventually(func() error {
-			// create namespace
-			_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "snapshot-test",
-				},
-			}, metav1.CreateOptions{})
-			if err != nil && !kerrors.IsAlreadyExists(err) {
-				return err
-			}
-
-			// wait until the default service account gets created
-			_, err = f.VClusterClient.CoreV1().ServiceAccounts("snapshot-test").Get(f.Context, "default", metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}).WithPolling(time.Second).
-			WithTimeout(framework.PollTimeout).
-			Should(gomega.Succeed())
-
-		// delete the namespace
-		err = f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, "snapshot-test", metav1.DeleteOptions{})
-		framework.ExpectNoError(err)
+		afterAll()
 	})
 
 })
