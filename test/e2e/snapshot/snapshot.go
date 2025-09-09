@@ -24,7 +24,6 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 	var (
 		f                        *framework.Framework
 		vClusterDefaultNamespace string
-		cmd                      *exec.Cmd
 		configMapToRestore       *corev1.ConfigMap
 		configMapToDelete        *corev1.ConfigMap
 		secretToRestore          *corev1.Secret
@@ -37,7 +36,6 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 	beforeAll := func(testNamespace string, useNewCommand bool, snapshotPath string) {
 		f = framework.DefaultFramework
 		vClusterDefaultNamespace = f.VClusterNamespace
-		cmd = &exec.Cmd{}
 
 		testNamespaceObj := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -309,7 +307,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 					"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc")
 			}
 
-			cmd = exec.Command(
+			cmd := exec.Command(
 				"vcluster",
 				restoreArgs...,
 			)
@@ -517,7 +515,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 					restoreArgs,
 					"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc")
 			}
-			cmd = exec.Command(
+			cmd := exec.Command(
 				"vcluster",
 				restoreArgs...,
 			)
