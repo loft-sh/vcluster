@@ -120,7 +120,7 @@ func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, event 
 	}
 
 	// Apply pro patches
-	err = pro.ApplyPatchesHostObject(ctx, nil, pPv, event.Virtual, ctx.Config.Sync.ToHost.PersistentVolumes.Patches, false)
+	err = pro.ApplyPatchesHostObject(ctx, pPv, event.Virtual, ctx.Config.Sync.ToHost.PersistentVolumes.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
@@ -268,7 +268,7 @@ func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, eve
 	} else if sync {
 		// create the persistent volume
 		vObj := s.translateBackwards(event.Host, vPvc)
-		err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.PersistentVolumes.Patches, false)
+		err := pro.ApplyPatchesVirtualObject(ctx, vObj, event.Host, ctx.Config.Sync.ToHost.PersistentVolumes.Patches, false)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
