@@ -237,7 +237,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		framework.ExpectNoError(err)
 	}
 
-	runSnapshotTests := func() {
+	runSpecs := func() {
 		ginkgo.It("Verify if only the resources in snapshot are available in vCluster after restore", func() {
 			// now create a configmap that should be deleted by restore
 			_, err := f.VClusterClient.CoreV1().ConfigMaps(defaultNamespace).Create(f.Context, configMapToDelete, metav1.CreateOptions{})
@@ -584,7 +584,7 @@ var _ = ginkgo.Describe("Snapshot and restore VCluster tests", ginkgo.Ordered, f
 		beforeAll()
 	})
 
-	runSnapshotTests()
+	runSpecs()
 
 	ginkgo.AfterAll(func() {
 		afterAll()
