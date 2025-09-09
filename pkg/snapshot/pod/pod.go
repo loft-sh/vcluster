@@ -336,8 +336,7 @@ func CreateSnapshotPod(
 	}
 
 	// check if we need to error because we write the snapshot to a temporary directory
-	isSnapshotCommand := len(command) >= 2 && command[1] == "snapshot"
-	if isSnapshotCommand && snapshotOptions != nil && snapshotOptions.Type == "container" && snapshotOptions.Container.Path != "" {
+	if snapshotOptions != nil && snapshotOptions.Type == "container" && snapshotOptions.Container.Path != "" {
 		// check if there is a mount at that path
 		found := false
 		for _, volumeMount := range newPod.Spec.Containers[0].VolumeMounts {
