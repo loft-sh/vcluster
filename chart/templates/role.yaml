@@ -47,7 +47,7 @@ rules:
     resources: ["endpoints", "pods/log"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [ "" ]
-    resources: [ "events", ]
+    resources: ["events"]
     verbs: [ "create", "get", "list", "watch" ]
   {{- if .Values.sync.toHost.endpoints.enabled }}
   - apiGroups: [""]
