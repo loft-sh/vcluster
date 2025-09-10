@@ -25,7 +25,10 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-var minSnapshotVersion = "0.23.0-alpha.8"
+const (
+	minSnapshotVersion      = "0.23.0-alpha.8"
+	minAsyncSnapshotVersion = "0.29.0"
+)
 
 func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger, async bool) error {
 	// init kube client and vCluster
@@ -55,6 +58,26 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 	if !async {
 		// run snapshot pod
 		return pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot"}, vCluster, podOptions, snapshotOpts, log)
+	}
+
+	var version string
+	if vClusterRelease != nil && vClusterRelease.Chart != nil && vClusterRelease.Chart.Metadata != nil {
+		version = vClusterRelease.Chart.Metadata.Version
+	} else {
+		version = vCluster.Version
+	}
+	switch version {
+	case "":
+		log.Warnf("Command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but vCluster version cannot be determined. Proceeding with snapshot request creation, but snapshot may not be created.")
+	case "0.0.1":
+		log.Warnf("Command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but found vCluster development version %q. Proceeding with snapshot request creation, but snapshot may not be created.", version)
+	default:
+		vClusterVersion, err := semver.Parse(strings.TrimPrefix(version, "v"))
+		if err != nil {
+			log.Warnf("Command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but found unknown vCluster version %q. Proceeding with snapshot request creation, but snapshot may not be created.", version)
+		} else if vClusterVersion.LT(semver.MustParse(minAsyncSnapshotVersion)) {
+			return fmt.Errorf("command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but specified virtual cluster uses vCluster version %s", version)
+		}
 	}
 
 	// get virtual kube config & client
