@@ -119,6 +119,7 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
     -f {{ path }}/values.yaml \
     $([[ "{{ multinamespace }}" = "true" ]] && echo "-f ./test/multins_values.yaml" || echo "")
 
+  [ -f "{{ path }}/host-resources.yaml" ] && kubectl apply -f "{{ path }}/host-resources.yaml" -n vcluster
   kubectl wait --for=condition=ready pod -l app=vcluster -n vcluster --timeout=300s
 
   cd {{path}} && VCLUSTER_SUFFIX=vcluster \

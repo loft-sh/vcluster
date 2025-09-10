@@ -640,7 +640,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 	Describe("controller-based snapshot", Ordered, func() {
 		const (
 			controllerTestNamespaceName = "controller-snapshot-test"
-			snapshotPath                = "container:///data/snapshot-1.tar"
+			snapshotPath                = "container:///snapshot-data/snapshot.tar.gz"
 		)
 
 		BeforeAll(func() {
