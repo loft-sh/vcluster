@@ -159,7 +159,8 @@ func (c *Reconciler) Register() error {
 
 	return ctrl.NewControllerManagedBy(c.manager).
 		WithOptions(controller.Options{
-			CacheSyncTimeout: constants.DefaultCacheSyncTimeout,
+			CacheSyncTimeout:        constants.DefaultCacheSyncTimeout,
+			MaxConcurrentReconciles: 1,
 		}).
 		Named("volume-snapshots-controller").
 		For(&corev1.ConfigMap{}, builder.WithPredicates(isVolumeSnapshotsConfig)).
