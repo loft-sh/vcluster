@@ -208,7 +208,11 @@ func (cmd *CollectCmd) Run(ctx context.Context, args []string) error {
 	// collect virtual cluster
 	if cmd.VirtualInfo || len(cmd.VirtualResources) > 0 || cmd.CountVirtualClusterObjects {
 		// get virtual kube config & client
-		vKubeConfig, err := clihelper.GetVClusterKubeConfig(ctx, kubeConfig, kubeClient, vCluster, cmd.log)
+		portForwardingOptions := clihelper.PortForwardingOptions{
+			StdOut: io.Writer(os.Stdout),
+			StdErr: io.Writer(os.Stderr),
+		}
+		vKubeConfig, err := clihelper.GetVClusterKubeConfig(ctx, kubeConfig, kubeClient, vCluster, cmd.log, portForwardingOptions)
 		if err != nil {
 			return fmt.Errorf("failed to get virtual cluster config: %w", err)
 		}

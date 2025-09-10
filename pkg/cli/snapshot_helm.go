@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/blang/semver/v4"
@@ -56,7 +58,11 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 	}
 
 	// get virtual kube config & client
-	vKubeConfig, err := clihelper.GetVClusterKubeConfig(ctx, restConfig, kubeClient, vCluster, log)
+	portForwardingOptions := clihelper.PortForwardingOptions{
+		StdOut: io.Discard,
+		StdErr: io.Writer(os.Stderr),
+	}
+	vKubeConfig, err := clihelper.GetVClusterKubeConfig(ctx, restConfig, kubeClient, vCluster, log, portForwardingOptions)
 	if err != nil {
 		return fmt.Errorf("failed to get virtual cluster config: %w", err)
 	}
@@ -104,7 +110,7 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 		return fmt.Errorf("failed to unmarshal snapshot request result: %w", err)
 	}
 
-	fmt.Printf("Created snapshot request %s\n", snapshotRequestResult.Name)
+	log.Infof("Created snapshot request %s", snapshotRequestResult.Name)
 	return nil
 }
 

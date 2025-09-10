@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"sort"
 	"strconv"
 	"time"
@@ -20,7 +19,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func GetVClusterKubeConfig(ctx context.Context, kubeConfig *rest.Config, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) (*rest.Config, error) {
+type PortForwardingOptions struct {
+	StdOut io.Writer
+	StdErr io.Writer
+}
+
+func GetVClusterKubeConfig(ctx context.Context, kubeConfig *rest.Config, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger, portForwardingOptions PortForwardingOptions) (*rest.Config, error) {
 	var err error
 	podName := ""
 	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, time.Second*30, true, func(ctx context.Context) (bool, error) {
@@ -60,13 +64,10 @@ func GetVClusterKubeConfig(ctx context.Context, kubeConfig *rest.Config, kubeCli
 		return nil, fmt.Errorf("failed to parse kube config: %w", err)
 	}
 
-	// silence port-forwarding if a command is used
-	stdout := io.Writer(os.Stdout)
-	stderr := io.Writer(os.Stderr)
 	localPort := RandomPort()
 	errorChan := make(chan error)
 	go func() {
-		errorChan <- portforward.StartPortForwardingWithRestart(ctx, kubeConfig, "127.0.0.1", podName, vCluster.Namespace, strconv.Itoa(localPort), "8443", make(chan struct{}), stdout, stderr, log)
+		errorChan <- portforward.StartPortForwardingWithRestart(ctx, kubeConfig, "127.0.0.1", podName, vCluster.Namespace, strconv.Itoa(localPort), "8443", make(chan struct{}), portForwardingOptions.StdOut, portForwardingOptions.StdErr, log)
 	}()
 
 	for _, cluster := range vKubeConfig.Clusters {
