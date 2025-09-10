@@ -1,3 +1,13 @@
+controlPlane:
+  statefulSet:
+    persistence:
+      addVolumes:
+        - name: snapshot-data
+          persistentVolumeClaim:
+            claimName: snapshot-data
+      addVolumeMounts:
+        - name: snapshot-data
+          mountPath: /snapshot-data
 experimental:
   deploy:
     vcluster:
@@ -47,16 +57,6 @@ experimental:
             name: fluent-bit
             namespace: fluent-bit
           timeout: "50s"
-controlPlane:
-  statefulSet:
-    persistence:
-      addVolumes:
-        - name: snapshot-data
-          persistentVolumeClaim:
-            claimName: snapshot-data
-      addVolumeMounts:
-        - name: snapshot-data
-          mountPath: /snapshot-data
 sync:
   fromHost:
     runtimeClasses:
