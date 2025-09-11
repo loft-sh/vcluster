@@ -496,14 +496,6 @@ integrations:
           enabled: false
           selector:
             matchLabels: {}
-      externalSecrets:
-        enabled: true
-      stores:
-        enabled: false
-      clusterStores:
-        enabled: false
-        selector:
-          labels: {}
   kubeVirt:
     enabled: false
     webhook:

@@ -737,20 +737,6 @@ type ExternalSecretsSync struct {
 	ToHost ExternalSecretsSyncToHostConfig `json:"toHost,omitempty"`
 	// FromHost defines what resources are synced from the host cluster to the virtual cluster
 	FromHost ExternalSecretsSyncFromHostConfig `json:"fromHost,omitempty"`
-	// ExternalSecrets defines if external secrets should get synced from the virtual cluster to the host cluster.
-	ExternalSecrets EnableSwitch `json:"externalSecrets,omitempty"`
-	// Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally.
-	// Deprecated: Use Integrations.ExternalSecrets.Sync.ToHost.Stores instead.
-	Stores EnableSwitch `json:"stores,omitempty"`
-	// ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster.
-	// Deprecated: Use Integrations.ExternalSecrets.Sync.FromHost.ClusterStores instead.
-	ClusterStores ClusterStoresSyncConfig `json:"clusterStores,omitempty"`
-}
-
-type ClusterStoresSyncConfig struct {
-	EnableSwitch
-	// Selector defines what cluster stores should be synced
-	Selector LabelSelector `json:"selector,omitempty"`
 }
 
 type ExternalSecretsSyncToHostConfig struct {

@@ -123,7 +123,7 @@ rules:
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "watch"]
   {{- end }}
-  {{- if and .Values.integrations.externalSecrets.enabled (or .Values.integrations.externalSecrets.sync.clusterStores.enabled .Values.integrations.externalSecrets.sync.fromHost.clusterStores.enabled) }}
+  {{- if and .Values.integrations.externalSecrets.enabled .Values.integrations.externalSecrets.sync.fromHost.clusterStores.enabled }}
   - apiGroups: ["external-secrets.io"]
     resources: ["clustersecretstores"]
     verbs: ["get", "list", "watch"]

@@ -669,9 +669,9 @@ func validateExternalSecretsEnabled(
 	}
 	for crdName, crdConfig := range toHostCustomResources {
 		if crdConfig.Enabled &&
-			(crdName == "externalsecrets.external-secrets.io" && externalSecretsIntegration.Sync.ExternalSecrets.Enabled ||
-				crdName == "secretstores.external-secrets.io" && externalSecretsIntegration.Sync.Stores.Enabled ||
-				crdName == "clustersecretstores.external-secrets.io" && externalSecretsIntegration.Sync.ClusterStores.Enabled) {
+			(crdName == "externalsecrets.external-secrets.io" && externalSecretsIntegration.Enabled ||
+				crdName == "secretstores.external-secrets.io" && externalSecretsIntegration.Sync.ToHost.Stores.Enabled ||
+				crdName == "clustersecretstores.external-secrets.io" && externalSecretsIntegration.Sync.FromHost.ClusterStores.Enabled) {
 			return fmt.Errorf("external-secrets integration is enabled but external-secrets custom resource (%s) is also set in the sync.toHost.customResources. "+
 				"This is not supported, please remove the entry from sync.toHost.customResources", crdName)
 		}
