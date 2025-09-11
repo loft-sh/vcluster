@@ -1219,3 +1219,7 @@ telemetry:
 logging:
   # Encoding specifies the format of vCluster logs, it can either be json or console.
   encoding: console
+
+# VolumeSnapshots specifies if volume snapshots are created when creating vCluster snapshots.
+volumeSnapshots:
+  enabled: false

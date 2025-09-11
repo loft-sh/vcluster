@@ -4827,6 +4827,10 @@
     "logging": {
       "$ref": "#/$defs/Logging",
       "description": "Logging provides structured logging options"
+    },
+    "volumeSnapshots": {
+      "$ref": "#/$defs/EnableSwitch",
+      "description": "VolumeSnapshots specifies if volume snapshots are created when creating vCluster snapshots."
     }
   },
   "additionalProperties": false,
