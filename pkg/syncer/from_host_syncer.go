@@ -117,7 +117,7 @@ func (s *genericFromHostSyncer) SyncToVirtual(ctx *synccontext.SyncContext, even
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, s.GetProPatches(ctx.Config.Config), false)
+	err = pro.ApplyPatchesVirtualObject(ctx, vObj, event.Host, s.GetProPatches(ctx.Config.Config), false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
