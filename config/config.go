@@ -92,6 +92,9 @@ type Config struct {
 
 	// Logging provides structured logging options
 	Logging *Logging `json:"logging,omitempty"`
+
+	// VolumeSnapshots specifies if volume snapshots are created when creating vCluster snapshots.
+	VolumeSnapshots EnableSwitch `json:"volumeSnapshots,omitempty"`
 }
 
 // PrivateNodes enables private nodes for vCluster. When turned on, vCluster will not sync resources to the host cluster

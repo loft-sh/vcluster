@@ -665,3 +665,6 @@ telemetry:
 
 logging:
   encoding: console
+
+volumeSnapshots:
+  enabled: false
