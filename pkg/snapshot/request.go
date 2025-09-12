@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -99,7 +100,7 @@ func UnmarshalSnapshotOptions(secret *corev1.Secret) (*Options, error) {
 	return &snapshotOptions, nil
 }
 
-func CreateSnapshotRequestConfigMap(vClusterNamespace string, snapshotRequest *Request) (*corev1.ConfigMap, error) {
+func CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName string, snapshotRequest *Request) (*corev1.ConfigMap, error) {
 	if vClusterNamespace == "" {
 		return nil, fmt.Errorf("vClusterNamespace is not set")
 	}
@@ -117,7 +118,9 @@ func CreateSnapshotRequestConfigMap(vClusterNamespace string, snapshotRequest *R
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: vClusterNamespace,
 			Labels: map[string]string{
-				RequestLabel: "",
+				constants.VClusterNamespaceLabel: vClusterNamespace,
+				constants.VClusterNameLabel:      vClusterName,
+				RequestLabel:                     "",
 			},
 		},
 		Data: map[string]string{
@@ -128,7 +131,7 @@ func CreateSnapshotRequestConfigMap(vClusterNamespace string, snapshotRequest *R
 	return configMap, nil
 }
 
-func CreateSnapshotOptionsSecret(vClusterNamespace string, snapshotOptions *Options) (*corev1.Secret, error) {
+func CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName string, snapshotOptions *Options) (*corev1.Secret, error) {
 	if vClusterNamespace == "" {
 		return nil, fmt.Errorf("vClusterNamespace is not set")
 	}
@@ -144,7 +147,9 @@ func CreateSnapshotOptionsSecret(vClusterNamespace string, snapshotOptions *Opti
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: vClusterNamespace,
 			Labels: map[string]string{
-				RequestLabel: "",
+				constants.VClusterNamespaceLabel: vClusterNamespace,
+				constants.VClusterNameLabel:      vClusterName,
+				RequestLabel:                     "",
 			},
 		},
 		Data: map[string][]byte{

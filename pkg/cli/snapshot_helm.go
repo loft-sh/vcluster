@@ -143,7 +143,7 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 	}
 
 	// first create the snapshot options Secret
-	secret, err := snapshot.CreateSnapshotOptionsSecret(vCluster.Namespace, snapshotOpts)
+	secret, err := snapshot.CreateSnapshotOptionsSecret(vCluster.Namespace, vCluster.Name, snapshotOpts)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
 	}
@@ -157,7 +157,7 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 	snapshotRequest := &snapshot.Request{
 		Name: secret.Name,
 	}
-	configMap, err := snapshot.CreateSnapshotRequestConfigMap(vCluster.Namespace, snapshotRequest)
+	configMap, err := snapshot.CreateSnapshotRequestConfigMap(vCluster.Namespace, vCluster.Name, snapshotRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
 	}
