@@ -82,9 +82,6 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		pod, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(f.Context, pPodName.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 
-		// ignore HostIP differences
-		resetHostIP(vpod, pod)
-
 		// Since k8s 1.32, status.QOSClass field has become immutable,
 		// hence we have stopeed syncing it. So ignore
 		// the differences in the status.QOSClass field
@@ -217,9 +214,6 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		pPodName := translate.Default.HostName(nil, podName, ns)
 		pod, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(f.Context, pPodName.Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
-
-		// ignore HostIP differences
-		resetHostIP(vpod, pod)
 
 		// Since k8s 1.32, status.QOSClass field has become immutable,
 		// hence we have stopeed syncing it. So ignore
@@ -771,11 +765,6 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectEqual(vPod.Labels[additionalLabelKey], pPod.Labels[additionalLabelKey])
 	})
 })
-
-func resetHostIP(vpod, pod *corev1.Pod) {
-	vpod.Status.HostIP, pod.Status.HostIP = "", ""
-	vpod.Status.HostIPs, pod.Status.HostIPs = nil, nil
-}
 
 func ignoreQOSClassDiff(vpod, pod *corev1.Pod) {
 	pod.Status.QOSClass = vpod.Status.QOSClass
