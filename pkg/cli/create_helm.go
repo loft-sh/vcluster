@@ -43,6 +43,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/embed"
 	"github.com/loft-sh/vcluster/pkg/helm"
+	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	platformclihelper "github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
@@ -180,6 +181,12 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if !cmd.Upgrade {
 		if isVClusterDeployed(release) {
 			if cmd.Restore != "" {
+				log.Infof("Resuming vCluster %s after it was paused", vClusterName)
+				err = lifecycle.ResumeVCluster(ctx, cmd.kubeClient, vClusterName, cmd.Namespace, true, log)
+				if err != nil {
+					log.Infof("Skipped resuming vCluster %s", vClusterName)
+				}
+
 				log.Infof("Restore vCluster %s...", vClusterName)
 				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshot.Options{}, &pod.Options{}, false, log)
 				if err != nil {
