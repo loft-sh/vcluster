@@ -23,6 +23,9 @@ const (
 
 	// LoftDirectClusterEndpointInsecure specifies if we should use insecure connection for this cluster
 	LoftDirectClusterEndpointInsecure = "loft.sh/direct-cluster-endpoint-insecure"
+
+	VClusterNamespaceAnnotation = "vcluster.loft.sh/vcluster-namespace"
+	VClusterNameAnnotation      = "vcluster.loft.sh/vcluster-name"
 )
 
 func PausedAnnotation(isRestore bool) string {

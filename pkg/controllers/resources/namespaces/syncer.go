@@ -3,6 +3,7 @@ package namespaces
 import (
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -26,11 +27,6 @@ var excludedAnnotations = []string{
 	"scheduler.alpha.kubernetes.io/defaultTolerations",
 }
 
-const (
-	VClusterNameAnnotation      = "vcluster.loft.sh/vcluster-name"
-	VClusterNamespaceAnnotation = "vcluster.loft.sh/vcluster-namespace"
-)
-
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := ctx.Mappings.ByGVK(mappings.Namespaces())
 	if err != nil {
@@ -41,8 +37,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	for k, v := range ctx.Config.Sync.ToHost.Namespaces.ExtraLabels {
 		namespaceLabels[k] = v
 	}
-	namespaceLabels[VClusterNameAnnotation] = ctx.Config.Name
-	namespaceLabels[VClusterNamespaceAnnotation] = ctx.CurrentNamespace
+	namespaceLabels[constants.VClusterNameAnnotation] = ctx.Config.Name
+	namespaceLabels[constants.VClusterNamespaceAnnotation] = ctx.CurrentNamespace
 
 	return &namespaceSyncer{
 		GenericTranslator:          translator.NewGenericTranslator(ctx, "namespace", &corev1.Namespace{}, mapper),

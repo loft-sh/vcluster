@@ -370,6 +370,10 @@ jobs:
           ${haValues:+$haValues} \
           -f "${{ matrix.test-suite-path }}/values.yaml" \
           "${extraArgs[@]}"
+
+          if [ -f "${{ matrix.test-suite-path }}/host-resources.yaml" ]; then
+            kubectl apply -f "${{ matrix.test-suite-path }}/host-resources.yaml" -n "${{ env.VCLUSTER_NAMESPACE }}"
+          fi
         continue-on-error: true
 
       - name: Wait until vcluster is ready

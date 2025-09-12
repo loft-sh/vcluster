@@ -9,6 +9,14 @@ controlPlane:
               fsGroup: 12345
 
   statefulSet:
+    persistence:
+      addVolumes:
+        - name: snapshot-data
+          persistentVolumeClaim:
+            claimName: snapshot-data
+      addVolumeMounts:
+        - name: snapshot-data
+          mountPath: /snapshot-data
     security:
       podSecurityContext:
         fsGroup: 12345
