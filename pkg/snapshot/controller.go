@@ -34,6 +34,7 @@ type Reconciler struct {
 	manager       ctrl.Manager
 	logger        loghelper.Logger
 	eventRecorder record.EventRecorder
+	isHostMode    bool
 }
 
 func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, error) {
@@ -42,13 +43,21 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 	if registerContext == nil {
 		return nil, errors.New("register context is nil")
 	}
+	if registerContext.Config == nil {
+		return nil, errors.New("virtual cluster config is nil")
+	}
+	isHostMode, err := IsSnapshotRequestCreatedInHostCluster(registerContext.Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if snapshot request is created in host cluster: %w", err)
+	}
+
 	var manager ctrl.Manager
-	if registerContext.Config.PrivateNodes.Enabled {
-		logger.Infof("Registering vcluster-snapshot-controller to watch for volume snapshot requests in the virtual cluster")
-		manager = registerContext.VirtualManager
-	} else {
+	if isHostMode {
 		logger.Infof("Registering vcluster-snapshot-controller to watch for volume snapshot requests in the host cluster")
 		manager = registerContext.HostManager
+	} else {
+		logger.Infof("Registering vcluster-snapshot-controller to watch for volume snapshot requests in the virtual cluster")
+		manager = registerContext.VirtualManager
 	}
 
 	return &Reconciler{
@@ -56,6 +65,7 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 		manager:       manager,
 		logger:        logger,
 		eventRecorder: manager.GetEventRecorderFor(controllerName),
+		isHostMode:    isHostMode,
 	}, nil
 }
 
@@ -211,7 +221,7 @@ func (c *Reconciler) reconcileInProgressRequest(ctx context.Context, configMap *
 	snapshotClient := &Client{
 		Options: *snapshotOptions,
 	}
-	if !c.isHostMode() {
+	if !c.isHostMode {
 		configMapsToSkip, secretsToSkip, err := c.getOngoingSnapshotRequestsResourceNames(ctx)
 		if err != nil {
 			return false, fmt.Errorf("failed to get ongoing snapshot requests resource names: %w", err)
@@ -391,12 +401,8 @@ func (c *Reconciler) client() client.Client {
 	return c.manager.GetClient()
 }
 
-func (c *Reconciler) isHostMode() bool {
-	return !c.vConfig.PrivateNodes.Enabled
-}
-
 func (c *Reconciler) getSnapshotRequestNamespace() string {
-	if c.isHostMode() {
+	if c.isHostMode {
 		return c.vConfig.HostNamespace
 	}
 	return "kube-system"

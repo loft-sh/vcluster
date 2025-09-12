@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -36,6 +37,19 @@ type RequestSpec struct {
 
 type RequestStatus struct {
 	Phase RequestPhase `json:"phase,omitempty"`
+}
+
+// IsSnapshotRequestCreatedInHostCluster checks if the snapshot request resources are created in
+// the host cluster.
+func IsSnapshotRequestCreatedInHostCluster(config *config.VirtualClusterConfig) (bool, error) {
+	if config == nil {
+		return false, fmt.Errorf("config is nil")
+	}
+	if config.ControlPlane.Standalone.Enabled {
+		return false, fmt.Errorf("creating snapshot requests is currently not supported in standalone mode")
+	}
+
+	return true, nil
 }
 
 func UnmarshalSnapshotRequest(configMap *corev1.ConfigMap) (*Request, error) {

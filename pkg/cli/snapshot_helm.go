@@ -1,14 +1,9 @@
 package cli
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"os"
 	"strings"
 
 	"github.com/blang/semver/v4"
@@ -16,18 +11,19 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/helm"
-	"github.com/loft-sh/vcluster/pkg/server/routes"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
-	"github.com/loft-sh/vcluster/pkg/util/clihelper"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 const (
 	minSnapshotVersion      = "0.23.0-alpha.8"
-	minAsyncSnapshotVersion = "0.29.0"
+	minAsyncSnapshotVersion = "0.29.0-alpha.1"
 )
 
 func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger, async bool) error {
@@ -60,80 +56,11 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 		return pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot"}, vCluster, podOptions, snapshotOpts, log)
 	}
 
-	var version string
-	if vClusterRelease != nil && vClusterRelease.Chart != nil && vClusterRelease.Chart.Metadata != nil {
-		version = vClusterRelease.Chart.Metadata.Version
-	} else {
-		version = vCluster.Version
-	}
-	switch version {
-	case "":
-		log.Warnf("Command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but vCluster version cannot be determined. Proceeding with snapshot request creation, but snapshot may not be created.")
-	case "0.0.1":
-		log.Warnf("Command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but found vCluster development version %q. Proceeding with snapshot request creation, but snapshot may not be created.", version)
-	default:
-		vClusterVersion, err := semver.Parse(strings.TrimPrefix(version, "v"))
-		if err != nil {
-			log.Warnf("Command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but found unknown vCluster version %q. Proceeding with snapshot request creation, but snapshot may not be created.", version)
-		} else if vClusterVersion.LT(semver.MustParse(minAsyncSnapshotVersion)) {
-			return fmt.Errorf("command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but specified virtual cluster uses vCluster version %s", version)
-		}
-	}
-
-	// get virtual kube config & client
-	portForwardingOptions := clihelper.PortForwardingOptions{
-		StdOut: io.Discard,
-		StdErr: io.Writer(os.Stderr),
-	}
-	vKubeConfig, err := clihelper.GetVClusterKubeConfig(ctx, restConfig, kubeClient, vCluster, log, portForwardingOptions)
+	// creating snapshot request with 'vcluster snapshot create' command
+	err = createSnapshotRequest(ctx, vCluster, kubeClient, snapshotOpts, log)
 	if err != nil {
-		return fmt.Errorf("failed to get virtual cluster config: %w", err)
+		return err
 	}
-	virtualHTTPClient, err := rest.HTTPClientFor(vKubeConfig)
-	if err != nil {
-		return fmt.Errorf("failed to get http client: %w", err)
-	}
-	requestURL, err := url.JoinPath(vKubeConfig.Host, routes.PostSnapshotsURL)
-	if err != nil {
-		return fmt.Errorf("failed to join url: %w", err)
-	}
-
-	// create snapshot request ConfigMap
-	snapshotRequest := &snapshot.Request{
-		Spec: snapshot.RequestSpec{},
-	}
-	snapshotRequestData := map[string]interface{}{
-		snapshot.RequestKey: snapshotRequest,
-		snapshot.OptionsKey: snapshotOpts,
-	}
-	snapshotRequestDataJSON, err := json.Marshal(snapshotRequestData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal snapshot request data: %w", err)
-	}
-	httpRequest, err := http.NewRequest(http.MethodPost, requestURL, bytes.NewReader(snapshotRequestDataJSON))
-	if err != nil {
-		return fmt.Errorf("failed to create http request: %w", err)
-	}
-	response, err := virtualHTTPClient.Do(httpRequest)
-	if err != nil {
-		return fmt.Errorf("failed to post snapshot request: %w", err)
-	}
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to post snapshot request, status code: %d", response.StatusCode)
-	}
-	responseBody := &bytes.Buffer{}
-	_, err = responseBody.ReadFrom(response.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
-	}
-	snapshotRequestResultJSON := responseBody.Bytes()
-	var snapshotRequestResult snapshot.Request
-	err = json.Unmarshal(snapshotRequestResultJSON, &snapshotRequestResult)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal snapshot request result: %w", err)
-	}
-
-	log.Infof("Created snapshot request %s", snapshotRequestResult.Name)
 	return nil
 }
 
@@ -200,4 +127,109 @@ func initSnapshotCommand(
 	}
 
 	return vCluster, kubeClient, restClient, nil
+}
+
+func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshot.Options, log log.Logger) error {
+	vClusterConfig, err := getVClusterConfig(ctx, vCluster, kubeClient, snapshotOpts)
+	if err != nil {
+		return err
+	}
+	if vClusterConfig.ControlPlane.Standalone.Enabled {
+		return errors.New("creating snapshots with 'vcluster snapshot create' command is currently not supported")
+	}
+	err = checkIfVClusterSupportsSnapshotRequests(vCluster, log)
+	if err != nil {
+		return fmt.Errorf("vCluster version check failed: %w", err)
+	}
+
+	// first create the snapshot options Secret
+	secret, err := snapshot.CreateSnapshotOptionsSecret(vCluster.Namespace, snapshotOpts)
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+	secret.GenerateName = fmt.Sprintf("%s-snapshot-request-", vCluster.Name)
+	secret, err = kubeClient.CoreV1().Secrets(vCluster.Namespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+
+	// then create the snapshot request that will be reconciled by the controller
+	snapshotRequest := &snapshot.Request{
+		Name: secret.Name,
+	}
+	configMap, err := snapshot.CreateSnapshotRequestConfigMap(vCluster.Namespace, snapshotRequest)
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+	}
+	configMap.Name = secret.Name
+	configMap, err = kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+	}
+
+	log.Infof("Created snapshot request %s", snapshotRequest.Name)
+	return nil
+}
+
+func checkIfVClusterSupportsSnapshotRequests(vCluster *find.VCluster, log log.Logger) error {
+	switch vCluster.Version {
+	case "":
+		log.Warnf("Command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but vCluster version cannot be determined. Proceeding with snapshot request creation, but snapshot may not be created.")
+	case "0.0.1":
+		log.Warnf("Command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but found vCluster development version %q. Proceeding with snapshot request creation, but snapshot may not be created.", vCluster.Version)
+	default:
+		vClusterVersion, err := semver.Parse(strings.TrimPrefix(vCluster.Version, "v"))
+		if err != nil {
+			log.Warnf("Command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but found unknown vCluster version %q. Proceeding with snapshot request creation, but snapshot may not be created.", vCluster.Version)
+		} else if vClusterVersion.LT(semver.MustParse(minAsyncSnapshotVersion)) {
+			return fmt.Errorf("command `vcluster snapshot create` can be used with vCluster version %s and newer, but specified virtual cluster uses vCluster version %s", minAsyncSnapshotVersion, vCluster.Version)
+		}
+	}
+
+	return nil
+}
+
+func getVClusterConfig(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshot.Options) (*vclusterconfig.VirtualClusterConfig, error) {
+	var err error
+	var vClusterConfig *vclusterconfig.VirtualClusterConfig
+	if snapshotOpts.Release.Values != nil {
+		vClusterConfig, err = vclusterconfig.ParseConfigBytes(snapshotOpts.Release.Values, vCluster.Name, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse vcluster config: %w", err)
+		}
+	} else {
+		// get vCluster config
+		var configSecretName string
+		var volumesToCheck []corev1.Volume
+		if vCluster.StatefulSet != nil {
+			volumesToCheck = vCluster.StatefulSet.Spec.Template.Spec.Volumes
+		} else if vCluster.Deployment != nil {
+			volumesToCheck = vCluster.Deployment.Spec.Template.Spec.Volumes
+		} else {
+			return nil, fmt.Errorf("vcluster %s is not a statefulset or deployment", vCluster.Name)
+		}
+		for _, volume := range volumesToCheck {
+			if volume.Name == "vcluster-config" {
+				if volume.Secret == nil {
+					return nil, fmt.Errorf("vCluster %s does not have a volume vcluster-config with Secret as a source", vCluster.Name)
+				}
+				configSecretName = volume.Secret.SecretName
+				break
+			}
+		}
+		configSecret, err := kubeClient.CoreV1().Secrets(vCluster.Namespace).Get(ctx, configSecretName, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get vCluster config secret: %w", err)
+		}
+		configBytes := configSecret.Data["config.yaml"]
+		if configBytes == nil {
+			return nil, fmt.Errorf("vCluster %s config secret does not have vCluster config set in 'config.yaml' data key", vCluster.Name)
+		}
+		vClusterConfig, err = vclusterconfig.ParseConfigBytes(configBytes, vCluster.Name, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse vcluster config: %w", err)
+		}
+	}
+
+	return vClusterConfig, nil
 }

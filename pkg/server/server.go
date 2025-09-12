@@ -20,7 +20,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/server/cert"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
-	"github.com/loft-sh/vcluster/pkg/server/routes"
 	servertypes "github.com/loft-sh/vcluster/pkg/server/types"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/pluginhookclient"
@@ -176,7 +175,6 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 		h = f(h, ctx)
 	}
 
-	serverhelper.HandleRoute(s.handler, routes.PostSnapshotsURL, routes.WithSnapshotsCreate(ctx, uncachedLocalClient, uncachedVirtualClient, registerCtx.Config))
 	serverhelper.HandleRoute(s.handler, "/", h)
 	return s, nil
 }
