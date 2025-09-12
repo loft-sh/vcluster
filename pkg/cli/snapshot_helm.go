@@ -162,7 +162,7 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
 	}
 	configMap.Name = secret.Name
-	configMap, err = kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
+	_, err = kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
 	}
