@@ -219,6 +219,8 @@ jobs:
 
           # Update the existing tag to point to the new commit
           git tag -f "${TARGET_TAG}"
+          # push the commit
+          git push origin
           git push -u origin -f "${TARGET_TAG}"
 
           echo "vcluster-config tag ${TARGET_TAG} updated to vCluster version ${RELEASE_TAG}"
