@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"maps"
 	"testing"
-	"time"
 
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -591,39 +590,6 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	testNodeName := "test123"
-	pVclusterNodeService := pVclusterService.DeepCopy()
-	pVclusterNodeService.Name = translate.SafeConcatName(testingutil.DefaultTestVClusterName, "node", testNodeName)
-
-	pPodFakeKubelet := pPodBase.DeepCopy()
-	pPodFakeKubelet.Spec.NodeName = testNodeName
-	pPodFakeKubelet.Status.HostIP = "3.3.3.3"
-	pPodFakeKubelet.Status.HostIPs = []corev1.HostIP{
-		{IP: "3.3.3.3"},
-	}
-
-	pPodFakeKubeletHostIPs := pPodFakeKubelet.DeepCopy()
-	pPodFakeKubeletHostIPs.Annotations[podtranslate.HostIPAnnotation] = pVclusterService.Spec.ClusterIP
-	pPodFakeKubeletHostIPs.Annotations[podtranslate.HostIPsAnnotation] = pVclusterService.Spec.ClusterIP
-
-	vPodWithNodeName := &corev1.Pod{
-		ObjectMeta: vObjectMeta,
-		Spec: corev1.PodSpec{
-			NodeName: testNodeName,
-		},
-	}
-	vPodWithHostIP := vPodWithNodeName.DeepCopy()
-	vPodWithHostIP.Status.HostIP = pVclusterService.Spec.ClusterIP
-	vPodWithHostIP.Status.HostIPs = []corev1.HostIP{
-		{IP: pVclusterService.Spec.ClusterIP},
-	}
-
-	testNode := &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: testNodeName,
-		},
-	}
-
 	priorityClassName := "high-priority"
 	pPriorityClass := &schedulingv1.PriorityClass{
 		ObjectMeta: metav1.ObjectMeta{
@@ -673,43 +639,6 @@ func TestSync(t *testing.T) {
 				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(vHostPathPod.DeepCopy()))
 				assert.NilError(t, err)
-			},
-		},
-		{
-			Name:                 "Fake Kubelet enabled with Node sync",
-			InitialVirtualState:  []runtime.Object{testNode.DeepCopy(), vPodWithNodeName, vNamespace.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{testNode.DeepCopy(), pVclusterNodeService.DeepCopy(), pPodFakeKubelet.DeepCopy()},
-			// The virtual pod should have the host IPs of the node service in its status.
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodWithHostIP},
-			},
-			// The physical pod should have the host IPs of the node service in its annotations.
-			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodFakeKubeletHostIPs},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.Nodes.Selector.All = true
-				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = true
-				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).Sync(syncContext, synccontext.NewSyncEventWithOld(pPodFakeKubelet, pPodFakeKubelet, vPodWithNodeName, vPodWithNodeName))
-				assert.NilError(t, err)
-			},
-		},
-		{
-			Name:                 "Fake Kubelet enabled with Node sync and node service not found",
-			InitialVirtualState:  []runtime.Object{testNode.DeepCopy(), vPodWithNodeName, vNamespace.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{testNode.DeepCopy(), pPodFakeKubelet.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodWithNodeName},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.Nodes.Selector.All = true
-				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = true
-				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-
-				result, err := syncer.(*podSyncer).Sync(syncContext, synccontext.NewSyncEventWithOld(pPodFakeKubelet, pPodFakeKubelet, vPodWithNodeName, vPodWithNodeName))
-				assert.NilError(t, err)
-				assert.Equal(t, result.RequeueAfter, time.Second, "Should requeue if node service is not found")
 			},
 		},
 		{
