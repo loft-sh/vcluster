@@ -18,6 +18,9 @@ metadata:
 {{ toYaml .Values.controlPlane.ingress.labels | indent 4 }}
   {{- end }}
 spec:
+  {{- if .Values.controlPlane.ingress.ingressClassName }}
+  ingressClassName: {{ .Values.controlPlane.ingress.ingressClassName | quote }}
+  {{- end }}
   {{- with .Values.controlPlane.ingress.spec }}
   {{- tpl (toYaml .) $ | nindent 2 }}
   {{- end }}

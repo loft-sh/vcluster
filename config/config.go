@@ -2267,6 +2267,9 @@ type ControlPlaneIngress struct {
 	// PathType is the path type of the ingress
 	PathType string `json:"pathType,omitempty"`
 
+	// IngressClassName allows targeting a specific ingress controller (e.g. nginx, traefik, cloudflare)
+	IngressClassName string `json:"ingressClassName,omitempty"`
+
 	// Spec allows you to configure extra ingress options.
 	Spec map[string]interface{} `json:"spec,omitempty"`
 
