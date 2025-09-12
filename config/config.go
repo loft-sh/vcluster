@@ -2724,6 +2724,7 @@ type Experimental struct {
 	GenericSync ExperimentalGenericSync `json:"genericSync,omitempty"`
 
 	// IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
+	// Deprecated: Will be removed in v0.28.0
 	IsolatedControlPlane ExperimentalIsolatedControlPlane `json:"isolatedControlPlane,omitempty" product:"pro"`
 
 	// VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config.

@@ -1620,7 +1620,7 @@
         },
         "isolatedControlPlane": {
           "$ref": "#/$defs/ExperimentalIsolatedControlPlane",
-          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.",
+          "description": "IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.\nDeprecated: Will be removed in v0.28.0",
           "pro": true
         },
         "virtualClusterKubeConfig": {

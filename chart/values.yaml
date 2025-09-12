@@ -1190,6 +1190,7 @@ experimental:
     setOwner: true
   
   # IsolatedControlPlane is a feature to run the vCluster control plane in a different Kubernetes cluster than the workloads themselves.
+  # Deprecated: Will be removed in v0.28.0
   isolatedControlPlane:
     # Headless states that Helm should deploy the vCluster in headless mode for the isolated control plane.
     headless: false
