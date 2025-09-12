@@ -158,9 +158,6 @@ tests:
       integrations:
         externalSecrets:
           enabled: true
-          sync:
-            externalSecrets:
-              enabled: true
     release:
       name: my-release
       namespace: my-namespace
@@ -211,10 +208,9 @@ tests:
         externalSecrets:
           enabled: true
           sync:
-            externalSecrets:
-              enabled: true
-            stores:
-              enabled: true
+            toHost:
+              stores:
+                enabled: true
     release:
       name: my-release
       namespace: my-namespace

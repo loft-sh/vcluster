@@ -230,20 +230,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ClusterStoresSyncConfig": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if this option should be enabled."
-        },
-        "selector": {
-          "$ref": "#/$defs/LabelSelector",
-          "description": "Selector defines what cluster stores should be synced"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "ContainerdJoin": {
       "properties": {
         "enabled": {
@@ -2128,18 +2114,6 @@
         "fromHost": {
           "$ref": "#/$defs/ExternalSecretsSyncFromHostConfig",
           "description": "FromHost defines what resources are synced from the host cluster to the virtual cluster"
-        },
-        "externalSecrets": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "ExternalSecrets defines if external secrets should get synced from the virtual cluster to the host cluster."
-        },
-        "stores": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally.\nDeprecated: Use Integrations.ExternalSecrets.Sync.ToHost.Stores instead."
-        },
-        "clusterStores": {
-          "$ref": "#/$defs/ClusterStoresSyncConfig",
-          "description": "ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster.\nDeprecated: Use Integrations.ExternalSecrets.Sync.FromHost.ClusterStores instead."
         }
       },
       "additionalProperties": false,

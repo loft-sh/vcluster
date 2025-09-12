@@ -929,21 +929,6 @@ integrations:
           enabled: false
           selector:
             matchLabels: {}
-      # ExternalSecrets defines if external secrets should get synced from the virtual cluster to the host cluster.
-      externalSecrets:
-        enabled: true
-      # Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally.
-      # Deprecated: Use Integrations.ExternalSecrets.Sync.ToHost.Stores instead.
-      stores:
-        enabled: false
-      # ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster.
-      # Deprecated: Use Integrations.ExternalSecrets.Sync.FromHost.ClusterStores instead.
-      clusterStores:
-        # Enabled defines if this option should be enabled.
-        enabled: false
-        # Selector defines what cluster stores should be synced
-        selector:
-          labels: {}
   
   # KubeVirt reuses a host kubevirt and makes certain CRDs from it available inside the vCluster
   kubeVirt:

@@ -482,8 +482,9 @@ tests:
           webhook:
             enabled: true
           sync:
-            clusterStores:
-              enabled: true
+            fromHost:
+              clusterStores:
+                enabled: true
     release:
       name: my-release
       namespace: my-namespace

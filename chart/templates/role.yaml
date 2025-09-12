@@ -107,7 +107,7 @@ rules:
   - apiGroups: ["external-secrets.io"]
     resources: ["externalsecrets"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
-  {{- if or .Values.integrations.externalSecrets.sync.stores.enabled .Values.integrations.externalSecrets.sync.toHost.stores.enabled }}
+  {{- if .Values.integrations.externalSecrets.sync.toHost.stores.enabled }}
   - apiGroups: ["external-secrets.io"]
     resources: ["secretstores"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
