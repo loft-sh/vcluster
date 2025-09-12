@@ -87,6 +87,11 @@ linters:
         text: 'SA1019: (.+)Secret is deprecated: Use AdditionalSecrets instead.'
       - path: pkg/config/validation.go
         text: 'SA1019: (.+)Secret is deprecated: Use AdditionalSecrets instead.'
+      # The following exceptions apply only to existing packages that need refactoring.
+      # The rule remains enabled globally.
+      - path: ^pkg/(cli/util|server/types|snapshot/types|syncer/types|util|plugin/types)/[^/]+\.go$
+        linters: [revive]
+        text: avoid meaningless package names
     paths:
       - licenses
       # Paths below are added by 'golangci-lint migrate' when migrating from v1 to v2. They are the
