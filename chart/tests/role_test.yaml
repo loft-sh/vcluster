@@ -73,29 +73,6 @@ tests:
             resources: ["test"]
             verbs: ["test"]
 
-  - it: check generic sync
-    set:
-      experimental:
-        genericSync:
-          role:
-            extraRules:
-              - apiGroups: [""]
-                resources: ["test"]
-                verbs: ["test"]
-    asserts:
-      - hasDocuments:
-          count: 1
-      - lengthEqual:
-          path: rules
-          count: 6
-      - contains:
-          path: rules
-          count: 1
-          content:
-            apiGroups: [""]
-            resources: ["test"]
-            verbs: ["test"]
-
   - it: check extra rules
     set:
       rbac:
@@ -181,9 +158,6 @@ tests:
       integrations:
         externalSecrets:
           enabled: true
-          sync:
-            externalSecrets:
-              enabled: true
     release:
       name: my-release
       namespace: my-namespace
@@ -234,10 +208,9 @@ tests:
         externalSecrets:
           enabled: true
           sync:
-            externalSecrets:
-              enabled: true
-            stores:
-              enabled: true
+            toHost:
+              stores:
+                enabled: true
     release:
       name: my-release
       namespace: my-namespace

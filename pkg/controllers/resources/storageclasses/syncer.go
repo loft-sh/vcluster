@@ -62,7 +62,7 @@ func (s *storageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syn
 
 	newStorageClass := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name}, event.Virtual), s.excludedAnnotations...)
 
-	err := pro.ApplyPatchesHostObject(ctx, nil, newStorageClass, event.Virtual, ctx.Config.Sync.ToHost.StorageClasses.Patches, false)
+	err := pro.ApplyPatchesHostObject(ctx, newStorageClass, event.Virtual, ctx.Config.Sync.ToHost.StorageClasses.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("apply patches: %w", err)
 	}

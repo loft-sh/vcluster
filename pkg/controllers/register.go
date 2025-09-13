@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -59,12 +58,6 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 		return err
 	}
 
-	// register generic sync controllers
-	err = registerGenericSyncController(ctx)
-	if err != nil {
-		return err
-	}
-
 	// register controllers for resource synchronization
 	for _, v := range syncers {
 		// fake syncer?
@@ -93,20 +86,6 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 				return errors.Wrapf(err, "start %s syncer", v.Name())
 			}
 		}
-	}
-
-	return nil
-}
-
-func registerGenericSyncController(ctx *synccontext.ControllerContext) error {
-	err := generic.CreateExporters(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = generic.CreateImporters(ctx)
-	if err != nil {
-		return err
 	}
 
 	return nil

@@ -230,20 +230,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ClusterStoresSyncConfig": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if this option should be enabled."
-        },
-        "selector": {
-          "$ref": "#/$defs/LabelSelector",
-          "description": "Selector defines what cluster stores should be synced"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "ContainerdJoin": {
       "properties": {
         "enabled": {
@@ -1282,6 +1268,10 @@
           "type": "string",
           "description": "Name is the name of this NodePool"
         },
+        "provider": {
+          "type": "string",
+          "description": "Provider is the node provider of the nodes in this pool."
+        },
         "requirements": {
           "items": {
             "$ref": "#/$defs/Requirement"
@@ -1330,7 +1320,8 @@
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "name"
+        "name",
+        "provider"
       ]
     },
     "DynamicNodePoolDisruption": {
@@ -1724,13 +1715,9 @@
           "$ref": "#/$defs/ExperimentalSyncSettings",
           "description": "SyncSettings are advanced settings for the syncer controller."
         },
-        "genericSync": {
-          "$ref": "#/$defs/ExperimentalGenericSync",
-          "description": "GenericSync holds options to generically sync resources from virtual cluster to host."
-        },
         "virtualClusterKubeConfig": {
           "$ref": "#/$defs/VirtualClusterKubeConfig",
-          "description": "VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config."
+          "description": "VirtualClusterKubeConfig allows you to override distro specifics and specify where vCluster will find the required certificates and vCluster config.\nDeprecated: Removed in 0.29.0."
         },
         "denyProxyRequests": {
           "items": {
@@ -1857,55 +1844,11 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ExperimentalGenericSync": {
-      "properties": {
-        "version": {
-          "type": "string",
-          "description": "Version is the config version"
-        },
-        "export": {
-          "items": {
-            "$ref": "#/$defs/Export"
-          },
-          "type": "array",
-          "description": "Exports syncs a resource from the virtual cluster to the host"
-        },
-        "import": {
-          "items": {
-            "$ref": "#/$defs/Import"
-          },
-          "type": "array",
-          "description": "Imports syncs a resource from the host cluster to virtual cluster"
-        },
-        "hooks": {
-          "$ref": "#/$defs/Hooks",
-          "description": "Hooks are hooks that can be used to inject custom patches before syncing"
-        },
-        "clusterRole": {
-          "$ref": "#/$defs/ExperimentalGenericSyncExtraRules"
-        },
-        "role": {
-          "$ref": "#/$defs/ExperimentalGenericSyncExtraRules"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ExperimentalGenericSyncExtraRules": {
-      "properties": {
-        "extraRules": {
-          "items": true,
-          "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "ExperimentalSyncSettings": {
       "properties": {
         "targetNamespace": {
           "type": "string",
-          "description": "TargetNamespace is the namespace where the workloads should get synced to."
+          "description": "TargetNamespace is the namespace where the workloads should get synced to.\nDeprecated: Removed in 0.29.0."
         },
         "setOwner": {
           "type": "boolean",
@@ -1918,45 +1861,6 @@
         "virtualMetricsBindAddress": {
           "type": "string",
           "description": "VirtualMetricsBindAddress is the bind address for the virtual manager"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Export": {
-      "properties": {
-        "apiVersion": {
-          "type": "string",
-          "description": "APIVersion of the object to sync"
-        },
-        "kind": {
-          "type": "string",
-          "description": "Kind of the object to sync"
-        },
-        "optional": {
-          "type": "boolean"
-        },
-        "replaceOnConflict": {
-          "type": "boolean",
-          "description": "ReplaceWhenInvalid determines if the controller should try to recreate the object\nif there is a problem applying"
-        },
-        "patches": {
-          "items": {
-            "$ref": "#/$defs/Patch"
-          },
-          "type": "array",
-          "description": "Patches are the patches to apply on the virtual cluster objects\nwhen syncing them from the host cluster"
-        },
-        "reversePatches": {
-          "items": {
-            "$ref": "#/$defs/Patch"
-          },
-          "type": "array",
-          "description": "ReversePatches are the patches to apply to host cluster objects\nafter it has been synced to the virtual cluster"
-        },
-        "selector": {
-          "$ref": "#/$defs/Selector",
-          "description": "Selector is a label selector to select the synced objects in the virtual cluster.\nIf empty, all objects will be synced."
         }
       },
       "additionalProperties": false,
@@ -2184,6 +2088,10 @@
           "type": "boolean",
           "description": "Enabled defines whether the external secret integration is enabled or not"
         },
+        "version": {
+          "type": "string",
+          "description": "Version defines the version of the external secrets operator to use. If empty, the storage version will be used."
+        },
         "webhook": {
           "$ref": "#/$defs/EnableSwitch",
           "description": "Webhook defines whether the host webhooks are reused or not"
@@ -2206,18 +2114,6 @@
         "fromHost": {
           "$ref": "#/$defs/ExternalSecretsSyncFromHostConfig",
           "description": "FromHost defines what resources are synced from the host cluster to the virtual cluster"
-        },
-        "externalSecrets": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "ExternalSecrets defines if external secrets should get synced from the virtual cluster to the host cluster."
-        },
-        "stores": {
-          "$ref": "#/$defs/EnableSwitch",
-          "description": "Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally.\nDeprecated: Use Integrations.ExternalSecrets.Sync.ToHost.Stores instead."
-        },
-        "clusterStores": {
-          "$ref": "#/$defs/ClusterStoresSyncConfig",
-          "description": "ClusterStores defines if cluster secrets stores should get synced from the host cluster to the virtual cluster.\nDeprecated: Use Integrations.ExternalSecrets.Sync.FromHost.ClusterStores instead."
         }
       },
       "additionalProperties": false,
@@ -2255,54 +2151,6 @@
           },
           "type": "object",
           "description": "ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.\nThere are several wildcards supported:\n1. To match all objects in host namespace and sync them to different namespace in vCluster:\nbyName:\n  \"foo/*\": \"foo-in-virtual/*\"\n2. To match specific object in the host namespace and sync it to the same namespace with the same name:\nbyName:\n  \"foo/my-object\": \"foo/my-object\"\n3. To match specific object in the host namespace and sync it to the same namespace with different name:\nbyName:\n  \"foo/my-object\": \"foo/my-virtual-object\"\n4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nbyName:\n  \"\": \"my-virtual-namespace/*\"\n5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nbyName:\n  \"/my-object\": \"my-virtual-namespace/my-object\""
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Hook": {
-      "properties": {
-        "apiVersion": {
-          "type": "string",
-          "description": "APIVersion of the object to sync"
-        },
-        "kind": {
-          "type": "string",
-          "description": "Kind of the object to sync"
-        },
-        "verbs": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "Verbs are the verbs that the hook should mutate"
-        },
-        "patches": {
-          "items": {
-            "$ref": "#/$defs/Patch"
-          },
-          "type": "array",
-          "description": "Patches are the patches to apply on the object to be synced"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Hooks": {
-      "properties": {
-        "hostToVirtual": {
-          "items": {
-            "$ref": "#/$defs/Hook"
-          },
-          "type": "array",
-          "description": "HostToVirtual is a hook that is executed before syncing from the host to the virtual cluster"
-        },
-        "virtualToHost": {
-          "items": {
-            "$ref": "#/$defs/Hook"
-          },
-          "type": "array",
-          "description": "VirtualToHost is a hook that is executed before syncing from the virtual to the host cluster"
         }
       },
       "additionalProperties": false,
@@ -2379,41 +2227,6 @@
         "name": {
           "type": "string",
           "description": "Name of the image pull secret to use."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Import": {
-      "properties": {
-        "apiVersion": {
-          "type": "string",
-          "description": "APIVersion of the object to sync"
-        },
-        "kind": {
-          "type": "string",
-          "description": "Kind of the object to sync"
-        },
-        "optional": {
-          "type": "boolean"
-        },
-        "replaceOnConflict": {
-          "type": "boolean",
-          "description": "ReplaceWhenInvalid determines if the controller should try to recreate the object\nif there is a problem applying"
-        },
-        "patches": {
-          "items": {
-            "$ref": "#/$defs/Patch"
-          },
-          "type": "array",
-          "description": "Patches are the patches to apply on the virtual cluster objects\nwhen syncing them from the host cluster"
-        },
-        "reversePatches": {
-          "items": {
-            "$ref": "#/$defs/Patch"
-          },
-          "type": "array",
-          "description": "ReversePatches are the patches to apply to host cluster objects\nafter it has been synced to the virtual cluster"
         }
       },
       "additionalProperties": false,
@@ -3254,90 +3067,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "Patch": {
-      "properties": {
-        "op": {
-          "type": "string",
-          "description": "Operation is the type of the patch"
-        },
-        "fromPath": {
-          "type": "string",
-          "description": "FromPath is the path from the other object"
-        },
-        "path": {
-          "type": "string",
-          "description": "Path is the path of the patch"
-        },
-        "namePath": {
-          "type": "string",
-          "description": "NamePath is the path to the name of a child resource within Path"
-        },
-        "namespacePath": {
-          "type": "string",
-          "description": "NamespacePath is path to the namespace of a child resource within Path"
-        },
-        "value": {
-          "description": "Value is the new value to be set to the path"
-        },
-        "regex": {
-          "type": "string",
-          "description": "Regex - is regular expresion used to identify the Name,\nand optionally Namespace, parts of the field value that\nwill be replaced with the rewritten Name and/or Namespace"
-        },
-        "conditions": {
-          "items": {
-            "$ref": "#/$defs/PatchCondition"
-          },
-          "type": "array",
-          "description": "Conditions are conditions that must be true for\nthe patch to get executed"
-        },
-        "ignore": {
-          "type": "boolean",
-          "description": "Ignore determines if the path should be ignored if handled as a reverse patch"
-        },
-        "sync": {
-          "$ref": "#/$defs/PatchSync",
-          "description": "Sync defines if a specialized syncer should be initialized using values\nfrom the rewriteName operation as Secret/Configmap names to be synced"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "PatchCondition": {
-      "properties": {
-        "path": {
-          "type": "string",
-          "description": "Path is the path within the object to select"
-        },
-        "subPath": {
-          "type": "string",
-          "description": "SubPath is the path below the selected object to select"
-        },
-        "equal": {
-          "description": "Equal is the value the path should be equal to"
-        },
-        "notEqual": {
-          "description": "NotEqual is the value the path should not be equal to"
-        },
-        "empty": {
-          "type": "boolean",
-          "description": "Empty means that the path value should be empty or unset"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "PatchSync": {
-      "properties": {
-        "secret": {
-          "type": "boolean"
-        },
-        "configmap": {
-          "type": "boolean"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "PlatformAPIKey": {
       "properties": {
         "secretName": {
@@ -3622,20 +3351,20 @@
           "$ref": "#/$defs/JoinConfiguration",
           "description": "JoinNode holds configuration specifically used during joining the node (see \"kubeadm join\")."
         },
-        "nodePools": {
-          "$ref": "#/$defs/PrivateNodesNodePools",
-          "description": "NodePools stores karpenter node pool configuration"
+        "autoNodes": {
+          "$ref": "#/$defs/PrivateNodesAutoNodes",
+          "description": "AutoNodes stores Auto Nodes configuration static and dynamic NodePools managed by Karpenter"
         },
-        "tunnel": {
-          "$ref": "#/$defs/PrivateNodesTunnel",
-          "description": "Tunnel holds configuration for the private nodes tunnel. This can be used to connect the private nodes to the control plane or\nconnect the private nodes to each other if they are not running in the same network. Platform connection is required for the tunnel to work."
+        "vpn": {
+          "$ref": "#/$defs/PrivateNodesVPN",
+          "description": "VPN holds configuration for the private nodes vpn. This can be used to connect the private nodes to the control plane or\nconnect the private nodes to each other if they are not running in the same network. Platform connection is required for the vpn to work."
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "PrivateNodes enables private nodes for vCluster."
     },
-    "PrivateNodesNodePools": {
+    "PrivateNodesAutoNodes": {
       "properties": {
         "static": {
           "items": {
@@ -3654,27 +3383,27 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "PrivateNodesNodePools defines node pools"
+      "description": "PrivateNodesAutoNodes defines auto nodes"
     },
-    "PrivateNodesTunnel": {
+    "PrivateNodesVPN": {
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled defines if the private nodes tunnel should be enabled."
+          "description": "Enabled defines if the private nodes vpn should be enabled."
         },
         "nodeToNode": {
-          "$ref": "#/$defs/PrivateNodesTunnelNodeToNode",
-          "description": "NodeToNode holds configuration for the node to node tunnel. This can be used to connect the private nodes to each other if they are not running in the same network."
+          "$ref": "#/$defs/PrivateNodesVPNNodeToNode",
+          "description": "NodeToNode holds configuration for the node to node vpn. This can be used to connect the private nodes to each other if they are not running in the same network."
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "PrivateNodesTunnelNodeToNode": {
+    "PrivateNodesVPNNodeToNode": {
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled defines if the node to node tunnel should be enabled."
+          "description": "Enabled defines if the node to node vpn should be enabled."
         }
       },
       "additionalProperties": false,
@@ -4025,19 +3754,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "Selector": {
-      "properties": {
-        "labelSelector": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object",
-          "description": "LabelSelector are the labels to select the object from"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "SelectorConfig": {
       "properties": {
         "selector": {
@@ -4137,13 +3853,34 @@
           "type": "string",
           "description": "DataDir defines the data directory for the standalone mode."
         },
-        "nodes": {
-          "$ref": "#/$defs/StandaloneNodes",
-          "description": "Nodes is a list of nodes to deploy for standalone mode."
+        "autoNodes": {
+          "$ref": "#/$defs/StandaloneAutoNodes",
+          "description": "AutoNodes automatically deploys nodes for standalone mode."
         },
         "joinNode": {
           "$ref": "#/$defs/StandaloneJoinNode",
           "description": "JoinNode holds configuration for the standalone control plane node."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "StandaloneAutoNodes": {
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Provider is the node provider of the nodes in this pool."
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "Quantity is the number of nodes to deploy for standalone mode."
+        },
+        "requirements": {
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          },
+          "type": "array",
+          "description": "Requirements filter the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
         }
       },
       "additionalProperties": false,
@@ -4199,23 +3936,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "StandaloneNodes": {
-      "properties": {
-        "quantity": {
-          "type": "integer",
-          "description": "Quantity is the number of nodes to deploy for standalone mode."
-        },
-        "requirements": {
-          "items": {
-            "$ref": "#/$defs/Requirement"
-          },
-          "type": "array",
-          "description": "Requirements filter the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "StandardLabelSelector": {
       "properties": {
         "matchLabels": {
@@ -4263,6 +3983,10 @@
           "type": "string",
           "description": "Name is the name of this static nodePool"
         },
+        "provider": {
+          "type": "string",
+          "description": "Provider is the node provider of the nodes in this pool."
+        },
         "requirements": {
           "items": {
             "$ref": "#/$defs/Requirement"
@@ -4297,6 +4021,7 @@
       "type": "object",
       "required": [
         "name",
+        "provider",
         "quantity"
       ]
     },

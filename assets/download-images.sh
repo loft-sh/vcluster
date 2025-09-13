@@ -49,6 +49,8 @@ fi
 pulled=""
 while IFS= read -r i; do
     [ -z "${i}" ] && continue
+    [[ "${i}" == "#"* ]] && continue
+
     if docker pull --platform="${platform}" "${i}" > /dev/null 2>&1; then
         echo "Image pull success: ${i}"
         pulled="${pulled} ${i}"

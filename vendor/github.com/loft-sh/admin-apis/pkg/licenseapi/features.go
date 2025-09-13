@@ -104,6 +104,12 @@ const (
 
 	SyncNamespacesTohost FeatureName = "sync-namespaces-tohost" // Sync Namespaces toHost
 
+	ScheduledSnapshots FeatureName = "scheduled-snapshots" // Schedule Virtual Clusters Snapshots
+
+	PrivateNodesVpn FeatureName = "private-nodes-vpn" // Private Nodes VPN
+
+	PrivateNodesAutoNodes FeatureName = "private-nodes-auto-nodes" // Private Nodes Auto Nodes
+
 )
 
 func GetFeatures() []FeatureName {
@@ -158,5 +164,8 @@ func GetFeatures() []FeatureName {
 		IstioIntegration,
 		HybridScheduling,
 		SyncNamespacesTohost,
+		ScheduledSnapshots,
+		PrivateNodesVpn,
+		PrivateNodesAutoNodes,
 	}
 }

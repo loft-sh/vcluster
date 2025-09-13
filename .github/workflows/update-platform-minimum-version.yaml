@@ -36,6 +36,8 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+          committer: Loft Bot <loft-bot@users.noreply.github.com>
           base: main
           branch: update-platform-version-tag/${{ github.event.client_payload.tag }}
           title: "chore(deps): bump platform MinimumVersionTag to ${{ github.event.client_payload.tag }}"

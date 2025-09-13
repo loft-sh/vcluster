@@ -137,12 +137,12 @@ func (h *Patcher) Patch(ctx *synccontext.SyncContext, obj client.Object) error {
 	if len(h.patches) > 0 {
 		obj = obj.DeepCopyObject().(client.Object)
 		if h.direction == synccontext.SyncVirtualToHost {
-			err := pro.ApplyPatchesHostObject(ctx, h.beforeObject, obj, h.vObj, h.patches, h.reverseExpressions)
+			err := pro.ApplyPatchesHostObject(ctx, obj, h.vObj, h.patches, h.reverseExpressions)
 			if err != nil {
 				return fmt.Errorf("apply patches host object: %w", err)
 			}
 		} else if h.direction == synccontext.SyncHostToVirtual {
-			err := pro.ApplyPatchesVirtualObject(ctx, h.beforeObject, obj, h.pObj, h.patches, h.reverseExpressions)
+			err := pro.ApplyPatchesVirtualObject(ctx, obj, h.pObj, h.patches, h.reverseExpressions)
 			if err != nil {
 				return fmt.Errorf("apply patches virtual object: %w", err)
 			}

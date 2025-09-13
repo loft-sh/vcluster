@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -11,10 +12,14 @@ import (
 
 	"github.com/ghodss/yaml"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/loft-sh/vcluster/config"
+	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/util/namespaces"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 )
@@ -24,8 +29,6 @@ var allowedPodSecurityStandards = map[string]bool{
 	"baseline":   true,
 	"restricted": true,
 }
-
-var verbs = []string{"get", "list", "create", "update", "patch", "watch", "delete", "deletecollection"}
 
 func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	// check the value of pod security standard
@@ -95,24 +98,6 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 
-	// disallow old and new generic sync to be used together
-	if len(vConfig.Sync.ToHost.CustomResources) > 0 || len(vConfig.Sync.FromHost.CustomResources) > 0 {
-		// check if generic sync exports are used
-		if len(vConfig.Experimental.GenericSync.Exports) > 0 {
-			return errors.New("experimental.genericSync.exports is not allowed when using sync.toHost.customResources or sync.fromHost.customResources")
-		}
-
-		// check if generic sync imports are used
-		if len(vConfig.Experimental.GenericSync.Imports) > 0 {
-			return errors.New("experimental.genericSync.imports is not allowed when using sync.toHost.customResources or sync.fromHost.customResources")
-		}
-
-		// check if hooks are used
-		if vConfig.Experimental.GenericSync.Hooks != nil && (len(vConfig.Experimental.GenericSync.Hooks.HostToVirtual) > 0 || len(vConfig.Experimental.GenericSync.Hooks.VirtualToHost) > 0) {
-			return errors.New("experimental.genericSync.hooks is not allowed when using sync.toHost.customResources or sync.fromHost.customResources. Please use sync.*.patches.expression instead")
-		}
-	}
-
 	// check if nodes controller needs to be enabled
 	if vConfig.SchedulingInVirtualClusterEnabled() && !vConfig.Sync.FromHost.Nodes.Enabled {
 		return errors.New("sync.fromHost.nodes.enabled is false, but required if using hybrid scheduling or virtual scheduler")
@@ -139,12 +124,6 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	err = validateCentralAdmissionControl(vConfig)
 	if err != nil {
 		return err
-	}
-
-	// validate generic sync config
-	err = validateGenericSyncConfig(vConfig.Experimental.GenericSync)
-	if err != nil {
-		return fmt.Errorf("validate experimental.genericSync")
 	}
 
 	// validate distro
@@ -176,10 +155,6 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	err = validateFromHostSyncMappings(vConfig.Sync.FromHost.Secrets, "secrets")
 	if err != nil {
 		return err
-	}
-
-	if isUsingOldGenericSync(vConfig.Experimental.GenericSync) && vConfig.Sync.ToHost.Namespaces.Enabled {
-		return errors.New("experimental.genericSync.imports is not allowed when using sync.toHost.namespaces")
 	}
 
 	// sync.toHost.namespaces validation
@@ -298,6 +273,25 @@ func validatePatches(patchesValidation ...patchesValidation) error {
 	return nil
 }
 
+func ValidatePlatformProject(ctx context.Context, config *config.Config, loadedConfig *cliconfig.CLI) error {
+	platformConfig, err := config.GetPlatformConfig()
+	if err != nil {
+		return fmt.Errorf("get platform config: %w", err)
+	}
+	if platformConfig.Project != "" {
+		management, err := platform.NewClientFromConfig(loadedConfig).Management()
+		if err != nil {
+			return err
+		}
+		_, err = management.Loft().ManagementV1().Projects().Get(ctx, platformConfig.Project, metav1.GetOptions{})
+		if kerrors.IsNotFound(err) {
+			return fmt.Errorf("platform project %q not found", platformConfig.Project)
+		}
+	}
+
+	return nil
+}
+
 func ValidateSyncFromHostClasses(fromHost config.SyncFromHost) error {
 	errorFn := func(sls config.StandardLabelSelector, path string) error {
 		if _, err := sls.ToSelector(); err != nil {
@@ -332,165 +326,6 @@ func validateDistro(config *VirtualClusterConfig) error {
 	if enabledDistros > 1 {
 		return fmt.Errorf("only one distribution can be enabled")
 	}
-	return nil
-}
-
-func validateGenericSyncConfig(config config.ExperimentalGenericSync) error {
-	err := validateExportDuplicates(config.Exports)
-	if err != nil {
-		return err
-	}
-
-	for idx, exp := range config.Exports {
-		if exp == nil {
-			return fmt.Errorf("exports[%d] is required", idx)
-		}
-
-		if exp.Kind == "" {
-			return fmt.Errorf("exports[%d].kind is required", idx)
-		}
-
-		if exp.APIVersion == "" {
-			return fmt.Errorf("exports[%d].APIVersion is required", idx)
-		}
-
-		for patchIdx, patch := range exp.Patches {
-			err := validatePatch(patch)
-			if err != nil {
-				return fmt.Errorf("invalid exports[%d].patches[%d]: %w", idx, patchIdx, err)
-			}
-		}
-
-		for patchIdx, patch := range exp.ReversePatches {
-			err := validatePatch(patch)
-			if err != nil {
-				return fmt.Errorf("invalid exports[%d].reversPatches[%d]: %w", idx, patchIdx, err)
-			}
-		}
-	}
-
-	err = validateImportDuplicates(config.Imports)
-	if err != nil {
-		return err
-	}
-
-	for idx, imp := range config.Imports {
-		if imp == nil {
-			return fmt.Errorf("imports[%d] is required", idx)
-		}
-
-		if imp.Kind == "" {
-			return fmt.Errorf("imports[%d].kind is required", idx)
-		}
-
-		if imp.APIVersion == "" {
-			return fmt.Errorf("imports[%d].APIVersion is required", idx)
-		}
-
-		for patchIdx, patch := range imp.Patches {
-			err := validatePatch(patch)
-			if err != nil {
-				return fmt.Errorf("invalid imports[%d].patches[%d]: %w", idx, patchIdx, err)
-			}
-		}
-
-		for patchIdx, patch := range imp.ReversePatches {
-			err := validatePatch(patch)
-			if err != nil {
-				return fmt.Errorf("invalid imports[%d].reversPatches[%d]: %w", idx, patchIdx, err)
-			}
-		}
-	}
-
-	if config.Hooks != nil {
-		// HostToVirtual validation
-		for idx, hook := range config.Hooks.HostToVirtual {
-			for idy, verb := range hook.Verbs {
-				if err := validateVerb(verb); err != nil {
-					return fmt.Errorf("invalid hooks.hostToVirtual[%d].verbs[%d]: %w", idx, idy, err)
-				}
-			}
-
-			for idy, patch := range hook.Patches {
-				if err := validatePatch(patch); err != nil {
-					return fmt.Errorf("invalid hooks.hostToVirtual[%d].patches[%d]: %w", idx, idy, err)
-				}
-			}
-		}
-
-		// VirtualToHost validation
-		for idx, hook := range config.Hooks.VirtualToHost {
-			for idy, verb := range hook.Verbs {
-				if err := validateVerb(verb); err != nil {
-					return fmt.Errorf("invalid hooks.virtualToHost[%d].verbs[%d]: %w", idx, idy, err)
-				}
-			}
-
-			for idy, patch := range hook.Patches {
-				if err := validatePatch(patch); err != nil {
-					return fmt.Errorf("invalid hooks.virtualToHost[%d].patches[%d]: %w", idx, idy, err)
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func validatePatch(patch *config.Patch) error {
-	switch patch.Operation {
-	case config.PatchTypeRemove, config.PatchTypeReplace, config.PatchTypeAdd:
-		if patch.FromPath != "" {
-			return fmt.Errorf("fromPath is not supported for this operation")
-		}
-
-		return nil
-	case config.PatchTypeRewriteName, config.PatchTypeRewriteLabelSelector, config.PatchTypeRewriteLabelKey, config.PatchTypeRewriteLabelExpressionsSelector:
-		return nil
-	case config.PatchTypeCopyFromObject:
-		if patch.FromPath == "" {
-			return fmt.Errorf("fromPath is required for this operation")
-		}
-
-		return nil
-	default:
-		return fmt.Errorf("unsupported patch type %s", patch.Operation)
-	}
-}
-
-func validateVerb(verb string) error {
-	if !slices.Contains(verbs, verb) {
-		return fmt.Errorf("invalid verb \"%s\"; expected on of %q", verb, verbs)
-	}
-
-	return nil
-}
-
-func validateExportDuplicates(exports []*config.Export) error {
-	gvks := map[string]bool{}
-	for _, e := range exports {
-		k := fmt.Sprintf("%s|%s", e.APIVersion, e.Kind)
-		_, found := gvks[k]
-		if found {
-			return fmt.Errorf("duplicate export for APIVersion %s and %s Kind, only one export for each APIVersion+Kind is permitted", e.APIVersion, e.Kind)
-		}
-		gvks[k] = true
-	}
-
-	return nil
-}
-
-func validateImportDuplicates(imports []*config.Import) error {
-	gvks := map[string]bool{}
-	for _, e := range imports {
-		k := fmt.Sprintf("%s|%s", e.APIVersion, e.Kind)
-		_, found := gvks[k]
-		if found {
-			return fmt.Errorf("duplicate import for APIVersion %s and %s Kind, only one import for each APIVersion+Kind is permitted", e.APIVersion, e.Kind)
-		}
-		gvks[k] = true
-	}
-
 	return nil
 }
 
@@ -648,11 +483,6 @@ func validateWildcardOrAny(values []string) error {
 		}
 	}
 	return nil
-}
-
-func isUsingOldGenericSync(genericSync config.ExperimentalGenericSync) bool {
-	return len(genericSync.Exports) > 0 || len(genericSync.Imports) > 0 ||
-		(genericSync.Hooks != nil && (len(genericSync.Hooks.HostToVirtual) > 0 || len(genericSync.Hooks.VirtualToHost) > 0))
 }
 
 func validateFromHostSyncMappings(s config.EnableSwitchWithResourcesMappings, resourceNamePlural string) error {
@@ -839,9 +669,9 @@ func validateExternalSecretsEnabled(
 	}
 	for crdName, crdConfig := range toHostCustomResources {
 		if crdConfig.Enabled &&
-			(crdName == "externalsecrets.external-secrets.io" && externalSecretsIntegration.Sync.ExternalSecrets.Enabled ||
-				crdName == "secretstores.external-secrets.io" && externalSecretsIntegration.Sync.Stores.Enabled ||
-				crdName == "clustersecretstores.external-secrets.io" && externalSecretsIntegration.Sync.ClusterStores.Enabled) {
+			(crdName == "externalsecrets.external-secrets.io" && externalSecretsIntegration.Enabled ||
+				crdName == "secretstores.external-secrets.io" && externalSecretsIntegration.Sync.ToHost.Stores.Enabled ||
+				crdName == "clustersecretstores.external-secrets.io" && externalSecretsIntegration.Sync.FromHost.ClusterStores.Enabled) {
 			return fmt.Errorf("external-secrets integration is enabled but external-secrets custom resource (%s) is also set in the sync.toHost.customResources. "+
 				"This is not supported, please remove the entry from sync.toHost.customResources", crdName)
 		}
@@ -929,18 +759,27 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 	}
 
 	// validate node pools
-	for _, nodePool := range vConfig.PrivateNodes.NodePools.Static {
+	for _, nodePool := range vConfig.PrivateNodes.AutoNodes.Static {
 		if nodePool.Name == "" {
 			return fmt.Errorf("node pool name is required")
+		}
+		if nodePool.Provider == "" {
+			return fmt.Errorf("node pool provider is required")
+		}
+		if nodePool.Quantity < 0 {
+			return fmt.Errorf("node pool quantity cannot be negative")
 		}
 
 		if err := validateRequirements(nodePool.Requirements); err != nil {
 			return fmt.Errorf("invalid requirements for node pool %s: %w", nodePool.Name, err)
 		}
 	}
-	for _, nodePool := range vConfig.PrivateNodes.NodePools.Dynamic {
+	for _, nodePool := range vConfig.PrivateNodes.AutoNodes.Dynamic {
 		if nodePool.Name == "" {
 			return fmt.Errorf("node pool name is required")
+		}
+		if nodePool.Provider == "" {
+			return fmt.Errorf("node pool provider is required")
 		}
 
 		if err := validateRequirements(nodePool.Requirements); err != nil {

@@ -318,9 +318,6 @@ github.com/docker/go-connections/tlsconfig
 # github.com/docker/go-units v0.5.0
 ## explicit
 github.com/docker/go-units
-# github.com/dprotaso/go-yit v0.0.0-20191028211022-135eb7262960
-## explicit; go 1.13
-github.com/dprotaso/go-yit
 # github.com/dustin/go-humanize v1.0.1
 ## explicit; go 1.16
 github.com/dustin/go-humanize
@@ -594,10 +591,10 @@ github.com/liggitt/tabwriter
 # github.com/lithammer/dedent v1.1.0
 ## explicit
 github.com/lithammer/dedent
-# github.com/loft-sh/admin-apis v0.0.0-20250521064618-068d5f25cdae
+# github.com/loft-sh/admin-apis v0.0.0-20250825172409-daa49fc5396e
 ## explicit; go 1.21.1
 github.com/loft-sh/admin-apis/pkg/licenseapi
-# github.com/loft-sh/agentapi/v4 v4.4.0-alpha.14
+# github.com/loft-sh/agentapi/v4 v4.4.0-alpha.29
 ## explicit; go 1.24.0
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1
@@ -609,7 +606,7 @@ github.com/loft-sh/agentapi/v4/pkg/clientset/versioned/typed/storage/v1
 # github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 ## explicit; go 1.21
 github.com/loft-sh/analytics-client/client
-# github.com/loft-sh/api/v4 v4.4.0-alpha.14
+# github.com/loft-sh/api/v4 v4.4.0-alpha.29
 ## explicit; go 1.24.0
 github.com/loft-sh/api/v4/pkg/apis/audit/v1
 github.com/loft-sh/api/v4/pkg/apis/management
@@ -758,8 +755,6 @@ github.com/mxk/go-flowrate/flowrate
 # github.com/ncruces/go-strftime v0.1.9
 ## explicit; go 1.17
 github.com/ncruces/go-strftime
-# github.com/nxadm/tail v1.4.11
-## explicit; go 1.13
 # github.com/oklog/run v1.0.0
 ## explicit
 github.com/oklog/run
@@ -769,8 +764,6 @@ github.com/oklog/ulid
 # github.com/olekukonko/tablewriter v0.0.5
 ## explicit; go 1.12
 github.com/olekukonko/tablewriter
-# github.com/onsi/ginkgo v1.16.5
-## explicit; go 1.16
 # github.com/onsi/ginkgo/v2 v2.23.4
 ## explicit; go 1.23.0
 github.com/onsi/ginkgo/v2
@@ -894,7 +887,7 @@ github.com/stoewer/go-strcase
 # github.com/tcnksm/go-gitconfig v0.1.2
 ## explicit
 github.com/tcnksm/go-gitconfig
-# github.com/ulikunitz/xz v0.5.12
+# github.com/ulikunitz/xz v0.5.14
 ## explicit; go 1.12
 github.com/ulikunitz/xz
 github.com/ulikunitz/xz/internal/hash
@@ -911,9 +904,6 @@ github.com/vbauerster/mpb/v8
 github.com/vbauerster/mpb/v8/cwriter
 github.com/vbauerster/mpb/v8/decor
 github.com/vbauerster/mpb/v8/internal
-# github.com/vmware-labs/yaml-jsonpath v0.3.2
-## explicit; go 1.13
-github.com/vmware-labs/yaml-jsonpath/pkg/yamlpath
 # github.com/wk8/go-ordered-map/v2 v2.1.8
 ## explicit; go 1.18
 github.com/wk8/go-ordered-map/v2

@@ -477,7 +477,17 @@ var (
 		return NewTranslateVClusterResourceNameRESTFunc(Factory)
 	}
 	NewTranslateVClusterResourceNameRESTFunc NewRESTFunc
-	ManagementUserStorage                    = builders.NewApiResourceWithStorage( // Resource status endpoint
+	ManagementUsageDownloadStorage           = builders.NewApiResourceWithStorage( // Resource status endpoint
+		InternalUsageDownload,
+		func() runtime.Object { return &UsageDownload{} },     // Register versioned resource
+		func() runtime.Object { return &UsageDownloadList{} }, // Register versioned resource list
+		NewUsageDownloadREST,
+	)
+	NewUsageDownloadREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewUsageDownloadRESTFunc(Factory)
+	}
+	NewUsageDownloadRESTFunc NewRESTFunc
+	ManagementUserStorage    = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalUser,
 		func() runtime.Object { return &User{} },     // Register versioned resource
 		func() runtime.Object { return &UserList{} }, // Register versioned resource list
@@ -1277,6 +1287,18 @@ var (
 		func() runtime.Object { return &TranslateVClusterResourceName{} },
 		func() runtime.Object { return &TranslateVClusterResourceNameList{} },
 	)
+	InternalUsageDownload = builders.NewInternalResource(
+		"usagedownload",
+		"UsageDownload",
+		func() runtime.Object { return &UsageDownload{} },
+		func() runtime.Object { return &UsageDownloadList{} },
+	)
+	InternalUsageDownloadStatus = builders.NewInternalResourceStatus(
+		"usagedownload",
+		"UsageDownloadStatus",
+		func() runtime.Object { return &UsageDownload{} },
+		func() runtime.Object { return &UsageDownloadList{} },
+	)
 	InternalUser = builders.NewInternalResource(
 		"users",
 		"User",
@@ -1380,8 +1402,24 @@ var (
 	NewVirtualClusterNodeAccessKeyREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewVirtualClusterNodeAccessKeyRESTFunc(Factory)
 	}
-	NewVirtualClusterNodeAccessKeyRESTFunc NewRESTFunc
-	InternalVirtualClusterSchema           = builders.NewInternalResource(
+	NewVirtualClusterNodeAccessKeyRESTFunc     NewRESTFunc
+	InternalVirtualClusterInstanceSnapshotREST = builders.NewInternalSubresource(
+		"virtualclusterinstances", "VirtualClusterInstanceSnapshot", "snapshot",
+		func() runtime.Object { return &VirtualClusterInstanceSnapshot{} },
+	)
+	NewVirtualClusterInstanceSnapshotREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewVirtualClusterInstanceSnapshotRESTFunc(Factory)
+	}
+	NewVirtualClusterInstanceSnapshotRESTFunc NewRESTFunc
+	InternalVirtualClusterStandaloneREST      = builders.NewInternalSubresource(
+		"virtualclusterinstances", "VirtualClusterStandalone", "standalone",
+		func() runtime.Object { return &VirtualClusterStandalone{} },
+	)
+	NewVirtualClusterStandaloneREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewVirtualClusterStandaloneRESTFunc(Factory)
+	}
+	NewVirtualClusterStandaloneRESTFunc NewRESTFunc
+	InternalVirtualClusterSchema        = builders.NewInternalResource(
 		"virtualclusterschemas",
 		"VirtualClusterSchema",
 		func() runtime.Object { return &VirtualClusterSchema{} },
@@ -1523,6 +1561,8 @@ var (
 		InternalTeamPermissionsREST,
 		InternalTranslateVClusterResourceName,
 		InternalTranslateVClusterResourceNameStatus,
+		InternalUsageDownload,
+		InternalUsageDownloadStatus,
 		InternalUser,
 		InternalUserStatus,
 		InternalUserAccessKeysREST,
@@ -1537,6 +1577,8 @@ var (
 		InternalVirtualClusterInstanceKubeConfigREST,
 		InternalVirtualClusterInstanceLogREST,
 		InternalVirtualClusterNodeAccessKeyREST,
+		InternalVirtualClusterInstanceSnapshotREST,
+		InternalVirtualClusterStandaloneREST,
 		InternalVirtualClusterSchema,
 		InternalVirtualClusterSchemaStatus,
 		InternalVirtualClusterTemplate,
@@ -1567,7 +1609,9 @@ func Resource(resource string) schema.GroupResource {
 
 type AccessKeyType string
 type Level string
+type OperationPhase string
 type RequestTarget string
+type SnapshotTakenStatus string
 type Stage string
 
 type AgentAnalyticsSpec struct {
@@ -2019,6 +2063,7 @@ type ConfigStatus struct {
 	DisableConfigEndpoint  bool                            `json:"disableConfigEndpoint,omitempty"`
 	Cloud                  *Cloud                          `json:"cloud,omitempty"`
 	CostControl            *CostControl                    `json:"costControl,omitempty"`
+	PlatformDB             *PlatformDB                     `json:"platformDB,omitempty"`
 	ImageBuilder           *ImageBuilder                   `json:"imageBuilder,omitempty"`
 }
 
@@ -2386,13 +2431,18 @@ type KioskSpec struct {
 	NodeProviderBCMNodeWithResources    NodeProviderBCMNodeWithResources    `json:"nodeProviderBCMNodeWithResources,omitempty"`
 	NodeProviderBCMGetResourcesResult   NodeProviderBCMGetResourcesResult   `json:"nodeProviderBCMGetResourcesResult,omitempty"`
 	NodeProviderBCMTestConnectionResult NodeProviderBCMTestConnectionResult `json:"nodeProviderBCMTestConnectionResult,omitempty"`
+	NodeProviderCalculateCostResult     NodeProviderCalculateCostResult     `json:"nodeProviderCalculateCostResult,omitempty"`
+	NodeProviderTerraformValidateResult NodeProviderTerraformValidateResult `json:"nodeProviderTerraformValidateResult,omitempty"`
+	NodeProviderExecResult              NodeProviderExecResult              `json:"nodeProviderExecResult,omitempty"`
+	NodeClaimData                       NodeClaimData                       `json:"nodeClaimData,omitempty"`
+	NodeEnvironmentData                 NodeEnvironmentData                 `json:"nodeEnvironmentData,omitempty"`
 }
 
 type KioskStatus struct {
 }
 
 // +genclient
-// +genclient:nonNamespaced
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type License struct {
@@ -2424,8 +2474,9 @@ type LicenseSpec struct {
 }
 
 type LicenseStatus struct {
-	License       *pkglicenseapi.License                 `json:"license,omitempty"`
-	ResourceUsage map[string]pkglicenseapi.ResourceCount `json:"resourceUsage,omitempty"`
+	License          *pkglicenseapi.License                 `json:"license,omitempty"`
+	ResourceUsage    map[string]pkglicenseapi.ResourceCount `json:"resourceUsage,omitempty"`
+	PlatformDatabase *pkglicenseapi.PlatformDatabase        `json:"platformDatabase,omitempty"`
 }
 
 // +genclient
@@ -2489,6 +2540,12 @@ type NodeClaim struct {
 	Status            NodeClaimStatus `json:"status,omitempty"`
 }
 
+type NodeClaimData struct {
+	UserData   string                `json:"userData,omitempty"`
+	State      []byte                `json:"state,omitempty"`
+	Operations map[string]*Operation `json:"operations,omitempty"`
+}
+
 type NodeClaimSpec struct {
 	storagev1.NodeClaimSpec `json:",inline"`
 }
@@ -2506,6 +2563,12 @@ type NodeEnvironment struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              NodeEnvironmentSpec   `json:"spec,omitempty"`
 	Status            NodeEnvironmentStatus `json:"status,omitempty"`
+}
+
+type NodeEnvironmentData struct {
+	Outputs    []byte                `json:"outputs,omitempty"`
+	State      []byte                `json:"state,omitempty"`
+	Operations map[string]*Operation `json:"operations,omitempty"`
 }
 
 type NodeEnvironmentSpec struct {
@@ -2529,7 +2592,12 @@ type NodeProvider struct {
 
 type NodeProviderBCMGetResourcesResult struct {
 	Nodes      []NodeProviderBCMNodeWithResources `json:"nodes"`
-	NodeGroups []string                           `json:"nodeGroups"`
+	NodeGroups []NodeProviderBCMNodeGroup         `json:"nodeGroups"`
+}
+
+type NodeProviderBCMNodeGroup struct {
+	Name  string   `json:"name"`
+	Nodes []string `json:"nodes"`
 }
 
 type NodeProviderBCMNodeWithResources struct {
@@ -2542,6 +2610,10 @@ type NodeProviderBCMTestConnectionResult struct {
 	Message string `json:"message"`
 }
 
+type NodeProviderCalculateCostResult struct {
+	Cost int64 `json:"cost"`
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type NodeProviderExec struct {
@@ -2549,6 +2621,11 @@ type NodeProviderExec struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              NodeProviderExecSpec   `json:"spec"`
 	Status            NodeProviderExecStatus `json:"status,omitempty"`
+}
+
+type NodeProviderExecResult struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 }
 
 type NodeProviderExecSpec struct {
@@ -2566,6 +2643,11 @@ type NodeProviderSpec struct {
 
 type NodeProviderStatus struct {
 	storagev1.NodeProviderStatus `json:",inline"`
+}
+
+type NodeProviderTerraformValidateResult struct {
+	Success bool   `json:"success"`
+	Output  string `json:"output"`
 }
 
 // +genclient
@@ -2625,6 +2707,14 @@ type ObjectPermission struct {
 	Verbs      []string `json:"verbs" protobuf:"bytes,1,rep,name=verbs"`
 }
 
+type Operation struct {
+	StartTimestamp metav1.Time    `json:"startTimestamp,omitempty"`
+	EndTimestamp   metav1.Time    `json:"endTimestamp,omitempty"`
+	Phase          OperationPhase `json:"phase,omitempty"`
+	Logs           []byte         `json:"logs,omitempty"`
+	Error          string         `json:"error,omitempty"`
+}
+
 // +genclient
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -2642,6 +2732,10 @@ type OwnedAccessKeySpec struct {
 
 type OwnedAccessKeyStatus struct {
 	storagev1.AccessKeyStatus `json:",inline"`
+}
+
+type PlatformDB struct {
+	StorageClass string `json:"storageClass,omitempty"`
 }
 
 type PredefinedApp struct {
@@ -2758,24 +2852,12 @@ type ProjectMigrateVirtualClusterInstanceSource struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-type ProjectNodeType struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              storagev1.NodeTypeSpec `json:"spec,omitempty"`
-	Status            ProjectNodeTypeStatus  `json:"status,omitempty"`
-}
-
-type ProjectNodeTypeStatus struct {
-	storagev1.NodeTypeStatus `json:",inline"`
-	Requirements             []corev1.NodeSelectorRequirement `json:"requirements,omitempty"`
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectNodeTypes struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	NodeTypes         []ProjectNodeType `json:"nodeTypes,omitempty"`
+	NodeTypes         []storagev1.NodeType `json:"nodeTypes,omitempty"`
 }
 
 type ProjectRole struct {
@@ -2961,6 +3043,14 @@ type SharedSecretStatus struct {
 	storagev1.SharedSecretStatus `json:",inline"`
 }
 
+type SnapshotTaken struct {
+	Id        string              `json:"id,omitempty"`
+	Url       string              `json:"url,omitempty"`
+	Timestamp string              `json:"timestamp,omitempty"`
+	Reason    string              `json:"reason,omitempty"`
+	Status    SnapshotTakenStatus `json:"status,omitempty"`
+}
+
 // +genclient
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -3001,6 +3091,20 @@ type SpaceTemplateSpec struct {
 type SpaceTemplateStatus struct {
 	storagev1.SpaceTemplateStatus `json:",inline"`
 	Apps                          []*storagev1.EntityInfo `json:"apps,omitempty"`
+}
+
+type StandaloneEtcdPeer struct {
+	Name    string `json:"name"`
+	Address string `json:"address"`
+}
+
+type StandaloneEtcdPeerCoordinator struct {
+	StandaloneEtcdPeer `json:",inline"`
+	IsCoordinator      bool `json:"isCoordinator"`
+}
+
+type StandalonePKI struct {
+	Certificates map[string][]byte `json:"certificates"`
 }
 
 // +genclient
@@ -3124,6 +3228,23 @@ type TranslateVClusterResourceNameSpec struct {
 
 type TranslateVClusterResourceNameStatus struct {
 	Name string `json:"name,omitempty"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type UsageDownload struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              UsageDownloadSpec   `json:"spec,omitempty"`
+	Status            UsageDownloadStatus `json:"status,omitempty"`
+}
+
+type UsageDownloadSpec struct {
+}
+
+type UsageDownloadStatus struct {
 }
 
 // +genclient
@@ -3277,6 +3398,18 @@ type VirtualClusterInstanceLog struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterInstanceSnapshot struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Status            VirtualClusterInstanceSnapshotStatus `json:"status,omitempty"`
+}
+
+type VirtualClusterInstanceSnapshotStatus struct {
+	SnapshotsTaken []SnapshotTaken `json:"snapshotTaken,omitempty"`
+}
+
 type VirtualClusterInstanceSpec struct {
 	storagev1.VirtualClusterInstanceSpec `json:",inline"`
 }
@@ -3331,8 +3464,27 @@ type VirtualClusterSchemaStatus struct {
 	DefaultValues string `json:"defaultValues,omitempty"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterStandalone struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              VirtualClusterStandaloneSpec   `json:"spec,omitempty"`
+	Status            VirtualClusterStandaloneStatus `json:"status,omitempty"`
+}
+
+type VirtualClusterStandaloneSpec struct {
+	CurrentPeer StandaloneEtcdPeer `json:"currentPeer"`
+	CurrentPKI  StandalonePKI      `json:"currentPKI"`
+}
+
+type VirtualClusterStandaloneStatus struct {
+	ETCDPeers []StandaloneEtcdPeerCoordinator `json:"etcdPeers"`
+	PKI       StandalonePKI                   `json:"currentPKI"`
+}
+
 // +genclient
-// +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterTemplate struct {
@@ -8605,6 +8757,125 @@ func (s *storageTranslateVClusterResourceName) DeleteTranslateVClusterResourceNa
 	return sync, err
 }
 
+// UsageDownload Functions and Structs
+//
+// +k8s:deepcopy-gen=false
+type UsageDownloadStrategy struct {
+	builders.DefaultStorageStrategy
+}
+
+// +k8s:deepcopy-gen=false
+type UsageDownloadStatusStrategy struct {
+	builders.DefaultStatusStorageStrategy
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type UsageDownloadList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []UsageDownload `json:"items"`
+}
+
+func (UsageDownload) NewStatus() interface{} {
+	return UsageDownloadStatus{}
+}
+
+func (pc *UsageDownload) GetStatus() interface{} {
+	return pc.Status
+}
+
+func (pc *UsageDownload) SetStatus(s interface{}) {
+	pc.Status = s.(UsageDownloadStatus)
+}
+
+func (pc *UsageDownload) GetSpec() interface{} {
+	return pc.Spec
+}
+
+func (pc *UsageDownload) SetSpec(s interface{}) {
+	pc.Spec = s.(UsageDownloadSpec)
+}
+
+func (pc *UsageDownload) GetObjectMeta() *metav1.ObjectMeta {
+	return &pc.ObjectMeta
+}
+
+func (pc *UsageDownload) SetGeneration(generation int64) {
+	pc.ObjectMeta.Generation = generation
+}
+
+func (pc UsageDownload) GetGeneration() int64 {
+	return pc.ObjectMeta.Generation
+}
+
+// Registry is an interface for things that know how to store UsageDownload.
+// +k8s:deepcopy-gen=false
+type UsageDownloadRegistry interface {
+	ListUsageDownloads(ctx context.Context, options *internalversion.ListOptions) (*UsageDownloadList, error)
+	GetUsageDownload(ctx context.Context, id string, options *metav1.GetOptions) (*UsageDownload, error)
+	CreateUsageDownload(ctx context.Context, id *UsageDownload) (*UsageDownload, error)
+	UpdateUsageDownload(ctx context.Context, id *UsageDownload) (*UsageDownload, error)
+	DeleteUsageDownload(ctx context.Context, id string) (bool, error)
+}
+
+// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
+func NewUsageDownloadRegistry(sp builders.StandardStorageProvider) UsageDownloadRegistry {
+	return &storageUsageDownload{sp}
+}
+
+// Implement Registry
+// storage puts strong typing around storage calls
+// +k8s:deepcopy-gen=false
+type storageUsageDownload struct {
+	builders.StandardStorageProvider
+}
+
+func (s *storageUsageDownload) ListUsageDownloads(ctx context.Context, options *internalversion.ListOptions) (*UsageDownloadList, error) {
+	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		return nil, fmt.Errorf("field selector not supported yet")
+	}
+	st := s.GetStandardStorage()
+	obj, err := st.List(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*UsageDownloadList), err
+}
+
+func (s *storageUsageDownload) GetUsageDownload(ctx context.Context, id string, options *metav1.GetOptions) (*UsageDownload, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Get(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*UsageDownload), nil
+}
+
+func (s *storageUsageDownload) CreateUsageDownload(ctx context.Context, object *UsageDownload) (*UsageDownload, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*UsageDownload), nil
+}
+
+func (s *storageUsageDownload) UpdateUsageDownload(ctx context.Context, object *UsageDownload) (*UsageDownload, error) {
+	st := s.GetStandardStorage()
+	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*UsageDownload), nil
+}
+
+func (s *storageUsageDownload) DeleteUsageDownload(ctx context.Context, id string) (bool, error) {
+	st := s.GetStandardStorage()
+	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
+	return sync, err
+}
+
 // User Functions and Structs
 //
 // +k8s:deepcopy-gen=false
@@ -8822,6 +9093,22 @@ type VirtualClusterNodeAccessKeyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualClusterNodeAccessKey `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterInstanceSnapshotList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterInstanceSnapshot `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterStandaloneList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterStandalone `json:"items"`
 }
 
 func (VirtualClusterInstance) NewStatus() interface{} {

@@ -1075,10 +1075,19 @@ func TestValidateToHostSyncAndExternalSecretsIntegration(t *testing.T) {
 	externalSecretsEnabled := config.ExternalSecrets{
 		Enabled: true,
 		Sync: config.ExternalSecretsSync{
-			ExternalSecrets: config.EnableSwitch{Enabled: true},
-			Stores:          config.EnableSwitch{Enabled: true},
-			ClusterStores: config.ClusterStoresSyncConfig{
-				EnableSwitch: config.EnableSwitch{Enabled: true},
+			ToHost: config.ExternalSecretsSyncToHostConfig{
+				Stores: config.EnableSwitchSelector{
+					EnableSwitch: config.EnableSwitch{
+						Enabled: true,
+					},
+				},
+			},
+			FromHost: config.ExternalSecretsSyncFromHostConfig{
+				ClusterStores: config.EnableSwitchSelector{
+					EnableSwitch: config.EnableSwitch{
+						Enabled: true,
+					},
+				},
 			},
 		},
 	}

@@ -312,7 +312,7 @@ controlPlane:
         ephemeral-storage: 8Gi
         memory: 2Gi
       requests:
-        ephemeral-storage: 400Mi
+        ephemeral-storage: 1Gi
         cpu: 200m
         memory: 256Mi
 
@@ -440,10 +440,10 @@ privateNodes:
   joinNode:
     containerd:
       enabled: true
-  nodePools:
+  autoNodes:
     static: []
     dynamic: []
-  tunnel:
+  vpn:
     enabled: false
     nodeToNode:
       enabled: false
@@ -496,14 +496,6 @@ integrations:
           enabled: false
           selector:
             matchLabels: {}
-      externalSecrets:
-        enabled: true
-      stores:
-        enabled: false
-      clusterStores:
-        enabled: false
-        selector:
-          labels: {}
   kubeVirt:
     enabled: false
     webhook:
@@ -659,12 +651,6 @@ experimental:
       manifests: ""
       manifestsTemplate: ""
       helm: []
-
-  genericSync:
-    clusterRole:
-      extraRules: []
-    role:
-      extraRules: []
 
 telemetry:
   enabled: true

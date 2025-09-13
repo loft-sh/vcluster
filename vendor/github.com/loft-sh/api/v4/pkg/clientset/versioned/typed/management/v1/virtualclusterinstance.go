@@ -33,6 +33,7 @@ type VirtualClusterInstanceInterface interface {
 	GetAccessKey(ctx context.Context, virtualClusterInstanceName string, options metav1.GetOptions) (*managementv1.VirtualClusterAccessKey, error)
 	GetExternalDatabase(ctx context.Context, virtualClusterInstanceName string, virtualClusterExternalDatabase *managementv1.VirtualClusterExternalDatabase, opts metav1.CreateOptions) (*managementv1.VirtualClusterExternalDatabase, error)
 	GetNodeAccessKey(ctx context.Context, virtualClusterInstanceName string, virtualClusterNodeAccessKey *managementv1.VirtualClusterNodeAccessKey, opts metav1.CreateOptions) (*managementv1.VirtualClusterNodeAccessKey, error)
+	GetStandaloneETCDPeers(ctx context.Context, virtualClusterInstanceName string, virtualClusterStandalone *managementv1.VirtualClusterStandalone, opts metav1.CreateOptions) (*managementv1.VirtualClusterStandalone, error)
 
 	VirtualClusterInstanceExpansion
 }
@@ -110,6 +111,21 @@ func (c *virtualClusterInstances) GetNodeAccessKey(ctx context.Context, virtualC
 		SubResource("nodeaccesskey").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(virtualClusterNodeAccessKey).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// GetStandaloneETCDPeers takes the representation of a virtualClusterStandalone and creates it.  Returns the server's representation of the virtualClusterStandalone, and an error, if there is any.
+func (c *virtualClusterInstances) GetStandaloneETCDPeers(ctx context.Context, virtualClusterInstanceName string, virtualClusterStandalone *managementv1.VirtualClusterStandalone, opts metav1.CreateOptions) (result *managementv1.VirtualClusterStandalone, err error) {
+	result = &managementv1.VirtualClusterStandalone{}
+	err = c.GetClient().Post().
+		Namespace(c.GetNamespace()).
+		Resource("virtualclusterinstances").
+		Name(virtualClusterInstanceName).
+		SubResource("standalone").
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(virtualClusterStandalone).
 		Do(ctx).
 		Into(result)
 	return

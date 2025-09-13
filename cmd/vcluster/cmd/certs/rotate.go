@@ -12,9 +12,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const standaloneConfig = `
+privateNodes:
+  enabled: true
+controlPlane:
+  standalone:
+    enabled: true
+`
+
 type rotateCmd struct {
-	log     log.Logger
-	pkiPath string
+	log        log.Logger
+	pkiPath    string
+	standalone bool
 }
 
 func rotate() *cobra.Command {
@@ -31,6 +40,7 @@ func rotate() *cobra.Command {
 		}}
 
 	rotateCmd.Flags().StringVar(&cmd.pkiPath, "path", constants.PKIDir, "The path to the PKI directory")
+	rotateCmd.Flags().BoolVar(&cmd.standalone, "standalone", false, "Signalizes if vCluster is running standalone")
 
 	return rotateCmd
 }
@@ -49,14 +59,26 @@ func rotateCA() *cobra.Command {
 		}}
 
 	rotateCACmd.Flags().StringVar(&cmd.pkiPath, "path", constants.PKIDir, "The path to the PKI directory")
+	rotateCACmd.Flags().BoolVar(&cmd.standalone, "standalone", false, "Signalizes if vCluster is running standalone")
 
 	return rotateCACmd
 }
 
 func (cmd *rotateCmd) Run(ctx context.Context, withCA bool) error {
-	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
-	if err != nil {
-		return fmt.Errorf("parsing vCluster config: %w", err)
+	var vConfig *config.VirtualClusterConfig
+
+	if cmd.standalone {
+		cfg, err := config.ParseConfigBytes([]byte(standaloneConfig), os.Getenv("VCLUSTER_NAME"), nil)
+		if err != nil {
+			return fmt.Errorf("parsing vCluster config: %w", err)
+		}
+		vConfig = cfg
+	} else {
+		cfg, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
+		if err != nil {
+			return fmt.Errorf("parsing vCluster config: %w", err)
+		}
+		vConfig = cfg
 	}
 
 	return certs.Rotate(ctx, vConfig, cmd.pkiPath, withCA, cmd.log)

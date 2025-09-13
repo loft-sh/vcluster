@@ -23,6 +23,10 @@ const (
 	GlobalPrometheusDeployed                  agentstoragev1.ConditionType = "GlobalPrometheusDeployed"
 	GlobalPrometheusAvailable                 agentstoragev1.ConditionType = "GlobalPrometheusAvailable"
 
+	EmbeddedPostgresAppliedHashAnnotation                              = "loft.sh/platform-db-applied-hash"
+	EmbeddedPostgresDeployed              agentstoragev1.ConditionType = "EmbeddedPostgresDeployed"
+	EmbeddedPostgresAvailable             agentstoragev1.ConditionType = "EmbeddedPostgresAvailable"
+
 	OpenCostLastAppliedHashAnnotation                              = "loft.sh/opencost-last-applied-hash"
 	OpenCostDeployed                  agentstoragev1.ConditionType = "OpenCostDeployed"
 	OpenCostAvailable                 agentstoragev1.ConditionType = "OpenCostAvailable"

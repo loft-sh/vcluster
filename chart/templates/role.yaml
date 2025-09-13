@@ -107,7 +107,7 @@ rules:
   - apiGroups: ["external-secrets.io"]
     resources: ["externalsecrets"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
-  {{- if or .Values.integrations.externalSecrets.sync.stores.enabled .Values.integrations.externalSecrets.sync.toHost.stores.enabled }}
+  {{- if .Values.integrations.externalSecrets.sync.toHost.stores.enabled }}
   - apiGroups: ["external-secrets.io"]
     resources: ["secretstores"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
@@ -135,7 +135,6 @@ rules:
   {{- end }}
   {{- include "vcluster.customResources.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
-  {{- include "vcluster.generic.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.rbac.roleExtraRules" . | indent 2 }}
   {{- end }}
 {{- end }}
