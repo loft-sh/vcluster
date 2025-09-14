@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/snapshot"
+	"github.com/loft-sh/vcluster/pkg/snapshot/meta"
 	"github.com/loft-sh/vcluster/test/framework"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -647,7 +648,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			beforeAll(controllerTestNamespaceName, true, snapshotPath)
 			Eventually(func() error {
 				listOptions := metav1.ListOptions{
-					LabelSelector: snapshot.RequestLabel,
+					LabelSelector: meta.RequestLabel,
 				}
 				snapshotRequestConfigMaps, err := f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).List(f.Context, listOptions)
 				framework.ExpectNoError(err)
