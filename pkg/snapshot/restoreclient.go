@@ -133,38 +133,10 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 
 		// check snapshot request
 		if strings.HasPrefix(string(key), RequestStoreKey) {
-			if vConfig.HostConfig == nil || vConfig.HostNamespace == "" {
-				// init the clients
-				vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
-				if err != nil {
-					return fmt.Errorf("failed to init client config: %w", err)
-				}
-			}
-			if vConfig.HostClient == nil {
-				err = setupconfig.InitClients(vConfig)
-				if err != nil {
-					return fmt.Errorf("failed to init clients: %w", err)
-				}
-			}
-
-			var snapshotRequest Request
-			err = json.Unmarshal(value, &snapshotRequest)
+			err = o.createRestoreRequest(ctx, vConfig, value)
 			if err != nil {
-				return fmt.Errorf("failed to unmarshal snapshot request: %w", err)
+				return fmt.Errorf("failed to create restore request: %w", err)
 			}
-			klog.Infof("Found snapshot request: %s", snapshotRequest.Name)
-			restoreRequestConfigMap := &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:    vConfig.HostNamespace,
-					GenerateName: fmt.Sprintf("%s-restore-request-", vConfig.Name),
-				},
-				Data: nil,
-			}
-			restoreRequestConfigMap, err = vConfig.HostClient.CoreV1().ConfigMaps(vConfig.HostNamespace).Create(ctx, restoreRequestConfigMap, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("failed to create restore request ConfigMap: %w", err)
-			}
-			klog.Infof("Created restore request: %s/%s", restoreRequestConfigMap.Namespace, restoreRequestConfigMap.Name)
 			continue
 		}
 
@@ -202,6 +174,55 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 
 	klog.Infof("Successfully restored %d etcd keys from snapshot", restoredKeys)
 	klog.Infof("Successfully restored snapshot from %s", objectStore.Target())
+	return nil
+}
+
+func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *config.VirtualClusterConfig, value []byte) error {
+	var err error
+	if vConfig.HostConfig == nil || vConfig.HostNamespace == "" {
+		// init the clients
+		vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
+		if err != nil {
+			return fmt.Errorf("failed to init client config: %w", err)
+		}
+	}
+	if vConfig.HostClient == nil {
+		err = setupconfig.InitClients(vConfig)
+		if err != nil {
+			return fmt.Errorf("failed to init clients: %w", err)
+		}
+	}
+
+	var snapshotRequest Request
+	err = json.Unmarshal(value, &snapshotRequest)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal snapshot request: %w", err)
+	}
+	klog.Infof("Found snapshot request: %s", snapshotRequest.Name)
+
+	// first create the snapshot options Secret
+	secret, err := CreateSnapshotOptionsSecret(vConfig.HostNamespace, vConfig.Name, &o.Snapshot)
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+	secret.GenerateName = fmt.Sprintf("%s-restore-request-", vConfig.Name)
+	secret, err = vConfig.HostClient.CoreV1().Secrets(vConfig.HostNamespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+
+	// then create the restore request that will be reconciled by the controller
+	configMap, err := CreateRestoreRequestConfigMap(vConfig.HostNamespace, vConfig.Name, snapshotRequest)
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+	}
+	configMap.Name = secret.Name
+	_, err = vConfig.HostClient.CoreV1().ConfigMaps(vConfig.HostNamespace).Create(ctx, configMap, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+	}
+
+	klog.Infof("Created restore request: %s/%s", configMap.Namespace, configMap.Name)
 	return nil
 }
 
