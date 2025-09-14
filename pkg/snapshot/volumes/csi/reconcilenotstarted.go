@@ -3,9 +3,10 @@ package csi
 import (
 	"context"
 	"fmt"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, snapshotRequestName string, snapshotRequest *volumes.SnapshotRequest) error {
@@ -38,7 +39,15 @@ func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, snapshotReq
 			s.logger.Errorf("failed to get PersistentVolumeClaim %s/%s for PersistentVolume %s: %w", pv.Spec.ClaimRef.Namespace, pv.Spec.ClaimRef.Name, pv.Name, err)
 			continue
 		}
-		snapshotConfig.PersistentVolumeClaim = *pvc
+		pvcCopy := pvc.DeepCopy()
+		delete(pvcCopy.Annotations, "kubectl.kubernetes.io/last-applied-configuration")
+		delete(pvcCopy.Annotations, "pv.kubernetes.io/bind-completed")
+		delete(pvcCopy.Annotations, "pv.kubernetes.io/bound-by-controller")
+		delete(pvcCopy.Annotations, "volume.beta.kubernetes.io/storage-provisioner")
+		delete(pvcCopy.Annotations, "volume.kubernetes.io/storage-provisioner")
+		pvcCopy.ManagedFields = nil
+		pvcCopy.Status = corev1.PersistentVolumeClaimStatus{}
+		snapshotConfig.PersistentVolumeClaim = *pvcCopy
 
 		if volumeSnapshotClassName, ok := pvc.Labels[volumes.SnapshotClassNameLabel]; ok {
 			snapshotConfig.VolumeSnapshotClassName = volumeSnapshotClassName
