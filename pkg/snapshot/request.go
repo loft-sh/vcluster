@@ -13,6 +13,9 @@ import (
 )
 
 const (
+	// APIVersion is the snapshot request API version.
+	APIVersion = "v1beta1"
+
 	RequestKey = "snapshotRequest"
 	OptionsKey = "snapshotOptions"
 
