@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/snapshot/meta"
 
 	snapshotsv1api "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
+	"github.com/loft-sh/vcluster/pkg/snapshot/meta"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
