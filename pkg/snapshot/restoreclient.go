@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,11 +22,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/k8s"
 	"github.com/loft-sh/vcluster/pkg/mappings/store"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"go.etcd.io/etcd/server/v3/storage/backend"
 	"go.etcd.io/etcd/server/v3/storage/mvcc"
 	"go.etcd.io/etcd/server/v3/storage/schema"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/protobuf"
@@ -130,7 +133,38 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 
 		// check snapshot request
 		if strings.HasPrefix(string(key), RequestStoreKey) {
-			klog.Infof("Found snapshot request: %s", string(value))
+			if vConfig.HostConfig == nil || vConfig.HostNamespace == "" {
+				// init the clients
+				vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
+				if err != nil {
+					return fmt.Errorf("failed to init client config: %w", err)
+				}
+			}
+			if vConfig.HostClient == nil {
+				err = setupconfig.InitClients(vConfig)
+				if err != nil {
+					return fmt.Errorf("failed to init clients: %w", err)
+				}
+			}
+
+			var snapshotRequest Request
+			err = json.Unmarshal(value, &snapshotRequest)
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal snapshot request: %w", err)
+			}
+			klog.Infof("Found snapshot request: %s", snapshotRequest.Name)
+			restoreRequestConfigMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:    vConfig.HostNamespace,
+					GenerateName: fmt.Sprintf("%s-restore-request-", vConfig.Name),
+				},
+				Data: nil,
+			}
+			restoreRequestConfigMap, err = vConfig.HostClient.CoreV1().ConfigMaps(vConfig.HostNamespace).Create(ctx, restoreRequestConfigMap, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to create restore request ConfigMap: %w", err)
+			}
+			klog.Infof("Created restore request: %s/%s", restoreRequestConfigMap.Namespace, restoreRequestConfigMap.Name)
 			continue
 		}
 
