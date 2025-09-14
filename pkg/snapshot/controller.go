@@ -308,6 +308,7 @@ func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap 
 	// Create and save the snapshot! 💾
 	c.logger.Infof("Creating vCluster snapshot in storage type %q", snapshotOptions.Type)
 	snapshotClient := &Client{
+		Request: snapshotRequest,
 		Options: *snapshotOptions,
 	}
 	if !c.isHostMode {
