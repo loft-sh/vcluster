@@ -6,18 +6,21 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/snapshot/meta"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	RequestLabel = "vcluster.loft.sh/snapshot-request"
-	RequestKey   = "snapshotRequest"
-	OptionsKey   = "snapshotOptions"
+	RequestKey = "snapshotRequest"
+	OptionsKey = "snapshotOptions"
 
-	RequestPhaseInProgress RequestPhase = "InProgress"
-	RequestPhaseCompleted  RequestPhase = "Completed"
-	RequestPhaseFailed     RequestPhase = "Failed"
+	RequestPhaseNotStarted              RequestPhase = ""
+	RequestPhaseCreatingVolumeSnapshots RequestPhase = "CreatingVolumeSnapshots"
+	RequestPhaseCreatingEtcdBackup      RequestPhase = "CreatingEtcdBackup"
+	RequestPhaseCompleted               RequestPhase = "Completed"
+	RequestPhaseFailed                  RequestPhase = "Failed"
 )
 
 type RequestPhase string
@@ -33,7 +36,8 @@ func (r *Request) Done() bool {
 }
 
 type RequestSpec struct {
-	Options Options `json:"-"`
+	VolumeSnapshots volumes.SnapshotRequest `json:"volumeSnapshots"`
+	Options         Options                 `json:"-"`
 }
 
 type RequestStatus struct {
@@ -58,7 +62,7 @@ func UnmarshalSnapshotRequest(configMap *corev1.ConfigMap) (*Request, error) {
 		return nil, fmt.Errorf("config map is nil")
 	}
 	// check if ConfigMap has the required snapshot request label
-	if _, ok := configMap.Labels[RequestLabel]; !ok {
+	if _, ok := configMap.Labels[meta.RequestLabel]; !ok {
 		return nil, fmt.Errorf("config map does not have the snapshot request label")
 	}
 
@@ -82,7 +86,7 @@ func UnmarshalSnapshotOptions(secret *corev1.Secret) (*Options, error) {
 	}
 
 	// check if Secret has the required snapshot request label
-	if _, ok := secret.Labels[RequestLabel]; !ok {
+	if _, ok := secret.Labels[meta.RequestLabel]; !ok {
 		return nil, fmt.Errorf("secret does not have the snapshot request label")
 	}
 
@@ -120,7 +124,7 @@ func CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName string, snap
 			Labels: map[string]string{
 				constants.VClusterNamespaceLabel: vClusterNamespace,
 				constants.VClusterNameLabel:      vClusterName,
-				RequestLabel:                     "",
+				meta.RequestLabel:                "",
 			},
 		},
 		Data: map[string]string{
@@ -149,7 +153,7 @@ func CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName string, snapsho
 			Labels: map[string]string{
 				constants.VClusterNamespaceLabel: vClusterNamespace,
 				constants.VClusterNameLabel:      vClusterName,
-				RequestLabel:                     "",
+				meta.RequestLabel:                "",
 			},
 		},
 		Data: map[string][]byte{

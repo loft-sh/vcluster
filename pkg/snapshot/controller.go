@@ -7,14 +7,20 @@ import (
 	"fmt"
 	"time"
 
+	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	snapshotMeta "github.com/loft-sh/vcluster/pkg/snapshot/meta"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
+	csiVolumes "github.com/loft-sh/vcluster/pkg/snapshot/volumes/csi"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -30,11 +36,13 @@ const (
 )
 
 type Reconciler struct {
-	vConfig       *config.VirtualClusterConfig
-	manager       ctrl.Manager
-	logger        loghelper.Logger
-	eventRecorder record.EventRecorder
-	isHostMode    bool
+	vConfig                    *config.VirtualClusterConfig
+	snapshotRequestsKubeClient client.Client
+	snapshotRequestsManager    ctrl.Manager
+	logger                     loghelper.Logger
+	eventRecorder              record.EventRecorder
+	volumeSnapshotter          volumes.Snapshotter
+	isHostMode                 bool
 }
 
 func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, error) {
@@ -51,22 +59,59 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 		return nil, fmt.Errorf("failed to check if snapshot request is created in host cluster: %w", err)
 	}
 
-	var manager ctrl.Manager
+	var snapshotRequestsManager ctrl.Manager
 	if isHostMode {
-		logger.Infof("Registering vcluster-snapshot-controller to watch for volume snapshot requests in the host cluster")
-		manager = registerContext.HostManager
+		snapshotRequestsManager = registerContext.HostManager
+		logger.Infof("vcluster-snapshot-controller will reconcile snapshot requests in the host cluster")
 	} else {
-		logger.Infof("Registering vcluster-snapshot-controller to watch for volume snapshot requests in the virtual cluster")
-		manager = registerContext.VirtualManager
+		snapshotRequestsManager = registerContext.VirtualManager
+		logger.Infof("vcluster-snapshot-controller will reconcile snapshot requests in the virtual cluster")
+	}
+
+	var volumesManager ctrl.Manager
+	if registerContext.Config.PrivateNodes.Enabled {
+		logger.Infof("vcluster-snapshot-controller will create volume snapshots in the virtual cluster")
+		volumesManager = registerContext.VirtualManager
+	} else {
+		logger.Infof("vcluster-snapshot-controller will create volume snapshots in the host cluster")
+		volumesManager = registerContext.HostManager
+	}
+	kubeClient, snapshotsClient, err := createClients(volumesManager.GetConfig())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kuberenetes clients: %w", err)
+	}
+	volumeSnapshotter, err := csiVolumes.NewVolumeSnapshotter(registerContext.Config, kubeClient, snapshotsClient, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create volume snapshotter: %w", err)
 	}
 
 	return &Reconciler{
-		vConfig:       registerContext.Config,
-		manager:       manager,
-		logger:        logger,
-		eventRecorder: manager.GetEventRecorderFor(controllerName),
-		isHostMode:    isHostMode,
+		vConfig:                    registerContext.Config,
+		snapshotRequestsKubeClient: snapshotRequestsManager.GetClient(),
+		snapshotRequestsManager:    snapshotRequestsManager,
+		logger:                     logger,
+		eventRecorder:              snapshotRequestsManager.GetEventRecorderFor(controllerName),
+		volumeSnapshotter:          volumeSnapshotter,
+		isHostMode:                 isHostMode,
 	}, nil
+}
+
+func createClients(restConfig *rest.Config) (*kubernetes.Clientset, *snapshotsv1.Clientset, error) {
+	if restConfig == nil {
+		return nil, nil, errors.New("rest config is nil")
+	}
+
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create kube client: %w", err)
+	}
+
+	snapshotClient, err := snapshotsv1.NewForConfig(restConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create snapshot client: %w", err)
+	}
+
+	return kubeClient, snapshotClient, nil
 }
 
 func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, retErr error) {
@@ -97,37 +142,85 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, fmt.Errorf("failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
 
-	// Not done? Add finalizer! 🔒
+	// Not done? Add the finalizer if it's not already set! 🔒
 	if !snapshotRequest.Done() {
 		updated, err := c.addFinalizer(ctx, &configMap)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to add vCluster snapshot controller finalizer to the snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
 		if updated {
+			c.eventRecorder.Eventf(&configMap, corev1.EventTypeNormal, "SnapshotRequestCreated", "Snapshot request %s/%s has been created", configMap.Namespace, configMap.Name)
 			return ctrl.Result{}, nil
 		}
 	}
 
+	// patch snapshot request ConfigMap after the reconciliation
+	configMapBeforeChange := client.MergeFrom(configMap.DeepCopy())
 	defer func() {
-		if retErr == nil {
-			return
+		if retErr != nil {
+			// something went wrong, recorde error and update snapshot request phase to Failed
+			c.eventRecorder.Eventf(&configMap, corev1.EventTypeWarning, "SnapshotRequestFailed", "Snapshot request %s/%s has failed with error: %v", configMap.Namespace, configMap.Name, retErr)
+			snapshotRequest.Status.Phase = RequestPhaseFailed
 		}
-		// something went wrong, recorde error and update snapshot request phase to Failed
-		c.eventRecorder.Eventf(&configMap, corev1.EventTypeWarning, "SnapshotRequestFailed", "Snapshot request %s/%s has failed with error: %v", configMap.Namespace, configMap.Name, retErr)
-		_, err = c.updateRequestPhase(ctx, &configMap, *snapshotRequest, RequestPhaseFailed)
-		if err != nil {
-			retErr = fmt.Errorf("failed to update snapshot request phase to %s: %w", RequestPhaseFailed, err)
+		updateErr := c.updateRequest(ctx, configMapBeforeChange, &configMap, *snapshotRequest)
+		if updateErr != nil {
+			retErr = fmt.Errorf("failed to update snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, updateErr)
+		}
+		if retErr != nil {
+			retErr = errors.Join(retErr, updateErr)
+		} else {
+			retErr = updateErr
 		}
 	}()
 
 	switch snapshotRequest.Status.Phase {
-	case "":
+	case RequestPhaseNotStarted:
 		err = c.reconcileNewRequest(ctx, &configMap, snapshotRequest)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile new snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
-	case RequestPhaseInProgress:
-		requeue, err := c.reconcileInProgressRequest(ctx, &configMap, snapshotRequest)
+	case RequestPhaseCreatingVolumeSnapshots:
+		// reconcile volume snapshots
+		volumeSnapshotsRequest := &snapshotRequest.Spec.VolumeSnapshots
+		previousVolumeSnapshotsRequestPhase := volumeSnapshotsRequest.Status.Phase
+		err = c.volumeSnapshotter.Reconcile(ctx, snapshotRequest.Name, volumeSnapshotsRequest)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to reconcile volume snapshots: %w", err)
+		}
+
+		// check volume snapshots' status
+		switch volumeSnapshotsRequest.Status.Phase {
+		case volumes.RequestPhaseInProgress:
+			if previousVolumeSnapshotsRequestPhase == volumes.RequestPhaseNotStarted {
+				// volume snapshots request just got initialized and moved to in-progress
+				return ctrl.Result{
+					RequeueAfter: 5 * time.Second,
+				}, nil
+			} else {
+				// ongoing volume snapshots reconciliation, this may take some time, wait a bit before reconciling again
+				return ctrl.Result{
+					RequeueAfter: time.Minute,
+				}, nil
+			}
+		case volumes.RequestPhaseCleaningUp:
+			if previousVolumeSnapshotsRequestPhase == volumes.RequestPhaseInProgress {
+				// volume snapshots got created and resources should be now cleaned up
+				return ctrl.Result{
+					RequeueAfter: 5 * time.Second,
+				}, nil
+			} else {
+				// ongoing volume snapshots cleanup in progress, wait a bit before reconciling again
+				return ctrl.Result{
+					RequeueAfter: 30 * time.Second,
+				}, nil
+			}
+		case volumes.RequestPhaseCompleted:
+			snapshotRequest.Status.Phase = RequestPhaseCreatingEtcdBackup
+		case volumes.RequestPhaseFailed:
+			snapshotRequest.Status.Phase = RequestPhaseFailed
+		}
+	case RequestPhaseCreatingEtcdBackup:
+		requeue, err := c.reconcileCreatingEtcdBackup(ctx, &configMap, snapshotRequest)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile in-progress snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
@@ -163,11 +256,11 @@ func (c *Reconciler) Register() error {
 		if objLabels == nil {
 			return false
 		}
-		_, ok := objLabels[RequestLabel]
+		_, ok := objLabels[snapshotMeta.RequestLabel]
 		return ok
 	})
 
-	return ctrl.NewControllerManagedBy(c.manager).
+	return ctrl.NewControllerManagedBy(c.snapshotRequestsManager).
 		WithOptions(controller.Options{
 			CacheSyncTimeout:        constants.DefaultCacheSyncTimeout,
 			MaxConcurrentReconciles: 1,
@@ -179,18 +272,14 @@ func (c *Reconciler) Register() error {
 
 // reconcileNewRequest updates the snapshot request phase to "InProgress".
 func (c *Reconciler) reconcileNewRequest(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *Request) error {
-	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCreated", "Snapshot request %s/%s has been created", configMap.Namespace, configMap.Name)
-	_, err := c.updateRequestPhase(ctx, configMap, *snapshotRequest, RequestPhaseInProgress)
-	if err != nil {
-		return fmt.Errorf("failed to update snapshot request phase to %s: %w", RequestPhaseInProgress, err)
-	}
-	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestInProgress", "Snapshot request %s/%s is in progress", configMap.Namespace, configMap.Name)
+	snapshotRequest.Status.Phase = RequestPhaseCreatingVolumeSnapshots
+	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCreatingVolumeSnapshots", "Started to create volume snapshots for snapshot request %s/%s", configMap.Namespace, configMap.Name)
 	return nil
 }
 
-// reconcileInProgressRequest creates the snapshot, uploads it to the specified storage, and updates
+// reconcileCreatingEtcdBackup creates the snapshot, uploads it to the specified storage, and updates
 // the snapshot request phase to "Completed".
-func (c *Reconciler) reconcileInProgressRequest(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *Request) (bool, error) {
+func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *Request) (bool, error) {
 	// Find snapshot request secret, it contains snapshot options (with the storage credentials) 🪪
 	var secret corev1.Secret
 	secretObjectKey := client.ObjectKey{
@@ -240,10 +329,7 @@ func (c *Reconciler) reconcileInProgressRequest(ctx context.Context, configMap *
 	c.logger.Infof("Created vCluster snapshot in storage type %q", snapshotOptions.Type)
 
 	// All done, now update the snapshot request phase to "Completed"! ✅
-	_, err = c.updateRequestPhase(ctx, configMap, *snapshotRequest, RequestPhaseCompleted)
-	if err != nil {
-		return false, fmt.Errorf("failed to update snapshot request phase to %s: %w", RequestPhaseCompleted, err)
-	}
+	snapshotRequest.Status.Phase = RequestPhaseCompleted
 	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCompleted", "Snapshot request %s/%s has been completed", configMap.Namespace, configMap.Name)
 	return false, nil
 }
@@ -398,7 +484,7 @@ func (c *Reconciler) deleteSnapshotRequestSecret(ctx context.Context, configMap 
 }
 
 func (c *Reconciler) client() client.Client {
-	return c.manager.GetClient()
+	return c.snapshotRequestsKubeClient
 }
 
 func (c *Reconciler) getSnapshotRequestNamespace() string {
@@ -408,29 +494,20 @@ func (c *Reconciler) getSnapshotRequestNamespace() string {
 	return "kube-system"
 }
 
-func (c *Reconciler) updateRequestPhase(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest Request, phase RequestPhase) (bool, error) {
-	if snapshotRequest.Status.Phase == phase {
-		return false, nil
-	}
-
-	// before the change
-	oldConfigMap := client.MergeFrom(configMap.DeepCopy())
-
-	// update phase to InProgress
-	snapshotRequest.Status.Phase = phase
+func (c *Reconciler) updateRequest(ctx context.Context, previousConfigMapState client.Patch, configMap *corev1.ConfigMap, snapshotRequest Request) error {
 	snapshotRequestJSON, err := json.Marshal(snapshotRequest)
 	if err != nil {
-		return false, fmt.Errorf("failed to marshal snapshot request (with phase updated to %s) to JSON: %w", phase, err)
+		return fmt.Errorf("failed to marshal snapshot request to JSON: %w", err)
 	}
 	configMap.Data[RequestKey] = string(snapshotRequestJSON)
 
 	// patch snapshot request ConfigMap
-	err = c.client().Patch(ctx, configMap, oldConfigMap)
+	err = c.client().Patch(ctx, configMap, previousConfigMapState)
 	if err != nil {
-		return false, fmt.Errorf("failed to patch snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
+		return fmt.Errorf("failed to patch snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
-	c.logger.Infof("Updated snapshot request %s/%s status, set phase to %s", configMap.Namespace, configMap.Name, phase)
-	return true, nil
+	c.logger.Infof("Patched snapshot request %s/%s", configMap.Namespace, configMap.Name)
+	return nil
 }
 
 func (c *Reconciler) getOngoingSnapshotRequestsResourceNames(ctx context.Context) ([]types.NamespacedName, []types.NamespacedName, error) {
@@ -439,7 +516,7 @@ func (c *Reconciler) getOngoingSnapshotRequestsResourceNames(ctx context.Context
 	listOptions := &client.ListOptions{
 		Namespace: c.getSnapshotRequestNamespace(),
 		LabelSelector: labels.SelectorFromSet(map[string]string{
-			RequestLabel: "",
+			snapshotMeta.RequestLabel: "",
 		}),
 	}
 	err := c.client().List(ctx, &configMaps, listOptions)
