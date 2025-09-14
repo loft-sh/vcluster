@@ -95,7 +95,7 @@ func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, snapshot
 	volumeSnapshot, err := s.snapshotsClient.SnapshotV1().VolumeSnapshots(pvcName.Namespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
 		// create new VolumeSnapshot
-		volumeSnapshot, err = s.createVolumeSnapshotResource(ctx, snapshotRequestName, volumeSnapshotName, pvcName, config.VolumeSnapshotClassName)
+		_, err = s.createVolumeSnapshotResource(ctx, snapshotRequestName, volumeSnapshotName, pvcName, config.VolumeSnapshotClassName)
 		if err != nil {
 			return volumes.SnapshotStatus{}, fmt.Errorf("failed to create VolumeSnapshot for the PersistentVolumeClaim %s: %w", pvcName, err)
 		}
