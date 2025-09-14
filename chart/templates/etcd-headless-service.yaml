@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster-etcd
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
   {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.controlPlane.backingStore.etcd.deploy.headlessService.annotations }}

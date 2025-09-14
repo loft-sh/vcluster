@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    chart: "{{ include "vcluster.version.label"  $ }}"
   {{- if or (not .Values.controlPlane.serviceMonitor.labels) (not (hasKey .Values.controlPlane.serviceMonitor.labels "release")) }}
     release: "{{ .Release.Name }}"
   {{- end}}
@@ -24,7 +24,7 @@ spec:
     matchLabels:
       app: vcluster
       release: "{{ .Release.Name }}"
-      chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+      chart: "{{ include "vcluster.version.label"  $ }}"
       heritage: "{{ .Release.Service }}"
       vcluster.loft.sh/service: "true"
   endpoints:
