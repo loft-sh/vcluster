@@ -218,6 +218,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			snapshotRequest.Status.Phase = RequestPhaseCreatingEtcdBackup
 		case volumes.RequestPhaseFailed:
 			snapshotRequest.Status.Phase = RequestPhaseFailed
+		default:
+			return ctrl.Result{}, fmt.Errorf("unexpected volume snapshots request phase %s", volumeSnapshotsRequest.Status.Phase)
 		}
 	case RequestPhaseCreatingEtcdBackup:
 		requeue, err := c.reconcileCreatingEtcdBackup(ctx, &configMap, snapshotRequest)
