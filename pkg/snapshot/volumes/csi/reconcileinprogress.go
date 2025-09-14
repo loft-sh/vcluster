@@ -11,7 +11,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 )
 
 func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, snapshotRequestName string, snapshotRequest *volumes.SnapshotRequest) (retErr error) {
@@ -33,6 +32,9 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, snapshotReq
 			Namespace: snapshotConfig.PersistentVolumeClaim.Namespace,
 			Name:      snapshotConfig.PersistentVolumeClaim.Name,
 		}.String()
+		if snapshotRequest.Status.Snapshots == nil {
+			snapshotRequest.Status.Snapshots = volumes.Snapshots{}
+		}
 		snapshotStatus, ok := snapshotRequest.Status.Snapshots[pvcName]
 		if !ok {
 			snapshotStatus = volumes.SnapshotStatus{
@@ -83,13 +85,13 @@ func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, snapshot
 		}
 	}()
 
+	volumeSnapshotName := fmt.Sprintf("%s-%s", config.PersistentVolumeClaim.Name, snapshotRequestName)
+
+	// Check if VolumeSnapshot has been created
 	pvcName := types.NamespacedName{
 		Namespace: config.PersistentVolumeClaim.Namespace,
 		Name:      config.PersistentVolumeClaim.Name,
 	}
-	volumeSnapshotName := fmt.Sprintf("%s-%s", pvcName.String(), snapshotRequestName)
-
-	// Check if VolumeSnapshot has been created
 	volumeSnapshot, err := s.snapshotsClient.SnapshotV1().VolumeSnapshots(pvcName.Namespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
 		// create new VolumeSnapshot
@@ -99,6 +101,8 @@ func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, snapshot
 		}
 		// snapshot creation will take a while, return and check back later in a new reconciliation loop
 		return status, nil
+	} else if err != nil {
+		return volumes.SnapshotStatus{}, fmt.Errorf("failed to get VolumeSnapshot %s/%s: %w", volumeSnapshot.Namespace, volumeSnapshot.Name, err)
 	}
 
 	// check if VolumeSnapshot has failed
@@ -173,16 +177,19 @@ func (s *VolumeSnapshotter) createVolumeSnapshotResource(ctx context.Context, sn
 			Name:      volumeSnapshotName,
 			Labels: map[string]string{
 				meta.RequestLabel:              snapshotRequestName,
-				persistentVolumeClaimNameLabel: pvcName.String(),
+				persistentVolumeClaimNameLabel: pvcName.Name,
 			},
 		},
 		Spec: snapshotsv1api.VolumeSnapshotSpec{
 			Source: snapshotsv1api.VolumeSnapshotSource{
 				PersistentVolumeClaimName: &pvcName.Name,
 			},
-			VolumeSnapshotClassName: ptr.To(volumeSnapshotClassName),
 		},
 	}
+	if volumeSnapshotClassName != "" {
+		volumeSnapshot.Spec.VolumeSnapshotClassName = &volumeSnapshotClassName
+	}
+
 	var err error
 	volumeSnapshot, err = s.snapshotsClient.SnapshotV1().VolumeSnapshots(pvcName.Namespace).Create(ctx, volumeSnapshot, metav1.CreateOptions{})
 	if err != nil {
