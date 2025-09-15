@@ -10,6 +10,7 @@ const (
 	RequestPhaseInProgress SnapshotRequestPhase = "InProgress"
 	RequestPhaseCleaningUp SnapshotRequestPhase = "CleaningUp"
 	RequestPhaseCompleted  SnapshotRequestPhase = "Completed"
+	RequestPhaseSkipped    SnapshotRequestPhase = "Skipped"
 	RequestPhaseFailed     SnapshotRequestPhase = "Failed"
 )
 

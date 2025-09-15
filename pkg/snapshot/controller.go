@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	snapshotMeta "github.com/loft-sh/vcluster/pkg/snapshot/meta"
@@ -19,14 +18,11 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
@@ -36,6 +32,7 @@ const (
 )
 
 type Reconciler struct {
+	reconcilerBase
 	vConfig                    *config.VirtualClusterConfig
 	snapshotRequestsKubeClient client.Client
 	snapshotRequestsManager    ctrl.Manager
@@ -85,7 +82,19 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 		return nil, fmt.Errorf("failed to create volume snapshotter: %w", err)
 	}
 
+	reconciler := reconcilerBase{
+		vConfig:            registerContext.Config,
+		requestsKubeClient: snapshotRequestsManager.GetClient(),
+		requestsManager:    snapshotRequestsManager,
+		logger:             logger,
+		eventRecorder:      snapshotRequestsManager.GetEventRecorderFor(controllerName),
+		isHostMode:         isHostMode,
+		kind:               snapshotReconciler,
+		finalizer:          ControllerFinalizer,
+		requestKey:         RequestKey,
+	}
 	return &Reconciler{
+		reconcilerBase:             reconciler,
 		vConfig:                    registerContext.Config,
 		snapshotRequestsKubeClient: snapshotRequestsManager.GetClient(),
 		snapshotRequestsManager:    snapshotRequestsManager,
@@ -94,24 +103,6 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 		volumeSnapshotter:          volumeSnapshotter,
 		isHostMode:                 isHostMode,
 	}, nil
-}
-
-func createClients(restConfig *rest.Config) (*kubernetes.Clientset, *snapshotsv1.Clientset, error) {
-	if restConfig == nil {
-		return nil, nil, errors.New("rest config is nil")
-	}
-
-	kubeClient, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not create kube client: %w", err)
-	}
-
-	snapshotClient, err := snapshotsv1.NewForConfig(restConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not create snapshot client: %w", err)
-	}
-
-	return kubeClient, snapshotClient, nil
 }
 
 func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, retErr error) {
@@ -242,7 +233,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile failed snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
 	default:
-		return ctrl.Result{}, fmt.Errorf("unknown snapshot request phase %s", snapshotRequest.Status.Phase)
+		return ctrl.Result{}, fmt.Errorf("invalid snapshot request phase %s", snapshotRequest.Status.Phase)
 	}
 
 	return ctrl.Result{}, nil
@@ -250,7 +241,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 func (c *Reconciler) Register() error {
 	isVolumeSnapshotsConfig := predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		if obj.GetNamespace() != c.getSnapshotRequestNamespace() {
+		if obj.GetNamespace() != c.getRequestNamespace() {
 			return false
 		}
 
@@ -337,166 +328,6 @@ func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap 
 	return false, nil
 }
 
-// reconcileCompletedRequest cleans up the completed snapshot request resources.
-func (c *Reconciler) reconcileCompletedRequest(ctx context.Context, configMap *corev1.ConfigMap) error {
-	c.logger.Infof("Snapshot request from ConfigMap %s/%s has been completed", configMap.Namespace, configMap.Name)
-	err := c.reconcileDoneRequest(ctx, configMap)
-	if err != nil {
-		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
-	}
-	return nil
-}
-
-// reconcileFailedRequest cleans up the failed snapshot request resources.
-func (c *Reconciler) reconcileFailedRequest(ctx context.Context, configMap *corev1.ConfigMap) error {
-	c.logger.Errorf("Snapshot request from ConfigMap %s/%s has failed", configMap.Namespace, configMap.Name)
-	err := c.reconcileDoneRequest(ctx, configMap)
-	if err != nil {
-		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
-	}
-	return nil
-}
-
-// reconcileDeletedRequest deletes the snapshot request Secret and removes the finalizer from the
-// snapshot request ConfigMap.
-func (c *Reconciler) reconcileDeletedRequest(ctx context.Context, configMap *corev1.ConfigMap) (retErr error) {
-	// snapshot request ConfigMap deleted, so delete Secret as well
-	c.logger.Infof("Snapshot request ConfigMap %s/%s deleted", configMap.Namespace, configMap.Name)
-
-	err := c.reconcileDoneRequest(ctx, configMap)
-	if err != nil {
-		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
-	}
-	return nil
-}
-
-// reconcileDoneRequest deletes the snapshot request Secret and removes the finalizer from the
-// snapshot request ConfigMap.
-func (c *Reconciler) reconcileDoneRequest(ctx context.Context, configMap *corev1.ConfigMap) (retErr error) {
-	defer func() {
-		if retErr != nil {
-			// an error occurred, don't remove the finalizer
-			return
-		}
-		err := c.removeFinalizer(ctx, configMap)
-		if err != nil {
-			retErr = fmt.Errorf("failed to remove vCluster snapshot controller finalizer from the snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
-		}
-	}()
-
-	err := c.deleteSnapshotRequestSecret(ctx, configMap)
-	if err != nil {
-		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
-	}
-	return nil
-}
-
-func (c *Reconciler) addFinalizer(ctx context.Context, configMap *corev1.ConfigMap) (bool, error) {
-	if controllerutil.ContainsFinalizer(configMap, ControllerFinalizer) {
-		return false, nil
-	}
-
-	c.logger.Infof(
-		"Adding vCluster snapshot controller finalizer %s to the snapshot request ConfigMap %s/%s",
-		ControllerFinalizer,
-		configMap.Namespace,
-		configMap.Name)
-
-	// before the change
-	oldConfigMap := client.MergeFrom(configMap.DeepCopy())
-
-	// add the snapshot controller finalizer to the snapshot request ConfigMap
-	controllerutil.AddFinalizer(configMap, ControllerFinalizer)
-
-	// patch the object
-	err := c.client().Patch(ctx, configMap, oldConfigMap)
-	if err != nil {
-		return false, fmt.Errorf("failed to patch snapshot request ConfigMap %s/%s finalizers: %w", configMap.Namespace, configMap.Name, err)
-	}
-
-	c.logger.Infof(
-		"Added vCluster snapshot controller finalizer %s to the snapshot request ConfigMap %s/%s",
-		ControllerFinalizer,
-		configMap.Namespace,
-		configMap.Name)
-	return true, nil
-}
-
-func (c *Reconciler) removeFinalizer(ctx context.Context, configMap *corev1.ConfigMap) error {
-	if !controllerutil.ContainsFinalizer(configMap, ControllerFinalizer) {
-		return nil
-	}
-
-	c.logger.Infof(
-		"Removing vCluster snapshot controller finalizer %s from the snapshot request ConfigMap %s/%s",
-		ControllerFinalizer,
-		configMap.Namespace,
-		configMap.Name)
-
-	// before the change
-	oldConfigMap := client.MergeFrom(configMap.DeepCopy())
-
-	// add the snapshot controller finalizer to the snapshot request ConfigMap
-	controllerutil.RemoveFinalizer(configMap, ControllerFinalizer)
-
-	// patch the object
-	err := c.client().Patch(ctx, configMap, oldConfigMap)
-	if err != nil {
-		return fmt.Errorf("failed to patch snapshot request ConfigMap %s/%s finalizers: %w", configMap.Namespace, configMap.Name, err)
-	}
-
-	c.logger.Infof(
-		"Removed vCluster snapshot controller finalizer %s from the snapshot request ConfigMap %s/%s",
-		ControllerFinalizer,
-		configMap.Namespace,
-		configMap.Name)
-	return nil
-}
-
-func (c *Reconciler) deleteSnapshotRequestSecret(ctx context.Context, configMap *corev1.ConfigMap) error {
-	namespace := configMap.Namespace
-	name := configMap.Name
-	c.logger.Debugf("Deleting snapshot request Secret %s/%s", namespace, name)
-
-	// find snapshot request secret
-	var secret corev1.Secret
-	secretObjectKey := client.ObjectKey{
-		Namespace: namespace,
-		Name:      name,
-	}
-	err := c.client().Get(ctx, secretObjectKey, &secret)
-	if kerrors.IsNotFound(err) {
-		c.logger.Debugf("Snapshot request Secret %s/%s aleady deleted", namespace, name)
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to get snapshot request Secret %s/%s: %w", namespace, name, err)
-	}
-
-	// delete snapshot request secret
-	err = c.client().Delete(ctx, &secret)
-	if kerrors.IsNotFound(err) {
-		c.logger.Debugf("Snapshot request Secret %s/%s aleady deleted", namespace, name)
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to delete snapshot request Secret %s/%s: %w", namespace, name, err)
-	}
-
-	c.logger.Debugf("Deleted snapshot request Secret %s/%s", namespace, name)
-	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCleanup", "Snapshot request Secret %s/%s has been deleted", configMap.Namespace, configMap.Name)
-	return nil
-}
-
-func (c *Reconciler) client() client.Client {
-	return c.snapshotRequestsKubeClient
-}
-
-func (c *Reconciler) getSnapshotRequestNamespace() string {
-	if c.isHostMode {
-		return c.vConfig.HostNamespace
-	}
-	return "kube-system"
-}
-
 func (c *Reconciler) updateRequest(ctx context.Context, previousConfigMapState client.Patch, configMap *corev1.ConfigMap, snapshotRequest Request) error {
 	snapshotRequestJSON, err := json.Marshal(snapshotRequest)
 	if err != nil {
@@ -517,7 +348,7 @@ func (c *Reconciler) getOngoingSnapshotRequestsResourceNames(ctx context.Context
 	// list options with label selector
 	var configMaps corev1.ConfigMapList
 	listOptions := &client.ListOptions{
-		Namespace: c.getSnapshotRequestNamespace(),
+		Namespace: c.getRequestNamespace(),
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			snapshotMeta.RequestLabel: "",
 		}),

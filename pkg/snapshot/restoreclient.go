@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	"io"
 	"os"
 	"path/filepath"
@@ -36,7 +37,8 @@ import (
 )
 
 type RestoreClient struct {
-	Snapshot Options
+	snapshotRequest Request
+	Snapshot        Options
 
 	NewVCluster bool
 }
@@ -152,6 +154,11 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 		}
 
 		// write the value to etcd
+		if o.skipKey(string(key)) {
+			klog.Infof("Skip key %s", string(key))
+			continue
+		}
+
 		klog.V(1).Infof("Restore key %s", string(key))
 		latestRevision, err = etcdClient.Put(ctx, string(key), value)
 		if err != nil {
@@ -178,6 +185,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 }
 
 func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *config.VirtualClusterConfig, value []byte) error {
+	klog.V(1).Infof("Found snapshot request object %s", string(value))
 	var err error
 	if vConfig.HostConfig == nil || vConfig.HostNamespace == "" {
 		// init the clients
@@ -199,6 +207,7 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 		return fmt.Errorf("failed to unmarshal snapshot request: %w", err)
 	}
 	klog.Infof("Found snapshot request: %s", snapshotRequest.Name)
+	o.snapshotRequest = snapshotRequest
 
 	// first create the snapshot options Secret
 	secret, err := CreateSnapshotOptionsSecret(vConfig.HostNamespace, vConfig.Name, &o.Snapshot)
@@ -212,7 +221,9 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 	}
 
 	// then create the restore request that will be reconciled by the controller
-	configMap, err := CreateRestoreRequestConfigMap(vConfig.HostNamespace, vConfig.Name, snapshotRequest)
+	restoreRequest := NewRestoreRequest(snapshotRequest)
+	restoreRequest.Name = secret.Name
+	configMap, err := CreateRestoreRequestConfigMap(vConfig.HostNamespace, vConfig.Name, restoreRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
 	}
@@ -224,6 +235,34 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 
 	klog.Infof("Created restore request: %s/%s", configMap.Namespace, configMap.Name)
 	return nil
+}
+
+func (o *RestoreClient) skipKey(key string) bool {
+	const (
+		// TODO check if vcluster always uses prefix '/registry' for etcd keys
+		pvPrefix  = "/registry/persistentvolumes/"
+		pvcPrefix = "/registry/persistentvolumeclaims/"
+	)
+
+	// check if the snapshot exists
+	if strings.HasPrefix(key, pvcPrefix) {
+		pvcName := strings.TrimPrefix(key, pvcPrefix)
+		status, ok := o.snapshotRequest.Spec.VolumeSnapshots.Status.Snapshots[pvcName]
+		if !ok {
+			return false
+		}
+		// skip restoring PVC if it has a snapshot, restore controller will restore it
+		return status.Phase == volumes.RequestPhaseCompleted
+	} else if strings.HasPrefix(key, pvPrefix) {
+		volumeName := strings.TrimPrefix(key, pvPrefix)
+		for _, snapshotConfig := range o.snapshotRequest.Spec.VolumeSnapshots.Spec.VolumeSnapshotConfigs {
+			if snapshotConfig.PersistentVolumeClaim.Spec.VolumeName == volumeName {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func transformPod(value []byte, decoder runtime.Decoder, encoder runtime.Encoder) ([]byte, error) {
