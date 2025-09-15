@@ -1,4 +1,4 @@
-package cmd
+package snapshot
 
 import (
 	"github.com/loft-sh/log"
@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type SnapshotCmd struct {
+type RootCmd struct {
 	*flags.GlobalFlags
 
 	Snapshot snapshot.Options
@@ -22,7 +22,7 @@ type SnapshotCmd struct {
 
 // NewSnapshot creates a new command
 func NewSnapshot(globalFlags *flags.GlobalFlags) *cobra.Command {
-	cmd := &SnapshotCmd{
+	rootCmd := &RootCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
@@ -30,11 +30,11 @@ func NewSnapshot(globalFlags *flags.GlobalFlags) *cobra.Command {
 	useLine, nameValidator := util.NamedPositionalArgsValidator(true, false, "VCLUSTER_NAME")
 	cobraCmd := &cobra.Command{
 		Use:   "snapshot" + useLine,
-		Short: "Snapshot a virtual cluster",
+		Short: "Snapshot a virtual cluster (deprecated, use 'vcluster snapshot create' instead)",
 		Long: `#######################################################
 ################# vcluster snapshot ###################
 #######################################################
-Snapshot a virtual cluster.
+Snapshot a virtual cluster. This command is deprecated, use 'vcluster snapshot create' instead.
 
 Example:
 # Snapshot to oci image
@@ -48,12 +48,16 @@ vcluster snapshot my-vcluster container:///data/my-local-snapshot.tar.gz
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.Snapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, &cmd.Pod, cmd.Log)
+			return cli.Snapshot(cobraCmd.Context(), args, rootCmd.GlobalFlags, &rootCmd.Snapshot, &rootCmd.Pod, rootCmd.Log, false)
 		},
 	}
 
 	// add storage flags
-	pod.AddFlags(cobraCmd.Flags(), &cmd.Pod, false)
-	snapshot.AddFlags(cobraCmd.Flags(), &cmd.Snapshot)
+	pod.AddFlags(cobraCmd.Flags(), &rootCmd.Pod, false)
+	snapshot.AddFlags(cobraCmd.Flags(), &rootCmd.Snapshot)
+
+	// add subcommands
+	cobraCmd.AddCommand(NewCreateCmd(globalFlags))
+
 	return cobraCmd
 }

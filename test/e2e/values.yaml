@@ -1,3 +1,13 @@
+controlPlane:
+  statefulSet:
+    persistence:
+      addVolumes:
+        - name: snapshot-data
+          persistentVolumeClaim:
+            claimName: snapshot-data
+      addVolumeMounts:
+        - name: snapshot-data
+          mountPath: /snapshot-data
 experimental:
   deploy:
     vcluster:

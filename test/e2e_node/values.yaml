@@ -2,6 +2,15 @@ controlPlane:
   advanced:
     virtualScheduler:
       enabled: true
+  statefulSet:
+    persistence:
+      addVolumes:
+        - name: snapshot-data
+          persistentVolumeClaim:
+            claimName: snapshot-data
+      addVolumeMounts:
+        - name: snapshot-data
+          mountPath: /snapshot-data
 
 sync:
   fromHost:

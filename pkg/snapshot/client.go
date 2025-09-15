@@ -17,7 +17,8 @@ import (
 )
 
 type Client struct {
-	Options Options
+	Options  Options
+	skipKeys map[string]struct{}
 }
 
 func (c *Client) Run(ctx context.Context) error {
@@ -162,11 +163,16 @@ func (c *Client) writeSnapshot(ctx context.Context, etcdClient etcd.Client, obje
 					return fmt.Errorf("failed to retrieve etcd items: %w", obj.Error)
 				}
 
+				key := string(obj.Value.Key)
+				if _, ok := c.skipKeys[key]; ok {
+					klog.Infof("Skipping key %s", key)
+					continue
+				}
 				// write the object into the store
-				klog.V(1).Infof("Snapshot key %s", string(obj.Value.Key))
+				klog.V(1).Infof("Snapshot key %s", key)
 				err := writeKeyValue(tarWriter, obj.Value.Key, obj.Value.Data)
 				if err != nil {
-					return fmt.Errorf("failed to snapshot key %s: %w", string(obj.Value.Key), err)
+					return fmt.Errorf("failed to snapshot key %s: %w", key, err)
 				}
 
 				// print status update
@@ -185,6 +191,14 @@ func (c *Client) writeSnapshot(ctx context.Context, etcdClient etcd.Client, obje
 			}
 		}
 	}
+}
+
+func (c *Client) addResourceToSkip(kindPlural, namespacedName string) {
+	if c.skipKeys == nil {
+		c.skipKeys = make(map[string]struct{})
+	}
+
+	c.skipKeys[fmt.Sprintf("/registry/%s/%s", kindPlural, namespacedName)] = struct{}{}
 }
 
 func writeKeyValue(tarWriter *tar.Writer, key, value []byte) error {
