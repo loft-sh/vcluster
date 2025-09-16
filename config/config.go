@@ -298,10 +298,19 @@ type Deploy struct {
 
 	// MetricsServer holds dedicated metrics server configuration.
 	MetricsServer DeployMetricsServer `json:"metricsServer,omitempty"`
+
+	// VolumeSnapshotController holds dedicated CSI snapshot-controller configuration.
+	VolumeSnapshotController VolumeSnapshotController `json:"volumeSnapshotController,omitempty"`
 }
 
 type DeployMetricsServer struct {
 	// Enabled defines if metrics server should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// VolumeSnapshotController defines CSI volumes snapshot-controller configuration.
+type VolumeSnapshotController struct {
+	// Enabled defines if the CSI volumes snapshot-controller should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 }
 

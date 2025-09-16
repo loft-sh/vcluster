@@ -1109,6 +1109,10 @@
         "metricsServer": {
           "$ref": "#/$defs/DeployMetricsServer",
           "description": "MetricsServer holds dedicated metrics server configuration."
+        },
+        "volumeSnapshotController": {
+          "$ref": "#/$defs/VolumeSnapshotController",
+          "description": "VolumeSnapshotController holds dedicated CSI snapshot-controller configuration."
         }
       },
       "additionalProperties": false,
@@ -4714,6 +4718,17 @@
       "additionalProperties": false,
       "type": "object",
       "description": "VolumeMount describes a mounting of a Volume within a container."
+    },
+    "VolumeSnapshotController": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the CSI volumes snapshot-controller should be enabled."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "VolumeSnapshotController defines CSI volumes snapshot-controller configuration."
     }
   },
   "properties": {

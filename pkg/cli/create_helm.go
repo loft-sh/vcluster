@@ -329,6 +329,11 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		return err
 	}
 
+	err = pkgconfig.ValidateVolumeSnapshotController(vClusterConfig.Deploy.VolumeSnapshotController, vClusterConfig.PrivateNodes)
+	if err != nil {
+		return err
+	}
+
 	warnings := pkgconfig.Lint(*vClusterConfig)
 	for _, warning := range warnings {
 		cmd.log.Warnf(warning)
