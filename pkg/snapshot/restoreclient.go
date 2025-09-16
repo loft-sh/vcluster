@@ -39,6 +39,7 @@ import (
 type RestoreClient struct {
 	snapshotRequest Request
 	Snapshot        Options
+	RestoreVolumes  bool
 
 	NewVCluster bool
 }
@@ -135,9 +136,11 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 
 		// check snapshot request
 		if strings.HasPrefix(string(key), RequestStoreKey) {
-			err = o.createRestoreRequest(ctx, vConfig, value)
-			if err != nil {
-				return fmt.Errorf("failed to create restore request: %w", err)
+			if o.RestoreVolumes {
+				err = o.createRestoreRequest(ctx, vConfig, value)
+				if err != nil {
+					return fmt.Errorf("failed to create restore request: %w", err)
+				}
 			}
 			continue
 		}

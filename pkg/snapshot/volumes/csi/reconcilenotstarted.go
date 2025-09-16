@@ -27,7 +27,7 @@ func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, snapshotReq
 		// check if creating a snapshot for this PV is supported
 		err = s.CheckIfPersistentVolumeIsSupported(&pv)
 		if err != nil {
-			s.logger.Infof("Creating snapshot for PersistentVolume %s is not supported, skipping", pv.Name)
+			s.logger.Infof("Skip creating a snapshot for PersistentVolume %s, since it is not supported: %v", pv.Name, err)
 			continue
 		}
 		snapshotConfig := volumes.SnapshotConfig{
