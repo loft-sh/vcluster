@@ -14,8 +14,9 @@ import (
 type RestoreCmd struct {
 	*flags.GlobalFlags
 
-	Snapshot snapshot.Options
-	Pod      pod.Options
+	Snapshot       snapshot.Options
+	Pod            pod.Options
+	RestoreVolumes bool
 
 	Log log.Logger
 }
@@ -48,11 +49,12 @@ vcluster restore my-vcluster container:///data/my-local-snapshot.tar.gz
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.Restore(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, &cmd.Pod, false, cmd.Log)
+			return cli.Restore(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, &cmd.Pod, false, cmd.RestoreVolumes, cmd.Log)
 		},
 	}
 
 	// add storage flags
 	pod.AddFlags(cobraCmd.Flags(), &cmd.Pod, true)
+	cobraCmd.Flags().BoolVar(&cmd.RestoreVolumes, "restore-volumes", false, "Restore volumes from volume snapshots")
 	return cobraCmd
 }
