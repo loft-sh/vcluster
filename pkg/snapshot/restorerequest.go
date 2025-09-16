@@ -3,13 +3,14 @@ package snapshot
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot/meta"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"maps"
-	"slices"
 )
 
 const (
