@@ -10,7 +10,7 @@ metadata:
   {{- end }}
   labels:
     app: vcluster
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
     {{- if .Values.policies.networkPolicy.labels }}
@@ -65,7 +65,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.policies.networkPolicy.labels }}
