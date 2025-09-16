@@ -281,10 +281,6 @@ func registerSnapshotController(registerContext *synccontext.RegisterContext) er
 }
 
 func registerRestoreController(registerContext *synccontext.RegisterContext) error {
-	if !registerContext.Config.VolumeSnapshots.Enabled {
-		return nil
-	}
-
 	controller, err := snapshot.NewRestoreController(registerContext)
 	if err != nil {
 		return fmt.Errorf("unable to create vcluster snapshot controller: %w", err)
