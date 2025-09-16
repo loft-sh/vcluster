@@ -188,7 +188,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				}
 
 				log.Infof("Restore vCluster %s...", vClusterName)
-				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshot.Options{}, &pod.Options{}, false, log)
+				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshot.Options{}, &pod.Options{}, false, false, log)
 				if err != nil {
 					return fmt.Errorf("restore vCluster %s: %w", vClusterName, err)
 				}
@@ -705,7 +705,7 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 	// now restore if wanted
 	if cmd.Restore != "" {
 		cmd.log.Infof("Restore vCluster %s...", vClusterName)
-		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshot.Options{}, &pod.Options{}, true, cmd.log)
+		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshot.Options{}, &pod.Options{}, true, false, cmd.log)
 		if err != nil {
 			// delete the vcluster if the restore failed
 			deleteErr := helmClient.Delete(vClusterName, cmd.Namespace)
