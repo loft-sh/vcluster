@@ -26,7 +26,7 @@ const (
 	minAsyncSnapshotVersion = "0.29.0-alpha.1"
 )
 
-func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger, async bool) error {
+func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger, async, includeVolumes bool) error {
 	// init kube client and vCluster
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log)
 	if err != nil {
@@ -57,7 +57,7 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 	}
 
 	// creating snapshot request with 'vcluster snapshot create' command
-	err = createSnapshotRequest(ctx, vCluster, kubeClient, snapshotOpts, log)
+	err = createSnapshotRequest(ctx, vCluster, kubeClient, snapshotOpts, log, includeVolumes)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func initSnapshotCommand(
 	return vCluster, kubeClient, restClient, nil
 }
 
-func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshot.Options, log log.Logger) error {
+func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshot.Options, log log.Logger, includeVolumes bool) error {
 	vClusterConfig, err := getVClusterConfig(ctx, vCluster, kubeClient, snapshotOpts)
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 	}
 
 	// Create snapshot request resources
-	snapshotRequest, err := snapshot.CreateSnapshotRequestResources(ctx, vCluster.Namespace, vCluster.Name, snapshotOpts, kubeClient)
+	snapshotRequest, err := snapshot.CreateSnapshotRequestResources(ctx, vCluster.Namespace, vCluster.Name, snapshotOpts, includeVolumes, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request resources: %w", err)
 	}
