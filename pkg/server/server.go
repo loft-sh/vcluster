@@ -137,18 +137,18 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 		h = f(h, ctx)
 	}
 
-	localConfig := ctx.HostManager.GetConfig()
-	uncachedLocalClient, err := client.New(localConfig, client.Options{
-		Scheme: ctx.HostManager.GetScheme(),
-		Mapper: ctx.HostManager.GetRESTMapper(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	uncachedLocalClient = pluginhookclient.WrapPhysicalClient(uncachedLocalClient)
-
 	// add filters if not dedicated
 	if !ctx.Config.PrivateNodes.Enabled {
+		localConfig := ctx.HostManager.GetConfig()
+		uncachedLocalClient, err := client.New(localConfig, client.Options{
+			Scheme: ctx.HostManager.GetScheme(),
+			Mapper: ctx.HostManager.GetRESTMapper(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		uncachedLocalClient = pluginhookclient.WrapPhysicalClient(uncachedLocalClient)
+
 		h = filters.WithServiceCreateRedirect(h, registerCtx, uncachedLocalClient, uncachedVirtualClient)
 		h = filters.WithRedirect(h, registerCtx, uncachedVirtualClient, admissionHandler, s.redirectResources)
 		h = filters.WithK8sMetrics(h, registerCtx)
