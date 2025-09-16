@@ -39,7 +39,8 @@ func (r *Request) Done() bool {
 }
 
 type RequestSpec struct {
-	VolumeSnapshots volumes.SnapshotRequest `json:"volumeSnapshots"`
+	IncludeVolumes  bool                    `json:"includeVolumes,omitempty"`
+	VolumeSnapshots volumes.SnapshotRequest `json:"volumeSnapshots,omitempty"`
 	Options         Options                 `json:"-"`
 }
 
