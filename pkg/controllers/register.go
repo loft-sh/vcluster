@@ -42,10 +42,12 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 		}
 	}
 
-	// register vcluster snapshot controller
-	err = registerSnapshotController(registerContext)
-	if err != nil {
-		return err
+	if !ctx.Config.ControlPlane.Standalone.Enabled {
+		// register vcluster snapshot controller only for non-standalone
+		err = registerSnapshotController(registerContext)
+		if err != nil {
+			return err
+		}
 	}
 
 	// skip if we run in dedicated mode
