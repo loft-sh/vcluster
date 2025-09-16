@@ -265,8 +265,13 @@ func (c *Reconciler) Register() error {
 
 // reconcileNewRequest updates the snapshot request phase to "InProgress".
 func (c *Reconciler) reconcileNewRequest(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *Request) error {
-	snapshotRequest.Status.Phase = RequestPhaseCreatingVolumeSnapshots
-	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCreatingVolumeSnapshots", "Started to create volume snapshots for snapshot request %s/%s", configMap.Namespace, configMap.Name)
+	if snapshotRequest.Spec.IncludeVolumes {
+		snapshotRequest.Status.Phase = RequestPhaseCreatingVolumeSnapshots
+		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCreatingVolumeSnapshots", "Started to create volume snapshots for snapshot request %s/%s", configMap.Namespace, configMap.Name)
+	} else {
+		snapshotRequest.Status.Phase = RequestPhaseCreatingEtcdBackup
+		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCreatingEtcdBackup", "Started to create etcd backup for snapshot request %s/%s", configMap.Namespace, configMap.Name)
+	}
 	return nil
 }
 
