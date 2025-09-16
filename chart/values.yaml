@@ -885,6 +885,11 @@ deploy:
   metricsServer:
     # Enabled defines if metrics server should be enabled.
     enabled: false
+  
+  # VolumeSnapshotController holds dedicated CSI snapshot-controller configuration.
+  volumeSnapshotController:
+    # Enabled defines if the CSI volumes snapshot-controller should be enabled.
+    enabled: false
 
 # Integrations holds config for vCluster integrations with other operators or tools running on the host cluster
 integrations:
@@ -1219,7 +1224,3 @@ telemetry:
 logging:
   # Encoding specifies the format of vCluster logs, it can either be json or console.
   encoding: console
-
-# VolumeSnapshots specifies if volume snapshots are created when creating vCluster snapshots.
-volumeSnapshots:
-  enabled: false

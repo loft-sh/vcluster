@@ -267,7 +267,7 @@ func registerSnapshotController(registerContext *synccontext.RegisterContext) er
 	}
 
 	config := registerContext.Config
-	if config.PrivateNodes.Enabled && config.VolumeSnapshots.Enabled {
+	if config.PrivateNodes.Enabled && config.Deploy.VolumeSnapshotController.Enabled {
 		err = csiVolumeSnapshots.Deploy(registerContext)
 		if err != nil {
 			return fmt.Errorf("unable to deploy required CSI volume snapshot compoments: %w", err)

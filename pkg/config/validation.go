@@ -199,6 +199,12 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 
+	// validate deploy.volumeSnapshotController
+	err = validateVolumeSnapshotController(vConfig)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -787,6 +793,13 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 		}
 	}
 
+	return nil
+}
+
+func validateVolumeSnapshotController(vConfig *VirtualClusterConfig) error {
+	if vConfig.Deploy.VolumeSnapshotController.Enabled && !vConfig.PrivateNodes.Enabled {
+		return fmt.Errorf("volume snapshot-controller is only supported with private nodes")
+	}
 	return nil
 }
 

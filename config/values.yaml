@@ -472,6 +472,8 @@ deploy:
     defaultIngressClass: true
   metricsServer:
     enabled: false
+  volumeSnapshotController:
+    enabled: false
 
 integrations:
   metricsServer:
@@ -657,6 +659,3 @@ telemetry:
 
 logging:
   encoding: console
-
-volumeSnapshots:
-  enabled: false
