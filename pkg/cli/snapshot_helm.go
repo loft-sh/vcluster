@@ -172,20 +172,13 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 }
 
 func checkIfVClusterSupportsSnapshotRequests(vCluster *find.VCluster, log log.Logger) error {
-	switch vCluster.Version {
-	case "":
-		log.Warnf("Command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but vCluster version cannot be determined. Proceeding with snapshot request creation, but snapshot may not be created.")
-	case "0.0.1":
-		log.Warnf("Command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but found vCluster development version %q. Proceeding with snapshot request creation, but snapshot may not be created.", vCluster.Version)
-	default:
-		vClusterVersion, err := semver.Parse(strings.TrimPrefix(vCluster.Version, "v"))
-		if err != nil {
-			log.Warnf("Command `vcluster snapshot create` can be used with vCluster version v0.29 and newer, but found unknown vCluster version %q. Proceeding with snapshot request creation, but snapshot may not be created.", vCluster.Version)
-		} else if vClusterVersion.LT(semver.MustParse(minAsyncSnapshotVersion)) {
+	version, err := semver.Parse(strings.TrimPrefix(vCluster.Version, "v"))
+	if err == nil {
+		// only check if the version matches if vCluster actually has a parsable version
+		if version.LT(semver.MustParse(minAsyncSnapshotVersion)) {
 			return fmt.Errorf("command `vcluster snapshot create` can be used with vCluster version %s and newer, but specified virtual cluster uses vCluster version %s", minAsyncSnapshotVersion, vCluster.Version)
 		}
 	}
-
 	return nil
 }
 
