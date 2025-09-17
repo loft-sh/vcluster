@@ -158,27 +158,14 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, restoreRequestNam
 	// PVC hasn't been found, restore it from VolumeSnapshot. For this we need pre-provisioned VolumeSnapshot
 	// and VolumeSnapshotContent resources.
 
-	// Check if the pre-provisioned VolumeSnapshot resource exists. If it doesn't, create it.
 	volumeSnapshotName := fmt.Sprintf("%s-%s", config.PersistentVolumeClaim.Name, restoreRequestName)
 	pvcName := types.NamespacedName{
 		Namespace: config.PersistentVolumeClaim.Namespace,
 		Name:      config.PersistentVolumeClaim.Name,
 	}
-	volumeSnapshot, err := r.snapshotsClient.SnapshotV1().VolumeSnapshots(pvcName.Namespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
-	justCreated := false
-	if kerrors.IsNotFound(err) {
-		// create new VolumeSnapshot
-		volumeSnapshot, err = r.createVolumeSnapshotResource(ctx, restoreRequestName, volumeSnapshotName, pvcName, config.VolumeSnapshotClassName)
-		if err != nil {
-			return status, fmt.Errorf("failed to create VolumeSnapshot for the PersistentVolumeClaim %s: %w", pvcName, err)
-		}
-		justCreated = true
-		// we don't wait for the VolumeSnapshot to be ready, because it also needs the VolumeSnapshotContent to become ready
-	} else if err != nil {
-		return status, fmt.Errorf("failed to get VolumeSnapshot %s/%s: %w", volumeSnapshot.Namespace, volumeSnapshot.Name, err)
-	}
 
 	// Check if the pre-provisioned VolumeSnapshotContent resource exists. If it doesn't, create it.
+	justCreated := false
 	volumeSnapshotContent, err := r.snapshotsClient.SnapshotV1().VolumeSnapshotContents().Get(ctx, volumeSnapshotName, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
 		// create new VolumeSnapshotContent
@@ -187,6 +174,21 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, restoreRequestNam
 			return status, fmt.Errorf("failed to create VolumeSnapshotContent for the PersistentVolumeClaim %s: %w", pvcName, err)
 		}
 		justCreated = true
+	} else if err != nil {
+		return status, fmt.Errorf("failed to get VolumeSnapshotContent %s: %w", volumeSnapshotContent.Name, err)
+	}
+
+	// Check if the pre-provisioned VolumeSnapshot resource exists. If it doesn't, create it.
+	volumeSnapshot, err := r.snapshotsClient.SnapshotV1().VolumeSnapshots(pvcName.Namespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
+	if kerrors.IsNotFound(err) {
+		// create new VolumeSnapshot
+		volumeSnapshot, err = r.createVolumeSnapshotResource(ctx, restoreRequestName, volumeSnapshotName, pvcName, config.VolumeSnapshotClassName)
+		if err != nil {
+			return status, fmt.Errorf("failed to create VolumeSnapshot for the PersistentVolumeClaim %s: %w", pvcName, err)
+		}
+		justCreated = true
+	} else if err != nil {
+		return status, fmt.Errorf("failed to get VolumeSnapshot %s/%s: %w", volumeSnapshot.Namespace, volumeSnapshot.Name, err)
 	}
 
 	if justCreated {
@@ -196,10 +198,14 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, restoreRequestNam
 
 	// check if VolumeSnapshot has failed
 	if volumeSnapshot.Status.Error != nil {
-		// VolumeSnapshot has failed
 		var errorMessage string
 		if volumeSnapshot.Status.Error.Message != nil {
-			errorMessage = *volumeSnapshot.Status.Error.Message
+			errorMessage = fmt.Sprintf(
+				"VolumeSnapshot %s/%s (for PersistentVolumeClaim %s) has a status error message %s",
+				volumeSnapshot.Namespace,
+				volumeSnapshot.Name,
+				pvcName.String(),
+				*volumeSnapshot.Status.Error.Message)
 		} else {
 			errorMessage = fmt.Sprintf(
 				"VolumeSnapshot %s/%s (for PersistentVolumeClaim %s) has failed with an unknown error",
@@ -219,10 +225,13 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, restoreRequestNam
 
 	// check if VolumeSnapshotContent has failed
 	if volumeSnapshotContent.Status.Error != nil {
-		// volumeSnapshotContent has failed
 		var errorMessage string
 		if volumeSnapshotContent.Status.Error.Message != nil {
-			errorMessage = *volumeSnapshotContent.Status.Error.Message
+			errorMessage = fmt.Sprintf(
+				"VolumeSnapshotContent %s (for PersistentVolumeClaim %s) has a status error message: %s",
+				volumeSnapshotContent.Name,
+				pvcName.String(),
+				*volumeSnapshotContent.Status.Error.Message)
 		} else {
 			errorMessage = fmt.Sprintf(
 				"VolumeSnapshotContent %s (for PersistentVolumeClaim %s) has failed with an unknown error",
