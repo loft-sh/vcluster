@@ -29,7 +29,7 @@ import (
 // VolumeSnapshot is a user's request for either creating a point-in-time
 // snapshot of a persistent volume, or binding to a pre-existing snapshot.
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Namespaced
+// +kubebuilder:resource:scope=Namespaced,shortName=vs
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="ReadyToUse",type=boolean,JSONPath=`.status.readyToUse`,description="Indicates if the snapshot is ready to be used to restore a volume."
 // +kubebuilder:printcolumn:name="SourcePVC",type=string,JSONPath=`.spec.source.persistentVolumeClaimName`,description="If a new snapshot needs to be created, this contains the name of the source PVC from which this snapshot was (or will be) created."
@@ -42,7 +42,7 @@ import (
 type VolumeSnapshot struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
@@ -91,6 +91,7 @@ type VolumeSnapshotSpec struct {
 	// CreateSnapshot will fail and generate an event.
 	// Empty string is not allowed for this field.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="size(self) > 0",message="volumeSnapshotClassName must not be the empty string when set"
 	VolumeSnapshotClassName *string `json:"volumeSnapshotClassName,omitempty" protobuf:"bytes,2,opt,name=volumeSnapshotClassName"`
 }
 
@@ -99,6 +100,9 @@ type VolumeSnapshotSpec struct {
 // object should be used.
 // Exactly one of its members must be set.
 // Members in VolumeSnapshotSource are immutable.
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.persistentVolumeClaimName) || has(self.persistentVolumeClaimName)", message="persistentVolumeClaimName is required once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.volumeSnapshotContentName) || has(self.volumeSnapshotContentName)", message="volumeSnapshotContentName is required once set"
+// +kubebuilder:validation:XValidation:rule="(has(self.volumeSnapshotContentName) && !has(self.persistentVolumeClaimName)) || (!has(self.volumeSnapshotContentName) && has(self.persistentVolumeClaimName))", message="exactly one of volumeSnapshotContentName and persistentVolumeClaimName must be set"
 type VolumeSnapshotSource struct {
 	// persistentVolumeClaimName specifies the name of the PersistentVolumeClaim
 	// object representing the volume from which a snapshot should be created.
@@ -108,6 +112,7 @@ type VolumeSnapshotSource struct {
 	// created.
 	// This field is immutable.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolumeClaimName is immutable"
 	PersistentVolumeClaimName *string `json:"persistentVolumeClaimName,omitempty" protobuf:"bytes,1,opt,name=persistentVolumeClaimName"`
 
 	// volumeSnapshotContentName specifies the name of a pre-existing VolumeSnapshotContent
@@ -115,6 +120,7 @@ type VolumeSnapshotSource struct {
 	// This field should be set if the snapshot already exists and only needs a representation in Kubernetes.
 	// This field is immutable.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="volumeSnapshotContentName is immutable"
 	VolumeSnapshotContentName *string `json:"volumeSnapshotContentName,omitempty" protobuf:"bytes,2,opt,name=volumeSnapshotContentName"`
 }
 
@@ -123,11 +129,11 @@ type VolumeSnapshotSource struct {
 // VolumeSnapshotStatus and VolumeSnapshotContentStatus. Fields in VolumeSnapshotStatus
 // are updated based on fields in VolumeSnapshotContentStatus. They are eventual
 // consistency. These fields are duplicate in both objects due to the following reasons:
-// - Fields in VolumeSnapshotContentStatus can be used for filtering when importing a
-//   volumesnapshot.
-// - VolumsnapshotStatus is used by end users because they cannot see VolumeSnapshotContent.
-// - CSI snapshotter sidecar is light weight as it only watches VolumeSnapshotContent
-//   object, not VolumeSnapshot object.
+//   - Fields in VolumeSnapshotContentStatus can be used for filtering when importing a
+//     volumesnapshot.
+//   - VolumsnapshotStatus is used by end users because they cannot see VolumeSnapshotContent.
+//   - CSI snapshotter sidecar is light weight as it only watches VolumeSnapshotContent
+//     object, not VolumeSnapshot object.
 type VolumeSnapshotStatus struct {
 	// boundVolumeSnapshotContentName is the name of the VolumeSnapshotContent
 	// object to which this VolumeSnapshot object intends to bind to.
@@ -179,10 +185,15 @@ type VolumeSnapshotStatus struct {
 	// This field could be helpful to upper level controllers(i.e., application controller)
 	// to decide whether they should continue on waiting for the snapshot to be created
 	// based on the type of error reported.
-	// The snapshot controller will keep retrying when an error occurrs during the
+	// The snapshot controller will keep retrying when an error occurs during the
 	// snapshot creation. Upon success, this error field will be cleared.
 	// +optional
 	Error *VolumeSnapshotError `json:"error,omitempty" protobuf:"bytes,5,opt,name=error,casttype=VolumeSnapshotError"`
+
+	// VolumeGroupSnapshotName is the name of the VolumeGroupSnapshot of which this
+	// VolumeSnapshot is a part of.
+	// +optional
+	VolumeGroupSnapshotName *string `json:"volumeGroupSnapshotName,omitempty" protobuf:"bytes,6,opt,name=volumeGroupSnapshotName"`
 }
 
 // +genclient
@@ -194,14 +205,14 @@ type VolumeSnapshotStatus struct {
 // name in a VolumeSnapshot object.
 // VolumeSnapshotClasses are non-namespaced
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,shortName=vsclass;vsclasses
 // +kubebuilder:printcolumn:name="Driver",type=string,JSONPath=`.driver`
 // +kubebuilder:printcolumn:name="DeletionPolicy",type=string,JSONPath=`.deletionPolicy`,description="Determines whether a VolumeSnapshotContent created through the VolumeSnapshotClass should be deleted when its bound VolumeSnapshot is deleted."
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 type VolumeSnapshotClass struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
@@ -230,7 +241,7 @@ type VolumeSnapshotClass struct {
 type VolumeSnapshotClassList struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard list metadata
-	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
@@ -245,7 +256,7 @@ type VolumeSnapshotClassList struct {
 // VolumeSnapshotContent represents the actual "on-disk" snapshot object in the
 // underlying storage system
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,shortName=vsc;vscs
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="ReadyToUse",type=boolean,JSONPath=`.status.readyToUse`,description="Indicates if the snapshot is ready to be used to restore a volume."
 // +kubebuilder:printcolumn:name="RestoreSize",type=integer,JSONPath=`.status.restoreSize`,description="Represents the complete size of the snapshot in bytes"
@@ -253,11 +264,12 @@ type VolumeSnapshotClassList struct {
 // +kubebuilder:printcolumn:name="Driver",type=string,JSONPath=`.spec.driver`,description="Name of the CSI driver used to create the physical snapshot on the underlying storage system."
 // +kubebuilder:printcolumn:name="VolumeSnapshotClass",type=string,JSONPath=`.spec.volumeSnapshotClassName`,description="Name of the VolumeSnapshotClass to which this snapshot belongs."
 // +kubebuilder:printcolumn:name="VolumeSnapshot",type=string,JSONPath=`.spec.volumeSnapshotRef.name`,description="Name of the VolumeSnapshot object to which this VolumeSnapshotContent object is bound."
+// +kubebuilder:printcolumn:name="VolumeSnapshotNamespace",type=string,JSONPath=`.spec.volumeSnapshotRef.namespace`,description="Namespace of the VolumeSnapshot object to which this VolumeSnapshotContent object is bound."
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 type VolumeSnapshotContent struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
@@ -284,6 +296,7 @@ type VolumeSnapshotContentList struct {
 }
 
 // VolumeSnapshotContentSpec is the specification of a VolumeSnapshotContent
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.sourceVolumeMode) || has(self.sourceVolumeMode)", message="sourceVolumeMode is required once set"
 type VolumeSnapshotContentSpec struct {
 	// volumeSnapshotRef specifies the VolumeSnapshot object to which this
 	// VolumeSnapshotContent object is bound.
@@ -293,6 +306,7 @@ type VolumeSnapshotContentSpec struct {
 	// VolumeSnapshot object MUST be provided for binding to happen.
 	// This field is immutable after creation.
 	// Required.
+	// +kubebuilder:validation:XValidation:rule="has(self.name) && has(self.__namespace__)",message="both spec.volumeSnapshotRef.name and spec.volumeSnapshotRef.namespace must be set"
 	VolumeSnapshotRef core_v1.ObjectReference `json:"volumeSnapshotRef" protobuf:"bytes,1,opt,name=volumeSnapshotRef"`
 
 	// deletionPolicy determines whether this VolumeSnapshotContent and its physical snapshot on
@@ -328,18 +342,29 @@ type VolumeSnapshotContentSpec struct {
 	// This field is immutable after creation.
 	// Required.
 	Source VolumeSnapshotContentSource `json:"source" protobuf:"bytes,5,opt,name=source"`
+
+	// SourceVolumeMode is the mode of the volume whose snapshot is taken.
+	// Can be either “Filesystem” or “Block”.
+	// If not specified, it indicates the source volume's mode is unknown.
+	// This field is immutable.
+	// This field is an alpha field.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="sourceVolumeMode is immutable"
+	SourceVolumeMode *core_v1.PersistentVolumeMode `json:"sourceVolumeMode" protobuf:"bytes,6,opt,name=sourceVolumeMode"`
 }
 
 // VolumeSnapshotContentSource represents the CSI source of a snapshot.
 // Exactly one of its members must be set.
 // Members in VolumeSnapshotContentSource are immutable.
-// TODO(xiangqian): Add a webhook to ensure that VolumeSnapshotContentSource members
-// will be immutable once specified.
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.volumeHandle) || has(self.volumeHandle)", message="volumeHandle is required once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.snapshotHandle) || has(self.snapshotHandle)", message="snapshotHandle is required once set"
+// +kubebuilder:validation:XValidation:rule="(has(self.volumeHandle) && !has(self.snapshotHandle)) || (!has(self.volumeHandle) && has(self.snapshotHandle))", message="exactly one of volumeHandle and snapshotHandle must be set"
 type VolumeSnapshotContentSource struct {
 	// volumeHandle specifies the CSI "volume_id" of the volume from which a snapshot
 	// should be dynamically taken from.
 	// This field is immutable.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="volumeHandle is immutable"
 	VolumeHandle *string `json:"volumeHandle,omitempty" protobuf:"bytes,1,opt,name=volumeHandle"`
 
 	// snapshotHandle specifies the CSI "snapshot_id" of a pre-existing snapshot on
@@ -347,6 +372,7 @@ type VolumeSnapshotContentSource struct {
 	// was (or should be) created.
 	// This field is immutable.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="snapshotHandle is immutable"
 	SnapshotHandle *string `json:"snapshotHandle,omitempty" protobuf:"bytes,2,opt,name=snapshotHandle"`
 }
 
@@ -355,11 +381,11 @@ type VolumeSnapshotContentSource struct {
 // VolumeSnapshotStatus and VolumeSnapshotContentStatus. Fields in VolumeSnapshotStatus
 // are updated based on fields in VolumeSnapshotContentStatus. They are eventual
 // consistency. These fields are duplicate in both objects due to the following reasons:
-// - Fields in VolumeSnapshotContentStatus can be used for filtering when importing a
-//   volumesnapshot.
-// - VolumsnapshotStatus is used by end users because they cannot see VolumeSnapshotContent.
-// - CSI snapshotter sidecar is light weight as it only watches VolumeSnapshotContent
-//   object, not VolumeSnapshot object.
+//   - Fields in VolumeSnapshotContentStatus can be used for filtering when importing a
+//     volumesnapshot.
+//   - VolumsnapshotStatus is used by end users because they cannot see VolumeSnapshotContent.
+//   - CSI snapshotter sidecar is light weight as it only watches VolumeSnapshotContent
+//     object, not VolumeSnapshot object.
 type VolumeSnapshotContentStatus struct {
 	// snapshotHandle is the CSI "snapshot_id" of a snapshot on the underlying storage system.
 	// If not specified, it indicates that dynamic snapshot creation has either failed
@@ -409,6 +435,11 @@ type VolumeSnapshotContentStatus struct {
 	// Upon success after retry, this error field will be cleared.
 	// +optional
 	Error *VolumeSnapshotError `json:"error,omitempty" protobuf:"bytes,5,opt,name=error,casttype=VolumeSnapshotError"`
+
+	// VolumeGroupSnapshotHandle is the CSI "group_snapshot_id" of a group snapshot
+	// on the underlying storage system.
+	// +optional
+	VolumeGroupSnapshotHandle *string `json:"volumeGroupSnapshotHandle,omitempty" protobuf:"bytes,6,opt,name=volumeGroupSnapshotHandle"`
 }
 
 // DeletionPolicy describes a policy for end-of-life maintenance of volume snapshot contents
