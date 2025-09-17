@@ -27,7 +27,7 @@ const (
 type reconcilerKind string
 
 func (r reconcilerKind) ToCapital() string {
-	return strings.ToTitle(string(r))
+	return strings.ToTitle(string(r)[:1]) + string(r[1:])
 }
 
 type reconcilerBase struct {
