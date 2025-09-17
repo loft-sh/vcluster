@@ -42,6 +42,7 @@ type RestoreClient struct {
 	RestoreVolumes  bool
 
 	NewVCluster bool
+	vConfig     *config.VirtualClusterConfig
 }
 
 var (
@@ -67,6 +68,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	if err != nil {
 		return err
 	}
+	o.vConfig = vConfig
 
 	// create store
 	objectStore, err := CreateStore(ctx, &o.Snapshot)
@@ -241,6 +243,13 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 }
 
 func (o *RestoreClient) skipKey(key string) bool {
+	if !o.vConfig.PrivateNodes.Enabled {
+		// Restore skips restoring PVs and PVCs only in private mode.
+		// In the shared mode, PVs and PVCs are restored in virtual cluster, and volumes are restored in the host
+		// cluster if needed.
+		return false
+	}
+
 	const (
 		// TODO check if vcluster always uses prefix '/registry' for etcd keys
 		pvPrefix  = "/registry/persistentvolumes/"
