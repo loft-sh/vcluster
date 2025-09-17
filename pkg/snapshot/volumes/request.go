@@ -59,3 +59,7 @@ type SnapshotStatus struct {
 func (s SnapshotStatus) Equals(other SnapshotStatus) bool {
 	return s.Phase == other.Phase && s.SnapshotHandle == other.SnapshotHandle
 }
+
+func (s SnapshotStatus) Done() bool {
+	return s.Phase == RequestPhaseCompleted || s.Phase == RequestPhaseSkipped || s.Phase == RequestPhaseFailed
+}
