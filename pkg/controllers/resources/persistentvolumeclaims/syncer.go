@@ -2,6 +2,9 @@ package persistentvolumeclaims
 
 import (
 	"fmt"
+	"github.com/loft-sh/vcluster/pkg/snapshot"
+	snapshotMeta "github.com/loft-sh/vcluster/pkg/snapshot/meta"
+	"time"
 
 	storagev1 "k8s.io/api/storage/v1"
 
@@ -102,6 +105,17 @@ func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, e
 		return ctrl.Result{}, err
 	}
 
+	// check if host PVC is currently being restored
+	restoreInProgress, err := s.isHostVolumeRestoreInProgress(ctx, pObj)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check if host volume restore is in progress: %v", err)
+	}
+	if restoreInProgress {
+		return ctrl.Result{
+			RequeueAfter: 15 * time.Second,
+		}, nil
+	}
+
 	err = pro.ApplyPatchesHostObject(ctx, pObj, event.Virtual, ctx.Config.Sync.ToHost.PersistentVolumeClaims.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -113,6 +127,17 @@ func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, e
 func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.PersistentVolumeClaim]) (_ ctrl.Result, retErr error) {
 	if s.applyLimitByClass(ctx, event.Virtual) {
 		return ctrl.Result{}, nil
+	}
+
+	// check if host PVC is currently being restored
+	restoreInProgress, err := s.isHostVolumeRestoreInProgress(ctx, event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check if host volume restore is in progress: %v", err)
+	}
+	if restoreInProgress {
+		return ctrl.Result{
+			RequeueAfter: 15 * time.Second,
+		}, nil
 	}
 
 	// if pvs are deleted check the corresponding pvc is deleted as well
@@ -232,6 +257,35 @@ func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.Sy
 		}
 	}
 
+	return false, nil
+}
+
+func (s *persistentVolumeClaimSyncer) isHostVolumeRestoreInProgress(ctx *synccontext.SyncContext, pObj *corev1.PersistentVolumeClaim) (bool, error) {
+	configMaps := &corev1.ConfigMapList{}
+	err := ctx.HostClient.List(ctx.Context, configMaps, client.InNamespace(ctx.Config.HostNamespace), client.MatchingLabels{
+		snapshotMeta.RestoreRequestLabel: "",
+	})
+	if err != nil {
+		return false, err
+	}
+
+	pvcName := types.NamespacedName{
+		Namespace: pObj.Namespace,
+		Name:      pObj.Name,
+	}.String()
+	for _, configMap := range configMaps.Items {
+		restoreRequest, err := snapshot.UnmarshalRestoreRequest(&configMap)
+		if err != nil {
+			return false, fmt.Errorf("unmarshal restore request: %v", err)
+		}
+		restore, ok := restoreRequest.Spec.VolumeSnapshots.Status.Snapshots[pvcName]
+		if !ok {
+			continue
+		}
+		if !restore.Done() {
+			return true, nil
+		}
+	}
 	return false, nil
 }
 
