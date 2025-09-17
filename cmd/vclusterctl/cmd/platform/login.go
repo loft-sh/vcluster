@@ -133,6 +133,7 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	cmd.Log.Infof("Login credentials are stored in %q", cmd.Config)
 	cmd.Log.Donef(product.Replace("Successfully logged into Loft instance %s"), ansi.Color(url, "white+b"))
 
 	// skip log into docker registries?
