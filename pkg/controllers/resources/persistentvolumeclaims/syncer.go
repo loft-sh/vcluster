@@ -2,8 +2,6 @@ package persistentvolumeclaims
 
 import (
 	"fmt"
-	"github.com/loft-sh/vcluster/pkg/snapshot"
-	snapshotMeta "github.com/loft-sh/vcluster/pkg/snapshot/meta"
 	"time"
 
 	storagev1 "k8s.io/api/storage/v1"
@@ -22,6 +20,8 @@ import (
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 
+	"github.com/loft-sh/vcluster/pkg/snapshot"
+	snapshotMeta "github.com/loft-sh/vcluster/pkg/snapshot/meta"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -108,7 +108,7 @@ func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, e
 	// check if host PVC is currently being restored
 	restoreInProgress, err := s.isHostVolumeRestoreInProgress(ctx, pObj)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to check if host volume restore is in progress: %v", err)
+		return ctrl.Result{}, fmt.Errorf("failed to check if host volume restore is in progress: %w", err)
 	}
 	if restoreInProgress {
 		return ctrl.Result{
@@ -132,7 +132,7 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, event *
 	// check if host PVC is currently being restored
 	restoreInProgress, err := s.isHostVolumeRestoreInProgress(ctx, event.Host)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to check if host volume restore is in progress: %v", err)
+		return ctrl.Result{}, fmt.Errorf("failed to check if host volume restore is in progress: %w", err)
 	}
 	if restoreInProgress {
 		return ctrl.Result{
@@ -276,7 +276,7 @@ func (s *persistentVolumeClaimSyncer) isHostVolumeRestoreInProgress(ctx *synccon
 	for _, configMap := range configMaps.Items {
 		restoreRequest, err := snapshot.UnmarshalRestoreRequest(&configMap)
 		if err != nil {
-			return false, fmt.Errorf("unmarshal restore request: %v", err)
+			return false, fmt.Errorf("unmarshal restore request: %w", err)
 		}
 		restore, ok := restoreRequest.Spec.VolumeSnapshots.Status.Snapshots[pvcName]
 		if !ok {
