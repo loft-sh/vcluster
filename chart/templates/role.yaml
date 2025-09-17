@@ -79,10 +79,13 @@ rules:
     resources: ["networkpolicies"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
+  - apiGroups: [ "snapshot.storage.k8s.io" ]
+    resources: [ "volumesnapshots" ]
+    verbs: ["create", "delete", "patch", "update", "get", "list"]
   {{- if .Values.sync.toHost.volumeSnapshots.enabled }}
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshots"]
-    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+    verbs: ["watch"]
   {{- end }}
   {{- if .Values.sync.toHost.serviceAccounts.enabled }}
   - apiGroups: [""]
