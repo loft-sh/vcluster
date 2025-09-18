@@ -108,9 +108,10 @@ data:
         forward . /etc/resolv.conf
         cache 30
         loop
+        reload
         loadbalance
     }
-    
+
     import /etc/coredns/custom/*.server
   NodeHosts: ""
 ---
@@ -378,9 +379,10 @@ data:
         forward . /etc/resolv.conf
         cache 30
         loop
+		reload
         loadbalance
     }
-    
+
     import /etc/coredns/custom/*.server
   NodeHosts: ""
 ---
@@ -594,9 +596,10 @@ data:
         forward . /etc/resolv.conf
         cache 30
         loop
+		reload
         loadbalance
     }
-    
+
     import /etc/coredns/custom/*.server
   NodeHosts: ""
 ---
@@ -821,9 +824,10 @@ data:
         forward . /etc/resolv.conf
         cache 30
         loop
+		reload
         loadbalance
     }
-    
+
     import /etc/coredns/custom/*.server
   NodeHosts: ""
 ---
@@ -1005,6 +1009,7 @@ func TestProcessCorefile(t *testing.T) {
     forward . /etc/resolv.conf
     cache 30
     loop
+	reload
     loadbalance
 }
 
