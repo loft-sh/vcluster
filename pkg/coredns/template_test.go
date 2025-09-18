@@ -108,6 +108,7 @@ data:
         forward . /etc/resolv.conf
         cache 30
         loop
+        reload
         loadbalance
     }
     
@@ -378,6 +379,7 @@ data:
         forward . /etc/resolv.conf
         cache 30
         loop
+        reload
         loadbalance
     }
     
@@ -594,6 +596,7 @@ data:
         forward . /etc/resolv.conf
         cache 30
         loop
+        reload
         loadbalance
     }
     
@@ -821,6 +824,7 @@ data:
         forward . /etc/resolv.conf
         cache 30
         loop
+        reload
         loadbalance
     }
     
@@ -1005,6 +1009,7 @@ func TestProcessCorefile(t *testing.T) {
     forward . /etc/resolv.conf
     cache 30
     loop
+    reload
     loadbalance
 }
 
