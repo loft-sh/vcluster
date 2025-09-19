@@ -935,10 +935,13 @@ func ValidateChanges(oldCfg, newCfg *Config) error {
 	if err := ValidateStoreChanges(newCfg.BackingStoreType(), oldCfg.BackingStoreType()); err != nil {
 		return err
 	}
-
 	if err := ValidateNamespaceSyncChanges(oldCfg, newCfg); err != nil { //nolint:revive
 		return err
 	}
+	if err := ValidateVPNChanges(oldCfg, newCfg); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -996,6 +999,18 @@ func ValidateNamespaceSyncChanges(oldCfg, newCfg *Config) error {
 
 	if !reflect.DeepEqual(oldNamespaceConf.Patches, newNamespaceConf.Patches) {
 		return fmt.Errorf("sync.toHost.namespaces.patches is not allowed to be changed")
+	}
+
+	return nil
+}
+
+func ValidateVPNChanges(oldCfg *Config, newCfg *Config) error {
+	if oldCfg.PrivateNodes.VPN.Enabled != newCfg.PrivateNodes.VPN.Enabled {
+		return fmt.Errorf("privateNodes.vpn.enabled is not allowed to be changed")
+	}
+
+	if oldCfg.PrivateNodes.VPN.NodeToNode.Enabled != newCfg.PrivateNodes.VPN.NodeToNode.Enabled {
+		return fmt.Errorf("privateNodes.vpn.nodeToNode.enabled is not allowed to be changed")
 	}
 
 	return nil
