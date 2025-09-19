@@ -210,7 +210,7 @@ Test the built CLI tool
 
 ### Pre-requisites
 
-- [Golang v1.24](https://go.dev/doc/install)
+- [Golang v1.25](https://go.dev/doc/install)
 - [Goreleaser](https://goreleaser.com/install/)
 - [Just](https://github.com/casey/just)
 - [Kind](https://kind.sigs.k8s.io/)
