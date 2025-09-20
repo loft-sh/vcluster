@@ -15,6 +15,7 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
+	snapshotMeta "github.com/loft-sh/vcluster/pkg/snapshot/meta"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -95,6 +96,42 @@ func GetRequest(ctx context.Context, args []string, globalFlags *flags.GlobalFla
 		return fmt.Errorf("failed to unmarshal snapshot request %s: %w", snapshotRequestName, err)
 	}
 	printSnapshotRequests([]*snapshot.Request{snapshotRequest}, log)
+	return nil
+}
+
+func ListRequests(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, log log.Logger) error {
+	// find the vCluster
+	vClusterName := args[0]
+	vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
+	if err != nil {
+		return fmt.Errorf("failed to find vcluster %s: %w", vClusterName, err)
+	}
+	// build kubernetes client
+	restClient, err := vCluster.ClientFactory.ClientConfig()
+	if err != nil {
+		return fmt.Errorf("failed to get rest client for vcluster %s: %w", vClusterName, err)
+	}
+	kubeClient, err := kubernetes.NewForConfig(restClient)
+	if err != nil {
+		return fmt.Errorf("failed to create kubernetes client for vcluster %s: %w", vClusterName, err)
+	}
+	// get snapshot request ConfigMap
+	listOptions := metav1.ListOptions{
+		LabelSelector: snapshotMeta.RequestLabel,
+	}
+	snapshotRequestConfigMaps, err := kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).List(ctx, listOptions)
+	if err != nil {
+		return fmt.Errorf("failed to get snapshot requests for virtual cluster %s: %w", vCluster.Name, err)
+	}
+	var snapshotRequests []*snapshot.Request
+	for _, snapshotRequestConfigMap := range snapshotRequestConfigMaps.Items {
+		snapshotRequest, err := snapshot.UnmarshalSnapshotRequest(&snapshotRequestConfigMap)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal snapshot request from ConfigMap %s/%s: %w", snapshotRequestConfigMap.Namespace, snapshotRequestConfigMap.Name, err)
+		}
+		snapshotRequests = append(snapshotRequests, snapshotRequest)
+	}
+	printSnapshotRequests(snapshotRequests, log)
 	return nil
 }
 
