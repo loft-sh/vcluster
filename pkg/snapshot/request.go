@@ -31,13 +31,18 @@ const (
 type RequestPhase string
 
 type Request struct {
-	Name   string        `json:"name"`
-	Spec   RequestSpec   `json:"spec"`
-	Status RequestStatus `json:"status"`
+	RequestMetadata `json:"metadata,omitempty"`
+	Spec            RequestSpec   `json:"spec,omitempty"`
+	Status          RequestStatus `json:"status,omitempty"`
 }
 
 func (r *Request) Done() bool {
 	return r.Status.Phase == RequestPhaseCompleted || r.Status.Phase == RequestPhaseFailed
+}
+
+type RequestMetadata struct {
+	Name              string      `json:"name"`
+	CreationTimestamp metav1.Time `json:"creationTimestamp,omitempty"`
 }
 
 type RequestSpec struct {
