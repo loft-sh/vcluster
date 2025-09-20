@@ -9,34 +9,34 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type GetRequestCmd struct {
+type ListRequestsCmd struct {
 	*flags.GlobalFlags
 	Log log.Logger
 }
 
-func NewGetRequestCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
-	getRequestCmd := &GetRequestCmd{
+func NewListRequestsCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
+	listRequestsCmd := &ListRequestsCmd{
 		GlobalFlags: globalFlags,
 		Log:         log.GetInstance(),
 	}
 
 	_, nameValidator := util.NamedPositionalArgsValidator(true, false, "VCLUSTER_NAME")
 	cobraCmd := &cobra.Command{
-		Use:   "get-request",
-		Short: "Get a snapshot request",
+		Use:   "list-requests",
+		Short: "List snapshot requests",
 		Long: `##############################################################
-################# vcluster snapshot get-request ###################
+################# vcluster snapshot list-requests ###################
 ###################################################################
-Get a snapshot request.
+List all snapshot requests for a virtual cluster.
 
 Example:
-vcluster snapshot get-request my-vcluster snapshot-request-hy91d
+vcluster snapshot list-requests my-vcluster
 ###################################################################
 	`,
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.GetRequest(cobraCmd.Context(), args, getRequestCmd.GlobalFlags, getRequestCmd.Log)
+			return cli.ListRequests(cobraCmd.Context(), args, listRequestsCmd.GlobalFlags, listRequestsCmd.Log)
 		},
 	}
 
