@@ -58,6 +58,7 @@ vcluster snapshot my-vcluster container:///data/my-local-snapshot.tar.gz
 
 	// add subcommands
 	cobraCmd.AddCommand(NewCreateCmd(globalFlags))
+	cobraCmd.AddCommand(NewGetRequestCmd(globalFlags))
 
 	return cobraCmd
 }
