@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -226,7 +227,10 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 
 	// then create the snapshot request that will be reconciled by the controller
 	snapshotRequest := &snapshot.Request{
-		Name: secret.Name,
+		RequestMetadata: snapshot.RequestMetadata{
+			Name:              secret.Name,
+			CreationTimestamp: metav1.Now(),
+		},
 		Spec: snapshot.RequestSpec{
 			IncludeVolumes: includeVolumes,
 		},
@@ -241,7 +245,11 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
 	}
 
-	log.Infof("Created snapshot request %s", snapshotRequest.Name)
+	log.Infof(
+		"Created snapshot request %s, starting snapshot creation... Check the snapshot request status with:\n\nvcluster snapshot get-request %s %s",
+		snapshotRequest.Name,
+		vCluster.Name,
+		snapshotRequest.Name)
 	return nil
 }
 
@@ -305,7 +313,8 @@ func printSnapshotRequests(snapshotRequests []*snapshot.Request, log log.Logger)
 	header := []string{"NAME", "STATUS", "AGE"}
 	var values [][]string
 	for _, snapshotRequest := range snapshotRequests {
-		values = append(values, []string{snapshotRequest.Name, string(snapshotRequest.Status.Phase), ""})
+		age := duration.HumanDuration(metav1.Now().Sub(snapshotRequest.CreationTimestamp.Time))
+		values = append(values, []string{snapshotRequest.Name, string(snapshotRequest.Status.Phase), age})
 	}
 	table.PrintTable(log, header, values)
 }
