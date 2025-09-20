@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -215,7 +216,6 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 	if vClusterConfig.ControlPlane.Standalone.Enabled {
 		return errors.New("creating snapshots with 'vcluster snapshot create' command is currently not supported")
 	}
-
 	// Create snapshot request resources
 	snapshotRequest, err := snapshot.CreateSnapshotRequestResources(ctx, vCluster.Namespace, vCluster.Name, snapshotOpts, includeVolumes, kubeClient)
 	if err != nil {
@@ -285,7 +285,8 @@ func printSnapshotRequests(snapshotRequests []*snapshot.Request, log log.Logger)
 	header := []string{"NAME", "STATUS", "AGE"}
 	var values [][]string
 	for _, snapshotRequest := range snapshotRequests {
-		values = append(values, []string{snapshotRequest.Name, string(snapshotRequest.Status.Phase), ""})
+		age := duration.HumanDuration(metav1.Now().Sub(snapshotRequest.CreationTimestamp.Time))
+		values = append(values, []string{snapshotRequest.Name, string(snapshotRequest.Status.Phase), age})
 	}
 	table.PrintTable(log, header, values)
 }
