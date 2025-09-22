@@ -26,9 +26,6 @@ type VirtualClusterConfig struct {
 	// Name is the name of the vCluster
 	Name string `json:"name"`
 
-	// HostTargetNamespace is the namespace of the host cluster where the workloads should get created in
-	HostTargetNamespace string `json:"hostTargetNamespace,omitempty"`
-
 	// HostNamespace is the namespace in the host cluster where the vCluster is running
 	HostNamespace string `json:"hostNamespace,omitempty"`
 
@@ -120,7 +117,6 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 		BindAddress:                 v.ControlPlane.Proxy.BindAddress,
 		Port:                        v.ControlPlane.Proxy.Port,
 		Name:                        v.Name,
-		TargetNamespace:             v.HostTargetNamespace,
 		ServiceName:                 v.Name,
 		SetOwner:                    v.Experimental.SyncSettings.SetOwner,
 		SyncAllNodes:                v.Sync.FromHost.Nodes.Selector.All,

@@ -343,10 +343,6 @@ jobs:
             haValues="-f ./test/values_ha.yaml"
           fi
 
-          if [ "${{ matrix.test-suite-path }}" = "./test/e2e_target_namespace" ]; then
-            kubectl apply -f "${{ matrix.test-suite-path }}/role.yaml"
-          fi
-
           if [ "${{ matrix.test-suite-path }}" = "./test/e2e" ]; then
             kubectl create namespace from-host-sync-test
             kubectl create namespace from-host-sync-test-2

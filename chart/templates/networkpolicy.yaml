@@ -3,11 +3,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: vc-work-{{ .Release.Name }}
-  {{- if .Values.experimental.syncSettings.targetNamespace }}
-  namespace: {{ .Values.experimental.syncSettings.targetNamespace }}
-  {{- else }}
   namespace: {{ .Release.Namespace }}
-  {{- end }}
   labels:
     app: vcluster
     chart: "{{ include "vcluster.version.label"  $ }}"

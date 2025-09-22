@@ -102,10 +102,7 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 }
 
 func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
-	hostNamespace := ctx.Config.HostTargetNamespace
-	if ctx.Config.Sync.ToHost.Namespaces.Enabled {
-		hostNamespace = ctx.Config.HostNamespace
-	}
+	hostNamespace := ctx.Config.HostNamespace
 
 	if len(ctx.Config.Networking.ReplicateServices.FromHost) > 0 {
 		mapping, err := parseMapping(ctx.Config.Networking.ReplicateServices.FromHost, hostNamespace, "")
