@@ -53,7 +53,7 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, snapshotReq
 			newStatus, err := s.reconcileInProgressPVC(ctx, snapshotRequestName, snapshotConfig, snapshotStatus)
 			volumeSnapshotsRequest.Status.Snapshots[pvcName] = newStatus
 			if err != nil {
-				return fmt.Errorf("failed to reconcile in-progress volumes snapshot request %s for PVC %s: %v", snapshotRequestName, pvcName, err)
+				return fmt.Errorf("volumes snapshot request %s failed for PVC %s: %w", snapshotRequestName, pvcName, err)
 			}
 			if newStatus.Phase == volumes.RequestPhaseInProgress {
 				// at least one volume snapshot creation is still in progress
