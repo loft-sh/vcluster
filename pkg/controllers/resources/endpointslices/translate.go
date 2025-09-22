@@ -1,4 +1,4 @@
-package endpoints
+package endpointslices
 
 import (
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -10,7 +10,9 @@ import (
 )
 
 func (s *endpointSliceSyncer) translate(ctx *synccontext.SyncContext, vObj client.Object) *discoveryv1.EndpointSlice {
-	endpointSlice := translate.HostMetadata(vObj.(*discoveryv1.EndpointSlice), s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj), s.excludedAnnotations...)
+	endpointSlice := translate.HostMetadata(vObj.(*discoveryv1.EndpointSlice),
+		s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj),
+		s.excludedAnnotations...)
 	s.translateSpec(ctx, endpointSlice)
 	return endpointSlice
 }

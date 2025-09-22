@@ -1,4 +1,4 @@
-package endpoints
+package endpointslices
 
 import (
 	"errors"
@@ -23,7 +23,7 @@ import (
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
-	mapper, err := ctx.Mappings.ByGVK(mappings.Endpoints())
+	mapper, err := ctx.Mappings.ByGVK(mappings.EndpointSlices())
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (s *endpointSliceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 	}
 
 	pObj := s.translate(ctx, event.Virtual)
-	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.EndpointSlices.Patches, false)
+	err := pro.ApplyPatchesHostObject(ctx, pObj, event.Virtual, ctx.Config.Sync.ToHost.EndpointSlices.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -129,7 +129,7 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 	} else if svc.Spec.Selector != nil {
 		// check if it was a managed endpointSlice object before and delete it
 		endpointSlice := &discoveryv1.EndpointSlice{}
-		err = ctx.PhysicalClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpointSlice)
+		err = ctx.HostClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpointSlice)
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
 				klog.Infof("Error retrieving endpointSliceList: %v", err)
@@ -146,7 +146,7 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 			// to the same endpoints resulting in wrong DNS and cluster networking. Hence, deleting the previously
 			// managed endpointSlices signals the Kubernetes controller to recreate the endpointSlices from the selector.
 			klog.Infof("Refresh endpointSlice in physical cluster because they shouldn't be managed by vcluster anymore")
-			err = ctx.PhysicalClient.Delete(ctx, endpointSlice)
+			err = ctx.HostClient.Delete(ctx, endpointSlice)
 			if err != nil {
 				klog.Infof("Error deleting endpoints %s/%s: %v", endpointSlice.Namespace, endpointSlice.Name, err)
 				return true, err
@@ -158,10 +158,10 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 
 	// check if it was a Kubernetes managed endpointSlice object before and delete it
 	endpointSlice := &discoveryv1.EndpointSlice{}
-	err = ctx.PhysicalClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpointSlice)
+	err = ctx.HostClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpointSlice)
 	if err == nil && (endpointSlice.Annotations == nil || endpointSlice.Annotations[translate.NameAnnotation] == "") {
 		klog.Infof("Refresh endpointSlice in physical cluster because they should be managed by vCluster now")
-		err = ctx.PhysicalClient.Delete(ctx, endpointSlice)
+		err = ctx.HostClient.Delete(ctx, endpointSlice)
 		if err != nil {
 			klog.Infof("Error deleting endpointSlice %s/%s: %v", endpointSlice.Namespace, endpointSlice.Name, err)
 			return true, err
