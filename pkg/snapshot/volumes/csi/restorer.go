@@ -75,17 +75,18 @@ func (r *Restorer) Reconcile(ctx context.Context, restoreRequestName string, res
 }
 
 func (r *Restorer) reconcileInProgress(ctx context.Context, restoreRequestName string, restoreRequest *volumes.SnapshotRequest) (retErr error) {
-	r.logger.Debugf("Reconciling in-progress volumes restore request %s", restoreRequestName)
+	r.logger.Infof("Reconciling in-progress volumes restore request %s", restoreRequestName)
 	if restoreRequest.Status.Phase != volumes.RequestPhaseInProgress {
 		return fmt.Errorf("invalid phase for snapshot request %s, expected %s, got %s", restoreRequestName, volumes.RequestPhaseInProgress, restoreRequest.Status.Phase)
 	}
-	defer r.logger.Debugf("Reconciled in-progress volumes restore request %s", restoreRequestName)
+	defer r.logger.Infof("Reconciled in-progress volumes restore request %s", restoreRequestName)
 
-	inProgress := false
+	continueReconciling := false
 	defer func() {
-		if retErr != nil {
-			restoreRequest.Status.Phase = volumes.RequestPhaseFailed
+		if retErr == nil {
+			return
 		}
+		restoreRequest.Status.Phase = volumes.RequestPhaseFailed
 	}()
 
 	for _, snapshotConfig := range restoreRequest.Spec.VolumeSnapshotConfigs {
@@ -104,30 +105,27 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, restoreRequestName s
 			fallthrough
 		case volumes.RequestPhaseInProgress:
 			newStatus, err := r.reconcileInProgressPVC(ctx, restoreRequestName, snapshotConfig, snapshotStatus)
+			restoreRequest.Status.Snapshots[pvcName] = newStatus
 			if err != nil {
 				return fmt.Errorf("failed to reconcile in-progress volumes restore request %s for PVC %s: %w", restoreRequestName, pvcName, err)
 			}
-			if newStatus.Equals(snapshotStatus) {
+			if newStatus.Phase == volumes.RequestPhaseInProgress {
 				// at least one volume snapshot creation is still in progress
-				inProgress = true
+				continueReconciling = true
 				continue
 			}
-			restoreRequest.Status.Snapshots[pvcName] = newStatus
 		case volumes.RequestPhaseCompleted:
-			r.logger.Infof("PVC %s has been restored", pvcName)
-			// TODO: delete VolumeSnapshot and VolumeSnapshotContent (make sure to use VolumeSnapshotClass with deletion policy 'Retain')
+			r.logger.Debugf("PVC %s has been already restored", pvcName)
 		case volumes.RequestPhaseSkipped:
-			r.logger.Infof("PVC %s already exists, restore skipped", pvcName)
-			// TODO: delete VolumeSnapshot and VolumeSnapshotContent (make sure to use VolumeSnapshotClass with deletion policy 'Retain')
+			r.logger.Debugf("PVC %s already exists, restore skipped", pvcName)
 		case volumes.RequestPhaseFailed:
-			r.logger.Infof("Failed to restore PVC %s", pvcName)
-			// TODO: cleanup VolumeSnapshot and VolumeSnapshotContent (make sure to use VolumeSnapshotClass with deletion policy 'Retain')
+			r.logger.Errorf("Failed to restore PVC %s", pvcName)
 		default:
 			return fmt.Errorf("invalid restore request phase %s for PVC %s in restore snapshot request %s", snapshotStatus.Phase, pvcName, restoreRequestName)
 		}
 	}
 
-	if !inProgress {
+	if !continueReconciling {
 		restoreRequest.Status.Phase = volumes.RequestPhaseCompleted
 	}
 	return nil
