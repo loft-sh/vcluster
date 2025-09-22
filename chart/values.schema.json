@@ -1850,10 +1850,6 @@
     },
     "ExperimentalSyncSettings": {
       "properties": {
-        "targetNamespace": {
-          "type": "string",
-          "description": "TargetNamespace is the namespace where the workloads should get synced to.\nDeprecated: Removed in 0.29.0."
-        },
         "setOwner": {
           "type": "boolean",
           "description": "SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection."

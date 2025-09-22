@@ -2899,10 +2899,6 @@ func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
 }
 
 type ExperimentalSyncSettings struct {
-	// TargetNamespace is the namespace where the workloads should get synced to.
-	// Deprecated: Removed in 0.29.0.
-	TargetNamespace string `json:"targetNamespace,omitempty"`
-
 	// SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.
 	SetOwner bool `json:"setOwner,omitempty"`
 

@@ -12,7 +12,7 @@ import (
 
 func CreateNamespacesMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
 	singleNamespaceMapper := &singleNamespaceModeMapper{
-		targetNamespace: ctx.Config.HostTargetNamespace,
+		targetNamespace: ctx.Config.HostNamespace,
 	}
 	if ctx.Config.Sync.ToHost.Namespaces.Enabled {
 		return pro.GetNamespaceMapper(ctx, singleNamespaceMapper)

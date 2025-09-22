@@ -21,7 +21,7 @@
         
          For e.g.
          ```
-         helm template vcluster ./charts/k3s/ -f ./test/commonValues.yaml -f ./test/e2e_target_namespace/values.yaml
+         helm template vcluster ./charts/k3s/ -f ./test/commonValues.yaml
 
          # Then look for `name: syncer` container
 
