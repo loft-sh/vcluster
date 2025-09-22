@@ -61,13 +61,13 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, snapshotReq
 				continue
 			}
 		case volumes.RequestPhaseCompleted:
-			s.logger.Debugf("VolumeSnapshot for PVC %s has been created", pvcName)
-			// TODO: delete VolumeSnapshot and VolumeSnapshotContent (make sure to use VolumeSnapshotClass with deletion policy 'Retain'
-			// TODO: if cleaning up is in progress, then set inProgress = true
+			s.logger.Debugf("VolumeSnapshot for PVC %s has been created successfully", pvcName)
 		case volumes.RequestPhaseFailed:
-			s.logger.Debugf("Failed to create VolumeSnapshot for PVC %s", pvcName)
-			// TODO: cleanup VolumeSnapshot and VolumeSnapshotContent?
-			// TODO: if cleaning up is in progress, then set inProgress = true
+			return fmt.Errorf(
+				"volumes snapshot request %s has already failed for PVC %s, previous error: %v",
+				snapshotRequestName,
+				pvcName,
+				snapshotStatus.Error.Message)
 		default:
 			return fmt.Errorf("invalid snapshot request phase %s for for PVC %s in volume snapshot request %s", snapshotStatus.Phase, pvcName, snapshotRequestName)
 		}
