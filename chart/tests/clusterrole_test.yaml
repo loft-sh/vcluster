@@ -145,7 +145,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
@@ -195,7 +195,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 5
       - contains:
           path: rules
           content:
@@ -226,7 +226,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 5
       - contains:
           path: rules
           content:
@@ -252,7 +252,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
@@ -271,7 +271,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
@@ -290,7 +290,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
@@ -306,7 +306,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -360,7 +360,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
@@ -380,7 +380,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 5
       - contains:
           path: rules
           content:
@@ -406,7 +406,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 5
       - contains:
           path: rules
           content:
@@ -428,7 +428,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
@@ -455,7 +455,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -529,7 +529,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -565,7 +565,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -601,7 +601,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -648,7 +648,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -684,7 +684,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -720,7 +720,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -754,7 +754,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
