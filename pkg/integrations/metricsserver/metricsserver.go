@@ -184,7 +184,7 @@ func handleMetricsServerProxyRequest(
 			splitted[5] = mappings.VirtualToHostNamespace(syncContext, info.Namespace)
 		} else if translate.Default.SingleNamespaceTarget() {
 			// limit to current namespace in host cluster
-			splitted = append(splitted[:4], append([]string{"namespaces", ctx.Config.HostTargetNamespace}, splitted[4:]...)...)
+			splitted = append(splitted[:4], append([]string{"namespaces", ctx.Config.HostNamespace}, splitted[4:]...)...)
 		}
 
 		metricsServerProxy.resourceType = PodResource

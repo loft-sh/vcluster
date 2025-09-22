@@ -642,7 +642,6 @@ plugins: {}
 
 experimental:
   syncSettings:
-    targetNamespace: ""
     setOwner: true
 
   deploy:
