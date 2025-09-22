@@ -55,20 +55,14 @@ func InitClients(vConfig *config.VirtualClusterConfig) error {
 		return err
 	}
 
-	// ensure target namespace
-	vConfig.HostTargetNamespace = vConfig.Experimental.SyncSettings.TargetNamespace
-	if vConfig.HostTargetNamespace == "" {
-		vConfig.HostTargetNamespace = vConfig.HostNamespace
-	}
-
 	// get workload target namespace translator
 	if vConfig.Sync.ToHost.Namespaces.Enabled {
-		translate.Default, err = pro.GetWithSyncedNamespacesTranslator(vConfig.HostTargetNamespace, vConfig.Sync.ToHost.Namespaces.Mappings)
+		translate.Default, err = pro.GetWithSyncedNamespacesTranslator(vConfig.HostNamespace, vConfig.Sync.ToHost.Namespaces.Mappings)
 		if err != nil {
 			return err
 		}
 	} else {
-		translate.Default = translate.NewSingleNamespaceTranslator(vConfig.HostTargetNamespace)
+		translate.Default = translate.NewSingleNamespaceTranslator(vConfig.HostNamespace)
 	}
 
 	return nil
@@ -226,12 +220,6 @@ func SetGlobalOwner(ctx context.Context, vConfig *config.VirtualClusterConfig) e
 
 	if vConfig.Sync.ToHost.Namespaces.Enabled {
 		klog.Warningf("Skip setting owner, because multi namespace mode is enabled")
-		return nil
-	}
-
-	if vConfig.HostNamespace != vConfig.HostTargetNamespace {
-		klog.Warningf("Skip setting owner, because current namespace %s != target namespace %s", vConfig.HostNamespace, vConfig.HostTargetNamespace)
-
 		return nil
 	}
 

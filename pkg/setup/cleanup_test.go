@@ -70,7 +70,6 @@ func TestDeletePreviouslyReplicatedServices(t *testing.T) {
 
 	testCases := []struct {
 		name                                string
-		workloadTargetNamespace             string
 		replicateServicesConfig             vclusterconfig.ReplicateServices
 		initialHostServicesBeforeCleanup    []runtime.Object
 		initialVirtualServicesBeforeCleanup []runtime.Object
@@ -94,22 +93,6 @@ func TestDeletePreviouslyReplicatedServices(t *testing.T) {
 			initialVirtualServicesBeforeCleanup: []runtime.Object{virtualService1},
 			expectedHostServicesAfterCleanup:    []runtime.Object{hostService1},
 			expectedVirtualServicesAfterCleanup: []runtime.Object{virtualService1},
-		},
-		{
-			name:                    "Has replicated service config that uses target namespace on host, no cleanup",
-			workloadTargetNamespace: "my-vcluster",
-			replicateServicesConfig: vclusterconfig.ReplicateServices{
-				FromHost: []vclusterconfig.ServiceMapping{
-					{
-						From: "host-service",
-						To:   "virtual-namespace-2/virtual-service-2",
-					},
-				},
-			},
-			initialHostServicesBeforeCleanup:    []runtime.Object{hostServiceDefaultTargetNamespace},
-			initialVirtualServicesBeforeCleanup: []runtime.Object{virtualService2},
-			expectedHostServicesAfterCleanup:    []runtime.Object{hostServiceDefaultTargetNamespace},
-			expectedVirtualServicesAfterCleanup: []runtime.Object{virtualService2},
 		},
 		{
 			name: "Replicated service removed from config",
@@ -153,9 +136,6 @@ func TestDeletePreviouslyReplicatedServices(t *testing.T) {
 			ctx := context.Background()
 			fakeConfig := testingutil.NewFakeConfig()
 			fakeConfig.Networking.ReplicateServices = tc.replicateServicesConfig
-			if tc.workloadTargetNamespace != "" {
-				fakeConfig.HostTargetNamespace = tc.workloadTargetNamespace
-			}
 			pClient := testingutil.NewFakeClient(scheme.Scheme, tc.initialHostServicesBeforeCleanup...)
 			vClient := testingutil.NewFakeClient(scheme.Scheme, tc.initialVirtualServicesBeforeCleanup...)
 			fakeControllerContext := NewFakeControllerContext(ctx, fakeConfig, pClient, vClient)

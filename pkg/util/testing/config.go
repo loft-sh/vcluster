@@ -22,10 +22,9 @@ func NewFakeConfig() *config.VirtualClusterConfig {
 
 	// parse config
 	vConfig := &config.VirtualClusterConfig{
-		Config:              *defaultConfig,
-		Name:                DefaultTestVClusterName,
-		HostNamespace:       DefaultTestTargetNamespace,
-		HostTargetNamespace: DefaultTestTargetNamespace,
+		Config:        *defaultConfig,
+		Name:          DefaultTestVClusterName,
+		HostNamespace: DefaultTestTargetNamespace,
 	}
 
 	err = config.ValidateConfigAndSetDefaults(vConfig)
