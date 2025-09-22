@@ -110,7 +110,7 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, restoreRequestName s
 				r.logger.Errorf("failed to reconcile in-progress volumes restore request %s for PVC %s: %v", restoreRequestName, pvcName, err)
 			}
 			if newStatus.Phase == volumes.RequestPhaseInProgress {
-				// at least one volume snapshot creation is still in progress
+				// at least one volume restore is still in progress
 				continueReconciling = true
 				continue
 			}
