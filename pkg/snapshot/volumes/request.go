@@ -3,8 +3,7 @@ package volumes
 import corev1 "k8s.io/api/core/v1"
 
 const (
-	SnapshotClassNameLabel         = "vcluster.loft.sh/csi-volumesnapshot-class"
-	PersistentVolumeClaimNameLabel = "vcluster.loft.sh/csi-volumesnapshot-class"
+	SnapshotClassNameLabel = "vcluster.loft.sh/csi-volumesnapshot-class"
 
 	RequestPhaseNotStarted SnapshotRequestPhase = ""
 	RequestPhaseInProgress SnapshotRequestPhase = "InProgress"
@@ -31,6 +30,7 @@ type SnapshotRequestSpec struct {
 type SnapshotRequestStatus struct {
 	Phase     SnapshotRequestPhase `json:"phase,omitempty"`
 	Snapshots Snapshots            `json:"snapshots,omitempty"`
+	Error     SnapshotError        `json:"error,omitempty"`
 }
 
 // SnapshotConfigs specifies how to create snapshots for multiple PVCs.
@@ -54,10 +54,21 @@ type Snapshots map[string]SnapshotStatus
 type SnapshotStatus struct {
 	Phase          SnapshotRequestPhase `json:"phase,omitempty"`
 	SnapshotHandle string               `json:"snapshotHandle,omitempty"`
+	Error          SnapshotError        `json:"error,omitempty"`
+}
+
+type SnapshotError struct {
+	Message string `json:"message,omitempty"`
+}
+
+func (err SnapshotError) Equals(other SnapshotError) bool {
+	return err.Message == other.Message
 }
 
 func (s SnapshotStatus) Equals(other SnapshotStatus) bool {
-	return s.Phase == other.Phase && s.SnapshotHandle == other.SnapshotHandle
+	return s.Phase == other.Phase &&
+		s.SnapshotHandle == other.SnapshotHandle &&
+		s.Error.Equals(other.Error)
 }
 
 func (s SnapshotStatus) Done() bool {
