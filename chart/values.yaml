@@ -811,13 +811,8 @@ privateNodes:
       # Enabled defines if containerd should be installed and configured by vCluster.
       enabled: true
   
-  # AutoNodes stores Auto Nodes configuration static and dynamic NodePools managed by Karpenter
-  autoNodes:
-    # Static defines static node pools. Static node pools have a fixed size and are not scaled automatically.
-    static: []
-    # Dynamic defines dynamic node pools. Dynamic node pools are scaled automatically based on the requirements within the cluster.
-    # Karpenter is used under the hood to handle the scheduling of the nodes.
-    dynamic: []
+  # AutoNodes stores auto nodes configuration.
+  autoNodes: []
   
   # VPN holds configuration for the private nodes vpn. This can be used to connect the private nodes to the control plane or
   # connect the private nodes to each other if they are not running in the same network. Platform connection is required for the vpn to work.

@@ -440,9 +440,7 @@ privateNodes:
   joinNode:
     containerd:
       enabled: true
-  autoNodes:
-    static: []
-    dynamic: []
+  autoNodes: []
   vpn:
     enabled: false
     nodeToNode:

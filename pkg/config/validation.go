@@ -765,31 +765,46 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 	}
 
 	// validate node pools
-	for _, nodePool := range vConfig.PrivateNodes.AutoNodes.Static {
-		if nodePool.Name == "" {
-			return fmt.Errorf("node pool name is required")
-		}
-		if nodePool.Provider == "" {
-			return fmt.Errorf("node pool provider is required")
-		}
-		if nodePool.Quantity < 0 {
-			return fmt.Errorf("node pool quantity cannot be negative")
-		}
-
-		if err := validateRequirements(nodePool.Requirements); err != nil {
-			return fmt.Errorf("invalid requirements for node pool %s: %w", nodePool.Name, err)
-		}
-	}
-	for _, nodePool := range vConfig.PrivateNodes.AutoNodes.Dynamic {
-		if nodePool.Name == "" {
-			return fmt.Errorf("node pool name is required")
-		}
-		if nodePool.Provider == "" {
+	nodePoolNames := make(map[string]bool)
+	nodePoolProviders := make(map[string]bool)
+	for _, nodeProviderConfiguration := range vConfig.PrivateNodes.AutoNodes {
+		if nodeProviderConfiguration.Provider == "" {
 			return fmt.Errorf("node pool provider is required")
 		}
 
-		if err := validateRequirements(nodePool.Requirements); err != nil {
-			return fmt.Errorf("invalid requirements for node pool %s: %w", nodePool.Name, err)
+		if nodePoolProviders[nodeProviderConfiguration.Provider] {
+			return fmt.Errorf("node pool provider %s is already used. You cannot have two configurations for the same provider", nodeProviderConfiguration.Provider)
+		}
+		nodePoolProviders[nodeProviderConfiguration.Provider] = true
+
+		for _, staticNodePool := range nodeProviderConfiguration.Static {
+			if staticNodePool.Name == "" {
+				return fmt.Errorf("node pool name is required")
+			}
+			if staticNodePool.Quantity < 0 {
+				return fmt.Errorf("node pool quantity cannot be negative")
+			}
+			if nodePoolNames[staticNodePool.Name] {
+				return fmt.Errorf("node pool name %s is already used. You cannot have two node pools with the same name", staticNodePool.Name)
+			}
+			nodePoolNames[staticNodePool.Name] = true
+
+			if err := validateRequirements(staticNodePool.NodeTypeSelector); err != nil {
+				return fmt.Errorf("invalid requirements for node pool %s: %w", staticNodePool.Name, err)
+			}
+		}
+		for _, dynamicNodePool := range nodeProviderConfiguration.Dynamic {
+			if dynamicNodePool.Name == "" {
+				return fmt.Errorf("node pool name is required")
+			}
+			if nodePoolNames[dynamicNodePool.Name] {
+				return fmt.Errorf("node pool name %s is already used. You cannot have two node pools with the same name", dynamicNodePool.Name)
+			}
+			nodePoolNames[dynamicNodePool.Name] = true
+
+			if err := validateRequirements(dynamicNodePool.NodeTypeSelector); err != nil {
+				return fmt.Errorf("invalid requirements for node pool %s: %w", dynamicNodePool.Name, err)
+			}
 		}
 	}
 
