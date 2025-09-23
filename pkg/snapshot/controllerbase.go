@@ -222,7 +222,7 @@ func (c *reconcilerBase) deleteRequestSecret(ctx context.Context, configMap *cor
 	}
 
 	c.logger.Debugf("Deleted %s request Secret %s/%s", c.kind, namespace, name)
-	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, fmt.Sprintf("%sRequestCleanup", c.kind.ToCapital()), "%s request Secret %s/%s has been deleted", c.kind.ToCapital(), configMap.Namespace, configMap.Name)
+	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SecretDeleted", "%s request Secret %s/%s has been deleted", c.kind.ToCapital(), configMap.Namespace, configMap.Name)
 	return nil
 }
 
