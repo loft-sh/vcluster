@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -37,7 +38,7 @@ type Snapshotter interface {
 	CheckIfPersistentVolumeIsSupported(pv *corev1.PersistentVolume) error
 
 	// Reconcile volume snapshots request.
-	Reconcile(ctx context.Context, snapshotRequestName string, spec *SnapshotsRequest, status *SnapshotsStatus) error
+	Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, spec *SnapshotsRequest, status *SnapshotsStatus) error
 
 	// Cleanup does any necessary clean up of the cluster after taking the snapshot of the volumes.
 	// E.g. it can remove all the resources that were created by the snapshotter in order to create

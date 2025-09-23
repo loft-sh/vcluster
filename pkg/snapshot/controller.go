@@ -77,7 +77,8 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kuberenetes clients: %w", err)
 	}
-	volumeSnapshotter, err := csiVolumes.NewVolumeSnapshotter(registerContext.Config, kubeClient, snapshotsClient, logger)
+	eventRecorder := snapshotRequestsManager.GetEventRecorderFor(controllerName)
+	volumeSnapshotter, err := csiVolumes.NewVolumeSnapshotter(registerContext.Config, kubeClient, snapshotsClient, eventRecorder, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create volume snapshotter: %w", err)
 	}
@@ -87,7 +88,7 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 		requestsKubeClient: snapshotRequestsManager.GetClient(),
 		requestsManager:    snapshotRequestsManager,
 		logger:             logger,
-		eventRecorder:      snapshotRequestsManager.GetEventRecorderFor(controllerName),
+		eventRecorder:      eventRecorder,
 		isHostMode:         isHostMode,
 		kind:               snapshotReconciler,
 		finalizer:          ControllerFinalizer,
@@ -175,7 +176,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		volumeSnapshotsRequest := &snapshotRequest.Spec.VolumeSnapshots
 		volumeSnapshotsStatus := &snapshotRequest.Status.VolumeSnapshots
 		previousVolumeSnapshotsRequestPhase := volumeSnapshotsStatus.Phase
-		err = c.volumeSnapshotter.Reconcile(ctx, snapshotRequest.Name, volumeSnapshotsRequest, volumeSnapshotsStatus)
+		err = c.volumeSnapshotter.Reconcile(ctx, &configMap, snapshotRequest.Name, volumeSnapshotsRequest, volumeSnapshotsStatus)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile volume snapshots: %w", err)
 		}
