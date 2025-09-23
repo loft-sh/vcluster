@@ -9,12 +9,12 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, snapshotRequestName string, snapshotRequest *volumes.SnapshotRequest) error {
-	s.logger.Infof("Reconciling new volume snapshots request %s", snapshotRequestName)
-	if snapshotRequest.Status.Phase != volumes.RequestPhaseNotStarted {
-		return fmt.Errorf("invalid phase for snapshot request %s, expected %s, got %s", snapshotRequestName, volumes.RequestPhaseNotStarted, snapshotRequest.Status.Phase)
+func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) error {
+	s.logger.Infof("Reconciling new volume snapshots request %s", requestName)
+	if status.Phase != volumes.RequestPhaseNotStarted {
+		return fmt.Errorf("invalid phase for snapshot request %s, expected %s, got %s", requestName, volumes.RequestPhaseNotStarted, status.Phase)
 	}
-	defer s.logger.Infof("Reconciled new volume snapshots request %s", snapshotRequestName)
+	defer s.logger.Infof("Reconciled new volume snapshots request %s", requestName)
 
 	// first get all persistent volumes
 	pvs, err := s.kubeClient.CoreV1().PersistentVolumes().List(ctx, v1.ListOptions{})
@@ -22,7 +22,7 @@ func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, snapshotReq
 		return fmt.Errorf("failed to list persistent volumes: %w", err)
 	}
 
-	var snapshotConfigs volumes.SnapshotConfigs
+	var volumeSnapshotRequests []volumes.SnapshotRequest
 	for _, pv := range pvs.Items {
 		// check if creating a snapshot for this PV is supported
 		err = s.CheckIfPersistentVolumeIsSupported(&pv)
@@ -30,7 +30,7 @@ func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, snapshotReq
 			s.logger.Infof("Skip creating a snapshot for PersistentVolume %s, since it is not supported: %v", pv.Name, err)
 			continue
 		}
-		snapshotConfig := volumes.SnapshotConfig{
+		volumeSnapshotRequest := volumes.SnapshotRequest{
 			CSIDriver: pv.Spec.CSI.Driver,
 		}
 
@@ -47,17 +47,18 @@ func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, snapshotReq
 		delete(pvcCopy.Annotations, "volume.kubernetes.io/storage-provisioner")
 		pvcCopy.ManagedFields = nil
 		pvcCopy.Status = corev1.PersistentVolumeClaimStatus{}
-		snapshotConfig.PersistentVolumeClaim = *pvcCopy
+		volumeSnapshotRequest.PersistentVolumeClaim = *pvcCopy
 
 		if volumeSnapshotClassName, ok := pvc.Labels[volumes.SnapshotClassNameLabel]; ok {
-			snapshotConfig.VolumeSnapshotClassName = volumeSnapshotClassName
+			volumeSnapshotRequest.VolumeSnapshotClassName = volumeSnapshotClassName
 		}
 
-		snapshotConfigs = append(snapshotConfigs, snapshotConfig)
+		volumeSnapshotRequests = append(volumeSnapshotRequests, volumeSnapshotRequest)
 	}
 
 	// Snapshot request successfully initialized, update phase to InProgress
-	snapshotRequest.Spec.VolumeSnapshotConfigs = snapshotConfigs
-	snapshotRequest.Status.Phase = volumes.RequestPhaseInProgress
+	request.Requests = volumeSnapshotRequests
+	status.Snapshots = map[string]volumes.SnapshotStatus{}
+	status.Phase = volumes.RequestPhaseInProgress
 	return nil
 }
