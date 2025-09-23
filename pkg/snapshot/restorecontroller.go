@@ -67,7 +67,8 @@ func NewRestoreController(registerContext *synccontext.RegisterContext) (*Restor
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kuberenetes clients: %w", err)
 	}
-	volumesRestorer, err := csiVolumes.NewRestorer(registerContext.Config, kubeClient, snapshotsClient, logger)
+	eventRecorder := requestsManager.GetEventRecorderFor(controllerName)
+	volumesRestorer, err := csiVolumes.NewRestorer(registerContext.Config, kubeClient, snapshotsClient, eventRecorder, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create volume snapshotter: %w", err)
 	}
@@ -77,7 +78,7 @@ func NewRestoreController(registerContext *synccontext.RegisterContext) (*Restor
 		requestsKubeClient: requestsManager.GetClient(),
 		requestsManager:    requestsManager,
 		logger:             logger,
-		eventRecorder:      requestsManager.GetEventRecorderFor(controllerName),
+		eventRecorder:      eventRecorder,
 		isHostMode:         isHostMode,
 		kind:               restoreReconciler,
 		finalizer:          RestoreControllerFinalizer,
@@ -125,7 +126,7 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 			return ctrl.Result{}, fmt.Errorf("failed to add vCluster restore controller finalizer to the restore request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
 		if updated {
-			c.eventRecorder.Eventf(&configMap, corev1.EventTypeNormal, "RestoreRequestCreated", "Restore request %s/%s has been created", configMap.Namespace, configMap.Name)
+			c.eventRecorder.Eventf(&configMap, corev1.EventTypeNormal, "Created", "Restore request %s/%s has been created", configMap.Namespace, configMap.Name)
 			return ctrl.Result{}, nil
 		}
 	}
@@ -135,7 +136,7 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 	defer func() {
 		if retErr != nil {
 			// something went wrong, recorde error and update restore request phase to Failed
-			c.eventRecorder.Eventf(&configMap, corev1.EventTypeWarning, "RestoreRequestFailed", "Restore request %s/%s has failed with error: %v", configMap.Namespace, configMap.Name, retErr)
+			c.eventRecorder.Eventf(&configMap, corev1.EventTypeWarning, "Failed", "Restore request %s/%s has failed with error: %v", configMap.Namespace, configMap.Name, retErr)
 			restoreRequest.Status.Phase = RequestPhaseFailed
 		}
 		updateErr := c.updateRequest(ctx, configMapBeforeChange, &configMap, *restoreRequest)
@@ -159,7 +160,7 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 		volumesRestoreRequest := &restoreRequest.Spec.VolumeSnapshots
 		volumesRestoreStatus := &restoreRequest.Status.VolumeSnapshots
 		previousVolumesRestoreRequestPhase := volumesRestoreStatus.Phase
-		err = c.volumesRestorer.Reconcile(ctx, restoreRequest.Name, volumesRestoreRequest, volumesRestoreStatus)
+		err = c.volumesRestorer.Reconcile(ctx, &configMap, restoreRequest.Name, volumesRestoreRequest, volumesRestoreStatus)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile volume snapshots: %w", err)
 		}
