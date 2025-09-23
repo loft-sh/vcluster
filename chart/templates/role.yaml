@@ -54,6 +54,11 @@ rules:
     resources: ["endpoints"]
     verbs: ["create", "delete", "patch", "update"]
   {{- end }}
+  {{- if .Values.sync.toHost.endpointSlices.enabled }}
+  - apiGroups: ["discovery.k8s.io"]
+    resources: [ "endpointslices" ]
+    verbs: [ "create", "list", "get", "delete", "patch", "update", "watch" ]
+  {{- end }}
   {{- if or .Values.privateNodes.enabled (gt (int .Values.controlPlane.statefulSet.highAvailability.replicas) 1) }}
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
