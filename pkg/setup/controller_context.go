@@ -44,7 +44,7 @@ var NewVirtualManager = ctrl.NewManager
 // NewControllerContext builds the controller context we can use to start the syncer
 func NewControllerContext(ctx context.Context, options *config.VirtualClusterConfig) (*synccontext.ControllerContext, error) {
 	// load virtual config
-	virtualConfig, virtualRawConfig, err := loadVirtualConfig(ctx, options)
+	virtualConfig, virtualRawConfig, err := LoadVirtualConfig(ctx, options)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func startPlugins(ctx context.Context, virtualConfig *rest.Config, virtualRawCon
 	return nil
 }
 
-func loadVirtualConfig(ctx context.Context, options *config.VirtualClusterConfig) (*rest.Config, *clientcmdapi.Config, error) {
+func LoadVirtualConfig(ctx context.Context, options *config.VirtualClusterConfig) (*rest.Config, *clientcmdapi.Config, error) {
 	// wait for client config
 	clientConfig, err := waitForClientConfig(ctx, options)
 	if err != nil {
