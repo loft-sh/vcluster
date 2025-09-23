@@ -26,22 +26,22 @@ func (r *RestoreRequest) Done() bool {
 
 func NewRestoreRequest(snapshotRequest Request) RestoreRequest {
 	restoreRequest := RestoreRequest(snapshotRequest)
-	restoreRequest.Spec.VolumeSnapshots.Spec.VolumeSnapshotConfigs = slices.Clone(snapshotRequest.Spec.VolumeSnapshots.Spec.VolumeSnapshotConfigs)
-	restoreRequest.Spec.VolumeSnapshots.Status.Snapshots = maps.Clone(snapshotRequest.Spec.VolumeSnapshots.Status.Snapshots)
+	restoreRequest.Spec.VolumeSnapshots.Requests = slices.Clone(snapshotRequest.Spec.VolumeSnapshots.Requests)
+	restoreRequest.Status.VolumeSnapshots.Snapshots = maps.Clone(snapshotRequest.Status.VolumeSnapshots.Snapshots)
 
 	// set volumes restore request phase to NotStarted only when the snapshot request
 	// was successfully completed
 	restoreRequest.Status.Phase = RequestPhaseNotStarted
 
 	// reset overall volume snapshots status
-	if restoreRequest.Spec.VolumeSnapshots.Status.Phase == volumes.RequestPhaseCompleted {
-		restoreRequest.Spec.VolumeSnapshots.Status.Phase = volumes.RequestPhaseNotStarted
+	if restoreRequest.Status.VolumeSnapshots.Phase == volumes.RequestPhaseCompleted {
+		restoreRequest.Status.VolumeSnapshots.Phase = volumes.RequestPhaseNotStarted
 	}
 	// reset volumes snapshot status for all volume snapshots
-	for k, snapshotStatus := range restoreRequest.Spec.VolumeSnapshots.Status.Snapshots {
+	for k, snapshotStatus := range restoreRequest.Status.VolumeSnapshots.Snapshots {
 		if snapshotStatus.Phase == volumes.RequestPhaseCompleted {
 			snapshotStatus.Phase = volumes.RequestPhaseNotStarted
-			restoreRequest.Spec.VolumeSnapshots.Status.Snapshots[k] = snapshotStatus
+			restoreRequest.Status.VolumeSnapshots.Snapshots[k] = snapshotStatus
 		}
 	}
 

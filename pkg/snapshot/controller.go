@@ -173,14 +173,15 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	case RequestPhaseCreatingVolumeSnapshots:
 		// reconcile volume snapshots
 		volumeSnapshotsRequest := &snapshotRequest.Spec.VolumeSnapshots
-		previousVolumeSnapshotsRequestPhase := volumeSnapshotsRequest.Status.Phase
-		err = c.volumeSnapshotter.Reconcile(ctx, snapshotRequest.Name, volumeSnapshotsRequest)
+		volumeSnapshotsStatus := &snapshotRequest.Status.VolumeSnapshots
+		previousVolumeSnapshotsRequestPhase := volumeSnapshotsStatus.Phase
+		err = c.volumeSnapshotter.Reconcile(ctx, snapshotRequest.Name, volumeSnapshotsRequest, volumeSnapshotsStatus)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile volume snapshots: %w", err)
 		}
 
 		// check volume snapshots' status
-		switch volumeSnapshotsRequest.Status.Phase {
+		switch volumeSnapshotsStatus.Phase {
 		case volumes.RequestPhaseInProgress:
 			if previousVolumeSnapshotsRequestPhase == volumes.RequestPhaseNotStarted {
 				// volume snapshots request just got initialized and moved to in-progress
@@ -210,7 +211,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		case volumes.RequestPhaseFailed:
 			snapshotRequest.Status.Phase = RequestPhaseFailed
 		default:
-			return ctrl.Result{}, fmt.Errorf("unexpected volume snapshots request phase %s", volumeSnapshotsRequest.Status.Phase)
+			return ctrl.Result{}, fmt.Errorf("unexpected volume snapshots request phase %s", volumeSnapshotsStatus.Phase)
 		}
 	case RequestPhaseCreatingEtcdBackup:
 		requeue, err := c.reconcileCreatingEtcdBackup(ctx, &configMap, snapshotRequest)
@@ -264,8 +265,11 @@ func (c *Reconciler) Register() error {
 }
 
 // reconcileNewRequest updates the snapshot request phase to "InProgress".
-func (c *Reconciler) reconcileNewRequest(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *Request) error {
+func (c *Reconciler) reconcileNewRequest(_ context.Context, configMap *corev1.ConfigMap, snapshotRequest *Request) error {
 	if snapshotRequest.Spec.IncludeVolumes {
+		snapshotRequest.Spec.VolumeSnapshots = volumes.SnapshotsRequest{
+			Requests: []volumes.SnapshotRequest{},
+		}
 		snapshotRequest.Status.Phase = RequestPhaseCreatingVolumeSnapshots
 		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCreatingVolumeSnapshots", "Started to create volume snapshots for snapshot request %s/%s", configMap.Namespace, configMap.Name)
 	} else {

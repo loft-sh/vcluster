@@ -13,36 +13,36 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, snapshotRequestName string, volumeSnapshotsRequest *volumes.SnapshotRequest) (retErr error) {
-	s.logger.Debugf("Reconciling in-progress volume snapshots request %s", snapshotRequestName)
-	if volumeSnapshotsRequest.Status.Phase != volumes.RequestPhaseInProgress {
-		return fmt.Errorf("invalid phase for snapshot request %s, expected %s, got %s", snapshotRequestName, volumes.RequestPhaseInProgress, volumeSnapshotsRequest.Status.Phase)
+func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) (retErr error) {
+	s.logger.Debugf("Reconciling in-progress volume snapshots request %s", requestName)
+	if status.Phase != volumes.RequestPhaseInProgress {
+		return fmt.Errorf("invalid phase for snapshot request %s, expected %s, got %s", requestName, volumes.RequestPhaseInProgress, status.Phase)
 	}
-	defer s.logger.Debugf("Reconciled in-progress volume snapshots request %s", snapshotRequestName)
+	defer s.logger.Debugf("Reconciled in-progress volume snapshots request %s", requestName)
 
 	continueReconciling := false
 	defer func() {
 		if retErr == nil {
 			return
 		}
-		volumeSnapshotsRequest.Status.Phase = volumes.RequestPhaseFailed
-		volumeSnapshotsRequest.Status.Error.Message = retErr.Error()
+		status.Phase = volumes.RequestPhaseFailed
+		status.Error.Message = retErr.Error()
 	}()
 
-	for _, snapshotConfig := range volumeSnapshotsRequest.Spec.VolumeSnapshotConfigs {
+	if status.Snapshots == nil {
+		status.Snapshots = map[string]volumes.SnapshotStatus{}
+	}
+	for _, volumeSnapshotRequest := range request.Requests {
 		pvcName := types.NamespacedName{
-			Namespace: snapshotConfig.PersistentVolumeClaim.Namespace,
-			Name:      snapshotConfig.PersistentVolumeClaim.Name,
+			Namespace: volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
+			Name:      volumeSnapshotRequest.PersistentVolumeClaim.Name,
 		}.String()
-		if volumeSnapshotsRequest.Status.Snapshots == nil {
-			volumeSnapshotsRequest.Status.Snapshots = volumes.Snapshots{}
-		}
-		snapshotStatus, ok := volumeSnapshotsRequest.Status.Snapshots[pvcName]
+		snapshotStatus, ok := status.Snapshots[pvcName]
 		if !ok {
 			snapshotStatus = volumes.SnapshotStatus{
 				Phase: volumes.RequestPhaseInProgress,
 			}
-			volumeSnapshotsRequest.Status.Snapshots[pvcName] = snapshotStatus
+			status.Snapshots[pvcName] = snapshotStatus
 		}
 
 		switch snapshotStatus.Phase {
@@ -50,10 +50,10 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, snapshotReq
 			snapshotStatus.Phase = volumes.RequestPhaseInProgress
 			fallthrough
 		case volumes.RequestPhaseInProgress:
-			newStatus, err := s.reconcileInProgressPVC(ctx, snapshotRequestName, snapshotConfig, snapshotStatus)
-			volumeSnapshotsRequest.Status.Snapshots[pvcName] = newStatus
+			newStatus, err := s.reconcileInProgressPVC(ctx, requestName, volumeSnapshotRequest, snapshotStatus)
+			status.Snapshots[pvcName] = newStatus
 			if err != nil {
-				return fmt.Errorf("volumes snapshot request %s failed for PVC %s: %w", snapshotRequestName, pvcName, err)
+				return fmt.Errorf("volumes snapshot request %s failed for PVC %s: %w", requestName, pvcName, err)
 			}
 			if newStatus.Phase == volumes.RequestPhaseInProgress {
 				// at least one volume snapshot creation is still in progress
@@ -65,25 +65,25 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, snapshotReq
 		case volumes.RequestPhaseFailed:
 			return fmt.Errorf(
 				"volumes snapshot request %s has already failed for PVC %s, previous error: %v",
-				snapshotRequestName,
+				requestName,
 				pvcName,
 				snapshotStatus.Error.Message)
 		default:
-			return fmt.Errorf("invalid snapshot request phase %s for for PVC %s in volume snapshot request %s", snapshotStatus.Phase, pvcName, snapshotRequestName)
+			return fmt.Errorf("invalid snapshot request phase %s for for PVC %s in volume snapshot request %s", snapshotStatus.Phase, pvcName, requestName)
 		}
 	}
 
 	if !continueReconciling {
-		volumeSnapshotsRequest.Status.Phase = volumes.RequestPhaseCompleted
+		status.Phase = volumes.RequestPhaseCompleted
 	}
 	return nil
 }
 
-func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, snapshotRequestName string, config volumes.SnapshotConfig, currentStatus volumes.SnapshotStatus) (status volumes.SnapshotStatus, retErr error) {
-	if currentStatus.Phase != volumes.RequestPhaseInProgress {
-		return status, fmt.Errorf("invalid volume snapshot request phase %s, expected %s, got %s", snapshotRequestName, volumes.RequestPhaseInProgress, currentStatus.Phase)
+func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, requestName string, volumeSnapshotRequest volumes.SnapshotRequest, volumeSnapshotStatus volumes.SnapshotStatus) (status volumes.SnapshotStatus, retErr error) {
+	if volumeSnapshotStatus.Phase != volumes.RequestPhaseInProgress {
+		return status, fmt.Errorf("invalid volume snapshot request phase %s, expected %s, got %s", requestName, volumes.RequestPhaseInProgress, volumeSnapshotStatus.Phase)
 	}
-	status = currentStatus
+	status = volumeSnapshotStatus
 	defer func() {
 		if retErr == nil {
 			return
@@ -92,17 +92,17 @@ func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, snapshot
 		status.Error.Message = retErr.Error()
 	}()
 
-	volumeSnapshotName := fmt.Sprintf("%s-%s", config.PersistentVolumeClaim.Name, snapshotRequestName)
+	volumeSnapshotName := fmt.Sprintf("%s-%s", volumeSnapshotRequest.PersistentVolumeClaim.Name, requestName)
 
 	// Check if VolumeSnapshot has been created
 	pvcName := types.NamespacedName{
-		Namespace: config.PersistentVolumeClaim.Namespace,
-		Name:      config.PersistentVolumeClaim.Name,
+		Namespace: volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
+		Name:      volumeSnapshotRequest.PersistentVolumeClaim.Name,
 	}
 	volumeSnapshot, err := s.snapshotsClient.SnapshotV1().VolumeSnapshots(pvcName.Namespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
 		// create new VolumeSnapshot
-		_, err = s.createVolumeSnapshotResource(ctx, snapshotRequestName, volumeSnapshotName, pvcName, config.VolumeSnapshotClassName)
+		_, err = s.createVolumeSnapshotResource(ctx, requestName, volumeSnapshotName, pvcName, volumeSnapshotRequest.VolumeSnapshotClassName)
 		if err != nil {
 			return status, fmt.Errorf("failed to create VolumeSnapshot for the PersistentVolumeClaim %s: %w", pvcName, err)
 		}
@@ -175,15 +175,15 @@ func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, snapshot
 	return status, nil
 }
 
-func (s *VolumeSnapshotter) createVolumeSnapshotResource(ctx context.Context, snapshotRequestName, volumeSnapshotName string, pvcName types.NamespacedName, volumeSnapshotClassName string) (*snapshotsv1api.VolumeSnapshot, error) {
-	s.logger.Debugf("Create VolumeSnapshot %s for PersistentVolumeClaim %s for snapshot request %s", volumeSnapshotName, pvcName.String(), snapshotRequestName)
+func (s *VolumeSnapshotter) createVolumeSnapshotResource(ctx context.Context, requestName, volumeSnapshotName string, pvcName types.NamespacedName, volumeSnapshotClassName string) (*snapshotsv1api.VolumeSnapshot, error) {
+	s.logger.Debugf("Create VolumeSnapshot %s for PersistentVolumeClaim %s for snapshot request %s", volumeSnapshotName, pvcName.String(), requestName)
 
 	volumeSnapshot := &snapshotsv1api.VolumeSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pvcName.Namespace,
 			Name:      volumeSnapshotName,
 			Labels: map[string]string{
-				meta.RequestLabel:              snapshotRequestName,
+				meta.RequestLabel:              requestName,
 				persistentVolumeClaimNameLabel: pvcName.Name,
 			},
 		},

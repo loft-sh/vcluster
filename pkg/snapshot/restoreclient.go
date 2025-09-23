@@ -251,7 +251,6 @@ func (o *RestoreClient) skipKey(key string) bool {
 	}
 
 	const (
-		// TODO check if vcluster always uses prefix '/registry' for etcd keys
 		pvPrefix  = "/registry/persistentvolumes/"
 		pvcPrefix = "/registry/persistentvolumeclaims/"
 	)
@@ -259,7 +258,7 @@ func (o *RestoreClient) skipKey(key string) bool {
 	// check if the snapshot exists
 	if strings.HasPrefix(key, pvcPrefix) {
 		pvcName := strings.TrimPrefix(key, pvcPrefix)
-		status, ok := o.snapshotRequest.Spec.VolumeSnapshots.Status.Snapshots[pvcName]
+		status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcName]
 		if !ok {
 			return false
 		}
@@ -267,8 +266,8 @@ func (o *RestoreClient) skipKey(key string) bool {
 		return status.Phase == volumes.RequestPhaseCompleted
 	} else if strings.HasPrefix(key, pvPrefix) {
 		volumeName := strings.TrimPrefix(key, pvPrefix)
-		for _, snapshotConfig := range o.snapshotRequest.Spec.VolumeSnapshots.Spec.VolumeSnapshotConfigs {
-			if snapshotConfig.PersistentVolumeClaim.Spec.VolumeName == volumeName {
+		for _, snapshotSpec := range o.snapshotRequest.Spec.VolumeSnapshots.Requests {
+			if snapshotSpec.PersistentVolumeClaim.Spec.VolumeName == volumeName {
 				return true
 			}
 		}

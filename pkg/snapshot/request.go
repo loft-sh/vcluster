@@ -46,13 +46,14 @@ type RequestMetadata struct {
 }
 
 type RequestSpec struct {
-	IncludeVolumes  bool                    `json:"includeVolumes,omitempty"`
-	VolumeSnapshots volumes.SnapshotRequest `json:"volumeSnapshots,omitempty"`
-	Options         Options                 `json:"-"`
+	IncludeVolumes  bool                     `json:"includeVolumes,omitempty"`
+	VolumeSnapshots volumes.SnapshotsRequest `json:"volumeSnapshots,omitempty"`
+	Options         Options                  `json:"-"`
 }
 
 type RequestStatus struct {
-	Phase RequestPhase `json:"phase,omitempty"`
+	Phase           RequestPhase            `json:"phase,omitempty"`
+	VolumeSnapshots volumes.SnapshotsStatus `json:"volumeSnapshots,omitempty"`
 }
 
 // CreateSnapshotRequestResources creates snapshot request ConfigMap and Secret in the cluster. It returns the created

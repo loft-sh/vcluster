@@ -13,31 +13,13 @@ const (
 	RequestPhaseFailed     SnapshotRequestPhase = "Failed"
 )
 
-type SnapshotRequestPhase string
+// SnapshotsRequest specifies how to create snapshots for multiple PVCs.
+type SnapshotsRequest struct {
+	Requests []SnapshotRequest `json:"requests,omitempty"`
+}
 
-// SnapshotRequest is a request for creating PVC snapshots.
+// SnapshotRequest specifies how to create a snapshot for a PVC.
 type SnapshotRequest struct {
-	Spec   SnapshotRequestSpec   `json:"spec,omitempty"`
-	Status SnapshotRequestStatus `json:"status,omitempty"`
-}
-
-// SnapshotRequestSpec specifies how to create PVC snapshots.
-type SnapshotRequestSpec struct {
-	VolumeSnapshotConfigs SnapshotConfigs `json:"volumeSnapshotConfigs,omitempty"`
-}
-
-// SnapshotRequestStatus shows the current status of the snapshot request.
-type SnapshotRequestStatus struct {
-	Phase     SnapshotRequestPhase `json:"phase,omitempty"`
-	Snapshots Snapshots            `json:"snapshots,omitempty"`
-	Error     SnapshotError        `json:"error,omitempty"`
-}
-
-// SnapshotConfigs specifies how to create snapshots for multiple PVCs.
-type SnapshotConfigs []SnapshotConfig
-
-// SnapshotConfig specifies how to create a snapshot for a PVC.
-type SnapshotConfig struct {
 	PersistentVolumeClaim corev1.PersistentVolumeClaim `json:"persistentVolumeClaim"`
 
 	// CSIDriver that provisioned the PVC.
@@ -47,8 +29,14 @@ type SnapshotConfig struct {
 	VolumeSnapshotClassName string `json:"volumeSnapshotClassName,omitempty"`
 }
 
-// Snapshots is a map that specifies for which PVCs the snapshots have been successfully created.
-type Snapshots map[string]SnapshotStatus
+type SnapshotRequestPhase string
+
+// SnapshotsStatus shows the current status of the snapshot request.
+type SnapshotsStatus struct {
+	Phase     SnapshotRequestPhase      `json:"phase,omitempty"`
+	Snapshots map[string]SnapshotStatus `json:"snapshots,omitempty"`
+	Error     SnapshotError             `json:"error,omitempty"`
+}
 
 // SnapshotStatus shows the current status of a single PVC snapshot.
 type SnapshotStatus struct {

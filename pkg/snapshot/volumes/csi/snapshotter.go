@@ -77,33 +77,33 @@ func (s *VolumeSnapshotter) CheckIfPersistentVolumeIsSupported(pv *corev1.Persis
 	return nil
 }
 
-func (s *VolumeSnapshotter) Reconcile(ctx context.Context, snapshotRequestName string, snapshotRequest *volumes.SnapshotRequest) error {
-	s.logger.Infof("Create volume snapshots for snapshot request %s", snapshotRequestName)
+func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) error {
+	s.logger.Infof("Create volume snapshots for snapshot request %s", requestName)
 	var err error
 
-	switch snapshotRequest.Status.Phase {
+	switch status.Phase {
 	case volumes.RequestPhaseNotStarted:
-		err = s.reconcileNotStarted(ctx, snapshotRequestName, snapshotRequest)
+		err = s.reconcileNotStarted(ctx, requestName, request, status)
 		if err != nil {
-			return fmt.Errorf("failed to reconcile new volumes snapshot request %s: %w", snapshotRequestName, err)
+			return fmt.Errorf("failed to reconcile new volumes snapshot request %s: %w", requestName, err)
 		}
 	case volumes.RequestPhaseInProgress:
-		err = s.reconcileInProgress(ctx, snapshotRequestName, snapshotRequest)
+		err = s.reconcileInProgress(ctx, requestName, request, status)
 		if err != nil {
-			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", snapshotRequestName, err)
+			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", requestName, err)
 		}
 	case volumes.RequestPhaseCompleted:
-		err = s.reconcileCompleted(ctx, snapshotRequestName, snapshotRequest)
+		err = s.reconcileCompleted(ctx, requestName, request, status)
 		if err != nil {
-			return fmt.Errorf("failed to reconcile completed volumes snapshot request %s: %w", snapshotRequestName, err)
+			return fmt.Errorf("failed to reconcile completed volumes snapshot request %s: %w", requestName, err)
 		}
 	case volumes.RequestPhaseFailed:
-		err = s.reconcileFailed(ctx, snapshotRequestName, snapshotRequest)
+		err = s.reconcileFailed(ctx, requestName, request, status)
 		if err != nil {
-			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", snapshotRequestName, err)
+			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", requestName, err)
 		}
 	default:
-		return fmt.Errorf("invalid snapshot request phase: %s", snapshotRequest.Status.Phase)
+		return fmt.Errorf("invalid snapshot request phase: %s", status.Phase)
 	}
 
 	return nil
