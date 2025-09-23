@@ -1272,16 +1272,12 @@
           "type": "string",
           "description": "Name is the name of this NodePool"
         },
-        "provider": {
-          "type": "string",
-          "description": "Provider is the node provider of the nodes in this pool."
-        },
-        "requirements": {
+        "nodeTypeSelector": {
           "items": {
             "$ref": "#/$defs/Requirement"
           },
           "type": "array",
-          "description": "Requirements filter the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
+          "description": "NodeTypeSelector filters the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
         },
         "taints": {
           "items": {
@@ -1324,8 +1320,7 @@
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "name",
-        "provider"
+        "name"
       ]
     },
     "DynamicNodePoolDisruption": {
@@ -3352,8 +3347,11 @@
           "description": "JoinNode holds configuration specifically used during joining the node (see \"kubeadm join\")."
         },
         "autoNodes": {
-          "$ref": "#/$defs/PrivateNodesAutoNodes",
-          "description": "AutoNodes stores Auto Nodes configuration static and dynamic NodePools managed by Karpenter"
+          "items": {
+            "$ref": "#/$defs/PrivateNodesAutoNodes"
+          },
+          "type": "array",
+          "description": "AutoNodes stores auto nodes configuration."
         },
         "vpn": {
           "$ref": "#/$defs/PrivateNodesVPN",
@@ -3366,6 +3364,17 @@
     },
     "PrivateNodesAutoNodes": {
       "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Provider is the node provider of the nodes in this pool."
+        },
+        "properties": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Properties are the node provider properties. This is a simple key value map and can contain things\nlike region, subscription, etc. that is then used by the node provider to create the nodes and node environment."
+        },
         "static": {
           "items": {
             "$ref": "#/$defs/StaticNodePool"
@@ -3383,6 +3392,9 @@
       },
       "additionalProperties": false,
       "type": "object",
+      "required": [
+        "provider"
+      ],
       "description": "PrivateNodesAutoNodes defines auto nodes"
     },
     "PrivateNodesVPN": {
@@ -3875,12 +3887,12 @@
           "type": "integer",
           "description": "Quantity is the number of nodes to deploy for standalone mode."
         },
-        "requirements": {
+        "nodeTypeSelector": {
           "items": {
             "$ref": "#/$defs/Requirement"
           },
           "type": "array",
-          "description": "Requirements filter the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
+          "description": "NodeTypeSelector filters the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
         }
       },
       "additionalProperties": false,
@@ -3983,16 +3995,12 @@
           "type": "string",
           "description": "Name is the name of this static nodePool"
         },
-        "provider": {
-          "type": "string",
-          "description": "Provider is the node provider of the nodes in this pool."
-        },
-        "requirements": {
+        "nodeTypeSelector": {
           "items": {
             "$ref": "#/$defs/Requirement"
           },
           "type": "array",
-          "description": "Requirements filter the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
+          "description": "NodeTypeSelector filters the types of nodes that can be provisioned by this pool.\nAll requirements must be met for a node type to be eligible."
         },
         "taints": {
           "items": {
@@ -4021,7 +4029,6 @@
       "type": "object",
       "required": [
         "name",
-        "provider",
         "quantity"
       ]
     },

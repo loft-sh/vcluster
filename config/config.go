@@ -109,8 +109,8 @@ type PrivateNodes struct {
 	// JoinNode holds configuration specifically used during joining the node (see "kubeadm join").
 	JoinNode JoinConfiguration `json:"joinNode,omitempty"`
 
-	// AutoNodes stores Auto Nodes configuration static and dynamic NodePools managed by Karpenter
-	AutoNodes PrivateNodesAutoNodes `json:"autoNodes,omitempty"`
+	// AutoNodes stores auto nodes configuration.
+	AutoNodes []PrivateNodesAutoNodes `json:"autoNodes,omitempty"`
 
 	// VPN holds configuration for the private nodes vpn. This can be used to connect the private nodes to the control plane or
 	// connect the private nodes to each other if they are not running in the same network. Platform connection is required for the vpn to work.
@@ -139,6 +139,13 @@ type PrivateNodesVPNNodeToNode struct {
 
 // PrivateNodesAutoNodes defines auto nodes
 type PrivateNodesAutoNodes struct {
+	// Provider is the node provider of the nodes in this pool.
+	Provider string `json:"provider,omitempty" jsonschema:"required"`
+
+	// Properties are the node provider properties. This is a simple key value map and can contain things
+	// like region, subscription, etc. that is then used by the node provider to create the nodes and node environment.
+	Properties map[string]string `json:"properties,omitempty"`
+
 	// Static defines static node pools. Static node pools have a fixed size and are not scaled automatically.
 	Static []StaticNodePool `json:"static,omitempty"`
 
@@ -151,12 +158,9 @@ type DynamicNodePool struct {
 	// Name is the name of this NodePool
 	Name string `json:"name" jsonschema:"required"`
 
-	// Provider is the node provider of the nodes in this pool.
-	Provider string `json:"provider,omitempty" jsonschema:"required"`
-
-	// Requirements filter the types of nodes that can be provisioned by this pool.
+	// NodeTypeSelector filters the types of nodes that can be provisioned by this pool.
 	// All requirements must be met for a node type to be eligible.
-	Requirements []Requirement `json:"requirements,omitempty"`
+	NodeTypeSelector []Requirement `json:"nodeTypeSelector,omitempty"`
 
 	// Taints are the taints to apply to the nodes in this pool.
 	Taints []KubeletJoinTaint `json:"taints,omitempty"`
@@ -232,12 +236,9 @@ type StaticNodePool struct {
 	// Name is the name of this static nodePool
 	Name string `json:"name" jsonschema:"required"`
 
-	// Provider is the node provider of the nodes in this pool.
-	Provider string `json:"provider,omitempty" jsonschema:"required"`
-
-	// Requirements filter the types of nodes that can be provisioned by this pool.
+	// NodeTypeSelector filters the types of nodes that can be provisioned by this pool.
 	// All requirements must be met for a node type to be eligible.
-	Requirements []Requirement `json:"requirements,omitempty"`
+	NodeTypeSelector []Requirement `json:"nodeTypeSelector,omitempty"`
 
 	// Taints are the taints to apply to the nodes in this pool.
 	Taints []KubeletJoinTaint `json:"taints,omitempty"`
@@ -365,9 +366,9 @@ type StandaloneAutoNodes struct {
 	// Quantity is the number of nodes to deploy for standalone mode.
 	Quantity int `json:"quantity,omitempty"`
 
-	// Requirements filter the types of nodes that can be provisioned by this pool.
+	// NodeTypeSelector filters the types of nodes that can be provisioned by this pool.
 	// All requirements must be met for a node type to be eligible.
-	Requirements []Requirement `json:"requirements,omitempty"`
+	NodeTypeSelector []Requirement `json:"nodeTypeSelector,omitempty"`
 }
 
 type StandaloneJoinNode struct {
