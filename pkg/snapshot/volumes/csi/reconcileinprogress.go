@@ -211,23 +211,31 @@ func (s *VolumeSnapshotter) createVolumeSnapshotResource(ctx context.Context, re
 }
 
 func (s *VolumeSnapshotter) inProgressPVCReconcileFinished(requestObj runtime.Object, volumeSnapshotRequest volumes.SnapshotRequest, volumeSnapshotStatus volumes.SnapshotStatus, err error) {
-	if volumeSnapshotStatus.Phase == volumes.RequestPhaseCompleted {
-		s.eventRecorder.Eventf(
-			requestObj,
-			corev1.EventTypeNormal,
-			"VolumeSnapshotCreated",
-			"Created volume snapshot for PVC %s/%s, snapshot handle is %s",
+	var eventType, reason, messageFmt string
+	var args []interface{}
+
+	switch volumeSnapshotStatus.Phase {
+	case volumes.RequestPhaseCompleted:
+		eventType = corev1.EventTypeNormal
+		reason = "VolumeSnapshotCreated"
+		messageFmt = "Created volume snapshot for PVC %s/%s, snapshot handle is %s"
+		args = []interface{}{
 			volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
 			volumeSnapshotRequest.PersistentVolumeClaim.Name,
-			volumeSnapshotStatus.SnapshotHandle)
-	} else if volumeSnapshotStatus.Phase == volumes.RequestPhaseFailed {
-		s.eventRecorder.Eventf(
-			requestObj,
-			corev1.EventTypeWarning,
-			"VolumeSnapshotFailed",
-			"Failed to create volume snapshot for PVC %s/%s: %v",
+			volumeSnapshotStatus.SnapshotHandle,
+		}
+	case volumes.RequestPhaseFailed:
+		eventType = corev1.EventTypeWarning
+		reason = "VolumeSnapshotFailed"
+		messageFmt = "Failed to create volume snapshot for PVC %s/%s: %v"
+		args = []interface{}{
 			volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
 			volumeSnapshotRequest.PersistentVolumeClaim.Name,
-			err)
+			err,
+		}
+	default:
+		return
 	}
+
+	s.eventRecorder.Eventf(requestObj, eventType, reason, messageFmt, args...)
 }

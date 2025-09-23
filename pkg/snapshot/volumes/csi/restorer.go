@@ -14,8 +14,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 )
 
@@ -24,7 +26,7 @@ type Restorer struct {
 	vConfig *config.VirtualClusterConfig
 }
 
-func NewRestorer(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, logger loghelper.Logger) (*Restorer, error) {
+func NewRestorer(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, eventRecorder record.EventRecorder, logger loghelper.Logger) (*Restorer, error) {
 	if vConfig == nil {
 		return nil, errors.New("virtual cluster config is required")
 	}
@@ -34,6 +36,9 @@ func NewRestorer(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Cl
 	if snapshotsClient == nil {
 		return nil, errors.New("snapshot client is required")
 	}
+	if eventRecorder == nil {
+		return nil, errors.New("event recorder is required")
+	}
 	if logger == nil {
 		return nil, errors.New("logger is required")
 	}
@@ -42,6 +47,7 @@ func NewRestorer(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Cl
 		snapshotHandler: snapshotHandler{
 			kubeClient:      kubeClient,
 			snapshotsClient: snapshotsClient,
+			eventRecorder:   eventRecorder,
 			logger:          logger,
 		},
 		vConfig: vConfig,
@@ -50,7 +56,7 @@ func NewRestorer(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Cl
 }
 
 // Reconcile volumes restore request.
-func (r *Restorer) Reconcile(ctx context.Context, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) error {
+func (r *Restorer) Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) error {
 	r.logger.Infof("Restore volumes for restore request %s", requestName)
 	var err error
 
@@ -59,7 +65,7 @@ func (r *Restorer) Reconcile(ctx context.Context, requestName string, request *v
 		status.Phase = volumes.RequestPhaseInProgress
 		fallthrough
 	case volumes.RequestPhaseInProgress:
-		err = r.reconcileInProgress(ctx, requestName, request, status)
+		err = r.reconcileInProgress(ctx, requestObj, requestName, request, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", requestName, err)
 		}
@@ -74,7 +80,7 @@ func (r *Restorer) Reconcile(ctx context.Context, requestName string, request *v
 	return nil
 }
 
-func (r *Restorer) reconcileInProgress(ctx context.Context, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) (retErr error) {
+func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.Object, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) (retErr error) {
 	r.logger.Infof("Reconciling in-progress volumes restore request %s", requestName)
 	if status.Phase != volumes.RequestPhaseInProgress {
 		return fmt.Errorf("invalid phase for snapshot request %s, expected %s, got %s", requestName, volumes.RequestPhaseInProgress, status.Phase)
@@ -105,7 +111,7 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestName string, 
 			snapshotStatus.Phase = volumes.RequestPhaseInProgress
 			fallthrough
 		case volumes.RequestPhaseInProgress:
-			newStatus, err := r.reconcileInProgressPVC(ctx, requestName, volumeRestoreRequest, snapshotStatus)
+			newStatus, err := r.reconcileInProgressPVC(ctx, requestObj, requestName, volumeRestoreRequest, snapshotStatus)
 			status.Snapshots[pvcName] = newStatus
 			if err != nil {
 				r.logger.Errorf("failed to reconcile in-progress volumes restore request %s for PVC %s: %v", requestName, pvcName, err)
@@ -132,16 +138,16 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestName string, 
 	return nil
 }
 
-func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestName string, volumeRestoreRequest volumes.SnapshotRequest, volumeRestoreStatus volumes.SnapshotStatus) (status volumes.SnapshotStatus, retErr error) {
+func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtime.Object, requestName string, volumeRestoreRequest volumes.SnapshotRequest, volumeRestoreStatus volumes.SnapshotStatus) (status volumes.SnapshotStatus, retErr error) {
 	if volumeRestoreStatus.Phase != volumes.RequestPhaseInProgress {
 		return volumeRestoreStatus, fmt.Errorf("invalid phase for snapshot request %s, expected %s, got %s", requestName, volumes.RequestPhaseInProgress, volumeRestoreStatus.Phase)
 	}
 	status = volumeRestoreStatus
 	defer func() {
-		if retErr == nil {
-			return
+		if retErr != nil {
+			status.Phase = volumes.RequestPhaseFailed
 		}
-		status.Phase = volumes.RequestPhaseFailed
+		r.inProgressPVCReconcileFinished(requestObj, volumeRestoreRequest, status, retErr)
 	}()
 
 	// First, check if the PVC already exists
@@ -383,4 +389,41 @@ func (r *Restorer) createVolumeSnapshotContentResource(ctx context.Context, requ
 		config.PersistentVolumeClaim.Name)
 
 	return volumeSnapshotContent, nil
+}
+func (r *Restorer) inProgressPVCReconcileFinished(requestObj runtime.Object, volumeRestoreRequest volumes.SnapshotRequest, volumeRestoreStatus volumes.SnapshotStatus, err error) {
+	var eventType, reason, messageFmt string
+	var args []interface{}
+
+	switch volumeRestoreStatus.Phase {
+	case volumes.RequestPhaseCompleted:
+		eventType = corev1.EventTypeNormal
+		reason = "VolumeRestored"
+		messageFmt = "Restored PersistentVolumeClaim %s/%s from volume snapshot with handle %s"
+		args = []interface{}{
+			volumeRestoreRequest.PersistentVolumeClaim.Namespace,
+			volumeRestoreRequest.PersistentVolumeClaim.Name,
+			volumeRestoreStatus.SnapshotHandle,
+		}
+	case volumes.RequestPhaseFailed:
+		eventType = corev1.EventTypeWarning
+		reason = "VolumeRestoreFailed"
+		messageFmt = "Failed to restore PersistentVolumeClaim %s/%s: %v"
+		args = []interface{}{
+			volumeRestoreRequest.PersistentVolumeClaim.Namespace,
+			volumeRestoreRequest.PersistentVolumeClaim.Name,
+			err,
+		}
+	case volumes.RequestPhaseSkipped:
+		eventType = corev1.EventTypeNormal
+		reason = "VolumeRestoreSkipped"
+		messageFmt = "Skipped restoring PersistentVolumeClaim %s/%s"
+		args = []interface{}{
+			volumeRestoreRequest.PersistentVolumeClaim.Namespace,
+			volumeRestoreRequest.PersistentVolumeClaim.Name,
+		}
+	default:
+		return
+	}
+
+	r.eventRecorder.Eventf(requestObj, eventType, reason, messageFmt, args...)
 }
