@@ -8,12 +8,14 @@ import (
 	snapshotsv1api "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/snapshot/meta"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) (retErr error) {
+func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestObj runtime.Object, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) (retErr error) {
 	s.logger.Debugf("Reconciling in-progress volume snapshots request %s", requestName)
 	if status.Phase != volumes.RequestPhaseInProgress {
 		return fmt.Errorf("invalid phase for snapshot request %s, expected %s, got %s", requestName, volumes.RequestPhaseInProgress, status.Phase)
@@ -27,6 +29,7 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestName
 		}
 		status.Phase = volumes.RequestPhaseFailed
 		status.Error.Message = retErr.Error()
+		s.eventRecorder.Eventf(requestObj, corev1.EventTypeWarning, "VolumeSnapshotsFailed", "Failed to create volume snapshots: %v", retErr)
 	}()
 
 	if status.Snapshots == nil {
@@ -50,7 +53,7 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestName
 			snapshotStatus.Phase = volumes.RequestPhaseInProgress
 			fallthrough
 		case volumes.RequestPhaseInProgress:
-			newStatus, err := s.reconcileInProgressPVC(ctx, requestName, volumeSnapshotRequest, snapshotStatus)
+			newStatus, err := s.reconcileInProgressPVC(ctx, requestObj, requestName, volumeSnapshotRequest, snapshotStatus)
 			status.Snapshots[pvcName] = newStatus
 			if err != nil {
 				return fmt.Errorf("volumes snapshot request %s failed for PVC %s: %w", requestName, pvcName, err)
@@ -79,17 +82,17 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestName
 	return nil
 }
 
-func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, requestName string, volumeSnapshotRequest volumes.SnapshotRequest, volumeSnapshotStatus volumes.SnapshotStatus) (status volumes.SnapshotStatus, retErr error) {
+func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, requestObj runtime.Object, requestName string, volumeSnapshotRequest volumes.SnapshotRequest, volumeSnapshotStatus volumes.SnapshotStatus) (status volumes.SnapshotStatus, retErr error) {
 	if volumeSnapshotStatus.Phase != volumes.RequestPhaseInProgress {
 		return status, fmt.Errorf("invalid volume snapshot request phase %s, expected %s, got %s", requestName, volumes.RequestPhaseInProgress, volumeSnapshotStatus.Phase)
 	}
 	status = volumeSnapshotStatus
 	defer func() {
-		if retErr == nil {
-			return
+		if retErr != nil {
+			status.Phase = volumes.RequestPhaseFailed
+			status.Error.Message = retErr.Error()
 		}
-		status.Phase = volumes.RequestPhaseFailed
-		status.Error.Message = retErr.Error()
+		s.inProgressPVCReconcileFinished(requestObj, volumeSnapshotRequest, status, retErr)
 	}()
 
 	volumeSnapshotName := fmt.Sprintf("%s-%s", volumeSnapshotRequest.PersistentVolumeClaim.Name, requestName)
@@ -205,4 +208,26 @@ func (s *VolumeSnapshotter) createVolumeSnapshotResource(ctx context.Context, re
 	s.logger.Infof("Created VolumeSnapshot resource %s/%s for the PersistentVolumeClaim %s", volumeSnapshot.Namespace, volumeSnapshot.Name, pvcName)
 
 	return volumeSnapshot, nil
+}
+
+func (s *VolumeSnapshotter) inProgressPVCReconcileFinished(requestObj runtime.Object, volumeSnapshotRequest volumes.SnapshotRequest, volumeSnapshotStatus volumes.SnapshotStatus, err error) {
+	if volumeSnapshotStatus.Phase == volumes.RequestPhaseCompleted {
+		s.eventRecorder.Eventf(
+			requestObj,
+			corev1.EventTypeNormal,
+			"VolumeSnapshotCreated",
+			"Created volume snapshot for PVC %s/%s, snapshot handle is %s",
+			volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
+			volumeSnapshotRequest.PersistentVolumeClaim.Name,
+			volumeSnapshotStatus.SnapshotHandle)
+	} else if volumeSnapshotStatus.Phase == volumes.RequestPhaseFailed {
+		s.eventRecorder.Eventf(
+			requestObj,
+			corev1.EventTypeWarning,
+			"VolumeSnapshotFailed",
+			"Failed to create volume snapshot for PVC %s/%s: %v",
+			volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
+			volumeSnapshotRequest.PersistentVolumeClaim.Name,
+			err)
+	}
 }

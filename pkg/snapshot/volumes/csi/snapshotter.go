@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/client-go/tools/record"
 
 	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -11,6 +12,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -33,7 +35,7 @@ type VolumeSnapshotter struct {
 }
 
 // NewVolumeSnapshotter creates a new instance of the CSI volume snapshotter.
-func NewVolumeSnapshotter(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, logger loghelper.Logger) (*VolumeSnapshotter, error) {
+func NewVolumeSnapshotter(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, eventRecorder record.EventRecorder, logger loghelper.Logger) (*VolumeSnapshotter, error) {
 	if vConfig == nil {
 		return nil, errors.New("virtual cluster config is required")
 	}
@@ -43,6 +45,9 @@ func NewVolumeSnapshotter(vConfig *config.VirtualClusterConfig, kubeClient *kube
 	if snapshotsClient == nil {
 		return nil, errors.New("snapshot client is required")
 	}
+	if eventRecorder == nil {
+		return nil, errors.New("event recorder is required")
+	}
 	if logger == nil {
 		return nil, errors.New("logger is required")
 	}
@@ -51,6 +56,7 @@ func NewVolumeSnapshotter(vConfig *config.VirtualClusterConfig, kubeClient *kube
 		snapshotHandler: snapshotHandler{
 			kubeClient:      kubeClient,
 			snapshotsClient: snapshotsClient,
+			eventRecorder:   eventRecorder,
 			logger:          logger,
 		},
 		vConfig: vConfig,
@@ -77,7 +83,7 @@ func (s *VolumeSnapshotter) CheckIfPersistentVolumeIsSupported(pv *corev1.Persis
 	return nil
 }
 
-func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) error {
+func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) error {
 	s.logger.Infof("Create volume snapshots for snapshot request %s", requestName)
 	var err error
 
@@ -88,7 +94,7 @@ func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestName string, r
 			return fmt.Errorf("failed to reconcile new volumes snapshot request %s: %w", requestName, err)
 		}
 	case volumes.RequestPhaseInProgress:
-		err = s.reconcileInProgress(ctx, requestName, request, status)
+		err = s.reconcileInProgress(ctx, requestObj, requestName, request, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", requestName, err)
 		}
