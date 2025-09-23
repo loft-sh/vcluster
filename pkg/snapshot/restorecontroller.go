@@ -157,12 +157,13 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 		}
 	case RequestPhaseRestoringVolumes:
 		volumesRestoreRequest := &restoreRequest.Spec.VolumeSnapshots
-		previousVolumesRestoreRequestPhase := volumesRestoreRequest.Status.Phase
-		err = c.volumesRestorer.Reconcile(ctx, restoreRequest.Name, volumesRestoreRequest)
+		volumesRestoreStatus := &restoreRequest.Status.VolumeSnapshots
+		previousVolumesRestoreRequestPhase := volumesRestoreStatus.Phase
+		err = c.volumesRestorer.Reconcile(ctx, restoreRequest.Name, volumesRestoreRequest, volumesRestoreStatus)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile volume snapshots: %w", err)
 		}
-		switch volumesRestoreRequest.Status.Phase {
+		switch volumesRestoreStatus.Phase {
 		case volumes.RequestPhaseInProgress:
 			if previousVolumesRestoreRequestPhase == volumes.RequestPhaseNotStarted {
 				// volume restore request just got initialized and moved to in-progress
@@ -192,7 +193,7 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 		case volumes.RequestPhaseFailed:
 			restoreRequest.Status.Phase = RequestPhaseFailed
 		default:
-			return ctrl.Result{}, fmt.Errorf("unexpected volume snapshots request phase %s", volumesRestoreRequest.Status.Phase)
+			return ctrl.Result{}, fmt.Errorf("unexpected volume snapshots request phase %s", volumesRestoreStatus.Phase)
 		}
 	case RequestPhaseCompleted:
 		err = c.reconcileCompletedRequest(ctx, &configMap)
