@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
+	"time"
 
 	"k8s.io/client-go/util/retry"
 
@@ -32,11 +34,29 @@ func InitClientConfig() (*rest.Config, string, error) {
 		return nil, "", fmt.Errorf("getting in cluster config: %w", err)
 	}
 
-	// We increase the limits here so that we don't get any problems later on
-	inClusterConfig.QPS = 40
-	inClusterConfig.Burst = 80
-	inClusterConfig.Timeout = 0
+	// Get QPS from environment variable or default to 40
+	qpsStr := os.Getenv("VCLUSTER_PHYSICAL_CLIENT_QPS")
+	qps, err := strconv.ParseFloat(qpsStr, 32)
+	if err != nil || qpsStr == "" {
+		qps = 40
+	}
+	inClusterConfig.QPS = float32(qps)
 
+	// Get Burst from environment variable or default to 80
+	burstStr := os.Getenv("VCLUSTER_PHYSICAL_CLIENT_BURST")
+	burst, err := strconv.Atoi(burstStr)
+	if err != nil || burstStr == "" {
+		burst = 80
+	}
+	inClusterConfig.Burst = burst
+
+	// Get Timeout from environment variable or default to 0
+	timeoutStr := os.Getenv("VCLUSTER_PHYSICAL_CLIENT_TIMEOUT")
+	timeout, err := strconv.Atoi(timeoutStr)
+	if err != nil || timeoutStr == "" {
+		timeout = 0
+	}
+	inClusterConfig.Timeout = time.Duration(timeout) * time.Second
 	// get current namespace
 	currentNamespace, err := clienthelper.CurrentNamespace()
 	if err != nil {
