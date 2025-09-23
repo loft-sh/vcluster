@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"k8s.io/apimachinery/pkg/version"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -15,12 +16,13 @@ import (
 type ControllerContext struct {
 	context.Context
 
-	LocalManager          ctrl.Manager
+	HostManager           ctrl.Manager
+	HostNamespaceClient   client.Client
 	VirtualManager        ctrl.Manager
 	VirtualRawConfig      *clientcmdapi.Config
 	VirtualClusterVersion *version.Info
 
-	WorkloadNamespaceClient client.Client
+	EtcdClient etcd.Client
 
 	Config   *config.VirtualClusterConfig
 	StopChan <-chan struct{}
@@ -48,8 +50,8 @@ type RegisterContext struct {
 
 	Mappings MappingsRegistry
 
-	VirtualManager  ctrl.Manager
-	PhysicalManager ctrl.Manager
+	VirtualManager ctrl.Manager
+	HostManager    ctrl.Manager
 }
 
 type Filter func(http.Handler, *ControllerContext) http.Handler
@@ -62,25 +64,30 @@ func (c *ControllerContext) ToRegisterContext() *RegisterContext {
 
 		Config: c.Config,
 
-		CurrentNamespace:       c.Config.WorkloadNamespace,
-		CurrentNamespaceClient: c.WorkloadNamespaceClient,
+		CurrentNamespace:       c.Config.HostNamespace,
+		CurrentNamespaceClient: c.HostNamespaceClient,
 
-		VirtualManager:  c.VirtualManager,
-		PhysicalManager: c.LocalManager,
+		VirtualManager: c.VirtualManager,
+		HostManager:    c.HostManager,
 
 		Mappings: c.Mappings,
 	}
 }
 
 func (r *RegisterContext) ToSyncContext(logName string) *SyncContext {
-	return &SyncContext{
+	syncCtx := &SyncContext{
 		Context:                r.Context,
 		Config:                 r.Config,
 		Log:                    loghelper.New(logName),
-		PhysicalClient:         r.PhysicalManager.GetClient(),
-		VirtualClient:          r.VirtualManager.GetClient(),
 		CurrentNamespace:       r.CurrentNamespace,
 		CurrentNamespaceClient: r.CurrentNamespaceClient,
 		Mappings:               r.Mappings,
 	}
+	if r.HostManager != nil {
+		syncCtx.HostClient = r.HostManager.GetClient()
+	}
+	if r.VirtualManager != nil {
+		syncCtx.VirtualClient = r.VirtualManager.GetClient()
+	}
+	return syncCtx
 }

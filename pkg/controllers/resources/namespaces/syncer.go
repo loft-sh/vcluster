@@ -3,6 +3,7 @@ package namespaces
 import (
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -10,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -25,11 +27,6 @@ var excludedAnnotations = []string{
 	"scheduler.alpha.kubernetes.io/defaultTolerations",
 }
 
-const (
-	VClusterNameAnnotation      = "vcluster.loft.sh/vcluster-name"
-	VClusterNamespaceAnnotation = "vcluster.loft.sh/vcluster-namespace"
-)
-
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := ctx.Mappings.ByGVK(mappings.Namespaces())
 	if err != nil {
@@ -40,8 +37,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	for k, v := range ctx.Config.Sync.ToHost.Namespaces.ExtraLabels {
 		namespaceLabels[k] = v
 	}
-	namespaceLabels[VClusterNameAnnotation] = ctx.Config.Name
-	namespaceLabels[VClusterNamespaceAnnotation] = ctx.CurrentNamespace
+	namespaceLabels[constants.VClusterNameAnnotation] = ctx.Config.Name
+	namespaceLabels[constants.VClusterNamespaceAnnotation] = ctx.CurrentNamespace
 
 	return &namespaceSyncer{
 		GenericTranslator:          translator.NewGenericTranslator(ctx, "namespace", &corev1.Namespace{}, mapper),
@@ -67,7 +64,8 @@ var _ syncertypes.OptionsProvider = &namespaceSyncer{}
 
 func (s *namespaceSyncer) Options() *syncertypes.Options {
 	return &syncertypes.Options{
-		ObjectCaching: true,
+		ObjectCaching:      true,
+		DisableUIDDeletion: true,
 	}
 }
 
@@ -83,7 +81,7 @@ func (s *namespaceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 	newNamespace := s.translateToHost(ctx, event.Virtual)
 	ctx.Log.Infof("create physical namespace %s", newNamespace.Name)
 
-	err := pro.ApplyPatchesHostObject(ctx, nil, newNamespace, event.Virtual, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
+	err := pro.ApplyPatchesHostObject(ctx, newNamespace, event.Virtual, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -110,13 +108,31 @@ func (s *namespaceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 func (s *namespaceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Namespace]) (_ ctrl.Result, retErr error) {
 	// virtual object is not here anymore, so we delete
 	if event.VirtualOld != nil || event.Host.DeletionTimestamp != nil {
+		// first, lets check if host object was imported - if so, we don't delete it
+		if event.Host.Annotations != nil && event.Host.Annotations[translate.ImportedMarkerAnnotation] == "true" {
+			ctx.Log.Infof("host object %s/%s was imported, not deleting it", event.Host.Namespace, event.Host.Name)
+			return ctrl.Result{}, nil
+		}
+
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
+	}
+
+	// add marker annotation to host object and update it
+	_, err := controllerutil.CreateOrPatch(ctx, ctx.HostClient, event.Host, func() error {
+		if event.Host.Annotations == nil {
+			event.Host.Annotations = map[string]string{}
+		}
+		event.Host.Annotations[translate.ImportedMarkerAnnotation] = "true"
+		return nil
+	})
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("create or patch host object: %w", err)
 	}
 
 	newNamespace := s.translateToVirtual(ctx, event.Host)
 	ctx.Log.Infof("create virtual namespace %s", newNamespace.Name)
 
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, newNamespace, event.Host, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
+	err = pro.ApplyPatchesVirtualObject(ctx, newNamespace, event.Host, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -134,6 +150,6 @@ func (s *namespaceSyncer) EnsureWorkloadServiceAccount(ctx *synccontext.SyncCont
 			Name:      s.workloadServiceAccountName,
 		},
 	}
-	_, err := controllerutil.CreateOrPatch(ctx, ctx.PhysicalClient, svc, func() error { return nil })
+	_, err := controllerutil.CreateOrPatch(ctx, ctx.HostClient, svc, func() error { return nil })
 	return err
 }

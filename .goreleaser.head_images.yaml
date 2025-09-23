@@ -1,0 +1,150 @@
+version: 2
+
+project_name: vcluster
+
+before:
+  hooks:
+    - 'echo "Building head images for {{ .Env.CI_BRANCH }} branch"'
+
+builds:
+  - id: vcluster
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    binary: vcluster
+    main: ./cmd/vcluster
+    dir: .
+    flags:
+      - -trimpath
+      - -mod
+      - vendor
+    tags:
+      - embed_chart
+    ldflags:
+      - -s -w
+      - -X github.com/loft-sh/vcluster/pkg/telemetry.SyncerVersion={{.Version}}
+      - -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey={{ with index .Env "TELEMETRY_PRIVATE_KEY" }}{{ . }}{{ end }}
+
+  - id: vcluster-cli
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    binary: vcluster
+    main: ./cmd/vclusterctl
+    dir: .
+    flags:
+      - -trimpath
+      - -mod
+      - vendor
+    tags:
+      - embed_chart
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X github.com/loft-sh/vcluster/pkg/telemetry.SyncerVersion={{.Version}}
+      - -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey={{ with index .Env "TELEMETRY_PRIVATE_KEY" }}{{ . }}{{ end }}
+
+dockers:
+  # --- Vcluster images ---
+  - image_templates:
+      - "ghcr.io/loft-sh/vcluster-oss:head-amd64"
+    use: buildx
+    dockerfile: Dockerfile.release
+    ids:
+      - vcluster
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version=head"
+    skip_push: '{{ ne .Env.CI_BRANCH "main" }}'
+
+  - image_templates:
+      - "ghcr.io/loft-sh/vcluster-oss:head-arm64v8"
+    use: buildx
+    goarch: arm64
+    dockerfile: Dockerfile.release
+    ids:
+      - vcluster
+    build_flag_templates:
+      - "--platform=linux/arm64/v8"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version=head"
+    skip_push: '{{ ne .Env.CI_BRANCH "main" }}'
+
+  # --- Vcluster-cli images ---
+  - image_templates:
+      - "ghcr.io/loft-sh/vcluster-cli:head-amd64"
+    use: buildx
+    dockerfile: Dockerfile.cli.release
+    ids:
+      - vcluster-cli
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version=head"
+    skip_push: '{{ ne .Env.CI_BRANCH "main" }}'
+
+  - image_templates:
+      # Only build head-arm64v8 tag when on main branch
+      - "ghcr.io/loft-sh/vcluster-cli:head-arm64v8"
+    use: buildx
+    goarch: arm64
+    dockerfile: Dockerfile.cli.release
+    ids:
+      - vcluster-cli
+    build_flag_templates:
+      - "--platform=linux/arm64/v8"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version=head"
+    skip_push: '{{ ne .Env.CI_BRANCH "main" }}'
+
+docker_manifests:
+  # --- Head multi arch ---
+  - name_template: ghcr.io/loft-sh/vcluster-oss:head
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-oss:head-amd64
+      - ghcr.io/loft-sh/vcluster-oss:head-arm64v8
+    skip_push: '{{ ne .Env.CI_BRANCH "main" }}'
+
+  # --- Head multi arch for CLI ---
+  - name_template: ghcr.io/loft-sh/vcluster-cli:head
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-cli:head-amd64
+      - ghcr.io/loft-sh/vcluster-cli:head-arm64v8
+    skip_push: '{{ ne .Env.CI_BRANCH "main" }}'
+
+# Keep release disabled to avoid creating GitHub releases
+release:
+  disable: true
+
+docker_signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    artifacts: all
+    args:
+      - "sign"
+      - "${artifact}"
+      - "--yes" # needed on cosign 2.0.0+

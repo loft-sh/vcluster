@@ -8,6 +8,9 @@ import (
 	_ "k8s.io/apimachinery/pkg/apis/meta/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // Enable cloud provider auth
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	// Required for sqlite database migration
+	_ "modernc.org/sqlite"
 )
 
 func main() {

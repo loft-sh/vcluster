@@ -23,6 +23,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,28 +35,45 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	netutils "k8s.io/utils/net"
 )
 
 // PortForwardProtocolV1Name is the subprotocol used for port forwarding.
 // TODO move to API machinery and re-unify with kubelet/server/portfoward
 const PortForwardProtocolV1Name = "portforward.k8s.io"
 
+var (
+	// error returned whenever we lost connection to a pod
+	ErrLostConnectionToPod = errors.New("lost connection to pod")
+
+	// set of error we're expecting during port-forwarding
+	networkClosedError = "use of closed network connection"
+
+	// Containerd will return "network namespace for sandbox %q is closed", see:
+	// - 2.0: https://github.com/containerd/containerd/blob/v2.0.0-rc.6/internal/cri/server/sandbox_portforward_linux.go#L47
+	// - 1.7: https://github.com/containerd/containerd/blob/release/1.7/pkg/cri/server/sandbox_portforward_linux.go#L47
+	// CRI-O will return "sandbox %s is not running", see:
+	// - 1.31: https://github.com/cri-o/cri-o/blob/release-1.31/server/container_portforward.go#L54
+	networkClosedRe = regexp.MustCompile(`network namespace for sandbox "\w+" is closed|sandbox \w+ is not running`)
+)
+
 // PortForwarder knows how to listen for local connections and forward them to
 // a remote pod via an upgraded HTTP request.
 type PortForwarder struct {
-	errOut         io.Writer
+	addresses []listenAddress
+	ports     []ForwardedPort
+	stopChan  <-chan struct{}
+
 	dialer         httpstream.Dialer
 	streamConn     httpstream.Connection
-	out            io.Writer
-	Ready          chan struct{}
-	stopChan       <-chan struct{}
-	errChan        chan<- error
 	listeners      []io.Closer
-	addresses      []listenAddress
-	ports          []ForwardedPort
-	requestID      int
-	numConnections atomic.Int64
+	Ready          chan struct{}
 	requestIDLock  sync.Mutex
+	requestID      int
+	out            io.Writer
+	errOut         io.Writer
+	errChan        chan<- error
+	numConnections atomic.Int64
 }
 
 // ForwardedPort contains a Local:Remote port pairing.
@@ -135,9 +153,9 @@ func parseAddresses(addressesToParse []string) ([]listenAddress, error) {
 				ip := listenAddress{address: "::1", protocol: "tcp6", failureMode: "all"}
 				parsed[ip.address] = ip
 			}
-		} else if net.ParseIP(address).To4() != nil {
+		} else if netutils.ParseIPSloppy(address).To4() != nil {
 			parsed[address] = listenAddress{address: address, protocol: "tcp4", failureMode: "any"}
-		} else if net.ParseIP(address) != nil {
+		} else if netutils.ParseIPSloppy(address) != nil {
 			parsed[address] = listenAddress{address: address, protocol: "tcp6", failureMode: "any"}
 		} else {
 			return nil, fmt.Errorf("%s is not a valid IP", address)
@@ -211,11 +229,15 @@ func (pf *PortForwarder) ForwardPorts(ctx context.Context) error {
 	defer pf.Close()
 
 	var err error
-	pf.streamConn, _, err = pf.dialer.Dial(PortForwardProtocolV1Name)
+	var protocol string
+	pf.streamConn, protocol, err = pf.dialer.Dial(PortForwardProtocolV1Name)
 	if err != nil {
 		return fmt.Errorf("error upgrading connection: %w", err)
 	}
 	defer pf.streamConn.Close()
+	if protocol != PortForwardProtocolV1Name {
+		return fmt.Errorf("unable to negotiate protocol: client supports %q, server returned %q", PortForwardProtocolV1Name, protocol)
+	}
 
 	return pf.forward(ctx)
 }
@@ -257,7 +279,7 @@ func (pf *PortForwarder) forward(ctx context.Context) error {
 	select {
 	case <-pf.stopChan:
 	case <-streamConnCloseChan:
-		pf.raiseError(errors.New("lost connection to pod"))
+		pf.raiseError(ErrLostConnectionToPod)
 	}
 
 	return nil
@@ -337,7 +359,7 @@ func (pf *PortForwarder) waitForConnection(ctx context.Context, listener net.Lis
 			conn, err := listener.Accept()
 			if err != nil {
 				// TODO consider using something like https://github.com/hydrogen18/stoppableListener?
-				if !strings.Contains(strings.ToLower(err.Error()), "use of closed network connection") {
+				if !strings.Contains(strings.ToLower(err.Error()), networkClosedError) {
 					pf.raiseError(fmt.Errorf("error accepting connection on port %d: %w", port.Local, err))
 				}
 				return
@@ -403,11 +425,14 @@ func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, po
 	}
 
 	// create data stream
+	var dataStream httpstream.Stream
 	localError := make(chan struct{})
 	remoteDone := make(chan struct{})
 	if pf.streamConn != nil {
 		headers.Set(corev1.StreamType, corev1.StreamTypeData)
-		dataStream, err := pf.streamConn.CreateStream(headers)
+
+		var err error
+		dataStream, err = pf.streamConn.CreateStream(headers)
 		if err != nil {
 			pf.raiseError(fmt.Errorf("error creating forwarding stream for port %d -> %d: %w", port.Local, port.Remote, err))
 			return
@@ -415,7 +440,7 @@ func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, po
 
 		go func() {
 			// Copy from the remote side to the local port.
-			if _, err := io.Copy(conn, dataStream); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
+			if _, err := io.Copy(conn, dataStream); err != nil && !strings.Contains(strings.ToLower(err.Error()), networkClosedError) {
 				if logger := klog.FromContext(ctx).V(4); logger.Enabled() {
 					logger.Error(err, "error copying from remote stream to local connection", "debug", true)
 				}
@@ -430,7 +455,7 @@ func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, po
 			defer dataStream.Close()
 
 			// Copy from the local port to the remote side.
-			if _, err := io.Copy(dataStream, conn); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
+			if _, err := io.Copy(dataStream, conn); err != nil && !strings.Contains(strings.ToLower(err.Error()), networkClosedError) {
 				if logger := klog.FromContext(ctx).V(4); logger.Enabled() {
 					logger.Error(err, "error copying from local connection to remote stream", "debug", true)
 				}
@@ -449,10 +474,28 @@ func (pf *PortForwarder) handleConnection(ctx context.Context, conn net.Conn, po
 	case <-localError:
 	}
 
+	if dataStream != nil {
+		// reset dataStream to discard any unsent data, preventing port forwarding from being blocked.
+		// we must reset dataStream before waiting on errorChan, otherwise,
+		// the blocking data will affect errorStream and cause <-errorChan to block indefinitely.
+		_ = dataStream.Reset()
+	}
+
 	// always expect something on errorChan (it may be nil)
 	if err := <-errorChan; err != nil {
-		// Fail for errors like container not running or No such container
-		if strings.Contains(err.Error(), "container") {
+		// don't tear down the whole parent port-forward pf.streamConn when there's
+		// an error handling a single request, container runtime should handle
+		// the streaming error by resetting the connection, so we should be able
+		// to keep the connection open until a user explicitly requests an end
+		if networkClosedRe.MatchString(err.Error()) || strings.Contains(err.Error(), "container") {
+			// there are three cases when we consider closing the entire connection:
+			// 1. networkClosedRe is happening when a pod is removed, in which case we should stop
+			//    port forwarding, although we'll only know about it only during subsequent
+			//    connection attempts, where one of the io.Copy goroutines fails.
+			// 2. streamTimeoutRe is happening when we're dealing with an older CRI, which doesn't
+			//    reset the streams, and thus we only learn about the error when trying to create
+			//    a subsequent stream, which fails with that error.
+			// 3. Container errors such as "container not running" or "no such container
 			pf.raiseError(err)
 		} else {
 			logger.Error(err, "Failed handling connection")

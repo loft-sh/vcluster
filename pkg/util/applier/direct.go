@@ -70,6 +70,7 @@ func (d *DirectApplier) Apply(_ context.Context, opt Options) error {
 	}
 
 	applyOpts.SetObjects(infos)
+	applyOpts.Overwrite = true
 	applyOpts.DeleteOptions = &cmdDelete.DeleteOptions{
 		IOStreams: ioStreams,
 	}

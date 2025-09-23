@@ -153,7 +153,7 @@ func StartAPIServiceProxy(
 	tlsCertFile := ctx.Config.VirtualClusterKubeConfig().ServerCACert
 	tlsKeyFile := ctx.Config.VirtualClusterKubeConfig().ServerCAKey
 
-	hostConfig := rest.CopyConfig(ctx.LocalManager.GetConfig())
+	hostConfig := rest.CopyConfig(ctx.HostManager.GetConfig())
 	hostConfig.Host = "https://" + targetServiceName + "." + targetServiceNamespace
 	if targetPort > 0 {
 		hostConfig.Host = hostConfig.Host + ":" + strconv.Itoa(targetPort)

@@ -73,7 +73,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 			if !s.storageClassesEnabled && storageClassName != "" {
 				// Should the PVC be dynamically provisioned or not?
 				if vPvc.Spec.Selector == nil && vPvc.Spec.VolumeName == "" {
-					err := ctx.PhysicalClient.Get(ctx, types.NamespacedName{Name: storageClassName}, &storagev1.StorageClass{})
+					err := ctx.HostClient.Get(ctx, types.NamespacedName{Name: storageClassName}, &storagev1.StorageClass{})
 					if err != nil && kerrors.IsNotFound(err) {
 						translated := translate.Default.HostNameCluster(storageClassName)
 						delete(vPvc.Annotations, deprecatedStorageClassAnnotation)

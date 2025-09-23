@@ -78,7 +78,7 @@ func (s *configMapSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 	}
 
 	pObj := translate.HostMetadata(event.Virtual, s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.Name, Namespace: event.Virtual.Namespace}, event.Virtual))
-	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.ConfigMaps.Patches, false)
+	err := pro.ApplyPatchesHostObject(ctx, pObj, event.Virtual, ctx.Config.Sync.ToHost.ConfigMaps.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -97,7 +97,7 @@ func (s *configMapSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syn
 		return ctrl.Result{}, nil
 	}
 
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.ConfigMaps.Patches, false)
+	err := pro.ApplyPatchesVirtualObject(ctx, vObj, event.Host, ctx.Config.Sync.ToHost.ConfigMaps.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

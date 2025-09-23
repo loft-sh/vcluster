@@ -40,6 +40,8 @@ const (
 
 	VirtualClusterProDistroExternalDatabase FeatureName = "vcp-distro-external-database" // External Database
 
+	VirtualClusterProDistroPrivateNodes FeatureName = "vcp-distro-private-nodes" // Private Nodes
+
 	ConnectorExternalDatabase FeatureName = "connector-external-database" // Database Connector
 
 	VirtualClusterProDistroSleepMode FeatureName = "vcp-distro-sleep-mode" // SleepMode
@@ -100,6 +102,14 @@ const (
 
 	HybridScheduling FeatureName = "hybrid-scheduling" // Hybrid Scheduling
 
+	SyncNamespacesTohost FeatureName = "sync-namespaces-tohost" // Sync Namespaces toHost
+
+	ScheduledSnapshots FeatureName = "scheduled-snapshots" // Schedule Virtual Clusters Snapshots
+
+	PrivateNodesVpn FeatureName = "private-nodes-vpn" // Private Nodes VPN
+
+	PrivateNodesAutoNodes FeatureName = "private-nodes-auto-nodes" // Private Nodes Auto Nodes
+
 )
 
 func GetFeatures() []FeatureName {
@@ -122,6 +132,7 @@ func GetFeatures() []FeatureName {
 		VirtualClusterProDistroIntegrationsCertManager,
 		VirtualClusterProDistroFips,
 		VirtualClusterProDistroExternalDatabase,
+		VirtualClusterProDistroPrivateNodes,
 		ConnectorExternalDatabase,
 		VirtualClusterProDistroSleepMode,
 		Devpod,
@@ -152,5 +163,9 @@ func GetFeatures() []FeatureName {
 		ResolveDns,
 		IstioIntegration,
 		HybridScheduling,
+		SyncNamespacesTohost,
+		ScheduledSnapshots,
+		PrivateNodesVpn,
+		PrivateNodesAutoNodes,
 	}
 }

@@ -13,8 +13,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	logutil "github.com/loft-sh/vcluster/pkg/util/log"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -30,9 +32,9 @@ const (
 	PollTimeoutLong          = 2 * time.Minute
 	DefaultVClusterName      = "vcluster"
 	DefaultVClusterNamespace = "vcluster"
-	DefaultClientTimeout     = 32 * time.Second // the default in client-go is 32
-	DefaultClientBurst       = 100              // the default in client-go is 10 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
-	DefaultClientQPS         = 50               // the default in client-go is 5 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
+	DefaultClientTimeout     = 100 * time.Second // the default in client-go is 32 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
+	DefaultClientBurst       = 100               // the default in client-go is 10 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
+	DefaultClientQPS         = 50                // the default in client-go is 5 (which is not enough, as we are occasionally experiencing client-side throttling in e2e tests)
 )
 
 var DefaultFramework = &Framework{}
@@ -173,9 +175,11 @@ func CreateFramework(ctx context.Context) error {
 	}
 
 	// init virtual client
-	err = DefaultFramework.RefreshVirtualClient()
-	if err != nil {
-		return err
+	if os.Getenv("VCLUSTER_SKIP_CONNECT") != "true" {
+		err = DefaultFramework.RefreshVirtualClient()
+		if err != nil {
+			return err
+		}
 	}
 
 	l.Done("Framework successfully initialized")
@@ -191,7 +195,8 @@ func (f *Framework) RefreshVirtualClient() error {
 
 	// vKubeConfigFile removal is done in the Framework.Cleanup() which gets called in ginkgo's AfterSuite()
 	connectCmd := cmd.ConnectCmd{
-		Log: f.Log,
+		CobraCmd: &cobra.Command{},
+		Log:      f.Log,
 		GlobalFlags: &flags.GlobalFlags{
 			Namespace: f.VClusterNamespace,
 			Debug:     true,
@@ -200,7 +205,7 @@ func (f *Framework) RefreshVirtualClient() error {
 			KubeConfig:           vKubeconfigFile.Name(),
 			LocalPort:            14550, // choosing a port that usually should be unused
 			BackgroundProxy:      true,
-			BackgroundProxyImage: constants.DefaultBackgroundProxyImage,
+			BackgroundProxyImage: constants.DefaultBackgroundProxyImage(upgrade.GetVersion()),
 		},
 	}
 	err = connectCmd.Run(f.Context, []string{f.VClusterName})

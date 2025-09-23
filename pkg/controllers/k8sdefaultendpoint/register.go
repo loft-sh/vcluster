@@ -25,7 +25,7 @@ func Register(ctx *synccontext.ControllerContext) error {
 	} else {
 		provider = &EndpointsV1Provider{}
 	}
-	return NewEndpointController(ctx, provider).Register(ctx.LocalManager)
+	return NewEndpointController(ctx, provider).Register(ctx.HostManager)
 }
 
 func ShouldUseLegacy(discoveryClient discovery.DiscoveryInterface) (bool, error) {

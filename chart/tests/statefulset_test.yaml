@@ -3,15 +3,6 @@ templates:
   - statefulset.yaml
 
 tests:
-  - it: should not create control-plane
-    set:
-      experimental:
-        isolatedControlPlane:
-          headless: true
-    asserts:
-      - hasDocuments:
-          count: 0
-
   - it: image name
     set:
       controlPlane:
@@ -274,7 +265,7 @@ tests:
     asserts:
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 7
+          count: 6
       - lengthEqual:
           path: spec.template.spec.initContainers
           count: 3
@@ -295,7 +286,7 @@ tests:
           value: StatefulSet
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 7
+          count: 6
       - lengthEqual:
           path: spec.template.spec.initContainers
           count: 2
@@ -308,7 +299,7 @@ tests:
     asserts:
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 6
+          count: 5
       - lengthEqual:
           path: spec.template.spec.initContainers
           count: 1
@@ -330,7 +321,7 @@ tests:
             name: myVolume
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 8
+          count: 7
 
   - it: add templated volumes
     set:
@@ -349,7 +340,7 @@ tests:
             name: RELEASE-NAME-myVolume
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 8
+          count: 7
 
   - it: enable k8s
     set:
@@ -551,7 +542,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v1.32.1
+          value: ghcr.io/loft-sh/kubernetes:v1.33.4
 
   - it: k8s override image tag
     set:
@@ -615,15 +606,44 @@ tests:
         distro:
           k8s:
             enabled: true
+            scheduler:
+              enabled: true
+    asserts:
+    - equal:
+        path: spec.template.spec.initContainers[0].image
+        value: ghcr.io/loft-sh/kubernetes:v1.33.4
+
+  - it: k8s version not set, default tag images used for apiServer and controllerManager (virtual scheduler enabled, deprecated)
+    chart:
+      version: "test-"
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
         advanced:
           virtualScheduler:
             enabled: true
     asserts:
       - equal:
           path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/loft-sh/kubernetes:v1.32.1
+          value: ghcr.io/loft-sh/kubernetes:v1.33.4
 
   - it: k8s version sets image tag for apiServer and controllerManager (virtual scheduler enabled)
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            version: v1.35.999
+            scheduler:
+              enabled: true
+    asserts:
+    - equal:
+        path: spec.template.spec.initContainers[0].image
+        value: ghcr.io/loft-sh/kubernetes:v1.35.999
+
+  - it: k8s version sets image tag for apiServer and controllerManager (virtual scheduler enabled, deprecated)
     set:
       controlPlane:
         distro:
@@ -639,6 +659,22 @@ tests:
           value: ghcr.io/loft-sh/kubernetes:v1.35.999
 
   - it: k8s version set but not overridden by image tag for apiServer and controllerManager (virtual scheduler enabled)
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            version: v1.30.999
+            image:
+              tag: v99912
+            scheduler:
+              enabled: true
+    asserts:
+    - equal:
+        path: spec.template.spec.initContainers[0].image
+        value: ghcr.io/loft-sh/kubernetes:v1.30.999
+
+  - it: k8s version set but not overridden by image tag for apiServer and controllerManager (virtual scheduler enabled, deprecated)
     set:
       controlPlane:
         distro:
@@ -763,7 +799,7 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "additional secret must have name and/or namespace set, found: {\"server\":\"my-server\"}"
-          
+
   - it: must use Deployment for external etcd
     set:
       controlPlane:
@@ -775,3 +811,143 @@ tests:
       - equal:
           path: kind
           value: Deployment
+
+  - it: private nodes k8s full image
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            image:
+              tag: v1.35.999
+      privateNodes:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.35.999-full
+
+  - it: private nodes k8s full image version
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            version: v1.35.999
+      privateNodes:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: ghcr.io/loft-sh/kubernetes:v1.35.999-full
+
+  - it: sets custom probe configuration
+    set:
+      controlPlane:
+        statefulSet:
+          probes:
+            livenessProbe:
+              enabled: true
+              failureThreshold: 70
+              initialDelaySeconds: 70
+              timeoutSeconds: 10
+              periodSeconds: 9
+            readinessProbe:
+              enabled: true
+              failureThreshold: 70
+              timeoutSeconds: 6
+              periodSeconds: 8
+            startupProbe:
+              enabled: true
+              failureThreshold: 350
+              timeoutSeconds: 7
+              periodSeconds: 8
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.failureThreshold
+          value: 70
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.initialDelaySeconds
+          value: 70
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.timeoutSeconds
+          value: 10
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.periodSeconds
+          value: 9
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.failureThreshold
+          value: 70
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.timeoutSeconds
+          value: 6
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.periodSeconds
+          value: 8
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 350
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.timeoutSeconds
+          value: 7
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.periodSeconds
+          value: 8
+
+
+  - it: uses default probe values when none are overridden
+    set:
+      controlPlane:
+        statefulSet:
+          probes:
+            livenessProbe:
+              enabled: true
+            readinessProbe:
+              enabled: true
+            startupProbe:
+              enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.initialDelaySeconds
+          value: 60
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.periodSeconds
+          value: 2
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.timeoutSeconds
+          value: 3
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.failureThreshold
+          value: 60
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.periodSeconds
+          value: 2
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.timeoutSeconds
+          value: 3
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.failureThreshold
+          value: 60
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.periodSeconds
+          value: 6
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.timeoutSeconds
+          value: 3
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 300
+
+  - it: should set logging format to json
+    set:
+      logging:
+        encoding: json
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[?(@.name=="LOFT_LOG_ENCODING")].value
+          value: json
+
+  - it: should set default logging format to console
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[?(@.name=="LOFT_LOG_ENCODING")].value
+          value: console
+

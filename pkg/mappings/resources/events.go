@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -15,6 +16,8 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const ForceSyncedEventNamespace = "default"
 
 var AcceptedKinds = map[schema.GroupVersionKind]bool{
 	corev1.SchemeGroupVersion.WithKind("Pod"):       true,
@@ -49,6 +52,11 @@ func (s *eventMapper) HostToVirtual(ctx *synccontext.SyncContext, req types.Name
 		err = IgnoreAcceptableErrors(err)
 		if err != nil {
 			klog.Infof("Error retrieving involved object for %s/%s: %v", req.Namespace, req.Name, err)
+		} else if pObj.GetAnnotations()[constants.SyncResourceAnnotation] == "true" {
+			return types.NamespacedName{
+				Namespace: ForceSyncedEventNamespace,
+				Name:      pObj.GetName(),
+			}
 		}
 
 		return types.NamespacedName{}

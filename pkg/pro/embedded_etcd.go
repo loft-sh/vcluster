@@ -1,7 +1,11 @@
 package pro
 
-import "context"
+import (
+	"context"
 
-var StartEmbeddedEtcd = func(_ context.Context, _, _, _ string, _, _ int, _ string, _, _ bool) error {
-	return NewFeatureError("embedded etcd")
+	"github.com/loft-sh/vcluster/pkg/config"
+)
+
+var StartEmbeddedEtcd = func(_ context.Context, _ *config.VirtualClusterConfig, _ string, _ string, _ bool, _ bool) (func(), error) {
+	return nil, NewFeatureError("embedded etcd")
 }

@@ -25,12 +25,13 @@ build-cli-snapshot:
 build-snapshot:
   GOOS=linux goreleaser build --id vcluster --single-target --snapshot --clean
   cp Dockerfile.release {{DIST_FOLDER}}/Dockerfile
-  cd {{DIST_FOLDER}} && docker build . -t ghcr.io/loft-sh/vcluster:dev-next
+  cd {{DIST_FOLDER}} && docker buildx build --load . -t ghcr.io/loft-sh/vcluster:dev-next
 
 # --- Kind ---
 
 # Create a local kind cluster
 create-kind:
+  kind delete cluster -n vcluster
   kind create cluster -n vcluster
 
 # Delete the local kind cluster
@@ -53,7 +54,7 @@ copy-assets:
 # Generate the vcluster latest/minimal images file
 [private]
 generate-vcluster-latest-images version="0.0.0":
-  {{ASSETS_RUN}} --latest {{ version }} > ./release/images.txt
+  {{ASSETS_RUN}} {{ version }} > ./release/images.txt
 
 # Generate the vcluster optional images file
 [private]
@@ -118,12 +119,14 @@ e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && 
     -f {{ path }}/values.yaml \
     $([[ "{{ multinamespace }}" = "true" ]] && echo "-f ./test/multins_values.yaml" || echo "")
 
+  [ -f "{{ path }}/host-resources.yaml" ] && kubectl apply -f "{{ path }}/host-resources.yaml" -n vcluster
   kubectl wait --for=condition=ready pod -l app=vcluster -n vcluster --timeout=300s
 
   cd {{path}} && VCLUSTER_SUFFIX=vcluster \
     VCLUSTER_NAME=vcluster \
     VCLUSTER_NAMESPACE=vcluster \
     MULTINAMESPACE_MODE={{ multinamespace }} \
+    VCLUSTER_BACKGROUND_PROXY_IMAGE=vcluster:e2e-latest \
     KIND_NAME=vcluster \
     go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*' -ginkgo.fail-fast
 

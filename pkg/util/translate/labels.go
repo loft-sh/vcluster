@@ -58,7 +58,7 @@ func HostLabelsMap(vLabels, pLabels map[string]string, vNamespace string, isMeta
 	if isMetadata || pLabels == nil || pLabels[MarkerLabel] != "" {
 		if vNamespace == "" {
 			newLabels[MarkerLabel] = Default.MarkerLabelCluster()
-		} else if Default.SingleNamespaceTarget() {
+		} else {
 			newLabels[MarkerLabel] = VClusterName
 			newLabels[NamespaceLabel] = vNamespace
 		}

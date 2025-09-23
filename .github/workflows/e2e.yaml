@@ -7,17 +7,6 @@ on:
     branches:
       - main
       - v*
-    paths:
-      - go.mod
-      - go.sum
-      - "**.go"
-      - "!**_test.go" # exclude test files to ignore unit test changes
-      - "test/**" # include test files in e2e again
-      - "!**.md"
-      - "Dockerfile.release"
-      - ".github/workflows/e2e.yaml"
-      - "chart/**"
-      - "manifests/**"
   workflow_dispatch:
 
 concurrency:
@@ -32,19 +21,34 @@ env:
   VCLUSTER_NAMESPACE: vcluster
 
 jobs:
+  detect_changes:
+    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@v1
+    with:
+      paths: |
+        - "go.mod"
+        - "go.sum"
+        - "**.go"
+        - "!**_test.go" # exclude test files to ignore unit test changes
+        - "test/**" # include test files in e2e again
+        - "!**.md"
+        - "Dockerfile.release"
+        - ".github/workflows/e2e.yaml"
+        - "chart/**"
+        - "manifests/**"
   build:
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'loft-sh' # do not run on forks
+    if: github.repository_owner == 'loft-sh' && needs.detect_changes.outputs.has_changed == 'true'
+    needs: detect_changes
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - run: git fetch --force --tags
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -64,7 +68,7 @@ jobs:
           # Build cli
           TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
           # Build tests for cache
-          go test -mod=vendor -test.v -c ./test/e2e
+          go test -mod=vendor -test.v -c ./test/e2e || { echo "go test build failed"; exit 1; }
 
       - name: Upload syncer image to artifact
         uses: actions/upload-artifact@v4
@@ -81,10 +85,12 @@ jobs:
           retention-days: 7
 
   get-testsuites-dir:
+    needs: detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - id: set-paths-matrix
         run: |
           set -x
@@ -96,12 +102,14 @@ jobs:
 
   vcluster-install-delete:
     name: Install and delete virtual cluster
-    needs: build
-
+    needs:
+      - build
+      - detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - uses: azure/setup-helm@v4
         name: Setup Helm
@@ -109,26 +117,27 @@ jobs:
           version: "v3.11.0"
 
       - name: Set up kind k8s cluster
-        uses: engineerd/setup-kind@v0.5.0
+        uses: loft-sh/setup-kind@master
         with:
-          version: "v0.26.0"
-          image: kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
+          version: "v0.29.0"
+          image: kindest/node:v1.33.1@sha256:050072256b9a903bd914c0b2866828150cb229cea0efe5892e2b644d5dd3b34f
+          skipClusterLogsExport: "true"
 
       - name: Testing kind cluster set-up
         run: |
           set -x
           kubectl cluster-info
           kubectl get pods -n kube-system
-          echo "kubectl config current-context:" $(kubectl config current-context)
-          echo "KUBECONFIG env var:" ${KUBECONFIG}
+          echo "kubectl config current-context: $(kubectl config current-context)"
+          echo "KUBECONFIG env var: ${KUBECONFIG}"
 
       - name: Download vcluster cli
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: vcluster
 
       - name: Download syncer image
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: vcluster_syncer
 
@@ -148,6 +157,8 @@ jobs:
           ./hack/vcluster-install-scripts/test-helm-install.sh
 
   download-latest-cli:
+    needs: detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
     name: Download the latest vCluster cli
     runs-on: ubuntu-latest
     steps:
@@ -166,6 +177,8 @@ jobs:
     needs:
       - build
       - download-latest-cli
+      - detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -173,7 +186,7 @@ jobs:
         distribution: ["k3s", "k8s"]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - uses: azure/setup-helm@v4
         name: Setup Helm
@@ -181,32 +194,33 @@ jobs:
           version: "v3.11.0"
 
       - name: Set up kind k8s cluster
-        uses: engineerd/setup-kind@v0.5.0
+        uses: loft-sh/setup-kind@master
         with:
-          version: "v0.26.0"
-          image: kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
+          version: "v0.29.0"
+          image: kindest/node:v1.33.1@sha256:050072256b9a903bd914c0b2866828150cb229cea0efe5892e2b644d5dd3b34f
+          skipClusterLogsExport: "true"
 
       - name: Testing kind cluster set-up
         run: |
           set -x
           kubectl cluster-info
           kubectl get pods -n kube-system
-          echo "kubectl config current-context:" $(kubectl config current-context)
-          echo "KUBECONFIG env var:" ${KUBECONFIG}
+          echo "kubectl config current-context: $(kubectl config current-context)"
+          echo "KUBECONFIG env var: ${KUBECONFIG}"
 
       - name: Download vcluster cli
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: vcluster
           path: vcluster-dev
 
       - name: Download current cli
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: vcluster-current
 
       - name: Download syncer image
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: vcluster_syncer
 
@@ -217,6 +231,7 @@ jobs:
         run: |
           chmod +x ./vcluster-current
 
+          docker load --input vcluster_syncer
           kind load image-archive vcluster_syncer
           yq eval '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' > ./test/vcluster-current.yaml
 
@@ -250,8 +265,12 @@ jobs:
     needs:
       - build
       - get-testsuites-dir
-
+      - detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # needed for OIDC → AWS
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -268,16 +287,14 @@ jobs:
         exclude:
           - ha: "true"
           - distribution: "k3s"
-            test-suite-path: "./test/e2e_generic"
-          - distribution: "k8s"
-            test-suite-path: "./test/e2e_generic"
+            test-suite-path: "./test/e2e_certs"
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -287,26 +304,27 @@ jobs:
           version: "v3.11.0"
 
       - name: Set up kind k8s cluster
-        uses: engineerd/setup-kind@v0.5.0
+        uses: loft-sh/setup-kind@master
         with:
-          version: "v0.26.0"
-          image: kindest/node:v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
+          version: "v0.29.0"
+          image: kindest/node:v1.33.1@sha256:050072256b9a903bd914c0b2866828150cb229cea0efe5892e2b644d5dd3b34f
+          skipClusterLogsExport: "true"
 
       - name: Testing kind cluster set-up
         run: |
           set -x
           kubectl cluster-info
           kubectl get pods -n kube-system
-          echo "kubectl config current-context:" $(kubectl config current-context)
-          echo "KUBECONFIG env var:" ${KUBECONFIG}
+          echo "kubectl config current-context: $(kubectl config current-context)"
+          echo "KUBECONFIG env var: ${KUBECONFIG}"
 
       - name: Download vcluster cli
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: vcluster
 
       - name: Download syncer image
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: vcluster_syncer
 
@@ -316,41 +334,42 @@ jobs:
           set -x
 
           extraArgs=()
-          if [ ${{ matrix.test-suite-path }} == "./test/e2e_metrics_proxy" ]; then
+          if [ "${{ matrix.test-suite-path }}" = "./test/e2e_metrics_proxy" ]; then
             helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
-            helm upgrade --install metrics-server metrics-server/metrics-server --set args={--kubelet-insecure-tls} --set containerPort=4443 -n kube-system
+            helm upgrade --install metrics-server metrics-server/metrics-server --set "args={--kubelet-insecure-tls}" --set containerPort=4443 -n kube-system
           fi
 
-          if [ ${{ matrix.ha }} == "true" ]; then
+          if [ "${{ matrix.ha }}" = "true" ]; then
             haValues="-f ./test/values_ha.yaml"
           fi
 
-          if [ ${{ matrix.test-suite-path }} == "./test/e2e_target_namespace" ]; then
-            kubectl apply -f ${{ matrix.test-suite-path }}/role.yaml
-          fi
-
-          if [ ${{ matrix.test-suite-path }} == "./test/e2e" ]; then
+          if [ "${{ matrix.test-suite-path }}" = "./test/e2e" ]; then
             kubectl create namespace from-host-sync-test
             kubectl create namespace from-host-sync-test-2
           fi
 
-          sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
-          sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" ${{ matrix.test-suite-path }}/../commonValues.yaml
-          yq eval -i '.controlPlane.distro.${{ matrix.distribution }}.enabled = true'  ${{ matrix.test-suite-path }}/../commonValues.yaml
+          sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" "${{ matrix.test-suite-path }}/../commonValues.yaml"
+          sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" "${{ matrix.test-suite-path }}/../commonValues.yaml"
+          yq eval -i ".controlPlane.distro.${{ matrix.distribution }}.enabled = true" "${{ matrix.test-suite-path }}/../commonValues.yaml"
 
+          docker load --input vcluster_syncer
           kind load image-archive vcluster_syncer
 
           chmod +x vcluster && sudo mv vcluster /usr/bin
 
-          vcluster create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
+          vcluster create "${{ env.VCLUSTER_SUFFIX }}" -n "${{ env.VCLUSTER_NAMESPACE }}" \
           --create-namespace \
           --debug \
           --connect=false \
           --local-chart-dir ./chart \
           -f ./test/commonValues.yaml \
-          $haValues \
-          -f ${{ matrix.test-suite-path }}/values.yaml \
+          ${haValues:+$haValues} \
+          -f "${{ matrix.test-suite-path }}/values.yaml" \
           "${extraArgs[@]}"
+
+          if [ -f "${{ matrix.test-suite-path }}/host-resources.yaml" ]; then
+            kubectl apply -f "${{ matrix.test-suite-path }}/host-resources.yaml" -n "${{ env.VCLUSTER_NAMESPACE }}"
+          fi
         continue-on-error: true
 
       - name: Wait until vcluster is ready
@@ -390,6 +409,7 @@ jobs:
           VCLUSTER_SUFFIX=${{ env.VCLUSTER_SUFFIX }} \
           VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} \
           VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} \
+          VCLUSTER_BACKGROUND_PROXY_IMAGE=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} \
           go test -timeout 40m -mod=vendor -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast ${{ matrix.test-suite-path }}
           if kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p >/dev/null 2>/dev/null; then
             echo "vCluster has restarted during testing, failing..."

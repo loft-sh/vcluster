@@ -28,20 +28,32 @@ jobs:
             final_tag=${MANUAL_TAG}
           else
             echo "Tag from release event: ${{ github.event.release.tag_name }}"
-            final_tag=${{ github.event.release.tag_name }}
+            final_tag="${{ github.event.release.tag_name }}"
           fi
           echo "release_tag=${final_tag}" >> "$GITHUB_OUTPUT"
-          if [[ ${final_tag} == *"-alpha."* ]]; then
+
+          # Remove 'v' prefix if present for semver validation
+          version_without_v="${final_tag#v}"
+          echo "version_without_v=${version_without_v}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${final_tag}" == *"-alpha."*  || "${final_tag}" == *"-next."* ]]; then
             echo "is_alpha_version=true" >> "$GITHUB_OUTPUT"
             echo "is_stable_version=false" >> "$GITHUB_OUTPUT"
           else
             echo "is_alpha_version=false" >> "$GITHUB_OUTPUT"
           fi
-          if [[ ${final_tag} == *"-beta."* || ${final_tag} == *"-rc"* ]]; then
+          if [[ "${final_tag}" == *"-beta."* || "${final_tag}" == *"-rc"* ]]; then
             echo "is_stable_version=false" >> "$GITHUB_OUTPUT"
           else
             echo "is_stable_version=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Parse version with semver
+        if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
+        id: semver
+        uses: loft-sh/github-actions/.github/actions/semver-validation@main
+        with:
+          version: ${{ steps.release.outputs.version_without_v }}
 
       - name: Skip sync on alpha
         if: ${{ steps.release.outputs.is_alpha_version == 'true' }}
@@ -51,7 +63,7 @@ jobs:
 
       - name: Checkout repo
         if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-tags: 'true'
           ref: 'refs/tags/${{ steps.release.outputs.release_tag }}'
@@ -68,20 +80,43 @@ jobs:
 
       - name: Set up Go
         if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
-      - name: Update main docs version on beta or rc versions
-        # update docs "main" version only on beta or -rc
+      - name: Update docs version on beta or rc versions
+        # update docs - "main" for beta, versioned folder for RC
         if: ${{ steps.release.outputs.is_stable_version == 'false' && steps.release.outputs.is_alpha_version == 'false' }}
         env:
           GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+          PARSED_VERSION: ${{ steps.semver.outputs.parsed_version }}
         run: |
+          # Use parsed version from semver action
+          MAJOR_VERSION=$(echo "${PARSED_VERSION}" | jq -r '.major')
+          MINOR_VERSION=$(echo "${PARSED_VERSION}" | jq -r '.minor')
+
+          # For RC releases, we use major.minor.0 format for the docs folder
+          MINOR_VERSION_WITH_PATCH="${MAJOR_VERSION}.${MINOR_VERSION}.0"
+          echo "Extracted minor version: ${MINOR_VERSION_WITH_PATCH} from tag: ${RELEASE_TAG}"
+
+          # Determine target folder - use version folder for RC releases, main for beta
+          VCLUSTER_CONFIG_BRANCH="main"
+          if [[ "${RELEASE_TAG}" == *"-rc"* ]]; then
+            TARGET_VERSION="${MINOR_VERSION_WITH_PATCH}"
+            echo "RC release detected, using versioned folder: ${TARGET_VERSION}"
+            VCLUSTER_CONFIG_BRANCH="vcluster-v${MAJOR_VERSION}.${MINOR_VERSION}"
+          else
+            TARGET_VERSION="main"
+            echo "Beta release detected, using main folder"
+          fi
+          echo "Using vcluster-config tag: ${VCLUSTER_CONFIG_BRANCH}"
+
           # clone vcluster-config and vcluster-docs
           git clone --single-branch https://github.com/loft-sh/vcluster-docs.git
-          git clone --single-branch https://github.com/loft-sh/vcluster-config.git
+
+          # try to clone the tagged version, if it does not exist, fallback to main
+          git clone --branch ${VCLUSTER_CONFIG_BRANCH} --depth 1 https://github.com/loft-sh/vcluster-config.git || git clone --single-branch https://github.com/loft-sh/vcluster-config.git
 
           # generate vcluster.schema.json based on the current platform.schema.json in vcluster-config
           # and values.schema.json from alpha / beta release
@@ -94,20 +129,30 @@ jobs:
 
           # copy generated vcluster.schema.json to the docs
           cd ../
-          mkdir -p vcluster-docs/configsrc/vcluster/main/
-          cp config/values.yaml vcluster-docs/configsrc/vcluster/main/default_values.yaml
-          cp vcluster-config/vcluster.schema.json vcluster-docs/configsrc/vcluster/main/vcluster.schema.json
+          mkdir -p "vcluster-docs/configsrc/vcluster/${TARGET_VERSION}/"
+          cp config/values.yaml "vcluster-docs/configsrc/vcluster/${TARGET_VERSION}/default_values.yaml"
+          cp vcluster-config/vcluster.schema.json "vcluster-docs/configsrc/vcluster/${TARGET_VERSION}/vcluster.schema.json"
 
           # generate vCluster partials in docs
           cd vcluster-docs/
 
-          branch_name="generate-partials-for-main"
-          git switch -c ${branch_name}
+          branch_name="generate-partials-for-${TARGET_VERSION}"
+          git switch -c "${branch_name}"
 
-          # generate vcluster partials for main version
+          # generate vcluster partials for target version
           go mod tidy
           go mod vendor
-          go run hack/vcluster/partials/main.go "configsrc/vcluster/main" "vcluster/_partials/config"
+
+          # Determine output path based on target version
+          if [[ "${TARGET_VERSION}" == "main" ]]; then
+            OUTPUT_PATH="vcluster/_partials/config"
+          else
+            OUTPUT_PATH="vcluster_versioned_docs/version-${TARGET_VERSION}/_partials/config"
+            # Ensure versioned directory exists
+            mkdir -p "vcluster_versioned_docs/version-${TARGET_VERSION}"
+          fi
+
+          go run hack/vcluster/partials/main.go "configsrc/vcluster/${TARGET_VERSION}" "${OUTPUT_PATH}"
 
           # set git info
           git config --global user.name "Loft Bot"
@@ -122,9 +167,11 @@ jobs:
           echo "Changes detected"
 
           # create a PR in vcluster-docs with generated partials
-          git commit -m "chore: generate vCluster partials for main version based on values.schema.json in vCluster ${RELEASE_TAG}"
-          git push -u origin -f ${branch_name}
-          gh pr create --fill --head ${branch_name}
+          git commit -m "chore: generate vCluster partials for ${TARGET_VERSION} version based on values.schema.json in vCluster ${RELEASE_TAG}"
+          git push -u origin -f "${branch_name}"
+
+          gh pr close "${branch_name}" --comment "Closing to recreate with updated changes from ${RELEASE_TAG}" || true
+          gh pr create --fill --head "${branch_name}"
           echo "Create PR in vcluster-docs"
 
 
@@ -134,9 +181,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+          PARSED_VERSION: ${{ steps.semver.outputs.parsed_version }}
         run: |
           rm -rf vcluster-config/ || true
-          git clone --single-branch https://github.com/loft-sh/vcluster-config.git
+          git clone https://github.com/loft-sh/vcluster-config.git
           # copy generated schema from vcluster chart values to vcluster-config
           cp chart/values.schema.json vcluster-config/values.schema.json
           cp -R config/. vcluster-config/config/
@@ -158,7 +206,21 @@ jobs:
           fi
           echo "Changes detected"
 
+          # Determine the tag to update based on the release version
+          # Use parsed version from semver action
+          MAJOR_VERSION=$(echo "${PARSED_VERSION}" | jq -r '.major')
+          MINOR_VERSION=$(echo "${PARSED_VERSION}" | jq -r '.minor')
+
+          # Use the vcluster-vX.Y format for tags
+          TARGET_TAG="vcluster-v${MAJOR_VERSION}.${MINOR_VERSION}"
+
           # commit changes
           git commit -m "chore: sync config/*.go and values.schema.json to vCluster version ${RELEASE_TAG}"
-          git push -u origin -f main
-          echo "vcluster-config values.schema.json updated to the version ${RELEASE_TAG}"
+
+          # Update the existing tag to point to the new commit
+          git tag -f "${TARGET_TAG}"
+          # push the commit
+          git push origin HEAD:main
+          git push -u origin -f "${TARGET_TAG}"
+
+          echo "vcluster-config tag ${TARGET_TAG} updated to vCluster version ${RELEASE_TAG}"

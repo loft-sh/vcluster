@@ -101,7 +101,7 @@ func TestFromHostSyncer(t *testing.T) {
 
 				// First call creates the missing namespace.
 				result, err := fromHostSyncer.SyncToVirtual(syncerCtx, syncToVirtualEvent)
-				assert.Check(t, result.Requeue == true)
+				assert.Check(t, result.Requeue == true) //nolint:staticcheck
 				assert.NilError(t, err)
 
 				// Second call creates the virtual resource.

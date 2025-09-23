@@ -11,6 +11,9 @@ import (
 // +genclient:noStatus
 // +genclient:method=GetKubeConfig,verb=create,subresource=kubeconfig,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterInstanceKubeConfig,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterInstanceKubeConfig
 // +genclient:method=GetAccessKey,verb=get,subresource=accesskey,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterAccessKey
+// +genclient:method=GetExternalDatabase,verb=create,subresource=externaldatabase,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterExternalDatabase,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterExternalDatabase
+// +genclient:method=GetNodeAccessKey,verb=create,subresource=nodeaccesskey,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterNodeAccessKey,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterNodeAccessKey
+// +genclient:method=GetStandaloneETCDPeers,verb=create,subresource=standalone,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterStandalone,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterStandalone
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // VirtualClusterInstance holds the VirtualClusterInstance information
@@ -19,6 +22,10 @@ import (
 // +subresource:request=VirtualClusterInstanceLog,path=log,kind=VirtualClusterInstanceLog,rest=VirtualClusterInstanceLogREST
 // +subresource:request=VirtualClusterInstanceKubeConfig,path=kubeconfig,kind=VirtualClusterInstanceKubeConfig,rest=VirtualClusterInstanceKubeConfigREST
 // +subresource:request=VirtualClusterAccessKey,path=accesskey,kind=VirtualClusterAccessKey,rest=VirtualClusterAccessKeyREST
+// +subresource:request=VirtualClusterNodeAccessKey,path=nodeaccesskey,kind=VirtualClusterNodeAccessKey,rest=VirtualClusterNodeAccessKeyREST
+// +subresource:request=VirtualClusterExternalDatabase,path=externaldatabase,kind=VirtualClusterExternalDatabase,rest=VirtualClusterExternalDatabaseREST
+// +subresource:request=VirtualClusterStandalone,path=standalone,kind=VirtualClusterStandalone,rest=VirtualClusterStandaloneREST
+// +subresource:request=VirtualClusterInstanceSnapshot,path=snapshot,kind=VirtualClusterInstanceSnapshot,rest=VirtualClusterInstanceSnapshotREST
 type VirtualClusterInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

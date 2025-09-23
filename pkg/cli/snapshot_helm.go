@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -10,16 +11,22 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
-var minSnapshotVersion = "0.23.0-alpha.8"
+const (
+	minSnapshotVersion      = "0.23.0-alpha.8"
+	minAsyncSnapshotVersion = "0.29.0-alpha.1"
+)
 
-func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger) error {
+func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger, async bool) error {
 	// init kube client and vCluster
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log)
 	if err != nil {
@@ -44,8 +51,17 @@ func Snapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags
 		}
 	}
 
-	// run snapshot pod
-	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot"}, vCluster, podOptions, snapshotOpts, log)
+	if !async {
+		// run snapshot pod
+		return pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot"}, vCluster, podOptions, snapshotOpts, log)
+	}
+
+	// creating snapshot request with 'vcluster snapshot create' command
+	err = createSnapshotRequest(ctx, vCluster, kubeClient, snapshotOpts, log)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func fillSnapshotOptions(snapshotURL string, snapshotOptions *snapshot.Options) error {
@@ -56,7 +72,7 @@ func fillSnapshotOptions(snapshotURL string, snapshotOptions *snapshot.Options) 
 	}
 
 	// storage needs to be either s3 or file
-	err = snapshot.Validate(snapshotOptions)
+	err = snapshot.Validate(snapshotOptions, false)
 	if err != nil {
 		return fmt.Errorf("validate: %w", err)
 	}
@@ -111,4 +127,102 @@ func initSnapshotCommand(
 	}
 
 	return vCluster, kubeClient, restClient, nil
+}
+
+func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshot.Options, log log.Logger) error {
+	vClusterConfig, err := getVClusterConfig(ctx, vCluster, kubeClient, snapshotOpts)
+	if err != nil {
+		return err
+	}
+	if vClusterConfig.ControlPlane.Standalone.Enabled {
+		return errors.New("creating snapshots with 'vcluster snapshot create' command is currently not supported")
+	}
+	err = checkIfVClusterSupportsSnapshotRequests(vCluster, log)
+	if err != nil {
+		return fmt.Errorf("vCluster version check failed: %w", err)
+	}
+
+	// first create the snapshot options Secret
+	secret, err := snapshot.CreateSnapshotOptionsSecret(vCluster.Namespace, vCluster.Name, snapshotOpts)
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+	secret.GenerateName = fmt.Sprintf("%s-snapshot-request-", vCluster.Name)
+	secret, err = kubeClient.CoreV1().Secrets(vCluster.Namespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+
+	// then create the snapshot request that will be reconciled by the controller
+	snapshotRequest := &snapshot.Request{
+		Name: secret.Name,
+	}
+	configMap, err := snapshot.CreateSnapshotRequestConfigMap(vCluster.Namespace, vCluster.Name, snapshotRequest)
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+	}
+	configMap.Name = secret.Name
+	_, err = kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+	}
+
+	log.Infof("Created snapshot request %s", snapshotRequest.Name)
+	return nil
+}
+
+func checkIfVClusterSupportsSnapshotRequests(vCluster *find.VCluster, log log.Logger) error {
+	version, err := semver.Parse(strings.TrimPrefix(vCluster.Version, "v"))
+	if err == nil {
+		// only check if the version matches if vCluster actually has a parsable version
+		if version.LT(semver.MustParse(minAsyncSnapshotVersion)) {
+			return fmt.Errorf("command `vcluster snapshot create` can be used with vCluster version %s and newer, but specified virtual cluster uses vCluster version %s", minAsyncSnapshotVersion, vCluster.Version)
+		}
+	}
+	return nil
+}
+
+func getVClusterConfig(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshot.Options) (*vclusterconfig.VirtualClusterConfig, error) {
+	var err error
+	var vClusterConfig *vclusterconfig.VirtualClusterConfig
+	if snapshotOpts.Release.Values != nil {
+		vClusterConfig, err = vclusterconfig.ParseConfigBytes(snapshotOpts.Release.Values, vCluster.Name, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse vcluster config: %w", err)
+		}
+	} else {
+		// get vCluster config
+		var configSecretName string
+		var volumesToCheck []corev1.Volume
+		if vCluster.StatefulSet != nil {
+			volumesToCheck = vCluster.StatefulSet.Spec.Template.Spec.Volumes
+		} else if vCluster.Deployment != nil {
+			volumesToCheck = vCluster.Deployment.Spec.Template.Spec.Volumes
+		} else {
+			return nil, fmt.Errorf("vcluster %s is not a statefulset or deployment", vCluster.Name)
+		}
+		for _, volume := range volumesToCheck {
+			if volume.Name == "vcluster-config" {
+				if volume.Secret == nil {
+					return nil, fmt.Errorf("vCluster %s does not have a volume vcluster-config with Secret as a source", vCluster.Name)
+				}
+				configSecretName = volume.Secret.SecretName
+				break
+			}
+		}
+		configSecret, err := kubeClient.CoreV1().Secrets(vCluster.Namespace).Get(ctx, configSecretName, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get vCluster config secret: %w", err)
+		}
+		configBytes := configSecret.Data["config.yaml"]
+		if configBytes == nil {
+			return nil, fmt.Errorf("vCluster %s config secret does not have vCluster config set in 'config.yaml' data key", vCluster.Name)
+		}
+		vClusterConfig, err = vclusterconfig.ParseConfigBytes(configBytes, vCluster.Name, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse vcluster config: %w", err)
+		}
+	}
+
+	return vClusterConfig, nil
 }

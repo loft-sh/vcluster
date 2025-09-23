@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/controllers/generic"
 	"github.com/loft-sh/vcluster/pkg/controllers/servicesync"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -21,6 +20,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/coredns"
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
 	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
+	"github.com/loft-sh/vcluster/pkg/snapshot"
+	csiVolumeSnapshots "github.com/loft-sh/vcluster/pkg/snapshot/volumes/csi/deploy"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 )
@@ -42,6 +43,14 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 		}
 	}
 
+	if !ctx.Config.ControlPlane.Standalone.Enabled {
+		// register vcluster snapshot controller only for non-standalone
+		err = registerSnapshotController(registerContext)
+		if err != nil {
+			return err
+		}
+	}
+
 	// skip if we run in dedicated mode
 	if ctx.Config.PrivateNodes.Enabled {
 		return nil
@@ -55,12 +64,6 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 
 	// register service syncer to map services between host and virtual cluster
 	err = registerServiceSyncControllers(ctx)
-	if err != nil {
-		return err
-	}
-
-	// register generic sync controllers
-	err = registerGenericSyncController(ctx)
 	if err != nil {
 		return err
 	}
@@ -98,25 +101,8 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 	return nil
 }
 
-func registerGenericSyncController(ctx *synccontext.ControllerContext) error {
-	err := generic.CreateExporters(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = generic.CreateImporters(ctx)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
-	hostNamespace := ctx.Config.WorkloadTargetNamespace
-	if ctx.Config.Sync.ToHost.Namespaces.Enabled {
-		hostNamespace = ctx.Config.WorkloadNamespace
-	}
+	hostNamespace := ctx.Config.HostNamespace
 
 	if len(ctx.Config.Networking.ReplicateServices.FromHost) > 0 {
 		mapping, err := parseMapping(ctx.Config.Networking.ReplicateServices.FromHost, hostNamespace, "")
@@ -126,10 +112,10 @@ func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
 
 		// sync we are syncing from arbitrary physical namespaces we need to create a new
 		// manager that listens on global services
-		globalLocalManager, err := ctrl.NewManager(ctx.LocalManager.GetConfig(), ctrl.Options{
-			Scheme: ctx.LocalManager.GetScheme(),
+		globalLocalManager, err := ctrl.NewManager(ctx.HostManager.GetConfig(), ctrl.Options{
+			Scheme: ctx.HostManager.GetScheme(),
 			MapperProvider: func(_ *rest.Config, _ *http.Client) (meta.RESTMapper, error) {
-				return ctx.LocalManager.GetRESTMapper(), nil
+				return ctx.HostManager.GetRESTMapper(), nil
 			},
 			Metrics:        metricsserver.Options{BindAddress: "0"},
 			LeaderElection: false,
@@ -183,7 +169,7 @@ func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
 			SyncServices:          mapping,
 			IsVirtualToHostSyncer: true,
 			From:                  ctx.VirtualManager,
-			To:                    ctx.LocalManager,
+			To:                    ctx.HostManager,
 			Log:                   loghelper.New(name),
 		}
 
@@ -266,5 +252,26 @@ func registerPodSecurityController(ctx *synccontext.ControllerContext) error {
 	if err != nil {
 		return fmt.Errorf("unable to setup pod security controller: %w", err)
 	}
+	return nil
+}
+
+func registerSnapshotController(registerContext *synccontext.RegisterContext) error {
+	controller, err := snapshot.NewController(registerContext)
+	if err != nil {
+		return fmt.Errorf("unable to create vcluster snapshot controller: %w", err)
+	}
+	err = controller.Register()
+	if err != nil {
+		return fmt.Errorf("unable to register vcluster snapshot controller: %w", err)
+	}
+
+	config := registerContext.Config
+	if config.PrivateNodes.Enabled && config.Deploy.VolumeSnapshotController.Enabled {
+		err = csiVolumeSnapshots.Deploy(registerContext)
+		if err != nil {
+			return fmt.Errorf("unable to deploy required CSI volume snapshot compoments: %w", err)
+		}
+	}
+
 	return nil
 }

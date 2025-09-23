@@ -5,7 +5,7 @@ metadata:
   name: {{ template "vcluster.clusterRoleName" . }}
   labels:
     app: vcluster
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.controlPlane.advanced.globalMetadata.annotations }}
@@ -29,17 +29,16 @@ rules:
     resources: ["pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy"]
     verbs: ["get", "watch", "list"]
   {{- end }}
-  {{- if .Values.experimental.isolatedControlPlane.enabled }}
-  - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["get", "watch", "list"]
-  {{- end }}
   {{- if and .Values.sync.fromHost.nodes.enabled .Values.sync.fromHost.nodes.syncBackChanges }}
   - apiGroups: [""]
     resources: ["nodes", "nodes/status"]
     verbs: ["update", "patch"]
   {{- end }}
-  {{- if or .Values.controlPlane.advanced.virtualScheduler.enabled .Values.sync.toHost.pods.hybridScheduling.enabled }}
+  {{- if or
+      (and (eq (include "vcluster.distro" .) "k8s") .Values.controlPlane.distro.k8s.scheduler.enabled)
+      .Values.controlPlane.advanced.virtualScheduler.enabled
+      .Values.sync.toHost.pods.hybridScheduling.enabled
+    }}
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
     verbs: ["get", "watch", "list"]
@@ -124,7 +123,7 @@ rules:
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "watch"]
   {{- end }}
-  {{- if and .Values.integrations.externalSecrets.enabled .Values.integrations.externalSecrets.sync.clusterStores.enabled }}
+  {{- if and .Values.integrations.externalSecrets.enabled .Values.integrations.externalSecrets.sync.fromHost.clusterStores.enabled }}
   - apiGroups: ["external-secrets.io"]
     resources: ["clustersecretstores"]
     verbs: ["get", "list", "watch"]
@@ -138,7 +137,6 @@ rules:
   {{- include "vcluster.rbac.rulesForFromHostSyncerForGivenCoreResource" (list $ .Values.sync.fromHost.secrets.mappings.byName "secrets" .Values.sync.fromHost.secrets.enabled ) | nindent 2 }}
   {{- include "vcluster.customResources.clusterRoleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.clusterRoleExtraRules" . | indent 2 }}
-  {{- include "vcluster.generic.clusterRoleExtraRules" . | indent 2 }}
   {{- include "vcluster.rbac.clusterRoleExtraRules" . | indent 2 }}
   {{- end }}
 {{- end }}

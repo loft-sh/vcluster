@@ -719,11 +719,18 @@ func EnsureIngressController(ctx context.Context, kubeClient kubernetes.Interfac
 	return nil
 }
 
-func UpgradeLoft(chartName, chartRepo, kubeContext, namespace string, extraArgs []string, log log.Logger) error {
+func UpgradeLoft(ctx context.Context, kubeClient kubernetes.Interface, chartName, chartRepo, kubeContext, namespace string, extraArgs []string, log log.Logger) error {
+	releaseName := defaultReleaseName
+	deploy, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, defaultDeploymentName, metav1.GetOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return err
+	} else if deploy != nil && deploy.Labels != nil && deploy.Labels["release"] != "" {
+		releaseName = deploy.Labels["release"]
+	}
 	// now we install loft
 	args := []string{
 		"upgrade",
-		defaultReleaseName,
+		releaseName,
 		chartName,
 		"--install",
 		"--create-namespace",
@@ -759,10 +766,18 @@ func UpgradeLoft(chartName, chartRepo, kubeContext, namespace string, extraArgs 
 	return nil
 }
 
-func GetLoftManifests(chartName, chartRepo, kubeContext, namespace string, extraArgs []string, _ log.Logger) (string, error) {
+func GetLoftManifests(ctx context.Context, kubeClient kubernetes.Interface, chartName, chartRepo, kubeContext, namespace string, extraArgs []string, _ log.Logger) (string, error) {
+	releaseName := defaultReleaseName
+	deploy, err := kubeClient.AppsV1().Deployments(namespace).Get(ctx, defaultDeploymentName, metav1.GetOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return "", err
+	} else if deploy != nil && deploy.Labels != nil && deploy.Labels["release"] != "" {
+		releaseName = deploy.Labels["release"]
+	}
+
 	args := []string{
 		"template",
-		defaultReleaseName,
+		releaseName,
 		chartName,
 		"--repository-config=''",
 		"--kube-context",

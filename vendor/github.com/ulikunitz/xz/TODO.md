@@ -1,9 +1,5 @@
 # TODO list
 
-## Release v0.5.x
-
-1. Support check flag in gxz command.
-
 ## Release v0.6
 
 1. Review encoder and check for lzma improvements under xz.
@@ -86,6 +82,24 @@
 
 ## Log
 
+## 2025-08-28
+
+Release v0.5.14 addresses the security vulnerability CVE-2025-58058. If you put
+bytes in from of a LZMA stream, the header might not be read correctly and
+memory for the dictionary buffer allocated. I have implemented mitigations for
+the problem.
+
+### 2025-08-20
+
+Release v0.5.13 addressed issue #61 regarding handling of multiple WriteClosers
+together. So I added a new package xio with a WriteCloserStack to address the
+issue.
+
+### 2024-04-03
+
+Release v0.5.12 updates README.md and SECURITY.md to address the supply chain
+attack on the original xz implementation.
+
 ### 2022-12-12
 
 Matt Dantay (@bodgit) reported an issue with the LZMA reader. The implementation
@@ -99,7 +113,7 @@ it.
 
 Mituo Heijo has fuzzed xz and found a bug in the function readIndexBody. The
 function allocated a slice of records immediately after reading the value
-without further checks. Sincex the number has been too large the make function
+without further checks. Since the number has been too large the make function
 did panic. The fix is to check the number against the expected number of records
 before allocating the records.
 

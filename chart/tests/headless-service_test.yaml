@@ -3,15 +3,6 @@ templates:
   - headless-service.yaml
 
 tests:
-  - it: should not create control-plane
-    set:
-      experimental:
-        isolatedControlPlane:
-          headless: true
-    asserts:
-      - hasDocuments:
-          count: 0
-
   - it: should create if k8s
     set:
       controlPlane:

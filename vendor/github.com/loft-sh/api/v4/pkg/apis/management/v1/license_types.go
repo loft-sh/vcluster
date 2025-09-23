@@ -33,4 +33,7 @@ type LicenseStatus struct {
 	// ResourceUsage shows the current usage of license limit.
 	// +optional
 	ResourceUsage map[string]licenseapi.ResourceCount `json:"resourceUsage,omitempty"`
+
+	// PlatformDatabase shows information about the platform database installation
+	PlatformDatabase *licenseapi.PlatformDatabase `json:"platformDatabase,omitempty"`
 }

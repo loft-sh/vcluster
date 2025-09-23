@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -22,19 +21,16 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
-	"github.com/loft-sh/vcluster/pkg/util/portforward"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
 )
 
@@ -212,7 +208,11 @@ func (cmd *CollectCmd) Run(ctx context.Context, args []string) error {
 	// collect virtual cluster
 	if cmd.VirtualInfo || len(cmd.VirtualResources) > 0 || cmd.CountVirtualClusterObjects {
 		// get virtual kube config & client
-		vKubeConfig, err := cmd.getVClusterKubeConfig(ctx, kubeConfig, kubeClient, vCluster)
+		portForwardingOptions := clihelper.PortForwardingOptions{
+			StdOut: io.Writer(os.Stdout),
+			StdErr: io.Writer(os.Stderr),
+		}
+		vKubeConfig, err := clihelper.GetVClusterKubeConfig(ctx, kubeConfig, kubeClient, vCluster, cmd.log, portForwardingOptions)
 		if err != nil {
 			return fmt.Errorf("failed to get virtual cluster config: %w", err)
 		}
@@ -260,89 +260,6 @@ func (cmd *CollectCmd) Run(ctx context.Context, args []string) error {
 
 	cmd.log.Donef("Wrote debug information to file %s", cmd.OutputFilename)
 	return nil
-}
-
-func (cmd *CollectCmd) getVClusterKubeConfig(ctx context.Context, kubeConfig *rest.Config, kubeClient *kubernetes.Clientset, vCluster *find.VCluster) (*rest.Config, error) {
-	var err error
-	podName := ""
-	waitErr := wait.PollUntilContextTimeout(ctx, time.Second, time.Second*30, true, func(ctx context.Context) (bool, error) {
-		// get vcluster pod name
-		var pods *corev1.PodList
-		pods, err = kubeClient.CoreV1().Pods(vCluster.Namespace).List(ctx, metav1.ListOptions{
-			LabelSelector: "app=vcluster,release=" + vCluster.Name,
-		})
-		if err != nil {
-			return false, err
-		} else if len(pods.Items) == 0 {
-			err = fmt.Errorf("can't find a running vcluster pod in namespace %s", cmd.Namespace)
-			cmd.log.Debugf("can't find a running vcluster pod in namespace %s", cmd.Namespace)
-			return false, nil
-		}
-
-		// sort by newest
-		sort.Slice(pods.Items, func(i, j int) bool {
-			return pods.Items[i].CreationTimestamp.Unix() > pods.Items[j].CreationTimestamp.Unix()
-		})
-		if pods.Items[0].DeletionTimestamp != nil {
-			err = fmt.Errorf("can't find a running vcluster pod in namespace %s", cmd.Namespace)
-			cmd.log.Debugf("can't find a running vcluster pod in namespace %s", cmd.Namespace)
-			return false, nil
-		}
-
-		podName = pods.Items[0].Name
-		return true, nil
-	})
-	if waitErr != nil {
-		return nil, fmt.Errorf("finding vcluster pod: %w - %w", waitErr, err)
-	}
-
-	cmd.log.Infof("Start port-forwarding to virtual cluster")
-	vKubeConfig, err := clihelper.GetKubeConfig(ctx, kubeClient, vCluster.Name, vCluster.Namespace, cmd.log)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse kube config: %w", err)
-	}
-
-	// silence port-forwarding if a command is used
-	stdout := io.Writer(os.Stdout)
-	stderr := io.Writer(os.Stderr)
-	localPort := clihelper.RandomPort()
-	errorChan := make(chan error)
-	go func() {
-		errorChan <- portforward.StartPortForwardingWithRestart(ctx, kubeConfig, "127.0.0.1", podName, cmd.Namespace, strconv.Itoa(localPort), "8443", make(chan struct{}), stdout, stderr, cmd.log)
-	}()
-
-	for _, cluster := range vKubeConfig.Clusters {
-		if cluster == nil {
-			continue
-		}
-		cluster.Server = "https://localhost:" + strconv.Itoa(localPort)
-	}
-
-	restConfig, err := clientcmd.NewDefaultClientConfig(*vKubeConfig, &clientcmd.ConfigOverrides{}).ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create rest client config: %w", err)
-	}
-
-	vKubeClient, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create vcluster client: %w", err)
-	}
-
-	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*200, time.Minute*3, true, func(ctx context.Context) (bool, error) {
-		select {
-		case err := <-errorChan:
-			return false, err
-		default:
-			// check if service account exists
-			_, err = vKubeClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
-			return err == nil, nil
-		}
-	})
-	if err != nil {
-		return nil, fmt.Errorf("wait for vcluster to become ready: %w", err)
-	}
-
-	return restConfig, nil
 }
 
 func (cmd *CollectCmd) getVirtualInfo(kubeClient kubernetes.Interface, targetDir string) error {

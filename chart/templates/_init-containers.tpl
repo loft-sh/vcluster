@@ -9,9 +9,17 @@
 {{/* Bump $defaultTag value whenever k8s version is bumped */}}
 {{- define "vcluster.k8s.image.tag" -}}
 {{- if not (empty .Values.controlPlane.distro.k8s.version) -}}
+{{- if .Values.privateNodes.enabled -}}
+{{ .Values.controlPlane.distro.k8s.version }}-full
+{{- else -}}
 {{ .Values.controlPlane.distro.k8s.version }}
+{{- end -}}
+{{- else -}}
+{{- if .Values.privateNodes.enabled -}}
+{{ .Values.controlPlane.distro.k8s.image.tag }}-full
 {{- else -}}
 {{ .Values.controlPlane.distro.k8s.image.tag }}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 
@@ -26,7 +34,7 @@
   command:
     - cp
   args:
-    - -a
+    - -r 
     - /kubernetes/.
     - /binaries/
   {{- if .Values.controlPlane.distro.k8s.imagePullPolicy }}

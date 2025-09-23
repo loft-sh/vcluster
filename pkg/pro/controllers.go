@@ -5,6 +5,10 @@ import (
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 )
 
+var InitProControllerContext = func(_ *synccontext.ControllerContext) error {
+	return nil
+}
+
 var RegisterProControllers = func(*synccontext.ControllerContext) error {
 	return nil
 }

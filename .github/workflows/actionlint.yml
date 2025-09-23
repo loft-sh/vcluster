@@ -1,0 +1,39 @@
+name: Workflow Linting
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  actionlint:
+    name: Lint GitHub Actions workflows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Get changed workflow files
+        id: changed-files
+        uses: tj-actions/changed-files@v47.0.0
+        with:
+          files: .github/workflows/**/*.{yml,yaml}
+
+      - name: Run actionlint with reviewdog
+        if: steps.changed-files.outputs.any_changed == 'true'
+        uses: reviewdog/action-actionlint@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-check
+          filter_mode: file
+          fail_level: error
+
+      - name: No workflow files changed
+        if: steps.changed-files.outputs.any_changed != 'true'
+        run: echo "No workflow files were changed in this PR. Skipping actionlint."

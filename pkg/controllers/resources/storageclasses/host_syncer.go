@@ -3,18 +3,20 @@ package storageclasses
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/mappings"
-	"github.com/loft-sh/vcluster/pkg/patcher"
-	"github.com/loft-sh/vcluster/pkg/pro"
-	"github.com/loft-sh/vcluster/pkg/syncer"
-	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 )
 
 func NewHostStorageClassSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
@@ -24,12 +26,12 @@ func NewHostStorageClassSyncer(ctx *synccontext.RegisterContext) (syncertypes.Ob
 	}
 
 	return &hostStorageClassSyncer{
-		Mapper: mapper,
+		GenericTranslator: translator.NewGenericTranslator(ctx, "storageclass", &storagev1.StorageClass{}, mapper),
 	}, nil
 }
 
 type hostStorageClassSyncer struct {
-	synccontext.Mapper
+	syncertypes.GenericTranslator
 }
 
 func (s *hostStorageClassSyncer) UseUncachedPhysicalClient() bool {
@@ -51,10 +53,19 @@ func (s *hostStorageClassSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
+	matches, err := ctx.Config.Sync.FromHost.StorageClasses.Selector.Matches(event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("check storage class selector: %w", err)
+	}
+	if !matches {
+		ctx.Log.Infof("Warning: did not sync storage class %q because it does not match the selector under 'sync.fromHost.storageClasses.selector'", event.Host.Name)
+		return ctrl.Result{}, nil
+	}
+
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name}, false)
 
 	// Apply pro patches
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.StorageClasses.Patches, true)
+	err = pro.ApplyPatchesVirtualObject(ctx, vObj, event.Host, ctx.Config.Sync.FromHost.StorageClasses.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
@@ -64,6 +75,14 @@ func (s *hostStorageClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, eve
 }
 
 func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*storagev1.StorageClass]) (_ ctrl.Result, retErr error) {
+	matches, err := ctx.Config.Sync.FromHost.StorageClasses.Selector.Matches(event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("check storage class selector: %w", err)
+	}
+	if !matches {
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.Host, fmt.Sprintf("did not sync storage class %q because it does not match the selector under 'sync.fromHost.storageClasses.selector'", event.Host.Name))
+	}
+
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.StorageClasses.Patches, true))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)

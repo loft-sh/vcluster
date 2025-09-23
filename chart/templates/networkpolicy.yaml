@@ -3,14 +3,10 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: vc-work-{{ .Release.Name }}
-  {{- if .Values.experimental.syncSettings.targetNamespace }}
-  namespace: {{ .Values.experimental.syncSettings.targetNamespace }}
-  {{- else }}
   namespace: {{ .Release.Namespace }}
-  {{- end }}
   labels:
     app: vcluster
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
     {{- if .Values.policies.networkPolicy.labels }}
@@ -65,7 +61,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.policies.networkPolicy.labels }}

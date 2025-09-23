@@ -1,0 +1,45 @@
+
+name: Update MinimumVersionTag from Platform
+
+on:
+  repository_dispatch:
+    types: [update-platform-version]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-minimum-version-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+
+      - name: Update MinimumVersionTag in main.go
+        run: |
+          TAG="${{ github.event.client_payload.tag }}"
+          SEMVER_REGEX='^v[0-9]+\.[0-9]+\.[0-9]+$'
+
+          if [[ -z "$TAG" ]]; then
+            printf "Error: TAG is not set. Exiting step."
+            exit 1
+          fi
+
+          if ! [[ "$TAG" =~ $SEMVER_REGEX ]]; then
+            printf "Error: TAG does not match semver pattern (vMAJOR.MINOR.PATCH), e.g., v1.2.3. Exiting step."
+            exit 1
+          fi
+
+          sed -i 's/MinimumVersionTag = "v[0-9]\+\.[0-9]\+\.[0-9]\+"/MinimumVersionTag = "'"$TAG"'"/' pkg/platform/version.go
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+          committer: Loft Bot <loft-bot@users.noreply.github.com>
+          base: main
+          branch: update-platform-version-tag/${{ github.event.client_payload.tag }}
+          title: "chore(deps): bump platform MinimumVersionTag to ${{ github.event.client_payload.tag }}"
+          body: "Bumps MinimumVersionTag to the new Platform release ${{ github.event.client_payload.tag }}."
+          delete-branch: true

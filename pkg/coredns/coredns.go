@@ -1,65 +1,51 @@
 package coredns
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
-	"path"
 	"strings"
-	"text/template"
 
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/applier"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 const (
-	DefaultImage          = "coredns/coredns:1.11.3"
-	ManifestRelativePath  = "coredns/coredns.yaml"
-	ManifestsOutputFolder = "/tmp/manifests-to-apply"
-	VarImage              = "IMAGE"
-	VarHostDNS            = "HOST_CLUSTER_DNS"
-	VarRunAsUser          = "RUN_AS_USER"
-	VarRunAsNonRoot       = "RUN_AS_NON_ROOT"
-	VarRunAsGroup         = "RUN_AS_GROUP"
-	VarLogInDebug         = "LOG_IN_DEBUG"
-	defaultUID            = int64(1001)
-	defaultGID            = int64(1001)
+	DefaultImage    = "coredns/coredns:1.12.0"
+	VarImage        = "IMAGE"
+	VarHostDNS      = "HOST_CLUSTER_DNS"
+	VarRunAsUser    = "RUN_AS_USER"
+	VarRunAsNonRoot = "RUN_AS_NON_ROOT"
+	VarRunAsGroup   = "RUN_AS_GROUP"
+	VarLogInDebug   = "LOG_IN_DEBUG"
+	defaultUID      = int64(1001)
+	defaultGID      = int64(1001)
 )
 
 var ErrNoCoreDNSManifests = fmt.Errorf("no coredns manifests found")
 
-func ApplyManifest(ctx context.Context, defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
+func ApplyManifest(ctx context.Context, config *config.Config, defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
+	if !config.ControlPlane.CoreDNS.Enabled {
+		return nil
+	}
+
+	// get the manifest variables
 	vars := getManifestVariables(defaultImageRegistry, serverVersion)
-	output, err := processManifestTemplate(vars)
+
+	// process the corefile and manifests
+	output, err := processManifests(vars, config)
 	if err != nil {
 		return err
 	}
 
-	// write manifest into a file for easier debugging
-	if os.Getenv("DEBUG") == "true" {
-		// create a temporary directory and file to output processed manifest to
-		debugOutputFile, err := prepareManifestOutput()
-		if err != nil {
-			return err
-		}
-		defer debugOutputFile.Close()
-
-		_, _ = debugOutputFile.Write(output)
-	}
-
 	return applier.ApplyManifest(ctx, inClusterConfig, output)
-}
-
-func prepareManifestOutput() (*os.File, error) {
-	manifestOutputPath := path.Join(ManifestsOutputFolder, ManifestRelativePath)
-	err := os.MkdirAll(path.Dir(manifestOutputPath), 0755)
-	if err != nil {
-		return nil, err
-	}
-	return os.Create(manifestOutputPath)
 }
 
 func getManifestVariables(defaultImageRegistry string, serverVersion *version.Info) map[string]interface{} {
@@ -119,20 +105,23 @@ func GetUserID() int64 {
 	return int64(uid)
 }
 
-func processManifestTemplate(vars map[string]interface{}) ([]byte, error) {
-	manifestInputPath := path.Join("/manifests", ManifestRelativePath)
-	// check if the manifestInputPath exists
-	if _, err := os.Stat(manifestInputPath); os.IsNotExist(err) {
-		return nil, ErrNoCoreDNSManifests
-	}
-	manifestTemplate, err := template.ParseFiles(manifestInputPath)
+func DeleteCoreDNSComponents(ctx context.Context, client *kubernetes.Clientset, namespace string) error {
+	labelSelector := labels.FormatLabels(map[string]string{constants.CoreDNSLabelKey: constants.CoreDNSLabelValue})
+
+	var errs []error
+	errs = append(errs, client.AppsV1().Deployments(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector}))
+	errs = append(errs, client.CoreV1().Pods(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector}))
+
+	services, err := client.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse %s: %w", manifestInputPath, err)
+		errs = append(errs, err)
+	} else {
+		if len(services.Items) != 0 {
+			for _, svc := range services.Items {
+				errs = append(errs, client.CoreV1().Services(namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{}))
+			}
+		}
 	}
-	buf := new(bytes.Buffer)
-	err = manifestTemplate.Execute(buf, vars)
-	if err != nil {
-		return nil, fmt.Errorf("manifestTemplate.Execute failed for manifest %s: %w", manifestInputPath, err)
-	}
-	return buf.Bytes(), nil
+
+	return errors.Join(errs...)
 }

@@ -60,7 +60,7 @@ func WithServiceCreateRedirect(handler http.Handler, registerCtx *synccontext.Re
 
 					syncContext := registerCtx.ToSyncContext("create-service")
 					syncContext.VirtualClient = uncachedVirtualImpersonatingClient
-					syncContext.PhysicalClient = uncachedLocalClient
+					syncContext.HostClient = uncachedLocalClient
 
 					svc, err := createService(syncContext, req, decoder, info.Namespace)
 					if err != nil {
@@ -96,7 +96,7 @@ func WithServiceCreateRedirect(handler http.Handler, registerCtx *synccontext.Re
 
 						syncContext := registerCtx.ToSyncContext("update-service")
 						syncContext.VirtualClient = uncachedVirtualImpersonatingClient
-						syncContext.PhysicalClient = uncachedLocalClient
+						syncContext.HostClient = uncachedLocalClient
 
 						svc, err := updateService(syncContext, req, decoder, vService)
 						if err != nil {
@@ -146,7 +146,7 @@ func updateService(ctx *synccontext.SyncContext, req *http.Request, decoder enco
 	// okay now we have to change the physical service
 	pService := &corev1.Service{}
 	pServiceName := mappings.VirtualToHost(ctx, oldVService.Name, oldVService.Namespace, mappings.Services())
-	err = ctx.PhysicalClient.Get(ctx, pServiceName, pService)
+	err = ctx.HostClient.Get(ctx, pServiceName, pService)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil, kerrors.NewNotFound(corev1.Resource("services"), oldVService.Name)
@@ -160,7 +160,7 @@ func updateService(ctx *synccontext.SyncContext, req *http.Request, decoder enco
 	pService.Spec.Type = newVService.Spec.Type
 	pService.Spec.Ports = newVService.Spec.Ports
 	pService.Spec.ClusterIP = ""
-	err = ctx.PhysicalClient.Patch(ctx, pService, client.MergeFrom(originalPService))
+	err = ctx.HostClient.Patch(ctx, pService, client.MergeFrom(originalPService))
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func updateService(ctx *synccontext.SyncContext, req *http.Request, decoder enco
 		// state in the cluster. This needs to be cleaned up by the controller via delete and create
 		// and we delete the physical service here. Maybe there is a better solution to this, but for
 		// now it works
-		_ = ctx.PhysicalClient.Delete(ctx, pService)
+		_ = ctx.HostClient.Delete(ctx, pService)
 		return nil, err
 	}
 
@@ -216,7 +216,7 @@ func createService(ctx *synccontext.SyncContext, req *http.Request, decoder enco
 	}
 	newService.Annotations[services.ServiceBlockDeletion] = "true"
 	newService.Spec.Selector = translate.HostLabelsMap(vService.Spec.Selector, nil, vService.Namespace, false)
-	err = ctx.PhysicalClient.Create(req.Context(), newService)
+	err = ctx.HostClient.Create(req.Context(), newService)
 	if err != nil {
 		klog.Infof("Error creating service in physical cluster: %v", err)
 		if kerrors.IsAlreadyExists(err) {
@@ -237,7 +237,7 @@ func createService(ctx *synccontext.SyncContext, req *http.Request, decoder enco
 	if err != nil {
 		// try to cleanup the created physical service
 		klog.Infof("Error creating service in virtual cluster: %v", err)
-		_ = ctx.PhysicalClient.Delete(ctx, newService)
+		_ = ctx.HostClient.Delete(ctx, newService)
 		return nil, err
 	}
 

@@ -1,28 +1,27 @@
 package config
 
 import (
+	"context"
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"slices"
 	"strings"
 
 	"github.com/ghodss/yaml"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/loft-sh/vcluster/config"
+	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/util/namespaces"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
-)
-
-const (
-	// Name placeholder will be replaced with this virtual cluster name
-	NamePlaceholder string = "${name}"
-
-	// WildcardChar is used in pattern mappings.
-	WildcardChar string = "*"
 )
 
 var allowedPodSecurityStandards = map[string]bool{
@@ -30,8 +29,6 @@ var allowedPodSecurityStandards = map[string]bool{
 	"baseline":   true,
 	"restricted": true,
 }
-
-var verbs = []string{"get", "list", "create", "update", "patch", "watch", "delete", "deletecollection"}
 
 func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	// check the value of pod security standard
@@ -101,24 +98,6 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 
-	// disallow old and new generic sync to be used together
-	if len(vConfig.Sync.ToHost.CustomResources) > 0 || len(vConfig.Sync.FromHost.CustomResources) > 0 {
-		// check if generic sync exports are used
-		if len(vConfig.Experimental.GenericSync.Exports) > 0 {
-			return errors.New("experimental.genericSync.exports is not allowed when using sync.toHost.customResources or sync.fromHost.customResources")
-		}
-
-		// check if generic sync imports are used
-		if len(vConfig.Experimental.GenericSync.Imports) > 0 {
-			return errors.New("experimental.genericSync.imports is not allowed when using sync.toHost.customResources or sync.fromHost.customResources")
-		}
-
-		// check if hooks are used
-		if vConfig.Experimental.GenericSync.Hooks != nil && (len(vConfig.Experimental.GenericSync.Hooks.HostToVirtual) > 0 || len(vConfig.Experimental.GenericSync.Hooks.VirtualToHost) > 0) {
-			return errors.New("experimental.genericSync.hooks is not allowed when using sync.toHost.customResources or sync.fromHost.customResources. Please use sync.*.patches.expression instead")
-		}
-	}
-
 	// check if nodes controller needs to be enabled
 	if vConfig.SchedulingInVirtualClusterEnabled() && !vConfig.Sync.FromHost.Nodes.Enabled {
 		return errors.New("sync.fromHost.nodes.enabled is false, but required if using hybrid scheduling or virtual scheduler")
@@ -145,12 +124,6 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	err = validateCentralAdmissionControl(vConfig)
 	if err != nil {
 		return err
-	}
-
-	// validate generic sync config
-	err = validateGenericSyncConfig(vConfig.Experimental.GenericSync)
-	if err != nil {
-		return fmt.Errorf("validate experimental.genericSync")
 	}
 
 	// validate distro
@@ -184,14 +157,17 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 
-	if isUsingOldGenericSync(vConfig.Experimental.GenericSync) && vConfig.Sync.ToHost.Namespaces.Enabled {
-		return errors.New("experimental.genericSync.imports is not allowed when using sync.toHost.namespaces")
+	// sync.toHost.namespaces validation
+	err = namespaces.ValidateNamespaceSyncConfig(&vConfig.Config, vConfig.Name, vConfig.HostNamespace)
+	if err != nil {
+		return fmt.Errorf("namespace sync: %w", err)
 	}
 
-	// check sync.toHost.namespaces.mappings
-	err = validateToHostNamespaceSyncMappings(vConfig.Sync.ToHost.Namespaces, vConfig.Name)
-	if err != nil {
-		return err
+	// if we're runnign in with namespace sync enabled, we want to sync all objects.
+	// otherwise, objects created on host in synced namespaces won't get imported into vCluster.
+	if vConfig.Sync.ToHost.Namespaces.Enabled {
+		vConfig.Sync.ToHost.Secrets.All = true
+		vConfig.Sync.ToHost.ConfigMaps.All = true
 	}
 
 	// set service name
@@ -212,7 +188,19 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	}
 
 	// validate dedicated nodes mode
-	err = validateDedicatedNodesMode(vConfig)
+	err = validatePrivatedNodesMode(vConfig)
+	if err != nil {
+		return err
+	}
+
+	// validate sync.fromHost classes
+	err = ValidateSyncFromHostClasses(vConfig.Config.Sync.FromHost)
+	if err != nil {
+		return err
+	}
+
+	// validate deploy.volumeSnapshotController
+	err = ValidateVolumeSnapshotController(vConfig.Config.Deploy.VolumeSnapshotController, vConfig.PrivateNodes)
 	if err != nil {
 		return err
 	}
@@ -236,6 +224,7 @@ func ValidateAllSyncPatches(sync config.Sync) error {
 			{"sync.toHost.pods", sync.ToHost.Pods.Patches},
 			{"sync.toHost.serviceAccounts", sync.ToHost.ServiceAccounts.Patches},
 			{"sync.toHost.ingresses", sync.ToHost.Ingresses.Patches},
+			{"sync.toHost.namespaces", sync.ToHost.Namespaces.Patches},
 			{"sync.toHost.networkPolicies", sync.ToHost.NetworkPolicies.Patches},
 			{"sync.toHost.persistentVolumeClaims", sync.ToHost.PersistentVolumeClaims.Patches},
 			{"sync.toHost.persistentVolumes", sync.ToHost.PersistentVolumes.Patches},
@@ -290,6 +279,47 @@ func validatePatches(patchesValidation ...patchesValidation) error {
 	return nil
 }
 
+func ValidatePlatformProject(ctx context.Context, config *config.Config, loadedConfig *cliconfig.CLI) error {
+	platformConfig, err := config.GetPlatformConfig()
+	if err != nil {
+		return fmt.Errorf("get platform config: %w", err)
+	}
+	if platformConfig.Project != "" {
+		management, err := platform.NewClientFromConfig(loadedConfig).Management()
+		if err != nil {
+			return err
+		}
+		_, err = management.Loft().ManagementV1().Projects().Get(ctx, platformConfig.Project, metav1.GetOptions{})
+		if kerrors.IsNotFound(err) {
+			return fmt.Errorf("platform project %q not found", platformConfig.Project)
+		}
+	}
+
+	return nil
+}
+
+func ValidateSyncFromHostClasses(fromHost config.SyncFromHost) error {
+	errorFn := func(sls config.StandardLabelSelector, path string) error {
+		if _, err := sls.ToSelector(); err != nil {
+			return fmt.Errorf("invalid sync.fromHost.%s.selector: %w", path, err)
+		}
+		return nil
+	}
+	if err := errorFn(fromHost.RuntimeClasses.Selector, "runtimeClasses"); err != nil {
+		return err
+	}
+	if err := errorFn(fromHost.IngressClasses.Selector, "ingressClasses"); err != nil {
+		return err
+	}
+	if err := errorFn(fromHost.PriorityClasses.Selector, "priorityClasses"); err != nil {
+		return err
+	}
+	if err := errorFn(fromHost.StorageClasses.Selector, "storageClasses"); err != nil {
+		return err
+	}
+	return nil
+}
+
 func validateDistro(config *VirtualClusterConfig) error {
 	enabledDistros := 0
 	if config.ControlPlane.Distro.K3S.Enabled {
@@ -302,165 +332,6 @@ func validateDistro(config *VirtualClusterConfig) error {
 	if enabledDistros > 1 {
 		return fmt.Errorf("only one distribution can be enabled")
 	}
-	return nil
-}
-
-func validateGenericSyncConfig(config config.ExperimentalGenericSync) error {
-	err := validateExportDuplicates(config.Exports)
-	if err != nil {
-		return err
-	}
-
-	for idx, exp := range config.Exports {
-		if exp == nil {
-			return fmt.Errorf("exports[%d] is required", idx)
-		}
-
-		if exp.Kind == "" {
-			return fmt.Errorf("exports[%d].kind is required", idx)
-		}
-
-		if exp.APIVersion == "" {
-			return fmt.Errorf("exports[%d].APIVersion is required", idx)
-		}
-
-		for patchIdx, patch := range exp.Patches {
-			err := validatePatch(patch)
-			if err != nil {
-				return fmt.Errorf("invalid exports[%d].patches[%d]: %w", idx, patchIdx, err)
-			}
-		}
-
-		for patchIdx, patch := range exp.ReversePatches {
-			err := validatePatch(patch)
-			if err != nil {
-				return fmt.Errorf("invalid exports[%d].reversPatches[%d]: %w", idx, patchIdx, err)
-			}
-		}
-	}
-
-	err = validateImportDuplicates(config.Imports)
-	if err != nil {
-		return err
-	}
-
-	for idx, imp := range config.Imports {
-		if imp == nil {
-			return fmt.Errorf("imports[%d] is required", idx)
-		}
-
-		if imp.Kind == "" {
-			return fmt.Errorf("imports[%d].kind is required", idx)
-		}
-
-		if imp.APIVersion == "" {
-			return fmt.Errorf("imports[%d].APIVersion is required", idx)
-		}
-
-		for patchIdx, patch := range imp.Patches {
-			err := validatePatch(patch)
-			if err != nil {
-				return fmt.Errorf("invalid imports[%d].patches[%d]: %w", idx, patchIdx, err)
-			}
-		}
-
-		for patchIdx, patch := range imp.ReversePatches {
-			err := validatePatch(patch)
-			if err != nil {
-				return fmt.Errorf("invalid imports[%d].reversPatches[%d]: %w", idx, patchIdx, err)
-			}
-		}
-	}
-
-	if config.Hooks != nil {
-		// HostToVirtual validation
-		for idx, hook := range config.Hooks.HostToVirtual {
-			for idy, verb := range hook.Verbs {
-				if err := validateVerb(verb); err != nil {
-					return fmt.Errorf("invalid hooks.hostToVirtual[%d].verbs[%d]: %w", idx, idy, err)
-				}
-			}
-
-			for idy, patch := range hook.Patches {
-				if err := validatePatch(patch); err != nil {
-					return fmt.Errorf("invalid hooks.hostToVirtual[%d].patches[%d]: %w", idx, idy, err)
-				}
-			}
-		}
-
-		// VirtualToHost validation
-		for idx, hook := range config.Hooks.VirtualToHost {
-			for idy, verb := range hook.Verbs {
-				if err := validateVerb(verb); err != nil {
-					return fmt.Errorf("invalid hooks.virtualToHost[%d].verbs[%d]: %w", idx, idy, err)
-				}
-			}
-
-			for idy, patch := range hook.Patches {
-				if err := validatePatch(patch); err != nil {
-					return fmt.Errorf("invalid hooks.virtualToHost[%d].patches[%d]: %w", idx, idy, err)
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func validatePatch(patch *config.Patch) error {
-	switch patch.Operation {
-	case config.PatchTypeRemove, config.PatchTypeReplace, config.PatchTypeAdd:
-		if patch.FromPath != "" {
-			return fmt.Errorf("fromPath is not supported for this operation")
-		}
-
-		return nil
-	case config.PatchTypeRewriteName, config.PatchTypeRewriteLabelSelector, config.PatchTypeRewriteLabelKey, config.PatchTypeRewriteLabelExpressionsSelector:
-		return nil
-	case config.PatchTypeCopyFromObject:
-		if patch.FromPath == "" {
-			return fmt.Errorf("fromPath is required for this operation")
-		}
-
-		return nil
-	default:
-		return fmt.Errorf("unsupported patch type %s", patch.Operation)
-	}
-}
-
-func validateVerb(verb string) error {
-	if !slices.Contains(verbs, verb) {
-		return fmt.Errorf("invalid verb \"%s\"; expected on of %q", verb, verbs)
-	}
-
-	return nil
-}
-
-func validateExportDuplicates(exports []*config.Export) error {
-	gvks := map[string]bool{}
-	for _, e := range exports {
-		k := fmt.Sprintf("%s|%s", e.APIVersion, e.Kind)
-		_, found := gvks[k]
-		if found {
-			return fmt.Errorf("duplicate export for APIVersion %s and %s Kind, only one export for each APIVersion+Kind is permitted", e.APIVersion, e.Kind)
-		}
-		gvks[k] = true
-	}
-
-	return nil
-}
-
-func validateImportDuplicates(imports []*config.Import) error {
-	gvks := map[string]bool{}
-	for _, e := range imports {
-		k := fmt.Sprintf("%s|%s", e.APIVersion, e.Kind)
-		_, found := gvks[k]
-		if found {
-			return fmt.Errorf("duplicate import for APIVersion %s and %s Kind, only one import for each APIVersion+Kind is permitted", e.APIVersion, e.Kind)
-		}
-		gvks[k] = true
-	}
-
 	return nil
 }
 
@@ -617,167 +488,6 @@ func validateWildcardOrAny(values []string) error {
 			return fmt.Errorf("when wildcard(*) is used, it must be the only value in the list")
 		}
 	}
-	return nil
-}
-
-func isUsingOldGenericSync(genericSync config.ExperimentalGenericSync) bool {
-	return len(genericSync.Exports) > 0 || len(genericSync.Imports) > 0 ||
-		(genericSync.Hooks != nil && (len(genericSync.Hooks.HostToVirtual) > 0 || len(genericSync.Hooks.VirtualToHost) > 0))
-}
-
-// IsPattern checks if a string contains a wildcard character '*'.
-func IsPattern(val string) bool {
-	return strings.Contains(val, WildcardChar)
-}
-
-func validateToHostNamespaceSyncMappings(s config.SyncToHostNamespaces, vclusterName string) error {
-	if !s.Enabled {
-		return nil
-	}
-
-	configPathIdentifier := "config.sync.toHost.namespaces.mappings.byName"
-
-	// if namespace sync is enabled, mappings must be defined
-	if len(s.Mappings.ByName) == 0 {
-		return fmt.Errorf("%s are empty", configPathIdentifier)
-	}
-
-	for vNS, hNS := range s.Mappings.ByName {
-		// check both if they are patterns
-		vIsPattern := IsPattern(vNS)
-		hIsPattern := IsPattern(hNS)
-
-		// we only allow exact-to-exact and pattern-to-pattern mappings
-		if vIsPattern != hIsPattern {
-			return fmt.Errorf("%s: '%s':'%s' has mismatched wildcard '*' usage - pattern must always map to another pattern", configPathIdentifier, vNS, hNS)
-		}
-
-		var err error
-		if vIsPattern && hIsPattern {
-			err = validateToHostPatternNamespaceMapping(vNS, hNS, vclusterName, configPathIdentifier)
-		} else {
-			err = validateToHostExactNamespaceMapping(vNS, hNS, vclusterName, configPathIdentifier)
-		}
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// validateToHostExactNamespaceMapping validates a pair of exact virtual and host namespace mappings.
-func validateToHostExactNamespaceMapping(vNS, hNS, vclusterName, configPathIdentifier string) error {
-	// check virtual namespace name
-	if err := validateToHostExactNamespaceMappingPart(vNS, vclusterName, "virtual namespace", configPathIdentifier); err != nil {
-		return err
-	}
-
-	// check host namespace name
-	if err := validateToHostExactNamespaceMappingPart(hNS, vclusterName, "host namespace", configPathIdentifier); err != nil {
-		return err
-	}
-	return nil
-}
-
-// validateToHostPatternNamespaceMapping validates a pair of pattern-based virtual and host namespace mappings.
-func validateToHostPatternNamespaceMapping(vNS, hNS, vclusterName, configPathIdentifier string) error {
-	// check virtual namespace pattern
-	if err := validateToHostPatternNamespaceMappingPart(vNS, vclusterName, "virtual namespace", configPathIdentifier); err != nil {
-		return err
-	}
-
-	// check host namespace pattern
-	if err := validateToHostPatternNamespaceMappingPart(hNS, vclusterName, "host namespace", configPathIdentifier); err != nil {
-		return err
-	}
-	return nil
-}
-
-// validateToHostExactNamespaceMappingPart validates an exact namespace name (no wildcard).
-func validateToHostExactNamespaceMappingPart(name, vclusterName, partIdentifier, configPathIdentifier string) error {
-	if name == "" {
-		return fmt.Errorf("%s: %s cannot be empty", configPathIdentifier, partIdentifier)
-	}
-	if IsPattern(name) { // should never happen
-		return fmt.Errorf("%s: %s '%s' is treated as exact but contains a wildcard '*'", configPathIdentifier, partIdentifier, name)
-	}
-
-	// check ${name} placeholder usage
-	if err := validateNamePlaceholderUsage(name, vclusterName, partIdentifier, configPathIdentifier); err != nil {
-		return err
-	}
-
-	// for namespace name validation we replace with instance name
-	nameForValidation := name
-	if strings.Contains(name, NamePlaceholder) {
-		nameForValidation = strings.ReplaceAll(name, NamePlaceholder, vclusterName)
-	}
-
-	// validate namespace name
-	errs := validation.ValidateNamespaceName(nameForValidation, false)
-	if len(errs) > 0 {
-		return fmt.Errorf("%s: invalid %s name '%s': %v", configPathIdentifier, partIdentifier, name, errs[0])
-	}
-	return nil
-}
-
-// validateToHostPatternNamespaceMappingPart validates a namespace pattern (containing '*').
-func validateToHostPatternNamespaceMappingPart(pattern, vclusterName, partIdentifier, configPathIdentifier string) error {
-	if !IsPattern(pattern) { // should never happen
-		return fmt.Errorf("%s: %s '%s' is treated as a pattern but does not contain a wildcard '*'", configPathIdentifier, partIdentifier, pattern)
-	}
-
-	// allow only single wildcard character in pattern
-	if strings.Count(pattern, WildcardChar) != 1 {
-		return fmt.Errorf("%s: %s pattern '%s' must contain exactly one '*'", configPathIdentifier, partIdentifier, pattern)
-	}
-
-	// wildcard is only allowed at the end of the pattern
-	if !strings.HasSuffix(pattern, WildcardChar) {
-		return fmt.Errorf("%s: %s pattern '%s' must have the wildcard '*' at the end", configPathIdentifier, partIdentifier, pattern)
-	}
-
-	// strip the wildcard to validate pattern prefix
-	prefix := strings.TrimSuffix(pattern, WildcardChar)
-
-	// check ${name} placeholder usage
-	if err := validateNamePlaceholderUsage(prefix, vclusterName, fmt.Sprintf("%s pattern prefix", partIdentifier), configPathIdentifier); err != nil {
-		return fmt.Errorf("%w (from pattern '%s')", err, pattern)
-	}
-
-	literalPrefixForValidation := strings.ReplaceAll(prefix, "${name}", vclusterName)
-	if len(literalPrefixForValidation) > 32 {
-		return fmt.Errorf("%s: literal parts of %s pattern prefix '%s' (from '%s') cannot be longer than 32 characters (literal length: %d)", configPathIdentifier, partIdentifier, prefix, pattern, len(literalPrefixForValidation))
-	}
-
-	errs := validation.ValidateNamespaceName(literalPrefixForValidation, true)
-	if len(errs) > 0 {
-		return fmt.Errorf("%s: invalid %s pattern '%s': %s", configPathIdentifier, partIdentifier, pattern, errs[0])
-	}
-
-	return nil
-}
-
-// validateNamePlaceholderUsage validates the usage of the ${name} placeholder in a string.
-func validateNamePlaceholderUsage(namePart, vclusterName, partTypeIdentifier, configPathIdentifier string) error {
-	if !strings.Contains(namePart, NamePlaceholder) {
-		// If ${name} is not present, check for other invalid ${...} placeholders
-		if strings.Contains(namePart, "${") && strings.Contains(namePart, "}") {
-			return fmt.Errorf("%s: %s '%s' contains an unsupported placeholder; only '%s' is allowed", configPathIdentifier, partTypeIdentifier, namePart, NamePlaceholder)
-		}
-		return nil
-	}
-
-	if strings.Count(namePart, NamePlaceholder) > 1 {
-		return fmt.Errorf("%s: %s '%s' contains placeholder '%s' multiple times", configPathIdentifier, partTypeIdentifier, namePart, NamePlaceholder)
-	}
-
-	// Check if there are other ${...} placeholders when ${name} is present
-	tempName := strings.ReplaceAll(namePart, NamePlaceholder, vclusterName)
-	if strings.Contains(tempName, "${") && strings.Contains(tempName, "}") {
-		return fmt.Errorf("%s: %s '%s' contains an unsupported placeholder; only a single '%s' is allowed", configPathIdentifier, partTypeIdentifier, namePart, NamePlaceholder)
-	}
-
 	return nil
 }
 
@@ -965,9 +675,9 @@ func validateExternalSecretsEnabled(
 	}
 	for crdName, crdConfig := range toHostCustomResources {
 		if crdConfig.Enabled &&
-			(crdName == "externalsecrets.external-secrets.io" && externalSecretsIntegration.Sync.ExternalSecrets.Enabled ||
-				crdName == "secretstores.external-secrets.io" && externalSecretsIntegration.Sync.Stores.Enabled ||
-				crdName == "clustersecretstores.external-secrets.io" && externalSecretsIntegration.Sync.ClusterStores.Enabled) {
+			(crdName == "externalsecrets.external-secrets.io" && externalSecretsIntegration.Enabled ||
+				crdName == "secretstores.external-secrets.io" && externalSecretsIntegration.Sync.ToHost.Stores.Enabled ||
+				crdName == "clustersecretstores.external-secrets.io" && externalSecretsIntegration.Sync.FromHost.ClusterStores.Enabled) {
 			return fmt.Errorf("external-secrets integration is enabled but external-secrets custom resource (%s) is also set in the sync.toHost.customResources. "+
 				"This is not supported, please remove the entry from sync.toHost.customResources", crdName)
 		}
@@ -1000,9 +710,21 @@ func isIn(crdName string, s ...string) bool {
 	return slices.Contains(s, crdName)
 }
 
-func validateDedicatedNodesMode(vConfig *VirtualClusterConfig) error {
+func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 	if !vConfig.PrivateNodes.Enabled {
+		if vConfig.ControlPlane.Endpoint != "" {
+			return fmt.Errorf("endpoint is only supported in private nodes mode")
+		}
+
 		return nil
+	}
+
+	// validate endpoint
+	if vConfig.ControlPlane.Endpoint != "" {
+		_, _, err := net.SplitHostPort(vConfig.ControlPlane.Endpoint)
+		if err != nil {
+			return fmt.Errorf("invalid endpoint %s: %w", vConfig.ControlPlane.Endpoint, err)
+		}
 	}
 
 	// integrations are not supported in private nodes mode
@@ -1037,14 +759,83 @@ func validateDedicatedNodesMode(vConfig *VirtualClusterConfig) error {
 		return fmt.Errorf("multi-namespace mode is not supported in private nodes mode")
 	}
 
-	// isolated control plane is not supported in dedicated mode
-	if vConfig.Experimental.IsolatedControlPlane.Enabled {
-		return fmt.Errorf("isolated control plane is not supported in private nodes mode")
-	}
-
 	// dedicated mode is only supported for kubernetes distro
 	if vConfig.Distro() != config.K8SDistro {
 		return fmt.Errorf("private nodes mode is only supported for kubernetes")
+	}
+
+	// validate node pools
+	for _, nodePool := range vConfig.PrivateNodes.AutoNodes.Static {
+		if nodePool.Name == "" {
+			return fmt.Errorf("node pool name is required")
+		}
+		if nodePool.Provider == "" {
+			return fmt.Errorf("node pool provider is required")
+		}
+		if nodePool.Quantity < 0 {
+			return fmt.Errorf("node pool quantity cannot be negative")
+		}
+
+		if err := validateRequirements(nodePool.Requirements); err != nil {
+			return fmt.Errorf("invalid requirements for node pool %s: %w", nodePool.Name, err)
+		}
+	}
+	for _, nodePool := range vConfig.PrivateNodes.AutoNodes.Dynamic {
+		if nodePool.Name == "" {
+			return fmt.Errorf("node pool name is required")
+		}
+		if nodePool.Provider == "" {
+			return fmt.Errorf("node pool provider is required")
+		}
+
+		if err := validateRequirements(nodePool.Requirements); err != nil {
+			return fmt.Errorf("invalid requirements for node pool %s: %w", nodePool.Name, err)
+		}
+	}
+
+	return nil
+}
+
+func ValidateVolumeSnapshotController(volumeSnapshotController config.VolumeSnapshotController, privateNodes config.PrivateNodes) error {
+	if volumeSnapshotController.Enabled && !privateNodes.Enabled {
+		return fmt.Errorf("volume snapshot-controller is only supported with private nodes")
+	}
+	return nil
+}
+
+var allowedOperators = []string{"", "In", "NotIn", "Exists", "DoesNotExist", "Gt", "Lt"}
+
+func validateRequirements(requirements []config.Requirement) error {
+	for _, requirement := range requirements {
+		if requirement.Property == "" {
+			return fmt.Errorf("requirement property is required")
+		}
+
+		if !slices.Contains(allowedOperators, requirement.Operator) {
+			return fmt.Errorf("invalid operator %s for property %s, allowed operators are: %s", requirement.Operator, requirement.Property, strings.Join(allowedOperators, ", "))
+		}
+
+		if requirement.Value != "" && len(requirement.Values) > 0 {
+			return fmt.Errorf("requirement value and values cannot be set at the same time")
+		}
+
+		if requirement.Operator == "" || requirement.Operator == "In" || requirement.Operator == "NotIn" {
+			if requirement.Value == "" && len(requirement.Values) == 0 {
+				return fmt.Errorf("requirement value or values is required if operator is empty, In or NotIn")
+			}
+		}
+
+		if requirement.Operator == "Exists" || requirement.Operator == "DoesNotExist" {
+			if requirement.Value != "" || len(requirement.Values) > 0 {
+				return fmt.Errorf("value or values is not allowed for operator %s", requirement.Operator)
+			}
+		}
+
+		if requirement.Operator == "Gt" || requirement.Operator == "Lt" {
+			if requirement.Value == "" && len(requirement.Values) == 0 {
+				return fmt.Errorf("value or values is required for operator %s", requirement.Operator)
+			}
+		}
 	}
 
 	return nil

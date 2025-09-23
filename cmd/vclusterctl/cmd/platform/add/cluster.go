@@ -1,16 +1,20 @@
 package add
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
+	"github.com/blang/semver"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v4/pkg/auth"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
@@ -18,7 +22,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -124,7 +127,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// TODO(ThomasK33): Eventually change this into an Apply instead of a Create call
-	_, err = managementClient.Loft().ManagementV1().Clusters().Create(ctx, &managementv1.Cluster{
+	cluster, err := managementClient.Loft().ManagementV1().Clusters().Create(ctx, &managementv1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: clusterName,
 		},
@@ -148,7 +151,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 
 	// get namespace to install if cluster already exists
 	if kerrors.IsAlreadyExists(err) {
-		cluster, err := managementClient.Loft().ManagementV1().Clusters().Get(ctx, clusterName, metav1.GetOptions{})
+		cluster, err = managementClient.Loft().ManagementV1().Clusters().Get(ctx, clusterName, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("get cluster: %w", err)
 		}
@@ -204,6 +207,21 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 
 		// general arguments
 		helmArgs = append(helmArgs, "--install", "--namespace", cmd.Namespace, "--set", "agentOnly=true")
+	}
+
+	// check if we can get agent values via new route
+	if len(cmd.HelmSet) == 0 && len(cmd.HelmValues) == 0 {
+		// try to get agent values from the platform to avoid having old values when deploying the agent
+		agentValues, err := cmd.getAgentValues(ctx, platformClient, cluster, loftVersion)
+		if err != nil {
+			return fmt.Errorf("get agent values: %w", err)
+		}
+
+		// if we have agent values, use them
+		if agentValues != "" {
+			defer os.Remove(agentValues)
+			helmArgs = append(helmArgs, "--values", agentValues)
+		}
 	}
 
 	for _, set := range cmd.HelmSet {
@@ -265,10 +283,11 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		agentAlreadyInstalled = false
 	}
 
-	helmCmd := exec.CommandContext(ctx, "helm", helmArgs...)
+	buf := &bytes.Buffer{}
 
-	helmCmd.Stdout = cmd.Log.Writer(logrus.DebugLevel, true)
-	helmCmd.Stderr = cmd.Log.Writer(logrus.DebugLevel, true)
+	helmCmd := exec.CommandContext(ctx, "helm", helmArgs...)
+	helmCmd.Stdout = buf
+	helmCmd.Stderr = buf
 	helmCmd.Stdin = os.Stdin
 
 	if agentAlreadyInstalled {
@@ -281,7 +300,7 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 
 	err = helmCmd.Run()
 	if err != nil {
-		return fmt.Errorf("failed to install loft chart: %w", err)
+		return fmt.Errorf("failed to install loft chart: %s - %w", buf.String(), err)
 	}
 
 	_, err = clihelper.WaitForReadyLoftPod(ctx, clientset, namespace, cmd.Log)
@@ -311,6 +330,63 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	return nil
+}
+
+func (cmd *ClusterCmd) getAgentValues(ctx context.Context, platformClient platform.Client, cluster *managementv1.Cluster, platformVersion *auth.Version) (string, error) {
+	version, err := semver.Parse(strings.TrimPrefix(platformVersion.Version, "v"))
+	if err != nil {
+		return "", fmt.Errorf("parse platform version: %w", err)
+	}
+
+	// if the platform version is less than 4.4, we can try to use the cluster annotation to get the agent values
+	if version.Major < 4 || (version.Major == 4 && version.Minor < 4) {
+		if cluster.Annotations["loft.sh/agent-values"] != "" {
+			cmd.Log.Info("Using agent values from cluster annotation")
+			cmd.Log.Debugf("Agent values: %s", cluster.Annotations["loft.sh/agent-values"])
+			return writeTempFile([]byte(cluster.Annotations["loft.sh/agent-values"]))
+		}
+
+		return "", nil
+	}
+
+	// try to get the agent values from the platform
+	restConfig, err := platformClient.RestConfig("")
+	if err != nil {
+		return "", fmt.Errorf("get rest config: %w", err)
+	}
+
+	// create the rest client
+	restClient, err := kube.NewForConfig(restConfig)
+	if err != nil {
+		return "", fmt.Errorf("create rest client: %w", err)
+	}
+
+	// do the actual request
+	raw, err := restClient.CoreV1().RESTClient().Get().RequestURI("/clusters/agent-values/" + cluster.Name).DoRaw(ctx)
+	if err != nil {
+		return "", fmt.Errorf("get agent values: %w", err)
+	} else if len(raw) == 0 {
+		return "", nil
+	}
+
+	cmd.Log.Info("Using agent values from platform")
+	cmd.Log.Debugf("Agent values: %s", string(raw))
+	return writeTempFile(raw)
+}
+
+func writeTempFile(data []byte) (string, error) {
+	tempFile, err := os.CreateTemp("", "agent-values-*.yaml")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	defer tempFile.Close()
+
+	_, err = tempFile.Write(data)
+	if err != nil {
+		return "", fmt.Errorf("write temp file: %w", err)
+	}
+
+	return tempFile.Name(), nil
 }
 
 func getUserOrTeam(ctx context.Context, managementClient kube.Interface) (string, string, error) {

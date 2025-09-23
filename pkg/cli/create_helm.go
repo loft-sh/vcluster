@@ -23,24 +23,6 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
-	"github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/config/legacyconfig"
-	"github.com/loft-sh/vcluster/pkg/cli/find"
-	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
-	pkgconfig "github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/embed"
-	"github.com/loft-sh/vcluster/pkg/helm"
-	"github.com/loft-sh/vcluster/pkg/platform"
-	platformclihelper "github.com/loft-sh/vcluster/pkg/platform/clihelper"
-	"github.com/loft-sh/vcluster/pkg/snapshot"
-	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
-	"github.com/loft-sh/vcluster/pkg/telemetry"
-	"github.com/loft-sh/vcluster/pkg/upgrade"
-	"github.com/loft-sh/vcluster/pkg/util"
-	"github.com/loft-sh/vcluster/pkg/util/clihelper"
-	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
 	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,6 +33,28 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/config/legacyconfig"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
+	pkgconfig "github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/embed"
+	"github.com/loft-sh/vcluster/pkg/helm"
+	"github.com/loft-sh/vcluster/pkg/lifecycle"
+	"github.com/loft-sh/vcluster/pkg/platform"
+	platformclihelper "github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
+	"github.com/loft-sh/vcluster/pkg/snapshot"
+	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
+	"github.com/loft-sh/vcluster/pkg/telemetry"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util"
+	"github.com/loft-sh/vcluster/pkg/util/clihelper"
+	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
+	"github.com/loft-sh/vcluster/pkg/util/namespaces"
 )
 
 // CreateOptions holds the create cmd options
@@ -177,6 +181,12 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if !cmd.Upgrade {
 		if isVClusterDeployed(release) {
 			if cmd.Restore != "" {
+				log.Infof("Resuming vCluster %s after it was paused", vClusterName)
+				err = lifecycle.ResumeVCluster(ctx, cmd.kubeClient, vClusterName, cmd.Namespace, true, log)
+				if err != nil {
+					log.Infof("Skipped resuming vCluster %s", vClusterName)
+				}
+
 				log.Infof("Restore vCluster %s...", vClusterName)
 				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshot.Options{}, &pod.Options{}, false, log)
 				if err != nil {
@@ -236,6 +246,12 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				}
 			}
 			if err := currentVClusterConfig.UnmarshalYAMLStrict([]byte(migratedValues)); err != nil {
+				return err
+			}
+		} else {
+			// When a vCluster is not legacy, there should be a config secret and we will fetch the values from the secret
+			currentVClusterConfig, err = getConfigfileFromSecret(ctx, vClusterName, cmd.Namespace)
+			if err != nil {
 				return err
 			}
 		}
@@ -310,13 +326,30 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		return err
 	}
 
+	err = pkgconfig.ValidateSyncFromHostClasses(vClusterConfig.Sync.FromHost)
+	if err != nil {
+		return err
+	}
+
 	err = pkgconfig.ValidateAllSyncPatches(vClusterConfig.Sync)
 	if err != nil {
 		return err
 	}
 
-	if vClusterConfig.Experimental.IsolatedControlPlane.Headless {
-		cmd.Connect = false
+	err = pkgconfig.ValidateVolumeSnapshotController(vClusterConfig.Deploy.VolumeSnapshotController, vClusterConfig.PrivateNodes)
+	if err != nil {
+		return err
+	}
+
+	warnings := pkgconfig.Lint(*vClusterConfig)
+	for _, warning := range warnings {
+		cmd.log.Warnf(warning)
+	}
+
+	if vClusterConfig.Sync.ToHost.Namespaces.Enabled {
+		if err := namespaces.ValidateNamespaceSyncConfig(vClusterConfig, vClusterName, cmd.Namespace); err != nil {
+			return err
+		}
 	}
 
 	if vClusterConfig.IsConfiguredForSleepMode() {
@@ -335,11 +368,6 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	verb := "created"
 	if isVClusterDeployed(release) {
 		verb = "upgraded"
-		currentVClusterConfig, err = getConfigfileFromSecret(ctx, vClusterName, cmd.Namespace)
-		if err != nil {
-			return err
-		}
-
 		// While certain backing store changes are allowed we prohibit changes to another distro.
 		if err := config.ValidateChanges(currentVClusterConfig, vClusterConfig); err != nil {
 			return err
@@ -348,6 +376,10 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 
 	// create platform secret
 	if cmd.Add {
+		err = pkgconfig.ValidatePlatformProject(ctx, vClusterConfig, cmd.LoadedConfig(cmd.log))
+		if err != nil {
+			return err
+		}
 		err = cmd.addVCluster(ctx, vClusterName, vClusterConfig)
 		if err != nil {
 			return err
@@ -391,9 +423,13 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	return nil
 }
 
+var advisors = map[string]func() (warning string){
+	"sleepMode": sleepmode.Warning,
+}
+
 func confirmExperimental(currentVClusterConfig *config.Config, currentValues string, log log.Logger) error {
 	if err := currentVClusterConfig.UnmarshalYAMLStrict([]byte(currentValues)); err != nil {
-		warning := config.ExperimentalWarning(log, []byte(currentValues))
+		warning := config.ExperimentalWarning(log, []byte(currentValues), advisors)
 		if warning == "" {
 			warning = "The current configuration is not compatible with the version you're upgrading to."
 		}
@@ -691,8 +727,8 @@ func (cmd *createHelm) ToChartOptions(kubernetesVersion *version.Info, log log.L
 
 	// check if we should create with node port
 	clusterType := localkubernetes.DetectClusterType(&cmd.rawConfig)
-	if cmd.ExposeLocal && clusterType.LocalKubernetes() {
-		cmd.log.Infof("Detected local kubernetes cluster %s. Will deploy vcluster with a NodePort & sync real nodes", clusterType)
+	if cmd.ExposeLocal && clusterType.LocalKubernetes() && clusterType != localkubernetes.ClusterTypeOrbstack {
+		cmd.log.Infof("Detected local kubernetes cluster %s. Will deploy vcluster with a NodePort", clusterType)
 		cmd.localCluster = true
 	}
 

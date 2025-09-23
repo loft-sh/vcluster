@@ -3,10 +3,10 @@
 package v1
 
 import (
-	"net/http"
+	http "net/http"
 
-	v1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/api/v4/pkg/clientset/versioned/scheme"
+	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	scheme "github.com/loft-sh/api/v4/pkg/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -17,11 +17,16 @@ type StorageV1Interface interface {
 	ClustersGetter
 	ClusterAccessesGetter
 	ClusterRoleTemplatesGetter
+	DevPodEnvironmentTemplatesGetter
 	DevPodWorkspaceInstancesGetter
+	DevPodWorkspacePresetsGetter
 	DevPodWorkspaceTemplatesGetter
 	NetworkPeersGetter
+	NodeClaimsGetter
+	NodeEnvironmentsGetter
+	NodeProvidersGetter
+	NodeTypesGetter
 	ProjectsGetter
-	RunnersGetter
 	SharedSecretsGetter
 	SpaceInstancesGetter
 	SpaceTemplatesGetter
@@ -57,8 +62,16 @@ func (c *StorageV1Client) ClusterRoleTemplates() ClusterRoleTemplateInterface {
 	return newClusterRoleTemplates(c)
 }
 
+func (c *StorageV1Client) DevPodEnvironmentTemplates() DevPodEnvironmentTemplateInterface {
+	return newDevPodEnvironmentTemplates(c)
+}
+
 func (c *StorageV1Client) DevPodWorkspaceInstances(namespace string) DevPodWorkspaceInstanceInterface {
 	return newDevPodWorkspaceInstances(c, namespace)
+}
+
+func (c *StorageV1Client) DevPodWorkspacePresets() DevPodWorkspacePresetInterface {
+	return newDevPodWorkspacePresets(c)
 }
 
 func (c *StorageV1Client) DevPodWorkspaceTemplates() DevPodWorkspaceTemplateInterface {
@@ -69,12 +82,24 @@ func (c *StorageV1Client) NetworkPeers() NetworkPeerInterface {
 	return newNetworkPeers(c)
 }
 
-func (c *StorageV1Client) Projects() ProjectInterface {
-	return newProjects(c)
+func (c *StorageV1Client) NodeClaims(namespace string) NodeClaimInterface {
+	return newNodeClaims(c, namespace)
 }
 
-func (c *StorageV1Client) Runners() RunnerInterface {
-	return newRunners(c)
+func (c *StorageV1Client) NodeEnvironments(namespace string) NodeEnvironmentInterface {
+	return newNodeEnvironments(c, namespace)
+}
+
+func (c *StorageV1Client) NodeProviders() NodeProviderInterface {
+	return newNodeProviders(c)
+}
+
+func (c *StorageV1Client) NodeTypes() NodeTypeInterface {
+	return newNodeTypes(c)
+}
+
+func (c *StorageV1Client) Projects() ProjectInterface {
+	return newProjects(c)
 }
 
 func (c *StorageV1Client) SharedSecrets(namespace string) SharedSecretInterface {
@@ -114,9 +139,7 @@ func (c *StorageV1Client) VirtualClusterTemplates() VirtualClusterTemplateInterf
 // where httpClient was generated with rest.HTTPClientFor(c).
 func NewForConfig(c *rest.Config) (*StorageV1Client, error) {
 	config := *c
-	if err := setConfigDefaults(&config); err != nil {
-		return nil, err
-	}
+	setConfigDefaults(&config)
 	httpClient, err := rest.HTTPClientFor(&config)
 	if err != nil {
 		return nil, err
@@ -128,9 +151,7 @@ func NewForConfig(c *rest.Config) (*StorageV1Client, error) {
 // Note the http client provided takes precedence over the configured transport values.
 func NewForConfigAndClient(c *rest.Config, h *http.Client) (*StorageV1Client, error) {
 	config := *c
-	if err := setConfigDefaults(&config); err != nil {
-		return nil, err
-	}
+	setConfigDefaults(&config)
 	client, err := rest.RESTClientForConfigAndClient(&config, h)
 	if err != nil {
 		return nil, err
@@ -153,17 +174,15 @@ func New(c rest.Interface) *StorageV1Client {
 	return &StorageV1Client{c}
 }
 
-func setConfigDefaults(config *rest.Config) error {
-	gv := v1.SchemeGroupVersion
+func setConfigDefaults(config *rest.Config) {
+	gv := storagev1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
-
-	return nil
 }
 
 // RESTClient returns a RESTClient that is used to communicate

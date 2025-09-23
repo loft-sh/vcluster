@@ -14,6 +14,10 @@ func InitKubeadmConfig(vConfig *config.VirtualClusterConfig, kubernetesVersion, 
 	}
 
 	kubeadmConfig.ClusterName = "kubernetes"
+	if vConfig.ControlPlane.Standalone.Enabled {
+		// for standalone, set the cluster name to name from the config
+		kubeadmConfig.ClusterName = vConfig.Name
+	}
 	kubeadmConfig.NodeRegistration.Name = vConfig.Name
 	kubeadmConfig.Etcd.Local = &kubeadmapi.LocalEtcd{
 		ServerCertSANs: extraEtcdSans,

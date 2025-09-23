@@ -18,5 +18,6 @@ func NewCreateCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) 
 	}
 	c.AddCommand(newNamespaceCmd(globalFlags, defaults))
 	c.AddCommand(newVClusterCmd(globalFlags))
+	c.AddCommand(newAccessKeyCmd(globalFlags))
 	return c
 }

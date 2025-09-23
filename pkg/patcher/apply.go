@@ -109,7 +109,7 @@ func DeleteVirtualObject(ctx *synccontext.SyncContext, vObj, pObjOld client.Obje
 
 func deleteObject(ctx *synccontext.SyncContext, obj client.Object, reason string, isVirtual bool, options *client.DeleteOptions) error {
 	side := "host"
-	deleteClient := ctx.PhysicalClient
+	deleteClient := ctx.HostClient
 	if isVirtual {
 		side = "virtual"
 		deleteClient = ctx.VirtualClient
@@ -202,7 +202,7 @@ func applyObjectWithPatch(ctx *synccontext.SyncContext, objPatch patch.Patch, ob
 		return nil
 	}
 
-	kubeClient := ctx.PhysicalClient
+	kubeClient := ctx.HostClient
 	if direction == synccontext.SyncHostToVirtual {
 		kubeClient = ctx.VirtualClient
 	}

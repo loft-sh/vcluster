@@ -5,10 +5,36 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/spf13/cobra"
 )
+
+const (
+	FlagNameProject         = "project"
+	FlagNameLabels          = "labels"
+	FlagNameAnnotation      = "annotations"
+	FlagNameCluster         = "cluster"
+	FlagNameTemplate        = "template"
+	FlagNameTemplateVersion = "template-version"
+	FlagNameLinks           = "link"
+	FlagNameParams          = "params"
+	FlagNameParameters      = "parameters"
+	FlagNameSetParams       = "set-params"
+	FlagNameSetParameters   = "set-parameters"
+	FlagNameDescription     = "description"
+	FlagNameDisplayName     = "display-name"
+	FlagNameTeam            = "team"
+	FlagNameUser            = "user"
+	FlagNameUseExisting     = "use"
+	FlagNameRecreate        = "recreate"
+	FlagNameSkipWait        = "skip-wait"
+)
+
+var platformFlags = []string{FlagNameProject, FlagNameLabels, FlagNameAnnotation, FlagNameCluster, FlagNameTemplate, FlagNameTemplateVersion, FlagNameLinks, FlagNameParams,
+	FlagNameParameters, FlagNameSetParams, FlagNameSetParameters, FlagNameDescription, FlagNameDisplayName, FlagNameTeam, FlagNameUser, FlagNameUseExisting, FlagNameRecreate, FlagNameSkipWait,
+}
 
 func AddCommonFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 	cmd.Flags().StringVar(&options.KubeConfigContextName, "kube-config-context-name", "", "If set, will override the context name of the generated virtual cluster kube config with this name")
@@ -36,7 +62,7 @@ func AddHelmFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 	cmd.Flags().StringVar(&options.Restore, "restore", "", "Restore the virtual cluster from a backup. E.g. --restore oci://ghcr.io/my-user/my-repo:my-tag")
 	cmd.Flags().BoolVar(&options.ExposeLocal, "expose-local", true, "If true and a local Kubernetes distro is detected, will deploy vcluster with a NodePort service. Will be set to false and the passed value will be ignored if --expose is set to true.")
 	cmd.Flags().BoolVar(&options.BackgroundProxy, "background-proxy", true, "Try to use a background-proxy to access the vCluster. Only works if docker is installed and reachable")
-	cmd.Flags().StringVar(&options.BackgroundProxyImage, "background-proxy-image", constants.DefaultBackgroundProxyImage, "The image to use for the background proxy. Only used if --background-proxy is enabled.")
+	cmd.Flags().StringVar(&options.BackgroundProxyImage, "background-proxy-image", constants.DefaultBackgroundProxyImage(upgrade.GetVersion()), "The image to use for the background proxy. Only used if --background-proxy is enabled.")
 	cmd.Flags().BoolVar(&options.Add, "add", true, "Adds the virtual cluster automatically to the current vCluster platform when using helm driver")
 
 	_ = cmd.Flags().MarkHidden("local-chart-dir")
@@ -46,22 +72,26 @@ func AddHelmFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 func AddPlatformFlags(cmd *cobra.Command, options *cli.CreateOptions, prefixes ...string) {
 	prefix := strings.Join(prefixes, "")
 
-	cmd.Flags().StringVar(&options.Project, "project", "", fmt.Sprintf("%sThe vCluster platform project to use", prefix))
-	cmd.Flags().StringSliceVarP(&options.Labels, "labels", "l", []string{}, fmt.Sprintf("%sComma separated labels to apply to the virtualclusterinstance", prefix))
-	cmd.Flags().StringSliceVar(&options.Annotations, "annotations", []string{}, fmt.Sprintf("%sComma separated annotations to apply to the virtualclusterinstance", prefix))
-	cmd.Flags().StringVar(&options.Cluster, "cluster", "", fmt.Sprintf("%sThe vCluster platform connected cluster to use", prefix))
-	cmd.Flags().StringVar(&options.Template, "template", "", fmt.Sprintf("%sThe vCluster platform template to use", prefix))
-	cmd.Flags().StringVar(&options.TemplateVersion, "template-version", "", fmt.Sprintf("%sThe vCluster platform template version to use", prefix))
-	cmd.Flags().StringArrayVar(&options.Links, "link", []string{}, fmt.Sprintf("%sA link to add to the vCluster. E.g. --link 'prod=http://exampleprod.com'", prefix))
-	cmd.Flags().StringVar(&options.Params, "params", "", fmt.Sprintf("%sIf a template is used, this can be used to use a file for the parameters. E.g. --params path/to/my/file.yaml", prefix))
-	cmd.Flags().StringVar(&options.Params, "parameters", "", fmt.Sprintf("%sIf a template is used, this can be used to use a file for the parameters. E.g. --parameters path/to/my/file.yaml", prefix))
-	cmd.Flags().StringArrayVar(&options.SetParams, "set-param", []string{}, fmt.Sprintf("%sIf a template is used, this can be used to set a specific parameter. E.g. --set-param 'my-param=my-value'", prefix))
-	cmd.Flags().StringArrayVar(&options.SetParams, "set-parameter", []string{}, fmt.Sprintf("%sIf a template is used, this can be used to set a specific parameter. E.g. --set-parameter 'my-param=my-value'", prefix))
-	cmd.Flags().StringVar(&options.Description, "description", "", fmt.Sprintf("%sThe description to show in the platform UI for this virtual cluster", prefix))
-	cmd.Flags().StringVar(&options.DisplayName, "display-name", "", fmt.Sprintf("%sThe display name to show in the platform UI for this virtual cluster", prefix))
-	cmd.Flags().StringVar(&options.Team, "team", "", fmt.Sprintf("%sThe team to create the space for", prefix))
-	cmd.Flags().StringVar(&options.User, "user", "", fmt.Sprintf("%sThe user to create the space for", prefix))
-	cmd.Flags().BoolVar(&options.UseExisting, "use", false, fmt.Sprintf("%sIf the platform should use the virtual cluster if its already there", prefix))
-	cmd.Flags().BoolVar(&options.Recreate, "recreate", false, fmt.Sprintf("%sIf enabled and there already exists a virtual cluster with this name, it will be deleted first", prefix))
-	cmd.Flags().BoolVar(&options.SkipWait, "skip-wait", false, fmt.Sprintf("%sIf true, will not wait until the virtual cluster is running", prefix))
+	cmd.Flags().StringVar(&options.Project, FlagNameProject, "", fmt.Sprintf("%sThe vCluster platform project to use", prefix))
+	cmd.Flags().StringSliceVarP(&options.Labels, FlagNameLabels, "l", []string{}, fmt.Sprintf("%sComma separated labels to apply to the virtualclusterinstance", prefix))
+	cmd.Flags().StringSliceVar(&options.Annotations, FlagNameAnnotation, []string{}, fmt.Sprintf("%sComma separated annotations to apply to the virtualclusterinstance", prefix))
+	cmd.Flags().StringVar(&options.Cluster, FlagNameCluster, "", fmt.Sprintf("%sThe vCluster platform connected cluster to use", prefix))
+	cmd.Flags().StringVar(&options.Template, FlagNameTemplate, "", fmt.Sprintf("%sThe vCluster platform template to use", prefix))
+	cmd.Flags().StringVar(&options.TemplateVersion, FlagNameTemplateVersion, "", fmt.Sprintf("%sThe vCluster platform template version to use", prefix))
+	cmd.Flags().StringArrayVar(&options.Links, FlagNameLinks, []string{}, fmt.Sprintf("%sA link to add to the vCluster. E.g. --link 'prod=http://exampleprod.com'", prefix))
+	cmd.Flags().StringVar(&options.Params, FlagNameParams, "", fmt.Sprintf("%sIf a template is used, this can be used to use a file for the parameters. E.g. --params path/to/my/file.yaml", prefix))
+	cmd.Flags().StringVar(&options.Params, FlagNameParameters, "", fmt.Sprintf("%sIf a template is used, this can be used to use a file for the parameters. E.g. --parameters path/to/my/file.yaml", prefix))
+	cmd.Flags().StringArrayVar(&options.SetParams, FlagNameSetParams, []string{}, fmt.Sprintf("%sIf a template is used, this can be used to set a specific parameter. E.g. --set-param 'my-param=my-value'", prefix))
+	cmd.Flags().StringArrayVar(&options.SetParams, FlagNameSetParameters, []string{}, fmt.Sprintf("%sIf a template is used, this can be used to set a specific parameter. E.g. --set-parameter 'my-param=my-value'", prefix))
+	cmd.Flags().StringVar(&options.Description, FlagNameDescription, "", fmt.Sprintf("%sThe description to show in the platform UI for this virtual cluster", prefix))
+	cmd.Flags().StringVar(&options.DisplayName, FlagNameDisplayName, "", fmt.Sprintf("%sThe display name to show in the platform UI for this virtual cluster", prefix))
+	cmd.Flags().StringVar(&options.Team, FlagNameTeam, "", fmt.Sprintf("%sThe team to create the space for", prefix))
+	cmd.Flags().StringVar(&options.User, FlagNameUser, "", fmt.Sprintf("%sThe user to create the space for", prefix))
+	cmd.Flags().BoolVar(&options.UseExisting, FlagNameUseExisting, false, fmt.Sprintf("%sIf the platform should use the virtual cluster if its already there", prefix))
+	cmd.Flags().BoolVar(&options.Recreate, FlagNameRecreate, false, fmt.Sprintf("%sIf enabled and there already exists a virtual cluster with this name, it will be deleted first", prefix))
+	cmd.Flags().BoolVar(&options.SkipWait, FlagNameSkipWait, false, fmt.Sprintf("%sIf true, will not wait until the virtual cluster is running", prefix))
+}
+
+func ChangedPlatformFlags(cmd *cobra.Command) map[string]bool {
+	return flags.ChangedFlags(cmd, platformFlags)
 }

@@ -52,7 +52,7 @@ func (s *networkPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 	}
 
 	pObj := s.translate(ctx, event.Virtual)
-	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.NetworkPolicies.Patches, false)
+	err := pro.ApplyPatchesHostObject(ctx, pObj, event.Virtual, ctx.Config.Sync.ToHost.NetworkPolicies.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -93,26 +93,22 @@ tests:
           path: spec.ports
           count: 2
 
-  - it: isolated control plane
+  - it: konnectivity
     release:
       name: my-release
       namespace: my-namespace
     set:
-      experimental:
-        isolatedControlPlane:
-          headless: true
+      privateNodes:
+        enabled: true
     asserts:
       - hasDocuments:
           count: 1
-      - equal:
-          path: spec.type
-          value: ClusterIP
       - lengthEqual:
           path: spec.ports
-          count: 2
-      - notExists:
-          path: spec.ports[0].targetPort
-      - notExists:
-          path: spec.ports[1].targetPort
-      - notExists:
-          path: spec.selector
+          count: 3
+      - contains:
+          path: spec.ports
+          content:
+            name: konnectivity
+            protocol: TCP
+            port: 8132

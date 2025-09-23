@@ -57,7 +57,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 7
+          count: 8
       - contains:
           path: rules
           count: 1
@@ -65,29 +65,6 @@ tests:
             apiGroups: [""]
             resources: ["test123"]
             verbs: ["test123"]
-      - contains:
-          path: rules
-          count: 1
-          content:
-            apiGroups: [""]
-            resources: ["test"]
-            verbs: ["test"]
-
-  - it: check generic sync
-    set:
-      experimental:
-        genericSync:
-          role:
-            extraRules:
-              - apiGroups: [""]
-                resources: ["test"]
-                verbs: ["test"]
-    asserts:
-      - hasDocuments:
-          count: 1
-      - lengthEqual:
-          path: rules
-          count: 6
       - contains:
           path: rules
           count: 1
@@ -109,7 +86,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 6
+          count: 7
       - contains:
           path: rules
           count: 1
@@ -181,9 +158,6 @@ tests:
       integrations:
         externalSecrets:
           enabled: true
-          sync:
-            externalSecrets:
-              enabled: true
     release:
       name: my-release
       namespace: my-namespace
@@ -234,10 +208,9 @@ tests:
         externalSecrets:
           enabled: true
           sync:
-            externalSecrets:
-              enabled: true
-            stores:
-              enabled: true
+            toHost:
+              stores:
+                enabled: true
     release:
       name: my-release
       namespace: my-namespace
@@ -316,6 +289,10 @@ tests:
               enabled: true
             tests.my-group-3.com:
               enabled: true
+            tests.my-versioned-group-1/v1alpha1:
+              enabled: true
+            tests.my-versioned-group-2.com/v1beta1:
+              enabled: true
     release:
       name: my-release
       namespace: my-namespace
@@ -327,7 +304,7 @@ tests:
           value: Role
       - lengthEqual:
           path: rules
-          count: 7
+          count: 10
       - contains:
           path: rules
           content:
@@ -342,6 +319,20 @@ tests:
             resources: ["tests"]
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "my-versioned-group-1" ]
+            resources: [ "tests" ]
+            verbs:
+              [ "create", "delete", "patch", "update", "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "my-versioned-group-2.com" ]
+            resources: [ "tests" ]
+            verbs:
+              [ "create", "delete", "patch", "update", "get", "list", "watch" ]
 
   - it: patches
     set:
@@ -416,6 +407,20 @@ tests:
       - equal:
           path: kind
           value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: ["services", "pods", "persistentvolumeclaims"]
+            verbs:
+              ["get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: ["secrets", "configmaps"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
       - contains:
           path: rules
           content:

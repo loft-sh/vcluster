@@ -9,19 +9,6 @@ usage () {
     echo "  [-h|--help] Usage message"
 }
 
-push_manifest () {
-    export DOCKER_CLI_EXPERIMENTAL=enabled
-    manifest_list=()
-    for i in "${arch_list[@]}"
-    do
-        manifest_list+=("$1-${i}")
-    done
-
-    echo "Preparing manifest $1, list[${arch_list[@]}]"
-    docker manifest create "$1" "${manifest_list[@]}" --amend
-    docker manifest push "$1" --purge
-}
-
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
@@ -64,16 +51,20 @@ docker load --input ${images}
 linux_images=()
 while IFS= read -r i; do
     [ -z "${i}" ] && continue
+    [[ "${i}" == "#"* ]] && continue
+    
     linux_images+=("${i}");
 done < "${list}"
 
-arch_list+=("linux-amd64")
 for i in "${linux_images[@]}"; do
     [ -z "${i}" ] && continue
+    [[ "${i}" == "#"* ]] && continue
 
-    # trim ghcr.io & registry.k8s.io
+    # trim ghcr.io & registry.k8s.io & quay.io
     image_name=$(echo $i | sed 's/ghcr\.io\///')
     image_name=$(echo $image_name | sed 's/registry\.k8s\.io\///')
+    image_name=$(echo $image_name | sed 's/quay\.io\///')
+    image_name=$(echo $image_name | sed 's/docker\.io\///')
 
     echo "Push ${i} as ${reg}/${image_name}"
     docker tag "${i}" "${reg}/${image_name}"

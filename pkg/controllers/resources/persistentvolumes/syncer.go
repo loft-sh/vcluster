@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	storagev1 "k8s.io/api/storage/v1"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -13,11 +15,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +27,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 )
 
 const (
@@ -95,6 +99,10 @@ func (s *persistentVolumeSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.PersistentVolume]) (ctrl.Result, error) {
+	if s.applyLimitByClass(ctx, event.Virtual) {
+		return reconcile.Result{}, nil
+	}
+
 	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil || (event.Virtual.Annotations != nil && event.Virtual.Annotations[constants.HostClusterPersistentVolumeAnnotation] != "") {
 		if len(event.Virtual.Finalizers) > 0 {
 			// delete the finalizer here so that the object can be deleted
@@ -112,7 +120,7 @@ func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, event 
 	}
 
 	// Apply pro patches
-	err = pro.ApplyPatchesHostObject(ctx, nil, pPv, event.Virtual, ctx.Config.Sync.ToHost.PersistentVolumes.Patches, false)
+	err = pro.ApplyPatchesHostObject(ctx, pPv, event.Virtual, ctx.Config.Sync.ToHost.PersistentVolumes.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
@@ -121,6 +129,10 @@ func (s *persistentVolumeSyncer) SyncToHost(ctx *synccontext.SyncContext, event 
 }
 
 func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.PersistentVolume]) (_ ctrl.Result, retErr error) {
+	if s.applyLimitByClass(ctx, event.Virtual) {
+		return ctrl.Result{}, nil
+	}
+
 	// check if locked
 	if event.Virtual.Annotations != nil && event.Virtual.Annotations[LockPersistentVolume] != "" {
 		t := &metav1.Time{}
@@ -236,7 +248,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 	// update host object
 	if event.Virtual.Annotations[constants.HostClusterPersistentVolumeAnnotation] == "" {
 		// TODO: translate the storage secrets
-		event.Host.Spec.StorageClassName = mappings.VirtualToHostName(ctx, event.Virtual.Spec.StorageClassName, "", mappings.StorageClasses())
+		event.Host.Spec.StorageClassName = translate.Default.HostNameCluster(event.Virtual.Spec.StorageClassName)
 	}
 
 	// bi-directional sync of annotations and labels
@@ -256,7 +268,7 @@ func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, eve
 	} else if sync {
 		// create the persistent volume
 		vObj := s.translateBackwards(event.Host, vPvc)
-		err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.PersistentVolumes.Patches, false)
+		err := pro.ApplyPatchesVirtualObject(ctx, vObj, event.Host, ctx.Config.Sync.ToHost.PersistentVolumes.Patches, false)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -297,6 +309,9 @@ func (s *persistentVolumeSyncer) shouldSync(ctx *synccontext.SyncContext, pObj *
 		} else if translate.Default.IsManaged(ctx, pObj) {
 			return true, nil, nil
 		}
+		if translate.Default.IsTargetedNamespace(ctx, pObj.Spec.ClaimRef.Namespace) && pObj.Status.Phase == corev1.VolumeReleased {
+			return true, nil, nil
+		}
 
 		return translate.Default.IsTargetedNamespace(ctx, pObj.Spec.ClaimRef.Namespace) && pObj.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimRetain, nil, nil
 	}
@@ -316,4 +331,29 @@ func (s *persistentVolumeSyncer) IsManaged(ctx *synccontext.SyncContext, pObj cl
 	}
 
 	return sync, nil
+}
+
+func (s *persistentVolumeSyncer) applyLimitByClass(ctx *synccontext.SyncContext, virtual *corev1.PersistentVolume) bool {
+	if !ctx.Config.Sync.FromHost.StorageClasses.Enabled.Bool() ||
+		ctx.Config.Sync.FromHost.StorageClasses.Selector.Empty() ||
+		virtual.Spec.StorageClassName == "" {
+		return false
+	}
+
+	pStorageClass := &storagev1.StorageClass{}
+	err := ctx.HostClient.Get(ctx.Context, types.NamespacedName{Name: virtual.Spec.StorageClassName}, pStorageClass)
+	if err != nil || pStorageClass.GetDeletionTimestamp() != nil {
+		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync persistent volume %q to host because the storage class %q couldn't be reached in the host: %s", virtual.GetName(), virtual.Spec.StorageClassName, err)
+		return true
+	}
+	matches, err := ctx.Config.Sync.FromHost.StorageClasses.Selector.Matches(pStorageClass)
+	if err != nil {
+		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync persistent volume %q to host because the storage class %q in the host could not be checked against the selector under 'sync.fromHost.storageClasses.selector': %s", virtual.GetName(), pStorageClass.GetName(), err)
+		return true
+	}
+	if !matches {
+		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync persistent volume %q to host because the storage class %q in the host does not match the selector under 'sync.fromHost.storageClasses.selector'", virtual.GetName(), pStorageClass.GetName())
+		return true
+	}
+	return false
 }

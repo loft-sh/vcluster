@@ -99,6 +99,10 @@ type UserSpec struct {
 	// Access holds the access rights for users and teams
 	// +optional
 	Access []Access `json:"access,omitempty"`
+
+	// ExtraClaims are additional claims that have been added to the user by an admin.
+	// +optional
+	ExtraClaims map[string]string `json:"extraClaims,omitempty"`
 }
 
 // UserStatus holds the status of an user

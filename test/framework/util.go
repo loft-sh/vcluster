@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +21,29 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/utils/ptr"
 )
+
+func (f *Framework) WaitForVClusterReady() error {
+	return wait.PollUntilContextTimeout(f.Context, time.Second*5, PollTimeout, true, func(ctx context.Context) (bool, error) {
+		sts, err := f.HostClient.AppsV1().StatefulSets(f.VClusterNamespace).Get(ctx, f.VClusterName, metav1.GetOptions{})
+		if err == nil {
+			return sts.Status.ReadyReplicas == *sts.Spec.Replicas &&
+				sts.Status.UpdatedReplicas == *sts.Spec.Replicas &&
+				sts.Status.AvailableReplicas == *sts.Spec.Replicas, nil
+		}
+		if !kerrors.IsNotFound(err) {
+			return false, err
+		}
+
+		deploy, err := f.HostClient.AppsV1().Deployments(f.VClusterNamespace).Get(ctx, f.VClusterName, metav1.GetOptions{})
+		if err == nil {
+			return deploy.Status.ReadyReplicas == *deploy.Spec.Replicas &&
+				deploy.Status.UpdatedReplicas == *deploy.Spec.Replicas &&
+				deploy.Status.AvailableReplicas == *deploy.Spec.Replicas, nil
+		}
+
+		return false, err
+	})
+}
 
 func (f *Framework) WaitForPodRunning(podName string, ns string) error {
 	return wait.PollUntilContextTimeout(f.Context, time.Second*5, PollTimeout, true, func(ctx context.Context) (bool, error) {
@@ -179,6 +203,32 @@ func (f *Framework) WaitForServiceToUpdate(client *kubernetes.Clientset, service
 	})
 }
 
+func (f *Framework) WaitForPVCDeletion(namespace, name string) error {
+	return wait.PollUntilContextTimeout(f.Context, time.Second*5, PollTimeout, true, func(ctx context.Context) (bool, error) {
+		_, err := f.VClusterClient.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return true, nil
+			}
+			return false, err
+		}
+		return false, nil
+	})
+}
+
+func (f *Framework) WaitForPVDeletion(name string) error {
+	return wait.PollUntilContextTimeout(f.Context, time.Second*5, PollTimeout, true, func(ctx context.Context) (bool, error) {
+		_, err := f.VClusterClient.CoreV1().PersistentVolumes().Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return true, nil
+			}
+			return false, err
+		}
+		return false, nil
+	})
+}
+
 // Some vcluster operations list Service, e.g. pod translation.
 // To ensure expected results of such operation we need to wait until newly created Service is in syncer controller cache,
 // otherwise syncer will operate on slightly outdated resources, which is not good for test stability.
@@ -233,18 +283,27 @@ func (f *Framework) DeleteTestNamespace(ns string, waitUntilDeleted bool) error 
 	deleteOptions := metav1.DeleteOptions{
 		PropagationPolicy: &propagationPolicy,
 	}
-	err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, ns, deleteOptions)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
+	for i := 0; i < 5; i++ {
+		err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, ns, deleteOptions)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return nil
+			} else if i == 4 {
+				return err
+			}
+
+			time.Sleep(time.Second)
+			continue
 		}
-		return err
+
+		break
 	}
+
 	if !waitUntilDeleted {
 		return nil
 	}
 	return wait.PollUntilContextTimeout(f.Context, time.Second, PollTimeout, true, func(ctx context.Context) (bool, error) {
-		_, err = f.VClusterClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
+		_, err := f.VClusterClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			return true, nil
 		}
@@ -366,7 +425,7 @@ func (f *Framework) CreateEgressNetworkPolicyForDNS(ctx context.Context, ns stri
 					},
 					To: []networkingv1.NetworkPolicyPeer{
 						{
-							PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{"k8s-app": "vcluster-kube-dns"}},
+							PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{constants.CoreDNSLabelKey: constants.CoreDNSLabelValue}},
 							NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"kubernetes.io/metadata.name": "kube-system"}},
 						},
 					},

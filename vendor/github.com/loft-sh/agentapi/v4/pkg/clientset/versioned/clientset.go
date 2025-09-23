@@ -3,8 +3,8 @@
 package versioned
 
 import (
-	"fmt"
-	"net/http"
+	fmt "fmt"
+	http "net/http"
 
 	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/clientset/versioned/typed/cluster/v1"
 	storagev1 "github.com/loft-sh/agentapi/v4/pkg/clientset/versioned/typed/storage/v1"

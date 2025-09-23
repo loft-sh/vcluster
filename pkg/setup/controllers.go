@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers"
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
@@ -21,6 +24,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/serviceaccount"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,13 +43,10 @@ import (
 
 func StartControllers(controllerContext *synccontext.ControllerContext, syncers []syncertypes.Object) error {
 	// exchange control plane client
-	controlPlaneClient, err := pro.ExchangeControlPlaneClient(controllerContext)
-	if err != nil {
-		return err
-	}
+	controlPlaneClient := controllerContext.HostNamespaceClient
 
 	// migrate k3s to k8s if needed
-	err = k8s.MigrateK3sToK8sStateless(controllerContext.Context, controllerContext.Config.ControlPlaneClient, controllerContext.Config.ControlPlaneNamespace, controllerContext.VirtualManager.GetClient(), controllerContext.Config)
+	err := k8s.MigrateK3sToK8sStateless(controllerContext.Context, controllerContext.Config.HostClient, controllerContext.Config.HostNamespace, controllerContext.VirtualManager.GetClient(), controllerContext.Config)
 	if err != nil {
 		return err
 	}
@@ -76,30 +78,12 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 		}
 	}()
 
-	// sync remote Endpoints
-	if controllerContext.Config.Experimental.IsolatedControlPlane.KubeConfig != "" {
-		err := pro.SyncRemoteEndpoints(
-			controllerContext.Context,
-			types.NamespacedName{
-				Namespace: controllerContext.Config.ControlPlaneNamespace,
-				Name:      controllerContext.Config.ControlPlaneService,
-			},
-			controlPlaneClient,
-			types.NamespacedName{
-				Namespace: controllerContext.Config.WorkloadNamespace,
-				Name:      controllerContext.Config.WorkloadService,
-			},
-			controllerContext.WorkloadNamespaceClient,
-		)
-		if err != nil {
-			return errors.Wrap(err, "sync remote endpoints")
-		}
-	}
-
 	// migrate mappers
-	err = MigrateMappers(controllerContext.ToRegisterContext(), syncers)
-	if err != nil {
-		return err
+	if !controllerContext.Config.PrivateNodes.Enabled {
+		err = MigrateMappers(controllerContext.ToRegisterContext(), syncers)
+		if err != nil {
+			return err
+		}
 	}
 
 	// make sure the kubernetes service is synced
@@ -130,7 +114,7 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 	// write the kube config to secret
 	go func() {
 		_ = wait.PollUntilContextCancel(controllerContext, time.Second*10, true, func(ctx context.Context) (bool, error) {
-			err := WriteKubeConfigToSecret(ctx, controllerContext.VirtualManager.GetConfig(), controllerContext.Config.ControlPlaneNamespace, controlPlaneClient, controllerContext.Config, controllerContext.VirtualRawConfig)
+			err := WriteKubeConfigToSecret(ctx, controllerContext.VirtualManager.GetConfig(), controllerContext.Config.HostNamespace, controlPlaneClient, controllerContext.Config, controllerContext.VirtualRawConfig)
 			if err != nil {
 				klog.Errorf("Error writing kube config to secret: %v", err)
 				return false, nil
@@ -146,8 +130,10 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 		return fmt.Errorf("plugin set leader: %w", err)
 	}
 
-	// start mappings store garbage collection
-	controllerContext.Mappings.Store().StartGarbageCollection(controllerContext.Context)
+	if !controllerContext.Config.PrivateNodes.Enabled {
+		// start mappings store garbage collection
+		controllerContext.Mappings.Store().StartGarbageCollection(controllerContext.Context)
+	}
 
 	// When the user disables from host syncing for some kind, the previously synced resources will
 	// stay in the virtual cluster. Since the controllers for those resources do not exist anymore,
@@ -180,14 +166,16 @@ func ApplyCoreDNS(controllerContext *synccontext.ControllerContext) {
 			// dns pod labels were changed to avoid conflict with apps running in the host cluster that select for the "kube-dns" label, e.g. cilium.
 			// If the deployment already exists with a label selector that is not "vcluster-kube-dns" then it needs to be deleted because the selector field is immutable.
 			// Otherwise, dns will break because the dns service will target the updated label but not match any deployments.
-			if dnsDeployment.Spec.Selector.MatchLabels["k8s-app"] != "vcluster-kube-dns" {
+			if dnsDeployment.Spec.Selector.MatchLabels[constants.CoreDNSLabelKey] != constants.CoreDNSLabelValue {
 				err = controllerContext.VirtualManager.GetClient().Delete(controllerContext.Context, dnsDeployment)
 				if err != nil && !kerrors.IsNotFound(err) {
 					return false, err
 				}
 			}
 		}
-		err = coredns.ApplyManifest(ctx, controllerContext.Config.ControlPlane.Advanced.DefaultImageRegistry, controllerContext.VirtualManager.GetConfig(), controllerContext.VirtualClusterVersion)
+
+		// apply coredns manifests
+		err = coredns.ApplyManifest(ctx, &controllerContext.Config.Config, controllerContext.Config.ControlPlane.Advanced.DefaultImageRegistry, controllerContext.VirtualManager.GetConfig(), controllerContext.VirtualClusterVersion)
 		if err != nil {
 			if errors.Is(err, coredns.ErrNoCoreDNSManifests) {
 				klog.Infof("No CoreDNS manifests found, skipping CoreDNS configuration")
@@ -196,6 +184,7 @@ func ApplyCoreDNS(controllerContext *synccontext.ControllerContext) {
 			klog.Infof("Failed to apply CoreDNS configuration from the manifest file: %v", err)
 			return false, nil
 		}
+
 		klog.Infof("CoreDNS configuration from the manifest file applied successfully")
 		return true, nil
 	})
@@ -209,8 +198,8 @@ func SyncKubernetesService(ctx *synccontext.ControllerContext) error {
 	} else {
 		err = specialservices.SyncKubernetesService(
 			ctx.ToRegisterContext().ToSyncContext("sync-kubernetes-service"),
-			ctx.Config.WorkloadNamespace,
-			ctx.Config.WorkloadService,
+			ctx.Config.HostNamespace,
+			ctx.Config.Name,
 			types.NamespacedName{
 				Name:      specialservices.DefaultKubernetesSVCName,
 				Namespace: specialservices.DefaultKubernetesSVCNamespace,
@@ -303,8 +292,37 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 	if err != nil {
 		return fmt.Errorf("failed to create kubeconfig that is exported to the default kubeconfig secret: %w", err)
 	}
-	isIsolatedControlPlaneKubeConfigSet := options.Experimental.IsolatedControlPlane.KubeConfig != ""
-	err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, defaultKubeConfig, isIsolatedControlPlaneKubeConfigSet, options.Name)
+
+	// if standalone mode is enabled, we don't need to write any kubeconfig secrets and instead write it to a file
+	if options.ControlPlane.Standalone.Enabled {
+		klog.FromContext(ctx).Info("Writing kubeconfig to", "path", filepath.Join(constants.DataDir, "kubeconfig.yaml"))
+		err = clientcmd.WriteToFile(*defaultKubeConfig, filepath.Join(constants.DataDir, "kubeconfig.yaml"))
+		if err != nil {
+			return fmt.Errorf("failed to write kubeconfig to file: %w", err)
+		}
+
+		// also check if we can write it to ~/.kube/config
+		home, err := homedir.Dir()
+		if err != nil {
+			return fmt.Errorf("failed to get home directory: %w", err)
+		}
+
+		homeKubeConfig := filepath.Join(home, ".kube", "config")
+		_, err = os.Stat(homeKubeConfig)
+		if err == nil {
+			// does exist so we skip writing it to the home kubeconfig
+			return nil
+		}
+
+		err = clientcmd.WriteToFile(*defaultKubeConfig, homeKubeConfig)
+		if err != nil {
+			return fmt.Errorf("failed to write kubeconfig to file: %w", err)
+		}
+
+		return nil
+	}
+
+	err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, defaultKubeConfig, options.Name)
 	if err != nil {
 		return fmt.Errorf("creating the default kubeconfig secret in the %s ns failed: %w", currentNamespace, err)
 	}
@@ -334,7 +352,7 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 		}
 
 		// write the additional kubeconfig secret
-		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, secretName, secretNamespace, additionalKubeConfig, isIsolatedControlPlaneKubeConfigSet, options.Name)
+		err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, secretName, secretNamespace, additionalKubeConfig, options.Name)
 		if err != nil {
 			return fmt.Errorf("creating additional secret %s in the %s ns failed: %w", secretName, secretNamespace, err)
 		}

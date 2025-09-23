@@ -19,7 +19,6 @@ package fake
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -29,7 +28,19 @@ import (
 	"sync"
 	"time"
 
-	// Using v4 to match upstream
+	/*
+	  Stick with gopkg.in/evanphx/json-patch.v4 here to match
+	  upstream Kubernetes code and avoid breaking changes introduced in v5.
+	  - Kubernetes itself remains on json-patch v4 to avoid compatibility issues
+	    tied to v5’s stricter RFC6902 compliance.
+	  - The fake client code is adapted from client-go’s testing fixture, which also
+	    relies on json-patch v4.
+	  See:
+	    https://github.com/kubernetes/kubernetes/pull/91622 (discussion of why K8s
+	    stays on v4)
+	    https://github.com/kubernetes/kubernetes/pull/120326 (v5.6.0+incompatible
+	    missing a critical fix)
+	*/
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	appsv1 "k8s.io/api/apps/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -46,6 +57,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -75,8 +87,8 @@ type fakeClient struct {
 	trackerWriteLock sync.Mutex
 	tracker          versionedTracker
 
-	schemeWriteLock sync.Mutex
-	scheme          *runtime.Scheme
+	schemeLock sync.RWMutex
+	scheme     *runtime.Scheme
 
 	restMapper            meta.RESTMapper
 	withStatusSubresource sets.Set[schema.GroupVersionKind]
@@ -399,12 +411,9 @@ func (t versionedTracker) Patch(gvr schema.GroupVersionResource, obj runtime.Obj
 		return err
 	}
 
-	isStatus := false
 	// We apply patches using a client-go reaction that ends up calling the trackers Patch. As we can't change
 	// that reaction, we use the callstack to figure out if this originated from the status client.
-	if bytes.Contains(debug.Stack(), []byte("sigs.k8s.io/controller-runtime/pkg/client/fake.(*fakeSubResourceClient).statusPatch")) {
-		isStatus = true
-	}
+	isStatus := bytes.Contains(debug.Stack(), []byte("sigs.k8s.io/controller-runtime/pkg/client/fake.(*fakeSubResourceClient).statusPatch"))
 
 	obj, err = t.updateObject(gvr, obj, ns, isStatus, false, patchOptions.DryRun)
 	if err != nil {
@@ -512,6 +521,8 @@ func (t versionedTracker) updateObject(gvr schema.GroupVersionResource, obj runt
 }
 
 func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	c.schemeLock.RLock()
+	defer c.schemeLock.RUnlock()
 	gvr, err := getGVRFromObject(obj, c.scheme)
 	if err != nil {
 		return err
@@ -561,6 +572,8 @@ func (c *fakeClient) Watch(ctx context.Context, list client.ObjectList, opts ...
 }
 
 func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...client.ListOption) error {
+	c.schemeLock.RLock()
+	defer c.schemeLock.RUnlock()
 	gvk, err := apiutil.GVKForObject(obj, c.scheme)
 	if err != nil {
 		return err
@@ -573,9 +586,11 @@ func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...cl
 	if _, isUnstructuredList := obj.(runtime.Unstructured); isUnstructuredList && !c.scheme.Recognizes(gvk) {
 		// We need to register the ListKind with UnstructuredList:
 		// https://github.com/kubernetes/kubernetes/blob/7b2776b89fb1be28d4e9203bdeec079be903c103/staging/src/k8s.io/client-go/dynamic/fake/simple.go#L44-L51
-		c.schemeWriteLock.Lock()
+		c.schemeLock.RUnlock()
+		c.schemeLock.Lock()
 		c.scheme.AddKnownTypeWithName(gvk.GroupVersion().WithKind(gvk.Kind+"List"), &unstructured.UnstructuredList{})
-		c.schemeWriteLock.Unlock()
+		c.schemeLock.Unlock()
+		c.schemeLock.RLock()
 	}
 
 	listOpts := client.ListOptions{}
@@ -726,6 +741,8 @@ func (c *fakeClient) IsObjectNamespaced(obj runtime.Object) (bool, error) {
 }
 
 func (c *fakeClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	c.schemeLock.RLock()
+	defer c.schemeLock.RUnlock()
 	createOptions := &client.CreateOptions{}
 	createOptions.ApplyOptions(opts)
 
@@ -762,6 +779,8 @@ func (c *fakeClient) Create(ctx context.Context, obj client.Object, opts ...clie
 }
 
 func (c *fakeClient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
+	c.schemeLock.RLock()
+	defer c.schemeLock.RUnlock()
 	gvr, err := getGVRFromObject(obj, c.scheme)
 	if err != nil {
 		return err
@@ -807,6 +826,8 @@ func (c *fakeClient) Delete(ctx context.Context, obj client.Object, opts ...clie
 }
 
 func (c *fakeClient) DeleteAllOf(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error {
+	c.schemeLock.RLock()
+	defer c.schemeLock.RUnlock()
 	gvk, err := apiutil.GVKForObject(obj, c.scheme)
 	if err != nil {
 		return err
@@ -856,6 +877,8 @@ func (c *fakeClient) Update(ctx context.Context, obj client.Object, opts ...clie
 }
 
 func (c *fakeClient) update(obj client.Object, isStatus bool, opts ...client.UpdateOption) error {
+	c.schemeLock.RLock()
+	defer c.schemeLock.RUnlock()
 	updateOptions := &client.UpdateOptions{}
 	updateOptions.ApplyOptions(opts)
 
@@ -884,6 +907,8 @@ func (c *fakeClient) Patch(ctx context.Context, obj client.Object, patch client.
 }
 
 func (c *fakeClient) patch(obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+	c.schemeLock.RLock()
+	defer c.schemeLock.RUnlock()
 	patchOptions := &client.PatchOptions{}
 	patchOptions.ApplyOptions(opts)
 
@@ -1050,19 +1075,19 @@ func dryPatch(action testing.PatchActionImpl, tracker testing.ObjectTracker) (ru
 }
 
 // copyStatusFrom copies the status from old into new
-func copyStatusFrom(old, new runtime.Object) error {
+func copyStatusFrom(old, n runtime.Object) error {
 	oldMapStringAny, err := toMapStringAny(old)
 	if err != nil {
 		return fmt.Errorf("failed to convert old to *unstructured.Unstructured: %w", err)
 	}
-	newMapStringAny, err := toMapStringAny(new)
+	newMapStringAny, err := toMapStringAny(n)
 	if err != nil {
 		return fmt.Errorf("failed to convert new to *unststructured.Unstructured: %w", err)
 	}
 
 	newMapStringAny["status"] = oldMapStringAny["status"]
 
-	if err := fromMapStringAny(newMapStringAny, new); err != nil {
+	if err := fromMapStringAny(newMapStringAny, n); err != nil {
 		return fmt.Errorf("failed to convert back from map[string]any: %w", err)
 	}
 
@@ -1070,12 +1095,12 @@ func copyStatusFrom(old, new runtime.Object) error {
 }
 
 // copyFrom copies from old into new
-func copyFrom(old, new runtime.Object) error {
+func copyFrom(old, n runtime.Object) error {
 	oldMapStringAny, err := toMapStringAny(old)
 	if err != nil {
 		return fmt.Errorf("failed to convert old to *unstructured.Unstructured: %w", err)
 	}
-	if err := fromMapStringAny(oldMapStringAny, new); err != nil {
+	if err := fromMapStringAny(oldMapStringAny, n); err != nil {
 		return fmt.Errorf("failed to convert back from map[string]any: %w", err)
 	}
 
@@ -1138,7 +1163,7 @@ func (c *fakeClient) deleteObjectLocked(gvr schema.GroupVersionResource, accesso
 		}
 	}
 
-	//TODO: implement propagation
+	// TODO: implement propagation
 	return c.tracker.Delete(gvr, accessor.GetNamespace(), accessor.GetName())
 }
 

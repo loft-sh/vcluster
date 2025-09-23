@@ -47,7 +47,13 @@ var GroupVersion = schema.GroupVersion{
 }
 
 func Register(ctx *synccontext.ControllerContext) error {
-	ctx.AcquiredLeaderHooks = append(ctx.AcquiredLeaderHooks, RegisterOrDeregisterAPIService)
+	if ctx.Config.PrivateNodes.Enabled {
+		return nil
+	}
+
+	if !ctx.Config.Deploy.MetricsServer.Enabled {
+		ctx.AcquiredLeaderHooks = append(ctx.AcquiredLeaderHooks, RegisterOrDeregisterAPIService)
+	}
 	if ctx.Config.Integrations.MetricsServer.Enabled {
 		targetService := cmp.Or(ctx.Config.Integrations.MetricsServer.APIService.Service.Name, "metrics-server")
 		targetServiceNamespace := cmp.Or(ctx.Config.Integrations.MetricsServer.APIService.Service.Namespace, "kube-system")
@@ -178,7 +184,7 @@ func handleMetricsServerProxyRequest(
 			splitted[5] = mappings.VirtualToHostNamespace(syncContext, info.Namespace)
 		} else if translate.Default.SingleNamespaceTarget() {
 			// limit to current namespace in host cluster
-			splitted = append(splitted[:4], append([]string{"namespaces", ctx.Config.WorkloadTargetNamespace}, splitted[4:]...)...)
+			splitted = append(splitted[:4], append([]string{"namespaces", ctx.Config.HostNamespace}, splitted[4:]...)...)
 		}
 
 		metricsServerProxy.resourceType = PodResource
@@ -212,7 +218,7 @@ func handleMetricsServerProxyRequest(
 		metricsServerProxy.nodesInVCluster = nodeList
 	}
 
-	proxyHandler, err := handler.Handler("", ctx.PhysicalManager.GetConfig(), nil)
+	proxyHandler, err := handler.Handler("", ctx.HostManager.GetConfig(), nil)
 	if err != nil {
 		requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
 		return

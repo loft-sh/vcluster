@@ -14,12 +14,12 @@ import (
 
 func CreateCSIStorageCapacitiesMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
 	return generic.WithRecorder(&csiStorageCapacitiesMapper{
-		physicalClient: ctx.PhysicalManager.GetClient(),
+		hostClient: ctx.HostManager.GetClient(),
 	}), nil
 }
 
 type csiStorageCapacitiesMapper struct {
-	physicalClient client.Client
+	hostClient client.Client
 }
 
 func (s *csiStorageCapacitiesMapper) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.Mapper) error {

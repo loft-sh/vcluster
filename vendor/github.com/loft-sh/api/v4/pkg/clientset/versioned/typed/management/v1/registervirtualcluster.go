@@ -3,15 +3,14 @@
 package v1
 
 import (
-	"context"
-	"time"
+	context "context"
 
-	v1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
+	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	scheme "github.com/loft-sh/api/v4/pkg/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // RegisterVirtualClustersGetter has a method to return a RegisterVirtualClusterInterface.
@@ -22,147 +21,34 @@ type RegisterVirtualClustersGetter interface {
 
 // RegisterVirtualClusterInterface has methods to work with RegisterVirtualCluster resources.
 type RegisterVirtualClusterInterface interface {
-	Create(ctx context.Context, registerVirtualCluster *v1.RegisterVirtualCluster, opts metav1.CreateOptions) (*v1.RegisterVirtualCluster, error)
-	Update(ctx context.Context, registerVirtualCluster *v1.RegisterVirtualCluster, opts metav1.UpdateOptions) (*v1.RegisterVirtualCluster, error)
-	UpdateStatus(ctx context.Context, registerVirtualCluster *v1.RegisterVirtualCluster, opts metav1.UpdateOptions) (*v1.RegisterVirtualCluster, error)
+	Create(ctx context.Context, registerVirtualCluster *managementv1.RegisterVirtualCluster, opts metav1.CreateOptions) (*managementv1.RegisterVirtualCluster, error)
+	Update(ctx context.Context, registerVirtualCluster *managementv1.RegisterVirtualCluster, opts metav1.UpdateOptions) (*managementv1.RegisterVirtualCluster, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, registerVirtualCluster *managementv1.RegisterVirtualCluster, opts metav1.UpdateOptions) (*managementv1.RegisterVirtualCluster, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.RegisterVirtualCluster, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.RegisterVirtualClusterList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*managementv1.RegisterVirtualCluster, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*managementv1.RegisterVirtualClusterList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.RegisterVirtualCluster, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *managementv1.RegisterVirtualCluster, err error)
 	RegisterVirtualClusterExpansion
 }
 
 // registerVirtualClusters implements RegisterVirtualClusterInterface
 type registerVirtualClusters struct {
-	client rest.Interface
+	*gentype.ClientWithList[*managementv1.RegisterVirtualCluster, *managementv1.RegisterVirtualClusterList]
 }
 
 // newRegisterVirtualClusters returns a RegisterVirtualClusters
 func newRegisterVirtualClusters(c *ManagementV1Client) *registerVirtualClusters {
 	return &registerVirtualClusters{
-		client: c.RESTClient(),
+		gentype.NewClientWithList[*managementv1.RegisterVirtualCluster, *managementv1.RegisterVirtualClusterList](
+			"registervirtualclusters",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *managementv1.RegisterVirtualCluster { return &managementv1.RegisterVirtualCluster{} },
+			func() *managementv1.RegisterVirtualClusterList { return &managementv1.RegisterVirtualClusterList{} },
+		),
 	}
-}
-
-// Get takes name of the registerVirtualCluster, and returns the corresponding registerVirtualCluster object, and an error if there is any.
-func (c *registerVirtualClusters) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.RegisterVirtualCluster, err error) {
-	result = &v1.RegisterVirtualCluster{}
-	err = c.client.Get().
-		Resource("registervirtualclusters").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of RegisterVirtualClusters that match those selectors.
-func (c *registerVirtualClusters) List(ctx context.Context, opts metav1.ListOptions) (result *v1.RegisterVirtualClusterList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1.RegisterVirtualClusterList{}
-	err = c.client.Get().
-		Resource("registervirtualclusters").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested registerVirtualClusters.
-func (c *registerVirtualClusters) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("registervirtualclusters").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a registerVirtualCluster and creates it.  Returns the server's representation of the registerVirtualCluster, and an error, if there is any.
-func (c *registerVirtualClusters) Create(ctx context.Context, registerVirtualCluster *v1.RegisterVirtualCluster, opts metav1.CreateOptions) (result *v1.RegisterVirtualCluster, err error) {
-	result = &v1.RegisterVirtualCluster{}
-	err = c.client.Post().
-		Resource("registervirtualclusters").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(registerVirtualCluster).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a registerVirtualCluster and updates it. Returns the server's representation of the registerVirtualCluster, and an error, if there is any.
-func (c *registerVirtualClusters) Update(ctx context.Context, registerVirtualCluster *v1.RegisterVirtualCluster, opts metav1.UpdateOptions) (result *v1.RegisterVirtualCluster, err error) {
-	result = &v1.RegisterVirtualCluster{}
-	err = c.client.Put().
-		Resource("registervirtualclusters").
-		Name(registerVirtualCluster.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(registerVirtualCluster).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *registerVirtualClusters) UpdateStatus(ctx context.Context, registerVirtualCluster *v1.RegisterVirtualCluster, opts metav1.UpdateOptions) (result *v1.RegisterVirtualCluster, err error) {
-	result = &v1.RegisterVirtualCluster{}
-	err = c.client.Put().
-		Resource("registervirtualclusters").
-		Name(registerVirtualCluster.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(registerVirtualCluster).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the registerVirtualCluster and deletes it. Returns an error if one occurs.
-func (c *registerVirtualClusters) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("registervirtualclusters").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *registerVirtualClusters) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("registervirtualclusters").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched registerVirtualCluster.
-func (c *registerVirtualClusters) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.RegisterVirtualCluster, err error) {
-	result = &v1.RegisterVirtualCluster{}
-	err = c.client.Patch(pt).
-		Resource("registervirtualclusters").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

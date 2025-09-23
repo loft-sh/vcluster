@@ -1,11 +1,11 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/log"
@@ -15,6 +15,11 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+)
+
+var (
+	defaultRegistry         = "ghcr.io/loft-sh"
+	defaultSyncerRepository = "vcluster-pro"
 )
 
 type DescribeOutput struct {
@@ -125,58 +130,31 @@ func extractFromValues(d *DescribeOutput, configBytes []byte, format, version st
 	return nil
 }
 
-func valueOrDefaultRegistry(value, def string) string {
-	if value != "" {
-		return value
-	}
-	if def != "" {
-		return def
-	}
-	return "ghcr.io/loft-sh"
-}
-
-func valueOrDefaultSyncerImage(value string) string {
-	if value != "" {
-		return value
-	}
-	return "vcluster-pro"
-}
-
 func getImageTags(c *config.Config, version string) (syncer, api string) {
-	syncerConfig := c.ControlPlane.StatefulSet.Image
-	defaultRegistry := c.ControlPlane.Advanced.DefaultImageRegistry
+	registryOverride := c.ControlPlane.Advanced.DefaultImageRegistry
 
-	syncer = valueOrDefaultRegistry(syncerConfig.Registry, defaultRegistry) + "/" + valueOrDefaultSyncerImage(syncerConfig.Repository) + ":" + syncerConfig.Tag
-	if syncerConfig.Tag == "" {
-		// the chart uses the chart version for the syncer tag, so the tag isn't set by default
-		syncer += version
-	}
+	syncerImage := c.ControlPlane.StatefulSet.Image
+	syncerImage.Registry = cmp.Or(syncerImage.Registry, registryOverride, defaultRegistry)
+	syncerImage.Repository = cmp.Or(syncerImage.Repository, defaultSyncerRepository)
+	// the chart uses the chart version for the syncer tag, so the tag isn't set by default
+	syncerImage.Tag = cmp.Or(syncerImage.Tag, version)
+	syncer = syncerImage.String()
 
+	var kubeImage config.Image
 	switch c.Distro() {
 	case config.K8SDistro:
-		k8s := c.ControlPlane.Distro.K8S
-
-		api = valueOrDefaultRegistry(k8s.Image.Registry, defaultRegistry) + "/" + k8s.Image.Repository + ":" + k8s.Image.Tag
-		if k8s.Image.Repository == "" {
-			// with the platform driver if only the registry is set we won't be able to display complete info
-			api = ""
-		}
-
+		kubeImage = c.ControlPlane.Distro.K8S.Image
 	case config.K3SDistro:
-		k3s := c.ControlPlane.Distro.K3S
-
-		api = valueOrDefaultRegistry(k3s.Image.Registry, defaultRegistry) + "/" + k3s.Image.Repository + ":" + k3s.Image.Tag
-		if strings.HasPrefix(api, valueOrDefaultRegistry(k3s.Image.Registry, defaultRegistry)+"/:") {
-			// with the platform driver if only the registry is set we won't be able to display complete info
-			api = ""
-		}
+		kubeImage = c.ControlPlane.Distro.K3S.Image
 	}
 
-	syncer = strings.TrimPrefix(syncer, "/")
-	api = strings.TrimPrefix(api, "/")
+	kubeImage.Registry = cmp.Or(kubeImage.Registry, registryOverride, defaultRegistry)
+	api = kubeImage.String()
 
-	syncer = strings.TrimSuffix(syncer, ":")
-	api = strings.TrimSuffix(api, ":")
+	// with the platform driver if only the registry is set we won't be able to display complete info
+	if kubeImage.Repository == "" {
+		api = ""
+	}
 
 	return syncer, api
 }

@@ -19,10 +19,12 @@ import (
 const (
 	k8s = "k8s"
 	k3s = "k3s"
+
+	etcd = "etcd"
 )
 
 var usage = fmt.Sprintf(`Usage:
-  go run -mod vendor ./hack/assets/cmd/main.go [v]X.Y.Z [--latest] [--optional]
+  go run -mod vendor ./hack/assets/cmd/main.go [v]X.Y.Z [--optional]
   go run -mod vendor ./hack/assets/cmd/main.go [v]X.Y.Z [--kubernetes-distro <%s>] [--kubernetes-version X.Y.Z]
   go run -mod vendor ./hack/assets/cmd/main.go --list-distros
   go run -mod vendor ./hack/assets/cmd/main.go --list-versions`,
@@ -32,7 +34,6 @@ var usage = fmt.Sprintf(`Usage:
 func Main() {
 	listDistros := pflag.Bool("list-distros", false, "Only the list of supported Kubernetes distros is returned")
 	listVersions := pflag.Bool("list-versions", false, "Only the list of supported Kubernetes versions is returned")
-	latest := pflag.Bool("latest", false, "Only the latest image of each group is returned")
 	optional := pflag.Bool("optional", false, "Include all images except the latest")
 
 	k8sSupportedVersions := GetSupportedKubernetesVersions()
@@ -74,19 +75,9 @@ func Main() {
 		os.Exit(1)
 	}
 
-	if *latest && *kubernetesVersion != "" {
-		fmt.Println("Flags --latest and --kubernetes-version are not compatible")
-		os.Exit(1)
-	}
-
-	if *latest && *optional {
-		fmt.Println("Flags --latest and --optional are not compatible")
-		os.Exit(1)
-	}
-
 	cleanTag := strings.TrimLeft(pflag.Arg(0), "v")
 
-	images := GetImages(cleanTag, *latest, *optional, *kubernetesVersion, *kubernetesDistro)
+	images := GetImages(cleanTag, *optional, *kubernetesVersion, *kubernetesDistro)
 	for _, img := range images {
 		fmt.Println(img)
 	}
@@ -98,10 +89,10 @@ func GetSupportedDistros() []string {
 }
 
 // GetImages returns a list of images based on the given parameters
-func GetImages(cleanTag string, latest bool, optional bool, kubernetesVersion string, kubernetesDistro string) []string {
-	images := GetVclusterImages(latest, optional, cleanTag)
+func GetImages(cleanTag string, optional bool, kubernetesVersion string, kubernetesDistro string) []string {
+	images := GetVclusterImages(optional, cleanTag)
 	images = UniqueAppend(images,
-		GetImageList(latest, optional, kubernetesVersion, GetVclusterDependencyImageMaps(kubernetesDistro))...,
+		GetImageList(optional, kubernetesVersion, GetVclusterDependencyImageMaps(kubernetesDistro))...,
 	)
 	return images
 }
@@ -116,7 +107,7 @@ func GetSupportedKubernetesVersions() []string {
 // GetImageList returns a list of images based on the given groups
 // If latest is true, only the latest image of each group is returned
 // If kubernetesVersion is specified, only the images matching the version are returned
-func GetImageList(latest bool, optional bool, kubernetesVersion string, groups []map[string]string) []string {
+func GetImageList(optional bool, kubernetesVersion string, groups []map[string]string) []string {
 	selectedImages := make([]string, 0, len(groups))
 	for _, g := range groups {
 		if len(g) == 0 {
@@ -129,32 +120,34 @@ func GetImageList(latest bool, optional bool, kubernetesVersion string, groups [
 			continue
 		}
 		sortedImages := slices.Compact(getSortedDescValues(g))
-		if latest {
-			selectedImages = append(selectedImages, sortedImages[0])
-			continue
-		}
 		if optional {
+			// k3s and etcd images are all optional
+			if strings.Contains(sortedImages[0], k3s) || strings.Contains(sortedImages[0], etcd) {
+				selectedImages = append(selectedImages, sortedImages...)
+				continue
+			}
+			// if not k3s nor etcd, we take all images except the latest one (first in the sorted list)
 			selectedImages = append(selectedImages, sortedImages[1:]...)
 			continue
 		}
-		selectedImages = append(selectedImages, sortedImages[:]...)
+
+		// If we are not in optional mode, we only take the latest image. Except for k3s and etcd images that are always optional
+		if !strings.Contains(sortedImages[0], k3s) && !strings.Contains(sortedImages[0], etcd) {
+			selectedImages = append(selectedImages, sortedImages[0])
+		}
 	}
 	return selectedImages
 }
 
 // GetVclusterImages returns a list of vcluster images
-func GetVclusterImages(latest, optional bool, cleanTag string) []string {
-	images := []string{"ghcr.io/loft-sh/vcluster-oss:" + cleanTag}
-	if !optional {
-		if latest {
-			images = nil
-		}
-		images = append(images,
-			"ghcr.io/loft-sh/vcluster-pro:"+cleanTag,
+func GetVclusterImages(optional bool, cleanTag string) []string {
+	if optional {
+		return []string{
+			"ghcr.io/loft-sh/vcluster-oss:" + cleanTag,
 			config.DefaultHostsRewriteImage,
-		)
+		}
 	}
-	return images
+	return []string{"ghcr.io/loft-sh/vcluster-pro:" + cleanTag}
 }
 
 // GetVclusterDependencyImageMaps returns a list of maps containing vcluster image versions
@@ -200,8 +193,9 @@ func getSortedDescValues(versionImageMap map[string]string) []string {
 }
 
 // Comparison function for versions in descending order
-func versionsDescCmp(X, Y string) int {
-	if version.MustParse(X).GreaterThan(version.MustParse(Y)) {
+// Empty string is treated a greater than any other element
+func versionsDescCmp(x, y string) int {
+	if version.MustParse(x).GreaterThan(version.MustParse(y)) {
 		return -1
 	}
 	return 1

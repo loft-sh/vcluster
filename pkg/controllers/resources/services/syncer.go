@@ -45,7 +45,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 			RancherPublicEndpointsAnnotation,
 		},
 
-		serviceName: ctx.Config.WorkloadService,
+		serviceName: ctx.Config.Name,
 	}, nil
 }
 
@@ -77,7 +77,7 @@ func (s *serviceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccont
 	}
 
 	pObj := s.translate(ctx, event.Virtual)
-	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.Services.Patches, false)
+	err := pro.ApplyPatchesHostObject(ctx, pObj, event.Virtual, ctx.Config.Sync.ToHost.Services.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -191,6 +191,7 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 	)
 
 	// update status
+	ensureLoadBalancerStatus(event.Host)
 	event.Virtual.Status = event.Host.Status
 
 	// bi-directional sync of annotations and labels
@@ -229,7 +230,7 @@ func (s *serviceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 	}
 
 	vObj := s.translateToVirtual(ctx, event.Host)
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.Services.Patches, false)
+	err := pro.ApplyPatchesVirtualObject(ctx, vObj, event.Host, ctx.Config.Sync.ToHost.Services.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -298,4 +299,18 @@ func TranslateServicePorts(ports []corev1.ServicePort) []corev1.ServicePort {
 	}
 
 	return retPorts
+}
+
+// ensureLoadBalancerStatus removes any LoadBalancer-related fields from the Service
+// if it is of type ClusterIP.
+//
+// This is necessary to ensure consistency when syncing services from a virtual
+// cluster to the host cluster. ClusterIP services should not carry LoadBalancer
+// settings such as LoadBalancerIP or Status.LoadBalancer.Ingress, which are
+// specific to LoadBalancer-type services and can cause incorrect behavior if retained.
+func ensureLoadBalancerStatus(pObj *corev1.Service) {
+	if pObj.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		pObj.Spec.LoadBalancerIP = ""
+		pObj.Status.LoadBalancer.Ingress = make([]corev1.LoadBalancerIngress, 0)
+	}
 }

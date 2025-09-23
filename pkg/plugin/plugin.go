@@ -43,7 +43,7 @@ func (m *manager) Start(
 		return fmt.Errorf("build legacy options: %w", err)
 	}
 
-	err = m.legacyManager.Start(ctx, vConfig.WorkloadNamespace, vConfig.WorkloadTargetNamespace, virtualKubeConfig, vConfig.WorkloadConfig, syncerConfig, legacyOptions)
+	err = m.legacyManager.Start(ctx, vConfig.HostNamespace, vConfig.HostNamespace, virtualKubeConfig, vConfig.HostConfig, syncerConfig, legacyOptions)
 	if err != nil {
 		return fmt.Errorf("start legacy plugins: %w", err)
 	}

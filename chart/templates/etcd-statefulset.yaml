@@ -1,4 +1,3 @@
-{{- if not .Values.experimental.isolatedControlPlane.headless }}
 {{- if or .Values.controlPlane.backingStore.etcd.deploy.enabled (include "vcluster.etcd.embedded.migrate" .) }}
 {{- if .Values.controlPlane.backingStore.etcd.deploy.statefulSet.enabled }}
 {{- $externalEtcd := .Values.controlPlane.backingStore.etcd.deploy.statefulSet }}
@@ -9,7 +8,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: vcluster-etcd
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
 {{- if $externalEtcd.labels }}
@@ -187,7 +186,7 @@ spec:
 {{ toYaml $externalEtcd.resources | indent 10 }}
         livenessProbe:
           httpGet:
-            path: /health
+            path: /livez
             port: 2381
             scheme: HTTP
           initialDelaySeconds: 10
@@ -197,7 +196,7 @@ spec:
           failureThreshold: 8
         startupProbe:
           httpGet:
-            path: /health
+            path: /readyz
             port: 2381
             scheme: HTTP
           initialDelaySeconds: 10
@@ -208,6 +207,5 @@ spec:
         {{- if $externalEtcd.imagePullPolicy }}
         imagePullPolicy: {{ $externalEtcd.imagePullPolicy }}
         {{- end }}
-{{- end }}
 {{- end }}
 {{- end }}

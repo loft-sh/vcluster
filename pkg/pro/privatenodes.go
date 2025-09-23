@@ -3,7 +3,6 @@ package pro
 import (
 	"context"
 
-	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 )
 
@@ -25,9 +24,9 @@ var SyncKubernetesServiceDedicated = func(ctx *synccontext.SyncContext) error {
 	return NewFeatureError("private nodes")
 }
 
-var StartKonnectivity = func(_ context.Context, vConfig *config.VirtualClusterConfig) error {
+var StartKonnectivity = func(ctx *synccontext.ControllerContext) error {
 	// skip if we are not in dedicated mode
-	if !vConfig.PrivateNodes.Enabled {
+	if !ctx.Config.PrivateNodes.Enabled {
 		return nil
 	}
 
@@ -36,4 +35,23 @@ var StartKonnectivity = func(_ context.Context, vConfig *config.VirtualClusterCo
 
 var WriteKonnectivityEgressConfig = func() (string, error) {
 	return "", NewFeatureError("private nodes")
+}
+
+type UpgradeOptions struct {
+	KubernetesVersion string
+	BinariesPath      string
+	CNIBinariesPath   string
+	BundleRepository  string
+}
+
+var UpgradeNode = func(_ context.Context, _ *UpgradeOptions) error {
+	return NewFeatureError("private nodes")
+}
+
+type StandaloneOptions struct {
+	Config string
+}
+
+var StartStandalone = func(_ context.Context, _ *StandaloneOptions) error {
+	return NewFeatureError("private nodes standalone")
 }

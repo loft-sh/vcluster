@@ -16,8 +16,8 @@ type SyncContext struct {
 
 	Config *config.VirtualClusterConfig
 
-	PhysicalClient client.Client
-	VirtualClient  client.Client
+	HostClient    client.Client
+	VirtualClient client.Client
 
 	ObjectCache *BidirectionalObjectCache
 

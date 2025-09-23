@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/setup"
+	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/pkg/errors"
@@ -50,6 +51,17 @@ func NewStartCommand() *cobra.Command {
 }
 
 func ExecuteStart(ctx context.Context, options *StartOptions) error {
+	if os.Getenv("POD_NAME") == "" && os.Getenv("POD_NAMESPACE") == "" {
+		return pro.StartStandalone(ctx, &pro.StandaloneOptions{
+			Config: options.Config,
+		})
+	}
+
+	return StartInCluster(ctx, options)
+}
+
+// StartInCluster is invoked when running in a container
+func StartInCluster(ctx context.Context, options *StartOptions) error {
 	vClusterName := os.Getenv("VCLUSTER_NAME")
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(options.Config, vClusterName, options.SetValues)
@@ -58,13 +70,13 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	}
 
 	// get current namespace
-	vConfig.ControlPlaneConfig, vConfig.ControlPlaneNamespace, vConfig.ControlPlaneService, vConfig.WorkloadConfig, vConfig.WorkloadNamespace, vConfig.WorkloadService, err = pro.GetRemoteClient(vConfig)
+	vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
 	if err != nil {
 		return err
 	}
 
 	// init config
-	err = setup.InitAndValidateConfig(ctx, vConfig)
+	err = setupconfig.InitAndValidateConfig(ctx, vConfig)
 	if err != nil {
 		return err
 	}
@@ -89,17 +101,18 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 	}
 
 	logger := log.GetInstance()
+
 	// check if there are existing vClusters in the current namespace
-	vClusters, err := find.ListVClusters(ctx, "", "", vConfig.ControlPlaneNamespace, logger)
+	vClusters, err := find.ListVClusters(ctx, "", "", vConfig.HostNamespace, logger)
 	if err != nil {
 		return err
 	}
 
 	// from v0.25 onwards, creation of multiple vClusters inside the same ns is not allowed
 	for _, v := range vClusters {
-		if v.Namespace == vConfig.ControlPlaneNamespace && v.Name != vClusterName {
+		if v.Namespace == vConfig.HostNamespace && v.Name != vClusterName {
 			return fmt.Errorf("there is already a virtual cluster in namespace %s; "+
-				"creating multiple virtual clusters inside the same namespace is not supported", vConfig.ControlPlaneNamespace)
+				"creating multiple virtual clusters inside the same namespace is not supported", vConfig.HostNamespace)
 		}
 	}
 
@@ -141,10 +154,16 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 		return fmt.Errorf("start proxy: %w", err)
 	}
 
+	// start konnectivity server
+	err = pro.StartKonnectivity(controllerCtx)
+	if err != nil {
+		return fmt.Errorf("start konnectivity: %w", err)
+	}
+
 	// should start embedded coredns?
 	if vConfig.ControlPlane.CoreDNS.Embedded {
 		// write vCluster kubeconfig to /data/vcluster/admin.conf
-		err = clientcmd.WriteToFile(*controllerCtx.VirtualRawConfig, "/data/vcluster/admin.conf")
+		err = clientcmd.WriteToFile(*controllerCtx.VirtualRawConfig, constants.EmbeddedCoreDNSAdminConf)
 		if err != nil {
 			return fmt.Errorf("write vCluster kube config for embedded coredns: %w", err)
 		}

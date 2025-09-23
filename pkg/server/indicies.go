@@ -14,7 +14,7 @@ import (
 func RegisterIndices(ctx *synccontext.RegisterContext) error {
 	// index services by ip
 	if ctx.Config.Networking.Advanced.ProxyKubelets.ByIP {
-		err := ctx.PhysicalManager.GetFieldIndexer().IndexField(ctx, &corev1.Service{}, constants.IndexByClusterIP, func(object client.Object) []string {
+		err := ctx.HostManager.GetFieldIndexer().IndexField(ctx, &corev1.Service{}, constants.IndexByClusterIP, func(object client.Object) []string {
 			svc := object.(*corev1.Service)
 			if len(svc.Labels) == 0 || svc.Labels[nodeservice.ServiceClusterLabel] != translate.VClusterName {
 				return nil
@@ -28,7 +28,7 @@ func RegisterIndices(ctx *synccontext.RegisterContext) error {
 	}
 
 	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &corev1.Node{}, constants.IndexByHostName, func(rawObj client.Object) []string {
-		return []string{nodes.GetNodeHost(rawObj.GetName()), nodes.GetNodeHostLegacy(rawObj.GetName(), ctx.Config.WorkloadNamespace)}
+		return []string{nodes.GetNodeHost(rawObj.GetName()), nodes.GetNodeHostLegacy(rawObj.GetName(), ctx.Config.HostNamespace)}
 	})
 	if err != nil {
 		return err

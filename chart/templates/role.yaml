@@ -14,7 +14,7 @@ metadata:
 {{- end }}
   labels:
     app: vcluster
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
   {{- if .Values.controlPlane.advanced.globalMetadata.annotations }}
@@ -25,19 +25,31 @@ rules:
   {{- if .Values.rbac.role.overwriteRules }}
 {{ toYaml .Values.rbac.role.overwriteRules | indent 2 }}
   {{- else }}
+  {{- if .Values.privateNodes.enabled}}
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services", "pods", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  {{- else }}
   - apiGroups: [""]
     resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/portforward", "pods/exec", "persistentvolumeclaims"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   - apiGroups: [""]
     resources: ["pods/status", "pods/ephemeralcontainers"]
     verbs: ["patch", "update"]
+  {{- end }}
   - apiGroups: ["apps"]
     resources: ["statefulsets", "replicasets", "deployments"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
-    resources: ["endpoints", "events", "pods/log"]
+    resources: ["endpoints", "pods/log"]
     verbs: ["get", "list", "watch"]
-  {{- if or .Values.sync.toHost.endpoints.enabled .Values.experimental.isolatedControlPlane.headless }}
+  - apiGroups: [ "" ]
+    resources: ["events"]
+    verbs: [ "create", "get", "list", "watch" ]
+  {{- if .Values.sync.toHost.endpoints.enabled }}
   - apiGroups: [""]
     resources: ["endpoints"]
     verbs: ["create", "delete", "patch", "update"]
@@ -94,13 +106,11 @@ rules:
     resources: ["virtualmachines", "virtualmachines/status", "virtualmachineinstances", "virtualmachineinstances/status", "virtualmachineinstancemigrations", "virtualmachineinstancemigrations/status"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
-  {{- if  .Values.integrations.externalSecrets.enabled }}
-  {{- if  .Values.integrations.externalSecrets.sync.externalSecrets.enabled }}
+  {{- if .Values.integrations.externalSecrets.enabled }}
   - apiGroups: ["external-secrets.io"]
     resources: ["externalsecrets"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
-  {{- end }}
-  {{- if   .Values.integrations.externalSecrets.sync.stores.enabled }}
+  {{- if .Values.integrations.externalSecrets.sync.toHost.stores.enabled }}
   - apiGroups: ["external-secrets.io"]
     resources: ["secretstores"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
@@ -128,7 +138,6 @@ rules:
   {{- end }}
   {{- include "vcluster.customResources.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
-  {{- include "vcluster.generic.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.rbac.roleExtraRules" . | indent 2 }}
   {{- end }}
 {{- end }}

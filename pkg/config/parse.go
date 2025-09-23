@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/strvals"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -26,8 +27,19 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 		return nil, err
 	}
 
+	cfg, err := ParseConfigBytes(rawFile, name, setValues)
+	if err != nil {
+		return nil, fmt.Errorf("parsing config bytes: %w", err)
+	}
+
+	cfg.Path = path
+
+	return cfg, nil
+}
+
+func ParseConfigBytes(data []byte, name string, setValues []string) (*VirtualClusterConfig, error) {
 	// apply set values
-	rawFile, err = applySetValues(rawFile, setValues)
+	rawFile, err := applySetValues(data, setValues)
 	if err != nil {
 		return nil, fmt.Errorf("apply set values: %w", err)
 	}
@@ -42,15 +54,20 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 
 	// build config
 	retConfig := &VirtualClusterConfig{
-		Config:              *rawConfig,
-		Name:                name,
-		ControlPlaneService: name,
+		Config: *rawConfig,
+		Name:   name,
 	}
 
 	// validate config
 	err = ValidateConfigAndSetDefaults(retConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	configLogger := loghelper.New("config")
+	warnings := Lint(retConfig.Config)
+	for _, warning := range warnings {
+		configLogger.Infof("Warning: %s", warning)
 	}
 
 	return retConfig, nil

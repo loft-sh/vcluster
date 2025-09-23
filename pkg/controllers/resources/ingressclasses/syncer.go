@@ -3,33 +3,35 @@ package ingressclasses
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/mappings/generic"
-	"github.com/loft-sh/vcluster/pkg/patcher"
-	"github.com/loft-sh/vcluster/pkg/pro"
-	"github.com/loft-sh/vcluster/pkg/syncer"
-	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/loft-sh/vcluster/pkg/mappings/generic"
+	"github.com/loft-sh/vcluster/pkg/patcher"
+	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/syncer"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/syncer/translator"
+	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 )
 
-func New(_ *synccontext.RegisterContext) (syncertypes.Object, error) {
+func New(registerCtx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := generic.NewMirrorMapper(&networkingv1.IngressClass{})
 	if err != nil {
 		return nil, err
 	}
 
 	return &ingressClassSyncer{
-		Mapper: mapper,
+		GenericTranslator: translator.NewGenericTranslator(registerCtx, "ingressclass", &networkingv1.IngressClass{}, mapper),
 	}, nil
 }
 
 type ingressClassSyncer struct {
-	synccontext.Mapper
+	syncertypes.GenericTranslator
 }
 
 func (i *ingressClassSyncer) Name() string {
@@ -47,10 +49,19 @@ func (i *ingressClassSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*networkingv1.IngressClass]) (ctrl.Result, error) {
+	matches, err := ctx.Config.Sync.FromHost.IngressClasses.Selector.Matches(event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("check ingress class selector: %w", err)
+	}
+	if !matches {
+		ctx.Log.Infof("Warning: did not sync ingress class %q because it does not match the selector under 'sync.fromHost.ingressClasses.selector'", event.Host.Name)
+		return ctrl.Result{}, nil
+	}
+
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
 
 	// Apply pro patches
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.IngressClasses.Patches, true)
+	err = pro.ApplyPatchesVirtualObject(ctx, vObj, event.Host, ctx.Config.Sync.FromHost.IngressClasses.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
@@ -60,6 +71,14 @@ func (i *ingressClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 }
 
 func (i *ingressClassSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*networkingv1.IngressClass]) (_ ctrl.Result, retErr error) {
+	matches, err := ctx.Config.Sync.FromHost.IngressClasses.Selector.Matches(event.Host)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("check ingress class selector: %w", err)
+	}
+	if !matches {
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.Host, fmt.Sprintf("did not sync ingress class %q because it does not match the selector under 'sync.fromHost.ingressClasses.selector'", event.Host.Name))
+	}
+
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.IngressClasses.Patches, true))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)

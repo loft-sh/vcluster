@@ -34,25 +34,42 @@ tests:
       - hasDocuments:
           count: 0
 
-  - it: enable isolated control plane
+  - it: enable scheduler (k8s distro explicitly enabled)
     set:
-      experimental:
-        isolatedControlPlane:
-          enabled: true
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            scheduler:
+              enabled: true
+    asserts:
+    - hasDocuments:
+        count: 1
+    - contains:
+        path: rules
+        content:
+          apiGroups: [ "storage.k8s.io" ]
+          resources: [ "storageclasses", "csinodes", "csidrivers", "csistoragecapacities" ]
+          verbs: [ "get", "watch", "list" ]
+
+  - it: enable scheduler (k8s distro implicitly enabled)
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            scheduler:
+              enabled: true
     asserts:
       - hasDocuments:
-          count: 1
-      - lengthEqual:
-          path: rules
           count: 1
       - contains:
           path: rules
           content:
-            apiGroups: [ "" ]
-            resources: [ "nodes" ]
+            apiGroups: [ "storage.k8s.io" ]
+            resources: [ "storageclasses", "csinodes", "csidrivers", "csistoragecapacities" ]
             verbs: [ "get", "watch", "list" ]
 
-  - it: enable scheduler
+  - it: enable scheduler (deprecated)
     set:
       controlPlane:
         advanced:
@@ -67,6 +84,19 @@ tests:
             apiGroups: [ "storage.k8s.io" ]
             resources: [ "storageclasses", "csinodes", "csidrivers", "csistoragecapacities" ]
             verbs: [ "get", "watch", "list" ]
+
+  - it: scheduler not enabled for k3s
+    set:
+      controlPlane:
+        distro:
+          k3s:
+            enabled: true
+          k8s:
+            scheduler:
+              enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
 
   - it: enable hybrid scheduling
     set:
@@ -414,6 +444,9 @@ tests:
             test.test-group:
               enabled: true
               scope: Cluster
+            test.test-versioned-group/v1alpha1:
+              enabled: true
+              scope: Cluster
     release:
       name: my-release
       namespace: my-namespace
@@ -422,11 +455,17 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 3
       - contains:
           path: rules
           content:
             apiGroups: [ "test-group" ]
+            resources: [ "test" ]
+            verbs: [ "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "test-versioned-group" ]
             resources: [ "test" ]
             verbs: [ "get", "list", "watch" ]
       - contains:
@@ -443,8 +482,9 @@ tests:
           webhook:
             enabled: true
           sync:
-            clusterStores:
-              enabled: true
+            fromHost:
+              clusterStores:
+                enabled: true
     release:
       name: my-release
       namespace: my-namespace

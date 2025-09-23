@@ -5,9 +5,15 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/spf13/cobra"
 )
+
+const FlagNameProject = "project"
+
+var platformFlags = []string{FlagNameProject}
 
 func AddCommonFlags(cmd *cobra.Command, options *cli.ConnectOptions) {
 	cmd.Flags().StringVar(&options.KubeConfigContextName, "kube-config-context-name", "", "If set, will override the context name of the generated virtual cluster kube config with this name")
@@ -23,7 +29,7 @@ func AddCommonFlags(cmd *cobra.Command, options *cli.ConnectOptions) {
 	cmd.Flags().IntVar(&options.ServiceAccountExpiration, "token-expiration", 0, "If specified, vCluster will create the service account token for the given duration in seconds. Defaults to eternal")
 	cmd.Flags().BoolVar(&options.Insecure, "insecure", false, "If specified, vCluster will create the kube config with insecure-skip-tls-verify")
 	cmd.Flags().BoolVar(&options.BackgroundProxy, "background-proxy", true, "Try to use a background-proxy to access the vCluster. Only works if docker is installed and reachable")
-	cmd.Flags().StringVar(&options.BackgroundProxyImage, "background-proxy-image", constants.DefaultBackgroundProxyImage, "The image to use for the background proxy. Only used if --background-proxy is enabled.")
+	cmd.Flags().StringVar(&options.BackgroundProxyImage, "background-proxy-image", constants.DefaultBackgroundProxyImage(upgrade.GetVersion()), "The image to use for the background proxy. Only used if --background-proxy is enabled.")
 
 	// deprecated
 	_ = cmd.Flags().MarkDeprecated("kube-config", fmt.Sprintf("please use %q to write the kubeconfig of the virtual cluster to stdout.", "vcluster connect --print"))
@@ -34,5 +40,9 @@ func AddCommonFlags(cmd *cobra.Command, options *cli.ConnectOptions) {
 func AddPlatformFlags(cmd *cobra.Command, options *cli.ConnectOptions, prefixes ...string) {
 	prefix := strings.Join(prefixes, "")
 
-	cmd.Flags().StringVar(&options.Project, "project", "", fmt.Sprintf("%sThe platform project the vCluster is in", prefix))
+	cmd.Flags().StringVar(&options.Project, FlagNameProject, "", fmt.Sprintf("%sThe platform project the vCluster is in", prefix))
+}
+
+func ChangedPlatformFlags(cmd *cobra.Command) map[string]bool {
+	return flags.ChangedFlags(cmd, platformFlags)
 }

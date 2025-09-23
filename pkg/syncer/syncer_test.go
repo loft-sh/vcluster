@@ -228,7 +228,7 @@ func TestController(t *testing.T) {
 		syncer, err := NewMockSyncer(fakeContext)
 		assert.NilError(t, err)
 
-		assert.Check(t, fakeContext.Config.WorkloadConfig != nil)
+		assert.Check(t, fakeContext.Config.HostConfig != nil)
 
 		syncController, err := NewSyncController(fakeContext, syncer)
 		assert.NilError(t, err)
@@ -258,7 +258,7 @@ func TestController(t *testing.T) {
 		// Compare states
 		if tc.ExpectedPhysicalState != nil {
 			for gvk, objs := range tc.ExpectedPhysicalState {
-				err := syncertesting.CompareObjs(ctx, t, tc.Name+" physical state", fakeContext.PhysicalManager.GetClient(), gvk, scheme.Scheme, objs, tc.Compare)
+				err := syncertesting.CompareObjs(ctx, t, tc.Name+" physical state", fakeContext.HostManager.GetClient(), gvk, scheme.Scheme, objs, tc.Compare)
 				if err != nil {
 					t.Fatalf("%s - Physical State mismatch: %v", tc.Name, err)
 				}
@@ -585,11 +585,12 @@ func TestReconcile(t *testing.T) {
 			options:       options,
 
 			objectCache: synccontext.NewBidirectionalObjectCache(syncer.Resource(), syncer),
+			config:      fakeContext.Config,
 		}
 
 		// create objects
 		for _, pObj := range tc.CreatePhysicalObjects {
-			err = fakeContext.PhysicalManager.GetClient().Create(ctx, pObj)
+			err = fakeContext.HostManager.GetClient().Create(ctx, pObj)
 			assert.NilError(t, err)
 		}
 		for _, vObj := range tc.CreateVirtualObjects {
@@ -611,7 +612,7 @@ func TestReconcile(t *testing.T) {
 		// Compare states
 		if tc.ExpectedPhysicalState != nil {
 			for gvk, objs := range tc.ExpectedPhysicalState {
-				err := syncertesting.CompareObjs(ctx, t, tc.Name+" physical state", fakeContext.PhysicalManager.GetClient(), gvk, scheme.Scheme, objs, tc.Compare)
+				err := syncertesting.CompareObjs(ctx, t, tc.Name+" physical state", fakeContext.HostManager.GetClient(), gvk, scheme.Scheme, objs, tc.Compare)
 				if err != nil {
 					t.Fatalf("%s - Physical State mismatch: %v", tc.Name, err)
 				}

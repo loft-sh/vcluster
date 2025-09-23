@@ -54,6 +54,8 @@ func MigrateK3sToK8s(ctx context.Context, currentNamespaceClient kubernetes.Inte
 		return nil
 	} else if _, err := os.Stat("/data/server/tls"); err != nil { // fast path
 		return nil
+	} else if options.Config.PrivateNodes.Enabled {
+		return nil
 	}
 
 	// migrate data first
@@ -146,6 +148,8 @@ func MigrateK3sToK8sStateless(ctx context.Context, currentNamespaceClient kubern
 	if options.Distro() != vclusterconfig.K8SDistro {
 		return nil
 	} else if options.BackingStoreType() != vclusterconfig.StoreTypeDeployedEtcd && options.BackingStoreType() != vclusterconfig.StoreTypeExternalEtcd && options.BackingStoreType() != vclusterconfig.StoreTypeExternalDatabase {
+		return nil
+	} else if options.PrivateNodes.Enabled {
 		return nil
 	}
 

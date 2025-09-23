@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/authentication/delegatingauthenticator"
@@ -25,6 +26,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/serverhelper"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
@@ -55,33 +57,20 @@ import (
 
 // Server is a http.Handler which proxies Kubernetes APIs to remote API server.
 type Server struct {
-	uncachedVirtualClient  client.Client
-	cachedVirtualClient    client.Client
-	currentNamespaceClient client.Client
-	certSyncer             cert.Syncer
-	handler                *http.ServeMux
-	currentNamespace       string
-	requestHeaderCaFile    string
-	clientCaFile           string
-	redirectResources      []delegatingauthorizer.GroupVersionResourceVerb
-	fakeKubeletIPs         bool
-
-	dedicatedMode bool
+	uncachedVirtualClient client.Client
+	cachedVirtualClient   client.Client
+	certSyncer            cert.Syncer
+	handler               *http.ServeMux
+	requestHeaderCaFile   string
+	clientCaFile          string
+	redirectResources     []delegatingauthorizer.GroupVersionResourceVerb
 }
 
 // NewServer creates and installs a new Server.
 // 'filter', if non-nil, protects requests to the api only.
 func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 	registerCtx := ctx.ToRegisterContext()
-	localConfig := ctx.LocalManager.GetConfig()
 	virtualConfig := ctx.VirtualManager.GetConfig()
-	uncachedLocalClient, err := client.New(localConfig, client.Options{
-		Scheme: ctx.LocalManager.GetScheme(),
-		Mapper: ctx.LocalManager.GetRESTMapper(),
-	})
-	if err != nil {
-		return nil, err
-	}
 	uncachedVirtualClient, err := client.New(virtualConfig, client.Options{
 		Scheme: ctx.VirtualManager.GetScheme(),
 		Mapper: ctx.VirtualManager.GetRESTMapper(),
@@ -92,7 +81,6 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 
 	// wrap clients
 	uncachedVirtualClient = pluginhookclient.WrapVirtualClient(uncachedVirtualClient)
-	uncachedLocalClient = pluginhookclient.WrapPhysicalClient(uncachedLocalClient)
 
 	certSyncer, err := cert.NewSyncer(ctx)
 	if err != nil {
@@ -104,11 +92,6 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 		cachedVirtualClient:   ctx.VirtualManager.GetClient(),
 		certSyncer:            certSyncer,
 		handler:               http.NewServeMux(),
-
-		fakeKubeletIPs: ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
-
-		currentNamespace:       ctx.Config.WorkloadNamespace,
-		currentNamespaceClient: ctx.WorkloadNamespaceClient,
 
 		requestHeaderCaFile: ctx.Config.VirtualClusterKubeConfig().RequestHeaderCACert,
 		clientCaFile:        ctx.Config.VirtualClusterKubeConfig().ClientCACert,
@@ -139,8 +122,6 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 				SubResource:          "log",
 			},
 		},
-
-		dedicatedMode: ctx.Config.PrivateNodes.Enabled,
 	}
 
 	// init plugins
@@ -158,6 +139,16 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 
 	// add filters if not dedicated
 	if !ctx.Config.PrivateNodes.Enabled {
+		localConfig := ctx.HostManager.GetConfig()
+		uncachedLocalClient, err := client.New(localConfig, client.Options{
+			Scheme: ctx.HostManager.GetScheme(),
+			Mapper: ctx.HostManager.GetRESTMapper(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		uncachedLocalClient = pluginhookclient.WrapPhysicalClient(uncachedLocalClient)
+
 		h = filters.WithServiceCreateRedirect(h, registerCtx, uncachedLocalClient, uncachedVirtualClient)
 		h = filters.WithRedirect(h, registerCtx, uncachedVirtualClient, admissionHandler, s.redirectResources)
 		h = filters.WithK8sMetrics(h, registerCtx)
@@ -169,6 +160,10 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 		}
 		h = filters.WithFakeKubelet(h, ctx.ToRegisterContext())
 		h = filters.WithK3sConnect(h)
+
+		if ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled {
+			h = filters.WithPodSchedulerCheck(h, ctx.ToRegisterContext(), ctx.VirtualManager.GetClient())
+		}
 	}
 
 	if os.Getenv("DEBUG") == "true" {
@@ -185,17 +180,25 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 }
 
 // ServeOnListenerTLS starts the server using given listener with TLS, loops forever until an error occurs
-func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan struct{}) error {
+func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 	// kubernetes build handler configuration
 	serverConfig := server.NewConfig(serializer.NewCodecFactory(s.uncachedVirtualClient.Scheme()))
 	serverConfig.RequestInfoResolver = &request.RequestInfoFactory{
 		APIPrefixes:          sets.NewString("api", "apis"),
 		GrouplessAPIPrefixes: sets.NewString("api"),
 	}
-	serverConfig.LongRunningFunc = genericfilters.BasicLongRunningRequestCheck(
-		sets.NewString("watch", "proxy"),
-		sets.NewString("attach", "exec", "proxy", "log", "portforward"),
-	)
+	serverConfig.LongRunningFunc = func(r *http.Request, requestInfo *request.RequestInfo) bool {
+		// internal registry requests are long running
+		if !requestInfo.IsResourceRequest && strings.HasPrefix(requestInfo.Path, "/v2") {
+			return true
+		}
+
+		// use the default long running check
+		return genericfilters.BasicLongRunningRequestCheck(
+			sets.NewString("watch", "proxy"),
+			sets.NewString("attach", "exec", "proxy", "log", "portforward"),
+		)(r, requestInfo)
+	}
 
 	redirectAuthResources := []delegatingauthorizer.GroupVersionResourceVerb{
 		{
@@ -204,10 +207,54 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 			SubResource:          "",
 		},
 	}
+	redirectAuthNonResources := []delegatingauthorizer.PathVerb{}
 	redirectAuthResources = append(redirectAuthResources, s.redirectResources...)
+	if ctx.Config.Integrations.MetricsServer.Enabled {
+		redirectAuthResources = append(redirectAuthResources,
+			delegatingauthorizer.GroupVersionResourceVerb{
+				GroupVersionResource: schema.GroupVersionResource{
+					Group:    "metrics.k8s.io",
+					Version:  "*",
+					Resource: "*",
+				},
+				Verb:        "*",
+				SubResource: "*",
+			},
+		)
+	}
+	if ctx.Config.Integrations.KubeVirt.Enabled {
+		redirectAuthResources = append(redirectAuthResources,
+			delegatingauthorizer.GroupVersionResourceVerb{
+				GroupVersionResource: schema.GroupVersionResource{
+					Group:    "subresources.kubevirt.io",
+					Version:  "*",
+					Resource: "*",
+				},
+				Verb:        "*",
+				SubResource: "*",
+			},
+		)
+	}
+	if ctx.Config.ControlPlane.Advanced.Registry.Enabled {
+		if !ctx.Config.ControlPlane.Advanced.Registry.AnonymousPull {
+			redirectAuthNonResources = append(redirectAuthNonResources,
+				delegatingauthorizer.PathVerb{
+					Path: "/v2*",
+					Verb: "*",
+				},
+			)
+		} else {
+			redirectAuthNonResources = append(redirectAuthNonResources,
+				delegatingauthorizer.PathVerb{
+					Path: "/v2*",
+					Verb: "!head,get",
+				},
+			)
+		}
+	}
 	serverConfig.Authorization.Authorizer = union.New(
 		kubeletauthorizer.New(s.uncachedVirtualClient),
-		delegatingauthorizer.New(s.uncachedVirtualClient, redirectAuthResources, nil),
+		delegatingauthorizer.New(s.uncachedVirtualClient, redirectAuthResources, redirectAuthNonResources),
 		impersonationauthorizer.New(s.uncachedVirtualClient),
 		allowall.New(),
 	)
@@ -215,8 +262,8 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 	sso := koptions.NewSecureServingOptions()
 	sso.HTTP2MaxStreamsPerConnection = 1000
 	sso.ServerCert.GeneratedCert = s.certSyncer
-	sso.BindPort = port
-	sso.BindAddress = net.ParseIP(address)
+	sso.BindPort = ctx.Config.ControlPlane.Proxy.Port
+	sso.BindAddress = net.ParseIP(ctx.Config.ControlPlane.Proxy.BindAddress)
 	err := sso.WithLoopback().ApplyTo(&serverConfig.SecureServing, &serverConfig.LoopbackClientConfig)
 	if err != nil {
 		return err
@@ -243,8 +290,8 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 	serverConfig.Authentication.Authenticator = unionauthentication.NewFailOnError(authenticators...)
 
 	// create server
-	klog.Info("Starting tls proxy server at " + address + ":" + strconv.Itoa(port))
-	stopped, _, err := serverConfig.SecureServing.Serve(s.buildHandlerChain(serverConfig), serverConfig.RequestTimeout, stopChan)
+	klog.Info("Starting tls proxy server at " + ctx.Config.ControlPlane.Proxy.BindAddress + ":" + strconv.Itoa(ctx.Config.ControlPlane.Proxy.Port))
+	stopped, _, err := serverConfig.SecureServing.Serve(s.buildHandlerChain(ctx, serverConfig), serverConfig.RequestTimeout, ctx.StopChan)
 	if err != nil {
 		return err
 	}
@@ -253,10 +300,10 @@ func (s *Server) ServeOnListenerTLS(address string, port int, stopChan <-chan st
 	return nil
 }
 
-func (s *Server) buildHandlerChain(serverConfig *server.Config) http.Handler {
+func (s *Server) buildHandlerChain(ctx *synccontext.ControllerContext, serverConfig *server.Config) http.Handler {
 	defaultHandler := DefaultBuildHandlerChain(s.handler, serverConfig)
-	if !s.dedicatedMode {
-		defaultHandler = filters.WithNodeName(defaultHandler, s.currentNamespace, s.fakeKubeletIPs, s.cachedVirtualClient, s.currentNamespaceClient)
+	if !ctx.Config.PrivateNodes.Enabled {
+		defaultHandler = filters.WithNodeName(defaultHandler, ctx.Config.HostNamespace, ctx.Config.Networking.Advanced.ProxyKubelets.ByIP, s.cachedVirtualClient, ctx.HostNamespaceClient)
 	}
 	return defaultHandler
 }
@@ -343,7 +390,7 @@ func DefaultBuildHandlerChain(apiHandler http.Handler, c *server.Config) http.Ha
 	// Original line:
 	// handler = genericapifilters.WithMuxAndDiscoveryComplete(handler, c.lifecycleSignals.MuxAndDiscoveryComplete.Signaled())
 	handler = genericapifilters.WithMuxAndDiscoveryComplete(handler, make(chan struct{}))
-	handler = genericfilters.WithPanicRecovery(handler, c.RequestInfoResolver)
+	handler = filters.WithPanicRecovery(handler, c.RequestInfoResolver)
 	handler = genericapifilters.WithAuditInit(handler)
 	return handler
 }

@@ -5,6 +5,15 @@ import (
 	"maps"
 	"testing"
 
+	"gotest.tools/assert"
+	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/pod-security-admission/api"
+	"k8s.io/utils/ptr"
+
 	"github.com/loft-sh/vcluster/pkg/config"
 	podtranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
@@ -12,13 +21,6 @@ import (
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"gotest.tools/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/pod-security-admission/api"
-	"k8s.io/utils/ptr"
 )
 
 var (
@@ -588,36 +590,12 @@ func TestSync(t *testing.T) {
 		},
 	}
 
-	testNodeName := "test123"
-	pVclusterNodeService := pVclusterService.DeepCopy()
-	pVclusterNodeService.Name = translate.SafeConcatName(testingutil.DefaultTestVClusterName, "node", testNodeName)
-
-	pPodFakeKubelet := pPodBase.DeepCopy()
-	pPodFakeKubelet.Spec.NodeName = testNodeName
-	pPodFakeKubelet.Status.HostIP = "3.3.3.3"
-	pPodFakeKubelet.Status.HostIPs = []corev1.HostIP{
-		{IP: "3.3.3.3"},
-	}
-
-	vPodWithNodeName := &corev1.Pod{
-		ObjectMeta: vObjectMeta,
-		Spec: corev1.PodSpec{
-			NodeName: testNodeName,
-		},
-	}
-	vPodWithHostIP := vPodWithNodeName.DeepCopy()
-	vPodWithHostIP.Status.HostIP = pVclusterService.Spec.ClusterIP
-	vPodWithHostIP.Status.HostIPs = []corev1.HostIP{
-		{IP: pVclusterService.Spec.ClusterIP},
-	}
-
-	testNode := &corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: testNodeName,
-		},
-	}
-
 	priorityClassName := "high-priority"
+	pPriorityClass := &schedulingv1.PriorityClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: priorityClassName,
+		},
+	}
 	vPodWithoutPriorityClass := &corev1.Pod{
 		ObjectMeta: vObjectMeta,
 		Spec:       corev1.PodSpec{},
@@ -625,7 +603,7 @@ func TestSync(t *testing.T) {
 	vPodWithPriorityClass := &corev1.Pod{
 		ObjectMeta: vObjectMeta,
 		Spec: corev1.PodSpec{
-			PriorityClassName: priorityClassName,
+			PriorityClassName: pPriorityClass.Name,
 		},
 	}
 	pPodWithPriorityClass := &corev1.Pod{
@@ -639,7 +617,7 @@ func TestSync(t *testing.T) {
 			}},
 			Hostname:           vPodWithPriorityClass.Name,
 			ServiceAccountName: "vc-workload-vcluster",
-			PriorityClassName:  priorityClassName,
+			PriorityClassName:  pPriorityClass.Name,
 		},
 	}
 	pPodWithTranslatedPriorityClass := pPodWithPriorityClass.DeepCopy()
@@ -664,24 +642,9 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
-			Name:                 "Fake Kubelet enabled with Node sync",
-			InitialVirtualState:  []runtime.Object{testNode.DeepCopy(), vPodWithNodeName, vNamespace.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{testNode.DeepCopy(), pVclusterNodeService.DeepCopy(), pPodFakeKubelet.DeepCopy()},
-			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				corev1.SchemeGroupVersion.WithKind("Pod"): {vPodWithHostIP},
-			},
-			Sync: func(ctx *synccontext.RegisterContext) {
-				ctx.Config.Sync.FromHost.Nodes.Selector.All = true
-				ctx.Config.Networking.Advanced.ProxyKubelets.ByIP = true
-				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
-				_, err := syncer.(*podSyncer).Sync(syncContext, synccontext.NewSyncEventWithOld(pPodFakeKubelet, pPodFakeKubelet, vPodWithNodeName, vPodWithNodeName))
-				assert.NilError(t, err)
-			},
-		},
-		{
 			Name:                 "From Host PriorityClasses sync enabled",
 			InitialVirtualState:  []runtime.Object{vPodWithPriorityClass, vNamespace.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pPriorityClass, pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
 				corev1.SchemeGroupVersion.WithKind("Pod"): {pPodWithPriorityClass},
 			},

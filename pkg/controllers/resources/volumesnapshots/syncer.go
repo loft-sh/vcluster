@@ -13,7 +13,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
-	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,7 +76,7 @@ func (s *volumeSnapshotSyncer) SyncToHost(ctx *synccontext.SyncContext, event *s
 		return ctrl.Result{}, err
 	}
 
-	err = pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.VolumeSnapshots.Patches, false)
+	err = pro.ApplyPatchesHostObject(ctx, pObj, event.Virtual, ctx.Config.Sync.ToHost.VolumeSnapshots.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

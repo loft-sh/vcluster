@@ -15,3 +15,14 @@
 {{ .repository }}:{{ .tag }}
 {{- end -}}
 {{- end -}}
+
+
+{{- define "vcluster.version.label" -}}
+{{- $rawLabel := printf "%s-%s" .Chart.Name .Chart.Version -}}
+{{- $sanitized := replace "+" "_" $rawLabel | replace "@" "_" -}}
+{{- if gt (len $sanitized) 63 -}}
+{{- $sanitized | trunc 63 -}}
+{{- else -}}
+{{- $sanitized -}}
+{{- end -}}
+{{- end -}}

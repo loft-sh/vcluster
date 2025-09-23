@@ -28,7 +28,10 @@ sync:
       rewriteHosts:
         enabled: true
         initContainer:
-          image: "library/alpine:3.20"
+          image:
+            registry: "mirror.gcr.io"
+            repository: library/alpine
+            tag: "3.20"
           resources:
             limits:
               cpu: 30m
@@ -102,7 +105,7 @@ controlPlane:
       image:
         registry: ghcr.io
         repository: "loft-sh/kubernetes"
-        tag: "v1.32.1"
+        tag: "v1.33.4"
       apiServer:
         enabled: true
         command: []
@@ -112,6 +115,7 @@ controlPlane:
         command: []
         extraArgs: []
       scheduler:
+        enabled: false
         command: []
         extraArgs: []
       env: []
@@ -132,7 +136,7 @@ controlPlane:
       image:
         registry: ""
         repository: "rancher/k3s"
-        tag: "v1.32.1-k3s1"
+        tag: "v1.33.3-k3s1"
       securityContext: {}
       resources:
         limits:
@@ -146,6 +150,7 @@ controlPlane:
     database:
       embedded:
         enabled: false
+        extraArgs: []
       external:
         enabled: false
         dataSource: ""
@@ -153,10 +158,12 @@ controlPlane:
         certFile: ""
         keyFile: ""
         caFile: ""
+        extraArgs: []
     etcd:
       embedded:
         enabled: false
         migrateFromDeployedEtcd: false
+        extraArgs: []
       external:
         enabled: false
         endpoint: ""
@@ -174,7 +181,7 @@ controlPlane:
           image:
             registry: "registry.k8s.io"
             repository: "etcd"
-            tag: "3.5.21-0"
+            tag: "3.6.4-0"
           imagePullPolicy: ""
           extraArgs: []
           env: []
@@ -279,6 +286,13 @@ controlPlane:
     spec:
       tls: []
 
+  standalone:
+    dataDir: "/var/lib/vcluster"
+    joinNode:
+      enabled: true
+      containerd:
+        enabled: true
+
   statefulSet:
     labels: {}
     annotations: {}
@@ -298,7 +312,7 @@ controlPlane:
         ephemeral-storage: 8Gi
         memory: 2Gi
       requests:
-        ephemeral-storage: 400Mi
+        ephemeral-storage: 1Gi
         cpu: 200m
         memory: 256Mi
 
@@ -347,10 +361,20 @@ controlPlane:
     probes:
       livenessProbe:
         enabled: true
+        failureThreshold: 60
+        initialDelaySeconds: 60
+        timeoutSeconds: 3
+        periodSeconds: 2
       readinessProbe:
         enabled: true
+        failureThreshold: 60
+        timeoutSeconds: 3
+        periodSeconds: 2
       startupProbe:
         enabled: true
+        failureThreshold: 300
+        timeoutSeconds: 3
+        periodSeconds: 6
 
   serviceMonitor:
     enabled: false
@@ -382,15 +406,74 @@ controlPlane:
       annotations: {}
 
     konnectivity:
+      server:
+        enabled: true
+        extraArgs: []
+      agent:
+        enabled: true
+        replicas: 1
+        image: ""
+        imagePullPolicy: ""
+        nodeSelector: {}
+        tolerations: []
+        extraEnv: []
+        extraArgs: []
+
+    cloudControllerManager:
       enabled: true
+
+    registry:
+      enabled: false
+      anonymousPull: true
+      config: {}
 
     globalMetadata:
       annotations: {}
 
 privateNodes:
   enabled: false
+  kubelet:
+    config: {}
+  autoUpgrade:
+    enabled: true
+    concurrency: 1
+  joinNode:
+    containerd:
+      enabled: true
+  autoNodes:
+    static: []
+    dynamic: []
+  vpn:
+    enabled: false
+    nodeToNode:
+      enabled: false
+deploy:
+  localPathProvisioner:
+    enabled: true
+  cni:
+    flannel:
+      enabled: true
   kubeProxy:
     enabled: true
+    image: ""
+    imagePullPolicy: ""
+    nodeSelector: {}
+    tolerations: []
+    extraEnv: []
+    extraArgs: []
+    config: {}
+  metallb:
+    enabled: false
+    ipAddressPool:
+      addresses: []
+      l2Advertisement: true
+  ingressNginx:
+    enabled: false
+    defaultIngressClass: true
+  metricsServer:
+    enabled: false
+  volumeSnapshotController:
+    enabled: false
 
 integrations:
   metricsServer:
@@ -402,14 +485,19 @@ integrations:
     webhook:
       enabled: false
     sync:
-      externalSecrets:
-        enabled: true
-      stores:
-        enabled: false
-      clusterStores:
-        enabled: false
-        selector:
-          labels: {}
+      toHost:
+        externalSecrets:
+          selector:
+            matchLabels: {}
+        stores:
+          enabled: false
+          selector:
+            matchLabels: {}
+      fromHost:
+        clusterStores:
+          enabled: false
+          selector:
+            matchLabels: {}
   kubeVirt:
     enabled: false
     webhook:
@@ -554,11 +642,7 @@ plugins: {}
 
 experimental:
   syncSettings:
-    targetNamespace: ""
     setOwner: true
-
-  isolatedControlPlane:
-    headless: false
 
   deploy:
     host:
@@ -569,11 +653,8 @@ experimental:
       manifestsTemplate: ""
       helm: []
 
-  genericSync:
-    clusterRole:
-      extraRules: []
-    role:
-      extraRules: []
-
 telemetry:
   enabled: true
+
+logging:
+  encoding: console
