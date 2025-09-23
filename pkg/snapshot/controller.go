@@ -141,7 +141,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return ctrl.Result{}, fmt.Errorf("failed to add vCluster snapshot controller finalizer to the snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
 		if updated {
-			c.eventRecorder.Eventf(&configMap, corev1.EventTypeNormal, "SnapshotRequestCreated", "Snapshot request %s/%s has been created", configMap.Namespace, configMap.Name)
+			c.eventRecorder.Eventf(&configMap, corev1.EventTypeNormal, "Created", "Snapshot request %s/%s has been created", configMap.Namespace, configMap.Name)
 			return ctrl.Result{}, nil
 		}
 	}
@@ -272,10 +272,10 @@ func (c *Reconciler) reconcileNewRequest(_ context.Context, configMap *corev1.Co
 			Requests: []volumes.SnapshotRequest{},
 		}
 		snapshotRequest.Status.Phase = RequestPhaseCreatingVolumeSnapshots
-		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCreatingVolumeSnapshots", "Started to create volume snapshots for snapshot request %s/%s", configMap.Namespace, configMap.Name)
+		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "CreatingVolumeSnapshots", "Started to create volume snapshots for snapshot request %s/%s", configMap.Namespace, configMap.Name)
 	} else {
 		snapshotRequest.Status.Phase = RequestPhaseCreatingEtcdBackup
-		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCreatingEtcdBackup", "Started to create etcd backup for snapshot request %s/%s", configMap.Namespace, configMap.Name)
+		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "CreatingEtcdBackup", "Started to create etcd backup for snapshot request %s/%s", configMap.Namespace, configMap.Name)
 	}
 	return nil
 }
@@ -334,7 +334,7 @@ func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap 
 
 	// All done, now update the snapshot request phase to "Completed"! ✅
 	snapshotRequest.Status.Phase = RequestPhaseCompleted
-	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SnapshotRequestCompleted", "Snapshot request %s/%s has been completed", configMap.Namespace, configMap.Name)
+	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "Completed", "Snapshot request %s/%s has been completed", configMap.Namespace, configMap.Name)
 	return false, nil
 }
 
