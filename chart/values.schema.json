@@ -2262,6 +2262,10 @@
         "istio": {
           "$ref": "#/$defs/Istio",
           "description": "Istio syncs DestinationRules, Gateways and VirtualServices from virtual cluster to the host."
+        },
+        "netris": {
+          "type": "object",
+          "description": "Netris integration helps configuring netris networking for vCluster."
         }
       },
       "additionalProperties": false,

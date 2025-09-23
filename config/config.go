@@ -679,6 +679,9 @@ type Integrations struct {
 
 	// Istio syncs DestinationRules, Gateways and VirtualServices from virtual cluster to the host.
 	Istio Istio `json:"istio,omitempty"`
+
+	// Netris integration helps configuring netris networking for vCluster.
+	Netris map[string]interface{} `json:"netris,omitempty"`
 }
 
 // CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster
