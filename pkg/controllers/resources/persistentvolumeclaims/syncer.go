@@ -278,11 +278,11 @@ func (s *persistentVolumeClaimSyncer) isHostVolumeRestoreInProgress(ctx *synccon
 		if err != nil {
 			return false, fmt.Errorf("unmarshal restore request: %w", err)
 		}
-		restore, ok := restoreRequest.Status.VolumeSnapshots.Snapshots[pvcName]
+		volumeRestore, ok := restoreRequest.Status.VolumesRestore.PersistentVolumeClaims[pvcName]
 		if !ok {
 			continue
 		}
-		if !restore.Done() {
+		if !volumeRestore.Done() {
 			return true, nil
 		}
 	}

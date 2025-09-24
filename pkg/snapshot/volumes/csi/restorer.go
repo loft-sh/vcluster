@@ -56,7 +56,7 @@ func NewRestorer(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Cl
 }
 
 // Reconcile volumes restore request.
-func (r *Restorer) Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) error {
+func (r *Restorer) Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, request *volumes.RestoreRequestSpec, status *volumes.RestoreRequestStatus) error {
 	r.logger.Infof("Restore volumes for restore request %s", requestName)
 	var err error
 
@@ -80,7 +80,7 @@ func (r *Restorer) Reconcile(ctx context.Context, requestObj runtime.Object, req
 	return nil
 }
 
-func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.Object, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) (retErr error) {
+func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.Object, requestName string, request *volumes.RestoreRequestSpec, status *volumes.RestoreRequestStatus) (retErr error) {
 	r.logger.Infof("Reconciling in-progress volumes restore request %s", requestName)
 	if status.Phase != volumes.RequestPhaseInProgress {
 		return fmt.Errorf("invalid phase for snapshot request %s, expected %s, got %s", requestName, volumes.RequestPhaseInProgress, status.Phase)
@@ -101,18 +101,18 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 			Namespace: volumeRestoreRequest.PersistentVolumeClaim.Namespace,
 			Name:      volumeRestoreRequest.PersistentVolumeClaim.Name,
 		}.String()
-		snapshotStatus, ok := status.Snapshots[pvcName]
+		volumeRestoreStatus, ok := status.PersistentVolumeClaims[pvcName]
 		if !ok {
-			continue
+			return fmt.Errorf("failed to find status for PVC %s in restore snapshot request %s", pvcName, requestName)
 		}
 
-		switch snapshotStatus.Phase {
+		switch volumeRestoreStatus.Phase {
 		case volumes.RequestPhaseNotStarted:
-			snapshotStatus.Phase = volumes.RequestPhaseInProgress
+			volumeRestoreStatus.Phase = volumes.RequestPhaseInProgress
 			fallthrough
 		case volumes.RequestPhaseInProgress:
-			newStatus, err := r.reconcileInProgressPVC(ctx, requestObj, requestName, volumeRestoreRequest, snapshotStatus)
-			status.Snapshots[pvcName] = newStatus
+			newStatus, err := r.reconcileInProgressPVC(ctx, requestObj, requestName, volumeRestoreRequest, volumeRestoreStatus)
+			status.PersistentVolumeClaims[pvcName] = newStatus
 			if err != nil {
 				r.logger.Errorf("failed to reconcile in-progress volumes restore request %s for PVC %s: %v", requestName, pvcName, err)
 			}
@@ -128,7 +128,7 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 		case volumes.RequestPhaseFailed:
 			r.logger.Errorf("Failed to restore PVC %s", pvcName)
 		default:
-			return fmt.Errorf("invalid restore request phase %s for PVC %s in restore snapshot request %s", snapshotStatus.Phase, pvcName, requestName)
+			return fmt.Errorf("invalid restore request phase %s for PVC %s in restore snapshot request %s", volumeRestoreStatus.Phase, pvcName, requestName)
 		}
 	}
 
@@ -138,7 +138,7 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 	return nil
 }
 
-func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtime.Object, requestName string, volumeRestoreRequest volumes.SnapshotRequest, volumeRestoreStatus volumes.SnapshotStatus) (status volumes.SnapshotStatus, retErr error) {
+func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtime.Object, requestName string, volumeRestoreRequest volumes.RestoreRequest, volumeRestoreStatus volumes.RestoreStatus) (status volumes.RestoreStatus, retErr error) {
 	if volumeRestoreStatus.Phase != volumes.RequestPhaseInProgress {
 		return volumeRestoreStatus, fmt.Errorf("invalid phase for snapshot request %s, expected %s, got %s", requestName, volumes.RequestPhaseInProgress, volumeRestoreStatus.Phase)
 	}
@@ -175,7 +175,7 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtim
 	volumeSnapshotContent, err := r.snapshotsClient.SnapshotV1().VolumeSnapshotContents().Get(ctx, volumeSnapshotName, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
 		// create new VolumeSnapshotContent
-		volumeSnapshotContent, err = r.createVolumeSnapshotContentResource(ctx, requestName, volumeSnapshotName, volumeRestoreRequest, volumeRestoreStatus)
+		volumeSnapshotContent, err = r.createVolumeSnapshotContentResource(ctx, requestName, volumeSnapshotName, volumeRestoreRequest)
 		if err != nil {
 			return status, fmt.Errorf("failed to create VolumeSnapshotContent for the PersistentVolumeClaim %s: %w", pvcName, err)
 		}
@@ -339,12 +339,12 @@ func (r *Restorer) createVolumeSnapshotResource(ctx context.Context, requestName
 }
 
 // createVolumeSnapshotResource creates the pre-provisioned VolumeSnapshotContent from which the PVC will be restored
-func (r *Restorer) createVolumeSnapshotContentResource(ctx context.Context, requestName, volumeSnapshotName string, config volumes.SnapshotRequest, restoreStatus volumes.SnapshotStatus) (*snapshotsv1api.VolumeSnapshotContent, error) {
+func (r *Restorer) createVolumeSnapshotContentResource(ctx context.Context, requestName, volumeSnapshotName string, volumeRestoreRequest volumes.RestoreRequest) (*snapshotsv1api.VolumeSnapshotContent, error) {
 	r.logger.Debugf(
 		"Create VolumeSnapshotContent %s for PersistentVolumeClaim %s/%s for restore request %s",
 		volumeSnapshotName,
-		config.PersistentVolumeClaim.Namespace,
-		config.PersistentVolumeClaim.Name,
+		volumeRestoreRequest.PersistentVolumeClaim.Namespace,
+		volumeRestoreRequest.PersistentVolumeClaim.Name,
 		requestName)
 
 	volumeSnapshotContent := &snapshotsv1api.VolumeSnapshotContent{
@@ -352,26 +352,26 @@ func (r *Restorer) createVolumeSnapshotContentResource(ctx context.Context, requ
 			Name: volumeSnapshotName,
 			Labels: map[string]string{
 				meta.RestoreRequestLabel:       requestName,
-				persistentVolumeClaimNameLabel: config.PersistentVolumeClaim.Name,
+				persistentVolumeClaimNameLabel: volumeRestoreRequest.PersistentVolumeClaim.Name,
 			},
 		},
 		Spec: snapshotsv1api.VolumeSnapshotContentSpec{
 			DeletionPolicy: snapshotsv1api.VolumeSnapshotContentRetain,
-			Driver:         config.CSIDriver,
+			Driver:         volumeRestoreRequest.CSIDriver,
 			Source: snapshotsv1api.VolumeSnapshotContentSource{
-				SnapshotHandle: ptr.To(restoreStatus.SnapshotHandle),
+				SnapshotHandle: ptr.To(volumeRestoreRequest.SnapshotHandle),
 			},
 			VolumeSnapshotRef: corev1.ObjectReference{
 				Name:      volumeSnapshotName,
-				Namespace: config.PersistentVolumeClaim.Namespace,
+				Namespace: volumeRestoreRequest.PersistentVolumeClaim.Namespace,
 			},
 		},
 	}
-	if config.VolumeSnapshotClassName != "" {
-		volumeSnapshotContent.Spec.VolumeSnapshotClassName = &config.VolumeSnapshotClassName
+	if volumeRestoreRequest.VolumeSnapshotClassName != "" {
+		volumeSnapshotContent.Spec.VolumeSnapshotClassName = &volumeRestoreRequest.VolumeSnapshotClassName
 	}
-	if config.PersistentVolumeClaim.Spec.VolumeMode != nil {
-		volumeSnapshotContent.Spec.SourceVolumeMode = config.PersistentVolumeClaim.Spec.VolumeMode
+	if volumeRestoreRequest.PersistentVolumeClaim.Spec.VolumeMode != nil {
+		volumeSnapshotContent.Spec.SourceVolumeMode = volumeRestoreRequest.PersistentVolumeClaim.Spec.VolumeMode
 	}
 
 	var err error
@@ -379,18 +379,18 @@ func (r *Restorer) createVolumeSnapshotContentResource(ctx context.Context, requ
 	if err != nil {
 		return nil, fmt.Errorf(
 			"could not create VolumeSnapshotContent resource for the PersistentVolumeClaim %s/%s: %w",
-			config.PersistentVolumeClaim.Namespace,
-			config.PersistentVolumeClaim.Name,
+			volumeRestoreRequest.PersistentVolumeClaim.Namespace,
+			volumeRestoreRequest.PersistentVolumeClaim.Name,
 			err)
 	}
 	r.logger.Infof("Created VolumeSnapshotContent resource %s for the PersistentVolumeClaim %s/%s",
 		volumeSnapshotContent.Name,
-		config.PersistentVolumeClaim.Namespace,
-		config.PersistentVolumeClaim.Name)
+		volumeRestoreRequest.PersistentVolumeClaim.Namespace,
+		volumeRestoreRequest.PersistentVolumeClaim.Name)
 
 	return volumeSnapshotContent, nil
 }
-func (r *Restorer) inProgressPVCReconcileFinished(requestObj runtime.Object, volumeRestoreRequest volumes.SnapshotRequest, volumeRestoreStatus volumes.SnapshotStatus, err error) {
+func (r *Restorer) inProgressPVCReconcileFinished(requestObj runtime.Object, volumeRestoreRequest volumes.RestoreRequest, volumeRestoreStatus volumes.RestoreStatus, err error) {
 	var eventType, reason, messageFmt string
 	var args []interface{}
 
@@ -402,7 +402,7 @@ func (r *Restorer) inProgressPVCReconcileFinished(requestObj runtime.Object, vol
 		args = []interface{}{
 			volumeRestoreRequest.PersistentVolumeClaim.Namespace,
 			volumeRestoreRequest.PersistentVolumeClaim.Name,
-			volumeRestoreStatus.SnapshotHandle,
+			volumeRestoreRequest.SnapshotHandle,
 		}
 	case volumes.RequestPhaseFailed:
 		eventType = corev1.EventTypeWarning

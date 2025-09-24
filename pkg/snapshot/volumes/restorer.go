@@ -8,5 +8,5 @@ import (
 
 type Restorer interface {
 	// Reconcile volumes restore request.
-	Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, request *SnapshotsRequest, status *SnapshotsStatus) error
+	Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, request *RestoreRequestSpec, status *RestoreRequestStatus) error
 }

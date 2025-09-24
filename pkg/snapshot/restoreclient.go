@@ -226,7 +226,10 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 	}
 
 	// then create the restore request that will be reconciled by the controller
-	restoreRequest := NewRestoreRequest(snapshotRequest)
+	restoreRequest, err := NewRestoreRequest(snapshotRequest)
+	if err != nil {
+		return fmt.Errorf("failed to create restore request: %w", err)
+	}
 	restoreRequest.Name = secret.Name
 	configMap, err := CreateRestoreRequestConfigMap(vConfig.HostNamespace, vConfig.Name, restoreRequest)
 	if err != nil {
