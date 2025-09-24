@@ -5,12 +5,13 @@ import corev1 "k8s.io/api/core/v1"
 const (
 	SnapshotClassNameLabel = "vcluster.loft.sh/csi-volumesnapshot-class"
 
-	RequestPhaseNotStarted SnapshotRequestPhase = ""
-	RequestPhaseInProgress SnapshotRequestPhase = "InProgress"
-	RequestPhaseCleaningUp SnapshotRequestPhase = "CleaningUp"
-	RequestPhaseCompleted  SnapshotRequestPhase = "Completed"
-	RequestPhaseSkipped    SnapshotRequestPhase = "Skipped"
-	RequestPhaseFailed     SnapshotRequestPhase = "Failed"
+	RequestPhaseNotStarted      SnapshotRequestPhase = ""
+	RequestPhaseSkipped         SnapshotRequestPhase = "Skipped"
+	RequestPhaseInProgress      SnapshotRequestPhase = "InProgress"
+	RequestPhaseCleaningUp      SnapshotRequestPhase = "CleaningUp"
+	RequestPhaseCompleted       SnapshotRequestPhase = "Completed"
+	RequestPhasePartiallyFailed SnapshotRequestPhase = "PartiallyFailed"
+	RequestPhaseFailed          SnapshotRequestPhase = "Failed"
 )
 
 // SnapshotsRequest specifies how to create snapshots for multiple PVCs.
