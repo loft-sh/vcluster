@@ -103,6 +103,11 @@ func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestObj runtime.Ob
 		if err != nil {
 			return fmt.Errorf("failed to reconcile completed volumes snapshot request %s: %w", requestName, err)
 		}
+	case volumes.RequestPhasePartiallyFailed:
+		err = s.reconcileCompleted(ctx, requestName, request, status)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile completed volumes snapshot request %s: %w", requestName, err)
+		}
 	case volumes.RequestPhaseFailed:
 		err = s.reconcileFailed(ctx, requestName, request, status)
 		if err != nil {

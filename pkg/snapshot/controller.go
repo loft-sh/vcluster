@@ -192,7 +192,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			} else {
 				// ongoing volume snapshots reconciliation, this may take some time, wait a bit before reconciling again
 				return ctrl.Result{
-					RequeueAfter: time.Minute,
+					RequeueAfter: 30 * time.Second,
 				}, nil
 			}
 		case volumes.RequestPhaseCleaningUp:
@@ -207,6 +207,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 					RequeueAfter: 30 * time.Second,
 				}, nil
 			}
+		case volumes.RequestPhasePartiallyFailed:
+			fallthrough
 		case volumes.RequestPhaseCompleted:
 			snapshotRequest.Status.Phase = RequestPhaseCreatingEtcdBackup
 		case volumes.RequestPhaseFailed:
@@ -224,6 +226,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 				RequeueAfter: 10 * time.Second,
 			}, nil
 		}
+	case RequestPhasePartiallyFailed:
+		fallthrough
 	case RequestPhaseCompleted:
 		err = c.reconcileCompletedRequest(ctx, &configMap)
 		if err != nil {
@@ -333,8 +337,23 @@ func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap 
 	c.logger.Infof("Created vCluster snapshot in storage type %q", snapshotOptions.Type)
 
 	// All done, now update the snapshot request phase to "Completed"! ✅
-	snapshotRequest.Status.Phase = RequestPhaseCompleted
-	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "Completed", "Snapshot request %s/%s has been completed", configMap.Namespace, configMap.Name)
+	if snapshotRequest.Spec.IncludeVolumes {
+		if snapshotRequest.Status.VolumeSnapshots.Phase == volumes.RequestPhaseCompleted {
+			snapshotRequest.Status.Phase = RequestPhaseCompleted
+		} else if snapshotRequest.Status.VolumeSnapshots.Phase == volumes.RequestPhasePartiallyFailed {
+			snapshotRequest.Status.Phase = RequestPhasePartiallyFailed
+		} else {
+			return false, fmt.Errorf("unexpected volume snapshots request phase %s", snapshotRequest.Status.VolumeSnapshots.Phase)
+		}
+	} else {
+		snapshotRequest.Status.Phase = RequestPhaseCompleted
+	}
+
+	if snapshotRequest.Status.Phase == RequestPhaseCompleted {
+		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "Completed", "Snapshot request %s/%s has been completed", configMap.Namespace, configMap.Name)
+	} else {
+		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "PartiallyFailed", "Snapshot request %s/%s has partially failed", configMap.Namespace, configMap.Name)
+	}
 	return false, nil
 }
 

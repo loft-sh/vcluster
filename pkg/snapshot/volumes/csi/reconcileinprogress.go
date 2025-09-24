@@ -22,7 +22,15 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestObj 
 	}
 	defer s.logger.Debugf("Reconciled in-progress volume snapshots request %s", requestName)
 
-	continueReconciling := false
+	if len(request.Requests) == 0 {
+		status.Phase = volumes.RequestPhaseCompleted
+		s.logger.Infof("Snapshot request %s does not contain any volume snapshots", requestName)
+		return nil
+	}
+
+	hasInProgressSnapshots := false
+	hasCompletedSnapshots := false
+	hasFailedSnapshots := false
 	defer func() {
 		if retErr == nil {
 			return
@@ -53,66 +61,72 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestObj 
 			snapshotStatus.Phase = volumes.RequestPhaseInProgress
 			fallthrough
 		case volumes.RequestPhaseInProgress:
-			newStatus, err := s.reconcileInProgressPVC(ctx, requestObj, requestName, volumeSnapshotRequest, snapshotStatus)
+			newStatus := s.reconcileInProgressPVC(ctx, requestObj, requestName, volumeSnapshotRequest, snapshotStatus)
 			status.Snapshots[pvcName] = newStatus
-			if err != nil {
-				return fmt.Errorf("volumes snapshot request %s failed for PVC %s: %w", requestName, pvcName, err)
-			}
 			if newStatus.Phase == volumes.RequestPhaseInProgress {
-				// at least one volume snapshot creation is still in progress
-				continueReconciling = true
-				continue
+				// snapshot creation is still in progress
+				hasInProgressSnapshots = true
+			} else if newStatus.Phase == volumes.RequestPhaseFailed {
+				// snapshot creation has just failed
+				hasFailedSnapshots = true
+			} else if newStatus.Phase == volumes.RequestPhaseCompleted {
+				hasCompletedSnapshots = true
 			}
 		case volumes.RequestPhaseCompleted:
-			s.logger.Debugf("VolumeSnapshot for PVC %s has been created successfully", pvcName)
+			hasCompletedSnapshots = true
 		case volumes.RequestPhaseFailed:
-			return fmt.Errorf(
-				"volumes snapshot request %s has already failed for PVC %s, previous error: %v",
-				requestName,
-				pvcName,
-				snapshotStatus.Error.Message)
+			hasFailedSnapshots = true
 		default:
-			return fmt.Errorf("invalid snapshot request phase %s for for PVC %s in volume snapshot request %s", snapshotStatus.Phase, pvcName, requestName)
+			return fmt.Errorf("invalid snapshot request phase %s for PVC %s in volume snapshot request %s", snapshotStatus.Phase, pvcName, requestName)
 		}
 	}
 
-	if !continueReconciling {
+	if hasInProgressSnapshots {
+		status.Phase = volumes.RequestPhaseInProgress
+	} else if hasCompletedSnapshots && hasFailedSnapshots {
+		status.Phase = volumes.RequestPhasePartiallyFailed
+	} else if hasCompletedSnapshots {
 		status.Phase = volumes.RequestPhaseCompleted
+	} else if hasFailedSnapshots {
+		status.Phase = volumes.RequestPhaseFailed
+	} else {
+		return fmt.Errorf("unexpected state for snapshot request %s, expected at least 1 snapshot to be in progress, completed or failed", requestName)
 	}
 	return nil
 }
 
-func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, requestObj runtime.Object, requestName string, volumeSnapshotRequest volumes.SnapshotRequest, volumeSnapshotStatus volumes.SnapshotStatus) (status volumes.SnapshotStatus, retErr error) {
-	if volumeSnapshotStatus.Phase != volumes.RequestPhaseInProgress {
-		return status, fmt.Errorf("invalid volume snapshot request phase %s, expected %s, got %s", requestName, volumes.RequestPhaseInProgress, volumeSnapshotStatus.Phase)
-	}
-	status = volumeSnapshotStatus
-	defer func() {
-		if retErr != nil {
-			status.Phase = volumes.RequestPhaseFailed
-			status.Error.Message = retErr.Error()
+func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, requestObj runtime.Object, requestName string, volumeSnapshotRequest volumes.SnapshotRequest, volumeSnapshotStatus volumes.SnapshotStatus) volumes.SnapshotStatus {
+	updatedStatus := func(err error) volumes.SnapshotStatus {
+		if err != nil {
+			volumeSnapshotStatus.Phase = volumes.RequestPhaseFailed
+			volumeSnapshotStatus.Error.Message = err.Error()
 		}
-		s.inProgressPVCReconcileFinished(requestObj, volumeSnapshotRequest, status, retErr)
-	}()
+		s.inProgressPVCReconcileFinished(requestObj, volumeSnapshotRequest, volumeSnapshotStatus, err)
+		return volumeSnapshotStatus
+	}
 
-	volumeSnapshotName := fmt.Sprintf("%s-%s", volumeSnapshotRequest.PersistentVolumeClaim.Name, requestName)
-
-	// Check if VolumeSnapshot has been created
 	pvcName := types.NamespacedName{
 		Namespace: volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
 		Name:      volumeSnapshotRequest.PersistentVolumeClaim.Name,
 	}
+	if volumeSnapshotStatus.Phase != volumes.RequestPhaseInProgress {
+		return updatedStatus(fmt.Errorf("invalid volume snapshot request phase %s for PVC %s, expected %s, got %s", volumeSnapshotStatus.Phase, pvcName.String(), volumes.RequestPhaseInProgress, volumeSnapshotStatus.Phase))
+	}
+
+	// Check if VolumeSnapshot has been created
+	volumeSnapshotName := fmt.Sprintf("%s-%s", volumeSnapshotRequest.PersistentVolumeClaim.Name, requestName)
 	volumeSnapshot, err := s.snapshotsClient.SnapshotV1().VolumeSnapshots(pvcName.Namespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
 		// create new VolumeSnapshot
 		_, err = s.createVolumeSnapshotResource(ctx, requestName, volumeSnapshotName, pvcName, volumeSnapshotRequest.VolumeSnapshotClassName)
-		if err != nil {
-			return status, fmt.Errorf("failed to create VolumeSnapshot for the PersistentVolumeClaim %s: %w", pvcName, err)
-		}
-		// snapshot creation will take a while, return and check back later in a new reconciliation loop
-		return status, nil
+		return updatedStatus(err)
 	} else if err != nil {
-		return status, fmt.Errorf("failed to get VolumeSnapshot %s/%s: %w", volumeSnapshot.Namespace, volumeSnapshot.Name, err)
+		return updatedStatus(fmt.Errorf("failed to get VolumeSnapshot %s/%s: %w", volumeSnapshot.Namespace, volumeSnapshot.Name, err))
+	}
+
+	if volumeSnapshot.Status == nil {
+		// VolumeSnapshot is still not ready
+		return volumeSnapshotStatus
 	}
 
 	// check if VolumeSnapshot has failed
@@ -129,23 +143,28 @@ func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, requestO
 				pvcName.String())
 		}
 
-		return status, errors.New(errorMessage)
+		return updatedStatus(errors.New(errorMessage))
 	}
 
 	// check if VolumeSnapshot is ready
 	if volumeSnapshot.Status.ReadyToUse == nil || !*volumeSnapshot.Status.ReadyToUse {
 		// VolumeSnapshot is still not ready
-		return status, nil
+		return volumeSnapshotStatus
 	}
 
 	// VolumeSnapshot is ready -> get VolumeSnapshotContents
 	volumeSnapshotContentName := volumeSnapshot.Status.BoundVolumeSnapshotContentName
 	if volumeSnapshotContentName == nil || *volumeSnapshotContentName == "" {
-		return status, fmt.Errorf("VolumeSnapshot %s/%s does not have bound VolumeSnapshotContent name set", volumeSnapshot.Namespace, volumeSnapshot.Name)
+		return updatedStatus(fmt.Errorf("VolumeSnapshot %s/%s does not have bound VolumeSnapshotContent name set", volumeSnapshot.Namespace, volumeSnapshot.Name))
 	}
 	volumeSnapshotContent, err := s.snapshotsClient.SnapshotV1().VolumeSnapshotContents().Get(ctx, *volumeSnapshotContentName, metav1.GetOptions{})
 	if err != nil {
-		return status, fmt.Errorf("could not get bound VolumeSnapshotContent '%s' for VolumeSnapshot '%s': %w", *volumeSnapshotContentName, volumeSnapshot.Name, err)
+		return updatedStatus(fmt.Errorf("could not get bound VolumeSnapshotContent '%s' for VolumeSnapshot '%s': %w", *volumeSnapshotContentName, volumeSnapshot.Name, err))
+	}
+
+	if volumeSnapshotContent.Status == nil {
+		// VolumeSnapshotContent is still not ready
+		return volumeSnapshotStatus
 	}
 
 	// check if VolumeSnapshotContent has failed
@@ -160,22 +179,22 @@ func (s *VolumeSnapshotter) reconcileInProgressPVC(ctx context.Context, requestO
 				volumeSnapshotContent.Name,
 				pvcName.String())
 		}
-		return status, errors.New(errorMessage)
+		return updatedStatus(errors.New(errorMessage))
 	}
 
 	// check if VolumeSnapshotContent is ready
 	if volumeSnapshotContent.Status.ReadyToUse == nil || !*volumeSnapshotContent.Status.ReadyToUse {
 		// VolumeSnapshotContent is still not ready
-		return status, nil
+		return volumeSnapshotStatus
 	}
 
 	// VolumeSnapshotContent is ready -> read the snapshot handle
 	if volumeSnapshotContent.Status.SnapshotHandle == nil {
-		return status, fmt.Errorf("VolumeSnapshotContent %s (for PersistentVolumeClaim %s) does not have status.snapshotHandle set", volumeSnapshotContent.Name, pvcName.String())
+		return updatedStatus(fmt.Errorf("VolumeSnapshotContent %s (for PersistentVolumeClaim %s) does not have status.snapshotHandle set", volumeSnapshotContent.Name, pvcName.String()))
 	}
-	status.SnapshotHandle = *volumeSnapshotContent.Status.SnapshotHandle
-	status.Phase = volumes.RequestPhaseCompleted
-	return status, nil
+	volumeSnapshotStatus.SnapshotHandle = *volumeSnapshotContent.Status.SnapshotHandle
+	volumeSnapshotStatus.Phase = volumes.RequestPhaseCompleted
+	return volumeSnapshotStatus
 }
 
 func (s *VolumeSnapshotter) createVolumeSnapshotResource(ctx context.Context, requestName, volumeSnapshotName string, pvcName types.NamespacedName, volumeSnapshotClassName string) (*snapshotsv1api.VolumeSnapshot, error) {

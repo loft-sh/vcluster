@@ -25,6 +25,7 @@ const (
 	RequestPhaseCreatingVolumeSnapshots RequestPhase = "CreatingVolumeSnapshots"
 	RequestPhaseCreatingEtcdBackup      RequestPhase = "CreatingEtcdBackup"
 	RequestPhaseCompleted               RequestPhase = "Completed"
+	RequestPhasePartiallyFailed         RequestPhase = "PartiallyFailed"
 	RequestPhaseFailed                  RequestPhase = "Failed"
 )
 
