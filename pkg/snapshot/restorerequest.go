@@ -3,8 +3,6 @@ package snapshot
 import (
 	"encoding/json"
 	"fmt"
-	"maps"
-	"slices"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot/meta"
@@ -18,34 +16,80 @@ const (
 	RequestPhaseRestoringVolumes RequestPhase = "RestoringVolumes"
 )
 
-type RestoreRequest Request
-
-func (r *RestoreRequest) Done() bool {
-	return r.Status.Phase == RequestPhaseCompleted || r.Status.Phase == RequestPhaseFailed
+// RestoreRequest specifies vCluster restore request.
+type RestoreRequest struct {
+	RequestMetadata `json:"metadata,omitempty"`
+	Spec            RestoreRequestSpec   `json:"spec,omitempty"`
+	Status          RestoreRequestStatus `json:"status,omitempty"`
 }
 
-func NewRestoreRequest(snapshotRequest Request) RestoreRequest {
-	restoreRequest := RestoreRequest(snapshotRequest)
-	restoreRequest.Spec.VolumeSnapshots.Requests = slices.Clone(snapshotRequest.Spec.VolumeSnapshots.Requests)
-	restoreRequest.Status.VolumeSnapshots.Snapshots = maps.Clone(snapshotRequest.Status.VolumeSnapshots.Snapshots)
+func (r *RestoreRequest) Done() bool {
+	return r.Status.Phase == RequestPhaseCompleted ||
+		r.Status.Phase == RequestPhaseFailed ||
+		r.Status.Phase == RequestPhasePartiallyFailed
+}
 
-	// set volumes restore request phase to NotStarted only when the snapshot request
-	// was successfully completed
-	restoreRequest.Status.Phase = RequestPhaseNotStarted
+type RestoreRequestSpec struct {
+	IncludeVolumes bool                       `json:"includeVolumes,omitempty"`
+	VolumesRestore volumes.RestoreRequestSpec `json:"volumesRestore,omitempty"`
+	Options        Options                    `json:"-"`
+}
 
-	// reset overall volume snapshots status
-	if restoreRequest.Status.VolumeSnapshots.Phase == volumes.RequestPhaseCompleted {
-		restoreRequest.Status.VolumeSnapshots.Phase = volumes.RequestPhaseNotStarted
+type RestoreRequestStatus struct {
+	Phase          RequestPhase                 `json:"phase,omitempty"`
+	VolumesRestore volumes.RestoreRequestStatus `json:"volumesRestore,omitempty"`
+}
+
+func NewRestoreRequest(snapshotRequest Request) (RestoreRequest, error) {
+	restoreRequest := RestoreRequest{
+		RequestMetadata: RequestMetadata{
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: RestoreRequestSpec{
+			IncludeVolumes: true,
+			VolumesRestore: volumes.RestoreRequestSpec{
+				Requests: []volumes.RestoreRequest{},
+			},
+		},
+		Status: RestoreRequestStatus{
+			Phase: RequestPhaseNotStarted,
+			VolumesRestore: volumes.RestoreRequestStatus{
+				Phase:                  volumes.RequestPhaseNotStarted,
+				PersistentVolumeClaims: map[string]volumes.RestoreStatus{},
+			},
+		},
 	}
-	// reset volumes snapshot status for all volume snapshots
-	for k, snapshotStatus := range restoreRequest.Status.VolumeSnapshots.Snapshots {
-		if snapshotStatus.Phase == volumes.RequestPhaseCompleted {
-			snapshotStatus.Phase = volumes.RequestPhaseNotStarted
-			restoreRequest.Status.VolumeSnapshots.Snapshots[k] = snapshotStatus
+
+	for _, volumeSnapshotRequest := range snapshotRequest.Spec.VolumeSnapshots.Requests {
+		pvcName := fmt.Sprintf("%s/%s", volumeSnapshotRequest.PersistentVolumeClaim.Namespace, volumeSnapshotRequest.PersistentVolumeClaim.Name)
+		snapshotStatus, ok := snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcName]
+		if !ok {
+			return RestoreRequest{}, fmt.Errorf("volume snapshot status for PVC %s is not set", pvcName)
+		}
+		if snapshotStatus.Phase != volumes.RequestPhaseCompleted {
+			// Volume snapshot was not successfully created
+			continue
+		}
+		if snapshotStatus.SnapshotHandle == "" {
+			return RestoreRequest{}, fmt.Errorf("snapshot handle for PVC %s is not set in the snapshot request status", pvcName)
+		}
+
+		// add volume restore request
+		volumeRestoreRequest := volumes.RestoreRequest{
+			PersistentVolumeClaim:   volumeSnapshotRequest.PersistentVolumeClaim,
+			CSIDriver:               volumeSnapshotRequest.CSIDriver,
+			VolumeSnapshotClassName: volumeSnapshotRequest.VolumeSnapshotClassName,
+			SnapshotHandle:          snapshotStatus.SnapshotHandle,
+		}
+		restoreRequest.Spec.VolumesRestore.Requests = append(restoreRequest.Spec.VolumesRestore.Requests, volumeRestoreRequest)
+
+		// set volume restore status
+		restoreRequest.Status.VolumesRestore.PersistentVolumeClaims[pvcName] = volumes.RestoreStatus{
+			Phase: volumes.RequestPhaseNotStarted,
 		}
 	}
 
-	return restoreRequest
+	return restoreRequest, nil
 }
 
 func UnmarshalRestoreRequest(configMap *corev1.ConfigMap) (*RestoreRequest, error) {

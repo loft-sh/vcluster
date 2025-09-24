@@ -157,8 +157,8 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile new restore request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
 	case RequestPhaseRestoringVolumes:
-		volumesRestoreRequest := &restoreRequest.Spec.VolumeSnapshots
-		volumesRestoreStatus := &restoreRequest.Status.VolumeSnapshots
+		volumesRestoreRequest := &restoreRequest.Spec.VolumesRestore
+		volumesRestoreStatus := &restoreRequest.Status.VolumesRestore
 		previousVolumesRestoreRequestPhase := volumesRestoreStatus.Phase
 		err = c.volumesRestorer.Reconcile(ctx, &configMap, restoreRequest.Name, volumesRestoreRequest, volumesRestoreStatus)
 		if err != nil {
