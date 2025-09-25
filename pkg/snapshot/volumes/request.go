@@ -30,6 +30,7 @@ type SnapshotRequest struct {
 	VolumeSnapshotClassName string `json:"volumeSnapshotClassName,omitempty"`
 }
 
+// SnapshotRequestPhase describes the current state of the snapshot creation process.
 type SnapshotRequestPhase string
 
 // SnapshotsStatus shows the current status of the snapshot request.
@@ -39,6 +40,29 @@ type SnapshotsStatus struct {
 	Error     SnapshotError             `json:"error,omitempty"`
 }
 
+// Done returns true if the process of taking all volume snapshots has finished, otherwise it
+// returns false.
+func (s SnapshotsStatus) Done() bool {
+	// check overall snapshots status
+	done := s.Phase == RequestPhaseCompleted ||
+		s.Phase == RequestPhasePartiallyFailed ||
+		s.Phase == RequestPhaseFailed ||
+		s.Phase == RequestPhaseSkipped
+	if !done {
+		return false
+	}
+
+	// check every volume snapshot status
+	for _, status := range s.Snapshots {
+		if !status.Done() {
+			return false
+		}
+	}
+
+	// taking snapshot has not yet started, or it is still in progress
+	return true
+}
+
 // SnapshotStatus shows the current status of a single PVC snapshot.
 type SnapshotStatus struct {
 	Phase          SnapshotRequestPhase `json:"phase,omitempty"`
@@ -46,20 +70,25 @@ type SnapshotStatus struct {
 	Error          SnapshotError        `json:"error,omitempty"`
 }
 
-type SnapshotError struct {
-	Message string `json:"message,omitempty"`
-}
-
-func (err SnapshotError) Equals(other SnapshotError) bool {
-	return err.Message == other.Message
-}
-
+// Equals checks if the snapshot status is identical to another snapshot status.
 func (s SnapshotStatus) Equals(other SnapshotStatus) bool {
 	return s.Phase == other.Phase &&
 		s.SnapshotHandle == other.SnapshotHandle &&
 		s.Error.Equals(other.Error)
 }
 
+// Done returns true if the process of taking a volume snapshot has finished, otherwise it returns
+// false.
 func (s SnapshotStatus) Done() bool {
 	return s.Phase == RequestPhaseCompleted || s.Phase == RequestPhaseSkipped || s.Phase == RequestPhaseFailed
+}
+
+// SnapshotError describes the error that occurred while taking the snapshot.
+type SnapshotError struct {
+	Message string `json:"message,omitempty"`
+}
+
+// Equals checks if the snapshot error is identical to another snapshot error.
+func (err SnapshotError) Equals(other SnapshotError) bool {
+	return err.Message == other.Message
 }

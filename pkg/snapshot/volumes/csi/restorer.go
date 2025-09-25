@@ -63,9 +63,16 @@ func (r *Restorer) Reconcile(ctx context.Context, requestObj runtime.Object, req
 			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", requestName, err)
 		}
 	case volumes.RequestPhaseCompleted:
-		r.logger.Debugf("Volumes restore request %s has been completed", requestName)
+		fallthrough
+	case volumes.RequestPhasePartiallyFailed:
+		fallthrough
 	case volumes.RequestPhaseFailed:
-		r.logger.Debugf("Volumes restore request %s has failed", requestName)
+		fallthrough
+	case volumes.RequestPhaseSkipped:
+		err = r.reconcileDone(ctx, requestName, status)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", requestName, err)
+		}
 	default:
 		return fmt.Errorf("invalid snapshot request phase: %s", status.Phase)
 	}
