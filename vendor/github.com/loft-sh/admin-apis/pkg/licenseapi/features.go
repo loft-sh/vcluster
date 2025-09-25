@@ -104,11 +104,15 @@ const (
 
 	SyncNamespacesTohost FeatureName = "sync-namespaces-tohost" // Sync Namespaces toHost
 
-	ScheduledSnapshots FeatureName = "scheduled-snapshots" // Schedule Virtual Clusters Snapshots
+	ScheduledSnapshots FeatureName = "scheduled-snapshots" // Auto Snapshots
 
 	PrivateNodesVpn FeatureName = "private-nodes-vpn" // Private Nodes VPN
 
 	PrivateNodesAutoNodes FeatureName = "private-nodes-auto-nodes" // Private Nodes Auto Nodes
+
+	DisablePlatformDB FeatureName = "disable-platform-db" // Disable Platform Database
+
+	Standalone FeatureName = "standalone" // Standalone
 
 )
 
@@ -167,5 +171,7 @@ func GetFeatures() []FeatureName {
 		ScheduledSnapshots,
 		PrivateNodesVpn,
 		PrivateNodesAutoNodes,
+		DisablePlatformDB,
+		Standalone,
 	}
 }
