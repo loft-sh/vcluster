@@ -36,7 +36,7 @@ type InstanceCreateInput struct {
 	DebugInstanceID *string `json:"debugInstanceID,omitempty" form:"debugInstanceID" hash:"-"`
 
 	// PlatformDatabase reports details about the platform database to the license service
-	PlatformDatabase PlatformDatabase `json:"isPlatformDatabaseReady,omitempty" form:"isPlatformDatabaseReady"`
+	PlatformDatabase *PlatformDatabase `json:"platformDatabase,omitempty" form:"platformDatabase"`
 }
 
 // InstanceCreateOutput is the struct holding all information returned from "instance create"
@@ -48,7 +48,11 @@ type InstanceCreateOutput struct {
 	CurrentTime int64    `json:"currentTime"`
 }
 
+// PlatformDatabase contains information about the local platform database installation
+// +k8s:openapi-gen=true
+// +k8s:deepcopy-gen=true
 type PlatformDatabase struct {
-	IsReady           bool   `json:"isReady"`
-	CreationTimestamp string `json:"creationTimestamp"`
+	IsReady               bool   `json:"isReady"`
+	CreationTimestamp     string `json:"creationTimestamp"`
+	LatestUpdateTimestamp string `json:"latestUpdateTimestamp"`
 }

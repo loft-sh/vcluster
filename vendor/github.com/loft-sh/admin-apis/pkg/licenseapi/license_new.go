@@ -226,7 +226,7 @@ func New() *License {
 						Name:        "sync-namespaces-tohost",
 					},
 					{
-						DisplayName: "Schedule Virtual Clusters Snapshots",
+						DisplayName: "Auto Snapshots",
 						Name:        "scheduled-snapshots",
 					},
 					{
@@ -236,6 +236,14 @@ func New() *License {
 					{
 						DisplayName: "Private Nodes Auto Nodes",
 						Name:        "private-nodes-auto-nodes",
+					},
+					{
+						DisplayName: "Disable Platform Database",
+						Name:        "disable-platform-db",
+					},
+					{
+						DisplayName: "Standalone",
+						Name:        "standalone",
 					},
 				},
 			},
