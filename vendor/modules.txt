@@ -581,7 +581,12 @@ github.com/klauspost/compress/zstd/internal/xxhash
 github.com/klauspost/pgzip
 # github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0
 ## explicit; go 1.22.0
+github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumegroupsnapshot/v1beta1
 github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1
+github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned
+github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned/scheme
+github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned/typed/volumegroupsnapshot/v1beta1
+github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned/typed/volumesnapshot/v1
 # github.com/kylelemons/godebug v1.1.0
 ## explicit; go 1.11
 github.com/kylelemons/godebug/diff
