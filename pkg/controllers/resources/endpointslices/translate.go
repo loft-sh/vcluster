@@ -13,6 +13,14 @@ func (s *endpointSliceSyncer) translate(ctx *synccontext.SyncContext, vObj clien
 	endpointSlice := translate.HostMetadata(vObj.(*discoveryv1.EndpointSlice),
 		s.VirtualToHost(ctx, types.NamespacedName{Name: vObj.GetName(), Namespace: vObj.GetNamespace()}, vObj),
 		s.excludedAnnotations...)
+
+	virtualSvcName := endpointSlice.GetLabels()[translate.K8sServiceNameAnnotation]
+	vcName := endpointSlice.GetLabels()[translate.MarkerLabel]
+	namespace := endpointSlice.GetLabels()[translate.NamespaceLabel]
+	hostSvcName := translateSvcName(virtualSvcName, namespace, vcName)
+
+	// in case of selector-less service, we need to add "kubernetes.io/service-name" label manually
+	endpointSlice.Labels[translate.K8sServiceNameAnnotation] = hostSvcName
 	s.translateSpec(ctx, endpointSlice)
 	return endpointSlice
 }
@@ -34,4 +42,8 @@ func (s *endpointSliceSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj
 	s.translateSpec(ctx, translated)
 	pObj.Endpoints = translated.Endpoints
 	return nil
+}
+
+func translateSvcName(virtualSvcName, namespace, vcName string) string {
+	return virtualSvcName + "-x-" + namespace + "-x-" + vcName
 }

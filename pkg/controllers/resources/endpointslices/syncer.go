@@ -115,10 +115,27 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 		}
 	}
 
-	svc := &corev1.Service{}
+	eps := &discoveryv1.EndpointSlice{}
 	err := ctx.VirtualClient.Get(ctx, types.NamespacedName{
 		Namespace: req.Namespace,
 		Name:      req.Name,
+	}, eps)
+	if err != nil {
+		klog.Infof("Error retrieving endpointslice: %v", err)
+		return true, nil
+	}
+
+	epsLabels := eps.GetLabels()
+	svcName, ok := epsLabels[translate.K8sServiceNameAnnotation]
+	if !ok {
+		klog.Info("Unable to retrieve label 'kubernetes.io/service-name'")
+		return true, nil
+	}
+
+	svc := &corev1.Service{}
+	err = ctx.VirtualClient.Get(ctx, types.NamespacedName{
+		Namespace: req.Namespace,
+		Name:      svcName,
 	}, svc)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
