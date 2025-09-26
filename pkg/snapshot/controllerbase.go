@@ -59,14 +59,6 @@ func (c *reconcilerBase) addFinalizer(ctx context.Context, configMap *corev1.Con
 		return false, nil
 	}
 
-	c.logger.Infof(
-		"Adding vCluster %s controller finalizer %s to the %s request ConfigMap %s/%s",
-		c.kind,
-		c.finalizer,
-		c.kind,
-		configMap.Namespace,
-		configMap.Name)
-
 	// before the change
 	oldConfigMap := client.MergeFrom(configMap.DeepCopy())
 
@@ -84,7 +76,7 @@ func (c *reconcilerBase) addFinalizer(ctx context.Context, configMap *corev1.Con
 			err)
 	}
 
-	c.logger.Infof(
+	c.logger.Debugf(
 		"Added vCluster %s controller finalizer %s to the %s request ConfigMap %s/%s",
 		c.kind,
 		c.finalizer,
