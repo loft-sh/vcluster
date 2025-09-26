@@ -30,6 +30,12 @@ var allowedPodSecurityStandards = map[string]bool{
 	"restricted": true,
 }
 
+var (
+	errExportKubeConfigBothSecretAndAdditionalSecretsSet       = errors.New("exportKubeConfig.Secret and exportKubeConfig.AdditionalSecrets cannot be set at the same time")
+	errExportKubeConfigAdditionalSecretWithoutNameAndNamespace = errors.New("additional secret must have name and/or namespace set")
+	errExportKubeConfigServerNotValid                          = errors.New("exportKubeConfig.Server has to be set to a valid URL (with https:// or http:// prefix)")
+)
+
 func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	// check the value of pod security standard
 	if vConfig.Policies.PodSecurityStandard != "" && !allowedPodSecurityStandards[vConfig.Policies.PodSecurityStandard] {
@@ -587,11 +593,6 @@ func validateFromHostSyncMappingObjectName(objRef []string, resourceNamePlural s
 	return nil
 }
 
-var (
-	errExportKubeConfigBothSecretAndAdditionalSecretsSet       = errors.New("exportKubeConfig.Secret and exportKubeConfig.AdditionalSecrets cannot be set at the same time")
-	errExportKubeConfigAdditionalSecretWithoutNameAndNamespace = errors.New("additional secret must have name and/or namespace set")
-)
-
 func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
 	// You cannot set both Secret and AdditionalSecrets at the same time.
 	if exportKubeConfig.Secret.IsSet() && len(exportKubeConfig.AdditionalSecrets) > 0 {
@@ -602,6 +603,21 @@ func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
 		if additionalSecret.Name == "" && additionalSecret.Namespace == "" {
 			return errExportKubeConfigAdditionalSecretWithoutNameAndNamespace
 		}
+	}
+
+	if err := validateExportKubeConfigServer(exportKubeConfig.Server); err != nil {
+		return errExportKubeConfigServerNotValid
+	}
+	return nil
+}
+
+func validateExportKubeConfigServer(server string) error {
+	if server == "" {
+		return nil
+	}
+	hasProto := strings.HasPrefix(server, "https://") || strings.HasPrefix(server, "http://")
+	if _, err := url.Parse(server); err != nil || !hasProto {
+		return errExportKubeConfigServerNotValid
 	}
 	return nil
 }
