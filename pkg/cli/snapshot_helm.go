@@ -141,9 +141,12 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 	if err != nil {
 		return fmt.Errorf("vCluster version check failed: %w", err)
 	}
+	if vClusterConfig.ControlPlane.Standalone.Enabled {
+		return errors.New("creating snapshots with 'vcluster snapshot create' command is currently not supported")
+	}
 
 	// Create snapshot request resources
-	snapshotRequest, err := snapshot.CreateSnapshotRequestResources(ctx, vClusterConfig, snapshotOpts, kubeClient)
+	snapshotRequest, err := snapshot.CreateSnapshotRequestResources(ctx, vCluster.Namespace, vCluster.Name, snapshotOpts, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request resources: %w", err)
 	}
