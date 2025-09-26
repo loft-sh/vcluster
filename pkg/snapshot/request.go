@@ -8,7 +8,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/snapshot/meta"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -115,7 +114,7 @@ func UnmarshalSnapshotRequest(configMap *corev1.ConfigMap) (*Request, error) {
 		return nil, fmt.Errorf("config map is nil")
 	}
 	// check if ConfigMap has the required snapshot request label
-	if _, ok := configMap.Labels[meta.RequestLabel]; !ok {
+	if _, ok := configMap.Labels[constants.SnapshotRequestLabel]; !ok {
 		return nil, fmt.Errorf("config map does not have the snapshot request label")
 	}
 
@@ -139,7 +138,7 @@ func UnmarshalSnapshotOptions(secret *corev1.Secret) (*Options, error) {
 	}
 
 	// check if Secret has the required snapshot request label
-	if _, ok := secret.Labels[meta.RequestLabel]; !ok {
+	if _, ok := secret.Labels[constants.SnapshotRequestLabel]; !ok {
 		return nil, fmt.Errorf("secret does not have the snapshot request label")
 	}
 
@@ -177,7 +176,7 @@ func CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName string, snap
 			Labels: map[string]string{
 				constants.VClusterNamespaceLabel: vClusterNamespace,
 				constants.VClusterNameLabel:      vClusterName,
-				meta.RequestLabel:                "",
+				constants.SnapshotRequestLabel:   "",
 			},
 		},
 		Data: map[string]string{
@@ -206,7 +205,7 @@ func CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName string, snapsho
 			Labels: map[string]string{
 				constants.VClusterNamespaceLabel: vClusterNamespace,
 				constants.VClusterNameLabel:      vClusterName,
-				meta.RequestLabel:                "",
+				constants.SnapshotRequestLabel:   "",
 			},
 		},
 		Data: map[string][]byte{

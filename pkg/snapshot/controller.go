@@ -9,7 +9,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	snapshotMeta "github.com/loft-sh/vcluster/pkg/snapshot/meta"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	csiVolumes "github.com/loft-sh/vcluster/pkg/snapshot/volumes/csi"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -255,7 +254,7 @@ func (c *Reconciler) Register() error {
 		if objLabels == nil {
 			return false
 		}
-		_, ok := objLabels[snapshotMeta.RequestLabel]
+		_, ok := objLabels[constants.SnapshotRequestLabel]
 		return ok
 	})
 
@@ -379,7 +378,7 @@ func (c *Reconciler) getOngoingSnapshotRequestsResourceNames(ctx context.Context
 	listOptions := &client.ListOptions{
 		Namespace: c.getRequestNamespace(),
 		LabelSelector: labels.SelectorFromSet(map[string]string{
-			snapshotMeta.RequestLabel: "",
+			constants.SnapshotRequestLabel: "",
 		}),
 	}
 	err := c.client().List(ctx, &configMaps, listOptions)

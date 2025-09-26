@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	snapshotsv1api "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
-	"github.com/loft-sh/vcluster/pkg/snapshot/meta"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -205,7 +205,7 @@ func (s *VolumeSnapshotter) createVolumeSnapshotResource(ctx context.Context, re
 			Namespace: pvcName.Namespace,
 			Name:      volumeSnapshotName,
 			Labels: map[string]string{
-				meta.RequestLabel:              requestName,
+				constants.SnapshotRequestLabel: requestName,
 				persistentVolumeClaimNameLabel: pvcName.Name,
 			},
 		},
