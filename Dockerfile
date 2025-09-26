@@ -2,7 +2,7 @@ ARG KINE_VERSION="v0.13.14"
 FROM rancher/kine:${KINE_VERSION} AS kine
 
 # Build program
-FROM golang:1.24 AS builder
+FROM golang:1.25 AS builder
 
 WORKDIR /vcluster-dev
 ARG TARGETOS
