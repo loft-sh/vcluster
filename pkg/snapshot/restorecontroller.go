@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	snapshotMeta "github.com/loft-sh/vcluster/pkg/snapshot/meta"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	csiVolumes "github.com/loft-sh/vcluster/pkg/snapshot/volumes/csi"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -222,7 +221,7 @@ func (c *RestoreReconciler) Register() error {
 		if objLabels == nil {
 			return false
 		}
-		_, ok := objLabels[snapshotMeta.RestoreRequestLabel]
+		_, ok := objLabels[constants.RestoreRequestLabel]
 		return ok
 	})
 

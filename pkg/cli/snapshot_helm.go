@@ -13,9 +13,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
-	snapshotMeta "github.com/loft-sh/vcluster/pkg/snapshot/meta"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -118,7 +118,7 @@ func ListRequests(ctx context.Context, args []string, globalFlags *flags.GlobalF
 	}
 	// get snapshot request ConfigMap
 	listOptions := metav1.ListOptions{
-		LabelSelector: snapshotMeta.RequestLabel,
+		LabelSelector: constants.SnapshotRequestLabel,
 	}
 	snapshotRequestConfigMaps, err := kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).List(ctx, listOptions)
 	if err != nil {

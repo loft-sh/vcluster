@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/snapshot/meta"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,7 +96,7 @@ func UnmarshalRestoreRequest(configMap *corev1.ConfigMap) (*RestoreRequest, erro
 		return nil, fmt.Errorf("config map is nil")
 	}
 	// check if ConfigMap has the required restore request label
-	if _, ok := configMap.Labels[meta.RestoreRequestLabel]; !ok {
+	if _, ok := configMap.Labels[constants.RestoreRequestLabel]; !ok {
 		return nil, fmt.Errorf("config map does not have the restore request label")
 	}
 
@@ -131,7 +130,7 @@ func CreateRestoreRequestConfigMap(vClusterNamespace, vClusterName string, resto
 			Labels: map[string]string{
 				constants.VClusterNamespaceLabel: vClusterNamespace,
 				constants.VClusterNameLabel:      vClusterName,
-				meta.RestoreRequestLabel:         "",
+				constants.RestoreRequestLabel:    "",
 			},
 		},
 		Data: map[string]string{
