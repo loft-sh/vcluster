@@ -133,7 +133,7 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	cmd.Log.Donef(product.Replace("Successfully logged into Loft instance %s"), ansi.Color(url, "white+b"))
+	cmd.Log.Donef(product.Replace("Successfully logged into Loft instance %s, credentials are stored in %q"), ansi.Color(url, "white+b"), cmd.Config)
 
 	// skip log into docker registries?
 	if !cmd.DockerLogin {
