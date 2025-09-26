@@ -229,12 +229,12 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	case RequestPhasePartiallyFailed:
 		fallthrough
 	case RequestPhaseCompleted:
-		err = c.reconcileCompletedRequest(ctx, &configMap)
+		err = c.reconcileCompletedRequest(ctx, &configMap, snapshotRequest.RequestMetadata)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile completed snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
 	case RequestPhaseFailed:
-		err = c.reconcileFailedRequest(ctx, &configMap)
+		err = c.reconcileFailedRequest(ctx, &configMap, snapshotRequest.RequestMetadata)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile failed snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
