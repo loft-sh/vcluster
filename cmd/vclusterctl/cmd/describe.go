@@ -9,24 +9,25 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 // DescribeCmd holds the describe cmd flags
 type DescribeCmd struct {
 	*flags.GlobalFlags
+	cli.DescribeOptions
 
-	output  string
-	log     log.Logger
-	project string
+	log log.Logger
 }
 
 // NewDescribeCmd creates a new command
 func NewDescribeCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &DescribeCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		log:         log.NewStdoutLogger(os.Stdin, os.Stderr, os.Stderr, logrus.InfoLevel),
 	}
 	driver := ""
 
@@ -51,8 +52,14 @@ vcluster describe -o json test
 	p, _ := defaults.Get(pdefaults.KeyProject, "")
 
 	cobraCmd.Flags().StringVar(&driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
-	cobraCmd.Flags().StringVarP(&cmd.output, "output", "o", "", "The format to use to display the information, can either be json or yaml")
-	cobraCmd.Flags().StringVarP(&cmd.project, "project", "p", p, "The project to use")
+	cobraCmd.Flags().StringVarP(&cmd.OutputFormat, "output", "o", "", "The format to use to display the information, can either be json or yaml")
+	cobraCmd.Flags().StringVarP(&cmd.Project, "project", "p", p, "The project to use")
+
+	cobraCmd.Flags().BoolVar(&cmd.AllValues, "all", true, "If set, return the complete vcluster.yaml, otherwise return only the user supplied vcluster.yaml")
+
+	cobraCmd.Flags().BoolVar(&cmd.GenerateUserSuppliedConfigIfMissing, "generate-config", true, "Attempt to generate the user supplied config if missing.")
+	cobraCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster", "The virtual cluster chart name to use")
+	cobraCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", constants.LoftChartRepo, "The virtual cluster chart repo to use")
 
 	return cobraCmd
 }
@@ -67,8 +74,14 @@ func (cmd *DescribeCmd) Run(cobraCmd *cobra.Command, driver, name string) error 
 		return fmt.Errorf("parse driver type: %w", err)
 	}
 	if driverType == config.PlatformDriver {
-		return cli.DescribePlatform(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, cmd.log, name, cmd.project, cmd.output)
+		return cli.DescribePlatform(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, cmd.log, name, cmd.Project, cmd.OutputFormat)
 	}
 
-	return cli.DescribeHelm(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, name, cmd.output)
+	outputBytes, err := cli.DescribeHelm(cobraCmd.Context(), &cmd.DescribeOptions, cmd.GlobalFlags, name, cmd.log)
+	if err != nil {
+		return err
+	}
+
+	_, err = os.Stdout.Write(outputBytes)
+	return err
 }

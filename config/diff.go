@@ -40,6 +40,11 @@ func Diff(fromConfig *Config, toConfig *Config) (string, error) {
 	return string(out), nil
 }
 
+// RawDiff may be used to perform diff operations between raw configs of different version than config.Config.
+func RawDiff(from, to map[string]any) any {
+	return diff(from, to)
+}
+
 func diff(from, to any) any {
 	if reflect.DeepEqual(from, to) {
 		return nil
