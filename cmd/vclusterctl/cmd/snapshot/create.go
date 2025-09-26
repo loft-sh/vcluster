@@ -48,7 +48,6 @@ vcluster snapshot create my-vcluster container:///data/my-local-snapshot.tar.gz
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cli.Snapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, nil, cmd.Log, true, cmd.IncludeVolumes)
 		},
-		Hidden: true,
 	}
 
 	// add storage flags
