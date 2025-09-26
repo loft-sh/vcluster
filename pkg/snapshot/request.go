@@ -62,7 +62,7 @@ type RequestStatus struct {
 
 // CreateSnapshotRequestResources creates snapshot request ConfigMap and Secret in the cluster. It returns the created
 // snapshot request.
-func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, options *Options, kubeClient *kubernetes.Clientset) (*Request, error) {
+func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, options *Options, includeVolumes bool, kubeClient *kubernetes.Clientset) (*Request, error) {
 	// first create the snapshot options Secret
 	secret, err := CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName, options)
 	if err != nil {
@@ -76,7 +76,13 @@ func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 
 	// then create the snapshot request that will be reconciled by the controller
 	snapshotRequest := &Request{
-		Name: secret.Name,
+		RequestMetadata: RequestMetadata{
+			Name:              secret.Name,
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: RequestSpec{
+			IncludeVolumes: includeVolumes,
+		},
 	}
 	configMap, err := CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName, snapshotRequest)
 	if err != nil {
