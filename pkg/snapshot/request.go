@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -27,6 +28,8 @@ const (
 	RequestPhaseCompleted               RequestPhase = "Completed"
 	RequestPhasePartiallyFailed         RequestPhase = "PartiallyFailed"
 	RequestPhaseFailed                  RequestPhase = "Failed"
+
+	DefaultRequestTTL = 24 * time.Hour
 )
 
 type RequestPhase string
