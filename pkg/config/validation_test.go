@@ -635,6 +635,31 @@ func TestValidateExportKubeConfig(t *testing.T) {
 			},
 			expectedError: errExportKubeConfigAdditionalSecretWithoutNameAndNamespace,
 		},
+		{
+			name: "Setting only exportKubeConfig.server is invalid",
+			exportKubeConfig: config.ExportKubeConfig{
+				ExportKubeConfigProperties: config.ExportKubeConfigProperties{
+					Server: "my-server",
+				},
+			},
+			expectedError: errExportKubeConfigServerNotValid,
+		},
+		{
+			name: "Setting only exportKubeConfig.server is valid with https://",
+			exportKubeConfig: config.ExportKubeConfig{
+				ExportKubeConfigProperties: config.ExportKubeConfigProperties{
+					Server: "https://my-server.com",
+				},
+			},
+		},
+		{
+			name: "Setting only exportKubeConfig.server is valid with https:// and port",
+			exportKubeConfig: config.ExportKubeConfig{
+				ExportKubeConfigProperties: config.ExportKubeConfigProperties{
+					Server: "https://my-server.com:443",
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {
