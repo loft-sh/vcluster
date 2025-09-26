@@ -1,13 +1,16 @@
 package snapshot
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -38,6 +41,41 @@ type RequestSpec struct {
 
 type RequestStatus struct {
 	Phase RequestPhase `json:"phase,omitempty"`
+}
+
+// CreateSnapshotRequestResources creates snapshot request ConfigMap and Secret in the cluster. It returns the created
+// snapshot request.
+func CreateSnapshotRequestResources(ctx context.Context, vClusterConfig *config.VirtualClusterConfig, snapshotOpts *Options, kubeClient *kubernetes.Clientset) (*Request, error) {
+	if vClusterConfig.ControlPlane.Standalone.Enabled {
+		return nil, errors.New("creating snapshots with 'vcluster snapshot create' command is currently not supported")
+	}
+
+	// first create the snapshot options Secret
+	secret, err := CreateSnapshotOptionsSecret(vClusterConfig.HostNamespace, vClusterConfig.Name, snapshotOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+	secret.GenerateName = fmt.Sprintf("%s-snapshot-request-", vClusterConfig.Name)
+	secret, err = kubeClient.CoreV1().Secrets(vClusterConfig.HostNamespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+
+	// then create the snapshot request that will be reconciled by the controller
+	snapshotRequest := &Request{
+		Name: secret.Name,
+	}
+	configMap, err := CreateSnapshotRequestConfigMap(vClusterConfig.HostNamespace, vClusterConfig.Name, snapshotRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+	}
+	configMap.Name = secret.Name
+	_, err = kubeClient.CoreV1().ConfigMaps(vClusterConfig.HostNamespace).Create(ctx, configMap, metav1.CreateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+	}
+
+	return snapshotRequest, nil
 }
 
 // IsSnapshotRequestCreatedInHostCluster checks if the snapshot request resources are created in

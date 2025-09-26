@@ -142,31 +142,11 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 		return fmt.Errorf("vCluster version check failed: %w", err)
 	}
 
-	// first create the snapshot options Secret
-	secret, err := snapshot.CreateSnapshotOptionsSecret(vCluster.Namespace, vCluster.Name, snapshotOpts)
+	// Create snapshot request resources
+	snapshotRequest, err := snapshot.CreateSnapshotRequestResources(ctx, vClusterConfig, snapshotOpts, kubeClient)
 	if err != nil {
-		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+		return fmt.Errorf("failed to create snapshot request resources: %w", err)
 	}
-	secret.GenerateName = fmt.Sprintf("%s-snapshot-request-", vCluster.Name)
-	secret, err = kubeClient.CoreV1().Secrets(vCluster.Namespace).Create(ctx, secret, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
-	}
-
-	// then create the snapshot request that will be reconciled by the controller
-	snapshotRequest := &snapshot.Request{
-		Name: secret.Name,
-	}
-	configMap, err := snapshot.CreateSnapshotRequestConfigMap(vCluster.Namespace, vCluster.Name, snapshotRequest)
-	if err != nil {
-		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
-	}
-	configMap.Name = secret.Name
-	_, err = kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
-	}
-
 	log.Infof("Created snapshot request %s", snapshotRequest.Name)
 	return nil
 }
