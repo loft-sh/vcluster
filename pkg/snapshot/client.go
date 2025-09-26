@@ -16,7 +16,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	RequestStoreKey = "/vcluster/snapshot/request"
+)
+
 type Client struct {
+	Request  *Request
 	Options  Options
 	skipKeys map[string]struct{}
 }
@@ -142,6 +147,19 @@ func (c *Client) writeSnapshot(ctx context.Context, etcdClient etcd.Client, obje
 		err = writeKeyValue(tarWriter, []byte(SnapshotReleaseKey), releaseBytes)
 		if err != nil {
 			return fmt.Errorf("failed to snapshot vCluster release: %w", err)
+		}
+	}
+
+	// write the snapshot request
+	if c.Request != nil {
+		requestBytes, err := json.Marshal(c.Request)
+		if err != nil {
+			return fmt.Errorf("failed to marshal snapshot request: %w", err)
+		}
+		key := fmt.Sprintf("%s/%s", RequestStoreKey, APIVersion)
+		err = writeKeyValue(tarWriter, []byte(key), requestBytes)
+		if err != nil {
+			return fmt.Errorf("failed to snapshot snapshot request: %w", err)
 		}
 	}
 

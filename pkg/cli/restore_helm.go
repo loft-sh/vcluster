@@ -21,17 +21,17 @@ const (
 	RestoreResourceQuota = "vcluster-restore"
 )
 
-func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshot *snapshot.Options, pod *pod.Options, newVCluster bool, log log.Logger) error {
+func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshot *snapshot.Options, pod *pod.Options, newVCluster, restoreVolumes bool, log log.Logger) error {
 	// init kube client and vCluster
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshot, log)
 	if err != nil {
 		return err
 	}
 
-	return restoreVCluster(ctx, kubeClient, restConfig, vCluster, snapshot, pod, newVCluster, log)
+	return restoreVCluster(ctx, kubeClient, restConfig, vCluster, snapshot, pod, newVCluster, restoreVolumes, log)
 }
 
-func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshot *snapshot.Options, podOptions *pod.Options, newVCluster bool, log log.Logger) error {
+func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshot *snapshot.Options, podOptions *pod.Options, newVCluster bool, restoreVolumes bool, log log.Logger) error {
 	// pause vCluster
 	log.Infof("Pausing vCluster %s", vCluster.Name)
 	err := pauseVCluster(ctx, kubeClient, vCluster, log)
@@ -52,6 +52,9 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 	command := []string{"/vcluster", "restore"}
 	if newVCluster {
 		command = append(command, "--new-vcluster")
+	}
+	if restoreVolumes {
+		command = append(command, "--restore-volumes")
 	}
 
 	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOptions, snapshot, log)

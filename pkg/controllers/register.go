@@ -44,8 +44,12 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 	}
 
 	if !ctx.Config.ControlPlane.Standalone.Enabled {
-		// register vcluster snapshot controller only for non-standalone
+		// register vcluster snapshot & restore controllers only for non-standalone
 		err = registerSnapshotController(registerContext)
+		if err != nil {
+			return err
+		}
+		err = registerRestoreController(registerContext)
 		if err != nil {
 			return err
 		}
@@ -271,6 +275,19 @@ func registerSnapshotController(registerContext *synccontext.RegisterContext) er
 		if err != nil {
 			return fmt.Errorf("unable to deploy required CSI volume snapshot compoments: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func registerRestoreController(registerContext *synccontext.RegisterContext) error {
+	controller, err := snapshot.NewRestoreController(registerContext)
+	if err != nil {
+		return fmt.Errorf("unable to create vcluster snapshot controller: %w", err)
+	}
+	err = controller.Register()
+	if err != nil {
+		return fmt.Errorf("unable to register vcluster snapshot controller: %w", err)
 	}
 
 	return nil

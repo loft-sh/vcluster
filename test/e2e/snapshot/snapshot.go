@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/test/framework"
 	. "github.com/onsi/ginkgo/v2"
@@ -647,7 +648,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			beforeAll(controllerTestNamespaceName, true, snapshotPath)
 			Eventually(func() error {
 				listOptions := metav1.ListOptions{
-					LabelSelector: snapshot.RequestLabel,
+					LabelSelector: constants.SnapshotRequestLabel,
 				}
 				snapshotRequestConfigMaps, err := f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).List(f.Context, listOptions)
 				framework.ExpectNoError(err)

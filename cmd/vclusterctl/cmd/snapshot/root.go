@@ -30,11 +30,11 @@ func NewSnapshot(globalFlags *flags.GlobalFlags) *cobra.Command {
 	useLine, nameValidator := util.NamedPositionalArgsValidator(true, false, "VCLUSTER_NAME")
 	cobraCmd := &cobra.Command{
 		Use:   "snapshot" + useLine,
-		Short: "Snapshot a virtual cluster",
+		Short: "Snapshot a virtual cluster (deprecated, use 'vcluster snapshot create' instead)",
 		Long: `#######################################################
 ################# vcluster snapshot ###################
 #######################################################
-Snapshot a virtual cluster.
+Snapshot a virtual cluster. Deprecated, use 'vcluster snapshot create' instead.
 
 Example:
 # Snapshot to oci image
@@ -48,7 +48,7 @@ vcluster snapshot my-vcluster container:///data/my-local-snapshot.tar.gz
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.Snapshot(cobraCmd.Context(), args, rootCmd.GlobalFlags, &rootCmd.Snapshot, &rootCmd.Pod, rootCmd.Log, false)
+			return cli.Snapshot(cobraCmd.Context(), args, rootCmd.GlobalFlags, &rootCmd.Snapshot, &rootCmd.Pod, rootCmd.Log, false, false)
 		},
 	}
 
