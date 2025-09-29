@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -171,54 +172,19 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile new snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
 	case RequestPhaseCreatingVolumeSnapshots:
-		// reconcile volume snapshots
-		volumeSnapshotsRequest := &snapshotRequest.Spec.VolumeSnapshots
-		volumeSnapshotsStatus := &snapshotRequest.Status.VolumeSnapshots
-		previousVolumeSnapshotsRequestPhase := volumeSnapshotsStatus.Phase
-		err = c.volumeSnapshotter.Reconcile(ctx, &configMap, snapshotRequest.Name, volumeSnapshotsRequest, volumeSnapshotsStatus)
+		requeueAfter, err := c.reconcileCreatingVolumeSnapshots(ctx, &configMap, snapshotRequest)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to reconcile volume snapshots: %w", err)
+			return ctrl.Result{}, fmt.Errorf("failed to reconcile volume snapshots for snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
-
-		// check volume snapshots' status
-		switch volumeSnapshotsStatus.Phase {
-		case volumes.RequestPhaseInProgress:
-			if previousVolumeSnapshotsRequestPhase == volumes.RequestPhaseNotStarted {
-				// volume snapshots request just got initialized and moved to in-progress
-				return ctrl.Result{
-					RequeueAfter: 5 * time.Second,
-				}, nil
-			} else {
-				// ongoing volume snapshots reconciliation, this may take some time, wait a bit before reconciling again
-				return ctrl.Result{
-					RequeueAfter: 30 * time.Second,
-				}, nil
-			}
-		case volumes.RequestPhaseCleaningUp:
-			if previousVolumeSnapshotsRequestPhase == volumes.RequestPhaseInProgress {
-				// volume snapshots got created and resources should be now cleaned up
-				return ctrl.Result{
-					RequeueAfter: 5 * time.Second,
-				}, nil
-			} else {
-				// ongoing volume snapshots cleanup in progress, wait a bit before reconciling again
-				return ctrl.Result{
-					RequeueAfter: 30 * time.Second,
-				}, nil
-			}
-		case volumes.RequestPhasePartiallyFailed:
-			fallthrough
-		case volumes.RequestPhaseCompleted:
-			snapshotRequest.Status.Phase = RequestPhaseCreatingEtcdBackup
-		case volumes.RequestPhaseFailed:
-			snapshotRequest.Status.Phase = RequestPhaseFailed
-		default:
-			return ctrl.Result{}, fmt.Errorf("unexpected volume snapshots request phase %s", volumeSnapshotsStatus.Phase)
+		if requeueAfter > 0 {
+			return ctrl.Result{
+				RequeueAfter: requeueAfter,
+			}, nil
 		}
 	case RequestPhaseCreatingEtcdBackup:
 		requeue, err := c.reconcileCreatingEtcdBackup(ctx, &configMap, snapshotRequest)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to reconcile in-progress snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
+			return ctrl.Result{}, fmt.Errorf("failed to reconcile etcd backup creation for snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
 		if requeue {
 			return ctrl.Result{
@@ -242,6 +208,38 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (c *Reconciler) reconcileCreatingVolumeSnapshots(ctx context.Context, snapshotRequestObj runtime.Object, snapshotRequest *Request) (time.Duration, error) {
+	volumeSnapshotsRequest := &snapshotRequest.Spec.VolumeSnapshots
+	volumeSnapshotsStatus := &snapshotRequest.Status.VolumeSnapshots
+	previousVolumeSnapshotsRequestPhase := volumeSnapshotsStatus.Phase
+	err := c.volumeSnapshotter.Reconcile(ctx, snapshotRequestObj, snapshotRequest.Name, volumeSnapshotsRequest, volumeSnapshotsStatus)
+	if err != nil {
+		return 0, fmt.Errorf("failed to reconcile volume snapshots: %w", err)
+	}
+
+	// check volume snapshots' status
+	switch volumeSnapshotsStatus.Phase {
+	case volumes.RequestPhaseInProgress:
+		if previousVolumeSnapshotsRequestPhase == volumes.RequestPhaseNotStarted {
+			// volume snapshots request just got initialized and moved to in-progress
+			return 5 * time.Second, nil
+		} else {
+			// ongoing volume snapshots reconciliation, this may take some time, wait a bit before reconciling again
+			return 30 * time.Second, nil
+		}
+	case volumes.RequestPhasePartiallyFailed:
+		fallthrough
+	case volumes.RequestPhaseCompleted:
+		snapshotRequest.Status.Phase = RequestPhaseCreatingEtcdBackup
+	case volumes.RequestPhaseFailed:
+		snapshotRequest.Status.Phase = RequestPhaseFailed
+	default:
+		return 0, fmt.Errorf("unexpected volume snapshots request phase %s", volumeSnapshotsStatus.Phase)
+	}
+
+	return 0, nil
 }
 
 func (c *Reconciler) Register() error {
