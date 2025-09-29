@@ -45,6 +45,7 @@
     .Values.sync.fromHost.secrets.enabled
     .Values.integrations.istio.enabled
     .Values.sync.toHost.namespaces.enabled
+    (eq (toString .Values.rbac.enableVolumeSnapshotRules.enabled) "true")
      -}}
 {{- true -}}
 {{- end -}}

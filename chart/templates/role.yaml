@@ -79,9 +79,11 @@ rules:
     resources: ["networkpolicies"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
+  {{- if or .Values.sync.toHost.volumeSnapshots.enabled (eq (toString .Values.rbac.enableVolumeSnapshotRules.enabled) "true") }}
   - apiGroups: [ "snapshot.storage.k8s.io" ]
     resources: [ "volumesnapshots" ]
     verbs: ["create", "delete", "patch", "update", "get", "list"]
+  {{- end }}
   {{- if .Values.sync.toHost.volumeSnapshots.enabled }}
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshots"]
