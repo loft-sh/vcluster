@@ -548,6 +548,8 @@ rbac:
     enabled: auto
     overwriteRules: []
     extraRules: []
+  enableVolumeSnapshotRules:
+    enabled: auto
 
 networking:
   podCIDR: "10.244.0.0/16"

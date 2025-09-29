@@ -1018,6 +1018,12 @@ rbac:
     overwriteRules: []
     # ExtraRules will add rules to the cluster role.
     extraRules: []
+  
+  # EnableVolumeSnapshotRules enables all required volume snapshot rules in the Role and
+  # ClusterRole.
+  enableVolumeSnapshotRules:
+    # Enabled defines if this option should be enabled.
+    enabled: auto
 
 # Networking options related to the virtual cluster.
 networking:

@@ -1362,6 +1362,23 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "EnableAutoSwitch": {
+      "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "description": "Enabled defines if this option should be enabled."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "EnableAutoSwitchWithPatches": {
       "properties": {
         "enabled": {
@@ -3434,6 +3451,10 @@
         "clusterRole": {
           "$ref": "#/$defs/RBACClusterRole",
           "description": "ClusterRole holds virtual cluster cluster role configuration"
+        },
+        "enableVolumeSnapshotRules": {
+          "$ref": "#/$defs/EnableAutoSwitch",
+          "description": "EnableVolumeSnapshotRules enables all required volume snapshot rules in the Role and\nClusterRole."
         }
       },
       "additionalProperties": false,
