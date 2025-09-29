@@ -42,8 +42,8 @@ var (
 	K8sSchedulerBinary         = filepath.Join(BinariesDir, "kube-scheduler")
 	KineBinary                 = "/usr/local/bin/kine"
 
-	// DefaultVClusterConfigLocation is the default location of the vCluster config within the container
-	DefaultVClusterConfigLocation = "/var/lib/vcluster/config.yaml"
+	// DefaultVClusterConfigLocation is the default location of the vCluster Standalone config
+	DefaultVClusterConfigLocation = "/etc/vcluster/vcluster.yaml"
 
 	// VClusterNamespaceInHostMappingSpecialCharacter is an empty string that mean vCluster host namespace
 	// in the config.sync.fromHost.*.selector.mappings
