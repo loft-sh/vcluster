@@ -3,6 +3,7 @@ package snapshot
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -61,7 +62,14 @@ type RequestStatus struct {
 
 // CreateSnapshotRequestResources creates snapshot request ConfigMap and Secret in the cluster. It returns the created
 // snapshot request.
-func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, options *Options, includeVolumes bool, kubeClient *kubernetes.Clientset) (*Request, error) {
+func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, vConfig *config.VirtualClusterConfig, options *Options, includeVolumes bool, kubeClient *kubernetes.Clientset) (*Request, error) {
+	if vConfig == nil {
+		return nil, fmt.Errorf("config is nil")
+	}
+	if vConfig.ControlPlane.Standalone.Enabled {
+		return nil, errors.New("creating snapshot request resources is currently not supported in standalone mode")
+	}
+
 	// first create the snapshot options Secret
 	secret, err := CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName, options)
 	if err != nil {

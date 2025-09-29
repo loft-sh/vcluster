@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -130,22 +129,16 @@ func initSnapshotCommand(
 }
 
 func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshot.Options, log log.Logger, includeVolumes bool) error {
-	vClusterConfig, err := getVClusterConfig(ctx, vCluster, kubeClient, snapshotOpts)
-	if err != nil {
-		return err
-	}
-	if vClusterConfig.ControlPlane.Standalone.Enabled {
-		return errors.New("creating snapshots with 'vcluster snapshot create' command is currently not supported")
-	}
-	err = checkIfVClusterSupportsSnapshotRequests(vCluster, log)
+	err := checkIfVClusterSupportsSnapshotRequests(vCluster, log)
 	if err != nil {
 		return fmt.Errorf("vCluster version check failed: %w", err)
 	}
-	if vClusterConfig.ControlPlane.Standalone.Enabled {
-		return errors.New("creating snapshots with 'vcluster snapshot create' command is currently not supported")
+	vClusterConfig, err := getVClusterConfig(ctx, vCluster, kubeClient, snapshotOpts)
+	if err != nil {
+		return fmt.Errorf("failed to get vcluster config: %w", err)
 	}
 	// Create snapshot request resources
-	snapshotRequest, err := snapshot.CreateSnapshotRequestResources(ctx, vCluster.Namespace, vCluster.Name, snapshotOpts, includeVolumes, kubeClient)
+	snapshotRequest, err := snapshot.CreateSnapshotRequestResources(ctx, vCluster.Namespace, vCluster.Name, vClusterConfig, snapshotOpts, includeVolumes, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request resources: %w", err)
 	}
