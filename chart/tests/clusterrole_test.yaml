@@ -761,3 +761,39 @@ tests:
             apiGroups: [ "apiextensions.k8s.io" ]
             resources: [ "customresourcedefinitions" ]
             verbs: [ "get", "list", "watch" ]
+
+  - it: volume snapshot rules
+    set:
+      rbac:
+        enableVolumeSnapshotRules:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ClusterRole
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "persistentvolumes" ]
+            verbs:
+              [ "get", "list" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "snapshot.storage.k8s.io" ]
+            resources: [ "volumesnapshotclasses" ]
+            verbs:
+              [ "get", "list" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "snapshot.storage.k8s.io" ]
+            resources: [ "volumesnapshotcontents" ]
+            verbs:
+              [ "create", "delete", "patch", "update", "get", "list" ]

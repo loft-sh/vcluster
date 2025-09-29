@@ -428,3 +428,25 @@ tests:
             resources: ["leases"]
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
+
+  - it: volume snapshot rules
+    set:
+      rbac:
+        enableVolumeSnapshotRules:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["snapshot.storage.k8s.io"]
+            resources: ["volumesnapshots"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list"]
