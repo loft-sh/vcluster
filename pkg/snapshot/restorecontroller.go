@@ -176,18 +176,6 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 					RequeueAfter: time.Minute,
 				}, nil
 			}
-		case volumes.RequestPhaseCleaningUp:
-			if previousVolumesRestoreRequestPhase == volumes.RequestPhaseInProgress {
-				// volumes are restored and resources should be now cleaned up
-				return ctrl.Result{
-					RequeueAfter: 5 * time.Second,
-				}, nil
-			} else {
-				// ongoing volumes restore cleanup in progress, wait a bit before reconciling again
-				return ctrl.Result{
-					RequeueAfter: 30 * time.Second,
-				}, nil
-			}
 		case volumes.RequestPhaseCompleted:
 			restoreRequest.Status.Phase = RequestPhaseCompleted
 		case volumes.RequestPhaseFailed:
