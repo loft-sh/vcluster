@@ -46,13 +46,11 @@ vcluster snapshot create my-vcluster container:///data/my-local-snapshot.tar.gz
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.Snapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, nil, cmd.Log, true, cmd.IncludeVolumes)
+			return cli.Snapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, nil, cmd.Log, true)
 		},
 	}
 
 	// add storage flags
 	snapshot.AddFlags(createCmd.Flags(), &cmd.Snapshot)
-	createCmd.Flags().BoolVarP(&cmd.IncludeVolumes, "include-volumes", "", false, "Create CSI volume snapshots (shared and private nodes only)")
-
 	return createCmd
 }
