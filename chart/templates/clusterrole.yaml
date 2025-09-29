@@ -63,7 +63,7 @@ rules:
     resources: ["csistoragecapacities"]
     verbs: ["get", "watch", "list"]
   {{- end }}
-  {{- if or .Values.sync.toHost.persistentVolumes.enabled (eq (toString .Values.rbac.enableVolumeSnapshotRules.enabled) "true") }}
+  {{- if or .Values.sync.toHost.persistentVolumes.enabled (include "vcluster.enableVolumeSnapshotRules" .) }}
   - apiGroups: [ "" ]
     resources: [ "persistentvolumes" ]
     verbs: [ "get", "list" ]
@@ -93,7 +93,7 @@ rules:
     resources: ["priorityclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
-  {{- if or .Values.sync.fromHost.volumeSnapshotClasses.enabled (eq (toString .Values.rbac.enableVolumeSnapshotRules.enabled) "true") }}
+  {{- if or .Values.sync.fromHost.volumeSnapshotClasses.enabled (include "vcluster.enableVolumeSnapshotRules" .) }}
   - apiGroups: [ "snapshot.storage.k8s.io" ]
     resources: [ "volumesnapshotclasses" ]
     verbs: ["get", "list"]
@@ -103,7 +103,7 @@ rules:
     resources: ["volumesnapshotclasses"]
     verbs: ["watch"]
   {{- end }}
-  {{- if or .Values.sync.toHost.volumeSnapshotContents.enabled (eq (toString .Values.rbac.enableVolumeSnapshotRules.enabled) "true") }}
+  {{- if or .Values.sync.toHost.volumeSnapshotContents.enabled (include "vcluster.enableVolumeSnapshotRules" .) }}
   - apiGroups: [ "snapshot.storage.k8s.io" ]
     resources: [ "volumesnapshotcontents" ]
     verbs: ["create", "delete", "patch", "update", "get", "list"]
