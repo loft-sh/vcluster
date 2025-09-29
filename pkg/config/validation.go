@@ -210,6 +210,10 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	if err != nil {
 		return err
 	}
+	// auto-enable volume snapshot rules in shared mode
+	if !vConfig.Config.PrivateNodes.Enabled && vConfig.RBAC.EnableVolumeSnapshotRules.Enabled == "auto" {
+		vConfig.RBAC.EnableVolumeSnapshotRules.Enabled = "true"
+	}
 
 	return nil
 }
