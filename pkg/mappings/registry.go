@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -103,6 +104,10 @@ func Secrets() schema.GroupVersionKind {
 
 func Endpoints() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("Endpoints")
+}
+
+func EndpointSlices() schema.GroupVersionKind {
+	return discoveryv1.SchemeGroupVersion.WithKind("EndpointSlice")
 }
 
 func Services() schema.GroupVersionKind {

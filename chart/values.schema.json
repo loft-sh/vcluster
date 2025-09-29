@@ -4312,6 +4312,10 @@
           "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "Endpoints defines if endpoints created within the virtual cluster should get synced to the host cluster."
         },
+        "endpointSlices": {
+          "$ref": "#/$defs/EnableSwitchWithPatches",
+          "description": "EndpointSlices defines if endpointslices created within the virtual cluster should get synced to the host cluster."
+        },
         "networkPolicies": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "NetworkPolicies defines if network policies created within the virtual cluster should get synced to the host cluster."
