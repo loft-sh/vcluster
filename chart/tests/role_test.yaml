@@ -57,7 +57,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 9
+          count: 8
       - contains:
           path: rules
           count: 1
@@ -86,7 +86,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 8
+          count: 7
       - contains:
           path: rules
           count: 1
@@ -304,7 +304,7 @@ tests:
           value: Role
       - lengthEqual:
           path: rules
-          count: 11
+          count: 10
       - contains:
           path: rules
           content:
