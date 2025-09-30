@@ -55,7 +55,7 @@ vcluster describe -o json test
 	cobraCmd.Flags().StringVar(&driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
 	cobraCmd.Flags().StringVarP(&cmd.output, "output", "o", "", "The format to use to display the information, can either be json or yaml")
 	cobraCmd.Flags().StringVarP(&cmd.project, "project", "p", p, "The project to use")
-	cobraCmd.Flags().BoolVar(&cmd.showConfig, "show-config", false, "Return vcluster.yaml configuration")
+	cobraCmd.Flags().BoolVar(&cmd.showConfig, "show-config", false, "Experimental: Return vcluster.yaml configuration")
 
 	return cobraCmd
 }
