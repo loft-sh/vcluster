@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,11 +22,14 @@ import (
 	"github.com/loft-sh/vcluster/pkg/k8s"
 	"github.com/loft-sh/vcluster/pkg/mappings/store"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	"go.etcd.io/etcd/server/v3/storage/backend"
 	"go.etcd.io/etcd/server/v3/storage/mvcc"
 	"go.etcd.io/etcd/server/v3/storage/schema"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/protobuf"
@@ -33,9 +37,12 @@ import (
 )
 
 type RestoreClient struct {
-	Snapshot Options
+	snapshotRequest Request
+	Snapshot        Options
+	RestoreVolumes  bool
 
 	NewVCluster bool
+	vConfig     *config.VirtualClusterConfig
 }
 
 var (
@@ -61,6 +68,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	if err != nil {
 		return err
 	}
+	o.vConfig = vConfig
 
 	// create store
 	objectStore, err := CreateStore(ctx, &o.Snapshot)
@@ -128,6 +136,17 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 			}
 		}
 
+		// check snapshot request
+		if strings.HasPrefix(string(key), RequestStoreKey) {
+			if o.RestoreVolumes {
+				err = o.createRestoreRequest(ctx, vConfig, value)
+				if err != nil {
+					return fmt.Errorf("failed to create restore request: %w", err)
+				}
+			}
+			continue
+		}
+
 		// transform pods to make sure they are not deleted on start
 		if strings.HasPrefix(string(key), "/registry/pods/") {
 			// we need to only do this in shared nodes mode as otherwise kubelet will not update the status correctly
@@ -140,6 +159,11 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 		}
 
 		// write the value to etcd
+		if o.skipKey(string(key)) {
+			klog.Infof("Skip key %s", string(key))
+			continue
+		}
+
 		klog.V(1).Infof("Restore key %s", string(key))
 		latestRevision, err = etcdClient.Put(ctx, string(key), value)
 		if err != nil {
@@ -163,6 +187,96 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	klog.Infof("Successfully restored %d etcd keys from snapshot", restoredKeys)
 	klog.Infof("Successfully restored snapshot from %s", objectStore.Target())
 	return nil
+}
+
+func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *config.VirtualClusterConfig, value []byte) error {
+	klog.V(1).Infof("Found snapshot request object %s", string(value))
+	var err error
+	if vConfig.HostConfig == nil || vConfig.HostNamespace == "" {
+		// init the clients
+		vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
+		if err != nil {
+			return fmt.Errorf("failed to init client config: %w", err)
+		}
+	}
+	if vConfig.HostClient == nil {
+		err = setupconfig.InitClients(vConfig)
+		if err != nil {
+			return fmt.Errorf("failed to init clients: %w", err)
+		}
+	}
+
+	var snapshotRequest Request
+	err = json.Unmarshal(value, &snapshotRequest)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal snapshot request: %w", err)
+	}
+	klog.Infof("Found snapshot request: %s", snapshotRequest.Name)
+	o.snapshotRequest = snapshotRequest
+
+	// first create the snapshot options Secret
+	secret, err := CreateSnapshotOptionsSecret(vConfig.HostNamespace, vConfig.Name, &o.Snapshot)
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+	secret.GenerateName = fmt.Sprintf("%s-restore-request-", vConfig.Name)
+	secret, err = vConfig.HostClient.CoreV1().Secrets(vConfig.HostNamespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+
+	// then create the restore request that will be reconciled by the controller
+	restoreRequest, err := NewRestoreRequest(snapshotRequest)
+	if err != nil {
+		return fmt.Errorf("failed to create restore request: %w", err)
+	}
+	restoreRequest.Name = secret.Name
+	configMap, err := CreateRestoreRequestConfigMap(vConfig.HostNamespace, vConfig.Name, restoreRequest)
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+	}
+	configMap.Name = secret.Name
+	_, err = vConfig.HostClient.CoreV1().ConfigMaps(vConfig.HostNamespace).Create(ctx, configMap, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+	}
+
+	klog.Infof("Created restore request: %s/%s", configMap.Namespace, configMap.Name)
+	return nil
+}
+
+func (o *RestoreClient) skipKey(key string) bool {
+	if !o.vConfig.PrivateNodes.Enabled {
+		// Restore skips restoring PVs and PVCs only in private mode.
+		// In the shared mode, PVs and PVCs are restored in virtual cluster, and volumes are restored in the host
+		// cluster if needed.
+		return false
+	}
+
+	const (
+		pvPrefix  = "/registry/persistentvolumes/"
+		pvcPrefix = "/registry/persistentvolumeclaims/"
+	)
+
+	// check if the snapshot exists
+	if strings.HasPrefix(key, pvcPrefix) {
+		pvcName := strings.TrimPrefix(key, pvcPrefix)
+		status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcName]
+		if !ok {
+			return false
+		}
+		// skip restoring PVC if it has a snapshot, restore controller will restore it
+		return status.Phase == volumes.RequestPhaseCompleted
+	} else if strings.HasPrefix(key, pvPrefix) {
+		volumeName := strings.TrimPrefix(key, pvPrefix)
+		for _, snapshotSpec := range o.snapshotRequest.Spec.VolumeSnapshots.Requests {
+			if snapshotSpec.PersistentVolumeClaim.Spec.VolumeName == volumeName {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func transformPod(value []byte, decoder runtime.Decoder, encoder runtime.Encoder) ([]byte, error) {

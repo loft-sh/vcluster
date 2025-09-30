@@ -2867,6 +2867,10 @@ type RBAC struct {
 
 	// ClusterRole holds virtual cluster cluster role configuration
 	ClusterRole RBACClusterRole `json:"clusterRole,omitempty"`
+
+	// EnableVolumeSnapshotRules enables all required volume snapshot rules in the Role and
+	// ClusterRole.
+	EnableVolumeSnapshotRules EnableAutoSwitch `json:"enableVolumeSnapshotRules,omitempty"`
 }
 
 type RBACClusterRole struct {

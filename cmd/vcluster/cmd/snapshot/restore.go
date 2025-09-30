@@ -26,5 +26,6 @@ func NewRestoreCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&restoreClient.NewVCluster, "new-vcluster", false, "Restore a new vCluster from snapshot instead of restoring into an existing vCluster")
+	cmd.Flags().BoolVar(&restoreClient.RestoreVolumes, "restore-volumes", false, "Restore volumes from volume snapshots")
 	return cmd
 }

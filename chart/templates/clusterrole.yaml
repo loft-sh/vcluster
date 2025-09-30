@@ -63,10 +63,15 @@ rules:
     resources: ["csistoragecapacities"]
     verbs: ["get", "watch", "list"]
   {{- end }}
+  {{- if or .Values.sync.toHost.persistentVolumes.enabled (include "vcluster.enableVolumeSnapshotRules" .) }}
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumes" ]
+    verbs: [ "get", "list" ]
+  {{- end }}
   {{- if .Values.sync.toHost.persistentVolumes.enabled }}
   - apiGroups: [""]
     resources: ["persistentvolumes"]
-    verbs: ["create", "delete", "patch", "update", "get", "watch", "list"]
+    verbs: ["create", "delete", "patch", "update", "watch"]
   {{- end }}
   {{- if .Values.sync.fromHost.ingressClasses.enabled }}
   - apiGroups: ["networking.k8s.io"]
@@ -88,15 +93,25 @@ rules:
     resources: ["priorityclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
+  {{- if or .Values.sync.fromHost.volumeSnapshotClasses.enabled (include "vcluster.enableVolumeSnapshotRules" .) }}
+  - apiGroups: [ "snapshot.storage.k8s.io" ]
+    resources: [ "volumesnapshotclasses" ]
+    verbs: ["get", "list"]
+  {{- end }}
   {{- if .Values.sync.fromHost.volumeSnapshotClasses.enabled }}
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotclasses"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["watch"]
+  {{- end }}
+  {{- if or .Values.sync.toHost.volumeSnapshotContents.enabled (include "vcluster.enableVolumeSnapshotRules" .) }}
+  - apiGroups: [ "snapshot.storage.k8s.io" ]
+    resources: [ "volumesnapshotcontents" ]
+    verbs: ["create", "delete", "patch", "update", "get", "list"]
   {{- end }}
   {{- if .Values.sync.toHost.volumeSnapshotContents.enabled }}
   - apiGroups: ["snapshot.storage.k8s.io"]
     resources: ["volumesnapshotcontents"]
-    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+    verbs: ["watch"]
   {{- end }}
   {{- if .Values.networking.replicateServices.fromHost }}
   - apiGroups: [""]

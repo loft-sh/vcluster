@@ -57,7 +57,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 9
+          count: 10
       - contains:
           path: rules
           count: 1
@@ -86,7 +86,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 8
+          count: 9
       - contains:
           path: rules
           count: 1
@@ -304,7 +304,7 @@ tests:
           value: Role
       - lengthEqual:
           path: rules
-          count: 11
+          count: 12
       - contains:
           path: rules
           content:
@@ -428,3 +428,25 @@ tests:
             resources: ["leases"]
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
+
+  - it: volume snapshot rules
+    set:
+      rbac:
+        enableVolumeSnapshotRules:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["snapshot.storage.k8s.io"]
+            resources: ["volumesnapshots"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list"]

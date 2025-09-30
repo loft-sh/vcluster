@@ -45,7 +45,21 @@
     .Values.sync.fromHost.secrets.enabled
     .Values.integrations.istio.enabled
     .Values.sync.toHost.namespaces.enabled
+    (include "vcluster.enableVolumeSnapshotRules" .)
      -}}
+{{- true -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+  Whether to add all rules required for volume snapshots or not
+*/}}
+{{- define "vcluster.enableVolumeSnapshotRules" -}}
+{{- if eq (toString .Values.rbac.enableVolumeSnapshotRules.enabled) "true" -}}
+{{- true -}}
+{{- else if eq (toString .Values.rbac.enableVolumeSnapshotRules.enabled) "auto" -}}
+{{- if not .Values.privateNodes.enabled -}}
 {{- true -}}
 {{- end -}}
 {{- end -}}

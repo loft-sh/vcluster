@@ -3,48 +3,73 @@ package snapshot
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
 const (
-	RequestLabel = "vcluster.loft.sh/snapshot-request"
-	RequestKey   = "snapshotRequest"
-	OptionsKey   = "snapshotOptions"
+	// APIVersion is the snapshot request API version.
+	APIVersion = "v1beta1"
 
-	RequestPhaseInProgress RequestPhase = "InProgress"
-	RequestPhaseCompleted  RequestPhase = "Completed"
-	RequestPhaseFailed     RequestPhase = "Failed"
+	RequestKey = "snapshotRequest"
+	OptionsKey = "snapshotOptions"
+
+	RequestPhaseNotStarted              RequestPhase = ""
+	RequestPhaseCreatingVolumeSnapshots RequestPhase = "CreatingVolumeSnapshots"
+	RequestPhaseCreatingEtcdBackup      RequestPhase = "CreatingEtcdBackup"
+	RequestPhaseCompleted               RequestPhase = "Completed"
+	RequestPhasePartiallyFailed         RequestPhase = "PartiallyFailed"
+	RequestPhaseFailed                  RequestPhase = "Failed"
+
+	DefaultRequestTTL = 24 * time.Hour
 )
 
 type RequestPhase string
 
 type Request struct {
-	Name   string        `json:"name"`
-	Spec   RequestSpec   `json:"spec"`
-	Status RequestStatus `json:"status"`
+	RequestMetadata `json:"metadata,omitempty"`
+	Spec            RequestSpec   `json:"spec,omitempty"`
+	Status          RequestStatus `json:"status,omitempty"`
 }
 
 func (r *Request) Done() bool {
 	return r.Status.Phase == RequestPhaseCompleted || r.Status.Phase == RequestPhaseFailed
 }
 
+type RequestMetadata struct {
+	Name              string      `json:"name"`
+	CreationTimestamp metav1.Time `json:"creationTimestamp,omitempty"`
+}
+
 type RequestSpec struct {
-	Options Options `json:"-"`
+	IncludeVolumes  bool                     `json:"includeVolumes,omitempty"`
+	VolumeSnapshots volumes.SnapshotsRequest `json:"volumeSnapshots,omitempty"`
+	Options         Options                  `json:"-"`
 }
 
 type RequestStatus struct {
-	Phase RequestPhase `json:"phase,omitempty"`
+	Phase           RequestPhase            `json:"phase,omitempty"`
+	VolumeSnapshots volumes.SnapshotsStatus `json:"volumeSnapshots,omitempty"`
 }
 
 // CreateSnapshotRequestResources creates snapshot request ConfigMap and Secret in the cluster. It returns the created
 // snapshot request.
-func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, options *Options, kubeClient *kubernetes.Clientset) (*Request, error) {
+func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, vConfig *config.VirtualClusterConfig, options *Options, includeVolumes bool, kubeClient *kubernetes.Clientset) (*Request, error) {
+	if vConfig == nil {
+		return nil, fmt.Errorf("config is nil")
+	}
+	if vConfig.ControlPlane.Standalone.Enabled {
+		return nil, errors.New("creating snapshot request resources is currently not supported in standalone mode")
+	}
+
 	// first create the snapshot options Secret
 	secret, err := CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName, options)
 	if err != nil {
@@ -58,7 +83,13 @@ func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 
 	// then create the snapshot request that will be reconciled by the controller
 	snapshotRequest := &Request{
-		Name: secret.Name,
+		RequestMetadata: RequestMetadata{
+			Name:              secret.Name,
+			CreationTimestamp: metav1.Now(),
+		},
+		Spec: RequestSpec{
+			IncludeVolumes: includeVolumes,
+		},
 	}
 	configMap, err := CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName, snapshotRequest)
 	if err != nil {
@@ -91,7 +122,7 @@ func UnmarshalSnapshotRequest(configMap *corev1.ConfigMap) (*Request, error) {
 		return nil, fmt.Errorf("config map is nil")
 	}
 	// check if ConfigMap has the required snapshot request label
-	if _, ok := configMap.Labels[RequestLabel]; !ok {
+	if _, ok := configMap.Labels[constants.SnapshotRequestLabel]; !ok {
 		return nil, fmt.Errorf("config map does not have the snapshot request label")
 	}
 
@@ -115,7 +146,7 @@ func UnmarshalSnapshotOptions(secret *corev1.Secret) (*Options, error) {
 	}
 
 	// check if Secret has the required snapshot request label
-	if _, ok := secret.Labels[RequestLabel]; !ok {
+	if _, ok := secret.Labels[constants.SnapshotRequestLabel]; !ok {
 		return nil, fmt.Errorf("secret does not have the snapshot request label")
 	}
 
@@ -153,7 +184,7 @@ func CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName string, snap
 			Labels: map[string]string{
 				constants.VClusterNamespaceLabel: vClusterNamespace,
 				constants.VClusterNameLabel:      vClusterName,
-				RequestLabel:                     "",
+				constants.SnapshotRequestLabel:   "",
 			},
 		},
 		Data: map[string]string{
@@ -182,7 +213,7 @@ func CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName string, snapsho
 			Labels: map[string]string{
 				constants.VClusterNamespaceLabel: vClusterNamespace,
 				constants.VClusterNameLabel:      vClusterName,
-				RequestLabel:                     "",
+				constants.SnapshotRequestLabel:   "",
 			},
 		},
 		Data: map[string][]byte{
