@@ -1,4 +1,5 @@
 {{- define "vcluster.vClusterConfigHash" -}}
 {{- $vals := deepCopy .Values -}}
-{{- (unset $vals.privateNodes "autoNodes") | toYaml | b64enc | sha256sum | quote -}}
+{{- $_ := unset (index $vals "privateNodes") "autoNodes" -}}
+{{- toYaml $vals | b64enc | sha256sum | quote -}}
 {{- end -}}
