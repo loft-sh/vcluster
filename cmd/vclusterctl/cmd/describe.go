@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -17,16 +18,17 @@ import (
 type DescribeCmd struct {
 	*flags.GlobalFlags
 
-	output  string
-	log     log.Logger
-	project string
+	output     string
+	log        log.Logger
+	project    string
+	showConfig bool
 }
 
 // NewDescribeCmd creates a new command
 func NewDescribeCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &DescribeCmd{
 		GlobalFlags: globalFlags,
-		log:         log.GetInstance(),
+		log:         log.NewStdoutLogger(os.Stdin, os.Stderr, os.Stderr, logrus.InfoLevel),
 	}
 	driver := ""
 
@@ -53,6 +55,7 @@ vcluster describe -o json test
 	cobraCmd.Flags().StringVar(&driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
 	cobraCmd.Flags().StringVarP(&cmd.output, "output", "o", "", "The format to use to display the information, can either be json or yaml")
 	cobraCmd.Flags().StringVarP(&cmd.project, "project", "p", p, "The project to use")
+	cobraCmd.Flags().BoolVar(&cmd.showConfig, "show-config", false, "Return vcluster.yaml configuration")
 
 	return cobraCmd
 }
@@ -67,8 +70,8 @@ func (cmd *DescribeCmd) Run(cobraCmd *cobra.Command, driver, name string) error 
 		return fmt.Errorf("parse driver type: %w", err)
 	}
 	if driverType == config.PlatformDriver {
-		return cli.DescribePlatform(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, cmd.log, name, cmd.project, cmd.output)
+		return cli.DescribePlatform(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, cmd.log, name, cmd.project, cmd.showConfig, cmd.output)
 	}
 
-	return cli.DescribeHelm(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, name, cmd.output)
+	return cli.DescribeHelm(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, cmd.log, name, cmd.showConfig, cmd.output)
 }
