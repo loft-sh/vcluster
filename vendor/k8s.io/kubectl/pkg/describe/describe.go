@@ -22,9 +22,11 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/url"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -51,7 +53,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	storagev1beta1 "k8s.io/api/storage/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -229,7 +230,7 @@ func describerMap(clientConfig *rest.Config) (map[schema.GroupKind]ResourceDescr
 		{Group: certificatesv1beta1.GroupName, Kind: "CertificateSigningRequest"}: &CertificateSigningRequestDescriber{c},
 		{Group: storagev1.GroupName, Kind: "StorageClass"}:                        &StorageClassDescriber{c},
 		{Group: storagev1.GroupName, Kind: "CSINode"}:                             &CSINodeDescriber{c},
-		{Group: storagev1beta1.GroupName, Kind: "VolumeAttributesClass"}:          &VolumeAttributesClassDescriber{c},
+		{Group: storagev1.GroupName, Kind: "VolumeAttributesClass"}:               &VolumeAttributesClassDescriber{c},
 		{Group: policyv1beta1.GroupName, Kind: "PodDisruptionBudget"}:             &PodDisruptionBudgetDescriber{c},
 		{Group: policyv1.GroupName, Kind: "PodDisruptionBudget"}:                  &PodDisruptionBudgetDescriber{c},
 		{Group: rbacv1.GroupName, Kind: "Role"}:                                   &RoleDescriber{c},
@@ -1863,7 +1864,11 @@ func describeContainerBasicInfo(container corev1.Container, status corev1.Contai
 func describeContainerPorts(cPorts []corev1.ContainerPort) string {
 	ports := make([]string, 0, len(cPorts))
 	for _, cPort := range cPorts {
-		ports = append(ports, fmt.Sprintf("%d/%s", cPort.ContainerPort, cPort.Protocol))
+		portStr := fmt.Sprintf("%d/%s", cPort.ContainerPort, cPort.Protocol)
+		if cPort.Name != "" {
+			portStr = fmt.Sprintf("%s (%s)", portStr, cPort.Name)
+		}
+		ports = append(ports, portStr)
 	}
 	return strings.Join(ports, ", ")
 }
@@ -1871,7 +1876,11 @@ func describeContainerPorts(cPorts []corev1.ContainerPort) string {
 func describeContainerHostPorts(cPorts []corev1.ContainerPort) string {
 	ports := make([]string, 0, len(cPorts))
 	for _, cPort := range cPorts {
-		ports = append(ports, fmt.Sprintf("%d/%s", cPort.HostPort, cPort.Protocol))
+		portStr := fmt.Sprintf("%d/%s", cPort.HostPort, cPort.Protocol)
+		if cPort.Name != "" {
+			portStr = fmt.Sprintf("%s (%s)", portStr, cPort.Name)
+		}
+		ports = append(ports, portStr)
 	}
 	return strings.Join(ports, ", ")
 }
@@ -2580,12 +2589,12 @@ func describeSecret(secret *corev1.Secret) (string, error) {
 		w.Write(LEVEL_0, "\nType:\t%s\n", secret.Type)
 
 		w.Write(LEVEL_0, "\nData\n====\n")
-		for k, v := range secret.Data {
+		for _, k := range slices.Sorted(maps.Keys(secret.Data)) {
 			switch {
 			case k == corev1.ServiceAccountTokenKey && secret.Type == corev1.SecretTypeServiceAccountToken:
-				w.Write(LEVEL_0, "%s:\t%s\n", k, string(v))
+				w.Write(LEVEL_0, "%s:\t%s\n", k, string(secret.Data[k]))
 			default:
-				w.Write(LEVEL_0, "%s:\t%d bytes\n", k, len(v))
+				w.Write(LEVEL_0, "%s:\t%d bytes\n", k, len(secret.Data[k]))
 			}
 		}
 
@@ -3154,6 +3163,9 @@ func describeService(service *corev1.Service, endpointSlices []discoveryv1.Endpo
 		}
 		if len(service.Spec.LoadBalancerSourceRanges) > 0 {
 			w.Write(LEVEL_0, "LoadBalancer Source Ranges:\t%v\n", strings.Join(service.Spec.LoadBalancerSourceRanges, ","))
+		}
+		if service.Spec.TrafficDistribution != nil {
+			w.Write(LEVEL_0, "Traffic Distribution:\t%s\n", *service.Spec.TrafficDistribution)
 		}
 		if events != nil {
 			DescribeEvents(events, w)
@@ -4563,13 +4575,15 @@ func (d *ConfigMapDescriber) Describe(namespace, name string, describerSettings 
 		printAnnotationsMultiline(w, "Annotations", configMap.Annotations)
 
 		w.Write(LEVEL_0, "\nData\n====\n")
-		for k, v := range configMap.Data {
+		for _, k := range slices.Sorted(maps.Keys(configMap.Data)) {
+			v := configMap.Data[k]
 			w.Write(LEVEL_0, "%s:\n----\n", k)
 			w.Write(LEVEL_0, "%s\n", string(v))
 			w.Write(LEVEL_0, "\n")
 		}
 		w.Write(LEVEL_0, "\nBinaryData\n====\n")
-		for k, v := range configMap.BinaryData {
+		for _, k := range slices.Sorted(maps.Keys(configMap.BinaryData)) {
+			v := configMap.BinaryData[k]
 			w.Write(LEVEL_0, "%s: %s bytes\n", k, strconv.Itoa(len(v)))
 		}
 		w.Write(LEVEL_0, "\n")
@@ -4809,7 +4823,7 @@ type VolumeAttributesClassDescriber struct {
 }
 
 func (d *VolumeAttributesClassDescriber) Describe(namespace, name string, describerSettings DescriberSettings) (string, error) {
-	vac, err := d.StorageV1beta1().VolumeAttributesClasses().Get(context.TODO(), name, metav1.GetOptions{})
+	vac, err := d.StorageV1().VolumeAttributesClasses().Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -4822,7 +4836,7 @@ func (d *VolumeAttributesClassDescriber) Describe(namespace, name string, descri
 	return describeVolumeAttributesClass(vac, events)
 }
 
-func describeVolumeAttributesClass(vac *storagev1beta1.VolumeAttributesClass, events *corev1.EventList) (string, error) {
+func describeVolumeAttributesClass(vac *storagev1.VolumeAttributesClass, events *corev1.EventList) (string, error) {
 	return tabbedString(func(out io.Writer) error {
 		w := NewPrefixWriter(out)
 		w.Write(LEVEL_0, "Name:\t%s\n", vac.Name)

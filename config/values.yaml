@@ -107,7 +107,7 @@ controlPlane:
       image:
         registry: ghcr.io
         repository: "loft-sh/kubernetes"
-        tag: "v1.33.4"
+        tag: "v1.34.0"
       apiServer:
         enabled: true
         command: []
@@ -138,7 +138,7 @@ controlPlane:
       image:
         registry: ""
         repository: "rancher/k3s"
-        tag: "v1.33.3-k3s1"
+        tag: "v1.34.1-k3s1"
       securityContext: {}
       resources:
         limits:
