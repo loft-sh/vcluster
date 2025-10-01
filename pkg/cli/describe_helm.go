@@ -67,14 +67,18 @@ func (do *DescribeOutput) String() string {
 	}
 
 	if do.UserConfigYaml != nil {
-		userConfigYaml, isTruncated := truncateString(*do.UserConfigYaml, "\n", 100)
+		userConfigYaml, isTruncated := truncateString(*do.UserConfigYaml, "\n", 50)
 		w.Write(describe.LEVEL_0, "\n------------------- vcluster.yaml -------------------\n")
 		w.Write(describe.LEVEL_0, "%s\n", strings.TrimSuffix(userConfigYaml, "\n"))
 		if isTruncated {
 			w.Write(describe.LEVEL_0, "... (truncated)\n")
 		}
 		w.Write(describe.LEVEL_0, "------------------------------------------------------\n")
-		w.Write(describe.LEVEL_0, "Use --config-only to retrieve the full vcluster.yaml only\n")
+		if isTruncated {
+			w.Write(describe.LEVEL_0, "Use --config-only to retrieve the full vcluster.yaml only\n")
+		} else {
+			w.Write(describe.LEVEL_0, "Use --config-only to retrieve just the vcluster.yaml\n")
+		}
 	}
 
 	out.Flush()
