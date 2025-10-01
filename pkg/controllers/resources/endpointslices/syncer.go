@@ -121,15 +121,30 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 		Name:      req.Name,
 	}, eps)
 	if err != nil {
-		klog.Infof("Error retrieving endpointslice: %v", err)
-		return true, nil
+		// if endpointSlice is not found on virtual cluster, then remove it from host as well
+		if kerrors.IsNotFound(err) {
+			hostEps := &discoveryv1.EndpointSlice{}
+			err = ctx.HostClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), hostEps)
+			if err != nil {
+				if !kerrors.IsNotFound(err) {
+					return true, fmt.Errorf("error retrieving host endpointSlice: %w", err)
+				}
+				return true, nil
+			}
+			err = ctx.HostClient.Delete(ctx, hostEps)
+			if err != nil {
+				return true, fmt.Errorf("error deleting endpointSlice from host %s: %w", eps.Name, err)
+			}
+			return true, nil
+		}
+
+		return true, fmt.Errorf("error retrieving endpointslice: %w", err)
 	}
 
 	epsLabels := eps.GetLabels()
 	svcName, ok := epsLabels[translate.K8sServiceNameAnnotation]
 	if !ok {
-		klog.Info("Unable to retrieve label 'kubernetes.io/service-name'")
-		return true, nil
+		return true, fmt.Errorf("unable to retrieve label 'kubernetes.io/service-name'")
 	}
 
 	svc := &corev1.Service{}
@@ -149,9 +164,8 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 		err = ctx.HostClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpointSlice)
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
-				klog.Infof("Error retrieving endpointSliceList: %v", err)
+				return true, fmt.Errorf("error retrieving endpointSlice: %w", err)
 			}
-
 			return true, nil
 		}
 
@@ -165,8 +179,7 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 			klog.Infof("Refresh endpointSlice in physical cluster because they shouldn't be managed by vcluster anymore")
 			err = ctx.HostClient.Delete(ctx, endpointSlice)
 			if err != nil {
-				klog.Infof("Error deleting endpoints %s/%s: %v", endpointSlice.Namespace, endpointSlice.Name, err)
-				return true, err
+				return true, fmt.Errorf("error deleting endpointSlice %s/%s: %w", endpointSlice.Namespace, endpointSlice.Name, err)
 			}
 		}
 
@@ -180,8 +193,7 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 		klog.Infof("Refresh endpointSlice in physical cluster because they should be managed by vCluster now")
 		err = ctx.HostClient.Delete(ctx, endpointSlice)
 		if err != nil {
-			klog.Infof("Error deleting endpointSlice %s/%s: %v", endpointSlice.Namespace, endpointSlice.Name, err)
-			return true, err
+			return true, fmt.Errorf("error deleting endpointSlice %s/%s: %w", endpointSlice.Namespace, endpointSlice.Name, err)
 		}
 	}
 
