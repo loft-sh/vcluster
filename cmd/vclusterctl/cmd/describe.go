@@ -21,7 +21,7 @@ type DescribeCmd struct {
 	output     string
 	log        log.Logger
 	project    string
-	showConfig bool
+	configOnly bool
 }
 
 // NewDescribeCmd creates a new command
@@ -55,7 +55,7 @@ vcluster describe -o json test
 	cobraCmd.Flags().StringVar(&driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
 	cobraCmd.Flags().StringVarP(&cmd.output, "output", "o", "", "The format to use to display the information, can either be json or yaml")
 	cobraCmd.Flags().StringVarP(&cmd.project, "project", "p", p, "The project to use")
-	cobraCmd.Flags().BoolVar(&cmd.showConfig, "show-config", false, "Experimental: Return vcluster.yaml configuration")
+	cobraCmd.Flags().BoolVar(&cmd.configOnly, "config-only", false, "Return only the vcluster.yaml configuration")
 
 	return cobraCmd
 }
@@ -70,8 +70,8 @@ func (cmd *DescribeCmd) Run(cobraCmd *cobra.Command, driver, name string) error 
 		return fmt.Errorf("parse driver type: %w", err)
 	}
 	if driverType == config.PlatformDriver {
-		return cli.DescribePlatform(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, cmd.log, name, cmd.project, cmd.showConfig, cmd.output)
+		return cli.DescribePlatform(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, cmd.log, name, cmd.project, cmd.configOnly, cmd.output)
 	}
 
-	return cli.DescribeHelm(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, cmd.log, name, cmd.showConfig, cmd.output)
+	return cli.DescribeHelm(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, cmd.log, name, cmd.configOnly, cmd.output)
 }

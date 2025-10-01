@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -17,10 +19,12 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/helm"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/describe"
+	"k8s.io/utils/ptr"
 )
 
 var (
@@ -29,15 +33,16 @@ var (
 )
 
 type DescribeOutput struct {
-	Name         string   `json:"name,omitempty"`
-	Namespace    string   `json:"namespace,omitempty"`
-	Version      string   `json:"version,omitempty"`
-	BackingStore string   `json:"backingStore,omitempty"`
-	Distro       string   `json:"distro,omitempty"`
-	Status       string   `json:"status,omitempty"`
-	Created      v1.Time  `json:"created,omitempty"`
-	ImageTags    ImageTag `json:"imageTags,omitempty"`
-	Connected    bool     `json:"connected,omitempty"`
+	Name           string            `json:"name,omitempty"`
+	Namespace      string            `json:"namespace,omitempty"`
+	Version        string            `json:"version,omitempty"`
+	BackingStore   string            `json:"backingStore,omitempty"`
+	Distro         string            `json:"distro,omitempty"`
+	Status         string            `json:"status,omitempty"`
+	Created        metav1.Time       `json:"created,omitempty"`
+	Images         map[string]string `json:"imageTags,omitempty"`
+	Connected      *bool             `json:"connected,omitempty"`
+	UserConfigYaml *string           `json:"userConfigYaml,omitempty"`
 }
 
 func (do *DescribeOutput) String() string {
@@ -54,22 +59,34 @@ func (do *DescribeOutput) String() string {
 	w.Write(describe.LEVEL_0, "Distro:\t%s\n", do.Distro)
 	w.Write(describe.LEVEL_0, "Created:\t%s\n", do.Created.Time.Format(time.RFC1123Z))
 	w.Write(describe.LEVEL_0, "Status:\t%s\n", do.Status)
-	w.Write(describe.LEVEL_0, "Connected:\t%t\n", do.Connected)
 
-	w.Write(describe.LEVEL_0, "Images:\n")
-	w.Write(describe.LEVEL_1, "apiServer:\t%s\n", do.ImageTags.APIServer)
-	w.Write(describe.LEVEL_1, "syncer:\t%s\n", do.ImageTags.Syncer)
+	if do.Connected != nil {
+		w.Write(describe.LEVEL_0, "Connected:\t%t\n", *do.Connected)
+	}
+
+	if len(do.Images) > 0 {
+		w.Write(describe.LEVEL_0, "Images:\n")
+		for _, name := range slices.Sorted(maps.Keys(do.Images)) {
+			w.Write(describe.LEVEL_1, "%s:\t%s\n", name, do.Images[name])
+		}
+	}
+
+	if do.UserConfigYaml != nil {
+		userConfigYaml, isTruncated := truncateString(*do.UserConfigYaml, "\n", 100)
+		w.Write(describe.LEVEL_0, "\n------------------- vcluster.yaml -------------------\n")
+		w.Write(describe.LEVEL_0, "%s\n", strings.TrimSuffix(userConfigYaml, "\n"))
+		if isTruncated {
+			w.Write(describe.LEVEL_0, "... (truncated)\n")
+		}
+		w.Write(describe.LEVEL_0, "------------------------------------------------------\n")
+		w.Write(describe.LEVEL_0, "Use --config-only to retrieve the full vcluster.yaml only\n")
+	}
 
 	out.Flush()
 	return buf.String()
 }
 
-type ImageTag struct {
-	APIServer string `json:"apiServer,omitempty"`
-	Syncer    string `json:"syncer,omitempty"`
-}
-
-func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Writer, l log.Logger, name string, showConfig bool, format string) error {
+func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Writer, l log.Logger, name string, configOnly bool, format string) error {
 	namespace := "vcluster-" + name
 	if flags.Namespace != "" {
 		namespace = flags.Namespace
@@ -90,18 +107,36 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 		return err
 	}
 
-	vCluster, err := find.GetVCluster(ctx, rawConfig.CurrentContext, name, namespace, log.Discard)
+	vCluster, err := find.GetVCluster(ctx, rawConfig.CurrentContext, name, namespace, l)
 	if err != nil {
 		return err
 	}
 
-	configSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, "vc-config-"+name, v1.GetOptions{})
+	configSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, "vc-config-"+name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to load the vcluster config: %w", err)
 	}
 
-	// Return only the user supplied vcluster.yaml, if showConfig is set
-	if showConfig {
+	// Load the user supplied vcluster.yaml from the HelmRelease Config field
+	helmRelease, err := helm.NewSecrets(kubeClient).Get(ctx, name, namespace)
+	if err != nil {
+		if !kerrors.IsNotFound(err) {
+			return fmt.Errorf("failed to load the user supplied vcluster.yaml: %w", err)
+		}
+	}
+
+	var userConfigYaml *string
+	if helmRelease != nil {
+		userConfigBytes, err := yaml.Marshal(helmRelease.Config)
+		if err != nil {
+			return err
+		}
+
+		userConfigYaml = ptr.To(string(userConfigBytes))
+	}
+
+	// Return only the user supplied vcluster.yaml, if configOnly is set
+	if configOnly {
 		// Log ArgoCD tracking id
 		if trackingID, ok := configSecret.Annotations["argocd.argoproj.io/tracking-id"]; ok {
 			components := strings.Split(trackingID, ":")
@@ -112,13 +147,15 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 			}
 		}
 
-		// Load the user supplied vcluster.yaml from the HelmRelease Config field
-		helmRelease, err := helm.NewSecrets(kubeClient).Get(ctx, name, namespace)
-		if err != nil {
-			return fmt.Errorf("failed to load the user supplied vcluster.yaml: %w", err)
+		if userConfigYaml == nil {
+			return fmt.Errorf("Failed to load vcluster config")
 		}
 
-		return writeWithFormat(output, cmp.Or(format, "yaml"), helmRelease.Config)
+		if _, err := output.Write([]byte(*userConfigYaml)); err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	configBytes, ok := configSecret.Data["config.yaml"]
@@ -131,52 +168,60 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 		return err
 	}
 
-	syncer, api := getImageTags(conf, vCluster.Version)
-
 	describeOutput := &DescribeOutput{
-		Name:         vCluster.Name,
-		Namespace:    vCluster.Namespace,
-		Created:      vCluster.Created,
-		Status:       string(vCluster.Status),
-		Version:      vCluster.Version,
-		Distro:       conf.Distro(),
-		BackingStore: string(conf.BackingStoreType()),
-		ImageTags: ImageTag{
-			APIServer: api,
-			Syncer:    syncer,
-		},
+		Name:           vCluster.Name,
+		Namespace:      vCluster.Namespace,
+		Created:        vCluster.Created,
+		Status:         string(vCluster.Status),
+		Version:        vCluster.Version,
+		Distro:         conf.Distro(),
+		BackingStore:   string(conf.BackingStoreType()),
+		Images:         getImagesFromConfig(conf, vCluster.Version),
+		UserConfigYaml: userConfigYaml,
 	}
 
 	return writeWithFormat(output, format, describeOutput)
 }
 
-func getImageTags(c *config.Config, version string) (syncer, api string) {
+func getImagesFromConfig(c *config.Config, version string) map[string]string {
+	result := make(map[string]string)
+
 	registryOverride := c.ControlPlane.Advanced.DefaultImageRegistry
 
-	syncerImage := c.ControlPlane.StatefulSet.Image
-	syncerImage.Registry = cmp.Or(syncerImage.Registry, registryOverride, defaultRegistry)
-	syncerImage.Repository = cmp.Or(syncerImage.Repository, defaultSyncerRepository)
-	// the chart uses the chart version for the syncer tag, so the tag isn't set by default
-	syncerImage.Tag = cmp.Or(syncerImage.Tag, version)
-	syncer = syncerImage.String()
+	syncerFromConfig := c.ControlPlane.StatefulSet.Image
+	syncer := config.Image{
+		Registry:   cmp.Or(syncerFromConfig.Registry, registryOverride, defaultRegistry),
+		Repository: cmp.Or(syncerFromConfig.Repository, defaultSyncerRepository),
+		// the chart uses the chart version for the syncerRef tag, so the tag isn't set by default
+		Tag: cmp.Or(syncerFromConfig.Tag, version),
+	}
+	syncerRef := syncer.String()
+	if syncerRef != "" {
+		result["syncer"] = syncerRef
+	}
 
-	var kubeImage config.Image
+	var apiFromConfig config.Image
 	switch c.Distro() {
 	case config.K8SDistro:
-		kubeImage = c.ControlPlane.Distro.K8S.Image
+		apiFromConfig = c.ControlPlane.Distro.K8S.Image
 	case config.K3SDistro:
-		kubeImage = c.ControlPlane.Distro.K3S.Image
+		apiFromConfig = c.ControlPlane.Distro.K3S.Image
 	}
-
-	kubeImage.Registry = cmp.Or(kubeImage.Registry, registryOverride, defaultRegistry)
-	api = kubeImage.String()
 
 	// with the platform driver if only the registry is set we won't be able to display complete info
-	if kubeImage.Repository == "" {
-		api = ""
+	if apiFromConfig.Repository != "" {
+		api := config.Image{
+			Registry:   cmp.Or(apiFromConfig.Registry, registryOverride, defaultRegistry),
+			Repository: apiFromConfig.Repository,
+			Tag:        apiFromConfig.Tag,
+		}
+		apiRef := api.String()
+		if apiRef != "" {
+			result["apiServer"] = apiRef
+		}
 	}
 
-	return syncer, api
+	return result
 }
 
 // configPartialUnmarshal attempts to unmarshal only the relevant section
@@ -219,4 +264,15 @@ func writeWithFormat(writer io.Writer, format string, o any) error {
 
 	_, err = writer.Write(outputBytes)
 	return err
+}
+
+func truncateString(s string, sep string, max int) (string, bool) {
+	lines := strings.SplitN(s, sep, max+1)
+	count := len(lines)
+
+	if count <= max {
+		return s, false
+	}
+
+	return strings.Join(lines[:max], sep), true
 }
