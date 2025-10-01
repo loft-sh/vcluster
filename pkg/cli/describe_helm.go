@@ -147,7 +147,7 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 		}
 
 		if userConfigYaml == nil {
-			return fmt.Errorf("Failed to load vcluster config")
+			return fmt.Errorf("failed to load vcluster config")
 		}
 
 		if _, err := output.Write([]byte(*userConfigYaml)); err != nil {
