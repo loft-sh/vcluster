@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -33,6 +34,10 @@ func DescribePlatform(ctx context.Context, globalFlags *flags.GlobalFlags, outpu
 
 	// Return only the user supplied vcluster.yaml, if configOnly is set
 	if configOnly {
+		if cmp.Or(format, "yaml") != "yaml" {
+			return fmt.Errorf("--config-only output supports only yaml format")
+		}
+
 		if _, err := output.Write([]byte(values)); err != nil {
 			return err
 		}
@@ -45,6 +50,11 @@ func DescribePlatform(ctx context.Context, globalFlags *flags.GlobalFlags, outpu
 		return err
 	}
 
+	images := getImagesFromConfig(conf, version)
+	if _, found := images["syncer"]; !found {
+		images["syncer"] = fmt.Sprintf("ghcr.io/loft-sh/vcluster-pro:%s", version)
+	}
+
 	describeOutput := &DescribeOutput{
 		Name:           vCluster.Name,
 		Namespace:      vCluster.Namespace,
@@ -53,12 +63,8 @@ func DescribePlatform(ctx context.Context, globalFlags *flags.GlobalFlags, outpu
 		Version:        version,
 		Distro:         conf.Distro(),
 		BackingStore:   string(conf.BackingStoreType()),
-		Images:         getImagesFromConfig(conf, version),
+		Images:         images,
 		UserConfigYaml: &values,
-	}
-
-	if _, found := describeOutput.Images["syncer"]; !found {
-		describeOutput.Images["syncer"] = fmt.Sprintf("ghcr.io/loft-sh/vcluster-pro:%s", version)
 	}
 
 	return writeWithFormat(output, format, describeOutput)

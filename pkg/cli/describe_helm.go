@@ -41,7 +41,6 @@ type DescribeOutput struct {
 	Status         string            `json:"status,omitempty"`
 	Created        metav1.Time       `json:"created,omitempty"`
 	Images         map[string]string `json:"imageTags,omitempty"`
-	Connected      *bool             `json:"connected,omitempty"`
 	UserConfigYaml *string           `json:"userConfigYaml,omitempty"`
 }
 
@@ -59,10 +58,6 @@ func (do *DescribeOutput) String() string {
 	w.Write(describe.LEVEL_0, "Distro:\t%s\n", do.Distro)
 	w.Write(describe.LEVEL_0, "Created:\t%s\n", do.Created.Time.Format(time.RFC1123Z))
 	w.Write(describe.LEVEL_0, "Status:\t%s\n", do.Status)
-
-	if do.Connected != nil {
-		w.Write(describe.LEVEL_0, "Connected:\t%t\n", *do.Connected)
-	}
 
 	if len(do.Images) > 0 {
 		w.Write(describe.LEVEL_0, "Images:\n")
@@ -137,6 +132,10 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 
 	// Return only the user supplied vcluster.yaml, if configOnly is set
 	if configOnly {
+		if cmp.Or(format, "yaml") != "yaml" {
+			return fmt.Errorf("--config-only output supports only yaml format")
+		}
+
 		// Log ArgoCD tracking id
 		if trackingID, ok := configSecret.Annotations["argocd.argoproj.io/tracking-id"]; ok {
 			components := strings.Split(trackingID, ":")
