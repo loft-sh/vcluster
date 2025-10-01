@@ -51,6 +51,8 @@ func NewStartCommand() *cobra.Command {
 }
 
 func ExecuteStart(ctx context.Context, options *StartOptions) error {
+	logger := log.GetInstance()
+	logger.Infof("vCluster version: %s", telemetry.SyncerVersion)
 	if os.Getenv("POD_NAME") == "" && os.Getenv("POD_NAMESPACE") == "" {
 		return pro.StartStandalone(ctx, &pro.StandaloneOptions{
 			Config: options.Config,
