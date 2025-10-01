@@ -121,6 +121,23 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 		Name:      req.Name,
 	}, eps)
 	if err != nil {
+		// if endpointSlice is not found on virtual cluster, then remove it from host as well
+		if kerrors.IsNotFound(err) {
+			hostEps := &discoveryv1.EndpointSlice{}
+			err = ctx.HostClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), hostEps)
+			if err != nil {
+				if !kerrors.IsNotFound(err) {
+					klog.Infof("Error retrieving host endpointSlice: %v", err)
+				}
+				return true, nil
+			}
+			err = ctx.HostClient.Delete(ctx, hostEps)
+			if err != nil {
+				klog.Infof("Error deleting endpointSlice from host %s: %v", eps.Name, err)
+			}
+			return true, nil
+		}
+
 		klog.Infof("Error retrieving endpointslice: %v", err)
 		return true, nil
 	}
@@ -149,7 +166,7 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 		err = ctx.HostClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpointSlice)
 		if err != nil {
 			if !kerrors.IsNotFound(err) {
-				klog.Infof("Error retrieving endpointSliceList: %v", err)
+				klog.Infof("Error retrieving endpointSlice: %v", err)
 			}
 
 			return true, nil
@@ -165,7 +182,7 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 			klog.Infof("Refresh endpointSlice in physical cluster because they shouldn't be managed by vcluster anymore")
 			err = ctx.HostClient.Delete(ctx, endpointSlice)
 			if err != nil {
-				klog.Infof("Error deleting endpoints %s/%s: %v", endpointSlice.Namespace, endpointSlice.Name, err)
+				klog.Infof("Error deleting endpointSlice %s/%s: %v", endpointSlice.Namespace, endpointSlice.Name, err)
 				return true, err
 			}
 		}
