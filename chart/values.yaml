@@ -595,8 +595,8 @@ controlPlane:
     resources:
       # Limits are resource limits for the container
       limits:
-        ephemeral-storage: 8Gi
-        memory: 2Gi
+        ephemeral-storage: 10Gi
+        memory: 4Gi
       # Requests are minimal resources that will be consumed by the container
       requests:
         ephemeral-storage: 1Gi

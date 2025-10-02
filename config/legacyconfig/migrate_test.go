@@ -461,7 +461,7 @@ syncer:
   resources:
     limits:
       cpu: '8'
-      ephemeral-storage: 8Gi
+      ephemeral-storage: 10Gi
       memory: 10Gi
   # extraArgs:
   #  - '--sync-labels=namespace,aussiebb.io/,..aussiebb.io/'
