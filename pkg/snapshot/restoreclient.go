@@ -194,7 +194,7 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 	var err error
 	if vConfig.HostConfig == nil || vConfig.HostNamespace == "" {
 		// init the clients
-		vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
+		vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig(false)
 		if err != nil {
 			return fmt.Errorf("failed to init client config: %w", err)
 		}

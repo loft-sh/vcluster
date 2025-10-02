@@ -176,7 +176,7 @@ func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterCon
 	var err error
 
 	// init the clients
-	vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
+	vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig(false)
 	if err != nil {
 		return "", err
 	}

@@ -37,7 +37,7 @@ func Rotate(ctx context.Context,
 	withCA bool,
 	log log.Logger) error {
 	var err error
-	vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
+	vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig(vConfig.ControlPlane.Standalone.Enabled)
 	if err != nil {
 		return fmt.Errorf("getting remote client: %w", err)
 	}

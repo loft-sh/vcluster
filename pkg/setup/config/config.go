@@ -28,7 +28,7 @@ const (
 	AnnotationStore  = "vcluster.loft.sh/store"
 )
 
-func InitClientConfig() (*rest.Config, string, error) {
+func InitClientConfig(skipNamespace bool) (*rest.Config, string, error) {
 	inClusterConfig, err := ctrl.GetConfig()
 	if err != nil {
 		return nil, "", fmt.Errorf("getting in cluster config: %w", err)
@@ -58,9 +58,14 @@ func InitClientConfig() (*rest.Config, string, error) {
 	}
 	inClusterConfig.Timeout = time.Duration(timeout) * time.Second
 	// get current namespace
-	currentNamespace, err := clienthelper.CurrentNamespace()
-	if err != nil {
-		return nil, "", err
+	var currentNamespace string
+	if skipNamespace {
+		currentNamespace = "default"
+	} else {
+		currentNamespace, err = clienthelper.CurrentNamespace()
+		if err != nil {
+			return nil, "", err
+		}
 	}
 
 	return inClusterConfig, currentNamespace, nil

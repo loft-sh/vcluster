@@ -70,7 +70,7 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 	}
 
 	// get current namespace
-	vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
+	vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig(false)
 	if err != nil {
 		return err
 	}
