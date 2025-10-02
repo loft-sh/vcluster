@@ -311,8 +311,8 @@ controlPlane:
 
     resources:
       limits:
-        ephemeral-storage: 8Gi
-        memory: 2Gi
+        ephemeral-storage: 10Gi
+        memory: 4Gi
       requests:
         ephemeral-storage: 1Gi
         cpu: 200m
