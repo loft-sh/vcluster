@@ -124,9 +124,7 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 	// Load the user supplied vcluster.yaml from the HelmRelease Config field
 	helmRelease, err := helm.NewSecrets(kubeClient).Get(ctx, name, namespace)
 	if err != nil {
-		if kerrors.IsNotFound(err) {
-			l.Warnf("User supplied vcluster.yaml is not available")
-		} else {
+		if !kerrors.IsNotFound(err) {
 			return fmt.Errorf("failed to load the user supplied vcluster.yaml: %w", err)
 		}
 	}
@@ -166,6 +164,10 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 	conf, err := configPartialUnmarshal(configBytes)
 	if err != nil {
 		return err
+	}
+
+	if userConfigYaml == nil {
+		l.Warnf("User supplied vcluster.yaml is not available")
 	}
 
 	describeOutput := &DescribeOutput{
