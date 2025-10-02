@@ -276,6 +276,7 @@ func registerIndices(ctx *synccontext.RegisterContext) error {
 func (s *nodeSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.Node]) (ctrl.Result, error) {
 	if event.HostOld == nil {
 		if event.Virtual.GetLabels() == nil || (event.Virtual.GetLabels() != nil && event.Virtual.GetLabels()[translate.MarkerLabel] != translate.VClusterName) {
+			ctx.Log.Infof("Unmanaged virtual node %s, doing nothing.", event.Virtual.Name)
 			return ctrl.Result{}, nil
 		}
 	}
