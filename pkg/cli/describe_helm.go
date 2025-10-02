@@ -73,7 +73,7 @@ func (do *DescribeOutput) String() string {
 		if isTruncated {
 			w.Write(describe.LEVEL_0, "... (truncated)\n")
 		}
-		w.Write(describe.LEVEL_0, "------------------------------------------------------\n")
+		w.Write(describe.LEVEL_0, "-----------------------------------------------------\n")
 		if isTruncated {
 			w.Write(describe.LEVEL_0, "Use --config-only to retrieve the full vcluster.yaml only\n")
 		} else {
