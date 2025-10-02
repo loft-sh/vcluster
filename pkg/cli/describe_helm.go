@@ -141,12 +141,12 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 
 	// Return only the user supplied vcluster.yaml, if configOnly is set
 	if configOnly {
-		if cmp.Or(format, "yaml") != "yaml" {
-			return fmt.Errorf("--config-only output supports only yaml format")
-		}
-
 		if userConfigYaml == nil {
 			return fmt.Errorf("failed to load vcluster config")
+		}
+
+		if cmp.Or(format, "yaml") != "yaml" {
+			return fmt.Errorf("--config-only output supports only yaml format")
 		}
 
 		if _, err := output.Write([]byte(*userConfigYaml)); err != nil {
