@@ -240,25 +240,20 @@ func configPartialUnmarshal(configBytes []byte) (*config.Config, error) {
 	return &config.Config{ControlPlane: partialConfig.ControlPlane}, nil
 }
 
-func marshalWithFormat(o any, format string) ([]byte, error) {
+func marshalWithFormat(o fmt.Stringer, format string) ([]byte, error) {
 	switch format {
 	case "json":
 		return json.Marshal(o)
 	case "yaml":
 		return yaml.Marshal(o)
 	case "":
-		stringer, isStringer := o.(fmt.Stringer)
-		if !isStringer {
-			return nil, fmt.Errorf("only Stringer implementation is supported")
-		}
-
-		return []byte(stringer.String()), nil
+		return []byte(o.String()), nil
 	}
 
 	return nil, fmt.Errorf("unknown format %s", format)
 }
 
-func writeWithFormat(writer io.Writer, format string, o any) error {
+func writeWithFormat(writer io.Writer, format string, o fmt.Stringer) error {
 	outputBytes, err := marshalWithFormat(o, format)
 	if err != nil {
 		return err
