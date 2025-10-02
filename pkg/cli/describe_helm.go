@@ -116,10 +116,17 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 		return fmt.Errorf("failed to load the vcluster config: %w", err)
 	}
 
+	// Log ArgoCD tracking id
+	if trackingID, ok := configSecret.Annotations["argocd.argoproj.io/tracking-id"]; ok {
+		l.Infof("The %s vcluster is managed via ArgoCD. argocd.argoproj.io/tracking-id: %s.", name, trackingID)
+	}
+
 	// Load the user supplied vcluster.yaml from the HelmRelease Config field
 	helmRelease, err := helm.NewSecrets(kubeClient).Get(ctx, name, namespace)
 	if err != nil {
-		if !kerrors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
+			l.Warnf("User supplied vcluster.yaml is not available")
+		} else {
 			return fmt.Errorf("failed to load the user supplied vcluster.yaml: %w", err)
 		}
 	}
@@ -138,16 +145,6 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 	if configOnly {
 		if cmp.Or(format, "yaml") != "yaml" {
 			return fmt.Errorf("--config-only output supports only yaml format")
-		}
-
-		// Log ArgoCD tracking id
-		if trackingID, ok := configSecret.Annotations["argocd.argoproj.io/tracking-id"]; ok {
-			components := strings.Split(trackingID, ":")
-			if len(components) == 3 {
-				l.Infof("The %s vcluster is managed via ArgoCD. Please refer to the %s ArgoCD Application configuration.", name, components[0])
-			} else {
-				l.Infof("The %s vcluster is managed via ArgoCD. argocd.argoproj.io/tracking-id: %s.", name, trackingID)
-			}
 		}
 
 		if userConfigYaml == nil {
