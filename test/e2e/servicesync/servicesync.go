@@ -11,16 +11,64 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 )
 
-var _ = ginkgo.Describe("map services from host to virtual cluster and vice versa", func() {
-	var f *framework.Framework
-
-	ginkgo.JustBeforeEach(func() {
-		// use default framework
+var _ = ginkgo.Describe("Verify mapping and syncing of services and endpoints", func() {
+	var (
+		f                *framework.Framework
+		testService      *corev1.Service
+		testEndpoint     *corev1.Endpoints
+		serviceName      = "test-service-sync"
+		serviceNamespace = "default"
+		endpointName     = "test-service-sync"
+	)
+	ginkgo.BeforeAll(func() {
 		f = framework.DefaultFramework
+		testService = &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      serviceName,
+				Namespace: serviceNamespace,
+			},
+			Spec: corev1.ServiceSpec{
+				ClusterIP: "None",
+				Ports: []corev1.ServicePort{
+					{
+						Name:       "custom-port",
+						Port:       8080,
+						Protocol:   corev1.ProtocolTCP,
+						TargetPort: intstr.FromInt(5000),
+					},
+				},
+			},
+		}
+		testEndpoint = &corev1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      endpointName,
+				Namespace: serviceNamespace,
+			},
+			Subsets: []corev1.EndpointSubset{
+				{
+					Addresses: []corev1.EndpointAddress{
+						{
+							IP: "1.1.1.1",
+						},
+					},
+					Ports: []corev1.EndpointPort{
+						{
+							Port: 5000,
+						},
+					},
+				},
+			},
+		}
+	})
+
+	ginkgo.AfterAll(func() {
+		framework.ExpectNoError(f.VClusterClient.CoreV1().Endpoints(serviceNamespace).Delete(f.Context, endpointName, metav1.DeleteOptions{}))
+		framework.ExpectNoError(f.VClusterClient.CoreV1().Services(serviceNamespace).Delete(f.Context, serviceName, metav1.DeleteOptions{}))
 	})
 
 	ginkgo.It("Test service mapping", func() {
@@ -52,6 +100,39 @@ var _ = ginkgo.Describe("map services from host to virtual cluster and vice vers
 
 		ginkgo.It("in vcluster -> host service mapping", func() {
 			checkEndpointsSync(f.Context, f.VClusterClient, "test", "nginx", f.HostClient, f.VClusterNamespace, "nginx")
+		})
+	})
+
+	ginkgo.Context("Verify endpoint sync when endpoint is deployed before service", func() {
+		ginkgo.It("Should sync Service, Endpoints, and EndpointSlice from vCluster to host cluster", func() {
+			ctx := f.Context
+
+			ginkgo.By("Create Service Endpoint in vCluster")
+			_, err := f.VClusterClient.CoreV1().Endpoints(serviceNamespace).Create(f.Context, testEndpoint, metav1.CreateOptions{})
+			framework.ExpectNoError(err)
+
+			ginkgo.By("Create Service in vCluster")
+			_, err = f.VClusterClient.CoreV1().Services(serviceNamespace).Create(f.Context, testService, metav1.CreateOptions{})
+			framework.ExpectNoError(err)
+
+			ginkgo.By("Verify Endpoint exists in vCluster")
+			_, err = f.VClusterClient.CoreV1().Endpoints(serviceNamespace).Get(ctx, endpointName, metav1.GetOptions{})
+			framework.ExpectNoError(err)
+
+			ginkgo.By("Verify Service exists in vCluster")
+			_, err = f.VClusterClient.CoreV1().Services(serviceNamespace).Get(ctx, serviceName, metav1.GetOptions{})
+			framework.ExpectNoError(err)
+
+			translatedServiceName := translate.SingleNamespaceHostName(serviceName, serviceNamespace, translate.VClusterName)
+
+			ginkgo.By("Verify Service exists in Host Cluster")
+			_, err = f.HostClient.CoreV1().Services(f.VClusterNamespace).Get(ctx, translatedServiceName, metav1.GetOptions{})
+			framework.ExpectNoError(err)
+
+			ginkgo.By("Verify Endpoint exists in Host Cluster")
+			_, err = f.HostClient.CoreV1().Endpoints(f.VClusterNamespace).Get(ctx, translatedServiceName, metav1.GetOptions{})
+			framework.ExpectNoError(err)
+
 		})
 	})
 })
