@@ -157,6 +157,7 @@ controlPlane:
         enabled: false
         dataSource: ""
         connector: ""
+        identityProvider: ""
         certFile: ""
         keyFile: ""
         caFile: ""

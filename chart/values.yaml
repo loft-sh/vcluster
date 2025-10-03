@@ -329,6 +329,10 @@ controlPlane:
         # and non-privileged user. A kine endpoint should be created using the database and user on Platform registration.
         # This is optional.
         connector: ""
+        # IdentityProvider is the kine identity provider to use when generating temporary authentication tokens for enhanced security.
+        # This is optional for the embedded database. Examples:
+        # * aws: RDS IAM Authentication
+        identityProvider: ""
         # CertFile is the cert file to use for the database. This is optional.
         certFile: ""
         # KeyFile is the key file to use for the database. This is optional.
