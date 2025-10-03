@@ -2039,6 +2039,11 @@ type DatabaseKine struct {
 	// * postgres: postgres://username:password@hostname:5432/k3s
 	DataSource string `json:"dataSource,omitempty"`
 
+	// IdentityProvider is the kine identity provider to use when generating temporary authentication tokens for enhanced security.
+	// This is optional for the embedded database. Examples:
+	// * aws: RDS IAM Authentication
+	IdentityProvider string `json:"identityProvider,omitempty"`
+
 	// KeyFile is the key file to use for the database. This is optional.
 	KeyFile string `json:"keyFile,omitempty"`
 
