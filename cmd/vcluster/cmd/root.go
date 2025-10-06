@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/debug"
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/node"
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/snapshot"
+	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -58,6 +59,9 @@ func RunRoot() {
 // BuildRoot creates a new root command from the
 func BuildRoot() *cobra.Command {
 	rootCmd := NewRootCmd()
+
+	// Set version for --version flag
+	rootCmd.Version = telemetry.SyncerVersion
 
 	// add top level commands
 	rootCmd.AddCommand(NewStartCommand())
