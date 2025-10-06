@@ -28,7 +28,9 @@ type DescribeCmd struct {
 func NewDescribeCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *cobra.Command {
 	cmd := &DescribeCmd{
 		GlobalFlags: globalFlags,
-		log:         log.NewStdoutLogger(os.Stdin, os.Stderr, os.Stderr, logrus.InfoLevel),
+
+		// Configure log to use only STDERR. Reserve STDOUT for json/yaml output
+		log: log.NewStdoutLogger(os.Stdin, os.Stderr, os.Stderr, logrus.InfoLevel),
 	}
 	driver := ""
 
@@ -46,6 +48,19 @@ vcluster describe -o json test
 #######################################################
 	`,
 		Args: cobra.ExactArgs(1),
+		PreRunE: func(cobraCmd *cobra.Command, _ []string) error {
+			switch cmd.output {
+			case "", "json", "yaml":
+			default:
+				return fmt.Errorf("unsupported output format: %s", cmd.output)
+			}
+
+			if cmd.configOnly && !(cmd.output == "yaml" || cmd.output == "") {
+				return fmt.Errorf("--config-only output supports only yaml format")
+			}
+
+			return nil
+		},
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd, driver, args[0])
 		},

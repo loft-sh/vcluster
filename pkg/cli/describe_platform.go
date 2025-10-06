@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -34,10 +33,6 @@ func DescribePlatform(ctx context.Context, globalFlags *flags.GlobalFlags, outpu
 
 	// Return only the user supplied vcluster.yaml, if configOnly is set
 	if configOnly {
-		if cmp.Or(format, "yaml") != "yaml" {
-			return fmt.Errorf("--config-only output supports only yaml format")
-		}
-
 		if _, err := output.Write([]byte(values)); err != nil {
 			return err
 		}
