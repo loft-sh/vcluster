@@ -226,14 +226,34 @@ func getImagesFromConfig(c *config.Config, version string) map[string]string {
 // of the config to avoid potential version mismatch error.
 func configPartialUnmarshal(configBytes []byte) (*config.Config, error) {
 	var partialConfig struct {
-		ControlPlane config.ControlPlane `json:"controlPlane,omitempty"`
+		ControlPlane struct {
+			Advanced struct {
+				DefaultImageRegistry string `json:"defaultImageRegistry"`
+			} `json:"advanced,omitempty"`
+			BackingStore config.BackingStore `json:"backingStore,omitempty"`
+			Distro       config.Distro       `json:"distro,omitempty"`
+			StatefulSet  struct {
+				Image config.Image `json:"image"`
+			} `json:"statefulSet,omitempty"`
+		} `json:"controlPlane,omitempty"`
 	}
 
 	if err := yaml.Unmarshal(configBytes, &partialConfig); err != nil {
 		return nil, err
 	}
 
-	return &config.Config{ControlPlane: partialConfig.ControlPlane}, nil
+	return &config.Config{
+		ControlPlane: config.ControlPlane{
+			Advanced: config.ControlPlaneAdvanced{
+				DefaultImageRegistry: partialConfig.ControlPlane.Advanced.DefaultImageRegistry,
+			},
+			BackingStore: partialConfig.ControlPlane.BackingStore,
+			Distro:       partialConfig.ControlPlane.Distro,
+			StatefulSet: config.ControlPlaneStatefulSet{
+				Image: partialConfig.ControlPlane.StatefulSet.Image,
+			},
+		},
+	}, nil
 }
 
 func marshalWithFormat(o fmt.Stringer, format string) ([]byte, error) {
