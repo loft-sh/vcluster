@@ -48,7 +48,7 @@ vcluster describe -o json test
 #######################################################
 	`,
 		Args: cobra.ExactArgs(1),
-		PreRunE: func(cobraCmd *cobra.Command, _ []string) error {
+		PreRunE: func(_ *cobra.Command, _ []string) error {
 			switch cmd.output {
 			case "", "json", "yaml":
 			default:

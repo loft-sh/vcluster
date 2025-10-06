@@ -2,12 +2,12 @@ package cli
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/loft-sh/vcluster/config"
+	"gotest.tools/v3/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
@@ -120,9 +120,7 @@ Use --config-only to retrieve the full vcluster.yaml only
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.do.String(); got != tt.want {
-				t.Errorf("String() = got %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.do.String(), tt.want)
 		})
 	}
 }
@@ -224,9 +222,7 @@ fieldNotMatchingConfigSchema:
 				return
 			}
 
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("configPartialUnmarshal() got = %v, want %v", got, tt.want)
-			}
+			assert.DeepEqual(t, got, tt.want)
 
 			if gotDistro := got.Distro(); gotDistro != tt.wantDistro {
 				t.Errorf("distro got = %v, want %v", gotDistro, tt.wantDistro)
@@ -279,7 +275,7 @@ func TestGetImagesFromConfig(t *testing.T) {
 						},
 					},
 				},
-			}, "v1.33.4"},
+			}, "0.30.0"},
 			want: map[string]string{
 				"apiServer": "ghcr.io/loft-sh/kubernetes:v1.33.4",
 				"syncer":    "ghcr.io/loft-sh/vcluster-pro:0.29.0",
@@ -288,9 +284,7 @@ func TestGetImagesFromConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getImagesFromConfig(tt.args.c, tt.args.version); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getImagesFromConfig() = %v, want %v", got, tt.want)
-			}
+			assert.DeepEqual(t, getImagesFromConfig(tt.args.c, tt.args.version), tt.want)
 		})
 	}
 }
