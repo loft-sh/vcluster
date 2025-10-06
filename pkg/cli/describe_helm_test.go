@@ -27,7 +27,7 @@ func TestDescribeOutputString(t *testing.T) {
 				BackingStore: string(config.StoreTypeEmbeddedDatabase),
 				Distro:       config.K8SDistro,
 				Status:       "Running",
-				Created:      metav1.NewTime(time.Unix(1759769661, 0)),
+				Created:      metav1.NewTime(time.Unix(1759769661, 0).In(time.UTC)),
 				Images: map[string]string{
 					"apiServer": "ghcr.io/loft-sh/kubernetes:v1.33.4",
 					"syncer":    "ghcr.io/loft-sh/vcluster-pro:0.29.0",
@@ -38,7 +38,7 @@ Namespace:      vcluster-test
 Version:        0.29.0
 Backing Store:  embedded-database
 Distro:         k8s
-Created:        Mon, 06 Oct 2025 18:54:21 +0200
+Created:        Mon, 06 Oct 2025 16:54:21 +0000
 Status:         Running
 Images:
   apiServer:  ghcr.io/loft-sh/kubernetes:v1.33.4
@@ -53,7 +53,7 @@ Images:
 				BackingStore: string(config.StoreTypeEmbeddedDatabase),
 				Distro:       config.K8SDistro,
 				Status:       "Running",
-				Created:      metav1.NewTime(time.Unix(1759769661, 0)),
+				Created:      metav1.NewTime(time.Unix(1759769661, 0).In(time.UTC)),
 				Images: map[string]string{
 					"apiServer": "ghcr.io/loft-sh/kubernetes:v1.33.4",
 					"syncer":    "ghcr.io/loft-sh/vcluster-pro:0.29.0",
@@ -69,7 +69,7 @@ Namespace:      vcluster-test
 Version:        0.29.0
 Backing Store:  embedded-database
 Distro:         k8s
-Created:        Mon, 06 Oct 2025 18:54:21 +0200
+Created:        Mon, 06 Oct 2025 16:54:21 +0000
 Status:         Running
 Images:
   apiServer:  ghcr.io/loft-sh/kubernetes:v1.33.4
@@ -93,7 +93,7 @@ Use --config-only to retrieve just the vcluster.yaml
 				BackingStore: string(config.StoreTypeEmbeddedDatabase),
 				Distro:       config.K8SDistro,
 				Status:       "Running",
-				Created:      metav1.NewTime(time.Unix(1759769661, 0)),
+				Created:      metav1.NewTime(time.Unix(1759769661, 0).In(time.UTC)),
 				Images: map[string]string{
 					"apiServer": "ghcr.io/loft-sh/kubernetes:v1.33.4",
 					"syncer":    "ghcr.io/loft-sh/vcluster-pro:0.29.0",
@@ -105,7 +105,7 @@ Namespace:      vcluster-test
 Version:        0.29.0
 Backing Store:  embedded-database
 Distro:         k8s
-Created:        Mon, 06 Oct 2025 18:54:21 +0200
+Created:        Mon, 06 Oct 2025 16:54:21 +0000
 Status:         Running
 Images:
   apiServer:  ghcr.io/loft-sh/kubernetes:v1.33.4
