@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/smithy-go/ptr"
 	"github.com/loft-sh/vcluster/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestDescribeOutputString(t *testing.T) {
@@ -58,7 +58,7 @@ Images:
 					"apiServer": "ghcr.io/loft-sh/kubernetes:v1.33.4",
 					"syncer":    "ghcr.io/loft-sh/vcluster-pro:0.29.0",
 				},
-				UserConfigYaml: ptr.String(`sync:
+				UserConfigYaml: ptr.To(`sync:
   toHost:
     serviceAccounts:
       enabled: true
@@ -98,7 +98,7 @@ Use --config-only to retrieve just the vcluster.yaml
 					"apiServer": "ghcr.io/loft-sh/kubernetes:v1.33.4",
 					"syncer":    "ghcr.io/loft-sh/vcluster-pro:0.29.0",
 				},
-				UserConfigYaml: ptr.String(strings.Repeat("line\n", 51)),
+				UserConfigYaml: ptr.To(strings.Repeat("line\n", 51)),
 			},
 			want: fmt.Sprintf(`Name:           test
 Namespace:      vcluster-test
