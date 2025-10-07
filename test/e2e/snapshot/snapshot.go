@@ -2,14 +2,12 @@ package snapshot
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/test/framework"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,7 +16,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("snapshot and restore", Ordered, func() {
@@ -34,7 +32,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		pvc                      *corev1.PersistentVolumeClaim
 	)
 
-	beforeAll := func(testNamespace string, useNewCommand bool, snapshotPath string) {
+	deployTestNamespace := func(testNamespace string) {
 		f = framework.DefaultFramework
 		vClusterDefaultNamespace = f.VClusterNamespace
 
@@ -43,6 +41,15 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				Name: testNamespace,
 			},
 		}
+
+		// create the test namespace
+		_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, testNamespaceObj, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+	}
+
+	deployTestResourcesAndTakeSnapshot := func(testNamespace string, useNewCommand bool, snapshotPath string, includeVolumes bool) {
+		f = framework.DefaultFramework
+		vClusterDefaultNamespace = f.VClusterNamespace
 
 		configMapToRestore = &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -103,7 +110,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				Labels:    map[string]string{"snapshot": "restore"},
 			},
 			Spec: appsv1.DeploymentSpec{
-				Replicas: intRef(1),
+				Replicas: ptr.To(int32(1)),
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						"snapshot": "restore",
@@ -180,10 +187,6 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			framework.ExpectNoError(err)
 		}
 
-		// create the test namespace
-		_, err = f.VClusterClient.CoreV1().Namespaces().Create(f.Context, testNamespaceObj, metav1.CreateOptions{})
-		framework.ExpectNoError(err)
-
 		// now create a service that should be there when we restore again
 		_, err = f.VClusterClient.CoreV1().Services(testNamespace).Create(f.Context, serviceToRestore, metav1.CreateOptions{})
 		framework.ExpectNoError(err)
@@ -203,14 +206,19 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		By("Snapshot vcluster")
 		var cmd *exec.Cmd
 		if useNewCommand {
-			// regular snapshot
-			cmd = exec.Command(
-				"vcluster",
+			args := []string{
 				"snapshot",
 				"create",
 				f.VClusterName,
 				snapshotPath,
 				"-n", f.VClusterNamespace,
+			}
+			if includeVolumes {
+				args = append(args, "--include-volumes")
+			}
+			cmd = exec.Command(
+				"vcluster",
+				args...,
 			)
 		} else {
 			// regular snapshot
@@ -229,7 +237,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		framework.ExpectNoError(err)
 	}
 
-	afterAll := func(useNewCommand bool, snapshotTestNamespace string) {
+	cleanUpTestResources := func(useNewCommand bool, snapshotTestNamespace string) {
 		if !useNewCommand {
 			// delete the snapshot pvc
 			err := f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(f.Context, pvc.Name, metav1.DeleteOptions{})
@@ -261,9 +269,17 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		// delete the namespace
 		err := f.VClusterClient.CoreV1().Namespaces().Delete(f.Context, snapshotTestNamespace, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
+
+		// delete snapshot request config maps
+		deleteOptions := metav1.DeleteOptions{}
+		listOptions := metav1.ListOptions{
+			LabelSelector: constants.SnapshotRequestLabel,
+		}
+		err = f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).DeleteCollection(f.Context, deleteOptions, listOptions)
+		framework.ExpectNoError(err)
 	}
 
-	runSpecs := func(testNamespaceName string, useNewCommand bool, snapshotPath string) {
+	checkTestResources := func(testNamespaceName string, useNewCommand bool, snapshotPath string) {
 		It("Verify if only the resources in snapshot are available in vCluster after restore", func() {
 			// now create a configmap that should be deleted by restore
 			_, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).Create(f.Context, configMapToDelete, metav1.CreateOptions{})
@@ -295,78 +311,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			framework.ExpectNoError(err)
 
 			// now restore the vCluster
-			By("Restore vCluster")
-			restoreArgs := []string{
-				"restore",
-				f.VClusterName,
-				snapshotPath,
-				"-n", f.VClusterNamespace,
-			}
-			if !useNewCommand {
-				restoreArgs = append(
-					restoreArgs,
-					"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc")
-			}
-
-			cmd := exec.Command(
-				"vcluster",
-				restoreArgs...,
-			)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err = cmd.Run()
-			framework.ExpectNoError(err)
-
-			// wait until vCluster is running
-			err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (done bool, err error) {
-				newPods, _ := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(ctx, metav1.ListOptions{
-					LabelSelector: "app=vcluster",
-				})
-				p := len(newPods.Items)
-				if p > 0 {
-					// rp, running pod counter
-					rp := 0
-					for _, pod := range newPods.Items {
-						if pod.Status.Phase == corev1.PodRunning {
-							rp = rp + 1
-						}
-					}
-					if rp == p {
-						return true, nil
-					}
-				}
-				return false, nil
-			})
-			framework.ExpectNoError(err)
-
-			By("Verify only resources created before snapshot are available")
-			// wait until all vCluster replicas are running
-			Eventually(func() error {
-				pods, err := f.HostClient.CoreV1().Pods(vClusterDefaultNamespace).List(f.Context, metav1.ListOptions{
-					LabelSelector: "app=vcluster,release=" + f.VClusterName,
-				})
-				framework.ExpectNoError(err)
-
-				for _, pod := range pods.Items {
-					if len(pod.Status.ContainerStatuses) == 0 {
-						return fmt.Errorf("pod %s has no container status", pod.Name)
-					}
-
-					for _, container := range pod.Status.ContainerStatuses {
-						if container.State.Running == nil || !container.Ready {
-							return fmt.Errorf("pod %s container %s is not running", pod.Name, container.Name)
-						}
-					}
-				}
-
-				return nil
-			}).WithPolling(time.Second).
-				WithTimeout(framework.PollTimeout).
-				Should(Succeed())
-
-			// refresh the connection
-			err = f.RefreshVirtualClient()
-			framework.ExpectNoError(err)
+			restoreVCluster(f, snapshotPath, useNewCommand, false)
 
 			// Check configmap created before snapshot is available
 			configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).List(f.Context, metav1.ListOptions{
@@ -504,75 +449,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				Should(Succeed())
 
 			// now restore the vCluster
-			By("Restore vCluster")
-			restoreArgs := []string{
-				"restore",
-				f.VClusterName,
-				snapshotPath,
-				"-n", f.VClusterNamespace,
-			}
-			if !useNewCommand {
-				restoreArgs = append(
-					restoreArgs,
-					"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc")
-			}
-			cmd := exec.Command(
-				"vcluster",
-				restoreArgs...,
-			)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err = cmd.Run()
-			framework.ExpectNoError(err)
-
-			// wait until vCluster is running
-			err = wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (done bool, err error) {
-				newPods, _ := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(ctx, metav1.ListOptions{
-					LabelSelector: "app=vcluster",
-				})
-				p := len(newPods.Items)
-				if p > 0 {
-					// rp, running pod counter
-					rp := 0
-					for _, pod := range newPods.Items {
-						if pod.Status.Phase == corev1.PodRunning {
-							rp = rp + 1
-						}
-					}
-					if rp == p {
-						return true, nil
-					}
-				}
-				return false, nil
-			})
-			framework.ExpectNoError(err)
-
-			// wait until all vCluster replicas are running
-			Eventually(func() error {
-				pods, err := f.HostClient.CoreV1().Pods(vClusterDefaultNamespace).List(f.Context, metav1.ListOptions{
-					LabelSelector: "app=vcluster,release=" + f.VClusterName,
-				})
-				framework.ExpectNoError(err)
-
-				for _, pod := range pods.Items {
-					if len(pod.Status.ContainerStatuses) == 0 {
-						return fmt.Errorf("pod %s has no container status", pod.Name)
-					}
-
-					for _, container := range pod.Status.ContainerStatuses {
-						if container.State.Running == nil || !container.Ready {
-							return fmt.Errorf("pod %s container %s is not running", pod.Name, container.Name)
-						}
-					}
-				}
-				return nil
-			}).WithPolling(time.Second).
-				WithTimeout(framework.PollTimeout).
-				Should(Succeed())
-
-			// refresh the connection
-			err = f.RefreshVirtualClient()
-			framework.ExpectNoError(err)
+			restoreVCluster(f, snapshotPath, useNewCommand, false)
 
 			By("Verify resources delete before snapshot are available")
 			Eventually(func() map[string]string {
@@ -628,56 +505,69 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		)
 
 		BeforeAll(func() {
-			beforeAll(cliTestNamespaceName, false, snapshotPath)
+			deployTestNamespace(cliTestNamespaceName)
+			deployTestResourcesAndTakeSnapshot(cliTestNamespaceName, false, snapshotPath, false)
 		})
 
-		runSpecs(cliTestNamespaceName, false, snapshotPath)
+		checkTestResources(cliTestNamespaceName, false, snapshotPath)
 
 		AfterAll(func() {
-			afterAll(false, "cli-snapshot-test-afterall")
+			cleanUpTestResources(false, "cli-snapshot-test-afterall")
 		})
 	})
 
-	Describe("controller-based snapshot", Ordered, func() {
+	Describe("controller-based snapshot without volumes", Ordered, func() {
 		const (
 			controllerTestNamespaceName = "controller-snapshot-test"
 			snapshotPath                = "container:///snapshot-data/snapshot.tar.gz"
 		)
 
 		BeforeAll(func() {
-			beforeAll(controllerTestNamespaceName, true, snapshotPath)
-			Eventually(func() error {
-				listOptions := metav1.ListOptions{
-					LabelSelector: constants.SnapshotRequestLabel,
-				}
-				snapshotRequestConfigMaps, err := f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).List(f.Context, listOptions)
-				framework.ExpectNoError(err)
-				Expect(snapshotRequestConfigMaps.Items).To(HaveLen(1))
-
-				// extract snapshot request
-				snapshotRequestConfigMap := snapshotRequestConfigMaps.Items[0]
-				snapshotRequest, err := snapshot.UnmarshalSnapshotRequest(&snapshotRequestConfigMap)
-				framework.ExpectNoError(err)
-
-				// check if the snapshot request has been completed
-				if snapshotRequest.Status.Phase != snapshot.RequestPhaseCompleted {
-					return fmt.Errorf("snapshot request is not completed, current phase is %s", snapshotRequest.Status.Phase)
-				}
-				return nil
-			}).
-				WithPolling(framework.PollInterval).
-				WithTimeout(framework.PollTimeout).
-				Should(Succeed())
+			deployTestNamespace(controllerTestNamespaceName)
+			deployTestResourcesAndTakeSnapshot(controllerTestNamespaceName, true, snapshotPath, false)
+			waitForSnapshotRequestToFinish(f)
 		})
 
-		runSpecs(controllerTestNamespaceName, true, snapshotPath)
+		checkTestResources(controllerTestNamespaceName, true, snapshotPath)
 
 		AfterAll(func() {
-			afterAll(true, "controller-snapshot-test-afterall")
+			cleanUpTestResources(true, "controller-snapshot-test-afterall")
+		})
+	})
+
+	FDescribe("controller-based snapshot with volumes", Ordered, func() {
+		const (
+			controllerTestNamespaceName = "volume-snapshots-test"
+			snapshotPath                = "container:///snapshot-data/" + controllerTestNamespaceName + ".tar.gz"
+			pvcToRestoreName            = "test-pvc-restore"
+			testFileName                = controllerTestNamespaceName + ".txt"
+			pvcData                     = "Hello " + controllerTestNamespaceName
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			f = framework.DefaultFramework
+			deployTestNamespace(controllerTestNamespaceName)
+			createPVCWithData(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName, testFileName, pvcData)
+			deployTestResourcesAndTakeSnapshot(controllerTestNamespaceName, true, snapshotPath, true)
+			waitForSnapshotRequestToFinish(f)
+			deletePVC(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName)
+		})
+
+		checkTestResources(controllerTestNamespaceName, true, snapshotPath)
+
+		It("restored PVC has the same data as the original one", func(ctx context.Context) {
+			// PVC has been restored in previous test specs, but without data, so it's stuck in Pending.
+			// Therefore, delete it again, so it gets restored properly.
+			// TODO: decide what to do with PVCs when restoring vCluster without restoring PVCs, should they even be restored,
+			//   because now, without --include-volumes, we just get restored PVCs that are stuck in Pending???
+			deletePVC(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName)
+			// now restore the vCluster
+			restoreVCluster(f, snapshotPath, true, true)
+			checkPVCData(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName, testFileName, pvcData)
+		})
+
+		AfterAll(func() {
+			// cleanUpTestResources(true, controllerTestNamespaceName)
 		})
 	})
 })
-
-func intRef(i int32) *int32 {
-	return &i
-}
