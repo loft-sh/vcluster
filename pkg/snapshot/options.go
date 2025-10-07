@@ -34,6 +34,20 @@ type Options struct {
 	Release *HelmRelease `json:"release,omitempty"`
 }
 
+func (o *Options) GetURL() string {
+	var snapshotURL string
+	switch o.Type {
+	case "s3":
+		snapshotURL = "s3://" + o.S3.Bucket + "/" + o.S3.Key
+	case "container":
+		snapshotURL = "container://" + o.Container.Path
+	case "oci":
+		snapshotURL = "oci://" + o.OCI.Repository
+	}
+
+	return snapshotURL
+}
+
 type HelmRelease struct {
 	ReleaseName      string `json:"releaseName"`
 	ReleaseNamespace string `json:"releaseNamespace"`
