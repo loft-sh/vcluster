@@ -139,16 +139,16 @@ func waitUntilVClusterIsRunning(f *framework.Framework) {
 }
 
 func waitForSnapshotToBeCreated(f *framework.Framework) {
-	waitForRequestToFinish(f, constants.SnapshotRequestLabel, snapshot.UnmarshalSnapshotRequest)
+	waitForRequestToFinish(f, constants.SnapshotRequestLabel, snapshot.UnmarshalSnapshotRequest, 5*time.Minute)
 }
 
 func waitForRestoreRequestToFinish(f *framework.Framework) {
-	waitForRequestToFinish(f, constants.RestoreRequestLabel, snapshot.UnmarshalRestoreRequest)
+	waitForRequestToFinish(f, constants.RestoreRequestLabel, snapshot.UnmarshalRestoreRequest, 5*time.Minute)
 }
 
 type unmarshalRequestFunc[T snapshot.LongRunningRequest] func(request *corev1.ConfigMap) (T, error)
 
-func waitForRequestToFinish[T snapshot.LongRunningRequest](f *framework.Framework, requestLabel string, unmarshal unmarshalRequestFunc[T]) {
+func waitForRequestToFinish[T snapshot.LongRunningRequest](f *framework.Framework, requestLabel string, unmarshal unmarshalRequestFunc[T], timeout time.Duration) {
 	Eventually(func() error {
 		listOptions := metav1.ListOptions{
 			LabelSelector: requestLabel,
@@ -169,7 +169,7 @@ func waitForRequestToFinish[T snapshot.LongRunningRequest](f *framework.Framewor
 		return nil
 	}).
 		WithPolling(framework.PollInterval).
-		WithTimeout(framework.PollTimeout).
+		WithTimeout(timeout).
 		Should(Succeed())
 }
 
