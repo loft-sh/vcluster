@@ -81,7 +81,7 @@ func (s *namespaceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 	newNamespace := s.translateToHost(ctx, event.Virtual)
 	ctx.Log.Infof("create physical namespace %s", newNamespace.Name)
 
-	err := pro.ApplyPatchesHostObject(ctx, newNamespace, event.Virtual, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
+	err := pro.ApplyPatchesHostObject(ctx, nil, newNamespace, event.Virtual, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -132,7 +132,7 @@ func (s *namespaceSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syn
 	newNamespace := s.translateToVirtual(ctx, event.Host)
 	ctx.Log.Infof("create virtual namespace %s", newNamespace.Name)
 
-	err = pro.ApplyPatchesVirtualObject(ctx, newNamespace, event.Host, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, newNamespace, event.Host, ctx.Config.Sync.ToHost.Namespaces.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -253,7 +253,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		}
 	}
 
-	err = pro.ApplyPatchesHostObject(ctx, pPod, event.Virtual, ctx.Config.Sync.ToHost.Pods.Patches, false)
+	err = pro.ApplyPatchesHostObject(ctx, nil, pPod, event.Virtual, ctx.Config.Sync.ToHost.Pods.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -418,7 +418,7 @@ func (s *podSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncconte
 		vPod.Spec.DeprecatedServiceAccount = ""
 	}
 
-	err := pro.ApplyPatchesVirtualObject(ctx, vPod, event.Host, ctx.Config.Sync.ToHost.Pods.Patches, false)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vPod, event.Host, ctx.Config.Sync.ToHost.Pods.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
