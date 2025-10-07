@@ -1,6 +1,8 @@
 package snapshot
 
-import "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 type LongRunningRequest interface {
 	GetPhase() RequestPhase
@@ -20,6 +22,6 @@ const (
 type RequestPhase string
 
 type RequestMetadata struct {
-	Name              string  `json:"name"`
-	CreationTimestamp v1.Time `json:"creationTimestamp,omitempty"`
+	Name              string      `json:"name"`
+	CreationTimestamp metav1.Time `json:"creationTimestamp,omitempty"`
 }

@@ -51,7 +51,7 @@ func deletePVC(ctx context.Context, client *kubernetes.Clientset, pvcNamespace, 
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("failed to get PVC %s/%s: %v", pvcNamespace, pvcName, err)
+			return fmt.Errorf("failed to get PVC %s/%s: %w", pvcNamespace, pvcName, err)
 		}
 		return fmt.Errorf("PVC %s/%s is not deleted", pvc.Namespace, pvc.Name)
 	}).WithPolling(framework.PollInterval).
@@ -118,7 +118,7 @@ func deployJob(ctx context.Context, client *kubernetes.Clientset, jobNamespace, 
 	Eventually(func() error {
 		job, err = client.BatchV1().Jobs(job.Namespace).Get(ctx, job.Name, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to get job %s/%s: %v", job.Namespace, job.Name, err)
+			return fmt.Errorf("failed to get job %s/%s: %w", job.Namespace, job.Name, err)
 		}
 		if job.Status.Succeeded != 1 {
 			return fmt.Errorf("job %s/%s did not succeed", job.Namespace, job.Name)
@@ -140,7 +140,7 @@ func deployJob(ctx context.Context, client *kubernetes.Clientset, jobNamespace, 
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("failed to get job %s/%s: %v", job.Namespace, job.Name, err)
+			return fmt.Errorf("failed to get job %s/%s: %w", job.Namespace, job.Name, err)
 		}
 		return fmt.Errorf("job %s/%s did not delete", job.Namespace, job.Name)
 	}).WithPolling(framework.PollInterval).
@@ -156,7 +156,7 @@ func deployJob(ctx context.Context, client *kubernetes.Clientset, jobNamespace, 
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("failed to get pods for job %s/%s: %v", job.Namespace, job.Name, err)
+			return fmt.Errorf("failed to get pods for job %s/%s: %w", job.Namespace, job.Name, err)
 		}
 		return fmt.Errorf("pods for job %s/%s have not been deleted", job.Namespace, job.Name)
 	}).WithPolling(framework.PollInterval).
