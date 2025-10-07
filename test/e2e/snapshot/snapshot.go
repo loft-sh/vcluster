@@ -535,7 +535,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		})
 
 		AfterAll(func() {
-			// cleanUpTestResources(true, controllerTestNamespaceName)
+			cleanUpTestResources(true, controllerTestNamespaceName)
 		})
 	})
 })
