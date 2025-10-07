@@ -318,6 +318,28 @@ jobs:
           echo "kubectl config current-context: $(kubectl config current-context)"
           echo "KUBECONFIG env var: ${KUBECONFIG}"
 
+      - name: Setup snapshot-controller and CSI driver
+        run: |
+          set -x
+
+          echo "Deploy upstream CSI volume snapshot CRDs and snapshot-controller"
+          kubectl kustomize https://github.com/kubernetes-csi/external-snapshotter/client/config/crd | kubectl create -f -
+          kubectl kustomize https://github.com/kubernetes-csi/external-snapshotter/deploy/kubernetes/snapshot-controller | kubectl create -f -
+
+          echo "Deploy CSI driver"
+          temp_git_dir=$(mktemp -d)
+          git clone https://github.com/kubernetes-csi/csi-driver-host-path.git $temp_git_dir
+          $temp_git_dir/deploy/kubernetes-latest/deploy.sh
+
+          echo "Deploy StorageClass and VolumeSnapshotClass"
+          kubectl apply -f $temp_git_dir/examples/csi-storageclass.yaml
+          kubectl apply -f $temp_git_dir/examples/csi-volumesnapshotclass.yaml
+          kubectl annotate volumesnapshotclass csi-hostpath-snapclass snapshot.storage.kubernetes.io/is-default-class="true"
+          rm -rf $temp_git_dir
+
+          echo "Wait for snapshot-controller to be ready"
+          kubectl wait --for=condition=Available -n kube-system deploy/snapshot-controller --timeout=60s
+
       - name: Download vcluster cli
         uses: actions/download-artifact@v5
         with:
