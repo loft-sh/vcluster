@@ -50,6 +50,7 @@ type RequestMetadata struct {
 }
 
 type RequestSpec struct {
+	URL             string                   `json:"url,omitempty"`
 	IncludeVolumes  bool                     `json:"includeVolumes,omitempty"`
 	VolumeSnapshots volumes.SnapshotsRequest `json:"volumeSnapshots,omitempty"`
 	Options         Options                  `json:"-"`
@@ -88,6 +89,7 @@ func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 			CreationTimestamp: metav1.Now(),
 		},
 		Spec: RequestSpec{
+			URL:            options.GetURL(),
 			IncludeVolumes: includeVolumes,
 		},
 	}

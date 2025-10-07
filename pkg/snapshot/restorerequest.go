@@ -29,6 +29,7 @@ func (r *RestoreRequest) Done() bool {
 }
 
 type RestoreRequestSpec struct {
+	URL            string                     `json:"url,omitempty"`
 	IncludeVolumes bool                       `json:"includeVolumes,omitempty"`
 	VolumesRestore volumes.RestoreRequestSpec `json:"volumesRestore,omitempty"`
 	Options        Options                    `json:"-"`
@@ -45,6 +46,7 @@ func NewRestoreRequest(snapshotRequest Request) (RestoreRequest, error) {
 			CreationTimestamp: metav1.Now(),
 		},
 		Spec: RestoreRequestSpec{
+			URL:            snapshotRequest.Spec.URL,
 			IncludeVolumes: true,
 			VolumesRestore: volumes.RestoreRequestSpec{
 				Requests: []volumes.RestoreRequest{},
