@@ -151,8 +151,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	defer func() {
 		if retErr != nil {
 			// something went wrong, recorde error and update snapshot request phase to Failed
-			c.eventRecorder.Eventf(&configMap, corev1.EventTypeWarning, "SnapshotRequestFailed", "Snapshot request %s/%s has failed with error: %v", configMap.Namespace, configMap.Name, retErr)
 			snapshotRequest.Status.Phase = RequestPhaseFailed
+			snapshotRequest.Status.Error.Message = retErr.Error()
+			c.eventRecorder.Eventf(&configMap, corev1.EventTypeWarning, "SnapshotRequestFailed", "Snapshot request %s/%s has failed with error: %v", configMap.Namespace, configMap.Name, retErr)
 		}
 		updateErr := c.updateRequest(ctx, configMapBeforeChange, &configMap, *snapshotRequest)
 		if updateErr != nil {

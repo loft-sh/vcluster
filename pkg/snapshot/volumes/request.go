@@ -1,6 +1,9 @@
 package volumes
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	snapshotTypes "github.com/loft-sh/vcluster/pkg/snapshot/types"
+	corev1 "k8s.io/api/core/v1"
+)
 
 const (
 	SnapshotClassNameLabel = "vcluster.loft.sh/csi-volumesnapshot-class"
@@ -34,9 +37,9 @@ type SnapshotRequestPhase string
 
 // SnapshotsStatus shows the current status of the snapshot request.
 type SnapshotsStatus struct {
-	Phase     SnapshotRequestPhase      `json:"phase,omitempty"`
-	Snapshots map[string]SnapshotStatus `json:"snapshots,omitempty"`
-	Error     SnapshotError             `json:"error,omitempty"`
+	Phase     SnapshotRequestPhase        `json:"phase,omitempty"`
+	Snapshots map[string]SnapshotStatus   `json:"snapshots,omitempty"`
+	Error     snapshotTypes.SnapshotError `json:"error,omitempty"`
 }
 
 // Done returns true if the process of taking all volume snapshots has finished, otherwise it
@@ -64,9 +67,9 @@ func (s SnapshotsStatus) Done() bool {
 
 // SnapshotStatus shows the current status of a single PVC snapshot.
 type SnapshotStatus struct {
-	Phase          SnapshotRequestPhase `json:"phase,omitempty"`
-	SnapshotHandle string               `json:"snapshotHandle,omitempty"`
-	Error          SnapshotError        `json:"error,omitempty"`
+	Phase          SnapshotRequestPhase        `json:"phase,omitempty"`
+	SnapshotHandle string                      `json:"snapshotHandle,omitempty"`
+	Error          snapshotTypes.SnapshotError `json:"error,omitempty"`
 }
 
 // Equals checks if the snapshot status is identical to another snapshot status.
@@ -80,14 +83,4 @@ func (s SnapshotStatus) Equals(other SnapshotStatus) bool {
 // false.
 func (s SnapshotStatus) Done() bool {
 	return s.Phase == RequestPhaseCompleted || s.Phase == RequestPhaseSkipped || s.Phase == RequestPhaseFailed
-}
-
-// SnapshotError describes the error that occurred while taking the snapshot.
-type SnapshotError struct {
-	Message string `json:"message,omitempty"`
-}
-
-// Equals checks if the snapshot error is identical to another snapshot error.
-func (err SnapshotError) Equals(other SnapshotError) bool {
-	return err.Message == other.Message
 }
