@@ -138,7 +138,7 @@ func waitUntilVClusterIsRunning(f *framework.Framework) {
 	framework.ExpectNoError(err)
 }
 
-func waitForSnapshotRequestToFinish(f *framework.Framework) {
+func waitForSnapshotToBeCreated(f *framework.Framework) {
 	waitForRequestToFinish(f, constants.SnapshotRequestLabel, snapshot.UnmarshalSnapshotRequest)
 }
 
