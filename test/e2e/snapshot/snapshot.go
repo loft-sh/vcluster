@@ -45,7 +45,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		framework.ExpectNoError(err)
 	}
 
-	deployTestResourcesAndTakeSnapshot := func(testNamespace string, useNewCommand bool) {
+	deployTestResources := func(testNamespace string, useNewCommand bool) {
 		f = framework.DefaultFramework
 		vClusterDefaultNamespace = f.VClusterNamespace
 
@@ -471,7 +471,10 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 		BeforeAll(func() {
 			deployTestNamespace(cliTestNamespaceName)
-			deployTestResourcesAndTakeSnapshot(cliTestNamespaceName, false)
+			deployTestResources(cliTestNamespaceName, false)
+		})
+
+		It("Creates the snapshot", func() {
 			createSnapshot(f, false, snapshotPath, false)
 		})
 
@@ -490,9 +493,15 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 		BeforeAll(func() {
 			deployTestNamespace(controllerTestNamespaceName)
-			deployTestResourcesAndTakeSnapshot(controllerTestNamespaceName, true)
+			deployTestResources(controllerTestNamespaceName, true)
+		})
+
+		It("Creates the snapshot request", func() {
 			createSnapshot(f, true, snapshotPath, false)
-			waitForSnapshotRequestToFinish(f)
+		})
+
+		It("Creates the snapshot", func() {
+			waitForSnapshotToBeCreated(f)
 		})
 
 		checkTestResources(controllerTestNamespaceName, true, snapshotPath)
@@ -515,22 +524,33 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			f = framework.DefaultFramework
 			deployTestNamespace(controllerTestNamespaceName)
 			createPVCWithData(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName, testFileName, pvcData)
-			deployTestResourcesAndTakeSnapshot(controllerTestNamespaceName, true)
+			deployTestResources(controllerTestNamespaceName, true)
+		})
+
+		It("Creates the snapshot request", func() {
 			createSnapshot(f, true, snapshotPath, true)
-			waitForSnapshotRequestToFinish(f)
+		})
+
+		It("Creates the snapshot", func() {
+			waitForSnapshotToBeCreated(f)
+		})
+
+		It("Deletes the PVC with test data", func(ctx context.Context) {
 			deletePVC(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName)
 		})
 
 		checkTestResources(controllerTestNamespaceName, true, snapshotPath)
 
-		It("restored PVC has the same data as the original one", func(ctx context.Context) {
+		It("restores vCluster with volumes", func(ctx context.Context) {
 			// PVC has been restored in previous test specs, but without data, so it's stuck in Pending.
 			// Therefore, delete it again, so it gets restored properly.
-			// TODO: decide what to do with PVCs when restoring vCluster without restoring PVCs, should they even be restored,
-			//   because now, without --include-volumes, we just get restored PVCs that are stuck in Pending???
 			deletePVC(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName)
+
 			// now restore the vCluster
 			restoreVCluster(f, snapshotPath, true, true)
+		})
+
+		It("has the restored PVC with data restored from the volume snapshot", func(ctx context.Context) {
 			checkPVCData(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName, testFileName, pvcData)
 		})
 
