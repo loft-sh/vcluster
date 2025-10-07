@@ -17,6 +17,42 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+func createSnapshot(f *framework.Framework, useNewCommand bool, snapshotPath string, includeVolumes bool) {
+	By("Snapshot vcluster")
+	var cmd *exec.Cmd
+	if useNewCommand {
+		// snapshots created asynchronously by the controller
+		args := []string{
+			"snapshot",
+			"create",
+			f.VClusterName,
+			snapshotPath,
+			"-n", f.VClusterNamespace,
+		}
+		if includeVolumes {
+			args = append(args, "--include-volumes")
+		}
+		cmd = exec.Command(
+			"vcluster",
+			args...,
+		)
+	} else {
+		// snapshots created synchronously by the CLI
+		cmd = exec.Command(
+			"vcluster",
+			"snapshot",
+			f.VClusterName,
+			snapshotPath,
+			"-n", f.VClusterNamespace,
+			"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
+		)
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	framework.ExpectNoError(err)
+}
+
 func restoreVCluster(f *framework.Framework, snapshotPath string, controllerBasedSnapshot, restoreVolumes bool) {
 	By("Restore vCluster")
 	restoreArgs := []string{

@@ -2,8 +2,6 @@ package snapshot
 
 import (
 	"context"
-	"os"
-	"os/exec"
 	"strconv"
 	"time"
 
@@ -47,7 +45,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		framework.ExpectNoError(err)
 	}
 
-	deployTestResourcesAndTakeSnapshot := func(testNamespace string, useNewCommand bool, snapshotPath string, includeVolumes bool) {
+	deployTestResourcesAndTakeSnapshot := func(testNamespace string, useNewCommand bool) {
 		f = framework.DefaultFramework
 		vClusterDefaultNamespace = f.VClusterNamespace
 
@@ -201,39 +199,6 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 		// now create a deployment that should be there when we restore again
 		_, err = f.VClusterClient.AppsV1().Deployments(testNamespace).Create(f.Context, deploymentToRestore, metav1.CreateOptions{})
-		framework.ExpectNoError(err)
-
-		By("Snapshot vcluster")
-		var cmd *exec.Cmd
-		if useNewCommand {
-			args := []string{
-				"snapshot",
-				"create",
-				f.VClusterName,
-				snapshotPath,
-				"-n", f.VClusterNamespace,
-			}
-			if includeVolumes {
-				args = append(args, "--include-volumes")
-			}
-			cmd = exec.Command(
-				"vcluster",
-				args...,
-			)
-		} else {
-			// regular snapshot
-			cmd = exec.Command(
-				"vcluster",
-				"snapshot",
-				f.VClusterName,
-				snapshotPath,
-				"-n", f.VClusterNamespace,
-				"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc",
-			)
-		}
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err = cmd.Run()
 		framework.ExpectNoError(err)
 	}
 
@@ -506,7 +471,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 		BeforeAll(func() {
 			deployTestNamespace(cliTestNamespaceName)
-			deployTestResourcesAndTakeSnapshot(cliTestNamespaceName, false, snapshotPath, false)
+			deployTestResourcesAndTakeSnapshot(cliTestNamespaceName, false)
+			createSnapshot(f, false, snapshotPath, false)
 		})
 
 		checkTestResources(cliTestNamespaceName, false, snapshotPath)
@@ -524,7 +490,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 		BeforeAll(func() {
 			deployTestNamespace(controllerTestNamespaceName)
-			deployTestResourcesAndTakeSnapshot(controllerTestNamespaceName, true, snapshotPath, false)
+			deployTestResourcesAndTakeSnapshot(controllerTestNamespaceName, true)
+			createSnapshot(f, true, snapshotPath, false)
 			waitForSnapshotRequestToFinish(f)
 		})
 
@@ -535,7 +502,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		})
 	})
 
-	FDescribe("controller-based snapshot with volumes", Ordered, func() {
+	Describe("controller-based snapshot with volumes", Ordered, func() {
 		const (
 			controllerTestNamespaceName = "volume-snapshots-test"
 			snapshotPath                = "container:///snapshot-data/" + controllerTestNamespaceName + ".tar.gz"
@@ -548,7 +515,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			f = framework.DefaultFramework
 			deployTestNamespace(controllerTestNamespaceName)
 			createPVCWithData(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName, testFileName, pvcData)
-			deployTestResourcesAndTakeSnapshot(controllerTestNamespaceName, true, snapshotPath, true)
+			deployTestResourcesAndTakeSnapshot(controllerTestNamespaceName, true)
+			createSnapshot(f, true, snapshotPath, true)
 			waitForSnapshotRequestToFinish(f)
 			deletePVC(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName)
 		})
