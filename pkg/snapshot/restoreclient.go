@@ -36,6 +36,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	pvPrefix  = "/registry/persistentvolumes/"
+	pvcPrefix = "/registry/persistentvolumeclaims/"
+)
+
 type RestoreClient struct {
 	snapshotRequest Request
 	Snapshot        Options
@@ -47,6 +52,7 @@ type RestoreClient struct {
 
 var (
 	podGVK = corev1.SchemeGroupVersion.WithKind("Pod")
+	pvcGVK = corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim")
 
 	// bump revision to make sure we invalidate caches. See https://github.com/kubernetes/kubernetes/issues/118501 for more details
 	BumpRevision = int64(1000)
@@ -158,6 +164,14 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 			}
 		}
 
+		if o.isPVCThatShouldBeRestoredInHost(string(key)) {
+			value, err = unsetVolumeName(value, decoder, encoder)
+			if err != nil {
+				return fmt.Errorf("failed to unset volume name: %w", err)
+			}
+			klog.Infof("Unset volume name for PVC %s", strings.TrimPrefix(string(key), pvcPrefix))
+		}
+
 		// write the value to etcd
 		if o.skipKey(string(key)) {
 			klog.Infof("Skip key %s", string(key))
@@ -253,11 +267,6 @@ func (o *RestoreClient) skipKey(key string) bool {
 		return false
 	}
 
-	const (
-		pvPrefix  = "/registry/persistentvolumes/"
-		pvcPrefix = "/registry/persistentvolumeclaims/"
-	)
-
 	// check if the snapshot exists
 	if strings.HasPrefix(key, pvcPrefix) {
 		pvcName := strings.TrimPrefix(key, pvcPrefix)
@@ -279,6 +288,28 @@ func (o *RestoreClient) skipKey(key string) bool {
 	return false
 }
 
+// isPVCThatShouldBeRestoredInHost checks if the key refers to a PVC that should be restored on the host cluster.
+func (o *RestoreClient) isPVCThatShouldBeRestoredInHost(key string) bool {
+	if !strings.HasPrefix(key, pvcPrefix) {
+		// not PVC
+		return false
+	}
+	if o.vConfig.PrivateNodes.Enabled {
+		// restore in virtual, not in host
+		return false
+	}
+
+	pvcName := strings.TrimPrefix(key, pvcPrefix)
+	status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcName]
+	if !ok {
+		klog.Infof("Snapshot not found for PVC %s", strings.TrimPrefix(key, pvcPrefix))
+		return false
+	}
+	// skip restoring PVC if it has a snapshot, restore controller will restore it
+	klog.Infof("Snapshot found for PVC %s with phase %s", strings.TrimPrefix(key, pvcPrefix), status.Phase)
+	return status.Phase == volumes.RequestPhaseCompleted
+}
+
 func transformPod(value []byte, decoder runtime.Decoder, encoder runtime.Encoder) ([]byte, error) {
 	// decode value
 	obj := &corev1.Pod{}
@@ -292,6 +323,30 @@ func transformPod(value []byte, decoder runtime.Decoder, encoder runtime.Encoder
 	// make sure to delete nodename & status or otherwise vCluster will delete the pod on start
 	obj.Spec.NodeName = ""
 	obj.Status = corev1.PodStatus{}
+
+	// encode value
+	buf := &bytes.Buffer{}
+	err = encoder.Encode(obj, buf)
+	if err != nil {
+		return nil, fmt.Errorf("encode value: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+func unsetVolumeName(value []byte, decoder runtime.Decoder, encoder runtime.Encoder) ([]byte, error) {
+	// decode value
+	obj := &corev1.PersistentVolumeClaim{}
+	_, _, err := decoder.Decode(value, &pvcGVK, obj)
+	if err != nil {
+		return nil, fmt.Errorf("decode value: %w", err)
+	} else if obj.DeletionTimestamp != nil {
+		klog.Infof("PVC deleted!")
+		return value, nil
+	}
+
+	// unset volume name
+	obj.Spec.VolumeName = ""
 
 	// encode value
 	buf := &bytes.Buffer{}
