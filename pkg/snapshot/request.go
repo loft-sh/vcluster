@@ -9,6 +9,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	snapshotTypes "github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,8 +58,9 @@ type RequestSpec struct {
 }
 
 type RequestStatus struct {
-	Phase           RequestPhase            `json:"phase,omitempty"`
-	VolumeSnapshots volumes.SnapshotsStatus `json:"volumeSnapshots,omitempty"`
+	Phase           RequestPhase                `json:"phase,omitempty"`
+	VolumeSnapshots volumes.SnapshotsStatus     `json:"volumeSnapshots,omitempty"`
+	Error           snapshotTypes.SnapshotError `json:"error,omitempty"`
 }
 
 // CreateSnapshotRequestResources creates snapshot request ConfigMap and Secret in the cluster. It returns the created
