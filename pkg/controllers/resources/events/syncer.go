@@ -90,7 +90,7 @@ func (s *eventSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccon
 	}
 
 	// Apply pro patches
-	err = pro.ApplyPatchesVirtualObject(ctx, vObj, event.Host, ctx.Config.Sync.FromHost.Events.Patches, true)
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.Events.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
