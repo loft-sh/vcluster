@@ -86,8 +86,26 @@ embed-chart version="0.0.0":
 test-chart:
   helm unittest chart
 
+setup-csi-volume-snapshots:
+  # Deploy upstream CSI volume snapshot CRDs and snapshot-controller
+  kubectl kustomize https://github.com/kubernetes-csi/external-snapshotter/client/config/crd | kubectl create -f -
+  kubectl kustomize https://github.com/kubernetes-csi/external-snapshotter/deploy/kubernetes/snapshot-controller | kubectl create -f -
+
+  # Deploy CSI driver, StorageClass and VolumeSnapshotClass
+  temp_git_dir=$(mktemp -d) && \
+    git clone https://github.com/kubernetes-csi/csi-driver-host-path.git $temp_git_dir && \
+    $temp_git_dir/deploy/kubernetes-latest/deploy.sh && \
+    kubectl apply -f $temp_git_dir/examples/csi-storageclass.yaml && \
+    kubectl apply -f $temp_git_dir/examples/csi-volumesnapshotclass.yaml && \
+    kubectl annotate volumesnapshotclass csi-hostpath-snapclass \
+      snapshot.storage.kubernetes.io/is-default-class="true" && \
+    rm -rf $temp_git_dir
+
+  # wait for snapshot-controller to be ready
+  kubectl wait --for=condition=Available -n kube-system deploy/snapshot-controller --timeout=60s
+
 # Run e2e tests
-e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind && delete-kind
+e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind setup-csi-volume-snapshots && delete-kind
   echo "Execute test suites ({{ distribution }}, {{ path }}, {{ multinamespace }})"
 
   TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean
