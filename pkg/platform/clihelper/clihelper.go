@@ -342,35 +342,18 @@ func GetLoftDefaultPassword(ctx context.Context, kubeClient kubernetes.Interface
 	return string(loftNamespace.UID), nil
 }
 
-type version struct {
-	Version string `json:"version"`
-}
-
 func IsLoftReachable(ctx context.Context, host string) (bool, error) {
 	// wait until loft is reachable at the given url
 	client := &http.Client{
 		Transport: utilhttp.InsecureTransport(),
 	}
-	url := "https://" + host + "/version"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	endpoint := fmt.Sprintf("https://%s/healthz", host)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return false, fmt.Errorf("error creating request with context: %w", err)
 	}
 	resp, err := client.Do(req)
 	if err == nil && resp.StatusCode == http.StatusOK {
-		out, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return false, nil
-		}
-
-		v := &version{}
-		err = json.Unmarshal(out, v)
-		if err != nil {
-			return false, fmt.Errorf("error decoding response from %s: %w. Try running '%s --reset'", url, err, product.StartCmd())
-		} else if v.Version == "" {
-			return false, fmt.Errorf("unexpected response from %s: %s. Try running '%s --reset'", url, string(out), product.StartCmd())
-		}
-
 		return true, nil
 	}
 
