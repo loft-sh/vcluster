@@ -65,6 +65,8 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 				hasCompletedRestores = true
 			case volumes.RequestPhaseSkipped:
 				hasSkippedRestores = true
+			default:
+				return fmt.Errorf("unexpected phase %s for restoring PVC %s", newStatus.Phase, pvcName)
 			}
 		case volumes.RequestPhaseCompleted:
 			hasCompletedRestores = true
