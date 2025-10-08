@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
+	snapshotTypes "github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +39,7 @@ type RestoreRequestSpec struct {
 type RestoreRequestStatus struct {
 	Phase          RequestPhase                 `json:"phase,omitempty"`
 	VolumesRestore volumes.RestoreRequestStatus `json:"volumesRestore,omitempty"`
+	Error          snapshotTypes.SnapshotError  `json:"error,omitempty"`
 }
 
 func NewRestoreRequest(snapshotRequest Request) (RestoreRequest, error) {

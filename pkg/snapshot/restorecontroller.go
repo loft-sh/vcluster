@@ -176,13 +176,21 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 					RequeueAfter: time.Minute,
 				}, nil
 			}
+		case volumes.RequestPhaseSkipped:
+			fallthrough
 		case volumes.RequestPhaseCompleted:
 			restoreRequest.Status.Phase = RequestPhaseCompleted
 		case volumes.RequestPhaseFailed:
 			restoreRequest.Status.Phase = RequestPhaseFailed
+			restoreRequest.Status.Error.Message = volumesRestoreStatus.Error.Message
+		case volumes.RequestPhasePartiallyFailed:
+			restoreRequest.Status.Phase = RequestPhasePartiallyFailed
+			restoreRequest.Status.Error.Message = volumesRestoreStatus.Error.Message
 		default:
 			return ctrl.Result{}, fmt.Errorf("unexpected volume snapshots request phase %s", volumesRestoreStatus.Phase)
 		}
+	case RequestPhasePartiallyFailed:
+		fallthrough
 	case RequestPhaseCompleted:
 		err = c.reconcileCompletedRequest(ctx, &configMap, restoreRequest.RequestMetadata)
 		if err != nil {
