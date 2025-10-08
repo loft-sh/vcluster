@@ -10,7 +10,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +29,7 @@ func NewDescribeCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults
 		GlobalFlags: globalFlags,
 
 		// Configure log to use only STDERR. Reserve STDOUT for json/yaml output
-		log: log.NewStdoutLogger(os.Stdin, os.Stderr, os.Stderr, logrus.InfoLevel),
+		log: log.GetInstance().ErrorStreamOnly(),
 	}
 	driver := ""
 
@@ -48,19 +47,6 @@ vcluster describe -o json test
 #######################################################
 	`,
 		Args: cobra.ExactArgs(1),
-		PreRunE: func(_ *cobra.Command, _ []string) error {
-			switch cmd.output {
-			case "", "json", "yaml":
-			default:
-				return fmt.Errorf("unsupported output format: %s", cmd.output)
-			}
-
-			if cmd.configOnly && !(cmd.output == "yaml" || cmd.output == "") {
-				return fmt.Errorf("--config-only output supports only yaml format")
-			}
-
-			return nil
-		},
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			return cmd.Run(cobraCmd, driver, args[0])
 		},
@@ -77,6 +63,16 @@ vcluster describe -o json test
 
 // Run executes the functionality
 func (cmd *DescribeCmd) Run(cobraCmd *cobra.Command, driver, name string) error {
+	switch cmd.output {
+	case "", "json", "yaml":
+	default:
+		return fmt.Errorf("unsupported output format: %s", cmd.output)
+	}
+
+	if cmd.configOnly && !(cmd.output == "yaml" || cmd.output == "") {
+		return fmt.Errorf("--config-only output supports only yaml format")
+	}
+
 	cfg := cmd.LoadedConfig(cmd.log)
 
 	// If driver has been passed as flag use it, otherwise read it from the config file
