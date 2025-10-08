@@ -29,9 +29,11 @@ func DescribePlatform(ctx context.Context, globalFlags *flags.GlobalFlags, outpu
 		return fmt.Errorf("found multiple vclusters with name %s. Please use --project flag to narrow down the search", name)
 	}
 
-	// provclusters should be len(1), because 0 exits beforehand, and there's only 1
-	// vcluster with a name in a project
 	vCluster := proVClusters[0].VirtualCluster
+	if vCluster.Status.VirtualCluster == nil {
+		return fmt.Errorf("vcluster %s status is not available", name)
+	}
+
 	values := vCluster.Status.VirtualCluster.HelmRelease.Values
 	version := vCluster.Status.VirtualCluster.HelmRelease.Chart.Version
 
