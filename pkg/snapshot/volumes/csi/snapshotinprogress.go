@@ -30,7 +30,7 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestObj 
 
 	hasInProgressSnapshots := false
 	hasCompletedSnapshots := false
-	hasFailedSnapshots := false
+	failedSnapshotsCount := 0
 	defer func() {
 		if retErr == nil {
 			return
@@ -68,27 +68,32 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestObj 
 				hasInProgressSnapshots = true
 			} else if newStatus.Phase == volumes.RequestPhaseFailed {
 				// snapshot creation has just failed
-				hasFailedSnapshots = true
+				failedSnapshotsCount++
 			} else if newStatus.Phase == volumes.RequestPhaseCompleted {
 				hasCompletedSnapshots = true
 			}
 		case volumes.RequestPhaseCompleted:
 			hasCompletedSnapshots = true
 		case volumes.RequestPhaseFailed:
-			hasFailedSnapshots = true
+			failedSnapshotsCount++
 		default:
 			return fmt.Errorf("invalid snapshot request phase %s for PVC %s in volume snapshot request %s", snapshotStatus.Phase, pvcName, requestName)
 		}
 	}
 
+	hasFailedSnapshots := failedSnapshotsCount > 0
 	if hasInProgressSnapshots {
 		status.Phase = volumes.RequestPhaseInProgress
 	} else if hasCompletedSnapshots && hasFailedSnapshots {
 		status.Phase = volumes.RequestPhasePartiallyFailed
+		status.Error.Message = fmt.Sprintf("%d out of %d volume snapshots have failed", failedSnapshotsCount, len(request.Requests))
+		s.eventRecorder.Eventf(requestObj, corev1.EventTypeWarning, "VolumeSnapshotsPartiallyFailed", status.Error.Message)
 	} else if hasCompletedSnapshots {
 		status.Phase = volumes.RequestPhaseCompleted
 	} else if hasFailedSnapshots {
 		status.Phase = volumes.RequestPhaseFailed
+		status.Error.Message = "all volume snapshots have failed"
+		s.eventRecorder.Eventf(requestObj, corev1.EventTypeWarning, "VolumeSnapshotsFailed", status.Error.Message)
 	} else {
 		return fmt.Errorf("unexpected state for snapshot request %s, expected at least 1 snapshot to be in progress, completed or failed", requestName)
 	}

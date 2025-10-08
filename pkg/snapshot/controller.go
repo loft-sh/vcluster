@@ -236,6 +236,7 @@ func (c *Reconciler) reconcileCreatingVolumeSnapshots(ctx context.Context, snaps
 		snapshotRequest.Status.Phase = RequestPhaseCreatingEtcdBackup
 	case volumes.RequestPhaseFailed:
 		snapshotRequest.Status.Phase = RequestPhaseFailed
+		snapshotRequest.Status.Error.Message = volumeSnapshotsStatus.Error.Message
 	default:
 		return 0, fmt.Errorf("unexpected volume snapshots request phase %s", volumeSnapshotsStatus.Phase)
 	}
@@ -340,6 +341,7 @@ func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap 
 			snapshotRequest.Status.Phase = RequestPhaseCompleted
 		} else if snapshotRequest.Status.VolumeSnapshots.Phase == volumes.RequestPhasePartiallyFailed {
 			snapshotRequest.Status.Phase = RequestPhasePartiallyFailed
+			snapshotRequest.Status.Error.Message = snapshotRequest.Status.VolumeSnapshots.Error.Message
 		} else {
 			return false, fmt.Errorf("unexpected volume snapshots request phase %s", snapshotRequest.Status.VolumeSnapshots.Phase)
 		}
