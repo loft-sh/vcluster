@@ -23,7 +23,6 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 	}
 	defer r.logger.Infof("Reconciled in-progress volumes restore request %s", requestName)
 
-	continueReconciling := false
 	defer func() {
 		if retErr == nil {
 			return
@@ -32,6 +31,10 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 		status.Error.Message = retErr.Error()
 	}()
 
+	hasInProgressRestores := false
+	hasCompletedRestores := false
+	hasSkippedRestores := false
+	failedRestoresCount := 0
 	for _, volumeRestoreRequest := range request.Requests {
 		pvcName := types.NamespacedName{
 			Namespace: volumeRestoreRequest.PersistentVolumeClaim.Namespace,
@@ -52,25 +55,54 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 			if err != nil {
 				r.logger.Errorf("failed to reconcile in-progress volumes restore request %s for PVC %s: %v", requestName, pvcName, err)
 			}
-			if newStatus.Phase == volumes.RequestPhaseInProgress {
-				// at least one volume restore is still in progress
-				continueReconciling = true
+			switch newStatus.Phase {
+			case volumes.RequestPhaseInProgress:
+				hasInProgressRestores = true
 				continue
+			case volumes.RequestPhaseFailed:
+				failedRestoresCount++
+			case volumes.RequestPhaseCompleted:
+				hasCompletedRestores = true
+			case volumes.RequestPhaseSkipped:
+				hasSkippedRestores = true
+			default:
+				return fmt.Errorf("unexpected phase %s for restoring PVC %s", newStatus.Phase, pvcName)
 			}
 		case volumes.RequestPhaseCompleted:
+			hasCompletedRestores = true
 			r.logger.Debugf("PVC %s has been already restored", pvcName)
 		case volumes.RequestPhaseSkipped:
+			hasSkippedRestores = true
 			r.logger.Debugf("PVC %s already exists, restore skipped", pvcName)
 		case volumes.RequestPhaseFailed:
+			failedRestoresCount++
 			r.logger.Errorf("Failed to restore PVC %s", pvcName)
 		default:
 			return fmt.Errorf("invalid restore request phase %s for PVC %s in restore snapshot request %s", volumeRestoreStatus.Phase, pvcName, requestName)
 		}
 	}
 
-	if !continueReconciling {
+	hasFailedRestores := failedRestoresCount > 0
+	if hasInProgressRestores {
+		status.Phase = volumes.RequestPhaseInProgress
+	} else if hasCompletedRestores && hasFailedRestores {
+		status.Phase = volumes.RequestPhasePartiallyFailed
+		status.Error.Message = fmt.Sprintf("%d out of %d PVCs failed to restore", failedRestoresCount, len(request.Requests))
+	} else if hasCompletedRestores {
 		status.Phase = volumes.RequestPhaseCompleted
+	} else if hasFailedRestores {
+		status.Phase = volumes.RequestPhaseFailed
+		if hasSkippedRestores {
+			status.Error.Message = "some PVC restores have failed, others have been skipped"
+		} else {
+			status.Error.Message = "all PVC restores have failed"
+		}
+	} else if hasSkippedRestores {
+		status.Phase = volumes.RequestPhaseSkipped
+	} else {
+		return fmt.Errorf("unexpected state for snapshot request %s, expected at least 1 snapshot to be in progress, completed or failed", requestName)
 	}
+
 	return nil
 }
 
