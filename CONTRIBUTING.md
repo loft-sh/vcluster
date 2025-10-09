@@ -62,7 +62,7 @@ The vCluster repo is enabled to develop using [DevSpace](https://www.devspace.sh
 
 ### Install DevSpace
 
-Follow the guide on how to install [DevSpace](https://github.com/loft-sh/devspace#1-install-devspace)
+Follow the guide on how to install [DevSpace](https://github.com/devspace-sh/devspace#quickstart)
 
 ### Launch DevSpace
 
