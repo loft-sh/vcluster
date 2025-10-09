@@ -1,4 +1,4 @@
-ARG KINE_VERSION="v0.13.14"
+ARG KINE_VERSION="v0.14.4"
 FROM rancher/kine:${KINE_VERSION} AS kine
 
 # Build the manager binary
