@@ -2930,6 +2930,10 @@
           "type": "array",
           "description": "ExtraWorkloadRules are extra allowed rules for the vCluster workloads."
         },
+        "ingress": {
+          "$ref": "#/$defs/NetworkPolicyIngress",
+          "description": "Ingress rules"
+        },
         "annotations": {
           "additionalProperties": {
             "type": "string"
@@ -2943,6 +2947,41 @@
           },
           "type": "object",
           "description": "Labels are extra labels for this resource."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "NetworkPolicyIngress": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the network policy should be deployed by vCluster."
+        },
+        "platform": {
+          "type": "boolean",
+          "description": "Platform enables ingress access from the loft platform"
+        },
+        "controlPlaneRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ControlPlaneRules are allowed rules for the vCluster control plane."
+        },
+        "kubeDnsRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "KubeDNSRules are allowed rules for the vCluster workloads."
+        },
+        "workloadRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "WorkloadRules are allowed rules for the vCluster workloads."
         }
       },
       "additionalProperties": false,
