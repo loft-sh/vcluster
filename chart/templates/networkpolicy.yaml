@@ -9,50 +9,79 @@ metadata:
     chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
-    {{- if .Values.policies.networkPolicy.labels }}
+{{- if .Values.policies.networkPolicy.labels }}
 {{ toYaml .Values.policies.networkPolicy.labels | indent 4 }}
-    {{- end }}
-  {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.policies.networkPolicy.annotations }}
-  {{- if $annotations }}
+{{- end }}
+{{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.policies.networkPolicy.annotations }}
+{{- if $annotations }}
   annotations:
 {{ toYaml $annotations | indent 4 }}
-  {{- end }}
+{{- end }}
 spec:
   podSelector:
     matchLabels:
       vcluster.loft.sh/managed-by: {{ .Release.Name }}
+  policyTypes:
+    - Egress
+    - Ingress
   egress:
     # Allows outgoing connections to the vcluster control plane
     - ports:
-        - port: 443
         - port: 8443
       to:
         - podSelector:
             matchLabels:
               release: {{ .Release.Name }}
-    # Allows outgoing connections to DNS server
+    # Allows outgoing connections to vcluster DNS server.
     - ports:
-        - port: 53
+        - port: 1053
           protocol: UDP
-        - port: 53
+        - port: 1053
           protocol: TCP
-    # Allows outgoing connections to the internet or
-    # other vcluster workloads
+      to:
+        - podSelector:
+            matchLabels:
+{{- if .Values.controlPlane.coredns.embedded }}
+              release: {{ .Release.Name }}
+{{- else }}
+              k8s-app: vcluster-kube-dns
+{{- end }}
+{{- if .Values.policies.networkPolicy.workload.allowVirtualCluster }}
+    # Allow egress to other vcluster workloads
     - to:
-      - podSelector:
-          matchLabels:
-            vcluster.loft.sh/managed-by: {{ .Release.Name }}
-      - ipBlock:
-          cidr: {{ .Values.policies.networkPolicy.outgoingConnections.ipBlock.cidr }}
-          except:
-            {{- range .Values.policies.networkPolicy.outgoingConnections.ipBlock.except }}
-            - {{ . }}
-            {{- end }}
-    {{- if .Values.policies.networkPolicy.extraWorkloadRules }}
-{{ toYaml .Values.policies.networkPolicy.extraWorkloadRules | indent 4 }}
-    {{- end }}
-  policyTypes:
-    - Egress
+        - podSelector:
+            matchLabels:
+              vcluster.loft.sh/managed-by: {{ .Release.Name }}
+{{- end }}
+{{- if .Values.policies.networkPolicy.workload.allowPublicEgress }}
+    # Allow public egress rules
+    - to:
+        - ipBlock:
+            cidr: {{ .Values.policies.networkPolicy.workload.publicEgress.cidr }}
+            except:
+              {{- range .Values.policies.networkPolicy.workload.publicEgress.except }}
+              - {{ . }}
+              {{- end }}
+{{- end }}
+{{- if .Values.policies.networkPolicy.workload.egress }}
+{{ toYaml .Values.policies.networkPolicy.workload.egress | indent 4 }}
+{{- end }}
+  ingress:
+    # Allows ingress from the vcluster control plane
+    - from:
+        - podSelector:
+            matchLabels:
+              release: {{ .Release.Name }}
+{{- if .Values.policies.networkPolicy.workload.allowVirtualCluster }}
+    # Allow egress to other vcluster workloads
+    - from:
+        - podSelector:
+            matchLabels:
+              vcluster.loft.sh/managed-by: {{ .Release.Name }}
+{{- end }}
+{{- if .Values.policies.networkPolicy.workload.ingress }}
+{{ toYaml .Values.policies.networkPolicy.workload.ingress | indent 4 }}
+{{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -64,45 +93,172 @@ metadata:
     chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
-  {{- if .Values.policies.networkPolicy.labels }}
+{{- if .Values.policies.networkPolicy.labels }}
 {{ toYaml .Values.policies.networkPolicy.labels | indent 4 }}
-  {{- end }}
-  {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.policies.networkPolicy.annotations }}
-  {{- if $annotations }}
+{{- end }}
+{{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.policies.networkPolicy.annotations }}
+{{- if $annotations }}
   annotations:
 {{ toYaml $annotations | indent 4 }}
-  {{- end }}
+{{- end }}
 spec:
   podSelector:
     matchLabels:
       release: {{ .Release.Name }}
+  policyTypes:
+    - Egress
+    - Ingress
   egress:
-    # Allows outgoing connections to all pods with
-    # port 443, 8443 or 6443. This is needed for host Kubernetes
-    # access
-    - ports:
-        - port: 443
-        - port: 8443
-        - port: 6443
-    # Allows outgoing connections to all vcluster workloads
-    # or kube system dns server
+    # Allows egress to the host kube system dns server.
     - to:
-        - podSelector: {}
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: 'kube-system'
           podSelector:
             matchLabels:
               k8s-app: kube-dns
-        {{- if .Values.policies.networkPolicy.outgoingConnections.platform }}
+    # Allows outgoing connections to all vcluster workloads.
+    - to:
+        - podSelector: {}
+{{- if .Values.policies.networkPolicy.controlPlane.allowCommonHostApiServer }}
+    # Allows outgoing connections to all pods with
+    # port 443, 8443 or 6443. This is needed for host Kubernetes
+    # access.
+    - ports:
+      - port: 443
+      - port: 8443
+      - port: 6443
+{{- end }}
+{{- if .Values.policies.networkPolicy.controlPlane.allowPlatform }}
+    # Allow egress to the loft platform.
+    - to:
         - podSelector:
             matchLabels:
               app: loft
           namespaceSelector: {}
-        {{- end }}
-    {{- if .Values.policies.networkPolicy.extraControlPlaneRules }}
-{{ toYaml .Values.policies.networkPolicy.extraControlPlaneRules | indent 4 }}
-    {{- end }}
+{{- end }}
+{{- if .Values.policies.networkPolicy.controlPlane.egress }}
+{{ toYaml .Values.policies.networkPolicy.controlPlane.egress | indent 4 }}
+{{- end }}
+  ingress:
+    # Allow ingress for vcluster workloads traffic.
+    - ports:
+        - port: 8443
+          protocol: TCP
+      from:
+        - podSelector:
+            matchLabels:
+              vcluster.loft.sh/managed-by: {{ .Release.Name }}
+{{- if .Values.policies.networkPolicy.controlPlane.allowPlatform }}
+    # Allow ingress access from the loft platform.
+    - from:
+        - podSelector:
+            matchLabels:
+              app: loft
+          namespaceSelector: {}
+{{- end }}
+{{- if .Values.policies.networkPolicy.controlPlane.ingress }}
+{{ toYaml .Values.policies.networkPolicy.controlPlane.ingress | indent 4 }}
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vc-kube-dns-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ include "vcluster.version.label"  $ }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+{{- if .Values.policies.networkPolicy.labels }}
+{{ toYaml .Values.policies.networkPolicy.labels | indent 4 }}
+{{- end }}
+{{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.policies.networkPolicy.annotations }}
+{{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+{{- end }}
+spec:
+  podSelector:
+    matchLabels:
+      k8s-app: vcluster-kube-dns
+      vcluster.loft.sh/managed-by: {{ .Release.Name }}
   policyTypes:
     - Egress
-  {{- end }}
+    - Ingress
+  egress:
+    # Allows egress to the host kube system dns server.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: 'kube-system'
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+  ingress:
+    # Allows ingress from vcluster workloads.
+    - ports:
+        - port: 1053
+          protocol: TCP
+        - port: 1053
+          protocol: UDP
+      from:
+       - podSelector:
+           matchLabels:
+             vcluster.loft.sh/managed-by: {{ .Release.Name }}
+{{- if and .Values.controlPlane.backingStore.etcd.deploy.enabled .Values.controlPlane.backingStore.etcd.deploy.statefulSet.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vc-etcd-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ include "vcluster.version.label"  $ }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+{{- if .Values.policies.networkPolicy.labels }}
+{{ toYaml .Values.policies.networkPolicy.labels | indent 4 }}
+{{- end }}
+{{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.policies.networkPolicy.annotations }}
+{{- if $annotations }}
+  annotations:
+{{ toYaml $annotations | indent 4 }}
+{{- end }}
+spec:
+  podSelector:
+    matchLabels:
+      app: vcluster-etcd
+      release: {{ .Release.Name }}
+  policyTypes:
+    - Egress
+    - Ingress
+  ingress:
+    - ports:
+        - port: 2380
+          protocol: TCP
+      from:
+        # Allow for vc-etcd peer traffic
+        - podSelector:
+            matchLabels:
+              app: vcluster-etcd
+              release: {{ .Release.Name }}
+    - ports:
+        - port: 2379
+          protocol: TCP
+      from:
+        # Allow for vc-cp traffic
+        - podSelector:
+            matchLabels:
+              app: vcluster
+              release: {{ .Release.Name }}
+
+        # Allow for vc-etcd peer traffic
+        - podSelector:
+            matchLabels:
+              app: vcluster-etcd
+              release: {{ .Release.Name }}
+{{- end }}
+{{- end }}
