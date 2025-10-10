@@ -338,7 +338,7 @@ func (s *nodeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccont
 	}
 
 	// Apply pro patches
-	err = pro.ApplyPatchesVirtualObject(ctx, virtualNode, event.Host, ctx.Config.Sync.FromHost.Nodes.Patches, true)
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, virtualNode, event.Host, ctx.Config.Sync.FromHost.Nodes.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
