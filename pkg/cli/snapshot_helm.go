@@ -142,7 +142,7 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request resources: %w", err)
 	}
-	log.Infof("Created snapshot request %s", snapshotRequest.Name)
+	log.Infof("Beginning snapshot creation... Currently, in the snapshots beta release, you can check the snapshot creation progress by inspecting the following ConfigMap data with the following command: kubectl get configmap -n %s %s -o json | jq '.data[\"snapshotRequest\"] | fromjson'", vCluster.Namespace, snapshotRequest.Name)
 	return nil
 }
 
