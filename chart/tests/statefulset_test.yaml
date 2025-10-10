@@ -951,3 +951,52 @@ tests:
           path: spec.template.spec.containers[0].env[?(@.name=="LOFT_LOG_ENCODING")].value
           value: console
 
+  - it: should add init containers
+    set:
+      controlPlane:
+        statefulSet:
+          initContainers:
+            - name: init-container
+              image: init-container
+              command: ["/bin/sh", "-c", "echo 'init-container'"]
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].name
+          value: init-container
+      - equal:
+          path: spec.template.spec.initContainers[1].image
+          value: init-container
+      - equal:
+          path: spec.template.spec.initContainers[1].command[0]
+          value: /bin/sh
+      - equal:
+          path: spec.template.spec.initContainers[1].command[1]
+          value: -c
+      - equal:
+          path: spec.template.spec.initContainers[1].command[2]
+          value: echo 'init-container'
+
+  - it: should add sidecar containers
+    set:
+      controlPlane:
+        statefulSet:
+          sidecarContainers:
+            - name: sidecar-container
+              image: sidecar-container
+              command: ["/bin/sh", "-c", "echo 'sidecar-container'"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: sidecar-container
+      - equal:
+          path: spec.template.spec.containers[1].image
+          value: sidecar-container
+      - equal:
+          path: spec.template.spec.containers[1].command[0]
+          value: /bin/sh
+      - equal:
+          path: spec.template.spec.containers[1].command[1]
+          value: -c
+      - equal:
+          path: spec.template.spec.containers[1].command[2]
+          value: echo 'sidecar-container'

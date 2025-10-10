@@ -844,6 +844,16 @@
         "dnsConfig": {
           "$ref": "#/$defs/PodDNSConfig",
           "description": "Specifies the DNS parameters of a pod."
+        },
+        "initContainers": {
+          "items": true,
+          "type": "array",
+          "description": "InitContainers are additional init containers for the statefulSet."
+        },
+        "sidecarContainers": {
+          "items": true,
+          "type": "array",
+          "description": "SidecarContainers are additional sidecar containers for the statefulSet."
         }
       },
       "additionalProperties": false,
