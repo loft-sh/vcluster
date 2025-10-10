@@ -1146,6 +1146,18 @@ policies:
           - 10.0.0.0/8
           - 172.16.0.0/12
           - 192.168.0.0/16
+    # Ingress rules
+    ingress:
+      # Enabled defines if the network policy should be deployed by vCluster.
+      enabled: false
+      # Platform enables ingress access from the loft platform
+      platform: true
+      # ControlPlaneRules are allowed rules for the vCluster control plane.
+      controlPlaneRules: []
+      # KubeDNSRules are allowed rules for the vCluster workloads.
+      kubeDnsRules: []
+      # WorkloadRules are allowed rules for the vCluster workloads.
+      workloadRules: []
   
   # CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.
   centralAdmission:

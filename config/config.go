@@ -2681,7 +2681,27 @@ type NetworkPolicy struct {
 	// ExtraWorkloadRules are extra allowed rules for the vCluster workloads.
 	ExtraWorkloadRules []map[string]interface{} `json:"extraWorkloadRules,omitempty"`
 
+	// Ingress rules
+	Ingress NetworkPolicyIngress `json:"ingress,omitempty"`
+
 	LabelsAndAnnotations `json:",inline"`
+}
+
+type NetworkPolicyIngress struct {
+	// Enabled defines if the network policy should be deployed by vCluster.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Platform enables ingress access from the loft platform
+	Platform bool `json:"platform,omitempty"`
+
+	// ControlPlaneRules are allowed rules for the vCluster control plane.
+	ControlPlaneRules []map[string]interface{} `json:"controlPlaneRules,omitempty"`
+
+	// KubeDNSRules are allowed rules for the vCluster workloads.
+	KubeDNSRules []map[string]interface{} `json:"kubeDnsRules,omitempty"`
+
+	// WorkloadRules are allowed rules for the vCluster workloads.
+	WorkloadRules []map[string]interface{} `json:"workloadRules,omitempty"`
 }
 
 type OutgoingConnections struct {
