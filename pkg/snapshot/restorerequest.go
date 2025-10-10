@@ -29,6 +29,10 @@ func (r *RestoreRequest) Done() bool {
 		r.Status.Phase == RequestPhasePartiallyFailed
 }
 
+func (r *RestoreRequest) GetPhase() RequestPhase {
+	return r.Status.Phase
+}
+
 type RestoreRequestSpec struct {
 	URL            string                     `json:"url,omitempty"`
 	IncludeVolumes bool                       `json:"includeVolumes,omitempty"`
