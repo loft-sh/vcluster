@@ -50,7 +50,7 @@ func (s *csidriverSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syn
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
 
 	// Apply pro patches
-	err := pro.ApplyPatchesVirtualObject(ctx, vObj, event.Host, ctx.Config.Sync.FromHost.CSIDrivers.Patches, true)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.CSIDrivers.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}

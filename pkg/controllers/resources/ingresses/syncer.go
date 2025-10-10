@@ -75,7 +75,7 @@ func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccont
 		return ctrl.Result{}, err
 	}
 
-	err = pro.ApplyPatchesHostObject(ctx, pObj, event.Virtual, ctx.Config.Sync.ToHost.Ingresses.Patches, false)
+	err = pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.Ingresses.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -120,7 +120,7 @@ func (s *ingressSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 	}
 
 	vIngress := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host), s.excludedAnnotations...)
-	err := pro.ApplyPatchesVirtualObject(ctx, vIngress, event.Host, ctx.Config.Sync.ToHost.Ingresses.Patches, false)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vIngress, event.Host, ctx.Config.Sync.ToHost.Ingresses.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -51,7 +51,7 @@ func (s *volumeSnapshotClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, 
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name}, false)
 
 	// Apply pro patches
-	err := pro.ApplyPatchesVirtualObject(ctx, vObj, event.Host, ctx.Config.Sync.FromHost.VolumeSnapshotClasses.Patches, true)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.VolumeSnapshotClasses.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying pro patches: %w", err)
 	}

@@ -69,7 +69,7 @@ func (s *priorityClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 
 	newPriorityClass := s.translate(ctx, event.Virtual)
 
-	err := pro.ApplyPatchesHostObject(ctx, newPriorityClass, event.Virtual, ctx.Config.Sync.ToHost.PriorityClasses.Patches, false)
+	err := pro.ApplyPatchesHostObject(ctx, nil, newPriorityClass, event.Virtual, ctx.Config.Sync.ToHost.PriorityClasses.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("apply patches: %w", err)
 	}
@@ -135,7 +135,7 @@ func (s *priorityClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event 
 	}
 
 	newVirtualPC := s.translateFromHost(ctx, event.Host)
-	err := pro.ApplyPatchesVirtualObject(ctx, newVirtualPC, event.Host, ctx.Config.Sync.FromHost.PriorityClasses.Patches, true)
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, newVirtualPC, event.Host, ctx.Config.Sync.FromHost.PriorityClasses.Patches, true)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

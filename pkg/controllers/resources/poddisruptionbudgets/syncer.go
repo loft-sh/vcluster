@@ -53,7 +53,7 @@ func (s *pdbSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 
 	newPDB := s.translate(ctx, event.Virtual)
 
-	err := pro.ApplyPatchesHostObject(ctx, newPDB, event.Virtual, ctx.Config.Sync.ToHost.PodDisruptionBudgets.Patches, false)
+	err := pro.ApplyPatchesHostObject(ctx, nil, newPDB, event.Virtual, ctx.Config.Sync.ToHost.PodDisruptionBudgets.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("apply patches: %w", err)
 	}

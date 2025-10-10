@@ -63,7 +63,7 @@ func (s *endpointSliceSyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 	}
 
 	pObj := s.translate(ctx, event.Virtual)
-	err := pro.ApplyPatchesHostObject(ctx, pObj, event.Virtual, ctx.Config.Sync.ToHost.EndpointSlices.Patches, false)
+	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.EndpointSlices.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
