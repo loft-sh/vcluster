@@ -704,6 +704,10 @@ controlPlane:
         timeoutSeconds: 3
         # Frequency (in seconds) to perform the probe
         periodSeconds: 6
+    # InitContainers are additional init containers for the statefulSet.
+    initContainers: []
+    # SidecarContainers are additional sidecar containers for the statefulSet.
+    sidecarContainers: []
   
   # ServiceMonitor can be used to automatically create a service monitor for vCluster deployment itself.
   serviceMonitor:

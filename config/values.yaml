@@ -378,6 +378,9 @@ controlPlane:
         timeoutSeconds: 3
         periodSeconds: 6
 
+    initContainers: []
+    sidecarContainers: []
+
   serviceMonitor:
     enabled: false
     labels: {}

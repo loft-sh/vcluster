@@ -1839,6 +1839,12 @@ type ControlPlaneStatefulSet struct {
 
 	// Specifies the DNS parameters of a pod.
 	DNSConfig *PodDNSConfig `json:"dnsConfig,omitempty"`
+
+	// InitContainers are additional init containers for the statefulSet.
+	InitContainers []interface{} `json:"initContainers,omitempty"`
+
+	// SidecarContainers are additional sidecar containers for the statefulSet.
+	SidecarContainers []interface{} `json:"sidecarContainers,omitempty"`
 }
 
 type Distro struct {
