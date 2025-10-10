@@ -31,7 +31,8 @@ type Options struct {
 	Container container.Options `json:"container"`
 	OCI       oci.Options       `json:"oci"`
 
-	Release *HelmRelease `json:"release,omitempty"`
+	Release        *HelmRelease `json:"release,omitempty"`
+	IncludeVolumes bool         `json:"include-volumes,omitempty"`
 }
 
 func (o *Options) GetURL() string {
@@ -185,4 +186,5 @@ func AddFlags(flags *pflag.FlagSet, options *Options) {
 	flags.StringVarP(&options.S3.KmsKeyID, "kms-key-id", "", "", "AWS KMS key ID that is configured for given S3 bucket. If set, aws-kms SSE will be used")
 	flags.StringVarP(&options.S3.CustomerKeyEncryptionFile, "customer-key-encryption-file", "", "", "AWS customer key encryption file used for SSE-C. Mutually exclusive with kms-key-id")
 	flags.StringVarP(&options.S3.ServerSideEncryption, "server-side-encryption", "", "", "AWS Server-Side encryption algorithm")
+	flags.BoolVarP(&options.IncludeVolumes, "include-volumes", "", false, "Create CSI volume snapshots (shared and private nodes only)")
 }

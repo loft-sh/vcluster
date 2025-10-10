@@ -65,7 +65,7 @@ type RequestStatus struct {
 
 // CreateSnapshotRequestResources creates snapshot request ConfigMap and Secret in the cluster. It returns the created
 // snapshot request.
-func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, vConfig *config.VirtualClusterConfig, options *Options, includeVolumes bool, kubeClient *kubernetes.Clientset) (*Request, error) {
+func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, vConfig *config.VirtualClusterConfig, options *Options, kubeClient *kubernetes.Clientset) (*Request, error) {
 	if vConfig == nil {
 		return nil, fmt.Errorf("config is nil")
 	}
@@ -92,7 +92,7 @@ func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 		},
 		Spec: RequestSpec{
 			URL:            options.GetURL(),
-			IncludeVolumes: includeVolumes,
+			IncludeVolumes: options.IncludeVolumes,
 		},
 	}
 	configMap, err := CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName, snapshotRequest)
