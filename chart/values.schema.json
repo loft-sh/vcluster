@@ -2952,28 +2952,6 @@
           "type": "boolean",
           "description": "Enabled defines if the network policy should be deployed by vCluster."
         },
-        "fallbackDns": {
-          "type": "string",
-          "description": "FallbackDNS is the fallback DNS server to use if the virtual cluster does not have a DNS server."
-        },
-        "outgoingConnections": {
-          "$ref": "#/$defs/OutgoingConnections",
-          "description": "OutgoingConnections are the outgoing connections options for the vCluster workloads."
-        },
-        "extraControlPlaneRules": {
-          "items": {
-            "type": "object"
-          },
-          "type": "array",
-          "description": "ExtraControlPlaneRules are extra allowed rules for the vCluster control plane."
-        },
-        "extraWorkloadRules": {
-          "items": {
-            "type": "object"
-          },
-          "type": "array",
-          "description": "ExtraWorkloadRules are extra allowed rules for the vCluster workloads."
-        },
         "annotations": {
           "additionalProperties": {
             "type": "string"
@@ -2987,6 +2965,117 @@
           },
           "type": "object",
           "description": "Labels are extra labels for this resource."
+        },
+        "fallbackDns": {
+          "type": "string",
+          "description": "FallbackDNS is the fallback DNS server to use if the virtual cluster does not have a DNS server."
+        },
+        "controlPlane": {
+          "$ref": "#/$defs/NetworkPolicyControlPlane",
+          "description": "ControlPlane network policy rules"
+        },
+        "workload": {
+          "$ref": "#/$defs/NetworkPolicyWorkload",
+          "description": "Workload network policy rules"
+        },
+        "outgoingConnections": {
+          "$ref": "#/$defs/OutgoingConnections",
+          "description": "OutgoingConnections are the outgoing connections options for the vCluster workloads.\nDeprecated: use policy.networkPolicy.workload.publicEgress instead."
+        },
+        "extraControlPlaneRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ExtraControlPlaneRules are extra allowed rules for the vCluster control plane.\nDeprecated: use policy.networkPolicy.controlPlane.egress instead."
+        },
+        "extraWorkloadRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ExtraWorkloadRules are extra allowed rules for the vCluster workloads.\nDeprecated: use policy.networkPolicy.workload.egress instead."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "NetworkPolicyControlPlane": {
+      "properties": {
+        "denyAllByDefault": {
+          "type": "boolean",
+          "description": "DenyAllByDefault ensures that pods that are not selected by any other NetworkPolicy will not be allowed ingress or egress traffic."
+        },
+        "allowCommonHostApiServer": {
+          "type": "boolean",
+          "description": "AllowCommonHostAPIServer enables AWS, EKS, GCP common Kubernetes API server egress traffic."
+        },
+        "allowPlatform": {
+          "type": "boolean",
+          "description": "AllowPlatform enables vCluster Platform ingress/egress traffic."
+        },
+        "ingress": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "Ingress rules for the vCluster control plane."
+        },
+        "egress": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "Egress rules for the vCluster control plane."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "NetworkPolicyWorkload": {
+      "properties": {
+        "allowVirtualCluster": {
+          "type": "boolean",
+          "description": "AllowVirtualCluster enables ingress/egress traffic between pods within the virtual cluster."
+        },
+        "allowPublicEgress": {
+          "type": "boolean",
+          "description": "AllowPublicEgress enables public egress traffic configurable via policies.networkPolicy.outgoingConnections"
+        },
+        "publicEgress": {
+          "$ref": "#/$defs/NetworkPolicyWorkloadPublicEgress",
+          "description": "PublicEgress holds the public outgoing connections options for the vCluster workloads."
+        },
+        "ingress": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "Ingress rules for the vCluster workloads."
+        },
+        "egress": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "Egress rules for the vCluster workloads."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "NetworkPolicyWorkloadPublicEgress": {
+      "properties": {
+        "cidr": {
+          "type": "string",
+          "description": "CIDR is a string representing the IPBlock\nValid examples are \"192.168.1.0/24\" or \"2001:db8::/64\""
+        },
+        "except": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Except is a slice of CIDRs that should not be included within an IPBlock\nValid examples are \"192.168.1.0/24\" or \"2001:db8::/64\"\nExcept values will be rejected if they are outside the cidr range\n+optional"
         }
       },
       "additionalProperties": false,
@@ -3117,11 +3206,11 @@
       "properties": {
         "ipBlock": {
           "$ref": "#/$defs/IPBlock",
-          "description": "IPBlock describes a particular CIDR (Ex. \"192.168.1.0/24\",\"2001:db8::/64\") that is allowed\nto the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs\nthat should not be included within this rule."
+          "description": "IPBlock describes a particular CIDR (Ex. \"192.168.1.0/24\",\"2001:db8::/64\") that is allowed\nto the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs\nthat should not be included within this rule.\nDeprecated: use policy.networkPolicy.workload.publicEgress instead."
         },
         "platform": {
           "type": "boolean",
-          "description": "Platform enables egress access towards loft platform"
+          "description": "Platform enables egress access towards loft platform\nDeprecated: use policy.networkPolicy.allowPlatform instead."
         }
       },
       "additionalProperties": false,
