@@ -18,37 +18,73 @@ tests:
           enabled: true
     asserts:
       - hasDocuments:
-          count: 2
+          count: 4
       - documentIndex: 0
         equal:
           path: metadata.name
           value: vc-work-my-release
       - documentIndex: 0
         equal:
-          path: spec.egress[2].to[1].ipBlock.cidr
+          path: metadata.namespace
+          value: my-namespace
+      - documentIndex: 0
+        equal:
+          path: spec.policyTypes
+          value: ["Egress", "Ingress"]
+      - documentIndex: 0
+        lengthEqual:
+          path: spec.egress
+          count: 4
+      - documentIndex: 0
+        lengthEqual:
+          path: spec.ingress
+          count: 2
+      - documentIndex: 0
+        equal:
+          path: spec.egress[3].to[0].ipBlock.cidr
           value: 0.0.0.0/0
       - documentIndex: 1
         equal:
           path: metadata.name
           value: vc-cp-my-release
-      - documentIndex: 0
+      - documentIndex: 1
         equal:
           path: metadata.namespace
           value: my-namespace
       - documentIndex: 1
         equal:
-          path: metadata.namespace
-          value: my-namespace
-      - documentIndex: 0
+          path: spec.policyTypes
+          value: ["Egress", "Ingress"]
+      - documentIndex: 1
         lengthEqual:
           path: spec.egress
-          count: 3
+          count: 5
       - documentIndex: 1
+        lengthEqual:
+          path: spec.ingress
+          count: 4
+      - documentIndex: 2
+        equal:
+          path: metadata.name
+          value: vc-kube-dns-my-release
+      - documentIndex: 2
+        equal:
+          path: metadata.namespace
+          value: my-namespace
+      - documentIndex: 2
+        equal:
+          path: spec.policyTypes
+          value: ["Egress", "Ingress"]
+      - documentIndex: 2
         lengthEqual:
           path: spec.egress
           count: 2
+      - documentIndex: 2
+        lengthEqual:
+          path: spec.ingress
+          count: 1
 
-  - it: check extra control plane rules
+  - it: check disabled defaults
     release:
       name: my-release
       namespace: my-namespace
@@ -56,36 +92,123 @@ tests:
       policies:
         networkPolicy:
           enabled: true
+          controlPlane:
+            denyAllByDefault: false
+            allowPlatform: false
+            allowCommonHostApiServer: false
+          workload:
+            allowVirtualCluster: false
+            allowPublicEgress: false
+    asserts:
+      - hasDocuments:
+          count: 4
+      - documentIndex: 0
+        lengthEqual:
+          path: spec.egress
+          count: 2
+      - documentIndex: 0
+        lengthEqual:
+          path: spec.ingress
+          count: 1
+      - documentIndex: 1
+        lengthEqual:
+          path: spec.egress
+          count: 3
+      - documentIndex: 1
+        lengthEqual:
+          path: spec.ingress
+          count: 3
+      - documentIndex: 2
+        lengthEqual:
+          path: spec.egress
+          count: 2
+      - documentIndex: 2
+        lengthEqual:
+          path: spec.ingress
+          count: 1
+
+  - it: should support extra ingress/egress rules
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+          controlPlane:
+            ingress:
+              - ports:
+                  - port: 12340
+            egress:
+              - ports:
+                  - port: 1234
+          workload:
+            ingress:
+              - ports:
+                  - port: 23450
+            egress:
+              - ports:
+                  - port: 2345
+    asserts:
+      - hasDocuments:
+          count: 4
+      - documentIndex: 0
+        equal:
+          path: spec.egress[4].ports[0].port
+          value: 2345
+      - documentIndex: 0
+        equal:
+          path: spec.ingress[2].ports[0].port
+          value: 23450
+      - documentIndex: 1
+        equal:
+          path: spec.egress[5].ports[0].port
+          value: 1234
+      - documentIndex: 1
+        equal:
+          path: spec.ingress[4].ports[0].port
+          value: 12340
+
+  - it: should support deprecated values
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+          outgoingConnections:
+            ipBlock:
+              cidr: 4.3.2.1/0
+              except:
+                - 1.2.3.4/32
           extraControlPlaneRules:
             - ports:
-              - port: 443
-              - port: 8443
-              - port: 6443
+                - port: 1234
+          extraWorkloadRules:
+            - ports:
+                - port: 2345
     asserts:
       - hasDocuments:
-          count: 2
+          count: 4
       - documentIndex: 0
-        lengthEqual:
-          path: spec.egress
-          count: 3
-      - documentIndex: 1
-        lengthEqual:
-          path: spec.egress
-          count: 3
+        equal:
+          path: spec.egress[3].to[0].ipBlock.cidr
+          value: "4.3.2.1/0"
+      - documentIndex: 0
+        equal:
+          path: spec.egress[3].to[0].ipBlock.except
+          value: ["1.2.3.4/32"]
+      - documentIndex: 0
+        equal:
+          path: spec.egress[4].ports[0].port
+          value: 2345
       - documentIndex: 1
         equal:
-          path: spec.egress[2].ports[0].port
-          value: 443
-      - documentIndex: 1
-        equal:
-          path: spec.egress[2].ports[1].port
-          value: 8443
-      - documentIndex: 1
-        equal:
-          path: spec.egress[2].ports[2].port
-          value: 6443
+          path: spec.egress[5].ports[0].port
+          value: 1234
 
-  - it: check extra workload rules
+  - it: should fail if deprecated values and new values are mixed for publicEgress
     release:
       name: my-release
       namespace: my-namespace
@@ -93,31 +216,48 @@ tests:
       policies:
         networkPolicy:
           enabled: true
+          workload:
+            publicEgress:
+              cidr: 4.3.2.1/0
+          outgoingConnections:
+            ipBlock:
+              cidr: 0.0.0.0/0
+    asserts:
+      - failedTemplate:
+          errorMessage: "please migrate policies.networkPolicy.outgoingConnections to policies.networkPolicy.workload.publicEgress"
+
+  - it: should fail if deprecated values and new values are mixed for controlPlane egress
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+          controlPlane:
+            egress:
+              - {}
+          extraControlPlaneRules:
+            - ports:
+                - port: 1234
+    asserts:
+      - failedTemplate:
+          errorMessage: "please migrate policies.networkPolicy.extraControlPlaneRules to policies.networkPolicy.controlPlane.egress"
+
+  - it: should fail if deprecated values and new values are mixed for workload egress
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+          workload:
+            egress:
+              - {}
           extraWorkloadRules:
             - ports:
-              - port: 443
-              - port: 8443
-              - port: 6443
+                - port: 1234
     asserts:
-      - hasDocuments:
-          count: 2
-      - documentIndex: 0
-        lengthEqual:
-          path: spec.egress
-          count: 4
-      - documentIndex: 1
-        lengthEqual:
-          path: spec.egress
-          count: 2
-      - documentIndex: 0
-        equal:
-          path: spec.egress[3].ports[0].port
-          value: 443
-      - documentIndex: 0
-        equal:
-          path: spec.egress[3].ports[1].port
-          value: 8443
-      - documentIndex: 0
-        equal:
-          path: spec.egress[3].ports[2].port
-          value: 6443
+      - failedTemplate:
+          errorMessage: "please migrate policies.networkPolicy.extraWorkloadRules to policies.networkPolicy.workload.egress"
