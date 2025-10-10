@@ -142,7 +142,7 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 	}
 
 	epsLabels := eps.GetLabels()
-	svcName, ok := epsLabels[translate.K8sServiceNameAnnotation]
+	svcName, ok := epsLabels[translate.K8sServiceNameLabel]
 	if !ok {
 		return true, fmt.Errorf("unable to retrieve label 'kubernetes.io/service-name'")
 	}
