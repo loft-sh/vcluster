@@ -2908,28 +2908,6 @@
           "type": "boolean",
           "description": "Enabled defines if the network policy should be deployed by vCluster."
         },
-        "fallbackDns": {
-          "type": "string",
-          "description": "FallbackDNS is the fallback DNS server to use if the virtual cluster does not have a DNS server."
-        },
-        "outgoingConnections": {
-          "$ref": "#/$defs/OutgoingConnections",
-          "description": "OutgoingConnections are the outgoing connections options for the vCluster workloads."
-        },
-        "extraControlPlaneRules": {
-          "items": {
-            "type": "object"
-          },
-          "type": "array",
-          "description": "ExtraControlPlaneRules are extra allowed rules for the vCluster control plane."
-        },
-        "extraWorkloadRules": {
-          "items": {
-            "type": "object"
-          },
-          "type": "array",
-          "description": "ExtraWorkloadRules are extra allowed rules for the vCluster workloads."
-        },
         "annotations": {
           "additionalProperties": {
             "type": "string"
@@ -2943,6 +2921,92 @@
           },
           "type": "object",
           "description": "Labels are extra labels for this resource."
+        },
+        "fallbackDns": {
+          "type": "string",
+          "description": "FallbackDNS is the fallback DNS server to use if the virtual cluster does not have a DNS server."
+        },
+        "allowCommonHostApiServer": {
+          "type": "boolean",
+          "description": "AllowCommonHostAPIServer enables AWS, EKS, GCP common Kubernetes API server egress traffic."
+        },
+        "allowPlatform": {
+          "type": "boolean",
+          "description": "AllowPlatform enables vCluster Platform ingress/egress traffic."
+        },
+        "allowVirtualCluster": {
+          "type": "boolean",
+          "description": "AllowVirtualCluster enables ingress/egress traffic between pods within the virtual cluster."
+        },
+        "allowPublicEgress": {
+          "type": "boolean",
+          "description": "AllowPublicEgress enables public egress traffic configurable via policies.networkPolicy.outgoingConnections"
+        },
+        "outgoingConnections": {
+          "$ref": "#/$defs/OutgoingConnections",
+          "description": "OutgoingConnections are the outgoing connections options for the vCluster workloads."
+        },
+        "ingress": {
+          "$ref": "#/$defs/NetworkPolicyIngress",
+          "description": "Ingress rules"
+        },
+        "egress": {
+          "$ref": "#/$defs/NetworkPolicyEgress",
+          "description": "Egress rules"
+        },
+        "extraControlPlaneRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ExtraControlPlaneRules are extra allowed rules for the vCluster control plane.\nDeprecated: use policy.networkPolicy.egress.extraControlPlaneRules instead."
+        },
+        "extraWorkloadRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ExtraWorkloadRules are extra allowed rules for the vCluster workloads.\nDeprecated: use policy.networkPolicy.egress.extraWorkloadRules instead."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "NetworkPolicyEgress": {
+      "properties": {
+        "extraControlPlaneRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ExtraControlPlaneRules are allowed rules for the vCluster control plane."
+        },
+        "extraWorkloadRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ExtraWorkloadRules are allowed rules for the vCluster workloads."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "NetworkPolicyIngress": {
+      "properties": {
+        "extraControlPlaneRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ExtraControlPlaneRules are allowed rules for the vCluster control plane."
+        },
+        "extraWorkloadRules": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ExtraWorkloadRules are allowed rules for the vCluster workloads."
         }
       },
       "additionalProperties": false,
@@ -3077,7 +3141,7 @@
         },
         "platform": {
           "type": "boolean",
-          "description": "Platform enables egress access towards loft platform"
+          "description": "Platform enables egress access towards loft platform\nDeprecated: use policy.networkPolicy.allowPlatform instead."
         }
       },
       "additionalProperties": false,
