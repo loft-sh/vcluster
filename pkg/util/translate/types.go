@@ -31,7 +31,7 @@ var (
 	ManagedAnnotationsAnnotation = "vcluster.loft.sh/managed-annotations"
 	ManagedLabelsAnnotation      = "vcluster.loft.sh/managed-labels"
 
-	K8sServiceNameAnnotation = "kubernetes.io/service-name"
+	K8sServiceNameLabel = "kubernetes.io/service-name"
 )
 
 var Default Translator = &singleNamespace{}
