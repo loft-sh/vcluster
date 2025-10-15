@@ -69,6 +69,7 @@ type StartOptions struct { //nolint:revive // linter suggests renaming to option
 	NoWait           bool
 	Upgrade          bool
 	ReuseValues      bool
+	Docker           bool
 }
 
 func NewLoftStarter(options StartOptions) *LoftStarter {
@@ -83,6 +84,11 @@ type LoftStarter struct {
 
 // Start executes the functionality "loft start"
 func (l *LoftStarter) Start(ctx context.Context) error {
+	// start in Docker?
+	if l.Docker {
+		return l.startDocker(ctx, "vcluster-platform")
+	}
+
 	// only set local port by default in kubernetes installation
 	if l.LocalPort == "" {
 		l.LocalPort = "9898"
