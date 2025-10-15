@@ -1038,7 +1038,11 @@
         },
         "dataSource": {
           "type": "string",
-          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format.\nThis is optional for the embedded database. Examples:\n* mysql: mysql://username:password@tcp(hostname:3306)/k3s\n* postgres: postgres://username:password@hostname:5432/k3s"
+          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format.\nThis is optional for the external database. Examples:\n* mysql: mysql://username:password@tcp(hostname:3306)/k3s\n* postgres: postgres://username:password@hostname:5432/k3s"
+        },
+        "identityProvider": {
+          "type": "string",
+          "description": "IdentityProvider is the kine identity provider to use when generating temporary authentication tokens for enhanced security.\nThis is optional for the external database. Examples:\n* aws: RDS IAM Authentication"
         },
         "keyFile": {
           "type": "string",
@@ -2005,7 +2009,11 @@
         },
         "dataSource": {
           "type": "string",
-          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format.\nThis is optional for the embedded database. Examples:\n* mysql: mysql://username:password@tcp(hostname:3306)/k3s\n* postgres: postgres://username:password@hostname:5432/k3s"
+          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format.\nThis is optional for the external database. Examples:\n* mysql: mysql://username:password@tcp(hostname:3306)/k3s\n* postgres: postgres://username:password@hostname:5432/k3s"
+        },
+        "identityProvider": {
+          "type": "string",
+          "description": "IdentityProvider is the kine identity provider to use when generating temporary authentication tokens for enhanced security.\nThis is optional for the external database. Examples:\n* aws: RDS IAM Authentication"
         },
         "keyFile": {
           "type": "string",

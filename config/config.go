@@ -2040,10 +2040,15 @@ type DatabaseKine struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// DataSource is the kine dataSource to use for the database. This depends on the database format.
-	// This is optional for the embedded database. Examples:
+	// This is optional for the external database. Examples:
 	// * mysql: mysql://username:password@tcp(hostname:3306)/k3s
 	// * postgres: postgres://username:password@hostname:5432/k3s
 	DataSource string `json:"dataSource,omitempty"`
+
+	// IdentityProvider is the kine identity provider to use when generating temporary authentication tokens for enhanced security.
+	// This is optional for the external database. Examples:
+	// * aws: RDS IAM Authentication
+	IdentityProvider string `json:"identityProvider,omitempty"`
 
 	// KeyFile is the key file to use for the database. This is optional.
 	KeyFile string `json:"keyFile,omitempty"`
