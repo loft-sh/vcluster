@@ -90,7 +90,7 @@ func (s *secretSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncconte
 		newSecret.Type = corev1.SecretTypeOpaque
 	}
 
-	err = pro.ApplyPatchesHostObject(ctx, newSecret, event.Virtual, ctx.Config.Sync.ToHost.Secrets.Patches, false)
+	err = pro.ApplyPatchesHostObject(ctx, nil, newSecret, event.Virtual, ctx.Config.Sync.ToHost.Secrets.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -158,7 +158,7 @@ func (s *secretSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncco
 		return ctrl.Result{}, nil
 	}
 
-	err = pro.ApplyPatchesVirtualObject(ctx, vObj, event.Host, ctx.Config.Sync.ToHost.Secrets.Patches, false)
+	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.ToHost.Secrets.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
