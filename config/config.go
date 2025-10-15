@@ -2680,19 +2680,55 @@ type NetworkPolicy struct {
 	// Enabled defines if the network policy should be deployed by vCluster.
 	Enabled bool `json:"enabled,omitempty"`
 
+	LabelsAndAnnotations `json:",inline"`
+
 	// FallbackDNS is the fallback DNS server to use if the virtual cluster does not have a DNS server.
 	FallbackDNS string `json:"fallbackDns,omitempty"`
+
+	// AllowCommonHostAPIServer enables AWS, EKS, GCP common Kubernetes API server egress traffic.
+	AllowCommonHostAPIServer bool `json:"allowCommonHostApiServer,omitempty"`
+
+	// AllowPlatform enables vCluster Platform ingress/egress traffic.
+	AllowPlatform bool `json:"allowPlatform,omitempty"`
+
+	// AllowVirtualCluster enables ingress/egress traffic between pods within the virtual cluster.
+	AllowVirtualCluster bool `json:"allowVirtualCluster,omitempty"`
+
+	// AllowPublicEgress enables public egress traffic configurable via policies.networkPolicy.outgoingConnections
+	AllowPublicEgress bool `json:"allowPublicEgress,omitempty"`
 
 	// OutgoingConnections are the outgoing connections options for the vCluster workloads.
 	OutgoingConnections OutgoingConnections `json:"outgoingConnections,omitempty"`
 
+	// Ingress rules
+	Ingress NetworkPolicyIngress `json:"ingress,omitempty"`
+
+	// Egress rules
+	Egress NetworkPolicyEgress `json:"egress,omitempty"`
+
 	// ExtraControlPlaneRules are extra allowed rules for the vCluster control plane.
+	// Deprecated: use policy.networkPolicy.egress.extraControlPlaneRules instead.
 	ExtraControlPlaneRules []map[string]interface{} `json:"extraControlPlaneRules,omitempty"`
 
 	// ExtraWorkloadRules are extra allowed rules for the vCluster workloads.
+	// Deprecated: use policy.networkPolicy.egress.extraWorkloadRules instead.
 	ExtraWorkloadRules []map[string]interface{} `json:"extraWorkloadRules,omitempty"`
+}
 
-	LabelsAndAnnotations `json:",inline"`
+type NetworkPolicyIngress struct {
+	// ExtraControlPlaneRules are allowed rules for the vCluster control plane.
+	ExtraControlPlaneRules []map[string]interface{} `json:"extraControlPlaneRules,omitempty"`
+
+	// ExtraWorkloadRules are allowed rules for the vCluster workloads.
+	ExtraWorkloadRules []map[string]interface{} `json:"extraWorkloadRules,omitempty"`
+}
+
+type NetworkPolicyEgress struct {
+	// ExtraControlPlaneRules are allowed rules for the vCluster control plane.
+	ExtraControlPlaneRules []map[string]interface{} `json:"extraControlPlaneRules,omitempty"`
+
+	// ExtraWorkloadRules are allowed rules for the vCluster workloads.
+	ExtraWorkloadRules []map[string]interface{} `json:"extraWorkloadRules,omitempty"`
 }
 
 type OutgoingConnections struct {
@@ -2702,6 +2738,7 @@ type OutgoingConnections struct {
 	IPBlock IPBlock `json:"ipBlock,omitempty"`
 
 	// Platform enables egress access towards loft platform
+	// Deprecated: use policy.networkPolicy.allowPlatform instead.
 	Platform bool `json:"platform,omitempty"`
 }
 

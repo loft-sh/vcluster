@@ -613,8 +613,10 @@ policies:
     labels: {}
     annotations: {}
     fallbackDns: 8.8.8.8
-    extraControlPlaneRules: []
-    extraWorkloadRules: []
+    allowCommonHostApiServer: true
+    allowPlatform: true
+    allowVirtualCluster: true
+    allowPublicEgress: true
     outgoingConnections:
       platform: true
       ipBlock:
@@ -625,6 +627,15 @@ policies:
           - 10.0.0.0/8
           - 172.16.0.0/12
           - 192.168.0.0/16
+    ingress:
+      extraControlPlaneRules: []
+      extraWorkloadRules: []
+    egress:
+      extraControlPlaneRules: []
+      extraWorkloadRules: []
+
+    extraControlPlaneRules: []
+    extraWorkloadRules: []
 
   centralAdmission:
     validatingWebhooks: []

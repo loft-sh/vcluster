@@ -1129,13 +1129,18 @@ policies:
     annotations: {}
     # FallbackDNS is the fallback DNS server to use if the virtual cluster does not have a DNS server.
     fallbackDns: 8.8.8.8
-    # ExtraControlPlaneRules are extra allowed rules for the vCluster control plane.
-    extraControlPlaneRules: []
-    # ExtraWorkloadRules are extra allowed rules for the vCluster workloads.
-    extraWorkloadRules: []
+    # AllowCommonHostAPIServer enables AWS, EKS, GCP common Kubernetes API server egress traffic.
+    allowCommonHostApiServer: true
+    # AllowPlatform enables vCluster Platform ingress/egress traffic.
+    allowPlatform: true
+    # AllowVirtualCluster enables ingress/egress traffic between pods within the virtual cluster.
+    allowVirtualCluster: true
+    # AllowPublicEgress enables public egress traffic configurable via policies.networkPolicy.outgoingConnections
+    allowPublicEgress: true
     # OutgoingConnections are the outgoing connections options for the vCluster workloads.
     outgoingConnections:
       # Platform enables egress access towards loft platform
+      # Deprecated: use policy.networkPolicy.allowPlatform instead.
       platform: true
       # IPBlock describes a particular CIDR (Ex. "192.168.1.0/24","2001:db8::/64") that is allowed
       # to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
@@ -1154,6 +1159,24 @@ policies:
           - 10.0.0.0/8
           - 172.16.0.0/12
           - 192.168.0.0/16
+    # Ingress rules
+    ingress:
+      # ExtraControlPlaneRules are allowed rules for the vCluster control plane.
+      extraControlPlaneRules: []
+      # ExtraWorkloadRules are allowed rules for the vCluster workloads.
+      extraWorkloadRules: []
+    # Egress rules
+    egress:
+      # ExtraControlPlaneRules are allowed rules for the vCluster control plane.
+      extraControlPlaneRules: []
+      # ExtraWorkloadRules are allowed rules for the vCluster workloads.
+      extraWorkloadRules: []
+    # ExtraControlPlaneRules are extra allowed rules for the vCluster control plane.
+    # Deprecated: use policy.networkPolicy.egress.extraControlPlaneRules instead.
+    extraControlPlaneRules: []
+    # ExtraWorkloadRules are extra allowed rules for the vCluster workloads.
+    # Deprecated: use policy.networkPolicy.egress.extraWorkloadRules instead.
+    extraWorkloadRules: []
   
   # CentralAdmission defines what validating or mutating webhooks should be enforced within the virtual cluster.
   centralAdmission:
