@@ -80,6 +80,7 @@ before running this command:
 	startCmd.Flags().StringVar(&cmd.ChartPath, "chart-path", "", "The vCluster platform chart path to deploy vCluster platform")
 	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", "The chart repo to deploy vCluster platform")
 	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster-platform", "The chart name to deploy vCluster platform")
+	startCmd.Flags().BoolVar(&cmd.Docker, "docker", false, "If true, vCluster platform will be installed in Docker")
 
 	return startCmd
 }
@@ -147,8 +148,10 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 		}
 	}
 
-	if err := cmd.StartOptions.Prepare(); err != nil {
-		return err
+	if !cmd.Docker {
+		if err := cmd.StartOptions.Prepare(); err != nil {
+			return err
+		}
 	}
 
 	if err := cmd.ensureEmailWithDisclaimer(ctx, cmd.KubeClient, cmd.Namespace); err != nil {
@@ -160,12 +163,14 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 
 func (cmd *StartCmd) ensureEmailWithDisclaimer(ctx context.Context, kc kubernetes.Interface, namespace string) error {
 	if cmd.Upgrade {
-		isInstalled, err := clihelper.IsLoftAlreadyInstalled(ctx, kc, namespace)
+		if cmd.Docker {
+			return nil
+		}
 
+		isInstalled, err := clihelper.IsLoftAlreadyInstalled(ctx, kc, namespace)
 		if err != nil {
 			return err
 		}
-
 		if isInstalled {
 			return nil
 		}
