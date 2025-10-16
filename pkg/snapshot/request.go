@@ -230,7 +230,7 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 	var snapshotRequests []Request
 	savedSnapshotRequest, err := restoreClient.GetSnapshotRequest(ctx)
 	if err != nil {
-		log.Errorf("failed to get saved snapshot request: %v", err)
+		log.Debugf("failed to get saved snapshot request: %v", err)
 	}
 	if savedSnapshotRequest != nil {
 		// The snapshot request has been saved while it was in progress (it's
@@ -268,11 +268,12 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 				continue
 			}
 			if savedSnapshotRequest != nil &&
-				snapshotRequest.Done() &&
-				snapshotRequest.Spec.URL == savedSnapshotRequest.Spec.URL {
-				// Skip the local Completed/PartiallyFailed snapshot request because it has been
-				// already uploaded.
-				// If there are both uploaded and in-progress snapshots, both will be shown.
+				(snapshotRequest.Name == savedSnapshotRequest.Name ||
+					snapshotRequest.Spec.URL == savedSnapshotRequest.Spec.URL &&
+						snapshotRequest.CreationTimestamp.Time.Before(savedSnapshotRequest.CreationTimestamp.Time)) {
+				// Skip the local snapshot request if:
+				// 1. it's the same request as the uploaded one, or
+				// 2. it's older than the saved one.
 				continue
 			}
 
