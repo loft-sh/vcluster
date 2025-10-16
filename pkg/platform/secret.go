@@ -97,7 +97,6 @@ func ApplyPlatformSecret(
 		"project":                  []byte(project),
 		"insecure":                 []byte(strconv.FormatBool(insecure)),
 		"certificateAuthorityData": certificateAuthorityData,
-		"external":                 []byte(strconv.FormatBool(external)),
 	}
 	if importName != "" {
 		secretPayload["name"] = []byte(importName)
