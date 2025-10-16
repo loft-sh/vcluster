@@ -42,6 +42,7 @@ func ApplyPlatformSecret(
 	host string,
 	insecure bool,
 	certificateAuthorityData []byte,
+	external bool,
 	log log.Logger,
 ) error {
 	// init platform client
@@ -82,7 +83,7 @@ func ApplyPlatformSecret(
 			}
 		} else {
 			log.Debug("Get access key for vCluster")
-			accessKey, importName, err = getAccessKey(ctx, kubeClient, platformClient, importName, name, namespace, project)
+			accessKey, importName, err = getAccessKey(ctx, kubeClient, platformClient, importName, name, namespace, project, external)
 			if err != nil {
 				return fmt.Errorf("get access key: %w", err)
 			}
@@ -96,6 +97,7 @@ func ApplyPlatformSecret(
 		"project":                  []byte(project),
 		"insecure":                 []byte(strconv.FormatBool(insecure)),
 		"certificateAuthorityData": certificateAuthorityData,
+		"external":                 []byte(strconv.FormatBool(external)),
 	}
 	if importName != "" {
 		secretPayload["name"] = []byte(importName)
@@ -165,7 +167,7 @@ func ApplyPlatformSecret(
 	return nil
 }
 
-func getAccessKey(ctx context.Context, kubeClient kubernetes.Interface, platformClient Client, importName, name, namespace, project string) (string, string, error) {
+func getAccessKey(ctx context.Context, kubeClient kubernetes.Interface, platformClient Client, importName, name, namespace, project string, external bool) (string, string, error) {
 	// get management client
 	managementClient, err := platformClient.Management()
 	if err != nil {
@@ -209,7 +211,7 @@ func getAccessKey(ctx context.Context, kubeClient kubernetes.Interface, platform
 	}
 
 	// try with the regular name first
-	created, accessKey, createdName, err := createWithName(ctx, managementClient, project, vName)
+	created, accessKey, createdName, err := createWithName(ctx, managementClient, project, vName, external)
 	if err != nil {
 		return "", "", fmt.Errorf("error creating platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 	} else if created {
@@ -220,7 +222,7 @@ func getAccessKey(ctx context.Context, kubeClient kubernetes.Interface, platform
 
 	// try with random name
 	vName += "-" + random.String(5)
-	created, accessKey, createdName, err = createWithName(ctx, managementClient, project, vName)
+	created, accessKey, createdName, err = createWithName(ctx, managementClient, project, vName, external)
 	if err != nil {
 		return "", "", fmt.Errorf("error creating platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 	} else if !created {
@@ -293,7 +295,7 @@ func getLegacyAccessKeyHost(ctx context.Context, platformClient Client) (string,
 	return platformConfig.VirtualClusterAccessKey, nil
 }
 
-func createWithName(ctx context.Context, managementClient kube.Interface, project string, name string) (bool, string, string, error) {
+func createWithName(ctx context.Context, managementClient kube.Interface, project string, name string, external bool) (bool, string, string, error) {
 	namespace := projectutil.ProjectNamespace(project)
 	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
@@ -328,7 +330,7 @@ func createWithName(ctx context.Context, managementClient kube.Interface, projec
 						},
 					},
 				},
-				External:    true,
+				External:    external,
 				NetworkPeer: true,
 			},
 		},
