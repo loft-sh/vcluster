@@ -50,6 +50,9 @@ type ClusterAgentConfigCommon struct {
 
 	// CostControl holds the settings related to the Cost Control ROI dashboard and its metrics gathering infrastructure
 	CostControl *AgentCostControlConfig `json:"costControl,omitempty"`
+
+	// AuthenticateVersionEndpoint will force authentication for the '/version' endpoint. Will only work with vCluster v0.27 & later
+	AuthenticateVersionEndpoint bool `json:"authenticateVersionEndpoint,omitempty"`
 }
 
 type AgentAuditConfig struct {

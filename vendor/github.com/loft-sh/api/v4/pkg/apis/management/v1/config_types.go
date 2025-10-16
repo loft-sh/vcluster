@@ -56,6 +56,7 @@ type ConfigStatus struct {
 	// +optional
 	ProjectNamespacePrefix *string `json:"projectNamespacePrefix,omitempty"`
 
+	// DEPRECATED: DevPodSubDomain holds a subdomain in the following form *.workspace.my-domain.com
 	// DevPodSubDomain holds a subdomain in the following form *.workspace.my-domain.com
 	// +optional
 	DevPodSubDomain string `json:"devPodSubDomain,omitempty"`
@@ -70,6 +71,9 @@ type ConfigStatus struct {
 
 	// DisableLoftConfigEndpoint will disable setting config via the UI and config.management.loft.sh endpoint
 	DisableConfigEndpoint bool `json:"disableConfigEndpoint,omitempty"`
+
+	// AuthenticateVersionEndpoint will force authentication for the '/version' endpoint. Will only work with vCluster v0.27 & later
+	AuthenticateVersionEndpoint bool `json:"authenticateVersionEndpoint,omitempty"`
 
 	// Cloud holds the settings to be used exclusively in vCluster Cloud based
 	// environments and deployments.
@@ -709,6 +713,11 @@ type AuthenticationOIDC struct {
 	// Type of the OIDC to show in the UI. Only for displaying purposes
 	// +optional
 	Type string `json:"type,omitempty"`
+
+	// Resource, if specified, is the value that is set for the "resource" URL parameter when making a request to the /token endpoint of the
+	// OIDC provider.
+	// +optional
+	Resource string `json:"resource,omitempty"`
 }
 
 type Cloud struct {

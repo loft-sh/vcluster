@@ -144,43 +144,6 @@ type BackupApplyOptions struct {
 	metav1.TypeMeta `json:",inline"`
 }
 
-// +k8s:conversion-gen:explicit-from=net/url.Values
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type DevPodWorkspaceInstanceLogOptions struct {
-	metav1.TypeMeta `json:",inline"`
-
-	// TaskID is the id of the task that is running
-	// +optional
-	TaskID string `json:"taskID,omitempty"`
-
-	// Follow the log stream of the task. Defaults to false.
-	// +optional
-	Follow bool `json:"follow,omitempty"`
-}
-
-// +k8s:conversion-gen:explicit-from=net/url.Values
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type DevPodWorkspaceInstanceTasksOptions struct {
-	metav1.TypeMeta `json:",inline"`
-
-	// TaskID is the id of the task that is running
-	// +optional
-	TaskID string `json:"taskID,omitempty"`
-}
-
-// +k8s:conversion-gen:explicit-from=net/url.Values
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type DevPodWorkspaceInstanceDownloadOptions struct {
-	metav1.TypeMeta `json:",inline"`
-
-	// Path is the path to download
-	// +optional
-	Path string `json:"path,omitempty"`
-}
-
 func InstallOptions(scheme *runtime.Scheme) error {
 	return addKnownOptionsTypes(scheme)
 }
@@ -195,9 +158,6 @@ func addKnownOptionsTypes(scheme *runtime.Scheme) error {
 		&UserVirtualClustersOptions{},
 		&UserQuotasOptions{},
 		&BackupApplyOptions{},
-		&DevPodWorkspaceInstanceLogOptions{},
-		&DevPodWorkspaceInstanceTasksOptions{},
-		&DevPodWorkspaceInstanceDownloadOptions{},
 	)
 	return nil
 }

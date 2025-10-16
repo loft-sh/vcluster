@@ -12,6 +12,9 @@ type ProjectNodeTypes struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// NodeProviders holds all the allowed node providers for the project
+	NodeProviders []storagev1.NodeProvider `json:"nodeProviders,omitempty"`
+
 	// NodeTypes holds all the allowed node types for the project
 	NodeTypes []storagev1.NodeType `json:"nodeTypes,omitempty"`
 }

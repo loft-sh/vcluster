@@ -93,7 +93,6 @@ type ProjectSpec struct {
 	AllowedClusters []AllowedCluster `json:"allowedClusters,omitempty"`
 
 	// AllowedRunners are target runners that are allowed to target with
-	// DevPod environments.
 	// +optional
 	AllowedRunners []AllowedRunner `json:"allowedRunners,omitempty"`
 
@@ -133,10 +132,6 @@ type ProjectSpec struct {
 	// RancherIntegration holds information about Rancher Integration
 	// +optional
 	RancherIntegration *RancherIntegrationSpec `json:"rancher,omitempty"`
-
-	// DevPod holds DevPod specific configuration for project
-	// +optional
-	DevPod *DevPodProjectSpec `json:"devPod,omitempty"`
 }
 
 type RequireTemplate struct {
@@ -161,10 +156,6 @@ type NamespacePattern struct {
 	// VirtualCluster holds the namespace pattern to use for virtual cluster instances
 	// +optional
 	VirtualCluster string `json:"virtualCluster,omitempty"`
-
-	// DevPodWorkspace holds the namespace pattern to use for DevPod workspaces
-	// +optional
-	DevPodWorkspace string `json:"devPodWorkspace,omitempty"`
 }
 
 type Quotas struct {
@@ -177,10 +168,8 @@ type Quotas struct {
 }
 
 var (
-	SpaceTemplateKind           = "SpaceTemplate"
-	VirtualClusterTemplateKind  = "VirtualClusterTemplate"
-	DevPodWorkspaceTemplateKind = "DevPodWorkspaceTemplate"
-	DevPodWorkspacePresetKind   = "DevPodWorkspacePreset"
+	SpaceTemplateKind          = "SpaceTemplate"
+	VirtualClusterTemplateKind = "VirtualClusterTemplate"
 )
 
 type AllowedTemplate struct {
@@ -513,45 +502,6 @@ type SyncMembersSpec struct {
 	// being synced.
 	// +optional
 	RoleMapping map[string]string `json:"roleMapping,omitempty"`
-}
-
-type DevPodProjectSpec struct {
-	// Git defines additional git related settings like credentials
-	// +optional
-	Git *GitProjectSpec `json:"git,omitempty"`
-
-	// FallbackImage defines an image all workspace will fall back to if no devcontainer.json could be detected
-	// +optional
-	FallbackImage string `json:"fallbackImage,omitempty"`
-
-	// RegistryPattern specifies a template pattern to use for building images on the fly.
-	// Requires the platform pods to be authenticated against the registry.
-	// +optional
-	RegistryPattern string `json:"registryPattern,omitempty"`
-}
-
-type GitProjectSpec struct {
-	// HTTP defines additional http related settings like credentials, to be
-	// specified as base64 encoded strings.
-	// +optional
-	HTTP *GitProjectCredentials `json:"http,omitempty"`
-
-	// SSH defines additional ssh related settings like private keys, to be
-	// specified as base64 encoded strings.
-	// +optional
-	SSH *GitProjectCredentials `json:"ssh,omitempty"`
-}
-
-type GitProjectCredentials struct {
-	// Token defines the credentials to use for authentication,
-	// this is a base64 encoded string.
-	// +optional
-	Token string `json:"token,omitempty"`
-
-	// TokenSecretRef defines the project secret to use as credentials for authentication.
-	// Will be used if `Token` is not provided.
-	// +optional
-	TokenProjectSecretRef *corev1.SecretKeySelector `json:"tokenSecretRef,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

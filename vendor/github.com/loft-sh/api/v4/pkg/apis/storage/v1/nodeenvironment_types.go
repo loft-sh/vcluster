@@ -7,13 +7,18 @@ import (
 
 const (
 	// NodeEnvironment conditions
-	NodeEnvironmentConditionTypeProvisioned = "Provisioned"
-	NodeEnvironmentConditionTypeSynced      = "Synced"
+	NodeEnvironmentConditionTypeInfrastructureProvisioned = "Provisioned"
+	NodeEnvironmentConditionTypeInfrastructureSynced      = "Synced"
+	NodeEnvironmentConditionTypeKubernetesProvisioned     = "KubernetesProvisioned"
+	NodeEnvironmentConditionTypeKubernetesSynced          = "KubernetesSynced"
 )
 
 var (
 	NodeEnvironmentConditions = []agentstoragev1.ConditionType{
-		NodeEnvironmentConditionTypeProvisioned,
+		NodeEnvironmentConditionTypeInfrastructureProvisioned,
+		NodeEnvironmentConditionTypeInfrastructureSynced,
+		NodeEnvironmentConditionTypeKubernetesProvisioned,
+		NodeEnvironmentConditionTypeKubernetesSynced,
 	}
 )
 
@@ -57,13 +62,19 @@ func (a *NodeEnvironment) SetConditions(conditions agentstoragev1.Conditions) {
 // NodeEnvironmentSpec defines spec of node environment.
 type NodeEnvironmentSpec struct {
 	// Properties are the properties for the NodeEnvironment.
-	Properties map[string]string `json:"properties,omitempty"`
+	// +optional
+	Properties map[string]string `json:"properties"`
 
 	// ProviderRef is the name of the NodeProvider that this NodeEnvironment is based on.
 	ProviderRef string `json:"providerRef"`
 
 	// VClusterRef references source vCluster. This is required.
 	VClusterRef string `json:"vClusterRef"`
+
+	// ControlPlane indicates if the node environment is a control plane environment. This is intentionally not omitempty as
+	// we want to ensure that the control plane is always set for easier checking in for example terraform templates.
+	// +optional
+	ControlPlane bool `json:"controlPlane"`
 }
 
 type NodeEnvironmentStatus struct {

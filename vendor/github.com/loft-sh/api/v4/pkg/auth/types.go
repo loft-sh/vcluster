@@ -112,8 +112,7 @@ type Version struct {
 	Major   string `json:"major,omitempty"`
 	Minor   string `json:"minor,omitempty"`
 
-	KubeVersion   string `json:"kubeVersion,omitempty"`
-	DevPodVersion string `json:"devPodVersion,omitempty"`
+	KubeVersion string `json:"kubeVersion,omitempty"`
 
 	NewerVersion  string `json:"newerVersion,omitempty"`
 	ShouldUpgrade bool   `json:"shouldUpgrade,omitempty"`

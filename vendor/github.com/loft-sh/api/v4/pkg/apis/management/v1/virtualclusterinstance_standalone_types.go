@@ -43,6 +43,9 @@ type StandaloneEtcdPeer struct {
 	// Name is the name of the peer.
 	Name string `json:"name"`
 
+	// NodeClaim is the name of the node claim.
+	NodeClaim string `json:"nodeClaim,omitempty"`
+
 	// Address is the address of the peer.
 	Address string `json:"address"`
 }
