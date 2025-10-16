@@ -7,16 +7,17 @@ import (
 )
 
 const (
-	NodeProviderPropertyKey = "vcluster.com/node-provider"
-	NodeTypePropertyKey     = "vcluster.com/node-type"
+	NodeTypePropertyKey = "vcluster.com/node-type"
 
 	// NodeTypeConditionTypeSynced is the condition that indicates if the node type is synced with provider.
-	NodeTypeConditionTypeSynced = "Synced"
+	NodeTypeConditionTypeSynced  = "Synced"
+	NodeTypeConditionHasCapacity = "HasCapacity"
 )
 
 var (
 	NodeTypeConditions = []agentstoragev1.ConditionType{
 		NodeTypeConditionTypeSynced,
+		NodeTypeConditionHasCapacity,
 	}
 )
 
@@ -110,7 +111,7 @@ type NodeTypeStatus struct {
 
 	// Capacity is the capacity of the node type.
 	// +optional
-	Capacity *NodeTypeCapacity `json:"capacity,omitempty"`
+	Capacity NodeTypeCapacity `json:"capacity,omitempty"`
 
 	// Requirements is the calculated requirements based of the properties for the node type.
 	// +optional
@@ -127,11 +128,8 @@ type NodeTypeCapacity struct {
 	// Total is the total number of nodes of this type
 	Total int `json:"total"`
 
-	// Available is the number of available nodes of this type
-	Available int `json:"available"`
-
-	// Provisioned is the number of already provisioned nodes of this type
-	Provisioned int `json:"provisioned"`
+	// Claimed is the number of already claimed nodes of this type
+	Claimed int `json:"claimed"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

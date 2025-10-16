@@ -15,9 +15,7 @@ var once sync.Once
 
 func loadProductVar() {
 	productEnv := os.Getenv("PRODUCT")
-	if productEnv == string(licenseapi.DevPodPro) {
-		productName = string(licenseapi.DevPodPro)
-	} else if productEnv == string(licenseapi.VClusterPro) {
+	if productEnv == string(licenseapi.VClusterPro) {
 		productName = string(licenseapi.VClusterPro)
 	} else if productEnv == string(licenseapi.Loft) {
 		productName = string(licenseapi.Loft)
@@ -36,8 +34,6 @@ func DisplayName() string {
 	loftDisplayName := "Loft"
 
 	switch Name() {
-	case licenseapi.DevPodPro:
-		return "DevPod Pro"
 	case licenseapi.VClusterPro:
 		return "vCluster Platform"
 	case licenseapi.Loft:

@@ -82,7 +82,7 @@ type NodeEnvironmentData struct {
 	Outputs []byte `json:"outputs,omitempty"`
 
 	// Terraform state of the node environment.
-	State []byte `json:"state,omitempty"` //nolint:gosec
+	State []byte `json:"state,omitempty"`
 
 	// Operations that were applied to the node environment.
 	Operations map[string]*Operation `json:"operations,omitempty"`

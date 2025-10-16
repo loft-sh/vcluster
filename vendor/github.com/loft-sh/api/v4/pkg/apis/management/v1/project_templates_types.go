@@ -22,19 +22,4 @@ type ProjectTemplates struct {
 
 	// SpaceTemplates holds all the allowed space templates
 	SpaceTemplates []SpaceTemplate `json:"spaceTemplates,omitempty"`
-
-	// DefaultDevPodWorkspaceTemplate
-	DefaultDevPodWorkspaceTemplate string `json:"defaultDevPodWorkspaceTemplate,omitempty"`
-
-	// DevPodWorkspaceTemplates holds all the allowed space templates
-	DevPodWorkspaceTemplates []DevPodWorkspaceTemplate `json:"devPodWorkspaceTemplates,omitempty"`
-
-	// DevPodEnvironmentTemplates holds all the allowed environment templates
-	DevPodEnvironmentTemplates []DevPodEnvironmentTemplate `json:"devPodEnvironmentTemplates,omitempty"`
-
-	// DevPodWorkspacePresets holds all the allowed workspace presets
-	DevPodWorkspacePresets []DevPodWorkspacePreset `json:"devPodWorkspacePresets,omitempty"`
-
-	// DefaultDevPodEnvironmentTemplate
-	DefaultDevPodEnvironmentTemplate string `json:"defaultDevPodEnvironmentTemplate,omitempty"`
 }

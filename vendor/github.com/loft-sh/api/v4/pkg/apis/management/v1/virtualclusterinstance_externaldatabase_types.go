@@ -31,4 +31,8 @@ type VirtualClusterExternalDatabaseStatus struct {
 	// DataSource holds a datasource endpoint constructed from the vCluster's designated user and database. The user and
 	// database are created from the given connector.
 	DataSource string `json:"dataSource,omitempty"`
+
+	// IdentityProvider is the kine identity provider to use when generating temporary authentication tokens for
+	// enhanced security.
+	IdentityProvider string `json:"identityProvider,omitempty"`
 }

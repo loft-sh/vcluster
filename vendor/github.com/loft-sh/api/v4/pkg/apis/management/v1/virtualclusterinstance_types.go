@@ -26,6 +26,7 @@ import (
 // +subresource:request=VirtualClusterExternalDatabase,path=externaldatabase,kind=VirtualClusterExternalDatabase,rest=VirtualClusterExternalDatabaseREST
 // +subresource:request=VirtualClusterStandalone,path=standalone,kind=VirtualClusterStandalone,rest=VirtualClusterStandaloneREST
 // +subresource:request=VirtualClusterInstanceSnapshot,path=snapshot,kind=VirtualClusterInstanceSnapshot,rest=VirtualClusterInstanceSnapshotREST
+// +subresource:request=VirtualClusterInstanceShell,path=shell,kind=VirtualClusterInstanceShell,rest=VirtualClusterInstanceShellREST
 type VirtualClusterInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

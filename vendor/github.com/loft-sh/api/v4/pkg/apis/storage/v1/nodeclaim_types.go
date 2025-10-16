@@ -9,6 +9,8 @@ import (
 const (
 	// NodeClaim conditions
 	NodeClaimConditionTypeProvisioned = "Provisioned"
+	// NodeClaimConditionTypeJoined is the condition that indicates if the node claim is joined to the vCluster.
+	NodeClaimConditionTypeJoined = "Joined"
 	// ConditionTypeScheduled is the condition that indicates if the node claim is scheduled.
 	NodeClaimConditionTypeScheduled = "Scheduled"
 	// NodeClaimConditionTypeNotDrifted is the condition that indicates if the node claim is not drifted from the desired state.
@@ -17,8 +19,9 @@ const (
 
 var (
 	NodeClaimConditions = []agentstoragev1.ConditionType{
-		NodeClaimConditionTypeProvisioned,
 		NodeClaimConditionTypeScheduled,
+		NodeClaimConditionTypeProvisioned,
+		NodeClaimConditionTypeJoined,
 	}
 )
 
@@ -38,7 +41,7 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="VCluster",type="string",JSONPath=".spec.vClusterRef"
-// +kubebuilder:printcolumn:name="NodeType",type="string",JSONPath=".spec.nodeTypeRef"
+// +kubebuilder:printcolumn:name="NodeType",type="string",JSONPath=".spec.typeRef"
 // +kubebuilder:subresource:status
 
 // NodeClaim holds the node claim for vCluster.
@@ -82,15 +85,24 @@ type NodeClaimSpec struct {
 	// Requirements are the requirements for the NodeClaim.
 	Requirements []corev1.NodeSelectorRequirement `json:"requirements,omitempty"`
 
-	// NodeTypeRef is the name of the NodeType that this NodeClaim is based on.
-	NodeTypeRef string `json:"nodeTypeRef,omitempty"`
+	// Properties are extra properties for the NodeClaim.
+	// +optional
+	Properties map[string]string `json:"properties"`
+
+	// ProviderRef is the name of the NodeProvider that this NodeClaim is based on.
+	ProviderRef string `json:"providerRef"`
+
+	// TypeRef is the full name of the NodeType that this NodeClaim is based on.
+	// +optional
+	TypeRef string `json:"typeRef,omitempty"`
 
 	// VClusterRef references source vCluster. This is required.
 	VClusterRef string `json:"vClusterRef"`
 
-	// ControlPlane indicates if the node claim is for a control plane node.
+	// ControlPlane indicates if the node claim is for a control plane node. This is intentionally not omitempty as
+	// we want to ensure that the control plane is always set for easier checking in for example terraform templates.
 	// +optional
-	ControlPlane bool `json:"controlPlane,omitempty"`
+	ControlPlane bool `json:"controlPlane"`
 }
 
 type NodeClaimStatus struct {

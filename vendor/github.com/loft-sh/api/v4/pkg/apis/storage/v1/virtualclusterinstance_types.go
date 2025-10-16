@@ -7,17 +7,18 @@ import (
 )
 
 const (
-	InstanceScheduled              agentstoragev1.ConditionType = "Scheduled"
-	InstanceTemplateSynced         agentstoragev1.ConditionType = "TemplateSynced"
-	InstanceTemplateResolved       agentstoragev1.ConditionType = "TemplateResolved"
-	InstanceSpaceSynced            agentstoragev1.ConditionType = "SpaceSynced"
-	InstanceSpaceReady             agentstoragev1.ConditionType = "SpaceReady"
-	InstanceVirtualClusterDeployed agentstoragev1.ConditionType = "VirtualClusterDeployed"
-	InstanceVirtualClusterSynced   agentstoragev1.ConditionType = "VirtualClusterSynced"
-	InstanceVirtualClusterReady    agentstoragev1.ConditionType = "VirtualClusterReady"
-	InstanceVirtualClusterOnline   agentstoragev1.ConditionType = "VirtualClusterOnline"
-	InstanceProjectsSecretsSynced  agentstoragev1.ConditionType = "ProjectSecretsSynced"
-	InstanceNodesProvisioned       agentstoragev1.ConditionType = "NodesProvisioned"
+	InstanceScheduled                  agentstoragev1.ConditionType = "Scheduled"
+	InstanceTemplateSynced             agentstoragev1.ConditionType = "TemplateSynced"
+	InstanceTemplateResolved           agentstoragev1.ConditionType = "TemplateResolved"
+	InstanceSpaceSynced                agentstoragev1.ConditionType = "SpaceSynced"
+	InstanceSpaceReady                 agentstoragev1.ConditionType = "SpaceReady"
+	InstanceVirtualClusterDeployed     agentstoragev1.ConditionType = "VirtualClusterDeployed"
+	InstanceVirtualClusterSynced       agentstoragev1.ConditionType = "VirtualClusterSynced"
+	InstanceVirtualClusterReady        agentstoragev1.ConditionType = "VirtualClusterReady"
+	InstanceVirtualClusterOnline       agentstoragev1.ConditionType = "VirtualClusterOnline"
+	InstanceProjectsSecretsSynced      agentstoragev1.ConditionType = "ProjectSecretsSynced"
+	InstanceNodesProvisioned           agentstoragev1.ConditionType = "NodesProvisioned"
+	InstanceExternalResourcesCleanedUp agentstoragev1.ConditionType = "ExternalResourcesCleanedUp"
 
 	InstanceVirtualClusterAppsAndObjectsSynced agentstoragev1.ConditionType = "VirtualClusterAppsAndObjectsSynced"
 	InstanceVirtualClusterDBConnectorSynced    agentstoragev1.ConditionType = "DBConnectorSynced"
@@ -133,6 +134,10 @@ type VirtualClusterInstanceStatus struct {
 	// ServiceUID is the service uid of the virtual cluster to uniquely identify it.
 	// +optional
 	ServiceUID string `json:"serviceUID,omitempty"`
+
+	// KubernetesVersion is the Kubernetes version of the virtual cluster.
+	// +optional
+	KubernetesVersion string `json:"kubernetesVersion,omitempty"`
 
 	// DeployHash is the hash of the last deployed values.
 	// +optional
@@ -287,6 +292,10 @@ type AppReference struct {
 	// Version of the app
 	// +optional
 	Version string `json:"version,omitempty"`
+
+	// Hash is the hash of the app configuration
+	// +optional
+	Hash string `json:"hash,omitempty"`
 
 	// Parameters to use for the app
 	// +optional

@@ -22,10 +22,6 @@ type ManagementV1Interface interface {
 	ConfigsGetter
 	ConvertVirtualClusterConfigsGetter
 	DatabaseConnectorsGetter
-	DevPodEnvironmentTemplatesGetter
-	DevPodWorkspaceInstancesGetter
-	DevPodWorkspacePresetsGetter
-	DevPodWorkspaceTemplatesGetter
 	DirectClusterEndpointTokensGetter
 	EventsGetter
 	FeaturesGetter
@@ -103,22 +99,6 @@ func (c *ManagementV1Client) ConvertVirtualClusterConfigs() ConvertVirtualCluste
 
 func (c *ManagementV1Client) DatabaseConnectors() DatabaseConnectorInterface {
 	return newDatabaseConnectors(c)
-}
-
-func (c *ManagementV1Client) DevPodEnvironmentTemplates() DevPodEnvironmentTemplateInterface {
-	return newDevPodEnvironmentTemplates(c)
-}
-
-func (c *ManagementV1Client) DevPodWorkspaceInstances(namespace string) DevPodWorkspaceInstanceInterface {
-	return newDevPodWorkspaceInstances(c, namespace)
-}
-
-func (c *ManagementV1Client) DevPodWorkspacePresets() DevPodWorkspacePresetInterface {
-	return newDevPodWorkspacePresets(c)
-}
-
-func (c *ManagementV1Client) DevPodWorkspaceTemplates() DevPodWorkspaceTemplateInterface {
-	return newDevPodWorkspaceTemplates(c)
 }
 
 func (c *ManagementV1Client) DirectClusterEndpointTokens() DirectClusterEndpointTokenInterface {
