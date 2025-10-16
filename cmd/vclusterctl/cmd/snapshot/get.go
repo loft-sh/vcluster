@@ -43,7 +43,7 @@ vcluster snapshot get my-vcluster container:///data/my-local-snapshot.tar.gz
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.GetSnapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, cmd.Log)
+			return cli.GetSnapshots(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, cmd.Log)
 		},
 	}
 

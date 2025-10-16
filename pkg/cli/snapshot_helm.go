@@ -4,22 +4,18 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/ghodss/yaml"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -67,55 +63,17 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 	return nil
 }
 
-func GetSnapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, log log.Logger) error {
+func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, log log.Logger) error {
 	// init kube client and vCluster
 	vCluster, kubeClient, _, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log)
 	if err != nil {
 		return err
 	}
 
-	var snapshotRequests []snapshot.Request
-	listRequests := true
-	var continueOption string
-	for listRequests {
-		listOptions := metav1.ListOptions{
-			LabelSelector: constants.SnapshotRequestLabel,
-			Continue:      continueOption,
-		}
-		snapshotRequestConfigMaps, err := kubeClient.CoreV1().ConfigMaps(vCluster.Namespace).List(ctx, listOptions)
-		if err != nil {
-			return fmt.Errorf("failed to list snapshot request ConfigMaps: %w", err)
-		}
-		for _, configMap := range snapshotRequestConfigMaps.Items {
-			snapshotRequest, err := snapshot.UnmarshalSnapshotRequest(&configMap)
-			if err != nil {
-				return fmt.Errorf("failed to unmarshal snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
-			}
-			if snapshotRequest.Spec.URL != snapshotOpts.GetURL() {
-				continue
-			}
-			snapshotRequests = append(snapshotRequests, *snapshotRequest)
-		}
-
-		continueOption = snapshotRequestConfigMaps.Continue
-		listRequests = snapshotRequestConfigMaps.Continue != ""
+	err = snapshot.GetSnapshots(ctx, args, globalFlags, vCluster.Namespace, snapshotOpts, kubeClient, log)
+	if err != nil {
+		return fmt.Errorf("failed to list snapshots: %w", err)
 	}
-
-	if len(snapshotRequests) == 0 {
-		log.Errorf("vCluster snapshot %q not found", snapshotOpts.GetURL())
-		return nil
-	}
-
-	header := []string{"SNAPSHOT", "STATUS", "AGE"}
-	values := make([][]string, len(snapshotRequests))
-	for i, snapshotRequest := range snapshotRequests {
-		values[i] = []string{
-			snapshotRequest.Spec.URL,
-			string(snapshotRequest.Status.Phase),
-			duration.HumanDuration(time.Since(snapshotRequest.CreationTimestamp.Time)),
-		}
-	}
-	table.PrintTable(log, header, values)
 	return nil
 }
 

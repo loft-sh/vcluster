@@ -7,12 +7,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/table"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	snapshotTypes "github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -215,4 +219,84 @@ func CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName string, snapsho
 	}
 
 	return secret, nil
+}
+
+func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, vClusterNamespace string, snapshotOpts *Options, kubeClient *kubernetes.Clientset, log log.Logger) error {
+	// First, try to get saved snapshots
+	restoreClient := RestoreClient{
+		Snapshot: *snapshotOpts,
+	}
+
+	var snapshotRequests []Request
+	savedSnapshotRequest, err := restoreClient.GetSnapshotRequest(ctx)
+	if err != nil {
+		log.Errorf("failed to get saved snapshot request: %v", err)
+	}
+	if savedSnapshotRequest != nil {
+		// The snapshot request has been saved while it was in progress (it's
+		// set to Completed/PartiallyFailed after the upload). Therefore, here
+		// we update the phase to the correct final state.
+		if savedSnapshotRequest.Spec.IncludeVolumes {
+			if savedSnapshotRequest.Status.VolumeSnapshots.Phase == volumes.RequestPhaseCompleted {
+				savedSnapshotRequest.Status.Phase = RequestPhaseCompleted
+			} else {
+				savedSnapshotRequest.Status.Phase = RequestPhasePartiallyFailed
+			}
+		} else {
+			savedSnapshotRequest.Status.Phase = RequestPhaseCompleted
+		}
+		snapshotRequests = append(snapshotRequests, *savedSnapshotRequest)
+	}
+
+	listRequests := true
+	var continueOption string
+	for listRequests {
+		listOptions := metav1.ListOptions{
+			LabelSelector: constants.SnapshotRequestLabel,
+			Continue:      continueOption,
+		}
+		snapshotRequestConfigMaps, err := kubeClient.CoreV1().ConfigMaps(vClusterNamespace).List(ctx, listOptions)
+		if err != nil {
+			return fmt.Errorf("failed to list snapshot request ConfigMaps: %w", err)
+		}
+		for _, configMap := range snapshotRequestConfigMaps.Items {
+			snapshotRequest, err := UnmarshalSnapshotRequest(&configMap)
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
+			}
+			if snapshotRequest.Spec.URL != snapshotOpts.GetURL() {
+				continue
+			}
+			if savedSnapshotRequest != nil &&
+				snapshotRequest.Done() &&
+				snapshotRequest.Spec.URL == savedSnapshotRequest.Spec.URL {
+				// Skip the local Completed/PartiallyFailed snapshot request because it has been
+				// already uploaded.
+				// If there are both uploaded and in-progress snapshots, both will be shown.
+				continue
+			}
+
+			snapshotRequests = append(snapshotRequests, *snapshotRequest)
+		}
+
+		continueOption = snapshotRequestConfigMaps.Continue
+		listRequests = snapshotRequestConfigMaps.Continue != ""
+	}
+
+	if len(snapshotRequests) == 0 {
+		log.Errorf("vCluster snapshot %q not found", snapshotOpts.GetURL())
+		return nil
+	}
+
+	header := []string{"SNAPSHOT", "STATUS", "AGE"}
+	values := make([][]string, len(snapshotRequests))
+	for i, snapshotRequest := range snapshotRequests {
+		values[i] = []string{
+			snapshotRequest.Spec.URL,
+			string(snapshotRequest.Status.Phase),
+			duration.HumanDuration(time.Since(snapshotRequest.CreationTimestamp.Time)),
+		}
+	}
+	table.PrintTable(log, header, values)
+	return nil
 }

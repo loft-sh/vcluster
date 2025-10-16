@@ -58,6 +58,60 @@ var (
 	BumpRevision = int64(1000)
 )
 
+func (o *RestoreClient) GetSnapshotRequest(ctx context.Context) (*Request, error) {
+	// make sure to validate options
+	err := Validate(&o.Snapshot, false)
+	if err != nil {
+		return nil, err
+	}
+
+	// create store
+	objectStore, err := CreateStore(ctx, &o.Snapshot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create store: %w", err)
+	}
+
+	// now stream objects from object store to etcd
+	reader, err := objectStore.GetObject(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get backup: %w", err)
+	}
+	defer reader.Close()
+
+	// optionally decompress
+	gzipReader, err := gzip.NewReader(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzipReader.Close()
+
+	// create a new tar reader
+	tarReader := tar.NewReader(gzipReader)
+
+	for {
+		// read from archive
+		key, value, err := readKeyValue(tarReader)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return nil, fmt.Errorf("read etcd key/value: %w", err)
+		} else if errors.Is(err, io.EOF) || len(key) == 0 {
+			break
+		}
+
+		if !strings.HasPrefix(string(key), RequestStoreKey) {
+			continue
+		}
+
+		var snapshotRequest Request
+		err = json.Unmarshal(value, &snapshotRequest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal snapshot request: %w", err)
+		}
+		return &snapshotRequest, nil
+	}
+
+	return nil, nil
+}
+
 func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	// create decoder and encoder
 	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
