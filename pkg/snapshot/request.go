@@ -42,7 +42,9 @@ type Request struct {
 }
 
 func (r *Request) Done() bool {
-	return r.Status.Phase == RequestPhaseCompleted || r.Status.Phase == RequestPhaseFailed
+	return r.Status.Phase == RequestPhaseCompleted ||
+		r.Status.Phase == RequestPhasePartiallyFailed ||
+		r.Status.Phase == RequestPhaseFailed
 }
 
 func (r *Request) GetPhase() RequestPhase {
@@ -233,7 +235,6 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 		Snapshot: *snapshotOpts,
 	}
 
-	var snapshotRequests []Request
 	savedSnapshotRequest, err := restoreClient.GetSnapshotRequest(ctx)
 	if errors.Is(err, ErrSnapshotRequestNotFound) {
 		log.Debugf("Saved snapshot request not found for URL %s", snapshotOpts.GetURL())
@@ -253,9 +254,9 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 		} else {
 			savedSnapshotRequest.Status.Phase = RequestPhaseCompleted
 		}
-		snapshotRequests = append(snapshotRequests, *savedSnapshotRequest)
 	}
 
+	var inProgressSnapshotRequest *Request
 	listRequests := true
 	var continueOption string
 	for listRequests {
@@ -275,43 +276,63 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 			if snapshotRequest.Spec.URL != snapshotOpts.GetURL() {
 				continue
 			}
-
-			// TODO: maybe just show:
-			//  1. uploaded snapshot
-			//  2. local not-started / in-progress / canceling snapshots
-			//  Don't show local completed / failed / partially failed snapshots!
-			//  When uploaded, show status as 'Completed. In progress again.'
-
-			if savedSnapshotRequest != nil &&
-				(snapshotRequest.Name == savedSnapshotRequest.Name ||
-					snapshotRequest.Spec.URL == savedSnapshotRequest.Spec.URL &&
-						snapshotRequest.CreationTimestamp.Time.Before(savedSnapshotRequest.CreationTimestamp.Time)) {
-				// Skip the local snapshot request if:
-				// 1. it's the same request as the uploaded one, or
-				// 2. it's older than the saved one.
-				continue
+			if !snapshotRequest.Done() {
+				inProgressSnapshotRequest = snapshotRequest
+				break
 			}
-
-			snapshotRequests = append(snapshotRequests, *snapshotRequest)
 		}
-
+		if inProgressSnapshotRequest != nil {
+			break
+		}
 		continueOption = snapshotRequestConfigMaps.Continue
 		listRequests = snapshotRequestConfigMaps.Continue != ""
 	}
 
-	if len(snapshotRequests) == 0 {
-		log.Errorf("vCluster snapshot %q not found", snapshotOpts.GetURL())
+	if savedSnapshotRequest == nil && inProgressSnapshotRequest == nil {
+		log.Infof("No snapshot found for the URL %s", snapshotOpts.GetURL())
 		return nil
 	}
 
-	header := []string{"SNAPSHOT", "STATUS", "AGE"}
-	values := make([][]string, len(snapshotRequests))
-	for i, snapshotRequest := range snapshotRequests {
-		values[i] = []string{
-			snapshotRequest.Spec.URL,
-			string(snapshotRequest.Status.Phase),
-			duration.HumanDuration(time.Since(snapshotRequest.CreationTimestamp.Time)),
+	var url string
+	var volumesStatus string
+	var saved string
+	var status RequestPhase
+	var age string
+	var snapshotRequestToShow *Request
+	if inProgressSnapshotRequest != nil {
+		snapshotRequestToShow = inProgressSnapshotRequest
+	} else {
+		snapshotRequestToShow = savedSnapshotRequest
+	}
+	url = snapshotRequestToShow.Spec.URL
+	status = snapshotRequestToShow.Status.Phase
+	age = duration.HumanDuration(time.Since(snapshotRequestToShow.CreationTimestamp.Time))
+	if len(snapshotRequestToShow.Spec.VolumeSnapshots.Requests) > 0 {
+		var completedCount int
+		for _, volumeSnapshotRequest := range snapshotRequestToShow.Spec.VolumeSnapshots.Requests {
+			pvcName := fmt.Sprintf("%s/%s", volumeSnapshotRequest.PersistentVolumeClaim.Namespace, volumeSnapshotRequest.PersistentVolumeClaim.Name)
+			volumeSnapshotStatus, ok := snapshotRequestToShow.Status.VolumeSnapshots.Snapshots[pvcName]
+			if ok && volumeSnapshotStatus.Phase == volumes.RequestPhaseCompleted {
+				completedCount++
+			}
 		}
+		volumesStatus = fmt.Sprintf("%d/%d", completedCount, len(snapshotRequestToShow.Spec.VolumeSnapshots.Requests))
+	}
+	if savedSnapshotRequest != nil {
+		saved = "Yes"
+	} else {
+		saved = "No"
+	}
+
+	header := []string{"SNAPSHOT", "VOLUMES", "SAVED", "STATUS", "AGE"}
+	values := [][]string{
+		{
+			url,
+			volumesStatus,
+			saved,
+			string(status),
+			age,
+		},
 	}
 	table.PrintTable(log, header, values)
 	return nil
