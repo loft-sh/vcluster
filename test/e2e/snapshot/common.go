@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func createSnapshot(f *framework.Framework, useNewCommand bool, snapshotPath string, includeVolumes bool) {
@@ -89,53 +88,43 @@ func restoreVCluster(f *framework.Framework, snapshotPath string, controllerBase
 
 func waitUntilVClusterIsRunning(f *framework.Framework) {
 	// wait until vCluster is running
-	err := wait.PollUntilContextTimeout(f.Context, time.Second, time.Minute*2, false, func(ctx context.Context) (done bool, err error) {
-		newPods, _ := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(ctx, metav1.ListOptions{
+	Eventually(func(g Gomega, ctx context.Context) {
+		newPods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=vcluster",
 		})
-		p := len(newPods.Items)
-		if p > 0 {
-			// rp, running pod counter
-			rp := 0
-			for _, pod := range newPods.Items {
-				if pod.Status.Phase == corev1.PodRunning {
-					rp = rp + 1
-				}
-			}
-			if rp == p {
-				return true, nil
-			}
-		}
-		return false, nil
-	})
-	framework.ExpectNoError(err)
+		Expect(err).NotTo(HaveOccurred())
 
-	// wait until all vCluster replicas are running
-	Eventually(func() error {
-		pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
+		g.Expect(newPods.Items).NotTo(BeEmpty())
+		for _, pod := range newPods.Items {
+			g.Expect(pod.Status.Phase).To(Equal(corev1.PodRunning))
+		}
+	}).
+		WithPolling(time.Second).
+		WithTimeout(2 * time.Minute).
+		Should(Succeed())
+
+	// wait until all vCluster containers are running
+	Eventually(func(g Gomega, ctx context.Context) {
+		pods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=vcluster,release=" + f.VClusterName,
 		})
-		framework.ExpectNoError(err)
+		g.Expect(err).NotTo(HaveOccurred())
 
+		// check all containers
 		for _, pod := range pods.Items {
-			if len(pod.Status.ContainerStatuses) == 0 {
-				return fmt.Errorf("pod %s has no container status", pod.Name)
-			}
-
+			g.Expect(pod.Status.ContainerStatuses).NotTo(BeEmpty())
 			for _, container := range pod.Status.ContainerStatuses {
-				if container.State.Running == nil || !container.Ready {
-					return fmt.Errorf("pod %s container %s is not running", pod.Name, container.Name)
-				}
+				g.Expect(container.State.Running).NotTo(BeNil())
+				g.Expect(container.Ready).To(BeTrue())
 			}
 		}
-		return nil
 	}).WithPolling(time.Second).
 		WithTimeout(framework.PollTimeout).
 		Should(Succeed())
 
 	// refresh the connection
-	err = f.RefreshVirtualClient()
-	framework.ExpectNoError(err)
+	err := f.RefreshVirtualClient()
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func waitForSnapshotToBeCreated(f *framework.Framework) {
