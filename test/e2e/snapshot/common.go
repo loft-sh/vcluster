@@ -138,28 +138,26 @@ func waitForRestoreRequestToFinish(f *framework.Framework) {
 type unmarshalRequestFunc[T snapshot.LongRunningRequest] func(request *corev1.ConfigMap) (T, error)
 
 func waitForRequestToFinish[T snapshot.LongRunningRequest](f *framework.Framework, requestLabel string, unmarshal unmarshalRequestFunc[T], timeout time.Duration) {
-	Eventually(func() error {
+	Eventually(func(g Gomega, ctx context.Context) {
 		listOptions := metav1.ListOptions{
 			LabelSelector: requestLabel,
 		}
-		requestConfigMaps, err := f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).List(f.Context, listOptions)
-		framework.ExpectNoError(err)
+		requestConfigMaps, err := f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).List(ctx, listOptions)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(requestConfigMaps.Items).To(HaveLen(1))
 
 		// extract snapshot/restore request
 		requestConfigMap := requestConfigMaps.Items[0]
 		request, err := unmarshal(&requestConfigMap)
-		framework.ExpectNoError(err)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(request).NotTo(BeNil())
 
 		// check if the snapshot/restore request has been completed
-		if request.GetPhase() != snapshot.RequestPhaseCompleted {
-			return fmt.Errorf("request is not completed, current phase is %s", request.GetPhase())
-		}
-		return nil
+		Expect(request.GetPhase()).To(
+			Equal(snapshot.RequestPhaseCompleted),
+			fmt.Sprintf("request is not completed, current phase is %s", request.GetPhase()))
 	}).
 		WithPolling(framework.PollInterval).
 		WithTimeout(timeout).
 		Should(Succeed())
 }
-
-const RequestPhaseCompleted snapshot.RequestPhase = "Completed"
