@@ -1009,7 +1009,6 @@ func TestProcessCorefile(t *testing.T) {
     forward . /etc/resolv.conf
     cache 30
     loop
-    reload
     loadbalance
 }
 
