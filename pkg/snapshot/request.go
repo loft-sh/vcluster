@@ -29,6 +29,12 @@ const (
 	DefaultRequestTTL = 24 * time.Hour
 )
 
+var (
+	ErrSnapshotRequestNotFound = errors.New("snapshot request not found")
+)
+
+type RequestPhase string
+
 type Request struct {
 	RequestMetadata `json:"metadata,omitempty"`
 	Spec            RequestSpec   `json:"spec,omitempty"`
@@ -229,8 +235,10 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 
 	var snapshotRequests []Request
 	savedSnapshotRequest, err := restoreClient.GetSnapshotRequest(ctx)
-	if err != nil {
-		log.Debugf("failed to get saved snapshot request: %v", err)
+	if errors.Is(err, ErrSnapshotRequestNotFound) {
+		log.Debugf("Saved snapshot request not found for URL %s", snapshotOpts.GetURL())
+	} else if err != nil {
+		log.Debugf("Failed to get saved snapshot request for URL %s: %v", snapshotOpts.GetURL(), err)
 	}
 	if savedSnapshotRequest != nil {
 		// The snapshot request has been saved while it was in progress (it's
@@ -267,6 +275,13 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 			if snapshotRequest.Spec.URL != snapshotOpts.GetURL() {
 				continue
 			}
+
+			// TODO: maybe just show:
+			//  1. uploaded snapshot
+			//  2. local not-started / in-progress / canceling snapshots
+			//  Don't show local completed / failed / partially failed snapshots!
+			//  When uploaded, show status as 'Completed. In progress again.'
+
 			if savedSnapshotRequest != nil &&
 				(snapshotRequest.Name == savedSnapshotRequest.Name ||
 					snapshotRequest.Spec.URL == savedSnapshotRequest.Spec.URL &&

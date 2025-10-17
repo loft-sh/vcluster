@@ -109,7 +109,7 @@ func (o *RestoreClient) GetSnapshotRequest(ctx context.Context) (*Request, error
 		return &snapshotRequest, nil
 	}
 
-	return nil, nil
+	return nil, ErrSnapshotRequestNotFound
 }
 
 func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
