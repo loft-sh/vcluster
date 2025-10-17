@@ -202,7 +202,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		framework.ExpectNoError(err)
 	}
 
-	cleanUpTestResources := func(useNewCommand bool, snapshotTestNamespace string) {
+	cleanUpTestResources := func(ctx context.Context, useNewCommand bool, snapshotTestNamespace string) {
 		if !useNewCommand {
 			// delete the snapshot pvc
 			err := f.HostClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(f.Context, pvc.Name, metav1.DeleteOptions{})
@@ -223,7 +223,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			// wait until the default service account gets created
 			_, err = f.VClusterClient.CoreV1().ServiceAccounts(snapshotTestNamespace).Get(ctx, "default", metav1.GetOptions{})
 			return err
-		}).WithPolling(time.Second).
+		}).WithContext(ctx).
+			WithPolling(time.Second).
 			WithTimeout(framework.PollTimeout).
 			Should(Succeed())
 
@@ -472,8 +473,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 		checkTestResources(cliTestNamespaceName, false, snapshotPath)
 
-		AfterAll(func() {
-			cleanUpTestResources(false, "cli-snapshot-test-afterall")
+		AfterAll(func(ctx context.Context) {
+			cleanUpTestResources(ctx, false, "cli-snapshot-test-afterall")
 		})
 	})
 
@@ -498,8 +499,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 		checkTestResources(controllerTestNamespaceName, true, snapshotPath)
 
-		AfterAll(func() {
-			cleanUpTestResources(true, "controller-snapshot-test-afterall")
+		AfterAll(func(ctx context.Context) {
+			cleanUpTestResources(ctx, true, "controller-snapshot-test-afterall")
 		})
 	})
 
@@ -546,8 +547,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			checkPVCData(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName, testFileName, pvcData)
 		})
 
-		AfterAll(func() {
-			cleanUpTestResources(true, controllerTestNamespaceName)
+		AfterAll(func(ctx context.Context) {
+			cleanUpTestResources(ctx, true, controllerTestNamespaceName)
 		})
 	})
 })
