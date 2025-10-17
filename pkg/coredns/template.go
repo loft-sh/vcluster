@@ -52,7 +52,9 @@ const corednsCorefile = `{{- if .Values.controlPlane.coredns.overwriteConfig }}
     {{- end }}
     cache 30
     loop
+    {{- if not .Values.controlPlane.coredns.embedded }}
     reload
+    {{- end }}
     loadbalance
 }
 
