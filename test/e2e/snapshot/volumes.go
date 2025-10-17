@@ -115,7 +115,7 @@ func deployJob(ctx context.Context, client *kubernetes.Clientset, jobNamespace, 
 	job, err := client.BatchV1().Jobs(job.Namespace).Create(ctx, job, metav1.CreateOptions{})
 	framework.ExpectNoError(err)
 
-	Eventually(func() error {
+	Eventually(func(ctx context.Context) error {
 		job, err = client.BatchV1().Jobs(job.Namespace).Get(ctx, job.Name, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to get job %s/%s: %w", job.Namespace, job.Name, err)
@@ -124,8 +124,9 @@ func deployJob(ctx context.Context, client *kubernetes.Clientset, jobNamespace, 
 			return fmt.Errorf("job %s/%s did not succeed", job.Namespace, job.Name)
 		}
 		return nil
-	}).WithPolling(framework.PollInterval).
-		WithTimeout(framework.PollTimeout).
+	}).WithContext(ctx).
+		WithPolling(framework.PollInterval).
+		WithTimeout(framework.PollTimeoutLong).
 		Should(Succeed())
 
 	// delete the job
@@ -133,7 +134,7 @@ func deployJob(ctx context.Context, client *kubernetes.Clientset, jobNamespace, 
 		PropagationPolicy: ptr.To(metav1.DeletePropagationBackground),
 	})
 	framework.ExpectNoError(err)
-	Eventually(func() error {
+	Eventually(func(ctx context.Context) error {
 		job, err = client.BatchV1().Jobs(job.Namespace).Get(ctx, job.Name, metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			// job deleted successfully
@@ -143,11 +144,12 @@ func deployJob(ctx context.Context, client *kubernetes.Clientset, jobNamespace, 
 			return fmt.Errorf("failed to get job %s/%s: %w", job.Namespace, job.Name, err)
 		}
 		return fmt.Errorf("job %s/%s did not delete", job.Namespace, job.Name)
-	}).WithPolling(framework.PollInterval).
-		WithTimeout(framework.PollTimeout).
+	}).WithContext(ctx).
+		WithPolling(framework.PollInterval).
+		WithTimeout(framework.PollTimeoutLong).
 		Should(Succeed())
 
-	Eventually(func() error {
+	Eventually(func(ctx context.Context) error {
 		jobPods, err := client.CoreV1().Pods(job.Namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("job-name=%s", job.Name),
 		})
@@ -159,7 +161,8 @@ func deployJob(ctx context.Context, client *kubernetes.Clientset, jobNamespace, 
 			return fmt.Errorf("failed to get pods for job %s/%s: %w", job.Namespace, job.Name, err)
 		}
 		return fmt.Errorf("pods for job %s/%s have not been deleted", job.Namespace, job.Name)
-	}).WithPolling(framework.PollInterval).
-		WithTimeout(framework.PollTimeout).
+	}).WithContext(ctx).
+		WithPolling(framework.PollInterval).
+		WithTimeout(framework.PollTimeoutLong).
 		Should(Succeed())
 }
