@@ -323,8 +323,8 @@ jobs:
           set -x
 
           echo "Deploy upstream CSI volume snapshot CRDs and snapshot-controller"
-          kubectl kustomize https://github.com/kubernetes-csi/external-snapshotter/client/config/crd | kubectl create -f -
-          kubectl kustomize https://github.com/kubernetes-csi/external-snapshotter/deploy/kubernetes/snapshot-controller | kubectl create -f -
+          kubectl kustomize https://github.com/kubernetes-csi/external-snapshotter/client/config/crd | kubectl apply -f -
+          kubectl kustomize https://github.com/kubernetes-csi/external-snapshotter/deploy/kubernetes/snapshot-controller | kubectl apply -f -
 
           echo "Deploy CSI driver"
           temp_git_dir=$(mktemp -d)
