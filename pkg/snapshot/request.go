@@ -9,7 +9,6 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
-	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	snapshotTypes "github.com/loft-sh/vcluster/pkg/snapshot/types"
@@ -229,7 +228,7 @@ func CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName string, snapsho
 	return secret, nil
 }
 
-func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, vClusterNamespace string, snapshotOpts *Options, kubeClient *kubernetes.Clientset, log log.Logger) error {
+func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *Options, kubeClient *kubernetes.Clientset, log log.Logger) error {
 	// First, try to get saved snapshots
 	restoreClient := RestoreClient{
 		Snapshot: *snapshotOpts,

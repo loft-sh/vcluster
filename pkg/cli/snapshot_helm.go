@@ -65,12 +65,23 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 
 func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, log log.Logger) error {
 	// init kube client and vCluster
-	vCluster, kubeClient, _, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log)
+	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to init snapshot command: %w", err)
 	}
 
-	err = snapshot.GetSnapshots(ctx, args, globalFlags, vCluster.Namespace, snapshotOpts, kubeClient, log)
+	if snapshotOpts.Type == "container" {
+		podOptions := &pod.Options{
+			Exec: true,
+		}
+		err = pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot", "get"}, vCluster, podOptions, snapshotOpts, log)
+		if err != nil {
+			return fmt.Errorf("failed to run snapshot pod: %w", err)
+		}
+		return nil
+	}
+
+	err = snapshot.GetSnapshots(ctx, vCluster.Namespace, snapshotOpts, kubeClient, log)
 	if err != nil {
 		return fmt.Errorf("failed to list snapshots: %w", err)
 	}
