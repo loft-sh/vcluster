@@ -310,19 +310,15 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			framework.ExpectNoError(err)
 
 			// Check configmap created after snapshot is not available
-			Eventually(func() bool {
-				configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).List(f.Context, metav1.ListOptions{
+			Eventually(func(g Gomega, ctx context.Context) []corev1.ConfigMap {
+				configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).List(ctx, metav1.ListOptions{
 					LabelSelector: "snapshot=delete",
 				})
-
-				if len(configmaps.Items) != 0 {
-					return false
-				}
-				framework.ExpectNoError(err)
-				return true
+				g.Expect(err).NotTo(HaveOccurred())
+				return configmaps.Items
 			}).WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout).
-				Should(BeTrue())
+				Should(HaveLen(0))
 
 			// Check secret created after snapshot is not available
 			Eventually(func() bool {
