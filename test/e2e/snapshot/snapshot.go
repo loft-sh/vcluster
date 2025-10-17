@@ -241,7 +241,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 	}
 
 	checkTestResources := func(testNamespaceName string, useNewCommand bool, snapshotPath string) {
-		It("Verify if only the resources in snapshot are available in vCluster after restore", func() {
+		It("Verify if only the resources in snapshot are available in vCluster after restore", func(ctx context.Context) {
 			// now create a configmap that should be deleted by restore
 			_, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).Create(f.Context, configMapToDelete, metav1.CreateOptions{})
 			framework.ExpectNoError(err)
@@ -272,7 +272,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			framework.ExpectNoError(err)
 
 			// now restore the vCluster
-			restoreVCluster(f, snapshotPath, useNewCommand, false)
+			restoreVCluster(ctx, f, snapshotPath, useNewCommand, false)
 
 			// Check configmap created before snapshot is available
 			configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).List(f.Context, metav1.ListOptions{
@@ -316,42 +316,44 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				})
 				g.Expect(err).NotTo(HaveOccurred())
 				return configmaps.Items
-			}).WithPolling(time.Second).
+			}).WithContext(ctx).
+				WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout).
 				Should(BeEmpty())
 
 			// Check secret created after snapshot is not available
-			Eventually(func(g Gomega) []corev1.Secret {
-				secrets, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(f.Context, metav1.ListOptions{
+			Eventually(func(g Gomega, ctx context.Context) []corev1.Secret {
+				secrets, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(ctx, metav1.ListOptions{
 					LabelSelector: "snapshot=delete",
 				})
 				g.Expect(err).NotTo(HaveOccurred())
 				return secrets.Items
-			}).WithPolling(time.Second).
+			}).WithContext(ctx).
+				WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout).
 				Should(BeEmpty())
 
 			//Check service created after snapshot is not available
-			Eventually(func(g Gomega) []corev1.Service {
-				serviceList, err := f.VClusterClient.CoreV1().Services(testNamespaceName).List(f.Context, metav1.ListOptions{
+			Eventually(func(g Gomega, ctx context.Context) []corev1.Service {
+				serviceList, err := f.VClusterClient.CoreV1().Services(testNamespaceName).List(ctx, metav1.ListOptions{
 					LabelSelector: "snapshot=delete",
 				})
 				g.Expect(err).NotTo(HaveOccurred())
 				return serviceList.Items
-			}).WithPolling(time.Second).
+			}).WithContext(ctx).
+				WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout * 2).
 				Should(BeEmpty())
 		})
 
-		It("Verify if deleted resources are recreated in vCluster after restore", func() {
-
+		It("Verify if deleted resources are recreated in vCluster after restore", func(ctx context.Context) {
 			By("Delete resources that going to be restored")
 			err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).Delete(f.Context, configMapToRestore.Name, metav1.DeleteOptions{})
 			framework.ExpectNoError(err)
 
 			// check configmap is deleted
-			Eventually(func() error {
-				_, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).List(f.Context, metav1.ListOptions{
+			Eventually(func(ctx context.Context) error {
+				_, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).List(ctx, metav1.ListOptions{
 					LabelSelector: "snapshot=restore",
 				})
 
@@ -359,7 +361,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 					return nil
 				}
 				return err
-			}).WithPolling(time.Second).
+			}).WithContext(ctx).
+				WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout).
 				Should(Succeed())
 
@@ -367,8 +370,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			framework.ExpectNoError(err)
 
 			// check secret is deleted
-			Eventually(func() error {
-				_, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(f.Context, metav1.ListOptions{
+			Eventually(func(ctx context.Context) error {
+				_, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(ctx, metav1.ListOptions{
 					LabelSelector: "snapshot=restore",
 				})
 
@@ -376,7 +379,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 					return nil
 				}
 				return err
-			}).WithPolling(time.Second).
+			}).WithContext(ctx).
+				WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout).
 				Should(Succeed())
 
@@ -384,8 +388,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			framework.ExpectNoError(err)
 
 			// check deployment is deleted
-			Eventually(func() error {
-				_, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(f.Context, metav1.ListOptions{
+			Eventually(func(ctx context.Context) error {
+				_, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(ctx, metav1.ListOptions{
 					LabelSelector: "snapshot=restore",
 				})
 
@@ -393,55 +397,59 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 					return nil
 				}
 				return err
-			}).WithPolling(time.Second).
+			}).WithContext(ctx).
+				WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout).
 				Should(Succeed())
 
 			// now restore the vCluster
-			restoreVCluster(f, snapshotPath, useNewCommand, false)
+			restoreVCluster(ctx, f, snapshotPath, useNewCommand, false)
 
 			By("Verify resources delete before snapshot are available")
-			Eventually(func() map[string]string {
-				configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).List(f.Context, metav1.ListOptions{
+			Eventually(func(g Gomega, ctx context.Context) map[string]string {
+				configmaps, err := f.VClusterClient.CoreV1().ConfigMaps(testNamespaceName).List(ctx, metav1.ListOptions{
 					LabelSelector: "snapshot=restore",
 				})
+				g.Expect(err).NotTo(HaveOccurred())
 
 				if len(configmaps.Items) != 1 {
 					return map[string]string{}
 				}
 				restoredConfigmap := configmaps.Items[0]
-				framework.ExpectNoError(err)
 				return restoredConfigmap.Data
-			}).WithPolling(time.Second).
+			}).WithContext(ctx).
+				WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout).
 				Should(Equal(configMapToRestore.Data))
 
-			Eventually(func() map[string][]byte {
-				secrets, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(f.Context, metav1.ListOptions{
+			Eventually(func(g Gomega, ctx context.Context) map[string][]byte {
+				secrets, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(ctx, metav1.ListOptions{
 					LabelSelector: "snapshot=restore",
 				})
+				g.Expect(err).NotTo(HaveOccurred())
 
 				if len(secrets.Items) != 1 {
 					return map[string][]byte{}
 				}
 				restoredSecret := secrets.Items[0]
-				framework.ExpectNoError(err)
 				return restoredSecret.Data
-			}).WithPolling(time.Second).
+			}).WithContext(ctx).
+				WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout).
 				Should(Equal(secretToRestore.Data))
 
-			Eventually(func() bool {
-				deployment, err := f.VClusterClient.AppsV1().Deployments(testNamespaceName).List(f.Context, metav1.ListOptions{
+			Eventually(func(g Gomega, ctx context.Context) bool {
+				deployment, err := f.VClusterClient.AppsV1().Deployments(testNamespaceName).List(ctx, metav1.ListOptions{
 					LabelSelector: "snapshot=restore",
 				})
+				g.Expect(err).NotTo(HaveOccurred())
 
 				if len(deployment.Items) != 1 {
 					return false
 				}
-				framework.ExpectNoError(err)
 				return len(deployment.Items) == 1
-			}).WithPolling(time.Second).
+			}).WithContext(ctx).
+				WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout * 2).
 				Should(BeTrue())
 		})
@@ -484,8 +492,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			createSnapshot(f, true, snapshotPath, false)
 		})
 
-		It("Creates the snapshot", func() {
-			waitForSnapshotToBeCreated(f)
+		It("Creates the snapshot", func(ctx context.Context) {
+			waitForSnapshotToBeCreated(ctx, f)
 		})
 
 		checkTestResources(controllerTestNamespaceName, true, snapshotPath)
@@ -515,8 +523,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			createSnapshot(f, true, snapshotPath, true)
 		})
 
-		It("Creates the snapshot", func() {
-			waitForSnapshotToBeCreated(f)
+		It("Creates the snapshot", func(ctx context.Context) {
+			waitForSnapshotToBeCreated(ctx, f)
 		})
 
 		It("Deletes the PVC with test data", func(ctx context.Context) {
@@ -531,7 +539,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			deletePVC(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName)
 
 			// now restore the vCluster
-			restoreVCluster(f, snapshotPath, true, true)
+			restoreVCluster(ctx, f, snapshotPath, true, true)
 		})
 
 		It("has the restored PVC with data restored from the volume snapshot", func(ctx context.Context) {

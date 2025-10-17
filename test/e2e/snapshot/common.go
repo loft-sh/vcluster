@@ -52,7 +52,7 @@ func createSnapshot(f *framework.Framework, useNewCommand bool, snapshotPath str
 	framework.ExpectNoError(err)
 }
 
-func restoreVCluster(f *framework.Framework, snapshotPath string, controllerBasedSnapshot, restoreVolumes bool) {
+func restoreVCluster(ctx context.Context, f *framework.Framework, snapshotPath string, controllerBasedSnapshot, restoreVolumes bool) {
 	By("Restore vCluster")
 	restoreArgs := []string{
 		"restore",
@@ -79,14 +79,14 @@ func restoreVCluster(f *framework.Framework, snapshotPath string, controllerBase
 	err := cmd.Run()
 	framework.ExpectNoError(err)
 
-	waitUntilVClusterIsRunning(f)
+	waitUntilVClusterIsRunning(ctx, f)
 
 	if restoreVolumes {
-		waitForRestoreRequestToFinish(f)
+		waitForRestoreRequestToFinish(ctx, f)
 	}
 }
 
-func waitUntilVClusterIsRunning(f *framework.Framework) {
+func waitUntilVClusterIsRunning(ctx context.Context, f *framework.Framework) {
 	// wait until vCluster is running
 	Eventually(func(g Gomega, ctx context.Context) {
 		newPods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(ctx, metav1.ListOptions{
@@ -98,7 +98,7 @@ func waitUntilVClusterIsRunning(f *framework.Framework) {
 		for _, pod := range newPods.Items {
 			g.Expect(pod.Status.Phase).To(Equal(corev1.PodRunning))
 		}
-	}).
+	}).WithContext(ctx).
 		WithPolling(time.Second).
 		WithTimeout(2 * time.Minute).
 		Should(Succeed())
@@ -118,7 +118,8 @@ func waitUntilVClusterIsRunning(f *framework.Framework) {
 				g.Expect(container.Ready).To(BeTrue())
 			}
 		}
-	}).WithPolling(time.Second).
+	}).WithContext(ctx).
+		WithPolling(time.Second).
 		WithTimeout(framework.PollTimeout).
 		Should(Succeed())
 
@@ -127,17 +128,17 @@ func waitUntilVClusterIsRunning(f *framework.Framework) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func waitForSnapshotToBeCreated(f *framework.Framework) {
-	waitForRequestToFinish(f, constants.SnapshotRequestLabel, snapshot.UnmarshalSnapshotRequest, 5*time.Minute)
+func waitForSnapshotToBeCreated(ctx context.Context, f *framework.Framework) {
+	waitForRequestToFinish(ctx, f, constants.SnapshotRequestLabel, snapshot.UnmarshalSnapshotRequest, 5*time.Minute)
 }
 
-func waitForRestoreRequestToFinish(f *framework.Framework) {
-	waitForRequestToFinish(f, constants.RestoreRequestLabel, snapshot.UnmarshalRestoreRequest, 5*time.Minute)
+func waitForRestoreRequestToFinish(ctx context.Context, f *framework.Framework) {
+	waitForRequestToFinish(ctx, f, constants.RestoreRequestLabel, snapshot.UnmarshalRestoreRequest, 5*time.Minute)
 }
 
 type unmarshalRequestFunc[T snapshot.LongRunningRequest] func(request *corev1.ConfigMap) (T, error)
 
-func waitForRequestToFinish[T snapshot.LongRunningRequest](f *framework.Framework, requestLabel string, unmarshal unmarshalRequestFunc[T], timeout time.Duration) {
+func waitForRequestToFinish[T snapshot.LongRunningRequest](ctx context.Context, f *framework.Framework, requestLabel string, unmarshal unmarshalRequestFunc[T], timeout time.Duration) {
 	Eventually(func(g Gomega, ctx context.Context) {
 		listOptions := metav1.ListOptions{
 			LabelSelector: requestLabel,
@@ -156,7 +157,7 @@ func waitForRequestToFinish[T snapshot.LongRunningRequest](f *framework.Framewor
 		g.Expect(request.GetPhase()).To(
 			Equal(snapshot.RequestPhaseCompleted),
 			fmt.Sprintf("request is not completed, current phase is %s", request.GetPhase()))
-	}).
+	}).WithContext(ctx).
 		WithPolling(framework.PollInterval).
 		WithTimeout(timeout).
 		Should(Succeed())
