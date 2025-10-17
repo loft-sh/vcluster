@@ -18,22 +18,12 @@ import (
 
 const (
 	// APIVersion is the snapshot request API version.
-	APIVersion = "v1beta1"
 
 	RequestKey = "snapshotRequest"
 	OptionsKey = "snapshotOptions"
 
-	RequestPhaseNotStarted              RequestPhase = ""
-	RequestPhaseCreatingVolumeSnapshots RequestPhase = "CreatingVolumeSnapshots"
-	RequestPhaseCreatingEtcdBackup      RequestPhase = "CreatingEtcdBackup"
-	RequestPhaseCompleted               RequestPhase = "Completed"
-	RequestPhasePartiallyFailed         RequestPhase = "PartiallyFailed"
-	RequestPhaseFailed                  RequestPhase = "Failed"
-
 	DefaultRequestTTL = 24 * time.Hour
 )
-
-type RequestPhase string
 
 type Request struct {
 	RequestMetadata `json:"metadata,omitempty"`
@@ -45,9 +35,8 @@ func (r *Request) Done() bool {
 	return r.Status.Phase == RequestPhaseCompleted || r.Status.Phase == RequestPhaseFailed
 }
 
-type RequestMetadata struct {
-	Name              string      `json:"name"`
-	CreationTimestamp metav1.Time `json:"creationTimestamp,omitempty"`
+func (r *Request) GetPhase() RequestPhase {
+	return r.Status.Phase
 }
 
 type RequestSpec struct {

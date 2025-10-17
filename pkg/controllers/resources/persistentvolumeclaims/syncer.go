@@ -89,6 +89,18 @@ func (s *persistentVolumeClaimSyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*corev1.PersistentVolumeClaim]) (ctrl.Result, error) {
+	// check if host PVC is currently being restored
+	pObjName := s.VirtualToHost(ctx, types.NamespacedName{Name: event.Virtual.GetName(), Namespace: event.Virtual.GetNamespace()}, event.Virtual)
+	restoreInProgress, err := s.isHostVolumeRestoreInProgress(ctx, pObjName)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check if host volume restore is in progress: %w", err)
+	}
+	if restoreInProgress {
+		return ctrl.Result{
+			RequeueAfter: 15 * time.Second,
+		}, nil
+	}
+
 	if s.applyLimitByClass(ctx, event.Virtual) {
 		return ctrl.Result{}, nil
 	}
@@ -105,17 +117,6 @@ func (s *persistentVolumeClaimSyncer) SyncToHost(ctx *synccontext.SyncContext, e
 		return ctrl.Result{}, err
 	}
 
-	// check if host PVC is currently being restored
-	restoreInProgress, err := s.isHostVolumeRestoreInProgress(ctx, pObj)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to check if host volume restore is in progress: %w", err)
-	}
-	if restoreInProgress {
-		return ctrl.Result{
-			RequeueAfter: 15 * time.Second,
-		}, nil
-	}
-
 	err = pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.PersistentVolumeClaims.Patches, false)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -130,7 +131,11 @@ func (s *persistentVolumeClaimSyncer) Sync(ctx *synccontext.SyncContext, event *
 	}
 
 	// check if host PVC is currently being restored
-	restoreInProgress, err := s.isHostVolumeRestoreInProgress(ctx, event.Host)
+	hostObjName := types.NamespacedName{
+		Name:      event.Host.GetName(),
+		Namespace: event.Host.GetNamespace(),
+	}
+	restoreInProgress, err := s.isHostVolumeRestoreInProgress(ctx, hostObjName)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to check if host volume restore is in progress: %w", err)
 	}
@@ -260,7 +265,7 @@ func (s *persistentVolumeClaimSyncer) ensurePersistentVolume(ctx *synccontext.Sy
 	return false, nil
 }
 
-func (s *persistentVolumeClaimSyncer) isHostVolumeRestoreInProgress(ctx *synccontext.SyncContext, pObj *corev1.PersistentVolumeClaim) (bool, error) {
+func (s *persistentVolumeClaimSyncer) isHostVolumeRestoreInProgress(ctx *synccontext.SyncContext, pObj types.NamespacedName) (bool, error) {
 	configMaps := &corev1.ConfigMapList{}
 	err := ctx.HostClient.List(ctx.Context, configMaps, client.InNamespace(ctx.Config.HostNamespace), client.MatchingLabels{
 		constants.RestoreRequestLabel: "",
