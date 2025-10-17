@@ -92,7 +92,7 @@ func waitUntilVClusterIsRunning(f *framework.Framework) {
 		newPods, err := f.HostClient.CoreV1().Pods(f.VClusterNamespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=vcluster",
 		})
-		Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(HaveOccurred())
 
 		g.Expect(newPods.Items).NotTo(BeEmpty())
 		for _, pod := range newPods.Items {
@@ -143,17 +143,17 @@ func waitForRequestToFinish[T snapshot.LongRunningRequest](f *framework.Framewor
 			LabelSelector: requestLabel,
 		}
 		requestConfigMaps, err := f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).List(ctx, listOptions)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(requestConfigMaps.Items).To(HaveLen(1))
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(requestConfigMaps.Items).To(HaveLen(1))
 
 		// extract snapshot/restore request
 		requestConfigMap := requestConfigMaps.Items[0]
 		request, err := unmarshal(&requestConfigMap)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(request).NotTo(BeNil())
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(request).NotTo(BeNil())
 
 		// check if the snapshot/restore request has been completed
-		Expect(request.GetPhase()).To(
+		g.Expect(request.GetPhase()).To(
 			Equal(snapshot.RequestPhaseCompleted),
 			fmt.Sprintf("request is not completed, current phase is %s", request.GetPhase()))
 	}).
