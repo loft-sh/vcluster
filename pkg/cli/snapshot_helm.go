@@ -152,11 +152,11 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 		return fmt.Errorf("failed to get vcluster config: %w", err)
 	}
 	// Create snapshot request resources
-	snapshotRequest, err := snapshot.CreateSnapshotRequestResources(ctx, vCluster.Namespace, vCluster.Name, vClusterConfig, snapshotOpts, kubeClient)
+	_, err = snapshot.CreateSnapshotRequestResources(ctx, vCluster.Namespace, vCluster.Name, vClusterConfig, snapshotOpts, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request resources: %w", err)
 	}
-	log.Infof("Created snapshot request %s", snapshotRequest.Name)
+	log.Infof("Beginning snapshot creation... Check the snapshot status by running `vcluster snapshot get %s %s`", vCluster.Name, snapshotOpts.GetURL())
 	return nil
 }
 
