@@ -209,9 +209,9 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			framework.ExpectNoError(err)
 		}
 
-		Eventually(func() error {
+		Eventually(func(ctx context.Context) error {
 			// create namespace
-			_, err := f.VClusterClient.CoreV1().Namespaces().Create(f.Context, &corev1.Namespace{
+			_, err := f.VClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: snapshotTestNamespace,
 				},
@@ -221,12 +221,8 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			}
 
 			// wait until the default service account gets created
-			_, err = f.VClusterClient.CoreV1().ServiceAccounts(snapshotTestNamespace).Get(f.Context, "default", metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-
-			return nil
+			_, err = f.VClusterClient.CoreV1().ServiceAccounts(snapshotTestNamespace).Get(ctx, "default", metav1.GetOptions{})
+			return err
 		}).WithPolling(time.Second).
 			WithTimeout(framework.PollTimeout).
 			Should(Succeed())
