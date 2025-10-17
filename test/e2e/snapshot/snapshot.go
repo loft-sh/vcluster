@@ -321,34 +321,26 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				Should(HaveLen(0))
 
 			// Check secret created after snapshot is not available
-			Eventually(func() bool {
+			Eventually(func(g Gomega) []corev1.Secret {
 				secrets, err := f.VClusterClient.CoreV1().Secrets(testNamespaceName).List(f.Context, metav1.ListOptions{
 					LabelSelector: "snapshot=delete",
 				})
-
-				if len(secrets.Items) != 0 {
-					return false
-				}
-				framework.ExpectNoError(err)
-				return true
+				g.Expect(err).NotTo(HaveOccurred())
+				return secrets.Items
 			}).WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout).
-				Should(BeTrue())
+				Should(HaveLen(0))
 
 			//Check service created after snapshot is not available
-			Eventually(func() bool {
-				deployment, err := f.VClusterClient.CoreV1().Services(testNamespaceName).List(f.Context, metav1.ListOptions{
+			Eventually(func(g Gomega) []corev1.Service {
+				serviceList, err := f.VClusterClient.CoreV1().Services(testNamespaceName).List(f.Context, metav1.ListOptions{
 					LabelSelector: "snapshot=delete",
 				})
-
-				if len(deployment.Items) != 0 {
-					return false
-				}
-				framework.ExpectNoError(err)
-				return true
+				g.Expect(err).NotTo(HaveOccurred())
+				return serviceList.Items
 			}).WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout * 2).
-				Should(BeTrue())
+				Should(HaveLen(0))
 		})
 
 		It("Verify if deleted resources are recreated in vCluster after restore", func() {
