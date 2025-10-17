@@ -28,6 +28,7 @@ type AddVClusterOptions struct {
 	Host                     string
 	CertificateAuthorityData []byte
 	All                      bool
+	External                 bool
 }
 
 func AddVClusterHelm(
@@ -124,6 +125,7 @@ func addVClusterHelm(
 		options.Host,
 		options.Insecure,
 		options.CertificateAuthorityData,
+		options.External,
 		log,
 	)
 	if err != nil {

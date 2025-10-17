@@ -59,6 +59,7 @@ vcluster platform add vcluster --project my-project --all
 	addCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "If the platform host is insecure")
 	addCmd.Flags().BytesBase64Var(&cmd.CertificateAuthorityData, "ca-data", []byte{}, "additional, base64 encoded certificate authority data that will be passed to the platform secret")
 	addCmd.Flags().BoolVar(&cmd.All, "all", false, "all will try to add Virtual Cluster found in all namespaces in the host cluster. If this flag is set, any provided vCluster name argument is ignored")
+	addCmd.Flags().BoolVar(&cmd.External, "external", true, "If the virtual cluster is managed by the platform agent or externally. This flag is ignored if --access-key is provided or the vCluster is already registered with the platform")
 
 	return addCmd
 }

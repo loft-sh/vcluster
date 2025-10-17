@@ -503,7 +503,7 @@ func (cmd *createHelm) addVCluster(ctx context.Context, name string, vClusterCon
 		return nil
 	}
 
-	err = platform.ApplyPlatformSecret(ctx, cmd.LoadedConfig(cmd.log), cmd.kubeClient, "", name, cmd.Namespace, cmd.Project, "", "", false, cmd.LoadedConfig(cmd.log).Platform.CertificateAuthorityData, cmd.log)
+	err = platform.ApplyPlatformSecret(ctx, cmd.LoadedConfig(cmd.log), cmd.kubeClient, "", name, cmd.Namespace, cmd.Project, "", "", false, cmd.LoadedConfig(cmd.log).Platform.CertificateAuthorityData, true, cmd.log)
 	if err != nil {
 		return fmt.Errorf("apply platform secret: %w", err)
 	}
