@@ -318,7 +318,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				return configmaps.Items
 			}).WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout).
-				Should(HaveLen(0))
+				Should(BeEmpty())
 
 			// Check secret created after snapshot is not available
 			Eventually(func(g Gomega) []corev1.Secret {
@@ -329,7 +329,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				return secrets.Items
 			}).WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout).
-				Should(HaveLen(0))
+				Should(BeEmpty())
 
 			//Check service created after snapshot is not available
 			Eventually(func(g Gomega) []corev1.Service {
@@ -340,7 +340,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				return serviceList.Items
 			}).WithPolling(time.Second).
 				WithTimeout(framework.PollTimeout * 2).
-				Should(HaveLen(0))
+				Should(BeEmpty())
 		})
 
 		It("Verify if deleted resources are recreated in vCluster after restore", func() {
