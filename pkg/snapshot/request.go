@@ -32,8 +32,6 @@ var (
 	ErrSnapshotRequestNotFound = errors.New("snapshot request not found")
 )
 
-type RequestPhase string
-
 type Request struct {
 	RequestMetadata `json:"metadata,omitempty"`
 	Spec            RequestSpec   `json:"spec,omitempty"`
