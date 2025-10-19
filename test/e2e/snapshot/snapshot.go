@@ -2,10 +2,16 @@ package snapshot
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
+	"github.com/ghodss/yaml"
+	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
+	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/test/framework"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -14,6 +20,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
 )
 
@@ -528,6 +535,41 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			waitForSnapshotToBeCreated(ctx, f)
 		})
 
+		It("Doesn't contain VolumeSnapshot and VolumeSnapshotContent, because they have been cleaned up", func(ctx context.Context) {
+			// get vCluster config
+			vClusterRelease, err := helm.NewSecrets(f.HostClient).Get(ctx, f.VClusterName, f.VClusterNamespace)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vClusterRelease).NotTo(BeNil())
+			vConfigValues, err := yaml.Marshal(vClusterRelease.Config)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vConfigValues).NotTo(BeEmpty())
+			vClusterConfig, err := vclusterconfig.ParseConfigBytes(vConfigValues, f.VClusterName, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vClusterConfig).NotTo(BeNil())
+
+			// create the snapshot client used to check if the VolumeSnapshot and VolumeSnapshotContent are deleted
+			var restConfig *rest.Config
+			var volumeSnapshotsNamespace string
+			if vClusterConfig.PrivateNodes.Enabled {
+				restConfig = f.VClusterConfig
+				volumeSnapshotsNamespace = controllerTestNamespaceName
+			} else {
+				restConfig = f.HostConfig
+				volumeSnapshotsNamespace = f.VClusterNamespace
+			}
+			snapshotClient, err := snapshotsv1.NewForConfig(restConfig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(snapshotClient).NotTo(BeNil())
+
+			volumeSnapshots, err := snapshotClient.SnapshotV1().VolumeSnapshots(volumeSnapshotsNamespace).List(ctx, metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(volumeSnapshots.Items).To(BeEmpty())
+
+			volumeSnapshotContents, err := snapshotClient.SnapshotV1().VolumeSnapshotContents().List(ctx, metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(volumeSnapshotContents.Items).To(BeEmpty())
+		})
+
 		It("Deletes the PVC with test data", func(ctx context.Context) {
 			deletePVC(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName)
 		})
@@ -541,6 +583,31 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 			// now restore the vCluster
 			restoreVCluster(ctx, f, snapshotPath, true, true)
+		})
+
+		It("has the restored PVC which is bound", func(ctx context.Context) {
+			var restoredPVC *corev1.PersistentVolumeClaim
+			pvcJson := func() string {
+				if restoredPVC == nil {
+					return ""
+				}
+				pvcJson, err := json.Marshal(restoredPVC)
+				if err != nil {
+					return ""
+				}
+				return string(pvcJson)
+			}
+
+			Eventually(func(g Gomega, ctx context.Context) corev1.PersistentVolumeClaimPhase {
+				var err error
+				restoredPVC, err = f.VClusterClient.CoreV1().PersistentVolumeClaims(controllerTestNamespaceName).Get(ctx, pvcToRestoreName, metav1.GetOptions{})
+				g.Expect(err).NotTo(HaveOccurred())
+
+				return restoredPVC.Status.Phase
+			}).WithContext(ctx).
+				WithPolling(framework.PollInterval).
+				WithTimeout(framework.PollTimeoutLong).
+				Should(Equal(corev1.ClaimBound), fmt.Sprintf("PVC %s is not bound, got: %s", pvcToRestoreName, pvcJson()))
 		})
 
 		It("has the restored PVC with data restored from the volume snapshot", func(ctx context.Context) {
