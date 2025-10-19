@@ -32,6 +32,7 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 	}()
 
 	hasInProgressRestores := false
+	cleaningUpSnapshots := false
 	hasCompletedRestores := false
 	hasSkippedRestores := false
 	failedRestoresCount := 0
@@ -59,14 +60,36 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 			case volumes.RequestPhaseInProgress:
 				hasInProgressRestores = true
 				continue
-			case volumes.RequestPhaseFailed:
-				failedRestoresCount++
-			case volumes.RequestPhaseCompleted:
-				hasCompletedRestores = true
+			case volumes.RequestPhaseCompletedCleaningUp:
+				fallthrough
+			case volumes.RequestPhaseFailedCleaningUp:
+				cleaningUpSnapshots = true
 			case volumes.RequestPhaseSkipped:
 				hasSkippedRestores = true
 			default:
 				return fmt.Errorf("unexpected phase %s for restoring PVC %s", newStatus.Phase, pvcName)
+			}
+		case volumes.RequestPhaseCompletedCleaningUp:
+			fallthrough
+		case volumes.RequestPhaseFailedCleaningUp:
+			volumeSnapshotName := fmt.Sprintf("%s-%s", volumeRestoreRequest.PersistentVolumeClaim.Name, requestName)
+			cleanedUp, err := r.cleanupVolumeSnapshotResource(ctx, volumeRestoreRequest.PersistentVolumeClaim.Namespace, volumeSnapshotName)
+			if err != nil {
+				volumeRestoreStatus.Phase = volumeRestoreStatus.Phase.Failed()
+				volumeRestoreStatus.Error.Message = fmt.Errorf("failed to cleanup volume snapshot resources: %w", err).Error()
+				status.PersistentVolumeClaims[pvcName] = volumeRestoreStatus
+				continue
+			}
+			if cleanedUp {
+				volumeRestoreStatus.Phase = volumeRestoreStatus.Phase.Next()
+				status.PersistentVolumeClaims[pvcName] = volumeRestoreStatus
+				if volumeRestoreStatus.Phase == volumes.RequestPhaseFailed {
+					failedRestoresCount++
+				} else if volumeRestoreStatus.Phase == volumes.RequestPhaseCompleted {
+					hasCompletedRestores = true
+				}
+			} else {
+				cleaningUpSnapshots = true
 			}
 		case volumes.RequestPhaseCompleted:
 			hasCompletedRestores = true
@@ -83,7 +106,7 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 	}
 
 	hasFailedRestores := failedRestoresCount > 0
-	if hasInProgressRestores {
+	if hasInProgressRestores || cleaningUpSnapshots {
 		status.Phase = volumes.RequestPhaseInProgress
 	} else if hasCompletedRestores && hasFailedRestores {
 		status.Phase = volumes.RequestPhasePartiallyFailed
@@ -113,7 +136,7 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtim
 	status = volumeRestoreStatus
 	defer func() {
 		if retErr != nil {
-			status.Phase = volumes.RequestPhaseFailed
+			status.Phase = volumes.RequestPhaseFailedCleaningUp
 		}
 		r.inProgressPVCReconcileFinished(requestObj, volumeRestoreRequest, status, retErr)
 	}()
@@ -264,7 +287,7 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtim
 			err)
 	}
 
-	status.Phase = volumes.RequestPhaseCompleted
+	status.Phase = volumes.RequestPhaseCompletedCleaningUp
 	r.logger.Infof(
 		"Restored PersistentVolumeClaim %s/%s from VolumeSnapshot %s/%s",
 		restoredPersistentVolumeClaim.Namespace, restoredPersistentVolumeClaim.Name,

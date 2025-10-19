@@ -79,6 +79,7 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestObj 
 			if err != nil {
 				snapshotStatus.Phase = snapshotStatus.Phase.Failed()
 				snapshotStatus.Error.Message = fmt.Errorf("failed to cleanup volume snapshot resources: %w", err).Error()
+				status.Snapshots[pvcName] = snapshotStatus
 				continue
 			}
 			if cleanedUp {
