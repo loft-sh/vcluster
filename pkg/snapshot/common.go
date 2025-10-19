@@ -17,6 +17,9 @@ const (
 	RequestPhaseCompleted               RequestPhase = "Completed"
 	RequestPhasePartiallyFailed         RequestPhase = "PartiallyFailed"
 	RequestPhaseFailed                  RequestPhase = "Failed"
+
+	RequestPhaseCanceling RequestPhase = "Canceling"
+	RequestPhaseCanceled  RequestPhase = "Canceled"
 )
 
 type RequestPhase string
