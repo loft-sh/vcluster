@@ -48,7 +48,7 @@ vcluster snapshot my-vcluster container:///data/my-local-snapshot.tar.gz
 		Args:              nameValidator,
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.Snapshot(cobraCmd.Context(), args, rootCmd.GlobalFlags, &rootCmd.Snapshot, &rootCmd.Pod, rootCmd.Log, false)
+			return cli.CreateSnapshot(cobraCmd.Context(), args, rootCmd.GlobalFlags, &rootCmd.Snapshot, &rootCmd.Pod, rootCmd.Log, false)
 		},
 	}
 
@@ -58,6 +58,7 @@ vcluster snapshot my-vcluster container:///data/my-local-snapshot.tar.gz
 
 	// add subcommands
 	cobraCmd.AddCommand(NewCreateCmd(globalFlags))
+	cobraCmd.AddCommand(NewGetCmd(globalFlags))
 
 	return cobraCmd
 }
