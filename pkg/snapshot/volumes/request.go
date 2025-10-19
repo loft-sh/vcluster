@@ -1,6 +1,8 @@
 package volumes
 
 import (
+	"errors"
+
 	snapshotTypes "github.com/loft-sh/vcluster/pkg/snapshot/types"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -8,13 +10,62 @@ import (
 const (
 	SnapshotClassNameLabel = "vcluster.loft.sh/csi-volumesnapshot-class"
 
-	RequestPhaseNotStarted      SnapshotRequestPhase = ""
-	RequestPhaseSkipped         SnapshotRequestPhase = "Skipped"
-	RequestPhaseInProgress      SnapshotRequestPhase = "InProgress"
-	RequestPhaseCompleted       SnapshotRequestPhase = "Completed"
-	RequestPhasePartiallyFailed SnapshotRequestPhase = "PartiallyFailed"
-	RequestPhaseFailed          SnapshotRequestPhase = "Failed"
+	RequestPhaseNotStarted          SnapshotRequestPhase = ""
+	RequestPhaseSkipped             SnapshotRequestPhase = "Skipped"
+	RequestPhaseInProgress          SnapshotRequestPhase = "InProgress"
+	RequestPhaseCleaningUp          SnapshotRequestPhase = "CleaningUp"
+	RequestPhaseCompletedCleaningUp SnapshotRequestPhase = "CompletedCleaningUp"
+	RequestPhaseCompleted           SnapshotRequestPhase = "Completed"
+	RequestPhasePartiallyFailed     SnapshotRequestPhase = "PartiallyFailed"
+	RequestPhaseFailed              SnapshotRequestPhase = "Failed"
+	RequestPhaseFailedCleaningUp    SnapshotRequestPhase = "FailedCleaningUp"
+
+	// RequestPhaseUndefined is a special request phase used in case of an error
+	// in volume snapshot phase transition.
+	RequestPhaseUndefined SnapshotRequestPhase = "Undefined"
 )
+
+var (
+	ErrNextPhaseNotDefined   error = errors.New("next phase not defined")
+	ErrFailedPhaseNotDefined error = errors.New("failure phase transition not defined")
+)
+
+// SnapshotRequestPhase describes the current state of the snapshot creation process.
+type SnapshotRequestPhase string
+
+// Next returns the next phase in the volume snapshot creation process. In case phase transition is
+// not defined, it returns Undefined.
+func (s SnapshotRequestPhase) Next() SnapshotRequestPhase {
+	var next SnapshotRequestPhase
+	switch s {
+	case RequestPhaseNotStarted:
+		next = RequestPhaseInProgress
+	case RequestPhaseInProgress:
+		next = RequestPhaseCompletedCleaningUp
+	case RequestPhaseCompletedCleaningUp:
+		next = RequestPhaseCompleted
+	case RequestPhaseFailedCleaningUp:
+		next = RequestPhaseFailed
+	default:
+		next = RequestPhaseUndefined
+	}
+	return next
+}
+
+// Failed returns the next phase in the volume snapshot creation process in case of an error in the
+// current phase.
+func (s SnapshotRequestPhase) Failed() SnapshotRequestPhase {
+	var next SnapshotRequestPhase
+	switch s {
+	case RequestPhaseInProgress:
+		next = RequestPhaseFailedCleaningUp
+	case RequestPhaseCompletedCleaningUp:
+		next = RequestPhaseFailedCleaningUp
+	default:
+		next = RequestPhaseFailed
+	}
+	return next
+}
 
 // SnapshotsRequest specifies how to create snapshots for multiple PVCs.
 type SnapshotsRequest struct {
@@ -31,9 +82,6 @@ type SnapshotRequest struct {
 	// VolumeSnapshotClassName to use when creating a VolumeSnapshot resource.
 	VolumeSnapshotClassName string `json:"volumeSnapshotClassName,omitempty"`
 }
-
-// SnapshotRequestPhase describes the current state of the snapshot creation process.
-type SnapshotRequestPhase string
 
 // SnapshotsStatus shows the current status of the snapshot request.
 type SnapshotsStatus struct {
