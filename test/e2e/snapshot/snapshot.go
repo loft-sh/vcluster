@@ -587,15 +587,15 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 		It("has the restored PVC which is bound", func(ctx context.Context) {
 			var restoredPVC *corev1.PersistentVolumeClaim
-			pvcJson := func() string {
-				if restoredPVC == nil {
+			toJSON := func(pvc *corev1.PersistentVolumeClaim) string {
+				if pvc == nil {
 					return ""
 				}
-				pvcJson, err := json.Marshal(restoredPVC)
+				pvcJSON, err := json.Marshal(pvc)
 				if err != nil {
 					return ""
 				}
-				return string(pvcJson)
+				return string(pvcJSON)
 			}
 
 			Eventually(func(g Gomega, ctx context.Context) corev1.PersistentVolumeClaimPhase {
@@ -607,7 +607,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			}).WithContext(ctx).
 				WithPolling(framework.PollInterval).
 				WithTimeout(framework.PollTimeoutLong).
-				Should(Equal(corev1.ClaimBound), fmt.Sprintf("PVC %s is not bound, got: %s", pvcToRestoreName, pvcJson()))
+				Should(Equal(corev1.ClaimBound), fmt.Sprintf("PVC %s is not bound, got: %s", pvcToRestoreName, toJSON(restoredPVC)))
 		})
 
 		It("has the restored PVC with data restored from the volume snapshot", func(ctx context.Context) {
