@@ -3,16 +3,14 @@ package manifests
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
-
 	"github.com/loft-sh/vcluster/test/framework"
-	"github.com/onsi/ginkgo/v2"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -23,7 +21,7 @@ const (
 	ChartOCINamespace    = "fluent-bit"
 )
 
-var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as expected", func() {
+var _ = Describe("Helm charts (regular and OCI) are synced and applied as expected", func() {
 	var (
 		f                = framework.DefaultFramework
 		HelmSecretLabels = map[string]string{
@@ -36,76 +34,49 @@ var _ = ginkgo.Describe("Helm charts (regular and OCI) are synced and applied as
 		}
 	)
 
-	ginkgo.It("Test if configmap for both charts gets applied", func() {
-		err := wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, framework.PollTimeout*2, true, func(ctx context.Context) (bool, error) {
+	It("Test if configmap for both charts gets applied", func(ctx context.Context) {
+		Eventually(func(g Gomega, ctx context.Context) {
 			cm, err := f.VClusterClient.CoreV1().ConfigMaps(deploy.VClusterDeployConfigMapNamespace).
 				Get(ctx, deploy.VClusterDeployConfigMap, metav1.GetOptions{})
-			if err != nil {
-				if kerrors.IsNotFound(err) {
-					return false, nil
-				}
-				return false, err
-			}
-
-			// validate that all charts are Success
+			g.Expect(err).NotTo(HaveOccurred())
 			status := deploy.ParseStatus(cm)
+			g.Expect(status.Charts).To(HaveLen(2))
 			for _, chart := range status.Charts {
-				if chart.Phase != string(deploy.StatusSuccess) {
-					fmt.Println(chart.Name, chart.Phase, chart.Reason, chart.Message)
-					return false, nil
-				}
+				g.Expect(chart.Phase).To(
+					Equal(string(deploy.StatusSuccess)),
+					fmt.Sprintf("Chart %s is not in Success phase, got phase=%s, reason=%s, message=%s", chart.Name, chart.Phase, chart.Reason, chart.Message))
 			}
-
-			return status.Phase == string(deploy.StatusSuccess) && len(status.Charts) == 2, nil
-		})
-
-		framework.ExpectNoError(err)
+		}).WithContext(ctx).
+			WithPolling(framework.PollInterval).
+			WithTimeout(framework.PollTimeoutLong).
+			Should(Succeed())
 	})
 
-	ginkgo.It("Test nginx release secret existence in vcluster (regular chart)", func() {
-		err := wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
+	It("Test nginx release secret existence in vcluster (regular chart)", func(ctx context.Context) {
+		Eventually(func(g Gomega, ctx context.Context) {
 			secList, err := f.VClusterClient.CoreV1().Secrets(ChartNamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: labels.SelectorFromSet(HelmSecretLabels).String(),
 			})
-			if err != nil {
-				if kerrors.IsNotFound(err) {
-					return false, nil
-				}
-				return false, err
-			}
-
-			for _, sec := range secList.Items {
-				_, ok := sec.Data["release"]
-				if ok {
-					return true, nil
-				}
-			}
-
-			return false, nil
-		})
-
-		framework.ExpectNoError(err)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(secList.Items).To(HaveLen(1))
+			g.Expect(secList.Items[0].Data).NotTo(BeEmpty())
+			g.Expect(secList.Items[0].Data["release"]).NotTo(BeEmpty())
+		}).WithContext(ctx).
+			WithPolling(framework.PollInterval).
+			WithTimeout(framework.PollTimeout).
+			Should(Succeed())
 	})
 
-	ginkgo.It("Test fluent-bit release deployment existence in vcluster (OCI chart)", func() {
-		err := wait.PollUntilContextTimeout(f.Context, time.Millisecond*500, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
+	It("Test fluent-bit release deployment existence in vcluster (OCI chart)", func(ctx context.Context) {
+		Eventually(func(g Gomega, ctx context.Context) []appsv1.Deployment {
 			deployList, err := f.VClusterClient.AppsV1().Deployments(ChartOCINamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: labels.SelectorFromSet(HelmOCIDeploymentLabels).String(),
 			})
-			if err != nil {
-				if kerrors.IsNotFound(err) {
-					return false, nil
-				}
-				return false, err
-			}
-			// return OK if a deployment is found
-			if len(deployList.Items) == 1 {
-				return true, nil
-			}
-
-			return false, nil
-		})
-
-		framework.ExpectNoError(err)
+			g.Expect(err).NotTo(HaveOccurred())
+			return deployList.Items
+		}).WithContext(ctx).
+			WithPolling(framework.PollInterval).
+			WithTimeout(framework.PollTimeout).
+			Should(HaveLen(1))
 	})
 })
