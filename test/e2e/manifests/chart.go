@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/test/framework"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -67,12 +68,12 @@ var _ = Describe("Helm charts (regular and OCI) are synced and applied as expect
 	})
 
 	It("Test fluent-bit release deployment existence in vcluster (OCI chart)", func(ctx context.Context) {
-		Eventually(func(g Gomega, ctx context.Context) int {
+		Eventually(func(g Gomega, ctx context.Context) []appsv1.Deployment {
 			deployList, err := f.VClusterClient.AppsV1().Deployments(ChartOCINamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: labels.SelectorFromSet(HelmOCIDeploymentLabels).String(),
 			})
 			g.Expect(err).NotTo(HaveOccurred())
-			return len(deployList.Items)
+			return deployList.Items
 		}).WithContext(ctx).
 			WithPolling(framework.PollInterval).
 			WithTimeout(framework.PollTimeout).
