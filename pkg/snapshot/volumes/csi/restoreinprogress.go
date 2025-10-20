@@ -193,6 +193,10 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtim
 		return status, nil
 	}
 
+	if volumeSnapshot.Status == nil {
+		return status, nil
+	}
+
 	// check if VolumeSnapshot has failed
 	if volumeSnapshot.Status.Error != nil {
 		var errorMessage string
@@ -217,6 +221,10 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtim
 	// check if VolumeSnapshot is ready
 	if volumeSnapshot.Status.ReadyToUse == nil || !*volumeSnapshot.Status.ReadyToUse {
 		// VolumeSnapshot is still not ready
+		return status, nil
+	}
+
+	if volumeSnapshotContent.Status == nil {
 		return status, nil
 	}
 
