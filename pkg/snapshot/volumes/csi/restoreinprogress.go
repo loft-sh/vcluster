@@ -72,6 +72,23 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 		case volumes.RequestPhaseCompletedCleaningUp:
 			fallthrough
 		case volumes.RequestPhaseFailedCleaningUp:
+			if volumeRestoreStatus.Phase == volumes.RequestPhaseCompletedCleaningUp {
+				// if the PVC has been re-created, wait for it to be bound
+				pvc, err := r.kubeClient.CoreV1().
+					PersistentVolumeClaims(volumeRestoreRequest.PersistentVolumeClaim.Namespace).
+					Get(ctx, volumeRestoreRequest.PersistentVolumeClaim.Name, metav1.GetOptions{})
+				if err != nil {
+					volumeRestoreStatus.Phase = volumeRestoreStatus.Phase.Failed()
+					volumeRestoreStatus.Error.Message = fmt.Errorf("failed to check PVC %s/%s: %w", volumeRestoreRequest.PersistentVolumeClaim.Namespace, volumeRestoreRequest.PersistentVolumeClaim.Name, err).Error()
+					status.PersistentVolumeClaims[pvcName] = volumeRestoreStatus
+					continue
+				}
+				if pvc.Status.Phase != corev1.ClaimBound {
+					// PVC is not bound yet, don't clean up the VolumeSnapshot resource yet
+					cleaningUpSnapshots = true
+					continue
+				}
+			}
 			volumeSnapshotName := fmt.Sprintf("%s-%s", volumeRestoreRequest.PersistentVolumeClaim.Name, requestName)
 			cleanedUp, err := r.cleanupVolumeSnapshotResource(ctx, volumeRestoreRequest.PersistentVolumeClaim.Namespace, volumeSnapshotName)
 			if err != nil {
