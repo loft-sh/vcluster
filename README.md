@@ -16,7 +16,7 @@
 
 <div align="center">
 
-### **[Website](https://www.vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/get-started/)** • **[Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Twitter](https://x.com/vcluster)** • **[Slack](https://slack.loft.sh/)**
+### **[Website](https://www.vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/get-started/)** • **[Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[LinkedIn](https://www.linkedin.com/company/vcluster)** • **[X](https://x.com/vcluster)** • **[Slack](https://slack.loft.sh/)**
 
 </div>
 
@@ -168,6 +168,7 @@ For quick local development, use [![Open in DevPod!](https://devpod.sh/assets/op
 - [Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)
 - [Slack Community](https://slack.loft.sh/)
 - [vCluster Website](https://www.vcluster.com)
+- [Chat with an Expert] (https://start-chat.com/slack/Loft-Labs/NnQl1M)
 
 ---
 ### Adopters
