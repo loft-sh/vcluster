@@ -81,6 +81,11 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 					volumeRestoreStatus.Phase = volumeRestoreStatus.Phase.Failed()
 					volumeRestoreStatus.Error.Message = fmt.Errorf("failed to check PVC %s/%s: %w", volumeRestoreRequest.PersistentVolumeClaim.Namespace, volumeRestoreRequest.PersistentVolumeClaim.Name, err).Error()
 					status.PersistentVolumeClaims[pvcName] = volumeRestoreStatus
+					if volumeRestoreStatus.CleaningUp() {
+						cleaningUpSnapshots = true
+					} else {
+						failedRestoresCount++
+					}
 					continue
 				}
 				if pvc.Status.Phase != corev1.ClaimBound {
@@ -95,6 +100,11 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 				volumeRestoreStatus.Phase = volumeRestoreStatus.Phase.Failed()
 				volumeRestoreStatus.Error.Message = fmt.Errorf("failed to cleanup volume snapshot resources: %w", err).Error()
 				status.PersistentVolumeClaims[pvcName] = volumeRestoreStatus
+				if volumeRestoreStatus.CleaningUp() {
+					cleaningUpSnapshots = true
+				} else {
+					failedRestoresCount++
+				}
 				continue
 			}
 			if cleanedUp {
@@ -140,7 +150,7 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 	} else if hasSkippedRestores {
 		status.Phase = volumes.RequestPhaseSkipped
 	} else {
-		return fmt.Errorf("unexpected state for snapshot request %s, expected at least 1 snapshot to be in progress, completed or failed", requestName)
+		return fmt.Errorf("unexpected state for restore request %s, expected at least 1 volume restore to be in progress, cleaning up, completed or failed", requestName)
 	}
 
 	return nil

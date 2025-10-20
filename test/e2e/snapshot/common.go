@@ -157,7 +157,7 @@ func waitForRequestToFinish[T snapshot.LongRunningRequest](ctx context.Context, 
 		// check if the snapshot/restore request has been completed
 		g.Expect(request.GetPhase()).To(
 			Equal(snapshot.RequestPhaseCompleted),
-			fmt.Sprintf("request is not completed, current phase is %s", request.GetPhase()))
+			fmt.Sprintf("request is not completed, current phase is %s, request details: %s", request.GetPhase(), toJSON(request)))
 	}).WithContext(ctx).
 		WithPolling(framework.PollInterval).
 		WithTimeout(timeout).
