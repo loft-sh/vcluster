@@ -127,7 +127,7 @@ func deployJob(ctx context.Context, client *kubernetes.Clientset, jobNamespace, 
 	}).WithContext(ctx).
 		WithPolling(framework.PollInterval).
 		WithTimeout(framework.PollTimeoutLong).
-		Should(Succeed())
+		Should(Succeed(), fmt.Sprintf("expected job %s/%s to succeed, got: %s", job.Namespace, job.Name, toJSON(job)))
 
 	// delete the job
 	err = client.BatchV1().Jobs(job.Namespace).Delete(ctx, job.Name, metav1.DeleteOptions{
