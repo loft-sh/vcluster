@@ -73,6 +73,10 @@ func (s RestoreStatus) Done() bool {
 	return s.Phase == RequestPhaseCompleted || s.Phase == RequestPhaseSkipped || s.Phase == RequestPhaseFailed
 }
 
+func (s RestoreStatus) CleaningUp() bool {
+	return s.Phase == RequestPhaseCompletedCleaningUp || s.Phase == RequestPhaseFailedCleaningUp
+}
+
 // RestoreError describes the error that occurred while restoring the volume.
 type RestoreError struct {
 	Message string `json:"message,omitempty"`

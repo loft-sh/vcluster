@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -161,4 +162,9 @@ func waitForRequestToFinish[T snapshot.LongRunningRequest](ctx context.Context, 
 		WithPolling(framework.PollInterval).
 		WithTimeout(timeout).
 		Should(Succeed())
+}
+
+func toJSON[T interface{}](obj T) string {
+	objJSON, _ := json.Marshal(obj)
+	return string(objJSON)
 }

@@ -287,7 +287,7 @@ func (s *persistentVolumeClaimSyncer) isHostVolumeRestoreInProgress(ctx *synccon
 		if !ok {
 			continue
 		}
-		if !volumeRestore.Done() {
+		if !(volumeRestore.CleaningUp() || volumeRestore.Done()) {
 			return true, nil
 		}
 	}
