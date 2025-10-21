@@ -168,7 +168,7 @@ For quick local development, use [![Open in DevPod!](https://devpod.sh/assets/op
 - [Documentation](https://www.vcluster.com/docs/what-are-virtual-clusters)
 - [Slack Community](https://slack.loft.sh/)
 - [vCluster Website](https://www.vcluster.com)
-- [Chat with an Expert] (https://start-chat.com/slack/Loft-Labs/NnQl1M)
+- [Chat with an Expert](https://start-chat.com/slack/Loft-Labs/NnQl1M)
 
 ---
 ### Adopters
