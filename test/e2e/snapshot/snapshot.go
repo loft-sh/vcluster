@@ -12,6 +12,8 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/helm"
+	"github.com/loft-sh/vcluster/pkg/snapshot"
+	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	"github.com/loft-sh/vcluster/test/framework"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -246,6 +248,14 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		}
 		err = f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).DeleteCollection(f.Context, deleteOptions, listOptions)
 		framework.ExpectNoError(err)
+		Eventually(func(g Gomega, ctx context.Context) []corev1.ConfigMap {
+			configMaps, err := f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).List(ctx, listOptions)
+			g.Expect(err).NotTo(HaveOccurred())
+			return configMaps.Items
+		}).WithContext(ctx).
+			WithPolling(framework.PollInterval).
+			WithTimeout(framework.PollTimeout).
+			Should(BeEmpty())
 	}
 
 	checkTestResources := func(testNamespaceName string, useNewCommand bool, snapshotPath string) {
@@ -616,6 +626,104 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 
 		AfterAll(func(ctx context.Context) {
 			cleanUpTestResources(ctx, true, controllerTestNamespaceName)
+		})
+	})
+
+	When("a snapshot is taken while the previous one is still in progress", Ordered, func() {
+		const (
+			testNamespaceName = "snapshot-canceling"
+			snapshotPath      = "container:///snapshot-data/" + testNamespaceName + ".tar.gz"
+			appCount          = 3
+			appPrefix         = "test-app-"
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			f = framework.DefaultFramework
+			deployTestNamespace(testNamespaceName)
+			for i := 0; i < appCount; i++ {
+				appName := fmt.Sprintf("%s%d", appPrefix, i)
+				createAppWithPVC(ctx, f.VClusterClient, testNamespaceName, appName)
+			}
+			Eventually(func(g Gomega, ctx context.Context) {
+				for i := 0; i < appCount; i++ {
+					appName := fmt.Sprintf("%s%d", appPrefix, i)
+					deployment, err := f.VClusterClient.AppsV1().Deployments(testNamespaceName).Get(ctx, appName, metav1.GetOptions{})
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(deployment.Status.Replicas).To(
+						Equal(int32(1)),
+						fmt.Sprintf("expected deployment with 1 replica, got deployment: %s", toJSON(deployment)))
+					g.Expect(deployment.Status.ReadyReplicas).To(
+						Equal(int32(1)),
+						fmt.Sprintf("expected deployment with 1 ready replica, got deployment: %s", toJSON(deployment)))
+					g.Expect(deployment.Status.AvailableReplicas).To(
+						Equal(int32(1)),
+						fmt.Sprintf("expected deployment with 1 available replica, got deployment: %s", toJSON(deployment)))
+				}
+			}).WithContext(ctx).
+				WithPolling(time.Second).
+				WithTimeout(framework.PollTimeoutLong).
+				Should(Succeed())
+
+			createSnapshot(f, true, snapshotPath, true)
+			time.Sleep(time.Second)
+			createSnapshot(f, true, snapshotPath, true)
+		})
+
+		It("has 2 snapshot requests", func(ctx context.Context) {
+			Eventually(func(g Gomega, ctx context.Context) []corev1.ConfigMap {
+				listOptions := metav1.ListOptions{
+					LabelSelector: constants.SnapshotRequestLabel,
+				}
+				configMaps, err := f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).List(ctx, listOptions)
+				g.Expect(err).NotTo(HaveOccurred())
+				return configMaps.Items
+			}).WithContext(ctx).
+				WithPolling(framework.PollInterval).
+				WithTimeout(framework.PollTimeoutLong).
+				Should(HaveLen(2))
+		})
+
+		It("canceled the previous snapshot request", func(ctx context.Context) {
+			Eventually(func(g Gomega, ctx context.Context) {
+				previousSnapshotRequest, _ := getTwoSnapshotRequests(g, ctx, f)
+				g.Expect(previousSnapshotRequest.Status.Phase).To(
+					Equal(snapshot.RequestPhaseCanceled),
+					fmt.Sprintf("Previous snapshot request %s is not canceled, got: %s", previousSnapshotRequest.Name, toJSON(previousSnapshotRequest)))
+				g.Expect(previousSnapshotRequest.Status.VolumeSnapshots.Phase).To(
+					Equal(volumes.RequestPhaseCanceled),
+					fmt.Sprintf("Previous snapshot request %s is not canceled, got: %s", previousSnapshotRequest.Name, toJSON(previousSnapshotRequest)))
+				for pvcName, volumeSnapshot := range previousSnapshotRequest.Status.VolumeSnapshots.Snapshots {
+					g.Expect(volumeSnapshot.Phase).To(
+						Equal(volumes.RequestPhaseCanceled),
+						fmt.Sprintf("Previous volume snapshot request for PVC %s should be canceled, got: %s", pvcName, toJSON(volumeSnapshot)))
+				}
+			}).WithContext(ctx).
+				WithPolling(framework.PollInterval).
+				WithTimeout(framework.PollTimeoutLong).
+				Should(Succeed())
+		})
+
+		It("completed new new snapshot request", func(ctx context.Context) {
+			Eventually(func(g Gomega, ctx context.Context) {
+				_, newerSnapshotRequest := getTwoSnapshotRequests(g, ctx, f)
+				g.Expect(newerSnapshotRequest.Status.Phase).Should(
+					Equal(snapshot.RequestPhaseCompleted),
+					fmt.Sprintf("Newer snapshot request %s is not completed, got: %s", newerSnapshotRequest.Name, toJSON(newerSnapshotRequest)))
+				for pvcName, volumeSnapshot := range newerSnapshotRequest.Status.VolumeSnapshots.Snapshots {
+					g.Expect(volumeSnapshot.Phase).To(
+						Equal(volumes.RequestPhaseCompleted),
+						fmt.Sprintf("New volume snapshot request for PVC %s should be completed, got: %s", pvcName, toJSON(volumeSnapshot)))
+				}
+			}).WithContext(ctx).
+				WithPolling(framework.PollInterval).
+				WithTimeout(framework.PollTimeoutLong).
+				Should(Succeed())
+		})
+
+		AfterAll(func(ctx context.Context) {
+			// delete the namespace
+			err := f.VClusterClient.CoreV1().Namespaces().Delete(ctx, testNamespaceName, metav1.DeleteOptions{})
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })
