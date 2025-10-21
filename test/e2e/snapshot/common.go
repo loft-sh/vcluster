@@ -168,3 +168,27 @@ func toJSON[T interface{}](obj T) string {
 	objJSON, _ := json.Marshal(obj)
 	return string(objJSON)
 }
+
+func getTwoSnapshotRequests(g Gomega, ctx context.Context, f *framework.Framework) (*snapshot.Request, *snapshot.Request) {
+	listOptions := metav1.ListOptions{
+		LabelSelector: constants.SnapshotRequestLabel,
+	}
+	configMaps, err := f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).List(ctx, listOptions)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(configMaps.Items).To(HaveLen(2))
+
+	var previousConfigMap, newerConfigMap corev1.ConfigMap
+	if configMaps.Items[0].CreationTimestamp.Time.Before(configMaps.Items[1].CreationTimestamp.Time) {
+		previousConfigMap = configMaps.Items[0]
+		newerConfigMap = configMaps.Items[1]
+	} else {
+		previousConfigMap = configMaps.Items[1]
+		newerConfigMap = configMaps.Items[0]
+	}
+	previousSnapshotRequest, err := snapshot.UnmarshalSnapshotRequest(&previousConfigMap)
+	g.Expect(err).NotTo(HaveOccurred())
+	newerSnapshotRequest, err := snapshot.UnmarshalSnapshotRequest(&newerConfigMap)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	return previousSnapshotRequest, newerSnapshotRequest
+}
