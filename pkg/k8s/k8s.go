@@ -86,6 +86,10 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 					args = append(args, "--kubelet-client-key="+constants.APIServerKubeletClientKey)
 					args = append(args, "--enable-admission-plugins=NodeRestriction")
 					args = append(args, "--endpoint-reconciler-type=none")
+					// this is often needed as the hostname is often not reachable correctly from the api server, but the internal ip
+					// or internal dns is. We could also set this always but having this as a default makes it easier and people can
+					// still override it if needed.
+					args = append(args, "--kubelet-preferred-address-types=InternalDNS,InternalIP,Hostname,ExternalDNS,ExternalIP")
 
 					// if konnectivity is enabled, we need to write the egress config
 					if vConfig.ControlPlane.Advanced.Konnectivity.Server.Enabled {
@@ -156,10 +160,6 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 					args = append(args, "--controllers=*,bootstrapsigner,tokencleaner")
 					args = append(args, "--allocate-node-cidrs=true")
 					args = append(args, "--cluster-cidr="+vConfig.Networking.PodCIDR)
-					// this is often needed as the hostname is often not reachable correctly from the api server, but the internal ip
-					// or internal dns is. We could also set this always but having this as a default makes it easier and people can
-					// still override it if needed.
-					args = append(args, "--kubelet-preferred-address-types=InternalDNS,InternalIP,Hostname,ExternalDNS,ExternalIP")
 					// we set cloud provider to external as we either want to use an external cloud controller manager
 					// such as AWS or GCP or we fallback to our in-built cloud controller manager.
 					args = append(args, "--cloud-provider=external")
