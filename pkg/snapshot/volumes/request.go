@@ -22,6 +22,9 @@ const (
 	RequestPhaseCanceling SnapshotRequestPhase = "Canceling"
 	RequestPhaseCanceled  SnapshotRequestPhase = "Canceled"
 
+	RequestPhaseDeleting SnapshotRequestPhase = "Deleting"
+	RequestPhaseDeleted  SnapshotRequestPhase = "Deleted"
+
 	// RequestPhaseUndefined is a special request phase used in case of an error
 	// in volume snapshot phase transition.
 	RequestPhaseUndefined SnapshotRequestPhase = "Undefined"
@@ -50,6 +53,8 @@ func (s SnapshotRequestPhase) Next() SnapshotRequestPhase {
 		next = RequestPhaseFailed
 	case RequestPhaseCanceling:
 		next = RequestPhaseCanceled
+	case RequestPhaseDeleting:
+		next = RequestPhaseDeleted
 	default:
 		next = RequestPhaseUndefined
 	}
@@ -102,7 +107,8 @@ func (s SnapshotsStatus) Done() bool {
 		s.Phase == RequestPhasePartiallyFailed ||
 		s.Phase == RequestPhaseFailed ||
 		s.Phase == RequestPhaseSkipped ||
-		s.Phase == RequestPhaseCanceled
+		s.Phase == RequestPhaseCanceled ||
+		s.Phase == RequestPhaseDeleted
 	if !done {
 		return false
 	}
@@ -116,6 +122,10 @@ func (s SnapshotsStatus) Done() bool {
 
 	// taking snapshot has not yet started, or it is still in progress
 	return true
+}
+
+func (s SnapshotsStatus) DeletingVolumeSnapshots() bool {
+	return s.Phase == RequestPhaseDeleting || s.Phase == RequestPhaseCanceling
 }
 
 // SnapshotStatus shows the current status of a single PVC snapshot.
@@ -141,4 +151,8 @@ func (s SnapshotStatus) Done() bool {
 // CleaningUp returns true if the volume snapshot is still being cleaned up.
 func (s SnapshotStatus) CleaningUp() bool {
 	return s.Phase == RequestPhaseCompletedCleaningUp || s.Phase == RequestPhaseFailedCleaningUp
+}
+
+func (s SnapshotStatus) DeletingVolumeSnapshot() bool {
+	return s.Phase == RequestPhaseDeleting || s.Phase == RequestPhaseCanceling
 }

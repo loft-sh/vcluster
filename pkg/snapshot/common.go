@@ -20,9 +20,32 @@ const (
 
 	RequestPhaseCanceling RequestPhase = "Canceling"
 	RequestPhaseCanceled  RequestPhase = "Canceled"
+
+	RequestPhaseDeleting RequestPhase = "Deleting"
+	RequestPhaseDeleted  RequestPhase = "Deleted"
+
+	RequestPhaseUnknown RequestPhase = "Unknown"
 )
 
 type RequestPhase string
+
+func (r RequestPhase) Next() RequestPhase {
+	var next RequestPhase
+	switch r {
+	case RequestPhaseCreatingVolumeSnapshots:
+		next = RequestPhaseCreatingEtcdBackup
+	case RequestPhaseCreatingEtcdBackup:
+		next = RequestPhaseCompleted
+	case RequestPhaseCanceling:
+		next = RequestPhaseCanceled
+	case RequestPhaseDeleting:
+		next = RequestPhaseDeleted
+	default:
+		next = RequestPhaseUnknown
+	}
+
+	return next
+}
 
 type RequestMetadata struct {
 	Name              string      `json:"name"`
