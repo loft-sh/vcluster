@@ -22,6 +22,17 @@ type snapshotHandler struct {
 	logger          loghelper.Logger
 }
 
+// deleteVolumeSnapshot deletes the VolumeSnapshot and the VolumeSnapshotContent with the deletion policy set
+// to Delete, so it deletes the VolumeSnapshot and the VolumeSnapshotContent resources, as well as the volume snapshot
+// from the storage backend.
+func (h *snapshotHandler) deleteVolumeSnapshot(ctx context.Context, volumeSnapshotNamespace, volumeSnapshotName string) (bool, error) {
+	deleted, err := h.findAndDeleteVolumeSnapshotResource(ctx, volumeSnapshotNamespace, volumeSnapshotName, snapshotsv1api.VolumeSnapshotContentDelete)
+	if err != nil {
+		return false, fmt.Errorf("failed to delete volume snapshot: %w", err)
+	}
+	return deleted, nil
+}
+
 // cleanupVolumeSnapshotResource deletes the VolumeSnapshot and the VolumeSnapshotContent with the deletion policy set
 // to Retain, so only VolumeSnapshot and VolumeSnapshotContent resources are deleted, and the volume snapshot remains
 // saved in the storage backend.

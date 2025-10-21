@@ -41,11 +41,31 @@ type Request struct {
 func (r *Request) Done() bool {
 	return r.Status.Phase == RequestPhaseCompleted ||
 		r.Status.Phase == RequestPhasePartiallyFailed ||
-		r.Status.Phase == RequestPhaseFailed
+		r.Status.Phase == RequestPhaseFailed ||
+		r.Status.Phase == RequestPhaseCanceled
 }
 
 func (r *Request) GetPhase() RequestPhase {
 	return r.Status.Phase
+}
+
+func (r *Request) ShouldCancel(otherRequest *Request) bool {
+	if otherRequest.Name == r.Name {
+		// don't cancel this request
+		return false
+	}
+	if otherRequest.Spec.URL != r.Spec.URL {
+		// don't cancel requests for different URLs
+		return false
+	}
+	if otherRequest.CreationTimestamp.Time.After(r.CreationTimestamp.Time) {
+		// don't cancel newer request
+		return false
+	}
+	shouldCancel := otherRequest.Status.Phase == RequestPhaseNotStarted ||
+		otherRequest.Status.Phase == RequestPhaseCreatingVolumeSnapshots ||
+		otherRequest.Status.Phase == RequestPhaseCreatingEtcdBackup
+	return shouldCancel
 }
 
 type RequestSpec struct {

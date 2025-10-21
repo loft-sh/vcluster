@@ -13,12 +13,14 @@ const (
 	RequestPhaseNotStarted          SnapshotRequestPhase = ""
 	RequestPhaseSkipped             SnapshotRequestPhase = "Skipped"
 	RequestPhaseInProgress          SnapshotRequestPhase = "InProgress"
-	RequestPhaseCleaningUp          SnapshotRequestPhase = "CleaningUp"
 	RequestPhaseCompletedCleaningUp SnapshotRequestPhase = "CompletedCleaningUp"
 	RequestPhaseCompleted           SnapshotRequestPhase = "Completed"
 	RequestPhasePartiallyFailed     SnapshotRequestPhase = "PartiallyFailed"
 	RequestPhaseFailed              SnapshotRequestPhase = "Failed"
 	RequestPhaseFailedCleaningUp    SnapshotRequestPhase = "FailedCleaningUp"
+
+	RequestPhaseCanceling SnapshotRequestPhase = "Canceling"
+	RequestPhaseCanceled  SnapshotRequestPhase = "Canceled"
 
 	// RequestPhaseUndefined is a special request phase used in case of an error
 	// in volume snapshot phase transition.
@@ -46,6 +48,8 @@ func (s SnapshotRequestPhase) Next() SnapshotRequestPhase {
 		next = RequestPhaseCompleted
 	case RequestPhaseFailedCleaningUp:
 		next = RequestPhaseFailed
+	case RequestPhaseCanceling:
+		next = RequestPhaseCanceled
 	default:
 		next = RequestPhaseUndefined
 	}
@@ -97,7 +101,8 @@ func (s SnapshotsStatus) Done() bool {
 	done := s.Phase == RequestPhaseCompleted ||
 		s.Phase == RequestPhasePartiallyFailed ||
 		s.Phase == RequestPhaseFailed ||
-		s.Phase == RequestPhaseSkipped
+		s.Phase == RequestPhaseSkipped ||
+		s.Phase == RequestPhaseCanceled
 	if !done {
 		return false
 	}

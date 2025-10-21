@@ -104,10 +104,17 @@ func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestObj runtime.Ob
 		fallthrough
 	case volumes.RequestPhaseFailed:
 		fallthrough
+	case volumes.RequestPhaseCanceled:
+		fallthrough
 	case volumes.RequestPhaseSkipped:
 		err = s.reconcileDone(ctx, requestName, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", requestName, err)
+		}
+	case volumes.RequestPhaseCanceling:
+		err = s.reconcileCanceling(ctx, requestObj, requestName, request, status)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile canceling volumes snapshot request %s: %w", requestName, err)
 		}
 	default:
 		return fmt.Errorf("invalid snapshot request phase: %s", status.Phase)
