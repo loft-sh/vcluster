@@ -1870,8 +1870,7 @@ type DistroK8s struct {
 	// Enabled specifies if the K8s distro should be enabled. Only one distro can be enabled at the same time.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// [Deprecated] Version field is deprecated.
-	// Use controlPlane.distro.k8s.image.tag to specify the Kubernetes version instead.
+	// Version is the Kubernetes version to use.
 	Version string `json:"version,omitempty"`
 
 	// APIServer holds configuration specific to starting the api server.

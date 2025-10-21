@@ -1239,7 +1239,7 @@
         },
         "version": {
           "type": "string",
-          "description": "[Deprecated] Version field is deprecated.\nUse controlPlane.distro.k8s.image.tag to specify the Kubernetes version instead."
+          "description": "Version is the Kubernetes version to use."
         },
         "apiServer": {
           "$ref": "#/$defs/DistroContainerEnabled",

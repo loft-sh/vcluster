@@ -228,8 +228,7 @@ controlPlane:
     k8s:
       # Enabled specifies if the K8s distro should be enabled. Only one distro can be enabled at the same time.
       enabled: false
-      # [Deprecated] Version field is deprecated.
-      # Use controlPlane.distro.k8s.image.tag to specify the Kubernetes version instead.
+      # Version is the Kubernetes version to use.
       version: ""
       # ImagePullPolicy is the pull policy for the distro image
       imagePullPolicy: ""
