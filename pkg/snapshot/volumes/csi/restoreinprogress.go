@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	snapshotsv1api "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -191,8 +192,19 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtim
 	justCreated := false
 	volumeSnapshotContent, err := r.snapshotsClient.SnapshotV1().VolumeSnapshotContents().Get(ctx, volumeSnapshotName, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
-		// create new VolumeSnapshotContent
-		volumeSnapshotContent, err = r.createVolumeSnapshotContentResource(ctx, requestName, volumeSnapshotName, volumeRestoreRequest)
+		// create new pre-provisioned VolumeSnapshotContent
+		volumeSnapshotContent, err = r.createVolumeSnapshotContentResource(
+			ctx,
+			constants.RestoreRequestLabel,
+			requestName,
+			volumeRestoreRequest.CSIDriver,
+			volumeRestoreRequest.PersistentVolumeClaim.Namespace,
+			volumeRestoreRequest.PersistentVolumeClaim.Name,
+			volumeSnapshotName,
+			volumeRestoreRequest.VolumeSnapshotClassName,
+			volumeRestoreRequest.SnapshotHandle,
+			snapshotsv1api.VolumeSnapshotContentRetain,
+			volumeRestoreRequest.PersistentVolumeClaim.Spec.VolumeMode)
 		if err != nil {
 			return status, fmt.Errorf("failed to create VolumeSnapshotContent for the PersistentVolumeClaim %s: %w", pvcName, err)
 		}

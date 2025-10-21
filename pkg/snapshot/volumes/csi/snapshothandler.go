@@ -8,7 +8,6 @@ import (
 	snapshotsv1api "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -60,39 +59,50 @@ func (h *snapshotHandler) createVolumeSnapshotResource(ctx context.Context, requ
 }
 
 // createVolumeSnapshotResource creates the pre-provisioned VolumeSnapshotContent
-func (h *snapshotHandler) createVolumeSnapshotContentResource(ctx context.Context, requestName, volumeSnapshotName string, volumeRestoreRequest volumes.RestoreRequest) (*snapshotsv1api.VolumeSnapshotContent, error) {
+func (h *snapshotHandler) createVolumeSnapshotContentResource(
+	ctx context.Context,
+	requestLabel,
+	requestName,
+	csiDriver,
+	pvcNamespace,
+	pvcName,
+	volumeSnapshotName,
+	volumeSnapshotClassName,
+	snapshotHandle string,
+	deletionPolicy snapshotsv1api.DeletionPolicy,
+	volumeMode *corev1.PersistentVolumeMode) (*snapshotsv1api.VolumeSnapshotContent, error) {
 	h.logger.Debugf(
 		"Create VolumeSnapshotContent %s for PersistentVolumeClaim %s/%s for request %s",
 		volumeSnapshotName,
-		volumeRestoreRequest.PersistentVolumeClaim.Namespace,
-		volumeRestoreRequest.PersistentVolumeClaim.Name,
+		pvcNamespace,
+		pvcName,
 		requestName)
 
 	volumeSnapshotContent := &snapshotsv1api.VolumeSnapshotContent{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: volumeSnapshotName,
 			Labels: map[string]string{
-				constants.RestoreRequestLabel:  requestName,
-				persistentVolumeClaimNameLabel: volumeRestoreRequest.PersistentVolumeClaim.Name,
+				requestLabel:                   requestName,
+				persistentVolumeClaimNameLabel: pvcName,
 			},
 		},
 		Spec: snapshotsv1api.VolumeSnapshotContentSpec{
 			DeletionPolicy: snapshotsv1api.VolumeSnapshotContentRetain,
-			Driver:         volumeRestoreRequest.CSIDriver,
+			Driver:         csiDriver,
 			Source: snapshotsv1api.VolumeSnapshotContentSource{
-				SnapshotHandle: ptr.To(volumeRestoreRequest.SnapshotHandle),
+				SnapshotHandle: &snapshotHandle,
 			},
 			VolumeSnapshotRef: corev1.ObjectReference{
 				Name:      volumeSnapshotName,
-				Namespace: volumeRestoreRequest.PersistentVolumeClaim.Namespace,
+				Namespace: pvcNamespace,
 			},
 		},
 	}
-	if volumeRestoreRequest.VolumeSnapshotClassName != "" {
-		volumeSnapshotContent.Spec.VolumeSnapshotClassName = &volumeRestoreRequest.VolumeSnapshotClassName
+	if volumeSnapshotClassName != "" {
+		volumeSnapshotContent.Spec.VolumeSnapshotClassName = &volumeSnapshotClassName
 	}
-	if volumeRestoreRequest.PersistentVolumeClaim.Spec.VolumeMode != nil {
-		volumeSnapshotContent.Spec.SourceVolumeMode = volumeRestoreRequest.PersistentVolumeClaim.Spec.VolumeMode
+	if volumeMode != nil {
+		volumeSnapshotContent.Spec.SourceVolumeMode = volumeMode
 	}
 
 	var err error
@@ -100,14 +110,14 @@ func (h *snapshotHandler) createVolumeSnapshotContentResource(ctx context.Contex
 	if err != nil {
 		return nil, fmt.Errorf(
 			"could not create VolumeSnapshotContent resource for the PersistentVolumeClaim %s/%s: %w",
-			volumeRestoreRequest.PersistentVolumeClaim.Namespace,
-			volumeRestoreRequest.PersistentVolumeClaim.Name,
+			pvcNamespace,
+			pvcName,
 			err)
 	}
 	h.logger.Infof("Created VolumeSnapshotContent resource %s for the PersistentVolumeClaim %s/%s",
 		volumeSnapshotContent.Name,
-		volumeRestoreRequest.PersistentVolumeClaim.Namespace,
-		volumeRestoreRequest.PersistentVolumeClaim.Name)
+		pvcNamespace,
+		pvcName)
 
 	return volumeSnapshotContent, nil
 }
