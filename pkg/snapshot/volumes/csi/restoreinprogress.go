@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	snapshotsv1api "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -331,91 +330,6 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtim
 	return status, nil
 }
 
-// createVolumeSnapshotResource creates the pre-provisioned VolumeSnapshot from which the PVC will be restored
-func (r *Restorer) createVolumeSnapshotResource(ctx context.Context, requestName, volumeSnapshotName string, pvcName types.NamespacedName, volumeSnapshotClassName string) (*snapshotsv1api.VolumeSnapshot, error) {
-	r.logger.Debugf("Create VolumeSnapshot %s for PersistentVolumeClaim %s for restore request %s", volumeSnapshotName, pvcName.String(), requestName)
-
-	volumeSnapshot := &snapshotsv1api.VolumeSnapshot{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: pvcName.Namespace,
-			Name:      volumeSnapshotName,
-			Labels: map[string]string{
-				constants.RestoreRequestLabel:  requestName,
-				persistentVolumeClaimNameLabel: pvcName.Name,
-			},
-		},
-		Spec: snapshotsv1api.VolumeSnapshotSpec{
-			Source: snapshotsv1api.VolumeSnapshotSource{
-				VolumeSnapshotContentName: ptr.To(volumeSnapshotName),
-			},
-		},
-	}
-	if volumeSnapshotClassName != "" {
-		volumeSnapshot.Spec.VolumeSnapshotClassName = &volumeSnapshotClassName
-	}
-
-	var err error
-	volumeSnapshot, err = r.snapshotsClient.SnapshotV1().VolumeSnapshots(pvcName.Namespace).Create(ctx, volumeSnapshot, metav1.CreateOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("could not create VolumeSnapshot resource for the PersistentVolumeClaim %s: %w", pvcName, err)
-	}
-	r.logger.Infof("Created VolumeSnapshot resource %s/%s for the PersistentVolumeClaim %s", volumeSnapshot.Namespace, volumeSnapshot.Name, pvcName)
-
-	return volumeSnapshot, nil
-}
-
-// createVolumeSnapshotResource creates the pre-provisioned VolumeSnapshotContent from which the PVC will be restored
-func (r *Restorer) createVolumeSnapshotContentResource(ctx context.Context, requestName, volumeSnapshotName string, volumeRestoreRequest volumes.RestoreRequest) (*snapshotsv1api.VolumeSnapshotContent, error) {
-	r.logger.Debugf(
-		"Create VolumeSnapshotContent %s for PersistentVolumeClaim %s/%s for restore request %s",
-		volumeSnapshotName,
-		volumeRestoreRequest.PersistentVolumeClaim.Namespace,
-		volumeRestoreRequest.PersistentVolumeClaim.Name,
-		requestName)
-
-	volumeSnapshotContent := &snapshotsv1api.VolumeSnapshotContent{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: volumeSnapshotName,
-			Labels: map[string]string{
-				constants.RestoreRequestLabel:  requestName,
-				persistentVolumeClaimNameLabel: volumeRestoreRequest.PersistentVolumeClaim.Name,
-			},
-		},
-		Spec: snapshotsv1api.VolumeSnapshotContentSpec{
-			DeletionPolicy: snapshotsv1api.VolumeSnapshotContentRetain,
-			Driver:         volumeRestoreRequest.CSIDriver,
-			Source: snapshotsv1api.VolumeSnapshotContentSource{
-				SnapshotHandle: ptr.To(volumeRestoreRequest.SnapshotHandle),
-			},
-			VolumeSnapshotRef: corev1.ObjectReference{
-				Name:      volumeSnapshotName,
-				Namespace: volumeRestoreRequest.PersistentVolumeClaim.Namespace,
-			},
-		},
-	}
-	if volumeRestoreRequest.VolumeSnapshotClassName != "" {
-		volumeSnapshotContent.Spec.VolumeSnapshotClassName = &volumeRestoreRequest.VolumeSnapshotClassName
-	}
-	if volumeRestoreRequest.PersistentVolumeClaim.Spec.VolumeMode != nil {
-		volumeSnapshotContent.Spec.SourceVolumeMode = volumeRestoreRequest.PersistentVolumeClaim.Spec.VolumeMode
-	}
-
-	var err error
-	volumeSnapshotContent, err = r.snapshotsClient.SnapshotV1().VolumeSnapshotContents().Create(ctx, volumeSnapshotContent, metav1.CreateOptions{})
-	if err != nil {
-		return nil, fmt.Errorf(
-			"could not create VolumeSnapshotContent resource for the PersistentVolumeClaim %s/%s: %w",
-			volumeRestoreRequest.PersistentVolumeClaim.Namespace,
-			volumeRestoreRequest.PersistentVolumeClaim.Name,
-			err)
-	}
-	r.logger.Infof("Created VolumeSnapshotContent resource %s for the PersistentVolumeClaim %s/%s",
-		volumeSnapshotContent.Name,
-		volumeRestoreRequest.PersistentVolumeClaim.Namespace,
-		volumeRestoreRequest.PersistentVolumeClaim.Name)
-
-	return volumeSnapshotContent, nil
-}
 func (r *Restorer) inProgressPVCReconcileFinished(requestObj runtime.Object, volumeRestoreRequest volumes.RestoreRequest, volumeRestoreStatus volumes.RestoreStatus, err error) {
 	var eventType, reason, messageFmt string
 	var args []interface{}
