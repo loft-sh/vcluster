@@ -793,6 +793,10 @@ controlPlane:
       anonymousPull: true
       # Config is the regular docker registry config. See https://distribution.github.io/distribution/about/configuration/ for more details.
       config: {}
+    # KubeVip holds configuration for embedded kube-vip that announces the virtual cluster endpoint IP on layer 2.
+    kubeVip:
+      # Enabled defines if embedded kube-vip should be enabled.
+      enabled: false
     # GlobalMetadata is metadata that will be added to all resources deployed by Helm.
     globalMetadata:
       annotations: {}

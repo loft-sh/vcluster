@@ -457,6 +457,10 @@
         "globalMetadata": {
           "$ref": "#/$defs/ControlPlaneGlobalMetadata",
           "description": "GlobalMetadata is metadata that will be added to all resources deployed by Helm."
+        },
+        "kubeVip": {
+          "$ref": "#/$defs/KubeVip",
+          "description": "KubeVip holds configuration for embedded kube-vip that announces the virtual cluster endpoint IP on layer 2."
         }
       },
       "additionalProperties": false,
@@ -2516,6 +2520,24 @@
         "config": {
           "type": "object",
           "description": "Config is the config for the kube-proxy that will be merged into the default kube-proxy config. More information can be found here:\nhttps://kubernetes.io/docs/reference/config-api/kube-proxy-config.v1alpha1/#kubeproxy-config-k8s-io-v1alpha1-KubeProxyConfiguration"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KubeVip": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if embedded kube-vip should be enabled."
+        },
+        "interface": {
+          "type": "string",
+          "description": "Interface is the network interface on which the VIP is announced."
+        },
+        "gateway": {
+          "type": "string",
+          "description": "Gateway is the gateway address in CIDR notation (e.g., 10.100.0.1/24).\nThis is used to configure policy-based routing for the VIP and must include the subnet prefix."
         }
       },
       "additionalProperties": false,

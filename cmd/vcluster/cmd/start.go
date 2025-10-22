@@ -177,6 +177,13 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 		}
 	}
 
+	// start embedded kube-vip
+	if vConfig.ControlPlane.Advanced.KubeVip.Enabled {
+		if err := pro.StartEmbeddedKubeVip(controllerCtx, vConfig); err != nil {
+			return fmt.Errorf("start embedded kube-vip: %w", err)
+		}
+	}
+
 	// start leader election + controllers
 	err = StartLeaderElection(controllerCtx, func() error {
 		return setup.StartControllers(controllerCtx, syncers)

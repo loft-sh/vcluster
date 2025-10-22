@@ -433,6 +433,9 @@ controlPlane:
       anonymousPull: true
       config: {}
 
+    kubeVip:
+      enabled: false
+
     globalMetadata:
       annotations: {}
 
