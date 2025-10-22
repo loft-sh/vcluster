@@ -124,8 +124,12 @@ func (s SnapshotsStatus) Done() bool {
 	return true
 }
 
-func (s SnapshotsStatus) DeletingVolumeSnapshots() bool {
+func (s SnapshotsStatus) IsDeletingVolumeSnapshots() bool {
 	return s.Phase == RequestPhaseDeleting || s.Phase == RequestPhaseCanceling
+}
+
+func (s SnapshotsStatus) RecreateVolumeSnapshotsWhenDeleting() bool {
+	return s.Phase == RequestPhaseDeleting
 }
 
 // SnapshotStatus shows the current status of a single PVC snapshot.
@@ -153,6 +157,21 @@ func (s SnapshotStatus) CleaningUp() bool {
 	return s.Phase == RequestPhaseCompletedCleaningUp || s.Phase == RequestPhaseFailedCleaningUp
 }
 
-func (s SnapshotStatus) DeletingVolumeSnapshot() bool {
+func (s SnapshotStatus) IsDeletingVolumeSnapshot() bool {
 	return s.Phase == RequestPhaseDeleting || s.Phase == RequestPhaseCanceling
+}
+
+func (s SnapshotStatus) RecreateVolumeSnapshotWhenDeleting() bool {
+	return s.Phase == RequestPhaseDeleting
+}
+
+func (s SnapshotStatus) IsVolumeSnapshotMaybeCreated() bool {
+	// Volume snapshot could have been created when the phase has the following values:
+	// 1. NotStarted or InProgress, because the volume snapshot could have been created, but the
+	//    snapshot request has not been yet updated to the new phase (Completed).
+	// 2. CompletedCleaningUp or Completed, because the volume snapshot has been created.
+	return s.Phase == RequestPhaseNotStarted ||
+		s.Phase == RequestPhaseInProgress ||
+		s.Phase == RequestPhaseCompletedCleaningUp ||
+		s.Phase == RequestPhaseCompleted
 }

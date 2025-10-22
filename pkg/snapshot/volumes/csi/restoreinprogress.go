@@ -190,6 +190,11 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtim
 
 	// Check if the pre-provisioned VolumeSnapshotContent resource exists. If it doesn't, create it.
 	justCreated := false
+	snapshotRequest := volumes.SnapshotRequest{
+		PersistentVolumeClaim:   volumeRestoreRequest.PersistentVolumeClaim,
+		CSIDriver:               volumeRestoreRequest.CSIDriver,
+		VolumeSnapshotClassName: volumeRestoreRequest.VolumeSnapshotClassName,
+	}
 	volumeSnapshotContent, err := r.snapshotsClient.SnapshotV1().VolumeSnapshotContents().Get(ctx, volumeSnapshotName, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
 		// create new pre-provisioned VolumeSnapshotContent
@@ -197,14 +202,9 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtim
 			ctx,
 			constants.RestoreRequestLabel,
 			requestName,
-			volumeRestoreRequest.CSIDriver,
-			volumeRestoreRequest.PersistentVolumeClaim.Namespace,
-			volumeRestoreRequest.PersistentVolumeClaim.Name,
-			volumeSnapshotName,
-			volumeRestoreRequest.VolumeSnapshotClassName,
+			snapshotRequest,
 			volumeRestoreRequest.SnapshotHandle,
-			snapshotsv1api.VolumeSnapshotContentRetain,
-			volumeRestoreRequest.PersistentVolumeClaim.Spec.VolumeMode)
+			snapshotsv1api.VolumeSnapshotContentRetain)
 		if err != nil {
 			return status, fmt.Errorf("failed to create VolumeSnapshotContent for the PersistentVolumeClaim %s: %w", pvcName, err)
 		}
@@ -217,7 +217,7 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtim
 	volumeSnapshot, err := r.snapshotsClient.SnapshotV1().VolumeSnapshots(pvcName.Namespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
 		// create new VolumeSnapshot
-		volumeSnapshot, err = r.createVolumeSnapshotResource(ctx, requestName, volumeSnapshotName, pvcName, volumeRestoreRequest.VolumeSnapshotClassName)
+		volumeSnapshot, err = r.createPreProvisionedVolumeSnapshot(ctx, constants.RestoreRequestLabel, requestName, snapshotRequest)
 		if err != nil {
 			return status, fmt.Errorf("failed to create VolumeSnapshot for the PersistentVolumeClaim %s: %w", pvcName, err)
 		}

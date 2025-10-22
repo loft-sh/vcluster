@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -11,7 +12,7 @@ import (
 )
 
 func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj runtime.Object, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) (retErr error) {
-	if !status.DeletingVolumeSnapshots() {
+	if !status.IsDeletingVolumeSnapshots() {
 		return fmt.Errorf("invalid phase for snapshot request %s, expected %s or %s, got %s", requestName, volumes.RequestPhaseDeleting, volumes.RequestPhaseCanceling, status.Phase)
 	}
 	s.logger.Debugf("Reconciling volume snapshots %s for request %s", status.Phase, requestName)
@@ -44,40 +45,50 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 			// the volume snapshot wasn't found
 			continue
 		}
-		if volumeSnapshotStatus.DeletingVolumeSnapshot() {
-			stillDeleting = true
-			continue
-		}
-		tryDeletingVolumeSnapshot := false
-		if volumeSnapshotStatus.Phase == volumes.RequestPhaseNotStarted ||
-			volumeSnapshotStatus.Phase == volumes.RequestPhaseInProgress ||
-			volumeSnapshotStatus.Phase == volumes.RequestPhaseCompletedCleaningUp ||
-			volumeSnapshotStatus.Phase == volumes.RequestPhaseCompleted {
-			// When the volume snapshots phase is NotStarted or InProgress, it could mean that the
-			// volume snapshot has been created, but the snapshot request has not been yet updated
-			// to the new phase (Completed).
-			//
-			// When the volume snapshots phase is CompletedCleaningUp or Completed, it means that
-			// the volume snapshot has been created.
-			tryDeletingVolumeSnapshot = true
-		}
-		if !tryDeletingVolumeSnapshot {
-			continue
-		}
 
-		// Update the volume snapshot phase to Deleting/Canceling
-		volumeSnapshotStatus.Phase = status.Phase
-		status.Snapshots[pvcName] = volumeSnapshotStatus
 		volumeSnapshotName := fmt.Sprintf("%s-%s", volumeSnapshotRequest.PersistentVolumeClaim.Name, requestName)
-		deleted, err := s.deleteVolumeSnapshot(ctx, volumeSnapshotRequest.PersistentVolumeClaim.Namespace, volumeSnapshotName)
-		if err != nil {
-			return fmt.Errorf("failed to delete volume snapshot: %w", err)
-		}
-		if deleted {
-			volumeSnapshotStatus.Phase = volumeSnapshotStatus.Phase.Next()
+		if volumeSnapshotStatus.IsVolumeSnapshotMaybeCreated() {
+			// The volume snapshot could have been created, the deletion has not been started, so
+			// trigger deletion here.
+			deleted, err := s.deleteVolumeSnapshot(
+				ctx,
+				constants.SnapshotRequestLabel,
+				requestName,
+				volumeSnapshotRequest,
+				volumeSnapshotStatus.SnapshotHandle,
+				status.RecreateVolumeSnapshotsWhenDeleting())
+			// check for errors
+			if err != nil {
+				return fmt.Errorf("failed to delete volume snapshot %s: %w", volumeSnapshotName, err)
+			}
+			volumeSnapshotStatus.Phase = status.Phase
 			status.Snapshots[pvcName] = volumeSnapshotStatus
-		} else {
-			stillDeleting = true
+			stillDeleting = !deleted
+		} else if volumeSnapshotStatus.IsDeletingVolumeSnapshot() {
+			// Volume snapshot deletion has been already started, which means that the resources
+			// have been already re-created if needed. Therefore, just check if the resources have
+			// been already deleted.
+			var volumeSnapshotContentName string
+			if volumeSnapshotStatus.RecreateVolumeSnapshotWhenDeleting() {
+				// When the VolumeSnapshot and VolumeSnapshotContent are re-created, it means that
+				// they are pre-provisioned, so the VolumeSnapshotContent name is manually set to
+				// the same name as the VolumeSnapshot name.
+				volumeSnapshotContentName = volumeSnapshotName
+			}
+			volumeSnapshotDeleted, volumeSnapshotContentDeleted, err := s.checkIfVolumeSnapshotResourcesExist(
+				ctx,
+				volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
+				volumeSnapshotName,
+				volumeSnapshotContentName)
+			if err != nil {
+				return fmt.Errorf("failed to check if volume snapshot resources exist: %w", err)
+			}
+			if volumeSnapshotDeleted && volumeSnapshotContentDeleted {
+				volumeSnapshotStatus.Phase = status.Phase.Next()
+				status.Snapshots[pvcName] = volumeSnapshotStatus
+			} else {
+				stillDeleting = true
+			}
 		}
 	}
 

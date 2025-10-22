@@ -217,6 +217,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}
 	case RequestPhaseCanceled:
 		fallthrough
+	case RequestPhaseDeleted:
+		fallthrough
 	case RequestPhasePartiallyFailed:
 		fallthrough
 	case RequestPhaseCompleted:

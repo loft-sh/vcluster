@@ -192,3 +192,21 @@ func getTwoSnapshotRequests(g Gomega, ctx context.Context, f *framework.Framewor
 
 	return previousSnapshotRequest, newerSnapshotRequest
 }
+
+func deleteSnapshotRequestConfigMaps(ctx context.Context, f *framework.Framework) {
+	// delete snapshot request config maps
+	deleteOptions := metav1.DeleteOptions{}
+	listOptions := metav1.ListOptions{
+		LabelSelector: constants.SnapshotRequestLabel,
+	}
+	err := f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).DeleteCollection(f.Context, deleteOptions, listOptions)
+	framework.ExpectNoError(err)
+	Eventually(func(g Gomega, ctx context.Context) []corev1.ConfigMap {
+		configMaps, err := f.HostClient.CoreV1().ConfigMaps(f.VClusterNamespace).List(ctx, listOptions)
+		g.Expect(err).NotTo(HaveOccurred())
+		return configMaps.Items
+	}).WithContext(ctx).
+		WithPolling(framework.PollInterval).
+		WithTimeout(framework.PollTimeout).
+		Should(BeEmpty())
+}

@@ -92,7 +92,7 @@ func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 	}
 
 	// first create the snapshot options Secret
-	secret, err := CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName, options)
+	secret, err := CreateSnapshotOptionsSecret(constants.SnapshotRequestLabel, vClusterNamespace, vClusterName, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create snapshot options Secret: %w", err)
 	}
@@ -217,7 +217,7 @@ func CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName string, snap
 	return configMap, nil
 }
 
-func CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName string, snapshotOptions *Options) (*corev1.Secret, error) {
+func CreateSnapshotOptionsSecret(requestLabel, vClusterNamespace, vClusterName string, snapshotOptions *Options) (*corev1.Secret, error) {
 	if vClusterNamespace == "" {
 		return nil, fmt.Errorf("vClusterNamespace is not set")
 	}
@@ -235,7 +235,7 @@ func CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName string, snapsho
 			Labels: map[string]string{
 				constants.VClusterNamespaceLabel: vClusterNamespace,
 				constants.VClusterNameLabel:      vClusterName,
-				constants.SnapshotRequestLabel:   "",
+				requestLabel:                     "",
 			},
 		},
 		Data: map[string][]byte{

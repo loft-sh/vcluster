@@ -107,6 +107,8 @@ func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestObj runtime.Ob
 		fallthrough
 	case volumes.RequestPhaseCanceled:
 		fallthrough
+	case volumes.RequestPhaseDeleted:
+		fallthrough
 	case volumes.RequestPhaseSkipped:
 		err = s.reconcileDone(ctx, requestName, status)
 		if err != nil {
