@@ -146,6 +146,16 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}
 	}
 
+	canContinue, err := c.cancelPreviousRequests(ctx, snapshotRequest)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to cancel previous snapshot requests: %w", err)
+	}
+	if !canContinue {
+		return ctrl.Result{
+			RequeueAfter: 30 * time.Second,
+		}, nil
+	}
+
 	// patch snapshot request ConfigMap after the reconciliation
 	configMapBeforeChange := client.MergeFrom(configMap.DeepCopy())
 	defer func() {
@@ -172,6 +182,13 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile new snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
+	case RequestPhaseCanceling:
+		if !snapshotRequest.Spec.IncludeVolumes {
+			snapshotRequest.Status.Phase = RequestPhaseCanceled
+			return ctrl.Result{}, nil
+		}
+		snapshotRequest.Status.VolumeSnapshots.Phase = volumes.RequestPhaseCanceling
+		fallthrough
 	case RequestPhaseCreatingVolumeSnapshots:
 		requeueAfter, err := c.reconcileCreatingVolumeSnapshots(ctx, &configMap, snapshotRequest)
 		if err != nil {
@@ -192,6 +209,8 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 				RequeueAfter: 10 * time.Second,
 			}, nil
 		}
+	case RequestPhaseCanceled:
+		fallthrough
 	case RequestPhasePartiallyFailed:
 		fallthrough
 	case RequestPhaseCompleted:
@@ -222,6 +241,8 @@ func (c *Reconciler) reconcileCreatingVolumeSnapshots(ctx context.Context, snaps
 
 	// check volume snapshots' status
 	switch volumeSnapshotsStatus.Phase {
+	case volumes.RequestPhaseCanceling:
+		fallthrough
 	case volumes.RequestPhaseInProgress:
 		if previousVolumeSnapshotsRequestPhase == volumes.RequestPhaseNotStarted {
 			// volume snapshots request just got initialized and moved to in-progress
@@ -237,6 +258,8 @@ func (c *Reconciler) reconcileCreatingVolumeSnapshots(ctx context.Context, snaps
 	case volumes.RequestPhaseFailed:
 		snapshotRequest.Status.Phase = RequestPhaseFailed
 		snapshotRequest.Status.Error.Message = volumeSnapshotsStatus.Error.Message
+	case volumes.RequestPhaseCanceled:
+		snapshotRequest.Status.Phase = RequestPhaseCanceled
 	default:
 		return 0, fmt.Errorf("unexpected volume snapshots request phase %s", volumeSnapshotsStatus.Phase)
 	}
@@ -417,4 +440,51 @@ func (c *Reconciler) getOngoingSnapshotRequestsResourceNames(ctx context.Context
 	}
 
 	return ongoingRequestConfigMaps, ongoingRequestSecrets, nil
+}
+
+func (c *Reconciler) cancelPreviousRequests(ctx context.Context, request *Request) (bool, error) {
+	if request.Status.Phase != RequestPhaseNotStarted {
+		// the current request has already started, previous requests should be already canceled
+		return true, nil
+	}
+
+	var configMaps corev1.ConfigMapList
+	listOptions := &client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			constants.SnapshotRequestLabel: "",
+		}),
+		Namespace: c.getRequestNamespace(),
+	}
+	err := c.client().List(ctx, &configMaps, listOptions)
+	if err != nil {
+		return false, fmt.Errorf("failed to list snapshot request ConfigMaps: %w", err)
+	}
+	currentRequestCanContinue := true
+
+	for _, configMap := range configMaps.Items {
+		otherRequest, err := UnmarshalSnapshotRequest(&configMap)
+		if err != nil {
+			c.logger.Errorf("Failed to unmarshal previous snapshot request from ConfigMap %s/%s: %v", configMap.Namespace, configMap.Name, err)
+			continue
+		}
+		if !request.ShouldCancel(otherRequest) {
+			if otherRequest.Status.Phase == RequestPhaseCanceling {
+				// the other request is still being canceled, so this one can't continue
+				currentRequestCanContinue = false
+			}
+			continue
+		}
+
+		// cancel the previous request
+		otherRequest.Status.Phase = RequestPhaseCanceling
+		oldValue := client.MergeFrom(configMap.DeepCopy())
+		err = c.updateRequest(ctx, oldValue, &configMap, *otherRequest)
+		if err != nil {
+			return false, fmt.Errorf("failed to update snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
+		}
+		// the other request has been just canceled, so this one can't continue yet
+		currentRequestCanContinue = false
+	}
+
+	return currentRequestCanContinue, nil
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/loft-sh/vcluster/test/framework"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -15,9 +16,75 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+func createAppWithPVC(ctx context.Context, client *kubernetes.Clientset, namespace, name string) {
+	createPVC(ctx, client, namespace, name)
+	createDeploymentWithVolume(ctx, client, namespace, name, name)
+}
+
+func createDeploymentWithVolume(ctx context.Context, client *kubernetes.Clientset, namespace, deploymentName, pvcName string) {
+	const volumeName = "data"
+	deployment := appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      deploymentName,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: ptr.To(int32(1)),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"snapshot-test-app": deploymentName,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"snapshot-test-app": deploymentName,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "snapshot-test-app",
+							Image: "busybox",
+							Command: []string{
+								"sleep",
+								"1000000",
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      volumeName,
+									MountPath: "/data",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: volumeName,
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: pvcName,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err := client.AppsV1().Deployments(deployment.Namespace).Create(ctx, &deployment, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+}
+
 // createPVCWithData creates a PVC, and it writes test data into the specified test file.
 // Test file is saved under	the '/data/$testFileName' path.
 func createPVCWithData(ctx context.Context, client *kubernetes.Clientset, pvcNamespace, pvcName, testFileName, testData string) {
+	createPVC(ctx, client, pvcNamespace, pvcName)
+	// deploy a Job that writes test data to the PVC
+	deployJob(ctx, client, pvcNamespace, "write-test-data", pvcName, fmt.Sprintf("echo '%s' > /data/%s", testData, testFileName), testFileName)
+}
+
+func createPVC(ctx context.Context, client *kubernetes.Clientset, pvcNamespace, pvcName string) {
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
@@ -35,9 +102,6 @@ func createPVCWithData(ctx context.Context, client *kubernetes.Clientset, pvcNam
 	}
 	_, err := client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(ctx, pvc, metav1.CreateOptions{})
 	framework.ExpectNoError(err)
-
-	// deploy a Job that writes test data to the PVC
-	deployJob(ctx, client, pvc.Namespace, "write-test-data", pvc.Name, fmt.Sprintf("echo '%s' > /data/%s", testData, testFileName), testFileName)
 }
 
 func deletePVC(ctx context.Context, client *kubernetes.Clientset, pvcNamespace, pvcName string) {
