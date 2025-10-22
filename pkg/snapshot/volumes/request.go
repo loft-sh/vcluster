@@ -92,7 +92,7 @@ type SnapshotRequest struct {
 	VolumeSnapshotClassName string `json:"volumeSnapshotClassName,omitempty"`
 }
 
-// SnapshotsStatus shows the current status of the snapshot request.
+// SnapshotsStatus shows the current status of the overall volume snapshot (all PVCs in a snapshot request).
 type SnapshotsStatus struct {
 	Phase     SnapshotRequestPhase        `json:"phase,omitempty"`
 	Snapshots map[string]SnapshotStatus   `json:"snapshots,omitempty"`

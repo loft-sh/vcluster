@@ -354,3 +354,46 @@ func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *O
 	table.PrintTable(log, header, values)
 	return nil
 }
+
+func DeleteSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, vConfig *config.VirtualClusterConfig, options *Options, kubeClient *kubernetes.Clientset) error {
+	// First, try to get saved snapshots
+	restoreClient := RestoreClient{
+		Snapshot: *options,
+	}
+
+	savedSnapshotRequest, err := restoreClient.GetSnapshotRequest(ctx)
+	if errors.Is(err, ErrSnapshotRequestNotFound) {
+		return fmt.Errorf("saved snapshot request not found for URL %s", options.GetURL())
+	} else if err != nil {
+		return fmt.Errorf("failed to get saved snapshot request for URL %s: %w", options.GetURL(), err)
+	}
+
+	if savedSnapshotRequest == nil {
+		return fmt.Errorf("saved snapshot request not found for URL %s", options.GetURL())
+	}
+
+	// update the snapshot request status to indicate that the snapshot request is in the cleaning up phase
+	savedSnapshotRequest.Status.Phase = RequestPhase(volumes.RequestPhaseDeleting)
+
+	// first create the snapshot options Secret
+	secret, err := CreateSnapshotOptionsSecret(constants.SnapshotRequestLabel, vClusterNamespace, vClusterName, options)
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+	secret.GenerateName = fmt.Sprintf("%s-snapshot-request-delete-", vClusterName)
+	secret, err = kubeClient.CoreV1().Secrets(vClusterNamespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+
+	configMap, err := CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName, savedSnapshotRequest)
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+	}
+	configMap.Name = secret.Name
+	_, err = kubeClient.CoreV1().ConfigMaps(vClusterNamespace).Create(ctx, configMap, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+	}
+	return nil
+}
