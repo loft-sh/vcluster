@@ -177,7 +177,7 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 		}
 	}
 
-	// should start embedded kube-vip?
+	// start embedded kube-vip
 	if vConfig.ControlPlane.Advanced.KubeVip.Enabled {
 		if err := pro.StartEmbeddedKubeVip(controllerCtx, vConfig); err != nil {
 			return fmt.Errorf("start embedded kube-vip: %w", err)

@@ -2529,15 +2529,15 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled defines if embedded kube-vip should be enabled. This requires a pro license."
+          "description": "Enabled defines if embedded kube-vip should be enabled."
         },
         "interface": {
           "type": "string",
-          "description": "Interface is the network interface to use for the VIP. Defaults to net1."
+          "description": "Interface is the network interface on which the VIP is announced."
         },
         "gateway": {
           "type": "string",
-          "description": "Gateway is the gateway address in CIDR notation (e.g., 10.100.0.1/24).\nThis is used to configure routing for the VIP and must include the subnet prefix."
+          "description": "Gateway is the gateway address in CIDR notation (e.g., 10.100.0.1/24).\nThis is used to configure policy-based routing for the VIP and must include the subnet prefix."
         }
       },
       "additionalProperties": false,

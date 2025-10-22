@@ -795,7 +795,7 @@ controlPlane:
       config: {}
     # KubeVip holds configuration for embedded kube-vip that announces the virtual cluster endpoint IP on layer 2.
     kubeVip:
-      # Enabled defines if embedded kube-vip should be enabled. This requires a pro license.
+      # Enabled defines if embedded kube-vip should be enabled.
       enabled: false
     # GlobalMetadata is metadata that will be added to all resources deployed by Helm.
     globalMetadata:
