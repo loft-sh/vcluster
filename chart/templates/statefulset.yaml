@@ -171,9 +171,17 @@ spec:
             timeoutSeconds: {{ .Values.controlPlane.statefulSet.probes.startupProbe.timeoutSeconds }}
             failureThreshold: {{ .Values.controlPlane.statefulSet.probes.startupProbe.failureThreshold }}
           {{- end }}
-          {{- if .Values.controlPlane.statefulSet.security.containerSecurityContext }}
+          {{- if or .Values.controlPlane.statefulSet.security.containerSecurityContext .Values.controlPlane.advanced.kubeVip.enabled }}
           securityContext:
-{{ toYaml .Values.controlPlane.statefulSet.security.containerSecurityContext | indent 12 }}
+            {{- $securityContext := merge .Values.controlPlane.statefulSet.security.containerSecurityContext dict }}
+            {{- if .Values.controlPlane.advanced.kubeVip.enabled }}
+              {{- $_ := set $securityContext "capabilities" ($securityContext.capabilities | default dict) }}
+              {{- $existingCaps := $securityContext.capabilities.add | default list }}
+              {{- $kubeVipCaps := list "NET_ADMIN" "NET_RAW" }}
+              {{- $allCaps := concat $existingCaps $kubeVipCaps | uniq }}
+              {{- $_ = set $securityContext.capabilities "add" $allCaps }}
+            {{- end }}
+{{ toYaml $securityContext | indent 12 }}
           {{- end }}
           resources:
 {{ toYaml .Values.controlPlane.statefulSet.resources | indent 12 }}

@@ -1787,6 +1787,18 @@ func (c ControlPlane) JSONSchemaExtend(base *jsonschema.Schema) {
 	addProToJSONSchema(base, reflect.TypeOf(c))
 }
 
+type KubeVip struct {
+	// Enabled defines if embedded kube-vip should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Interface is the network interface on which the VIP is announced.
+	Interface string `json:"interface,omitempty"`
+
+	// Gateway is the gateway address in CIDR notation (e.g., 10.100.0.1/24).
+	// This is used to configure policy-based routing for the VIP and must include the subnet prefix.
+	Gateway string `json:"gateway,omitempty"`
+}
+
 type ControlPlaneStatefulSet struct {
 	// HighAvailability holds options related to high availability.
 	HighAvailability ControlPlaneHighAvailability `json:"highAvailability,omitempty"`
@@ -2359,6 +2371,9 @@ type ControlPlaneAdvanced struct {
 
 	// GlobalMetadata is metadata that will be added to all resources deployed by Helm.
 	GlobalMetadata ControlPlaneGlobalMetadata `json:"globalMetadata,omitempty"`
+
+	// KubeVip holds configuration for embedded kube-vip that announces the virtual cluster endpoint IP on layer 2.
+	KubeVip KubeVip `json:"kubeVip,omitempty"`
 }
 
 type Registry struct {

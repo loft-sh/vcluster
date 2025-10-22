@@ -1000,3 +1000,62 @@ tests:
       - equal:
           path: spec.template.spec.containers[1].command[2]
           value: echo 'sidecar-container'
+
+  - it: should add NET_ADMIN and NET_RAW capabilities when kube-vip is enabled
+    set:
+      controlPlane:
+        advanced:
+          kubeVip:
+            enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add[0]
+          value: NET_ADMIN
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add[1]
+          value: NET_RAW
+
+  - it: should merge and deduplicate kube-vip capabilities with custom security context
+    set:
+      controlPlane:
+        advanced:
+          kubeVip:
+            enabled: true
+        statefulSet:
+          security:
+            containerSecurityContext:
+              runAsUser: 1000
+              capabilities:
+                add:
+                  - NET_ADMIN
+                  - SYS_TIME
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsUser
+          value: 1000
+      - lengthEqual:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          count: 3
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          content: NET_ADMIN
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          content: NET_RAW
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.add
+          content: SYS_TIME
+
+  - it: should apply default security context when kube-vip is disabled
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsUser
+          value: 0
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsGroup
+          value: 0
+      - notExists:
+          path: spec.template.spec.containers[0].securityContext.capabilities
