@@ -173,18 +173,15 @@ spec:
           {{- end }}
           {{- if or .Values.controlPlane.statefulSet.security.containerSecurityContext .Values.controlPlane.advanced.kubeVip.enabled }}
           securityContext:
-            {{- $kubeVipSecContext := dict }}
+            {{- $securityContext := merge .Values.controlPlane.statefulSet.security.containerSecurityContext dict }}
             {{- if .Values.controlPlane.advanced.kubeVip.enabled }}
-            {{- $kubeVipSecContext = dict "capabilities" (dict "add" (list "NET_ADMIN" "NET_RAW")) }}
+              {{- $_ := set $securityContext "capabilities" ($securityContext.capabilities | default dict) }}
+              {{- $existingCaps := $securityContext.capabilities.add | default list }}
+              {{- $kubeVipCaps := list "NET_ADMIN" "NET_RAW" }}
+              {{- $allCaps := concat $existingCaps $kubeVipCaps | uniq }}
+              {{- $_ = set $securityContext.capabilities "add" $allCaps }}
             {{- end }}
-            {{- with merge (dict) $kubeVipSecContext .Values.controlPlane.statefulSet.security.containerSecurityContext }}
-              {{- if .capabilities }}
-                {{- if .capabilities.add }}
-                {{- $_ := set .capabilities "add" (uniq .capabilities.add) }}
-                {{- end }}
-              {{- end }}
-{{ toYaml . | indent 12 }}
-            {{- end }}
+{{ toYaml $securityContext | indent 12 }}
           {{- end }}
           resources:
 {{ toYaml .Values.controlPlane.statefulSet.resources | indent 12 }}
