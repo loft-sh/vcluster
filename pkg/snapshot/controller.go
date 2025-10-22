@@ -107,17 +107,17 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 }
 
 func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, retErr error) {
-	c.logger.Infof("Reconciling snapshot request ConfigMap %s", req.NamespacedName)
+	c.logger.Debugf("Reconciling snapshot request ConfigMap %s", req.NamespacedName)
 
 	var configMap corev1.ConfigMap
 	err := c.client().Get(ctx, req.NamespacedName, &configMap)
 	if kerrors.IsNotFound(err) {
-		c.logger.Infof("Snapshot request ConfigMap %s not found", req.NamespacedName)
+		c.logger.Debugf("Snapshot request ConfigMap %s not found", req.NamespacedName)
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get snapshot request ConfigMap %s/%s: %w", req.Namespace, req.Name, err)
 	}
-	c.logger.Infof("Found ConfigMap %s/%s with vcluster snapshot request", configMap.Namespace, configMap.Name)
+	c.logger.Debugf("Found ConfigMap %s/%s with vcluster snapshot request", configMap.Namespace, configMap.Name)
 
 	// Snapshot request ConfigMap deleted -> we've got some cleaning up to do 🧹
 	if !configMap.DeletionTimestamp.IsZero() {
