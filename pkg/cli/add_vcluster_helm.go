@@ -6,12 +6,11 @@ import (
 	"time"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-
-	"github.com/loft-sh/log"
-	"github.com/loft-sh/log/survey"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
@@ -28,6 +27,7 @@ type AddVClusterOptions struct {
 	Host                     string
 	CertificateAuthorityData []byte
 	All                      bool
+	External                 bool
 }
 
 func AddVClusterHelm(
@@ -136,6 +136,13 @@ func addVClusterHelm(
 		err = lifecycle.DeletePods(ctx, kubeClient, "app=vcluster,release="+vCluster.Name, vCluster.Namespace)
 		if err != nil {
 			return fmt.Errorf("delete vcluster workloads: %w", err)
+		}
+	}
+
+	if !options.External {
+		err = platform.EnablePlatformManagement(ctx, kubeClient, globalFlags.LoadedConfig(log), vCluster.Name, vCluster.Namespace, log)
+		if err != nil {
+			return err
 		}
 	}
 
