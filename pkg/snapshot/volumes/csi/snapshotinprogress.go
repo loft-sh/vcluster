@@ -67,8 +67,7 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestObj 
 			if newStatus.Phase == volumes.RequestPhaseInProgress {
 				// snapshot creation is still in progress
 				hasInProgressSnapshots = true
-			} else if newStatus.Phase == volumes.RequestPhaseCompletedCleaningUp ||
-				newStatus.Phase == volumes.RequestPhaseFailedCleaningUp {
+			} else if newStatus.CleaningUp() {
 				cleaningUpSnapshots = true
 			}
 		case volumes.RequestPhaseCompletedCleaningUp:
@@ -80,6 +79,11 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestObj 
 				snapshotStatus.Phase = snapshotStatus.Phase.Failed()
 				snapshotStatus.Error.Message = fmt.Errorf("failed to cleanup volume snapshot resources: %w", err).Error()
 				status.Snapshots[pvcName] = snapshotStatus
+				if snapshotStatus.CleaningUp() {
+					cleaningUpSnapshots = true
+				} else {
+					failedSnapshotsCount++
+				}
 				continue
 			}
 			if cleanedUp {

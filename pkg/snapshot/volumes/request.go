@@ -137,3 +137,8 @@ func (s SnapshotStatus) Equals(other SnapshotStatus) bool {
 func (s SnapshotStatus) Done() bool {
 	return s.Phase == RequestPhaseCompleted || s.Phase == RequestPhaseSkipped || s.Phase == RequestPhaseFailed
 }
+
+// CleaningUp returns true if the volume snapshot is still being cleaned up.
+func (s SnapshotStatus) CleaningUp() bool {
+	return s.Phase == RequestPhaseCompletedCleaningUp || s.Phase == RequestPhaseFailedCleaningUp
+}
