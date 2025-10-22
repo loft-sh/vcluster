@@ -1799,10 +1799,6 @@ type KubeVip struct {
 	Gateway string `json:"gateway,omitempty"`
 }
 
-func (k KubeVip) JSONSchemaExtend(base *jsonschema.Schema) {
-	addProToJSONSchema(base, reflect.TypeOf(k))
-}
-
 type ControlPlaneStatefulSet struct {
 	// HighAvailability holds options related to high availability.
 	HighAvailability ControlPlaneHighAvailability `json:"highAvailability,omitempty"`
@@ -2376,7 +2372,7 @@ type ControlPlaneAdvanced struct {
 	GlobalMetadata ControlPlaneGlobalMetadata `json:"globalMetadata,omitempty"`
 
 	// KubeVip holds configuration for embedded kube-vip that announces the virtual cluster endpoint IP on layer 2.
-	KubeVip KubeVip `json:"kubeVip,omitempty" product:"pro"`
+	KubeVip KubeVip `json:"kubeVip,omitempty"`
 }
 
 type Registry struct {
