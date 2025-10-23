@@ -375,7 +375,11 @@ func (o *RestoreClient) isPVCThatShouldBeRestoredInHost(key string) bool {
 	}
 
 	pvcName := strings.TrimPrefix(key, pvcPrefix)
-	status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcName]
+	translatedPVCName := getTranslatedPVCName(pvcName)
+	if translatedPVCName == "" {
+		return true
+	}
+	status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[translatedPVCName]
 	if !ok {
 		klog.V(1).Infof("Snapshot not found for PVC %s", strings.TrimPrefix(key, pvcPrefix))
 		return false
