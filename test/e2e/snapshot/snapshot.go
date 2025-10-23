@@ -670,19 +670,48 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		})
 
 		It("canceled the previous snapshot request", func(ctx context.Context) {
+			// get vCluster config
+			vClusterRelease, err := helm.NewSecrets(f.HostClient).Get(ctx, f.VClusterName, f.VClusterNamespace)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vClusterRelease).NotTo(BeNil())
+			vConfigValues, err := yaml.Marshal(vClusterRelease.Config)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vConfigValues).NotTo(BeEmpty())
+			vClusterConfig, err := vclusterconfig.ParseConfigBytes(vConfigValues, f.VClusterName, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vClusterConfig).NotTo(BeNil())
+
+			// create the snapshot client used to check if the VolumeSnapshot and VolumeSnapshotContent are deleted
+			var restConfig *rest.Config
+			var volumeSnapshotsNamespace string
+			if vClusterConfig.PrivateNodes.Enabled {
+				restConfig = f.VClusterConfig
+				volumeSnapshotsNamespace = testNamespaceName
+			} else {
+				restConfig = f.HostConfig
+				volumeSnapshotsNamespace = f.VClusterNamespace
+			}
+			snapshotClient, err := snapshotsv1.NewForConfig(restConfig)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(snapshotClient).NotTo(BeNil())
+
 			Eventually(func(g Gomega, ctx context.Context) {
 				previousSnapshotRequest, _ := getTwoSnapshotRequests(g, ctx, f)
-				g.Expect(previousSnapshotRequest.Status.Phase).To(
-					Equal(snapshot.RequestPhaseCanceled),
-					fmt.Sprintf("Previous snapshot request %s is not canceled, got: %s", previousSnapshotRequest.Name, toJSON(previousSnapshotRequest)))
+				for pvcName, volumeSnapshotStatus := range previousSnapshotRequest.Status.VolumeSnapshots.Snapshots {
+					volumeSnapshotName := fmt.Sprintf("%s-%s", pvcName, previousSnapshotRequest.Name)
+					volumeSnapshotResource, err := snapshotClient.SnapshotV1().VolumeSnapshots(volumeSnapshotsNamespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
+					g.Expect(err).To(HaveOccurred(), "expected that canceled VolumeSnapshot is not found, but found snapshot: %s", toJSON(volumeSnapshotResource))
+					g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "expected that canceled VolumeSnapshot is not found, but got: %v", err)
+					g.Expect(volumeSnapshotStatus.Phase).To(
+						Equal(volumes.RequestPhaseCanceled),
+						fmt.Sprintf("Previous volume snapshot request for PVC %s should be canceled, got: %s", pvcName, toJSON(volumeSnapshotStatus)))
+				}
 				g.Expect(previousSnapshotRequest.Status.VolumeSnapshots.Phase).To(
 					Equal(volumes.RequestPhaseCanceled),
 					fmt.Sprintf("Previous snapshot request %s is not canceled, got: %s", previousSnapshotRequest.Name, toJSON(previousSnapshotRequest)))
-				for pvcName, volumeSnapshot := range previousSnapshotRequest.Status.VolumeSnapshots.Snapshots {
-					g.Expect(volumeSnapshot.Phase).To(
-						Equal(volumes.RequestPhaseCanceled),
-						fmt.Sprintf("Previous volume snapshot request for PVC %s should be canceled, got: %s", pvcName, toJSON(volumeSnapshot)))
-				}
+				g.Expect(previousSnapshotRequest.Status.Phase).To(
+					Equal(snapshot.RequestPhaseCanceled),
+					fmt.Sprintf("Previous snapshot request %s is not canceled, got: %s", previousSnapshotRequest.Name, toJSON(previousSnapshotRequest)))
 			}).WithContext(ctx).
 				WithPolling(framework.PollInterval).
 				WithTimeout(5 * time.Minute).
