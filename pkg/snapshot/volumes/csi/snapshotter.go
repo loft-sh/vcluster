@@ -84,7 +84,8 @@ func (s *VolumeSnapshotter) CheckIfPersistentVolumeIsSupported(pv *corev1.Persis
 }
 
 func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) error {
-	s.logger.Infof("Create volume snapshots for snapshot request %s", requestName)
+	s.logger.Debugf("Reconcile volume snapshots for snapshot request %s", requestName)
+	defer s.logger.Debugf("Reconciled volume snapshots for snapshot request %s", requestName)
 	var err error
 
 	switch status.Phase {
@@ -106,13 +107,17 @@ func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestObj runtime.Ob
 		fallthrough
 	case volumes.RequestPhaseCanceled:
 		fallthrough
+	case volumes.RequestPhaseDeleted:
+		fallthrough
 	case volumes.RequestPhaseSkipped:
 		err = s.reconcileDone(ctx, requestName, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", requestName, err)
 		}
+	case volumes.RequestPhaseDeleting:
+		fallthrough
 	case volumes.RequestPhaseCanceling:
-		err = s.reconcileCanceling(ctx, requestObj, requestName, request, status)
+		err = s.reconcileDeleting(ctx, requestObj, requestName, request, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile canceling volumes snapshot request %s: %w", requestName, err)
 		}

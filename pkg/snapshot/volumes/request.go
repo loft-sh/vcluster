@@ -22,6 +22,9 @@ const (
 	RequestPhaseCanceling SnapshotRequestPhase = "Canceling"
 	RequestPhaseCanceled  SnapshotRequestPhase = "Canceled"
 
+	RequestPhaseDeleting SnapshotRequestPhase = "Deleting"
+	RequestPhaseDeleted  SnapshotRequestPhase = "Deleted"
+
 	// RequestPhaseUndefined is a special request phase used in case of an error
 	// in volume snapshot phase transition.
 	RequestPhaseUndefined SnapshotRequestPhase = "Undefined"
@@ -50,6 +53,8 @@ func (s SnapshotRequestPhase) Next() SnapshotRequestPhase {
 		next = RequestPhaseFailed
 	case RequestPhaseCanceling:
 		next = RequestPhaseCanceled
+	case RequestPhaseDeleting:
+		next = RequestPhaseDeleted
 	default:
 		next = RequestPhaseUndefined
 	}
@@ -87,7 +92,7 @@ type SnapshotRequest struct {
 	VolumeSnapshotClassName string `json:"volumeSnapshotClassName,omitempty"`
 }
 
-// SnapshotsStatus shows the current status of the snapshot request.
+// SnapshotsStatus shows the current status of the overall volume snapshot (all PVCs in a snapshot request).
 type SnapshotsStatus struct {
 	Phase     SnapshotRequestPhase        `json:"phase,omitempty"`
 	Snapshots map[string]SnapshotStatus   `json:"snapshots,omitempty"`
@@ -102,7 +107,8 @@ func (s SnapshotsStatus) Done() bool {
 		s.Phase == RequestPhasePartiallyFailed ||
 		s.Phase == RequestPhaseFailed ||
 		s.Phase == RequestPhaseSkipped ||
-		s.Phase == RequestPhaseCanceled
+		s.Phase == RequestPhaseCanceled ||
+		s.Phase == RequestPhaseDeleted
 	if !done {
 		return false
 	}
@@ -116,6 +122,14 @@ func (s SnapshotsStatus) Done() bool {
 
 	// taking snapshot has not yet started, or it is still in progress
 	return true
+}
+
+func (s SnapshotsStatus) IsDeletingVolumeSnapshots() bool {
+	return s.Phase == RequestPhaseDeleting || s.Phase == RequestPhaseCanceling
+}
+
+func (s SnapshotsStatus) RecreateVolumeSnapshotsWhenDeleting() bool {
+	return s.Phase == RequestPhaseDeleting
 }
 
 // SnapshotStatus shows the current status of a single PVC snapshot.
@@ -141,4 +155,23 @@ func (s SnapshotStatus) Done() bool {
 // CleaningUp returns true if the volume snapshot is still being cleaned up.
 func (s SnapshotStatus) CleaningUp() bool {
 	return s.Phase == RequestPhaseCompletedCleaningUp || s.Phase == RequestPhaseFailedCleaningUp
+}
+
+func (s SnapshotStatus) IsDeletingVolumeSnapshot() bool {
+	return s.Phase == RequestPhaseDeleting || s.Phase == RequestPhaseCanceling
+}
+
+func (s SnapshotStatus) RecreateVolumeSnapshotWhenDeleting() bool {
+	return s.Phase == RequestPhaseDeleting
+}
+
+func (s SnapshotStatus) IsVolumeSnapshotMaybeCreated() bool {
+	// Volume snapshot could have been created when the phase has the following values:
+	// 1. NotStarted or InProgress, because the volume snapshot could have been created, but the
+	//    snapshot request has not been yet updated to the new phase (Completed).
+	// 2. CompletedCleaningUp or Completed, because the volume snapshot has been created.
+	return s.Phase == RequestPhaseNotStarted ||
+		s.Phase == RequestPhaseInProgress ||
+		s.Phase == RequestPhaseCompletedCleaningUp ||
+		s.Phase == RequestPhaseCompleted
 }
