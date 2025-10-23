@@ -362,6 +362,9 @@ func (o *RestoreClient) skipKey(key string) bool {
 
 // isPVCThatShouldBeRestoredInHost checks if the key refers to a PVC that should be restored on the host cluster.
 func (o *RestoreClient) isPVCThatShouldBeRestoredInHost(key string) bool {
+	if !o.RestoreVolumes {
+		return false
+	}
 	if !strings.HasPrefix(key, pvcPrefix) {
 		// not PVC
 		return false
