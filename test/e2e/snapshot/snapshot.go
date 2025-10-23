@@ -700,7 +700,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				previousSnapshotRequest, _ := getTwoSnapshotRequests(g, ctx, f)
 				for pvcName, volumeSnapshotStatus := range previousSnapshotRequest.Status.VolumeSnapshots.Snapshots {
 					pvcNameParts := strings.Split(pvcName, "/")
-					g.Expect(len(pvcNameParts)).To(Equal(2), "expected PVC name to have 2 parts separated with '/', got: %s", pvcName)
+					g.Expect(pvcNameParts).To(HaveLen(2), "expected PVC name to have 2 parts separated with '/', got: %s", pvcName)
 					volumeSnapshotName := fmt.Sprintf("%s-%s", pvcNameParts[1], previousSnapshotRequest.Name)
 					volumeSnapshotResource, err := snapshotClient.SnapshotV1().VolumeSnapshots(volumeSnapshotsNamespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
 					g.Expect(err).To(HaveOccurred(), "expected that canceled VolumeSnapshot is not found, but found VolumeSnapshot >>>%s<<<. Canceled snapshot request is %s", toJSON(volumeSnapshotResource), toJSON(previousSnapshotRequest))
