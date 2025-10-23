@@ -568,7 +568,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		})
 
 		It("Deletes the PVC with test data", func(ctx context.Context) {
-			deletePVC(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName)
+			deletePVC(ctx, f, controllerTestNamespaceName, pvcToRestoreName)
 		})
 
 		checkTestResources(controllerTestNamespaceName, true, snapshotPath)
@@ -576,7 +576,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		It("restores vCluster with volumes", func(ctx context.Context) {
 			// PVC has been restored in previous test specs, but without data, so it's stuck in Pending.
 			// Therefore, delete it again, so it gets restored properly.
-			deletePVC(ctx, f.VClusterClient, controllerTestNamespaceName, pvcToRestoreName)
+			deletePVC(ctx, f, controllerTestNamespaceName, pvcToRestoreName)
 
 			// now restore the vCluster
 			restoreVCluster(ctx, f, snapshotPath, true, true)
