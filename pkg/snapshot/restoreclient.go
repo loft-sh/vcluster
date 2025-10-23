@@ -284,7 +284,7 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 	o.snapshotRequest = snapshotRequest
 
 	// first create the snapshot options Secret
-	secret, err := CreateSnapshotOptionsSecret(vConfig.HostNamespace, vConfig.Name, &o.Snapshot)
+	secret, err := CreateSnapshotOptionsSecret(constants.RestoreRequestLabel, vConfig.HostNamespace, vConfig.Name, &o.Snapshot)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
 	}

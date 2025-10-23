@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ghodss/yaml"
+	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/helm"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -104,12 +108,12 @@ func createPVC(ctx context.Context, client *kubernetes.Clientset, pvcNamespace, 
 	framework.ExpectNoError(err)
 }
 
-func deletePVC(ctx context.Context, client *kubernetes.Clientset, pvcNamespace, pvcName string) {
-	err := client.CoreV1().PersistentVolumeClaims(pvcNamespace).Delete(ctx, pvcName, metav1.DeleteOptions{})
+func deletePVC(ctx context.Context, f *framework.Framework, pvcNamespace, pvcName string) {
+	err := f.VClusterClient.CoreV1().PersistentVolumeClaims(pvcNamespace).Delete(ctx, pvcName, metav1.DeleteOptions{})
 	framework.ExpectNoError(err)
 
 	Eventually(func() error {
-		pvc, err := client.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(ctx, pvcName, metav1.GetOptions{})
+		pvc, err := f.VClusterClient.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(ctx, pvcName, metav1.GetOptions{})
 		if kerrors.IsNotFound(err) {
 			// PVC deleted successfully
 			return nil
@@ -121,6 +125,35 @@ func deletePVC(ctx context.Context, client *kubernetes.Clientset, pvcNamespace, 
 	}).WithPolling(framework.PollInterval).
 		WithTimeout(framework.PollTimeout).
 		Should(Succeed())
+
+	// wait for the host PVC to be deleted
+	// get vCluster config
+	vClusterRelease, err := helm.NewSecrets(f.HostClient).Get(ctx, f.VClusterName, f.VClusterNamespace)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(vClusterRelease).NotTo(BeNil())
+	vConfigValues, err := yaml.Marshal(vClusterRelease.Config)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(vConfigValues).NotTo(BeEmpty())
+	vClusterConfig, err := vclusterconfig.ParseConfigBytes(vConfigValues, f.VClusterName, nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(vClusterConfig).NotTo(BeNil())
+
+	if !vClusterConfig.PrivateNodes.Enabled {
+		hostPVCName := translate.Default.HostName(nil, pvcNamespace, pvcName)
+		Eventually(func() error {
+			hostPVC, err := f.HostClient.CoreV1().PersistentVolumeClaims(hostPVCName.Namespace).Get(ctx, hostPVCName.Name, metav1.GetOptions{})
+			if kerrors.IsNotFound(err) {
+				// PVC deleted successfully
+				return nil
+			}
+			if err != nil {
+				return fmt.Errorf("failed to get host PVC %s/%s: %w", hostPVCName.Namespace, hostPVCName.Name, err)
+			}
+			return fmt.Errorf("PVC %s/%s is not deleted", hostPVC.Namespace, hostPVC.Name)
+		}).WithPolling(framework.PollInterval).
+			WithTimeout(framework.PollTimeout).
+			Should(Succeed())
+	}
 }
 
 func checkPVCData(ctx context.Context, client *kubernetes.Clientset, pvcNamespace, pvcName, testFileName, testData string) {
