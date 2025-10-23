@@ -377,7 +377,7 @@ func (o *RestoreClient) isPVCThatShouldBeRestoredInHost(key string) bool {
 	pvcName := strings.TrimPrefix(key, pvcPrefix)
 	status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcName]
 	if !ok {
-		klog.Infof("Snapshot not found for PVC %s", strings.TrimPrefix(key, pvcPrefix))
+		klog.V(1).Infof("Snapshot not found for PVC %s", strings.TrimPrefix(key, pvcPrefix))
 		return false
 	}
 	// skip restoring PVC if it has a snapshot, restore controller will restore it
