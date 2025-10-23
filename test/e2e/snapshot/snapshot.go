@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -698,10 +699,12 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			Eventually(func(g Gomega, ctx context.Context) {
 				previousSnapshotRequest, _ := getTwoSnapshotRequests(g, ctx, f)
 				for pvcName, volumeSnapshotStatus := range previousSnapshotRequest.Status.VolumeSnapshots.Snapshots {
-					volumeSnapshotName := fmt.Sprintf("%s-%s", pvcName, previousSnapshotRequest.Name)
+					pvcNameParts := strings.Split(pvcName, "/")
+					g.Expect(len(pvcNameParts)).To(Equal(2), "expected PVC name to have 2 parts separated with '/', got: %s", pvcName)
+					volumeSnapshotName := fmt.Sprintf("%s-%s", pvcNameParts[1], previousSnapshotRequest.Name)
 					volumeSnapshotResource, err := snapshotClient.SnapshotV1().VolumeSnapshots(volumeSnapshotsNamespace).Get(ctx, volumeSnapshotName, metav1.GetOptions{})
-					g.Expect(err).To(HaveOccurred(), "expected that canceled VolumeSnapshot is not found, but found snapshot: %s", toJSON(volumeSnapshotResource))
-					g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "expected that canceled VolumeSnapshot is not found, but got: %v", err)
+					g.Expect(err).To(HaveOccurred(), "expected that canceled VolumeSnapshot is not found, but found VolumeSnapshot >>>%s<<<. Canceled snapshot request is %s", toJSON(volumeSnapshotResource), toJSON(previousSnapshotRequest))
+					g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "expected that canceled VolumeSnapshot is not found, but got: %v. Canceled snapshot request is %s", err, toJSON(previousSnapshotRequest))
 					g.Expect(volumeSnapshotStatus.Phase).To(
 						Equal(volumes.RequestPhaseCanceled),
 						fmt.Sprintf("Previous volume snapshot request for PVC %s should be canceled, got: %s", pvcName, toJSON(volumeSnapshotStatus)))
