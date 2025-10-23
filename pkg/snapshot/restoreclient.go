@@ -24,6 +24,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"go.etcd.io/etcd/server/v3/storage/backend"
 	"go.etcd.io/etcd/server/v3/storage/mvcc"
 	"go.etcd.io/etcd/server/v3/storage/schema"
@@ -314,28 +315,45 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 }
 
 func (o *RestoreClient) skipKey(key string) bool {
-	if !o.vConfig.PrivateNodes.Enabled {
-		// Restore skips restoring PVs and PVCs only in private mode.
-		// In the shared mode, PVs and PVCs are restored in virtual cluster, and volumes are restored in the host
-		// cluster if needed.
+	if !o.RestoreVolumes {
 		return false
 	}
 
-	// check if the snapshot exists
-	if strings.HasPrefix(key, pvcPrefix) {
-		pvcName := strings.TrimPrefix(key, pvcPrefix)
-		status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcName]
-		if !ok {
-			return false
+	if o.vConfig.PrivateNodes.Enabled {
+		// check if the snapshot exists
+		if strings.HasPrefix(key, pvcPrefix) {
+			pvcName := strings.TrimPrefix(key, pvcPrefix)
+			status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcName]
+			if !ok {
+				return false
+			}
+			// skip restoring PVC if it has a snapshot, restore controller will restore it
+			return status.Phase == volumes.RequestPhaseCompleted
+		} else if strings.HasPrefix(key, pvPrefix) {
+			volumeName := strings.TrimPrefix(key, pvPrefix)
+			for _, snapshotSpec := range o.snapshotRequest.Spec.VolumeSnapshots.Requests {
+				if snapshotSpec.PersistentVolumeClaim.Spec.VolumeName == volumeName {
+					return true
+				}
+			}
 		}
-		// skip restoring PVC if it has a snapshot, restore controller will restore it
-		return status.Phase == volumes.RequestPhaseCompleted
-	} else if strings.HasPrefix(key, pvPrefix) {
-		volumeName := strings.TrimPrefix(key, pvPrefix)
-		for _, snapshotSpec := range o.snapshotRequest.Spec.VolumeSnapshots.Requests {
-			if snapshotSpec.PersistentVolumeClaim.Spec.VolumeName == volumeName {
+	} else {
+		// In the shared mode, PVC restore is skipped for the ones where snapshots have failed.
+
+		// check if the snapshot exists
+		if strings.HasPrefix(key, pvcPrefix) {
+			pvcName := strings.TrimPrefix(key, pvcPrefix)
+
+			translatedPVCName := getTranslatedPVCName(pvcName)
+			if translatedPVCName == "" {
 				return true
 			}
+			status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[translatedPVCName]
+			if !ok {
+				return false
+			}
+			// skip restoring PVC if it has a snapshot, restore controller will restore it
+			return status.Phase != volumes.RequestPhaseCompleted
 		}
 	}
 
@@ -737,4 +755,16 @@ func readKeyValue(tarReader *tar.Reader) ([]byte, []byte, error) {
 	}
 
 	return []byte(header.Name), buf.Bytes(), nil
+}
+
+func getTranslatedPVCName(pvcName string) string {
+	// Parse namespace and name from "namespace/name" format
+	parts := strings.SplitN(pvcName, "/", 2)
+	if len(parts) != 2 {
+		return ""
+	}
+
+	vNamespace, vName := parts[0], parts[1]
+	hostName := translate.Default.HostName(nil, vName, vNamespace)
+	return hostName.Namespace + "/" + hostName.Name
 }
