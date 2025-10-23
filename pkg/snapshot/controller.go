@@ -182,7 +182,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile new snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
-	case RequestPhaseDeleting:
+	case RequestPhaseDeletingVolumeSnapshots:
 		fallthrough
 	case RequestPhaseCanceling:
 		if !snapshotRequest.Spec.IncludeVolumes {
@@ -231,6 +231,21 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile failed snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
+	case RequestPhaseDeleting:
+		err = c.reconcileDeleting(ctx, &configMap, snapshotRequest)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to reconcile snapshot deletion request %s/%s: %w", configMap.Namespace, configMap.Name, err)
+		}
+	case RequestPhaseDeletingEtcdBackup:
+		requeue, err := c.reconcileDeletingEtcdBackup(ctx, &configMap, snapshotRequest)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to reconcile snapshot deletion request %s/%s: %w", configMap.Namespace, configMap.Name, err)
+		}
+		if requeue {
+			return ctrl.Result{
+				RequeueAfter: 10 * time.Second,
+			}, nil
+		}
 	default:
 		return ctrl.Result{}, fmt.Errorf("invalid snapshot request phase %s", snapshotRequest.Status.Phase)
 	}
@@ -271,7 +286,7 @@ func (c *Reconciler) reconcileVolumeSnapshots(ctx context.Context, snapshotReque
 	case volumes.RequestPhaseCanceled:
 		snapshotRequest.Status.Phase = RequestPhaseCanceled
 	case volumes.RequestPhaseDeleted:
-		snapshotRequest.Status.Phase = RequestPhaseDeleted
+		snapshotRequest.Status.Phase = snapshotRequest.Status.Phase.Next()
 	default:
 		return 0, fmt.Errorf("unexpected volume snapshots request phase %s", volumeSnapshotsStatus.Phase)
 	}

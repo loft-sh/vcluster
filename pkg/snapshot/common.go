@@ -21,8 +21,10 @@ const (
 	RequestPhaseCanceling RequestPhase = "Canceling"
 	RequestPhaseCanceled  RequestPhase = "Canceled"
 
-	RequestPhaseDeleting RequestPhase = "Deleting"
-	RequestPhaseDeleted  RequestPhase = "Deleted"
+	RequestPhaseDeleting                RequestPhase = "Deleting"
+	RequestPhaseDeletingVolumeSnapshots RequestPhase = "DeletingVolumeSnapshots"
+	RequestPhaseDeletingEtcdBackup      RequestPhase = "DeletingEtcdBackup"
+	RequestPhaseDeleted                 RequestPhase = "Deleted"
 
 	RequestPhaseUnknown RequestPhase = "Unknown"
 )
@@ -38,7 +40,9 @@ func (r RequestPhase) Next() RequestPhase {
 		next = RequestPhaseCompleted
 	case RequestPhaseCanceling:
 		next = RequestPhaseCanceled
-	case RequestPhaseDeleting:
+	case RequestPhaseDeletingVolumeSnapshots:
+		next = RequestPhaseDeletingEtcdBackup
+	case RequestPhaseDeletingEtcdBackup:
 		next = RequestPhaseDeleted
 	default:
 		next = RequestPhaseUnknown
