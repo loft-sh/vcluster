@@ -273,6 +273,14 @@ func (h *snapshotHandler) checkIfVolumeSnapshotResourcesExist(
 	if err != nil {
 		return false, false, fmt.Errorf("failed to get volume snapshot resources for VolumeSnapshot %s/%s: %w", volumeSnapshotNamespace, volumeSnapshotName, err)
 	}
+	if volumeSnapshot != nil {
+		volumeSnapshotJSON, _ := json.Marshal(volumeSnapshot)
+		h.logger.Debugf("VolumeSnapshot %s/%s still not deleted: %s", volumeSnapshot.Namespace, volumeSnapshot.Name, volumeSnapshotJSON)
+	}
+	if volumeSnapshotContent != nil {
+		volumeSnapshotContentJSON, _ := json.Marshal(volumeSnapshotContent)
+		h.logger.Debugf("VolumeSnapshotContent %s still not deleted: %s", volumeSnapshotContent.Name, volumeSnapshotContentJSON)
+	}
 
 	return volumeSnapshot != nil, volumeSnapshotContent != nil, nil
 }
@@ -289,8 +297,13 @@ func (h *snapshotHandler) getVolumeSnapshotResources(
 	if kerrors.IsNotFound(err) && volumeSnapshotContentName == "" {
 		return nil, nil, nil
 	}
+	if kerrors.IsNotFound(err) {
+		// while testing, it looked like the snapshots module sometimes returns a non-nil value,
+		// even when the VolumeSnapshot is not found
+		volumeSnapshot = nil
+	}
 
-	if volumeSnapshotContentName == "" {
+	if volumeSnapshotContentName == "" && volumeSnapshot != nil {
 		if volumeSnapshot.Spec.Source.PersistentVolumeClaimName != nil &&
 			volumeSnapshot.Status != nil &&
 			volumeSnapshot.Status.BoundVolumeSnapshotContentName != nil {

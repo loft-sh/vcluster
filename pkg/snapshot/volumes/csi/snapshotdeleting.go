@@ -87,6 +87,12 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 				volumeSnapshotStatus.Phase = status.Phase.Next()
 				status.Snapshots[pvcName] = volumeSnapshotStatus
 			} else {
+				if !volumeSnapshotDeleted {
+					s.logger.Debugf("VolumeSnapshot %s for PVC %s/%s is still being deleted", volumeSnapshotName)
+				}
+				if !volumeSnapshotContentDeleted {
+					s.logger.Debugf("VolumeSnapshotContent %s is still being deleted", volumeSnapshotContentName)
+				}
 				stillDeleting = true
 			}
 		}

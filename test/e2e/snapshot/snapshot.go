@@ -707,7 +707,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "expected that canceled VolumeSnapshot is not found, but got: %v. Canceled snapshot request is %s", err, toJSON(previousSnapshotRequest))
 					g.Expect(volumeSnapshotStatus.Phase).To(
 						Equal(volumes.RequestPhaseCanceled),
-						fmt.Sprintf("Previous volume snapshot request for PVC %s should be canceled, got: %s", pvcName, toJSON(volumeSnapshotStatus)))
+						fmt.Sprintf("Previous volume snapshot request for PVC %s should be canceled, got volume snapshot status: %s. Canceled snapshot request is %s", pvcName, toJSON(volumeSnapshotStatus), toJSON(previousSnapshotRequest)))
 				}
 				g.Expect(previousSnapshotRequest.Status.VolumeSnapshots.Phase).To(
 					Equal(volumes.RequestPhaseCanceled),
