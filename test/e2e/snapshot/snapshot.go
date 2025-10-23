@@ -578,7 +578,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			// Therefore, delete it again, so it gets restored properly.
 			deletePVC(ctx, f, controllerTestNamespaceName, pvcToRestoreName)
 			// wait a bit after deleting the PVC, so the syncer fully handles the deletion
-			time.Sleep(15 * time.Second)
+			time.Sleep(time.Minute)
 
 			// now restore the vCluster
 			restoreVCluster(ctx, f, snapshotPath, true, true)
