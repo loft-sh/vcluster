@@ -362,6 +362,9 @@ func (o *RestoreClient) skipKey(key string) bool {
 
 // isPVCThatShouldBeRestoredInHost checks if the key refers to a PVC that should be restored on the host cluster.
 func (o *RestoreClient) isPVCThatShouldBeRestoredInHost(key string) bool {
+	if !o.RestoreVolumes {
+		return false
+	}
 	if !strings.HasPrefix(key, pvcPrefix) {
 		// not PVC
 		return false
@@ -374,7 +377,7 @@ func (o *RestoreClient) isPVCThatShouldBeRestoredInHost(key string) bool {
 	pvcName := strings.TrimPrefix(key, pvcPrefix)
 	status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcName]
 	if !ok {
-		klog.Infof("Snapshot not found for PVC %s", strings.TrimPrefix(key, pvcPrefix))
+		klog.V(1).Infof("Snapshot not found for PVC %s", strings.TrimPrefix(key, pvcPrefix))
 		return false
 	}
 	// skip restoring PVC if it has a snapshot, restore controller will restore it
