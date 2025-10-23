@@ -376,7 +376,7 @@ func DeleteSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 	savedSnapshotRequest.Status.Phase = RequestPhase(volumes.RequestPhaseCanceling)
 
 	// first create the snapshot options Secret
-	secret, err := CreateSnapshotOptionsSecret(vClusterNamespace, vClusterName, options)
+	secret, err := CreateSnapshotOptionsSecret(constants.SnapshotRequestLabel, vClusterNamespace, vClusterName, options)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
 	}
