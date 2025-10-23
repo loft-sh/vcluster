@@ -82,7 +82,7 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 				// the same name as the VolumeSnapshot name.
 				volumeSnapshotContentName = volumeSnapshotName
 			}
-			volumeSnapshotDeleted, volumeSnapshotContentDeleted, err := s.checkIfVolumeSnapshotResourcesExist(
+			volumeSnapshotExists, volumeSnapshotContentExists, err := s.checkIfVolumeSnapshotResourcesExist(
 				ctx,
 				volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
 				volumeSnapshotName,
@@ -90,18 +90,18 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 			if err != nil {
 				return fmt.Errorf("failed to check if volume snapshot resources exist: %w", err)
 			}
-			if volumeSnapshotDeleted && volumeSnapshotContentDeleted {
+			if !volumeSnapshotExists && !volumeSnapshotContentExists {
 				volumeSnapshotStatus.Phase = volumeSnapshotStatus.Phase.Next()
 				status.Snapshots[pvcName] = volumeSnapshotStatus
 			} else {
-				if !volumeSnapshotDeleted {
+				if volumeSnapshotExists {
 					s.logger.Debugf(
 						"VolumeSnapshot %s for PVC %s/%s is still being deleted",
 						volumeSnapshotName,
 						volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
 						volumeSnapshotRequest.PersistentVolumeClaim.Name)
 				}
-				if !volumeSnapshotContentDeleted {
+				if volumeSnapshotContentExists {
 					s.logger.Debugf("VolumeSnapshotContent %s is still being deleted", volumeSnapshotContentName)
 				}
 				stillDeleting = true
