@@ -144,28 +144,39 @@ func (h *snapshotHandler) deleteVolumeSnapshot(ctx context.Context, requestLabel
 	if err != nil {
 		return false, fmt.Errorf("failed to get volume snapshot resources for VolumeSnapshot %s/%s: %w", volumeSnapshotNamespace, volumeSnapshotName, err)
 	}
-	recreatedResource := false
-	if volumeSnapshot == nil && recreateResourceIfNotFound {
-		_, err = h.createPreProvisionedVolumeSnapshot(ctx, requestLabel, requestName, volumeSnapshotRequest)
-		if err != nil {
-			return false, fmt.Errorf("failed to recreate VolumeSnapshot %s/%s: %w", volumeSnapshotNamespace, volumeSnapshotName, err)
-		}
-		recreatedResource = true
-	}
+
+	resourceRecreated := false
 	if volumeSnapshotContent == nil && recreateResourceIfNotFound {
+		h.logger.Debugf("VolumeSnapshotContent %s not found, recreate it", volumeSnapshotContentName)
 		_, err = h.createVolumeSnapshotContentResource(ctx, requestLabel, requestName, volumeSnapshotRequest, snapshotHandle, snapshotsv1api.VolumeSnapshotContentDelete)
 		if err != nil {
 			return false, fmt.Errorf("failed to recreate VolumeSnapshotContent %s: %w", volumeSnapshotContentName, err)
 		}
-		recreatedResource = true
+		resourceRecreated = true
 	}
-	if recreatedResource {
+	if volumeSnapshot == nil && recreateResourceIfNotFound {
+		h.logger.Debugf("VolumeSnapshot %s/%s not found, recreate it", volumeSnapshotNamespace, volumeSnapshotName)
+		_, err = h.createPreProvisionedVolumeSnapshot(ctx, requestLabel, requestName, volumeSnapshotRequest)
+		if err != nil {
+			return false, fmt.Errorf("failed to recreate VolumeSnapshot %s/%s: %w", volumeSnapshotNamespace, volumeSnapshotName, err)
+		}
+		resourceRecreated = true
+	}
+	if resourceRecreated {
 		return false, nil
 	}
 
 	if volumeSnapshot == nil && volumeSnapshotContent == nil {
 		// both the VolumeSnapshot and the VolumeSnapshotContent have been deleted
 		return true, nil
+	}
+	if volumeSnapshot != nil {
+		volumeSnapshotJSON, _ := json.Marshal(volumeSnapshot)
+		h.logger.Debugf("VolumeSnapshot %s/%s still not deleted: %s", volumeSnapshot.Namespace, volumeSnapshot.Name, volumeSnapshotJSON)
+	}
+	if volumeSnapshotContent != nil {
+		volumeSnapshotContentJSON, _ := json.Marshal(volumeSnapshotContent)
+		h.logger.Debugf("VolumeSnapshotContent %s still not deleted: %s", volumeSnapshotContent.Name, volumeSnapshotContentJSON)
 	}
 
 	err = h.updateAndDeleteVolumeSnapshotResource(ctx, volumeSnapshot, volumeSnapshotContent, snapshotsv1api.VolumeSnapshotContentDelete)
@@ -241,6 +252,7 @@ func (h *snapshotHandler) deleteVolumeSnapshotResources(
 	volumeSnapshotContent *snapshotsv1api.VolumeSnapshotContent) error {
 	if volumeSnapshot != nil &&
 		volumeSnapshot.DeletionTimestamp.IsZero() {
+		h.logger.Debugf("Delete VolumeSnapshot %s/%s", volumeSnapshot.Namespace, volumeSnapshot.Name)
 		err := h.snapshotsClient.SnapshotV1().VolumeSnapshots(volumeSnapshot.Namespace).Delete(ctx, volumeSnapshot.Name, metav1.DeleteOptions{})
 		if err != nil && !kerrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete VolumeSnapshot %s/%s: %w", volumeSnapshot.Namespace, volumeSnapshot.Name, err)
@@ -256,44 +268,13 @@ func (h *snapshotHandler) deleteVolumeSnapshotResources(
 		//    deleted, and the volume snapshot remains saved in the storage backend.
 		// 2. DeletionPolicy=Delete when deleting the volume snapshots, where both the VolumeSnapshotContent and the
 		//    volume snapshot from the storage backend are deleted.
+		h.logger.Debugf("Delete VolumeSnapshotContent %s", volumeSnapshotContent.Name)
 		err := h.snapshotsClient.SnapshotV1().VolumeSnapshotContents().Delete(ctx, volumeSnapshotContent.Name, metav1.DeleteOptions{})
 		if err != nil && !kerrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete VolumeSnapshotContent %s: %w", volumeSnapshotContent.Name, err)
 		}
 	}
 	return nil
-}
-
-func (h *snapshotHandler) checkIfVolumeSnapshotResourcesExist(
-	ctx context.Context,
-	volumeSnapshotNamespace,
-	volumeSnapshotName,
-	volumeSnapshotContentName string) (bool, bool, error) {
-	volumeSnapshot, volumeSnapshotContent, err := h.getVolumeSnapshotResources(ctx, volumeSnapshotNamespace, volumeSnapshotName, volumeSnapshotContentName)
-	if err != nil {
-		return false, false, fmt.Errorf("failed to get volume snapshot resources for VolumeSnapshot %s/%s: %w", volumeSnapshotNamespace, volumeSnapshotName, err)
-	}
-	if volumeSnapshot != nil {
-		volumeSnapshotJSON, _ := json.Marshal(volumeSnapshot)
-		h.logger.Debugf("VolumeSnapshot %s/%s still not deleted: %s", volumeSnapshot.Namespace, volumeSnapshot.Name, volumeSnapshotJSON)
-	}
-	if volumeSnapshotContent != nil {
-		volumeSnapshotContentJSON, _ := json.Marshal(volumeSnapshotContent)
-		h.logger.Debugf("VolumeSnapshotContent %s still not deleted: %s", volumeSnapshotContent.Name, volumeSnapshotContentJSON)
-	}
-
-	// It can happen that the VolumeSnapshot and the VolumeSnapshotContent are deleted, but the resources are still in
-	// the cluster because some finalizer is blocking the deletion.
-	// Here we mostly care that the volume snapshots do not exist in the storage backend, so when the deletion timestamp
-	// is set, and the volume snapshot is not saved (i.e., status not set), that is good enough.
-	volumeSnapshotDeleted :=
-		volumeSnapshot == nil ||
-			!volumeSnapshot.DeletionTimestamp.IsZero() && volumeSnapshot.Status == nil
-	volumeSnapshotContentDeleted :=
-		volumeSnapshotContent == nil ||
-			!volumeSnapshotContent.DeletionTimestamp.IsZero() && volumeSnapshotContent.Status == nil
-
-	return !volumeSnapshotDeleted, !volumeSnapshotContentDeleted, nil
 }
 
 func (h *snapshotHandler) getVolumeSnapshotResources(

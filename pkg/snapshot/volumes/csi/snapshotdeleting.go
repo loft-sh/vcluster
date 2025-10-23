@@ -46,64 +46,51 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 		}
 
 		volumeSnapshotName := fmt.Sprintf("%s-%s", volumeSnapshotRequest.PersistentVolumeClaim.Name, requestName)
-		if volumeSnapshotStatus.IsVolumeSnapshotMaybeCreated() {
-			// The volume snapshot could have been created, the deletion has not been started, so
-			// trigger deletion here.
-			deleted, err := s.deleteVolumeSnapshot(
+		if volumeSnapshotStatus.IsVolumeSnapshotMaybeCreated() || volumeSnapshotStatus.IsDeletingVolumeSnapshot() {
+			// Re-create VolumeSnapshot and VolumeSnapshotContent resources if the following conditions are met:
+			// - this is the Deletion request
+			// - volume snapshot is already being deleted (because then, if VolumeSnapshot and VolumeSnapshotContent
+			//   resources are not found, it means that they have been already deleted)
+			recreateResourceIfNotFound :=
+				status.RecreateVolumeSnapshotsWhenDeleting() &&
+					!volumeSnapshotStatus.IsDeletingVolumeSnapshot()
+			deletedResources, err := s.deleteVolumeSnapshot(
 				ctx,
 				constants.SnapshotRequestLabel,
 				requestName,
 				volumeSnapshotRequest,
 				volumeSnapshotStatus.SnapshotHandle,
-				status.RecreateVolumeSnapshotsWhenDeleting())
+				recreateResourceIfNotFound)
 			// check for errors
 			if err != nil {
 				return fmt.Errorf("failed to delete volume snapshot %s: %w", volumeSnapshotName, err)
 			}
-			volumeSnapshotStatus.Phase = status.Phase
-			status.Snapshots[pvcName] = volumeSnapshotStatus
-			stillDeleting = !deleted
-			s.eventRecorder.Eventf(
-				requestObj,
-				corev1.EventTypeNormal,
-				string(status.Phase),
-				"%s volume snapshot for PVC %s/%s",
-				status.Phase,
-				volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
-				volumeSnapshotRequest.PersistentVolumeClaim.Name)
-		} else if volumeSnapshotStatus.IsDeletingVolumeSnapshot() {
-			// Volume snapshot deletion has been already started, which means that the resources
-			// have been already re-created if needed. Therefore, just check if the resources have
-			// been already deleted.
-			var volumeSnapshotContentName string
-			if volumeSnapshotStatus.RecreateVolumeSnapshotWhenDeleting() {
-				// When the VolumeSnapshot and VolumeSnapshotContent are re-created, it means that
-				// they are pre-provisioned, so the VolumeSnapshotContent name is manually set to
-				// the same name as the VolumeSnapshot name.
-				volumeSnapshotContentName = volumeSnapshotName
+			if volumeSnapshotStatus.Phase != status.Phase {
+				// update volume status to Canceling / Deleting
+				volumeSnapshotStatus.Phase = status.Phase
+				status.Snapshots[pvcName] = volumeSnapshotStatus
+				s.eventRecorder.Eventf(
+					requestObj,
+					corev1.EventTypeNormal,
+					string(status.Phase),
+					"%s volume snapshot for PVC %s/%s",
+					status.Phase,
+					volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
+					volumeSnapshotRequest.PersistentVolumeClaim.Name)
 			}
-			volumeSnapshotExists, volumeSnapshotContentExists, err := s.checkIfVolumeSnapshotResourcesExist(
-				ctx,
-				volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
-				volumeSnapshotName,
-				volumeSnapshotContentName)
-			if err != nil {
-				return fmt.Errorf("failed to check if volume snapshot resources exist: %w", err)
-			}
-			if !volumeSnapshotExists && !volumeSnapshotContentExists {
+			if deletedResources {
+				// resources deleted, so just update the status
 				volumeSnapshotStatus.Phase = volumeSnapshotStatus.Phase.Next()
 				status.Snapshots[pvcName] = volumeSnapshotStatus
+				s.eventRecorder.Eventf(
+					requestObj,
+					corev1.EventTypeNormal,
+					string(volumeSnapshotStatus.Phase),
+					"%s volume snapshot for PVC %s/%s",
+					status.Phase,
+					volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
+					volumeSnapshotRequest.PersistentVolumeClaim.Name)
 			} else {
-				if volumeSnapshotExists {
-					s.logger.Debugf(
-						"VolumeSnapshot %s for PVC %s/%s is still being deleted",
-						volumeSnapshotName,
-						volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
-						volumeSnapshotRequest.PersistentVolumeClaim.Name)
-				}
-				if volumeSnapshotContentExists {
-					s.logger.Debugf("VolumeSnapshotContent %s is still being deleted", volumeSnapshotContentName)
-				}
 				stillDeleting = true
 			}
 		}
