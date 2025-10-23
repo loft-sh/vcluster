@@ -91,7 +91,7 @@ func (c *reconcilerBase) removeFinalizer(ctx context.Context, configMap *corev1.
 		return nil
 	}
 
-	c.logger.Infof(
+	c.logger.Debugf(
 		"Removing vCluster %s controller finalizer %s from the %s request ConfigMap %s/%s",
 		c.kind,
 		c.finalizer,
@@ -111,7 +111,7 @@ func (c *reconcilerBase) removeFinalizer(ctx context.Context, configMap *corev1.
 		return fmt.Errorf("failed to patch %s request ConfigMap %s/%s finalizers: %w", c.kind, configMap.Namespace, configMap.Name, err)
 	}
 
-	c.logger.Infof(
+	c.logger.Debugf(
 		"Removed vCluster %s controller finalizer %s from the %s request ConfigMap %s/%s",
 		c.kind,
 		c.finalizer,
@@ -123,7 +123,7 @@ func (c *reconcilerBase) removeFinalizer(ctx context.Context, configMap *corev1.
 
 // reconcileCompletedRequest cleans up the completed snapshot/restore request resources.
 func (c *reconcilerBase) reconcileCompletedRequest(ctx context.Context, configMap *corev1.ConfigMap, requestMetadata RequestMetadata) error {
-	c.logger.Infof("%s request from ConfigMap %s/%s has been completed", c.kind.ToCapital(), configMap.Namespace, configMap.Name)
+	c.logger.Debugf("%s request from ConfigMap %s/%s has been completed", c.kind.ToCapital(), configMap.Namespace, configMap.Name)
 	err := c.reconcileDoneRequest(ctx, configMap, requestMetadata)
 	if err != nil {
 		return fmt.Errorf("failed to delete %s request Secret %s/%s: %w", c.kind, configMap.Namespace, configMap.Name, err)
