@@ -373,7 +373,7 @@ func DeleteSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 	}
 
 	// update the snapshot request status to indicate that the snapshot request is in the cleaning up phase
-	savedSnapshotRequest.Status.Phase = RequestPhase(volumes.RequestPhaseCanceling)
+	savedSnapshotRequest.Status.Phase = RequestPhase(volumes.RequestPhaseDeleting)
 
 	// first create the snapshot options Secret
 	secret, err := CreateSnapshotOptionsSecret(constants.SnapshotRequestLabel, vClusterNamespace, vClusterName, options)
