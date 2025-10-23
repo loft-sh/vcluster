@@ -24,7 +24,6 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 		return nil
 	}
 
-	s.eventRecorder.Eventf(requestObj, corev1.EventTypeNormal, string(status.Phase), "%s volume snapshots", status.Phase)
 	stillDeleting := false
 	defer func() {
 		if retErr == nil {
@@ -64,6 +63,14 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 			volumeSnapshotStatus.Phase = status.Phase
 			status.Snapshots[pvcName] = volumeSnapshotStatus
 			stillDeleting = !deleted
+			s.eventRecorder.Eventf(
+				requestObj,
+				corev1.EventTypeNormal,
+				string(status.Phase),
+				"%s volume snapshot for PVC %s/%s",
+				status.Phase,
+				volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
+				volumeSnapshotRequest.PersistentVolumeClaim.Name)
 		} else if volumeSnapshotStatus.IsDeletingVolumeSnapshot() {
 			// Volume snapshot deletion has been already started, which means that the resources
 			// have been already re-created if needed. Therefore, just check if the resources have
@@ -84,11 +91,15 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 				return fmt.Errorf("failed to check if volume snapshot resources exist: %w", err)
 			}
 			if volumeSnapshotDeleted && volumeSnapshotContentDeleted {
-				volumeSnapshotStatus.Phase = status.Phase.Next()
+				volumeSnapshotStatus.Phase = volumeSnapshotStatus.Phase.Next()
 				status.Snapshots[pvcName] = volumeSnapshotStatus
 			} else {
 				if !volumeSnapshotDeleted {
-					s.logger.Debugf("VolumeSnapshot %s for PVC %s/%s is still being deleted", volumeSnapshotName)
+					s.logger.Debugf(
+						"VolumeSnapshot %s for PVC %s/%s is still being deleted",
+						volumeSnapshotName,
+						volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
+						volumeSnapshotRequest.PersistentVolumeClaim.Name)
 				}
 				if !volumeSnapshotContentDeleted {
 					s.logger.Debugf("VolumeSnapshotContent %s is still being deleted", volumeSnapshotContentName)

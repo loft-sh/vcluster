@@ -282,7 +282,18 @@ func (h *snapshotHandler) checkIfVolumeSnapshotResourcesExist(
 		h.logger.Debugf("VolumeSnapshotContent %s still not deleted: %s", volumeSnapshotContent.Name, volumeSnapshotContentJSON)
 	}
 
-	return volumeSnapshot != nil, volumeSnapshotContent != nil, nil
+	// It can happen that the VolumeSnapshot and the VolumeSnapshotContent are deleted, but the resources are still in
+	// the cluster because some finalizer is blocking the deletion.
+	// Here we mostly care that the volume snapshots do not exist in the storage backend, so when the deletion timestamp
+	// is set, and the volume snapshot is not saved (i.e., status not set), that is good enough.
+	volumeSnapshotDeleted :=
+		volumeSnapshot == nil ||
+			!volumeSnapshot.DeletionTimestamp.IsZero() && volumeSnapshot.Status == nil
+	volumeSnapshotContentDeleted :=
+		volumeSnapshotContent == nil ||
+			!volumeSnapshotContent.DeletionTimestamp.IsZero() && volumeSnapshotContent.Status == nil
+
+	return !volumeSnapshotDeleted, !volumeSnapshotContentDeleted, nil
 }
 
 func (h *snapshotHandler) getVolumeSnapshotResources(
