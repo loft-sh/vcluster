@@ -55,9 +55,9 @@ var resourceOrder = []string{
 	"clusters",
 	"clusteraccesses",
 	"nodeclaims",
-	"nodetypes",
 	"nodeenvironments",
 	"nodeproviders",
+	"nodetypes",
 
 	// access
 	"teams",
