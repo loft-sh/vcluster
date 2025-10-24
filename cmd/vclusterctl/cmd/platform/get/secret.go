@@ -3,10 +3,12 @@ package get
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"strings"
 
+	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
@@ -16,6 +18,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
+	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -52,6 +55,8 @@ Returns the key value of a project / shared secret.
 Example:
 vcluster platform get secret test-secret.key
 vcluster platform get secret test-secret.key --project myproject
+
+For shared secret, if the --namespace flag is not set, it looks for the secrets in vcluster-platform and loft namespaces.
 ########################################################
 	`)
 
@@ -123,10 +128,7 @@ func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 	case set.ProjectSecret:
 		namespace = projectutil.ProjectNamespace(cmd.Project)
 	case set.SharedSecret:
-		namespace, err = clihelper.VClusterPlatformInstallationNamespace(ctx)
-		if err != nil {
-			return errors.Wrap(err, "get shared secrets namespace")
-		}
+		namespace = cmd.Namespace
 	}
 
 	// get secret
@@ -155,7 +157,7 @@ func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 				secretNameList = append(secretNameList, s.Name)
 			}
 		case set.SharedSecret:
-			secrets, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).List(ctx, metav1.ListOptions{})
+			secrets, err := cmd.listSharedSecretsWithFallback(ctx, namespace, managementClient)
 			if err != nil {
 				return errors.Wrap(err, "list shared secrets")
 			}
@@ -196,7 +198,7 @@ func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 
 		secretData = pSecret.Spec.Data
 	case set.SharedSecret:
-		sSecret, err := managementClient.Loft().ManagementV1().SharedSecrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
+		sSecret, err := cmd.findSharedSecretWithFallback(ctx, secretName, namespace, managementClient)
 		if err != nil {
 			return errors.Wrap(err, "get secrets")
 		} else if len(sSecret.Spec.Data) == 0 {
@@ -268,4 +270,52 @@ func (cmd *SecretCmd) Run(ctx context.Context, args []string) error {
 
 	_, err = os.Stdout.Write(outputData)
 	return err
+}
+
+func (cmd *SecretCmd) findSharedSecretWithFallback(ctx context.Context, secretName, namespace string, managementClient kube.Interface) (*managementv1.SharedSecret, error) {
+	// look in:
+	// 1. namespace defined by the flag
+	// 2. vcluster-platform namespace
+	// 3. loft namespace
+	// if secret cannot be found in these, fail
+	var sSecret *managementv1.SharedSecret
+	var err error
+	var errs []error
+	for _, ns := range []string{namespace, clihelper.DefaultPlatformNamespace, clihelper.LegacyPlatformNamespace} {
+		if ns == "" {
+			// namespace from the command flag may be empty
+			continue
+		}
+		cmd.log.Debugf("looking for secret %s in namespace %s", secretName, ns)
+		sSecret, err = managementClient.Loft().ManagementV1().SharedSecrets(ns).Get(ctx, secretName, metav1.GetOptions{})
+		if err == nil {
+			cmd.log.Debugf("found secret %s in namespace %s", secretName, ns)
+			return sSecret, nil
+		}
+		errs = append(errs, fmt.Errorf("looking for secret %s in namespace %s failed: %w", secretName, ns, err))
+	}
+	return nil, stderrors.Join(errs...)
+}
+
+func (cmd *SecretCmd) listSharedSecretsWithFallback(ctx context.Context, namespace string, managementClient kube.Interface) (*managementv1.SharedSecretList, error) {
+	var secrets *managementv1.SharedSecretList
+	var err error
+	var errs []error
+	for _, ns := range []string{namespace, clihelper.DefaultPlatformNamespace, clihelper.LegacyPlatformNamespace} {
+		if ns == "" {
+			// namespace from the command flag may be empty
+			continue
+		}
+		cmd.log.Debugf("looking for shared secrets in namespace %s", ns)
+		secrets, err = managementClient.Loft().ManagementV1().SharedSecrets(ns).List(ctx, metav1.ListOptions{})
+		if err == nil && len(secrets.Items) > 0 {
+			return secrets, nil
+		} else if err == nil && len(secrets.Items) == 0 {
+			// if no secrets are found, keep looking in the next namespace
+			cmd.log.Debugf("no shared secrets found in namespace %s", ns)
+			continue
+		}
+		errs = append(errs, fmt.Errorf("listing shared secrets in namespace %s failed: %w", ns, err))
+	}
+	return nil, stderrors.Join(errs...)
 }
