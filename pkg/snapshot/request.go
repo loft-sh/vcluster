@@ -373,7 +373,8 @@ func DeleteSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 	}
 
 	// update the snapshot request status to indicate that the snapshot request is in the cleaning up phase
-	savedSnapshotRequest.Status.Phase = RequestPhase(volumes.RequestPhaseCanceling)
+	savedSnapshotRequest.CreationTimestamp = metav1.Now()
+	savedSnapshotRequest.Status.Phase = RequestPhase(volumes.RequestPhaseDeleting)
 
 	// first create the snapshot options Secret
 	secret, err := CreateSnapshotOptionsSecret(constants.SnapshotRequestLabel, vClusterNamespace, vClusterName, options)
@@ -386,6 +387,7 @@ func DeleteSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
 	}
 
+	savedSnapshotRequest.Name = secret.Name
 	configMap, err := CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName, savedSnapshotRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
