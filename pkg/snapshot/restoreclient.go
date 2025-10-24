@@ -131,6 +131,9 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	}
 	o.vConfig = vConfig
 
+	// set global vCluster name
+	translate.VClusterName = vConfig.Name
+
 	// create store
 	objectStore, err := CreateStore(ctx, &o.Snapshot)
 	if err != nil {
