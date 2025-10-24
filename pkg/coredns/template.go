@@ -44,7 +44,7 @@ const corednsCorefile = `{{- if .Values.controlPlane.coredns.overwriteConfig }}
     {{- if .Values.networking.advanced.fallbackHostCluster }}
     forward . {{ .HOST_CLUSTER_DNS }}
     {{- else if .Values.policies.networkPolicy.enabled }}
-    forward . /etc/resolv.conf {{ .Values.policies.networkPolicy.fallbackDns }} {
+    forward . /etc/resolv.conf {{ .Values.policies.networkPolicy.workload.fallbackDns }} {
         policy sequential
     }
     {{- else }}
