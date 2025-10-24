@@ -134,6 +134,7 @@ For detailed steps, visit our [Quickstart Documentation](https://www.vcluster.co
 #### Conference Talks
 | Event             | Speaker         | Title                                           | YouTube Link                          |
 |--------------------|----------------|-------------------------------------------------|---------------------------------------|
+| HashiConf 2025| Scott McAllister| GPU sharing done right: Secrets, security, and scaling with Vault and vCluster | [Watch Here](https://www.youtube.com/watch?v=zWx17azSqyU) |
 | CNCF Book Club 2024| Marc Boorshtein| Kubernetes - An Enterprise Guide (vCluster) | [Watch Here](https://www.youtube.com/watch?v=8vwnDlkkuJM) |
 | KCD NYC 2024   | Lukas Gentele    | Tenant Autonomy & Isolation In Multi-Tenant Kubernetes Clusters | [Watch Here](https://www.youtube.com/watch?v=AKJVLbXsUmE&t=758s)| 
 | KubeCon Eu 2023   | Ilia Medvedev & Kostis Kapelonis | How We Securely Scaled Multi-Tenancy with VCluster, Crossplane, and Argo CD | [Watch Here](https://www.youtube.com/watch?v=hFiHU6W4_z0) |
