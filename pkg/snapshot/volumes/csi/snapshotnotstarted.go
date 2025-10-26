@@ -21,12 +21,13 @@ func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, requestName
 	// for private nodes, we need to get all PVCs in the virtual cluster
 	// for share nodes, we need to get only PVCs in the vCluster host namespace
 	var pvcsNamespace string
+	var listOptions v1.ListOptions
 	if !s.vConfig.PrivateNodes.Enabled {
 		// if private nodes are disabled, we need to get all PVCs in all namespaces
 		pvcsNamespace = s.vConfig.HostNamespace
-	}
-	listOptions := v1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s", translate.MarkerLabel, s.vConfig.Name),
+		listOptions = v1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", translate.MarkerLabel, s.vConfig.Name),
+		}
 	}
 	pvcs, err := s.kubeClient.CoreV1().PersistentVolumeClaims(pvcsNamespace).List(ctx, listOptions)
 	if err != nil {
