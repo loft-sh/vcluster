@@ -179,7 +179,7 @@ We're glad to see vCluster being adopted by organizations around the world! Belo
 - **[Adobe](https://www.youtube.com/watch?v=p8BluR5WT5w)**: Enhancing development environments with virtual clusters.
 - **[Aussie Broadband](https://www.vcluster.com/case-studies/aussie-broadband)**:  Aussie Broadband Achieved 99% Faster Cluster Provisioning with vCluster.
 - **[Codefresh](https://www.loft.sh/blog/how-codefresh-uses-vcluster-to-provide-hosted-argo-cd)**: Codefresh uses vCluster to provide hosted ArgoCD.
-- **[Coreweave](https://www.coreweave.com/blog/coreweave-and-loft-labs-leverage-vcluster-in-kubernetes-at-scale)**: CoreWeave and Loft Labs Leverage vCluster to Run Virtual Clusters in Kubernetes at Scale.
+- **[CoreWeave](https://www.coreweave.com/blog/coreweave-and-loft-labs-leverage-vcluster-in-kubernetes-at-scale)**: CoreWeave and Loft Labs Leverage vCluster to Run Virtual Clusters in Kubernetes at Scale.
 - **[Scanmetrics](https://www.vcluster.com/case-studies/scanmetrix)**: Scanmetrix Achieved 99% Faster Customer Deployments with vCluster
 - **[Trade Connectors](https://www.vcluster.com/case-studies/trade-connectors)**: Trade Connectors Optimized Kubernetes Cost with Multi-Tenancy from vCluster.
 - **ABBYY**
