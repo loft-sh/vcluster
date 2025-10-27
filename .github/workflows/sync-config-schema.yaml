@@ -129,9 +129,20 @@ jobs:
 
           # copy generated vcluster.schema.json to the docs
           cd ../
-          mkdir -p "vcluster-docs/configsrc/vcluster/${TARGET_VERSION}/"
-          cp config/values.yaml "vcluster-docs/configsrc/vcluster/${TARGET_VERSION}/default_values.yaml"
-          cp vcluster-config/vcluster.schema.json "vcluster-docs/configsrc/vcluster/${TARGET_VERSION}/vcluster.schema.json"
+
+          # Check if versioned docs folder exists. If it exists, use it; otherwise use main.
+          # Versioned folders are created independently by the docs release process.
+          if [[ -d "vcluster-docs/vcluster_versioned_docs/version-${TARGET_VERSION}" ]]; then
+            DOCS_VERSION="${TARGET_VERSION}"
+            OUTPUT_PATH="vcluster_versioned_docs/version-${TARGET_VERSION}/_partials/config"
+          else
+            DOCS_VERSION="main"
+            OUTPUT_PATH="vcluster/_partials/config"
+          fi
+
+          mkdir -p "vcluster-docs/configsrc/vcluster/${DOCS_VERSION}/"
+          cp config/values.yaml "vcluster-docs/configsrc/vcluster/${DOCS_VERSION}/default_values.yaml"
+          cp vcluster-config/vcluster.schema.json "vcluster-docs/configsrc/vcluster/${DOCS_VERSION}/vcluster.schema.json"
 
           # generate vCluster partials in docs
           cd vcluster-docs/
@@ -143,16 +154,7 @@ jobs:
           go mod tidy
           go mod vendor
 
-          # Determine output path based on target version
-          if [[ "${TARGET_VERSION}" == "main" ]]; then
-            OUTPUT_PATH="vcluster/_partials/config"
-          else
-            OUTPUT_PATH="vcluster_versioned_docs/version-${TARGET_VERSION}/_partials/config"
-            # Ensure versioned directory exists
-            mkdir -p "vcluster_versioned_docs/version-${TARGET_VERSION}"
-          fi
-
-          go run hack/vcluster/partials/main.go "configsrc/vcluster/${TARGET_VERSION}" "${OUTPUT_PATH}"
+          go run hack/vcluster/partials/main.go "configsrc/vcluster/${DOCS_VERSION}" "${OUTPUT_PATH}"
 
           # set git info
           git config --global user.name "Loft Bot"
