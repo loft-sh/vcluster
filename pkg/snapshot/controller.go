@@ -419,7 +419,7 @@ func (c *Reconciler) updateRequest(ctx context.Context, previousConfigMapState c
 	if err != nil {
 		return fmt.Errorf("failed to patch snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
-	c.logger.Infof("Patched snapshot request %s/%s", configMap.Namespace, configMap.Name)
+	c.logger.Debugf("Patched snapshot request %s/%s", configMap.Namespace, configMap.Name)
 	return nil
 }
 
