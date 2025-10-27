@@ -71,14 +71,14 @@ jobs:
           go test -mod=vendor -test.v -c ./test/e2e || { echo "go test build failed"; exit 1; }
 
       - name: Upload syncer image to artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: vcluster_syncer
           path: ./vcluster_syncer
           retention-days: 7
 
       - name: Upload vcluster cli to artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: vcluster
           path: ./vcluster
@@ -166,7 +166,7 @@ jobs:
         run: |
           curl -L -o vcluster-current "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64"
       - name: Upload vcluster cli to artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: vcluster-current
           path: ./vcluster-current
