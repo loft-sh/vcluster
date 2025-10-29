@@ -644,6 +644,7 @@ exportKubeConfig:
   secret:
     name: ""
     namespace: ""
+  additionalSecrets: []
 
 external: {}
 
