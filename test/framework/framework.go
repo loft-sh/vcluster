@@ -2,6 +2,7 @@ package framework
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -64,6 +65,11 @@ type Framework struct {
 	// HostCRClient is the controller runtime client of the current
 	// host kubernetes cluster were we are testing in
 	HostCRClient client.Client
+
+	// HostKubeConfigFile is a file containing kube config
+	// of the current host kubernetes cluster were we are testing in.
+	// This file shall be deleted in the end of the test suite execution.
+	HostKubeConfigFile *os.File
 
 	// VClusterConfig is the kubernetes rest config of the current
 	// vcluster instance which we are testing
@@ -159,19 +165,34 @@ func CreateFramework(ctx context.Context) error {
 		return err
 	}
 
+	hostKubeconfigPath, err := os.CreateTemp("", "kubeconfig*")
+	if err != nil {
+		return fmt.Errorf("could not create a temporary kubeconfig file: %w", err)
+	}
+	_ = hostKubeconfigPath.Close()
+	hostClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
+	hostRawConfig, err := hostClientConfig.RawConfig()
+	if err != nil {
+		return fmt.Errorf("could not get raw kubeconfig: %w", err)
+	}
+	if err := clientcmd.WriteToFile(hostRawConfig, hostKubeconfigPath.Name()); err != nil {
+		return fmt.Errorf("could not write to the kubeconfig file %q: %w", hostKubeconfigPath.Name(), err)
+	}
+
 	// create the framework
 	DefaultFramework = &Framework{
-		Context:           ctx,
-		VClusterName:      name,
-		VClusterNamespace: ns,
-		Suffix:            suffix,
-		HostConfig:        hostConfig,
-		HostClient:        hostClient,
-		HostCRClient:      hostCRClient,
-		Log:               l,
-		ClientTimeout:     timeout,
-		ClientBurst:       clientBurst,
-		ClientQPS:         float32(clientQPS),
+		Context:            ctx,
+		VClusterName:       name,
+		VClusterNamespace:  ns,
+		Suffix:             suffix,
+		HostConfig:         hostConfig,
+		HostClient:         hostClient,
+		HostCRClient:       hostCRClient,
+		HostKubeConfigFile: hostKubeconfigPath,
+		Log:                l,
+		ClientTimeout:      timeout,
+		ClientBurst:        clientBurst,
+		ClientQPS:          float32(clientQPS),
 	}
 
 	// init virtual client
@@ -263,5 +284,23 @@ func (f *Framework) RefreshVirtualClient() error {
 }
 
 func (f *Framework) Cleanup() error {
-	return os.Remove(f.VClusterKubeConfigFile.Name())
+	var errs []error
+	if f.HostKubeConfigFile != nil {
+		err := os.Remove(f.HostKubeConfigFile.Name())
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if f.VClusterKubeConfigFile != nil {
+		err := os.Remove(f.VClusterKubeConfigFile.Name())
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
 }
