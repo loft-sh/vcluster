@@ -119,6 +119,9 @@ func GetServiceCIDR(ctx context.Context, vConfig *config.Config, client kubernet
 	serviceCIDR := strings.Join(serviceCIDRs, ",")
 
 	// set annotation on the vCluster service
+	if vClusterService.Annotations == nil {
+		vClusterService.Annotations = map[string]string{}
+	}
 	vClusterService.Annotations[ServiceCIDRAnnotation] = serviceCIDR
 	_, err = client.CoreV1().Services(vClusterNamespace).Update(ctx, vClusterService, metav1.UpdateOptions{})
 	if err != nil {
