@@ -39,6 +39,24 @@ func NewLinearClient(ctx context.Context, token string) LinearClient {
 	return LinearClient{client: client}
 }
 
+// isStableRelease checks if a version is a stable release (no pre-release suffix).
+// Returns true for stable releases like v0.26.1, v4.5.0
+// Returns false for pre-releases like v0.26.1-alpha.1, v0.26.1-rc.4, v4.5.0-beta.2
+func isStableRelease(version string) bool {
+	// Remove 'v' prefix if present
+	version = strings.TrimPrefix(version, "v")
+
+	// Check for pre-release suffixes
+	preReleaseSuffixes := []string{"-alpha", "-beta", "-rc", "-dev", "-pre"}
+	for _, suffix := range preReleaseSuffixes {
+		if strings.Contains(version, suffix) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // WorkflowStateID returns the ID of the a workflow state for the given team.
 func (l *LinearClient) WorkflowStateID(ctx context.Context, stateName, linearTeamName string) (string, error) {
 	var query struct {
@@ -115,6 +133,7 @@ func (l *LinearClient) IsIssueInStateByName(ctx context.Context, issueID string,
 
 // MoveIssueToState moves the issue to the given state if it's not already there.
 // It also adds a comment to the issue about when it was first released and on which tag.
+// Only processes stable releases (no pre-release suffixes like -alpha, -rc, -beta).
 func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueID, releasedStateID, readyForReleaseStateName, releaseTagName, releaseDate string) error {
 	// (ThomasK33): Skip CVEs
 	if strings.HasPrefix(strings.ToLower(issueID), "cve") {
@@ -122,6 +141,15 @@ func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueI
 	}
 
 	logger := ctx.Value(LoggerKey).(*slog.Logger)
+
+	// Skip non-stable releases (alpha, beta, rc, etc.)
+	if !isStableRelease(releaseTagName) {
+		logger.Info("Skipping non-stable release",
+			"issueID", issueID,
+			"release", releaseTagName,
+			"reason", "not a stable release")
+		return nil
+	}
 
 	currentIssueStateID, currentIssueStateName, err := l.IssueStateDetails(ctx, issueID)
 	if err != nil {
@@ -201,4 +229,3 @@ func (l *LinearClient) createComment(ctx context.Context, issueID, releaseCommen
 
 	return nil
 }
-
