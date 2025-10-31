@@ -47,3 +47,9 @@ networking:
 experimental:
   syncSettings:
     setOwner: true
+
+policies:
+  networkPolicy:
+    enabled: true
+    controlPlane:
+      denyAllByDefault: true
