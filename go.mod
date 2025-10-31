@@ -28,6 +28,7 @@ require (
 	github.com/loft-sh/agentapi/v4 v4.5.0-alpha.10
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 	github.com/loft-sh/api/v4 v4.5.0-alpha.10
+	github.com/loft-sh/e2e-framework v0.0.0-20250912153320-75dbf6ac6deb
 	github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -74,6 +75,7 @@ require (
 	modernc.org/sqlite v1.29.10
 	oras.land/oras-go/v2 v2.5.0
 	sigs.k8s.io/controller-runtime v0.21.0
+	sigs.k8s.io/e2e-framework v0.6.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -158,6 +160,7 @@ require (
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/vbatts/tar-split v0.12.1 // indirect
 	github.com/vbauerster/mpb/v8 v8.10.2 // indirect
+	github.com/vladimirvivien/gexe v0.4.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.etcd.io/bbolt v1.4.2 // indirect
 	go.etcd.io/etcd/pkg/v3 v3.6.4 // indirect
@@ -241,6 +244,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
+	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/tcnksm/go-gitconfig v0.1.2

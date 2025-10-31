@@ -629,6 +629,13 @@ github.com/loft-sh/api/v4/pkg/product
 # github.com/loft-sh/apiserver v0.0.0-20250910060242-4b9f3ffe0646
 ## explicit; go 1.24.0
 github.com/loft-sh/apiserver/pkg/builders
+# github.com/loft-sh/e2e-framework v0.0.0-20250912153320-75dbf6ac6deb
+## explicit; go 1.24.0
+github.com/loft-sh/e2e-framework/pkg/context
+github.com/loft-sh/e2e-framework/pkg/e2e
+github.com/loft-sh/e2e-framework/pkg/setup
+github.com/loft-sh/e2e-framework/pkg/setup/cluster
+github.com/loft-sh/e2e-framework/pkg/setup/devspace
 # github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 ## explicit; go 1.23.3
 github.com/loft-sh/image/copy
@@ -818,6 +825,10 @@ github.com/otiai10/copy
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 ## explicit
 github.com/peterbourgon/diskv
+# github.com/peterbourgon/ff/v3 v3.4.0
+## explicit; go 1.18
+github.com/peterbourgon/ff/v3
+github.com/peterbourgon/ff/v3/internal
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
@@ -910,6 +921,16 @@ github.com/vbauerster/mpb/v8
 github.com/vbauerster/mpb/v8/cwriter
 github.com/vbauerster/mpb/v8/decor
 github.com/vbauerster/mpb/v8/internal
+# github.com/vladimirvivien/gexe v0.4.1
+## explicit; go 1.23
+github.com/vladimirvivien/gexe
+github.com/vladimirvivien/gexe/exec
+github.com/vladimirvivien/gexe/fs
+github.com/vladimirvivien/gexe/http
+github.com/vladimirvivien/gexe/net
+github.com/vladimirvivien/gexe/prog
+github.com/vladimirvivien/gexe/str
+github.com/vladimirvivien/gexe/vars
 # github.com/wk8/go-ordered-map/v2 v2.1.8
 ## explicit; go 1.18
 github.com/wk8/go-ordered-map/v2
@@ -2392,6 +2413,28 @@ sigs.k8s.io/controller-runtime/pkg/webhook/admission
 sigs.k8s.io/controller-runtime/pkg/webhook/admission/metrics
 sigs.k8s.io/controller-runtime/pkg/webhook/conversion
 sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
+# sigs.k8s.io/e2e-framework v0.6.0
+## explicit; go 1.23.0
+sigs.k8s.io/e2e-framework/klient
+sigs.k8s.io/e2e-framework/klient/conf
+sigs.k8s.io/e2e-framework/klient/decoder
+sigs.k8s.io/e2e-framework/klient/k8s
+sigs.k8s.io/e2e-framework/klient/k8s/resources
+sigs.k8s.io/e2e-framework/klient/k8s/watcher
+sigs.k8s.io/e2e-framework/klient/wait
+sigs.k8s.io/e2e-framework/klient/wait/conditions
+sigs.k8s.io/e2e-framework/pkg/env
+sigs.k8s.io/e2e-framework/pkg/envconf
+sigs.k8s.io/e2e-framework/pkg/envfuncs
+sigs.k8s.io/e2e-framework/pkg/featuregate
+sigs.k8s.io/e2e-framework/pkg/features
+sigs.k8s.io/e2e-framework/pkg/flags
+sigs.k8s.io/e2e-framework/pkg/types
+sigs.k8s.io/e2e-framework/pkg/utils
+sigs.k8s.io/e2e-framework/support
+sigs.k8s.io/e2e-framework/support/kind
+sigs.k8s.io/e2e-framework/third_party/kind
+sigs.k8s.io/e2e-framework/third_party/vcluster
 # sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8
 ## explicit; go 1.23
 sigs.k8s.io/json
