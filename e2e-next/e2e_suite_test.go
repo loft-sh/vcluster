@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/loft-sh/e2e-framework/pkg/e2e"
-	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
+	cluster "github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/e2e-framework/pkg/setup/devspace"
 	"github.com/peterbourgon/ff/v3"
 
@@ -17,8 +17,6 @@ import (
 	"github.com/onsi/gomega/format"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"sigs.k8s.io/e2e-framework/pkg/envconf"
-	"sigs.k8s.io/e2e-framework/pkg/envfuncs"
 	"sigs.k8s.io/e2e-framework/support/kind"
 
 	// Import tests
@@ -69,8 +67,6 @@ func TestRunE2ETests(t *testing.T) {
 	RunSpecs(t, "vCluster E2E Suite")
 }
 
-var envCfg = envconf.New()
-
 var _ = e2e.BeforeSuite(func(ctx context.Context) context.Context {
 	var err error
 
@@ -79,10 +75,10 @@ var _ = e2e.BeforeSuite(func(ctx context.Context) context.Context {
 
 	By("Creating kind cluster")
 	if clusterName != "vcluster" {
-		ctx, err = envfuncs.CreateCluster(kind.NewProvider(), clusterName)(ctx, envCfg)
+		ctx, err = cluster.Create(cluster.WithName(clusterName), cluster.WithProvider(kind.NewProvider()))(ctx)
 		Expect(err).NotTo(HaveOccurred())
 	} else {
-		ctx, err = envfuncs.CreateClusterWithConfig(kind.NewProvider(), clusterName, "e2e-kind.config.yaml")(ctx, envCfg)
+		ctx, err = cluster.Create(cluster.WithName(clusterName), cluster.WithProvider(kind.NewProvider()), cluster.WithConfigFile("e2e-kind.config.yaml"))(ctx)
 		Expect(err).NotTo(HaveOccurred())
 	}
 	ctx, err = cluster.SetupControllerRuntimeClient(cluster.WithCluster(clusterName))(ctx)
@@ -99,12 +95,11 @@ var _ = e2e.BeforeSuite(func(ctx context.Context) context.Context {
 		By("No vcluster image specified, using default")
 		vclusterImage = DefaultVclusterImage
 	}
-
 	if devspace.From(ctx) {
 		By("Using DevSpace built image, skip loading image to kind cluster...")
 	} else if vclusterImage != DefaultVclusterImage {
 		By("Loading image to kind cluster...")
-		ctx, err = envfuncs.LoadDockerImageToCluster(clusterName, vclusterImage)(ctx, envCfg)
+		ctx, err = cluster.LoadImage(clusterName, vclusterImage)(ctx)
 		Expect(err).NotTo(HaveOccurred())
 	} else {
 		By("Using stable image...")
@@ -113,6 +108,6 @@ var _ = e2e.BeforeSuite(func(ctx context.Context) context.Context {
 })
 
 var _ = e2e.AfterSuite(func(ctx context.Context) {
-	_, err := envfuncs.DestroyCluster(clusterName)(ctx, envCfg)
+	_, err := cluster.Destroy(clusterName)(ctx)
 	Expect(err).NotTo(HaveOccurred())
 })
