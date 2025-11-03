@@ -7,7 +7,7 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/e2e"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	e2eLabels "github.com/loft-sh/vcluster/e2e-next/labels"
-	"github.com/loft-sh/vcluster/e2e-next/setup"
+	vcluster "github.com/loft-sh/vcluster/e2e-next/setup"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	. "github.com/onsi/gomega"
@@ -25,11 +25,10 @@ const (
 )
 
 var _ = e2e.Describe("Helm charts (regular and OCI) are synced and applied as expected",
-	e2eLabels.Test,
+	e2eLabels.Core,
 	e2eLabels.PR,
 	func() {
 		var (
-			vcluster     *setup.VClusterSetup
 			vClusterName = "helm-charts-test-vcluster"
 
 			HelmSecretLabels = map[string]string{
@@ -70,14 +69,22 @@ experimental:
             namespace: fluent-bit
           timeout: "50s"
 `
-			vcluster = setup.CreateVClusterFromValues(ctx, vClusterName, vclusterValues)
-			vcluster.WaitForControlPlane(ctx)
+			var err error
+
+			ctx, err = vcluster.Create(
+				vcluster.WithName(vClusterName),
+				vcluster.WithValuesYAML(vclusterValues),
+			)(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			err = vcluster.WaitForControlPlane(ctx)
+			Expect(err).NotTo(HaveOccurred())
 			return ctx
 		})
 
 		e2e.It("Test if configmap for both charts gets applied", func(ctx context.Context) {
+			kubeClient := vcluster.GetKubeClientFrom(ctx)
 			Eventually(func(g Gomega) {
-				cm, err := vcluster.KubeClient.CoreV1().ConfigMaps(deploy.VClusterDeployConfigMapNamespace).
+				cm, err := kubeClient.CoreV1().ConfigMaps(deploy.VClusterDeployConfigMapNamespace).
 					Get(ctx, deploy.VClusterDeployConfigMap, metav1.GetOptions{})
 				g.Expect(err).NotTo(HaveOccurred(), "Deploy configmap should exist")
 				status := deploy.ParseStatus(cm)
@@ -94,8 +101,9 @@ experimental:
 		})
 
 		e2e.It("Test nginx release secret existence in vcluster (regular chart)", func(ctx context.Context) {
+			kubeClient := vcluster.GetKubeClientFrom(ctx)
 			Eventually(func(g Gomega) {
-				secList, err := vcluster.KubeClient.CoreV1().Secrets(ChartNamespace).List(ctx, metav1.ListOptions{
+				secList, err := kubeClient.CoreV1().Secrets(ChartNamespace).List(ctx, metav1.ListOptions{
 					LabelSelector: labels.SelectorFromSet(HelmSecretLabels).String(),
 				})
 				g.Expect(err).NotTo(HaveOccurred(), "Should be able to list secrets")
@@ -109,8 +117,9 @@ experimental:
 		})
 
 		e2e.It("Test fluent-bit release deployment existence in vcluster (OCI chart)", func(ctx context.Context) {
+			kubeClient := vcluster.GetKubeClientFrom(ctx)
 			Eventually(func(g Gomega) []appsv1.Deployment {
-				deployList, err := vcluster.KubeClient.AppsV1().Deployments(ChartOCINamespace).List(ctx, metav1.ListOptions{
+				deployList, err := kubeClient.AppsV1().Deployments(ChartOCINamespace).List(ctx, metav1.ListOptions{
 					LabelSelector: labels.SelectorFromSet(HelmOCIDeploymentLabels).String(),
 				})
 				g.Expect(err).NotTo(HaveOccurred(), "Should be able to list deployments")
