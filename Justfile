@@ -111,7 +111,7 @@ build-image tag="vcluster:e2e-latest":
   docker build -t {{tag}} -f Dockerfile.release --build-arg TARGETARCH=$(uname -m | sed s/x86_64/amd64/g) --build-arg TARGETOS=linux .
   rm ./vcluster
 
-@dev-e2e label-filter="test" image="vcluster:e2e-latest" *ARGS='': \
+@dev-e2e label-filter="core" image="vcluster:e2e-latest" *ARGS='': \
   (setup label-filter image) \
   (run-e2e image ARGS) \
   (teardown label-filter image)
@@ -122,15 +122,11 @@ build-image tag="vcluster:e2e-latest":
 @iterate-e2e label-filter="core" image="vcluster:e2e-latest": \
   (run-e2e label-filter image "false")
 
-@setup label-filter="test" image="vcluster:e2e-latest":
+@setup label-filter="core" image="vcluster:e2e-latest":
   GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --vcluster-image="{{image}}" --setup-only
 
 @teardown label-filter="core" image="vcluster:e2e-latest":
   GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --vcluster-image="{{image}}" --teardown-only
-
-@devspace-e2e image="vcluster:e2e-latest" *ARGS='':
-  @devspace --config=e2e-next/devspace.yaml dev -n vcluster --var IMAGE="{{image}}" {{ARGS}}
-
 
 # Run e2e tests
 e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind setup-csi-volume-snapshots && delete-kind
