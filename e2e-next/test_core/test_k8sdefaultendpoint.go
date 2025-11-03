@@ -1,4 +1,4 @@
-package e2e_next
+package test_core
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	vcluster "github.com/loft-sh/vcluster/e2e-next/setup"
-
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -98,6 +98,10 @@ var _ = e2e.Describe("map default/kubernetes endpoint to physical vcluster endpo
 				WithPolling(constants.PollingInterval).
 				WithTimeout(constants.PollingTimeout).
 				Should(Succeed(), "Endpoints should match after waiting")
+		})
+		e2e.AfterAll(func(ctx context.Context) {
+			By("Removing vcluster")
+			_ = vcluster.Destroy(vClusterName)
 		})
 	},
 )

@@ -1,4 +1,4 @@
-package e2e_next
+package test_core
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	vcluster "github.com/loft-sh/vcluster/e2e-next/setup"
 
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,11 +81,10 @@ experimental:
 			Expect(err).NotTo(HaveOccurred())
 			return ctx
 		})
-
 		e2e.It("Test if configmap for both charts gets applied", func(ctx context.Context) {
-			kubeClient := vcluster.GetKubeClientFrom(ctx)
+			vClusterClient := vcluster.GetKubeClientFrom(ctx)
 			Eventually(func(g Gomega) {
-				cm, err := kubeClient.CoreV1().ConfigMaps(deploy.VClusterDeployConfigMapNamespace).
+				cm, err := vClusterClient.CoreV1().ConfigMaps(deploy.VClusterDeployConfigMapNamespace).
 					Get(ctx, deploy.VClusterDeployConfigMap, metav1.GetOptions{})
 				g.Expect(err).NotTo(HaveOccurred(), "Deploy configmap should exist")
 				status := deploy.ParseStatus(cm)
@@ -129,5 +129,8 @@ experimental:
 				WithTimeout(constants.PollingTimeout).
 				Should(HaveLen(1), "Should have exactly one fluent-bit deployment")
 		})
-	},
-)
+		e2e.AfterAll(func(ctx context.Context) {
+			By("Removing vcluster")
+			_ = vcluster.Destroy(vClusterName)
+		})
+	})

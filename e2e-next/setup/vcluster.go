@@ -8,7 +8,6 @@ import (
 
 	"github.com/loft-sh/e2e-framework/pkg/e2e"
 	"github.com/loft-sh/e2e-framework/pkg/setup"
-	. "github.com/onsi/ginkgo/v2"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/e2e-framework/klient"
@@ -134,7 +133,6 @@ func Create(opts ...VClusterOptions) setup.Func {
 		// Check if vcluster already exists in context
 		existingVCluster := From(ctx, o.name)
 		if existingVCluster != nil {
-			By("Reusing existing vcluster: " + o.name)
 			return ctx, nil
 		}
 
@@ -149,7 +147,6 @@ func Create(opts ...VClusterOptions) setup.Func {
 
 			// Clean up the temporary file
 			e2e.DeferCleanup(func(ctx context.Context) {
-				By("Removing temp vcluster.yaml file")
 				_ = os.Remove(valuesFile)
 			})
 		} else if o.valuesFile != "" {
@@ -160,7 +157,6 @@ func Create(opts ...VClusterOptions) setup.Func {
 		// Create vcluster instance
 		vclusterCluster := vcluster.NewCluster(o.name)
 		// Create the vcluster with the values file
-		By("Creating vcluster")
 		_, err = vclusterCluster.CreateWithConfig(ctx, valuesFile)
 		if err != nil {
 			return ctx, fmt.Errorf("failed to create vcluster: %w", err)
@@ -185,12 +181,6 @@ func Create(opts ...VClusterOptions) setup.Func {
 		ctx = WithVClusterRestConfig(ctx, restConfig)
 		ctx = WithVClusterKlientClient(ctx, klientClient)
 		ctx = WithVClusterKubeClient(ctx, kubeClient)
-
-		// Remove vcluster after test
-		e2e.DeferCleanup(func(ctx context.Context) {
-			By("Removing vcluster")
-			_ = vclusterCluster.Destroy(ctx)
-		})
 
 		return ctx, nil
 	}
@@ -226,12 +216,10 @@ func WaitForControlPlane(ctx context.Context) error {
 		return fmt.Errorf("vcluster klient client not found in context")
 	}
 
-	By("Waiting for vcluster control plane to be ready")
 	return vclusterCluster.WaitForControlPlane(ctx, klientClient)
 }
 
 func createTempValuesFile(vclusterName string, valuesYAML string) (string, error) {
-	By("Creating temp vcluster.yaml file")
 	tmpDir := os.TempDir()
 	valuesFile := filepath.Join(tmpDir, fmt.Sprintf("vcluster-values-%s.yaml", vclusterName))
 	err := os.WriteFile(valuesFile, []byte(valuesYAML), 0644)
