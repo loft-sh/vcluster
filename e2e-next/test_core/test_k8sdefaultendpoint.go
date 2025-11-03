@@ -9,7 +9,7 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
-	"github.com/loft-sh/vcluster/e2e-next/setup"
+	vcluster "github.com/loft-sh/vcluster/e2e-next/setup"
 
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +22,6 @@ var _ = e2e.Describe("map default/kubernetes endpoint to physical vcluster endpo
 	func() {
 		var (
 			hostClient        kubernetes.Interface
-			vclusterSetup     *setup.VClusterSetup
 			vClusterName      = "k8s-default-endpoint-test-vcluster"
 			vClusterNamespace string
 		)
@@ -40,19 +39,25 @@ var _ = e2e.Describe("map default/kubernetes endpoint to physical vcluster endpo
       repository: vcluster
       tag: e2e-latest
 `
+			var err error
 
-			// Create vcluster using helper function
-			vclusterSetup = setup.CreateVClusterFromValues(ctx, vClusterName, vclusterValues)
-
+			ctx, err = vcluster.Create(
+				vcluster.WithName(vClusterName),
+				vcluster.WithValuesYAML(vclusterValues),
+			)(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			err = vcluster.WaitForControlPlane(ctx)
+			Expect(err).NotTo(HaveOccurred())
 			return ctx
 		})
 
 		e2e.It("Test default/kubernetes endpoints matches with vcluster service endpoint", func(ctx context.Context) {
+			kubeClient := vcluster.GetKubeClientFrom(ctx)
 			Eventually(func(g Gomega) {
 				hostClusterEndpoint, err := hostClient.CoreV1().Endpoints(vClusterNamespace).Get(ctx, vClusterName, metav1.GetOptions{})
 				g.Expect(err).NotTo(HaveOccurred(), "Failed to get host cluster endpoint")
 
-				vclusterEndpoint, err := vclusterSetup.KubeClient.CoreV1().Endpoints("default").Get(ctx, "kubernetes", metav1.GetOptions{})
+				vclusterEndpoint, err := kubeClient.CoreV1().Endpoints("default").Get(ctx, "kubernetes", metav1.GetOptions{})
 				g.Expect(err).NotTo(HaveOccurred(), "Failed to get vcluster endpoint")
 
 				hostClusterIps := make([]string, 0)
@@ -87,7 +92,6 @@ var _ = e2e.Describe("map default/kubernetes endpoint to physical vcluster endpo
 					fmt.Printf("IPs mismatch - Host: %v, VCluster: %v\n", hostClusterIps, vClusterIps)
 					fmt.Printf("Ports mismatch - Host: %v, VCluster: %v\n", hostClusterPorts, vClusterPorts)
 				}
-
 				g.Expect(hostClusterIps).To(Equal(vClusterIps), "IPs should match between host and vcluster endpoints")
 				g.Expect(hostClusterPorts).To(Equal(vClusterPorts), "Ports should match between host and vcluster endpoints")
 			}).
