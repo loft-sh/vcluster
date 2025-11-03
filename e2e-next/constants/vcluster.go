@@ -5,7 +5,6 @@ import (
 )
 
 var (
-	// go:embed vcluster.yaml
 	DefaultVClusterYAML string
 )
 
