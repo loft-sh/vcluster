@@ -65,8 +65,8 @@ var _ = e2e.Describe("map default/kubernetes endpoint to physical vcluster endpo
 				vClusterIps := make([]string, 0)
 				vClusterPorts := make([]int32, 0)
 
-				g.Expect(len(hostClusterEndpoint.Subsets)).To(BeNumerically(">", 0), "Host cluster endpoint should have at least one subset")
-				g.Expect(len(vclusterEndpoint.Subsets)).To(BeNumerically(">", 0), "VCluster endpoint should have at least one subset")
+				g.Expect(hostClusterEndpoint.Subsets).ToNot(BeEmpty(), "Host cluster endpoint should have at least one subset")
+				g.Expect(vclusterEndpoint.Subsets).ToNot(BeEmpty(), "VCluster endpoint should have at least one subset")
 
 				for _, address := range hostClusterEndpoint.Subsets[0].Addresses {
 					hostClusterIps = append(hostClusterIps, address.IP)
