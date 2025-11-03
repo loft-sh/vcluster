@@ -2,6 +2,7 @@ package pro
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 )
@@ -31,6 +32,10 @@ var StartKonnectivity = func(ctx *synccontext.ControllerContext) error {
 	}
 
 	return NewFeatureError("private nodes")
+}
+
+var WithKonnectivity = func(ctx *synccontext.ControllerContext, handler http.Handler) http.Handler {
+	return handler
 }
 
 var WriteKonnectivityEgressConfig = func() (string, error) {
