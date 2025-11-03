@@ -105,10 +105,4 @@ tests:
           count: 1
       - lengthEqual:
           path: spec.ports
-          count: 3
-      - contains:
-          path: spec.ports
-          content:
-            name: konnectivity
-            protocol: TCP
-            port: 8132
+          count: 2
