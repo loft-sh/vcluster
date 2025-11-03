@@ -17,6 +17,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/authorization/impersonationauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/kubeletauthorizer"
 	"github.com/loft-sh/vcluster/pkg/plugin"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/server/cert"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
@@ -304,6 +305,8 @@ func (s *Server) buildHandlerChain(ctx *synccontext.ControllerContext, serverCon
 	defaultHandler := DefaultBuildHandlerChain(s.handler, serverConfig)
 	if !ctx.Config.PrivateNodes.Enabled {
 		defaultHandler = filters.WithNodeName(defaultHandler, ctx.Config.HostNamespace, ctx.Config.Networking.Advanced.ProxyKubelets.ByIP, s.cachedVirtualClient, ctx.HostNamespaceClient)
+	} else if ctx.Config.ControlPlane.Advanced.Konnectivity.Server.Enabled {
+		defaultHandler = pro.WithKonnectivity(ctx, defaultHandler)
 	}
 	return defaultHandler
 }
