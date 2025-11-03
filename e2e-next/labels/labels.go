@@ -9,6 +9,4 @@ var (
 	PR = Label("pr")
 	// Test Groups (legacy?)
 	Core = Label("core")
-
-	Test = Label("test")
 )
