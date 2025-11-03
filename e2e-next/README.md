@@ -2,7 +2,7 @@
 
 1. Identify the critical tests that cover the core functionality of your feature. These will be run on every PR and should be marked with `labels.PR`.
 2. Other tests, like edge cases or optional flows, can have different labels. Any new labels must be added to `labels/labels.go`.
-3. Add your test files in the appropriate folder: `test_features` for feature tests, `test_integrations` for integration tests, or if it’s an API test, add a new file under `test_management_v1`.
+3. Add your test files in the appropriate folder: `test_features` for feature tests, `test_integrations` for integration tests
 4. If you created a new folder, make sure to add the import in `e2e_suite_test.go`.
 
 ### Preparations
@@ -19,8 +19,7 @@ If you want to iterate over a test, you can do:
 1. Run `just build-image`
 2. Run `just setup [LABEL]` and it will do the following:
   * Create a kind cluster
-  * Install the platform
-3. Run `just devspace-e2e` to get a shell to the platform inside the kind cluster. If you exit the shell, it runs automatically `just teardown`
+  * Load vcluster image into kind cluster
 
 Then iterate via:
 1. Run `just iterate-e2e [LABEL]`
