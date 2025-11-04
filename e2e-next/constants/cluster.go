@@ -4,7 +4,7 @@ var vclusterCluster string
 
 func GetClusterName() string {
 	if vclusterCluster == "" {
-		return "vcluster"
+		return "kind-cluster"
 	}
 	return vclusterCluster
 }
