@@ -389,10 +389,10 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 		}
 
 		if oldConfig.Isolation.NetworkPolicy.OutgoingConnections.IPBlock.CIDR != "" {
-			newConfig.Policies.NetworkPolicy.OutgoingConnections.IPBlock.CIDR = oldConfig.Isolation.NetworkPolicy.OutgoingConnections.IPBlock.CIDR
+			newConfig.Policies.NetworkPolicy.Workload.PublicEgress.CIDR = oldConfig.Isolation.NetworkPolicy.OutgoingConnections.IPBlock.CIDR
 		}
 		if len(oldConfig.Isolation.NetworkPolicy.OutgoingConnections.IPBlock.Except) > 0 {
-			newConfig.Policies.NetworkPolicy.OutgoingConnections.IPBlock.Except = oldConfig.Isolation.NetworkPolicy.OutgoingConnections.IPBlock.Except
+			newConfig.Policies.NetworkPolicy.Workload.PublicEgress.Except = oldConfig.Isolation.NetworkPolicy.OutgoingConnections.IPBlock.Except
 		}
 
 		if len(oldConfig.Isolation.LimitRange.Default) > 0 {

@@ -2739,6 +2739,26 @@ type NetworkPolicyWorkloadPublicEgress struct {
 	Except []string `json:"except,omitempty"`
 }
 
+// Deprecated: To be removed via legacyconfig cleanup.
+type OutgoingConnections struct {
+	// IPBlock describes a particular CIDR (Ex. "192.168.1.0/24","2001:db8::/64") that is allowed
+	// to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
+	// that should not be included within this rule.
+	IPBlock IPBlock `json:"ipBlock,omitempty"`
+}
+
+// Deprecated: To be removed via legacyconfig cleanup.
+type IPBlock struct {
+	// CIDR defines the allowed workload public egress destination.
+	// Valid examples are "0.0.0.0/0", "192.168.1.0/24" or "2001:db8::/64"
+	CIDR string `json:"cidr,omitempty"`
+
+	// Except is a slice of CIDRs that should not be included. Items outside the cidr range will be rejected.
+	// Valid examples are "192.168.1.0/24" or "2001:db8::/64".
+	// +optional
+	Except []string `json:"except,omitempty"`
+}
+
 type CentralAdmission struct {
 	// ValidatingWebhooks are validating webhooks that should be enforced in the virtual cluster
 	ValidatingWebhooks []ValidatingWebhookConfiguration `json:"validatingWebhooks,omitempty"`
