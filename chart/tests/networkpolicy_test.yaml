@@ -34,14 +34,14 @@ tests:
       - documentIndex: 0
         lengthEqual:
           path: spec.egress
-          count: 4
+          count: 3
       - documentIndex: 0
         lengthEqual:
           path: spec.ingress
           count: 2
       - documentIndex: 0
         equal:
-          path: spec.egress[3].to[0].ipBlock.cidr
+          path: spec.egress[2].to[0].ipBlock.cidr
           value: 0.0.0.0/0
       - documentIndex: 1
         equal:
@@ -111,7 +111,7 @@ tests:
           count: 4
       - documentIndex: 0
         equal:
-          path: spec.egress[4].ports[0].port
+          path: spec.egress[3].ports[0].port
           value: 2345
       - documentIndex: 0
         equal:
