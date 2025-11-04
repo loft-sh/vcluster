@@ -2725,30 +2725,9 @@ type NetworkPolicy struct {
 
 	// Workload network policy rules
 	Workload NetworkPolicyWorkload `json:"workload,omitempty"`
-
-	// OutgoingConnections are the outgoing connections options for the vCluster workloads.
-	// Deprecated: use policy.networkPolicy.workload.publicEgress instead.
-	OutgoingConnections OutgoingConnections `json:"outgoingConnections,omitempty"`
-
-	// ExtraControlPlaneRules are extra allowed rules for the vCluster control plane.
-	// Deprecated: use policy.networkPolicy.controlPlane.egress instead.
-	ExtraControlPlaneRules []map[string]interface{} `json:"extraControlPlaneRules,omitempty"`
-
-	// ExtraWorkloadRules are extra allowed rules for the vCluster workloads.
-	// Deprecated: use policy.networkPolicy.workload.egress instead.
-	ExtraWorkloadRules []map[string]interface{} `json:"extraWorkloadRules,omitempty"`
 }
 
 type NetworkPolicyControlPlane struct {
-	// DenyAllByDefault ensures that pods that are not selected by any other NetworkPolicy will not be allowed ingress or egress traffic.
-	DenyAllByDefault bool `json:"denyAllByDefault,omitempty"`
-
-	// AllowCommonHostAPIServer enables AWS, EKS, GCP common Kubernetes API server egress traffic.
-	AllowCommonHostAPIServer bool `json:"allowCommonHostApiServer,omitempty"`
-
-	// AllowPlatform enables vCluster Platform ingress/egress traffic.
-	AllowPlatform bool `json:"allowPlatform,omitempty"`
-
 	// Ingress rules for the vCluster control plane.
 	Ingress []map[string]interface{} `json:"ingress,omitempty"`
 
@@ -2757,12 +2736,6 @@ type NetworkPolicyControlPlane struct {
 }
 
 type NetworkPolicyWorkload struct {
-	// AllowVirtualCluster enables ingress/egress traffic between pods within the virtual cluster.
-	AllowVirtualCluster bool `json:"allowVirtualCluster,omitempty"`
-
-	// AllowPublicEgress enables public egress traffic configurable via policies.networkPolicy.outgoingConnections
-	AllowPublicEgress bool `json:"allowPublicEgress,omitempty"`
-
 	// PublicEgress holds the public outgoing connections options for the vCluster workloads.
 	PublicEgress NetworkPolicyWorkloadPublicEgress `json:"publicEgress,omitempty"`
 
@@ -2774,37 +2747,15 @@ type NetworkPolicyWorkload struct {
 }
 
 type NetworkPolicyWorkloadPublicEgress struct {
-	// CIDR is a string representing the IPBlock
-	// Valid examples are "192.168.1.0/24" or "2001:db8::/64"
+	// Enabled defines if the workload public egress should be enabled or disabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// CIDR defines the allowed workload public egress destination.
+	// Valid examples are "0.0.0.0/0", "192.168.1.0/24" or "2001:db8::/64"
 	CIDR string `json:"cidr,omitempty"`
 
-	// Except is a slice of CIDRs that should not be included within an IPBlock
-	// Valid examples are "192.168.1.0/24" or "2001:db8::/64"
-	// Except values will be rejected if they are outside the cidr range
-	// +optional
-	Except []string `json:"except,omitempty"`
-}
-
-type OutgoingConnections struct {
-	// IPBlock describes a particular CIDR (Ex. "192.168.1.0/24","2001:db8::/64") that is allowed
-	// to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
-	// that should not be included within this rule.
-	// Deprecated: use policy.networkPolicy.workload.publicEgress instead.
-	IPBlock IPBlock `json:"ipBlock,omitempty"`
-
-	// Platform enables egress access towards loft platform
-	// Deprecated: use policy.networkPolicy.allowPlatform instead.
-	Platform bool `json:"platform,omitempty"`
-}
-
-type IPBlock struct {
-	// cidr is a string representing the IPBlock
-	// Valid examples are "192.168.1.0/24" or "2001:db8::/64"
-	CIDR string `json:"cidr,omitempty"`
-
-	// except is a slice of CIDRs that should not be included within an IPBlock
-	// Valid examples are "192.168.1.0/24" or "2001:db8::/64"
-	// Except values will be rejected if they are outside the cidr range
+	// Except is a slice of CIDRs that should not be included. Items outside the cidr range will be rejected.
+	// Valid examples are "192.168.1.0/24" or "2001:db8::/64".
 	// +optional
 	Except []string `json:"except,omitempty"`
 }
