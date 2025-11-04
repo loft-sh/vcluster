@@ -2760,7 +2760,7 @@ type NetworkPolicyWorkloadPublicEgress struct {
 	Except []string `json:"except,omitempty"`
 }
 
-// Deprecated: To be removed via legacyconfig cleanup.
+// OutgoingConnections to be removed via legacyconfig cleanup.
 type OutgoingConnections struct {
 	// IPBlock describes a particular CIDR (Ex. "192.168.1.0/24","2001:db8::/64") that is allowed
 	// to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
