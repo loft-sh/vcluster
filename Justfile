@@ -128,6 +128,9 @@ build-image tag="vcluster:e2e-latest":
 @teardown label-filter="core" image="vcluster:e2e-latest":
   GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --vcluster-image="{{image}}" --teardown-only
 
+e2e-labels:
+    grep -Roh 'Label(".*")' ./e2e-next/labels | sed -E 's/.*Label\("([^"]+)"\).*/\1/' | sort -u
+
 # Run e2e tests
 e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind setup-csi-volume-snapshots && delete-kind
   echo "Execute test suites ({{ distribution }}, {{ path }}, {{ multinamespace }})"
