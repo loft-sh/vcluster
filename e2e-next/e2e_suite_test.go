@@ -74,7 +74,7 @@ var _ = e2e.BeforeSuite(func(ctx context.Context) context.Context {
 	format.MaxLength = 0
 
 	By("Creating kind cluster")
-	if clusterName != "vcluster" {
+	if clusterName != "kind-cluster" {
 		ctx, err = cluster.Create(cluster.WithName(clusterName), cluster.WithProvider(kind.NewProvider()))(ctx)
 		Expect(err).NotTo(HaveOccurred())
 	} else {
