@@ -21,19 +21,12 @@ spec:
     - Egress
     - Ingress
   egress:
-    # Allow egress to vcluster DNS server.
+    # Allow egress to vcluster DNS and control plane.
     - ports:
         - port: 1053
           protocol: UDP
         - port: 1053
           protocol: TCP
-      to:
-        - podSelector:
-            matchLabels:
-              release: {{ .Release.Name }}
-
-    # Allow egress to the vcluster control plane.
-    - ports:
         - port: 8443
           protocol: TCP
       to:
@@ -41,14 +34,14 @@ spec:
             matchLabels:
               release: {{ .Release.Name }}
 
-    # Allow egress to other vcluster workloads.
+    # Allow egress to other vcluster workloads, including coredns when not embedded.
     - to:
         - podSelector:
             matchLabels:
               vcluster.loft.sh/managed-by: {{ .Release.Name }}
 
 {{- if .Values.policies.networkPolicy.workload.publicEgress.enabled }}
-    # Allow public egress rules.
+    # Allow public egress.
     - to:
         - ipBlock:
             cidr: {{ .Values.policies.networkPolicy.workload.publicEgress.cidr }}
@@ -60,7 +53,7 @@ spec:
 {{- end }}
 
   ingress:
-    # Allow ingress from the vcluster control plane.
+    # Allow ingress from vcluster control plane.
     - from:
         - podSelector:
             matchLabels:
@@ -91,7 +84,7 @@ spec:
     - Egress
     - Ingress
   egress:
-    # Allow egress to the host kube system dns server.
+    # Allow egress to host kube-dns.
     - to:
         - namespaceSelector:
             matchLabels:
@@ -100,7 +93,7 @@ spec:
             matchLabels:
               k8s-app: kube-dns
 
-    # Allow egress to the host control plane.
+    # Allow egress to host control plane.
     - ports:
         - port: 443
           protocol: TCP
@@ -115,13 +108,13 @@ spec:
             matchLabels:
               release: {{ .Release.Name }}
 
-    # Allow egress connections to all vcluster workloads.
+    # Allow egress connections to vcluster workloads.
     - to:
         - podSelector:
             matchLabels:
               vcluster.loft.sh/managed-by: {{ .Release.Name }}
 
-    # Allow egress to the vcluster platform.
+    # Allow egress to vcluster platform.
     - to:
         - podSelector:
             matchLabels:
@@ -133,14 +126,18 @@ spec:
 {{- end }}
 
   ingress:
-    # Allow ingress from vcluster control plane peers.
+    # Allow ingress from vcluster control plane peers, including etcd peers, when using etcd as the backend in HA mode.
     - from:
         - podSelector:
             matchLabels:
               release: {{ .Release.Name }}
 
-    # Allow ingress for vcluster workloads traffic.
+    # Allow ingress for vcluster workloads.
     - ports:
+        - port: 1053
+          protocol: UDP
+        - port: 1053
+          protocol: TCP
         - port: 8443
           protocol: TCP
       from:
@@ -154,20 +151,7 @@ spec:
             matchLabels:
               app: vcluster-snapshot
 
-{{- if and .Values.controlPlane.coredns.enabled .Values.controlPlane.coredns.embedded }}
-    # Allow ingress for vcluster workloads embedded coredns.
-    - ports:
-        - port: 1053
-          protocol: UDP
-        - port: 1053
-          protocol: TCP
-      from:
-        - podSelector:
-            matchLabels:
-              vcluster.loft.sh/managed-by: {{ .Release.Name }}
-{{- end }}
-
-    # Allow ingress access from the loft platform.
+    # Allow ingress from vcluster platform.
     - from:
         - podSelector:
             matchLabels:
@@ -195,7 +179,7 @@ spec:
     - Egress
     - Ingress
   egress:
-    # Allow egress to the host kube system dns server.
+    # Allow egress to host kube-dns.
     - to:
         - namespaceSelector:
             matchLabels:
@@ -204,7 +188,7 @@ spec:
             matchLabels:
               k8s-app: kube-dns
 
-    # Allow outgoing connections to the vcluster control plane.
+    # Allow egress to vcluster control plane.
     - ports:
         - port: 8443
           protocol: TCP
@@ -212,6 +196,7 @@ spec:
         - podSelector:
             matchLabels:
               release: {{ .Release.Name }}
+
   ingress:
     # Allow ingress from vcluster workloads.
     - ports:
@@ -246,7 +231,7 @@ spec:
             matchLabels:
               release: {{ .Release.Name }}
 
-    # Allow egress to the host kube system dns server.
+    # Allow egress to host kube-dns.
     - to:
         - namespaceSelector:
             matchLabels:
@@ -255,7 +240,7 @@ spec:
             matchLabels:
               k8s-app: kube-dns
 
-    # Allow egress to the host control plane.
+    # Allow egress to host control plane.
     - ports:
         - port: 443
           protocol: TCP
