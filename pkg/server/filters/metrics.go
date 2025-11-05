@@ -20,6 +20,7 @@ import (
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -216,7 +217,7 @@ func IsKubeletMetrics(path string) bool {
 }
 
 func MetricsDecode(data []byte) ([]*dto.MetricFamily, error) {
-	var parser expfmt.TextParser
+	parser := expfmt.NewTextParser(model.UTF8Validation)
 	metricFamilies, err := parser.TextToMetricFamilies(strings.NewReader(string(data)))
 	if err != nil {
 		return nil, fmt.Errorf("reading text format failed: %w", err)
