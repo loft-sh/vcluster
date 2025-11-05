@@ -715,10 +715,6 @@ func translateDNSClusterFirstConfig(pPod *corev1.Pod, vPod *corev1.Pod, clusterD
 				Name:  "ndots",
 				Value: ptr.To("5"),
 			},
-			{
-				Name:  "timeout",
-				Value: ptr.To("2"),
-			},
 		},
 	}
 
