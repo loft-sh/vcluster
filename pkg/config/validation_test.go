@@ -1734,6 +1734,73 @@ func TestValidateToHostNamespaceSyncMappings(t *testing.T) {
 	}
 }
 
+func TestValidateAdvancedControlPlaneConfig(t *testing.T) {
+	type testCase struct {
+		name           string
+		vclusterConfig *VirtualClusterConfig
+		checkErr       func(t *testing.T, err error)
+	}
+
+	testCases := []testCase{
+		{
+			name: "Invalid: PodDisruptionBudget with both minAvailable and maxUnavailable set",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					ControlPlane: config.ControlPlane{
+						Advanced: config.ControlPlaneAdvanced{
+							PodDisruptionBudget: config.PodDisruptionBudget{
+								Enabled:        true,
+								MinAvailable:   1,
+								MaxUnavailable: "50%",
+							},
+						},
+					},
+				},
+			},
+			checkErr: expectErr("minAvailable and maxUnavailable cannot be used together in a podDisruptionBudget"),
+		},
+		{
+			name: "Valid: PodDisruptionBudget with only minAvailable set",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					ControlPlane: config.ControlPlane{
+						Advanced: config.ControlPlaneAdvanced{
+							PodDisruptionBudget: config.PodDisruptionBudget{
+								Enabled:      true,
+								MinAvailable: 1,
+							},
+						},
+					},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid: PodDisruptionBudget with only maxUnavailable set",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					ControlPlane: config.ControlPlane{
+						Advanced: config.ControlPlaneAdvanced{
+							PodDisruptionBudget: config.PodDisruptionBudget{
+								Enabled:        true,
+								MaxUnavailable: "50%",
+							},
+						},
+					},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateAdvancedControlPlaneConfig(tc.vclusterConfig.ControlPlane.Advanced)
+			tc.checkErr(t, err)
+		})
+	}
+}
+
 func expectErr(errMsg string) func(t *testing.T, err error) {
 	return func(t *testing.T, err error) {
 		t.Helper()

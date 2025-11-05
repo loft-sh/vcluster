@@ -181,6 +181,11 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		vConfig.ControlPlane.Advanced.WorkloadServiceAccount.Name = "vc-workload-" + vConfig.Name
 	}
 
+	err = validateAdvancedControlPlaneConfig(vConfig.ControlPlane.Advanced)
+	if err != nil {
+		return err
+	}
+
 	// check config for exporting kubeconfig Secrets
 	err = validateExportKubeConfig(vConfig.ExportKubeConfig)
 	if err != nil {
@@ -871,6 +876,16 @@ func validateRequirements(requirements []config.Requirement) error {
 				return fmt.Errorf("value or values is required for operator %s", requirement.Operator)
 			}
 		}
+	}
+
+	return nil
+}
+
+func validateAdvancedControlPlaneConfig(controlPlaneAdvanced config.ControlPlaneAdvanced) error {
+	if controlPlaneAdvanced.PodDisruptionBudget.Enabled &&
+		controlPlaneAdvanced.PodDisruptionBudget.MaxUnavailable != nil &&
+		controlPlaneAdvanced.PodDisruptionBudget.MinAvailable != nil {
+		return fmt.Errorf("minAvailable and maxUnavailable cannot be used together in a podDisruptionBudget")
 	}
 
 	return nil

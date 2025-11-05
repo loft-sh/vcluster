@@ -12,6 +12,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 	yamlv3 "gopkg.in/yaml.v3"
+	policyv1 "k8s.io/api/policy/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -2373,6 +2374,10 @@ type ControlPlaneAdvanced struct {
 
 	// KubeVip holds configuration for embedded kube-vip that announces the virtual cluster endpoint IP on layer 2.
 	KubeVip KubeVip `json:"kubeVip,omitempty"`
+
+	// PodDisruptionBudget limits how many pods of an application can be voluntarily disrupted at once
+	// to ensure availability during maintenance or scaling operations.
+	PodDisruptionBudget PodDisruptionBudget `json:"podDisruptionBudget,omitempty"`
 }
 
 type Registry struct {
@@ -2622,6 +2627,22 @@ type ControlPlaneSecurity struct {
 type ControlPlaneGlobalMetadata struct {
 	// Annotations are extra annotations for this resource.
 	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+type PodDisruptionBudget struct {
+	// Enabled defines if the pod disruption budget should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+	// MinAvailable describes the minimal number or percentage of available pods.
+	MinAvailable interface{} `json:"minAvailable,omitempty"`
+	// MaxUnavailable describes the minimal number or percentage of unavailable pods.
+	MaxUnavailable interface{} `json:"maxUnavailable,omitempty"`
+	// UnhealthyPodEvictionPolicy defines the criteria when unhealthy pods should be considered for eviction.
+	// Currently supported values are:
+	// * IfHealthyBudget - pods that are in the Running phase but not yet healthy are considered disrupted
+	//	and may be evicted even if the PodDisruptionBudget criteria are not met.
+	// * AlwaysAllow - pods that are in the Running phase but not yet healthy are considered disrupted
+	//	and can be evicted regardless of whether the criteria in a PDB is met.
+	UnhealthyPodEvictionPolicy *policyv1.UnhealthyPodEvictionPolicyType `json:"unhealthyPodEvictionPolicy,omitempty"`
 }
 
 type LabelsAndAnnotations struct {

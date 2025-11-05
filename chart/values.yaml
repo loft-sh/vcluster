@@ -800,6 +800,11 @@ controlPlane:
     # GlobalMetadata is metadata that will be added to all resources deployed by Helm.
     globalMetadata:
       annotations: {}
+    # PodDisruptionBudget limits how many pods of an application can be voluntarily disrupted at once
+    # to ensure availability during maintenance or scaling operations.
+    podDisruptionBudget:
+      # Enabled defines if the pod disruption budget should be enabled.
+      enabled: false
 
 # PrivateNodes holds configuration for vCluster private nodes mode.
 privateNodes:

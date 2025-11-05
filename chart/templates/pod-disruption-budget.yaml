@@ -1,0 +1,21 @@
+{{- if .Values.controlPlane.advanced.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Release.Name }}
+spec:
+{{- with .Values.controlPlane.advanced.podDisruptionBudget }}
+  {{- if .minAvailable }}
+  minAvailable: {{ .minAvailable }}
+  {{- else if .maxUnavailable }}
+  maxUnavailable: {{ .maxUnavailable }}
+  {{- end }}
+  {{- if .unhealthyPodEvictionPolicy }}
+  unhealthyPodEvictionPolicy: {{ .unhealthyPodEvictionPolicy }}
+  {{- end }}
+{{- end }}
+  selector:
+    matchLabels:
+      app: vcluster
+      release: {{ .Release.Name }}
+{{- end }}

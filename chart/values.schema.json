@@ -461,6 +461,10 @@
         "kubeVip": {
           "$ref": "#/$defs/KubeVip",
           "description": "KubeVip holds configuration for embedded kube-vip that announces the virtual cluster endpoint IP on layer 2."
+        },
+        "podDisruptionBudget": {
+          "$ref": "#/$defs/PodDisruptionBudget",
+          "description": "PodDisruptionBudget limits how many pods of an application can be voluntarily disrupted at once\nto ensure availability during maintenance or scaling operations."
         }
       },
       "additionalProperties": false,
@@ -3361,6 +3365,26 @@
       "additionalProperties": false,
       "type": "object",
       "description": "PodDNSConfigOption defines DNS resolver options of a pod."
+    },
+    "PodDisruptionBudget": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the pod disruption budget should be enabled."
+        },
+        "minAvailable": {
+          "description": "MinAvailable describes the minimal number or percentage of available pods."
+        },
+        "maxUnavailable": {
+          "description": "MaxUnavailable describes the minimal number or percentage of unavailable pods."
+        },
+        "unhealthyPodEvictionPolicy": {
+          "type": "string",
+          "description": "UnhealthyPodEvictionPolicy defines the criteria when unhealthy pods should be considered for eviction.\nCurrently supported values are:\n* IfHealthyBudget - pods that are in the Running phase but not yet healthy are considered disrupted\n\tand may be evicted even if the PodDisruptionBudget criteria are not met.\n* AlwaysAllow - pods that are in the Running phase but not yet healthy are considered disrupted\n\tand can be evicted regardless of whether the criteria in a PDB is met."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Policies": {
       "properties": {
