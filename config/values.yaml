@@ -439,6 +439,9 @@ controlPlane:
     globalMetadata:
       annotations: {}
 
+    podDisruptionBudget:
+      enabled: false
+
 privateNodes:
   enabled: false
   kubelet:

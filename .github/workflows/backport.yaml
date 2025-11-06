@@ -27,7 +27,7 @@ jobs:
         uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
 
       - name: Backport Action
-        uses: sorenlouv/backport-github-action@v9.5.1
+        uses: sorenlouv/backport-github-action@v10.2.0
         with:
           github_token: ${{ secrets.GH_ACCESS_TOKEN }}
           auto_backport_label_prefix: backport-to-

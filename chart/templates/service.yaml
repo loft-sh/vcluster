@@ -30,13 +30,6 @@ spec:
       targetPort: 8443
       nodePort: {{ .Values.controlPlane.service.httpsNodePort }}
       protocol: TCP
-    {{- if .Values.privateNodes.enabled }}
-    {{- if .Values.controlPlane.advanced.konnectivity.server.enabled }}
-    - name: konnectivity
-      port: 8132
-      protocol: TCP
-    {{- end }}
-    {{- end }}
     {{- if .Values.integrations.istio.enabled }}
     - name: wake-http
       port: 9090

@@ -86,11 +86,6 @@ func (do *DescribeOutput) String() string {
 }
 
 func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Writer, l log.Logger, name string, configOnly bool, format string) error {
-	namespace := "vcluster-" + name
-	if flags.Namespace != "" {
-		namespace = flags.Namespace
-	}
-
 	kubeClientConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 	rawConfig, err := kubeClientConf.RawConfig()
 	if err != nil {
@@ -106,23 +101,23 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 		return err
 	}
 
-	vCluster, err := find.GetVCluster(ctx, rawConfig.CurrentContext, name, namespace, l)
+	vCluster, err := find.GetVCluster(ctx, rawConfig.CurrentContext, name, flags.Namespace, l)
 	if err != nil {
 		return err
 	}
 
-	configSecret, err := kubeClient.CoreV1().Secrets(namespace).Get(ctx, "vc-config-"+name, metav1.GetOptions{})
+	configSecret, err := kubeClient.CoreV1().Secrets(vCluster.Namespace).Get(ctx, "vc-config-"+vCluster.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to load the vcluster config: %w", err)
 	}
 
 	// Log ArgoCD tracking id
 	if trackingID, ok := configSecret.Annotations["argocd.argoproj.io/tracking-id"]; ok {
-		l.Infof("The %s vcluster is managed via ArgoCD. argocd.argoproj.io/tracking-id: %s.", name, trackingID)
+		l.Infof("The %s vcluster is managed via ArgoCD. argocd.argoproj.io/tracking-id: %s.", vCluster.Name, trackingID)
 	}
 
 	// Load the user supplied vcluster.yaml from the HelmRelease Config field
-	helmRelease, err := helm.NewSecrets(kubeClient).Get(ctx, name, namespace)
+	helmRelease, err := helm.NewSecrets(kubeClient).Get(ctx, vCluster.Name, vCluster.Namespace)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return fmt.Errorf("failed to load the user supplied vcluster.yaml: %w", err)
