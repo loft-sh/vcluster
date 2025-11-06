@@ -226,7 +226,7 @@ func (c *Cluster) Destroy(ctx context.Context) error {
 		return err
 	}
 
-	command := fmt.Sprintf("%s delete %s --wait=false", c.path, c.name)
+	command := fmt.Sprintf("%s delete %s", c.path, c.name)
 	p := utils.RunCommand(command)
 	if p.Err() != nil {
 		outBytes, err := io.ReadAll(p.Out())

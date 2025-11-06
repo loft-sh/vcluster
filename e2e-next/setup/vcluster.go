@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/loft-sh/e2e-framework/pkg/e2e"
 	"github.com/loft-sh/e2e-framework/pkg/setup"
+	. "github.com/onsi/ginkgo/v2"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/e2e-framework/klient"
@@ -146,7 +146,7 @@ func Create(opts ...VClusterOptions) setup.Func {
 			}
 
 			// Clean up the temporary file
-			e2e.DeferCleanup(func(ctx context.Context) {
+			DeferCleanup(func(ctx context.Context) {
 				_ = os.Remove(valuesFile)
 			})
 		} else if o.valuesFile != "" {
