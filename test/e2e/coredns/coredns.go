@@ -68,7 +68,7 @@ var _ = ginkgo.Describe("CoreDNS resolves host names correctly", func() {
 
 			// sleep to reduce the rate of pod/exec calls
 			url := fmt.Sprintf("https://%s:%d/healthz", hostname, node.Status.DaemonEndpoints.KubeletEndpoint.Port)
-			cmd := []string{"curl", "-k", "-s", "--show-error", url}
+			cmd := []string{"curl", "-4", "-k", "-s", "--show-error", url}
 			stdoutBuffer, stderrBuffer, err := podhelper.ExecBuffered(f.Context, f.VClusterConfig, ns, curlPod.GetName(), curlPod.Spec.Containers[0].Name, cmd, nil)
 			framework.ExpectNoError(err)
 			framework.ExpectEmpty(stderrBuffer)
