@@ -9,8 +9,9 @@ metadata:
     chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
-  {{- if .Values.controlPlane.advanced.headlessService.labels }}
-{{ toYaml .Values.controlPlane.advanced.headlessService.labels | indent 4 }}
+  {{- $labels := merge dict .Values.controlPlane.advanced.headlessService.labels }}
+  {{- if $labels }}
+{{ toYaml $labels | indent 4 }}
   {{- end }}
   {{- $annotations := merge dict .Values.controlPlane.advanced.headlessService.annotations .Values.controlPlane.advanced.globalMetadata.annotations }}
   {{- if $annotations }}
