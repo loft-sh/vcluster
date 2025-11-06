@@ -9,14 +9,11 @@
 * Install [vcluster cli](https://www.vcluster.com/docs/vcluster)
 * Install ginkgo cli via `go install github.com/onsi/ginkgo/v2/ginkgo@v2.23.4`
 * Install [kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
-* For MacOS: set the following in your `/etc/hosts`:
-```
-127.0.0.1	host.docker.internal
 ```
 
 ### Develop a test
 If you want to iterate over a test, you can do:
-1. Run `just build-image`
+1. Run `just build-snapshot`
 2. Run `just setup [LABEL]` and it will do the following:
   * Create a kind cluster
   * Load vcluster image into kind cluster
@@ -27,7 +24,7 @@ Then iterate via:
 
 ### Run a test
 If you just want to run a test, you can do:
-1. Run `just build-image`
+1. Run `just build-snapshot`
 2. Run `just iterate-e2e [LABEL]`
 
 ### Destroy the kind cluster

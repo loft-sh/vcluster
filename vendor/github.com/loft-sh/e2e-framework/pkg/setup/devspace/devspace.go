@@ -32,7 +32,9 @@ func HasReplacedPod(namespace string, labels map[string]string) setup.Func {
 
 		client := cluster.CurrentClusterClientFrom(ctx)
 		podList := &corev1.PodList{}
-		client.List(ctx, podList, clientpkg.InNamespace(namespace), clientpkg.MatchingLabels(listLabels))
+		if err := client.List(ctx, podList, clientpkg.InNamespace(namespace), clientpkg.MatchingLabels(listLabels)); err != nil {
+			return ctx, err
+		}
 		return With(ctx, len(podList.Items) > 0), nil
 	}
 }
