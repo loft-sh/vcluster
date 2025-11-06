@@ -24,7 +24,7 @@ var _ = Describe("Node sync",
 			hostClient     kubernetes.Interface
 			vClusterName   = "nodes-test-vcluster"
 			vClusterClient kubernetes.Interface
-			vclusterValues string = constants.DefaultVClusterYAML
+			vclusterValues = constants.DefaultVClusterYAML
 		)
 
 		BeforeAll(func(ctx context.Context) context.Context {
