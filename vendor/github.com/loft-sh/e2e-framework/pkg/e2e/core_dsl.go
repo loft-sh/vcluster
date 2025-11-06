@@ -1,13 +1,14 @@
 package e2e
 
 import (
+	"cmp"
 	"context"
 	"reflect"
 	"sync"
 
 	e2econtext "github.com/loft-sh/e2e-framework/pkg/context"
-	"github.com/loft-sh/e2e-framework/pkg/setup"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/types"
 )
 
 var (
@@ -30,293 +31,219 @@ func SetTeardownOnly(b bool) {
 
 type ContextMiddleware func(context.Context) context.Context
 
+type key int
+
+const parentKey key = iota
+
 type contextStack struct {
-	lock *sync.Mutex
-	cur  context.Context
+	lock   sync.Mutex
+	cur    context.Context
+	prev   context.Context
+	parent context.Context
 }
 
 func newContextStack() *contextStack {
 	return &contextStack{
-		lock: &sync.Mutex{},
-		cur:  context.TODO(),
+		cur: context.TODO(),
 	}
 }
 
-func (cs *contextStack) push(fn ContextMiddleware) func(specContext ginkgo.SpecContext) {
-	return func(specContext ginkgo.SpecContext) {
-		cs.lock.Lock()
-		defer cs.lock.Unlock()
+func (cs *contextStack) pushContext(ctx context.Context) context.Context {
+	cs.lock.Lock()
+	defer cs.lock.Unlock()
 
-		ctx := context.TODO()
-		parentCtx := cs.cur
+	parentCtx := cs.cur
 
-		// Copy values down from parent
-		if parentCtx != nil {
-			ctx = e2econtext.WithValues(ctx, parentCtx)
-		}
-
-		// Call function with extended spec context
-		cs.cur = e2econtext.WithValues(specContext, ctx)
-		cs.cur = fn(cs.cur)
-
-		ginkgo.DeferCleanup(func() {
-			cs.lock.Lock()
-			defer cs.lock.Unlock()
-
-			cs.cur = parentCtx
-		})
+	// Copy values down from parent
+	if parentCtx != nil {
+		cs.cur = e2econtext.WithValues(
+			context.WithValue(ctx, parentKey, parentCtx),
+			parentCtx,
+		)
 	}
+
+	return cs.cur
+}
+
+func (cs *contextStack) popContext(ctx context.Context) context.Context {
+	cs.lock.Lock()
+	defer cs.lock.Unlock()
+
+	cs.prev = cs.cur
+	if parentCtx := ctx.Value(parentKey); parentCtx != nil {
+		cs.cur = parentCtx.(context.Context)
+	}
+	return cs.prev
 }
 
 var suiteContextStack = newContextStack()
 
-func BeforeSuite(body any, args ...any) bool {
-	ginkgo.GinkgoHelper()
+func ContextualAroundNode(ctx context.Context) context.Context {
+	report := ginkgo.CurrentSpecReport()
+	events := report.SpecEvents.WithType(types.SpecEventNodeStart)
+	event := events[len(events)-1]
 
-	combinedArgs := []any{body}
-	combinedArgs = append(combinedArgs, args...)
-
-	ctxMiddleware, remainder := splitContextMiddlewareArg(combinedArgs)
-	if ctxMiddleware != nil {
-		return ginkgo.BeforeSuite(suiteContextStack.push(ctxMiddleware), remainder...)
+	switch event.NodeType {
+	case types.NodeTypeCleanupAfterEach:
+		return e2econtext.WithValues(ctx, cmp.Or(suiteContextStack.prev, suiteContextStack.cur))
+	case types.NodeTypeCleanupAfterSuite:
+		return e2econtext.WithValues(ctx, cmp.Or(suiteContextStack.prev, suiteContextStack.cur))
+	case types.NodeTypeCleanupAfterAll:
+		return e2econtext.WithValues(ctx, cmp.Or(suiteContextStack.prev, suiteContextStack.cur))
+	case types.NodeTypeCleanupInvalid:
+		return e2econtext.WithValues(ctx, cmp.Or(suiteContextStack.prev, suiteContextStack.cur))
+	default:
+		return e2econtext.WithValues(ctx, suiteContextStack.cur)
 	}
-	return ginkgo.BeforeSuite(body, args...)
 }
 
-func AfterSuite(body any, args ...any) bool {
-	ginkgo.GinkgoHelper()
+func ContextualNodeTransformer(nodeType types.NodeType, _ ginkgo.Offset, text string, args []any) (string, []any, []error) {
+	var newArgs []any
 
-	combinedArgs := []any{body}
-	combinedArgs = append(combinedArgs, args...)
-
-	bodyFn, remainder := splitBodyFunctionArg(combinedArgs)
-	return ginkgo.AfterSuite(func(specContext ginkgo.SpecContext) {
-		ctx := e2econtext.WithValues(specContext, suiteContextStack.cur)
-		if !teardown {
-			ginkgo.By("[AfterSuite] disabled")
-			return
+	for _, arg := range args {
+		isFn := reflect.TypeOf(arg).Kind() == reflect.Func
+		if !isFn {
+			newArgs = append(newArgs, arg)
+			continue
 		}
-		bodyFn(ctx)
-	}, remainder...)
-}
 
-var Context = Describe
-
-func Describe(text string, args ...any) bool {
-	ginkgo.GinkgoHelper()
-
-	bodyFn, remainder := splitBodyFunctionArg(args)
-	return ginkgo.Describe(text, append(remainder, ginkgo.Ordered, func() {
-		bodyFn(suiteContextStack.cur)
-		if setupOnly {
-			// Insert a case to focus so all other specs are skipped.
-			ginkgo.It("[Setup]", ginkgo.Focus, func() {
-				ginkgo.By("Setting up environment")
+		switch x := arg.(type) {
+		case func(context.Context) context.Context:
+			newArgs = append(newArgs, func(ctx context.Context) {
+				ctx = suiteContextStack.pushContext(getFnCtxCtxCallback(nodeType, x)(ctx))
+				defer ginkgo.DeferCleanup(func() {
+					suiteContextStack.popContext(ctx)
+				})
 			})
+		case func(context.Context):
+			newArgs = append(newArgs, getFnCtxCallback(nodeType, x))
+		case func():
+			newArgs = append(newArgs, getFnCallback(nodeType, x))
 		}
-
-		if teardownOnly {
-			// Insert a case to focus so all other specs are skipped.
-			ginkgo.It("[Teardown]", ginkgo.Focus, func() {
-				ginkgo.By("Tearing down environment")
-			})
-		}
-	}))
-}
-
-func BeforeAll(args ...any) bool {
-	ginkgo.GinkgoHelper()
-
-	ctxMiddleware, remainder := splitContextMiddlewareArg(args)
-	if ctxMiddleware != nil {
-		return ginkgo.BeforeAll(append(remainder, suiteContextStack.push(ctxMiddleware)))
 	}
 
-	bodyFn, remainder := splitBodyFunctionArg(args)
-	return ginkgo.BeforeAll(append(remainder, func(specContext ginkgo.SpecContext) {
-		bodyFn(e2econtext.WithValues(specContext, suiteContextStack.cur))
-	}))
+	return text, newArgs, nil
 }
 
-func BeforeEach(args ...any) bool {
-	ginkgo.GinkgoHelper()
-
-	if setupOnly {
-		return true
-	}
-
-	ctxMiddleware, remainder := splitContextMiddlewareArg(args)
-	bodyFn, remainder := splitBodyFunctionArg(remainder)
-	if ctxMiddleware != nil {
-		return ginkgo.BeforeEach(append(remainder, suiteContextStack.push(ctxMiddleware)))
-	}
-
-	return ginkgo.BeforeEach(append(remainder, func(specContext ginkgo.SpecContext) {
-		bodyFn(e2econtext.WithValues(specContext, suiteContextStack.cur))
-	}))
-}
-
-func AfterEach(args ...any) bool {
-	ginkgo.GinkgoHelper()
-
-	if teardownOnly {
-		return true
-	}
-
-	bodyFn, remainder := splitBodyFunctionArg(args)
-	return ginkgo.AfterEach(append(remainder, func(specContext ginkgo.SpecContext) {
-		bodyFn(e2econtext.WithValues(specContext, suiteContextStack.cur))
-	}))
-}
-
-func AfterAll(args ...any) bool {
-	ginkgo.GinkgoHelper()
-
-	bodyFn, remainder := splitBodyFunctionArg(args)
-	return ginkgo.AfterAll(append(remainder, func(specContext ginkgo.SpecContext) {
-		ctx := e2econtext.WithValues(specContext, suiteContextStack.cur)
-		if !teardown {
-			ginkgo.By("[AfterAll] disabled")
-			return
-		}
-		bodyFn(ctx)
-	}))
-}
-
-func It(text string, args ...any) bool {
-	ginkgo.GinkgoHelper()
-
-	if setupOnly || teardownOnly {
-		// Skip adding test cases... a placeholder one will be used instead.
-		return true
-	}
-
-	bodyFn, remainder := splitBodyFunctionArg(args)
-	return ginkgo.It(text, append(remainder, func(specContext ginkgo.SpecContext) {
-		bodyFn(e2econtext.WithValues(specContext, suiteContextStack.cur))
-	}))
-}
-
-func DeferCleanup(args ...any) {
-	ginkgo.GinkgoHelper()
-
-	if setupFunc, ok := extractSetupFunc(args); ok {
-		if deferCtx, ok := extractDeferCtx(args); ok {
-			// Should use the passed ctx
-			if e2econtext.IsComposed(deferCtx) {
-				ginkgo.DeferCleanup(setupFunc, deferCtx)
+func getFnCallback(nodeType types.NodeType, fn func()) func() {
+	switch nodeType {
+	case types.NodeTypeBeforeEach:
+		return func() {
+			if setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
 			} else {
-				ginkgo.DeferCleanup(func(ctx context.Context) error {
-					_, err := setupFunc(e2econtext.WithValues(deferCtx, suiteContextStack.cur))
-					return err
+				fn()
+			}
+		}
+	case types.NodeTypeAfterSuite:
+		fallthrough
+	case types.NodeTypeAfterAll:
+		return func() {
+			if !teardown || setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+			} else {
+				fn()
+			}
+		}
+	case types.NodeTypeAfterEach:
+		fallthrough
+	case types.NodeTypeIt:
+		return func() {
+			if teardownOnly || setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+			} else {
+				fn()
+			}
+		}
+	case types.NodeTypeContainer:
+		return func() {
+			if setupOnly {
+				// Insert a case to focus so all other specs are skipped.
+				ginkgo.It("[Setup]", ginkgo.Focus, func() {
+					ginkgo.By("Setting up environment")
 				})
 			}
-		} else {
-			// Allow ginkgo to pass a SpecContext, but compose it to add values
-			ginkgo.DeferCleanup(func(specContext ginkgo.SpecContext) error {
-				_, err := setupFunc(e2econtext.WithValues(specContext, suiteContextStack.cur))
-				return err
-			})
-		}
 
-		return
-	}
-
-	ginkgo.DeferCleanup(args...)
-}
-
-var contextMiddlewareType = reflect.TypeOf(ContextMiddleware(nil))
-
-func splitContextMiddlewareArg(args []any) (ContextMiddleware, []any) {
-	var ctxMiddleware ContextMiddleware
-	var remainder []any
-
-	for _, arg := range args {
-		argType := reflect.TypeOf(arg)
-		if argType.AssignableTo(contextMiddlewareType) {
-			ctxMiddleware = arg.(func(ctx context.Context) context.Context)
-		} else {
-			remainder = append(remainder, arg)
-		}
-	}
-
-	return ctxMiddleware, remainder
-}
-
-func splitBodyFunctionArg(args []any) (func(ctx context.Context), []any) {
-	var fn func(context.Context)
-	var remainder []any
-
-	for _, arg := range args {
-		switch t := reflect.TypeOf(arg); {
-		case t.Kind() == reflect.Func:
-			if bodyFn := extractBodyFunction(arg); bodyFn != nil {
-				fn = bodyFn
-				continue
+			if teardownOnly {
+				// Insert a case to focus so all other specs are skipped.
+				ginkgo.It("[Teardown]", ginkgo.Focus, func() {
+					ginkgo.By("Tearing down environment")
+				})
 			}
-		default:
-			remainder = append(remainder, arg)
+
+			fn()
 		}
 	}
-
-	return fn, remainder
+	return fn
 }
 
-var contextType = reflect.TypeOf(new(context.Context)).Elem()
-var specContextType = reflect.TypeOf(new(ginkgo.SpecContext)).Elem()
-
-func extractBodyFunction(arg any) func(specContext context.Context) {
-	t := reflect.TypeOf(arg)
-	if t.NumOut() > 0 || t.NumIn() > 1 {
-		return nil
-	}
-	if t.NumIn() == 1 {
-		if t.In(0).Implements(specContextType) {
-			return arg.(func(context.Context))
-		} else if t.In(0).Implements(contextType) {
-			return arg.(func(context.Context))
+func getFnCtxCallback(nodeType types.NodeType, fn func(context.Context)) func(context.Context) {
+	switch nodeType {
+	case types.NodeTypeBeforeEach:
+		return func(ctx context.Context) {
+			if setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+			} else {
+				fn(ctx)
+			}
 		}
-
-		return nil
+	case types.NodeTypeAfterSuite:
+		fallthrough
+	case types.NodeTypeAfterAll:
+		return func(ctx context.Context) {
+			if !teardown || setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+			} else {
+				fn(ctx)
+			}
+		}
+	case types.NodeTypeAfterEach:
+		fallthrough
+	case types.NodeTypeIt:
+		return func(ctx context.Context) {
+			if teardownOnly || setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+			} else {
+				fn(ctx)
+			}
+		}
 	}
-
-	body := arg.(func())
-	return func(context.Context) { body() }
+	return fn
 }
 
-var setupFuncType = reflect.TypeOf(setup.Func(nil))
-
-func extractSetupFunc(args []any) (setup.Func, bool) {
-	if len(args) == 0 {
-		return nil, false
+func getFnCtxCtxCallback(nodeType types.NodeType, fn func(context.Context) context.Context) func(context.Context) context.Context {
+	switch nodeType {
+	case types.NodeTypeBeforeEach:
+		return func(ctx context.Context) context.Context {
+			if setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+				return ctx
+			} else {
+				return fn(ctx)
+			}
+		}
+	case types.NodeTypeAfterSuite:
+		fallthrough
+	case types.NodeTypeAfterAll:
+		return func(ctx context.Context) context.Context {
+			if !teardown || setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+				return ctx
+			} else {
+				return fn(ctx)
+			}
+		}
+	case types.NodeTypeAfterEach:
+		fallthrough
+	case types.NodeTypeIt:
+		return func(ctx context.Context) context.Context {
+			if teardownOnly || setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+				return ctx
+			} else {
+				return fn(ctx)
+			}
+		}
 	}
-
-	firstArg := args[0]
-	if firstArg == nil {
-		return nil, false
-	}
-
-	argType := reflect.TypeOf(firstArg)
-	if argType.AssignableTo(setupFuncType) {
-		return firstArg.(setup.Func), true
-	}
-
-	return nil, false
-}
-
-func extractDeferCtx(args []any) (context.Context, bool) {
-	if len(args) < 2 {
-		return nil, false
-	}
-
-	secondArg := args[1]
-	if secondArg == nil {
-		return nil, false
-	}
-
-	if reflect.TypeOf(secondArg).Implements(contextType) {
-		return secondArg.(context.Context), true
-	}
-
-	return nil, false
+	return fn
 }

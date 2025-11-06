@@ -105,31 +105,22 @@ setup-csi-volume-snapshots:
   kubectl wait --for=condition=Available -n kube-system deploy/snapshot-controller --timeout=60s
 
 #e2e-next tests
-build-image tag="vcluster:e2e-latest":
-  TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean
-  cp dist/vcluster_linux_$(go env GOARCH | sed s/amd64/amd64_v1/g | sed s/arm64/arm64_v8.0/g)/vcluster ./vcluster
-  docker build -t {{tag}} -f Dockerfile.release --build-arg TARGETARCH=$(uname -m | sed s/x86_64/amd64/g) --build-arg TARGETOS=linux .
-  rm ./vcluster
-
-@dev-e2e label-filter="core" image="vcluster:e2e-latest" *ARGS='': \
+@dev-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next" *ARGS='': \
   (setup label-filter image) \
-  (run-e2e image ARGS) \
-  (teardown label-filter image)
+  (run-e2e label-filter image) \
+  (teardown label-filter)
 
-@run-e2e label-filter="core" image="vcluster:e2e-latest" teardown="false":
+@run-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next" teardown="false":
   ginkgo -timeout=0 -v --label-filter="{{label-filter}}" ./e2e-next -- --vcluster-image="{{image}}" --teardown={{teardown}}
 
-@iterate-e2e label-filter="core" image="vcluster:e2e-latest": \
+@iterate-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next": \
   (run-e2e label-filter image "false")
 
-@setup label-filter="core" image="vcluster:e2e-latest":
+@setup label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next":
   GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --vcluster-image="{{image}}" --setup-only
 
-@teardown label-filter="core" image="vcluster:e2e-latest":
-  GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --vcluster-image="{{image}}" --teardown-only
-
-e2e-labels:
-    grep -Roh 'Label(".*")' ./e2e-next/labels | sed -E 's/.*Label\("([^"]+)"\).*/\1/' | sort -u
+@teardown label-filter="core":
+  GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --teardown-only
 
 # Run e2e tests
 e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind setup-csi-volume-snapshots && delete-kind

@@ -20,7 +20,8 @@ import (
 	"sigs.k8s.io/e2e-framework/support/kind"
 
 	// Import tests
-	_ "github.com/loft-sh/vcluster/e2e-next/test_core"
+	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
+	_ "github.com/loft-sh/vcluster/e2e-next/test_install"
 )
 
 var (
@@ -57,6 +58,9 @@ func handleFlags() {
 	e2e.SetTeardownOnly(teardownOnly)
 }
 
+// This must be called before any ginkgo DSL evaluation
+var _ = AddTreeConstructionNodeArgsTransformer(e2e.ContextualNodeTransformer)
+
 func TestMain(m *testing.M) {
 	handleFlags()
 	os.Exit(m.Run())
@@ -64,23 +68,28 @@ func TestMain(m *testing.M) {
 
 func TestRunE2ETests(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "vCluster E2E Suite")
+	RunSpecs(t, "vCluster E2E Suite", AroundNode(e2e.ContextualAroundNode))
 }
 
-var _ = e2e.BeforeSuite(func(ctx context.Context) context.Context {
+var _ = BeforeSuite(func(ctx context.Context) context.Context {
 	var err error
 
 	// Disable Ginkgo's truncating of long lines'
 	format.MaxLength = 0
 
-	By("Creating kind cluster")
-	if clusterName != "kind-cluster" {
-		ctx, err = cluster.Create(cluster.WithName(clusterName), cluster.WithProvider(kind.NewProvider()))(ctx)
-		Expect(err).NotTo(HaveOccurred())
-	} else {
-		ctx, err = cluster.Create(cluster.WithName(clusterName), cluster.WithProvider(kind.NewProvider()), cluster.WithConfigFile("e2e-kind.config.yaml"))(ctx)
-		Expect(err).NotTo(HaveOccurred())
+	By("Creating kind cluster " + clusterName)
+	clusterOptions := []cluster.Options{
+		cluster.WithName(constants.GetClusterName()),
+		cluster.WithProvider(kind.NewProvider()),
 	}
+	if constants.GetClusterName() == "kind-cluster" {
+		clusterOptions = append(clusterOptions, cluster.WithConfigFile("e2e-kind.config.yaml"))
+	}
+
+	ctx, err = cluster.Create(clusterOptions...)(ctx)
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Setting up controller runtime client for " + clusterName)
 	ctx, err = cluster.SetupControllerRuntimeClient(cluster.WithCluster(clusterName))(ctx)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -88,7 +97,7 @@ var _ = e2e.BeforeSuite(func(ctx context.Context) context.Context {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Setting current cluster to " + clusterName)
-	ctx, err = cluster.SetCurrentCluster(clusterName)(ctx)
+	ctx, err = cluster.UseCluster(clusterName)(ctx)
 	Expect(err).NotTo(HaveOccurred())
 
 	if vclusterImage == "" {
@@ -107,7 +116,7 @@ var _ = e2e.BeforeSuite(func(ctx context.Context) context.Context {
 	return ctx
 })
 
-var _ = e2e.AfterSuite(func(ctx context.Context) {
-	_, err := cluster.Destroy(clusterName)(ctx)
+var _ = AfterSuite(func(ctx context.Context) {
+	_, err := cluster.Destroy(constants.GetClusterName())(ctx)
 	Expect(err).NotTo(HaveOccurred())
 })
