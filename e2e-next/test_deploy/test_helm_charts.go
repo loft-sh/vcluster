@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	_ "embed"
+
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	e2eLabels "github.com/loft-sh/vcluster/e2e-next/labels"
 	vcluster "github.com/loft-sh/vcluster/e2e-next/setup"
-
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,6 +24,11 @@ const (
 	ChartOCIName         = "fluent-bit"
 	ChartOCIInstanceName = "fluent-bit"
 	ChartOCINamespace    = "fluent-bit"
+)
+
+var (
+	//go:embed vcluster-test-helm.yaml
+	vclusterTestHelmYAML string
 )
 
 var _ = Describe("Helm charts (regular and OCI) are synced and applied as expected",
@@ -45,38 +51,11 @@ var _ = Describe("Helm charts (regular and OCI) are synced and applied as expect
 		)
 
 		BeforeAll(func(ctx context.Context) context.Context {
-			vclusterValues := `controlPlane:
-  statefulSet:
-    image:
-      registry: ""
-      repository: ghcr.io/loft-sh/vcluster
-      tag: dev-next
-experimental:
-  deploy:
-    vcluster:
-      helm:
-        - chart:
-            name: ingress-nginx
-            repo: https://kubernetes.github.io/ingress-nginx
-            version: 4.1.1
-          release:
-            name: ingress-nginx
-            namespace: ingress-nginx
-          timeout: "50s"
-        - chart:
-            name: fluent-bit
-            repo: oci://registry-1.docker.io/bitnamicharts
-            version: 0.4.3
-          release:
-            name: fluent-bit
-            namespace: fluent-bit
-          timeout: "50s"
-`
 			var err error
 
 			ctx, err = vcluster.Create(
 				vcluster.WithName(vClusterName),
-				vcluster.WithValuesYAML(vclusterValues),
+				vcluster.WithValuesYAML(vclusterTestHelmYAML),
 			)(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			err = vcluster.WaitForControlPlane(ctx)

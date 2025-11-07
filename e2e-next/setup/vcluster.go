@@ -6,7 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
+	gotemplate "text/template"
+
 	"github.com/loft-sh/e2e-framework/pkg/setup"
+	"github.com/loft-sh/vcluster/e2e-next/constants"
 	. "github.com/onsi/ginkgo/v2"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -145,7 +148,6 @@ func Create(opts ...VClusterOptions) setup.Func {
 				return ctx, fmt.Errorf("failed to create temp values file: %w", err)
 			}
 
-			// Clean up the temporary file
 			DeferCleanup(func(ctx context.Context) {
 				_ = os.Remove(valuesFile)
 			})
@@ -222,10 +224,28 @@ func WaitForControlPlane(ctx context.Context) error {
 func createTempValuesFile(vclusterName string, valuesYAML string) (string, error) {
 	tmpDir := os.TempDir()
 	valuesFile := filepath.Join(tmpDir, fmt.Sprintf("vcluster-values-%s.yaml", vclusterName))
-	err := os.WriteFile(valuesFile, []byte(valuesYAML), 0644)
-	if err != nil {
-		return "", fmt.Errorf("failed to write vcluster values file: %w", err)
+
+	data := map[string]string{
+		"Repository": constants.GetRepository(),
+		"Tag":        constants.GetTag(),
 	}
+
+	tmpl, err := gotemplate.New("values").Parse(valuesYAML)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	f, err := os.Create(valuesFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to create values file: %w", err)
+	}
+	defer f.Close()
+
+	err = tmpl.Execute(f, data)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+
 	return valuesFile, nil
 }
 

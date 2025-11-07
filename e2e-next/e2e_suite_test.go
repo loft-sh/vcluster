@@ -32,13 +32,9 @@ var (
 	teardownOnly  bool
 )
 
-const (
-	DefaultVclusterImage = "ghcr.io/loft-sh/vcluster:0.30.0"
-)
-
 // Register your flags in an init function.  This ensures they are registered _before_ `go test` calls flag.Parse().
 func handleFlags() {
-	flag.StringVar(&vclusterImage, "vcluster-image", DefaultVclusterImage, "vCluster image to test")
+	flag.StringVar(&vclusterImage, "vcluster-image", constants.DefaultVclusterImage, "vCluster image to test")
 	flag.StringVar(&clusterName, "cluster-name", constants.GetClusterName(), "The kind cluster to run test against. Optional.")
 	flag.BoolVar(&setupOnly, "setup-only", false, "Skip tests and setup the environment")
 	flag.BoolVar(&teardown, "teardown", true, "Disables [e2e.AfterSuite] [e2e.AfterAll] to leave environment in place.")
@@ -52,6 +48,7 @@ func handleFlags() {
 	}
 
 	constants.SetClusterName(clusterName)
+	constants.SetImage(vclusterImage)
 
 	e2e.SetSetupOnly(setupOnly)
 	e2e.SetTeardown(!setupOnly && teardown)
@@ -102,11 +99,11 @@ var _ = BeforeSuite(func(ctx context.Context) context.Context {
 
 	if vclusterImage == "" {
 		By("No vcluster image specified, using default")
-		vclusterImage = DefaultVclusterImage
+		vclusterImage = constants.DefaultVclusterImage
 	}
 	if devspace.From(ctx) {
 		By("Using DevSpace built image, skip loading image to kind cluster...")
-	} else if vclusterImage != DefaultVclusterImage {
+	} else if vclusterImage != constants.DefaultVclusterImage {
 		By("Loading image to kind cluster...")
 		ctx, err = cluster.LoadImage(clusterName, vclusterImage)(ctx)
 		Expect(err).NotTo(HaveOccurred())
