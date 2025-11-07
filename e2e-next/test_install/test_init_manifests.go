@@ -20,7 +20,7 @@ const (
 
 var _ = Describe("Init manifests are synced and applied as expected",
 	Ordered,
-	labels.Install,
+	labels.Deploy,
 	labels.PR,
 	func() {
 		var (
@@ -57,7 +57,7 @@ experimental:
 			var err error
 
 			ctx, err = vcluster.Create(
-				vcluster.WithName(vClusterName),
+				vcluster.WithGeneratedName(vClusterName),
 				vcluster.WithValuesYAML(vclusterValues),
 			)(ctx)
 			Expect(err).NotTo(HaveOccurred())
@@ -93,7 +93,7 @@ experimental:
 				Should(Succeed(), "Manifest template should be synced")
 		})
 		AfterAll(func(ctx context.Context) {
-			By("Removing vcluster")
+			By("Removing vCluster")
 			_ = vcluster.Destroy(vClusterName)
 		})
 	},
