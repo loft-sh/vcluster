@@ -633,7 +633,7 @@ github.com/loft-sh/api/v4/pkg/product
 # github.com/loft-sh/apiserver v0.0.0-20250910060242-4b9f3ffe0646
 ## explicit; go 1.24.0
 github.com/loft-sh/apiserver/pkg/builders
-# github.com/loft-sh/e2e-framework v0.0.0-20251106021254-afe4626e9c36
+# github.com/loft-sh/e2e-framework v0.0.0-20251106141448-bb8544c0c016
 ## explicit; go 1.24.0
 github.com/loft-sh/e2e-framework/pkg/context
 github.com/loft-sh/e2e-framework/pkg/e2e
