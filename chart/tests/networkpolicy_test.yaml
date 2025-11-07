@@ -84,6 +84,38 @@ tests:
           path: spec.ingress
           count: 1
 
+  - it: should set labels and annotations on all network policies
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+          labels:
+            label-key-1: label-value-1
+            label-key-2: label-value-2
+          annotations:
+            annotation-key-1: annotation-value-1
+            annotation-key-2: annotation-value-2
+    documentSelector:
+      path: kind
+      value: NetworkPolicy
+      matchMany: true
+    asserts:
+      - hasDocuments:
+          count: 4
+      - isSubset:
+          path: metadata.labels
+          content:
+            label-key-1: label-value-1
+            label-key-2: label-value-2
+      - isSubset:
+          path: metadata.annotations
+          content:
+            annotation-key-1: annotation-value-1
+            annotation-key-2: annotation-value-2
+
   - it: should support extra ingress/egress rules
     release:
       name: my-release
