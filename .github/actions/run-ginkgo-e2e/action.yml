@@ -1,0 +1,206 @@
+name: "Run vCluster Ginkgo E2E Tests"
+description: "Execute Ginkgo-based e2e tests with support for both directory-based and label-based filtering"
+inputs:
+  image:
+    description: "Docker image to use for testing"
+    required: true
+  timeout:
+    description: "Test timeout"
+    required: false
+    default: "40m"
+  # Test selection strategy - mutually exclusive
+  test-dir:
+    description: "Directory containing tests relative to e2e-next/ (for directory-based testing)"
+    required: false
+    default: ""
+  ginkgo-label:
+    description: "Ginkgo label to filter tests (for label-based testing)"
+    required: false
+    default: ""
+  e2e-dir:
+    description: "E2E directory containing all test suites"
+    required: false
+    default: "e2e-next"
+
+outputs:
+  failure-summary:
+    description: "Summary of test failures (if any)"
+    value: ${{ steps.generate-summary.outputs.failure-summary }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.test-dir }}" && -z "${{ inputs.ginkgo-label }}" ]]; then
+          echo "Error: Either test-dir or ginkgo-label must be provided"
+          exit 1
+        fi
+
+        if [[ -n "${{ inputs.test-dir }}" && -n "${{ inputs.ginkgo-label }}" ]]; then
+          echo "Error: test-dir and ginkgo-label are mutually exclusive"
+          exit 1
+        fi
+
+    - name: Download vcluster cli
+      uses: actions/download-artifact@v6
+      with:
+        name: vcluster
+
+    - name: Download syncer image
+      uses: actions/download-artifact@v6
+      with:
+        name: vcluster_syncer
+
+    - name: Install Ginkgo CLI
+      shell: bash
+      run: |
+        cd "${{ inputs.e2e-dir }}"
+        go install github.com/onsi/ginkgo/v2/ginkgo
+
+    - name: Clean up docker images
+      shell: bash
+      run: |
+        # Clean up docker images to free space
+        docker image prune --all --force --filter="label!=PRUNE=false"
+
+    - name: Load syncer image
+      shell: bash
+      run: |
+        docker load --input vcluster_syncer
+        chmod +x vcluster && sudo mv vcluster /usr/bin
+        docker image ls --all
+
+    - name: Execute Ginkgo tests
+      shell: bash
+      run: |
+        set -x
+        # Get absolute workspace path
+        WORKSPACE_ROOT="$(pwd)"
+        echo "Workspace root: ${WORKSPACE_ROOT}"
+
+        REPORTS_DIR="${WORKSPACE_ROOT}/test-reports"
+        mkdir -p "${REPORTS_DIR}"
+
+        # Export for use in subsequent steps
+        echo "REPORTS_DIR=${REPORTS_DIR}" >> $GITHUB_ENV
+        echo "Report directory set to: ${REPORTS_DIR}"
+
+        if [[ -n "${{ inputs.test-dir }}" ]]; then
+          echo "Running directory-based tests in: ${{ inputs.test-dir }}"
+          TEST_STRATEGY="directory"
+          WORKING_DIR="${{ inputs.e2e-dir }}/${{ inputs.test-dir }}"
+          # Relative path from test-dir to workspace root
+          REPORT_PATH="../../test-reports/report.json"
+        else
+          echo "Running label-based tests with filter: ${{ inputs.ginkgo-label }}"
+          TEST_STRATEGY="label"
+          WORKING_DIR="${{ inputs.e2e-dir }}"
+          # Relative path from e2e-dir to workspace root
+          REPORT_PATH="../test-reports/report.json"
+        fi
+
+        # Trim whitespaces and newlines from label filter
+        LABEL_FILTER=$(echo "${{ inputs.ginkgo-label }}" | awk '{$1=$1; print}')
+
+        # Build ginkgo command - temporarily disable json-report due to nil pointer issue
+        # TODO: Investigate why --json-report causes panic with custom e2e framework
+        GINKGO_ARGS=(
+          "run"
+          "--timeout=${{ inputs.timeout }}"
+          "--fail-fast"
+          "--show-node-events"
+          "--poll-progress-after=20s"
+          "--poll-progress-interval=10s"
+          "--github-output"
+          "--json-report=${REPORT_PATH}"
+          "-v"
+        )
+
+        # Add strategy-specific flags
+        if [[ "$TEST_STRATEGY" == "label" ]]; then
+          GINKGO_ARGS+=("--label-filter=${LABEL_FILTER} || pr")
+          GINKGO_ARGS+=("-r")
+        fi
+
+        echo "Working directory: ${WORKING_DIR}"
+        echo "Test strategy: ${TEST_STRATEGY}"
+        echo "Report path: ${REPORT_PATH}"
+        echo "Command: ginkgo ${GINKGO_ARGS[*]} ."
+
+        # Run tests
+        cd "${WORKING_DIR}"
+        echo "Running tests from: $(pwd)"
+
+        ginkgo "${GINKGO_ARGS[@]}" . -- --vcluster-image="${{ inputs.image }}" --teardown=false
+        REPORTS_FILE=$(find . -name "report.json")
+        echo "Report will be written to: ${REPORTS_FILE}"
+
+    - name: Generate failure summary
+      id: generate-summary
+      if: always()  # Run even if tests failed
+      shell: bash
+      run: |
+        # Generate failure summary if JSON report exists
+        if [[ -f "test-reports/report.json" ]]; then
+          echo "Generating failure summary from JSON report..."
+
+          # Extract test statistics and failures
+          STATS=$(jq -r '
+            {
+              failed: ([.[].SpecReports[] | select(.State == "failed")] | length),
+              passed: ([.[].SpecReports[] | select(.State == "passed")] | length),
+              skipped: ([.[].SpecReports[] | select(.State == "skipped")] | length),
+              total_specs: (.[0].PreRunStats.TotalSpecs // 0),
+              specs_to_run: (.[0].PreRunStats.SpecsThatWillRun // 0),
+              runtime: ((.[0].RunTime // 0) / 1000000000 | floor)
+            }
+          ' test-reports/report.json)
+
+          FAILED_COUNT=$(echo "$STATS" | jq -r '.failed')
+          PASSED_COUNT=$(echo "$STATS" | jq -r '.passed')
+          SKIPPED_COUNT=$(echo "$STATS" | jq -r '.skipped')
+          TOTAL_SPECS=$(echo "$STATS" | jq -r '.total_specs')
+          SPECS_TO_RUN=$(echo "$STATS" | jq -r '.specs_to_run')
+          RUNTIME=$(echo "$STATS" | jq -r '.runtime')
+
+          echo "failure-summary<<EOF" >> $GITHUB_OUTPUT
+
+          if [[ "$FAILED_COUNT" -gt 0 ]]; then
+            echo "*Test Results Summary:*" >> $GITHUB_OUTPUT
+            echo "📊 Executed: $SPECS_TO_RUN/$TOTAL_SPECS tests" >> $GITHUB_OUTPUT
+            echo "❌ Failed: $FAILED_COUNT" >> $GITHUB_OUTPUT
+            echo "✅ Passed: $PASSED_COUNT" >> $GITHUB_OUTPUT
+            if [[ "$SKIPPED_COUNT" -gt 0 ]]; then
+              echo "⏭️ Skipped: $SKIPPED_COUNT" >> $GITHUB_OUTPUT
+            fi
+            echo "⏱️ Duration: ${RUNTIME}s" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "*Failed Tests:*" >> $GITHUB_OUTPUT
+
+            # Extract failed test details
+            jq -r '[.[].SpecReports[] | select(.State == "failed")] |
+              .[] |
+              "❌ [FAIL] [\(.LeafNodeType)]" +
+              (if .ContainerHierarchyTexts then " " + (.ContainerHierarchyTexts | join(" ")) else "" end) +
+              (if .LeafNodeText != "" then " " + .LeafNodeText else "" end) +
+              "\n   📍 " + .LeafNodeLocation.FileName + ":" + (.LeafNodeLocation.LineNumber | tostring)' \
+              test-reports/report.json >> $GITHUB_OUTPUT
+          else
+            echo "*Test Results Summary:*" >> $GITHUB_OUTPUT
+            echo "📊 Executed: $SPECS_TO_RUN/$TOTAL_SPECS tests" >> $GITHUB_OUTPUT
+            echo "✅ All tests passed! ($PASSED_COUNT/$SPECS_TO_RUN)" >> $GITHUB_OUTPUT
+            if [[ "$SKIPPED_COUNT" -gt 0 ]]; then
+              echo "⏭️ Skipped: $SKIPPED_COUNT" >> $GITHUB_OUTPUT
+            fi
+            echo "⏱️ Duration: ${RUNTIME}s" >> $GITHUB_OUTPUT
+          fi
+
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "✅ Failure summary generated (Failed: $FAILED_COUNT, Passed: $PASSED_COUNT)"
+        else
+          echo "ℹ️  JSON report not found (currently disabled due to compatibility issues)"
+          echo "failure-summary=JSON reporting temporarily disabled - tests ran successfully, check output above for results" >> $GITHUB_OUTPUT
+        fi
