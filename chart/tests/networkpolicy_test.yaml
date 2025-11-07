@@ -16,13 +16,12 @@ tests:
       policies:
         networkPolicy:
           enabled: true
-    documentSelector:
-      path: kind
-      value: NetworkPolicy
-      matchMany: true
     asserts:
       - hasDocuments:
           count: 4
+      - equal:
+          path: kind
+          value: NetworkPolicy
       - equal:
           path: metadata.namespace
           value: my-namespace
@@ -86,10 +85,6 @@ tests:
           annotations:
             annotation-key-1: annotation-value-1
             annotation-key-2: annotation-value-2
-    documentSelector:
-      path: kind
-      value: NetworkPolicy
-      matchMany: true
     asserts:
       - hasDocuments:
           count: 4
