@@ -2,6 +2,7 @@ package test_install
 
 import (
 	"context"
+	_ "embed"
 
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
@@ -18,6 +19,11 @@ const (
 	TestManifestNamespace = "default"
 )
 
+var (
+	//go:embed vcluster-init-manifest.yaml
+	vclusterInitManifestValues string
+)
+
 var _ = Describe("Init manifests are synced and applied as expected",
 	Ordered,
 	labels.Deploy,
@@ -29,36 +35,12 @@ var _ = Describe("Init manifests are synced and applied as expected",
 		)
 
 		BeforeAll(func(ctx context.Context) context.Context {
-			vclusterValues := `controlPlane:
-  statefulSet:
-    image:
-      registry: ""
-      repository: ghcr.io/loft-sh/vcluster
-      tag: dev-next
-experimental:
-  deploy:
-    vcluster:
-      manifests: |-
-        apiVersion: v1
-        kind: ConfigMap
-        metadata:
-          name: test-configmap
-        data:
-          foo: bar
-      manifestsTemplate: |-
-        apiVersion: v1
-        kind: ConfigMap
-        metadata:
-          name: test-configmap-2
-        data:
-          foo: {{ .Release.Name }}
-`
 
 			var err error
 
 			ctx, err = vcluster.Create(
 				vcluster.WithName(vClusterName),
-				vcluster.WithValuesYAML(vclusterValues),
+				vcluster.WithValuesYAML(vclusterInitManifestValues),
 			)(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			err = vcluster.WaitForControlPlane(ctx)

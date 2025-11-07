@@ -2,5 +2,5 @@ controlPlane:
   statefulSet:
     image:
       registry: ""
-      repository: ghcr.io/loft-sh/vcluster
-      tag: dev-next
+      repository: {{.Repository}}
+      tag: {{.Tag}}
