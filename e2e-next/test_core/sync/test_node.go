@@ -39,14 +39,14 @@ var _ = Describe("Node sync",
 				vcluster.WithValuesYAML(vclusterValues),
 			)(ctx)
 			Expect(err).NotTo(HaveOccurred())
+			err = vcluster.WaitForControlPlane(ctx)
+			Expect(err).NotTo(HaveOccurred())
 			vClusterClient = vcluster.GetKubeClientFrom(ctx)
 			Expect(vClusterClient).NotTo(BeNil(), "VCluster client should not be nil")
 			return ctx
 		})
 
 		It("Sync nodes using label selector", func(ctx context.Context) {
-			err := vcluster.WaitForControlPlane(ctx)
-			Expect(err).NotTo(HaveOccurred())
 
 			hostname := "kind-cluster-control-plane"
 			if kindName, ok := os.LookupEnv("KIND_NAME"); ok {
