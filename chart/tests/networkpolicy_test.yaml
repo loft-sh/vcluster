@@ -75,7 +75,16 @@ tests:
     release:
       name: my-release
       namespace: my-namespace
+    chart:
+      version: 0.0.1
     set:
+      controlPlane:
+        advanced:
+          globalMetadata:
+            annotations:
+              global-annotation-key-1: global-annotation-value-1
+              global-annotation-key-2: global-annotation-value-2
+              annotation-key-to-be-overridden: annotation-key-overridden-from-global
       policies:
         networkPolicy:
           enabled: true
@@ -83,6 +92,7 @@ tests:
             label-key-1: label-value-1
             label-key-2: label-value-2
           annotations:
+            annotation-key-to-be-overridden: value-overridden-from-global
             annotation-key-1: annotation-value-1
             annotation-key-2: annotation-value-2
     asserts:
@@ -93,9 +103,16 @@ tests:
           content:
             label-key-1: label-value-1
             label-key-2: label-value-2
+            app: vcluster
+            chart: vcluster-0.0.1
+            release: my-release
+            heritage: Helm
       - isSubset:
           path: metadata.annotations
           content:
+            global-annotation-key-1: global-annotation-value-1
+            global-annotation-key-2: global-annotation-value-2
+            annotation-key-to-be-overridden: annotation-key-overridden-from-global
             annotation-key-1: annotation-value-1
             annotation-key-2: annotation-value-2
 
