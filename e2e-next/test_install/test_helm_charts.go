@@ -27,7 +27,7 @@ const (
 
 var _ = Describe("Helm charts (regular and OCI) are synced and applied as expected",
 	Ordered,
-	e2eLabels.Install,
+	e2eLabels.Deploy,
 	e2eLabels.PR,
 	func() {
 		var (
@@ -75,7 +75,7 @@ experimental:
 			var err error
 
 			ctx, err = vcluster.Create(
-				vcluster.WithName(vClusterName),
+				vcluster.WithGeneratedName(vClusterName),
 				vcluster.WithValuesYAML(vclusterValues),
 			)(ctx)
 			Expect(err).NotTo(HaveOccurred())
@@ -133,7 +133,7 @@ experimental:
 				Should(HaveLen(1), "Should have exactly one fluent-bit deployment")
 		})
 		AfterAll(func(ctx context.Context) {
-			By("Removing vcluster")
+			By("Removing vCluster")
 			_ = vcluster.Destroy(vClusterName)
 		})
 	})

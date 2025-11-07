@@ -24,7 +24,7 @@ var _ = Describe("map default/kubernetes endpoint to physical vcluster endpoint"
 		var (
 			hostClient        kubernetes.Interface
 			vClusterClient    kubernetes.Interface
-			vClusterName      = "k8s-default-endpoint-test-vcluster"
+			vClusterName      string
 			vClusterNamespace string
 			vclusterValues    = constants.DefaultVClusterYAML
 		)
@@ -32,25 +32,29 @@ var _ = Describe("map default/kubernetes endpoint to physical vcluster endpoint"
 		BeforeAll(func(ctx context.Context) context.Context {
 			hostClient = cluster.CurrentKubeClientFrom(ctx)
 			Expect(hostClient).NotTo(BeNil(), "Host client should not be nil")
-			vClusterNamespace = "vcluster-" + vClusterName
 
 			// Create vcluster values inline
 			var err error
 
 			ctx, err = vcluster.Create(
-				vcluster.WithName(vClusterName),
+				vcluster.WithGeneratedName("k8s-default-endpoint-test"),
 				vcluster.WithValuesYAML(vclusterValues),
 			)(ctx)
+
 			Expect(err).NotTo(HaveOccurred())
 			err = vcluster.WaitForControlPlane(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			vClusterClient = vcluster.GetKubeClientFrom(ctx)
 			Expect(vClusterClient).NotTo(BeNil(), "VCluster client should not be nil")
+
 			return ctx
 		})
 
 		It("Test default/kubernetes endpoints matches with vcluster service endpoint", func(ctx context.Context) {
 			Eventually(func(g Gomega) {
+				vClusterName = vcluster.VClusterNameFrom(ctx)
+				vClusterNamespace = "vcluster-" + vClusterName
+
 				hostClusterEndpoint, err := hostClient.CoreV1().Endpoints(vClusterNamespace).Get(ctx, vClusterName, metav1.GetOptions{})
 				g.Expect(err).NotTo(HaveOccurred(), "Failed to get host cluster endpoint")
 
@@ -97,7 +101,7 @@ var _ = Describe("map default/kubernetes endpoint to physical vcluster endpoint"
 				Should(Succeed(), "Endpoints should match after waiting")
 		})
 		AfterAll(func(ctx context.Context) {
-			By("Removing vcluster")
+			By("Removing vCluster")
 			_ = vcluster.Destroy(vClusterName)
 		})
 	},

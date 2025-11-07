@@ -35,7 +35,7 @@ var _ = Describe("Node sync",
 			var err error
 
 			ctx, err = vcluster.Create(
-				vcluster.WithName(vClusterName),
+				vcluster.WithGeneratedName(vClusterName),
 				vcluster.WithValuesYAML(vclusterValues),
 			)(ctx)
 			Expect(err).NotTo(HaveOccurred())
@@ -77,7 +77,7 @@ var _ = Describe("Node sync",
 		})
 
 		AfterAll(func(ctx context.Context) {
-			By("Removing vcluster")
+			By("Removing vCluster")
 			_ = vcluster.Destroy(vClusterName)
 		})
 	})
