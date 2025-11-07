@@ -8,7 +8,6 @@ import (
 
 	"github.com/loft-sh/e2e-framework/pkg/setup"
 	. "github.com/onsi/ginkgo/v2"
-	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/e2e-framework/klient"
@@ -105,12 +104,6 @@ type VClusterOptions func(*vclusterOptions)
 func WithName(name string) VClusterOptions {
 	return func(o *vclusterOptions) {
 		o.name = name
-	}
-}
-
-func WithGeneratedName(baseName string) VClusterOptions {
-	return func(o *vclusterOptions) {
-		WithName(fmt.Sprintf("%s-%s", baseName, rand.String(5)))(o)
 	}
 }
 

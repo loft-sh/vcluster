@@ -35,7 +35,7 @@ var _ = Describe("Node sync",
 			var err error
 
 			ctx, err = vcluster.Create(
-				vcluster.WithGeneratedName(vClusterName),
+				vcluster.WithName(vClusterName),
 				vcluster.WithValuesYAML(vclusterValues),
 			)(ctx)
 			Expect(err).NotTo(HaveOccurred())
