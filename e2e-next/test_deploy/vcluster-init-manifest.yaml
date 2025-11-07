@@ -1,0 +1,23 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+experimental:
+  deploy:
+    vcluster:
+      manifests: |-
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: test-configmap
+        data:
+          foo: bar
+      manifestsTemplate: |-
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: test-configmap-2
+        data:
+          foo: {{ .Release.Name }}
