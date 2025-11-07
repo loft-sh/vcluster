@@ -21,7 +21,7 @@ import (
 
 	// Import tests
 	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
-	_ "github.com/loft-sh/vcluster/e2e-next/test_install"
+	_ "github.com/loft-sh/vcluster/e2e-next/test_deploy"
 )
 
 var (
