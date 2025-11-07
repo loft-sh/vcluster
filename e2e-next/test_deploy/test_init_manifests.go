@@ -61,14 +61,14 @@ experimental:
 				vcluster.WithValuesYAML(vclusterValues),
 			)(ctx)
 			Expect(err).NotTo(HaveOccurred())
+			err = vcluster.WaitForControlPlane(ctx)
+			Expect(err).NotTo(HaveOccurred())
 			vclusterClient = vcluster.GetKubeClientFrom(ctx)
 			Expect(vclusterClient).NotTo(BeNil(), "VCluster client should not be nil")
 			return ctx
 		})
 
 		It("Test if manifest is synced with the vcluster", func(ctx context.Context) {
-			err := vcluster.WaitForControlPlane(ctx)
-			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func(g Gomega) {
 				manifest, err := vclusterClient.CoreV1().ConfigMaps(TestManifestNamespace).Get(ctx, TestManifestName, metav1.GetOptions{})

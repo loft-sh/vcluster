@@ -79,14 +79,14 @@ experimental:
 				vcluster.WithValuesYAML(vclusterValues),
 			)(ctx)
 			Expect(err).NotTo(HaveOccurred())
+			err = vcluster.WaitForControlPlane(ctx)
+			Expect(err).NotTo(HaveOccurred())
 			vClusterClient = vcluster.GetKubeClientFrom(ctx)
 			Expect(vClusterClient).NotTo(BeNil(), "VCluster client should not be nil")
 			return ctx
 		})
 
 		It("Test if configmap for both charts gets applied", func(ctx context.Context) {
-			err := vcluster.WaitForControlPlane(ctx)
-			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func(g Gomega) {
 				cm, err := vClusterClient.CoreV1().ConfigMaps(deploy.VClusterDeployConfigMapNamespace).
