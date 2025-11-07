@@ -33,8 +33,6 @@ var _ = Describe("map default/kubernetes endpoint to physical vcluster endpoint"
 			hostClient = cluster.CurrentKubeClientFrom(ctx)
 			Expect(hostClient).NotTo(BeNil(), "Host client should not be nil")
 			vClusterNamespace = "vcluster-" + vClusterName
-
-			// Create vcluster values inline
 			var err error
 
 			ctx, err = vcluster.Create(
