@@ -53,7 +53,6 @@ var _ = Describe("map default/kubernetes endpoint to physical vcluster endpoint"
 
 		It("Test default/kubernetes endpoints matches with vcluster service endpoint", func(ctx context.Context) {
 			Eventually(func(g Gomega) {
-
 				hostClusterEndpoint, err := hostClient.CoreV1().Endpoints(vClusterNamespace).Get(ctx, vClusterName, metav1.GetOptions{})
 				g.Expect(err).NotTo(HaveOccurred(), "Failed to get host cluster endpoint")
 
