@@ -85,11 +85,13 @@ func ContextualAroundNode(ctx context.Context) context.Context {
 
 	switch event.NodeType {
 	case types.NodeTypeCleanupAfterEach:
-		return e2econtext.WithValues(ctx, cmp.Or(suiteContextStack.prev, suiteContextStack.cur))
+		fallthrough
 	case types.NodeTypeCleanupAfterSuite:
-		return e2econtext.WithValues(ctx, cmp.Or(suiteContextStack.prev, suiteContextStack.cur))
+		fallthrough
 	case types.NodeTypeCleanupAfterAll:
-		return e2econtext.WithValues(ctx, cmp.Or(suiteContextStack.prev, suiteContextStack.cur))
+		fallthrough
+	case types.NodeTypeReportAfterSuite:
+		fallthrough
 	case types.NodeTypeCleanupInvalid:
 		return e2econtext.WithValues(ctx, cmp.Or(suiteContextStack.prev, suiteContextStack.cur))
 	default:
@@ -119,6 +121,8 @@ func ContextualNodeTransformer(nodeType types.NodeType, _ ginkgo.Offset, text st
 			newArgs = append(newArgs, getFnCtxCallback(nodeType, x))
 		case func():
 			newArgs = append(newArgs, getFnCallback(nodeType, x))
+		default:
+			newArgs = append(newArgs, arg)
 		}
 	}
 
