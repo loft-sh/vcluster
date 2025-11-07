@@ -16,70 +16,58 @@ tests:
       policies:
         networkPolicy:
           enabled: true
+    documentSelector:
+      path: kind
+      value: NetworkPolicy
+      matchMany: true
     asserts:
       - hasDocuments:
           count: 4
-      - documentIndex: 0
-        equal:
-          path: metadata.name
-          value: vc-work-my-release
-      - documentIndex: 0
-        equal:
+      - equal:
           path: metadata.namespace
           value: my-namespace
-      - documentIndex: 0
-        equal:
+      - equal:
           path: spec.policyTypes
           value: ["Egress", "Ingress"]
-      - documentIndex: 0
+      - documentSelector:
+          path: metadata.name
+          value: vc-work-my-release
         lengthEqual:
           path: spec.egress
           count: 3
-      - documentIndex: 0
+      - documentSelector:
+          path: metadata.name
+          value: vc-work-my-release
         lengthEqual:
           path: spec.ingress
           count: 2
-      - documentIndex: 0
+      - documentSelector:
+          path: metadata.name
+          value: vc-work-my-release
         equal:
           path: spec.egress[2].to[0].ipBlock.cidr
           value: 0.0.0.0/0
-      - documentIndex: 1
-        equal:
+      - documentSelector:
           path: metadata.name
           value: vc-cp-my-release
-      - documentIndex: 1
-        equal:
-          path: metadata.namespace
-          value: my-namespace
-      - documentIndex: 1
-        equal:
-          path: spec.policyTypes
-          value: ["Egress", "Ingress"]
-      - documentIndex: 1
         lengthEqual:
           path: spec.egress
           count: 5
-      - documentIndex: 1
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
         lengthEqual:
           path: spec.ingress
           count: 4
-      - documentIndex: 2
-        equal:
+      - documentSelector:
           path: metadata.name
           value: vc-kube-dns-my-release
-      - documentIndex: 2
-        equal:
-          path: metadata.namespace
-          value: my-namespace
-      - documentIndex: 2
-        equal:
-          path: spec.policyTypes
-          value: ["Egress", "Ingress"]
-      - documentIndex: 2
         lengthEqual:
           path: spec.egress
           count: 2
-      - documentIndex: 2
+      - documentSelector:
+          path: metadata.name
+          value: vc-kube-dns-my-release
         lengthEqual:
           path: spec.ingress
           count: 1
@@ -141,19 +129,27 @@ tests:
     asserts:
       - hasDocuments:
           count: 4
-      - documentIndex: 0
+      - documentSelector:
+          path: metadata.name
+          value: vc-work-my-release
         equal:
           path: spec.egress[3].ports[0].port
           value: 2345
-      - documentIndex: 0
+      - documentSelector:
+          path: metadata.name
+          value: vc-work-my-release
         equal:
           path: spec.ingress[2].ports[0].port
           value: 23450
-      - documentIndex: 1
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
         equal:
           path: spec.egress[5].ports[0].port
           value: 1234
-      - documentIndex: 1
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
         equal:
           path: spec.ingress[4].ports[0].port
           value: 12340
