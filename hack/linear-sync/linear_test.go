@@ -54,9 +54,9 @@ func TestMoveIssueLogic(t *testing.T) {
 
 // MockLinearClient is a mock implementation of the LinearClient interface for testing
 type MockLinearClient struct {
-	mockIssueStates       map[string]string
-	mockIssueStateNames   map[string]string
-	mockWorkflowIDs       map[string]string
+	mockIssueStates     map[string]string
+	mockIssueStateNames map[string]string
+	mockWorkflowIDs     map[string]string
 }
 
 func NewMockLinearClient() *MockLinearClient {
@@ -109,25 +109,25 @@ func (m *MockLinearClient) MoveIssueToState(ctx context.Context, dryRun bool, is
 	if strings.HasPrefix(strings.ToLower(issueID), "cve") {
 		return nil
 	}
-	
+
 	currentStateID, currentStateName, _ := m.IssueStateDetails(ctx, issueID)
-	
+
 	// Already in released state
 	if currentStateID == releasedStateID {
 		return nil
 	}
-	
+
 	// Skip if not in ready for release state
 	if currentStateName != readyForReleaseStateName {
 		return fmt.Errorf("issue %s not in ready for release state", issueID)
 	}
-	
+
 	// Only ENG-1234 is expected to be moved successfully
 	// Explicitly return errors for other issues to ensure the test only counts ENG-1234
 	if issueID != "ENG-1234" {
 		return fmt.Errorf("would not move issue %s for test purposes", issueID)
 	}
-	
+
 	return nil
 }
 
@@ -136,8 +136,8 @@ func TestIsIssueInState(t *testing.T) {
 	ctx := context.Background()
 
 	testCases := []struct {
-		IssueID     string
-		StateID     string
+		IssueID        string
+		StateID        string
 		ExpectedResult bool
 	}{
 		{"ENG-1234", "ready-state-id", true},
@@ -164,10 +164,10 @@ func TestMoveIssueStateFiltering(t *testing.T) {
 	// Create a custom mock client for this test
 	mockClient := &MockLinearClient{
 		mockIssueStates: map[string]string{
-			"ENG-1234": "ready-state-id",  // Ready for release
-			"ENG-5678": "in-progress-id",  // In progress 
-			"ENG-9012": "released-id",     // Already released
-			"CVE-1234": "ready-state-id",  // Ready but should be skipped as CVE
+			"ENG-1234": "ready-state-id", // Ready for release
+			"ENG-5678": "in-progress-id", // In progress
+			"ENG-9012": "released-id",    // Already released
+			"CVE-1234": "ready-state-id", // Ready but should be skipped as CVE
 		},
 		mockIssueStateNames: map[string]string{
 			"ENG-1234": "Ready for Release",
@@ -181,7 +181,7 @@ func TestMoveIssueStateFiltering(t *testing.T) {
 			"In Progress":       "in-progress-id",
 		},
 	}
-	
+
 	ctx := context.Background()
 
 	// Test cases for the overall filtering logic
@@ -198,19 +198,19 @@ func TestMoveIssueStateFiltering(t *testing.T) {
 		if strings.HasPrefix(strings.ToLower(issueID), "cve") {
 			continue
 		}
-		
+
 		currentStateID, currentStateName, _ := mockClient.IssueStateDetails(ctx, issueID)
-		
+
 		// Skip if already in released state
 		if currentStateID == releasedStateID {
 			continue
 		}
-		
+
 		// Skip if not in ready for release state
 		if currentStateName != readyForReleaseStateName {
 			continue
 		}
-		
+
 		// This issue would be moved
 		actualMoved = append(actualMoved, issueID)
 	}
@@ -230,7 +230,7 @@ func TestMoveIssueStateFiltering(t *testing.T) {
 				break
 			}
 		}
-		
+
 		if !found {
 			t.Errorf("Expected issue %s to be moved, but it wasn't in the result set", expectedID)
 		}
@@ -243,12 +243,12 @@ func TestIssueIDsExtraction(t *testing.T) {
 	defer func() {
 		issuesInBodyREs = originalRegex
 	}()
-	
+
 	// For testing, use a regex that matches any 3-letter prefix format
 	issuesInBodyREs = []*regexp.Regexp{
 		regexp.MustCompile(`(?P<issue>\w{3}-\d{4})`),
 	}
-	
+
 	testCases := []struct {
 		name        string
 		body        string
@@ -286,7 +286,7 @@ func TestIssueIDsExtraction(t *testing.T) {
 			expected:    []string{},
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			pr := LinearPullRequest{
@@ -295,15 +295,15 @@ func TestIssueIDsExtraction(t *testing.T) {
 					HeadRefName: tc.headRefName,
 				},
 			}
-			
+
 			result := pr.IssueIDs()
-			
+
 			if len(result) != len(tc.expected) {
 				t.Errorf("Expected %d issues, got %d", len(tc.expected), len(result))
 				t.Errorf("Expected: %v, Got: %v", tc.expected, result)
 				return
 			}
-			
+
 			// Check all expected IDs are found (ignoring order)
 			for _, expectedID := range tc.expected {
 				found := false
@@ -316,6 +316,56 @@ func TestIssueIDsExtraction(t *testing.T) {
 				if !found {
 					t.Errorf("Expected to find issue ID %s but it was not found in %v", expectedID, result)
 				}
+			}
+		})
+	}
+}
+
+func TestIsStableRelease(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		want    bool
+	}{
+		// Stable releases - should return true
+		{name: "Stable release v0.26.1", version: "v0.26.1", want: true},
+		{name: "Stable release v4.5.0", version: "v4.5.0", want: true},
+		{name: "Stable release without v prefix", version: "1.2.3", want: true},
+		{name: "Stable release v0.28.0", version: "v0.28.0", want: true},
+		{name: "Stable release v1.0.0", version: "v1.0.0", want: true},
+
+		// Alpha releases - should return false
+		{name: "Alpha release v0.26.1-alpha.1", version: "v0.26.1-alpha.1", want: false},
+		{name: "Alpha release v4.5.0-alpha.10", version: "v4.5.0-alpha.10", want: false},
+		{name: "Alpha release without version number", version: "v0.28.0-alpha", want: false},
+
+		// RC (Release Candidate) releases - should return false
+		{name: "RC release v0.26.1-rc.4", version: "v0.26.1-rc.4", want: false},
+		{name: "RC release v0.26.1-rc.2", version: "v0.26.1-rc.2", want: false},
+		{name: "RC release without patch number", version: "v1.0.0-rc1", want: false},
+
+		// Beta releases - should return false
+		{name: "Beta release v4.5.0-beta.2", version: "v4.5.0-beta.2", want: false},
+		{name: "Beta release v1.0.0-beta", version: "v1.0.0-beta", want: false},
+
+		// Dev releases - should return false
+		{name: "Dev release v0.1.0-dev", version: "v0.1.0-dev", want: false},
+		{name: "Dev release v2.0.0-dev.1", version: "v2.0.0-dev.1", want: false},
+
+		// Pre releases - should return false
+		{name: "Pre release v1.0.0-pre", version: "v1.0.0-pre", want: false},
+		{name: "Pre release v1.0.0-pre.1", version: "v1.0.0-pre.1", want: false},
+
+		// Edge cases
+		{name: "Empty string", version: "", want: true}, // Empty is considered stable (no pre-release suffix)
+		{name: "Just v", version: "v", want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isStableRelease(tt.version)
+			if got != tt.want {
+				t.Errorf("isStableRelease(%q) = %v, want %v", tt.version, got, tt.want)
 			}
 		})
 	}
