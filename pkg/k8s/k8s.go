@@ -29,7 +29,7 @@ const (
 
 func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualClusterConfig) error {
 	// start the backing store
-	etcdEndpoints, etcdCertificates, err := StartBackingStore(ctx, vConfig)
+	etcdEndpoints, etcdCertificates, err := StartBackingStore(ctx, vConfig, true)
 	if err != nil {
 		return err
 	}
@@ -223,7 +223,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 	return ctx.Err()
 }
 
-func StartKine(ctx context.Context, dataSource, listenAddress string, certificates *etcd.Certificates, extraArgs []string) {
+func StartKine(ctx context.Context, dataSource, listenAddress string, certificates *etcd.Certificates, extraArgs []string, exitWhenFinished bool) {
 	// start kine
 	doneChan := StartKineWithDone(ctx, dataSource, listenAddress, certificates, extraArgs)
 
@@ -234,7 +234,9 @@ func StartKine(ctx context.Context, dataSource, listenAddress string, certificat
 			klog.Fatalf("could not run kine: %s", err.Error())
 		}
 		klog.Info("kine finished")
-		os.Exit(0)
+		if exitWhenFinished {
+			os.Exit(0)
+		}
 	}()
 }
 
@@ -269,7 +271,7 @@ func StartKineWithDone(ctx context.Context, dataSource, listenAddress string, ce
 	return doneChan
 }
 
-func StartBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig) (string, *etcd.Certificates, error) {
+func StartBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig, exitWhenFinished bool) (string, *etcd.Certificates, error) {
 	// start kine embedded or external
 	var (
 		etcdEndpoints    string
@@ -285,7 +287,7 @@ func StartBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig
 			CaCert:     vConfig.ControlPlane.BackingStore.Database.Embedded.CaFile,
 			ServerKey:  vConfig.ControlPlane.BackingStore.Database.Embedded.KeyFile,
 			ServerCert: vConfig.ControlPlane.BackingStore.Database.Embedded.CertFile,
-		}, vConfig.ControlPlane.BackingStore.Database.Embedded.ExtraArgs)
+		}, vConfig.ControlPlane.BackingStore.Database.Embedded.ExtraArgs, exitWhenFinished)
 
 		etcdEndpoints = constants.K8sKineEndpoint
 	} else if vConfig.ControlPlane.BackingStore.Database.External.Enabled {

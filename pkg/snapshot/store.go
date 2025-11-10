@@ -120,7 +120,7 @@ func startEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClust
 	if vConfig.EmbeddedDatabase() {
 		if vConfig.Distro() == vclusterconfig.K8SDistro {
 			klog.FromContext(ctx).Info("Starting k8s kine embedded database...")
-			_, _, err := k8s.StartBackingStore(ctx, vConfig)
+			_, _, err := k8s.StartBackingStore(ctx, vConfig, false)
 			if err != nil {
 				return fmt.Errorf("failed to start backing store: %w", err)
 			}
@@ -131,7 +131,7 @@ func startEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClust
 				return fmt.Errorf("failed to create directory %s: %w", filepath.Dir(constants.K3sSqliteDatabase), err)
 			}
 
-			k8s.StartKine(ctx, fmt.Sprintf("sqlite://%s%s", constants.K3sSqliteDatabase, k8s.SQLiteParams), constants.K3sKineEndpoint, nil, nil)
+			k8s.StartKine(ctx, fmt.Sprintf("sqlite://%s%s", constants.K3sSqliteDatabase, k8s.SQLiteParams), constants.K3sKineEndpoint, nil, nil, false)
 		} else {
 			return fmt.Errorf("unsupported distro: %s", vConfig.Distro())
 		}

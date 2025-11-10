@@ -93,7 +93,7 @@ setup-csi-volume-snapshots:
 
   # Deploy CSI driver, StorageClass and VolumeSnapshotClass
   temp_git_dir=$(mktemp -d) && \
-    git clone https://github.com/kubernetes-csi/csi-driver-host-path.git $temp_git_dir && \
+    git clone --depth=1 https://github.com/kubernetes-csi/csi-driver-host-path.git $temp_git_dir && \
     $temp_git_dir/deploy/kubernetes-latest/deploy.sh && \
     kubectl apply -f $temp_git_dir/examples/csi-storageclass.yaml && \
     kubectl apply -f $temp_git_dir/examples/csi-volumesnapshotclass.yaml && \

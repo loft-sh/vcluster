@@ -10,9 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
+	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
@@ -30,10 +34,12 @@ import (
 	"go.etcd.io/etcd/server/v3/storage/schema"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/protobuf"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 )
 
@@ -54,6 +60,7 @@ type RestoreClient struct {
 var (
 	podGVK = corev1.SchemeGroupVersion.WithKind("Pod")
 	pvcGVK = corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim")
+	pvGVK  = corev1.SchemeGroupVersion.WithKind("PersistentVolume")
 
 	// bump revision to make sure we invalidate caches. See https://github.com/kubernetes/kubernetes/issues/118501 for more details
 	BumpRevision = int64(1000)
@@ -130,6 +137,14 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 		return err
 	}
 	o.vConfig = vConfig
+
+	var existingObjects map[string]runtime.Object
+	if !o.NewVCluster {
+		existingObjects, err = o.getExistingObjectsThatCanBeKept(ctx, vConfig, decoder)
+		if err != nil {
+			return fmt.Errorf("failed to get existing PVCs: %w", err)
+		}
+	}
 
 	// set global vCluster name
 	translate.VClusterName = vConfig.Name
@@ -222,22 +237,68 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 			}
 		}
 
-		if o.isPVCThatShouldBeRestoredInHost(string(key)) {
-			value, err = unsetVolumeName(value, decoder, encoder)
+		if o.pvcHasHostVolumeSnapshot(key) {
+			// decode value
+			vPVC, err := decodePersistentVolumeClaim(value, decoder)
 			if err != nil {
-				return fmt.Errorf("failed to unset volume name: %w", err)
+				return fmt.Errorf("failed to decode PVC from etcd value: %w", err)
 			}
-			klog.Infof("Unset volume name for PVC %s", strings.TrimPrefix(string(key), pvcPrefix))
+
+			hostPVCFound, err := o.hostPVCExists(ctx, &vPVC)
+			if err != nil {
+				return fmt.Errorf("failed to check if host PVC exists: %w", err)
+			}
+
+			if hostPVCFound {
+				klog.V(1).Infof("Host PVC found for virtual PVC %s", strings.TrimPrefix(string(key), pvcPrefix))
+			} else {
+				// the new host PVC (and PV) will be created when restoring PVC from the volume snapshot in the host,
+				// so unset the old (invalid) volume name in the virtual PVC
+				value, err = unsetVolumeName(vPVC, value, encoder)
+				if err != nil {
+					return fmt.Errorf("failed to unset volume name: %w", err)
+				}
+				klog.V(1).Infof("Unset volume name for virtual PVC %s because host PVC and PV will be re-created when restoring PVC from volume snapshot", strings.TrimPrefix(string(key), pvcPrefix))
+			}
 		}
 
 		// write the value to etcd
-		if o.skipKey(string(key)) {
-			klog.Infof("Skip key %s", string(key))
-			continue
+		valueToRestore := value
+		if o.RestoreVolumes && o.objectHasVirtualVolumeSnapshot(key) {
+			// vCluster can restore the object from the volume snapshot, but first make sure that
+			// it doesn't overwrite (and thus destroy) the existing volume data! 🚨
+			existingObject, err := o.findExistingObjectToKeep(existingObjects, key, encoder)
+			if err != nil {
+				return fmt.Errorf("failed to get existing object to keep: %w", err)
+			}
+			if existingObject != nil {
+				// Keep existing PVC, don't overwrite it!
+				valueToRestore = existingObject
+				klog.V(1).Infof("Keep existing etcd data for key %s, so the existing volume is not lost", string(key))
+			} else {
+				klog.V(1).Infof("Skip restoring etcd data for key %s, because object will be re-created by the vCluster restore controller", string(key))
+				continue
+			}
+		}
+		if o.RestoreVolumes && o.objectHasIncompleteVolumeSnapshot(key) {
+			// vCluster **cannot** restore the object from the volume snapshot, so check if there
+			// is an existing volume that should be kept, so the existing data is not destroyed! 🚨
+			existingObject, err := o.findExistingObjectToKeep(existingObjects, key, encoder)
+			if err != nil {
+				return fmt.Errorf("failed to get existing object to keep: %w", err)
+			}
+			if existingObject != nil {
+				// Keep existing PVC, don't overwrite it!
+				valueToRestore = existingObject
+				klog.V(1).Infof("Keep existing etcd data for key %s, so the existing volume is not lost", string(key))
+			} else {
+				klog.V(1).Infof("Skip restoring etcd data for key %s, because there is no functional volume snapshot from which the data can be restored", string(key))
+				continue
+			}
 		}
 
 		klog.V(1).Infof("Restore key %s", string(key))
-		latestRevision, err = etcdClient.Put(ctx, string(key), value)
+		latestRevision, err = etcdClient.Put(ctx, string(key), valueToRestore)
 		if err != nil {
 			return fmt.Errorf("restore etcd key %s: %w", string(key), err)
 		}
@@ -259,6 +320,118 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	klog.Infof("Successfully restored %d etcd keys from snapshot", restoredKeys)
 	klog.Infof("Successfully restored snapshot from %s", objectStore.Target())
 	return nil
+}
+
+// getExistingObjectsThatCanBeKept gets all the existing PVC and PVs, so they can be later restored
+// back if needed.
+func (o *RestoreClient) getExistingObjectsThatCanBeKept(ctx context.Context, vConfig *config.VirtualClusterConfig, decoder runtime.Decoder) (map[string]runtime.Object, error) {
+	if vConfig == nil {
+		return nil, errors.New("vcluster config is nil")
+	}
+	klog.V(1).Infof("check the current PVCs and PVs before restoring data from the etcd backup")
+	klog.V(1).Infof("create etcd client...")
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	oldEtcdClient, err := newEtcdClient(ctxWithCancel, vConfig, true)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to create etcd client: %w", err)
+	}
+	klog.V(1).Infof("get existing PVCs...")
+	existingPVCs, err := o.getPVCs(ctx, oldEtcdClient, decoder)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to get existing PVCs: %w", err)
+	}
+	existingPVs, err := o.getPVs(ctx, oldEtcdClient, decoder)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to get existing PVCs: %w", err)
+	}
+	existingData := existingPVCs
+	maps.Copy(existingData, existingPVs)
+	closeErr := oldEtcdClient.Close()
+	if closeErr != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to close etcd client: %w", closeErr)
+	}
+	cancel()
+	for key := range existingData {
+		klog.V(1).Infof("found existing etcd object with key %s", key)
+	}
+	err = waitForKineToExit(ctx)
+	if err != nil {
+		klog.Errorf("wait for kine-to-exit failed with error: %v", err)
+	}
+
+	return existingData, nil
+}
+
+func waitForKineToExit(ctx context.Context) error {
+	klog.V(1).Infof("waiting for kine to exit...")
+	pidFile := path.Join(constants.DataDir, "pids", "kine") + ".pid"
+	pidBytes, err := os.ReadFile(pidFile)
+	if os.IsNotExist(err) {
+		klog.V(1).Infof("kine PID file '%s' not found", pidFile)
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to read pid file: %w", err)
+	}
+	if len(pidBytes) == 0 {
+		klog.V(1).Infof("kine PID file '%s' is empty", pidFile)
+		return nil
+	}
+	pid, err := strconv.Atoi(strings.TrimSuffix(string(pidBytes), "\n"))
+	if err != nil {
+		klog.V(1).Infof("failed to parse kine PID file '%s': %v", pidFile, err)
+		return nil
+	}
+	err = wait.PollUntilContextTimeout(ctx, time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+		kineProcess, err := os.FindProcess(pid)
+		if err != nil {
+			return false, fmt.Errorf("failed to find kine process: %w", err)
+		}
+		if kineProcess == nil {
+			return false, fmt.Errorf("failed to find kine process, got nil pointer for process")
+		}
+		err = kineProcess.Signal(syscall.Signal(0))
+		if err != nil && err.Error() == "os: process already finished" {
+			klog.V(1).Infof("kine process already finished")
+			return true, nil
+		} else if err != nil {
+			klog.V(1).Infof("signaling kine process returned error: %v", err)
+			return false, fmt.Errorf("signaling kine process returned error: %w", err)
+		}
+		return false, nil
+	})
+
+	if err != nil {
+		klog.Warningf("Wait for kine process returned error: %v", err)
+	}
+	return nil
+}
+
+func (o *RestoreClient) getPVCs(ctx context.Context, etcdClient etcd.Client, decoder runtime.Decoder) (pvcs map[string]runtime.Object, retErr error) {
+	values, err := etcdClient.List(ctx, pvcPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list values from etcd client: %w", err)
+	}
+	pvcs, err = toPersistentVolumeClaims(values, decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode PVCs from etcd data: %w", err)
+	}
+	return pvcs, nil
+}
+
+func (o *RestoreClient) getPVs(ctx context.Context, etcdClient etcd.Client, decoder runtime.Decoder) (pvs map[string]runtime.Object, retErr error) {
+	values, err := etcdClient.List(ctx, pvPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list values from etcd client: %w", err)
+	}
+	pvs, err = toPersistentVolumes(values, decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode PVs from etcd data: %w", err)
+	}
+	return pvs, nil
 }
 
 func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *config.VirtualClusterConfig, value []byte) error {
@@ -317,58 +490,139 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 	return nil
 }
 
-func (o *RestoreClient) skipKey(key string) bool {
+// objectHasVirtualVolumeSnapshot checks if the virtual object (PVC or PV) with the specified key
+// has a **virtual** volume snapshot.
+// This is used to skip restoring the virtual object from the backup because it has to be restored
+// (re-created) from the volume snapshot inside the virtual cluster.
+func (o *RestoreClient) objectHasVirtualVolumeSnapshot(key []byte) bool {
 	if !o.RestoreVolumes {
 		return false
 	}
 
+	// When using **private nodes**, vCluster restore controller re-creates **virtual** PVCs if
+	// there is a volume snapshot for the PVC.
 	if o.vConfig.PrivateNodes.Enabled {
 		// check if the snapshot exists
-		if strings.HasPrefix(key, pvcPrefix) {
-			pvcName := strings.TrimPrefix(key, pvcPrefix)
-			status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcName]
-			if !ok {
-				return false
-			}
-			// skip restoring PVC if it has a snapshot, restore controller will restore it
-			return status.Phase == volumes.RequestPhaseCompleted
-		} else if strings.HasPrefix(key, pvPrefix) {
-			volumeName := strings.TrimPrefix(key, pvPrefix)
-			for _, snapshotSpec := range o.snapshotRequest.Spec.VolumeSnapshots.Requests {
-				if snapshotSpec.PersistentVolumeClaim.Spec.VolumeName == volumeName {
-					return true
-				}
-			}
+		if isPersistentVolumeClaimKey(key) {
+			pvcName := getPersistentVolumeClaimName(key)
+			return o.pvcHasVolumeSnapshot(pvcName)
+		} else if isPersistentVolumeKey(key) {
+			volumeName := getPersistentVolumeName(key)
+			return o.pvHasVolumeSnapshot(volumeName)
 		}
-	} else {
-		// In the shared mode, PVC restore is skipped for the ones where snapshots have failed.
+	}
 
-		// check if the snapshot exists
-		if strings.HasPrefix(key, pvcPrefix) {
-			pvcName := strings.TrimPrefix(key, pvcPrefix)
+	// When using shared nodes, virtual PVCs are always restored from the etcd backup, and then
+	// vCluster restore controller restores **host** PVCs from the volume snapshot.
+	return false
+}
 
-			translatedPVCName := getTranslatedPVCName(pvcName)
-			if translatedPVCName == "" {
-				return true
-			}
-			status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[translatedPVCName]
-			if !ok {
-				return false
-			}
-			// skip restoring PVC if it has a snapshot, restore controller will restore it
-			return status.Phase != volumes.RequestPhaseCompleted
+func (o *RestoreClient) objectHasIncompleteVolumeSnapshot(key []byte) bool {
+	if !o.RestoreVolumes {
+		return false
+	}
+
+	if isPersistentVolumeClaimKey(key) {
+		pvcName := getPersistentVolumeClaimName(key)
+		if !o.vConfig.PrivateNodes.Enabled {
+			pvcName = getTranslatedPVCName(pvcName)
 		}
+		return o.pvcHasIncompleteVolumeSnapshot(pvcName)
+	} else if isPersistentVolumeKey(key) {
+		volumeName := getPersistentVolumeName(key)
+		if !o.vConfig.PrivateNodes.Enabled {
+			volumeName = getTranslatedPVName(volumeName)
+		}
+		return o.pvHasIncompleteVolumeSnapshot(volumeName)
 	}
 
 	return false
 }
 
-// isPVCThatShouldBeRestoredInHost checks if the key refers to a PVC that should be restored on the host cluster.
-func (o *RestoreClient) isPVCThatShouldBeRestoredInHost(key string) bool {
+// pvcHasVolumeSnapshot checks if there is a successfully created snapshot for the PVC.
+func (o *RestoreClient) pvcHasVolumeSnapshot(pvcNamespacedName string) bool {
+	if pvcNamespacedName == "" {
+		return false
+	}
+	status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcNamespacedName]
+	if !ok {
+		return false
+	}
+	// skip restoring PVC if it has a snapshot:
+	// - the existing PVC will be kept, or
+	// - restore controller will restore it
+	return status.Phase == volumes.RequestPhaseCompleted && status.SnapshotHandle != ""
+}
+
+// pvcHasVolumeSnapshot checks if there is a failed snapshot for the PVC.
+func (o *RestoreClient) pvcHasIncompleteVolumeSnapshot(pvcNamespacedName string) bool {
+	if pvcNamespacedName == "" {
+		return false
+	}
+	status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcNamespacedName]
+	if !ok {
+		return false
+	}
+	// skip restoring PVC if it has a snapshot:
+	// - the existing PVC will be kept, or
+	// - restore controller will restore it
+	return status.Phase != volumes.RequestPhaseCompleted || status.SnapshotHandle == ""
+}
+
+func (o *RestoreClient) pvHasVolumeSnapshot(volumeName string) bool {
+	var pvcNamespacedName string
+	for _, snapshotSpec := range o.snapshotRequest.Spec.VolumeSnapshots.Requests {
+		if snapshotSpec.PersistentVolumeClaim.Spec.VolumeName == volumeName {
+			pvcNamespacedName = fmt.Sprintf("%s/%s", snapshotSpec.PersistentVolumeClaim.Namespace, snapshotSpec.PersistentVolumeClaim.Name)
+			break
+		}
+	}
+	return o.pvcHasVolumeSnapshot(pvcNamespacedName)
+}
+
+func (o *RestoreClient) pvHasIncompleteVolumeSnapshot(volumeName string) bool {
+	var pvcNamespacedName string
+	for _, snapshotSpec := range o.snapshotRequest.Spec.VolumeSnapshots.Requests {
+		if snapshotSpec.PersistentVolumeClaim.Spec.VolumeName == volumeName {
+			pvcNamespacedName = fmt.Sprintf("%s/%s", snapshotSpec.PersistentVolumeClaim.Namespace, snapshotSpec.PersistentVolumeClaim.Name)
+			break
+		}
+	}
+	return o.pvcHasIncompleteVolumeSnapshot(pvcNamespacedName)
+}
+
+func (o *RestoreClient) findExistingObjectToKeep(
+	existingObjects map[string]runtime.Object,
+	key []byte,
+	encoder runtime.Encoder) ([]byte, error) {
+	// When restoring volumes with private nodes, vCluster keeps existing PVCs and PVs in etcd.
+	// After the existing PVC and PV are preserved, the vCluster restore controller will skip
+	// restoring the PVC from the snapshot.
+	if !o.RestoreVolumes || !o.vConfig.PrivateNodes.Enabled {
+		return nil, nil
+	}
+	if !isPersistentVolumeClaimKey(key) && !isPersistentVolumeKey(key) {
+		return nil, nil
+	}
+	existingObject, ok := existingObjects[string(key)]
+	if !ok {
+		return nil, nil
+	}
+
+	buffer := &bytes.Buffer{}
+	err := encoder.Encode(existingObject, buffer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode existing etcd object: %w", err)
+	}
+	return buffer.Bytes(), nil
+}
+
+// pvcHasHostVolumeSnapshot checks if the key refers to a PVC that should be restored on the host cluster.
+func (o *RestoreClient) pvcHasHostVolumeSnapshot(key []byte) bool {
 	if !o.RestoreVolumes {
 		return false
 	}
-	if !strings.HasPrefix(key, pvcPrefix) {
+	if !isPersistentVolumeClaimKey(key) {
 		// not PVC
 		return false
 	}
@@ -377,19 +631,35 @@ func (o *RestoreClient) isPVCThatShouldBeRestoredInHost(key string) bool {
 		return false
 	}
 
-	pvcName := strings.TrimPrefix(key, pvcPrefix)
+	pvcName := getPersistentVolumeClaimName(key)
 	translatedPVCName := getTranslatedPVCName(pvcName)
 	if translatedPVCName == "" {
 		return true
 	}
 	status, ok := o.snapshotRequest.Status.VolumeSnapshots.Snapshots[translatedPVCName]
 	if !ok {
-		klog.V(1).Infof("Snapshot not found for PVC %s", strings.TrimPrefix(key, pvcPrefix))
+		klog.V(1).Infof("Snapshot not found for PVC %s", pvcName)
 		return false
 	}
 	// skip restoring PVC if it has a snapshot, restore controller will restore it
-	klog.Infof("Snapshot found for PVC %s with phase %s", strings.TrimPrefix(key, pvcPrefix), status.Phase)
+	klog.Infof("Snapshot found for PVC %s with phase %s", pvcName, status.Phase)
 	return status.Phase == volumes.RequestPhaseCompleted
+}
+
+func isPersistentVolumeClaimKey(key []byte) bool {
+	return strings.HasPrefix(string(key), pvcPrefix)
+}
+
+func getPersistentVolumeClaimName(key []byte) string {
+	return strings.TrimPrefix(string(key), pvcPrefix)
+}
+
+func isPersistentVolumeKey(key []byte) bool {
+	return strings.HasPrefix(string(key), pvPrefix)
+}
+
+func getPersistentVolumeName(key []byte) string {
+	return strings.TrimPrefix(string(key), pvPrefix)
 }
 
 func transformPod(value []byte, decoder runtime.Decoder, encoder runtime.Encoder) ([]byte, error) {
@@ -416,28 +686,79 @@ func transformPod(value []byte, decoder runtime.Decoder, encoder runtime.Encoder
 	return buf.Bytes(), nil
 }
 
-func unsetVolumeName(value []byte, decoder runtime.Decoder, encoder runtime.Encoder) ([]byte, error) {
+func (o *RestoreClient) hostPVCExists(ctx context.Context, vPVC *corev1.PersistentVolumeClaim) (bool, error) {
+	hostPVCName := translate.Default.HostName(nil, vPVC.Name, vPVC.Namespace)
+
+	_, err := o.vConfig.HostClient.CoreV1().PersistentVolumeClaims(hostPVCName.Namespace).Get(ctx, hostPVCName.Name, metav1.GetOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return false, fmt.Errorf("failed to get host PVC: %w", err)
+	} else if kerrors.IsNotFound(err) {
+		return false, nil
+	}
+	klog.V(1).Infof("Host PVC %s/%s exists", hostPVCName.Namespace, hostPVCName.Name)
+	return true, nil
+}
+
+func unsetVolumeName(vPVC corev1.PersistentVolumeClaim, value []byte, encoder runtime.Encoder) ([]byte, error) {
 	// decode value
-	obj := &corev1.PersistentVolumeClaim{}
-	_, _, err := decoder.Decode(value, &pvcGVK, obj)
-	if err != nil {
-		return nil, fmt.Errorf("decode value: %w", err)
-	} else if obj.DeletionTimestamp != nil {
-		klog.Infof("PVC deleted!")
+	if vPVC.DeletionTimestamp != nil {
+		klog.V(1).Infof("PVC deleted, skip unsetting volume name!")
 		return value, nil
 	}
 
 	// unset volume name
-	obj.Spec.VolumeName = ""
+	vPVC.Spec.VolumeName = ""
 
 	// encode value
 	buf := &bytes.Buffer{}
-	err = encoder.Encode(obj, buf)
+	err := encoder.Encode(&vPVC, buf)
 	if err != nil {
 		return nil, fmt.Errorf("encode value: %w", err)
 	}
 
 	return buf.Bytes(), nil
+}
+
+func toPersistentVolumeClaims(pvcValues []etcd.Value, decoder runtime.Decoder) (map[string]runtime.Object, error) {
+	pvcs := map[string]runtime.Object{}
+	for _, value := range pvcValues {
+		pvc, err := decodePersistentVolumeClaim(value.Data, decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode PVC from etcd value: %w", err)
+		}
+		pvcs[string(value.Key)] = &pvc
+	}
+	return pvcs, nil
+}
+
+func toPersistentVolumes(pvValues []etcd.Value, decoder runtime.Decoder) (map[string]runtime.Object, error) {
+	pvs := map[string]runtime.Object{}
+	for _, value := range pvValues {
+		pv, err := decodePersistentVolume(value.Data, decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode PV from etcd value: %w", err)
+		}
+		pvs[string(value.Key)] = &pv
+	}
+	return pvs, nil
+}
+
+func decodePersistentVolumeClaim(data []byte, decoder runtime.Decoder) (corev1.PersistentVolumeClaim, error) {
+	pvc := corev1.PersistentVolumeClaim{}
+	_, _, err := decoder.Decode(data, &pvcGVK, &pvc)
+	if err != nil {
+		return corev1.PersistentVolumeClaim{}, fmt.Errorf("failed to decode PVC from etcd data: %w", err)
+	}
+	return pvc, nil
+}
+
+func decodePersistentVolume(data []byte, decoder runtime.Decoder) (corev1.PersistentVolume, error) {
+	pv := corev1.PersistentVolume{}
+	_, _, err := decoder.Decode(data, &pvGVK, &pv)
+	if err != nil {
+		return corev1.PersistentVolume{}, fmt.Errorf("failed to decode PV from etcd data: %w", err)
+	}
+	return pv, nil
 }
 
 func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterConfig) (etcd.Client, func(), error) {
@@ -767,9 +1088,9 @@ func readKeyValue(tarReader *tar.Reader) ([]byte, []byte, error) {
 	return []byte(header.Name), buf.Bytes(), nil
 }
 
-func getTranslatedPVCName(pvcName string) string {
+func getTranslatedPVCName(vPVCName string) string {
 	// Parse namespace and name from "namespace/name" format
-	parts := strings.SplitN(pvcName, "/", 2)
+	parts := strings.SplitN(vPVCName, "/", 2)
 	if len(parts) != 2 {
 		return ""
 	}
@@ -777,4 +1098,9 @@ func getTranslatedPVCName(pvcName string) string {
 	vNamespace, vName := parts[0], parts[1]
 	hostName := translate.Default.HostName(nil, vName, vNamespace)
 	return hostName.Namespace + "/" + hostName.Name
+}
+
+func getTranslatedPVName(vPVCName string) string {
+	hostName := translate.Default.HostName(nil, vPVCName, "")
+	return hostName.Name
 }
