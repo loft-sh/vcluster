@@ -101,7 +101,8 @@ var _ = Describe("map default/kubernetes endpoint to physical vcluster endpoint"
 		})
 		AfterAll(func(ctx context.Context) {
 			By("Removing vCluster")
-			_ = vcluster.Destroy(vClusterName)
+			_, err := vcluster.Destroy(vClusterName)(ctx)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	},
 )
