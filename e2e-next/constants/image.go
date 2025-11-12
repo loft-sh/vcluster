@@ -38,12 +38,19 @@ func GetTag() string {
 }
 
 func SetImage(image string) {
-	parts := strings.SplitN(image, ":", 2)
-	repository = parts[0]
-
-	if len(parts) == 2 {
-		tag = parts[1]
+	if strings.Contains(image, "@") {
+		// Handle digest format: repo@sha256:xxx
+		parts := strings.SplitN(image, "@", 2)
+		repository = parts[0]
+		tag = "@" + parts[1]
 	} else {
-		tag = ""
+		// Handle tag format: repo:tag
+		parts := strings.SplitN(image, ":", 2)
+		repository = parts[0]
+		if len(parts) == 2 {
+			tag = parts[1]
+		} else {
+			tag = ""
+		}
 	}
 }
