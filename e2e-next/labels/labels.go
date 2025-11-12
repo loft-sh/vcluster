@@ -14,5 +14,4 @@ var (
 	Deploy      = Label("deploy")
 	Storage     = Label("storage")
 	Security    = Label("security")
-	Ha          = Label("ha")
 )
