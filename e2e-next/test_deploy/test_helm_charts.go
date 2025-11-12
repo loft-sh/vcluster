@@ -114,6 +114,7 @@ var _ = Describe("Helm charts (regular and OCI) are synced and applied as expect
 		})
 		AfterAll(func(ctx context.Context) {
 			By("Removing vCluster")
-			_ = vcluster.Destroy(vClusterName)
+			_, err := vcluster.Destroy(vClusterName)(ctx)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
