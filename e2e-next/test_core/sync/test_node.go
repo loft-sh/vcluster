@@ -28,17 +28,18 @@ var _ = Describe("Node sync",
 		)
 
 		BeforeAll(func(ctx context.Context) context.Context {
-			// Get host cluster client
+			By("Get host cluster client")
 			hostClient = cluster.CurrentKubeClientFrom(ctx)
 			Expect(hostClient).NotTo(BeNil(), "Host client should not be nil")
 
 			var err error
-
+			By("Create vCluster")
 			ctx, err = vcluster.Create(
 				vcluster.WithName(vClusterName),
 				vcluster.WithValuesYAML(vclusterValues),
 			)(ctx)
 			Expect(err).NotTo(HaveOccurred())
+			By("Wait for vCluster control plane")
 			err = vcluster.WaitForControlPlane(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			vClusterClient = vcluster.GetKubeClientFrom(ctx)
@@ -48,7 +49,7 @@ var _ = Describe("Node sync",
 
 		It("Sync nodes using label selector", func(ctx context.Context) {
 
-			hostname := "kind-cluster-control-plane"
+			hostname := constants.GetClusterName() + "-control-plane"
 			if kindName, ok := os.LookupEnv("KIND_NAME"); ok {
 				hostname = kindName + "-control-plane"
 			}

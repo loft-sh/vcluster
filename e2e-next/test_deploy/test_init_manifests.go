@@ -27,7 +27,7 @@ var (
 var _ = Describe("Init manifests are synced and applied as expected",
 	Ordered,
 	labels.Deploy,
-	labels.PR,
+
 	func() {
 		var (
 			vClusterName   = "init-manifests-test-vcluster"
@@ -38,11 +38,13 @@ var _ = Describe("Init manifests are synced and applied as expected",
 
 			var err error
 
+			By("Create vCluster")
 			ctx, err = vcluster.Create(
 				vcluster.WithName(vClusterName),
 				vcluster.WithValuesYAML(vclusterInitManifestValues),
 			)(ctx)
 			Expect(err).NotTo(HaveOccurred())
+			By("Wait for vCluster control plane")
 			err = vcluster.WaitForControlPlane(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			vclusterClient = vcluster.GetKubeClientFrom(ctx)
