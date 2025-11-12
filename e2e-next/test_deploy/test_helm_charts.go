@@ -34,7 +34,6 @@ var (
 var _ = Describe("Helm charts (regular and OCI) are synced and applied as expected",
 	Ordered,
 	e2eLabels.Deploy,
-	e2eLabels.PR,
 	func() {
 		var (
 			vClusterName = "helm-charts-test-vcluster"
@@ -53,11 +52,13 @@ var _ = Describe("Helm charts (regular and OCI) are synced and applied as expect
 		BeforeAll(func(ctx context.Context) context.Context {
 			var err error
 
+			By("Create vCluster")
 			ctx, err = vcluster.Create(
 				vcluster.WithName(vClusterName),
 				vcluster.WithValuesYAML(vclusterTestHelmYAML),
 			)(ctx)
 			Expect(err).NotTo(HaveOccurred())
+			By("Wait for vCluster control plane")
 			err = vcluster.WaitForControlPlane(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			vClusterClient = vcluster.GetKubeClientFrom(ctx)

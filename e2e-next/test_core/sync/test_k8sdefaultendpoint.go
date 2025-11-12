@@ -30,17 +30,20 @@ var _ = Describe("map default/kubernetes endpoint to physical vcluster endpoint"
 		)
 
 		BeforeAll(func(ctx context.Context) context.Context {
+			By("Get host cluster client")
 			hostClient = cluster.CurrentKubeClientFrom(ctx)
 			Expect(hostClient).NotTo(BeNil(), "Host client should not be nil")
 			vClusterNamespace = "vcluster-" + vClusterName
 			var err error
 
+			By("Create vCluster")
 			ctx, err = vcluster.Create(
 				vcluster.WithName(vClusterName),
 				vcluster.WithValuesYAML(vclusterValues),
 			)(ctx)
 
 			Expect(err).NotTo(HaveOccurred())
+			By("Wait for vCluster control plane")
 			err = vcluster.WaitForControlPlane(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			vClusterClient = vcluster.GetKubeClientFrom(ctx)
