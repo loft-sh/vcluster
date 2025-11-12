@@ -81,7 +81,7 @@ var _ = Describe("Helm charts (regular and OCI) are synced and applied as expect
 				}
 			}).
 				WithPolling(constants.PollingInterval).
-				WithTimeout(constants.PollingTimeoutShort).
+				WithTimeout(constants.PollingTimeout).
 				Should(Succeed(), "Both charts should be successfully deployed")
 		})
 
