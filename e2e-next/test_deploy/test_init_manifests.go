@@ -78,7 +78,8 @@ var _ = Describe("Init manifests are synced and applied as expected",
 		})
 		AfterAll(func(ctx context.Context) {
 			By("Removing vCluster")
-			_ = vcluster.Destroy(vClusterName)
+			_, err := vcluster.Destroy(vClusterName)(ctx)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	},
 )

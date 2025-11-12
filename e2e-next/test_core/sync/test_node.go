@@ -79,6 +79,7 @@ var _ = Describe("Node sync",
 
 		AfterAll(func(ctx context.Context) {
 			By("Removing vCluster")
-			_ = vcluster.Destroy(vClusterName)
+			_, err := vcluster.Destroy(vClusterName)(ctx)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
