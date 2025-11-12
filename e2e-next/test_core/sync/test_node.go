@@ -50,7 +50,7 @@ var _ = Describe("Node sync",
 		It("Sync nodes using label selector", func(ctx context.Context) {
 
 			hostname := constants.GetClusterName() + "-control-plane"
-			if kindName, ok := os.LookupEnv("KIND_NAME"); ok {
+			if kindName, ok := os.LookupEnv("KIND_NAME"); ok && kindName != "" {
 				hostname = kindName + "-control-plane"
 			}
 			Eventually(func(g Gomega) {
@@ -70,7 +70,8 @@ var _ = Describe("Node sync",
 				}
 
 				g.Expect(hostSyncedNodeName).ToNot(BeEmpty(), "Should find host node with matching hostname")
-				g.Expect(hostSyncedNodeName).To(Equal(virtualNodes.Items[0].Name), "Synced node name should match")
+				g.Expect(virtualNodes.Items).To(HaveLen(1), "Expected exactly one synced node")
+				g.Expect(virtualNodes.Items[0].Name).To(Equal(hostSyncedNodeName), "Synced node name should match")
 			}).
 				WithPolling(constants.PollingInterval).
 				WithTimeout(constants.PollingTimeout).
