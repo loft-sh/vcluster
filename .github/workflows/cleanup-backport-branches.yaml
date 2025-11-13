@@ -1,0 +1,31 @@
+name: Cleanup backport branches
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run mode'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  cleanup:
+    name: Delete stale backport branches
+    runs-on: ubuntu-latest
+    steps:
+      - uses: fpicalausa/remove-stale-branches@v2.4.0
+        with:
+          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
+          dry-run: ${{ github.event.inputs.dry_run || 'false' }}
+          restrict-branches-regex: '^backport/'
+          days-before-branch-stale: 7
+          days-before-branch-delete: 0
