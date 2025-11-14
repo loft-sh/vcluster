@@ -28,14 +28,15 @@ require (
 	github.com/loft-sh/agentapi/v4 v4.5.0-alpha.10
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 	github.com/loft-sh/api/v4 v4.5.0-alpha.10
+	github.com/loft-sh/e2e-framework v0.0.0-20251106141448-bb8544c0c016
 	github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.5.2
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.37.0
+	github.com/onsi/ginkgo/v2 v2.27.2
+	github.com/onsi/gomega v1.38.2
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_model v0.6.2
@@ -49,7 +50,7 @@ require (
 	github.com/wk8/go-ordered-map/v2 v2.1.8
 	go.etcd.io/etcd/server/v3 v3.6.4
 	go.uber.org/atomic v1.11.0
-	golang.org/x/mod v0.26.0
+	golang.org/x/mod v0.27.0
 	google.golang.org/grpc v1.72.1
 	google.golang.org/protobuf v1.36.8
 	gopkg.in/yaml.v3 v3.0.1
@@ -74,6 +75,7 @@ require (
 	modernc.org/sqlite v1.29.10
 	oras.land/oras-go/v2 v2.5.0
 	sigs.k8s.io/controller-runtime v0.21.0
+	sigs.k8s.io/e2e-framework v0.6.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -81,6 +83,7 @@ require (
 	cel.dev/expr v0.24.0 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Sytten/logrus-zap-hook v0.1.0 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
@@ -158,6 +161,7 @@ require (
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/vbatts/tar-split v0.12.1 // indirect
 	github.com/vbauerster/mpb/v8 v8.10.2 // indirect
+	github.com/vladimirvivien/gexe v0.4.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.etcd.io/bbolt v1.4.2 // indirect
 	go.etcd.io/etcd/pkg/v3 v3.6.4 // indirect
@@ -241,6 +245,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
+	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/tcnksm/go-gitconfig v0.1.2
@@ -267,7 +272,7 @@ require (
 	golang.org/x/term v0.34.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
-	golang.org/x/tools v0.35.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
