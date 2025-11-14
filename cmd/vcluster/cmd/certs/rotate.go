@@ -73,6 +73,9 @@ func (cmd *rotateCmd) Run(ctx context.Context, withCA bool) error {
 			return fmt.Errorf("parsing vCluster config: %w", err)
 		}
 		vConfig = cfg
+		if os.Getenv("NAMESPACE") == "" {
+			_ = os.Setenv("NAMESPACE", "default")
+		}
 	} else {
 		cfg, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 		if err != nil {
