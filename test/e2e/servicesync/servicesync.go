@@ -2,25 +2,84 @@ package servicesync
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/loft-sh/vcluster/test/framework"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 )
 
-var _ = ginkgo.Describe("map services from host to virtual cluster and vice versa", func() {
-	var f *framework.Framework
-
-	ginkgo.JustBeforeEach(func() {
-		// use default framework
+var _ = ginkgo.Describe("Verify mapping and syncing of services and endpoints", ginkgo.Ordered, func() {
+	var (
+		f           *framework.Framework
+		testService *corev1.Service
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+		testEndpoint     *corev1.Endpoints
+		serviceName      = "test-service-sync"
+		serviceNamespace = "default"
+		endpointName     = "test-service-sync"
+	)
+	ginkgo.BeforeAll(func() {
 		f = framework.DefaultFramework
+		testService = &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      serviceName,
+				Namespace: serviceNamespace,
+			},
+			Spec: corev1.ServiceSpec{
+				ClusterIP: "None",
+				Ports: []corev1.ServicePort{
+					{
+						Name:       "custom-port",
+						Port:       8080,
+						Protocol:   corev1.ProtocolTCP,
+						TargetPort: intstr.FromInt(5000),
+					},
+				},
+			},
+		}
+		//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+		testEndpoint = &corev1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      endpointName,
+				Namespace: serviceNamespace,
+			},
+			//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+			Subsets: []corev1.EndpointSubset{
+				{
+					Addresses: []corev1.EndpointAddress{
+						{
+							IP: "1.1.1.1",
+						},
+					},
+					Ports: []corev1.EndpointPort{
+						{
+							Port: 5000,
+						},
+					},
+				},
+			},
+		}
+	})
+
+	ginkgo.AfterAll(func() {
+		err := f.VClusterClient.CoreV1().Endpoints(serviceNamespace).Delete(f.Context, endpointName, metav1.DeleteOptions{})
+		if err != nil && !kerrors.IsNotFound(err) {
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		}
+		err = f.VClusterClient.CoreV1().Services(serviceNamespace).Delete(f.Context, serviceName, metav1.DeleteOptions{})
+		if err != nil && !kerrors.IsNotFound(err) {
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		}
 	})
 
 	ginkgo.It("Test service mapping", func() {
@@ -52,6 +111,75 @@ var _ = ginkgo.Describe("map services from host to virtual cluster and vice vers
 
 		ginkgo.It("in vcluster -> host service mapping", func() {
 			checkEndpointsSync(f.Context, f.VClusterClient, "test", "nginx", f.HostClient, f.VClusterNamespace, "nginx")
+		})
+	})
+
+	ginkgo.Context("Verify endpoint sync when endpoint is deployed before service", func() {
+		ginkgo.It("Should sync Service, Endpoints, and EndpointSlice from vCluster to host cluster", func() {
+			ginkgo.By("Create Service Endpoint in vCluster")
+			_, err := f.VClusterClient.CoreV1().Endpoints(serviceNamespace).Create(f.Context, testEndpoint, metav1.CreateOptions{})
+			framework.ExpectNoError(err)
+
+			ginkgo.By("Create Service in vCluster")
+			_, err = f.VClusterClient.CoreV1().Services(serviceNamespace).Create(f.Context, testService, metav1.CreateOptions{})
+			framework.ExpectNoError(err)
+
+			ginkgo.By("Verify Endpoint exists in vCluster")
+			_, err = f.VClusterClient.CoreV1().Endpoints(serviceNamespace).Get(f.Context, endpointName, metav1.GetOptions{})
+			framework.ExpectNoError(err)
+
+			ginkgo.By("Verify Service exists in vCluster")
+			_, err = f.VClusterClient.CoreV1().Services(serviceNamespace).Get(f.Context, serviceName, metav1.GetOptions{})
+			framework.ExpectNoError(err)
+
+			ginkgo.By("Verify EndpointSlice exists in vCluster")
+			gomega.Eventually(func(g gomega.Gomega) {
+				vclusterEndpointSlice, err := f.VClusterClient.DiscoveryV1().EndpointSlices(serviceNamespace).List(f.Context, metav1.ListOptions{
+					LabelSelector: fmt.Sprintf("kubernetes.io/service-name=%s", serviceName),
+				})
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(vclusterEndpointSlice.Items).To(gomega.HaveLen(1))
+			}).WithPolling(time.Second).WithTimeout(framework.PollTimeout).Should(gomega.Succeed())
+
+			translatedServiceName := translate.SingleNamespaceHostName(serviceName, serviceNamespace, translate.VClusterName)
+
+			ginkgo.By("Verify Service exists in Host Cluster")
+			gomega.Eventually(func(g gomega.Gomega) {
+				hostService, err := f.HostClient.CoreV1().Services(f.VClusterNamespace).Get(f.Context, translatedServiceName, metav1.GetOptions{})
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(hostService.Spec.Ports).To(gomega.HaveLen(1))
+				if len(hostService.Spec.Ports) > 0 {
+					g.Expect(hostService.Spec.Ports[0].Name).To(gomega.Equal("custom-port"))
+					g.Expect(hostService.Spec.Ports[0].Port).To(gomega.Equal(int32(8080)))
+				}
+			}).WithPolling(time.Second).WithTimeout(framework.PollTimeout).Should(gomega.Succeed())
+
+			ginkgo.By("Verify Endpoint exists in Host Cluster")
+			gomega.Eventually(func(g gomega.Gomega) {
+				hostEndpoint, err := f.HostClient.CoreV1().Endpoints(f.VClusterNamespace).Get(f.Context, translatedServiceName, metav1.GetOptions{})
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(hostEndpoint.Subsets).To(gomega.HaveLen(1))
+				if len(hostEndpoint.Subsets) > 0 {
+					g.Expect(hostEndpoint.Subsets[0].Addresses).To(gomega.HaveLen(1))
+					if len(hostEndpoint.Subsets[0].Addresses) > 0 {
+						g.Expect(hostEndpoint.Subsets[0].Addresses[0].IP).To(gomega.Equal("1.1.1.1"))
+					}
+					g.Expect(hostEndpoint.Subsets[0].Ports).To(gomega.HaveLen(1))
+					if len(hostEndpoint.Subsets[0].Ports) > 0 {
+						g.Expect(hostEndpoint.Subsets[0].Ports[0].Port).To(gomega.Equal(int32(5000)))
+					}
+				}
+			}).WithPolling(time.Second).WithTimeout(framework.PollTimeout).Should(gomega.Succeed())
+
+			ginkgo.By("Verify EndpointSlice exists in Host Cluster")
+			gomega.Eventually(func(g gomega.Gomega) {
+				hostEndpointSlice, err := f.HostClient.DiscoveryV1().EndpointSlices(f.VClusterNamespace).List(f.Context, metav1.ListOptions{
+					LabelSelector: fmt.Sprintf("kubernetes.io/service-name=%s", translatedServiceName),
+				})
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(hostEndpointSlice.Items).To(gomega.HaveLen(1))
+			}).WithPolling(time.Second).WithTimeout(framework.PollTimeout).Should(gomega.Succeed())
+
 		})
 	})
 })
