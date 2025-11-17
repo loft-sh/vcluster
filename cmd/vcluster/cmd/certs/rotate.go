@@ -74,7 +74,10 @@ func (cmd *rotateCmd) Run(ctx context.Context, withCA bool) error {
 		}
 		vConfig = cfg
 		if os.Getenv("NAMESPACE") == "" {
-			_ = os.Setenv("NAMESPACE", "default")
+			err := os.Setenv("NAMESPACE", "default")
+			if err != nil {
+				cmd.log.Debugf("setting namespace to default failed: %s", err.Error())
+			}
 		}
 	} else {
 		cfg, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
