@@ -275,9 +275,14 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 	serviceEnv := ServicesToEnvironmentVariables(vPod.Spec.EnableServiceLinks, services, kubeIP)
 
 	// add the required kubernetes hosts entry
+	kubernetesSvcAliases := []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"}
+	if t.clusterDomain != "" {
+		// canonical name first to mimic lookup with search domains
+		kubernetesSvcAliases = append([]string{"kubernetes.default.svc." + t.clusterDomain}, kubernetesSvcAliases...)
+	}
 	pPod.Spec.HostAliases = append(pPod.Spec.HostAliases, corev1.HostAlias{
 		IP:        kubeIP,
-		Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
+		Hostnames: kubernetesSvcAliases,
 	})
 
 	// translate the dns config

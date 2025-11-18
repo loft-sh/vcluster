@@ -204,7 +204,7 @@ func TestSyncTable(t *testing.T) {
 					EnableServiceLinks:           ptr.To(false),
 					HostAliases: []corev1.HostAlias{{
 						IP:        pVclusterService.Spec.ClusterIP,
-						Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
+						Hostnames: []string{"kubernetes.default.svc.cluster.local", "kubernetes", "kubernetes.default", "kubernetes.default.svc"},
 					}},
 					ServiceAccountName: "vc-workload-vcluster",
 					Hostname:           vObjectMeta.Name,
@@ -218,7 +218,7 @@ func TestSyncTable(t *testing.T) {
 					EnableServiceLinks:           ptr.To(false),
 					HostAliases: []corev1.HostAlias{{
 						IP:        pVclusterService.Spec.ClusterIP,
-						Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
+						Hostnames: []string{"kubernetes.default.svc.cluster.local", "kubernetes", "kubernetes.default", "kubernetes.default.svc"},
 					}},
 					ServiceAccountName: "vc-workload-vcluster",
 					Hostname:           vObjectMeta.Name,
@@ -392,7 +392,7 @@ func TestSync(t *testing.T) {
 			EnableServiceLinks:           ptr.To(false),
 			HostAliases: []corev1.HostAlias{{
 				IP:        pVclusterService.Spec.ClusterIP,
-				Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
+				Hostnames: []string{"kubernetes.default.svc.cluster.local", "kubernetes", "kubernetes.default", "kubernetes.default.svc"},
 			}},
 			ServiceAccountName: "vc-workload-vcluster",
 			Hostname:           vObjectMeta.Name,
@@ -496,7 +496,7 @@ func TestSync(t *testing.T) {
 			EnableServiceLinks:           ptr.To(false),
 			HostAliases: []corev1.HostAlias{{
 				IP:        pVclusterService.Spec.ClusterIP,
-				Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
+				Hostnames: []string{"kubernetes.default.svc.cluster.local", "kubernetes", "kubernetes.default", "kubernetes.default.svc"},
 			}},
 			Hostname:           vHostPathPod.Name,
 			ServiceAccountName: "vc-workload-vcluster",
@@ -613,7 +613,7 @@ func TestSync(t *testing.T) {
 			EnableServiceLinks:           ptr.To(false),
 			HostAliases: []corev1.HostAlias{{
 				IP:        pVclusterService.Spec.ClusterIP,
-				Hostnames: []string{"kubernetes", "kubernetes.default", "kubernetes.default.svc"},
+				Hostnames: []string{"kubernetes.default.svc.cluster.local", "kubernetes", "kubernetes.default", "kubernetes.default.svc"},
 			}},
 			Hostname:           vPodWithPriorityClass.Name,
 			ServiceAccountName: "vc-workload-vcluster",
