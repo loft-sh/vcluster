@@ -3,6 +3,9 @@ package projectutil
 import (
 	"strings"
 	"sync"
+
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
+	"k8s.io/klog/v2"
 )
 
 // LegacyProjectNamespacePrefix is the legacy project namespace prefix
@@ -26,7 +29,8 @@ func GetProjectNamespacePrefix() string {
 	defer prefixMux.Unlock()
 
 	if prefix == nil {
-		panic("Seems like you forgot to init the project namespace prefix. This is a requirement as otherwise resolving a project namespace is not possible.")
+		klog.Errorf("Seems like you forgot to init the project namespace prefix. This is a requirement as otherwise resolving a project namespace is not possible.")
+		osutil.Exit(1)
 	}
 
 	return *prefix
@@ -38,7 +42,8 @@ func ProjectFromNamespace(namespace string) string {
 	defer prefixMux.RUnlock()
 
 	if prefix == nil {
-		panic("Seems like you forgot to init the project namespace prefix. This is a requirement as otherwise resolving a project namespace is not possible.")
+		klog.Errorf("Seems like you forgot to init the project namespace prefix. This is a requirement as otherwise resolving a project namespace is not possible.")
+		osutil.Exit(1)
 	}
 
 	return strings.TrimPrefix(namespace, *prefix)
@@ -50,7 +55,8 @@ func ProjectNamespace(projectName string) string {
 	defer prefixMux.RUnlock()
 
 	if prefix == nil {
-		panic("Seems like you forgot to init the project namespace prefix. This is a requirement as otherwise resolving a project namespace is not possible.")
+		klog.Errorf("Seems like you forgot to init the project namespace prefix. This is a requirement as otherwise resolving a project namespace is not possible.")
+		osutil.Exit(1)
 	}
 
 	return *prefix + projectName

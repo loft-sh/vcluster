@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -155,7 +156,8 @@ func (s *genericFromHostSyncer) ConfigureAndStartManager(ctx *synccontext.Regist
 	go func() {
 		err := localMultiNamespaceManager.Start(newCtx)
 		if err != nil {
-			panic(err)
+			klog.Errorf("error starting custom physical manager for %s syncer: %v", s.Name(), err)
+			osutil.Exit(1)
 		}
 	}()
 

@@ -10,7 +10,6 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/debug"
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/node"
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/snapshot"
-	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
