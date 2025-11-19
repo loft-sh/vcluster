@@ -12,6 +12,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +71,7 @@ func RunSyncerPod(
 		if err != nil {
 			klog.Warningf("Error deleting %s pod: %v", containerName, err)
 		}
-		os.Exit(1)
+		osutil.Exit(1)
 	}()
 
 	// wait for pod to become ready
