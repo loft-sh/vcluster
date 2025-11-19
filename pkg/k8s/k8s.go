@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -17,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/util/command"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -95,7 +95,8 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 					if vConfig.ControlPlane.Advanced.Konnectivity.Server.Enabled {
 						egressConfig, err := pro.WriteKonnectivityEgressConfig()
 						if err != nil {
-							klog.Fatalf("error writing konnectivity egress config: %s", err.Error())
+							klog.Errorf("error writing konnectivity egress config: %s", err.Error())
+							osutil.Exit(1)
 							return
 						}
 
@@ -110,18 +111,20 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 			// wait until etcd is up and running
 			err := etcd.WaitForEtcd(ctx, etcdCertificates, etcdEndpoints)
 			if err != nil {
-				klog.Fatalf("error waiting for etcd to be up: %s", err.Error())
+				klog.Errorf("error waiting for etcd to be up: %s", err.Error())
+				osutil.Exit(1)
 				return
 			}
 
 			// now start the api server
 			err = command.RunCommand(ctx, args, "apiserver")
 			if err != nil {
-				klog.Fatalf("error running apiserver: %s", err.Error())
+				klog.Errorf("error running apiserver: %s", err.Error())
+				osutil.Exit(1)
 				return
 			}
 			klog.Info("apiserver finished")
-			os.Exit(0)
+			osutil.Exit(0)
 		}()
 	}
 
@@ -182,11 +185,12 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 			args = command.MergeArgs(args, controllerManager.ExtraArgs)
 			err = command.RunCommand(ctx, args, "controller-manager")
 			if err != nil {
-				klog.Fatalf("error running controller-manager: %s", err.Error())
+				klog.Errorf("error running controller-manager: %s", err.Error())
+				osutil.Exit(1)
 				return
 			}
 			klog.Info("controller-manager finished")
-			os.Exit(0)
+			osutil.Exit(0)
 		}()
 	}
 
@@ -211,11 +215,12 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 			args = command.MergeArgs(args, scheduler.ExtraArgs)
 			err = command.RunCommand(ctx, args, "scheduler")
 			if err != nil {
-				klog.Fatalf("error running scheduler: %s", err.Error())
+				klog.Errorf("error running scheduler: %s", err.Error())
+				osutil.Exit(1)
 				return
 			}
 			klog.Info("scheduler finished")
-			os.Exit(0)
+			osutil.Exit(0)
 		}()
 	}
 
@@ -231,10 +236,11 @@ func StartKine(ctx context.Context, dataSource, listenAddress string, certificat
 	go func() {
 		err := <-doneChan
 		if err != nil {
-			klog.Fatalf("could not run kine: %s", err.Error())
+			klog.Errorf("could not run kine: %s", err.Error())
+			osutil.Exit(1)
 		}
 		klog.Info("kine finished")
-		os.Exit(0)
+		osutil.Exit(0)
 	}()
 }
 

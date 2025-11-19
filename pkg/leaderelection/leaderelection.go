@@ -8,6 +8,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -75,7 +76,8 @@ func StartLeaderElection(ctx *synccontext.ControllerContext, scheme *runtime.Sch
 				// start vcluster in leader mode
 				err = run()
 				if err != nil {
-					klog.Fatal(err)
+					klog.Error(err)
+					osutil.Exit(1)
 				}
 			},
 			OnStoppedLeading: func() {
@@ -85,7 +87,7 @@ func StartLeaderElection(ctx *synccontext.ControllerContext, scheme *runtime.Sch
 				telemetry.CollectorControlPlane.RecordError(ctx, ctx.Config, telemetry.WarningSeverity, fmt.Errorf("leader election lost"))
 				telemetry.CollectorControlPlane.Flush()
 
-				os.Exit(1)
+				osutil.Exit(1)
 			},
 		},
 	})
