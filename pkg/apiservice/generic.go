@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -194,7 +194,7 @@ func StartAPIServiceProxy(
 		err = server.ListenAndServeTLS(tlsCertFile, tlsKeyFile)
 		if err != nil {
 			klog.FromContext(ctx).Error(err, "error listening for apiservice proxy and serve tls")
-			os.Exit(1)
+			osutil.Exit(1)
 		}
 	}()
 
