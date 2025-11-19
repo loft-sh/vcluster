@@ -156,7 +156,7 @@ tests:
           value: vcluster
       - equal:
           path: spec.template.spec.terminationGracePeriodSeconds
-          value: 10
+          value: 15
       - equal:
           path: spec.volumeClaimTemplates[0].spec.accessModes[0]
           value: ReadWriteOnce
