@@ -17,6 +17,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -150,7 +151,7 @@ func RunSnapshotPod(
 		if err != nil {
 			klog.Warningf("Error deleting snapshot pod: %v", err)
 		}
-		os.Exit(1)
+		osutil.Exit(1)
 	}()
 
 	// wait for pod to become ready

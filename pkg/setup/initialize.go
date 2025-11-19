@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	"k8s.io/klog/v2"
 )
@@ -96,7 +97,8 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 			// loop in Initialize
 			err := k3s.StartK3S(context.WithoutCancel(ctx), options, serviceCIDR, k3sToken)
 			if err != nil {
-				klog.Fatalf("Error running k3s: %v", err)
+				klog.Errorf("Error running k3s: %v", err)
+				osutil.Exit(1)
 			}
 		}()
 	case vclusterconfig.K8SDistro:
@@ -145,7 +147,8 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 				options,
 			)
 			if err != nil {
-				klog.Fatalf("Error running k8s: %v", err)
+				klog.Errorf("Error running k8s: %v", err)
+				osutil.Exit(1)
 			}
 		}()
 	case vclusterconfig.Unknown:

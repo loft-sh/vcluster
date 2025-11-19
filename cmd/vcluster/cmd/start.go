@@ -18,9 +18,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/setup"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 )
 
 type StartOptions struct {
@@ -88,7 +90,8 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 	defer func() {
 		if r := recover(); r != nil {
 			telemetry.CollectorControlPlane.RecordError(ctx, vConfig, telemetry.PanicSeverity, fmt.Errorf("panic: %v %s", r, string(debug.Stack())))
-			panic(r)
+			klog.Errorf("panic: %v %s", r, string(debug.Stack()))
+			osutil.Exit(1)
 		} else if err != nil {
 			telemetry.CollectorControlPlane.RecordError(ctx, vConfig, telemetry.FatalSeverity, err)
 		}

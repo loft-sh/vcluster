@@ -12,6 +12,7 @@ import (
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc/credentials/insecure"
@@ -232,7 +233,8 @@ func (m *Manager) Start(
 	go func() {
 		err := grpcServer.Serve(lis)
 		if err != nil {
-			panic(err)
+			klog.Errorf("error serving grpc server: %v", err)
+			osutil.Exit(1)
 		}
 	}()
 
