@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -24,6 +25,7 @@ import (
 	csiVolumeSnapshots "github.com/loft-sh/vcluster/pkg/snapshot/volumes/csi/deploy"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
+	"k8s.io/klog/v2"
 )
 
 func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertypes.Object) error {
@@ -136,7 +138,8 @@ func registerServiceSyncControllers(ctx *synccontext.ControllerContext) error {
 		go func() {
 			err := globalLocalManager.Start(ctx)
 			if err != nil {
-				panic(err)
+				klog.Errorf("error starting globalLocalManager: %v", err)
+				osutil.Exit(1)
 			}
 		}()
 

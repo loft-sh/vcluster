@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/node"
 	"github.com/loft-sh/vcluster/cmd/vcluster/cmd/snapshot"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,6 +29,9 @@ func NewRootCmd() *cobra.Command {
 }
 
 func RunRoot() {
+	// handle interrupts
+	osutil.HandleInterrupts()
+
 	// set global logger
 	if os.Getenv("DEBUG") == "true" {
 		_ = os.Setenv("LOFT_LOG_LEVEL", "debug")
@@ -43,7 +47,8 @@ func RunRoot() {
 		loftlogr.WithGlobalKlog(true),
 	)
 	if err != nil {
-		klog.Fatal(err)
+		klog.Error(err)
+		osutil.Exit(1)
 	}
 	ctrl.SetLogger(logger)
 	ctx := logr.NewContext(context.Background(), logger)
@@ -52,7 +57,7 @@ func RunRoot() {
 	err = BuildRoot().ExecuteContext(ctx)
 	if err != nil {
 		klog.FromContext(ctx).Error(err, "error")
-		os.Exit(1)
+		osutil.Exit(1)
 	}
 }
 
