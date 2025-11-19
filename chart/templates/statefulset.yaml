@@ -57,7 +57,7 @@ spec:
 {{ toYaml .Values.controlPlane.statefulSet.pods.labels | indent 8 }}
         {{- end }}
     spec:
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: 15
       {{- if .Values.controlPlane.statefulSet.scheduling.priorityClassName }}
       priorityClassName: {{ .Values.controlPlane.statefulSet.scheduling.priorityClassName }}
       {{- end }}
