@@ -14,13 +14,15 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   id-token: write
+  actions: read # Required for Claude to read CI results on PRs
 
 jobs:
   claude-review-paths:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: github.repository_owner == 'loft-sh'
     steps:
       - name: Checkout repository
