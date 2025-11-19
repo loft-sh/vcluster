@@ -18,6 +18,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
@@ -146,7 +147,8 @@ func (s *nodeSyncer) ModifyController(ctx *synccontext.RegisterContext, bld *bui
 		go func() {
 			err := podCache.Start(ctx)
 			if err != nil {
-				klog.Fatalf("error starting pod cache: %v", err)
+				klog.Errorf("error starting pod cache: %v", err)
+				osutil.Exit(1)
 			}
 		}()
 

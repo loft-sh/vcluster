@@ -2,9 +2,11 @@ package networkpolicies
 
 import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 )
 
 func (s *networkPolicySyncer) translate(ctx *synccontext.SyncContext, vNetworkPolicy *networkingv1.NetworkPolicy) *networkingv1.NetworkPolicy {
@@ -48,7 +50,8 @@ func translateSpec(spec *networkingv1.NetworkPolicySpec, namespace string) *netw
 
 	// TODO(Multi-Namespace): add support for multi-namespace translation
 	if !translate.Default.SingleNamespaceTarget() {
-		panic("Multi-Namespace Mode not supported for network policies yet!")
+		klog.Errorf("Multi-Namespace Mode not supported for network policies yet!")
+		osutil.Exit(1)
 	}
 
 	if translatedLabelSelector := translate.HostLabelSelector(&spec.PodSelector); translatedLabelSelector != nil {
