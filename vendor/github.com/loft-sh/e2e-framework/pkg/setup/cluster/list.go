@@ -8,10 +8,10 @@ import (
 	"sigs.k8s.io/e2e-framework/support"
 )
 
-type key int
+type listKey int
 
 const (
-	listContextKey key = iota
+	listContextKey listKey = iota
 )
 
 func From(ctx context.Context, name string) support.E2EClusterProvider {

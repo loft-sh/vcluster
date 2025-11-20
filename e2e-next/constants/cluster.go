@@ -1,14 +1,14 @@
 package constants
 
-var vclusterCluster string
+var hostCluster string
 
-func GetClusterName() string {
-	if vclusterCluster == "" {
+func GetHostClusterName() string {
+	if hostCluster == "" {
 		return "kind-cluster"
 	}
-	return vclusterCluster
+	return hostCluster
 }
 
-func SetClusterName(name string) {
-	vclusterCluster = name
+func SetHostClusterName(name string) {
+	hostCluster = name
 }
