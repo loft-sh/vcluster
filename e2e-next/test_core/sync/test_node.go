@@ -49,7 +49,7 @@ var _ = Describe("Node sync",
 
 		It("Sync nodes using label selector", func(ctx context.Context) {
 
-			hostname := constants.GetClusterName() + "-control-plane"
+			hostname := constants.GetHostClusterName() + "-control-plane"
 			if kindName, ok := os.LookupEnv("KIND_NAME"); ok && kindName != "" {
 				hostname = kindName + "-control-plane"
 			}

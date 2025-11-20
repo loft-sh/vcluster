@@ -313,6 +313,8 @@ github.com/loft-sh/e2e-framework v0.0.0-20251106021254-afe4626e9c36 h1:ikPWcAwxU
 github.com/loft-sh/e2e-framework v0.0.0-20251106021254-afe4626e9c36/go.mod h1:b4tZYkj8EobUU7RtUTHT7ih+eir/dpfVn6RYlkUks50=
 github.com/loft-sh/e2e-framework v0.0.0-20251106141448-bb8544c0c016 h1:3C27LFDtbo1MaAk/V8yr6J70oBgHXkoj2L31vW9/8xs=
 github.com/loft-sh/e2e-framework v0.0.0-20251106141448-bb8544c0c016/go.mod h1:b4tZYkj8EobUU7RtUTHT7ih+eir/dpfVn6RYlkUks50=
+github.com/loft-sh/e2e-framework v0.0.0-20251118151008-0a6143fe4ef5 h1:gY6w+pT85VPPUsjap9t5WscKBG63ZD4rADSD91QqAKM=
+github.com/loft-sh/e2e-framework v0.0.0-20251118151008-0a6143fe4ef5/go.mod h1:b4tZYkj8EobUU7RtUTHT7ih+eir/dpfVn6RYlkUks50=
 github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364 h1:vSuqHqh4w2zrG+WvnyH64JAUhX+Bou19n0gvCrPirOs=
 github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364/go.mod h1:niVPRwWFUSA8FihY9e5hGAp5IbKmbCdckGxJGSTKTUs=
 github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac h1:Gz/7Lb7WgdgIv+KJz87ORA1zvQW52tUqKPGyunlp4dQ=

@@ -30,6 +30,7 @@ jobs:
         - "**.go"
         - "!**_test.go" # exclude test files to ignore unit test changes
         - "test/**" # include test files in e2e again
+        - "e2e-next/**" #include e2e-next tests
         - "!**.md"
         - "Dockerfile.release"
         - ".github/workflows/e2e.yaml"

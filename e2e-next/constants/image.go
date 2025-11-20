@@ -4,18 +4,14 @@ import (
 	"strings"
 )
 
-const (
-	DefaultVclusterImage = "ghcr.io/loft-sh/vcluster:0.30.0"
-)
-
 var (
 	repository string
 	tag        string
 )
 
-func GetImage() string {
+func GetVclusterImage() string {
 	if repository == "" && tag == "" {
-		return DefaultVclusterImage
+		return "ghcr.io/loft-sh/vcluster:dev-next"
 	}
 	if tag == "" {
 		return repository
@@ -37,7 +33,7 @@ func GetTag() string {
 	return tag
 }
 
-func SetImage(image string) {
+func SetVclusterImage(image string) {
 	if strings.Contains(image, "@") {
 		// Handle digest format: repo@sha256:xxx
 		parts := strings.SplitN(image, "@", 2)
