@@ -1,0 +1,346 @@
+name: vCluster E2E CI (Ginkgo)
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      ginkgo-label:
+        description: "Ginkgo label filter for test execution"
+        required: false
+        default: "pr"
+        type: string
+      debug_enabled:
+        type: boolean
+        description: "Run the build with upterm debugging enabled (https://github.com/lhotari/action-upterm/)"
+        required: false
+        default: false
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+    branches:
+      - main
+      - release-*
+      - v*
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The docker image to use for testing. It should be the same as the one used in the e2e-next tests.
+  REPOSITORY_NAME: ghcr.io/loft-sh/vcluster
+  TAG_NAME: dev-next
+  VCLUSTER_SUFFIX: vcluster
+  VCLUSTER_NAME: vcluster
+  VCLUSTER_NAMESPACE: vcluster
+
+jobs:
+  parse_label-filter:
+    name: Parse label filter and check if tests should run
+    if: github.repository_owner == 'loft-sh' # do not run on forks
+    runs-on: ubuntu-22.04
+
+    outputs:
+      label-filter: ${{ steps.sanitize.outputs.parsed-label-filter || steps.sanitize.outputs.input-label-filter || 'pr' }}
+
+    steps:
+      - name: Parse label-filter from PR description
+        id: parse
+        if: github.event_name == 'pull_request'
+        uses: actions-ecosystem/action-regex-match@v2
+        with:
+          text: ${{ github.event.pull_request.body || '' }}
+          regex: '```\s*label-filter\s*\n(.*?)\n```'
+          flags: "gms"
+
+      - name: Parse previous label-filter (for edited PRs)
+        id: parse-previous
+        if: github.event_name == 'pull_request' && github.event.action == 'edited'
+        uses: actions-ecosystem/action-regex-match@v2
+        with:
+          text: ${{ github.event.changes.body.from || '' }}
+          regex: '```\s*label-filter\s*\n(.*?)\n```'
+          flags: "gms"
+
+      - name: Sanitize values
+        id: sanitize
+        run: |
+          # Trim whitespaces and newlines from label filter
+          INPUT_LABEL_FILTER=$(echo "${{ inputs.ginkgo-label }}" | awk '{$1=$1; print}' | tr -d '\r\n')
+          PARSED_LABEL_FILTER=$(echo "${{ steps.parse.outputs.group1 }}" | awk '{$1=$1; print}' | tr -d '\r\n')
+          echo "input-label-filter=${INPUT_LABEL_FILTER}" >> "$GITHUB_OUTPUT"
+          echo "parsed-label-filter=${PARSED_LABEL_FILTER}" >> "$GITHUB_OUTPUT"
+
+  detect_changes:
+    needs: [parse_label-filter]
+    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@v1
+    with:
+      paths: |
+        - "go.mod"
+        - "go.sum"
+        - "**.go"
+        - "!**_test.go" # exclude test files to ignore unit test changes
+        - "test/**" # include test files in e2e again
+        - "!**.md"
+        - "Dockerfile.release"
+        - ".github/workflows/e2e.yaml"
+        - "chart/**"
+        - "manifests/**"
+
+  build:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'loft-sh' && needs.detect_changes.outputs.has_changed == 'true'
+    needs: detect_changes
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          install-only: true
+          version: latest
+
+      - name: Build and save syncer image
+        run: |
+          set -x
+          # Build syncer
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster --clean --output ./vcluster
+          docker build -t "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
+          docker save -o vcluster_syncer "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}"
+          # Build cli
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
+
+      - name: Upload syncer image to artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: vcluster_syncer
+          path: ./vcluster_syncer
+          retention-days: 1
+
+      - name: Upload vcluster cli to artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: vcluster
+          path: ./vcluster
+          retention-days: 1
+
+  vcluster-install-delete:
+    name: Install and delete virtual cluster
+    needs:
+      - build
+      - detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - uses: azure/setup-helm@v4
+        name: Setup Helm
+        with:
+          version: "v3.19.0"
+
+      - name: Set up kind k8s cluster
+        uses: loft-sh/setup-kind@master
+        with:
+          version: "v0.30.0"
+          image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
+          skipClusterLogsExport: "true"
+
+      - name: Testing kind cluster set-up
+        run: |
+          set -x
+          kubectl cluster-info
+          kubectl get pods -n kube-system
+          echo "kubectl config current-context: $(kubectl config current-context)"
+          echo "KUBECONFIG env var: ${KUBECONFIG}"
+
+      - name: Download vcluster cli
+        uses: actions/download-artifact@v6
+        with:
+          name: vcluster
+
+      - name: Download syncer image
+        uses: actions/download-artifact@v6
+        with:
+          name: vcluster_syncer
+
+      - name: Setup environment
+        run: |
+          kind load image-archive vcluster_syncer
+          chmod +x vcluster && sudo mv vcluster /usr/bin
+
+      - name: Run tests - install and delete virtual cluster using kubectl
+        run: |
+          set -x
+          ./hack/vcluster-install-scripts/test-kubectl-install.sh
+
+      - name: Run tests - install and delete virtual cluster using helm
+        run: |
+          set -x
+          ./hack/vcluster-install-scripts/test-helm-install.sh
+
+  download-latest-cli:
+    needs: detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
+    name: Download the latest vCluster cli
+    runs-on: ubuntu-latest
+    steps:
+      - name: download current cli
+        run: |
+          curl -L -o vcluster-current "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64"
+      - name: Upload vcluster cli to artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: vcluster-current
+          path: ./vcluster-current
+          retention-days: 7
+
+  upgrade-test:
+    name: test if we can upgrade from older version
+    needs:
+      - build
+      - download-latest-cli
+      - detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distribution: ["k3s", "k8s"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - uses: azure/setup-helm@v4
+        name: Setup Helm
+        with:
+          version: "v3.19.0"
+
+      - name: Set up kind k8s cluster
+        uses: loft-sh/setup-kind@master
+        with:
+          version: "v0.30.0"
+          image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
+          skipClusterLogsExport: "true"
+
+      - name: Testing kind cluster set-up
+        run: |
+          set -x
+          kubectl cluster-info
+          kubectl get pods -n kube-system
+          echo "kubectl config current-context: $(kubectl config current-context)"
+          echo "KUBECONFIG env var: ${KUBECONFIG}"
+
+      - name: Download vcluster cli
+        uses: actions/download-artifact@v6
+        with:
+          name: vcluster
+          path: vcluster-dev
+
+      - name: Download current cli
+        uses: actions/download-artifact@v6
+        with:
+          name: vcluster-current
+
+      - name: Download syncer image
+        uses: actions/download-artifact@v6
+        with:
+          name: vcluster_syncer
+
+      - name: Install yq@v4
+        run: go install github.com/mikefarah/yq/v4@latest
+
+      - name: create vcluster with current cli
+        run: |
+          chmod +x ./vcluster-current
+
+          docker load --input vcluster_syncer
+          kind load image-archive vcluster_syncer
+          yq eval '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' > ./test/vcluster-current.yaml
+
+          ./vcluster-current create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
+          --create-namespace \
+          --debug \
+          --connect=false \
+          -f ./test/vcluster-current.yaml
+
+          ./hack/wait-for-pod.sh -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }}
+
+      - name: upgrade with the dev cli
+        run: |
+          chmod +x ./vcluster-dev/vcluster
+          set -x
+
+          sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" test/commonValues.yaml
+          sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" test/commonValues.yaml
+          yq eval -i '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' test/commonValues.yaml
+
+          ./vcluster-dev/vcluster create vcluster \
+          --connect=false \
+          --upgrade \
+          --local-chart-dir ./chart \
+          -f ./test/commonValues.yaml
+
+          ./hack/wait-for-pod.sh -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }}
+
+  ginkgo-e2e-tests:
+    name: Execute test suites
+    needs:
+      - build
+      - parse_label-filter
+      - detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # needed for OIDC → AWS
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: azure/setup-helm@v4
+        name: Setup Helm
+        with:
+          version: "v3.19.0"
+
+      - name: Run vCluster Ginkgo E2E Tests
+        id: execute-e2e-tests
+        uses: ./.github/actions/run-ginkgo-e2e
+        with:
+          ginkgo-label: "${{ needs.parse_label-filter.outputs.label-filter }}"
+          image: ${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}
+        env:
+          REPOSITORY_NAME: ${{ env.REPOSITORY_NAME }}
+          TAG_NAME: ${{ env.TAG_NAME }}
+          VCLUSTER_SUFFIX: ${{ env.VCLUSTER_SUFFIX }}
+          VCLUSTER_NAME: ${{ env.VCLUSTER_NAME }}
+          VCLUSTER_NAMESPACE: ${{ env.VCLUSTER_NAMESPACE }}
+        continue-on-error: true
+
+      - name: Print logs if e2e tests fail
+        if: steps.execute-e2e-tests.outcome == 'failure'
+        run: |
+          set -x
+          kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}
+          echo "======================================================================================================================"
+          kubectl get events -n ${{ env.VCLUSTER_NAMESPACE }} --sort-by='.lastTimestamp'
+          echo "======================================================================================================================"
+          kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1
+          echo "======================================================================================================================"
+          kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
+          exit 1
