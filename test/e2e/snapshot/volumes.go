@@ -139,7 +139,7 @@ func deletePVC(ctx context.Context, f *framework.Framework, pvcNamespace, pvcNam
 	Expect(vClusterConfig).NotTo(BeNil())
 
 	if !vClusterConfig.PrivateNodes.Enabled {
-		hostPVCName := translate.Default.HostName(nil, pvcNamespace, pvcName)
+		hostPVCName := translate.Default.HostName(nil, pvcName, pvcNamespace)
 		Eventually(func() error {
 			hostPVC, err := f.HostClient.CoreV1().PersistentVolumeClaims(hostPVCName.Namespace).Get(ctx, hostPVCName.Name, metav1.GetOptions{})
 			if kerrors.IsNotFound(err) {

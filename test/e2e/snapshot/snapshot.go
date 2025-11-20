@@ -577,9 +577,6 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			// PVC has been restored in previous test specs, but without data, so it's stuck in Pending.
 			// Therefore, delete it again, so it gets restored properly.
 			deletePVC(ctx, f, controllerTestNamespaceName, pvcToRestoreName)
-			// wait a bit after deleting the PVC, so the syncer fully handles the deletion
-			time.Sleep(time.Minute)
-
 			// now restore the vCluster
 			restoreVCluster(ctx, f, snapshotPath, true, true)
 		})
