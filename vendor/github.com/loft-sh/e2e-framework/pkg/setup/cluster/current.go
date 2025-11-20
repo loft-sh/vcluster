@@ -10,8 +10,10 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/types"
 )
 
+type currentKey int
+
 const (
-	currentClusterContextKey key = iota
+	currentClusterContextKey currentKey = iota
 	currentClusterNameContextKey
 )
 
