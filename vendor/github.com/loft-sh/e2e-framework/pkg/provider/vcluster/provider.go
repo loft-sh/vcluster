@@ -53,6 +53,7 @@ type Cluster struct {
 	namespace       string // namespace to create the vcluster in
 	hostKubeCfg     string // kubeconfig file for the host cluster
 	hostKubeContext string // kubeconfig context for the host cluster
+	upgrade         bool
 	rc              *rest.Config
 }
 
@@ -99,6 +100,15 @@ func WithHostKubeContext(kubeContext string) support.ClusterOpts {
 		v, ok := c.(*Cluster)
 		if ok {
 			v.hostKubeContext = kubeContext
+		}
+	}
+}
+
+func WithUpgrade(upgrade bool) support.ClusterOpts {
+	return func(c support.E2EClusterProvider) {
+		v, ok := c.(*Cluster)
+		if ok {
+			v.upgrade = upgrade
 		}
 	}
 }
@@ -155,7 +165,15 @@ func (c *Cluster) Create(ctx context.Context, args ...string) (string, error) {
 		args = append(args, "--context", c.hostKubeContext)
 	}
 
-	command := fmt.Sprintf("%s create %s --connect=false --update-current=false", c.path, c.name)
+	if c.upgrade {
+		args = append(args, "--upgrade")
+	}
+
+	if backgroundProxyImage := c.getBackgroundProxyImage(); backgroundProxyImage != "" {
+		args = append(args, "--background-proxy-image", backgroundProxyImage)
+	}
+
+	command := fmt.Sprintf("%s create %s --connect=false", c.path, c.name)
 	if len(args) > 0 {
 		command = fmt.Sprintf("%s %s", command, strings.Join(args, " "))
 	}
@@ -226,7 +244,16 @@ func (c *Cluster) Destroy(ctx context.Context) error {
 		return err
 	}
 
+	var args []string
+	if c.hostKubeContext != "" {
+		args = append(args, "--context", c.hostKubeContext)
+	}
+
 	command := fmt.Sprintf("%s delete %s", c.path, c.name)
+	if len(args) > 0 {
+		command = fmt.Sprintf("%s %s", command, strings.Join(args, " "))
+	}
+
 	p := utils.RunCommand(command)
 	if p.Err() != nil {
 		outBytes, err := io.ReadAll(p.Out())
@@ -276,6 +303,10 @@ func (c *Cluster) KubernetesRestConfig() *rest.Config {
 	return c.rc
 }
 
+func (c *Cluster) GenerateKubeconfig(args ...string) (string, error) {
+	return c.getKubeconfig(args...)
+}
+
 // helpers to implement support.E2EClusterProvider
 func (c *Cluster) findOrInstallVcluster() error {
 	version := c.version
@@ -294,7 +325,18 @@ type clusterItem struct {
 }
 
 func (c *Cluster) clusterExists(name string) (string, bool) {
-	raw := utils.FetchCommandOutput(fmt.Sprintf("%s list --output json", c.path))
+	var args []string
+	command := fmt.Sprintf("%s list --output json", c.path)
+
+	if c.hostKubeContext != "" {
+		args = append(args, "--context", c.hostKubeContext)
+	}
+
+	if len(args) > 0 {
+		command = fmt.Sprintf("%s %s", command, strings.Join(args, " "))
+	}
+
+	raw := utils.FetchCommandOutput(command)
 	clusters := []clusterItem{}
 	if err := json.Unmarshal([]byte(raw), &clusters); err != nil {
 		return raw, false
@@ -307,11 +349,20 @@ func (c *Cluster) clusterExists(name string) (string, bool) {
 	return raw, false
 }
 
-func (c *Cluster) getKubeconfig() (string, error) {
+func (c *Cluster) getKubeconfig(args ...string) (string, error) {
 	kubecfg := fmt.Sprintf("%s-kubecfg", c.name)
 
+	if c.hostKubeContext != "" {
+		args = append(args, "--context", c.hostKubeContext)
+	}
+
+	if backgroundProxyImage := c.getBackgroundProxyImage(); backgroundProxyImage != "" {
+		args = append(args, "--background-proxy-image", backgroundProxyImage)
+	}
+
 	var stdout, stderr bytes.Buffer
-	err := utils.RunCommandWithSeperatedOutput(fmt.Sprintf(`%s connect %s --print`, c.path, c.name), &stdout, &stderr)
+	cmd := fmt.Sprintf(`%s connect %s --print %s`, c.path, c.name, strings.Join(args, " "))
+	err := utils.RunCommandWithSeperatedOutput(cmd, &stdout, &stderr)
 	if err != nil {
 		return "", fmt.Errorf("vcluster connect: stderr: %s: %w", stderr.String(), err)
 	}
@@ -338,4 +389,11 @@ func (c *Cluster) initKubernetesAccessClients() error {
 	}
 	c.rc = cfg
 	return nil
+}
+
+func (c *Cluster) getBackgroundProxyImage() string {
+	if c.version == "" {
+		return ""
+	}
+	return fmt.Sprintf("ghcr.io/loft-sh/vcluster-pro:%s", strings.TrimPrefix(c.version, "v"))
 }
