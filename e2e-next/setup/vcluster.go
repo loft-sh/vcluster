@@ -8,6 +8,7 @@ import (
 
 	gotemplate "text/template"
 
+	"github.com/loft-sh/e2e-framework/pkg/provider/vcluster"
 	"github.com/loft-sh/e2e-framework/pkg/setup"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	. "github.com/onsi/ginkgo/v2"
@@ -15,7 +16,6 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/e2e-framework/klient"
 	"sigs.k8s.io/e2e-framework/klient/conf"
-	"sigs.k8s.io/e2e-framework/third_party/vcluster"
 )
 
 type key int

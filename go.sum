@@ -317,6 +317,8 @@ github.com/loft-sh/api/v4 v4.5.0-alpha.10 h1:pcPkIAqPSJWZ+DB+9j7rBXb8iClHAMeh0QZ
 github.com/loft-sh/api/v4 v4.5.0-alpha.10/go.mod h1:GzkHPh5gRBOjrYYQt1evksEdlBpB/FUvDYN7nL/sfJU=
 github.com/loft-sh/apiserver v0.0.0-20250910060242-4b9f3ffe0646 h1:ZWOAMcsIZN4GKESwZBWU1+uepe+L8owmrkJDe5j4KlE=
 github.com/loft-sh/apiserver v0.0.0-20250910060242-4b9f3ffe0646/go.mod h1:hLlplUgCm+KDLoTVfSNTGQSBx/fhsTxu5m8d1LBUXKA=
+github.com/loft-sh/e2e-framework v0.0.0-20251120163143-738cebfbd83e h1:1xWoAUaG23ZSYdu3PyYW4TBnhcE9xS0BbtK09Lrxz28=
+github.com/loft-sh/e2e-framework v0.0.0-20251120163143-738cebfbd83e/go.mod h1:b4tZYkj8EobUU7RtUTHT7ih+eir/dpfVn6RYlkUks50=
 github.com/loft-sh/e2e-framework v0.0.0-20251106021254-afe4626e9c36 h1:ikPWcAwxU1ev6+iC9e+ZsNcMqtj5tvB0UAdQ6uGW5EI=
 github.com/loft-sh/e2e-framework v0.0.0-20251106021254-afe4626e9c36/go.mod h1:b4tZYkj8EobUU7RtUTHT7ih+eir/dpfVn6RYlkUks50=
 github.com/loft-sh/e2e-framework v0.0.0-20251106141448-bb8544c0c016 h1:3C27LFDtbo1MaAk/V8yr6J70oBgHXkoj2L31vW9/8xs=
