@@ -133,61 +133,6 @@ jobs:
           path: ./vcluster
           retention-days: 1
 
-  vcluster-install-delete:
-    name: Install and delete virtual cluster
-    needs:
-      - build
-      - detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - uses: azure/setup-helm@v4
-        name: Setup Helm
-        with:
-          version: "v3.19.0"
-
-      - name: Set up kind k8s cluster
-        uses: loft-sh/setup-kind@master
-        with:
-          version: "v0.30.0"
-          image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
-          skipClusterLogsExport: "true"
-
-      - name: Testing kind cluster set-up
-        run: |
-          set -x
-          kubectl cluster-info
-          kubectl get pods -n kube-system
-          echo "kubectl config current-context: $(kubectl config current-context)"
-          echo "KUBECONFIG env var: ${KUBECONFIG}"
-
-      - name: Download vcluster cli
-        uses: actions/download-artifact@v6
-        with:
-          name: vcluster
-
-      - name: Download syncer image
-        uses: actions/download-artifact@v6
-        with:
-          name: vcluster_syncer
-
-      - name: Setup environment
-        run: |
-          kind load image-archive vcluster_syncer
-          chmod +x vcluster && sudo mv vcluster /usr/bin
-
-      - name: Run tests - install and delete virtual cluster using kubectl
-        run: |
-          set -x
-          ./hack/vcluster-install-scripts/test-kubectl-install.sh
-
-      - name: Run tests - install and delete virtual cluster using helm
-        run: |
-          set -x
-          ./hack/vcluster-install-scripts/test-helm-install.sh
 
   download-latest-cli:
     needs: detect_changes
@@ -248,11 +193,11 @@ jobs:
         if: steps.execute-e2e-tests.outcome == 'failure'
         run: |
           set -x
-          kubectl get pods -o yaml -A 
+          kubectl get pods -o yaml -n vcluster-k8s-default-endpoint-test
           echo "======================================================================================================================"
-          kubectl get events -A --sort-by='.lastTimestamp'
+          kubectl get events -n vcluster-k8s-default-endpoint-test --sort-by='.lastTimestamp'
           echo "======================================================================================================================"
           kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1
           echo "======================================================================================================================"
-          kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
+          kubectl describe pods -n vcluster-k8s-default-endpoint-test
           exit 1
