@@ -248,9 +248,9 @@ jobs:
         if: steps.execute-e2e-tests.outcome == 'failure'
         run: |
           set -x
-          kubectl get pods -o yaml -n ${{ env.VCLUSTER_NAMESPACE }}
+          kubectl get pods -o yaml -A 
           echo "======================================================================================================================"
-          kubectl get events -n ${{ env.VCLUSTER_NAMESPACE }} --sort-by='.lastTimestamp'
+          kubectl get events -A --sort-by='.lastTimestamp'
           echo "======================================================================================================================"
           kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1
           echo "======================================================================================================================"
