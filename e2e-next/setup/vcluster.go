@@ -159,7 +159,7 @@ func Create(opts ...VClusterOptions) setup.Func {
 		// Create vcluster instance
 		vclusterCluster := vcluster.NewCluster(o.name)
 		// set cli version
-		vclusterCluster.WithVersion(os.Getenv("VCLUSTER_CLI"))
+		vclusterCluster.WithPath(os.Getenv("VCLUSTER_CLI"))
 
 		// Create the vcluster with the values file
 		_, err = vclusterCluster.CreateWithConfig(ctx, valuesFile)
