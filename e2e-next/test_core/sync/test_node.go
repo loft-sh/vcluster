@@ -16,7 +16,7 @@ import (
 
 var _ = Describe("Node sync",
 	Ordered,
-	labels.PR,
+	// labels.PR,
 	labels.Core,
 	labels.Sync,
 	func() {
