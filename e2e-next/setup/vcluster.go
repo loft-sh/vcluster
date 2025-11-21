@@ -100,7 +100,6 @@ type vclusterOptions struct {
 	name       string
 	valuesYAML string
 	valuesFile string
-	version    string
 }
 
 type VClusterOptions func(*vclusterOptions)
@@ -120,12 +119,6 @@ func WithValuesYAML(valuesYAML string) VClusterOptions {
 func WithValuesFile(valuesFile string) VClusterOptions {
 	return func(o *vclusterOptions) {
 		o.valuesFile = valuesFile
-	}
-}
-
-func WithVersion(version string) VClusterOptions {
-	return func(o *vclusterOptions) {
-		o.version = version
 	}
 }
 
@@ -166,11 +159,8 @@ func Create(opts ...VClusterOptions) setup.Func {
 		// Create vcluster instance
 		vclusterCluster := vcluster.NewCluster(o.name)
 		// set cli version
-		if o.version != "" {
-			vclusterCluster.WithVersion(o.version)
-		} else {
-			vclusterCluster.WithVersion("latest")
-		}
+		vclusterCluster.WithVersion(os.Getenv("VCLUSTER_CLI"))
+
 		// Create the vcluster with the values file
 		_, err = vclusterCluster.CreateWithConfig(ctx, valuesFile)
 		if err != nil {
