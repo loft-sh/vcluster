@@ -632,10 +632,11 @@ github.com/loft-sh/api/v4/pkg/product
 # github.com/loft-sh/apiserver v0.0.0-20250910060242-4b9f3ffe0646
 ## explicit; go 1.24.0
 github.com/loft-sh/apiserver/pkg/builders
-# github.com/loft-sh/e2e-framework v0.0.0-20251118151008-0a6143fe4ef5
+# github.com/loft-sh/e2e-framework v0.0.0-20251120163143-738cebfbd83e
 ## explicit; go 1.24.0
 github.com/loft-sh/e2e-framework/pkg/context
 github.com/loft-sh/e2e-framework/pkg/e2e
+github.com/loft-sh/e2e-framework/pkg/provider/vcluster
 github.com/loft-sh/e2e-framework/pkg/setup
 github.com/loft-sh/e2e-framework/pkg/setup/cluster
 # github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
@@ -1085,8 +1086,6 @@ go.opentelemetry.io/proto/otlp/trace/v1
 # go.uber.org/atomic v1.11.0
 ## explicit; go 1.18
 go.uber.org/atomic
-# go.uber.org/automaxprocs v1.6.0
-## explicit; go 1.20
 # go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
@@ -2451,7 +2450,6 @@ sigs.k8s.io/e2e-framework/pkg/utils
 sigs.k8s.io/e2e-framework/support
 sigs.k8s.io/e2e-framework/support/kind
 sigs.k8s.io/e2e-framework/third_party/kind
-sigs.k8s.io/e2e-framework/third_party/vcluster
 # sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8
 ## explicit; go 1.23
 sigs.k8s.io/json
