@@ -197,7 +197,7 @@ jobs:
           echo "======================================================================================================================"
           kubectl get events -n vcluster-k8s-default-endpoint-test --sort-by='.lastTimestamp'
           echo "======================================================================================================================"
-          kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1
+          # kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1
           echo "======================================================================================================================"
           kubectl describe pods -n vcluster-k8s-default-endpoint-test
           exit 1
