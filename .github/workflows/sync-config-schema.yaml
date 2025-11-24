@@ -63,7 +63,7 @@ jobs:
 
       - name: Checkout repo
         if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-tags: 'true'
           ref: 'refs/tags/${{ steps.release.outputs.release_tag }}'

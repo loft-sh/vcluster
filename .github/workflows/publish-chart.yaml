@@ -26,7 +26,7 @@ jobs:
       - name: Check validation result
         run: '[[ "${{ steps.semver.outputs.is_valid }}" == "true" ]] || (echo "Invalid version: ${{ inputs.release_version }}" && exit 1)'
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref }}
       - uses: azure/setup-helm@v4

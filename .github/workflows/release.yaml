@@ -29,7 +29,7 @@ jobs:
           sudo rm -rf /usr/local/lib/android || true
           sudo rm -rf /opt/hostedtoolcache/CodeQL || true
           sudo docker image prune --all --force || true
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - run: git fetch --force --tags
@@ -132,7 +132,7 @@ jobs:
       - publish-chart
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
