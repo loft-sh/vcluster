@@ -20,3 +20,10 @@ controlPlane:
   coredns:
     deployment:
       replicas: 3
+
+# Disable network policies due to known issue related to kindnet, network policies and multiple coredns replicas.
+# - https://linear.app/loft/document/design-doc-custom-network-policy-inboundingress-rules-during-vcluster-2ea800d0072d#slow-dns-queries-409ada74
+# - https://bugzilla.netfilter.org/show_bug.cgi?id=1766
+policies:
+  networkPolicy:
+    enabled: false
