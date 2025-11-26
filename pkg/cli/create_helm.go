@@ -138,7 +138,13 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 
 	output, err := exec.Command(helmBinaryPath, "version", "--client", "--template", "{{.Version}}").Output()
 	if err != nil {
-		return err
+		log.Debugf("error getting helm version: '%v'. Attempting again with commandline flags compatible with Helm v4.x..", err)
+
+		// Helm v4.x does not support the --client flag
+		output, err = exec.Command(helmBinaryPath, "version", "--template", "{{.Version}}").Output()
+		if err != nil {
+			return err
+		}
 	}
 
 	err = clihelper.CheckHelmVersion(string(output))
