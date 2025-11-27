@@ -15,8 +15,6 @@ import (
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Info struct {
@@ -118,7 +116,7 @@ func Rotate(ctx context.Context,
 	}
 
 	// Patch the secret so in case of a restart without persistence we don't loose data.
-	return patchSecret(ctx, vConfig.HostNamespace, CertSecretName(vConfig.Name), pkiPath, vConfig.HostClient)
+	return PatchSecret(ctx, vConfig.HostNamespace, CertSecretName(vConfig.Name), pkiPath, vConfig.HostClient)
 }
 
 func backupDirectory(src, dst string) error {
@@ -221,36 +219,4 @@ func excludeSAFiles(name string) bool {
 		return true
 	}
 	return false
-}
-
-func patchSecret(ctx context.Context, secretNamespace, secretName, pkiPath string, client kubernetes.Interface) error {
-	secret, err := client.CoreV1().Secrets(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("getting cert secret %s: %w", secretName, err)
-	}
-
-	data := map[string][]byte{}
-	for k, v := range certMap {
-		d, err := os.ReadFile(filepath.Join(pkiPath, k))
-		if err != nil {
-			return fmt.Errorf("reading file %s: %w", k, err)
-		}
-
-		data[v] = d
-	}
-
-	oldSecret := secret.DeepCopy()
-	secret.Data = data
-	patch := crclient.MergeFrom(oldSecret)
-	patchBytes, err := patch.Data(secret)
-	if err != nil {
-		return fmt.Errorf("creating patch for secret %s: %w", secretName, err)
-	}
-
-	_, err = client.CoreV1().Secrets(secretNamespace).Patch(ctx, secretName, patch.Type(), patchBytes, metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf("patching cert secret %s: %w", secretName, err)
-	}
-
-	return nil
 }

@@ -34,6 +34,7 @@ import (
 	kubeadmutil "k8s.io/kubernetes/cmd/kubeadm/app/util"
 	kubeconfigutil "k8s.io/kubernetes/cmd/kubeadm/app/util/kubeconfig"
 	"k8s.io/kubernetes/cmd/kubeadm/app/util/pkiutil"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -355,6 +356,38 @@ func extraFiles(certificateDir string) (map[string][]byte, error) {
 	}
 
 	return files, err
+}
+
+func PatchSecret(ctx context.Context, secretNamespace, secretName, pkiPath string, client kubernetes.Interface) error {
+	secret, err := client.CoreV1().Secrets(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("getting cert secret %s: %w", secretName, err)
+	}
+
+	data := map[string][]byte{}
+	for k, v := range certMap {
+		d, err := os.ReadFile(filepath.Join(pkiPath, k))
+		if err != nil {
+			return fmt.Errorf("reading file %s: %w", k, err)
+		}
+
+		data[v] = d
+	}
+
+	oldSecret := secret.DeepCopy()
+	secret.Data = data
+	patch := crclient.MergeFrom(oldSecret)
+	patchBytes, err := patch.Data(secret)
+	if err != nil {
+		return fmt.Errorf("creating patch for secret %s: %w", secretName, err)
+	}
+
+	_, err = client.CoreV1().Secrets(secretNamespace).Patch(ctx, secretName, patch.Type(), patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("patching cert secret %s: %w", secretName, err)
+	}
+
+	return nil
 }
 
 // KubeConfigOptions struct holds info required to build a KubeConfig object
