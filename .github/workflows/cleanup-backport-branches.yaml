@@ -1,0 +1,134 @@
+name: Cleanup backport branches
+
+permissions:
+  contents: write
+
+on:
+  pull_request:
+    types: [closed]
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run mode (true/false)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  # Immediate cleanup when a backport PR is merged
+  delete-on-merge:
+    name: Delete merged backport branch
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.head_ref, 'backport/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete merged backport branch
+        uses: jessfraz/branch-cleanup-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
+  # Weekly cleanup of any merged backport branches older than 7 days
+  scheduled-cleanup:
+    name: Cleanup old backport branches
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+
+      - name: Setup cleanup parameters
+        id: params
+        run: |
+          # shellcheck disable=SC2086
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # shellcheck disable=SC2086
+            echo "dry_run=${{ github.event.inputs.dry_run }}" >> $GITHUB_OUTPUT
+          else
+            # For scheduled runs, use dry_run=false (actually delete)
+            echo "dry_run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Cleanup old merged backport branches
+        run: |
+          DRY_RUN="${{ steps.params.outputs.dry_run }}"
+
+          echo "=== Backport Branch Cleanup ==="
+          echo "Dry run mode: $DRY_RUN"
+          echo "Searching for merged backport branches older than 7 days..."
+          echo ""
+
+          # Fetch all branches
+          git fetch origin
+
+          # Get main/master branch name
+          MAIN_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)
+          echo "Main branch: $MAIN_BRANCH"
+          echo ""
+
+          DELETED_COUNT=0
+          SKIPPED_COUNT=0
+
+          # Find all backport branches merged into main
+          for branch in $(git branch -r --merged "origin/$MAIN_BRANCH" | grep 'origin/backport/' | sed 's/origin\///'); do
+            # Get the merge commit timestamp from main branch (when the branch was actually merged)
+            # Find the merge commit in main that contains commits from this branch
+            branch_head=$(git rev-parse "origin/$branch" 2>/dev/null || echo "")
+            if [ -z "$branch_head" ]; then
+              echo "⚠️  Skipping $branch (unable to get branch head)"
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+              continue
+            fi
+
+            # Find merge commit in main that merged this branch
+            merge_commit=$(git log "origin/$MAIN_BRANCH" --merges --first-parent --format="%H %ct" | \
+              while read -r commit_hash commit_time; do
+                if git merge-base --is-ancestor "$branch_head" "$commit_hash" 2>/dev/null; then
+                  echo "$commit_time"
+                  break
+                fi
+              done)
+
+            if [ -z "$merge_commit" ]; then
+              echo "⚠️  Skipping $branch (unable to find merge commit)"
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+              continue
+            fi
+
+            current_timestamp=$(date +%s)
+            days_old=$(( ( current_timestamp - merge_commit ) / 86400 ))
+
+            if [ $days_old -gt 7 ]; then
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "🔍 [DRY RUN] Would delete: $branch (${days_old} days old)"
+                DELETED_COUNT=$((DELETED_COUNT + 1))
+              else
+                echo "🗑️  Deleting: $branch (${days_old} days old)"
+                if git push origin --delete "$branch" 2>/dev/null; then
+                  echo "   ✅ Successfully deleted"
+                  DELETED_COUNT=$((DELETED_COUNT + 1))
+                else
+                  echo "   ❌ Failed to delete"
+                  SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+                fi
+              fi
+            fi
+          done
+
+          echo ""
+          echo "=== Summary ==="
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Branches that would be deleted: $DELETED_COUNT"
+          else
+            echo "Branches deleted: $DELETED_COUNT"
+          fi
+          echo "Branches skipped: $SKIPPED_COUNT"
