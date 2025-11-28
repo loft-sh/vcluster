@@ -20,6 +20,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
+	"github.com/loft-sh/vcluster/pkg/snapshot"
+	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
@@ -141,6 +143,14 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 		return err
 	}
 	log.Donef("Successfully created the virtual cluster %s in project %s", virtualClusterName, options.Project)
+
+	if options.Restore != "" {
+		log.Infof("Restore vCluster %s...", virtualClusterName)
+		err = Restore(ctx, []string{virtualClusterName, options.Restore}, globalFlags, &snapshot.Options{}, &pod.Options{}, false, false, log)
+		if err != nil {
+			return fmt.Errorf("restore vCluster %s: %w", virtualClusterName, err)
+		}
+	}
 
 	// check if we should connect to the vcluster or print the kubeconfig
 	if options.Connect || options.Print {
