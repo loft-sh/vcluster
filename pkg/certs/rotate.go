@@ -238,7 +238,7 @@ func SyncSecret(ctx context.Context, secretNamespace, secretName, pkiPath string
 		d, err := os.ReadFile(filepath.Join(pkiPath, k))
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("reading file %s: %w", k, err)
+				return fmt.Errorf("reading file %s: %w", filepath.Join(pkiPath, k), err)
 			}
 			// If the cert/key referenced in certMap does not exist in the PKI directory, don't add it to the secret.
 			continue
