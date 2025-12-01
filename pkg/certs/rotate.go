@@ -2,6 +2,7 @@ package certs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -117,8 +118,8 @@ func Rotate(ctx context.Context,
 		return nil
 	}
 
-	// Patch the secret so in case of a restart without persistence we don't loose data.
-	return patchSecret(ctx, vConfig.HostNamespace, CertSecretName(vConfig.Name), pkiPath, vConfig.HostClient)
+	// Sync the secret so in case of a restart without persistence we don't loose data.
+	return SyncSecret(ctx, vConfig.HostNamespace, CertSecretName(vConfig.Name), pkiPath, vConfig.HostClient)
 }
 
 func backupDirectory(src, dst string) error {
@@ -223,7 +224,10 @@ func excludeSAFiles(name string) bool {
 	return false
 }
 
-func patchSecret(ctx context.Context, secretNamespace, secretName, pkiPath string, client kubernetes.Interface) error {
+// SyncSecret patches the certs secret by bringing it in sync with the content of the PKI directory.
+// The PKI directory is the source of truth here. Meaning, new or updated certs/keys will be created or updated in the secret.
+// Deleted certs/keys will not be added to the secret.
+func SyncSecret(ctx context.Context, secretNamespace, secretName, pkiPath string, client kubernetes.Interface) error {
 	secret, err := client.CoreV1().Secrets(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("getting cert secret %s: %w", secretName, err)
@@ -233,7 +237,11 @@ func patchSecret(ctx context.Context, secretNamespace, secretName, pkiPath strin
 	for k, v := range certMap {
 		d, err := os.ReadFile(filepath.Join(pkiPath, k))
 		if err != nil {
-			return fmt.Errorf("reading file %s: %w", k, err)
+			if !errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("reading file %s: %w", filepath.Join(pkiPath, k), err)
+			}
+			// If the cert/key referenced in certMap does not exist in the PKI directory, don't add it to the secret.
+			continue
 		}
 
 		data[v] = d
