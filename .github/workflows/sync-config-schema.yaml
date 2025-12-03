@@ -116,7 +116,7 @@ jobs:
           git clone --single-branch https://github.com/loft-sh/vcluster-docs.git
 
           # try to clone the tagged version, if it does not exist, fallback to main
-          git clone --branch ${VCLUSTER_CONFIG_BRANCH} --depth 1 https://github.com/loft-sh/vcluster-config.git || git clone --single-branch https://github.com/loft-sh/vcluster-config.git
+          git clone --branch "${VCLUSTER_CONFIG_BRANCH}" --depth 1 https://github.com/loft-sh/vcluster-config.git || git clone --single-branch https://github.com/loft-sh/vcluster-config.git
 
           # generate vcluster.schema.json based on the current platform.schema.json in vcluster-config
           # and values.schema.json from alpha / beta release
