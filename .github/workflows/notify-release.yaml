@@ -20,7 +20,7 @@ jobs:
   notify_release:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref }}
@@ -40,12 +40,12 @@ jobs:
             BEST_DISTANCE=99999
             for REMOTE_BRANCH in $REMOTE_BRANCHES; do
               [ -z "$REMOTE_BRANCH" ] && continue
-              BRANCH_BASE=$(git merge-base origin/main origin/$REMOTE_BRANCH 2>/dev/null || echo "")
+              BRANCH_BASE=$(git merge-base origin/main "origin/$REMOTE_BRANCH" 2>/dev/null || echo "")
               if [ ! -z "$BRANCH_BASE" ]; then
                 if git merge-base --is-ancestor "$BRANCH_BASE" "$TAG_COMMIT" 2>/dev/null; then
                   DISTANCE=$(git rev-list --count "$TAG_COMMIT..origin/$REMOTE_BRANCH")
                   if [ "$DISTANCE" -lt "$BEST_DISTANCE" ]; then
-                    BEST_BRANCH=$REMOTE_BRANCH
+                    BEST_BRANCH="$REMOTE_BRANCH"
                     BEST_DISTANCE=$DISTANCE
                   fi
                 fi
@@ -54,7 +54,7 @@ jobs:
             if [ "$BEST_DISTANCE" -eq 99999 ]; then
               BEST_BRANCH=$(echo "$REMOTE_BRANCHES" | head -n 1 || echo "main")
             fi
-            BASE_BRANCH=$BEST_BRANCH
+            BASE_BRANCH="$BEST_BRANCH"
           fi
           echo "base_branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
           echo "Base branch for $RELEASE_VERSION: $BASE_BRANCH (distance: $BEST_DISTANCE)"

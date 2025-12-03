@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Check for prohibited vcluster import in config dir
         run: |
@@ -31,7 +31,7 @@ jobs:
 
           IMPORT="github.com/loft-sh/vcluster"
           PATTERN="\"$IMPORT(\"|/)"
-          FOUND_FILES=$(find ./config -name "*.go" -not -path "./config/legacyconfig/*" | xargs grep -l -E "$PATTERN" 2>/dev/null || true)
+          FOUND_FILES=$(find ./config -name "*.go" -not -path "./config/legacyconfig/*" -print0 | xargs -0 grep -l -E "$PATTERN" 2>/dev/null || true)
 
           if [ -n "$FOUND_FILES" ]; then
             echo "❌ ERROR: Prohibited import prefix '$IMPORT' found in:"
