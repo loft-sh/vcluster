@@ -194,6 +194,12 @@ Privacy Statement: https://www.loft.sh/legal/privacy
 	return nil
 }
 
+// platformUsesNewActivationFlow returns true for the platform version in which the new platform activation flow is
+// supported, otherwise it returns false.
+//
+// The new platform activation flow is supported for the following platform versions:
+//  1. GA version >= 4.6.0,
+//  2. Preview version 4.6.0-next.internal.X, where X >= 1.
 func (cmd *StartCmd) platformUsesNewActivationFlow(platformVersion string) bool {
 	platformSemVerVersion, err := semver.ParseTolerant(platformVersion)
 	if err != nil {
