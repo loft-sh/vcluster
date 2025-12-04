@@ -16,6 +16,7 @@ func TestPlatformUsesNewActivationFlow(t *testing.T) {
 		{"", false},
 		{"dev", false},
 		{"4.5.0", false},
+		{"v4.5.0", false},
 		{"4.5.1", false},
 		{"4.6.0-alpha.5", false},
 		{"4.6.0-next.2", false},
@@ -23,6 +24,7 @@ func TestPlatformUsesNewActivationFlow(t *testing.T) {
 		{"4.6.0-next.internal.1", true},
 		{"4.6.0-next.internal.2", true},
 		{"4.6.0", true},
+		{"v4.6.0", true},
 	}
 
 	globalFlags := &flags.GlobalFlags{}
