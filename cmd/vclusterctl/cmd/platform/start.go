@@ -86,7 +86,7 @@ before running this command:
 }
 
 func (cmd *StartCmd) Run(ctx context.Context) error {
-	// get version to deploy
+	// get the version to deploy
 	if cmd.Version == "latest" || cmd.Version == "" {
 		cmd.Version = platform.MinimumVersionTag
 		latestVersion, err := platform.LatestCompatibleVersion(ctx)
@@ -154,8 +154,10 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 		}
 	}
 
-	if err := cmd.ensureEmailWithDisclaimer(ctx, cmd.KubeClient, cmd.Namespace); err != nil {
-		return err
+	if !cmd.platformUsesNewActivationFlow(cmd.Version) {
+		if err := cmd.ensureEmailWithDisclaimer(ctx, cmd.KubeClient, cmd.Namespace); err != nil {
+			return err
+		}
 	}
 
 	return start.NewLoftStarter(cmd.StartOptions).Start(ctx)
@@ -190,6 +192,39 @@ Privacy Statement: https://www.loft.sh/legal/privacy
 	}
 
 	return nil
+}
+
+// platformUsesNewActivationFlow checks if the platform version supports the new platform activation flow.
+//
+// The new platform activation flow is supported for the following platform versions:
+//  1. GA version >= 4.6.0,
+//  2. Preview version 4.6.0-next.internal.X, where X >= 1.
+func (cmd *StartCmd) platformUsesNewActivationFlow(platformVersion string) bool {
+	platformSemVerVersion, err := semver.ParseTolerant(platformVersion)
+	if err != nil {
+		cmd.Log.Warnf("Failed to parse platform version %s, falling back to the old platform activation flow with the admin email prompt", platformVersion)
+		return false
+	}
+
+	const minGAVersion = "4.6.0"
+	if platformSemVerVersion.GTE(semver.MustParse(minGAVersion)) {
+		cmd.Log.Debugf("Platform version %s is greater than or equal to %s, platform is using the new activation flow, so skipping admin email prompt", platformVersion, minGAVersion)
+		return true
+	}
+
+	if platformSemVerVersion.Major == 4 &&
+		platformSemVerVersion.Minor == 6 &&
+		platformSemVerVersion.Patch == 0 &&
+		len(platformSemVerVersion.Pre) == 3 &&
+		platformSemVerVersion.Pre[0].VersionStr == "next" &&
+		platformSemVerVersion.Pre[1].VersionStr == "internal" &&
+		platformSemVerVersion.Pre[2].VersionNum >= 1 {
+		cmd.Log.Debugf("Platform version %s is the development version that is using the new activation flow, so skipping admin email prompt", platformVersion)
+		return true
+	}
+
+	cmd.Log.Debugf("Platform version %s is not using the new activation flow, so admin email is required", platformVersion)
+	return false
 }
 
 func promptForEmail(emailAddress string) (string, error) {
