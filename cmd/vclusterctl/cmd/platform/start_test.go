@@ -13,6 +13,8 @@ func TestPlatformUsesNewActivationFlow(t *testing.T) {
 		version  string
 		expected bool
 	}{
+		{"", false},
+		{"dev", false},
 		{"4.5.0", false},
 		{"4.5.1", false},
 		{"4.6.0-alpha.5", false},
