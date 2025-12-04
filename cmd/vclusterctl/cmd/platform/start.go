@@ -194,8 +194,7 @@ Privacy Statement: https://www.loft.sh/legal/privacy
 	return nil
 }
 
-// platformUsesNewActivationFlow returns true for the platform version in which the new platform activation flow is
-// supported, otherwise it returns false.
+// platformUsesNewActivationFlow checks if the platform version supports the new platform activation flow.
 //
 // The new platform activation flow is supported for the following platform versions:
 //  1. GA version >= 4.6.0,
