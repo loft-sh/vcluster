@@ -1,14 +1,14 @@
-package test_install
+package test_deploy
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 
-	_ "embed"
-
+	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
+	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	e2eLabels "github.com/loft-sh/vcluster/e2e-next/labels"
-	vcluster "github.com/loft-sh/vcluster/e2e-next/setup"
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,18 +26,12 @@ const (
 	ChartOCINamespace    = "fluent-bit"
 )
 
-var (
-	//go:embed vcluster-test-helm.yaml
-	vclusterTestHelmYAML string
-)
-
 var _ = Describe("Helm charts (regular and OCI) are synced and applied as expected",
 	Ordered,
 	e2eLabels.Deploy,
+	cluster.Use(clusters.HelmChartsVCluster),
 	func() {
 		var (
-			vClusterName = "helm-charts-test-vcluster"
-
 			HelmSecretLabels = map[string]string{
 				"owner": "helm",
 				"name":  ChartName,
@@ -49,25 +43,12 @@ var _ = Describe("Helm charts (regular and OCI) are synced and applied as expect
 			vClusterClient kubernetes.Interface
 		)
 
-		BeforeAll(func(ctx context.Context) context.Context {
-			var err error
-
-			By("Create vCluster")
-			ctx, err = vcluster.Create(
-				vcluster.WithName(vClusterName),
-				vcluster.WithValuesYAML(vclusterTestHelmYAML),
-			)(ctx)
-			Expect(err).NotTo(HaveOccurred())
-			By("Wait for vCluster control plane")
-			err = vcluster.WaitForControlPlane(ctx)
-			Expect(err).NotTo(HaveOccurred())
-			vClusterClient = vcluster.GetKubeClientFrom(ctx)
-			Expect(vClusterClient).NotTo(BeNil(), "VCluster client should not be nil")
-			return ctx
+		BeforeAll(func(ctx context.Context) {
+			vClusterClient = cluster.CurrentKubeClientFrom(ctx)
+			Expect(vClusterClient).NotTo(BeNil())
 		})
 
 		It("Test if configmap for both charts gets applied", func(ctx context.Context) {
-
 			Eventually(func(g Gomega) {
 				cm, err := vClusterClient.CoreV1().ConfigMaps(deploy.VClusterDeployConfigMapNamespace).
 					Get(ctx, deploy.VClusterDeployConfigMap, metav1.GetOptions{})
@@ -111,10 +92,5 @@ var _ = Describe("Helm charts (regular and OCI) are synced and applied as expect
 				WithPolling(constants.PollingInterval).
 				WithTimeout(constants.PollingTimeout).
 				Should(HaveLen(1), "Should have exactly one fluent-bit deployment")
-		})
-		AfterAll(func(ctx context.Context) {
-			By("Removing vCluster")
-			_, err := vcluster.Destroy(vClusterName)(ctx)
-			Expect(err).NotTo(HaveOccurred())
 		})
 	})
