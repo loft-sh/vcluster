@@ -7,7 +7,10 @@ import (
 	"testing"
 
 	"github.com/loft-sh/e2e-framework/pkg/e2e"
-	cluster "github.com/loft-sh/e2e-framework/pkg/setup/cluster"
+	"github.com/loft-sh/e2e-framework/pkg/setup"
+	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
+	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
+	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/peterbourgon/ff/v3"
 
 	"github.com/loft-sh/vcluster/e2e-next/constants"
@@ -16,7 +19,9 @@ import (
 	"github.com/onsi/gomega/format"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"sigs.k8s.io/e2e-framework/support/kind"
+
+	// Initialize framework
+	_ "github.com/loft-sh/vcluster/e2e-next/init"
 
 	// Import tests
 	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
@@ -54,56 +59,89 @@ func handleFlags() {
 	e2e.SetTeardownOnly(teardownOnly)
 }
 
-// This must be called before any ginkgo DSL evaluation
-var _ = AddTreeConstructionNodeArgsTransformer(e2e.ContextualNodeTransformer)
-
 func TestMain(m *testing.M) {
 	handleFlags()
 	os.Exit(m.Run())
 }
 
 func TestRunE2ETests(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "vCluster E2E Suite", AroundNode(e2e.ContextualAroundNode))
-}
-
-var _ = BeforeSuite(func(ctx context.Context) context.Context {
-	var err error
-
 	// Disable Ginkgo's truncating of long lines'
 	format.MaxLength = 0
+	config, _ := GinkgoConfiguration()
 
-	By("Creating kind cluster " + clusterName)
-	clusterOptions := []cluster.Options{
-		cluster.WithName(constants.GetHostClusterName()),
-		cluster.WithProvider(kind.NewProvider()),
-	}
-	if constants.GetHostClusterName() == "kind-cluster" {
-		clusterOptions = append(clusterOptions, cluster.WithConfigFile("e2e-kind.config.yaml"))
-	}
+	RegisterFailHandler(Fail)
+	RunSpecs(
+		t,
+		"vCluster E2E Suite",
+		AroundNode(suite.PreviewSpecsAroundNode(config)),
+		AroundNode(e2e.ContextualAroundNode),
+	)
+}
 
-	ctx, err = cluster.Create(clusterOptions...)(ctx)
-	Expect(err).NotTo(HaveOccurred())
+var _ = SynchronizedBeforeSuite(
+	func(ctx context.Context) (context.Context, []byte) {
+		var err error
 
-	By("Setting up controller runtime client for " + clusterName)
-	ctx, err = cluster.SetupControllerRuntimeClient(cluster.WithCluster(clusterName))(ctx)
-	Expect(err).NotTo(HaveOccurred())
+		// Clean up vcluster yaml
+		DeferCleanup(clusters.DefaultVClusterYAMLCleanup)
+		DeferCleanup(clusters.HelmChartsVClusterYAMLCleanup)
+		DeferCleanup(clusters.InitManifestsVClusterYAMLCleanup)
 
-	ctx, err = cluster.SetupKubeClient(clusterName)(ctx)
-	Expect(err).NotTo(HaveOccurred())
+		ctx, err = setup.All(
+			clusters.HostCluster.Setup,
+			func(ctx context.Context) (context.Context, error) {
+				var err error
+				By("Loading image to kind cluster...", func() {
+					ctx, err = cluster.LoadImage(clusterName, vclusterImage)(ctx)
+					Expect(err).NotTo(HaveOccurred())
+				})
+				return ctx, err
+			},
+			func(ctx context.Context) (context.Context, error) {
+				var err error
+				By("Creating all virtual clusters...", func() {
+					ctx, err = setup.AllConcurrent(
+						clusters.K8sDefaultEndpointVCluster.Setup,
+						clusters.NodesVCluster.Setup,
+						clusters.HelmChartsVCluster.Setup,
+						clusters.InitManifestsVCluster.Setup,
+					)(ctx)
+					Expect(err).NotTo(HaveOccurred())
+				})
+				return ctx, err
+			},
+		)(ctx)
+		Expect(err).NotTo(HaveOccurred())
 
-	By("Setting current cluster to " + clusterName)
-	ctx, err = cluster.UseCluster(clusterName)(ctx)
-	Expect(err).NotTo(HaveOccurred())
+		data, err := cluster.ExportAll(ctx)
+		Expect(err).NotTo(HaveOccurred())
 
-	By("Loading image to kind cluster...")
-	ctx, err = cluster.LoadImage(clusterName, vclusterImage)(ctx)
-	Expect(err).NotTo(HaveOccurred())
+		return ctx, data
+	},
+	func(ctx context.Context, data []byte) context.Context {
+		var err error
 
-	return ctx
-})
+		ctx, err = cluster.ImportAll(ctx, data)
+		Expect(err).NotTo(HaveOccurred())
 
-var _ = AfterSuite(func(ctx context.Context) {
-	_, err := cluster.Destroy(constants.GetHostClusterName())(ctx)
-	Expect(err).NotTo(HaveOccurred())
-})
+		return ctx
+	},
+)
+
+var _ = SynchronizedAfterSuite(
+	func(ctx context.Context) {
+	},
+	func(ctx context.Context) {
+		_, err := setup.All(
+			// Sometimes namespace finalizers take a while... so let's just delete the host cluster.
+			//setup.AllConcurrent(
+			//	clusters.K8sDefaultEndpointVCluster.Teardown,
+			//	clusters.NodesVCluster.Teardown,
+			//	clusters.HelmChartsVCluster.Teardown,
+			//	clusters.InitManifestsVCluster.Teardown,
+			//),
+			clusters.HostCluster.Teardown,
+		)(ctx)
+		Expect(err).NotTo(HaveOccurred())
+	},
+)
