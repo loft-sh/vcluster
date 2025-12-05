@@ -633,13 +633,17 @@ github.com/loft-sh/api/v4/pkg/product
 # github.com/loft-sh/apiserver v0.0.0-20250910060242-4b9f3ffe0646
 ## explicit; go 1.24.0
 github.com/loft-sh/apiserver/pkg/builders
-# github.com/loft-sh/e2e-framework v0.0.0-20251120163143-738cebfbd83e
+# github.com/loft-sh/e2e-framework v0.0.0-20251120163143-738cebfbd83e => ../e2e-framework
 ## explicit; go 1.24.0
 github.com/loft-sh/e2e-framework/pkg/context
 github.com/loft-sh/e2e-framework/pkg/e2e
+github.com/loft-sh/e2e-framework/pkg/provider
+github.com/loft-sh/e2e-framework/pkg/provider/kind
 github.com/loft-sh/e2e-framework/pkg/provider/vcluster
 github.com/loft-sh/e2e-framework/pkg/setup
 github.com/loft-sh/e2e-framework/pkg/setup/cluster
+github.com/loft-sh/e2e-framework/pkg/setup/suite
+github.com/loft-sh/e2e-framework/pkg/setup/vcluster
 # github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 ## explicit; go 1.23.3
 github.com/loft-sh/image/copy
@@ -2548,3 +2552,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/kyaml
+# github.com/loft-sh/e2e-framework => ../e2e-framework

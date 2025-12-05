@@ -15,25 +15,10 @@ func Destroy(clusterName string) setup.Func {
 		}
 
 		var err error
-		ctx, err = envfuncs.DestroyCluster(clusterName)(ctx, nil)
-		if err != nil {
+		if ctx, err = envfuncs.DestroyCluster(clusterName)(ctx, nil); err != nil {
 			return ctx, err
 		}
 
 		return Remove(ctx, clusterName), nil
-	}
-}
-
-func DestroyAll() setup.Func {
-	return func(ctx context.Context) (context.Context, error) {
-		clusters := List(ctx)
-		for _, c := range clusters {
-			var err error
-			ctx, err = Destroy(c)(ctx)
-			if err != nil {
-				return ctx, err
-			}
-		}
-		return ctx, nil
 	}
 }

@@ -1,16 +1,18 @@
 package cluster
 
 import (
+	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/support"
 )
 
 type cluster struct {
-	name       string
-	provider   support.E2EClusterProvider
-	configFile string
-	envCfg     *envconf.Config
-	opts       []support.ClusterOpts
+	name         string
+	provider     support.E2EClusterProvider
+	configFile   string
+	envCfg       *envconf.Config
+	opts         []support.ClusterOpts
+	dependencies []suite.Dependency
 }
 
 type Options func(c *cluster)
@@ -42,5 +44,11 @@ func WithEnvConfig(envCfg *envconf.Config) Options {
 func WithOptions(opts ...support.ClusterOpts) Options {
 	return func(c *cluster) {
 		c.opts = opts
+	}
+}
+
+func WithDependencies(dependencies ...suite.Dependency) Options {
+	return func(c *cluster) {
+		c.dependencies = dependencies
 	}
 }

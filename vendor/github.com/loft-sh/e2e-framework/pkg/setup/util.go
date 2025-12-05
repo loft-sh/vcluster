@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	e2econtext "github.com/loft-sh/e2e-framework/pkg/context"
 	"github.com/onsi/ginkgo/v2"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/types"
@@ -47,16 +49,131 @@ func WithWriter(w io.Writer) Option {
 	}
 }
 
+type key int
+
+const (
+	resultsKey key = iota
+)
+
+type Result struct {
+	Context context.Context
+	Err     error
+}
+
+func ResultsFrom(ctx context.Context) []Result {
+	if value := ctx.Value(resultsKey); value != nil {
+		return value.([]Result)
+	}
+	return nil
+}
+
+func WithResults(ctx context.Context, results []Result) context.Context {
+	return context.WithValue(ctx, resultsKey, results)
+}
+
 func All(fns ...Func) Func {
+	return func(ctx context.Context) (context.Context, error) {
+		var errs []error
+		for _, fn := range fns {
+			var err error
+			if ctx, err = fn(ctx); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		return ctx, errors.NewAggregate(errs)
+	}
+}
+
+func AllFailFast(fns ...Func) Func {
 	return func(ctx context.Context) (context.Context, error) {
 		for _, fn := range fns {
 			var err error
-			ctx, err = fn(ctx)
-			if err != nil {
+			if ctx, err = fn(ctx); err != nil {
 				return ctx, err
 			}
 		}
 		return ctx, nil
+	}
+}
+
+func AllWithResults(fns ...Func) Func {
+	return func(ctx context.Context) (context.Context, error) {
+		var results []Result
+		var errs []error
+		for _, fn := range fns {
+			var err error
+			ctx, err = fn(ctx)
+			errs = append(errs, err)
+			results = append(results, Result{
+				Context: ctx,
+				Err:     err,
+			})
+		}
+
+		return WithResults(ctx, results), errors.NewAggregate(errs)
+	}
+}
+
+func AllConcurrent(fns ...Func) Func {
+	return func(ctx context.Context) (context.Context, error) {
+		resultsChan := make(chan Result, len(fns))
+
+		wg := new(sync.WaitGroup)
+		wg.Add(len(fns))
+
+		for _, fn := range fns {
+			go func(setupFn Func) {
+				defer wg.Done()
+				ctx, err := setupFn(ctx)
+				resultsChan <- Result{
+					Context: ctx,
+					Err:     err,
+				}
+			}(fn)
+		}
+
+		wg.Wait()
+		close(resultsChan)
+
+		var errs []error
+		for res := range resultsChan {
+			ctx = e2econtext.WithValues(ctx, res.Context)
+			errs = append(errs, res.Err)
+		}
+
+		return ctx, errors.NewAggregate(errs)
+	}
+}
+
+func AllConcurrentWithResults(fns ...Func) Func {
+	return func(ctx context.Context) (context.Context, error) {
+		resultsChan := make(chan Result, len(fns))
+
+		wg := new(sync.WaitGroup)
+		wg.Add(len(fns))
+
+		for _, fn := range fns {
+			go func(setupFn Func) {
+				defer wg.Done()
+				ctx, err := setupFn(ctx)
+				resultsChan <- Result{
+					Context: ctx,
+					Err:     err,
+				}
+			}(fn)
+		}
+
+		wg.Wait()
+		close(resultsChan)
+
+		var errs []error
+		var results []Result
+		for res := range resultsChan {
+			results = append(results, res)
+			errs = append(errs, res.Err)
+		}
+
+		return WithResults(ctx, results), errors.NewAggregate(errs)
 	}
 }
 
