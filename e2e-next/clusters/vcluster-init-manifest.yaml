@@ -2,8 +2,8 @@ controlPlane:
   statefulSet:
     image:
       registry: ""
-      repository: {{.Repository}}
-      tag: {{.Tag}}
+      repository: {{ .Repository }}
+      tag: {{ .Tag }}
 experimental:
   deploy:
     vcluster:
@@ -20,4 +20,4 @@ experimental:
         metadata:
           name: test-configmap-2
         data:
-          foo: {{ .Release.Name }}
+          foo: {{ printf "{{ .Release.Name }}" }}

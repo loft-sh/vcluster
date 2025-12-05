@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
+	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
-	vcluster "github.com/loft-sh/vcluster/e2e-next/setup"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,32 +19,19 @@ var _ = Describe("Node sync",
 	// labels.PR,
 	labels.Core,
 	labels.Sync,
+	cluster.Use(clusters.NodesVCluster),
+	cluster.Use(clusters.HostCluster),
 	func() {
 		var (
 			hostClient     kubernetes.Interface
-			vClusterName   = "nodes-test-vcluster"
 			vClusterClient kubernetes.Interface
-			vclusterValues = constants.DefaultVClusterYAML
 		)
 
-		BeforeAll(func(ctx context.Context) context.Context {
-			By("Get host cluster client")
-			hostClient = cluster.CurrentKubeClientFrom(ctx)
-			Expect(hostClient).NotTo(BeNil(), "Host client should not be nil")
-
-			var err error
-			By("Create vCluster")
-			ctx, err = vcluster.Create(
-				vcluster.WithName(vClusterName),
-				vcluster.WithValuesYAML(vclusterValues),
-			)(ctx)
-			Expect(err).NotTo(HaveOccurred())
-			By("Wait for vCluster control plane")
-			err = vcluster.WaitForControlPlane(ctx)
-			Expect(err).NotTo(HaveOccurred())
-			vClusterClient = vcluster.GetKubeClientFrom(ctx)
-			Expect(vClusterClient).NotTo(BeNil(), "VCluster client should not be nil")
-			return ctx
+		BeforeAll(func(ctx context.Context) {
+			hostClient = cluster.KubeClientFrom(ctx, constants.GetHostClusterName())
+			Expect(hostClient).NotTo(BeNil())
+			vClusterClient = cluster.CurrentKubeClientFrom(ctx)
+			Expect(vClusterClient).NotTo(BeNil())
 		})
 
 		It("Sync nodes using label selector", func(ctx context.Context) {
@@ -76,11 +63,5 @@ var _ = Describe("Node sync",
 				WithPolling(constants.PollingInterval).
 				WithTimeout(constants.PollingTimeout).
 				Should(Succeed(), "Node sync should work correctly")
-		})
-
-		AfterAll(func(ctx context.Context) {
-			By("Removing vCluster")
-			_, err := vcluster.Destroy(vClusterName)(ctx)
-			Expect(err).NotTo(HaveOccurred())
 		})
 	})

@@ -47,7 +47,25 @@ func CurrentClusterClientFrom(ctx context.Context) clientpkg.Client {
 func CurrentKubeClientFrom(ctx context.Context) kubernetes.Interface {
 	currentCluster := CurrentClusterNameFrom(ctx)
 	return KubeClientFrom(ctx, currentCluster)
+}
 
+func SetupClients(clusterName string) setup.Func {
+	return func(ctx context.Context) (context.Context, error) {
+		if ControllerRuntimeClientFrom(ctx, clusterName) == nil {
+			var err error
+			if ctx, err = SetupControllerRuntimeClient(WithCluster(clusterName))(ctx); err != nil {
+				return ctx, err
+			}
+		}
+
+		if KubeClientFrom(ctx, clusterName) == nil {
+			var err error
+			if ctx, err = SetupKubeClient(clusterName)(ctx); err != nil {
+				return ctx, err
+			}
+		}
+		return ctx, nil
+	}
 }
 
 func UseCluster(clusterName string) setup.Func {
@@ -57,26 +75,8 @@ func UseCluster(clusterName string) setup.Func {
 			return ctx, fmt.Errorf("cluster not found in context")
 		}
 
-		crcClient := ControllerRuntimeClientFrom(ctx, clusterName)
-		if crcClient == nil {
-			var err error
-			ctx, err = SetupControllerRuntimeClient(WithCluster(clusterName))(ctx)
-			if err != nil {
-				return ctx, err
-			}
-		}
-
-		kubeClient := KubeClientFrom(ctx, clusterName)
-		if kubeClient == nil {
-			var err error
-			ctx, err = SetupKubeClient(clusterName)(ctx)
-			if err != nil {
-				return ctx, err
-			}
-		}
-
 		ctx = WithCurrentClusterName(ctx, clusterName)
 		ctx = WithCurrentCluster(ctx, clusterVal)
-		return ctx, nil
+		return SetupClients(clusterName)(ctx)
 	}
 }
