@@ -23,6 +23,7 @@ import (
 var Values string
 
 var ErrInvalidConfig = errors.New("invalid config")
+var ErrInvalidPrivateNodesConfig = errors.New("invalid private nodes config")
 
 // NewDefaultConfig creates a new config based on the values.yaml, including all default values.
 func NewDefaultConfig() (*Config, error) {
@@ -116,6 +117,18 @@ type PrivateNodes struct {
 	// VPN holds configuration for the private nodes vpn. This can be used to connect the private nodes to the control plane or
 	// connect the private nodes to each other if they are not running in the same network. Platform connection is required for the vpn to work.
 	VPN PrivateNodesVPN `json:"vpn,omitempty"`
+}
+
+// UnmarshalJSON makes the schema change return a custom error for invalid private nodes config
+func (p *PrivateNodes) UnmarshalJSON(data []byte) error {
+	type PrivateNodesAlias PrivateNodes
+	var alias PrivateNodesAlias
+	if err := json.Unmarshal(data, &alias); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidPrivateNodesConfig, err)
+	}
+	// Copy the unmarshaled data
+	*p = PrivateNodes(alias)
+	return nil
 }
 
 type CloudControllerManager struct {

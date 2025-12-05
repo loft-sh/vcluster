@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -130,7 +131,15 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 	vclusterConfig := &config.Config{}
 	err = yaml.Unmarshal(values, vclusterConfig)
 	if err != nil {
-		return err
+		privateNodesError := errors.Is(err, config.ErrInvalidPrivateNodesConfig) ||
+			strings.Contains(err.Error(), config.ErrInvalidPrivateNodesConfig.Error())
+		if privateNodesError {
+			cmd.log.Warnf("Failed to parse vcluster config from Helm values: %v. ", err)
+			cmd.log.Infof("Continuing with deletion...")
+			vclusterConfig = nil
+		} else {
+			return fmt.Errorf("failed to parse vcluster config from Helm values: %w", err)
+		}
 	}
 
 	// we have to delete the chart
@@ -203,7 +212,7 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 	}
 
 	// if namespace sync is enabled, use cleanup handlers to handle namespace cleanup
-	if vclusterConfig.Sync.ToHost.Namespaces.Enabled {
+	if vclusterConfig != nil && vclusterConfig.Sync.ToHost.Namespaces.Enabled {
 		if err := CleanupSyncedNamespaces(ctx, cmd.Namespace, vClusterName, cmd.restConfig, cmd.kubeClient, cmd.log); err != nil {
 			return fmt.Errorf("run namespace cleanup: %w", err)
 		}
