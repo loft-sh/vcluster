@@ -57,7 +57,7 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
 ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go", "start"]
 
 # we use alpine for easier debugging
-FROM alpine:3.22
+FROM alpine:3.23
 
 # install runtime dependencies
 RUN apk add --no-cache ca-certificates zstd tzdata
