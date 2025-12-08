@@ -93,6 +93,9 @@ type Config struct {
 
 	// Logging provides structured logging options
 	Logging *Logging `json:"logging,omitempty"`
+
+	// Proxy enables vCluster-to-vCluster proxying of resources via Tailscale
+	Proxy Proxy `json:"proxy,omitempty"`
 }
 
 // PrivateNodes enables private nodes for vCluster. When turned on, vCluster will not sync resources to the host cluster
@@ -2397,6 +2400,38 @@ type ControlPlaneHeadlessService struct {
 
 	// Labels are extra labels for this resource.
 	Labels map[string]string `json:"labels,omitempty"`
+}
+
+type Proxy struct {
+	// Resources is a map of resource keys (format: "kind.apiGroup/version") to proxy configuration
+	Resources map[string]ProxyResource `json:"resources,omitempty"`
+}
+
+type ProxyResource struct {
+	// Enabled defines if this resource proxy should be enabled
+	Enabled bool `json:"enabled,omitempty"`
+
+	// TargetVirtualCluster is the target virtual cluster configuration
+	TargetVirtualCluster TargetVirtualClusterConfig `json:"targetVirtualCluster,omitempty"`
+
+	// ServiceAccountRef is the service account to use for the proxy in target cluster
+	ServiceAccountRef NamespacedNameArgs `json:"serviceAccountRef,omitempty"`
+}
+
+type NamespacedNameArgs struct {
+	// Namespace is the namespace of the resource
+	Namespace string `json:"namespace,omitempty"`
+
+	// Name is the name of the resource
+	Name string `json:"name,omitempty"`
+}
+
+type TargetVirtualClusterConfig struct {
+	// Name is the name of the virtual cluster
+	Name string `json:"name,omitempty"`
+
+	// Project is the project of the virtual cluster
+	Project string `json:"project,omitempty"`
 }
 
 type ExternalEtcdPersistence struct {

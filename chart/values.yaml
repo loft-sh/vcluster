@@ -1249,3 +1249,8 @@ telemetry:
 logging:
   # Encoding specifies the format of vCluster logs, it can either be json or console.
   encoding: console
+
+# Proxy enables vCluster-to-vCluster proxying of resources via Tailscale
+proxy:
+  # Resources is a map of resource keys (format: "kind.apiGroup/version") to proxy configuration
+  resources: {}
