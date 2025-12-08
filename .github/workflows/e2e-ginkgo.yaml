@@ -1,5 +1,9 @@
 name: vCluster E2E CI (Ginkgo)
 
+permissions:
+  contents: read
+  pull-requests: read
+
 on:
   release:
     types: [created]
