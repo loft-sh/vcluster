@@ -39,6 +39,24 @@ func NewLinearClient(ctx context.Context, token string) LinearClient {
 	return LinearClient{client: client}
 }
 
+// isStableRelease checks if a version is a stable release (no pre-release suffix).
+// Returns true for stable releases like v0.26.1, v4.5.0
+// Returns false for pre-releases like v0.26.1-alpha.1, v0.26.1-rc.4, v4.5.0-beta.2
+func isStableRelease(version string) bool {
+	// Remove 'v' prefix if present
+	version = strings.TrimPrefix(version, "v")
+
+	// Check for pre-release suffixes
+	preReleaseSuffixes := []string{"-alpha", "-beta", "-rc", "-dev", "-pre", "-next"}
+	for _, suffix := range preReleaseSuffixes {
+		if strings.Contains(version, suffix) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // WorkflowStateID returns the ID of the a workflow state for the given team.
 func (l *LinearClient) WorkflowStateID(ctx context.Context, stateName, linearTeamName string) (string, error) {
 	var query struct {
@@ -115,6 +133,7 @@ func (l *LinearClient) IsIssueInStateByName(ctx context.Context, issueID string,
 
 // MoveIssueToState moves the issue to the given state if it's not already there.
 // It also adds a comment to the issue about when it was first released and on which tag.
+// For stable releases on already-released issues, it adds a "now available in stable" comment.
 func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueID, releasedStateID, readyForReleaseStateName, releaseTagName, releaseDate string) error {
 	// (ThomasK33): Skip CVEs
 	if strings.HasPrefix(strings.ToLower(issueID), "cve") {
@@ -123,31 +142,51 @@ func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueI
 
 	logger := ctx.Value(LoggerKey).(*slog.Logger)
 
+	isStable := isStableRelease(releaseTagName)
+
 	currentIssueStateID, currentIssueStateName, err := l.IssueStateDetails(ctx, issueID)
 	if err != nil {
 		return fmt.Errorf("get issue state details: %w", err)
 	}
 
-	if currentIssueStateID == releasedStateID {
-		logger.Debug("Issue already has desired state", "issueID", issueID, "stateID", releasedStateID)
-		return nil
-	}
+	alreadyReleased := currentIssueStateID == releasedStateID
 
-	// Skip issues not in ready for release state
-	if currentIssueStateName != readyForReleaseStateName {
-		logger.Debug("Skipping issue not in ready for release state", "issueID", issueID, "currentState", currentIssueStateName, "requiredState", readyForReleaseStateName)
-		return nil
-	}
-
-	if !dryRun {
-		if err := l.updateIssueState(ctx, issueID, releasedStateID); err != nil {
-			return fmt.Errorf("update issue state: %w", err)
+	// If already in released state:
+	// - Pre-releases: skip entirely (already released in a previous pre-release)
+	// - Stable releases: skip state update but add "now available in stable" comment
+	if alreadyReleased {
+		if !isStable {
+			logger.Debug("Issue already has desired state", "issueID", issueID, "stateID", releasedStateID)
+			return nil
 		}
+		logger.Debug("Issue already released, adding stable release comment", "issueID", issueID)
 	} else {
-		logger.Info("Would update issue state", "issueID", issueID, "releasedStateID", releasedStateID)
+		// Skip issues not in ready for release state
+		if currentIssueStateName != readyForReleaseStateName {
+			logger.Debug("Skipping issue not in ready for release state", "issueID", issueID, "currentState", currentIssueStateName, "requiredState", readyForReleaseStateName)
+			return nil
+		}
+
+		// Update issue state to Released
+		if !dryRun {
+			if err := l.updateIssueState(ctx, issueID, releasedStateID); err != nil {
+				return fmt.Errorf("update issue state: %w", err)
+			}
+		} else {
+			logger.Info("Would update issue state", "issueID", issueID, "releasedStateID", releasedStateID)
+		}
+		logger.Info("Moved issue to desired state", "issueID", issueID, "stateID", releasedStateID)
 	}
 
-	releaseComment := fmt.Sprintf("This issue was first released in %v on %v", releaseTagName, releaseDate)
+	// Add release comment
+	// Use different text for stable releases on already-released issues to avoid
+	// confusion with the "first released in" pattern used by linear-webhook-service
+	var releaseComment string
+	if alreadyReleased && isStable {
+		releaseComment = fmt.Sprintf("Now available in stable release %v (released %v)", releaseTagName, releaseDate)
+	} else {
+		releaseComment = fmt.Sprintf("This issue was first released in %v on %v", releaseTagName, releaseDate)
+	}
 
 	if !dryRun {
 		if err := l.createComment(ctx, issueID, releaseComment); err != nil {
@@ -156,8 +195,6 @@ func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueI
 	} else {
 		logger.Info("Would create comment on issue", "issueID", issueID, "comment", releaseComment)
 	}
-
-	logger.Info("Moved issue to desired state", "issueID", issueID, "stateID", releasedStateID)
 
 	return nil
 }
@@ -201,4 +238,3 @@ func (l *LinearClient) createComment(ctx context.Context, issueID, releaseCommen
 
 	return nil
 }
-
