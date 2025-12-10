@@ -24,7 +24,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/invopop/jsonschema v0.12.0
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0
-	github.com/loft-sh/admin-apis v0.0.0-20250923191853-0998210fade9
+	github.com/loft-sh/admin-apis v0.0.0-20251209063713-e076e2ddb87c
 	github.com/loft-sh/agentapi/v4 v4.5.0-alpha.10
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 	github.com/loft-sh/api/v4 v4.5.0-alpha.10
@@ -49,7 +49,7 @@ require (
 	github.com/wk8/go-ordered-map/v2 v2.1.8
 	go.etcd.io/etcd/server/v3 v3.6.4
 	go.uber.org/atomic v1.11.0
-	golang.org/x/mod v0.26.0
+	golang.org/x/mod v0.27.0
 	google.golang.org/grpc v1.72.1
 	google.golang.org/protobuf v1.36.8
 	gopkg.in/yaml.v3 v3.0.1
@@ -267,7 +267,7 @@ require (
 	golang.org/x/term v0.34.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
-	golang.org/x/tools v0.35.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
@@ -279,3 +279,5 @@ require (
 	sigs.k8s.io/kustomize/api v0.20.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.20.1 // indirect
 )
+
+replace github.com/loft-sh/api/v4 => ../loft-enterprise/staging/src/github.com/loft-sh/api/v4

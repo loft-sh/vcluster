@@ -456,7 +456,17 @@ var (
 	NewUserREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewUserRESTFunc(Factory)
 	}
-	NewUserRESTFunc                         NewRESTFunc
+	NewUserRESTFunc                           NewRESTFunc
+	ManagementVirtualClusterConnectionStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
+		InternalVirtualClusterConnection,
+		func() runtime.Object { return &VirtualClusterConnection{} },     // Register versioned resource
+		func() runtime.Object { return &VirtualClusterConnectionList{} }, // Register versioned resource list
+		NewVirtualClusterConnectionREST,
+	)
+	NewVirtualClusterConnectionREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewVirtualClusterConnectionRESTFunc(Factory)
+	}
+	NewVirtualClusterConnectionRESTFunc     NewRESTFunc
 	ManagementVirtualClusterInstanceStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalVirtualClusterInstance,
 		func() runtime.Object { return &VirtualClusterInstance{} },     // Register versioned resource
@@ -1206,7 +1216,19 @@ var (
 	NewUserProfileREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewUserProfileRESTFunc(Factory)
 	}
-	NewUserProfileRESTFunc         NewRESTFunc
+	NewUserProfileRESTFunc           NewRESTFunc
+	InternalVirtualClusterConnection = builders.NewInternalResource(
+		"virtualclusterconnections",
+		"VirtualClusterConnection",
+		func() runtime.Object { return &VirtualClusterConnection{} },
+		func() runtime.Object { return &VirtualClusterConnectionList{} },
+	)
+	InternalVirtualClusterConnectionStatus = builders.NewInternalResourceStatus(
+		"virtualclusterconnections",
+		"VirtualClusterConnectionStatus",
+		func() runtime.Object { return &VirtualClusterConnection{} },
+		func() runtime.Object { return &VirtualClusterConnectionList{} },
+	)
 	InternalVirtualClusterInstance = builders.NewInternalResource(
 		"virtualclusterinstances",
 		"VirtualClusterInstance",
@@ -1259,6 +1281,14 @@ var (
 		return NewVirtualClusterNodeAccessKeyRESTFunc(Factory)
 	}
 	NewVirtualClusterNodeAccessKeyRESTFunc  NewRESTFunc
+	InternalVirtualClusterResourceUsageREST = builders.NewInternalSubresource(
+		"virtualclusterinstances", "VirtualClusterResourceUsage", "resourceusage",
+		func() runtime.Object { return &VirtualClusterResourceUsage{} },
+	)
+	NewVirtualClusterResourceUsageREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewVirtualClusterResourceUsageRESTFunc(Factory)
+	}
+	NewVirtualClusterResourceUsageRESTFunc  NewRESTFunc
 	InternalVirtualClusterInstanceShellREST = builders.NewInternalSubresource(
 		"virtualclusterinstances", "VirtualClusterInstanceShell", "shell",
 		func() runtime.Object { return &VirtualClusterInstanceShell{} },
@@ -1419,6 +1449,8 @@ var (
 		InternalUserObjectPermissionsREST,
 		InternalUserPermissionsREST,
 		InternalUserProfileREST,
+		InternalVirtualClusterConnection,
+		InternalVirtualClusterConnectionStatus,
 		InternalVirtualClusterInstance,
 		InternalVirtualClusterInstanceStatus,
 		InternalVirtualClusterAccessKeyREST,
@@ -1426,6 +1458,7 @@ var (
 		InternalVirtualClusterInstanceKubeConfigREST,
 		InternalVirtualClusterInstanceLogREST,
 		InternalVirtualClusterNodeAccessKeyREST,
+		InternalVirtualClusterResourceUsageREST,
 		InternalVirtualClusterInstanceShellREST,
 		InternalVirtualClusterInstanceSnapshotREST,
 		InternalVirtualClusterStandaloneREST,
@@ -1735,7 +1768,7 @@ type Cloud struct {
 }
 
 // +genclient
-// +genclient:nonNamespaced
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Cluster struct {
@@ -1919,6 +1952,11 @@ type ConfigStatus struct {
 	CostControl                 *CostControl                    `json:"costControl,omitempty"`
 	PlatformDB                  *PlatformDB                     `json:"platformDB,omitempty"`
 	ImageBuilder                *ImageBuilder                   `json:"imageBuilder,omitempty"`
+}
+
+type ConnectionClientConfig struct {
+	Name    string `json:"name"`
+	Project string `json:"project,omitempty"`
 }
 
 type Connector struct {
@@ -2133,7 +2171,7 @@ type KioskStatus struct {
 }
 
 // +genclient
-// +genclient:nonNamespaced
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type License struct {
@@ -2218,6 +2256,11 @@ type MaintenanceWindow struct {
 type ManagementRole struct {
 	ObjectName  `json:",inline"`
 	AssignedVia AssignedVia `json:"assignedVia,omitempty"`
+}
+
+type NamespacedNameArgs struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
 }
 
 // +genclient
@@ -2838,6 +2881,12 @@ type SubjectAccessReviewStatus struct {
 	authorizationv1.SubjectAccessReviewStatus `json:",inline"`
 }
 
+type TargetVirtualClusterConfig struct {
+	Name              string             `json:"name"`
+	Project           string             `json:"project,omitempty"`
+	ServiceAccountRef NamespacedNameArgs `json:"serviceAccountRef,omitempty"`
+}
+
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -3056,6 +3105,30 @@ type VirtualClusterAccessKey struct {
 	AccessKey         string `json:"accessKey,omitempty"`
 }
 
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterConnection struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              VirtualClusterConnectionSpec   `json:"spec,omitempty"`
+	Status            VirtualClusterConnectionStatus `json:"status,omitempty"`
+}
+
+type VirtualClusterConnectionSpec struct {
+	TargetVirtualCluster TargetVirtualClusterConfig `json:"targetVirtualCluster,omitempty"`
+	Client               ConnectionClientConfig     `json:"client,omitempty"`
+	Resources            []string                   `json:"resources,omitempty"`
+}
+
+type VirtualClusterConnectionStatus struct {
+	Hostname string `json:"hostname,omitempty"`
+	Online   bool   `json:"online,omitempty"`
+	Token    string `json:"token,omitempty"`
+	Message  string `json:"message,omitempty"`
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterExternalDatabase struct {
@@ -3160,6 +3233,23 @@ type VirtualClusterNodeAccessKeyStatus struct {
 	AccessKey string `json:"accessKey,omitempty"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterResourceUsage struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Status            VirtualClusterResourceUsageStatus `json:"status,omitempty"`
+}
+
+type VirtualClusterResourceUsageMap struct {
+	Nodes    int            `json:"nodes"`
+	Capacity map[string]int `json:"capacity,omitempty"`
+}
+
+type VirtualClusterResourceUsageStatus struct {
+	ResourceUsage VirtualClusterResourceUsageMap `json:"resourceUsage,omitempty"`
+}
+
 type VirtualClusterRole struct {
 	ObjectName  `json:",inline"`
 	Role        string      `json:"role,omitempty"`
@@ -3234,9 +3324,8 @@ type VirtualClusterTemplateStatus struct {
 }
 
 type VolumeSnapshotRequestStatus struct {
-	Phase          string               `json:"phase,omitempty"`
-	SnapshotHandle string               `json:"snapshotHandle,omitempty"`
-	Error          SnapshotRequestError `json:"error"`
+	Phase string               `json:"phase,omitempty"`
+	Error SnapshotRequestError `json:"error"`
 }
 
 type VolumeSnapshotsRequestStatus struct {
@@ -8245,6 +8334,125 @@ func (s *storageUser) DeleteUser(ctx context.Context, id string) (bool, error) {
 	return sync, err
 }
 
+// VirtualClusterConnection Functions and Structs
+//
+// +k8s:deepcopy-gen=false
+type VirtualClusterConnectionStrategy struct {
+	builders.DefaultStorageStrategy
+}
+
+// +k8s:deepcopy-gen=false
+type VirtualClusterConnectionStatusStrategy struct {
+	builders.DefaultStatusStorageStrategy
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterConnectionList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterConnection `json:"items"`
+}
+
+func (VirtualClusterConnection) NewStatus() interface{} {
+	return VirtualClusterConnectionStatus{}
+}
+
+func (pc *VirtualClusterConnection) GetStatus() interface{} {
+	return pc.Status
+}
+
+func (pc *VirtualClusterConnection) SetStatus(s interface{}) {
+	pc.Status = s.(VirtualClusterConnectionStatus)
+}
+
+func (pc *VirtualClusterConnection) GetSpec() interface{} {
+	return pc.Spec
+}
+
+func (pc *VirtualClusterConnection) SetSpec(s interface{}) {
+	pc.Spec = s.(VirtualClusterConnectionSpec)
+}
+
+func (pc *VirtualClusterConnection) GetObjectMeta() *metav1.ObjectMeta {
+	return &pc.ObjectMeta
+}
+
+func (pc *VirtualClusterConnection) SetGeneration(generation int64) {
+	pc.ObjectMeta.Generation = generation
+}
+
+func (pc VirtualClusterConnection) GetGeneration() int64 {
+	return pc.ObjectMeta.Generation
+}
+
+// Registry is an interface for things that know how to store VirtualClusterConnection.
+// +k8s:deepcopy-gen=false
+type VirtualClusterConnectionRegistry interface {
+	ListVirtualClusterConnections(ctx context.Context, options *internalversion.ListOptions) (*VirtualClusterConnectionList, error)
+	GetVirtualClusterConnection(ctx context.Context, id string, options *metav1.GetOptions) (*VirtualClusterConnection, error)
+	CreateVirtualClusterConnection(ctx context.Context, id *VirtualClusterConnection) (*VirtualClusterConnection, error)
+	UpdateVirtualClusterConnection(ctx context.Context, id *VirtualClusterConnection) (*VirtualClusterConnection, error)
+	DeleteVirtualClusterConnection(ctx context.Context, id string) (bool, error)
+}
+
+// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
+func NewVirtualClusterConnectionRegistry(sp builders.StandardStorageProvider) VirtualClusterConnectionRegistry {
+	return &storageVirtualClusterConnection{sp}
+}
+
+// Implement Registry
+// storage puts strong typing around storage calls
+// +k8s:deepcopy-gen=false
+type storageVirtualClusterConnection struct {
+	builders.StandardStorageProvider
+}
+
+func (s *storageVirtualClusterConnection) ListVirtualClusterConnections(ctx context.Context, options *internalversion.ListOptions) (*VirtualClusterConnectionList, error) {
+	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		return nil, fmt.Errorf("field selector not supported yet")
+	}
+	st := s.GetStandardStorage()
+	obj, err := st.List(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*VirtualClusterConnectionList), err
+}
+
+func (s *storageVirtualClusterConnection) GetVirtualClusterConnection(ctx context.Context, id string, options *metav1.GetOptions) (*VirtualClusterConnection, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Get(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*VirtualClusterConnection), nil
+}
+
+func (s *storageVirtualClusterConnection) CreateVirtualClusterConnection(ctx context.Context, object *VirtualClusterConnection) (*VirtualClusterConnection, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*VirtualClusterConnection), nil
+}
+
+func (s *storageVirtualClusterConnection) UpdateVirtualClusterConnection(ctx context.Context, object *VirtualClusterConnection) (*VirtualClusterConnection, error) {
+	st := s.GetStandardStorage()
+	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*VirtualClusterConnection), nil
+}
+
+func (s *storageVirtualClusterConnection) DeleteVirtualClusterConnection(ctx context.Context, id string) (bool, error) {
+	st := s.GetStandardStorage()
+	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
+	return sync, err
+}
+
 // VirtualClusterInstance Functions and Structs
 //
 // +k8s:deepcopy-gen=false
@@ -8303,6 +8511,14 @@ type VirtualClusterNodeAccessKeyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualClusterNodeAccessKey `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterResourceUsageList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterResourceUsage `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
