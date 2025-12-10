@@ -189,7 +189,7 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 
 	// Check if any proxy resources are enabled
 	if len(vConfig.Experimental.Proxy.CustomResources) > 0 {
-		if err := pro.StartResourceProxy(controllerCtx, vConfig); err != nil {
+		if err := pro.StartCustomResourceProxy(controllerCtx, vConfig); err != nil {
 			return fmt.Errorf("start resource proxy: %w", err)
 		}
 	}

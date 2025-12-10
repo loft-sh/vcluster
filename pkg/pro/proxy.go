@@ -5,6 +5,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 )
 
-var StartResourceProxy = func(_ *synccontext.ControllerContext, _ *config.VirtualClusterConfig) error {
+var StartCustomResourceProxy = func(_ *synccontext.ControllerContext, _ *config.VirtualClusterConfig) error {
 	return NewFeatureError("resource proxy")
 }
