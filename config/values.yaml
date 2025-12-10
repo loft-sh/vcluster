@@ -283,9 +283,9 @@ controlPlane:
     pathType: ImplementationSpecific
     labels: {}
     annotations:
-      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
-      nginx.ingress.kubernetes.io/ssl-passthrough: "true"
-      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: HTTPS # ingress-nginx has been deprecated
+      nginx.ingress.kubernetes.io/ssl-passthrough: "true" # ingress-nginx has been deprecated
+      nginx.ingress.kubernetes.io/ssl-redirect: "true" # ingress-nginx has been deprecated
     spec:
       tls: []
 

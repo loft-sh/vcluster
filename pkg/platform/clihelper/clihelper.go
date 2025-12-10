@@ -624,8 +624,8 @@ func EnsureIngressController(ctx context.Context, kubeClient kubernetes.Interfac
 	)
 
 	answer, err := log.Question(&survey.QuestionOptions{
-		Question:     "Ingress controller required. Should the nginx-ingress controller be installed?",
-		DefaultValue: YesOption,
+		Question:     "[DEPRECATED]: Ingress controller required. Should the nginx-ingress controller be installed?",
+		DefaultValue: NoOption,
 		Options: []string{
 			YesOption,
 			NoOption,
