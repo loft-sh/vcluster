@@ -1218,6 +1218,11 @@ plugins: {}
 
 # Experimental features for vCluster. Configuration here might change, so be careful with this.
 experimental:
+  # Proxy enables vCluster-to-vCluster proxying of resources via Tailscale
+  proxy:
+    # Resources is a map of resource keys (format: "kind.apiGroup/version") to proxy configuration
+    customResources: {}
+  
   # SyncSettings are advanced settings for the syncer controller.
   syncSettings:
     # SetOwner specifies if vCluster should set an owner reference on the synced objects to the vCluster service. This allows for easy garbage collection.
@@ -1249,8 +1254,3 @@ telemetry:
 logging:
   # Encoding specifies the format of vCluster logs, it can either be json or console.
   encoding: console
-
-# Proxy enables vCluster-to-vCluster proxying of resources via Tailscale
-proxy:
-  # Resources is a map of resource keys (format: "kind.apiGroup/version") to proxy configuration
-  resources: {}

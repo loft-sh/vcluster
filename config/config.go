@@ -93,9 +93,6 @@ type Config struct {
 
 	// Logging provides structured logging options
 	Logging *Logging `json:"logging,omitempty"`
-
-	// Proxy enables vCluster-to-vCluster proxying of resources via Tailscale
-	Proxy Proxy `json:"proxy,omitempty"`
 }
 
 // PrivateNodes enables private nodes for vCluster. When turned on, vCluster will not sync resources to the host cluster
@@ -2404,18 +2401,15 @@ type ControlPlaneHeadlessService struct {
 
 type Proxy struct {
 	// Resources is a map of resource keys (format: "kind.apiGroup/version") to proxy configuration
-	Resources map[string]ProxyResource `json:"resources,omitempty"`
+	CustomResources map[string]CustomResourceProxy `json:"customResources,omitempty"`
 }
 
-type ProxyResource struct {
+type CustomResourceProxy struct {
 	// Enabled defines if this resource proxy should be enabled
 	Enabled bool `json:"enabled,omitempty"`
 
-	// TargetVirtualCluster is the target virtual cluster configuration
-	TargetVirtualCluster TargetVirtualClusterConfig `json:"targetVirtualCluster,omitempty"`
-
-	// ServiceAccountRef is the service account to use for the proxy in target cluster
-	ServiceAccountRef NamespacedNameArgs `json:"serviceAccountRef,omitempty"`
+	// CustomResourceProxyTarget is the target configuration for the custom resource proxy
+	Target CustomResourceProxyTarget `json:"target,omitempty"`
 }
 
 type NamespacedNameArgs struct {
@@ -2426,12 +2420,15 @@ type NamespacedNameArgs struct {
 	Name string `json:"name,omitempty"`
 }
 
-type TargetVirtualClusterConfig struct {
+type CustomResourceProxyTarget struct {
 	// Name is the name of the virtual cluster
 	Name string `json:"name,omitempty"`
 
 	// Project is the project of the virtual cluster
 	Project string `json:"project,omitempty"`
+
+	// ServiceAccountRef is the service account to use for the proxy in target cluster
+	ServiceAccountRef NamespacedNameArgs `json:"serviceAccountRef,omitempty"`
 }
 
 type ExternalEtcdPersistence struct {
@@ -3027,6 +3024,9 @@ type Experimental struct {
 
 	// DenyProxyRequests denies certain requests in the vCluster proxy.
 	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" product:"pro"`
+
+	// Proxy enables vCluster-to-vCluster proxying of resources via Tailscale
+	Proxy Proxy `json:"proxy,omitempty"`
 }
 
 func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {

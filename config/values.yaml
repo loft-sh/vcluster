@@ -657,6 +657,9 @@ external: {}
 plugins: {}
 
 experimental:
+  proxy:
+    customResources: {}
+
   syncSettings:
     setOwner: true
 
@@ -674,7 +677,3 @@ telemetry:
 
 logging:
   encoding: console
-
-# Proxy enables vCluster-to-vCluster proxying of resources via Tailscale
-proxy:
-  resources: {}
