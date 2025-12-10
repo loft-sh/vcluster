@@ -20,8 +20,9 @@ const (
 	InstanceNodesProvisioned           agentstoragev1.ConditionType = "NodesProvisioned"
 	InstanceExternalResourcesCleanedUp agentstoragev1.ConditionType = "ExternalResourcesCleanedUp"
 
-	InstanceVirtualClusterAppsAndObjectsSynced agentstoragev1.ConditionType = "VirtualClusterAppsAndObjectsSynced"
-	InstanceVirtualClusterDBConnectorSynced    agentstoragev1.ConditionType = "DBConnectorSynced"
+	InstanceVirtualClusterAppsAndObjectsSynced     agentstoragev1.ConditionType = "VirtualClusterAppsAndObjectsSynced"
+	InstanceVirtualClusterDBConnectorSynced        agentstoragev1.ConditionType = "DBConnectorSynced"
+	InstanceVirtualClusterDBIdentityProviderSynced agentstoragev1.ConditionType = "DBIdentityProviderSynced"
 )
 
 // +genclient

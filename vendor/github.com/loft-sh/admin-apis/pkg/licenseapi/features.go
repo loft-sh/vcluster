@@ -42,7 +42,11 @@ const (
 
 	VirtualClusterProDistroPrivateNodes FeatureName = "vcp-distro-private-nodes" // Private Nodes
 
+	ExternalDatabaseRdsIam FeatureName = "external-database-rds-iam" // External Database RDS IAM Authentication
+
 	ConnectorExternalDatabase FeatureName = "connector-external-database" // Database Connector
+
+	ConnectorExternalDatabaseEksPodIdentity FeatureName = "connector-external-database-eks-pod-identity" // EKS Pod Identity for External Database Connections
 
 	VirtualClusterProDistroSleepMode FeatureName = "vcp-distro-sleep-mode" // SleepMode
 
@@ -114,6 +118,12 @@ const (
 
 	Standalone FeatureName = "standalone" // Standalone
 
+	Netris FeatureName = "netris" // Netris
+
+	KubeVip FeatureName = "kube-vip" // Kube-vip Integration
+
+	CrossVirtualClusterApis FeatureName = "cross-vcluster-apis" // Cross vCluster APIs
+
 )
 
 func GetFeatures() []FeatureName {
@@ -137,7 +147,9 @@ func GetFeatures() []FeatureName {
 		VirtualClusterProDistroFips,
 		VirtualClusterProDistroExternalDatabase,
 		VirtualClusterProDistroPrivateNodes,
+		ExternalDatabaseRdsIam,
 		ConnectorExternalDatabase,
+		ConnectorExternalDatabaseEksPodIdentity,
 		VirtualClusterProDistroSleepMode,
 		Devpod,
 		Namespaces,
@@ -173,5 +185,8 @@ func GetFeatures() []FeatureName {
 		PrivateNodesAutoNodes,
 		DisablePlatformDB,
 		Standalone,
+		Netris,
+		KubeVip,
+		CrossVirtualClusterApis,
 	}
 }

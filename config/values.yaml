@@ -657,6 +657,9 @@ external: {}
 plugins: {}
 
 experimental:
+  proxy:
+    customResources: {}
+
   syncSettings:
     setOwner: true
 
