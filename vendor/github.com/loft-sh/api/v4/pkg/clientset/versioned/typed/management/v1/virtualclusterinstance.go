@@ -34,6 +34,7 @@ type VirtualClusterInstanceInterface interface {
 	GetExternalDatabase(ctx context.Context, virtualClusterInstanceName string, virtualClusterExternalDatabase *managementv1.VirtualClusterExternalDatabase, opts metav1.CreateOptions) (*managementv1.VirtualClusterExternalDatabase, error)
 	GetNodeAccessKey(ctx context.Context, virtualClusterInstanceName string, virtualClusterNodeAccessKey *managementv1.VirtualClusterNodeAccessKey, opts metav1.CreateOptions) (*managementv1.VirtualClusterNodeAccessKey, error)
 	GetStandaloneETCDPeers(ctx context.Context, virtualClusterInstanceName string, virtualClusterStandalone *managementv1.VirtualClusterStandalone, opts metav1.CreateOptions) (*managementv1.VirtualClusterStandalone, error)
+	GetShellPod(ctx context.Context, virtualClusterInstanceName string, virtualClusterInstanceShell *managementv1.VirtualClusterInstanceShell, opts metav1.CreateOptions) (*managementv1.VirtualClusterInstanceShell, error)
 
 	VirtualClusterInstanceExpansion
 }
@@ -126,6 +127,21 @@ func (c *virtualClusterInstances) GetStandaloneETCDPeers(ctx context.Context, vi
 		SubResource("standalone").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(virtualClusterStandalone).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// GetShellPod takes the representation of a virtualClusterInstanceShell and creates it.  Returns the server's representation of the virtualClusterInstanceShell, and an error, if there is any.
+func (c *virtualClusterInstances) GetShellPod(ctx context.Context, virtualClusterInstanceName string, virtualClusterInstanceShell *managementv1.VirtualClusterInstanceShell, opts metav1.CreateOptions) (result *managementv1.VirtualClusterInstanceShell, err error) {
+	result = &managementv1.VirtualClusterInstanceShell{}
+	err = c.GetClient().Post().
+		Namespace(c.GetNamespace()).
+		Resource("virtualclusterinstances").
+		Name(virtualClusterInstanceName).
+		SubResource("shell").
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(virtualClusterInstanceShell).
 		Do(ctx).
 		Into(result)
 	return
