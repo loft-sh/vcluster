@@ -120,6 +120,10 @@ const (
 
 	Netris FeatureName = "netris" // Netris
 
+	KubeVip FeatureName = "kube-vip" // Kube-vip Integration
+
+	CrossVirtualClusterApis FeatureName = "cross-vcluster-apis" // Cross vCluster APIs
+
 )
 
 func GetFeatures() []FeatureName {
@@ -182,5 +186,7 @@ func GetFeatures() []FeatureName {
 		DisablePlatformDB,
 		Standalone,
 		Netris,
+		KubeVip,
+		CrossVirtualClusterApis,
 	}
 }
