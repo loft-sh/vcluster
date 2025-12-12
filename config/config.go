@@ -2729,10 +2729,10 @@ type NetworkPolicy struct {
 
 type NetworkPolicyControlPlane struct {
 	// Ingress rules for the vCluster control plane.
-	Ingress []map[string]interface{} `json:"ingress,omitempty"`
+	Ingress []NetworkPolicyIngressRule `json:"ingress,omitempty"`
 
 	// Egress rules for the vCluster control plane.
-	Egress []map[string]interface{} `json:"egress,omitempty"`
+	Egress []NetworkPolicyEgressRule `json:"egress,omitempty"`
 }
 
 type NetworkPolicyWorkload struct {
@@ -2740,10 +2740,104 @@ type NetworkPolicyWorkload struct {
 	PublicEgress NetworkPolicyWorkloadPublicEgress `json:"publicEgress,omitempty"`
 
 	// Ingress rules for the vCluster workloads.
-	Ingress []map[string]interface{} `json:"ingress,omitempty"`
+	Ingress []NetworkPolicyIngressRule `json:"ingress,omitempty"`
 
 	// Egress rules for the vCluster workloads.
-	Egress []map[string]interface{} `json:"egress,omitempty"`
+	Egress []NetworkPolicyEgressRule `json:"egress,omitempty"`
+}
+
+// NetworkPolicyIngressRule describes a particular set of traffic that is allowed to the pods
+// matched by a NetworkPolicySpec's podSelector. The traffic must match both ports and from.
+type NetworkPolicyIngressRule struct {
+	// ports is a list of ports which should be made accessible on the pods selected for
+	// this rule. Each item in this list is combined using a logical OR. If this field is
+	// empty or missing, this rule matches all ports (traffic not restricted by port).
+	// If this field is present and contains at least one item, then this rule allows
+	// traffic only if the traffic matches at least one port in the list.
+	// +optional
+	// +listType=atomic
+	Ports []NetworkPolicyPort `json:"ports,omitempty"`
+
+	// from is a list of sources which should be able to access the pods selected for this rule.
+	// Items in this list are combined using a logical OR operation. If this field is
+	// empty or missing, this rule matches all sources (traffic not restricted by
+	// source). If this field is present and contains at least one item, this rule
+	// allows traffic only if the traffic matches at least one item in the from list.
+	// +optional
+	// +listType=atomic
+	From []NetworkPolicyPeer `json:"from,omitempty"`
+}
+
+// NetworkPolicyEgressRule describes a particular set of traffic that is allowed out of pods
+// matched by a NetworkPolicySpec's podSelector. The traffic must match both ports and to.
+// This type is beta-level in 1.8
+type NetworkPolicyEgressRule struct {
+	// ports is a list of destination ports for outgoing traffic.
+	// Each item in this list is combined using a logical OR. If this field is
+	// empty or missing, this rule matches all ports (traffic not restricted by port).
+	// If this field is present and contains at least one item, then this rule allows
+	// traffic only if the traffic matches at least one port in the list.
+	// +optional
+	// +listType=atomic
+	Ports []NetworkPolicyPort `json:"ports,omitempty"`
+
+	// to is a list of destinations for outgoing traffic of pods selected for this rule.
+	// Items in this list are combined using a logical OR operation. If this field is
+	// empty or missing, this rule matches all destinations (traffic not restricted by
+	// destination). If this field is present and contains at least one item, this rule
+	// allows traffic only if the traffic matches at least one item in the to list.
+	// +optional
+	// +listType=atomic
+	To []NetworkPolicyPeer `json:"to,omitempty"`
+}
+
+// NetworkPolicyPort describes a port to allow traffic on
+type NetworkPolicyPort struct {
+	// protocol represents the protocol (TCP, UDP, or SCTP) which traffic must match.
+	// If not specified, this field defaults to TCP.
+	// +optional
+	Protocol *string `json:"protocol,omitempty"`
+
+	// port represents the port on the given protocol. This can either be a numerical or named
+	// port on a pod. If this field is not provided, this matches all port names and
+	// numbers.
+	// If present, only traffic on the specified protocol AND port will be matched.
+	// +optional
+	Port interface{} `json:"port,omitempty"`
+
+	// endPort indicates that the range of ports from port to endPort if set, inclusive,
+	// should be allowed by the policy. This field cannot be defined if the port field
+	// is not defined or if the port field is defined as a named (string) port.
+	// The endPort must be equal or greater than port.
+	// +optional
+	EndPort *int32 `json:"endPort,omitempty"`
+}
+
+// NetworkPolicyPeer describes a peer to allow traffic to/from. Only certain combinations of
+// fields are allowed
+type NetworkPolicyPeer struct {
+	// podSelector is a label selector which selects pods. This field follows standard label
+	// selector semantics; if present but empty, it selects all pods.
+	//
+	// If namespaceSelector is also set, then the NetworkPolicyPeer as a whole selects
+	// the pods matching podSelector in the Namespaces selected by NamespaceSelector.
+	// Otherwise it selects the pods matching podSelector in the policy's own namespace.
+	// +optional
+	PodSelector *StandardLabelSelector `json:"podSelector,omitempty"`
+
+	// namespaceSelector selects namespaces using cluster-scoped labels. This field follows
+	// standard label selector semantics; if present but empty, it selects all namespaces.
+	//
+	// If podSelector is also set, then the NetworkPolicyPeer as a whole selects
+	// the pods matching podSelector in the namespaces selected by namespaceSelector.
+	// Otherwise it selects all pods in the namespaces selected by namespaceSelector.
+	// +optional
+	NamespaceSelector *StandardLabelSelector `json:"namespaceSelector,omitempty"`
+
+	// ipBlock defines policy on a particular IPBlock. If this field is set then
+	// neither of the other fields can be.
+	// +optional
+	IPBlock *IPBlock `json:"ipBlock,omitempty"`
 }
 
 type NetworkPolicyWorkloadPublicEgress struct {
@@ -2768,7 +2862,9 @@ type OutgoingConnections struct {
 	IPBlock IPBlock `json:"ipBlock,omitempty"`
 }
 
-// Deprecated: To be removed via legacyconfig cleanup.
+// IPBlock describes a particular CIDR (Ex. "192.168.1.0/24","2001:db8::/64") that is allowed
+// to the pods matched by a NetworkPolicySpec's podSelector. The except entry describes CIDRs
+// that should not be included within this rule.
 type IPBlock struct {
 	// CIDR defines the allowed workload public egress destination.
 	// Valid examples are "0.0.0.0/0", "192.168.1.0/24" or "2001:db8::/64"
