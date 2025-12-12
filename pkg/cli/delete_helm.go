@@ -10,7 +10,6 @@ import (
 	"github.com/ghodss/yaml"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/log"
-	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
@@ -23,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -127,10 +127,17 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 		return err
 	}
 
-	vclusterConfig := &config.Config{}
-	err = yaml.Unmarshal(values, vclusterConfig)
-	if err != nil {
-		return err
+	var configValues map[string]any
+	namespacesSyncEnabled := false
+	if err := yaml.Unmarshal(values, &configValues); err != nil {
+		cmd.log.Debugf("Error parsing vcluster config from Helm values: %v. Namespace sync will be disabled", err)
+	} else {
+		enabled, isFound, err := unstructured.NestedBool(configValues, "sync", "toHost", "namespaces", "enabled")
+		if err != nil {
+			cmd.log.Debugf("Error getting namespace sync enabled flag: %v. Namespace sync will be disabled", err)
+		} else if isFound {
+			namespacesSyncEnabled = enabled
+		}
 	}
 
 	// we have to delete the chart
@@ -203,7 +210,7 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 	}
 
 	// if namespace sync is enabled, use cleanup handlers to handle namespace cleanup
-	if vclusterConfig.Sync.ToHost.Namespaces.Enabled {
+	if namespacesSyncEnabled {
 		if err := CleanupSyncedNamespaces(ctx, cmd.Namespace, vClusterName, cmd.restConfig, cmd.kubeClient, cmd.log); err != nil {
 			return fmt.Errorf("run namespace cleanup: %w", err)
 		}
