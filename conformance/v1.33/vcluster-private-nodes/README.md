@@ -32,7 +32,7 @@ controlPlane:
         enabled: true
         statefulSet:
           image:
-            tag: 3.5.21-0
+            tag: 3.5.25-0
   distro:
     k8s:
       apiServer:

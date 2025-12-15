@@ -39,8 +39,8 @@ var K8SVersionMap = map[string]string{
 
 // K8SEtcdVersionMap holds the supported etcd
 var K8SEtcdVersionMap = map[string]string{
-	"1.33": "registry.k8s.io/etcd:3.5.21-0",
-	"1.32": "registry.k8s.io/etcd:3.5.21-0",
+	"1.33": "registry.k8s.io/etcd:3.5.25-0",
+	"1.32": "registry.k8s.io/etcd:3.5.25-0",
 	"1.31": "registry.k8s.io/etcd:3.5.15-0",
 	"1.30": "registry.k8s.io/etcd:3.5.13-0",
 }
