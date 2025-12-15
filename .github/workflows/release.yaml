@@ -84,7 +84,7 @@ jobs:
           GORELEASER_CURRENT_TAG: ${{ steps.get_version.outputs.release_version }}
           GORELEASER_PREVIOUS_TAG: ${{ steps.get_version.outputs.previous_tag }}
       - name: Save release assets
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: release-assets
           path: release/
