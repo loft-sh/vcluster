@@ -35,7 +35,7 @@ jobs:
         run: go-licenses report ./... > docs/pages/licenses/vcluster.mdx --template .github/licenses.tmpl --ignore github.com/loft-sh
 
       - name: Create pull request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GH_ACCESS_TOKEN }}
           committer: Loft Bot <loft-bot@users.noreply.github.com>

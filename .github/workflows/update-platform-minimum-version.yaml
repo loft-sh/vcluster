@@ -34,7 +34,7 @@ jobs:
           sed -i 's/MinimumVersionTag = "v[0-9]\+\.[0-9]\+\.[0-9]\+"/MinimumVersionTag = "'"$TAG"'"/' pkg/platform/version.go
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GH_ACCESS_TOKEN }}
           committer: Loft Bot <loft-bot@users.noreply.github.com>
