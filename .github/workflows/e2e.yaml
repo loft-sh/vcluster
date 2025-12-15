@@ -132,12 +132,12 @@ jobs:
           echo "KUBECONFIG env var: ${KUBECONFIG}"
 
       - name: Download vcluster cli
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: vcluster
 
       - name: Download syncer image
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: vcluster_syncer
 
@@ -209,18 +209,18 @@ jobs:
           echo "KUBECONFIG env var: ${KUBECONFIG}"
 
       - name: Download vcluster cli
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: vcluster
           path: vcluster-dev
 
       - name: Download current cli
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: vcluster-current
 
       - name: Download syncer image
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: vcluster_syncer
 
@@ -341,12 +341,12 @@ jobs:
           kubectl wait --for=condition=Available -n kube-system deploy/snapshot-controller --timeout=60s
 
       - name: Download vcluster cli
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: vcluster
 
       - name: Download syncer image
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: vcluster_syncer
 
