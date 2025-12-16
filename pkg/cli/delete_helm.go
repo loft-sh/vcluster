@@ -100,7 +100,7 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 		return err
 	}
 
-	output, err := exec.Command(helmBinaryPath, "version", "--client", "--template", "{{.Version}}").Output()
+	output, err := exec.Command(helmBinaryPath, "version", "--template", "{{.Version}}").Output()
 	if err != nil {
 		return err
 	}
