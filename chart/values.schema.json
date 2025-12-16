@@ -1030,27 +1030,9 @@
           "type": "boolean",
           "description": "Enabled defines if this resource proxy should be enabled"
         },
-        "target": {
-          "$ref": "#/$defs/CustomResourceProxyTarget",
-          "description": "CustomResourceProxyTarget is the target configuration for the custom resource proxy"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "CustomResourceProxyTarget": {
-      "properties": {
-        "name": {
+        "targetVirtualCluster": {
           "type": "string",
-          "description": "Name is the name of the virtual cluster"
-        },
-        "project": {
-          "type": "string",
-          "description": "Project is the project of the virtual cluster"
-        },
-        "serviceAccountRef": {
-          "$ref": "#/$defs/NamespacedNameArgs",
-          "description": "ServiceAccountRef is the service account to use for the proxy in target cluster"
+          "description": "TargetVirtualCluster is the target virtual cluster for the custom resource proxy"
         }
       },
       "additionalProperties": false,
@@ -1799,7 +1781,7 @@
         },
         "proxy": {
           "$ref": "#/$defs/Proxy",
-          "description": "Proxy enables vCluster-to-vCluster proxying of resources via Tailscale"
+          "description": "Proxy enables vCluster-to-vCluster proxying of resources"
         }
       },
       "additionalProperties": false,
@@ -2965,20 +2947,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "NamespacedNameArgs": {
-      "properties": {
-        "namespace": {
-          "type": "string",
-          "description": "Namespace is the namespace of the resource"
-        },
-        "name": {
-          "type": "string",
-          "description": "Name is the name of the resource"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "NetworkPolicy": {
       "properties": {
         "enabled": {
@@ -3587,7 +3555,7 @@
             "$ref": "#/$defs/CustomResourceProxy"
           },
           "type": "object",
-          "description": "Resources is a map of resource keys (format: \"kind.apiGroup/version\") to proxy configuration"
+          "description": "CustomResources is a map of resource keys (format: \"kind.apiGroup/version\") to proxy configuration"
         }
       },
       "additionalProperties": false,

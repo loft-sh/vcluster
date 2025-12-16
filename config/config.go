@@ -2400,7 +2400,7 @@ type ControlPlaneHeadlessService struct {
 }
 
 type Proxy struct {
-	// Resources is a map of resource keys (format: "kind.apiGroup/version") to proxy configuration
+	// CustomResources is a map of resource keys (format: "kind.apiGroup/version") to proxy configuration
 	CustomResources map[string]CustomResourceProxy `json:"customResources,omitempty"`
 }
 
@@ -2408,8 +2408,8 @@ type CustomResourceProxy struct {
 	// Enabled defines if this resource proxy should be enabled
 	Enabled bool `json:"enabled,omitempty"`
 
-	// CustomResourceProxyTarget is the target configuration for the custom resource proxy
-	Target CustomResourceProxyTarget `json:"target,omitempty"`
+	// TargetVirtualCluster is the target virtual cluster for the custom resource proxy
+	TargetVirtualCluster string `json:"targetVirtualCluster,omitempty"`
 }
 
 type NamespacedNameArgs struct {
@@ -2418,17 +2418,6 @@ type NamespacedNameArgs struct {
 
 	// Name is the name of the resource
 	Name string `json:"name,omitempty"`
-}
-
-type CustomResourceProxyTarget struct {
-	// Name is the name of the virtual cluster
-	Name string `json:"name,omitempty"`
-
-	// Project is the project of the virtual cluster
-	Project string `json:"project,omitempty"`
-
-	// ServiceAccountRef is the service account to use for the proxy in target cluster
-	ServiceAccountRef NamespacedNameArgs `json:"serviceAccountRef,omitempty"`
 }
 
 type ExternalEtcdPersistence struct {
@@ -3025,7 +3014,7 @@ type Experimental struct {
 	// DenyProxyRequests denies certain requests in the vCluster proxy.
 	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" product:"pro"`
 
-	// Proxy enables vCluster-to-vCluster proxying of resources via Tailscale
+	// Proxy enables vCluster-to-vCluster proxying of resources
 	Proxy Proxy `json:"proxy,omitempty"`
 }
 
