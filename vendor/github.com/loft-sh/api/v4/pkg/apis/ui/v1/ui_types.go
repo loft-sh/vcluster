@@ -54,16 +54,12 @@ type UISettingsConfig struct {
 	// LoftVersion holds the current loft version
 	// +optional
 	LoftVersion string `json:"loftVersion,omitempty"`
-	// LogoURL is url pointing to the logo to use in the vCluster Platform UI. This path must be accessible for clients accessing
-	// the vCluster Platform UI!
+	// LogoURL is url pointing to the logo to use in the Loft UI. This path must be accessible for clients accessing
+	// the Loft UI!
 	// +optional
 	LogoURL string `json:"logoURL,omitempty"`
-	// FaviconURL is url pointing to the favicon to use in the vCluster Platform UI. This path must be accessible for clients accessing
-	// the vCluster Platform UI!
-	// +optional
-	FaviconURL string `json:"faviconURL,omitempty"`
-	// SmallLogoURL is url pointing to the small logo to use in the vCluster Platform UI. This path must be accessible for clients accessing
-	// the vCluster Platform UI!
+	// SmallLogoURL is url pointing to the small logo to use in the Loft UI. This path must be accessible for clients accessing
+	// the Loft UI!
 	// +optional
 	SmallLogoURL string `json:"smallLogoURL,omitempty"`
 	// LogoBackgroundColor is the color value (ex: "#12345") to use as the background color for the logo

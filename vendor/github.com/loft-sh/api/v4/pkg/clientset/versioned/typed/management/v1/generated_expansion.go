@@ -80,8 +80,6 @@ type UsageDownloadExpansion interface{}
 
 type UserExpansion interface{}
 
-type VirtualClusterConnectionExpansion interface{}
-
 type VirtualClusterInstanceExpansion interface{}
 
 type VirtualClusterSchemaExpansion interface{}

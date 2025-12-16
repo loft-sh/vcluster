@@ -51,7 +51,6 @@ type ManagementV1Interface interface {
 	TranslateVClusterResourceNamesGetter
 	UsageDownloadsGetter
 	UsersGetter
-	VirtualClusterConnectionsGetter
 	VirtualClusterInstancesGetter
 	VirtualClusterSchemasGetter
 	VirtualClusterTemplatesGetter
@@ -216,10 +215,6 @@ func (c *ManagementV1Client) UsageDownloads() UsageDownloadInterface {
 
 func (c *ManagementV1Client) Users() UserInterface {
 	return newUsers(c)
-}
-
-func (c *ManagementV1Client) VirtualClusterConnections() VirtualClusterConnectionInterface {
-	return newVirtualClusterConnections(c)
 }
 
 func (c *ManagementV1Client) VirtualClusterInstances(namespace string) VirtualClusterInstanceInterface {

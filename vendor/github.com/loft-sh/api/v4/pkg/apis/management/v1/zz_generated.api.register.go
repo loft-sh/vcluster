@@ -123,8 +123,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&UserObjectPermissions{},
 		&UserPermissions{},
 		&UserProfile{},
-		&VirtualClusterConnection{},
-		&VirtualClusterConnectionList{},
 		&VirtualClusterInstance{},
 		&VirtualClusterInstanceList{},
 		&VirtualClusterAccessKey{},
@@ -132,7 +130,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualClusterInstanceKubeConfig{},
 		&VirtualClusterInstanceLog{},
 		&VirtualClusterNodeAccessKey{},
-		&VirtualClusterResourceUsage{},
 		&VirtualClusterInstanceShell{},
 		&VirtualClusterInstanceSnapshot{},
 		&VirtualClusterStandalone{},
@@ -401,7 +398,6 @@ var (
 			nil,
 			management.NewUserProfileREST,
 		),
-		management.ManagementVirtualClusterConnectionStorage,
 		management.ManagementVirtualClusterInstanceStorage,
 		builders.NewApiResourceWithStorage(
 			management.InternalVirtualClusterAccessKeyREST,
@@ -432,12 +428,6 @@ var (
 			func() runtime.Object { return &VirtualClusterNodeAccessKey{} }, // Register versioned resource
 			nil,
 			management.NewVirtualClusterNodeAccessKeyREST,
-		),
-		builders.NewApiResourceWithStorage(
-			management.InternalVirtualClusterResourceUsageREST,
-			func() runtime.Object { return &VirtualClusterResourceUsage{} }, // Register versioned resource
-			nil,
-			management.NewVirtualClusterResourceUsageREST,
 		),
 		builders.NewApiResourceWithStorage(
 			management.InternalVirtualClusterInstanceShellREST,
@@ -1052,14 +1042,6 @@ type UserProfileList struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type VirtualClusterConnectionList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []VirtualClusterConnection `json:"items"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 type VirtualClusterInstanceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -1104,14 +1086,6 @@ type VirtualClusterNodeAccessKeyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualClusterNodeAccessKey `json:"items"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type VirtualClusterResourceUsageList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []VirtualClusterResourceUsage `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
