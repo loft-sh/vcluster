@@ -24,7 +24,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/invopop/jsonschema v0.12.0
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0
-	github.com/loft-sh/admin-apis v0.0.0-20251209063713-e076e2ddb87c
+	github.com/loft-sh/admin-apis v0.0.0-20251017051510-355f1c3f8fa7
 	github.com/loft-sh/agentapi/v4 v4.5.0-alpha.10
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 	github.com/loft-sh/api/v4 v4.5.0-alpha.10
@@ -279,5 +279,3 @@ require (
 	sigs.k8s.io/kustomize/api v0.20.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.20.1 // indirect
 )
-
-replace github.com/loft-sh/api/v4 => ../loft-enterprise/staging/src/github.com/loft-sh/api/v4
