@@ -2412,14 +2412,6 @@ type CustomResourceProxy struct {
 	TargetVirtualCluster string `json:"targetVirtualCluster,omitempty"`
 }
 
-type NamespacedNameArgs struct {
-	// Namespace is the namespace of the resource
-	Namespace string `json:"namespace,omitempty"`
-
-	// Name is the name of the resource
-	Name string `json:"name,omitempty"`
-}
-
 type ExternalEtcdPersistence struct {
 	// VolumeClaim can be used to configure the persistent volume claim.
 	VolumeClaim ExternalEtcdPersistenceVolumeClaim `json:"volumeClaim,omitempty"`
