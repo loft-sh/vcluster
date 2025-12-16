@@ -137,7 +137,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		return err
 	}
 
-	output, err := exec.Command(helmBinaryPath, "version", "--client", "--template", "{{.Version}}").Output()
+	output, err := exec.Command(helmBinaryPath, "version", "--template", "{{.Version}}").Output()
 	if err != nil {
 		return err
 	}
