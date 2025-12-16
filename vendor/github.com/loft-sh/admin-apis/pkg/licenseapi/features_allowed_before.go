@@ -14,7 +14,6 @@ var errNoAllowBefore = errors.New("feature not allowed before license's issued d
 // timestamp, the feature is allowed even if it is not explicitly included in the license.
 var featuresToAllowBefore = map[FeatureName]string{
 	ProjectQuotas: "2025-05-31T00:00:00Z",
-	DisablePlatformDB: "2025-09-09T00:00:00Z",
 }
 
 // GetFeaturesAllowedBefore returns list of features
@@ -22,7 +21,6 @@ var featuresToAllowBefore = map[FeatureName]string{
 func GetFeaturesAllowedBefore() []FeatureName {
 	return []FeatureName{
 		ProjectQuotas,
-		DisablePlatformDB,
 	}
 }
 
