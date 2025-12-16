@@ -1244,11 +1244,6 @@ experimental:
       manifestsTemplate: ""
       # Helm are Helm charts that should get deployed into the virtual cluster
       helm: []
-  
-  # Proxy enables vCluster-to-vCluster proxying of resources
-  proxy:
-    # CustomResources is a map of resource keys (format: "kind.apiGroup/version") to proxy configuration
-    customResources: {}
 
 # Configuration related to telemetry gathered about vCluster usage.
 telemetry:
