@@ -672,6 +672,9 @@ experimental:
       manifestsTemplate: ""
       helm: []
 
+  proxy:
+    customResources: {}
+
 telemetry:
   enabled: true
 
