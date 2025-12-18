@@ -296,6 +296,7 @@ type Deploy struct {
 	LocalPathProvisioner LocalPathProvisioner `json:"localPathProvisioner,omitempty"`
 
 	// IngressNginx holds dedicated ingress-nginx configuration.
+	// Deprecated: We do not deploy ingress nginx and the project is being deprecated.
 	IngressNginx IngressNginx `json:"ingressNginx,omitempty"`
 
 	// MetricsServer holds dedicated metrics server configuration.

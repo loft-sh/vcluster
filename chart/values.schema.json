@@ -1126,7 +1126,7 @@
         },
         "ingressNginx": {
           "$ref": "#/$defs/IngressNginx",
-          "description": "IngressNginx holds dedicated ingress-nginx configuration."
+          "description": "IngressNginx holds dedicated ingress-nginx configuration.\nDeprecated: We do not deploy ingress nginx and the project is being deprecated."
         },
         "metricsServer": {
           "$ref": "#/$defs/DeployMetricsServer",
