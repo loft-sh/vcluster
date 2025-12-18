@@ -2225,6 +2225,24 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "IPBlock": {
+      "properties": {
+        "cidr": {
+          "type": "string",
+          "description": "CIDR defines the allowed workload public egress destination.\nValid examples are \"0.0.0.0/0\", \"192.168.1.0/24\" or \"2001:db8::/64\""
+        },
+        "except": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Except is a slice of CIDRs that should not be included. Items outside the cidr range will be rejected.\nValid examples are \"192.168.1.0/24\" or \"2001:db8::/64\".\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "IPBlock describes a particular CIDR (Ex."
+    },
     "Image": {
       "properties": {
         "registry": {
@@ -2969,14 +2987,14 @@
       "properties": {
         "ingress": {
           "items": {
-            "type": "object"
+            "$ref": "#/$defs/NetworkPolicyIngressRule"
           },
           "type": "array",
           "description": "Ingress rules for the vCluster control plane."
         },
         "egress": {
           "items": {
-            "type": "object"
+            "$ref": "#/$defs/NetworkPolicyEgressRule"
           },
           "type": "array",
           "description": "Egress rules for the vCluster control plane."
@@ -2984,6 +3002,85 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "NetworkPolicyEgressRule": {
+      "properties": {
+        "ports": {
+          "items": {
+            "$ref": "#/$defs/NetworkPolicyPort"
+          },
+          "type": "array",
+          "description": "ports is a list of destination ports for outgoing traffic.\nEach item in this list is combined using a logical OR. If this field is\nempty or missing, this rule matches all ports (traffic not restricted by port).\nIf this field is present and contains at least one item, then this rule allows\ntraffic only if the traffic matches at least one port in the list.\n+optional\n+listType=atomic"
+        },
+        "to": {
+          "items": {
+            "$ref": "#/$defs/NetworkPolicyPeer"
+          },
+          "type": "array",
+          "description": "to is a list of destinations for outgoing traffic of pods selected for this rule.\nItems in this list are combined using a logical OR operation. If this field is\nempty or missing, this rule matches all destinations (traffic not restricted by\ndestination). If this field is present and contains at least one item, this rule\nallows traffic only if the traffic matches at least one item in the to list.\n+optional\n+listType=atomic"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "NetworkPolicyEgressRule describes a particular set of traffic that is allowed out of pods matched by a NetworkPolicySpec's podSelector."
+    },
+    "NetworkPolicyIngressRule": {
+      "properties": {
+        "ports": {
+          "items": {
+            "$ref": "#/$defs/NetworkPolicyPort"
+          },
+          "type": "array",
+          "description": "ports is a list of ports which should be made accessible on the pods selected for\nthis rule. Each item in this list is combined using a logical OR. If this field is\nempty or missing, this rule matches all ports (traffic not restricted by port).\nIf this field is present and contains at least one item, then this rule allows\ntraffic only if the traffic matches at least one port in the list.\n+optional\n+listType=atomic"
+        },
+        "from": {
+          "items": {
+            "$ref": "#/$defs/NetworkPolicyPeer"
+          },
+          "type": "array",
+          "description": "from is a list of sources which should be able to access the pods selected for this rule.\nItems in this list are combined using a logical OR operation. If this field is\nempty or missing, this rule matches all sources (traffic not restricted by\nsource). If this field is present and contains at least one item, this rule\nallows traffic only if the traffic matches at least one item in the from list.\n+optional\n+listType=atomic"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "NetworkPolicyIngressRule describes a particular set of traffic that is allowed to the pods matched by a NetworkPolicySpec's podSelector."
+    },
+    "NetworkPolicyPeer": {
+      "properties": {
+        "podSelector": {
+          "$ref": "#/$defs/StandardLabelSelector",
+          "description": "podSelector is a label selector which selects pods. This field follows standard label\nselector semantics; if present but empty, it selects all pods.\n\nIf namespaceSelector is also set, then the NetworkPolicyPeer as a whole selects\nthe pods matching podSelector in the Namespaces selected by NamespaceSelector.\nOtherwise it selects the pods matching podSelector in the policy's own namespace.\n+optional"
+        },
+        "namespaceSelector": {
+          "$ref": "#/$defs/StandardLabelSelector",
+          "description": "namespaceSelector selects namespaces using cluster-scoped labels. This field follows\nstandard label selector semantics; if present but empty, it selects all namespaces.\n\nIf podSelector is also set, then the NetworkPolicyPeer as a whole selects\nthe pods matching podSelector in the namespaces selected by namespaceSelector.\nOtherwise it selects all pods in the namespaces selected by namespaceSelector.\n+optional"
+        },
+        "ipBlock": {
+          "$ref": "#/$defs/IPBlock",
+          "description": "ipBlock defines policy on a particular IPBlock. If this field is set then\nneither of the other fields can be.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "NetworkPolicyPeer describes a peer to allow traffic to/from."
+    },
+    "NetworkPolicyPort": {
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "description": "protocol represents the protocol (TCP, UDP, or SCTP) which traffic must match.\nIf not specified, this field defaults to TCP.\n+optional"
+        },
+        "port": {
+          "description": "port represents the port on the given protocol. This can either be a numerical or named\nport on a pod. If this field is not provided, this matches all port names and\nnumbers.\nIf present, only traffic on the specified protocol AND port will be matched.\n+optional"
+        },
+        "endPort": {
+          "type": "integer",
+          "description": "endPort indicates that the range of ports from port to endPort if set, inclusive,\nshould be allowed by the policy. This field cannot be defined if the port field\nis not defined or if the port field is defined as a named (string) port.\nThe endPort must be equal or greater than port.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "NetworkPolicyPort describes a port to allow traffic on"
     },
     "NetworkPolicyWorkload": {
       "properties": {
@@ -2993,14 +3090,14 @@
         },
         "ingress": {
           "items": {
-            "type": "object"
+            "$ref": "#/$defs/NetworkPolicyIngressRule"
           },
           "type": "array",
           "description": "Ingress rules for the vCluster workloads."
         },
         "egress": {
           "items": {
-            "type": "object"
+            "$ref": "#/$defs/NetworkPolicyEgressRule"
           },
           "type": "array",
           "description": "Egress rules for the vCluster workloads."
