@@ -103,32 +103,48 @@ type ValueOrError struct {
 	Error error
 }
 
-func (c *client) ListStream(ctx context.Context, key string) <-chan *ValueOrError {
+func (c *client) ListStream(ctx context.Context, prefix string) <-chan *ValueOrError {
+	return listStream(ctx, prefix, c.c.Get)
+}
+
+func listStream(
+	ctx context.Context,
+	prefix string,
+	getFn func(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error),
+) <-chan *ValueOrError {
 	retChan := make(chan *ValueOrError, 1000)
 
-	originalKey := key
 	go func() {
 		defer close(retChan)
 
+		var revision int64
 		first := true
+		rangeEnd := clientv3.GetPrefixRangeEnd(prefix)
+		startKey := prefix
+
 		for {
-			options := []clientv3.OpOption{clientv3.WithRev(0), clientv3.WithLimit(1000)}
-			if first {
-				options = append(options, clientv3.WithPrefix())
-			} else {
-				options = append(options, clientv3.WithRange(string(getPrefix([]byte(originalKey)))))
+			options := []clientv3.OpOption{
+				clientv3.WithLimit(1000),
+				clientv3.WithRange(rangeEnd),
 			}
 
-			resp, err := c.c.Get(
-				ctx,
-				key,
-				options...,
-			)
+			if first {
+				// read at current revision
+				options = append(options, clientv3.WithRev(0))
+			} else {
+				options = append(options, clientv3.WithRev(revision))
+			}
+
+			resp, err := getFn(ctx, startKey, options...)
 			if err != nil {
 				retChan <- &ValueOrError{Error: err}
 				return
 			} else if len(resp.Kvs) == 0 {
 				return
+			}
+			if first {
+				revision = resp.Header.Revision
+				first = false
 			}
 
 			for _, kv := range resp.Kvs {
@@ -139,10 +155,10 @@ func (c *client) ListStream(ctx context.Context, key string) <-chan *ValueOrErro
 						Modified: kv.ModRevision,
 					},
 				}
-
-				key = string(kv.Key)
-				first = false
 			}
+			// move to the next page
+			// advance past last key to avoid duplicates
+			startKey = nextStartKey(resp.Kvs[len(resp.Kvs)-1].Key)
 
 			if !resp.More {
 				break
@@ -258,17 +274,11 @@ func (c *client) Close() error {
 	return c.c.Close()
 }
 
-func getPrefix(key []byte) []byte {
-	end := make([]byte, len(key))
-	copy(end, key)
-	for i := len(end) - 1; i >= 0; i-- {
-		if end[i] < 0xff {
-			end[i] = end[i] + 1
-			end = end[:i+1]
-			return end
-		}
-	}
-	// next prefix does not exist (e.g., 0xffff);
-	// default to WithFromKey policy
-	return []byte{0}
+func nextStartKey(key []byte) string {
+	b := make([]byte, len(key)+1)
+	copy(b, key)
+	// Compute the next lexicographic key strictly after the current one.
+	// Example: "foo" -> "foo\x00". This is used for snapshot pagination to avoid duplicate keys between pages.
+	b[len(key)] = 0x00
+	return string(b)
 }
