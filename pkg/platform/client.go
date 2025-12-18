@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
@@ -46,6 +47,8 @@ const (
 var (
 	Self     *managementv1.Self
 	selfOnce sync.Once
+
+	ErrInvalidAccessKey = errors.New("invalid access key")
 )
 
 type Client interface {
@@ -317,7 +320,7 @@ func (c *client) LoginWithAccessKey(host, accessKey string, insecure bool) error
 
 	platformConfig := c.Config().Platform
 	if platformConfig.Host == host && platformConfig.AccessKey == accessKey {
-		return nil
+		return c.mgmtLogin(host, accessKey, insecure)
 	}
 
 	// delete old access key if were logged in before
@@ -364,13 +367,22 @@ func (c *client) mgmtLogin(host, accessKey string, insecure bool) error {
 	if err != nil {
 		var urlError *url.Error
 		if errors.As(err, &urlError) && urlError != nil {
-			var err x509.UnknownAuthorityError
-			if errors.As(urlError.Err, &err) {
-				return fmt.Errorf(product.Replace("cannot log into a non https loft instance '%s', please make sure you have TLS enabled"), host)
+			var certErr *tls.CertificateVerificationError
+			if errors.As(urlError.Err, &certErr) {
+				return fmt.Errorf("%w: You may need to login again via `%s login %s --insecure` to allow self-signed certificates", certErr, os.Args[0], host)
+			}
+
+			// Note: CertificateVerificationError can wrap UnknownAuthorityError, so this check must come after.
+			var unknownAuthErr x509.UnknownAuthorityError
+			if errors.As(urlError.Err, &unknownAuthErr) {
+				if !strings.HasPrefix(host, "https") {
+					return fmt.Errorf(product.Replace("cannot log into a non https loft instance '%s', please make sure you have TLS enabled"), host)
+				}
+				return fmt.Errorf(product.Replace("cannot verify TLS certificate for '%s' because it is signed by an unknown authority. If you are using a self-signed certificate, login again via `%s login %s --insecure`"), host, os.Args[0], host)
 			}
 		}
 
-		return perrors.Errorf("error logging in: %v", err)
+		return fmt.Errorf("%w: %w", err, ErrInvalidAccessKey)
 	}
 
 	return nil
