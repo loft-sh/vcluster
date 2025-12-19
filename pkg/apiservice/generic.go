@@ -142,6 +142,31 @@ func createOperation(ctrlCtx *synccontext.ControllerContext, serviceName string,
 	}
 }
 
+func StartAPIServer(ctx *synccontext.ControllerContext, port int, h http.Handler) (*http.Server, error) {
+	tlsCertFile := ctx.Config.VirtualClusterKubeConfig().ServerCACert
+	tlsKeyFile := ctx.Config.VirtualClusterKubeConfig().ServerCAKey
+
+	h = genericapifilters.WithRequestInfo(h, &request.RequestInfoFactory{
+		APIPrefixes:          sets.NewString("api", "apis"),
+		GrouplessAPIPrefixes: sets.NewString("api"),
+	})
+
+	server := &http.Server{
+		Addr:    "localhost:" + strconv.Itoa(port),
+		Handler: h,
+	}
+
+	go func() {
+		klog.Infof("Starting API server on localhost:%d...", port)
+		if err := server.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil && err != http.ErrServerClosed {
+			klog.FromContext(ctx).Error(err, "error starting API server")
+			osutil.Exit(1)
+		}
+	}()
+
+	return server, nil
+}
+
 func StartAPIServiceProxy(
 	ctx *synccontext.ControllerContext,
 	targetServiceName,
@@ -150,9 +175,6 @@ func StartAPIServiceProxy(
 	hostPort int,
 	extraHandlers ...func(h http.Handler) http.Handler,
 ) error {
-	tlsCertFile := ctx.Config.VirtualClusterKubeConfig().ServerCACert
-	tlsKeyFile := ctx.Config.VirtualClusterKubeConfig().ServerCAKey
-
 	hostConfig := rest.CopyConfig(ctx.HostManager.GetConfig())
 	hostConfig.Host = "https://" + targetServiceName + "." + targetServiceNamespace
 	if targetPort > 0 {
@@ -179,26 +201,8 @@ func StartAPIServiceProxy(
 		h = extraHandler(h)
 	}
 
-	h = genericapifilters.WithRequestInfo(h, &request.RequestInfoFactory{
-		APIPrefixes:          sets.NewString("api", "apis"),
-		GrouplessAPIPrefixes: sets.NewString("api"),
-	})
-
-	server := &http.Server{
-		Addr:    "localhost:" + strconv.Itoa(hostPort),
-		Handler: h,
-	}
-
-	go func() {
-		klog.Infof("Listening apiservice proxy on localhost:%d...", hostPort)
-		err = server.ListenAndServeTLS(tlsCertFile, tlsKeyFile)
-		if err != nil {
-			klog.FromContext(ctx).Error(err, "error listening for apiservice proxy and serve tls")
-			osutil.Exit(1)
-		}
-	}()
-
-	return nil
+	_, err = StartAPIServer(ctx, hostPort, h)
+	return err
 }
 
 func serveHandler(ctx context.Context, next http.Handler) http.Handler {

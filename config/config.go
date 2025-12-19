@@ -2400,6 +2400,19 @@ type ControlPlaneHeadlessService struct {
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
+type Proxy struct {
+	// CustomResources is a map of resource keys (format: "kind.apiGroup/version") to proxy configuration
+	CustomResources map[string]CustomResourceProxy `json:"customResources,omitempty"`
+}
+
+type CustomResourceProxy struct {
+	// Enabled defines if this resource proxy should be enabled
+	Enabled bool `json:"enabled,omitempty"`
+
+	// TargetVirtualCluster is the target virtual cluster for the custom resource proxy
+	TargetVirtualCluster string `json:"targetVirtualCluster,omitempty"`
+}
+
 type ExternalEtcdPersistence struct {
 	// VolumeClaim can be used to configure the persistent volume claim.
 	VolumeClaim ExternalEtcdPersistenceVolumeClaim `json:"volumeClaim,omitempty"`
@@ -3089,6 +3102,9 @@ type Experimental struct {
 
 	// DenyProxyRequests denies certain requests in the vCluster proxy.
 	DenyProxyRequests []DenyRule `json:"denyProxyRequests,omitempty" product:"pro"`
+
+	// Proxy enables vCluster-to-vCluster proxying of resources
+	Proxy Proxy `json:"proxy,omitempty"`
 }
 
 func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {

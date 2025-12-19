@@ -1024,6 +1024,20 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CustomResourceProxy": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this resource proxy should be enabled"
+        },
+        "targetVirtualCluster": {
+          "type": "string",
+          "description": "TargetVirtualCluster is the target virtual cluster for the custom resource proxy"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Database": {
       "properties": {
         "embedded": {
@@ -1764,6 +1778,10 @@
           "type": "array",
           "description": "DenyProxyRequests denies certain requests in the vCluster proxy.",
           "pro": true
+        },
+        "proxy": {
+          "$ref": "#/$defs/Proxy",
+          "description": "Proxy enables vCluster-to-vCluster proxying of resources"
         }
       },
       "additionalProperties": false,
@@ -3622,6 +3640,19 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled defines if the node to node vpn should be enabled."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Proxy": {
+      "properties": {
+        "customResources": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CustomResourceProxy"
+          },
+          "type": "object",
+          "description": "CustomResources is a map of resource keys (format: \"kind.apiGroup/version\") to proxy configuration"
         }
       },
       "additionalProperties": false,

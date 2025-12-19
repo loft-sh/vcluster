@@ -43,15 +43,23 @@ func impersonate(rw http.ResponseWriter, req *http.Request, prefix string, cfg *
 	handler.ServeHTTP(rw, req)
 }
 
-type responder struct{}
+type ErrorResponder interface {
+	Error(w http.ResponseWriter, req *http.Request, err error)
+}
 
-func (r *responder) Error(w http.ResponseWriter, _ *http.Request, err error) {
+type defaultResponder struct{}
+
+func (r *defaultResponder) Error(w http.ResponseWriter, _ *http.Request, err error) {
 	klog.Errorf("Error while proxying request: %v", err)
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
-// Mostly copied from "kubectl proxy" code
 func Handler(prefix string, cfg *rest.Config, transport http.RoundTripper) (http.Handler, error) {
+	return HandlerWithErrorResponder(prefix, cfg, transport, &defaultResponder{})
+}
+
+// Mostly copied from "kubectl proxy" code
+func HandlerWithErrorResponder(prefix string, cfg *rest.Config, transport http.RoundTripper, responder ErrorResponder) (http.Handler, error) {
 	host := cfg.Host
 	if !strings.HasSuffix(host, "/") {
 		host = host + "/"
@@ -73,7 +81,9 @@ func Handler(prefix string, cfg *rest.Config, transport http.RoundTripper) (http
 		return nil, err
 	}
 
-	responder := &responder{}
+	if responder == nil {
+		responder = &defaultResponder{}
+	}
 	proxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, responder)
 	proxy.UpgradeTransport = upgradeTransport
 	proxy.UseRequestLocation = true
