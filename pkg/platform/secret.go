@@ -209,7 +209,7 @@ func getAccessKey(ctx context.Context, kubeClient kubernetes.Interface, platform
 	}
 
 	// try with the regular name first
-	created, accessKey, createdName, err := createWithName(ctx, managementClient, project, vName)
+	created, accessKey, createdName, err := CreateWithName(ctx, managementClient, project, vName)
 	if err != nil {
 		return "", "", fmt.Errorf("error creating platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 	} else if created {
@@ -220,7 +220,7 @@ func getAccessKey(ctx context.Context, kubeClient kubernetes.Interface, platform
 
 	// try with random name
 	vName += "-" + random.String(5)
-	created, accessKey, createdName, err = createWithName(ctx, managementClient, project, vName)
+	created, accessKey, createdName, err = CreateWithName(ctx, managementClient, project, vName)
 	if err != nil {
 		return "", "", fmt.Errorf("error creating platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 	} else if !created {
@@ -293,7 +293,7 @@ func getLegacyAccessKeyHost(ctx context.Context, platformClient Client) (string,
 	return platformConfig.VirtualClusterAccessKey, nil
 }
 
-func createWithName(ctx context.Context, managementClient kube.Interface, project string, name string) (bool, string, string, error) {
+func CreateWithName(ctx context.Context, managementClient kube.Interface, project string, name string) (bool, string, string, error) {
 	namespace := projectutil.ProjectNamespace(project)
 	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {

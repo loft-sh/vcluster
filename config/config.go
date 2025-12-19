@@ -3124,6 +3124,9 @@ type Experimental struct {
 
 	// Proxy enables vCluster-to-vCluster proxying of resources
 	Proxy Proxy `json:"proxy,omitempty"`
+
+	// Docker allows you to configure Docker related settings when deploying a vCluster using Docker.
+	Docker ExperimentalDocker `json:"docker,omitempty"`
 }
 
 func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
@@ -3143,6 +3146,37 @@ type ExperimentalSyncSettings struct {
 
 func (e ExperimentalSyncSettings) JSONSchemaExtend(base *jsonschema.Schema) {
 	addProToJSONSchema(base, reflect.TypeOf(e))
+}
+
+type ExperimentalDocker struct {
+	ExperimentalDockerContainer `json:",inline"`
+
+	// Nodes defines the nodes of the vCluster.
+	Nodes []ExperimentalDockerNode `json:"nodes,omitempty"`
+}
+
+type ExperimentalDockerNode struct {
+	ExperimentalDockerContainer `json:",inline"`
+
+	// Name defines the name of the node. If not specified, a random name will be generated.
+	Name string `json:"name,omitempty"`
+}
+
+type ExperimentalDockerContainer struct {
+	// Image defines the image to use for the container. Defaults to ghcr.io/loft-sh/vm-container.
+	Image string `json:"image,omitempty"`
+
+	// Ports defines extra port mappings to be added to the container.
+	Ports []string `json:"ports,omitempty"`
+
+	// Volumes defines extra volumes to be added to the container.
+	Volumes []string `json:"volumes,omitempty"`
+
+	// Env defines extra environment variables to be added to the container. Use key=value.
+	Env []string `json:"env,omitempty"`
+
+	// Args defines extra arguments to be added to the docker run command of the container.
+	Args []string `json:"args,omitempty"`
 }
 
 type ExperimentalDeploy struct {
