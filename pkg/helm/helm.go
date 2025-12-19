@@ -243,7 +243,7 @@ func (c *client) logout(ctx context.Context, options UpgradeOptions) {
 }
 
 func (c *client) execute(ctx context.Context, args []string, operation string, workdir string) error {
-	c.log.Info("execute command: helm " + strings.Join(args, " "))
+	c.log.Debug("execute command: helm " + strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, c.helmPath, args...)
 
 	if workdir != "" {
