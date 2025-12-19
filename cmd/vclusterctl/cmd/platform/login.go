@@ -119,14 +119,21 @@ func (cmd *LoginCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// log into platform
+	var err error
 	loginClient := platform.NewLoginClientFromConfig(cfg)
 	url = strings.TrimSuffix(url, "/")
-	var err error
 	if cmd.AccessKey != "" {
 		err = loginClient.LoginWithAccessKey(url, cmd.AccessKey, cmd.Insecure)
 	} else if cfg.Platform.AccessKey != "" && cfg.Platform.Host == url {
 		// check if user was already logged in i.e. config contains the access key for the same host
-		err = loginClient.LoginWithAccessKey(url, cfg.Platform.AccessKey, cmd.Insecure)
+		if loginErr := loginClient.LoginWithAccessKey(url, cfg.Platform.AccessKey, cmd.Insecure); loginErr != nil {
+			if errors.Is(loginErr, platform.ErrInvalidAccessKey) {
+				cmd.Log.Warnf("Invalid access key, attempting to login again...")
+				err = loginClient.Login(url, cmd.Insecure, cmd.Log)
+			} else {
+				err = loginErr
+			}
+		}
 	} else {
 		err = loginClient.Login(url, cmd.Insecure, cmd.Log)
 	}
