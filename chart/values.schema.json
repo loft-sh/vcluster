@@ -1033,6 +1033,10 @@
         "targetVirtualCluster": {
           "type": "string",
           "description": "TargetVirtualCluster is the target virtual cluster for the custom resource proxy"
+        },
+        "accessResources": {
+          "type": "string",
+          "description": "AccessResources defines which resources should be accessible in the proxy."
         }
       },
       "additionalProperties": false,

@@ -2405,12 +2405,22 @@ type Proxy struct {
 	CustomResources map[string]CustomResourceProxy `json:"customResources,omitempty"`
 }
 
+type AccessResourcesMode string
+
+const (
+	AccessResourcesModeOwned AccessResourcesMode = "owned"
+	AccessResourcesModeAll   AccessResourcesMode = "all"
+)
+
 type CustomResourceProxy struct {
 	// Enabled defines if this resource proxy should be enabled
 	Enabled bool `json:"enabled,omitempty"`
 
 	// TargetVirtualCluster is the target virtual cluster for the custom resource proxy
 	TargetVirtualCluster string `json:"targetVirtualCluster,omitempty"`
+
+	// AccessResources defines which resources should be accessible in the proxy.
+	AccessResources AccessResourcesMode `json:"accessResources,omitempty"`
 }
 
 type ExternalEtcdPersistence struct {
