@@ -102,8 +102,16 @@ func New() *License {
 						Name:        "vcp-distro-private-nodes",
 					},
 					{
+						DisplayName: "External Database RDS IAM Authentication",
+						Name:        "external-database-rds-iam",
+					},
+					{
 						DisplayName: "Database Connector",
 						Name:        "connector-external-database",
+					},
+					{
+						DisplayName: "EKS Pod Identity for External Database Connections",
+						Name:        "connector-external-database-eks-pod-identity",
 					},
 					{
 						DisplayName: "SleepMode",
@@ -244,6 +252,10 @@ func New() *License {
 					{
 						DisplayName: "Standalone",
 						Name:        "standalone",
+					},
+					{
+						DisplayName: "Netris",
+						Name:        "netris",
 					},
 				},
 			},
