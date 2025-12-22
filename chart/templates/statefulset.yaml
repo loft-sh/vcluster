@@ -56,6 +56,10 @@ spec:
 {{ toYaml .Values.controlPlane.statefulSet.pods.labels | indent 8 }}
         {{- end }}
     spec:
+      {{- if .Values.controlPlane.statefulSet.hostAliases }}
+      hostAliases:
+      {{- toYaml .Values.controlPlane.statefulSet.hostAliases | nindent 8 }}
+      {{- end }}
       terminationGracePeriodSeconds: 15
       {{- if .Values.controlPlane.statefulSet.scheduling.priorityClassName }}
       priorityClassName: {{ .Values.controlPlane.statefulSet.scheduling.priorityClassName }}

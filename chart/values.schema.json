@@ -862,6 +862,13 @@
           "items": true,
           "type": "array",
           "description": "SidecarContainers are additional sidecar containers for the statefulSet."
+        },
+        "hostAliases": {
+          "items": {
+            "$ref": "#/$defs/HostAlias"
+          },
+          "type": "array",
+          "description": "HostAliases allows you to add custom entries to the /etc/hosts file of each Pod created."
         }
       },
       "additionalProperties": false,
@@ -2207,6 +2214,21 @@
           },
           "type": "object",
           "description": "ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.\nThere are several wildcards supported:\n1. To match all objects in host namespace and sync them to different namespace in vCluster:\nbyName:\n  \"foo/*\": \"foo-in-virtual/*\"\n2. To match specific object in the host namespace and sync it to the same namespace with the same name:\nbyName:\n  \"foo/my-object\": \"foo/my-object\"\n3. To match specific object in the host namespace and sync it to the same namespace with different name:\nbyName:\n  \"foo/my-object\": \"foo/my-virtual-object\"\n4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nbyName:\n  \"\": \"my-virtual-namespace/*\"\n5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nbyName:\n  \"/my-object\": \"my-virtual-namespace/my-object\""
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "HostAlias": {
+      "properties": {
+        "ip": {
+          "type": "string"
+        },
+        "hostnames": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,

@@ -12,6 +12,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 	yamlv3 "gopkg.in/yaml.v3"
+	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -1859,6 +1860,9 @@ type ControlPlaneStatefulSet struct {
 
 	// SidecarContainers are additional sidecar containers for the statefulSet.
 	SidecarContainers []interface{} `json:"sidecarContainers,omitempty"`
+
+	// HostAliases allows you to add custom entries to the /etc/hosts file of each Pod created.
+	HostAliases []corev1.HostAlias `json:"hostAliases,omitempty"`
 }
 
 type Distro struct {
