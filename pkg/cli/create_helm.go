@@ -23,7 +23,6 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
-	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -35,7 +34,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/config/legacyconfig"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
@@ -213,55 +211,16 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		if err != nil {
 			return err
 		}
-		// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
-		if release != nil && release.Chart != nil && release.Chart.Metadata != nil && isLegacyVCluster(release.Chart.Metadata.Version) {
-			// If we have a < v0.20 virtual cluster running we have to infer the distro from the current chart name.
-			currentDistro := strings.TrimPrefix(release.Chart.Metadata.Name, "vcluster-")
-			// If we are upgrading a vCluster < v0.20 the old k3s chart is the one without a prefix.
-			if currentDistro == "vcluster" {
-				currentDistro = config.K3SDistro
-			}
-			// Early abort if a user runs a virtual cluster < v0.20 without providing any values files during an upgrade.
-			// We do this because we don't want to "automagically" convert the old config implicitly, without the user
-			// realizing that the virtual cluster is running with the old config format.
-			if len(cmd.Values) == 0 {
-				helmCommand := fmt.Sprintf("helm -n %s get values %s -o yaml", cmd.Namespace, vClusterName)
-				if currentValues == "" {
-					helmCommand = fmt.Sprintf("%s -a", helmCommand)
-				}
-
-				command := fmt.Sprintf("%s | vcluster convert config --distro %s", helmCommand, currentDistro)
-				return fmt.Errorf("it appears you are using a vCluster configuration using pre-v0.20 formatting. Please run the following to convert the values to the latest format:\n%s", command)
-			}
-
-			// At this point the user did pass a config file.
-			// We have to convert the current old vcluster config to the new format in order to be able validate it against the passed in vcluster configs below.
-			migratedValues, err := legacyconfig.MigrateLegacyConfig(currentDistro, currentValues)
-			// TODO(johannesfrey): Let's log here all unsupported fields that have been discovered during the migration.
-			if err != nil {
-				// If the user previously used values that are now unsupported create a fresh config for the given distro.
-				migratedValues, err = legacyconfig.MigrateLegacyConfig(currentDistro, "")
-				if err != nil {
-					return err
-				}
-			}
-			if err := currentVClusterConfig.UnmarshalYAMLStrict([]byte(migratedValues)); err != nil {
-				return err
-			}
-		} else {
-			// When a vCluster is not legacy, there should be a config secret and we will fetch the values from the secret
-			currentVClusterConfig, err = getConfigfileFromSecret(ctx, vClusterName, cmd.Namespace)
-			if err != nil {
-				return err
-			}
+		currentVClusterConfig, err = getConfigfileFromSecret(ctx, vClusterName, cmd.Namespace)
+		if err != nil {
+			return err
 		}
 
 		if len(cmd.Values) == 0 {
-			if err := confirmExperimental(currentVClusterConfig, currentValues, log); err != nil {
+			if err := confirmConfigIncompatibility(currentVClusterConfig, currentValues, log); err != nil {
 				return err
 			}
 		}
-		// TODO end
 	}
 
 	// build extra values
@@ -424,12 +383,16 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 }
 
 var advisors = map[string]func() (warning string){
-	"sleepMode": sleepmode.Warning,
+	"sleepMode":    sleepmode.Warning,
+	"platform":     config.WarningPlatform,
+	"autoDelete":   config.WarningAutoDelete,
+	"autoSleep":    config.WarningAutoSleep,
+	"autoSnapshot": config.WarningAutoSnapshot,
 }
 
-func confirmExperimental(currentVClusterConfig *config.Config, currentValues string, log log.Logger) error {
+func confirmConfigIncompatibility(currentVClusterConfig *config.Config, currentValues string, log log.Logger) error {
 	if err := currentVClusterConfig.UnmarshalYAMLStrict([]byte(currentValues)); err != nil {
-		warning := config.ExperimentalWarning(log, []byte(currentValues), advisors)
+		warning := config.ConfigStructureWarning(log, []byte(currentValues), advisors)
 		if warning == "" {
 			warning = "The current configuration is not compatible with the version you're upgrading to."
 		}
@@ -437,7 +400,7 @@ func confirmExperimental(currentVClusterConfig *config.Config, currentValues str
 		log.Warn(warning)
 		if terminal.IsTerminalIn {
 			answer, qErr := log.Question(&survey.QuestionOptions{
-				Question:     "Formly experimental features that aren't manually migrated will be lost. Would you like to proceed?",
+				Question:     "The vCluster configuration structure has changed. Features that aren't manually migrated will be lost. Would you like to proceed?",
 				DefaultValue: "no",
 				Options:      []string{"no", "yes, I'll update my configuration later"},
 			})
@@ -465,35 +428,19 @@ func (cmd *createHelm) parseVClusterYAML(chartValues string) (*config.Config, er
 	// parse config
 	vClusterConfig := &config.Config{}
 	if err := vClusterConfig.UnmarshalYAMLStrict([]byte(finalValues)); err != nil {
-		oldValues, mergeErr := mergeAllValues(cmd.SetValues, cmd.Values, "")
-		if mergeErr != nil {
-			return nil, fmt.Errorf("merge values: %w", mergeErr)
-		}
-
-		// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
-		// It also might be a legacy config, so we try to parse it as such.
-		// We cannot discriminate between eks/k8s. So we cannot prompt the actual values to convert, as this would cause false positives,
-		// because users are free to e.g. pass a eks values file to a currently running k8s virtual cluster.
-		if isLegacyConfig([]byte(oldValues)) {
-			return nil, fmt.Errorf("it appears you are using a vCluster configuration using pre-v0.20 formatting. Please run %q to convert the values to the latest format", "vcluster convert config --distro <distro> -f /path/to/vcluster.yaml")
-		}
-
-		// TODO end
-		return nil, err
+		return nil, fmt.Errorf("merge values: %w", err)
 	}
 
 	return vClusterConfig, nil
 }
 
 func (cmd *createHelm) addVCluster(ctx context.Context, name string, vClusterConfig *config.Config) error {
-	platformConfig, err := vClusterConfig.GetPlatformConfig()
-	if err != nil {
-		return fmt.Errorf("get platform config: %w", err)
-	} else if platformConfig.APIKey.SecretName != "" || platformConfig.APIKey.Namespace != "" {
+	platformConfig := vClusterConfig.GetPlatformConfig()
+	if platformConfig.APIKey.SecretName != "" || platformConfig.APIKey.Namespace != "" {
 		return nil
 	}
 
-	_, err = platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
+	_, err := platform.InitClientFromConfig(ctx, cmd.LoadedConfig(cmd.log))
 	if err != nil {
 		if vClusterConfig.IsProFeatureEnabled() {
 			return fmt.Errorf("you have vCluster pro features enabled, but seems like you are not logged in (%w). Please make sure to log into vCluster Platform to use vCluster pro features or run this command with --add=false", err)
@@ -535,14 +482,6 @@ func isVClusterDeployed(release *helm.Release) bool {
 		release.Secret.Labels["status"] == "deployed"
 }
 
-// TODO Delete after vCluster 0.19.x resp. the old config format is out of support.
-func isLegacyVCluster(version string) bool {
-	if version == upgrade.DevelopmentVersion {
-		return false
-	}
-	return semver.Compare("v"+version, "v0.20.0-alpha.0") == -1
-}
-
 func validateHABackingStoreCompatibility(config *config.Config) error {
 	if !config.EmbeddedDatabase() {
 		return nil
@@ -552,20 +491,6 @@ func validateHABackingStoreCompatibility(config *config.Config) error {
 	}
 	return fmt.Errorf("cannot use default embedded database (sqlite) in high availability mode. Try embedded etcd backing store instead")
 }
-
-func isLegacyConfig(values []byte) bool {
-	cfg := legacyconfig.LegacyK3s{}
-	if err := cfg.UnmarshalYAMLStrict(values); err != nil {
-		// Try to parse it as k8s/eks
-		cfg := legacyconfig.LegacyK8s{}
-		if err := cfg.UnmarshalYAMLStrict(values); err != nil {
-			return false
-		}
-	}
-	return true
-}
-
-// TODO end
 
 // helmValuesYAML returns the extraValues from the helm release in yaml format.
 // If the extra values in the chart are nil it returns an empty string.

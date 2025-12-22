@@ -14,6 +14,7 @@ import (
 // +genclient:method=GetExternalDatabase,verb=create,subresource=externaldatabase,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterExternalDatabase,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterExternalDatabase
 // +genclient:method=GetNodeAccessKey,verb=create,subresource=nodeaccesskey,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterNodeAccessKey,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterNodeAccessKey
 // +genclient:method=GetStandaloneETCDPeers,verb=create,subresource=standalone,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterStandalone,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterStandalone
+// +genclient:method=GetShellPod,verb=create,subresource=shell,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterInstanceShell,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterInstanceShell
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // VirtualClusterInstance holds the VirtualClusterInstance information
@@ -27,6 +28,7 @@ import (
 // +subresource:request=VirtualClusterStandalone,path=standalone,kind=VirtualClusterStandalone,rest=VirtualClusterStandaloneREST
 // +subresource:request=VirtualClusterInstanceSnapshot,path=snapshot,kind=VirtualClusterInstanceSnapshot,rest=VirtualClusterInstanceSnapshotREST
 // +subresource:request=VirtualClusterInstanceShell,path=shell,kind=VirtualClusterInstanceShell,rest=VirtualClusterInstanceShellREST
+// +subresource:request=VirtualClusterResourceUsage,path=resourceusage,kind=VirtualClusterResourceUsage,rest=VirtualClusterResourceUsageREST
 type VirtualClusterInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

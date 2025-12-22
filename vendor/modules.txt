@@ -594,7 +594,7 @@ github.com/liggitt/tabwriter
 # github.com/lithammer/dedent v1.1.0
 ## explicit
 github.com/lithammer/dedent
-# github.com/loft-sh/admin-apis v0.0.0-20250923191853-0998210fade9
+# github.com/loft-sh/admin-apis v0.0.0-20251017051510-355f1c3f8fa7
 ## explicit; go 1.21.1
 github.com/loft-sh/admin-apis/pkg/licenseapi
 # github.com/loft-sh/agentapi/v4 v4.5.0-alpha.10
@@ -609,7 +609,7 @@ github.com/loft-sh/agentapi/v4/pkg/clientset/versioned/typed/storage/v1
 # github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 ## explicit; go 1.21
 github.com/loft-sh/analytics-client/client
-# github.com/loft-sh/api/v4 v4.5.0-alpha.10
+# github.com/loft-sh/api/v4 v4.5.0-alpha.10 => ../loft-enterprise-external-platform/staging/src/github.com/loft-sh/api/v4
 ## explicit; go 1.24.0
 github.com/loft-sh/api/v4/pkg/apis/audit/v1
 github.com/loft-sh/api/v4/pkg/apis/management
@@ -626,6 +626,7 @@ github.com/loft-sh/api/v4/pkg/clientset/versioned/typed/storage/v1
 github.com/loft-sh/api/v4/pkg/clientset/versioned/typed/virtualcluster/v1
 github.com/loft-sh/api/v4/pkg/managerfactory
 github.com/loft-sh/api/v4/pkg/product
+github.com/loft-sh/api/v4/pkg/vclusterconfig
 # github.com/loft-sh/apiserver v0.0.0-20250910060242-4b9f3ffe0646
 ## explicit; go 1.24.0
 github.com/loft-sh/apiserver/pkg/builders
@@ -2489,3 +2490,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/kyaml
+# github.com/loft-sh/api/v4 => ../loft-enterprise-external-platform/staging/src/github.com/loft-sh/api/v4

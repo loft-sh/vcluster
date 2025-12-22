@@ -295,14 +295,12 @@ github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de h1:9TO3cAIGXtEhn
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de/go.mod h1:zAbeS9B/r2mtpb6U+EI2rYA5OAXxsYw6wTamcNW+zcE=
 github.com/lithammer/dedent v1.1.0 h1:VNzHMVCBNG1j0fh3OrsFRkVUwStdDArbgBWoPAffktY=
 github.com/lithammer/dedent v1.1.0/go.mod h1:jrXYCQtgg0nJiN+StA2KgR7w6CiQNv9Fd/Z9BP0jIOc=
-github.com/loft-sh/admin-apis v0.0.0-20250923191853-0998210fade9 h1:ifHh06CRNzg0Ff2rDekGDuYYAY39wMRpBU9Ym5TxXSI=
-github.com/loft-sh/admin-apis v0.0.0-20250923191853-0998210fade9/go.mod h1:WHCqWfljfD1hkwk41hLeqBhW2yeLvWipB1sH6vfnR7U=
+github.com/loft-sh/admin-apis v0.0.0-20251017051510-355f1c3f8fa7 h1:118uyjen7cgXFb3DENmkVd9/Fstlf5KQNxx81L3Qqns=
+github.com/loft-sh/admin-apis v0.0.0-20251017051510-355f1c3f8fa7/go.mod h1:WHCqWfljfD1hkwk41hLeqBhW2yeLvWipB1sH6vfnR7U=
 github.com/loft-sh/agentapi/v4 v4.5.0-alpha.10 h1:QK+lMUuZ7c8qWDWISyumaTxc7dTDjmttNCE3RiRE/T8=
 github.com/loft-sh/agentapi/v4 v4.5.0-alpha.10/go.mod h1:eK66Ey/Zcx9LHjnCHSho1C0HTlf4jjyEUaCwP/9QNn8=
 github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e h1:JcPnMaoczikvpasi8OJ47dCkWZjfgFubWa4V2SZo7h0=
 github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e/go.mod h1:FFWcGASyM2QlWTDTCG/WBVM/XYr8btqYt335TFNRCFg=
-github.com/loft-sh/api/v4 v4.5.0-alpha.10 h1:pcPkIAqPSJWZ+DB+9j7rBXb8iClHAMeh0QZC6Tiw6vA=
-github.com/loft-sh/api/v4 v4.5.0-alpha.10/go.mod h1:GzkHPh5gRBOjrYYQt1evksEdlBpB/FUvDYN7nL/sfJU=
 github.com/loft-sh/apiserver v0.0.0-20250910060242-4b9f3ffe0646 h1:ZWOAMcsIZN4GKESwZBWU1+uepe+L8owmrkJDe5j4KlE=
 github.com/loft-sh/apiserver v0.0.0-20250910060242-4b9f3ffe0646/go.mod h1:hLlplUgCm+KDLoTVfSNTGQSBx/fhsTxu5m8d1LBUXKA=
 github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364 h1:vSuqHqh4w2zrG+WvnyH64JAUhX+Bou19n0gvCrPirOs=
