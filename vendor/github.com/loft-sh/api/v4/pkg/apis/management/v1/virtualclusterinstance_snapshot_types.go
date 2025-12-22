@@ -78,9 +78,8 @@ type VolumeSnapshotsRequestStatus struct {
 
 // SnapshotStatus shows the current status of a single PVC snapshot.
 type VolumeSnapshotRequestStatus struct {
-	Phase          string               `json:"phase,omitempty"`
-	SnapshotHandle string               `json:"snapshotHandle,omitempty"`
-	Error          SnapshotRequestError `json:"error"`
+	Phase string               `json:"phase,omitempty"`
+	Error SnapshotRequestError `json:"error"`
 }
 
 // SnapshotError describes the error that occurred while taking the snapshot.
