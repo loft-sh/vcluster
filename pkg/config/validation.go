@@ -295,10 +295,7 @@ func validatePatches(patchesValidation ...patchesValidation) error {
 }
 
 func ValidatePlatformProject(ctx context.Context, config *config.Config, loadedConfig *cliconfig.CLI) error {
-	platformConfig, err := config.GetPlatformConfig()
-	if err != nil {
-		return fmt.Errorf("get platform config: %w", err)
-	}
+	platformConfig := config.GetPlatformConfig()
 	if platformConfig.Project != "" {
 		management, err := platform.NewClientFromConfig(loadedConfig).Management()
 		if err != nil {
