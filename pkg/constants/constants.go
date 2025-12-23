@@ -6,8 +6,9 @@ var (
 	K3sKineEndpoint   = "unix:///data/server/kine.sock"
 	K3sSqliteDatabase = "/data/server/db/state.db"
 
-	DataDir = "/data"
-	PKIDir  = filepath.Join(DataDir, "pki")
+	DataDir           = "/data"
+	StandaloneDataDir = "/var/lib/vcluster"
+	PKIDir            = filepath.Join(DataDir, "pki")
 
 	K8sKineEndpoint   = "unix://" + filepath.Join(DataDir, "kine.sock")
 	K8sSqliteDatabase = filepath.Join(DataDir, "state.db")
@@ -44,6 +45,9 @@ var (
 
 	// DefaultVClusterConfigLocation is the default location of the vCluster config within the container
 	DefaultVClusterConfigLocation = "/var/lib/vcluster/config.yaml"
+
+	// StandaloneDefaultVClusterConfigLocation is the default location of the vCluster config within the container
+	StandaloneDefaultVClusterConfigLocation = "/etc/vcluster/vcluster.yaml"
 
 	// VClusterNamespaceInHostMappingSpecialCharacter is an empty string that mean vCluster host namespace
 	// in the config.sync.fromHost.*.selector.mappings

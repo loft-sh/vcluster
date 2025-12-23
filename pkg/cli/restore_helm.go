@@ -31,7 +31,18 @@ func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags,
 	return restoreVCluster(ctx, kubeClient, restConfig, vCluster, snapshot, pod, newVCluster, restoreVolumes, log)
 }
 
-func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshot *snapshot.Options, podOptions *pod.Options, newVCluster bool, restoreVolumes bool, log log.Logger) error {
+func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshotOptions *snapshot.Options, podOptions *pod.Options, newVCluster bool, restoreVolumes bool, log log.Logger) error {
+	if vCluster.IsStandalone {
+		restoreClient := &snapshot.RestoreClient{}
+
+		restoreClient.VClusterName = vCluster.Name
+		restoreClient.Snapshot = *snapshotOptions
+		restoreClient.NewVCluster = newVCluster
+		restoreClient.RestoreVolumes = restoreVolumes
+
+		return restoreClient.Run(ctx)
+	}
+
 	// pause vCluster
 	log.Infof("Pausing vCluster %s", vCluster.Name)
 	err := pauseVCluster(ctx, kubeClient, vCluster, log)
@@ -57,7 +68,7 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 		command = append(command, "--restore-volumes")
 	}
 
-	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOptions, snapshot, log)
+	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOptions, snapshotOptions, log)
 }
 
 func pauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) error {

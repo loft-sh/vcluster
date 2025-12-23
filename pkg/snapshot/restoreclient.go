@@ -46,6 +46,7 @@ type RestoreClient struct {
 	snapshotRequest Request
 	Snapshot        Options
 	RestoreVolumes  bool
+	VClusterName    string
 
 	NewVCluster bool
 	vConfig     *config.VirtualClusterConfig
@@ -118,10 +119,26 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
 	encoder := protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
 
+	name := os.Getenv("VCLUSTER_NAME")
+	if name == "" {
+		name = o.VClusterName
+	}
+
 	// parse vCluster config
-	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
+	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, name, nil)
 	if err != nil {
-		return err
+		if os.IsNotExist(err) {
+			vConfig, err = config.ParseConfig(constants.StandaloneDefaultVClusterConfigLocation, name, nil)
+			if err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("failed to parse vCluster config: %w", err)
+		}
+	}
+
+	if vConfig.ControlPlane.Standalone.Enabled {
+		vConfig.HostNamespace = "kube-system"
 	}
 
 	// make sure to validate options
@@ -264,17 +281,16 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *config.VirtualClusterConfig, value []byte) error {
 	klog.V(1).Infof("Found snapshot request object %s", string(value))
 	var err error
+
 	if vConfig.HostConfig == nil || vConfig.HostNamespace == "" {
 		// init the clients
 		vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
 		if err != nil {
-			return fmt.Errorf("failed to init client config: %w", err)
-		}
-	}
-	if vConfig.HostClient == nil {
-		err = setupconfig.InitClients(vConfig)
-		if err != nil {
-			return fmt.Errorf("failed to init clients: %w", err)
+			if vConfig.ControlPlane.Standalone.Enabled && os.IsNotExist(err) {
+				vConfig.HostNamespace = "kube-system"
+			} else {
+				return fmt.Errorf("failed to init client config: %w", err)
+			}
 		}
 	}
 
@@ -286,35 +302,57 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 	klog.Infof("Found snapshot request: %s", snapshotRequest.Name)
 	o.snapshotRequest = snapshotRequest
 
-	// first create the snapshot options Secret
-	secret, err := CreateSnapshotOptionsSecret(constants.RestoreRequestLabel, vConfig.HostNamespace, vConfig.Name, &o.Snapshot)
+	restoreRequest, err := CreateRestoreRequestResources(ctx, vConfig.HostNamespace, vConfig.Name, vConfig, &o.Snapshot, snapshotRequest)
 	if err != nil {
-		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+		return fmt.Errorf("failed to create restore request: %w", err)
 	}
-	secret.GenerateName = fmt.Sprintf("%s-restore-request-", vConfig.Name)
-	secret, err = vConfig.HostClient.CoreV1().Secrets(vConfig.HostNamespace).Create(ctx, secret, metav1.CreateOptions{})
+	klog.Infof("Created restore request: %s/%s", vConfig.HostNamespace, restoreRequest.Name)
+	return nil
+}
+
+// CreateRestoreRequestResources creates snapshot request ConfigMap and Secret in the cluster. It returns the created
+// snapshot request.
+func CreateRestoreRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, vConfig *config.VirtualClusterConfig, options *Options, snapshotRequest Request) (*RestoreRequest, error) {
+	var err error
+	if vConfig == nil {
+		return nil, fmt.Errorf("config is nil")
+	}
+
+	if vConfig.HostClient == nil {
+		err := setupconfig.InitClients(vConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to init clients: %w", err)
+		}
+	}
+
+	// first create the snapshot options Secret
+	secret, err := CreateSnapshotOptionsSecret(constants.RestoreRequestLabel, vClusterNamespace, vClusterName, options)
 	if err != nil {
-		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
+		return nil, fmt.Errorf("failed to create snapshot options Secret: %w", err)
+	}
+	secret.GenerateName = fmt.Sprintf("%s-restore-request-", vClusterName)
+	secret, err = vConfig.HostClient.CoreV1().Secrets(vClusterNamespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create snapshot options Secret: %w", err)
 	}
 
 	// then create the restore request that will be reconciled by the controller
 	restoreRequest, err := NewRestoreRequest(snapshotRequest)
 	if err != nil {
-		return fmt.Errorf("failed to create restore request: %w", err)
+		return nil, fmt.Errorf("failed to create restore request: %w", err)
 	}
 	restoreRequest.Name = secret.Name
-	configMap, err := CreateRestoreRequestConfigMap(vConfig.HostNamespace, vConfig.Name, restoreRequest)
+	configMap, err := CreateRestoreRequestConfigMap(vClusterNamespace, vClusterName, restoreRequest)
 	if err != nil {
-		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+		return nil, fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
 	}
 	configMap.Name = secret.Name
-	_, err = vConfig.HostClient.CoreV1().ConfigMaps(vConfig.HostNamespace).Create(ctx, configMap, metav1.CreateOptions{})
+	_, err = vConfig.HostClient.CoreV1().ConfigMaps(vClusterNamespace).Create(ctx, configMap, metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+		return nil, fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
 	}
 
-	klog.Infof("Created restore request: %s/%s", configMap.Namespace, configMap.Name)
-	return nil
+	return &restoreRequest, nil
 }
 
 func (o *RestoreClient) skipKey(key string) bool {

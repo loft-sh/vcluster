@@ -3,7 +3,10 @@ package find
 import (
 	"context"
 	"fmt"
+	"os/exec"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -49,6 +52,7 @@ type VCluster struct {
 	Status                 Status
 	Context                string
 	Version                string
+	IsStandalone           bool
 }
 
 type Status string
@@ -84,6 +88,15 @@ func CurrentContext() (string, *clientcmdapi.Config, error) {
 	}
 
 	return rawConfig.CurrentContext, &rawConfig, nil
+}
+
+func CurrentCluster() (string, error) {
+	cmdOutput, err := exec.Command("kubectl", "config", "view", "-o", "jsonpath={.contexts[0].context.cluster}").Output()
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(cmdOutput)), nil
 }
 
 func GetPlatformVCluster(ctx context.Context, platformClient platform.Client, name, project string, log log.Logger) (*platform.VirtualClusterInstanceProject, error) {
@@ -142,6 +155,13 @@ func GetVCluster(ctx context.Context, context, name, namespace string, log log.L
 
 	// figure out what we want to return
 	if len(ossVClusters) == 0 {
+		// Check if this is a standalone vCluster environment
+		if standalone, err := isStandaloneVCluster(); err == nil && standalone {
+			return getStandaloneVCluster(context, name)
+		} else if err != nil {
+			log.Errorf("error checking if vcluster is running as standalone: %w", err)
+		}
+
 		return nil, &VClusterNotFoundError{Name: name}
 	} else if len(ossVClusters) == 1 {
 		return &ossVClusters[0], nil
@@ -692,6 +712,57 @@ func isPaused(v client.Object) bool {
 	return annotations[constants.PausedAnnotation(false)] == "true" || labels[sleepmode.Label] == "true"
 }
 
+// isStandaloneVCluster checks if the current environment is a standalone vCluster
+// by verifying the presence of a Linux service named "vcluster".
+func isStandaloneVCluster() (bool, error) {
+	if runtime.GOOS != "linux" {
+		return false, fmt.Errorf("not supported on %s", runtime.GOOS)
+	}
+
+	// Check if the vcluster service is active using systemctl
+	cmdOutput, err := exec.Command("systemctl", "is-active", "vcluster").Output()
+	if err != nil {
+		return false, fmt.Errorf("failed to check if vcluster service is active: %w", err)
+	}
+
+	return strings.TrimSpace(string(cmdOutput)) == "active", nil
+}
+
+// getStandaloneVCluster returns a VCluster struct populated for a standalone environment.
+func getStandaloneVCluster(context, vClusterName string) (*VCluster, error) {
+	var err error
+
+	cluster, err := CurrentCluster()
+	if err != nil {
+		return nil, err
+	}
+
+	if cluster != vClusterName {
+		return nil, fmt.Errorf("current standalone cluster does not match the given vCluster name: %s", vClusterName)
+	}
+
+	if context == "" {
+		context, _, err = CurrentContext()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	kubeClientConfig := createKubeClientConfig(context)
+
+	version, err := getBinaryVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	return &VCluster{
+		Name:          vClusterName,
+		ClientFactory: kubeClientConfig,
+		Version:       version,
+		IsStandalone:  true,
+	}, nil
+}
+
 // isVirtualClusterInstanceResourceAvailable checks if VirtualClusterInstance resources from storage.loft.sh/v1 exist
 // on the server.
 func isVirtualClusterInstanceResourceAvailable(discoveryClient discovery.DiscoveryInterface) (bool, error) {
@@ -708,4 +779,19 @@ func isVirtualClusterInstanceResourceAvailable(discoveryClient discovery.Discove
 		}
 	}
 	return false, nil
+}
+
+func getBinaryVersion() (string, error) {
+	cmdOutput, err := exec.Command(filepath.Join(constants.StandaloneDataDir, "bin", "vcluster-cli"), "version").Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get vCluster binary version: %w", err)
+	}
+
+	versionRegEx := regexp.MustCompile(`^vcluster version (\S+)$`)
+	matches := versionRegEx.FindStringSubmatch(strings.TrimSpace(string(cmdOutput)))
+	if len(matches) != 2 {
+		return "", fmt.Errorf("failed to parse vCluster binary version: %w", err)
+	}
+
+	return matches[1], nil
 }

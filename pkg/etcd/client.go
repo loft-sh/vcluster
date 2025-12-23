@@ -48,10 +48,20 @@ func GetEtcdEndpoint(vConfig *config.VirtualClusterConfig) (string, *Certificate
 	// handle different backing store's
 	if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled || vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 		// embedded or deployed etcd
+		PKIDir := constants.PKIDir
+		if vConfig.ControlPlane.Standalone.Enabled {
+			dataDir := constants.StandaloneDataDir
+			if vConfig.ControlPlane.Standalone.DataDir != "" {
+				dataDir = vConfig.ControlPlane.Standalone.DataDir
+			}
+
+			PKIDir = filepath.Join(dataDir, "pki")
+		}
+
 		etcdCertificates = &Certificates{
-			CaCert:     filepath.Join(constants.PKIDir, "etcd", "ca.crt"),
-			ServerCert: filepath.Join(constants.PKIDir, "apiserver-etcd-client.crt"),
-			ServerKey:  filepath.Join(constants.PKIDir, "apiserver-etcd-client.key"),
+			CaCert:     filepath.Join(PKIDir, "etcd", "ca.crt"),
+			ServerCert: filepath.Join(PKIDir, "apiserver-etcd-client.crt"),
+			ServerKey:  filepath.Join(PKIDir, "apiserver-etcd-client.key"),
 		}
 
 		if vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {

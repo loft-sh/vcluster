@@ -60,7 +60,7 @@ func InitClientConfig() (*rest.Config, string, error) {
 	// get current namespace
 	currentNamespace, err := clienthelper.CurrentNamespace()
 	if err != nil {
-		return nil, "", err
+		return inClusterConfig, "", err
 	}
 
 	return inClusterConfig, currentNamespace, nil
