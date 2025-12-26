@@ -90,7 +90,7 @@ func startReverseProxy(restConfig *rest.Config, port int, log log.Logger) error 
 		RoundTripper: transport,
 		replaceHost: func(host string) string {
 			// we need to replace the target host with the new host
-			host = strings.Replace(host, target.String(), "http://"+newHost, -1)
+			host = strings.Replace(host, target.String(), "http://"+newHost+"/", -1)
 			// this is for proxies where the target host is not the same as the host
 			host = strings.Replace(host, "https://localhost:8443", "http://"+newHost, -1)
 			return host
