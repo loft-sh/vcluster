@@ -341,6 +341,11 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		return err
 	}
 
+	err = pkgconfig.ValidateExperimentalProxyCustomResourcesConfig(vClusterConfig.Experimental.Proxy.CustomResources)
+	if err != nil {
+		return err
+	}
+
 	warnings := pkgconfig.Lint(*vClusterConfig)
 	for _, warning := range warnings {
 		cmd.log.Warnf(warning)
