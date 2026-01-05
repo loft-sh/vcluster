@@ -143,14 +143,6 @@ func GetVCluster(ctx context.Context, context, name, namespace string, log log.L
 
 	// figure out what we want to return
 	if len(ossVClusters) == 0 {
-		// Check if this is a standalone vCluster environment
-		vcluster, err := getStandaloneVCluster(ctx, context, name)
-		if err != nil {
-			log.Errorf("error checking if vcluster is running as standalone: %w", err)
-		} else if vcluster != nil {
-			return vcluster, nil
-		}
-
 		return nil, &VClusterNotFoundError{Name: name}
 	} else if len(ossVClusters) == 1 {
 		return &ossVClusters[0], nil
@@ -459,6 +451,16 @@ func findInContext(ctx context.Context, kubeClient kube.Interface, context, name
 		}
 	}
 
+	// get standalone vcluster
+	standaloneVCluster, err := getStandaloneVCluster(ctx, kubeClient, kubeClientConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	if standaloneVCluster != nil && (name == "" || name == standaloneVCluster.Name) {
+		vclusters = append(vclusters, *standaloneVCluster)
+	}
+
 	return vclusters, nil
 }
 
@@ -702,22 +704,7 @@ func isPaused(v client.Object) bool {
 }
 
 // getStandaloneVCluster returns a VCluster struct populated for a standalone environment.
-func getStandaloneVCluster(ctx context.Context, context, vClusterName string) (*VCluster, error) {
-	var err error
-
-	if context == "" {
-		context, _, err = CurrentContext()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	kubeClient, err := createKubeClient(context)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kube client: %w", err)
-	}
-	kubeClientConfig := createKubeClientConfig(context)
-
+func getStandaloneVCluster(ctx context.Context, kubeClient kube.Interface, kubeClientConfig clientcmd.ClientConfig) (*VCluster, error) {
 	// get vcluster name and version from the annotations on the default kubernetes service
 	service, err := kubeClient.CoreV1().Services("default").Get(ctx, "kubernetes", metav1.GetOptions{})
 	if err != nil {
@@ -726,12 +713,10 @@ func getStandaloneVCluster(ctx context.Context, context, vClusterName string) (*
 
 	name, ok := service.Annotations[constants.VClusterStandaloneNameAnnotation]
 	if !ok {
-		// not a standalone vcluster
-		return nil, nil
-	}
+		// not a standalone vcluster, return
 
-	if name != vClusterName {
-		return nil, fmt.Errorf("current standalone cluster does not match the given vCluster name: %s", vClusterName)
+		//nolint:nilnil
+		return nil, nil
 	}
 
 	version, ok := service.Annotations[constants.VClusterStandaloneVersionAnnotation]
@@ -740,9 +725,11 @@ func getStandaloneVCluster(ctx context.Context, context, vClusterName string) (*
 	}
 
 	return &VCluster{
-		Name:          vClusterName,
+		Name:          name,
 		ClientFactory: kubeClientConfig,
+		Created:       service.CreationTimestamp,
 		Version:       version,
+		Status:        StatusRunning,
 		IsStandalone:  true,
 	}, nil
 }
