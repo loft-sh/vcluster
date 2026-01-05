@@ -893,23 +893,22 @@ func validateAdvancedControlPlaneConfig(controlPlaneAdvanced config.ControlPlane
 }
 
 func ValidateExperimentalProxyCustomResourcesConfig(cfg map[string]config.CustomResourceProxy) error {
-	if len(cfg) > 0 {
-		for resourcePath, resourceConfig := range cfg {
-			basePath := fmt.Sprintf("experimental.proxy.customResources['%s']", resourcePath)
+	for resourcePath, resourceConfig := range cfg {
+		basePath := fmt.Sprintf("experimental.proxy.customResources['%s']", resourcePath)
 
-			parts := strings.Split(resourcePath, "/")
-			if len(parts) != 2 || schema.ParseGroupResource(parts[0]).Resource == "" {
-				return fmt.Errorf("%s: invalid resource path %q, expected format 'resource.group/version' (e.g., 'resource.my-org.com/v1')", basePath, resourcePath)
-			}
-			if resourceConfig.TargetVirtualCluster == "" {
-				return fmt.Errorf("%s.targetVirtualCluster is required", basePath)
-			}
+		parts := strings.Split(resourcePath, "/")
+		if len(parts) != 2 || schema.ParseGroupResource(parts[0]).Resource == "" {
+			return fmt.Errorf("%s: invalid resource path %q, expected format 'resource.group/version' (e.g., 'resource.my-org.com/v1')", basePath, resourcePath)
+		}
+		if resourceConfig.TargetVirtualCluster == "" {
+			return fmt.Errorf("%s.targetVirtualCluster is required", basePath)
+		}
 
-			if resourceConfig.AccessResources != "" && resourceConfig.AccessResources != config.AccessResourcesModeOwned && resourceConfig.AccessResources != config.AccessResourcesModeAll {
-				return fmt.Errorf("%s.accessResources: invalid value %q, must be 'owned' or 'all'", basePath, resourceConfig.AccessResources)
-			}
+		if resourceConfig.AccessResources != "" && resourceConfig.AccessResources != config.AccessResourcesModeOwned && resourceConfig.AccessResources != config.AccessResourcesModeAll {
+			return fmt.Errorf("%s.accessResources: invalid value %q, must be 'owned' or 'all'", basePath, resourceConfig.AccessResources)
 		}
 	}
+
 	return nil
 }
 
