@@ -15,6 +15,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/loft-sh/vcluster/config"
 	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
@@ -886,6 +887,26 @@ func validateAdvancedControlPlaneConfig(controlPlaneAdvanced config.ControlPlane
 		controlPlaneAdvanced.PodDisruptionBudget.MaxUnavailable != nil &&
 		controlPlaneAdvanced.PodDisruptionBudget.MinAvailable != nil {
 		return fmt.Errorf("minAvailable and maxUnavailable cannot be used together in a podDisruptionBudget")
+	}
+
+	return nil
+}
+
+func ValidateExperimentalProxyCustomResourcesConfig(cfg map[string]config.CustomResourceProxy) error {
+	for resourcePath, resourceConfig := range cfg {
+		basePath := fmt.Sprintf("experimental.proxy.customResources['%s']", resourcePath)
+
+		parts := strings.Split(resourcePath, "/")
+		if len(parts) != 2 || schema.ParseGroupResource(parts[0]).Resource == "" {
+			return fmt.Errorf("%s: invalid resource path %q, expected format 'resource.group/version' (e.g., 'resource.my-org.com/v1')", basePath, resourcePath)
+		}
+		if resourceConfig.TargetVirtualCluster == "" {
+			return fmt.Errorf("%s.targetVirtualCluster is required", basePath)
+		}
+
+		if resourceConfig.AccessResources != "" && resourceConfig.AccessResources != config.AccessResourcesModeOwned && resourceConfig.AccessResources != config.AccessResourcesModeAll {
+			return fmt.Errorf("%s.accessResources: invalid value %q, must be 'owned' or 'all'", basePath, resourceConfig.AccessResources)
+		}
 	}
 
 	return nil
