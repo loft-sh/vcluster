@@ -15,7 +15,9 @@ import (
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/tools/record"
 )
 
@@ -400,6 +402,119 @@ func TestRewriteHostsTranslation(t *testing.T) {
 			tr.(*translator).rewritePodHostnameFQDN(pod, pod.Name, pod.Name, fmt.Sprintf("%s.%s.%s.cluster.local", pod.Name, pod.Spec.Subdomain, pod.Namespace))
 
 			testCase.test(t, pod)
+		})
+	}
+}
+
+func TestPodResourcesTranslation(t *testing.T) {
+	testCases := []struct {
+		name            string
+		hostVersion     string
+		vPod            corev1.Pod
+		expectedRes     corev1.ResourceRequirements
+		shouldTranslate bool
+	}{
+		{
+			name:        "Host version >= 1.34.0, should sync resources",
+			hostVersion: "v1.34.0",
+			vPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "default",
+				},
+				Spec: corev1.PodSpec{
+					Resources: &corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("500m"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("128Mi"),
+						},
+					},
+					Containers: []corev1.Container{{Name: "test"}},
+				},
+			},
+			expectedRes: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU: resource.MustParse("500m"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("128Mi"),
+				},
+			},
+			shouldTranslate: true,
+		},
+		{
+			name:        "Host version < 1.34.0, should not sync resources",
+			hostVersion: "v1.33.9",
+			vPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "default",
+				},
+				Spec: corev1.PodSpec{
+					Resources: &corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("500m"),
+						},
+					},
+					Containers: []corev1.Container{{Name: "test"}},
+				},
+			},
+			expectedRes:     corev1.ResourceRequirements{},
+			shouldTranslate: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeRecorder := record.NewFakeRecorder(10)
+			pClient := testingutil.NewFakeClient(scheme.Scheme)
+			vClient := testingutil.NewFakeClient(scheme.Scheme)
+
+			// Mock image translator
+			imageTranslator, _ := NewImageTranslator(map[string]string{})
+
+			tr := &translator{
+				eventRecorder:   fakeRecorder,
+				log:             loghelper.New("pods-syncer-translator-test"),
+				vClient:         vClient,
+				pClient:         pClient,
+				imageTranslator: imageTranslator,
+			}
+
+			if tc.hostVersion != "" {
+				tr.hostClusterVersion = &version.Info{
+					GitVersion: tc.hostVersion,
+					Major:      "1",
+					Minor:      "34",
+				}
+			}
+
+			// We need a context
+			registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
+			syncCtx := registerCtx.ToSyncContext("test")
+
+			vNamespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: tc.vPod.Namespace,
+				},
+			}
+			err := vClient.Create(syncCtx.Context, vNamespace)
+			assert.NilError(t, err)
+
+			pPod, err := tr.Translate(syncCtx, &tc.vPod, nil, "", "")
+			assert.NilError(t, err)
+
+			if tc.shouldTranslate {
+				if tc.vPod.Spec.Resources != nil {
+					assert.Assert(t, pPod.Spec.Resources != nil)
+					assert.Assert(t, cmp.DeepEqual(*pPod.Spec.Resources, tc.expectedRes))
+				}
+			} else {
+				// If not translated, Resources should be nil
+				assert.Assert(t, pPod.Spec.Resources == nil)
+			}
 		})
 	}
 }
