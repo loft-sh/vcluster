@@ -3,11 +3,17 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
@@ -15,6 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	apinet "k8s.io/apimachinery/pkg/util/net"
 )
 
 const (
@@ -31,7 +39,43 @@ func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags,
 	return restoreVCluster(ctx, kubeClient, restConfig, vCluster, snapshot, pod, newVCluster, restoreVolumes, log)
 }
 
-func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshot *snapshot.Options, podOptions *pod.Options, newVCluster bool, restoreVolumes bool, log log.Logger) error {
+func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshotOptions *snapshot.Options, podOptions *pod.Options, newVCluster bool, restoreVolumes bool, log log.Logger) error {
+	// build command arguments
+	cmdArgs := []string{"restore"}
+	if newVCluster {
+		cmdArgs = append(cmdArgs, "--new-vcluster")
+	}
+	if restoreVolumes {
+		cmdArgs = append(cmdArgs, "--restore-volumes")
+	}
+
+	if vCluster.IsStandalone {
+		isStandaloneControlPlane, err := CheckStandaloneControlPlane()
+		if err != nil {
+			return fmt.Errorf("failed to check if current environment is the standalone control plane: %w", err)
+		}
+
+		if !isStandaloneControlPlane {
+			return fmt.Errorf("could not find standalone control plane on the current host")
+		}
+
+		log.Infof("Stopping vCluster system service")
+		err = exec.Command("systemctl", "stop", "vcluster").Run()
+		if err != nil {
+			return fmt.Errorf("failed to stop vcluster: %w", err)
+		}
+
+		defer func() {
+			log.Infof("Resuming vCluster system service after restore")
+			err := exec.Command("systemctl", "start", "vcluster").Run()
+			if err != nil {
+				log.Warnf("failed to start vcluster: %v", err)
+			}
+		}()
+
+		return runRestoreCommand(vCluster, snapshotOptions, cmdArgs)
+	}
+
 	// pause vCluster
 	log.Infof("Pausing vCluster %s", vCluster.Name)
 	err := pauseVCluster(ctx, kubeClient, vCluster, log)
@@ -49,15 +93,9 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 	}()
 
 	// set missing pod options and run snapshot restore pod
-	command := []string{"/vcluster", "restore"}
-	if newVCluster {
-		command = append(command, "--new-vcluster")
-	}
-	if restoreVolumes {
-		command = append(command, "--restore-volumes")
-	}
+	command := append([]string{"/vcluster"}, cmdArgs...)
 
-	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOptions, snapshot, log)
+	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOptions, snapshotOptions, log)
 }
 
 func pauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) error {
@@ -138,6 +176,61 @@ func ensurePVCs(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster 
 				return fmt.Errorf("delete vcluster pvc: %w", err)
 			}
 		}
+	}
+
+	return nil
+}
+
+// CheckStandaloneControlPlane checks if the current host has the standalone control plane installed
+// by verifying the presence of a Linux service named "vcluster".
+func CheckStandaloneControlPlane() (bool, error) {
+	if runtime.GOOS != "linux" {
+		return false, fmt.Errorf("not supported on %s", runtime.GOOS)
+	}
+
+	// Check if the vcluster service is active using systemctl
+	cmdOutput, err := exec.Command("systemctl", "is-active", "vcluster").Output()
+	if err != nil {
+		return false, fmt.Errorf("failed to check if vcluster service is active: %w", err)
+	}
+
+	return strings.TrimSpace(string(cmdOutput)) == "active", nil
+}
+
+func runRestoreCommand(vCluster *find.VCluster, snapshotOptions *snapshot.Options, args []string) error {
+	// parse vcluster config
+	vClusterConfig, err := vclusterconfig.ParseConfig(constants.StandaloneDefaultConfigPath, vCluster.Name, nil)
+	if err != nil {
+		return fmt.Errorf("failed to parse vcluster config: %w", err)
+	}
+
+	restoreCmd := exec.Command(filepath.Join(vClusterConfig.ControlPlane.Standalone.DataDir, "bin", "vcluster"), args...)
+
+	// convert snapshot options to string
+	optionsString, err := pod.ToOptionsString(snapshotOptions)
+	if err != nil {
+		return fmt.Errorf("failed to convert snapshot options to string: %w", err)
+	}
+
+	// fetch host IP from network interface
+	hostIP, err := apinet.ChooseHostInterface()
+	if err != nil {
+		return err
+	}
+
+	// set environment variables
+	restoreCmd.Env = os.Environ()
+	restoreCmd.Env = append(restoreCmd.Env, "VCLUSTER_NAME="+vCluster.Name)
+	restoreCmd.Env = append(restoreCmd.Env, "VCLUSTER_STORAGE_OPTIONS="+optionsString)
+	restoreCmd.Env = append(restoreCmd.Env, "VCLUSTER_STANDALONE_IP_ADDRESS="+hostIP.String())
+
+	// set stdout and stderr
+	restoreCmd.Stdout = os.Stdout
+	restoreCmd.Stderr = os.Stderr
+
+	err = restoreCmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to restore vcluster: %w", err)
 	}
 
 	return nil

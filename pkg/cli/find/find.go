@@ -49,6 +49,7 @@ type VCluster struct {
 	Status                 Status
 	Context                string
 	Version                string
+	IsStandalone           bool
 }
 
 type Status string
@@ -142,6 +143,14 @@ func GetVCluster(ctx context.Context, context, name, namespace string, log log.L
 
 	// figure out what we want to return
 	if len(ossVClusters) == 0 {
+		// Check if this is a standalone vCluster environment
+		vcluster, err := getStandaloneVCluster(ctx, context, name)
+		if err != nil {
+			log.Errorf("error checking if vcluster is running as standalone: %w", err)
+		} else if vcluster != nil {
+			return vcluster, nil
+		}
+
 		return nil, &VClusterNotFoundError{Name: name}
 	} else if len(ossVClusters) == 1 {
 		return &ossVClusters[0], nil
@@ -690,6 +699,52 @@ func isPaused(v client.Object) bool {
 	labels := v.GetLabels()
 
 	return annotations[constants.PausedAnnotation(false)] == "true" || labels[sleepmode.Label] == "true"
+}
+
+// getStandaloneVCluster returns a VCluster struct populated for a standalone environment.
+func getStandaloneVCluster(ctx context.Context, context, vClusterName string) (*VCluster, error) {
+	var err error
+
+	if context == "" {
+		context, _, err = CurrentContext()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	kubeClient, err := createKubeClient(context)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kube client: %w", err)
+	}
+	kubeClientConfig := createKubeClientConfig(context)
+
+	// get vcluster name and version from the annotations on the default kubernetes service
+	service, err := kubeClient.CoreV1().Services("default").Get(ctx, "kubernetes", metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default kubernetes service: %w", err)
+	}
+
+	name, ok := service.Annotations[constants.VClusterStandaloneNameAnnotation]
+	if !ok {
+		// not a standalone vcluster
+		return nil, nil
+	}
+
+	if name != vClusterName {
+		return nil, fmt.Errorf("current standalone cluster does not match the given vCluster name: %s", vClusterName)
+	}
+
+	version, ok := service.Annotations[constants.VClusterStandaloneVersionAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("standalone vcluster version annotation is not set")
+	}
+
+	return &VCluster{
+		Name:          vClusterName,
+		ClientFactory: kubeClientConfig,
+		Version:       version,
+		IsStandalone:  true,
+	}, nil
 }
 
 // isVirtualClusterInstanceResourceAvailable checks if VirtualClusterInstance resources from storage.loft.sh/v1 exist

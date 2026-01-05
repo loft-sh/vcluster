@@ -45,16 +45,13 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 		}
 	}
 
-	if !ctx.Config.ControlPlane.Standalone.Enabled {
-		// register vcluster snapshot & restore controllers only for non-standalone
-		err = registerSnapshotController(registerContext)
-		if err != nil {
-			return err
-		}
-		err = registerRestoreController(registerContext)
-		if err != nil {
-			return err
-		}
+	err = registerSnapshotController(registerContext)
+	if err != nil {
+		return err
+	}
+	err = registerRestoreController(registerContext)
+	if err != nil {
+		return err
 	}
 
 	// skip if we run in dedicated mode
