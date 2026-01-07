@@ -900,7 +900,7 @@ func ValidateExperimentalProxyCustomResourcesConfig(cfg map[string]config.Custom
 		if len(parts) != 2 || schema.ParseGroupResource(parts[0]).Resource == "" {
 			return fmt.Errorf("%s: invalid resource path %q, expected format 'resource.group/version' (e.g., 'resource.my-org.com/v1')", basePath, resourcePath)
 		}
-		if resourceConfig.TargetVirtualCluster == "" {
+		if resourceConfig.TargetVirtualCluster.Name == "" {
 			return fmt.Errorf("%s.targetVirtualCluster is required", basePath)
 		}
 
