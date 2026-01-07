@@ -49,7 +49,7 @@ Debug a virtual cluster by running commands in an ephemeral container
 
 Example:
 vcluster debug etcd my-vcluster --target=syncer
-vcluster debug etcd my-vcluster --target=syncer --profile=general -- /bin/sh
+vcluster debug etcd my-vcluster --target=syncer --profile=general
 #########################################################################
 `,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -85,7 +85,7 @@ func (cmd *DebugCmd) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("cannot find virtual cluster %w", err)
 	}
 
-	if virtualCluster.VirtualClusterInstance.Status.VirtualCluster != nil {
+	if virtualCluster.VirtualClusterInstance != nil && virtualCluster.VirtualClusterInstance.Status.VirtualCluster != nil {
 		vConfig, err := config.ParseConfigBytes([]byte(virtualCluster.VirtualClusterInstance.Status.VirtualCluster.HelmRelease.Values), vClusterName, nil)
 		if err != nil {
 			return fmt.Errorf("cannot parse vcluster.yaml from virtualClusterInstance helm values %w", err)
@@ -182,7 +182,7 @@ func (cmd *DebugCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// Add ephemeral container to pod
-	pod, err = client.CoreV1().Pods(cmd.Namespace).UpdateEphemeralContainers(ctx, pod.Name, &corev1.Pod{
+	pod, err = client.CoreV1().Pods(pod.Namespace).UpdateEphemeralContainers(ctx, pod.Name, &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pod.Name,
 			Namespace: pod.Namespace,
@@ -192,7 +192,7 @@ func (cmd *DebugCmd) Run(ctx context.Context, args []string) error {
 		},
 	}, metav1.UpdateOptions{})
 	if err != nil {
-		return fmt.Errorf("error creating ephemeral container: %v", err)
+		return fmt.Errorf("error creating ephemeral container: %w", err)
 	}
 
 	cmd.Log.Infof("Debugger %s created for container %s in pod %s", debuggerName, cmd.Target, pod.Name)
@@ -200,7 +200,7 @@ func (cmd *DebugCmd) Run(ctx context.Context, args []string) error {
 	// Wait for the ephemeral container to be ready
 	err = cmd.waitForContainer(ctx, client, pod.Namespace, pod.Name, debuggerName)
 	if err != nil {
-		return fmt.Errorf("error waiting for debug container: %v", err)
+		return fmt.Errorf("error waiting for debug container: %w", err)
 	}
 
 	// Execute the command in the container
@@ -209,7 +209,7 @@ func (cmd *DebugCmd) Run(ctx context.Context, args []string) error {
 }
 
 func (cmd *DebugCmd) waitForContainer(ctx context.Context, client kubernetes.Interface, namespace, podName, containerName string) error {
-	return wait.PollImmediate(time.Second, time.Minute*2, func() (bool, error) {
+	return wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*2, true, func(ctx context.Context) (bool, error) {
 		pod, err := client.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -238,7 +238,6 @@ func executeCommand(conatinerName, pod, namespace, kubeConfig string, errorChan 
 	execCmd := exec.Command("kubectl", "--kubeconfig", kubeConfig, "exec", "-n", namespace, pod, "-it", "-c", conatinerName, "--", "/bin/sh", "-c", "echo \"$DEBUG_MESSAGE\" && ash")
 	// log.Infof("command: %s", execCmd.String())
 	execCmd.Env = os.Environ()
-	execCmd.Env = append(execCmd.Env)
 	execCmd.Stdout = os.Stdout
 	execCmd.Stdin = os.Stdin
 	execCmd.Stderr = os.Stderr
