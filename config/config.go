@@ -2417,7 +2417,7 @@ type CustomResourceProxy struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// TargetVirtualCluster is the target virtual cluster for the custom resource proxy
-	TargetVirtualCluster string `json:"targetVirtualCluster,omitempty"`
+	TargetVirtualCluster string `json:"targetVirtualCluster" jsonschema:"required,minLength=1,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
 
 	// AccessResources defines which resources should be accessible in the proxy.
 	AccessResources AccessResourcesMode `json:"accessResources,omitempty"`
