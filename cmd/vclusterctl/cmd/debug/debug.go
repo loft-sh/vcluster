@@ -17,5 +17,6 @@ func NewDebugCommand(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	convertCmd.AddCommand(NewCollectCmd(globalFlags))
+	convertCmd.AddCommand(NewDebugCmd(globalFlags))
 	return convertCmd
 }

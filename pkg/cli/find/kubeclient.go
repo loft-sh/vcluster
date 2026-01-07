@@ -15,7 +15,7 @@ func createKubeClientConfig(context string) clientcmd.ClientConfig {
 	return kubeClientConfig
 }
 
-func createKubeClient(context string) (kube.Interface, error) {
+func CreateKubeClient(context string) (kube.Interface, error) {
 	kubeClientConfig := createKubeClientConfig(context)
 	restConfig, err := kubeClientConfig.ClientConfig()
 	if err != nil {
