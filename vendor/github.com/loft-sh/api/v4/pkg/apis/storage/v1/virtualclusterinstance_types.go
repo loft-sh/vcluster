@@ -7,21 +7,23 @@ import (
 )
 
 const (
-	InstanceScheduled                  agentstoragev1.ConditionType = "Scheduled"
-	InstanceTemplateSynced             agentstoragev1.ConditionType = "TemplateSynced"
-	InstanceTemplateResolved           agentstoragev1.ConditionType = "TemplateResolved"
-	InstanceSpaceSynced                agentstoragev1.ConditionType = "SpaceSynced"
-	InstanceSpaceReady                 agentstoragev1.ConditionType = "SpaceReady"
-	InstanceVirtualClusterDeployed     agentstoragev1.ConditionType = "VirtualClusterDeployed"
-	InstanceVirtualClusterSynced       agentstoragev1.ConditionType = "VirtualClusterSynced"
-	InstanceVirtualClusterReady        agentstoragev1.ConditionType = "VirtualClusterReady"
-	InstanceVirtualClusterOnline       agentstoragev1.ConditionType = "VirtualClusterOnline"
-	InstanceProjectsSecretsSynced      agentstoragev1.ConditionType = "ProjectSecretsSynced"
-	InstanceNodesProvisioned           agentstoragev1.ConditionType = "NodesProvisioned"
-	InstanceExternalResourcesCleanedUp agentstoragev1.ConditionType = "ExternalResourcesCleanedUp"
+	InstanceScheduled                         agentstoragev1.ConditionType = "Scheduled"
+	InstanceTemplateSynced                    agentstoragev1.ConditionType = "TemplateSynced"
+	InstanceTemplateResolved                  agentstoragev1.ConditionType = "TemplateResolved"
+	InstanceSpaceSynced                       agentstoragev1.ConditionType = "SpaceSynced"
+	InstanceSpaceReady                        agentstoragev1.ConditionType = "SpaceReady"
+	InstanceVirtualClusterDeployed            agentstoragev1.ConditionType = "VirtualClusterDeployed"
+	InstanceVirtualClusterSynced              agentstoragev1.ConditionType = "VirtualClusterSynced"
+	InstanceVirtualClusterReady               agentstoragev1.ConditionType = "VirtualClusterReady"
+	InstanceVirtualClusterOnline              agentstoragev1.ConditionType = "VirtualClusterOnline"
+	InstanceProjectsSecretsSynced             agentstoragev1.ConditionType = "ProjectSecretsSynced"
+	InstanceNodesProvisioned                  agentstoragev1.ConditionType = "NodesProvisioned"
+	InstanceExternalResourcesCleanedUp        agentstoragev1.ConditionType = "ExternalResourcesCleanedUp"
+	InstanceVirtualClusterAutoDeletionBlocked agentstoragev1.ConditionType = "VirtualClusterAutoDeletionBlocked"
 
-	InstanceVirtualClusterAppsAndObjectsSynced agentstoragev1.ConditionType = "VirtualClusterAppsAndObjectsSynced"
-	InstanceVirtualClusterDBConnectorSynced    agentstoragev1.ConditionType = "DBConnectorSynced"
+	InstanceVirtualClusterAppsAndObjectsSynced     agentstoragev1.ConditionType = "VirtualClusterAppsAndObjectsSynced"
+	InstanceVirtualClusterDBConnectorSynced        agentstoragev1.ConditionType = "DBConnectorSynced"
+	InstanceVirtualClusterDBIdentityProviderSynced agentstoragev1.ConditionType = "DBIdentityProviderSynced"
 )
 
 // +genclient

@@ -44,7 +44,7 @@ const (
 	NodeTypeNodeGroupsAnnotation = "bcm.loft.sh/node-groups"
 
 	// KubeVirt specific annotations
-	NodeTypeVMTemplateAnnotation = "kubevirt.loft.sh/vm-template"
+	NodeTypeVMTemplateAnnotation = "kubevirt.vcluster.com/vm-template"
 
 	// ClusterAPI specific annotations
 	NodeTypeClusterAPIInfrastructureMachineTemplateAnnotation = "clusterapi.loft.sh/infrastructure-machine-template"
