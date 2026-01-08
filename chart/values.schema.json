@@ -32,16 +32,6 @@
       "type": "object",
       "description": "APIServiceService holds the service name and namespace of the host apiservice."
     },
-    "AutoSleepExclusion": {
-      "properties": {
-        "selector": {
-          "$ref": "#/$defs/LabelSelector"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "AutoSleepExclusion holds conifiguration for excluding workloads from sleeping by label(s)"
-    },
     "AutoUpgrade": {
       "properties": {
         "enabled": {
@@ -78,16 +68,6 @@
       },
       "additionalProperties": false,
       "type": "object"
-    },
-    "AutoWakeup": {
-      "properties": {
-        "schedule": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "AutoWakeup holds the cron schedule to wake workloads automatically"
     },
     "BackingStore": {
       "properties": {
@@ -1099,6 +1079,32 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "Deletion": {
+      "properties": {
+        "prevent": {
+          "type": "boolean",
+          "description": "Prevent prevents the vCluster from being deleted\n+optional"
+        },
+        "auto": {
+          "$ref": "#/$defs/DeletionAuto",
+          "description": "Auto holds automatic deletion configuration\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Deletion holds configuration for automatic vCluster deletion."
+    },
+    "DeletionAuto": {
+      "properties": {
+        "afterInactivity": {
+          "type": "string",
+          "description": "AfterInactivity specifies after how long of inactivity the virtual cluster will be deleted.\nUses Go duration format (e.g., \"720h\" for 30 days).\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "DeletionAuto holds automatic deletion configuration"
     },
     "DenyRule": {
       "properties": {
@@ -2148,17 +2154,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ExternalConfig": {
-      "properties": {
-        "platform": {
-          "$ref": "#/$defs/PlatformConfig",
-          "type": "object",
-          "description": "platform holds platform configuration"
-        }
-      },
-      "type": "object",
-      "description": "ExternalConfig holds external configuration"
-    },
     "ExternalDatabaseKine": {
       "properties": {
         "enabled": {
@@ -2473,7 +2468,7 @@
           "description": "Istio syncs DestinationRules, Gateways and VirtualServices from virtual cluster to the host."
         },
         "netris": {
-          "type": "object",
+          "$ref": "#/$defs/NetrisIntegration",
           "description": "Netris integration helps configuring netris networking for vCluster."
         }
       },
@@ -3112,6 +3107,44 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "NetrisIntegration": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if netris integration is enabled\n+optional"
+        },
+        "connector": {
+          "type": "string",
+          "description": "Connector specifies the netris connector name\n+optional"
+        },
+        "kubeVip": {
+          "$ref": "#/$defs/NetrisKubeVipConfig",
+          "description": "KubeVip holds kube-vip configuration for netris\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "NetrisIntegration holds netris integration configuration."
+    },
+    "NetrisKubeVipConfig": {
+      "properties": {
+        "serverCluster": {
+          "type": "string",
+          "description": "ServerCluster specifies the server cluster name\n+optional"
+        },
+        "bridge": {
+          "type": "string",
+          "description": "Bridge specifies the bridge interface name\n+optional"
+        },
+        "ipRange": {
+          "type": "string",
+          "description": "IPRange specifies the IP range for kube-vip\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "NetrisKubeVipConfig holds kube-vip configuration for netris integration"
+    },
     "NetworkPolicy": {
       "properties": {
         "enabled": {
@@ -3413,38 +3446,39 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Platform": {
+      "properties": {
+        "apiKey": {
+          "$ref": "#/$defs/PlatformAPIKey",
+          "description": "APIKey defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:\n* environment variable called LICENSE\n* secret specified under platform.apiKey.secretName\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
+        },
+        "project": {
+          "type": "string",
+          "description": "Project specifies which platform project the vcluster should be imported to\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Platform holds vCluster Platform specific configuration."
+    },
     "PlatformAPIKey": {
       "properties": {
         "secretName": {
           "type": "string",
-          "description": "SecretName is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined."
+          "description": "SecretName is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined.\n+optional"
         },
         "namespace": {
           "type": "string",
-          "description": "Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace\nwhere the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace."
+          "description": "Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace\nwhere the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace.\n+optional"
         },
         "createRBAC": {
           "type": "boolean",
-          "description": "CreateRBAC will automatically create the necessary RBAC roles and role bindings to allow vCluster to read the secret specified\nin the above namespace, if specified.\nThis defaults to true."
+          "description": "CreateRBAC will automatically create the necessary RBAC roles and role bindings to allow vCluster to read the secret specified\nin the above namespace, if specified.\nThis defaults to true.\n+optional"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "PlatformAPIKey defines where to find the platform access key."
-    },
-    "PlatformConfig": {
-      "properties": {
-        "apiKey": {
-          "$ref": "#/$defs/PlatformAPIKey",
-          "description": "APIKey defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:\n* environment variable called LICENSE\n* secret specified under external.platform.apiKey.secretName\n* secret called \"vcluster-platform-api-key\" in the vCluster namespace"
-        },
-        "project": {
-          "type": "string",
-          "description": "Project specifies which platform project the vcluster should be imported to"
-        }
-      },
-      "type": "object",
-      "description": "PlatformConfig holds platform configuration"
     },
     "Plugin": {
       "properties": {
@@ -4201,47 +4235,233 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "SleepMode": {
+    "Sleep": {
       "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled toggles the sleep mode functionality, allowing for disabling sleep mode without removing other config"
-        },
-        "timeZone": {
-          "type": "string",
-          "description": "Timezone represents the timezone a sleep schedule should run against, defaulting to UTC if unset"
-        },
-        "autoSleep": {
-          "$ref": "#/$defs/SleepModeAutoSleep",
-          "description": "AutoSleep holds autoSleep details"
-        },
-        "autoWakeup": {
-          "$ref": "#/$defs/AutoWakeup",
-          "description": "AutoWakeup holds configuration for waking the vCluster on a schedule rather than waiting for some activity."
+        "auto": {
+          "$ref": "#/$defs/SleepAuto",
+          "description": "Auto holds automatic sleep configuration"
         }
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "SleepMode holds configuration for native/workload only sleep mode"
+      "description": "Sleep holds configuration for automatically putting the virtual cluster to sleep."
     },
-    "SleepModeAutoSleep": {
+    "SleepAuto": {
       "properties": {
         "afterInactivity": {
           "type": "string",
-          "description": "AfterInactivity represents how long a vCluster can be idle before workloads are automaticaly put to sleep"
+          "description": "AfterInactivity represents how long a vCluster can be idle before workloads are automatically put to sleep"
         },
         "schedule": {
           "type": "string",
           "description": "Schedule represents a cron schedule for when to sleep workloads"
         },
         "exclude": {
-          "$ref": "#/$defs/AutoSleepExclusion",
+          "$ref": "#/$defs/SleepAutoExclusion",
           "description": "Exclude holds configuration for labels that, if present, will prevent a workload from going to sleep"
+        },
+        "wakeup": {
+          "$ref": "#/$defs/SleepAutoWakeup",
+          "description": "Wakeup holds configuration for waking the vCluster on a schedule"
+        },
+        "timezone": {
+          "type": "string",
+          "description": "Timezone specifies time zone used for scheduled sleep operations. Defaults to UTC.\nAccepts the same format as time.LoadLocation() in Go (https://pkg.go.dev/time#LoadLocation).\nThe value should be a location name corresponding to a file in the IANA Time Zone database, such as \"America/New_York\".\n+optional"
         }
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "SleepModeAutoSleep holds configuration for allowing a vCluster to sleep its workloads automatically"
+      "description": "SleepAuto holds configuration for automatic sleep and wakeup"
+    },
+    "SleepAutoExclusion": {
+      "properties": {
+        "selector": {
+          "$ref": "#/$defs/LabelSelector"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SleepAutoExclusion holds conifiguration for excluding workloads from sleeping by label(s)"
+    },
+    "SleepAutoWakeup": {
+      "properties": {
+        "schedule": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SleepAutoWakeup holds the cron schedule to wake workloads automatically"
+    },
+    "SnapshotRetention": {
+      "properties": {
+        "period": {
+          "type": "integer",
+          "description": "Period defines the number of days a snapshot will be kept\n+optional"
+        },
+        "maxSnapshots": {
+          "type": "integer",
+          "description": "MaxSnapshots defines the number of snapshots that can be taken\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SnapshotRetention holds snapshot retention configuration"
+    },
+    "SnapshotSecretCredential": {
+      "properties": {
+        "secretName": {
+          "type": "string",
+          "description": "SecretName is the secret name with credential\n+optional"
+        },
+        "secretNamespace": {
+          "type": "string",
+          "description": "SecretNamespace is the secret namespace with credential\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SnapshotSecretCredential holds secret reference for credentials"
+    },
+    "SnapshotStorage": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Type specifies supported type of storage services for a snapshot S3/OCI/Container, see https://www.vcluster.com/docs/vcluster/manage/backup-restore#store-snapshots-in-s3-buckets\n+optional"
+        },
+        "s3": {
+          "$ref": "#/$defs/SnapshotStorageS3",
+          "description": "S3 holds configuration for storing snapshots in S3-compatible bucket\n+optional"
+        },
+        "oci": {
+          "$ref": "#/$defs/SnapshotStorageOCI",
+          "description": "OCI holds configuration for storing snapshots in OCI image registries\n+optional"
+        },
+        "container": {
+          "$ref": "#/$defs/SnapshotStorageContainer",
+          "description": "Container holds configuration for storing snapshots as local files inside a vCluster container\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SnapshotStorage holds snapshot storage configuration"
+    },
+    "SnapshotStorageContainer": {
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path specifies directory to store the snapshot\n+optional"
+        },
+        "volume": {
+          "$ref": "#/$defs/SnapshotStorageContainerVolume",
+          "description": "Volume specifies which volume needs to be mounted into the container to store the snapshot\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SnapshotStorageContainer holds container local storage configuration"
+    },
+    "SnapshotStorageContainerVolume": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name to be used to mount the volume\n+optional"
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to the volume mount\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SnapshotStorageContainerVolume holds volume mount configuration"
+    },
+    "SnapshotStorageOCI": {
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "Repository OCI repository to store the snapshot\n+optional"
+        },
+        "credential": {
+          "$ref": "#/$defs/SnapshotSecretCredential",
+          "description": "Credential secret with the OCI Credentials\n+optional"
+        },
+        "username": {
+          "type": "string",
+          "description": "Username to authenticate with the OCI registry\n+optional"
+        },
+        "password": {
+          "type": "string",
+          "description": "Password to authenticate with the OCI registry\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SnapshotStorageOCI holds OCI registry storage configuration"
+    },
+    "SnapshotStorageS3": {
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Url specifies url to the storage service\n+optional"
+        },
+        "credential": {
+          "$ref": "#/$defs/SnapshotSecretCredential",
+          "description": "Credential secret with the S3 Credentials, it should contain AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SnapshotStorageS3 holds S3 storage configuration"
+    },
+    "SnapshotVolumes": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled specifies whether a snapshot should also include volumes in the snapshot\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SnapshotVolumes holds volume snapshot configuration"
+    },
+    "Snapshots": {
+      "properties": {
+        "auto": {
+          "$ref": "#/$defs/SnapshotsAuto",
+          "description": "Auto holds automatic snapshot configuration\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Snapshots holds configuration for automatic vCluster snapshots."
+    },
+    "SnapshotsAuto": {
+      "properties": {
+        "schedule": {
+          "type": "string",
+          "description": "Schedule specifies a scheduled time in Cron format, see https://en.wikipedia.org/wiki/Cron for a virtual cluster snapshot to be taken\n+optional"
+        },
+        "timezone": {
+          "type": "string",
+          "description": "Timezone specifies time zone used for scheduled snapshot operations. Defaults to UTC.\nAccepts the same format as time.LoadLocation() in Go (https://pkg.go.dev/time#LoadLocation).\nThe value should be a location name corresponding to a file in the IANA Time Zone database, such as \"America/New_York\".\n+optional"
+        },
+        "retention": {
+          "$ref": "#/$defs/SnapshotRetention",
+          "description": "Retention specifies how long snapshots will be kept\n+optional"
+        },
+        "storage": {
+          "$ref": "#/$defs/SnapshotStorage",
+          "description": "Storage specifies where the snapshot will be stored\n+optional"
+        },
+        "volumes": {
+          "$ref": "#/$defs/SnapshotVolumes",
+          "description": "Volumes specifies configuration for volume snapshots\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SnapshotsAuto holds automatic snapshot scheduling and retention configuration"
     },
     "Standalone": {
       "properties": {
@@ -5213,10 +5433,6 @@
       "$ref": "#/$defs/Experimental",
       "description": "Experimental features for vCluster. Configuration here might change, so be careful with this."
     },
-    "external": {
-      "$ref": "#/$defs/ExternalConfig",
-      "description": "External holds configuration for tools that are external to the vCluster."
-    },
     "telemetry": {
       "$ref": "#/$defs/Telemetry",
       "description": "Configuration related to telemetry gathered about vCluster usage."
@@ -5251,13 +5467,25 @@
       },
       "description": "Plugin specifies which vCluster plugins to enable. Use \"plugins\" instead. Do not use this option anymore."
     },
-    "sleepMode": {
-      "$ref": "#/$defs/SleepMode",
-      "description": "SleepMode holds the native sleep mode configuration for Pro clusters"
-    },
     "logging": {
       "$ref": "#/$defs/Logging",
       "description": "Logging provides structured logging options"
+    },
+    "sleep": {
+      "$ref": "#/$defs/Sleep",
+      "description": "Sleep holds configuration for automatically putting the virtual cluster to sleep.\nThis replaces sleepMode."
+    },
+    "snapshots": {
+      "$ref": "#/$defs/Snapshots",
+      "description": "Snapshots holds configuration for automatic vCluster snapshots.\nThis replaces external.platform.autoSnapshot."
+    },
+    "deletion": {
+      "$ref": "#/$defs/Deletion",
+      "description": "Deletion holds configuration for automatic vCluster deletion.\nThis replaces external.platform.autoDelete."
+    },
+    "platform": {
+      "$ref": "#/$defs/Platform",
+      "description": "Platform holds vCluster Platform specific configuration.\nThis replaces the remaining fields from external.platform."
     }
   },
   "additionalProperties": false,
