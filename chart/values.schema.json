@@ -1031,9 +1031,7 @@
           "description": "Enabled defines if this resource proxy should be enabled"
         },
         "targetVirtualCluster": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "$ref": "#/$defs/VirtualClusterRef",
           "description": "TargetVirtualCluster is the target virtual cluster for the custom resource proxy"
         },
         "accessResources": {
@@ -1042,10 +1040,7 @@
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "targetVirtualCluster"
-      ]
+      "type": "object"
     },
     "Database": {
       "properties": {
@@ -4908,6 +4903,27 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "VirtualClusterRef": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Name is the name of the target virtual cluster."
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Project is the project of the target virtual cluster. If empty, defaults to the same project as the source vCluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "description": "VirtualClusterRef is a reference to a virtual cluster within the platform."
     },
     "VolumeClaim": {
       "properties": {
