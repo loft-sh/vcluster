@@ -1259,6 +1259,14 @@ var (
 		return NewVirtualClusterNodeAccessKeyRESTFunc(Factory)
 	}
 	NewVirtualClusterNodeAccessKeyRESTFunc  NewRESTFunc
+	InternalVirtualClusterResourceUsageREST = builders.NewInternalSubresource(
+		"virtualclusterinstances", "VirtualClusterResourceUsage", "resourceusage",
+		func() runtime.Object { return &VirtualClusterResourceUsage{} },
+	)
+	NewVirtualClusterResourceUsageREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewVirtualClusterResourceUsageRESTFunc(Factory)
+	}
+	NewVirtualClusterResourceUsageRESTFunc  NewRESTFunc
 	InternalVirtualClusterInstanceShellREST = builders.NewInternalSubresource(
 		"virtualclusterinstances", "VirtualClusterInstanceShell", "shell",
 		func() runtime.Object { return &VirtualClusterInstanceShell{} },
@@ -1426,6 +1434,7 @@ var (
 		InternalVirtualClusterInstanceKubeConfigREST,
 		InternalVirtualClusterInstanceLogREST,
 		InternalVirtualClusterNodeAccessKeyREST,
+		InternalVirtualClusterResourceUsageREST,
 		InternalVirtualClusterInstanceShellREST,
 		InternalVirtualClusterInstanceSnapshotREST,
 		InternalVirtualClusterStandaloneREST,
@@ -1735,7 +1744,7 @@ type Cloud struct {
 }
 
 // +genclient
-// +genclient:nonNamespaced
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Cluster struct {
@@ -2133,7 +2142,7 @@ type KioskStatus struct {
 }
 
 // +genclient
-// +genclient:nonNamespaced
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type License struct {
@@ -3160,6 +3169,23 @@ type VirtualClusterNodeAccessKeyStatus struct {
 	AccessKey string `json:"accessKey,omitempty"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterResourceUsage struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Status            VirtualClusterResourceUsageStatus `json:"status,omitempty"`
+}
+
+type VirtualClusterResourceUsageMap struct {
+	Nodes    int            `json:"nodes"`
+	Capacity map[string]int `json:"capacity,omitempty"`
+}
+
+type VirtualClusterResourceUsageStatus struct {
+	ResourceUsage VirtualClusterResourceUsageMap `json:"resourceUsage,omitempty"`
+}
+
 type VirtualClusterRole struct {
 	ObjectName  `json:",inline"`
 	Role        string      `json:"role,omitempty"`
@@ -3234,9 +3260,8 @@ type VirtualClusterTemplateStatus struct {
 }
 
 type VolumeSnapshotRequestStatus struct {
-	Phase          string               `json:"phase,omitempty"`
-	SnapshotHandle string               `json:"snapshotHandle,omitempty"`
-	Error          SnapshotRequestError `json:"error"`
+	Phase string               `json:"phase,omitempty"`
+	Error SnapshotRequestError `json:"error"`
 }
 
 type VolumeSnapshotsRequestStatus struct {
@@ -8303,6 +8328,14 @@ type VirtualClusterNodeAccessKeyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualClusterNodeAccessKey `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterResourceUsageList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterResourceUsage `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
