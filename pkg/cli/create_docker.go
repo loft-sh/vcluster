@@ -244,10 +244,8 @@ func writeVClusterYAML(globalFlags *flags.GlobalFlags, vClusterName string, fina
 }
 
 func addVClusterDocker(ctx context.Context, name string, vClusterConfig *config.Config, options *CreateOptions, globalFlags *flags.GlobalFlags, joinToken string, log log.Logger) ([]string, error) {
-	platformConfig, err := vClusterConfig.GetPlatformConfig()
-	if err != nil {
-		return nil, fmt.Errorf("get platform config: %w", err)
-	} else if platformConfig.APIKey.SecretName != "" || platformConfig.APIKey.Namespace != "" {
+	platformConfig := vClusterConfig.GetPlatformConfig()
+	if platformConfig.APIKey.SecretName != "" || platformConfig.APIKey.Namespace != "" {
 		return nil, nil
 	}
 
