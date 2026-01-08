@@ -1230,46 +1230,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*LicenseToken)(nil), (*management.LicenseToken)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_LicenseToken_To_management_LicenseToken(a.(*LicenseToken), b.(*management.LicenseToken), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*management.LicenseToken)(nil), (*LicenseToken)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_management_LicenseToken_To_v1_LicenseToken(a.(*management.LicenseToken), b.(*LicenseToken), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*LicenseTokenList)(nil), (*management.LicenseTokenList)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_LicenseTokenList_To_management_LicenseTokenList(a.(*LicenseTokenList), b.(*management.LicenseTokenList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*management.LicenseTokenList)(nil), (*LicenseTokenList)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_management_LicenseTokenList_To_v1_LicenseTokenList(a.(*management.LicenseTokenList), b.(*LicenseTokenList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*LicenseTokenSpec)(nil), (*management.LicenseTokenSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_LicenseTokenSpec_To_management_LicenseTokenSpec(a.(*LicenseTokenSpec), b.(*management.LicenseTokenSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*management.LicenseTokenSpec)(nil), (*LicenseTokenSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_management_LicenseTokenSpec_To_v1_LicenseTokenSpec(a.(*management.LicenseTokenSpec), b.(*LicenseTokenSpec), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*LicenseTokenStatus)(nil), (*management.LicenseTokenStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_LicenseTokenStatus_To_management_LicenseTokenStatus(a.(*LicenseTokenStatus), b.(*management.LicenseTokenStatus), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*management.LicenseTokenStatus)(nil), (*LicenseTokenStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_management_LicenseTokenStatus_To_v1_LicenseTokenStatus(a.(*management.LicenseTokenStatus), b.(*LicenseTokenStatus), scope)
-	}); err != nil {
-		return err
-	}
 	if err := s.AddGeneratedConversionFunc((*LoftUpgrade)(nil), (*management.LoftUpgrade)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_LoftUpgrade_To_management_LoftUpgrade(a.(*LoftUpgrade), b.(*management.LoftUpgrade), scope)
 	}); err != nil {
@@ -3267,6 +3227,46 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterNodeAccessKeyStatus)(nil), (*VirtualClusterNodeAccessKeyStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_management_VirtualClusterNodeAccessKeyStatus_To_v1_VirtualClusterNodeAccessKeyStatus(a.(*management.VirtualClusterNodeAccessKeyStatus), b.(*VirtualClusterNodeAccessKeyStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterResourceUsage)(nil), (*management.VirtualClusterResourceUsage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterResourceUsage_To_management_VirtualClusterResourceUsage(a.(*VirtualClusterResourceUsage), b.(*management.VirtualClusterResourceUsage), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterResourceUsage)(nil), (*VirtualClusterResourceUsage)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterResourceUsage_To_v1_VirtualClusterResourceUsage(a.(*management.VirtualClusterResourceUsage), b.(*VirtualClusterResourceUsage), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterResourceUsageList)(nil), (*management.VirtualClusterResourceUsageList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterResourceUsageList_To_management_VirtualClusterResourceUsageList(a.(*VirtualClusterResourceUsageList), b.(*management.VirtualClusterResourceUsageList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterResourceUsageList)(nil), (*VirtualClusterResourceUsageList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterResourceUsageList_To_v1_VirtualClusterResourceUsageList(a.(*management.VirtualClusterResourceUsageList), b.(*VirtualClusterResourceUsageList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterResourceUsageMap)(nil), (*management.VirtualClusterResourceUsageMap)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterResourceUsageMap_To_management_VirtualClusterResourceUsageMap(a.(*VirtualClusterResourceUsageMap), b.(*management.VirtualClusterResourceUsageMap), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterResourceUsageMap)(nil), (*VirtualClusterResourceUsageMap)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterResourceUsageMap_To_v1_VirtualClusterResourceUsageMap(a.(*management.VirtualClusterResourceUsageMap), b.(*VirtualClusterResourceUsageMap), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterResourceUsageStatus)(nil), (*management.VirtualClusterResourceUsageStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterResourceUsageStatus_To_management_VirtualClusterResourceUsageStatus(a.(*VirtualClusterResourceUsageStatus), b.(*management.VirtualClusterResourceUsageStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterResourceUsageStatus)(nil), (*VirtualClusterResourceUsageStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterResourceUsageStatus_To_v1_VirtualClusterResourceUsageStatus(a.(*management.VirtualClusterResourceUsageStatus), b.(*VirtualClusterResourceUsageStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -6545,7 +6545,7 @@ func Convert_management_LicenseRequestSpec_To_v1_LicenseRequestSpec(in *manageme
 }
 
 func autoConvert_v1_LicenseRequestStatus_To_management_LicenseRequestStatus(in *LicenseRequestStatus, out *management.LicenseRequestStatus, s conversion.Scope) error {
-	out.Output = (*licenseapi.GenericRequestOutput)(unsafe.Pointer(in.Output))
+	out.Output = in.Output
 	return nil
 }
 
@@ -6555,7 +6555,7 @@ func Convert_v1_LicenseRequestStatus_To_management_LicenseRequestStatus(in *Lice
 }
 
 func autoConvert_management_LicenseRequestStatus_To_v1_LicenseRequestStatus(in *management.LicenseRequestStatus, out *LicenseRequestStatus, s conversion.Scope) error {
-	out.Output = (*licenseapi.GenericRequestOutput)(unsafe.Pointer(in.Output))
+	out.Output = in.Output
 	return nil
 }
 
@@ -6604,102 +6604,6 @@ func autoConvert_management_LicenseStatus_To_v1_LicenseStatus(in *management.Lic
 // Convert_management_LicenseStatus_To_v1_LicenseStatus is an autogenerated conversion function.
 func Convert_management_LicenseStatus_To_v1_LicenseStatus(in *management.LicenseStatus, out *LicenseStatus, s conversion.Scope) error {
 	return autoConvert_management_LicenseStatus_To_v1_LicenseStatus(in, out, s)
-}
-
-func autoConvert_v1_LicenseToken_To_management_LicenseToken(in *LicenseToken, out *management.LicenseToken, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-	if err := Convert_v1_LicenseTokenSpec_To_management_LicenseTokenSpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	if err := Convert_v1_LicenseTokenStatus_To_management_LicenseTokenStatus(&in.Status, &out.Status, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1_LicenseToken_To_management_LicenseToken is an autogenerated conversion function.
-func Convert_v1_LicenseToken_To_management_LicenseToken(in *LicenseToken, out *management.LicenseToken, s conversion.Scope) error {
-	return autoConvert_v1_LicenseToken_To_management_LicenseToken(in, out, s)
-}
-
-func autoConvert_management_LicenseToken_To_v1_LicenseToken(in *management.LicenseToken, out *LicenseToken, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-	if err := Convert_management_LicenseTokenSpec_To_v1_LicenseTokenSpec(&in.Spec, &out.Spec, s); err != nil {
-		return err
-	}
-	if err := Convert_management_LicenseTokenStatus_To_v1_LicenseTokenStatus(&in.Status, &out.Status, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_management_LicenseToken_To_v1_LicenseToken is an autogenerated conversion function.
-func Convert_management_LicenseToken_To_v1_LicenseToken(in *management.LicenseToken, out *LicenseToken, s conversion.Scope) error {
-	return autoConvert_management_LicenseToken_To_v1_LicenseToken(in, out, s)
-}
-
-func autoConvert_v1_LicenseTokenList_To_management_LicenseTokenList(in *LicenseTokenList, out *management.LicenseTokenList, s conversion.Scope) error {
-	out.ListMeta = in.ListMeta
-	out.Items = *(*[]management.LicenseToken)(unsafe.Pointer(&in.Items))
-	return nil
-}
-
-// Convert_v1_LicenseTokenList_To_management_LicenseTokenList is an autogenerated conversion function.
-func Convert_v1_LicenseTokenList_To_management_LicenseTokenList(in *LicenseTokenList, out *management.LicenseTokenList, s conversion.Scope) error {
-	return autoConvert_v1_LicenseTokenList_To_management_LicenseTokenList(in, out, s)
-}
-
-func autoConvert_management_LicenseTokenList_To_v1_LicenseTokenList(in *management.LicenseTokenList, out *LicenseTokenList, s conversion.Scope) error {
-	out.ListMeta = in.ListMeta
-	out.Items = *(*[]LicenseToken)(unsafe.Pointer(&in.Items))
-	return nil
-}
-
-// Convert_management_LicenseTokenList_To_v1_LicenseTokenList is an autogenerated conversion function.
-func Convert_management_LicenseTokenList_To_v1_LicenseTokenList(in *management.LicenseTokenList, out *LicenseTokenList, s conversion.Scope) error {
-	return autoConvert_management_LicenseTokenList_To_v1_LicenseTokenList(in, out, s)
-}
-
-func autoConvert_v1_LicenseTokenSpec_To_management_LicenseTokenSpec(in *LicenseTokenSpec, out *management.LicenseTokenSpec, s conversion.Scope) error {
-	out.URL = in.URL
-	out.Payload = in.Payload
-	return nil
-}
-
-// Convert_v1_LicenseTokenSpec_To_management_LicenseTokenSpec is an autogenerated conversion function.
-func Convert_v1_LicenseTokenSpec_To_management_LicenseTokenSpec(in *LicenseTokenSpec, out *management.LicenseTokenSpec, s conversion.Scope) error {
-	return autoConvert_v1_LicenseTokenSpec_To_management_LicenseTokenSpec(in, out, s)
-}
-
-func autoConvert_management_LicenseTokenSpec_To_v1_LicenseTokenSpec(in *management.LicenseTokenSpec, out *LicenseTokenSpec, s conversion.Scope) error {
-	out.URL = in.URL
-	out.Payload = in.Payload
-	return nil
-}
-
-// Convert_management_LicenseTokenSpec_To_v1_LicenseTokenSpec is an autogenerated conversion function.
-func Convert_management_LicenseTokenSpec_To_v1_LicenseTokenSpec(in *management.LicenseTokenSpec, out *LicenseTokenSpec, s conversion.Scope) error {
-	return autoConvert_management_LicenseTokenSpec_To_v1_LicenseTokenSpec(in, out, s)
-}
-
-func autoConvert_v1_LicenseTokenStatus_To_management_LicenseTokenStatus(in *LicenseTokenStatus, out *management.LicenseTokenStatus, s conversion.Scope) error {
-	out.Token = (*licenseapi.InstanceTokenAuth)(unsafe.Pointer(in.Token))
-	return nil
-}
-
-// Convert_v1_LicenseTokenStatus_To_management_LicenseTokenStatus is an autogenerated conversion function.
-func Convert_v1_LicenseTokenStatus_To_management_LicenseTokenStatus(in *LicenseTokenStatus, out *management.LicenseTokenStatus, s conversion.Scope) error {
-	return autoConvert_v1_LicenseTokenStatus_To_management_LicenseTokenStatus(in, out, s)
-}
-
-func autoConvert_management_LicenseTokenStatus_To_v1_LicenseTokenStatus(in *management.LicenseTokenStatus, out *LicenseTokenStatus, s conversion.Scope) error {
-	out.Token = (*licenseapi.InstanceTokenAuth)(unsafe.Pointer(in.Token))
-	return nil
-}
-
-// Convert_management_LicenseTokenStatus_To_v1_LicenseTokenStatus is an autogenerated conversion function.
-func Convert_management_LicenseTokenStatus_To_v1_LicenseTokenStatus(in *management.LicenseTokenStatus, out *LicenseTokenStatus, s conversion.Scope) error {
-	return autoConvert_management_LicenseTokenStatus_To_v1_LicenseTokenStatus(in, out, s)
 }
 
 func autoConvert_v1_LoftUpgrade_To_management_LoftUpgrade(in *LoftUpgrade, out *management.LoftUpgrade, s conversion.Scope) error {
@@ -11717,6 +11621,100 @@ func Convert_management_VirtualClusterNodeAccessKeyStatus_To_v1_VirtualClusterNo
 	return autoConvert_management_VirtualClusterNodeAccessKeyStatus_To_v1_VirtualClusterNodeAccessKeyStatus(in, out, s)
 }
 
+func autoConvert_v1_VirtualClusterResourceUsage_To_management_VirtualClusterResourceUsage(in *VirtualClusterResourceUsage, out *management.VirtualClusterResourceUsage, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1_VirtualClusterResourceUsageStatus_To_management_VirtualClusterResourceUsageStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1_VirtualClusterResourceUsage_To_management_VirtualClusterResourceUsage is an autogenerated conversion function.
+func Convert_v1_VirtualClusterResourceUsage_To_management_VirtualClusterResourceUsage(in *VirtualClusterResourceUsage, out *management.VirtualClusterResourceUsage, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterResourceUsage_To_management_VirtualClusterResourceUsage(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterResourceUsage_To_v1_VirtualClusterResourceUsage(in *management.VirtualClusterResourceUsage, out *VirtualClusterResourceUsage, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_management_VirtualClusterResourceUsageStatus_To_v1_VirtualClusterResourceUsageStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_management_VirtualClusterResourceUsage_To_v1_VirtualClusterResourceUsage is an autogenerated conversion function.
+func Convert_management_VirtualClusterResourceUsage_To_v1_VirtualClusterResourceUsage(in *management.VirtualClusterResourceUsage, out *VirtualClusterResourceUsage, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterResourceUsage_To_v1_VirtualClusterResourceUsage(in, out, s)
+}
+
+func autoConvert_v1_VirtualClusterResourceUsageList_To_management_VirtualClusterResourceUsageList(in *VirtualClusterResourceUsageList, out *management.VirtualClusterResourceUsageList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]management.VirtualClusterResourceUsage)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1_VirtualClusterResourceUsageList_To_management_VirtualClusterResourceUsageList is an autogenerated conversion function.
+func Convert_v1_VirtualClusterResourceUsageList_To_management_VirtualClusterResourceUsageList(in *VirtualClusterResourceUsageList, out *management.VirtualClusterResourceUsageList, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterResourceUsageList_To_management_VirtualClusterResourceUsageList(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterResourceUsageList_To_v1_VirtualClusterResourceUsageList(in *management.VirtualClusterResourceUsageList, out *VirtualClusterResourceUsageList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]VirtualClusterResourceUsage)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_management_VirtualClusterResourceUsageList_To_v1_VirtualClusterResourceUsageList is an autogenerated conversion function.
+func Convert_management_VirtualClusterResourceUsageList_To_v1_VirtualClusterResourceUsageList(in *management.VirtualClusterResourceUsageList, out *VirtualClusterResourceUsageList, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterResourceUsageList_To_v1_VirtualClusterResourceUsageList(in, out, s)
+}
+
+func autoConvert_v1_VirtualClusterResourceUsageMap_To_management_VirtualClusterResourceUsageMap(in *VirtualClusterResourceUsageMap, out *management.VirtualClusterResourceUsageMap, s conversion.Scope) error {
+	out.Nodes = in.Nodes
+	out.Capacity = *(*map[string]int)(unsafe.Pointer(&in.Capacity))
+	return nil
+}
+
+// Convert_v1_VirtualClusterResourceUsageMap_To_management_VirtualClusterResourceUsageMap is an autogenerated conversion function.
+func Convert_v1_VirtualClusterResourceUsageMap_To_management_VirtualClusterResourceUsageMap(in *VirtualClusterResourceUsageMap, out *management.VirtualClusterResourceUsageMap, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterResourceUsageMap_To_management_VirtualClusterResourceUsageMap(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterResourceUsageMap_To_v1_VirtualClusterResourceUsageMap(in *management.VirtualClusterResourceUsageMap, out *VirtualClusterResourceUsageMap, s conversion.Scope) error {
+	out.Nodes = in.Nodes
+	out.Capacity = *(*map[string]int)(unsafe.Pointer(&in.Capacity))
+	return nil
+}
+
+// Convert_management_VirtualClusterResourceUsageMap_To_v1_VirtualClusterResourceUsageMap is an autogenerated conversion function.
+func Convert_management_VirtualClusterResourceUsageMap_To_v1_VirtualClusterResourceUsageMap(in *management.VirtualClusterResourceUsageMap, out *VirtualClusterResourceUsageMap, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterResourceUsageMap_To_v1_VirtualClusterResourceUsageMap(in, out, s)
+}
+
+func autoConvert_v1_VirtualClusterResourceUsageStatus_To_management_VirtualClusterResourceUsageStatus(in *VirtualClusterResourceUsageStatus, out *management.VirtualClusterResourceUsageStatus, s conversion.Scope) error {
+	if err := Convert_v1_VirtualClusterResourceUsageMap_To_management_VirtualClusterResourceUsageMap(&in.ResourceUsage, &out.ResourceUsage, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1_VirtualClusterResourceUsageStatus_To_management_VirtualClusterResourceUsageStatus is an autogenerated conversion function.
+func Convert_v1_VirtualClusterResourceUsageStatus_To_management_VirtualClusterResourceUsageStatus(in *VirtualClusterResourceUsageStatus, out *management.VirtualClusterResourceUsageStatus, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterResourceUsageStatus_To_management_VirtualClusterResourceUsageStatus(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterResourceUsageStatus_To_v1_VirtualClusterResourceUsageStatus(in *management.VirtualClusterResourceUsageStatus, out *VirtualClusterResourceUsageStatus, s conversion.Scope) error {
+	if err := Convert_management_VirtualClusterResourceUsageMap_To_v1_VirtualClusterResourceUsageMap(&in.ResourceUsage, &out.ResourceUsage, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_management_VirtualClusterResourceUsageStatus_To_v1_VirtualClusterResourceUsageStatus is an autogenerated conversion function.
+func Convert_management_VirtualClusterResourceUsageStatus_To_v1_VirtualClusterResourceUsageStatus(in *management.VirtualClusterResourceUsageStatus, out *VirtualClusterResourceUsageStatus, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterResourceUsageStatus_To_v1_VirtualClusterResourceUsageStatus(in, out, s)
+}
+
 func autoConvert_v1_VirtualClusterRole_To_management_VirtualClusterRole(in *VirtualClusterRole, out *management.VirtualClusterRole, s conversion.Scope) error {
 	if err := Convert_v1_ObjectName_To_management_ObjectName(&in.ObjectName, &out.ObjectName, s); err != nil {
 		return err
@@ -12093,7 +12091,6 @@ func Convert_management_VirtualClusterTemplateStatus_To_v1_VirtualClusterTemplat
 
 func autoConvert_v1_VolumeSnapshotRequestStatus_To_management_VolumeSnapshotRequestStatus(in *VolumeSnapshotRequestStatus, out *management.VolumeSnapshotRequestStatus, s conversion.Scope) error {
 	out.Phase = in.Phase
-	out.SnapshotHandle = in.SnapshotHandle
 	if err := Convert_v1_SnapshotRequestError_To_management_SnapshotRequestError(&in.Error, &out.Error, s); err != nil {
 		return err
 	}
@@ -12107,7 +12104,6 @@ func Convert_v1_VolumeSnapshotRequestStatus_To_management_VolumeSnapshotRequestS
 
 func autoConvert_management_VolumeSnapshotRequestStatus_To_v1_VolumeSnapshotRequestStatus(in *management.VolumeSnapshotRequestStatus, out *VolumeSnapshotRequestStatus, s conversion.Scope) error {
 	out.Phase = in.Phase
-	out.SnapshotHandle = in.SnapshotHandle
 	if err := Convert_management_SnapshotRequestError_To_v1_SnapshotRequestError(&in.Error, &out.Error, s); err != nil {
 		return err
 	}
