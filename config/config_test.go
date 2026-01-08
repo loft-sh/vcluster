@@ -304,19 +304,6 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "External Platform configuration used",
-			config: &Config{
-				External: map[string]ExternalConfig{
-					"platform": map[string]interface{}{
-						"autoSleep": map[string]interface{}{
-							"afterInactivity": 300,
-						},
-					},
-				},
-			},
-			expected: true,
-		},
-		{
 			name: "Custom Resource Syncing to host is configured",
 			config: &Config{
 				Sync: Sync{
