@@ -2417,10 +2417,19 @@ type CustomResourceProxy struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// TargetVirtualCluster is the target virtual cluster for the custom resource proxy
-	TargetVirtualCluster string `json:"targetVirtualCluster" jsonschema:"required,minLength=1,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
+	TargetVirtualCluster VirtualClusterRef `json:"targetVirtualCluster"`
 
 	// AccessResources defines which resources should be accessible in the proxy.
 	AccessResources AccessResourcesMode `json:"accessResources,omitempty"`
+}
+
+// VirtualClusterRef is a reference to a virtual cluster within the platform.
+type VirtualClusterRef struct {
+	// Name is the name of the target virtual cluster.
+	Name string `json:"name" jsonschema:"required,minLength=1,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
+
+	// Project is the project of the target virtual cluster. If empty, defaults to the same project as the source vCluster.
+	Project string `json:"project,omitempty" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
 }
 
 type ExternalEtcdPersistence struct {
