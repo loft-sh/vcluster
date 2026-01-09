@@ -101,34 +101,16 @@ jobs:
           echo "Extracted minor version: ${MINOR_VERSION_WITH_PATCH} from tag: ${RELEASE_TAG}"
 
           # Determine target folder - use version folder for RC releases, main for beta
-          VCLUSTER_CONFIG_BRANCH="main"
           if [[ "${RELEASE_TAG}" == *"-rc"* ]]; then
             TARGET_VERSION="${MINOR_VERSION_WITH_PATCH}"
             echo "RC release detected, using versioned folder: ${TARGET_VERSION}"
-            VCLUSTER_CONFIG_BRANCH="vcluster-v${MAJOR_VERSION}.${MINOR_VERSION}"
           else
             TARGET_VERSION="main"
             echo "Beta release detected, using main folder"
           fi
-          echo "Using vcluster-config tag: ${VCLUSTER_CONFIG_BRANCH}"
 
           # clone vcluster-config and vcluster-docs
           git clone --single-branch https://github.com/loft-sh/vcluster-docs.git
-
-          # try to clone the tagged version, if it does not exist, fallback to main
-          git clone --branch "${VCLUSTER_CONFIG_BRANCH}" --depth 1 https://github.com/loft-sh/vcluster-config.git || git clone --single-branch https://github.com/loft-sh/vcluster-config.git
-
-          # generate vcluster.schema.json based on the current platform.schema.json in vcluster-config
-          # and values.schema.json from alpha / beta release
-          cp chart/values.schema.json vcluster-config/values.schema.json
-          cd vcluster-config/
-          go mod tidy
-          go mod vendor
-
-          go run ./hack/main.go
-
-          # copy generated vcluster.schema.json to the docs
-          cd ../
 
           # Check if versioned docs folder exists. If it exists, use it; otherwise use main.
           # Versioned folders are created independently by the docs release process.
@@ -141,8 +123,8 @@ jobs:
           fi
 
           mkdir -p "vcluster-docs/configsrc/vcluster/${DOCS_VERSION}/"
-          cp config/values.yaml "vcluster-docs/configsrc/vcluster/${DOCS_VERSION}/default_values.yaml"
-          cp vcluster-config/vcluster.schema.json "vcluster-docs/configsrc/vcluster/${DOCS_VERSION}/vcluster.schema.json"
+          cp chart/values.yaml "vcluster-docs/configsrc/vcluster/${DOCS_VERSION}/default_values.yaml"
+          cp chart/values.schema.json "vcluster-docs/configsrc/vcluster/${DOCS_VERSION}/vcluster.schema.json"
 
           # generate vCluster partials in docs
           cd vcluster-docs/
@@ -175,54 +157,3 @@ jobs:
           gh pr close "${branch_name}" --comment "Closing to recreate with updated changes from ${RELEASE_TAG}" || true
           gh pr create --fill --head "${branch_name}"
           echo "Create PR in vcluster-docs"
-
-
-      - name: Update vcluster schema in vcluster-config
-        # update only on beta, -rc and stable versions
-        if: ${{ steps.release.outputs.is_alpha_version == 'false' }}
-        env:
-          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
-          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
-          PARSED_VERSION: ${{ steps.semver.outputs.parsed_version }}
-        run: |
-          rm -rf vcluster-config/ || true
-          git clone https://github.com/loft-sh/vcluster-config.git
-          # copy generated schema from vcluster chart values to vcluster-config
-          cp chart/values.schema.json vcluster-config/values.schema.json
-          cp -R config/. vcluster-config/config/
-
-          cd vcluster-config
-
-          # We have to replace our config dependency so that we do not introduce vcluster as a whole as transitive dependecy.
-          find ./config/legacyconfig -type f -exec sed -i "s#github.com/loft-sh/vcluster/config#github.com/loft-sh/vcluster-config/config#g" {} +
-
-          # Align deps, if there have been any relevant changes in vcluster.
-          go mod tidy
-          go mod vendor
-
-          git add --all
-
-          # if there are no changes, exit early
-          if git diff-index --quiet HEAD --; then
-            exit 0
-          fi
-          echo "Changes detected"
-
-          # Determine the tag to update based on the release version
-          # Use parsed version from semver action
-          MAJOR_VERSION=$(echo "${PARSED_VERSION}" | jq -r '.major')
-          MINOR_VERSION=$(echo "${PARSED_VERSION}" | jq -r '.minor')
-
-          # Use the vcluster-vX.Y format for tags
-          TARGET_TAG="vcluster-v${MAJOR_VERSION}.${MINOR_VERSION}"
-
-          # commit changes
-          git commit -m "chore: sync config/*.go and values.schema.json to vCluster version ${RELEASE_TAG}"
-
-          # Update the existing tag to point to the new commit
-          git tag -f "${TARGET_TAG}"
-          # push the commit
-          git push origin HEAD:main
-          git push -u origin -f "${TARGET_TAG}"
-
-          echo "vcluster-config tag ${TARGET_TAG} updated to vCluster version ${RELEASE_TAG}"
