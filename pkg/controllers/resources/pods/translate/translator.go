@@ -24,6 +24,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilversion "k8s.io/apimachinery/pkg/util/version"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
@@ -98,6 +100,11 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		"docker.io",
 	)
 
+	hostClusterVersion, err := ctx.Config.HostClient.Discovery().ServerVersion()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get virtual cluster version : %w", err)
+	}
+
 	return &translator{
 		vClientConfig: ctx.VirtualManager.GetConfig(),
 		vClient:       ctx.VirtualManager.GetClient(),
@@ -125,6 +132,8 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		virtualLogsPath:       virtualLogsPath,
 		virtualPodLogsPath:    filepath.Join(virtualLogsPath, "pods"),
 		virtualKubeletPodPath: filepath.Join(virtualKubeletPath, "pods"),
+
+		hostClusterVersion: hostClusterVersion,
 	}, nil
 }
 
@@ -153,6 +162,8 @@ type translator struct {
 	virtualLogsPath       string
 	virtualPodLogsPath    string
 	virtualKubeletPodPath string
+
+	hostClusterVersion *version.Info
 }
 
 func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -312,6 +323,18 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 		}
 
 		pPod.Spec.Subdomain = ""
+	}
+
+	// translate pod resources
+	if t.hostClusterVersion != nil {
+		parsedVersion, err := utilversion.ParseSemantic(t.hostClusterVersion.String())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse host cluster version : %w", err)
+		}
+		// spec.resources is only supported in beta from Kubernetes 1.34.0
+		if parsedVersion.LessThan(utilversion.MustParseSemantic("1.34.0")) {
+			pPod.Spec.Resources = nil
+		}
 	}
 
 	// translate containers

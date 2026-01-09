@@ -3,6 +3,9 @@ package testing
 import (
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
+	"k8s.io/apimachinery/pkg/version"
+	fakediscovery "k8s.io/client-go/discovery/fake"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 )
 
@@ -37,5 +40,13 @@ func NewFakeConfig() *config.VirtualClusterConfig {
 		Host:    "",
 		APIPath: "",
 	}
+
+	fakeClient := fake.NewClientset()
+	fakeClient.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &version.Info{
+		Major:      "1",
+		Minor:      "31",
+		GitVersion: "v1.31.0",
+	}
+	vConfig.HostClient = fakeClient
 	return vConfig
 }
