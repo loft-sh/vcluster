@@ -80,5 +80,9 @@ func (cmd *PauseCmd) Run(ctx context.Context, args []string) error {
 		return cli.PausePlatform(ctx, &cmd.PauseOptions, cfg, args[0], cmd.Log)
 	}
 
+	if driverType == config.DockerDriver {
+		return cli.PauseDocker(ctx, cmd.GlobalFlags, args[0], cmd.Log)
+	}
+
 	return cli.PauseHelm(ctx, cmd.GlobalFlags, args[0], cmd.Log)
 }

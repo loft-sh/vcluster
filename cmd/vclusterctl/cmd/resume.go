@@ -74,6 +74,10 @@ func (cmd *ResumeCmd) Run(ctx context.Context, args []string) error {
 		return cli.ResumePlatform(ctx, &cmd.ResumeOptions, cfg, args[0], cmd.Log)
 	}
 
+	if driverType == config.DockerDriver {
+		return cli.ResumeDocker(ctx, cmd.GlobalFlags, args[0], cmd.Log)
+	}
+
 	if err := cli.ResumeHelm(ctx, cmd.GlobalFlags, args[0], cmd.Log); err != nil {
 		// If they specified a driver, don't fall back to the platform automatically.
 		if cmd.Driver == "" && errors.Is(err, cli.ErrPlatformDriverRequired) {

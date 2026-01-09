@@ -652,8 +652,6 @@ func toChartOptions(platformClient platform.Client, options *CreateOptions) (*vc
 		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", options.Distro, strings.Join(AllowedDistros, ", "))
 	}
 
-	kubernetesVersion := vclusterconfig.KubernetesVersion{}
-
 	// use default version if its development
 	if options.ChartVersion == upgrade.DevelopmentVersion {
 		options.ChartVersion = ""
@@ -663,7 +661,6 @@ func toChartOptions(platformClient platform.Client, options *CreateOptions) (*vc
 	return &vclusterconfig.ExtraValuesOptions{
 		Distro:              options.Distro,
 		Expose:              options.Expose,
-		KubernetesVersion:   kubernetesVersion,
 		DisableTelemetry:    cfg.TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",
 		PlatformInstanceID:  telemetry.GetPlatformInstanceID(cfg, platformClient.Self()),

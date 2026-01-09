@@ -1786,6 +1786,10 @@
         "proxy": {
           "$ref": "#/$defs/Proxy",
           "description": "Proxy enables vCluster-to-vCluster proxying of resources"
+        },
+        "docker": {
+          "$ref": "#/$defs/ExperimentalDocker",
+          "description": "Docker allows you to configure Docker related settings when deploying a vCluster using Docker."
         }
       },
       "additionalProperties": false,
@@ -1899,6 +1903,93 @@
           },
           "type": "array",
           "description": "Helm are Helm charts that should get deployed into the virtual cluster"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExperimentalDocker": {
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "Image defines the image to use for the container. Defaults to ghcr.io/loft-sh/vm-container."
+        },
+        "ports": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Ports defines extra port mappings to be added to the container."
+        },
+        "volumes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Volumes defines extra volumes to be added to the container."
+        },
+        "env": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Env defines extra environment variables to be added to the container. Use key=value."
+        },
+        "args": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Args defines extra arguments to be added to the docker run command of the container."
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/ExperimentalDockerNode"
+          },
+          "type": "array",
+          "description": "Nodes defines the nodes of the vCluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExperimentalDockerNode": {
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "Image defines the image to use for the container. Defaults to ghcr.io/loft-sh/vm-container."
+        },
+        "ports": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Ports defines extra port mappings to be added to the container."
+        },
+        "volumes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Volumes defines extra volumes to be added to the container."
+        },
+        "env": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Env defines extra environment variables to be added to the container. Use key=value."
+        },
+        "args": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Args defines extra arguments to be added to the docker run command of the container."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name defines the name of the node. If not specified, a random name will be generated."
         }
       },
       "additionalProperties": false,

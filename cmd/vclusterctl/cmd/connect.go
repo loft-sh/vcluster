@@ -112,6 +112,10 @@ func (cmd *ConnectCmd) Run(ctx context.Context, args []string) error {
 		cmd.Log.Fatalf("Following platform flags have been set, which won't have any effect when using driver type %s: %s", config.HelmDriver, strings.Join(fs, ", "))
 	}
 
+	if driverType == config.DockerDriver {
+		return cli.ConnectDocker(ctx, &cmd.ConnectOptions, cmd.GlobalFlags, vClusterName, args[1:], cmd.Log)
+	}
+
 	return cli.ConnectHelm(ctx, &cmd.ConnectOptions, cmd.GlobalFlags, vClusterName, args[1:], cmd.Log)
 }
 

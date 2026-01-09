@@ -20,6 +20,7 @@ const (
 
 	HelmDriver     DriverType = "helm"
 	PlatformDriver DriverType = "platform"
+	DockerDriver   DriverType = "docker"
 )
 
 var singleConfig *CLI
@@ -137,12 +138,14 @@ func PrintDriverInfo(verb string, driver DriverType, log log.Logger) {
 	// only print this to stderr
 	log = log.ErrorStreamOnly()
 
-	if driver == HelmDriver {
+	switch driver {
+	case HelmDriver:
 		log.Infof("Using vCluster driver 'helm' to %s your virtual clusters, which means the vCluster CLI is running helm commands directly", verb)
 		log.Info("If you prefer to use the vCluster platform API instead, use the flag '--driver platform' or run 'vcluster use driver platform' to change the default")
-	} else {
+	case PlatformDriver:
 		log.Infof("Using vCluster driver 'platform' to %s your virtual clusters, which means the CLI is using the vCluster platform API instead of helm", verb)
 		log.Info("If you prefer to use helm instead, use the flag '--driver helm' or run 'vcluster use driver helm' to change the default")
+	case DockerDriver:
 	}
 }
 
@@ -152,8 +155,10 @@ func ParseDriverType(driver string) (DriverType, error) {
 		return HelmDriver, nil
 	case "platform":
 		return PlatformDriver, nil
+	case "docker":
+		return DockerDriver, nil
 	default:
-		return "", fmt.Errorf("invalid driver type: %q, only \"helm\" or \"platform\" are valid", driver)
+		return "", fmt.Errorf("invalid driver type: %q, only \"helm\", \"platform\" or \"docker\" are valid", driver)
 	}
 }
 
