@@ -57,7 +57,7 @@ tests:
           value: vc-cp-my-release
         lengthEqual:
           path: spec.ingress
-          count: 4
+          count: 5
       - documentSelector:
           path: metadata.name
           value: vc-kube-dns-my-release
@@ -163,5 +163,5 @@ tests:
           path: metadata.name
           value: vc-cp-my-release
         equal:
-          path: spec.ingress[4].ports[0].port
+          path: spec.ingress[5].ports[0].port
           value: 12340

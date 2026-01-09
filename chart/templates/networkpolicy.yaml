@@ -151,6 +151,12 @@ spec:
             matchLabels:
               app: vcluster-snapshot
 
+    # Allow ingress from vcluster rancher operator agent install pods.
+    - from:
+        - podSelector:
+            matchLabels:
+              app: rancher-agent-install
+
     # Allow ingress from vcluster platform.
     - from:
         - podSelector:
