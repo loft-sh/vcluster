@@ -166,6 +166,10 @@ func run(
 		}
 	}
 
+	// Deduplicate issue IDs - same issue can appear in both PR body and branch name,
+	// or across multiple PRs referencing the same issue
+	releasedIssues = deduplicateIssueIDs(releasedIssues)
+
 	logger.Info("Found issues in pull requests", "count", len(releasedIssues))
 
 	linearClient := NewLinearClient(ctx, *linearToken)
@@ -201,4 +205,17 @@ func run(
 	logger.Info("Linear sync completed", "processed", len(releasedIssues), "released", releasedCount, "skipped", skippedCount)
 
 	return nil
+}
+
+// deduplicateIssueIDs removes duplicate issue IDs from the slice while preserving order
+func deduplicateIssueIDs(issueIDs []string) []string {
+	seen := make(map[string]bool)
+	result := make([]string, 0, len(issueIDs))
+	for _, id := range issueIDs {
+		if !seen[id] {
+			seen[id] = true
+			result = append(result, id)
+		}
+	}
+	return result
 }
