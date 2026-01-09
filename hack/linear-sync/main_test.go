@@ -269,6 +269,62 @@ func TestRunFunction_FlagValidation(t *testing.T) {
 	}
 }
 
+func TestDeduplicateIssueIDs(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "no duplicates",
+			input:    []string{"eng-1234", "eng-5678", "eng-9012"},
+			expected: []string{"eng-1234", "eng-5678", "eng-9012"},
+		},
+		{
+			name:     "with duplicates within single PR (body + branch)",
+			input:    []string{"eng-8061", "eng-8061"},
+			expected: []string{"eng-8061"},
+		},
+		{
+			name:     "with duplicates across multiple PRs",
+			input:    []string{"eng-1234", "eng-5678", "eng-1234", "eng-9012", "eng-5678"},
+			expected: []string{"eng-1234", "eng-5678", "eng-9012"},
+		},
+		{
+			name:     "empty list",
+			input:    []string{},
+			expected: []string{},
+		},
+		{
+			name:     "all duplicates",
+			input:    []string{"eng-1234", "eng-1234", "eng-1234"},
+			expected: []string{"eng-1234"},
+		},
+		{
+			name:     "preserves order",
+			input:    []string{"eng-3333", "eng-1111", "eng-2222", "eng-1111"},
+			expected: []string{"eng-3333", "eng-1111", "eng-2222"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := deduplicateIssueIDs(tc.input)
+
+			if len(result) != len(tc.expected) {
+				t.Errorf("expected %d items, got %d", len(tc.expected), len(result))
+				return
+			}
+
+			for i, v := range result {
+				if v != tc.expected[i] {
+					t.Errorf("at index %d: expected %q, got %q", i, tc.expected[i], v)
+				}
+			}
+		})
+	}
+}
+
 func TestFlagDescriptions(t *testing.T) {
 	// Test that all flags have proper descriptions
 	flagset := flag.NewFlagSet("test", flag.ContinueOnError)
