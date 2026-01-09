@@ -19,7 +19,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
@@ -29,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -55,6 +53,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
 	"github.com/loft-sh/vcluster/pkg/util/namespaces"
+	"sigs.k8s.io/yaml"
 )
 
 // CreateOptions holds the create cmd options
@@ -265,53 +264,18 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	}
 
 	// build extra values
-	var newExtraValues []string
-
-	// get config from snapshot
-	if len(cmd.Values) == 0 && len(cmd.SetValues) == 0 {
-		restoreValuesFile, err := cmd.getVClusterConfigFromSnapshot(ctx)
-		if err != nil {
-			log.Warnf("get vCluster config from snapshot: %w", err)
-		} else if restoreValuesFile != "" {
-			defer os.Remove(restoreValuesFile)
-			cmd.log.Info("Using vCluster config from snapshot")
-			newExtraValues = append(newExtraValues, restoreValuesFile)
-		}
-	} else if cmd.Restore != "" {
-		cmd.log.Warnf("Skipping config from snapshot because --values or --set flag is used")
-	}
-
-	// get config from values files
-	for _, value := range cmd.Values {
-		// ignore decoding errors and treat it as non-base64 string
-		decodedString, err := getBase64DecodedString(value)
-		if err != nil {
-			newExtraValues = append(newExtraValues, value)
-			continue
-		}
-
-		// write the decoded string to a temp file
-		tempValuesFile, err := writeTempFile([]byte(decodedString))
-		if err != nil {
-			return fmt.Errorf("write temp values file: %w", err)
-		}
-		defer os.Remove(tempValuesFile)
-
-		// setting new file to extraValues slice to process it further.
-		newExtraValues = append(newExtraValues, tempValuesFile)
-	}
-
-	// resetting this as the base64 encoded strings should be removed and only valid file names should be kept.
-	cmd.Values = newExtraValues
-
-	// find out kubernetes version
-	kubernetesVersion, err := cmd.getKubernetesVersion()
+	filesToRemove, err := buildExtraValues(ctx, cmd.CreateOptions, log)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		for _, file := range filesToRemove {
+			os.Remove(file)
+		}
+	}()
 
 	// load the default values
-	chartOptions, err := cmd.ToChartOptions(kubernetesVersion, cmd.log)
+	chartOptions, err := cmd.ToChartOptions(cmd.log)
 	if err != nil {
 		return err
 	}
@@ -321,7 +285,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	}
 
 	// parse vCluster config
-	vClusterConfig, err := cmd.parseVClusterYAML(chartValues)
+	vClusterConfig, err := parseVClusterYAML(chartValues, cmd.CreateOptions)
 	if err != nil {
 		return err
 	}
@@ -461,8 +425,52 @@ func confirmExperimental(currentVClusterConfig *config.Config, currentValues str
 	return nil
 }
 
-func (cmd *createHelm) parseVClusterYAML(chartValues string) (*config.Config, error) {
-	finalValues, err := mergeAllValues(cmd.SetValues, cmd.Values, chartValues)
+func buildExtraValues(ctx context.Context, cmd *CreateOptions, log log.Logger) ([]string, error) {
+	// build extra values
+	var newExtraValues []string
+	var filesToRemove []string
+
+	// get config from snapshot
+	if len(cmd.Values) == 0 && len(cmd.SetValues) == 0 {
+		restoreValuesFile, err := getVClusterConfigFromSnapshot(ctx, cmd)
+		if err != nil {
+			log.Warnf("get vCluster config from snapshot: %w", err)
+		} else if restoreValuesFile != "" {
+			filesToRemove = append(filesToRemove, restoreValuesFile)
+			log.Info("Using vCluster config from snapshot")
+			newExtraValues = append(newExtraValues, restoreValuesFile)
+		}
+	} else if cmd.Restore != "" {
+		log.Warnf("Skipping config from snapshot because --values or --set flag is used")
+	}
+
+	// get config from values files
+	for _, value := range cmd.Values {
+		// ignore decoding errors and treat it as non-base64 string
+		decodedString, err := getBase64DecodedString(value)
+		if err != nil {
+			newExtraValues = append(newExtraValues, value)
+			continue
+		}
+
+		// write the decoded string to a temp file
+		tempValuesFile, err := writeTempFile([]byte(decodedString))
+		if err != nil {
+			return nil, fmt.Errorf("write temp values file: %w", err)
+		}
+		filesToRemove = append(filesToRemove, tempValuesFile)
+
+		// setting new file to extraValues slice to process it further.
+		newExtraValues = append(newExtraValues, tempValuesFile)
+	}
+
+	// resetting this as the base64 encoded strings should be removed and only valid file names should be kept.
+	cmd.Values = newExtraValues
+	return filesToRemove, nil
+}
+
+func parseVClusterYAML(extraValues string, cmd *CreateOptions) (*config.Config, error) {
+	finalValues, err := mergeAllValues(cmd.SetValues, cmd.Values, extraValues)
 	if err != nil {
 		return nil, fmt.Errorf("merge values: %w", err)
 	}
@@ -725,7 +733,7 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 	return nil
 }
 
-func (cmd *createHelm) ToChartOptions(kubernetesVersion *version.Info, log log.Logger) (*config.ExtraValuesOptions, error) {
+func (cmd *createHelm) ToChartOptions(log log.Logger) (*config.ExtraValuesOptions, error) {
 	if !util.Contains(cmd.Distro, AllowedDistros) {
 		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", cmd.Distro, strings.Join(AllowedDistros, ", "))
 	}
@@ -739,13 +747,9 @@ func (cmd *createHelm) ToChartOptions(kubernetesVersion *version.Info, log log.L
 
 	cfg := cmd.LoadedConfig(log)
 	return &config.ExtraValuesOptions{
-		Distro:   cmd.Distro,
-		Expose:   cmd.Expose,
-		NodePort: cmd.localCluster,
-		KubernetesVersion: config.KubernetesVersion{
-			Major: kubernetesVersion.Major,
-			Minor: kubernetesVersion.Minor,
-		},
+		Distro:              cmd.Distro,
+		Expose:              cmd.Expose,
+		NodePort:            cmd.localCluster,
 		DisableTelemetry:    cfg.TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",
 		MachineID:           telemetry.GetMachineID(cfg),
@@ -886,15 +890,6 @@ func (cmd *createHelm) createNamespace(ctx context.Context) error {
 	return nil
 }
 
-func (cmd *createHelm) getKubernetesVersion() (*version.Info, error) {
-	kubernetesVersion, err := cmd.kubeClient.ServerVersion()
-	if err != nil {
-		return nil, err
-	}
-
-	return kubernetesVersion, nil
-}
-
 func writeTempFile(data []byte) (string, error) {
 	// write a temporary values file
 	tempFile, err := os.CreateTemp("", "")
@@ -918,7 +913,7 @@ func writeTempFile(data []byte) (string, error) {
 	return tempValuesFile, nil
 }
 
-func (cmd *createHelm) getVClusterConfigFromSnapshot(ctx context.Context) (string, error) {
+func getVClusterConfigFromSnapshot(ctx context.Context, cmd *CreateOptions) (string, error) {
 	if cmd.Restore == "" {
 		return "", nil
 	}

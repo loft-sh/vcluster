@@ -110,7 +110,12 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	if len(fs) > 0 {
-		cmd.log.Fatalf("Following platform flags have been set, which won't have any effect when using driver type %s: %s", config.HelmDriver, strings.Join(fs, ", "))
+		cmd.log.Fatalf("Following platform flags have been set, which won't have any effect when using driver type %s: %s", driver, strings.Join(fs, ", "))
+	}
+
+	// check if we should create a docker vCluster
+	if driver == config.DockerDriver {
+		return cli.CreateDocker(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log)
 	}
 
 	return cli.CreateHelm(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log)

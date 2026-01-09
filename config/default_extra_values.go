@@ -52,9 +52,8 @@ var K8SEtcdVersionMap = map[string]string{
 type ExtraValuesOptions struct {
 	Distro string
 
-	Expose            bool
-	NodePort          bool
-	KubernetesVersion KubernetesVersion
+	Expose   bool
+	NodePort bool
 
 	DisableTelemetry    bool
 	InstanceCreatorType string

@@ -83,6 +83,9 @@ func (cmd *DescribeCmd) Run(cobraCmd *cobra.Command, driver, name string) error 
 	if driverType == config.PlatformDriver {
 		return cli.DescribePlatform(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, cmd.log, name, cmd.project, cmd.configOnly, cmd.output)
 	}
+	if driverType == config.DockerDriver {
+		return cli.DescribeDocker(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, cmd.log, name, cmd.configOnly, cmd.output)
+	}
 
 	return cli.DescribeHelm(cobraCmd.Context(), cmd.GlobalFlags, os.Stdout, cmd.log, name, cmd.configOnly, cmd.output)
 }
