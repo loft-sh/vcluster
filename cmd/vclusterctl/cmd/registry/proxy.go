@@ -88,13 +88,7 @@ func startReverseProxy(restConfig *rest.Config, port int, log log.Logger) error 
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = &rewriteHeaderTransport{
 		RoundTripper: transport,
-		replaceHost: func(host string) string {
-			// we need to replace the target host with the new host
-			host = strings.Replace(host, target.String(), "http://"+newHost, -1)
-			// this is for proxies where the target host is not the same as the host
-			host = strings.Replace(host, "https://localhost:8443", "http://"+newHost, -1)
-			return host
-		},
+		replaceHost:  newHostRewriter(target, newHost),
 	}
 	proxy.Director = func(req *http.Request) {
 		req.URL.Scheme = target.Scheme
@@ -180,6 +174,16 @@ type rewriteHeaderTransport struct {
 	http.RoundTripper
 
 	replaceHost func(string) string
+}
+
+func newHostRewriter(target *url.URL, newHost string) func(string) string {
+	return func(host string) string {
+		// we need to replace the target host with the new host
+		host = strings.Replace(host, target.String(), "http://"+newHost+"/", -1)
+		// this is for proxies where the target host is not the same as the host
+		host = strings.Replace(host, "https://localhost:8443", "http://"+newHost, -1)
+		return host
+	}
 }
 
 func (t *rewriteHeaderTransport) RoundTrip(req *http.Request) (*http.Response, error) {
