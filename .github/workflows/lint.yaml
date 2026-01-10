@@ -64,6 +64,19 @@ jobs:
             exit 1
           fi
 
+      - name: Verify go mod tidy and vendor
+        run: |
+          go mod tidy
+          go mod vendor
+          if [ -n "$(git status --porcelain go.mod go.sum vendor/)" ]; then
+            echo "❌ ERROR: go.mod, go.sum, or vendor/ directory is out of sync."
+            echo "Please run 'go mod tidy && go mod vendor' and commit the changes."
+            echo ""
+            echo "Changed files:"
+            git status --porcelain go.mod go.sum vendor/
+            exit 1
+          fi
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
