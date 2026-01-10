@@ -728,6 +728,38 @@ tests:
           path: spec.template.spec.dnsConfig.options[0].value
           value: "2"
 
+  - it: sets host aliases
+    set:
+      controlPlane:
+        statefulSet:
+          hostAliases:
+            - ip: "127.0.0.1"
+              hostnames:
+                - "myadded.examplehostname.com"
+            - ip: "10.0.1.5"
+              hostnames:
+                - "custom-db.internal"
+                - "db-alias"
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.hostAliases
+          count: 2
+      - equal:
+          path: spec.template.spec.hostAliases[0].ip
+          value: "127.0.0.1"
+      - equal:
+          path: spec.template.spec.hostAliases[0].hostnames[0]
+          value: "myadded.examplehostname.com"
+      - equal:
+          path: spec.template.spec.hostAliases[1].ip
+          value: "10.0.1.5"
+      - equal:
+          path: spec.template.spec.hostAliases[1].hostnames[0]
+          value: "custom-db.internal"
+      - equal:
+          path: spec.template.spec.hostAliases[1].hostnames[1]
+          value: "db-alias"
+
   - it: must use StatefulSet for embedded etcd
     set:
       controlPlane:

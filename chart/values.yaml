@@ -711,6 +711,8 @@ controlPlane:
     initContainers: []
     # SidecarContainers are additional sidecar containers for the statefulSet.
     sidecarContainers: []
+    # HostAliases allows you to add custom entries to the /etc/hosts file of each Pod created.
+    hostAliases: []
   
   # ServiceMonitor can be used to automatically create a service monitor for vCluster deployment itself.
   serviceMonitor:

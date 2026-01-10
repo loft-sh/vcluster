@@ -382,6 +382,8 @@ controlPlane:
     initContainers: []
     sidecarContainers: []
 
+    hostAliases: []
+
   serviceMonitor:
     enabled: false
     labels: {}
