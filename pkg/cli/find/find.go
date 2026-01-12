@@ -352,6 +352,20 @@ func VClusterPlatformContextName(vClusterName string, projectName string, curren
 	return "vcluster-platform_" + vClusterName + "_" + projectName + "_" + currentContext
 }
 
+func VClusterDockerFromContext(originalContext string) (name string, context string) {
+	if !strings.HasPrefix(originalContext, "vcluster-docker_") {
+		return "", ""
+	}
+
+	splitted := strings.Split(originalContext, "_")
+	// vcluster-docker_<name>
+	if len(splitted) == 2 {
+		return splitted[1], ""
+	}
+
+	return "", ""
+}
+
 func VClusterPlatformFromContext(originalContext string) (name string, project string, context string) {
 	if !strings.HasPrefix(originalContext, "vcluster-platform_") {
 		return "", "", ""

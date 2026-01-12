@@ -1942,12 +1942,20 @@
           "type": "array",
           "description": "Args defines extra arguments to be added to the docker run command of the container."
         },
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the vCluster was deployed using Docker. This is automatically set by vCluster and should not be set by the user."
+        },
         "nodes": {
           "items": {
             "$ref": "#/$defs/ExperimentalDockerNode"
           },
           "type": "array",
           "description": "Nodes defines the nodes of the vCluster."
+        },
+        "registryProxy": {
+          "$ref": "#/$defs/ExperimentalDockerRegistryProxy",
+          "description": "Defines if docker images should be pulled from the host docker daemon."
         }
       },
       "additionalProperties": false,
@@ -1990,6 +1998,16 @@
         "name": {
           "type": "string",
           "description": "Name defines the name of the node. If not specified, a random name will be generated."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExperimentalDockerRegistryProxy": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the registry proxy should be enabled."
         }
       },
       "additionalProperties": false,

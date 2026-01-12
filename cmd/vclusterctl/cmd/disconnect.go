@@ -6,6 +6,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/spf13/cobra"
@@ -76,7 +77,11 @@ func (cmd *DisconnectCmd) Run() error {
 		// get vCluster platform info from context
 		vClusterName, _, otherContext = find.VClusterPlatformFromContext(cmd.Context)
 		if vClusterName == "" {
-			return fmt.Errorf("current selected context %q is not a virtual cluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
+			// get vCluster docker info from context
+			vClusterName, otherContext = find.VClusterDockerFromContext(cmd.Context)
+			if vClusterName == "" {
+				return fmt.Errorf("current selected context %q is not a virtual cluster context. If you've used a custom context name you will need to switch manually using kubectl", otherContext)
+			}
 		}
 	}
 
@@ -119,7 +124,16 @@ func (cmd *DisconnectCmd) selectContext(kubeConfig *clientcmdapi.Config, current
 		}
 	}
 
-	cmd.log.Warn("Unable to determine old context")
+	if !terminal.IsTerminalIn {
+		// return the first non current context
+		for _, context := range availableContexts {
+			if context != currentContext {
+				return context, nil
+			}
+		}
+		return cmd.Context, nil
+	}
+
 	options := &survey.QuestionOptions{
 		Question: "Please select a new context to switch to:",
 		Options:  availableContexts,

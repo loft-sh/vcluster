@@ -1219,6 +1219,13 @@ plugins: {}
 
 # Experimental features for vCluster. Configuration here might change, so be careful with this.
 experimental:
+  # Docker allows you to configure Docker related settings when deploying a vCluster using Docker.
+  docker:
+    # Defines if docker images should be pulled from the host docker daemon.
+    registryProxy:
+      # Enabled defines if the registry proxy should be enabled.
+      enabled: true
+  
   # Proxy enables vCluster-to-vCluster proxying of resources
   proxy:
     # CustomResources is a map of resource keys (format: "kind.apiGroup/version") to proxy configuration
