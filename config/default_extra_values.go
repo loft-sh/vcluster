@@ -67,13 +67,22 @@ type KubernetesVersion struct {
 	Minor string
 }
 
+func GetExtraValuesNoDiff(options *ExtraValuesOptions) (*Config, error) {
+	toConfig, err := getExtraValues(options)
+	if err != nil {
+		return nil, fmt.Errorf("get extra values: %w", err)
+	}
+
+	return toConfig, nil
+}
+
 func GetExtraValues(options *ExtraValuesOptions) (string, error) {
 	fromConfig, err := NewDefaultConfig()
 	if err != nil {
 		return "", err
 	}
 
-	toConfig, err := getExtraValues(options)
+	toConfig, err := GetExtraValuesNoDiff(options)
 	if err != nil {
 		return "", fmt.Errorf("get extra values: %w", err)
 	}
