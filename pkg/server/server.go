@@ -236,7 +236,7 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 			},
 		)
 	}
-	if ctx.Config.ControlPlane.Advanced.Registry.Enabled {
+	if ctx.Config.ControlPlane.Advanced.Registry.Enabled || ctx.Config.IsDockerRegistryDaemonEnabled() {
 		if !ctx.Config.ControlPlane.Advanced.Registry.AnonymousPull {
 			redirectAuthNonResources = append(redirectAuthNonResources,
 				delegatingauthorizer.PathVerb{
