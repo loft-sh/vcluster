@@ -7,4 +7,4 @@ See the [install instructions for VCluster](https://www.vcluster.com/docs/gettin
 
 
 ## Reporting a Vulnerability
-Please report vulnerabilities to: [security@loft.sh](mailto:security@loft.sh)
+Please report vulnerabilities to: [security@vcluster.com](mailto:security@vcluster.com)
