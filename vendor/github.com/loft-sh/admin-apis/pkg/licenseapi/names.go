@@ -76,12 +76,13 @@ const (
 // Resources (e.g. for limits)
 const (
 	/* NEVER CHANGE ANY OF THESE */
-	ConnectedClusterLimit        ResourceName = "connected-cluster"
-	VirtualClusterInstanceLimit  ResourceName = "virtual-cluster-instance"
-	SpaceInstanceLimit           ResourceName = "space-instance"
-	DevPodWorkspaceInstanceLimit ResourceName = "devpod-workspace-instance"
-	UserLimit                    ResourceName = "user"
-	InstanceLimit                ResourceName = "instance"
+	ConnectedClusterLimit         ResourceName = "connected-cluster"
+	VirtualClusterInstanceLimit   ResourceName = "virtual-cluster-instance"
+	VirtualClusterInstanceHALimit ResourceName = "virtual-cluster-instance-ha"
+	SpaceInstanceLimit            ResourceName = "space-instance"
+	DevPodWorkspaceInstanceLimit  ResourceName = "devpod-workspace-instance"
+	UserLimit                     ResourceName = "user"
+	InstanceLimit                 ResourceName = "instance"
 )
 
 // Resource Status

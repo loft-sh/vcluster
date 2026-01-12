@@ -1,0 +1,642 @@
+//
+//
+// File generated from our OpenAPI spec
+//
+//
+
+package stripe
+
+// Whether the Feature is operational.
+type TreasuryFinancialAccountFeaturesCardIssuingStatus string
+
+// List of values that TreasuryFinancialAccountFeaturesCardIssuingStatus can take
+const (
+	TreasuryFinancialAccountFeaturesCardIssuingStatusActive     TreasuryFinancialAccountFeaturesCardIssuingStatus = "active"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusPending    TreasuryFinancialAccountFeaturesCardIssuingStatus = "pending"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusRestricted TreasuryFinancialAccountFeaturesCardIssuingStatus = "restricted"
+)
+
+// Represents the reason why the status is `pending` or `restricted`.
+type TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCode string
+
+// List of values that TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCode can take
+const (
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCodeActivating                      TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCode = "activating"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCodeCapabilityNotRequested          TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCode = "capability_not_requested"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCodeFinancialAccountClosed          TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCode = "financial_account_closed"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCodeRejectedOther                   TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCode = "rejected_other"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCodeRejectedUnsupportedBusiness     TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCode = "rejected_unsupported_business"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCodeRequirementsPastDue             TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCode = "requirements_past_due"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCodeRequirementsPendingVerification TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCode = "requirements_pending_verification"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCodeRestrictedByPlatform            TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCode = "restricted_by_platform"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCodeRestrictedOther                 TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCode = "restricted_other"
+)
+
+// Represents what the user should do, if anything, to activate the Feature.
+type TreasuryFinancialAccountFeaturesCardIssuingStatusDetailResolution string
+
+// List of values that TreasuryFinancialAccountFeaturesCardIssuingStatusDetailResolution can take
+const (
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailResolutionContactStripe      TreasuryFinancialAccountFeaturesCardIssuingStatusDetailResolution = "contact_stripe"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailResolutionProvideInformation TreasuryFinancialAccountFeaturesCardIssuingStatusDetailResolution = "provide_information"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailResolutionRemoveRestriction  TreasuryFinancialAccountFeaturesCardIssuingStatusDetailResolution = "remove_restriction"
+)
+
+// The `platform_restrictions` that are restricting this Feature.
+type TreasuryFinancialAccountFeaturesCardIssuingStatusDetailRestriction string
+
+// List of values that TreasuryFinancialAccountFeaturesCardIssuingStatusDetailRestriction can take
+const (
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailRestrictionInboundFlows  TreasuryFinancialAccountFeaturesCardIssuingStatusDetailRestriction = "inbound_flows"
+	TreasuryFinancialAccountFeaturesCardIssuingStatusDetailRestrictionOutboundFlows TreasuryFinancialAccountFeaturesCardIssuingStatusDetailRestriction = "outbound_flows"
+)
+
+// Whether the Feature is operational.
+type TreasuryFinancialAccountFeaturesDepositInsuranceStatus string
+
+// List of values that TreasuryFinancialAccountFeaturesDepositInsuranceStatus can take
+const (
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusActive     TreasuryFinancialAccountFeaturesDepositInsuranceStatus = "active"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusPending    TreasuryFinancialAccountFeaturesDepositInsuranceStatus = "pending"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusRestricted TreasuryFinancialAccountFeaturesDepositInsuranceStatus = "restricted"
+)
+
+// Represents the reason why the status is `pending` or `restricted`.
+type TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCode string
+
+// List of values that TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCode can take
+const (
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCodeActivating                      TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCode = "activating"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCodeCapabilityNotRequested          TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCode = "capability_not_requested"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCodeFinancialAccountClosed          TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCode = "financial_account_closed"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCodeRejectedOther                   TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCode = "rejected_other"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCodeRejectedUnsupportedBusiness     TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCode = "rejected_unsupported_business"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCodeRequirementsPastDue             TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCode = "requirements_past_due"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCodeRequirementsPendingVerification TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCode = "requirements_pending_verification"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCodeRestrictedByPlatform            TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCode = "restricted_by_platform"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCodeRestrictedOther                 TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCode = "restricted_other"
+)
+
+// Represents what the user should do, if anything, to activate the Feature.
+type TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailResolution string
+
+// List of values that TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailResolution can take
+const (
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailResolutionContactStripe      TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailResolution = "contact_stripe"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailResolutionProvideInformation TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailResolution = "provide_information"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailResolutionRemoveRestriction  TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailResolution = "remove_restriction"
+)
+
+// The `platform_restrictions` that are restricting this Feature.
+type TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailRestriction string
+
+// List of values that TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailRestriction can take
+const (
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailRestrictionInboundFlows  TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailRestriction = "inbound_flows"
+	TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailRestrictionOutboundFlows TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailRestriction = "outbound_flows"
+)
+
+// Whether the Feature is operational.
+type TreasuryFinancialAccountFeaturesFinancialAddressesABAStatus string
+
+// List of values that TreasuryFinancialAccountFeaturesFinancialAddressesABAStatus can take
+const (
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusActive     TreasuryFinancialAccountFeaturesFinancialAddressesABAStatus = "active"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusPending    TreasuryFinancialAccountFeaturesFinancialAddressesABAStatus = "pending"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusRestricted TreasuryFinancialAccountFeaturesFinancialAddressesABAStatus = "restricted"
+)
+
+// Represents the reason why the status is `pending` or `restricted`.
+type TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCode string
+
+// List of values that TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCode can take
+const (
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCodeActivating                      TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCode = "activating"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCodeCapabilityNotRequested          TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCode = "capability_not_requested"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCodeFinancialAccountClosed          TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCode = "financial_account_closed"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCodeRejectedOther                   TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCode = "rejected_other"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCodeRejectedUnsupportedBusiness     TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCode = "rejected_unsupported_business"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCodeRequirementsPastDue             TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCode = "requirements_past_due"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCodeRequirementsPendingVerification TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCode = "requirements_pending_verification"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCodeRestrictedByPlatform            TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCode = "restricted_by_platform"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCodeRestrictedOther                 TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCode = "restricted_other"
+)
+
+// Represents what the user should do, if anything, to activate the Feature.
+type TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailResolution string
+
+// List of values that TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailResolution can take
+const (
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailResolutionContactStripe      TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailResolution = "contact_stripe"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailResolutionProvideInformation TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailResolution = "provide_information"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailResolutionRemoveRestriction  TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailResolution = "remove_restriction"
+)
+
+// The `platform_restrictions` that are restricting this Feature.
+type TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailRestriction string
+
+// List of values that TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailRestriction can take
+const (
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailRestrictionInboundFlows  TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailRestriction = "inbound_flows"
+	TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailRestrictionOutboundFlows TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailRestriction = "outbound_flows"
+)
+
+// Whether the Feature is operational.
+type TreasuryFinancialAccountFeaturesInboundTransfersACHStatus string
+
+// List of values that TreasuryFinancialAccountFeaturesInboundTransfersACHStatus can take
+const (
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusActive     TreasuryFinancialAccountFeaturesInboundTransfersACHStatus = "active"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusPending    TreasuryFinancialAccountFeaturesInboundTransfersACHStatus = "pending"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusRestricted TreasuryFinancialAccountFeaturesInboundTransfersACHStatus = "restricted"
+)
+
+// Represents the reason why the status is `pending` or `restricted`.
+type TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCode string
+
+// List of values that TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCode can take
+const (
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCodeActivating                      TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCode = "activating"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCodeCapabilityNotRequested          TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCode = "capability_not_requested"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCodeFinancialAccountClosed          TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCode = "financial_account_closed"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCodeRejectedOther                   TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCode = "rejected_other"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCodeRejectedUnsupportedBusiness     TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCode = "rejected_unsupported_business"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCodeRequirementsPastDue             TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCode = "requirements_past_due"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCodeRequirementsPendingVerification TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCode = "requirements_pending_verification"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCodeRestrictedByPlatform            TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCode = "restricted_by_platform"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCodeRestrictedOther                 TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCode = "restricted_other"
+)
+
+// Represents what the user should do, if anything, to activate the Feature.
+type TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailResolution string
+
+// List of values that TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailResolution can take
+const (
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailResolutionContactStripe      TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailResolution = "contact_stripe"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailResolutionProvideInformation TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailResolution = "provide_information"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailResolutionRemoveRestriction  TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailResolution = "remove_restriction"
+)
+
+// The `platform_restrictions` that are restricting this Feature.
+type TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailRestriction string
+
+// List of values that TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailRestriction can take
+const (
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailRestrictionInboundFlows  TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailRestriction = "inbound_flows"
+	TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailRestrictionOutboundFlows TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailRestriction = "outbound_flows"
+)
+
+// Whether the Feature is operational.
+type TreasuryFinancialAccountFeaturesIntraStripeFlowsStatus string
+
+// List of values that TreasuryFinancialAccountFeaturesIntraStripeFlowsStatus can take
+const (
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusActive     TreasuryFinancialAccountFeaturesIntraStripeFlowsStatus = "active"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusPending    TreasuryFinancialAccountFeaturesIntraStripeFlowsStatus = "pending"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusRestricted TreasuryFinancialAccountFeaturesIntraStripeFlowsStatus = "restricted"
+)
+
+// Represents the reason why the status is `pending` or `restricted`.
+type TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCode string
+
+// List of values that TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCode can take
+const (
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCodeActivating                      TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCode = "activating"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCodeCapabilityNotRequested          TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCode = "capability_not_requested"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCodeFinancialAccountClosed          TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCode = "financial_account_closed"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCodeRejectedOther                   TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCode = "rejected_other"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCodeRejectedUnsupportedBusiness     TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCode = "rejected_unsupported_business"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCodeRequirementsPastDue             TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCode = "requirements_past_due"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCodeRequirementsPendingVerification TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCode = "requirements_pending_verification"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCodeRestrictedByPlatform            TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCode = "restricted_by_platform"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCodeRestrictedOther                 TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCode = "restricted_other"
+)
+
+// Represents what the user should do, if anything, to activate the Feature.
+type TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailResolution string
+
+// List of values that TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailResolution can take
+const (
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailResolutionContactStripe      TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailResolution = "contact_stripe"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailResolutionProvideInformation TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailResolution = "provide_information"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailResolutionRemoveRestriction  TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailResolution = "remove_restriction"
+)
+
+// The `platform_restrictions` that are restricting this Feature.
+type TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailRestriction string
+
+// List of values that TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailRestriction can take
+const (
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailRestrictionInboundFlows  TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailRestriction = "inbound_flows"
+	TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailRestrictionOutboundFlows TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailRestriction = "outbound_flows"
+)
+
+// Whether the Feature is operational.
+type TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatus string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatus can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusActive     TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatus = "active"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusPending    TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatus = "pending"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusRestricted TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatus = "restricted"
+)
+
+// Represents the reason why the status is `pending` or `restricted`.
+type TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCode string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCode can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCodeActivating                      TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCode = "activating"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCodeCapabilityNotRequested          TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCode = "capability_not_requested"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCodeFinancialAccountClosed          TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCode = "financial_account_closed"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCodeRejectedOther                   TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCode = "rejected_other"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCodeRejectedUnsupportedBusiness     TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCode = "rejected_unsupported_business"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCodeRequirementsPastDue             TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCode = "requirements_past_due"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCodeRequirementsPendingVerification TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCode = "requirements_pending_verification"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCodeRestrictedByPlatform            TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCode = "restricted_by_platform"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCodeRestrictedOther                 TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCode = "restricted_other"
+)
+
+// Represents what the user should do, if anything, to activate the Feature.
+type TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailResolution string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailResolution can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailResolutionContactStripe      TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailResolution = "contact_stripe"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailResolutionProvideInformation TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailResolution = "provide_information"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailResolutionRemoveRestriction  TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailResolution = "remove_restriction"
+)
+
+// The `platform_restrictions` that are restricting this Feature.
+type TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailRestriction string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailRestriction can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailRestrictionInboundFlows  TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailRestriction = "inbound_flows"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailRestrictionOutboundFlows TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailRestriction = "outbound_flows"
+)
+
+// Whether the Feature is operational.
+type TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatus string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatus can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusActive     TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatus = "active"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusPending    TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatus = "pending"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusRestricted TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatus = "restricted"
+)
+
+// Represents the reason why the status is `pending` or `restricted`.
+type TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCode string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCode can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCodeActivating                      TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCode = "activating"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCodeCapabilityNotRequested          TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCode = "capability_not_requested"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCodeFinancialAccountClosed          TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCode = "financial_account_closed"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCodeRejectedOther                   TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCode = "rejected_other"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCodeRejectedUnsupportedBusiness     TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCode = "rejected_unsupported_business"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCodeRequirementsPastDue             TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCode = "requirements_past_due"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCodeRequirementsPendingVerification TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCode = "requirements_pending_verification"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCodeRestrictedByPlatform            TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCode = "restricted_by_platform"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCodeRestrictedOther                 TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCode = "restricted_other"
+)
+
+// Represents what the user should do, if anything, to activate the Feature.
+type TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailResolution string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailResolution can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailResolutionContactStripe      TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailResolution = "contact_stripe"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailResolutionProvideInformation TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailResolution = "provide_information"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailResolutionRemoveRestriction  TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailResolution = "remove_restriction"
+)
+
+// The `platform_restrictions` that are restricting this Feature.
+type TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailRestriction string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailRestriction can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailRestrictionInboundFlows  TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailRestriction = "inbound_flows"
+	TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailRestrictionOutboundFlows TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailRestriction = "outbound_flows"
+)
+
+// Whether the Feature is operational.
+type TreasuryFinancialAccountFeaturesOutboundTransfersACHStatus string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundTransfersACHStatus can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusActive     TreasuryFinancialAccountFeaturesOutboundTransfersACHStatus = "active"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusPending    TreasuryFinancialAccountFeaturesOutboundTransfersACHStatus = "pending"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusRestricted TreasuryFinancialAccountFeaturesOutboundTransfersACHStatus = "restricted"
+)
+
+// Represents the reason why the status is `pending` or `restricted`.
+type TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCode string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCode can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCodeActivating                      TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCode = "activating"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCodeCapabilityNotRequested          TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCode = "capability_not_requested"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCodeFinancialAccountClosed          TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCode = "financial_account_closed"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCodeRejectedOther                   TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCode = "rejected_other"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCodeRejectedUnsupportedBusiness     TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCode = "rejected_unsupported_business"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCodeRequirementsPastDue             TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCode = "requirements_past_due"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCodeRequirementsPendingVerification TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCode = "requirements_pending_verification"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCodeRestrictedByPlatform            TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCode = "restricted_by_platform"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCodeRestrictedOther                 TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCode = "restricted_other"
+)
+
+// Represents what the user should do, if anything, to activate the Feature.
+type TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailResolution string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailResolution can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailResolutionContactStripe      TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailResolution = "contact_stripe"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailResolutionProvideInformation TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailResolution = "provide_information"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailResolutionRemoveRestriction  TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailResolution = "remove_restriction"
+)
+
+// The `platform_restrictions` that are restricting this Feature.
+type TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailRestriction string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailRestriction can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailRestrictionInboundFlows  TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailRestriction = "inbound_flows"
+	TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailRestrictionOutboundFlows TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailRestriction = "outbound_flows"
+)
+
+// Whether the Feature is operational.
+type TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatus string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatus can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusActive     TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatus = "active"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusPending    TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatus = "pending"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusRestricted TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatus = "restricted"
+)
+
+// Represents the reason why the status is `pending` or `restricted`.
+type TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCode string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCode can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCodeActivating                      TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCode = "activating"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCodeCapabilityNotRequested          TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCode = "capability_not_requested"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCodeFinancialAccountClosed          TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCode = "financial_account_closed"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCodeRejectedOther                   TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCode = "rejected_other"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCodeRejectedUnsupportedBusiness     TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCode = "rejected_unsupported_business"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCodeRequirementsPastDue             TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCode = "requirements_past_due"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCodeRequirementsPendingVerification TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCode = "requirements_pending_verification"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCodeRestrictedByPlatform            TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCode = "restricted_by_platform"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCodeRestrictedOther                 TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCode = "restricted_other"
+)
+
+// Represents what the user should do, if anything, to activate the Feature.
+type TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailResolution string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailResolution can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailResolutionContactStripe      TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailResolution = "contact_stripe"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailResolutionProvideInformation TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailResolution = "provide_information"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailResolutionRemoveRestriction  TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailResolution = "remove_restriction"
+)
+
+// The `platform_restrictions` that are restricting this Feature.
+type TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailRestriction string
+
+// List of values that TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailRestriction can take
+const (
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailRestrictionInboundFlows  TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailRestriction = "inbound_flows"
+	TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailRestrictionOutboundFlows TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailRestriction = "outbound_flows"
+)
+
+// Additional details; includes at least one entry when the status is not `active`.
+type TreasuryFinancialAccountFeaturesCardIssuingStatusDetail struct {
+	// Represents the reason why the status is `pending` or `restricted`.
+	Code TreasuryFinancialAccountFeaturesCardIssuingStatusDetailCode `json:"code"`
+	// Represents what the user should do, if anything, to activate the Feature.
+	Resolution TreasuryFinancialAccountFeaturesCardIssuingStatusDetailResolution `json:"resolution"`
+	// The `platform_restrictions` that are restricting this Feature.
+	Restriction TreasuryFinancialAccountFeaturesCardIssuingStatusDetailRestriction `json:"restriction"`
+}
+
+// Toggle settings for enabling/disabling a feature
+type TreasuryFinancialAccountFeaturesCardIssuing struct {
+	// Whether the FinancialAccount should have the Feature.
+	Requested bool `json:"requested"`
+	// Whether the Feature is operational.
+	Status TreasuryFinancialAccountFeaturesCardIssuingStatus `json:"status"`
+	// Additional details; includes at least one entry when the status is not `active`.
+	StatusDetails []*TreasuryFinancialAccountFeaturesCardIssuingStatusDetail `json:"status_details"`
+}
+
+// Additional details; includes at least one entry when the status is not `active`.
+type TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetail struct {
+	// Represents the reason why the status is `pending` or `restricted`.
+	Code TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailCode `json:"code"`
+	// Represents what the user should do, if anything, to activate the Feature.
+	Resolution TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailResolution `json:"resolution"`
+	// The `platform_restrictions` that are restricting this Feature.
+	Restriction TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetailRestriction `json:"restriction"`
+}
+
+// Toggle settings for enabling/disabling a feature
+type TreasuryFinancialAccountFeaturesDepositInsurance struct {
+	// Whether the FinancialAccount should have the Feature.
+	Requested bool `json:"requested"`
+	// Whether the Feature is operational.
+	Status TreasuryFinancialAccountFeaturesDepositInsuranceStatus `json:"status"`
+	// Additional details; includes at least one entry when the status is not `active`.
+	StatusDetails []*TreasuryFinancialAccountFeaturesDepositInsuranceStatusDetail `json:"status_details"`
+}
+
+// Additional details; includes at least one entry when the status is not `active`.
+type TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetail struct {
+	// Represents the reason why the status is `pending` or `restricted`.
+	Code TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailCode `json:"code"`
+	// Represents what the user should do, if anything, to activate the Feature.
+	Resolution TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailResolution `json:"resolution"`
+	// The `platform_restrictions` that are restricting this Feature.
+	Restriction TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetailRestriction `json:"restriction"`
+}
+
+// Toggle settings for enabling/disabling the ABA address feature
+type TreasuryFinancialAccountFeaturesFinancialAddressesABA struct {
+	// Whether the FinancialAccount should have the Feature.
+	Requested bool `json:"requested"`
+	// Whether the Feature is operational.
+	Status TreasuryFinancialAccountFeaturesFinancialAddressesABAStatus `json:"status"`
+	// Additional details; includes at least one entry when the status is not `active`.
+	StatusDetails []*TreasuryFinancialAccountFeaturesFinancialAddressesABAStatusDetail `json:"status_details"`
+}
+
+// Settings related to Financial Addresses features on a Financial Account
+type TreasuryFinancialAccountFeaturesFinancialAddresses struct {
+	// Toggle settings for enabling/disabling the ABA address feature
+	ABA *TreasuryFinancialAccountFeaturesFinancialAddressesABA `json:"aba"`
+}
+
+// Additional details; includes at least one entry when the status is not `active`.
+type TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetail struct {
+	// Represents the reason why the status is `pending` or `restricted`.
+	Code TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailCode `json:"code"`
+	// Represents what the user should do, if anything, to activate the Feature.
+	Resolution TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailResolution `json:"resolution"`
+	// The `platform_restrictions` that are restricting this Feature.
+	Restriction TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetailRestriction `json:"restriction"`
+}
+
+// Toggle settings for enabling/disabling an inbound ACH specific feature
+type TreasuryFinancialAccountFeaturesInboundTransfersACH struct {
+	// Whether the FinancialAccount should have the Feature.
+	Requested bool `json:"requested"`
+	// Whether the Feature is operational.
+	Status TreasuryFinancialAccountFeaturesInboundTransfersACHStatus `json:"status"`
+	// Additional details; includes at least one entry when the status is not `active`.
+	StatusDetails []*TreasuryFinancialAccountFeaturesInboundTransfersACHStatusDetail `json:"status_details"`
+}
+
+// InboundTransfers contains inbound transfers features for a FinancialAccount.
+type TreasuryFinancialAccountFeaturesInboundTransfers struct {
+	// Toggle settings for enabling/disabling an inbound ACH specific feature
+	ACH *TreasuryFinancialAccountFeaturesInboundTransfersACH `json:"ach"`
+}
+
+// Additional details; includes at least one entry when the status is not `active`.
+type TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetail struct {
+	// Represents the reason why the status is `pending` or `restricted`.
+	Code TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailCode `json:"code"`
+	// Represents what the user should do, if anything, to activate the Feature.
+	Resolution TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailResolution `json:"resolution"`
+	// The `platform_restrictions` that are restricting this Feature.
+	Restriction TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetailRestriction `json:"restriction"`
+}
+
+// Toggle settings for enabling/disabling a feature
+type TreasuryFinancialAccountFeaturesIntraStripeFlows struct {
+	// Whether the FinancialAccount should have the Feature.
+	Requested bool `json:"requested"`
+	// Whether the Feature is operational.
+	Status TreasuryFinancialAccountFeaturesIntraStripeFlowsStatus `json:"status"`
+	// Additional details; includes at least one entry when the status is not `active`.
+	StatusDetails []*TreasuryFinancialAccountFeaturesIntraStripeFlowsStatusDetail `json:"status_details"`
+}
+
+// Additional details; includes at least one entry when the status is not `active`.
+type TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetail struct {
+	// Represents the reason why the status is `pending` or `restricted`.
+	Code TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailCode `json:"code"`
+	// Represents what the user should do, if anything, to activate the Feature.
+	Resolution TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailResolution `json:"resolution"`
+	// The `platform_restrictions` that are restricting this Feature.
+	Restriction TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetailRestriction `json:"restriction"`
+}
+
+// Toggle settings for enabling/disabling an outbound ACH specific feature
+type TreasuryFinancialAccountFeaturesOutboundPaymentsACH struct {
+	// Whether the FinancialAccount should have the Feature.
+	Requested bool `json:"requested"`
+	// Whether the Feature is operational.
+	Status TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatus `json:"status"`
+	// Additional details; includes at least one entry when the status is not `active`.
+	StatusDetails []*TreasuryFinancialAccountFeaturesOutboundPaymentsACHStatusDetail `json:"status_details"`
+}
+
+// Additional details; includes at least one entry when the status is not `active`.
+type TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetail struct {
+	// Represents the reason why the status is `pending` or `restricted`.
+	Code TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailCode `json:"code"`
+	// Represents what the user should do, if anything, to activate the Feature.
+	Resolution TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailResolution `json:"resolution"`
+	// The `platform_restrictions` that are restricting this Feature.
+	Restriction TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetailRestriction `json:"restriction"`
+}
+
+// Toggle settings for enabling/disabling a feature
+type TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWire struct {
+	// Whether the FinancialAccount should have the Feature.
+	Requested bool `json:"requested"`
+	// Whether the Feature is operational.
+	Status TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatus `json:"status"`
+	// Additional details; includes at least one entry when the status is not `active`.
+	StatusDetails []*TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWireStatusDetail `json:"status_details"`
+}
+
+// Settings related to Outbound Payments features on a Financial Account
+type TreasuryFinancialAccountFeaturesOutboundPayments struct {
+	// Toggle settings for enabling/disabling an outbound ACH specific feature
+	ACH *TreasuryFinancialAccountFeaturesOutboundPaymentsACH `json:"ach"`
+	// Toggle settings for enabling/disabling a feature
+	USDomesticWire *TreasuryFinancialAccountFeaturesOutboundPaymentsUSDomesticWire `json:"us_domestic_wire"`
+}
+
+// Additional details; includes at least one entry when the status is not `active`.
+type TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetail struct {
+	// Represents the reason why the status is `pending` or `restricted`.
+	Code TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailCode `json:"code"`
+	// Represents what the user should do, if anything, to activate the Feature.
+	Resolution TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailResolution `json:"resolution"`
+	// The `platform_restrictions` that are restricting this Feature.
+	Restriction TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetailRestriction `json:"restriction"`
+}
+
+// Toggle settings for enabling/disabling an outbound ACH specific feature
+type TreasuryFinancialAccountFeaturesOutboundTransfersACH struct {
+	// Whether the FinancialAccount should have the Feature.
+	Requested bool `json:"requested"`
+	// Whether the Feature is operational.
+	Status TreasuryFinancialAccountFeaturesOutboundTransfersACHStatus `json:"status"`
+	// Additional details; includes at least one entry when the status is not `active`.
+	StatusDetails []*TreasuryFinancialAccountFeaturesOutboundTransfersACHStatusDetail `json:"status_details"`
+}
+
+// Additional details; includes at least one entry when the status is not `active`.
+type TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetail struct {
+	// Represents the reason why the status is `pending` or `restricted`.
+	Code TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailCode `json:"code"`
+	// Represents what the user should do, if anything, to activate the Feature.
+	Resolution TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailResolution `json:"resolution"`
+	// The `platform_restrictions` that are restricting this Feature.
+	Restriction TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetailRestriction `json:"restriction"`
+}
+
+// Toggle settings for enabling/disabling a feature
+type TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWire struct {
+	// Whether the FinancialAccount should have the Feature.
+	Requested bool `json:"requested"`
+	// Whether the Feature is operational.
+	Status TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatus `json:"status"`
+	// Additional details; includes at least one entry when the status is not `active`.
+	StatusDetails []*TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWireStatusDetail `json:"status_details"`
+}
+
+// OutboundTransfers contains outbound transfers features for a FinancialAccount.
+type TreasuryFinancialAccountFeaturesOutboundTransfers struct {
+	// Toggle settings for enabling/disabling an outbound ACH specific feature
+	ACH *TreasuryFinancialAccountFeaturesOutboundTransfersACH `json:"ach"`
+	// Toggle settings for enabling/disabling a feature
+	USDomesticWire *TreasuryFinancialAccountFeaturesOutboundTransfersUSDomesticWire `json:"us_domestic_wire"`
+}
+
+// Encodes whether a FinancialAccount has access to a particular Feature, with a `status` enum and associated `status_details`.
+// Stripe or the platform can control Features via the requested field.
+type TreasuryFinancialAccountFeatures struct {
+	APIResource
+	// Toggle settings for enabling/disabling a feature
+	CardIssuing *TreasuryFinancialAccountFeaturesCardIssuing `json:"card_issuing"`
+	// Toggle settings for enabling/disabling a feature
+	DepositInsurance *TreasuryFinancialAccountFeaturesDepositInsurance `json:"deposit_insurance"`
+	// Settings related to Financial Addresses features on a Financial Account
+	FinancialAddresses *TreasuryFinancialAccountFeaturesFinancialAddresses `json:"financial_addresses"`
+	// InboundTransfers contains inbound transfers features for a FinancialAccount.
+	InboundTransfers *TreasuryFinancialAccountFeaturesInboundTransfers `json:"inbound_transfers"`
+	// Toggle settings for enabling/disabling a feature
+	IntraStripeFlows *TreasuryFinancialAccountFeaturesIntraStripeFlows `json:"intra_stripe_flows"`
+	// String representing the object's type. Objects of the same type share the same value.
+	Object string `json:"object"`
+	// Settings related to Outbound Payments features on a Financial Account
+	OutboundPayments *TreasuryFinancialAccountFeaturesOutboundPayments `json:"outbound_payments"`
+	// OutboundTransfers contains outbound transfers features for a FinancialAccount.
+	OutboundTransfers *TreasuryFinancialAccountFeaturesOutboundTransfers `json:"outbound_transfers"`
+}

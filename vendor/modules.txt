@@ -595,9 +595,10 @@ github.com/liggitt/tabwriter
 # github.com/lithammer/dedent v1.1.0
 ## explicit
 github.com/lithammer/dedent
-# github.com/loft-sh/admin-apis v0.0.0-20250923191853-0998210fade9
-## explicit; go 1.21.1
+# github.com/loft-sh/admin-apis v0.0.0-20260109225654-f6a813efff44
+## explicit; go 1.24.11
 github.com/loft-sh/admin-apis/pkg/licenseapi
+github.com/loft-sh/admin-apis/pkg/util/features
 # github.com/loft-sh/agentapi/v4 v4.5.0-alpha.10
 ## explicit; go 1.24.0
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster
@@ -891,6 +892,147 @@ github.com/stefanberger/go-pkcs11uri
 # github.com/stoewer/go-strcase v1.3.0
 ## explicit; go 1.11
 github.com/stoewer/go-strcase
+# github.com/stripe/stripe-go/v81 v81.3.0
+## explicit; go 1.13
+github.com/stripe/stripe-go/v81
+github.com/stripe/stripe-go/v81/account
+github.com/stripe/stripe-go/v81/accountlink
+github.com/stripe/stripe-go/v81/accountsession
+github.com/stripe/stripe-go/v81/applepaydomain
+github.com/stripe/stripe-go/v81/applicationfee
+github.com/stripe/stripe-go/v81/apps/secret
+github.com/stripe/stripe-go/v81/balance
+github.com/stripe/stripe-go/v81/balancetransaction
+github.com/stripe/stripe-go/v81/bankaccount
+github.com/stripe/stripe-go/v81/billing/alert
+github.com/stripe/stripe-go/v81/billing/creditbalancesummary
+github.com/stripe/stripe-go/v81/billing/creditbalancetransaction
+github.com/stripe/stripe-go/v81/billing/creditgrant
+github.com/stripe/stripe-go/v81/billing/meter
+github.com/stripe/stripe-go/v81/billing/meterevent
+github.com/stripe/stripe-go/v81/billing/metereventadjustment
+github.com/stripe/stripe-go/v81/billing/metereventsummary
+github.com/stripe/stripe-go/v81/billingportal/configuration
+github.com/stripe/stripe-go/v81/billingportal/session
+github.com/stripe/stripe-go/v81/capability
+github.com/stripe/stripe-go/v81/card
+github.com/stripe/stripe-go/v81/cashbalance
+github.com/stripe/stripe-go/v81/charge
+github.com/stripe/stripe-go/v81/checkout/session
+github.com/stripe/stripe-go/v81/client
+github.com/stripe/stripe-go/v81/climate/order
+github.com/stripe/stripe-go/v81/climate/product
+github.com/stripe/stripe-go/v81/climate/supplier
+github.com/stripe/stripe-go/v81/confirmationtoken
+github.com/stripe/stripe-go/v81/countryspec
+github.com/stripe/stripe-go/v81/coupon
+github.com/stripe/stripe-go/v81/creditnote
+github.com/stripe/stripe-go/v81/customer
+github.com/stripe/stripe-go/v81/customerbalancetransaction
+github.com/stripe/stripe-go/v81/customercashbalancetransaction
+github.com/stripe/stripe-go/v81/customersession
+github.com/stripe/stripe-go/v81/dispute
+github.com/stripe/stripe-go/v81/entitlements/activeentitlement
+github.com/stripe/stripe-go/v81/entitlements/feature
+github.com/stripe/stripe-go/v81/ephemeralkey
+github.com/stripe/stripe-go/v81/event
+github.com/stripe/stripe-go/v81/feerefund
+github.com/stripe/stripe-go/v81/file
+github.com/stripe/stripe-go/v81/filelink
+github.com/stripe/stripe-go/v81/financialconnections/account
+github.com/stripe/stripe-go/v81/financialconnections/session
+github.com/stripe/stripe-go/v81/financialconnections/transaction
+github.com/stripe/stripe-go/v81/form
+github.com/stripe/stripe-go/v81/forwarding/request
+github.com/stripe/stripe-go/v81/identity/verificationreport
+github.com/stripe/stripe-go/v81/identity/verificationsession
+github.com/stripe/stripe-go/v81/invoice
+github.com/stripe/stripe-go/v81/invoiceitem
+github.com/stripe/stripe-go/v81/invoicelineitem
+github.com/stripe/stripe-go/v81/invoicerenderingtemplate
+github.com/stripe/stripe-go/v81/issuing/authorization
+github.com/stripe/stripe-go/v81/issuing/card
+github.com/stripe/stripe-go/v81/issuing/cardholder
+github.com/stripe/stripe-go/v81/issuing/dispute
+github.com/stripe/stripe-go/v81/issuing/personalizationdesign
+github.com/stripe/stripe-go/v81/issuing/physicalbundle
+github.com/stripe/stripe-go/v81/issuing/token
+github.com/stripe/stripe-go/v81/issuing/transaction
+github.com/stripe/stripe-go/v81/loginlink
+github.com/stripe/stripe-go/v81/mandate
+github.com/stripe/stripe-go/v81/oauth
+github.com/stripe/stripe-go/v81/paymentintent
+github.com/stripe/stripe-go/v81/paymentlink
+github.com/stripe/stripe-go/v81/paymentmethod
+github.com/stripe/stripe-go/v81/paymentmethodconfiguration
+github.com/stripe/stripe-go/v81/paymentmethoddomain
+github.com/stripe/stripe-go/v81/paymentsource
+github.com/stripe/stripe-go/v81/payout
+github.com/stripe/stripe-go/v81/person
+github.com/stripe/stripe-go/v81/plan
+github.com/stripe/stripe-go/v81/price
+github.com/stripe/stripe-go/v81/product
+github.com/stripe/stripe-go/v81/productfeature
+github.com/stripe/stripe-go/v81/promotioncode
+github.com/stripe/stripe-go/v81/quote
+github.com/stripe/stripe-go/v81/radar/earlyfraudwarning
+github.com/stripe/stripe-go/v81/radar/valuelist
+github.com/stripe/stripe-go/v81/radar/valuelistitem
+github.com/stripe/stripe-go/v81/refund
+github.com/stripe/stripe-go/v81/reporting/reportrun
+github.com/stripe/stripe-go/v81/reporting/reporttype
+github.com/stripe/stripe-go/v81/review
+github.com/stripe/stripe-go/v81/setupattempt
+github.com/stripe/stripe-go/v81/setupintent
+github.com/stripe/stripe-go/v81/shippingrate
+github.com/stripe/stripe-go/v81/sigma/scheduledqueryrun
+github.com/stripe/stripe-go/v81/source
+github.com/stripe/stripe-go/v81/sourcetransaction
+github.com/stripe/stripe-go/v81/subscription
+github.com/stripe/stripe-go/v81/subscriptionitem
+github.com/stripe/stripe-go/v81/subscriptionschedule
+github.com/stripe/stripe-go/v81/tax/calculation
+github.com/stripe/stripe-go/v81/tax/registration
+github.com/stripe/stripe-go/v81/tax/settings
+github.com/stripe/stripe-go/v81/tax/transaction
+github.com/stripe/stripe-go/v81/taxcode
+github.com/stripe/stripe-go/v81/taxid
+github.com/stripe/stripe-go/v81/taxrate
+github.com/stripe/stripe-go/v81/terminal/configuration
+github.com/stripe/stripe-go/v81/terminal/connectiontoken
+github.com/stripe/stripe-go/v81/terminal/location
+github.com/stripe/stripe-go/v81/terminal/reader
+github.com/stripe/stripe-go/v81/testhelpers/confirmationtoken
+github.com/stripe/stripe-go/v81/testhelpers/customer
+github.com/stripe/stripe-go/v81/testhelpers/issuing/authorization
+github.com/stripe/stripe-go/v81/testhelpers/issuing/card
+github.com/stripe/stripe-go/v81/testhelpers/issuing/personalizationdesign
+github.com/stripe/stripe-go/v81/testhelpers/issuing/transaction
+github.com/stripe/stripe-go/v81/testhelpers/refund
+github.com/stripe/stripe-go/v81/testhelpers/terminal/reader
+github.com/stripe/stripe-go/v81/testhelpers/testclock
+github.com/stripe/stripe-go/v81/testhelpers/treasury/inboundtransfer
+github.com/stripe/stripe-go/v81/testhelpers/treasury/outboundpayment
+github.com/stripe/stripe-go/v81/testhelpers/treasury/outboundtransfer
+github.com/stripe/stripe-go/v81/testhelpers/treasury/receivedcredit
+github.com/stripe/stripe-go/v81/testhelpers/treasury/receiveddebit
+github.com/stripe/stripe-go/v81/token
+github.com/stripe/stripe-go/v81/topup
+github.com/stripe/stripe-go/v81/transfer
+github.com/stripe/stripe-go/v81/transferreversal
+github.com/stripe/stripe-go/v81/treasury/creditreversal
+github.com/stripe/stripe-go/v81/treasury/debitreversal
+github.com/stripe/stripe-go/v81/treasury/financialaccount
+github.com/stripe/stripe-go/v81/treasury/inboundtransfer
+github.com/stripe/stripe-go/v81/treasury/outboundpayment
+github.com/stripe/stripe-go/v81/treasury/outboundtransfer
+github.com/stripe/stripe-go/v81/treasury/receivedcredit
+github.com/stripe/stripe-go/v81/treasury/receiveddebit
+github.com/stripe/stripe-go/v81/treasury/transaction
+github.com/stripe/stripe-go/v81/treasury/transactionentry
+github.com/stripe/stripe-go/v81/usagerecord
+github.com/stripe/stripe-go/v81/usagerecordsummary
+github.com/stripe/stripe-go/v81/webhookendpoint
 # github.com/tcnksm/go-gitconfig v0.1.2
 ## explicit
 github.com/tcnksm/go-gitconfig

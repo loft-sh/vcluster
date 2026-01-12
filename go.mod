@@ -24,7 +24,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/invopop/jsonschema v0.12.0
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0
-	github.com/loft-sh/admin-apis v0.0.0-20250923191853-0998210fade9
+	github.com/loft-sh/admin-apis v0.0.0-20260109225654-f6a813efff44
 	github.com/loft-sh/agentapi/v4 v4.5.0-alpha.10
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 	github.com/loft-sh/api/v4 v4.5.0-alpha.10
@@ -156,6 +156,7 @@ require (
 	github.com/smallstep/pkcs7 v0.1.1 // indirect
 	github.com/stefanberger/go-pkcs11uri v0.0.0-20230803200340-78284954bff6 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
+	github.com/stripe/stripe-go/v81 v81.3.0 // indirect
 	github.com/vbatts/tar-split v0.12.1 // indirect
 	github.com/vbauerster/mpb/v8 v8.10.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect

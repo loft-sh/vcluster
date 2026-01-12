@@ -16,6 +16,9 @@ type InstanceCreateInput struct {
 	// This should NOT be a ProductName but a string to allow for downward compatibility
 	Product string `json:"product,omitempty" form:"product"`
 
+	// StaticToken is a token for the instance. This is used for testing purposes or for instances that use a static token.
+	StaticToken string `json:"staticToken,omitempty" form:"staticToken" hash:"-"`
+
 	// Email is the admin email. Can be empty if no email is specified.
 	Email string `json:"email,omitempty" form:"email"`
 
@@ -55,4 +58,22 @@ type PlatformDatabase struct {
 	IsReady               bool   `json:"isReady"`
 	CreationTimestamp     string `json:"creationTimestamp"`
 	LatestUpdateTimestamp string `json:"latestUpdateTimestamp"`
+}
+type InstanceActivateInstanceInput struct {
+	ActivationCode string `json:"activationCode"`
+}
+
+type InstanceSendActivationEmailInput struct {
+	Email string `json:"email"`
+}
+
+type InstanceUsageInput struct {
+	// KubeSystemNamespaceUID is the UID of the kube system namespace.
+	KubeSystemNamespaceUID string `json:"kubeSystemNamespace"`
+
+	// Type is the type of usage data to be sent to the license service.
+	Type string `json:"type"`
+
+	// Data is the data to be sent to the license service.
+	Data []byte `json:"data"`
 }
