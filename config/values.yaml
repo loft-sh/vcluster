@@ -657,6 +657,10 @@ external: {}
 plugins: {}
 
 experimental:
+  docker:
+    registryProxy:
+      enabled: true
+
   proxy:
     customResources: {}
 

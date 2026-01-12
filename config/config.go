@@ -920,6 +920,10 @@ func (c *Config) Distro() string {
 	return K8SDistro
 }
 
+func (c *Config) IsDockerRegistryDaemonEnabled() bool {
+	return c.Experimental.Docker.Enabled && c.Experimental.Docker.RegistryProxy.Enabled
+}
+
 func (c *Config) IsVirtualSchedulerEnabled() bool {
 	return c.Distro() == K8SDistro && c.ControlPlane.Distro.K8S.Scheduler.Enabled ||
 		c.ControlPlane.Advanced.VirtualScheduler.Enabled
@@ -3151,8 +3155,19 @@ func (e ExperimentalSyncSettings) JSONSchemaExtend(base *jsonschema.Schema) {
 type ExperimentalDocker struct {
 	ExperimentalDockerContainer `json:",inline"`
 
+	// Enabled defines if the vCluster was deployed using Docker. This is automatically set by vCluster and should not be set by the user.
+	Enabled bool `json:"enabled,omitempty"`
+
 	// Nodes defines the nodes of the vCluster.
 	Nodes []ExperimentalDockerNode `json:"nodes,omitempty"`
+
+	// Defines if docker images should be pulled from the host docker daemon.
+	RegistryProxy ExperimentalDockerRegistryProxy `json:"registryProxy,omitempty"`
+}
+
+type ExperimentalDockerRegistryProxy struct {
+	// Enabled defines if the registry proxy should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 type ExperimentalDockerNode struct {

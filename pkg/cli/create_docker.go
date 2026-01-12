@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -17,11 +19,13 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/random"
+	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/samber/lo"
 	"golang.org/x/mod/semver"
+	"sigs.k8s.io/yaml"
 )
 
 var containerVolumes = map[string]string{
@@ -72,25 +76,10 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 		}
 	}()
 
-	dockerOptions, err := toDockerOptions(globalFlags, log)
+	// load the docker config
+	vConfig, finalValues, extraDockerArgs, err := loadConfig(ctx, options, globalFlags, log)
 	if err != nil {
-		return err
-	}
-	extraValues, err := config.GetExtraValues(dockerOptions)
-	if err != nil {
-		return err
-	}
-
-	// parse vCluster config
-	finalValues, err := mergeAllValues(options.SetValues, options.Values, extraValues)
-	if err != nil {
-		return fmt.Errorf("merge values: %w", err)
-	}
-
-	// parse config
-	vConfig := &config.Config{}
-	if err := vConfig.UnmarshalYAMLStrict([]byte(finalValues)); err != nil {
-		return fmt.Errorf("unmarshal vcluster config: %w", err)
+		return fmt.Errorf("failed to load docker config: %w", err)
 	}
 
 	// pull the kubernetes image and folder structure looks roughly like this:
@@ -117,7 +106,7 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 	}
 
 	// add the platform credentials to the docker container
-	extraArgs := []string{
+	extraVClusterArgs := []string{
 		"--vcluster-name", vClusterName,
 	}
 	if options.Add && !exists {
@@ -131,7 +120,7 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 			return err
 		}
 
-		extraArgs = append(extraArgs, platformArgs...)
+		extraVClusterArgs = append(extraVClusterArgs, platformArgs...)
 	}
 
 	// write the vcluster.yaml
@@ -161,17 +150,17 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 	if err != nil {
 		return fmt.Errorf("failed to ensure join token: %w", err)
 	}
-	extraArgs = append(extraArgs, "--join-token", vClusterJoinToken)
+	extraVClusterArgs = append(extraVClusterArgs, "--join-token", vClusterJoinToken)
 
 	// run the docker container
-	err = runControlPlaneContainer(ctx, kubernetesDir, vClusterDir, vClusterYAMLPath, vClusterName, vConfig, log)
+	err = runControlPlaneContainer(ctx, kubernetesDir, vClusterDir, vClusterYAMLPath, vClusterName, vConfig, extraDockerArgs, log)
 	if err != nil {
 		return err
 	}
 
 	// install vCluster standalone
 	if !exists {
-		err = installVClusterStandalone(ctx, vClusterName, vClusterVersion, extraArgs, log)
+		err = installVClusterStandalone(ctx, vClusterName, vClusterVersion, extraVClusterArgs, log)
 		if err != nil {
 			return err
 		}
@@ -297,7 +286,7 @@ func installVClusterStandalone(ctx context.Context, vClusterName, vClusterVersio
 	return nil
 }
 
-func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterDir, vClusterYAMLPath, vClusterName string, config *config.Config, log log.Logger) error {
+func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterDir, vClusterYAMLPath, vClusterName string, config *config.Config, extraArgs []string, log log.Logger) error {
 	args := []string{
 		"run",
 		"-d",
@@ -336,6 +325,7 @@ func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterDir, v
 	}
 	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/vcluster,dst=/var/lib/vcluster/bin/vcluster,ro", vClusterDir))
 	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s,dst=/etc/vcluster/vcluster.yaml,ro", vClusterYAMLPath))
+	args = append(args, extraArgs...)
 
 	// add the image to start
 	image := "ghcr.io/loft-sh/vm-container"
@@ -616,13 +606,127 @@ func pullKubernetesImage(ctx context.Context, vConfig *config.Config, globalFlag
 	return targetDir, kubernetesVersion, nil
 }
 
-func toDockerOptions(globalFlags *flags.GlobalFlags, log log.Logger) (*config.ExtraValuesOptions, error) {
+func loadConfig(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, log log.Logger) (*config.Config, string, []string, error) {
+	defaultConfig, err := config.NewDefaultConfig()
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("failed to create default config: %w", err)
+	}
+
+	// get extra user values
 	cfg := globalFlags.LoadedConfig(log)
-	return &config.ExtraValuesOptions{
+	extraUserValues, err := config.GetExtraValuesNoDiff(&config.ExtraValuesOptions{
 		DisableTelemetry:    cfg.TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",
 		MachineID:           telemetry.GetMachineID(cfg),
-	}, nil
+	})
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("failed to get extra values: %w", err)
+	}
+
+	// enable docker
+	extraUserValues.Experimental.Docker.Enabled = true
+
+	// disable konnectivity by default
+	extraUserValues.ControlPlane.Advanced.Konnectivity.Server.Enabled = false
+	extraUserValues.ControlPlane.Advanced.Konnectivity.Agent.Enabled = false
+
+	// check if we should use the registry proxy
+	extraArgs := []string{}
+	if extraUserValues.Experimental.Docker.RegistryProxy.Enabled {
+		if !isContainerdImageStore(ctx) {
+			log.Infof("Docker is using the non-containerd image store, please use containerd image store to use the docker daemon registry proxy. For more information, see https://docs.docker.com/engine/storage/containerd/")
+			extraUserValues.Experimental.Docker.RegistryProxy.Enabled = false
+		} else {
+			containerdSocketPath, err := getContainerdSocketPath(ctx)
+			if err != nil {
+				extraUserValues.Experimental.Docker.RegistryProxy.Enabled = false
+				log.Infof("Containerd socket couldn't be found, disabling docker daemon registry proxy (%s)", err.Error())
+			} else {
+				extraArgs = append(extraArgs, "--mount", fmt.Sprintf("type=bind,src=%s,dst=/var/run/docker/containerd/containerd.sock,ro", containerdSocketPath))
+			}
+		}
+	}
+	extraValuesString, err := config.Diff(defaultConfig, extraUserValues)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("diff config: %w", err)
+	}
+
+	// merge all user values together
+	userValues, err := mergeAllValues(options.SetValues, options.Values, extraValuesString)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("merge values: %w", err)
+	}
+
+	// parse config non-strict here to make sure we are compatible with other config formats
+	userConfigRaw := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(userValues), &userConfigRaw); err != nil {
+		return nil, "", nil, fmt.Errorf("unmarshal vcluster config: %w", err)
+	}
+
+	// merge with default config
+	defaultConfigRaw, err := convertToMap(defaultConfig)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("convert to map: %w", err)
+	}
+
+	// merge the configs
+	fullConfigRaw := strvals.MergeMaps(defaultConfigRaw, userConfigRaw)
+	fullConfigBytes, err := json.Marshal(fullConfigRaw)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("marshal config: %w", err)
+	}
+	fullConfig := &config.Config{}
+	err = json.Unmarshal(fullConfigBytes, fullConfig)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("unmarshal config: %w", err)
+	}
+
+	return fullConfig, userValues, extraArgs, nil
+}
+
+func isContainerdImageStore(ctx context.Context) bool {
+	out, err := exec.CommandContext(ctx, "docker", "info", "-f", "{{ .DriverStatus }}").CombinedOutput()
+	if err != nil {
+		return false
+	}
+
+	return strings.Contains(string(out), "io.containerd.snapshotter")
+}
+
+func getContainerdSocketPath(ctx context.Context) (string, error) {
+	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", `netstat -xlp | awk '$NF ~ /\/containerd\.sock$/ {print $NF}'`).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get containerd socket path: %s: %w", string(out), err)
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(strings.TrimSpace(string(out))))
+	containerdSocketPaths := []string{}
+	for scanner.Scan() {
+		containerdSocketPaths = append(containerdSocketPaths, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("failed to scan containerd socket path: %s: %w", string(out), err)
+	}
+	if len(containerdSocketPaths) == 0 {
+		return "", fmt.Errorf("no containerd socket path found")
+	}
+
+	return containerdSocketPaths[0], nil
+}
+
+func convertToMap(config *config.Config) (map[string]interface{}, error) {
+	raw, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+
+	out := map[string]interface{}{}
+	err = json.Unmarshal(raw, &out)
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
 }
 
 func createNetwork(ctx context.Context, vClusterName string, log log.Logger) error {
