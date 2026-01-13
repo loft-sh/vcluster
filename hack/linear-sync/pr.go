@@ -8,7 +8,7 @@ import (
 )
 
 var issuesInBodyREs = []*regexp.Regexp{
-	regexp.MustCompile(`(?P<issue>\w{3}-\d{4})`),
+	regexp.MustCompile(`(?i)(?P<issue>[A-Z]{2,10}-\d{1,5})`),
 }
 
 const PageSize = 100
