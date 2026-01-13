@@ -100,7 +100,7 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 
 	// pull the vcluster image and folder structure looks roughly like this:
 	// - vcluster
-	vClusterDir, err := pullVClusterImage(ctx, vClusterVersion, globalFlags, log)
+	vClusterBinaryDir, err := pullVClusterImage(ctx, vClusterVersion, globalFlags, log)
 	if err != nil {
 		return err
 	}
@@ -124,9 +124,15 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 	}
 
 	// write the vcluster.yaml
-	vClusterYAMLPath, err := writeVClusterYAML(globalFlags, vClusterName, finalValues)
+	vClusterConfigDir, err := writeVClusterYAML(globalFlags, vClusterName, finalValues)
 	if err != nil {
 		return err
+	}
+
+	// ensure the k8s resolv conf file
+	err = ensureK8sResolvConf(ctx, globalFlags, vClusterName)
+	if err != nil {
+		return fmt.Errorf("failed to ensure k8s resolv conf file: %w", err)
 	}
 
 	// now remove the container if it exists
@@ -137,9 +143,15 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 		}
 	}
 
+	// get the network name
+	networkName := getNetworkName(vClusterName)
+	if vConfig.Experimental.Docker.Network != "" {
+		networkName = vConfig.Experimental.Docker.Network
+	}
+
 	// create the docker network
 	if !exists {
-		err = createNetwork(ctx, vClusterName, log)
+		err = createNetwork(ctx, networkName, log)
 		if err != nil {
 			return fmt.Errorf("failed to create network: %w", err)
 		}
@@ -153,7 +165,7 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 	extraVClusterArgs = append(extraVClusterArgs, "--join-token", vClusterJoinToken)
 
 	// run the docker container
-	err = runControlPlaneContainer(ctx, kubernetesDir, vClusterDir, vClusterYAMLPath, vClusterName, vConfig, extraDockerArgs, log)
+	err = runControlPlaneContainer(ctx, kubernetesDir, vClusterBinaryDir, vClusterConfigDir, vClusterName, networkName, vConfig, extraDockerArgs, log)
 	if err != nil {
 		return err
 	}
@@ -167,7 +179,7 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 	}
 
 	// ensure the nodes
-	err = ensureVClusterNodes(ctx, kubernetesDir, vClusterName, vClusterJoinToken, kubernetesVersion, vConfig, log)
+	err = ensureVClusterNodes(ctx, kubernetesDir, vClusterConfigDir, vClusterName, networkName, vClusterJoinToken, kubernetesVersion, vConfig, log)
 	if err != nil {
 		return fmt.Errorf("failed to ensure vCluster nodes: %w", err)
 	}
@@ -211,7 +223,7 @@ func writeVClusterYAML(globalFlags *flags.GlobalFlags, vClusterName string, fina
 		return "", fmt.Errorf("write file: %w", err)
 	}
 
-	return vClusterYAMLPath, nil
+	return filepath.Dir(vClusterYAMLPath), nil
 }
 
 func addVClusterDocker(ctx context.Context, name string, vClusterConfig *config.Config, options *CreateOptions, globalFlags *flags.GlobalFlags, log log.Logger) ([]string, error) {
@@ -251,7 +263,7 @@ func addVClusterDocker(ctx context.Context, name string, vClusterConfig *config.
 	// try with the regular name first
 	created, accessKey, createdName, err := platform.CreateWithName(ctx, managementClient, project, name)
 	if err != nil {
-		return nil, fmt.Errorf("error creating platform secret: %w", err)
+		return nil, fmt.Errorf("error creating platform access key: %w. If you don't want to use the platform, run this command with --add=false or run 'vcluster logout'", err)
 	} else if !created {
 		return nil, fmt.Errorf("couldn't create virtual cluster instance, name %s already exists", name)
 	}
@@ -286,7 +298,7 @@ func installVClusterStandalone(ctx context.Context, vClusterName, vClusterVersio
 	return nil
 }
 
-func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterDir, vClusterYAMLPath, vClusterName string, config *config.Config, extraArgs []string, log log.Logger) error {
+func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterBinaryDir, vClusterConfigDir, vClusterName, networkName string, config *config.Config, extraArgs []string, log log.Logger) error {
 	args := []string{
 		"run",
 		"-d",
@@ -294,7 +306,7 @@ func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterDir, v
 		"--tmpfs", "/run",
 		"--tmpfs", "/tmp",
 		"--privileged",
-		"--network", getNetworkName(vClusterName),
+		"--network", networkName,
 		"-e", "VCLUSTER_NAME=" + vClusterName,
 		"-p", fmt.Sprintf("%d:8443", clihelper.RandomPort()),
 		"--name", getControlPlaneContainerName(vClusterName),
@@ -323,8 +335,9 @@ func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterDir, v
 	for _, entry := range entries {
 		args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/%s,dst=/var/lib/vcluster/bin/%s,ro", kubernetesDir, entry.Name(), entry.Name()))
 	}
-	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/vcluster,dst=/var/lib/vcluster/bin/vcluster,ro", vClusterDir))
-	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s,dst=/etc/vcluster/vcluster.yaml,ro", vClusterYAMLPath))
+	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/vcluster,dst=/var/lib/vcluster/bin/vcluster,ro", vClusterBinaryDir))
+	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/vcluster.yaml,dst=/etc/vcluster/vcluster.yaml,ro", vClusterConfigDir))
+	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/k8s-resolv.conf,dst=/etc/k8s-resolv.conf,ro", vClusterConfigDir))
 	args = append(args, extraArgs...)
 
 	// add the image to start
@@ -340,6 +353,30 @@ func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterDir, v
 	if err != nil {
 		return fmt.Errorf("failed to start docker container: %w: %s", err, string(out))
 	}
+	return nil
+}
+
+func ensureK8sResolvConf(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName string) error {
+	resolvConf := filepath.Join(filepath.Dir(globalFlags.Config), "docker", "vclusters", vClusterName, "k8s-resolv.conf")
+	_, err := os.Stat(resolvConf)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("ensure k8s resolv conf file: %w", err)
+		}
+
+		hostDNSServer, err := getHostDNSServer(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get dns docker internal ip: %w", err)
+		}
+
+		resolvConfContent := fmt.Sprintf("# Custom Kubelet DNS resolver\nnameserver %s\noptions ndots:0\n", hostDNSServer)
+		err = os.WriteFile(resolvConf, []byte(resolvConfContent), 0644)
+		if err != nil {
+			return fmt.Errorf("write k8s resolv conf file: %w", err)
+		}
+		return nil
+	}
+
 	return nil
 }
 
@@ -367,7 +404,7 @@ func ensureVClusterJoinToken(globalFlags *flags.GlobalFlags, vClusterName string
 	return string(token), nil
 }
 
-func runWorkerContainer(ctx context.Context, kubernetesDir, vClusterName string, workerConfig *config.ExperimentalDockerNode, log log.Logger) error {
+func runWorkerContainer(ctx context.Context, kubernetesDir, vClusterConfigDir, vClusterName, networkName string, workerConfig *config.ExperimentalDockerNode, log log.Logger) error {
 	args := []string{
 		"run",
 		"-d",
@@ -375,7 +412,7 @@ func runWorkerContainer(ctx context.Context, kubernetesDir, vClusterName string,
 		"--tmpfs", "/run",
 		"--tmpfs", "/tmp",
 		"--privileged",
-		"--network", getNetworkName(vClusterName),
+		"--network", networkName,
 		"--name", getWorkerContainerName(vClusterName, workerConfig.Name),
 	}
 	for volumeName, volumePath := range containerVolumes {
@@ -402,6 +439,7 @@ func runWorkerContainer(ctx context.Context, kubernetesDir, vClusterName string,
 	for _, entry := range entries {
 		args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/%s,dst=/var/lib/vcluster/bin/%s,ro", kubernetesDir, entry.Name(), entry.Name()))
 	}
+	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/k8s-resolv.conf,dst=/etc/k8s-resolv.conf,ro", vClusterConfigDir))
 
 	// add the image to start
 	image := "ghcr.io/loft-sh/vm-container"
@@ -444,7 +482,7 @@ sh /tmp/join.sh --bundle-path /var/lib/vcluster/bin/kubernetes-%s-%s.tar.gz --fo
 	return nil
 }
 
-func ensureVClusterNodes(ctx context.Context, kubernetesDir, vClusterName, vClusterJoinToken, kubernetesVersion string, vClusterConfig *config.Config, log log.Logger) error {
+func ensureVClusterNodes(ctx context.Context, kubernetesDir, vClusterConfigDir, vClusterName, networkName, vClusterJoinToken, kubernetesVersion string, vClusterConfig *config.Config, log log.Logger) error {
 	nodes, err := findDockerVClusterNodes(ctx, vClusterName)
 	if err != nil {
 		return fmt.Errorf("failed to find vCluster nodes: %w", err)
@@ -490,7 +528,7 @@ func ensureVClusterNodes(ctx context.Context, kubernetesDir, vClusterName, vClus
 			}
 
 			log.Infof("Adding node %s to vCluster %s", node.Name, vClusterName)
-			err = runWorkerContainer(ctx, kubernetesDir, vClusterName, &node, log)
+			err = runWorkerContainer(ctx, kubernetesDir, vClusterConfigDir, vClusterName, networkName, &node, log)
 			if err != nil {
 				return fmt.Errorf("failed to run vCluster node: %w", err)
 			}
@@ -626,6 +664,11 @@ func loadConfig(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	// enable docker
 	extraUserValues.Experimental.Docker.Enabled = true
 
+	// this is needed for dns to work correctly. Docker sets the dns to 127.0.0.11 but inside coredns or any other container
+	// with dnsPolicy: Default it will not work. So we need to set our own /etc/k8s-resolv.conf for this on the kubelet which makes it work for containers as well as nodes.
+	extraUserValues.PrivateNodes.Kubelet.Config = map[string]interface{}{}
+	extraUserValues.PrivateNodes.Kubelet.Config["resolvConf"] = "/etc/k8s-resolv.conf"
+
 	// disable konnectivity by default
 	extraUserValues.ControlPlane.Advanced.Konnectivity.Server.Enabled = false
 	extraUserValues.ControlPlane.Advanced.Konnectivity.Agent.Enabled = false
@@ -684,6 +727,34 @@ func loadConfig(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	return fullConfig, userValues, extraArgs, nil
 }
 
+func getHostDNSServer(ctx context.Context) (string, error) {
+	// This shell command does two things:
+	// 1. Tries to find the IP inside the 'ExtServers' comment (Docker Desktop/Embedded DNS style).
+	// 2. If not found, falls back to the first 'nameserver' entry that is NOT 127.0.0.11.
+	// 3. If all else fails, it might print nothing (which returns an error downstream).
+	cmd := `
+        ip=$(grep 'ExtServers' /etc/resolv.conf | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1);
+        if [ -n "$ip" ]; then
+            echo "$ip";
+        else
+            awk '/^nameserver/ && $2 != "127.0.0.11" {print $2; exit}' /etc/resolv.conf;
+        fi
+    `
+
+	// We use "sh -c" to run the complex command string.
+	out, err := exec.CommandContext(ctx, "docker", "run", "--rm", "alpine", "sh", "-c", cmd).Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get real dns name: %s: %w", string(out), err)
+	}
+
+	result := strings.TrimSpace(string(out))
+	if result == "" {
+		return "", fmt.Errorf("could not determine upstream DNS: /etc/resolv.conf contains only 127.0.0.11 and no ExtServers comment")
+	}
+
+	return result, nil
+}
+
 func isContainerdImageStore(ctx context.Context) bool {
 	out, err := exec.CommandContext(ctx, "docker", "info", "-f", "{{ .DriverStatus }}").CombinedOutput()
 	if err != nil {
@@ -729,9 +800,9 @@ func convertToMap(config *config.Config) (map[string]interface{}, error) {
 	return out, nil
 }
 
-func createNetwork(ctx context.Context, vClusterName string, log log.Logger) error {
-	log.Infof("Creating network %s...", getNetworkName(vClusterName))
-	args := []string{"network", "create", getNetworkName(vClusterName)}
+func createNetwork(ctx context.Context, networkName string, log log.Logger) error {
+	log.Infof("Creating network %s...", networkName)
+	args := []string{"network", "create", networkName}
 	log.Debugf("Running command: docker %s", strings.Join(args, " "))
 	out, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
 	if err != nil && !strings.HasSuffix(strings.TrimSpace(string(out)), "already exists") {
@@ -745,6 +816,10 @@ func deleteNetwork(ctx context.Context, vClusterName string, log log.Logger) err
 	log.Debugf("Running command: docker %s", strings.Join(args, " "))
 	out, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
 	if err != nil {
+		if strings.Contains(string(out), "not found") {
+			return nil
+		}
+
 		return fmt.Errorf("failed to delete network: %w: %s", err, string(out))
 	}
 	return nil
