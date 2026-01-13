@@ -305,6 +305,15 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		return err
 	}
 
+	err = pkgconfig.ValidateCustomResourceSyncProxyConflicts(
+		vClusterConfig.Sync.ToHost.CustomResources,
+		vClusterConfig.Sync.FromHost.CustomResources,
+		vClusterConfig.Experimental.Proxy.CustomResources,
+	)
+	if err != nil {
+		return err
+	}
+
 	err = pkgconfig.ValidateExperimentalProxyCustomResourcesConfig(vClusterConfig.Experimental.Proxy.CustomResources)
 	if err != nil {
 		return err

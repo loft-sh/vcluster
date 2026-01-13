@@ -1801,6 +1801,242 @@ func TestValidateAdvancedControlPlaneConfig(t *testing.T) {
 	}
 }
 
+func TestValidateCustomResourceSyncProxyConflicts(t *testing.T) {
+	cases := []struct {
+		name        string
+		toHost      map[string]config.SyncToHostCustomResource
+		fromHost    map[string]config.SyncFromHostCustomResource
+		proxy       map[string]config.CustomResourceProxy
+		expectedErr string
+	}{
+		{
+			name:     "no conflicts - all empty",
+			toHost:   map[string]config.SyncToHostCustomResource{},
+			fromHost: map[string]config.SyncFromHostCustomResource{},
+			proxy:    map[string]config.CustomResourceProxy{},
+		},
+		{
+			name: "no conflicts - different resources",
+			toHost: map[string]config.SyncToHostCustomResource{
+				"resource-a.example.com/v1": {Enabled: true},
+			},
+			fromHost: map[string]config.SyncFromHostCustomResource{
+				"resource-b.example.com/v1": {Enabled: true},
+			},
+			proxy: map[string]config.CustomResourceProxy{
+				"resource-c.example.com/v1": {Enabled: true},
+			},
+		},
+		{
+			name: "conflict between toHost and fromHost",
+			toHost: map[string]config.SyncToHostCustomResource{
+				"resource-a.example.com/v1": {Enabled: true},
+			},
+			fromHost: map[string]config.SyncFromHostCustomResource{
+				"resource-a.example.com/v1": {Enabled: true},
+			},
+			proxy:       map[string]config.CustomResourceProxy{},
+			expectedErr: "custom resource resource-a.example.com/v1 exists in sync.toHost.customResources and sync.fromHost.customResources. Syncing is only supported one way",
+		},
+		{
+			name: "conflict between toHost and proxy",
+			toHost: map[string]config.SyncToHostCustomResource{
+				"resource-a.example.com/v1": {Enabled: true},
+			},
+			fromHost: map[string]config.SyncFromHostCustomResource{},
+			proxy: map[string]config.CustomResourceProxy{
+				"resource-a.example.com/v1": {Enabled: true},
+			},
+			expectedErr: "custom resource resource-a.example.com/v1 exists in sync.toHost.customResources and proxy.customResources. Proxy resources are not supported in sync.toHost.customResources",
+		},
+		{
+			name:   "conflict between fromHost and proxy",
+			toHost: map[string]config.SyncToHostCustomResource{},
+			fromHost: map[string]config.SyncFromHostCustomResource{
+				"resource-a.example.com/v1": {Enabled: true},
+			},
+			proxy: map[string]config.CustomResourceProxy{
+				"resource-a.example.com/v1": {Enabled: true},
+			},
+			expectedErr: "custom resource resource-a.example.com/v1 exists in sync.fromHost.customResources and proxy.customResources. Proxy resources are not supported in sync.fromHost.customResources",
+		},
+		{
+			name: "multiple resources with one conflict",
+			toHost: map[string]config.SyncToHostCustomResource{
+				"resource-a.example.com/v1": {Enabled: true},
+				"resource-b.example.com/v1": {Enabled: true},
+			},
+			fromHost: map[string]config.SyncFromHostCustomResource{
+				"resource-c.example.com/v1": {Enabled: true},
+				"resource-b.example.com/v1": {Enabled: true},
+			},
+			proxy: map[string]config.CustomResourceProxy{
+				"resource-d.example.com/v1": {Enabled: true},
+			},
+			expectedErr: "custom resource resource-b.example.com/v1 exists in sync.toHost.customResources and sync.fromHost.customResources. Syncing is only supported one way",
+		},
+		{
+			name: "no conflict - same key in toHost and fromHost but fromHost disabled",
+			toHost: map[string]config.SyncToHostCustomResource{
+				"resource-a.example.com/v1": {Enabled: true},
+			},
+			fromHost: map[string]config.SyncFromHostCustomResource{
+				"resource-a.example.com/v1": {Enabled: false},
+			},
+			proxy: map[string]config.CustomResourceProxy{},
+		},
+		{
+			name: "no conflict - same key in toHost and proxy but proxy disabled",
+			toHost: map[string]config.SyncToHostCustomResource{
+				"resource-a.example.com/v1": {Enabled: true},
+			},
+			fromHost: map[string]config.SyncFromHostCustomResource{},
+			proxy: map[string]config.CustomResourceProxy{
+				"resource-a.example.com/v1": {Enabled: false},
+			},
+		},
+		{
+			name:   "no conflict - same key in fromHost and proxy but both disabled",
+			toHost: map[string]config.SyncToHostCustomResource{},
+			fromHost: map[string]config.SyncFromHostCustomResource{
+				"resource-a.example.com/v1": {Enabled: false},
+			},
+			proxy: map[string]config.CustomResourceProxy{
+				"resource-a.example.com/v1": {Enabled: false},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateCustomResourceSyncProxyConflicts(tc.toHost, tc.fromHost, tc.proxy)
+			if tc.expectedErr == "" {
+				if err != nil {
+					t.Errorf("expected no error, got: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("expected error %q, got nil", tc.expectedErr)
+				} else if err.Error() != tc.expectedErr {
+					t.Errorf("expected error %q, got %q", tc.expectedErr, err.Error())
+				}
+			}
+		})
+	}
+}
+
+func TestValidateExperimentalProxyCustomResourcesConfig(t *testing.T) {
+	cases := []struct {
+		name        string
+		cfg         map[string]config.CustomResourceProxy
+		expectedErr string
+	}{
+		{
+			name: "empty config",
+			cfg:  map[string]config.CustomResourceProxy{},
+		},
+		{
+			name: "valid config with all fields",
+			cfg: map[string]config.CustomResourceProxy{
+				"myresources.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+					AccessResources: config.AccessResourcesModeOwned,
+				},
+			},
+		},
+		{
+			name: "valid config with accessResources=all",
+			cfg: map[string]config.CustomResourceProxy{
+				"myresources.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+					AccessResources: config.AccessResourcesModeAll,
+				},
+			},
+		},
+		{
+			name: "valid config without accessResources (defaults)",
+			cfg: map[string]config.CustomResourceProxy{
+				"myresources.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+				},
+			},
+		},
+		{
+			name: "invalid resource path - missing version",
+			cfg: map[string]config.CustomResourceProxy{
+				"myresources.example.com": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+				},
+			},
+			expectedErr: "experimental.proxy.customResources['myresources.example.com']: invalid resource path \"myresources.example.com\", expected format 'resource.group/version' (e.g., 'resource.my-org.com/v1')",
+		},
+		{
+			name: "invalid resource path - empty resource",
+			cfg: map[string]config.CustomResourceProxy{
+				"/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+				},
+			},
+			expectedErr: "experimental.proxy.customResources['/v1']: invalid resource path \"/v1\", expected format 'resource.group/version' (e.g., 'resource.my-org.com/v1')",
+		},
+		{
+			name: "missing targetVirtualCluster.name",
+			cfg: map[string]config.CustomResourceProxy{
+				"myresources.example.com/v1": {
+					Enabled:              true,
+					TargetVirtualCluster: config.VirtualClusterRef{},
+				},
+			},
+			expectedErr: "experimental.proxy.customResources['myresources.example.com/v1'].targetVirtualCluster is required",
+		},
+		{
+			name: "invalid accessResources value",
+			cfg: map[string]config.CustomResourceProxy{
+				"myresources.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+					AccessResources: "invalid",
+				},
+			},
+			expectedErr: "experimental.proxy.customResources['myresources.example.com/v1'].accessResources: invalid value \"invalid\", must be 'owned' or 'all'",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateExperimentalProxyCustomResourcesConfig(tc.cfg)
+			if tc.expectedErr == "" {
+				if err != nil {
+					t.Errorf("expected no error, got: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("expected error %q, got nil", tc.expectedErr)
+				} else if err.Error() != tc.expectedErr {
+					t.Errorf("expected error %q, got %q", tc.expectedErr, err.Error())
+				}
+			}
+		})
+	}
+}
+
 func expectErr(errMsg string) func(t *testing.T, err error) {
 	return func(t *testing.T, err error) {
 		t.Helper()
