@@ -244,9 +244,9 @@ func TestIssueIDsExtraction(t *testing.T) {
 		issuesInBodyREs = originalRegex
 	}()
 
-	// For testing, use a regex that matches any 3-letter prefix format
+	// For testing, use a regex that matches team keys of 2-10 chars and issue numbers 1-5 digits
 	issuesInBodyREs = []*regexp.Regexp{
-		regexp.MustCompile(`(?P<issue>\w{3}-\d{4})`),
+		regexp.MustCompile(`(?P<issue>\w{2,10}-\d{1,5})`),
 	}
 
 	testCases := []struct {
@@ -284,6 +284,36 @@ func TestIssueIDsExtraction(t *testing.T) {
 			body:        "This PR fixes CVE-1234",
 			headRefName: "security/fix",
 			expected:    []string{},
+		},
+		{
+			name:        "Long team key (DEVOPS)",
+			body:        "This PR fixes DEVOPS-471",
+			headRefName: "feature/infra-update",
+			expected:    []string{"devops-471"},
+		},
+		{
+			name:        "Short team key (QA)",
+			body:        "This PR fixes QA-42",
+			headRefName: "feature/test-fix",
+			expected:    []string{"qa-42"},
+		},
+		{
+			name:        "Mixed team keys",
+			body:        "This PR fixes ENG-1234 and DEVOPS-471",
+			headRefName: "feature/QA-99-cross-team",
+			expected:    []string{"eng-1234", "devops-471", "qa-99"},
+		},
+		{
+			name:        "Issue with short number",
+			body:        "This PR fixes ENG-1",
+			headRefName: "feature/quick-fix",
+			expected:    []string{"eng-1"},
+		},
+		{
+			name:        "Issue with long number",
+			body:        "This PR fixes ENG-12345",
+			headRefName: "feature/big-project",
+			expected:    []string{"eng-12345"},
 		},
 	}
 
