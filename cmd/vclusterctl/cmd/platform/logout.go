@@ -78,5 +78,8 @@ func (cmd *LogoutCmd) Run(ctx context.Context) error {
 		cmd.Log.Donef("Successfully logged out of vCluster Palatform instance %s", ansi.Color(configHost, "white+b"))
 	}
 
-	return use.SwitchDriver(ctx, cfg, string(config.HelmDriver), cmd.Log)
+	if cfg.Driver.Type == config.PlatformDriver {
+		return use.SwitchDriver(ctx, cfg, string(config.HelmDriver), cmd.Log)
+	}
+	return nil
 }
