@@ -3,11 +3,11 @@ package pro
 import (
 	"fmt"
 
-	"github.com/loft-sh/admin-apis/pkg/util/features"
+	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 )
 
 func NewFeatureError(featureName string) error {
-	displayName, err := features.GetFeatureDisplayName(featureName)
+	displayName, err := licenseapi.GetFeatureDisplayName(featureName)
 	if err != nil {
 		displayName = "Unknown Feature"
 	}
