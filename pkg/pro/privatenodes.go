@@ -59,5 +59,5 @@ type StandaloneOptions struct {
 }
 
 var StartStandalone = func(_ context.Context, _ *StandaloneOptions) error {
-	return NewFeatureError(string(licenseapi.VirtualClusterProDistroPrivateNodes))
+	return NewFeatureError(string(licenseapi.Standalone))
 }
