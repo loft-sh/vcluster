@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/loft-sh/log"
@@ -83,7 +84,7 @@ func (cmd *connectDocker) connect(ctx context.Context, vClusterName string, comm
 	cmd.log.Debugf("Found exposed port %s for vcluster container %s", hostPort, containerName)
 
 	// get the kubeconfig from the container
-	kubeConfig, err := getDockerVClusterKubeConfig(ctx, containerName, hostPort, cmd.log)
+	kubeConfig, err := getDockerVClusterKubeConfig(ctx, vClusterName, hostPort, cmd.log)
 	if err != nil {
 		return fmt.Errorf("failed to get kubeconfig: %w", err)
 	}
@@ -101,7 +102,7 @@ func (cmd *connectDocker) connect(ctx context.Context, vClusterName string, comm
 
 	// wait for vCluster to become ready (unless just printing)
 	if !cmd.ConnectOptions.Print {
-		err = cmd.waitForVCluster(ctx, *kubeConfig)
+		err = cmd.waitForVCluster(ctx, vClusterName, *kubeConfig)
 		if err != nil {
 			return fmt.Errorf("failed connecting to vcluster: %w", err)
 		}
@@ -149,17 +150,23 @@ func (cmd *connectDocker) getExposedPort(containerDetails *dockerContainerDetail
 	return hostPort, nil
 }
 
-func getDockerVClusterKubeConfig(ctx context.Context, containerName, hostPort string, log log.Logger) (*clientcmdapi.Config, error) {
+func getDockerVClusterKubeConfig(ctx context.Context, vClusterName string, hostPort string, log log.Logger) (*clientcmdapi.Config, error) {
 	// The kubeconfig in standalone mode is written to /data/kubeconfig.yaml
 	// We retrieve it from the container
-	args := []string{"exec", containerName, "cat", "/var/lib/vcluster/kubeconfig.yaml"}
+	args := []string{"exec", getControlPlaneContainerName(vClusterName), "cat", "/var/lib/vcluster/kubeconfig.yaml"}
 
 	var kubeConfigBytes []byte
 	var err error
 
 	// Poll until the kubeconfig is available (vcluster might still be starting up)
 	log.Infof("Waiting for vCluster kubeconfig to be available...")
+	start := time.Now()
 	waitErr := wait.PollUntilContextTimeout(ctx, time.Second*2, time.Minute*5, true, func(ctx context.Context) (bool, error) {
+		// after 10 seconds, check if the vCluster failed
+		if time.Since(start) > time.Second*10 && isVClusterFailed(ctx, vClusterName) {
+			return false, fmt.Errorf("vCluster failed: %s. \nvCluster failed to start, please check the logs above for more information", getVClusterLogs(ctx, vClusterName))
+		}
+
 		kubeConfigBytes, err = exec.CommandContext(ctx, "docker", args...).Output()
 		if err != nil {
 			log.Debugf("Kubeconfig not yet available: %v", err)
@@ -237,7 +244,7 @@ func (cmd *connectDocker) exchangeContextName(kubeConfig *clientcmdapi.Config) e
 	return nil
 }
 
-func (cmd *connectDocker) waitForVCluster(ctx context.Context, kubeConfig clientcmdapi.Config) error {
+func (cmd *connectDocker) waitForVCluster(ctx context.Context, vClusterName string, kubeConfig clientcmdapi.Config) error {
 	cmd.log.Infof("Waiting for vCluster to become ready...")
 
 	restConfig, err := clientcmd.NewDefaultClientConfig(kubeConfig, &clientcmd.ConfigOverrides{}).ClientConfig()
@@ -250,7 +257,10 @@ func (cmd *connectDocker) waitForVCluster(ctx context.Context, kubeConfig client
 		return fmt.Errorf("failed to create kube client: %w", err)
 	}
 
-	err = wait.PollUntilContextTimeout(ctx, time.Millisecond*500, time.Minute*3, true, func(ctx context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*3, true, func(ctx context.Context) (bool, error) {
+		ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+		defer cancel()
+
 		// check if we can reach the API server by getting the default service account
 		_, err := kubeClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
 		if err != nil {
@@ -265,4 +275,16 @@ func (cmd *connectDocker) waitForVCluster(ctx context.Context, kubeConfig client
 
 	cmd.log.Donef("vCluster is ready")
 	return nil
+}
+
+func getVClusterLogs(ctx context.Context, vClusterName string) string {
+	args := []string{"exec", getControlPlaneContainerName(vClusterName), "journalctl", "-u", "vcluster.service", "--no-pager", "-e"}
+	out, _ := exec.CommandContext(ctx, "docker", args...).Output()
+	return string(out)
+}
+
+func isVClusterFailed(ctx context.Context, vClusterName string) bool {
+	args := []string{"exec", getControlPlaneContainerName(vClusterName), "systemctl", "show", "vcluster.service", "--property=MainPID", "--value"}
+	out, _ := exec.CommandContext(ctx, "docker", args...).Output()
+	return strings.TrimSpace(string(out)) == "0"
 }
