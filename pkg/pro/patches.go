@@ -1,6 +1,7 @@
 package pro
 
 import (
+	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -11,7 +12,7 @@ var ApplyPatchesVirtualObject = func(_ *synccontext.SyncContext, _, _, _ client.
 		return nil
 	}
 
-	return NewFeatureError("translate patches")
+	return NewFeatureError(string(licenseapi.VirtualClusterProDistroTranslatePatches))
 }
 
 var ApplyPatchesHostObject = func(_ *synccontext.SyncContext, _, _, _ client.Object, patches []config.TranslatePatch, _ bool) error {
@@ -19,5 +20,5 @@ var ApplyPatchesHostObject = func(_ *synccontext.SyncContext, _, _, _ client.Obj
 		return nil
 	}
 
-	return NewFeatureError("translate patches")
+	return NewFeatureError(string(licenseapi.VirtualClusterProDistroTranslatePatches))
 }
