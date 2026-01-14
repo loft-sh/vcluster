@@ -74,6 +74,9 @@ jobs:
             echo ""
             echo "Changed files:"
             git status --porcelain go.mod go.sum vendor/
+            echo ""
+            echo "Diff (go.mod and go.sum):"
+            git diff go.mod go.sum
             exit 1
           fi
 
