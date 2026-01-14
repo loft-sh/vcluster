@@ -37,10 +37,10 @@ func TestNewFeatureError(t *testing.T) {
 		{
 			name:            "invalid feature name",
 			featureName:     "non-existent-feature",
-			expectedDisplay: "Unknown Feature",
+			expectedDisplay: "non-existent-feature",
 			shouldContain: []string{
 				"you are trying to use a vCluster pro feature",
-				"Unknown Feature",
+				"non-existent-feature",
 				"non-existent-feature",
 				"support@loft.sh",
 			},
