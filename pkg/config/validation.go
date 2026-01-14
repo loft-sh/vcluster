@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/samber/lo"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
@@ -82,6 +83,14 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		vConfig.Sync.ToHost.CustomResources,
 		vConfig.Sync.FromHost.CustomResources,
 		vConfig.Integrations); err != nil {
+		return err
+	}
+
+	// validate custom resources are not configured for both sync and proxy
+	if err := ValidateCustomResourceSyncProxyConflicts(
+		vConfig.Sync.ToHost.CustomResources,
+		vConfig.Sync.FromHost.CustomResources,
+		vConfig.Experimental.Proxy.CustomResources); err != nil {
 		return err
 	}
 
@@ -889,6 +898,24 @@ func validateAdvancedControlPlaneConfig(controlPlaneAdvanced config.ControlPlane
 		return fmt.Errorf("minAvailable and maxUnavailable cannot be used together in a podDisruptionBudget")
 	}
 
+	return nil
+}
+
+func ValidateCustomResourceSyncProxyConflicts(toHostCustomResources map[string]config.SyncToHostCustomResource, fromHostCustomResources map[string]config.SyncFromHostCustomResource, proxyCustomResources map[string]config.CustomResourceProxy) error {
+	// Only consider enabled resources for conflict detection
+	enabledToHost := lo.Keys(lo.PickBy(toHostCustomResources, func(_ string, v config.SyncToHostCustomResource) bool { return v.Enabled }))
+	enabledFromHost := lo.Keys(lo.PickBy(fromHostCustomResources, func(_ string, v config.SyncFromHostCustomResource) bool { return v.Enabled }))
+	enabledProxy := lo.Keys(lo.PickBy(proxyCustomResources, func(_ string, v config.CustomResourceProxy) bool { return v.Enabled }))
+
+	if k := lo.Intersect(enabledToHost, enabledFromHost); len(k) > 0 {
+		return fmt.Errorf("custom resource %s exists in sync.toHost.customResources and sync.fromHost.customResources. Syncing is only supported one way", k[0])
+	}
+	if k := lo.Intersect(enabledToHost, enabledProxy); len(k) > 0 {
+		return fmt.Errorf("custom resource %s exists in sync.toHost.customResources and proxy.customResources. Proxy resources are not supported in sync.toHost.customResources", k[0])
+	}
+	if k := lo.Intersect(enabledFromHost, enabledProxy); len(k) > 0 {
+		return fmt.Errorf("custom resource %s exists in sync.fromHost.customResources and proxy.customResources. Proxy resources are not supported in sync.fromHost.customResources", k[0])
+	}
 	return nil
 }
 
