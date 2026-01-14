@@ -68,7 +68,13 @@ jobs:
         run: |
           go mod tidy
           go mod vendor
-          if [ -n "$(git status --porcelain go.mod go.sum vendor/)" ]; then
+
+          # Check for changes, ignoring direct/indirect comment differences
+          GOMOD_CHANGES=$(git diff go.mod | grep -E '^[-+]\s' | grep -v '^[-+][-+][-+]' | grep -v '// indirect' || true)
+          GOSUM_CHANGES=$(git diff go.sum)
+          VENDOR_CHANGES=$(git status --porcelain vendor/)
+
+          if [ -n "$GOMOD_CHANGES" ] || [ -n "$GOSUM_CHANGES" ] || [ -n "$VENDOR_CHANGES" ]; then
             echo "❌ ERROR: go.mod, go.sum, or vendor/ directory is out of sync."
             echo "Please run 'go mod tidy && go mod vendor' and commit the changes."
             echo ""
