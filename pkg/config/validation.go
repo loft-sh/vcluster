@@ -907,16 +907,41 @@ func ValidateCustomResourceSyncProxyConflicts(toHostCustomResources map[string]c
 	enabledFromHost := lo.Keys(lo.PickBy(fromHostCustomResources, func(_ string, v config.SyncFromHostCustomResource) bool { return v.Enabled }))
 	enabledProxy := lo.Keys(lo.PickBy(proxyCustomResources, func(_ string, v config.CustomResourceProxy) bool { return v.Enabled }))
 
+	// Check exact key conflicts between toHost and fromHost
 	if k := lo.Intersect(enabledToHost, enabledFromHost); len(k) > 0 {
 		return fmt.Errorf("custom resource %s exists in sync.toHost.customResources and sync.fromHost.customResources. Syncing is only supported one way", k[0])
 	}
-	if k := lo.Intersect(enabledToHost, enabledProxy); len(k) > 0 {
-		return fmt.Errorf("custom resource %s exists in sync.toHost.customResources and proxy.customResources. Proxy resources are not supported in sync.toHost.customResources", k[0])
+
+	proxyGroups := lo.SliceToMap(enabledProxy, func(key string) (string, string) {
+		return extractGroup(key), key
+	})
+	toHostGroups := lo.SliceToMap(enabledToHost, func(key string) (string, string) {
+		return extractGroup(key), key
+	})
+	fromHostGroups := lo.SliceToMap(enabledFromHost, func(key string) (string, string) {
+		return extractGroup(key), key
+	})
+
+	// Check toHost groups against proxy groups
+	if conflicting := lo.Intersect(lo.Keys(toHostGroups), lo.Keys(proxyGroups)); len(conflicting) > 0 {
+		group := conflicting[0]
+		return fmt.Errorf("custom resource group %q is used in both sync.toHost.customResources (%s) and proxy.customResources (%s). Resources from the same group cannot be used in both sync and proxy", group, toHostGroups[group], proxyGroups[group])
 	}
-	if k := lo.Intersect(enabledFromHost, enabledProxy); len(k) > 0 {
-		return fmt.Errorf("custom resource %s exists in sync.fromHost.customResources and proxy.customResources. Proxy resources are not supported in sync.fromHost.customResources", k[0])
+
+	// Check fromHost groups against proxy groups
+	if conflicting := lo.Intersect(lo.Keys(fromHostGroups), lo.Keys(proxyGroups)); len(conflicting) > 0 {
+		group := conflicting[0]
+		return fmt.Errorf("custom resource group %q is used in both sync.fromHost.customResources (%s) and proxy.customResources (%s). Resources from the same group cannot be used in both sync and proxy", group, fromHostGroups[group], proxyGroups[group])
 	}
+
 	return nil
+}
+
+func extractGroup(key string) string {
+	// Split by "/" to separate version if present, then parse resource.group
+	parts := strings.SplitN(key, "/", 2)
+	gr := schema.ParseGroupResource(parts[0])
+	return gr.Group
 }
 
 func ValidateExperimentalProxyCustomResourcesConfig(cfg map[string]config.CustomResourceProxy) error {

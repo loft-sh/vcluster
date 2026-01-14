@@ -1816,19 +1816,19 @@ func TestValidateCustomResourceSyncProxyConflicts(t *testing.T) {
 			proxy:    map[string]config.CustomResourceProxy{},
 		},
 		{
-			name: "no conflicts - different resources",
+			name: "no conflicts - different resources and groups",
 			toHost: map[string]config.SyncToHostCustomResource{
 				"resource-a.example.com/v1": {Enabled: true},
 			},
 			fromHost: map[string]config.SyncFromHostCustomResource{
-				"resource-b.example.com/v1": {Enabled: true},
+				"resource-b.other.com/v1": {Enabled: true},
 			},
 			proxy: map[string]config.CustomResourceProxy{
-				"resource-c.example.com/v1": {Enabled: true},
+				"resource-c.another.com/v1": {Enabled: true},
 			},
 		},
 		{
-			name: "conflict between toHost and fromHost",
+			name: "conflict between toHost and fromHost - exact key match",
 			toHost: map[string]config.SyncToHostCustomResource{
 				"resource-a.example.com/v1": {Enabled: true},
 			},
@@ -1839,39 +1839,50 @@ func TestValidateCustomResourceSyncProxyConflicts(t *testing.T) {
 			expectedErr: "custom resource resource-a.example.com/v1 exists in sync.toHost.customResources and sync.fromHost.customResources. Syncing is only supported one way",
 		},
 		{
-			name: "conflict between toHost and proxy",
+			name: "conflict between toHost and proxy - same group different resources",
 			toHost: map[string]config.SyncToHostCustomResource{
-				"resource-a.example.com/v1": {Enabled: true},
+				"resource-a.alpha.sh/v1": {Enabled: true},
 			},
 			fromHost: map[string]config.SyncFromHostCustomResource{},
 			proxy: map[string]config.CustomResourceProxy{
-				"resource-a.example.com/v1": {Enabled: true},
+				"resource-b.alpha.sh/v1": {Enabled: true},
 			},
-			expectedErr: "custom resource resource-a.example.com/v1 exists in sync.toHost.customResources and proxy.customResources. Proxy resources are not supported in sync.toHost.customResources",
+			expectedErr: `custom resource group "alpha.sh" is used in both sync.toHost.customResources (resource-a.alpha.sh/v1) and proxy.customResources (resource-b.alpha.sh/v1). Resources from the same group cannot be used in both sync and proxy`,
 		},
 		{
-			name:   "conflict between fromHost and proxy",
+			name:   "conflict between fromHost and proxy - same group different resources",
 			toHost: map[string]config.SyncToHostCustomResource{},
 			fromHost: map[string]config.SyncFromHostCustomResource{
-				"resource-a.example.com/v1": {Enabled: true},
+				"resource-a.alpha.sh/v1": {Enabled: true},
 			},
 			proxy: map[string]config.CustomResourceProxy{
-				"resource-a.example.com/v1": {Enabled: true},
+				"resource-b.alpha.sh/v1": {Enabled: true},
 			},
-			expectedErr: "custom resource resource-a.example.com/v1 exists in sync.fromHost.customResources and proxy.customResources. Proxy resources are not supported in sync.fromHost.customResources",
+			expectedErr: `custom resource group "alpha.sh" is used in both sync.fromHost.customResources (resource-a.alpha.sh/v1) and proxy.customResources (resource-b.alpha.sh/v1). Resources from the same group cannot be used in both sync and proxy`,
 		},
 		{
-			name: "multiple resources with one conflict",
+			name: "conflict between toHost and proxy - sync without version, proxy with version",
+			toHost: map[string]config.SyncToHostCustomResource{
+				"ciliumnodes.cilium.io": {Enabled: true},
+			},
+			fromHost: map[string]config.SyncFromHostCustomResource{},
+			proxy: map[string]config.CustomResourceProxy{
+				"ciliumidentities.cilium.io/v2": {Enabled: true},
+			},
+			expectedErr: `custom resource group "cilium.io" is used in both sync.toHost.customResources (ciliumnodes.cilium.io) and proxy.customResources (ciliumidentities.cilium.io/v2). Resources from the same group cannot be used in both sync and proxy`,
+		},
+		{
+			name: "multiple resources with one toHost/fromHost conflict",
 			toHost: map[string]config.SyncToHostCustomResource{
 				"resource-a.example.com/v1": {Enabled: true},
 				"resource-b.example.com/v1": {Enabled: true},
 			},
 			fromHost: map[string]config.SyncFromHostCustomResource{
-				"resource-c.example.com/v1": {Enabled: true},
+				"resource-c.other.com/v1":   {Enabled: true},
 				"resource-b.example.com/v1": {Enabled: true},
 			},
 			proxy: map[string]config.CustomResourceProxy{
-				"resource-d.example.com/v1": {Enabled: true},
+				"resource-d.another.com/v1": {Enabled: true},
 			},
 			expectedErr: "custom resource resource-b.example.com/v1 exists in sync.toHost.customResources and sync.fromHost.customResources. Syncing is only supported one way",
 		},
@@ -1886,24 +1897,48 @@ func TestValidateCustomResourceSyncProxyConflicts(t *testing.T) {
 			proxy: map[string]config.CustomResourceProxy{},
 		},
 		{
-			name: "no conflict - same key in toHost and proxy but proxy disabled",
+			name: "no conflict - same group in toHost and proxy but proxy disabled",
 			toHost: map[string]config.SyncToHostCustomResource{
-				"resource-a.example.com/v1": {Enabled: true},
+				"resource-a.alpha.sh/v1": {Enabled: true},
 			},
 			fromHost: map[string]config.SyncFromHostCustomResource{},
 			proxy: map[string]config.CustomResourceProxy{
-				"resource-a.example.com/v1": {Enabled: false},
+				"resource-b.alpha.sh/v1": {Enabled: false},
 			},
 		},
 		{
-			name:   "no conflict - same key in fromHost and proxy but both disabled",
+			name:   "no conflict - same group in fromHost and proxy but both disabled",
 			toHost: map[string]config.SyncToHostCustomResource{},
 			fromHost: map[string]config.SyncFromHostCustomResource{
-				"resource-a.example.com/v1": {Enabled: false},
+				"resource-a.alpha.sh/v1": {Enabled: false},
 			},
 			proxy: map[string]config.CustomResourceProxy{
-				"resource-a.example.com/v1": {Enabled: false},
+				"resource-b.alpha.sh/v1": {Enabled: false},
 			},
+		},
+		{
+			name: "no conflict - different groups with similar names",
+			toHost: map[string]config.SyncToHostCustomResource{
+				"ciliumnodes.cilium.io":         {Enabled: true},
+				"ciliumidentities.cilium.io/v2": {Enabled: true},
+			},
+			fromHost: map[string]config.SyncFromHostCustomResource{},
+			proxy: map[string]config.CustomResourceProxy{
+				"foo.alpha.sh/v1": {Enabled: true},
+			},
+		},
+		{
+			name: "conflict - multiple sync resources in same group as proxy",
+			toHost: map[string]config.SyncToHostCustomResource{
+				"ciliumnodes.cilium.io":         {Enabled: true},
+				"ciliumidentities.cilium.io/v2": {Enabled: true},
+				"bar.alpha.sh/v1":               {Enabled: true},
+			},
+			fromHost: map[string]config.SyncFromHostCustomResource{},
+			proxy: map[string]config.CustomResourceProxy{
+				"foo.alpha.sh/v1": {Enabled: true},
+			},
+			expectedErr: `custom resource group "alpha.sh" is used in both sync.toHost.customResources (bar.alpha.sh/v1) and proxy.customResources (foo.alpha.sh/v1). Resources from the same group cannot be used in both sync and proxy`,
 		},
 	}
 
