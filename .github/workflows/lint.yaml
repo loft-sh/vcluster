@@ -68,13 +68,7 @@ jobs:
         run: |
           go mod tidy
           go mod vendor
-
-          # Check for changes, ignoring direct/indirect comment differences
-          GOMOD_CHANGES=$(git diff go.mod | grep -E '^[-+]\s' | grep -v '^[-+][-+][-+]' | grep -v '// indirect' || true)
-          GOSUM_CHANGES=$(git diff go.sum)
-          VENDOR_CHANGES=$(git status --porcelain vendor/)
-
-          if [ -n "$GOMOD_CHANGES" ] || [ -n "$GOSUM_CHANGES" ] || [ -n "$VENDOR_CHANGES" ]; then
+          if [ -n "$(git status --porcelain go.mod go.sum vendor/)" ]; then
             echo "❌ ERROR: go.mod, go.sum, or vendor/ directory is out of sync."
             echo "Please run 'go mod tidy && go mod vendor' and commit the changes."
             echo ""
@@ -83,6 +77,10 @@ jobs:
             echo ""
             echo "Diff (go.mod and go.sum):"
             git diff go.mod go.sum
+            echo ""
+            echo "💡 TIP: If this works locally but fails in CI, check for gitignored"
+            echo "   directories (e.g. licenses/) that may affect dependency resolution."
+            echo "   Run 'git status --ignored' locally to see ignored files."
             exit 1
           fi
 
