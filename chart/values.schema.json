@@ -1946,6 +1946,10 @@
           "type": "boolean",
           "description": "Enabled defines if the vCluster was deployed using Docker. This is automatically set by vCluster and should not be set by the user."
         },
+        "network": {
+          "type": "string",
+          "description": "Network defines the network to use for the vCluster. If not specified, the a network will be created for the vCluster."
+        },
         "nodes": {
           "items": {
             "$ref": "#/$defs/ExperimentalDockerNode"

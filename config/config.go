@@ -3158,6 +3158,9 @@ type ExperimentalDocker struct {
 	// Enabled defines if the vCluster was deployed using Docker. This is automatically set by vCluster and should not be set by the user.
 	Enabled bool `json:"enabled,omitempty"`
 
+	// Network defines the network to use for the vCluster. If not specified, the a network will be created for the vCluster.
+	Network string `json:"network,omitempty"`
+
 	// Nodes defines the nodes of the vCluster.
 	Nodes []ExperimentalDockerNode `json:"nodes,omitempty"`
 
