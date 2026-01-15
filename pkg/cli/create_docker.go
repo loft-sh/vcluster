@@ -3,20 +3,26 @@ package cli
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/log/hash"
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/oci"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/random"
 	"github.com/loft-sh/vcluster/pkg/strvals"
@@ -25,8 +31,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/samber/lo"
 	"golang.org/x/mod/semver"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 )
+
+const joinTokenLabel = "vcluster.loft.sh/join-token"
 
 var containerVolumes = map[string]string{
 	"var":     "/var",
@@ -77,9 +86,22 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 	}()
 
 	// load the docker config
-	vConfig, finalValues, extraDockerArgs, err := loadConfig(ctx, options, globalFlags, log)
+	log.Infof("Ensuring environment for vCluster %s...", vClusterName)
+	userValuesRaw, err := loadUserValues(ctx, options, globalFlags, log)
 	if err != nil {
 		return fmt.Errorf("failed to load docker config: %w", err)
+	}
+
+	// configure the network and update user values if needed
+	networkName, extraDockerArgs, err := configureNetwork(ctx, userValuesRaw, vClusterName, log)
+	if err != nil {
+		return fmt.Errorf("failed to configure network: %w", err)
+	}
+
+	// convert the config to a config object
+	vConfig, userValues, err := convertConfig(userValuesRaw)
+	if err != nil {
+		return fmt.Errorf("convert config: %w", err)
 	}
 
 	// pull the kubernetes image and folder structure looks roughly like this:
@@ -105,34 +127,44 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 		return err
 	}
 
-	// add the platform credentials to the docker container
+	// write the vcluster.yaml
 	extraVClusterArgs := []string{
 		"--vcluster-name", vClusterName,
 	}
+	vClusterConfigDir, err := writeVClusterYAML(globalFlags, vClusterName, userValues)
+	if err != nil {
+		return err
+	}
+
+	// ensure the k8s resolv conf file
+	err = ensureK8sResolvConf(ctx, globalFlags, vClusterName, log)
+	if err != nil {
+		return fmt.Errorf("failed to ensure k8s resolv conf file: %w", err)
+	}
+
+	// ensure the join token
+	vClusterJoinToken, err := ensureVClusterJoinToken(globalFlags, vClusterName, true)
+	if err != nil {
+		return fmt.Errorf("failed to ensure join token: %w", err)
+	}
+	extraVClusterArgs = append(extraVClusterArgs, "--join-token", vClusterJoinToken)
+
+	// add the platform credentials to the docker container
 	if options.Add && !exists {
 		err := vclusterconfig.ValidatePlatformProject(ctx, vConfig, globalFlags.LoadedConfig(log))
 		if err != nil {
 			return err
 		}
 
-		platformArgs, err := addVClusterDocker(ctx, vClusterName, vConfig, options, globalFlags, log)
+		platformArgs, err := addVClusterDocker(ctx, vClusterName, vConfig, options, globalFlags, vClusterJoinToken, log)
 		if err != nil {
 			return err
 		}
 
-		extraVClusterArgs = append(extraVClusterArgs, platformArgs...)
-	}
-
-	// write the vcluster.yaml
-	vClusterConfigDir, err := writeVClusterYAML(globalFlags, vClusterName, finalValues)
-	if err != nil {
-		return err
-	}
-
-	// ensure the k8s resolv conf file
-	err = ensureK8sResolvConf(ctx, globalFlags, vClusterName)
-	if err != nil {
-		return fmt.Errorf("failed to ensure k8s resolv conf file: %w", err)
+		if len(platformArgs) > 0 {
+			log.Infof("Will connect vCluster %s to platform...", vClusterName)
+			extraVClusterArgs = append(extraVClusterArgs, platformArgs...)
+		}
 	}
 
 	// now remove the container if it exists
@@ -142,27 +174,6 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 			return fmt.Errorf("failed to remove container: %w", err)
 		}
 	}
-
-	// get the network name
-	networkName := getNetworkName(vClusterName)
-	if vConfig.Experimental.Docker.Network != "" {
-		networkName = vConfig.Experimental.Docker.Network
-	}
-
-	// create the docker network
-	if !exists {
-		err = createNetwork(ctx, networkName, log)
-		if err != nil {
-			return fmt.Errorf("failed to create network: %w", err)
-		}
-	}
-
-	// ensure the join token
-	vClusterJoinToken, err := ensureVClusterJoinToken(globalFlags, vClusterName)
-	if err != nil {
-		return fmt.Errorf("failed to ensure join token: %w", err)
-	}
-	extraVClusterArgs = append(extraVClusterArgs, "--join-token", vClusterJoinToken)
 
 	// run the docker container
 	err = runControlPlaneContainer(ctx, kubernetesDir, vClusterBinaryDir, vClusterConfigDir, vClusterName, networkName, vConfig, extraDockerArgs, log)
@@ -226,7 +237,7 @@ func writeVClusterYAML(globalFlags *flags.GlobalFlags, vClusterName string, fina
 	return filepath.Dir(vClusterYAMLPath), nil
 }
 
-func addVClusterDocker(ctx context.Context, name string, vClusterConfig *config.Config, options *CreateOptions, globalFlags *flags.GlobalFlags, log log.Logger) ([]string, error) {
+func addVClusterDocker(ctx context.Context, name string, vClusterConfig *config.Config, options *CreateOptions, globalFlags *flags.GlobalFlags, joinToken string, log log.Logger) ([]string, error) {
 	platformConfig, err := vClusterConfig.GetPlatformConfig()
 	if err != nil {
 		return nil, fmt.Errorf("get platform config: %w", err)
@@ -260,8 +271,13 @@ func addVClusterDocker(ctx context.Context, name string, vClusterConfig *config.
 		return nil, fmt.Errorf("error getting management client: %w", err)
 	}
 
+	// add hashed token to the extra labels
+	extraLabels := map[string]string{
+		joinTokenLabel: hash.String(joinToken)[:32],
+	}
+
 	// try with the regular name first
-	created, accessKey, createdName, err := platform.CreateWithName(ctx, managementClient, project, name)
+	created, accessKey, createdName, err := platform.CreateWithName(ctx, managementClient, project, name, extraLabels)
 	if err != nil {
 		return nil, fmt.Errorf("error creating platform access key: %w. If you don't want to use the platform, run this command with --add=false or run 'vcluster logout'", err)
 	} else if !created {
@@ -307,6 +323,7 @@ func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterBinary
 		"--tmpfs", "/tmp",
 		"--privileged",
 		"--network", networkName,
+		"--network-alias", vClusterName,
 		"-e", "VCLUSTER_NAME=" + vClusterName,
 		"-p", fmt.Sprintf("%d:8443", clihelper.RandomPort()),
 		"--name", getControlPlaneContainerName(vClusterName),
@@ -351,12 +368,13 @@ func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterBinary
 	log.Debugf("Running command: docker %s", strings.Join(args, " "))
 	out, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
 	if err != nil {
+		log.Warnf("Failed to run command docker %s", strings.Join(args, " "))
 		return fmt.Errorf("failed to start docker container: %w: %s", err, string(out))
 	}
 	return nil
 }
 
-func ensureK8sResolvConf(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName string) error {
+func ensureK8sResolvConf(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	resolvConf := filepath.Join(filepath.Dir(globalFlags.Config), "docker", "vclusters", vClusterName, "k8s-resolv.conf")
 	_, err := os.Stat(resolvConf)
 	if err != nil {
@@ -364,7 +382,7 @@ func ensureK8sResolvConf(ctx context.Context, globalFlags *flags.GlobalFlags, vC
 			return fmt.Errorf("ensure k8s resolv conf file: %w", err)
 		}
 
-		hostDNSServer, err := getHostDNSServer(ctx)
+		hostDNSServer, err := getHostDNSServer(ctx, log)
 		if err != nil {
 			return fmt.Errorf("failed to get dns docker internal ip: %w", err)
 		}
@@ -380,12 +398,16 @@ func ensureK8sResolvConf(ctx context.Context, globalFlags *flags.GlobalFlags, vC
 	return nil
 }
 
-func ensureVClusterJoinToken(globalFlags *flags.GlobalFlags, vClusterName string) (string, error) {
+func ensureVClusterJoinToken(globalFlags *flags.GlobalFlags, vClusterName string, create bool) (string, error) {
 	tokenPath := filepath.Join(filepath.Dir(globalFlags.Config), "docker", "vclusters", vClusterName, "token.txt")
 	_, err := os.Stat(tokenPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return "", fmt.Errorf("ensure token file: %w", err)
+		}
+
+		if !create {
+			return "", err
 		}
 
 		token := random.String(64)
@@ -404,6 +426,18 @@ func ensureVClusterJoinToken(globalFlags *flags.GlobalFlags, vClusterName string
 	return string(token), nil
 }
 
+func canMountPrivilegedPort(ctx context.Context, vClusterName string, log log.Logger) bool {
+	args := []string{"run", "--rm", "-p", "127.0.0.1:879:80", "alpine", "echo", "1"}
+	log.Debugf("Running command: docker %s", strings.Join(args, " "))
+	out, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
+	if err != nil {
+		return false
+	}
+
+	log.Debugf("Output: %s", string(out))
+	return true
+}
+
 func runWorkerContainer(ctx context.Context, kubernetesDir, vClusterConfigDir, vClusterName, networkName string, workerConfig *config.ExperimentalDockerNode, log log.Logger) error {
 	args := []string{
 		"run",
@@ -413,6 +447,7 @@ func runWorkerContainer(ctx context.Context, kubernetesDir, vClusterConfigDir, v
 		"--tmpfs", "/tmp",
 		"--privileged",
 		"--network", networkName,
+		"--network-alias", workerConfig.Name,
 		"--name", getWorkerContainerName(vClusterName, workerConfig.Name),
 	}
 	for volumeName, volumePath := range containerVolumes {
@@ -437,6 +472,10 @@ func runWorkerContainer(ctx context.Context, kubernetesDir, vClusterConfigDir, v
 		return fmt.Errorf("read kubernetes directory: %w", err)
 	}
 	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), "kubernetes-") {
+			continue
+		}
+
 		args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/%s,dst=/var/lib/vcluster/bin/%s,ro", kubernetesDir, entry.Name(), entry.Name()))
 	}
 	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/k8s-resolv.conf,dst=/etc/k8s-resolv.conf,ro", vClusterConfigDir))
@@ -464,6 +503,7 @@ func joinVClusterNodeContainer(ctx context.Context, vClusterName, workerName, vC
 	// --retry-all-errors is used for curl versions that support it,
 	// but a manual 'until' loop is more portable across container OS versions.
 	joinScript := fmt.Sprintf(`
+sleep 2
 until curl -fsSLk -o /tmp/join.sh "https://%s:8443/node/join?token=%s&type=worker"; do
   echo "Waiting for vCluster API to be ready..."
   sleep 2
@@ -483,7 +523,7 @@ sh /tmp/join.sh --bundle-path /var/lib/vcluster/bin/kubernetes-%s-%s.tar.gz --fo
 }
 
 func ensureVClusterNodes(ctx context.Context, kubernetesDir, vClusterConfigDir, vClusterName, networkName, vClusterJoinToken, kubernetesVersion string, vClusterConfig *config.Config, log log.Logger) error {
-	nodes, err := findDockerVClusterNodes(ctx, vClusterName)
+	nodes, err := findDockerContainer(ctx, "vcluster.node."+vClusterName+".")
 	if err != nil {
 		return fmt.Errorf("failed to find vCluster nodes: %w", err)
 	}
@@ -644,10 +684,10 @@ func pullKubernetesImage(ctx context.Context, vConfig *config.Config, globalFlag
 	return targetDir, kubernetesVersion, nil
 }
 
-func loadConfig(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, log log.Logger) (*config.Config, string, []string, error) {
+func loadUserValues(ctx context.Context, options *CreateOptions, globalFlags *flags.GlobalFlags, log log.Logger) (map[string]interface{}, error) {
 	defaultConfig, err := config.NewDefaultConfig()
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("failed to create default config: %w", err)
+		return nil, fmt.Errorf("failed to create default config: %w", err)
 	}
 
 	// get extra user values
@@ -658,76 +698,200 @@ func loadConfig(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		MachineID:           telemetry.GetMachineID(cfg),
 	})
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("failed to get extra values: %w", err)
+		return nil, fmt.Errorf("failed to get extra values: %w", err)
 	}
 
 	// enable docker
 	extraUserValues.Experimental.Docker.Enabled = true
+	extraUserValues.ControlPlane.Standalone.Enabled = true
+	extraUserValues.PrivateNodes.Enabled = true
 
 	// this is needed for dns to work correctly. Docker sets the dns to 127.0.0.11 but inside coredns or any other container
 	// with dnsPolicy: Default it will not work. So we need to set our own /etc/k8s-resolv.conf for this on the kubelet which makes it work for containers as well as nodes.
 	extraUserValues.PrivateNodes.Kubelet.Config = map[string]interface{}{}
 	extraUserValues.PrivateNodes.Kubelet.Config["resolvConf"] = "/etc/k8s-resolv.conf"
 
-	// disable konnectivity by default
+	// disable konnectivity by default, user can still enable it via a values.yaml file
 	extraUserValues.ControlPlane.Advanced.Konnectivity.Server.Enabled = false
 	extraUserValues.ControlPlane.Advanced.Konnectivity.Agent.Enabled = false
 
-	// check if we should use the registry proxy
-	extraArgs := []string{}
-	if extraUserValues.Experimental.Docker.RegistryProxy.Enabled {
-		if !isContainerdImageStore(ctx) {
-			log.Infof("Docker is using the non-containerd image store, please use containerd image store to use the docker daemon registry proxy. For more information, see https://docs.docker.com/engine/storage/containerd/")
-			extraUserValues.Experimental.Docker.RegistryProxy.Enabled = false
-		} else {
-			containerdSocketPath, err := getContainerdSocketPath(ctx)
-			if err != nil {
-				extraUserValues.Experimental.Docker.RegistryProxy.Enabled = false
-				log.Infof("Containerd socket couldn't be found, disabling docker daemon registry proxy (%s)", err.Error())
-			} else {
-				extraArgs = append(extraArgs, "--mount", fmt.Sprintf("type=bind,src=%s,dst=/var/run/docker/containerd/containerd.sock,ro", containerdSocketPath))
-			}
-		}
-	}
+	// calculate the diff between the default config and the extra user values
 	extraValuesString, err := config.Diff(defaultConfig, extraUserValues)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("diff config: %w", err)
+		return nil, fmt.Errorf("diff config: %w", err)
 	}
 
 	// merge all user values together
 	userValues, err := mergeAllValues(options.SetValues, options.Values, extraValuesString)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("merge values: %w", err)
+		return nil, fmt.Errorf("merge values: %w", err)
 	}
 
-	// parse config non-strict here to make sure we are compatible with other config formats
-	userConfigRaw := map[string]interface{}{}
-	if err := yaml.Unmarshal([]byte(userValues), &userConfigRaw); err != nil {
-		return nil, "", nil, fmt.Errorf("unmarshal vcluster config: %w", err)
-	}
-
-	// merge with default config
-	defaultConfigRaw, err := convertToMap(defaultConfig)
+	userValuesMap := map[string]interface{}{}
+	err = yaml.Unmarshal([]byte(userValues), &userValuesMap)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("convert to map: %w", err)
+		return nil, fmt.Errorf("unmarshal user values: %w", err)
 	}
 
 	// merge the configs
-	fullConfigRaw := strvals.MergeMaps(defaultConfigRaw, userConfigRaw)
-	fullConfigBytes, err := json.Marshal(fullConfigRaw)
-	if err != nil {
-		return nil, "", nil, fmt.Errorf("marshal config: %w", err)
-	}
-	fullConfig := &config.Config{}
-	err = json.Unmarshal(fullConfigBytes, fullConfig)
-	if err != nil {
-		return nil, "", nil, fmt.Errorf("unmarshal config: %w", err)
-	}
-
-	return fullConfig, userValues, extraArgs, nil
+	return userValuesMap, nil
 }
 
-func getHostDNSServer(ctx context.Context) (string, error) {
+func configureNetwork(ctx context.Context, fullConfigRaw map[string]interface{}, vClusterName string, log log.Logger) (string, []string, error) {
+	// convert the config to a config object
+	fullConfig, _, err := convertConfig(fullConfigRaw)
+	if err != nil {
+		return "", nil, fmt.Errorf("convert config: %w", err)
+	}
+
+	// get the network name
+	networkName := getNetworkName(vClusterName)
+	if fullConfig.Experimental.Docker.Network != "" {
+		networkName = fullConfig.Experimental.Docker.Network
+	}
+
+	// create the docker network
+	err = createNetwork(ctx, networkName, log)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create network: %w", err)
+	}
+
+	// if the registry proxy is disabled, we don't need to mount the containerd socket
+	extraArgs := []string{}
+	if fullConfig.Experimental.Docker.RegistryProxy.Enabled {
+		if !isContainerdImageStore(ctx) {
+			log.Infof("Docker is using the non-containerd image store, please use containerd image store to use the docker daemon registry proxy. For more information, see https://docs.docker.com/engine/storage/containerd/")
+			err = unstructured.SetNestedField(fullConfigRaw, false, "experimental", "docker", "registryProxy", "enabled")
+			if err != nil {
+				return "", nil, fmt.Errorf("failed to set nested field: %w", err)
+			}
+		} else {
+			containerdSocketPath, err := getContainerdSocketPath(ctx)
+			if err != nil {
+				log.Infof("Containerd socket couldn't be found, disabling docker daemon registry proxy (%s)", err.Error())
+				err = unstructured.SetNestedField(fullConfigRaw, false, "experimental", "docker", "registryProxy", "enabled")
+				if err != nil {
+					return "", nil, fmt.Errorf("failed to set nested field: %w", err)
+				}
+			} else {
+				extraArgs = append(extraArgs, "--mount", fmt.Sprintf("type=bind,src=%s,dst=%s,ro", containerdSocketPath, constants.DockerContainerdSocketPath))
+			}
+		}
+	}
+
+	// if the load balancer is disabled, we don't need to mount the docker socket
+	if fullConfig.Experimental.Docker.LoadBalancer.Enabled {
+		loadBalancerArgs, err := configureLoadBalancer(ctx, fullConfigRaw, networkName, log)
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to configure load balancer: %w", err)
+		}
+		extraArgs = append(extraArgs, loadBalancerArgs...)
+	}
+
+	return networkName, extraArgs, nil
+}
+
+func configureLoadBalancer(ctx context.Context, fullConfigRaw map[string]interface{}, networkName string, log log.Logger) ([]string, error) {
+	extraArgs := []string{}
+	reachable, err := isDockerNetworkReachable(ctx, networkName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if docker network is reachable: %w", err)
+	}
+
+	// if the docker network is reachable, we don't need to forward the ports
+	if reachable {
+		err = unstructured.SetNestedField(fullConfigRaw, false, "experimental", "docker", "loadBalancer", "forwardPorts")
+		if err != nil {
+			return nil, fmt.Errorf("failed to set nested field: %w", err)
+		}
+	} else {
+		// this method only works on macos, where we can bind ip addresses to the loopback device
+		if runtime.GOOS != "darwin" {
+			err = unstructured.SetNestedField(fullConfigRaw, false, "experimental", "docker", "loadBalancer", "enabled")
+			if err != nil {
+				return nil, fmt.Errorf("failed to set nested field: %w", err)
+			}
+
+			log.Warnf("Load balancer type services are not supported inside the vCluster because the docker network is not reachable. Port-forwarding will not work. This is only supported on macOS")
+			return extraArgs, nil
+		}
+
+		// check if privileged port helper is available
+		canMountPrivilegedPort := canMountPrivilegedPort(ctx, networkName, log)
+		if !canMountPrivilegedPort {
+			err = unstructured.SetNestedField(fullConfigRaw, false, "experimental", "docker", "loadBalancer", "enabled")
+			if err != nil {
+				return nil, fmt.Errorf("failed to set nested field: %w", err)
+			}
+
+			log.Warnf("Load balancer type services are not supported inside the vCluster because privileged port mapping is not allowed. If you are using Docker Desktop, please enable it in the Docker Desktop settings")
+			return extraArgs, nil
+		}
+
+		// check if we can configure the loopback device to forward the ports
+		ips, err := findTailIPs(ctx, networkName, 10)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find tail ips: %w", err)
+		}
+		for _, ip := range ips {
+			out, err := exec.CommandContext(ctx, "ifconfig", "lo0", "alias", ip).CombinedOutput()
+			if err != nil {
+				if strings.Contains(string(out), "permission denied") {
+					err = unstructured.SetNestedField(fullConfigRaw, false, "experimental", "docker", "loadBalancer", "enabled")
+					if err != nil {
+						return nil, fmt.Errorf("failed to set nested field: %w", err)
+					}
+
+					log.Warnf("Load balancer type services are not supported inside the vCluster because this command was executed with insufficient privileges. To enable load balancer type services, run this command with sudo")
+					return extraArgs, nil
+				}
+
+				return nil, fmt.Errorf("failed to add loopback alias: %s: %w", string(out), err)
+			}
+		}
+	}
+
+	// mount the docker socket
+	dockerSocketPath, err := getDockerSocketPath(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get docker socket path: %w", err)
+	}
+	extraArgs = append(extraArgs, "--mount", fmt.Sprintf("type=bind,src=%s,dst=%s,ro", dockerSocketPath, constants.DockerSocketPath))
+	return extraArgs, nil
+}
+
+func convertConfig(userConfigRaw map[string]interface{}) (*config.Config, string, error) {
+	userConfigBytes, err := yaml.Marshal(userConfigRaw)
+	if err != nil {
+		return nil, "", fmt.Errorf("marshal config: %w", err)
+	}
+
+	// we need to merge the user config with the default config
+	defaultConfig, err := config.NewDefaultConfig()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create default config: %w", err)
+	}
+	defaultConfigRaw, err := convertToMap(defaultConfig)
+	if err != nil {
+		return nil, "", fmt.Errorf("convert to map: %w", err)
+	}
+
+	fullConfigRaw := strvals.MergeMaps(defaultConfigRaw, userConfigRaw)
+	fullConfigBytes, err := yaml.Marshal(fullConfigRaw)
+	if err != nil {
+		return nil, "", fmt.Errorf("marshal config: %w", err)
+	}
+
+	fullConfig := &config.Config{}
+	err = yaml.Unmarshal(fullConfigBytes, fullConfig)
+	if err != nil {
+		return nil, "", fmt.Errorf("unmarshal config: %w", err)
+	}
+
+	return fullConfig, string(userConfigBytes), nil
+}
+
+func getHostDNSServer(ctx context.Context, log log.Logger) (string, error) {
 	// This shell command does two things:
 	// 1. Tries to find the IP inside the 'ExtServers' comment (Docker Desktop/Embedded DNS style).
 	// 2. If not found, falls back to the first 'nameserver' entry that is NOT 127.0.0.11.
@@ -752,7 +916,64 @@ func getHostDNSServer(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("could not determine upstream DNS: /etc/resolv.conf contains only 127.0.0.11 and no ExtServers comment")
 	}
 
+	log.Debugf("Host DNS server: %s", result)
 	return result, nil
+}
+
+func isDockerNetworkReachable(ctx context.Context, networkName string) (bool, error) {
+	// 1. Start a container listening on port 8080.
+	// We use 'nc -l -p 8080' instead of 'tail -f' so we have a target to connect to.
+	out, err := exec.CommandContext(ctx, "docker", "run", "-d", "--rm", "--network", networkName, "alpine", "nc", "-l", "-p", "8080").CombinedOutput()
+	if err != nil {
+		return false, fmt.Errorf("failed to start test network container: %s: %w", string(out), err)
+	}
+
+	containerID := strings.TrimSpace(string(out))
+
+	// 2. Ensure cleanup: Kill the container when function exits.
+	// We use a background context here because if 'ctx' is cancelled,
+	// we still want the cleanup command to run.
+	defer func() {
+		_ = exec.Command("docker", "kill", containerID).Run()
+	}()
+
+	// 3. Inspect the container to get its IP address.
+	// This format string grabs the IP from the first network found.
+	inspectCmd := exec.CommandContext(ctx, "docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", containerID)
+	ipOut, err := inspectCmd.CombinedOutput()
+	if err != nil {
+		return false, fmt.Errorf("failed to inspect test network container: %s: %w", string(ipOut), err)
+	}
+
+	ip := strings.TrimSpace(string(ipOut))
+	if ip == "" {
+		return false, fmt.Errorf("container started but has no IP address")
+	}
+
+	// 4. Try to reach the IP directly via TCP.
+	// We use a small retry loop because Docker networking or the 'nc' process
+	// might take a few milliseconds to be fully ready.
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	// Create a child context with a hard timeout for the connection attempt
+	dialCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	for {
+		select {
+		case <-dialCtx.Done():
+			// Timed out or cancelled
+			return false, nil
+		case <-ticker.C:
+			d := net.Dialer{}
+			conn, err := d.DialContext(dialCtx, "tcp", net.JoinHostPort(ip, "8080"))
+			if err == nil {
+				conn.Close()
+				return true, nil
+			}
+		}
+	}
 }
 
 func isContainerdImageStore(ctx context.Context) bool {
@@ -762,6 +983,117 @@ func isContainerdImageStore(ctx context.Context) bool {
 	}
 
 	return strings.Contains(string(out), "io.containerd.snapshotter")
+}
+
+// NetworkResource represents the partial JSON structure returned by "docker network inspect"
+// We only define the fields we strictly need.
+type NetworkResource struct {
+	IPAM struct {
+		Config []struct {
+			Subnet string `json:"Subnet"`
+		} `json:"Config"`
+	} `json:"IPAM"`
+	// Containers is a map of ContainerID -> ContainerDetails
+	Containers map[string]struct {
+		IPv4Address string `json:"IPv4Address"`
+	} `json:"Containers"`
+}
+
+// findTailIPs finds the last tailSize IPs in the network
+func findTailIPs(ctx context.Context, networkName string, tailSize int) ([]string, error) {
+	// 1. Execute "docker network inspect <networkName>"
+	cmd := exec.CommandContext(ctx, "docker", "network", "inspect", networkName)
+	output, err := cmd.Output()
+	if err != nil {
+		// Try to capture stderr for a better error message if possible
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return nil, fmt.Errorf("docker inspect failed: %w, stderr: %s", err, string(exitErr.Stderr))
+		}
+		return nil, fmt.Errorf("failed to execute docker inspect: %w", err)
+	}
+
+	// 2. Unmarshal the JSON output
+	// Docker inspect returns a JSON array of networks, even if we request just one.
+	var resources []NetworkResource
+	if err := json.Unmarshal(output, &resources); err != nil {
+		return nil, fmt.Errorf("failed to parse docker inspect json: %w", err)
+	}
+
+	if len(resources) == 0 {
+		return nil, fmt.Errorf("network %s not found", networkName)
+	}
+	netResource := resources[0]
+
+	if len(netResource.IPAM.Config) == 0 {
+		return nil, fmt.Errorf("no IPAM config found for network %s", networkName)
+	}
+
+	// Assume IPv4 and take the first config
+	subnetCIDR := netResource.IPAM.Config[0].Subnet
+	_, ipNet, err := net.ParseCIDR(subnetCIDR)
+	if err != nil {
+		return nil, fmt.Errorf("invalid subnet CIDR: %w", err)
+	}
+
+	// 4. Calculate the range of IPs
+	// Ensure we are working with a 4-byte IPv4 representation
+	ip4 := ipNet.IP.To4()
+	if ip4 == nil {
+		return nil, fmt.Errorf("subnet is not a valid IPv4 address")
+	}
+
+	startIP := binary.BigEndian.Uint32(ip4)
+	mask := binary.BigEndian.Uint32(ipNet.Mask)
+
+	// Calculate Broadcast address: (Network IP) | (^Mask)
+	broadcast := startIP | ^mask
+	ips := []string{}
+
+	// We start checking from (Broadcast - 1) downwards
+	for i := 1; i <= tailSize; i++ {
+		candidate := broadcast - uint32(i)
+
+		// Safety check: ensure we haven't wrapped around to the network address or beyond
+		if candidate <= startIP {
+			break
+		}
+
+		// Convert back to net.IP
+		ipBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(ipBytes, candidate)
+
+		// add the ip to the list
+		ips = append(ips, net.IP(ipBytes).String())
+	}
+
+	return ips, nil
+}
+
+func getDockerSocketPath(ctx context.Context) (string, error) {
+	// Updated awk regex: /\/docker\.sock(\.real)?$/
+	// This matches paths ending in "/docker.sock" OR "/docker.sock.real"
+	cmdStr := `netstat -xlp | awk '$NF ~ /\/docker\.sock(\.real)?$/ {print $NF}'`
+
+	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get docker socket path: %s: %w", string(out), err)
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(strings.TrimSpace(string(out))))
+	dockerSocketPaths := []string{}
+	for scanner.Scan() {
+		dockerSocketPaths = append(dockerSocketPaths, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("failed to scan docker socket path: %s: %w", string(out), err)
+	}
+	if len(dockerSocketPaths) == 0 {
+		return "", fmt.Errorf("no docker socket path found")
+	}
+
+	// Returns the first match found (e.g., /var/run/docker.sock.real)
+	return dockerSocketPaths[0], nil
 }
 
 func getContainerdSocketPath(ctx context.Context) (string, error) {
@@ -801,13 +1133,64 @@ func convertToMap(config *config.Config) (map[string]interface{}, error) {
 }
 
 func createNetwork(ctx context.Context, networkName string, log log.Logger) error {
-	log.Infof("Creating network %s...", networkName)
-	args := []string{"network", "create", networkName}
-	log.Debugf("Running command: docker %s", strings.Join(args, " "))
-	out, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
-	if err != nil && !strings.HasSuffix(strings.TrimSpace(string(out)), "already exists") {
-		return fmt.Errorf("failed to create network: %w: %s", err, string(out))
+	// 1. Check if the network already exists
+	// It is cleaner to check this first rather than relying on the "already exists" error text later.
+	if err := exec.CommandContext(ctx, "docker", "network", "inspect", networkName).Run(); err == nil {
+		log.Debugf("Network %s already exists, skipping creation", networkName)
+		return nil
 	}
+
+	// 2. Create a temporary "probe" network
+	// We use a unique name to ensure we don't conflict with other operations.
+	probeName := fmt.Sprintf("%s-probe-%d", networkName, time.Now().UnixNano())
+	log.Debugf("Creating probe network %s to discover valid subnet", probeName)
+
+	if out, err := exec.CommandContext(ctx, "docker", "network", "create", probeName).CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to create probe network: %w: %s", err, string(out))
+	}
+
+	// SAFETY: Ensure the probe is deleted when we are done, even if we crash/return error below.
+	defer func() {
+		// We suppress errors here because if the happy path works, the probe is already gone.
+		_ = exec.CommandContext(ctx, "docker", "network", "rm", probeName).Run()
+	}()
+
+	// 3. Inspect the probe to retrieve the Subnet
+	// We use a specific Go template to extract only the subnet string.
+	cmd := exec.CommandContext(ctx, "docker", "network", "inspect", probeName, "--format", "{{(index .IPAM.Config 0).Subnet}}")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to inspect probe subnet: %w: %s", err, string(out))
+	}
+
+	subnet := strings.TrimSpace(string(out))
+	if subnet == "" {
+		return fmt.Errorf("probe network returned empty subnet")
+	}
+	log.Debugf("Discovered free subnet: %s", subnet)
+
+	// 4. Delete the probe explicitly
+	// We must delete it NOW to free up the subnet so we can reuse it immediately.
+	if err := exec.CommandContext(ctx, "docker", "network", "rm", probeName).Run(); err != nil {
+		return fmt.Errorf("failed to remove probe network: %w", err)
+	}
+
+	// 5. Create the ACTUAL network with the specific Subnet
+	// This satisfies the "user configured subnet" requirement.
+	args := []string{"network", "create", "--subnet", subnet, networkName}
+	log.Debugf("Running command: docker %s", strings.Join(args, " "))
+
+	out, err = exec.CommandContext(ctx, "docker", args...).CombinedOutput()
+	if err != nil {
+		// Handle race condition: If someone created it between step 1 and now
+		if strings.Contains(string(out), "already exists") {
+			log.Donef("Network %s already exists", networkName)
+			return nil
+		}
+		return fmt.Errorf("failed to create network %s with subnet %s: %w: %s", networkName, subnet, err, string(out))
+	}
+
+	log.Donef("Created network %s", networkName)
 	return nil
 }
 
@@ -826,21 +1209,21 @@ func deleteNetwork(ctx context.Context, vClusterName string, log log.Logger) err
 }
 
 func getNetworkName(vClusterName string) string {
-	return "vcluster-" + vClusterName
+	return constants.DockerNetworkPrefix + vClusterName
 }
 
 func getControlPlaneContainerName(vClusterName string) string {
-	return "vcluster-docker." + vClusterName
+	return constants.DockerControlPlanePrefix + vClusterName
 }
 
 func getControlPlaneVolumeName(vClusterName, volumeName string) string {
-	return "vcluster-docker." + vClusterName + "." + volumeName
+	return constants.DockerControlPlanePrefix + vClusterName + "." + volumeName
 }
 
 func getWorkerContainerName(vClusterName, workerName string) string {
-	return "vcluster-docker-worker." + vClusterName + "." + workerName
+	return constants.DockerNodePrefix + vClusterName + "." + workerName
 }
 
 func getWorkerVolumeName(vClusterName, workerName, volumeName string) string {
-	return "vcluster-docker-worker." + vClusterName + "." + workerName + "." + volumeName
+	return constants.DockerNodePrefix + vClusterName + "." + workerName + "." + volumeName
 }

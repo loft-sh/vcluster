@@ -13,6 +13,7 @@ import (
 	"github.com/loft-sh/log/scanner"
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/tools/clientcmd"
@@ -28,7 +29,7 @@ type dockerVCluster struct {
 
 func ListDocker(ctx context.Context, options *ListOptions, globalFlags *flags.GlobalFlags, log log.Logger) error {
 	// find all vcluster containers
-	vClusters, err := findDockerVClusters(ctx)
+	vClusters, err := findDockerContainer(ctx, constants.DockerControlPlanePrefix)
 	if err != nil {
 		return fmt.Errorf("failed to list docker vclusters: %w", err)
 	}
@@ -78,9 +79,9 @@ func ListDocker(ctx context.Context, options *ListOptions, globalFlags *flags.Gl
 	return nil
 }
 
-func findDockerVClusters(ctx context.Context) ([]dockerVCluster, error) {
-	// list all containers with name starting with "vcluster-docker."
-	args := []string{"ps", "-a", "--filter", "name=^vcluster-docker.", "--format", "{{.ID}}"}
+func findDockerContainer(ctx context.Context, prefix string) ([]dockerVCluster, error) {
+	// list all containers with name starting with the prefix
+	args := []string{"ps", "-a", "--filter", "name=^" + prefix, "--format", "{{.ID}}"}
 	out, err := exec.CommandContext(ctx, "docker", args...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("docker ps failed: %w", err)
@@ -108,8 +109,8 @@ func findDockerVClusters(ctx context.Context) ([]dockerVCluster, error) {
 			continue // skip containers we can't inspect
 		}
 
-		// extract vcluster name from container name (remove "vcluster-docker." prefix)
-		name := strings.TrimPrefix(details.Name, "/vcluster-docker.")
+		// extract name from container name (remove prefix)
+		name := strings.TrimPrefix(details.Name, "/"+prefix)
 		if name == details.Name {
 			// doesn't have the prefix, skip
 			continue
@@ -129,59 +130,6 @@ func findDockerVClusters(ctx context.Context) ([]dockerVCluster, error) {
 	}
 
 	return vClusters, nil
-}
-
-func findDockerVClusterNodes(ctx context.Context, vClusterName string) ([]dockerVCluster, error) {
-	// list all containers with name starting with "vcluster-docker-worker."
-	args := []string{"ps", "-a", "--filter", "name=^vcluster-docker-worker." + vClusterName + ".", "--format", "{{.ID}}"}
-	out, err := exec.CommandContext(ctx, "docker", args...).Output()
-	if err != nil {
-		return nil, fmt.Errorf("docker ps failed: %w", err)
-	}
-
-	// parse container IDs
-	var containerIDs []string
-	scan := scanner.NewScanner(bytes.NewReader(out))
-	for scan.Scan() {
-		id := strings.TrimSpace(scan.Text())
-		if id != "" {
-			containerIDs = append(containerIDs, id)
-		}
-	}
-
-	if len(containerIDs) == 0 {
-		return nil, nil
-	}
-
-	// inspect each container to get details
-	var vClusterNodes []dockerVCluster
-	for _, containerID := range containerIDs {
-		details, err := inspectDockerContainerForList(ctx, containerID)
-		if err != nil {
-			continue // skip containers we can't inspect
-		}
-
-		// extract vcluster name from container name (remove "vcluster-docker-worker."+vClusterName+"." prefix)
-		name := strings.TrimPrefix(details.Name, "/vcluster-docker-worker."+vClusterName+".")
-		if name == details.Name {
-			// doesn't have the prefix, skip
-			continue
-		}
-
-		// parse created time
-		created, err := time.Parse(time.RFC3339, details.Created)
-		if err != nil {
-			created = time.Time{}
-		}
-
-		vClusterNodes = append(vClusterNodes, dockerVCluster{
-			Name:    name,
-			Status:  details.State.Status,
-			Created: created,
-		})
-	}
-
-	return vClusterNodes, nil
 }
 
 // dockerInspectResult represents the result of docker inspect

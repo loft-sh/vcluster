@@ -1958,8 +1958,26 @@
           "description": "Nodes defines the nodes of the vCluster."
         },
         "registryProxy": {
-          "$ref": "#/$defs/ExperimentalDockerRegistryProxy",
-          "description": "Defines if docker images should be pulled from the host docker daemon."
+          "$ref": "#/$defs/EnableSwitch",
+          "description": "Defines if docker images should be pulled from the host docker daemon. This prevents pulling images again and allows to\nuse purely local images. Only works if containerd image storage is used. For more information, see https://docs.docker.com/engine/storage/containerd"
+        },
+        "loadBalancer": {
+          "$ref": "#/$defs/ExperimentalDockerLoadBalancer",
+          "description": "Defines if vCluster should configure load balancer services inside the vCluster. This might require\nsudo access on the host cluster for docker desktop or rancher desktop on macos."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExperimentalDockerLoadBalancer": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "forwardPorts": {
+          "type": "boolean",
+          "description": "ForwardPorts defines if the load balancer ips should be made available locally\nvia port forwarding. This will be only done if necessary for example on macos when using docker desktop."
         }
       },
       "additionalProperties": false,
@@ -2002,16 +2020,6 @@
         "name": {
           "type": "string",
           "description": "Name defines the name of the node. If not specified, a random name will be generated."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ExperimentalDockerRegistryProxy": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled defines if the registry proxy should be enabled."
         }
       },
       "additionalProperties": false,
