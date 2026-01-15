@@ -7,5 +7,5 @@ import (
 )
 
 var StartCustomResourceProxy = func(_ *synccontext.ControllerContext, _ *config.VirtualClusterConfig) error {
-	return NewFeatureError(string(licenseapi.VirtualClusterProxyResources))
+	return NewFeatureError(licenseapi.VirtualClusterProxyResources)
 }

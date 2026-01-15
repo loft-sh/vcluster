@@ -9,5 +9,5 @@ import (
 )
 
 var ConfigureExternalDatabase = func(_ context.Context, _ string, _ *config.VirtualClusterConfig, _ bool) (string, *etcd.Certificates, error) {
-	return "", nil, NewFeatureError(string(licenseapi.VirtualClusterProDistroExternalDatabase))
+	return "", nil, NewFeatureError(licenseapi.VirtualClusterProDistroExternalDatabase)
 }

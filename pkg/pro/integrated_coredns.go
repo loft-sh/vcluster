@@ -8,7 +8,7 @@ import (
 )
 
 var StartIntegratedCoreDNS = func(_ *synccontext.ControllerContext) error {
-	return NewFeatureError(string(licenseapi.VirtualClusterProDistroBuiltInCoreDNS))
+	return NewFeatureError(licenseapi.VirtualClusterProDistroBuiltInCoreDNS)
 }
 
 var InitDNSServiceSyncing = func(_ *config.VirtualClusterConfig) specialservices.Interface {
