@@ -139,6 +139,13 @@ func (l *LoftStarter) successDocker(ctx context.Context, containerID string) err
 		return fmt.Errorf(product.Replace("error waiting for loft: %v%w"), err)
 	}
 
+	if !l.NoLogin {
+		err := l.login(host)
+		if err != nil {
+			return err
+		}
+	}
+
 	// print success message
 	PrintSuccessMessageDockerInstall(host, l.Password, l.Log)
 	return nil

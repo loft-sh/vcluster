@@ -7,6 +7,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/constants"
 )
 
 func PauseDocker(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
@@ -35,7 +36,7 @@ func PauseDocker(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterNa
 	}
 
 	// stop the nodes
-	nodes, err := findDockerVClusterNodes(ctx, vClusterName)
+	nodes, err := findDockerContainer(ctx, constants.DockerNodePrefix+vClusterName+".")
 	if err != nil {
 		return fmt.Errorf("failed to find vCluster nodes: %w", err)
 	}
@@ -44,6 +45,19 @@ func PauseDocker(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterNa
 		err = stopDockerContainer(ctx, getWorkerContainerName(vClusterName, node.Name))
 		if err != nil {
 			return fmt.Errorf("failed to stop vCluster node: %w", err)
+		}
+	}
+
+	// stop the load balancers
+	loadBalancers, err := findDockerContainer(ctx, constants.DockerLoadBalancerPrefix+vClusterName+".")
+	if err != nil {
+		return fmt.Errorf("failed to find vCluster load balancers: %w", err)
+	}
+	for _, loadBalancer := range loadBalancers {
+		log.Infof("Stopping load balancer %s from vCluster %s...", loadBalancer.Name, vClusterName)
+		err = stopDockerContainer(ctx, constants.DockerLoadBalancerPrefix+vClusterName+"."+loadBalancer.Name)
+		if err != nil {
+			return fmt.Errorf("failed to stop vCluster load balancer: %w", err)
 		}
 	}
 

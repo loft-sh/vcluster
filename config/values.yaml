@@ -660,6 +660,9 @@ plugins: {}
 
 experimental:
   docker:
+    loadBalancer:
+      enabled: true
+      forwardPorts: true
     registryProxy:
       enabled: true
 
