@@ -1078,7 +1078,8 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
-	if c.PrivateNodes.Enabled {
+	// private nodes is allowed in standalone mode
+	if c.PrivateNodes.Enabled && !c.ControlPlane.Standalone.Enabled {
 		return true
 	}
 
