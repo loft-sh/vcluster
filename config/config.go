@@ -3164,13 +3164,21 @@ type ExperimentalDocker struct {
 	// Nodes defines the nodes of the vCluster.
 	Nodes []ExperimentalDockerNode `json:"nodes,omitempty"`
 
-	// Defines if docker images should be pulled from the host docker daemon.
-	RegistryProxy ExperimentalDockerRegistryProxy `json:"registryProxy,omitempty"`
+	// Defines if docker images should be pulled from the host docker daemon. This prevents pulling images again and allows to
+	// use purely local images. Only works if containerd image storage is used. For more information, see https://docs.docker.com/engine/storage/containerd
+	RegistryProxy EnableSwitch `json:"registryProxy,omitempty"`
+
+	// Defines if vCluster should configure load balancer services inside the vCluster. This might require
+	// sudo access on the host cluster for docker desktop or rancher desktop on macos.
+	LoadBalancer ExperimentalDockerLoadBalancer `json:"loadBalancer,omitempty"`
 }
 
-type ExperimentalDockerRegistryProxy struct {
-	// Enabled defines if the registry proxy should be enabled.
-	Enabled bool `json:"enabled,omitempty"`
+type ExperimentalDockerLoadBalancer struct {
+	EnableSwitch `json:",inline"`
+
+	// ForwardPorts defines if the load balancer ips should be made available locally
+	// via port forwarding. This will be only done if necessary for example on macos when using docker desktop.
+	ForwardPorts bool `json:"forwardPorts,omitempty"`
 }
 
 type ExperimentalDockerNode struct {

@@ -209,7 +209,7 @@ func getAccessKey(ctx context.Context, kubeClient kubernetes.Interface, platform
 	}
 
 	// try with the regular name first
-	created, accessKey, createdName, err := CreateWithName(ctx, managementClient, project, vName)
+	created, accessKey, createdName, err := CreateWithName(ctx, managementClient, project, vName, nil)
 	if err != nil {
 		return "", "", fmt.Errorf("error creating platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 	} else if created {
@@ -220,7 +220,7 @@ func getAccessKey(ctx context.Context, kubeClient kubernetes.Interface, platform
 
 	// try with random name
 	vName += "-" + random.String(5)
-	created, accessKey, createdName, err = CreateWithName(ctx, managementClient, project, vName)
+	created, accessKey, createdName, err = CreateWithName(ctx, managementClient, project, vName, nil)
 	if err != nil {
 		return "", "", fmt.Errorf("error creating platform secret %s/%s: %w", namespace, DefaultPlatformSecretName, err)
 	} else if !created {
@@ -293,7 +293,7 @@ func getLegacyAccessKeyHost(ctx context.Context, platformClient Client) (string,
 	return platformConfig.VirtualClusterAccessKey, nil
 }
 
-func CreateWithName(ctx context.Context, managementClient kube.Interface, project string, name string) (bool, string, string, error) {
+func CreateWithName(ctx context.Context, managementClient kube.Interface, project string, name string, extraLabels map[string]string) (bool, string, string, error) {
 	namespace := projectutil.ProjectNamespace(project)
 	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
@@ -308,8 +308,7 @@ func CreateWithName(ctx context.Context, managementClient kube.Interface, projec
 		return false, "", "", nil
 	}
 
-	// create virtual cluster instance
-	virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Create(ctx, &managementv1.VirtualClusterInstance{
+	virtualClusterInstance = &managementv1.VirtualClusterInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -332,7 +331,13 @@ func CreateWithName(ctx context.Context, managementClient kube.Interface, projec
 				NetworkPeer: true,
 			},
 		},
-	}, metav1.CreateOptions{})
+	}
+	for k, v := range extraLabels {
+		virtualClusterInstance.Labels[k] = v
+	}
+
+	// create virtual cluster instance
+	virtualClusterInstance, err = managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Create(ctx, virtualClusterInstance, metav1.CreateOptions{})
 	if err != nil {
 		return false, "", "", fmt.Errorf("create virtual cluster instance: %w", err)
 	}

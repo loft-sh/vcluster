@@ -96,7 +96,7 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	if driverType == config.DockerDriver {
-		return cli.DeleteDocker(ctx, &cmd.DeleteOptions, cmd.GlobalFlags, args[0], cmd.log)
+		return cli.DeleteDocker(ctx, platformClient, &cmd.DeleteOptions, cmd.GlobalFlags, args[0], cmd.log)
 	}
 
 	return cli.DeleteHelm(ctx, platformClient, &cmd.DeleteOptions, cmd.GlobalFlags, args[0], cmd.log)
