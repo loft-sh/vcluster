@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/destroy"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/start"
@@ -18,6 +19,7 @@ import (
 
 type DestroyCmd struct {
 	destroy.DeleteOptions
+	Docker bool
 }
 
 func NewDestroyCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
@@ -38,7 +40,7 @@ func NewDestroyCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 ############# vcluster platform destroy ##################
 ########################################################
 
-Destroys a vCluster Platform instance in your Kubernetes cluster.
+Destroys a vCluster Platform instance in your Kubernetes cluster or Docker.
 
 IMPORTANT: This action is done against the cluster the the kube-context is pointing to, and not the vCluster Platform instance that is logged in.
 It does not require logging in to vCluster Platform.
@@ -49,6 +51,7 @@ before running this command:
 1. Current kube-context has admin access to the cluster
 2. Helm v3 must be installed
 
+If you installed vCluster platform using '--docker', use 'vcluster platform destroy --docker' to clean up the Docker container and volume.
 
 VirtualClusterInstances managed with driver helm will be deleted, but the underlying virtual cluster will not be uninstalled.
 
@@ -71,11 +74,24 @@ VirtualClusterInstances managed with driver helm will be deleted, but the underl
 	destroyCmd.Flags().BoolVar(&cmd.NonInteractive, "non-interactive", false, "Will not prompt for confirmation")
 	destroyCmd.Flags().IntVar(&cmd.TimeoutMinutes, "timeout-minutes", 5, "How long to try deleting the platform before giving up. May increase when removing finalizers if --force-remove-finalizers is used")
 	destroyCmd.Flags().BoolVar(&cmd.ForceRemoveFinalizers, "force-remove-finalizers", false, "IMPORTANT! Removing finalizers may cause unintended behaviours like leaving resources behind, but will ensure the platform is uninstalled.")
+	destroyCmd.Flags().BoolVar(&cmd.Docker, "docker", false, "If true, destroys the vCluster platform docker container and volume instead of the Kubernetes installation")
 
 	return destroyCmd
 }
 
 func (cmd *DestroyCmd) Run(ctx context.Context) error {
+	// automatically use docker mode if the driver is set to docker
+	cfg := cmd.LoadedConfig(cmd.Log)
+	if cfg.Driver.Type == config.DockerDriver && !cmd.Docker {
+		cmd.Log.Info("Automatically using --docker flag because driver is set to 'docker'")
+		cmd.Docker = true
+	}
+
+	// handle docker destruction
+	if cmd.Docker {
+		return cmd.destroyDocker(ctx)
+	}
+
 	// initialise clients, verify binaries exist, sanity-check context
 	err := cmd.Options.Prepare()
 	if err != nil {
@@ -138,6 +154,40 @@ func (cmd *DestroyCmd) Run(ctx context.Context) error {
 	err = destroy.Destroy(ctx, cmd.DeleteOptions)
 	if err != nil {
 		return fmt.Errorf("failed to destroy platform: %w", err)
+	}
+
+	cmd.Log.Infof("deleting platform config at %q", cmd.Config)
+	cliConfig := cmd.LoadedConfig(cmd.Log)
+	err = cliConfig.Delete()
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) && cmd.IgnoreNotFound {
+			cmd.Log.Info("no platform config detected")
+			return nil
+		}
+		return fmt.Errorf("failed to delete platform config: %w", err)
+	}
+
+	return nil
+}
+
+func (cmd *DestroyCmd) destroyDocker(ctx context.Context) error {
+	if terminal.IsTerminalIn && !cmd.NonInteractive {
+		deleteOpt := "delete"
+		out, err := cmd.Log.Question(&survey.QuestionOptions{
+			Question: fmt.Sprintf("IMPORTANT! You are destroying the vCluster Platform docker installation.\n  This will remove the container and all associated data.\nPlease type %q to continue:", deleteOpt),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to prompt for confirmation: %w", err)
+		}
+		if out != deleteOpt {
+			cmd.Log.Info("destroy cancelled")
+			return nil
+		}
+	}
+
+	err := destroy.DestroyDocker(ctx, cmd.IgnoreNotFound, cmd.Log)
+	if err != nil {
+		return fmt.Errorf("failed to destroy docker platform: %w", err)
 	}
 
 	cmd.Log.Infof("deleting platform config at %q", cmd.Config)
