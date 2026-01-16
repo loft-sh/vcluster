@@ -13,6 +13,18 @@ import (
 
 var ErrNoWorkflowFound = errors.New("no workflow state found")
 
+// AvailableWorkflowState lists all workflow states for a team (for debugging)
+type AvailableWorkflowState struct {
+	Name string
+	Team string
+}
+
+// AvailableTeam lists a team with its key (for debugging)
+type AvailableTeam struct {
+	Name string
+	Key  string
+}
+
 type LinearClient struct {
 	client *graphql.Client
 }
@@ -57,7 +69,58 @@ func isStableRelease(version string) bool {
 	return true
 }
 
+// ListTeams returns all available teams (for debugging workflow state lookup failures)
+func (l *LinearClient) ListTeams(ctx context.Context) ([]AvailableTeam, error) {
+	var query struct {
+		Teams struct {
+			Nodes []struct {
+				Name string
+				Key  string
+			}
+		} `graphql:"teams"`
+	}
+
+	if err := l.client.Query(ctx, &query, nil); err != nil {
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+
+	teams := make([]AvailableTeam, len(query.Teams.Nodes))
+	for i, t := range query.Teams.Nodes {
+		teams[i] = AvailableTeam{Name: t.Name, Key: t.Key}
+	}
+	return teams, nil
+}
+
+// ListWorkflowStates returns all workflow states for a team (for debugging workflow state lookup failures)
+func (l *LinearClient) ListWorkflowStates(ctx context.Context, teamName string) ([]AvailableWorkflowState, error) {
+	var query struct {
+		WorkflowStates struct {
+			Nodes []struct {
+				Name string
+				Team struct {
+					Name string
+				}
+			}
+		} `graphql:"workflowStates(filter: { team: { name: { eq: $team } } })"`
+	}
+
+	variables := map[string]any{
+		"team": graphql.String(teamName),
+	}
+
+	if err := l.client.Query(ctx, &query, variables); err != nil {
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+
+	states := make([]AvailableWorkflowState, len(query.WorkflowStates.Nodes))
+	for i, s := range query.WorkflowStates.Nodes {
+		states[i] = AvailableWorkflowState{Name: s.Name, Team: s.Team.Name}
+	}
+	return states, nil
+}
+
 // WorkflowStateID returns the ID of the a workflow state for the given team.
+// If no matching state is found, it provides debugging information about available teams and states.
 func (l *LinearClient) WorkflowStateID(ctx context.Context, stateName, linearTeamName string) (string, error) {
 	var query struct {
 		WorkflowStates struct {
@@ -77,7 +140,32 @@ func (l *LinearClient) WorkflowStateID(ctx context.Context, stateName, linearTea
 	}
 
 	if len(query.WorkflowStates.Nodes) == 0 {
-		return "", ErrNoWorkflowFound
+		// Provide debugging information about available teams and states
+		debugInfo := fmt.Sprintf("searched for state %q in team %q", stateName, linearTeamName)
+
+		// Try to list available teams
+		teams, err := l.ListTeams(ctx)
+		if err == nil && len(teams) > 0 {
+			teamNames := make([]string, len(teams))
+			for i, t := range teams {
+				teamNames[i] = fmt.Sprintf("%s (%s)", t.Name, t.Key)
+			}
+			debugInfo += fmt.Sprintf("; available teams: %s", strings.Join(teamNames, ", "))
+		}
+
+		// Try to list available workflow states for the team
+		states, err := l.ListWorkflowStates(ctx, linearTeamName)
+		if err == nil && len(states) > 0 {
+			stateNames := make([]string, len(states))
+			for i, s := range states {
+				stateNames[i] = s.Name
+			}
+			debugInfo += fmt.Sprintf("; available states for team: %s", strings.Join(stateNames, ", "))
+		} else if err == nil {
+			debugInfo += "; no states found for team (team may not exist or may have been renamed)"
+		}
+
+		return "", fmt.Errorf("%w: %s", ErrNoWorkflowFound, debugInfo)
 	}
 
 	return query.WorkflowStates.Nodes[0].Id, nil
@@ -91,10 +179,29 @@ func (l *LinearClient) IssueState(ctx context.Context, issueID string) (string, 
 
 // IssueStateDetails returns the current state ID and name of the issue.
 func (l *LinearClient) IssueStateDetails(ctx context.Context, issueID string) (string, string, error) {
+	details, err := l.GetIssueDetails(ctx, issueID)
+	if err != nil {
+		return "", "", err
+	}
+	return details.StateID, details.StateName, nil
+}
+
+// IssueDetails contains state and team information for an issue
+type IssueDetails struct {
+	StateID   string
+	StateName string
+	TeamName  string
+}
+
+// GetIssueDetails returns state and team information for an issue.
+func (l *LinearClient) GetIssueDetails(ctx context.Context, issueID string) (*IssueDetails, error) {
 	var query struct {
 		Issue struct {
 			State struct {
 				Id   string
+				Name string
+			}
+			Team struct {
 				Name string
 			}
 		} `graphql:"issue(id: $id)"`
@@ -105,10 +212,14 @@ func (l *LinearClient) IssueStateDetails(ctx context.Context, issueID string) (s
 	}
 
 	if err := l.client.Query(ctx, &query, variables); err != nil {
-		return "", "", fmt.Errorf("query failed (issue ID: %v): %w", issueID, err)
+		return nil, fmt.Errorf("query failed (issue ID: %v): %w", issueID, err)
 	}
 
-	return query.Issue.State.Id, query.Issue.State.Name, nil
+	return &IssueDetails{
+		StateID:   query.Issue.State.Id,
+		StateName: query.Issue.State.Name,
+		TeamName:  query.Issue.Team.Name,
+	}, nil
 }
 
 // IsIssueInState checks if an issue is in a specific state.
@@ -131,10 +242,11 @@ func (l *LinearClient) IsIssueInStateByName(ctx context.Context, issueID string,
 	return currentStateName == stateName, nil
 }
 
-// MoveIssueToState moves the issue to the given state if it's not already there.
+// MoveIssueToState moves the issue to the given state if it's not already there and if it's in the ready for release state.
 // It also adds a comment to the issue about when it was first released and on which tag.
 // For stable releases on already-released issues, it adds a "now available in stable" comment.
-func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueID, releasedStateID, readyForReleaseStateName, releaseTagName, releaseDate string) error {
+// issueDetails should be pre-fetched via GetIssueDetails to avoid redundant API calls.
+func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueID string, issueDetails *IssueDetails, releasedStateID, readyForReleaseStateName, releaseTagName, releaseDate string) error {
 	// (ThomasK33): Skip CVEs
 	if strings.HasPrefix(strings.ToLower(issueID), "cve") {
 		return nil
@@ -144,12 +256,7 @@ func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueI
 
 	isStable := isStableRelease(releaseTagName)
 
-	currentIssueStateID, currentIssueStateName, err := l.IssueStateDetails(ctx, issueID)
-	if err != nil {
-		return fmt.Errorf("get issue state details: %w", err)
-	}
-
-	alreadyReleased := currentIssueStateID == releasedStateID
+	alreadyReleased := issueDetails.StateID == releasedStateID
 
 	// If already in released state:
 	// - Pre-releases: skip entirely (already released in a previous pre-release)
@@ -162,8 +269,8 @@ func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueI
 		logger.Debug("Issue already released, adding stable release comment", "issueID", issueID)
 	} else {
 		// Skip issues not in ready for release state
-		if currentIssueStateName != readyForReleaseStateName {
-			logger.Debug("Skipping issue not in ready for release state", "issueID", issueID, "currentState", currentIssueStateName, "requiredState", readyForReleaseStateName)
+		if issueDetails.StateName != readyForReleaseStateName {
+			logger.Debug("Skipping issue not in ready for release state", "issueID", issueID, "currentState", issueDetails.StateName, "requiredState", readyForReleaseStateName)
 			return nil
 		}
 
