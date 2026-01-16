@@ -350,3 +350,90 @@ func TestIssueIDsExtraction(t *testing.T) {
 		})
 	}
 }
+
+func TestIsStableRelease(t *testing.T) {
+	testCases := []struct {
+		version  string
+		expected bool
+	}{
+		// Stable releases
+		{"v0.26.1", true},
+		{"v4.5.0", true},
+		{"v1.0.0", true},
+		{"0.26.1", true}, // without v prefix
+		{"v27.0.0", true},
+
+		// Pre-releases
+		{"v0.26.1-alpha.1", false},
+		{"v0.26.1-alpha.5", false},
+		{"v0.26.1-beta.1", false},
+		{"v0.26.1-rc.1", false},
+		{"v0.26.1-rc.4", false},
+		{"v0.26.1-dev.1", false},
+		{"v0.26.1-pre.1", false},
+		{"v0.26.1-next.1", false},
+		{"v4.5.0-beta.2", false},
+		{"0.27.0-alpha.1", false}, // without v prefix
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.version, func(t *testing.T) {
+			result := isStableRelease(tc.version)
+			if result != tc.expected {
+				t.Errorf("isStableRelease(%q) = %v, want %v", tc.version, result, tc.expected)
+			}
+		})
+	}
+}
+
+func TestStableReleaseCommentText(t *testing.T) {
+	// Test the comment text logic for different scenarios
+	testCases := []struct {
+		name             string
+		alreadyReleased  bool
+		isStable         bool
+		releaseTag       string
+		releaseDate      string
+		expectedContains string
+	}{
+		{
+			name:             "First release (pre-release)",
+			alreadyReleased:  false,
+			isStable:         false,
+			releaseTag:       "v0.27.0-alpha.1",
+			releaseDate:      "2025-01-15",
+			expectedContains: "first released in",
+		},
+		{
+			name:             "First release (stable)",
+			alreadyReleased:  false,
+			isStable:         true,
+			releaseTag:       "v0.27.0",
+			releaseDate:      "2025-02-01",
+			expectedContains: "first released in",
+		},
+		{
+			name:             "Stable release on already-released issue",
+			alreadyReleased:  true,
+			isStable:         true,
+			releaseTag:       "v0.27.0",
+			releaseDate:      "2025-02-01",
+			expectedContains: "Now available in stable release",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var releaseComment string
+			if tc.alreadyReleased && tc.isStable {
+				releaseComment = fmt.Sprintf("Now available in stable release %v (released %v)", tc.releaseTag, tc.releaseDate)
+			} else {
+				releaseComment = fmt.Sprintf("This issue was first released in %v on %v", tc.releaseTag, tc.releaseDate)
+			}
+
+			if !strings.Contains(releaseComment, tc.expectedContains) {
+				t.Errorf("Comment %q does not contain expected text %q", releaseComment, tc.expectedContains)
+			}
+		})
+	}
+}
