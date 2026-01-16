@@ -1,0 +1,67 @@
+name: Check for unresolved conflicts
+
+on:
+  pull_request:
+    branches:
+      - 'v**'
+
+jobs:
+  conflict-check:
+    runs-on: ubuntu-latest
+    name: Check for conflict markers
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find conflict markers
+        id: conflicts
+        run: |
+          # Look for git conflict markers: <<<<<<< followed by branch name
+          # Exclude vendor, node_modules, and common non-source directories
+          CONFLICTS=$(grep -rn "^<<<<<<< " \
+            --include="*.go" --include="*.yaml" --include="*.yml" --include="*.json" \
+            --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" \
+            --include="*.py" --include="*.rb" --include="*.rs" --include="*.sh" \
+            --include="*.md" --include="*.txt" \
+            --exclude-dir=vendor --exclude-dir=node_modules --exclude-dir=.git \
+            . 2>/dev/null || true)
+
+          if [ -n "$CONFLICTS" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "### Conflict markers found:"
+            echo "$CONFLICTS"
+
+            # Save to file for PR comment
+            {
+              echo "## Unresolved Merge Conflicts Detected"
+              echo ""
+              echo "This PR contains unresolved merge conflict markers. Please resolve them before merging."
+              echo ""
+              echo "### Conflicted Files"
+              echo ""
+              echo '```'
+              echo "$CONFLICTS"
+              echo '```'
+            } > /tmp/conflict-report.md
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No conflict markers found"
+          fi
+
+      - name: Comment on PR
+        if: steps.conflicts.outputs.found == 'true' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Update existing comment or create new one
+          gh pr comment "$PR_NUMBER" --body-file /tmp/conflict-report.md --edit-last --create-if-none 2>/dev/null || \
+            gh pr comment "$PR_NUMBER" --body-file /tmp/conflict-report.md
+
+      - name: Fail if conflicts found
+        if: steps.conflicts.outputs.found == 'true'
+        run: |
+          echo "::error::Unresolved merge conflict markers found"
+          exit 1
