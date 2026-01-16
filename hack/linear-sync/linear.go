@@ -13,6 +13,18 @@ import (
 
 var ErrNoWorkflowFound = errors.New("no workflow state found")
 
+// AvailableWorkflowState lists all workflow states for a team (for debugging)
+type AvailableWorkflowState struct {
+	Name string
+	Team string
+}
+
+// AvailableTeam lists a team with its key (for debugging)
+type AvailableTeam struct {
+	Name string
+	Key  string
+}
+
 type LinearClient struct {
 	client *graphql.Client
 }
@@ -39,7 +51,76 @@ func NewLinearClient(ctx context.Context, token string) LinearClient {
 	return LinearClient{client: client}
 }
 
+// isStableRelease checks if a version is a stable release (no pre-release suffix).
+// Returns true for stable releases like v0.26.1, v4.5.0
+// Returns false for pre-releases like v0.26.1-alpha.1, v0.26.1-rc.4, v4.5.0-beta.2
+func isStableRelease(version string) bool {
+	// Remove 'v' prefix if present
+	version = strings.TrimPrefix(version, "v")
+
+	// Check for pre-release suffixes
+	preReleaseSuffixes := []string{"-alpha", "-beta", "-rc", "-dev", "-pre", "-next"}
+	for _, suffix := range preReleaseSuffixes {
+		if strings.Contains(version, suffix) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// ListTeams returns all available teams (for debugging workflow state lookup failures)
+func (l *LinearClient) ListTeams(ctx context.Context) ([]AvailableTeam, error) {
+	var query struct {
+		Teams struct {
+			Nodes []struct {
+				Name string
+				Key  string
+			}
+		} `graphql:"teams"`
+	}
+
+	if err := l.client.Query(ctx, &query, nil); err != nil {
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+
+	teams := make([]AvailableTeam, len(query.Teams.Nodes))
+	for i, t := range query.Teams.Nodes {
+		teams[i] = AvailableTeam{Name: t.Name, Key: t.Key}
+	}
+	return teams, nil
+}
+
+// ListWorkflowStates returns all workflow states for a team (for debugging workflow state lookup failures)
+func (l *LinearClient) ListWorkflowStates(ctx context.Context, teamName string) ([]AvailableWorkflowState, error) {
+	var query struct {
+		WorkflowStates struct {
+			Nodes []struct {
+				Name string
+				Team struct {
+					Name string
+				}
+			}
+		} `graphql:"workflowStates(filter: { team: { name: { eq: $team } } })"`
+	}
+
+	variables := map[string]any{
+		"team": graphql.String(teamName),
+	}
+
+	if err := l.client.Query(ctx, &query, variables); err != nil {
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+
+	states := make([]AvailableWorkflowState, len(query.WorkflowStates.Nodes))
+	for i, s := range query.WorkflowStates.Nodes {
+		states[i] = AvailableWorkflowState{Name: s.Name, Team: s.Team.Name}
+	}
+	return states, nil
+}
+
 // WorkflowStateID returns the ID of the a workflow state for the given team.
+// If no matching state is found, it provides debugging information about available teams and states.
 func (l *LinearClient) WorkflowStateID(ctx context.Context, stateName, linearTeamName string) (string, error) {
 	var query struct {
 		WorkflowStates struct {
@@ -59,7 +140,32 @@ func (l *LinearClient) WorkflowStateID(ctx context.Context, stateName, linearTea
 	}
 
 	if len(query.WorkflowStates.Nodes) == 0 {
-		return "", ErrNoWorkflowFound
+		// Provide debugging information about available teams and states
+		debugInfo := fmt.Sprintf("searched for state %q in team %q", stateName, linearTeamName)
+
+		// Try to list available teams
+		teams, err := l.ListTeams(ctx)
+		if err == nil && len(teams) > 0 {
+			teamNames := make([]string, len(teams))
+			for i, t := range teams {
+				teamNames[i] = fmt.Sprintf("%s (%s)", t.Name, t.Key)
+			}
+			debugInfo += fmt.Sprintf("; available teams: %s", strings.Join(teamNames, ", "))
+		}
+
+		// Try to list available workflow states for the team
+		states, err := l.ListWorkflowStates(ctx, linearTeamName)
+		if err == nil && len(states) > 0 {
+			stateNames := make([]string, len(states))
+			for i, s := range states {
+				stateNames[i] = s.Name
+			}
+			debugInfo += fmt.Sprintf("; available states for team: %s", strings.Join(stateNames, ", "))
+		} else if err == nil {
+			debugInfo += "; no states found for team (team may not exist or may have been renamed)"
+		}
+
+		return "", fmt.Errorf("%w: %s", ErrNoWorkflowFound, debugInfo)
 	}
 
 	return query.WorkflowStates.Nodes[0].Id, nil
@@ -73,10 +179,29 @@ func (l *LinearClient) IssueState(ctx context.Context, issueID string) (string, 
 
 // IssueStateDetails returns the current state ID and name of the issue.
 func (l *LinearClient) IssueStateDetails(ctx context.Context, issueID string) (string, string, error) {
+	details, err := l.GetIssueDetails(ctx, issueID)
+	if err != nil {
+		return "", "", err
+	}
+	return details.StateID, details.StateName, nil
+}
+
+// IssueDetails contains state and team information for an issue
+type IssueDetails struct {
+	StateID   string
+	StateName string
+	TeamName  string
+}
+
+// GetIssueDetails returns state and team information for an issue.
+func (l *LinearClient) GetIssueDetails(ctx context.Context, issueID string) (*IssueDetails, error) {
 	var query struct {
 		Issue struct {
 			State struct {
 				Id   string
+				Name string
+			}
+			Team struct {
 				Name string
 			}
 		} `graphql:"issue(id: $id)"`
@@ -87,10 +212,14 @@ func (l *LinearClient) IssueStateDetails(ctx context.Context, issueID string) (s
 	}
 
 	if err := l.client.Query(ctx, &query, variables); err != nil {
-		return "", "", fmt.Errorf("query failed (issue ID: %v): %w", issueID, err)
+		return nil, fmt.Errorf("query failed (issue ID: %v): %w", issueID, err)
 	}
 
-	return query.Issue.State.Id, query.Issue.State.Name, nil
+	return &IssueDetails{
+		StateID:   query.Issue.State.Id,
+		StateName: query.Issue.State.Name,
+		TeamName:  query.Issue.Team.Name,
+	}, nil
 }
 
 // IsIssueInState checks if an issue is in a specific state.
@@ -113,9 +242,11 @@ func (l *LinearClient) IsIssueInStateByName(ctx context.Context, issueID string,
 	return currentStateName == stateName, nil
 }
 
-// MoveIssueToState moves the issue to the given state if it's not already there.
+// MoveIssueToState moves the issue to the given state if it's not already there and if it's in the ready for release state.
 // It also adds a comment to the issue about when it was first released and on which tag.
-func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueID, releasedStateID, readyForReleaseStateName, releaseTagName, releaseDate string) error {
+// For stable releases on already-released issues, it adds a "now available in stable" comment.
+// issueDetails should be pre-fetched via GetIssueDetails to avoid redundant API calls.
+func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueID string, issueDetails *IssueDetails, releasedStateID, readyForReleaseStateName, releaseTagName, releaseDate string) error {
 	// (ThomasK33): Skip CVEs
 	if strings.HasPrefix(strings.ToLower(issueID), "cve") {
 		return nil
@@ -123,31 +254,46 @@ func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueI
 
 	logger := ctx.Value(LoggerKey).(*slog.Logger)
 
-	currentIssueStateID, currentIssueStateName, err := l.IssueStateDetails(ctx, issueID)
-	if err != nil {
-		return fmt.Errorf("get issue state details: %w", err)
-	}
+	isStable := isStableRelease(releaseTagName)
 
-	if currentIssueStateID == releasedStateID {
-		logger.Debug("Issue already has desired state", "issueID", issueID, "stateID", releasedStateID)
-		return nil
-	}
+	alreadyReleased := issueDetails.StateID == releasedStateID
 
-	// Skip issues not in ready for release state
-	if currentIssueStateName != readyForReleaseStateName {
-		logger.Debug("Skipping issue not in ready for release state", "issueID", issueID, "currentState", currentIssueStateName, "requiredState", readyForReleaseStateName)
-		return nil
-	}
-
-	if !dryRun {
-		if err := l.updateIssueState(ctx, issueID, releasedStateID); err != nil {
-			return fmt.Errorf("update issue state: %w", err)
+	// If already in released state:
+	// - Pre-releases: skip entirely (already released in a previous pre-release)
+	// - Stable releases: skip state update but add "now available in stable" comment
+	if alreadyReleased {
+		if !isStable {
+			logger.Debug("Issue already has desired state", "issueID", issueID, "stateID", releasedStateID)
+			return nil
 		}
+		logger.Debug("Issue already released, adding stable release comment", "issueID", issueID)
 	} else {
-		logger.Info("Would update issue state", "issueID", issueID, "releasedStateID", releasedStateID)
+		// Skip issues not in ready for release state
+		if issueDetails.StateName != readyForReleaseStateName {
+			logger.Debug("Skipping issue not in ready for release state", "issueID", issueID, "currentState", issueDetails.StateName, "requiredState", readyForReleaseStateName)
+			return nil
+		}
+
+		// Update issue state to Released
+		if !dryRun {
+			if err := l.updateIssueState(ctx, issueID, releasedStateID); err != nil {
+				return fmt.Errorf("update issue state: %w", err)
+			}
+		} else {
+			logger.Info("Would update issue state", "issueID", issueID, "releasedStateID", releasedStateID)
+		}
+		logger.Info("Moved issue to desired state", "issueID", issueID, "stateID", releasedStateID)
 	}
 
-	releaseComment := fmt.Sprintf("This issue was first released in %v on %v", releaseTagName, releaseDate)
+	// Add release comment
+	// Use different text for stable releases on already-released issues to avoid
+	// confusion with the "first released in" pattern used by linear-webhook-service
+	var releaseComment string
+	if alreadyReleased && isStable {
+		releaseComment = fmt.Sprintf("Now available in stable release %v (released %v)", releaseTagName, releaseDate)
+	} else {
+		releaseComment = fmt.Sprintf("This issue was first released in %v on %v", releaseTagName, releaseDate)
+	}
 
 	if !dryRun {
 		if err := l.createComment(ctx, issueID, releaseComment); err != nil {
@@ -156,8 +302,6 @@ func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueI
 	} else {
 		logger.Info("Would create comment on issue", "issueID", issueID, "comment", releaseComment)
 	}
-
-	logger.Info("Moved issue to desired state", "issueID", issueID, "stateID", releasedStateID)
 
 	return nil
 }
@@ -201,4 +345,3 @@ func (l *LinearClient) createComment(ctx context.Context, issueID, releaseCommen
 
 	return nil
 }
-
