@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/email"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -86,6 +87,13 @@ before running this command:
 }
 
 func (cmd *StartCmd) Run(ctx context.Context) error {
+	// automatically use docker mode if the driver is set to docker
+	cfg := cmd.LoadedConfig(cmd.Log)
+	if cfg.Driver.Type == config.DockerDriver && !cmd.Docker {
+		cmd.Log.Info("Automatically using --docker flag because driver is set to 'docker'")
+		cmd.Docker = true
+	}
+
 	// get the version to deploy
 	if cmd.Version == "latest" || cmd.Version == "" {
 		cmd.Version = platform.MinimumVersionTag
