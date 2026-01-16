@@ -14,7 +14,7 @@ var StartPrivateNodesMode = func(ctx *synccontext.ControllerContext) error {
 		return nil
 	}
 
-	return NewFeatureError(string(licenseapi.VirtualClusterProDistroPrivateNodes))
+	return NewFeatureError(licenseapi.VirtualClusterProDistroPrivateNodes)
 }
 
 var SyncKubernetesServiceDedicated = func(ctx *synccontext.SyncContext) error {
@@ -23,7 +23,7 @@ var SyncKubernetesServiceDedicated = func(ctx *synccontext.SyncContext) error {
 		return nil
 	}
 
-	return NewFeatureError(string(licenseapi.VirtualClusterProDistroPrivateNodes))
+	return NewFeatureError(licenseapi.VirtualClusterProDistroPrivateNodes)
 }
 
 var StartKonnectivity = func(ctx *synccontext.ControllerContext) error {
@@ -32,7 +32,7 @@ var StartKonnectivity = func(ctx *synccontext.ControllerContext) error {
 		return nil
 	}
 
-	return NewFeatureError(string(licenseapi.VirtualClusterProDistroPrivateNodes))
+	return NewFeatureError(licenseapi.VirtualClusterProDistroPrivateNodes)
 }
 
 var WithKonnectivity = func(ctx *synccontext.ControllerContext, handler http.Handler) http.Handler {
@@ -40,7 +40,7 @@ var WithKonnectivity = func(ctx *synccontext.ControllerContext, handler http.Han
 }
 
 var WriteKonnectivityEgressConfig = func() (string, error) {
-	return "", NewFeatureError(string(licenseapi.VirtualClusterProDistroPrivateNodes))
+	return "", NewFeatureError(licenseapi.VirtualClusterProDistroPrivateNodes)
 }
 
 type UpgradeOptions struct {
@@ -51,7 +51,7 @@ type UpgradeOptions struct {
 }
 
 var UpgradeNode = func(_ context.Context, _ *UpgradeOptions) error {
-	return NewFeatureError(string(licenseapi.VirtualClusterProDistroPrivateNodes))
+	return NewFeatureError(licenseapi.VirtualClusterProDistroPrivateNodes)
 }
 
 type StandaloneOptions struct {
@@ -59,5 +59,5 @@ type StandaloneOptions struct {
 }
 
 var StartStandalone = func(_ context.Context, _ *StandaloneOptions) error {
-	return NewFeatureError(string(licenseapi.Standalone))
+	return NewFeatureError(licenseapi.Standalone)
 }

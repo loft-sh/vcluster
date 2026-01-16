@@ -8,9 +8,9 @@ import (
 )
 
 var GetNamespaceMapper = func(_ *synccontext.RegisterContext, _ synccontext.Mapper) (synccontext.Mapper, error) {
-	return nil, NewFeatureError(string(licenseapi.SyncNamespacesTohost))
+	return nil, NewFeatureError(licenseapi.SyncNamespacesTohost)
 }
 
 var GetWithSyncedNamespacesTranslator = func(_ string, _ config.FromHostMappings) (translate.Translator, error) {
-	return nil, NewFeatureError(string(licenseapi.SyncNamespacesTohost))
+	return nil, NewFeatureError(licenseapi.SyncNamespacesTohost)
 }

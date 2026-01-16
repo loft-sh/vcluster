@@ -8,5 +8,5 @@ import (
 )
 
 var StartEmbeddedEtcd = func(_ context.Context, _ *config.VirtualClusterConfig, _ string, _ string, _ bool, _ bool) (func(), error) {
-	return nil, NewFeatureError(string(licenseapi.VirtualClusterProDistroEmbeddedEtcd))
+	return nil, NewFeatureError(licenseapi.VirtualClusterProDistroEmbeddedEtcd)
 }

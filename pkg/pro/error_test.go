@@ -3,6 +3,8 @@ package pro
 import (
 	"strings"
 	"testing"
+
+	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 )
 
 func TestNewFeatureError(t *testing.T) {
@@ -49,7 +51,7 @@ func TestNewFeatureError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := NewFeatureError(tt.featureName)
+			err := NewFeatureError(licenseapi.FeatureName(tt.featureName))
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}

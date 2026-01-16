@@ -12,7 +12,7 @@ var ApplyPatchesVirtualObject = func(_ *synccontext.SyncContext, _, _, _ client.
 		return nil
 	}
 
-	return NewFeatureError(string(licenseapi.VirtualClusterProDistroTranslatePatches))
+	return NewFeatureError(licenseapi.VirtualClusterProDistroTranslatePatches)
 }
 
 var ApplyPatchesHostObject = func(_ *synccontext.SyncContext, _, _, _ client.Object, patches []config.TranslatePatch, _ bool) error {
@@ -20,5 +20,5 @@ var ApplyPatchesHostObject = func(_ *synccontext.SyncContext, _, _, _ client.Obj
 		return nil
 	}
 
-	return NewFeatureError(string(licenseapi.VirtualClusterProDistroTranslatePatches))
+	return NewFeatureError(licenseapi.VirtualClusterProDistroTranslatePatches)
 }

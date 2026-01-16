@@ -15,7 +15,7 @@ type Config struct {
 // when Hybrid Scheduling is enabled, this func returns an error, because Hybrid Scheduling is a Pro-only feature.
 var NewConfig = func(virtualSchedulerEnabled, hybridSchedulingEnabled bool, _ []string) (Config, error) {
 	if hybridSchedulingEnabled {
-		return Config{}, pro.NewFeatureError(string(licenseapi.HybridScheduling))
+		return Config{}, pro.NewFeatureError(licenseapi.HybridScheduling)
 	}
 
 	return Config{

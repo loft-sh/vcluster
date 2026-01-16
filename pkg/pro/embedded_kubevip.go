@@ -7,5 +7,5 @@ import (
 )
 
 var StartEmbeddedKubeVip = func(_ *synccontext.ControllerContext, _ *config.VirtualClusterConfig) error {
-	return NewFeatureError(string(licenseapi.KubeVip))
+	return NewFeatureError(licenseapi.KubeVip)
 }
