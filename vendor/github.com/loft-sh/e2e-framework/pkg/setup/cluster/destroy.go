@@ -22,3 +22,17 @@ func Destroy(clusterName string) setup.Func {
 		return Remove(ctx, clusterName), nil
 	}
 }
+
+func DestroyAll() setup.Func {
+	return func(ctx context.Context) (context.Context, error) {
+		clusters := List(ctx)
+		for _, c := range clusters {
+			var err error
+			ctx, err = Destroy(c)(ctx)
+			if err != nil {
+				return ctx, err
+			}
+		}
+		return ctx, nil
+	}
+}

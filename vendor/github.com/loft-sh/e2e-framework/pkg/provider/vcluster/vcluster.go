@@ -25,6 +25,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/loft-sh/e2e-framework/pkg/provider"
 	"github.com/vladimirvivien/gexe"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +40,10 @@ import (
 	"sigs.k8s.io/e2e-framework/support"
 	"sigs.k8s.io/yaml"
 )
+
+func init() {
+	provider.Register(Type, NewCluster)
+}
 
 const (
 	vclusterVersion = "v0.20.0"
@@ -61,8 +66,9 @@ type Cluster struct {
 
 // Enforce Type check always to avoid future breaks
 var _ support.E2EClusterProvider = &Cluster{}
+var _ provider.Importable = &Cluster{}
 
-func NewCluster(name string) *Cluster {
+func NewCluster(name string) provider.Importable {
 	return &Cluster{name: name}
 }
 

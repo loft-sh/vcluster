@@ -28,7 +28,7 @@ require (
 	github.com/loft-sh/agentapi/v4 v4.5.0-alpha.10
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 	github.com/loft-sh/api/v4 v4.5.0-alpha.10
-	github.com/loft-sh/e2e-framework v0.0.0-20251120163143-738cebfbd83e
+	github.com/loft-sh/e2e-framework v0.0.0-20251219143444-b5158d57a436
 	github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -283,5 +283,3 @@ require (
 	sigs.k8s.io/kustomize/api v0.20.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.20.1 // indirect
 )
-
-replace github.com/loft-sh/e2e-framework => ../e2e-framework
