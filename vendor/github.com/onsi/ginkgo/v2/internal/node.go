@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -46,20 +47,24 @@ type Node struct {
 	ReportEachBody  func(SpecContext, types.SpecReport)
 	ReportSuiteBody func(SpecContext, types.Report)
 
-	MarkedFocus             bool
-	MarkedPending           bool
-	MarkedSerial            bool
-	MarkedOrdered           bool
-	MarkedContinueOnFailure bool
-	MarkedOncePerOrdered    bool
-	FlakeAttempts           int
-	MustPassRepeatedly      int
-	Labels                  Labels
-	PollProgressAfter       time.Duration
-	PollProgressInterval    time.Duration
-	NodeTimeout             time.Duration
-	SpecTimeout             time.Duration
-	GracePeriod             time.Duration
+	MarkedFocus                  bool
+	MarkedPending                bool
+	MarkedSerial                 bool
+	MarkedOrdered                bool
+	MarkedContinueOnFailure      bool
+	MarkedOncePerOrdered         bool
+	FlakeAttempts                int
+	MustPassRepeatedly           int
+	Labels                       Labels
+	SemVerConstraints            SemVerConstraints
+	PollProgressAfter            time.Duration
+	PollProgressInterval         time.Duration
+	NodeTimeout                  time.Duration
+	SpecTimeout                  time.Duration
+	GracePeriod                  time.Duration
+	AroundNodes                  types.AroundNodes
+	HasExplicitlySetSpecPriority bool
+	SpecPriority                 int
 
 	NodeIDWhereCleanupWasGenerated uint
 }
@@ -85,29 +90,45 @@ type FlakeAttempts uint
 type MustPassRepeatedly uint
 type Offset uint
 type Done chan<- any // Deprecated Done Channel for asynchronous testing
-type Labels []string
 type PollProgressInterval time.Duration
 type PollProgressAfter time.Duration
 type NodeTimeout time.Duration
 type SpecTimeout time.Duration
 type GracePeriod time.Duration
+type SpecPriority int
+
+type Labels []string
 
 func (l Labels) MatchesLabelFilter(query string) bool {
 	return types.MustParseLabelFilter(query)(l)
 }
 
-func UnionOfLabels(labels ...Labels) Labels {
-	out := Labels{}
-	seen := map[string]bool{}
-	for _, labelSet := range labels {
-		for _, label := range labelSet {
-			if !seen[label] {
-				seen[label] = true
-				out = append(out, label)
+type SemVerConstraints []string
+
+func (svc SemVerConstraints) MatchesSemVerFilter(version string) bool {
+	return types.MustParseSemVerFilter(version)(svc)
+}
+
+func unionOf[S ~[]E, E comparable](slices ...S) S {
+	out := S{}
+	seen := map[E]bool{}
+	for _, slice := range slices {
+		for _, item := range slice {
+			if !seen[item] {
+				seen[item] = true
+				out = append(out, item)
 			}
 		}
 	}
 	return out
+}
+
+func UnionOfLabels(labels ...Labels) Labels {
+	return unionOf(labels...)
+}
+
+func UnionOfSemVerConstraints(semVerConstraints ...SemVerConstraints) SemVerConstraints {
+	return unionOf(semVerConstraints...)
 }
 
 func PartitionDecorations(args ...any) ([]any, []any) {
@@ -151,6 +172,8 @@ func isDecoration(arg any) bool {
 		return true
 	case t == reflect.TypeOf(Labels{}):
 		return true
+	case t == reflect.TypeOf(SemVerConstraints{}):
+		return true
 	case t == reflect.TypeOf(PollProgressInterval(0)):
 		return true
 	case t == reflect.TypeOf(PollProgressAfter(0)):
@@ -160,6 +183,10 @@ func isDecoration(arg any) bool {
 	case t == reflect.TypeOf(SpecTimeout(0)):
 		return true
 	case t == reflect.TypeOf(GracePeriod(0)):
+		return true
+	case t == reflect.TypeOf(types.AroundNodeDecorator{}):
+		return true
+	case t == reflect.TypeOf(SpecPriority(0)):
 		return true
 	case t.Kind() == reflect.Slice && isSliceOfDecorations(arg):
 		return true
@@ -191,6 +218,7 @@ func NewNode(deprecationTracker *types.DeprecationTracker, nodeType types.NodeTy
 		NodeType:             nodeType,
 		Text:                 text,
 		Labels:               Labels{},
+		SemVerConstraints:    SemVerConstraints{},
 		CodeLocation:         types.NewCodeLocation(baseOffset),
 		NestingLevel:         -1,
 		PollProgressAfter:    -1,
@@ -205,7 +233,7 @@ func NewNode(deprecationTracker *types.DeprecationTracker, nodeType types.NodeTy
 		}
 	}
 
-	args = unrollInterfaceSlice(args)
+	args = UnrollInterfaceSlice(args)
 
 	remainingArgs := []any{}
 	// First get the CodeLocation up-to-date
@@ -221,6 +249,7 @@ func NewNode(deprecationTracker *types.DeprecationTracker, nodeType types.NodeTy
 	}
 
 	labelsSeen := map[string]bool{}
+	semVerConstraintsSeen := map[string]bool{}
 	trackedFunctionError := false
 	args = remainingArgs
 	remainingArgs = []any{}
@@ -299,6 +328,14 @@ func NewNode(deprecationTracker *types.DeprecationTracker, nodeType types.NodeTy
 			if nodeType.Is(types.NodeTypeContainer) {
 				appendError(types.GinkgoErrors.InvalidDecoratorForNodeType(node.CodeLocation, nodeType, "GracePeriod"))
 			}
+		case t == reflect.TypeOf(SpecPriority(0)):
+			if !nodeType.Is(types.NodeTypesForContainerAndIt) {
+				appendError(types.GinkgoErrors.InvalidDecoratorForNodeType(node.CodeLocation, nodeType, "SpecPriority"))
+			}
+			node.SpecPriority = int(arg.(SpecPriority))
+			node.HasExplicitlySetSpecPriority = true
+		case t == reflect.TypeOf(types.AroundNodeDecorator{}):
+			node.AroundNodes = append(node.AroundNodes, arg.(types.AroundNodeDecorator))
 		case t == reflect.TypeOf(Labels{}):
 			if !nodeType.Is(types.NodeTypesForContainerAndIt) {
 				appendError(types.GinkgoErrors.InvalidDecoratorForNodeType(node.CodeLocation, nodeType, "Label"))
@@ -308,6 +345,18 @@ func NewNode(deprecationTracker *types.DeprecationTracker, nodeType types.NodeTy
 					labelsSeen[label] = true
 					label, err := types.ValidateAndCleanupLabel(label, node.CodeLocation)
 					node.Labels = append(node.Labels, label)
+					appendError(err)
+				}
+			}
+		case t == reflect.TypeOf(SemVerConstraints{}):
+			if !nodeType.Is(types.NodeTypesForContainerAndIt) {
+				appendError(types.GinkgoErrors.InvalidDecoratorForNodeType(node.CodeLocation, nodeType, "SemVerConstraint"))
+			}
+			for _, semVerConstraint := range arg.(SemVerConstraints) {
+				if !semVerConstraintsSeen[semVerConstraint] {
+					semVerConstraintsSeen[semVerConstraint] = true
+					semVerConstraint, err := types.ValidateAndCleanupSemVerConstraint(semVerConstraint, node.CodeLocation)
+					node.SemVerConstraints = append(node.SemVerConstraints, semVerConstraint)
 					appendError(err)
 				}
 			}
@@ -599,7 +648,7 @@ func NewCleanupNode(deprecationTracker *types.DeprecationTracker, fail func(stri
 		})
 	}
 
-	return NewNode(deprecationTracker, types.NodeTypeCleanupInvalid, "", finalArgs...)
+	return NewNode(deprecationTracker, types.NodeTypeCleanupInvalid, "", finalArgs)
 }
 
 func (n Node) IsZero() bool {
@@ -824,6 +873,32 @@ func (n Nodes) UnionOfLabels() []string {
 	return out
 }
 
+func (n Nodes) SemVerConstraints() [][]string {
+	out := make([][]string, len(n))
+	for i := range n {
+		if n[i].SemVerConstraints == nil {
+			out[i] = []string{}
+		} else {
+			out[i] = []string(n[i].SemVerConstraints)
+		}
+	}
+	return out
+}
+
+func (n Nodes) UnionOfSemVerConstraints() []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for i := range n {
+		for _, constraint := range n[i].SemVerConstraints {
+			if !seen[constraint] {
+				seen[constraint] = true
+				out = append(out, constraint)
+			}
+		}
+	}
+	return out
+}
+
 func (n Nodes) CodeLocations() []types.CodeLocation {
 	out := make([]types.CodeLocation, len(n))
 	for i := range n {
@@ -920,7 +995,16 @@ func (n Nodes) GetMaxMustPassRepeatedly() int {
 	return maxMustPassRepeatedly
 }
 
-func unrollInterfaceSlice(args any) []any {
+func (n Nodes) GetSpecPriority() int {
+	for i := len(n) - 1; i >= 0; i-- {
+		if n[i].HasExplicitlySetSpecPriority {
+			return n[i].SpecPriority
+		}
+	}
+	return 0
+}
+
+func UnrollInterfaceSlice(args any) []any {
 	v := reflect.ValueOf(args)
 	if v.Kind() != reflect.Slice {
 		return []any{args}
@@ -928,11 +1012,67 @@ func unrollInterfaceSlice(args any) []any {
 	out := []any{}
 	for i := 0; i < v.Len(); i++ {
 		el := reflect.ValueOf(v.Index(i).Interface())
-		if el.Kind() == reflect.Slice && el.Type() != reflect.TypeOf(Labels{}) {
-			out = append(out, unrollInterfaceSlice(el.Interface())...)
+		if el.Kind() == reflect.Slice && el.Type() != reflect.TypeOf(Labels{}) && el.Type() != reflect.TypeOf(SemVerConstraints{}) {
+			out = append(out, UnrollInterfaceSlice(el.Interface())...)
 		} else {
 			out = append(out, v.Index(i).Interface())
 		}
 	}
 	return out
+}
+
+type NodeArgsTransformer func(nodeType types.NodeType, offset Offset, text string, args []any) (string, []any, []error)
+
+func AddTreeConstructionNodeArgsTransformer(transformer NodeArgsTransformer) func() {
+	id := nodeArgsTransformerCounter
+	nodeArgsTransformerCounter++
+	nodeArgsTransformers = append(nodeArgsTransformers, registeredNodeArgsTransformer{id, transformer})
+	return func() {
+		nodeArgsTransformers = slices.DeleteFunc(nodeArgsTransformers, func(transformer registeredNodeArgsTransformer) bool {
+			return transformer.id == id
+		})
+	}
+}
+
+var (
+	nodeArgsTransformerCounter int64
+	nodeArgsTransformers       []registeredNodeArgsTransformer
+)
+
+type registeredNodeArgsTransformer struct {
+	id          int64
+	transformer NodeArgsTransformer
+}
+
+// TransformNewNodeArgs is the helper for DSL functions which handles NodeArgsTransformers.
+//
+// Its return valus are intentionally the same as the internal.NewNode parameters,
+// which makes it possible to chain the invocations:
+//
+//	NewNode(transformNewNodeArgs(...))
+func TransformNewNodeArgs(exitIfErrors func([]error), deprecationTracker *types.DeprecationTracker, nodeType types.NodeType, text string, args ...any) (*types.DeprecationTracker, types.NodeType, string, []any) {
+	var errs []error
+
+	// Most recent first...
+	//
+	// This intentionally doesn't use slices.Backward because
+	// using iterators influences stack unwinding.
+	for i := len(nodeArgsTransformers) - 1; i >= 0; i-- {
+		transformer := nodeArgsTransformers[i].transformer
+		args = UnrollInterfaceSlice(args)
+
+		// We do not really need to recompute this on additional loop iterations,
+		// but its fast and simpler this way.
+		var offset Offset
+		for _, arg := range args {
+			if o, ok := arg.(Offset); ok {
+				offset = o
+			}
+		}
+		offset += 3 // The DSL function, this helper, and the TransformNodeArgs implementation.
+
+		text, args, errs = transformer(nodeType, offset, text, args)
+		exitIfErrors(errs)
+	}
+	return deprecationTracker, nodeType, text, args
 }
