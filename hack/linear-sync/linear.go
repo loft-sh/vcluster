@@ -51,8 +51,6 @@ func NewLinearClient(ctx context.Context, token string) LinearClient {
 	return LinearClient{client: client}
 }
 
-<<<<<<< HEAD
-=======
 // isStableRelease checks if a version is a stable release (no pre-release suffix).
 // Returns true for stable releases like v0.26.1, v4.5.0
 // Returns false for pre-releases like v0.26.1-alpha.1, v0.26.1-rc.4, v4.5.0-beta.2
@@ -121,7 +119,6 @@ func (l *LinearClient) ListWorkflowStates(ctx context.Context, teamName string) 
 	return states, nil
 }
 
->>>>>>> be70d94c9 (fix(linear-sync): look up team per issue instead of using global default (#3495))
 // WorkflowStateID returns the ID of the a workflow state for the given team.
 // If no matching state is found, it provides debugging information about available teams and states.
 func (l *LinearClient) WorkflowStateID(ctx context.Context, stateName, linearTeamName string) (string, error) {
@@ -247,13 +244,9 @@ func (l *LinearClient) IsIssueInStateByName(ctx context.Context, issueID string,
 
 // MoveIssueToState moves the issue to the given state if it's not already there and if it's in the ready for release state.
 // It also adds a comment to the issue about when it was first released and on which tag.
-<<<<<<< HEAD
-func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueID, releasedStateID, readyForReleaseStateName, releaseTagName, releaseDate string) error {
-=======
 // For stable releases on already-released issues, it adds a "now available in stable" comment.
 // issueDetails should be pre-fetched via GetIssueDetails to avoid redundant API calls.
 func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueID string, issueDetails *IssueDetails, releasedStateID, readyForReleaseStateName, releaseTagName, releaseDate string) error {
->>>>>>> be70d94c9 (fix(linear-sync): look up team per issue instead of using global default (#3495))
 	// (ThomasK33): Skip CVEs
 	if strings.HasPrefix(strings.ToLower(issueID), "cve") {
 		return nil
@@ -261,16 +254,6 @@ func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueI
 
 	logger := ctx.Value(LoggerKey).(*slog.Logger)
 
-<<<<<<< HEAD
-	currentIssueStateID, currentIssueStateName, err := l.IssueStateDetails(ctx, issueID)
-	if err != nil {
-		return fmt.Errorf("get issue state details: %w", err)
-	}
-
-	if currentIssueStateID == releasedStateID {
-		logger.Debug("Issue already has desired state", "issueID", issueID, "stateID", releasedStateID)
-		return nil
-=======
 	isStable := isStableRelease(releaseTagName)
 
 	alreadyReleased := issueDetails.StateID == releasedStateID
@@ -300,24 +283,17 @@ func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueI
 			logger.Info("Would update issue state", "issueID", issueID, "releasedStateID", releasedStateID)
 		}
 		logger.Info("Moved issue to desired state", "issueID", issueID, "stateID", releasedStateID)
->>>>>>> be70d94c9 (fix(linear-sync): look up team per issue instead of using global default (#3495))
 	}
 
-	// Skip issues not in ready for release state
-	if currentIssueStateName != readyForReleaseStateName {
-		logger.Debug("Skipping issue not in ready for release state", "issueID", issueID, "currentState", currentIssueStateName, "requiredState", readyForReleaseStateName)
-		return nil
-	}
-
-	if !dryRun {
-		if err := l.updateIssueState(ctx, issueID, releasedStateID); err != nil {
-			return fmt.Errorf("update issue state: %w", err)
-		}
+	// Add release comment
+	// Use different text for stable releases on already-released issues to avoid
+	// confusion with the "first released in" pattern used by linear-webhook-service
+	var releaseComment string
+	if alreadyReleased && isStable {
+		releaseComment = fmt.Sprintf("Now available in stable release %v (released %v)", releaseTagName, releaseDate)
 	} else {
-		logger.Info("Would update issue state", "issueID", issueID, "releasedStateID", releasedStateID)
+		releaseComment = fmt.Sprintf("This issue was first released in %v on %v", releaseTagName, releaseDate)
 	}
-
-	releaseComment := fmt.Sprintf("This issue was first released in %v on %v", releaseTagName, releaseDate)
 
 	if !dryRun {
 		if err := l.createComment(ctx, issueID, releaseComment); err != nil {
@@ -326,8 +302,6 @@ func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueI
 	} else {
 		logger.Info("Would create comment on issue", "issueID", issueID, "comment", releaseComment)
 	}
-
-	logger.Info("Moved issue to desired state", "issueID", issueID, "stateID", releasedStateID)
 
 	return nil
 }
@@ -371,4 +345,3 @@ func (l *LinearClient) createComment(ctx context.Context, issueID, releaseCommen
 
 	return nil
 }
-
