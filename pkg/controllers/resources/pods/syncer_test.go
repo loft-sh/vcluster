@@ -1,6 +1,7 @@
 package pods
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
 	"testing"
@@ -8,6 +9,7 @@ import (
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -689,5 +691,119 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
+	})
+}
+
+func TestBuildResizePatch(t *testing.T) {
+	makePod := func(memory string) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-pod",
+				Namespace: "default",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "c1",
+						Image: "nginx",
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("100m"),
+								corev1.ResourceMemory: resource.MustParse(memory),
+							},
+							Limits: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse(memory),
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("creates patch when resources differ", func(t *testing.T) {
+		vPod := makePod("30Mi")
+		pPod := makePod("20Mi")
+
+		patchBytes, err := buildHostPodContainersResourcesResizePatch(vPod, pPod)
+		assert.NilError(t, err)
+		assert.Assert(t, patchBytes != nil)
+
+		var patch resizePatch
+		err = json.Unmarshal(patchBytes, &patch)
+		assert.NilError(t, err)
+		assert.Equal(t, len(patch.Spec.Containers), 1)
+		assert.Equal(t, patch.Spec.Containers[0].Name, "c1")
+		got := patch.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory]
+		assert.Assert(t, got.Cmp(resource.MustParse("30Mi")) == 0)
+	})
+
+	t.Run("returns nil when resources are equal", func(t *testing.T) {
+		vPod := makePod("20Mi")
+		pPod := makePod("20Mi")
+
+		patchBytes, err := buildHostPodContainersResourcesResizePatch(vPod, pPod)
+		assert.NilError(t, err)
+		assert.Assert(t, patchBytes == nil)
+	})
+
+	t.Run("includes only containers with resource diffs", func(t *testing.T) {
+		vPod := makePod("30Mi")
+		vPod.Spec.Containers = append(vPod.Spec.Containers, corev1.Container{
+			Name:  "c2",
+			Image: "busybox",
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("10Mi"),
+				},
+			},
+		})
+		pPod := makePod("20Mi")
+		pPod.Spec.Containers = append(pPod.Spec.Containers, corev1.Container{
+			Name:  "c2",
+			Image: "busybox",
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("10Mi"),
+				},
+			},
+		})
+
+		patchBytes, err := buildHostPodContainersResourcesResizePatch(vPod, pPod)
+		assert.NilError(t, err)
+		assert.Assert(t, patchBytes != nil)
+
+		var patch resizePatch
+		err = json.Unmarshal(patchBytes, &patch)
+		assert.NilError(t, err)
+		assert.Equal(t, len(patch.Spec.Containers), 1)
+		assert.Equal(t, patch.Spec.Containers[0].Name, "c1")
+	})
+
+	t.Run("skips containers missing on host", func(t *testing.T) {
+		vPod := makePod("30Mi")
+		vPod.Spec.Containers = append(vPod.Spec.Containers, corev1.Container{
+			Name:  "c2",
+			Image: "busybox",
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("10Mi"),
+				},
+			},
+		})
+		pPod := makePod("20Mi")
+
+		patchBytes, err := buildHostPodContainersResourcesResizePatch(vPod, pPod)
+		assert.NilError(t, err)
+		assert.Assert(t, patchBytes != nil)
+
+		var patch resizePatch
+		err = json.Unmarshal(patchBytes, &patch)
+		assert.NilError(t, err)
+		assert.Equal(t, len(patch.Spec.Containers), 1)
+		assert.Equal(t, patch.Spec.Containers[0].Name, "c1")
 	})
 }
