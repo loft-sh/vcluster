@@ -38,17 +38,17 @@ func run(
 ) error {
 	flagset := flag.NewFlagSet(args[0], flag.ExitOnError)
 	var (
-		owner                   = flagset.String("owner", "loft-sh", "The GitHub owner of the repository")
-		repo                    = flagset.String("repo", "vcluster", "The GitHub repository to generate the changelog for")
-		githubToken             = flagset.String("token", "", "The GitHub token to use for authentication")
-		previousTag             = flagset.String("previous-tag", "", "The previous tag to generate the changelog for (if not set, the last stable release will be used)")
-		releaseTag              = flagset.String("release-tag", "", "The tag of the new release")
-		debug                   = flagset.Bool("debug", false, "Enable debug logging")
-		linearToken             = flagset.String("linear-token", "", "The Linear token to use for authentication")
-		releasedStateName       = flagset.String("released-state-name", "Released", "The name of the state to use for the released state")
+		owner                    = flagset.String("owner", "loft-sh", "The GitHub owner of the repository")
+		repo                     = flagset.String("repo", "vcluster", "The GitHub repository to generate the changelog for")
+		githubToken              = flagset.String("token", "", "The GitHub token to use for authentication")
+		previousTag              = flagset.String("previous-tag", "", "The previous tag to generate the changelog for (if not set, the last stable release will be used)")
+		releaseTag               = flagset.String("release-tag", "", "The tag of the new release")
+		debug                    = flagset.Bool("debug", false, "Enable debug logging")
+		linearToken              = flagset.String("linear-token", "", "The Linear token to use for authentication")
+		releasedStateName        = flagset.String("released-state-name", "Released", "The name of the state to use for the released state")
 		readyForReleaseStateName = flagset.String("ready-for-release-state-name", "Ready for Release", "The name of the state that indicates an issue is ready to be released")
-		linearTeamName          = flagset.String("linear-team-name", "vCluster / Platform", "The name of the team to use for the linear team")
-		dryRun                  = flagset.Bool("dry-run", false, "Do not actually move issues to the released state")
+		linearTeamName           = flagset.String("linear-team-name", "vCluster / Platform", "The name of the team to use for the linear team")
+		dryRun                   = flagset.Bool("dry-run", false, "Do not actually move issues to the released state")
 	)
 	if err := flagset.Parse(args[1:]); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
@@ -193,9 +193,6 @@ func run(
 	logger.Info("Linear sync completed", "processed", len(releasedIssues), "released", releasedCount, "skipped", skippedCount)
 
 	return nil
-<<<<<<< HEAD
-}
-=======
 }
 
 // deduplicateIssueIDs removes duplicate issue IDs from the slice while preserving order
@@ -210,4 +207,3 @@ func deduplicateIssueIDs(issueIDs []string) []string {
 	}
 	return result
 }
->>>>>>> cfcf45a9d (fix(ci): duplicate comments prevented via issue id deduplication (#3449))
