@@ -304,7 +304,7 @@ controlPlane:
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "rancher/k3s"
         # Tag is the tag of the container image, and is the default version.
-        tag: "v1.35.1-k3s1"
+        tag: "v1.35.0-k3s1"
       # Security options can be used for the distro init container
       securityContext: {}
       # Resources for the distro init container
