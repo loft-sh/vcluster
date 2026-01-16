@@ -47,7 +47,6 @@ func run(
 		linearToken              = flagset.String("linear-token", "", "The Linear token to use for authentication")
 		releasedStateName        = flagset.String("released-state-name", "Released", "The name of the state to use for the released state")
 		readyForReleaseStateName = flagset.String("ready-for-release-state-name", "Ready for Release", "The name of the state that indicates an issue is ready to be released")
-		linearTeamName           = flagset.String("linear-team-name", "vCluster / Platform", "The name of the team to use for the linear team")
 		dryRun                   = flagset.Bool("dry-run", false, "Do not actually move issues to the released state")
 		strictFiltering          = flagset.Bool("strict-filtering", true, "Only include PRs that were actually merged before the release was published (recommended to avoid false positives)")
 	)
@@ -170,19 +169,22 @@ func run(
 
 	linearClient := NewLinearClient(ctx, *linearToken)
 
-	releasedStateID, err := linearClient.WorkflowStateID(ctx, *releasedStateName, *linearTeamName)
-	if err != nil {
-		return fmt.Errorf("get released workflow ID: %w", err)
+	// Cache of team name -> released state ID (looked up on demand)
+	releasedStateIDByTeam := make(map[string]string)
+
+	// Helper to get released state ID for a team (with caching)
+	getReleasedStateID := func(teamName string) (string, error) {
+		if stateID, ok := releasedStateIDByTeam[teamName]; ok {
+			return stateID, nil
+		}
+		stateID, err := linearClient.WorkflowStateID(ctx, *releasedStateName, teamName)
+		if err != nil {
+			return "", err
+		}
+		releasedStateIDByTeam[teamName] = stateID
+		logger.Debug("Found released workflow ID for team", "team", teamName, "workflowID", stateID)
+		return stateID, nil
 	}
-
-	logger.Debug("Found released workflow ID", "workflowID", releasedStateID)
-
-	readyForReleaseStateID, err := linearClient.WorkflowStateID(ctx, *readyForReleaseStateName, *linearTeamName)
-	if err != nil {
-		return fmt.Errorf("get ready for release workflow ID: %w", err)
-	}
-
-	logger.Debug("Found ready for release workflow ID", "workflowID", readyForReleaseStateID)
 
 	currentReleaseDateStr := currentRelease.PublishedAt.Format("2006-01-02")
 
@@ -190,7 +192,23 @@ func run(
 	skippedCount := 0
 
 	for _, issueID := range releasedIssues {
-		if err := linearClient.MoveIssueToState(ctx, *dryRun, issueID, releasedStateID, *readyForReleaseStateName, currentRelease.TagName, currentReleaseDateStr); err != nil {
+		// Get issue details including team
+		issueDetails, err := linearClient.GetIssueDetails(ctx, issueID)
+		if err != nil {
+			logger.Error("Failed to get issue details", "issueID", issueID, "error", err)
+			skippedCount++
+			continue
+		}
+
+		// Get the released state ID for this issue's team
+		releasedStateID, err := getReleasedStateID(issueDetails.TeamName)
+		if err != nil {
+			logger.Error("Failed to get released state for team", "issueID", issueID, "team", issueDetails.TeamName, "error", err)
+			skippedCount++
+			continue
+		}
+
+		if err := linearClient.MoveIssueToState(ctx, *dryRun, issueID, issueDetails, releasedStateID, *readyForReleaseStateName, currentRelease.TagName, currentReleaseDateStr); err != nil {
 			logger.Error("Failed to move issue to state", "issueID", issueID, "error", err)
 			skippedCount++
 		} else {
