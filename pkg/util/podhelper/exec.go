@@ -20,6 +20,25 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 )
 
+type terminalSizeQueueWrapper struct {
+	queue term.TerminalSizeQueue
+}
+
+func (w terminalSizeQueueWrapper) Next() *remotecommand.TerminalSize {
+	if w.queue == nil {
+		return nil
+	}
+	size := w.queue.Next()
+	if size == nil {
+		return nil
+	}
+
+	return &remotecommand.TerminalSize{
+		Width:  size.Width,
+		Height: size.Height,
+	}
+}
+
 // SubResource specifies with sub resources should be used for the container connection (exec or attach)
 type SubResource string
 
@@ -61,7 +80,7 @@ func ExecStreamWithTransport(ctx context.Context, client kubernetes.Interface, o
 			tty = true
 			if t.Raw && options.TerminalSizeQueue == nil {
 				// this call spawns a goroutine to monitor/update the terminal size
-				sizeQueue = t.MonitorSize(t.GetSize())
+				sizeQueue = terminalSizeQueueWrapper{queue: t.MonitorSize(t.GetSize())}
 			} else if options.TerminalSizeQueue != nil {
 				sizeQueue = options.TerminalSizeQueue
 				t.Raw = true

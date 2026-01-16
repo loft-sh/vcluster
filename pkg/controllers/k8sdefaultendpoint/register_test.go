@@ -10,7 +10,7 @@ import (
 )
 
 func TestShouldUseLegacy(t *testing.T) {
-	client := fakeclientset.NewSimpleClientset()
+	client := fakeclientset.NewClientset()
 	discovery, ok := client.Discovery().(*fakediscovery.FakeDiscovery)
 	if !ok {
 		t.Fatalf("couldn't convert Discovery() to *FakeDiscovery")
