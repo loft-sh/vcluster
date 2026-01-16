@@ -41,7 +41,7 @@ func (s *podSyncer) validatePodSecurityStandards(ctx context.Context, pod *corev
 		WarnVersion:    version.String(),
 	}
 
-	evaluator, err := policy.NewEvaluator(policy.DefaultChecks())
+	evaluator, err := policy.NewEvaluator(policy.DefaultChecks(), &version)
 	if err != nil {
 		return nil, fmt.Errorf("could not create PodSecurityRegistry: %w", err)
 	}
