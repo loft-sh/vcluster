@@ -11,7 +11,7 @@ const (
 	SleepingSinceAnnotation = "sleepmode.loft.sh/sleeping-since"
 )
 
-const v24 = "v0.24.0-alpha.0"
+const v32 = "v0.32.0-alpha.0"
 
 func IsSleeping(labeled kube.Labeled) bool {
 	return labeled.GetLabels()[Label] == "true"
@@ -22,21 +22,17 @@ func IsInstanceSleeping(annotated kube.Annotated) bool {
 }
 
 func Warning() string {
-	// if we're not upgrading to v0.24+ no warning
-	if semver.Compare("v"+upgrade.GetVersion(), v24) == -1 {
+	if semver.Compare("v"+upgrade.GetVersion(), v32) == -1 {
 		return ""
 	}
 
-	return `
-sleepMode configuration is no longer under experimental. Please update your values and specify them with --values.
+	return `Sleep configuration is no longer under "sleepMode" and "enabled" has been removed. Please update your values and specify them with --values.
+For example:
 
-For example
-
-|experimental:                          |sleepMode:
-|  sleepMode:                           |  enabled: true
-|    enabled: true            ---->     |  autoSleep:
-|    autoSleep:                         |    afterInactivity: 24h
-|      afterInactivity: 24h             |
+|sleepMode:                           |sleep:
+|  enabled: true            ---->     |  auto:
+|  autoSleep:                         |    afterInactivity: 24h
+|    afterInactivity: 24h             |
 
 `
 }
