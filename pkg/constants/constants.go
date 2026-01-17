@@ -45,6 +45,9 @@ var (
 	// DefaultVClusterConfigLocation is the default location of the vCluster config within the container
 	DefaultVClusterConfigLocation = "/var/lib/vcluster/config.yaml"
 
+	// StandaloneDefaultConfigPath is a default absolute path to the vcluster.yaml for standalone
+	StandaloneDefaultConfigPath = "/etc/vcluster/vcluster.yaml"
+
 	// VClusterNamespaceInHostMappingSpecialCharacter is an empty string that mean vCluster host namespace
 	// in the config.sync.fromHost.*.selector.mappings
 	VClusterNamespaceInHostMappingSpecialCharacter = ""

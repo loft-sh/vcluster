@@ -88,7 +88,7 @@ func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 		return nil, fmt.Errorf("config is nil")
 	}
 	if vConfig.ControlPlane.Standalone.Enabled {
-		return nil, errors.New("creating snapshot request resources is currently not supported in standalone mode")
+		vClusterNamespace = "kube-system"
 	}
 
 	// first create the snapshot options Secret
@@ -133,7 +133,7 @@ func IsSnapshotRequestCreatedInHostCluster(config *config.VirtualClusterConfig) 
 		return false, fmt.Errorf("config is nil")
 	}
 	if config.ControlPlane.Standalone.Enabled {
-		return false, fmt.Errorf("creating snapshot requests is currently not supported in standalone mode")
+		return false, nil
 	}
 
 	return true, nil
