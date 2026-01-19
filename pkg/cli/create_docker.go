@@ -1097,24 +1097,35 @@ func getDockerSocketPath(ctx context.Context) (string, error) {
 }
 
 func getContainerdSocketPath(ctx context.Context) (string, error) {
-	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", `netstat -xlp | awk '$NF ~ /\/containerd\.sock$/ {print $NF}'`).CombinedOutput()
+	// This automatically discards stderr (where the netstat warning lives)
+	// and only captures the clean stdout from awk.
+	cmd := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", `netstat -xlp | awk '$NF ~ /\/containerd\.sock$/ {print $NF}'`)
+	out, err := cmd.Output()
+
 	if err != nil {
-		return "", fmt.Errorf("failed to get containerd socket path: %s: %w", string(out), err)
+		// Extract stderr for better debugging if the command actually fails
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return "", fmt.Errorf("failed to get containerd socket path: %s: %w", string(exitErr.Stderr), err)
+		}
+		return "", fmt.Errorf("failed to get containerd socket path: %w", err)
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(strings.TrimSpace(string(out))))
-	containerdSocketPaths := []string{}
 	for scanner.Scan() {
-		containerdSocketPaths = append(containerdSocketPaths, scanner.Text())
-	}
-	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("failed to scan containerd socket path: %s: %w", string(out), err)
-	}
-	if len(containerdSocketPaths) == 0 {
-		return "", fmt.Errorf("no containerd socket path found")
+		line := strings.TrimSpace(scanner.Text())
+		// Only accept the line if it looks like an absolute path.
+		// This ignores any stray warning lines that might still slip through.
+		if strings.HasPrefix(line, "/") {
+			return line, nil
+		}
 	}
 
-	return containerdSocketPaths[0], nil
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("failed to scan containerd socket path: %w", err)
+	}
+
+	return "", fmt.Errorf("no containerd socket path found")
 }
 
 func convertToMap(config *config.Config) (map[string]interface{}, error) {
