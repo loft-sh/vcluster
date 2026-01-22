@@ -204,9 +204,7 @@ Privacy Statement: https://www.loft.sh/legal/privacy
 
 // platformUsesNewActivationFlow checks if the platform version supports the new platform activation flow.
 //
-// The new platform activation flow is supported for the following platform versions:
-//  1. GA version >= 4.6.0,
-//  2. Preview version 4.6.0-next.internal.X, where X >= 1.
+// The new platform activation flow is supported for the platform version 4.6.0-rc.8 and above.
 func (cmd *StartCmd) platformUsesNewActivationFlow(platformVersion string) bool {
 	platformSemVerVersion, err := semver.ParseTolerant(platformVersion)
 	if err != nil {
@@ -217,17 +215,6 @@ func (cmd *StartCmd) platformUsesNewActivationFlow(platformVersion string) bool 
 	const minPlatformVersionWithNewActivationFlow = "4.6.0-rc.8"
 	if platformSemVerVersion.GTE(semver.MustParse(minPlatformVersionWithNewActivationFlow)) {
 		cmd.Log.Debugf("Platform version %s is greater than or equal to %s, platform is using the new activation flow, so skipping admin email prompt", platformVersion, minPlatformVersionWithNewActivationFlow)
-		return true
-	}
-
-	if platformSemVerVersion.Major == 4 &&
-		platformSemVerVersion.Minor == 6 &&
-		platformSemVerVersion.Patch == 0 &&
-		len(platformSemVerVersion.Pre) == 3 &&
-		platformSemVerVersion.Pre[0].VersionStr == "next" &&
-		platformSemVerVersion.Pre[1].VersionStr == "internal" &&
-		platformSemVerVersion.Pre[2].VersionNum >= 1 {
-		cmd.Log.Debugf("Platform version %s is the development version that is using the new activation flow, so skipping admin email prompt", platformVersion)
 		return true
 	}
 
