@@ -214,9 +214,9 @@ func (cmd *StartCmd) platformUsesNewActivationFlow(platformVersion string) bool 
 		return false
 	}
 
-	const minGAVersion = "4.6.0"
-	if platformSemVerVersion.GTE(semver.MustParse(minGAVersion)) {
-		cmd.Log.Debugf("Platform version %s is greater than or equal to %s, platform is using the new activation flow, so skipping admin email prompt", platformVersion, minGAVersion)
+	const minPlatformVersionWithNewActivationFlow = "4.6.0-rc.8"
+	if platformSemVerVersion.GTE(semver.MustParse(minPlatformVersionWithNewActivationFlow)) {
+		cmd.Log.Debugf("Platform version %s is greater than or equal to %s, platform is using the new activation flow, so skipping admin email prompt", platformVersion, minPlatformVersionWithNewActivationFlow)
 		return true
 	}
 
