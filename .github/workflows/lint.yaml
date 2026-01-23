@@ -44,6 +44,11 @@ jobs:
           go-version-file: ./go.mod
           cache: false
 
+      - name: Configure git
+        run: git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
       - name: Generate Embedded Helm Chart
         run: |
           go generate ./...
