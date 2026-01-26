@@ -384,6 +384,10 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 
 	defer func() {
 		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
+			if kerrors.IsConflict(err) {
+				retErr = utilerrors.NewAggregate([]error{retErr, err})
+				return
+			}
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 
