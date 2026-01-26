@@ -70,7 +70,15 @@ func (s *networkPolicySyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 		if retErr != nil {
-			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(
+				event.Virtual,
+				nil,
+				"Warning",
+				"SyncError",
+				"NetworkPolicySyncError",
+				"Error syncing: %v",
+				retErr,
+			)
 		}
 	}()
 

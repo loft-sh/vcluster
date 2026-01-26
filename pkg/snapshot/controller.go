@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,7 +37,7 @@ type Reconciler struct {
 	snapshotRequestsKubeClient client.Client
 	snapshotRequestsManager    ctrl.Manager
 	logger                     loghelper.Logger
-	eventRecorder              record.EventRecorder
+	eventRecorder              events.EventRecorder
 	volumeSnapshotter          volumes.Snapshotter
 	isHostMode                 bool
 }
@@ -100,7 +100,7 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 		snapshotRequestsKubeClient: snapshotRequestsManager.GetClient(),
 		snapshotRequestsManager:    snapshotRequestsManager,
 		logger:                     logger,
-		eventRecorder:              snapshotRequestsManager.GetEventRecorderFor(controllerName),
+		eventRecorder:              snapshotRequestsManager.GetEventRecorder(controllerName),
 		volumeSnapshotter:          volumeSnapshotter,
 		isHostMode:                 isHostMode,
 	}, nil
@@ -141,7 +141,16 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return ctrl.Result{}, fmt.Errorf("failed to add vCluster snapshot controller finalizer to the snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
 		if updated {
-			c.eventRecorder.Eventf(&configMap, corev1.EventTypeNormal, "Created", "Snapshot request %s/%s has been created", configMap.Namespace, configMap.Name)
+			c.eventRecorder.Eventf(
+				&configMap,
+				nil,
+				corev1.EventTypeNormal,
+				"Created",
+				"SnapshotRequestCreated",
+				"Snapshot request %s/%s has been created",
+				configMap.Namespace,
+				configMap.Name,
+			)
 			return ctrl.Result{}, nil
 		}
 	}
@@ -163,7 +172,15 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			// something went wrong, recorde error and update snapshot request phase to Failed
 			snapshotRequest.Status.Phase = RequestPhaseFailed
 			snapshotRequest.Status.Error.Message = retErr.Error()
-			c.eventRecorder.Eventf(&configMap, corev1.EventTypeWarning, "SnapshotRequestFailed", "Snapshot request %s/%s has failed with error: %v", configMap.Namespace, configMap.Name, retErr)
+			c.eventRecorder.Eventf(
+				&configMap,
+				nil,
+				corev1.EventTypeWarning,
+				"SnapshotRequestFailed",
+				"SnapshotRequestFailed",
+				"Snapshot request %s/%s has failed with error: %v",
+				configMap.Namespace,
+				configMap.Name, retErr)
 		}
 		updateErr := c.updateRequest(ctx, configMapBeforeChange, &configMap, *snapshotRequest)
 		if updateErr != nil {
@@ -325,10 +342,27 @@ func (c *Reconciler) reconcileNewRequest(_ context.Context, configMap *corev1.Co
 			Requests: []volumes.SnapshotRequest{},
 		}
 		snapshotRequest.Status.Phase = RequestPhaseCreatingVolumeSnapshots
-		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "CreatingVolumeSnapshots", "Started to create volume snapshots for snapshot request %s/%s", configMap.Namespace, configMap.Name)
+		c.eventRecorder.Eventf(
+			configMap,
+			nil,
+			corev1.EventTypeNormal,
+			"CreatingVolumeSnapshots",
+			"VolumeSnapshotsCreationStarted",
+			"Started to create volume snapshots for snapshot request %s/%s",
+			configMap.Namespace,
+			configMap.Name)
 	} else {
 		snapshotRequest.Status.Phase = RequestPhaseCreatingEtcdBackup
-		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "CreatingEtcdBackup", "Started to create etcd backup for snapshot request %s/%s", configMap.Namespace, configMap.Name)
+		c.eventRecorder.Eventf(
+			configMap,
+			nil,
+			corev1.EventTypeNormal,
+			"CreatingEtcdBackup",
+			"EtcdBackupCreationStarted",
+			"Started to create etcd backup for snapshot request %s/%s",
+			configMap.Namespace,
+			configMap.Name,
+		)
 	}
 	return nil
 }
@@ -400,9 +434,27 @@ func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap 
 	}
 
 	if snapshotRequest.Status.Phase == RequestPhaseCompleted {
-		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "Completed", "Snapshot request %s/%s has been completed", configMap.Namespace, configMap.Name)
+		c.eventRecorder.Eventf(
+			configMap,
+			nil,
+			corev1.EventTypeNormal,
+			"Completed",
+			"SnapShotRequestCompleted",
+			"Snapshot request %s/%s has been completed",
+			configMap.Namespace,
+			configMap.Name,
+		)
 	} else {
-		c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "PartiallyFailed", "Snapshot request %s/%s has partially failed", configMap.Namespace, configMap.Name)
+		c.eventRecorder.Eventf(
+			configMap,
+			nil,
+			corev1.EventTypeNormal,
+			"PartiallyFailed",
+			"SnapShotRequestPartiallyFailed",
+			"Snapshot request %s/%s has partially failed",
+			configMap.Namespace,
+			configMap.Name,
+		)
 	}
 	return false, nil
 }

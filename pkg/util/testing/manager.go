@@ -13,8 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/events"
 	toolscache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -23,8 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 )
 
 func NewFakeManager(client *FakeIndexClient) ctrl.Manager {
@@ -32,7 +32,7 @@ func NewFakeManager(client *FakeIndexClient) ctrl.Manager {
 }
 
 type fakeManager struct {
-	client *FakeIndexClient
+	client            *FakeIndexClient
 	converterRegistry conversion.Registry
 }
 

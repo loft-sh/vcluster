@@ -3,7 +3,7 @@ package translator
 import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -15,7 +15,7 @@ func NewGenericTranslator(ctx *synccontext.RegisterContext, name string, obj cli
 
 		obj: obj,
 
-		eventRecorder: ctx.VirtualManager.GetEventRecorderFor(name + "-syncer"),
+		eventRecorder: ctx.VirtualManager.GetEventRecorder(name + "-syncer"),
 	}
 }
 
@@ -26,10 +26,10 @@ type genericTranslator struct {
 
 	obj client.Object
 
-	eventRecorder record.EventRecorder
+	eventRecorder events.EventRecorder
 }
 
-func (n *genericTranslator) EventRecorder() record.EventRecorder {
+func (n *genericTranslator) EventRecorder() events.EventRecorder {
 	return n.eventRecorder
 }
 

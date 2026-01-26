@@ -2,7 +2,7 @@ package types
 
 import (
 	syncercontext "github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 )
 
 // Translator is used to translate names as well as metadata between virtual and physical objects
@@ -16,5 +16,5 @@ type GenericTranslator interface {
 	Translator
 
 	// EventRecorder returns
-	EventRecorder() record.EventRecorder
+	EventRecorder() events.EventRecorder
 }
