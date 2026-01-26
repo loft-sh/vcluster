@@ -53,7 +53,13 @@ func (f *fakeManager) GetEventRecorderFor(string) record.EventRecorder {
 }
 
 func (f *fakeManager) GetEventRecorder(string) events.EventRecorder {
-	return events.NewFakeRecorder(0)
+	recorder := events.NewFakeRecorder(100)
+	// Drain events to prevent tests from blocking on Eventf.
+	go func() {
+		for range recorder.Events {
+		}
+	}()
+	return recorder
 }
 
 func (f *fakeManager) GetRESTMapper() meta.RESTMapper { return nil }
@@ -126,18 +132,15 @@ func (f *fakeCache) IndexField(ctx context.Context, obj client.Object, key strin
 type fakeInformer struct{}
 
 func (f *fakeInformer) AddEventHandler(_ toolscache.ResourceEventHandler) (toolscache.ResourceEventHandlerRegistration, error) {
-	//nolint:nilnil
-	return nil, nil
+	return &fakeHandlerRegistration{}, nil
 }
 
 func (f *fakeInformer) AddEventHandlerWithResyncPeriod(_ toolscache.ResourceEventHandler, _ time.Duration) (toolscache.ResourceEventHandlerRegistration, error) {
-	//nolint:nilnil
-	return nil, nil
+	return &fakeHandlerRegistration{}, nil
 }
 
 func (f *fakeInformer) AddEventHandlerWithOptions(_ toolscache.ResourceEventHandler, _ toolscache.HandlerOptions) (toolscache.ResourceEventHandlerRegistration, error) {
-	//nolint:nilnil
-	return nil, nil
+	return &fakeHandlerRegistration{}, nil
 }
 
 func (f *fakeInformer) RemoveEventHandler(_ toolscache.ResourceEventHandlerRegistration) error {
@@ -154,6 +157,12 @@ func (f *fakeInformer) HasSynced() bool {
 
 func (f *fakeInformer) IsStopped() bool {
 	return false
+}
+
+type fakeHandlerRegistration struct{}
+
+func (f *fakeHandlerRegistration) HasSynced() bool {
+	return true
 }
 
 type fakeEventBroadcaster struct{}
