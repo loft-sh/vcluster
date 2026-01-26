@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/loft-sh/vcluster/pkg/util"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -168,6 +169,56 @@ func (c *CacheClient) Delete(ctx context.Context, obj client.Object, opts ...cli
 	return c.blockDelete(ctx, obj)
 }
 
+// blockApply waits until the applied object appears in the cache with the expected state.
+// It ensures that subsequent reads will see the changes made by the Apply operation.
+//
+// The function polls the cache until one of the following conditions is met:
+//   - The object's UID has changed (object was recreated)
+//   - The object's Generation has increased (spec was updated)
+//   - The object's ResourceVersion has changed (any update occurred)
+func (c *CacheClient) blockApply(ctx context.Context, obj runtime.ApplyConfiguration) error {
+
+	clientObj, err := util.ExtractClientObjectFromApplyConfiguration(obj)
+	if err != nil {
+		// If we can't extract metadata, we can't verify cache updates.
+		// Return nil to avoid blocking indefinitely for a valid apply we just can't track.
+		return nil
+	}
+
+	// Poll the cache until the condition is met.
+	// The poll function will call our condition function repeatedly until it returns true or an error.
+	return c.poll(ctx, clientObj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
+
+		err := c.Client.Get(ctx, types.NamespacedName{Namespace: oldAccessor.GetNamespace(), Name: oldAccessor.GetName()}, newObj)
+		if err != nil {
+			if runtime.IsNotRegisteredError(err) {
+				// If the type is not registered in the scheme, we consider it a success
+				// to avoid blocking indefinitely.
+				return true, nil
+			} else if !kerrors.IsNotFound(err) {
+				// Return other errors (e.g. connection issues, permission errors) to stop polling.
+				return false, err
+			}
+			// If the object is not found, keep polling (return false, nil).
+			// For an Apply operation, we expect the object to exist eventually.
+			return false, nil
+		}
+
+		newAccessor, err := meta.Accessor(newObj)
+		if err != nil {
+			return false, err
+		}
+
+		// Condition 1: UID changed - object was deleted and recreated
+		// Condition 2: Generation increased - spec was updated
+		// Condition 3: ResourceVersion changed - any update occurred (metadata, spec, or status)
+		// If any of these conditions are true, the Apply operation is reflected in the cache.
+		return oldAccessor.GetUID() != newAccessor.GetUID() ||
+			newAccessor.GetGeneration() > oldAccessor.GetGeneration() ||
+			newAccessor.GetResourceVersion() != oldAccessor.GetResourceVersion(), nil
+	})
+}
+
 // TODO: implement DeleteAllOf
 
 func (c *CacheClient) Status() client.StatusWriter {
@@ -206,4 +257,13 @@ func (c *CacheStatusClient) Patch(ctx context.Context, obj client.Object, patch 
 	}
 
 	return c.Cache.blockUpdate(ctx, obj)
+}
+
+func (c *CacheStatusClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.SubResourceApplyOption) error {
+	err := c.Cache.Client.Status().Apply(ctx, obj, opts...)
+	if err != nil {
+		return err
+	}
+
+	return c.Cache.blockApply(ctx, obj)
 }
