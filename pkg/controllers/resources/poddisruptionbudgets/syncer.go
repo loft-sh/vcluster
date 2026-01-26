@@ -71,7 +71,14 @@ func (s *pdbSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 		if retErr != nil {
-			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(
+				event.Virtual, nil,
+				"Warning",
+				"SyncError",
+				"PodDisruptionBudgetSyncError",
+				"Error syncing: %v",
+				retErr,
+			)
 		}
 	}()
 

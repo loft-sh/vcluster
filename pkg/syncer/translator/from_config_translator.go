@@ -13,13 +13,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type fromHostTranslate struct {
 	gvk            schema.GroupVersionKind
-	eventRecorder  record.EventRecorder
+	eventRecorder  events.EventRecorder
 	virtualToHost  map[string]string
 	hostToVirtual  map[string]string
 	namespace      string
@@ -39,7 +39,7 @@ func NewFromHostTranslatorForGVK(ctx *synccontext.RegisterContext, gvk schema.Gr
 
 	return &fromHostTranslate{
 		gvk:            gvk,
-		eventRecorder:  ctx.VirtualManager.GetEventRecorderFor("from-host-" + strings.ToLower(gvk.Kind) + "-syncer"),
+		eventRecorder:  ctx.VirtualManager.GetEventRecorder("from-host-" + strings.ToLower(gvk.Kind) + "-syncer"),
 		virtualToHost:  virtualToHost,
 		hostToVirtual:  hostToVirtual,
 		namespace:      ctx.Config.HostNamespace,
@@ -97,7 +97,7 @@ func (c *fromHostTranslate) IsManaged(ctx *synccontext.SyncContext, pObj client.
 	return managed, nil
 }
 
-func (c *fromHostTranslate) EventRecorder() record.EventRecorder {
+func (c *fromHostTranslate) EventRecorder() events.EventRecorder {
 	return c.eventRecorder
 }
 

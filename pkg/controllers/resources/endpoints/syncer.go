@@ -112,7 +112,15 @@ func (s *endpointsSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 		}
 
 		if retErr != nil {
-			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(
+				event.Virtual,
+				nil,
+				"Warning",
+				"SyncError",
+				"EndpointSyncError",
+				"Error syncing: %v",
+				retErr,
+			)
 		}
 	}()
 

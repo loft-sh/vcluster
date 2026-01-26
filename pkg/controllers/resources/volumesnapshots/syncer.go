@@ -148,7 +148,14 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 		}
 
 		if retErr != nil {
-			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(
+				event.Virtual,
+				nil,
+				"Warning",
+				"SyncError",
+				"VolumeSnapshotSyncError",
+				"Error syncing: %v",
+				retErr)
 		}
 	}()
 
