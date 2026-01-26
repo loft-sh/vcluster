@@ -6,6 +6,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
+	"github.com/loft-sh/vcluster/pkg/util"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -189,6 +190,23 @@ type StatusClient struct {
 
 	suffix string
 	scheme *runtime.Scheme
+}
+
+func (c *StatusClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.SubResourceApplyOption) error {
+	if !plugin.DefaultManager.HasClientHooks() {
+		return c.Client.Status().Apply(ctx, obj, opts...)
+	}
+
+	clientObj, err := util.ExtractClientObjectFromApplyConfiguration(obj)
+	if err != nil {
+		return err
+	}
+	err = plugin.DefaultManager.MutateObject(ctx, clientObj, "Apply"+c.suffix, c.scheme)
+	if err != nil {
+		return err
+	}
+
+	return c.Client.Status().Apply(ctx, obj, opts...)
 }
 
 func (c *StatusClient) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
