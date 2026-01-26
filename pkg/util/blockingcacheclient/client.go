@@ -177,7 +177,6 @@ func (c *CacheClient) Delete(ctx context.Context, obj client.Object, opts ...cli
 //   - The object's Generation has increased (spec was updated)
 //   - The object's ResourceVersion has changed (any update occurred)
 func (c *CacheClient) blockApply(ctx context.Context, obj runtime.ApplyConfiguration) error {
-
 	clientObj, err := util.ExtractClientObjectFromApplyConfiguration(obj)
 	if err != nil {
 		// If we can't extract metadata, we can't verify cache updates.
@@ -188,7 +187,6 @@ func (c *CacheClient) blockApply(ctx context.Context, obj runtime.ApplyConfigura
 	// Poll the cache until the condition is met.
 	// The poll function will call our condition function repeatedly until it returns true or an error.
 	return c.poll(ctx, clientObj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
-
 		err := c.Client.Get(ctx, types.NamespacedName{Namespace: oldAccessor.GetNamespace(), Name: oldAccessor.GetName()}, newObj)
 		if err != nil {
 			if runtime.IsNotRegisteredError(err) {
