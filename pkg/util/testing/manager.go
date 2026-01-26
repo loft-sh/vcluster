@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/events"
 	toolscache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
@@ -22,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
@@ -31,6 +33,7 @@ func NewFakeManager(client *FakeIndexClient) ctrl.Manager {
 
 type fakeManager struct {
 	client *FakeIndexClient
+	converterRegistry conversion.Registry
 }
 
 func (f *fakeManager) SetFields(_ interface{}) error { return nil }
@@ -47,6 +50,10 @@ func (f *fakeManager) GetCache() cache.Cache { return &fakeCache{FakeIndexClient
 
 func (f *fakeManager) GetEventRecorderFor(string) record.EventRecorder {
 	return &fakeEventBroadcaster{}
+}
+
+func (f *fakeManager) GetEventRecorder(string) events.EventRecorder {
+	return events.NewFakeRecorder(0)
 }
 
 func (f *fakeManager) GetRESTMapper() meta.RESTMapper { return nil }
@@ -66,6 +73,13 @@ func (f *fakeManager) AddHealthzCheck(string, healthz.Checker) error { return ni
 func (f *fakeManager) AddReadyzCheck(string, healthz.Checker) error { return nil }
 
 func (f *fakeManager) GetWebhookServer() webhook.Server { return webhook.NewServer(webhook.Options{}) }
+
+func (f *fakeManager) GetConverterRegistry() conversion.Registry {
+	if f.converterRegistry == nil {
+		f.converterRegistry = conversion.NewRegistry()
+	}
+	return f.converterRegistry
+}
 
 func (f *fakeManager) GetLogger() logr.Logger { return log.NewLog(0) }
 
