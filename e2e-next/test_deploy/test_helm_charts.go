@@ -8,13 +8,13 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
-	e2eLabels "github.com/loft-sh/vcluster/e2e-next/labels"
+	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -28,7 +28,7 @@ const (
 
 var _ = Describe("Helm charts (regular and OCI) are synced and applied as expected",
 	Ordered,
-	e2eLabels.Deploy,
+	labels.Deploy,
 	cluster.Use(clusters.HelmChartsVCluster),
 	func() {
 		var (
@@ -69,7 +69,7 @@ var _ = Describe("Helm charts (regular and OCI) are synced and applied as expect
 		It("Test nginx release secret existence in vcluster (regular chart)", func(ctx context.Context) {
 			Eventually(func(g Gomega) {
 				secList, err := vClusterClient.CoreV1().Secrets(ChartNamespace).List(ctx, metav1.ListOptions{
-					LabelSelector: labels.SelectorFromSet(HelmSecretLabels).String(),
+					LabelSelector: k8slabels.SelectorFromSet(HelmSecretLabels).String(),
 				})
 				g.Expect(err).NotTo(HaveOccurred(), "Should be able to list secrets")
 				g.Expect(secList.Items).To(HaveLen(1), "Should have exactly one helm secret")
@@ -84,7 +84,7 @@ var _ = Describe("Helm charts (regular and OCI) are synced and applied as expect
 		It("Test fluent-bit release deployment existence in vcluster (OCI chart)", func(ctx context.Context) {
 			Eventually(func(g Gomega) []appsv1.Deployment {
 				deployList, err := vClusterClient.AppsV1().Deployments(ChartOCINamespace).List(ctx, metav1.ListOptions{
-					LabelSelector: labels.SelectorFromSet(HelmOCIDeploymentLabels).String(),
+					LabelSelector: k8slabels.SelectorFromSet(HelmOCIDeploymentLabels).String(),
 				})
 				g.Expect(err).NotTo(HaveOccurred(), "Should be able to list deployments")
 				return deployList.Items

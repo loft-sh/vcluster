@@ -2,7 +2,6 @@ package test_core
 
 import (
 	"context"
-	"os"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
@@ -37,9 +36,6 @@ var _ = Describe("Node sync",
 		It("Sync nodes using label selector", func(ctx context.Context) {
 
 			hostname := constants.GetHostClusterName() + "-control-plane"
-			if kindName, ok := os.LookupEnv("KIND_NAME"); ok && kindName != "" {
-				hostname = kindName + "-control-plane"
-			}
 			Eventually(func(g Gomega) {
 				hostNodes, err := hostClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 				g.Expect(err).NotTo(HaveOccurred(), "Failed to list host nodes")

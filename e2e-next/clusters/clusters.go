@@ -36,7 +36,7 @@ var (
 		providervcluster.WithPath(filepath.Join(os.Getenv("GOBIN"), "vcluster")),
 		providervcluster.WithLocalChartDir("../chart"),
 		providervcluster.WithUpgrade(true),
-		providervcluster.WithBackgroundProxyImage(constants.GetVclusterImage()),
+		providervcluster.WithBackgroundProxyImage(constants.GetVClusterImage()),
 	}
 )
 var (

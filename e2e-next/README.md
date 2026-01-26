@@ -6,27 +6,32 @@
 4. If you created a new folder, make sure to add the import in `e2e_suite_test.go`.
 
 ### Preparations
-* Install [vcluster cli](https://www.vcluster.com/docs/vcluster)
-* Install ginkgo cli via `go install github.com/onsi/ginkgo/v2/ginkgo@v2.23.4`
+* Install ginkgo cli via `go install github.com/onsi/ginkgo/v2/ginkgo`
 * Install [kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
 ```
+
+### Setup an environment for manual testing
+If you only want an environment that matches a test, you can create the environment without running the tests:
+1. Run `just build-snapshot`
+2. Run `just build-cli-snapshot`
+3. Run `just setup [LABEL]`
+4. Perform any manual testing using the deployed virtual cluster environment
 
 ### Develop a test
 If you want to iterate over a test, you can do:
 1. Run `just build-snapshot`
-2. Run `just setup [LABEL]` and it will do the following:
-  * Create a kind cluster
-  * Load vcluster image into kind cluster
-
-Then iterate via:
-1. Run `just iterate-e2e [LABEL]`
-2. Change things, then rerun above command
+2. Run `just build-cli-snapshot`
+3. Run `just iterate-e2e [LABEL]`
+4. Rerun step 1 if you modify the vCluster code
+5. Rerun step 2 if you modify the vCluster CLI code
+6. Rerun step 2 as you modify the tests
 
 ### Run a test
 If you just want to run a test, you can do:
 1. Run `just build-snapshot`
-2. Run `just iterate-e2e [LABEL]`
+2. Run `just build-cli-snapshot`
+3. Run `just iterate-e2e [LABEL]`
 
 ### Destroy the kind cluster
-If you want to cleanup the state, you can do:
-1. Run `just teardown my-feature`
+If you want to cleanup test environment you can do:
+1. Run `just teardown [LABEL]`

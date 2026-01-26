@@ -38,7 +38,7 @@ var (
 
 // Register your flags in an init function.  This ensures they are registered _before_ `go test` calls flag.Parse().
 func handleFlags() {
-	flag.StringVar(&vclusterImage, "vcluster-image", constants.GetVclusterImage(), "vCluster image to test")
+	flag.StringVar(&vclusterImage, "vcluster-image", constants.GetVClusterImage(), "vCluster image to test")
 	flag.StringVar(&clusterName, "cluster-name", constants.GetHostClusterName(), "The kind cluster to run test against. Optional.")
 	flag.BoolVar(&setupOnly, "setup-only", false, "Skip tests and setup the environment")
 	flag.BoolVar(&teardown, "teardown", true, "Disables [e2e.AfterSuite] [e2e.AfterAll] to leave environment in place.")
@@ -52,7 +52,7 @@ func handleFlags() {
 	}
 
 	constants.SetHostClusterName(clusterName)
-	constants.SetVclusterImage(vclusterImage)
+	constants.SetVClusterImage(vclusterImage)
 
 	e2e.SetSetupOnly(setupOnly)
 	e2e.SetTeardown(!setupOnly && teardown)
