@@ -1,4 +1,4 @@
-ARG KINE_VERSION="v0.14.4"
+ARG KINE_VERSION="v0.14.10"
 FROM rancher/kine:${KINE_VERSION} AS kine
 
 # Build program
