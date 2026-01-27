@@ -254,6 +254,9 @@ func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) 
 			Host: pObj,
 		})
 		if err != nil {
+			if kerrors.IsConflict(err) {
+				return ctrl.Result{RequeueAfter: time.Second}, nil
+			}
 			return ctrl.Result{}, fmt.Errorf("sync to virtual: %w", err)
 		}
 
