@@ -108,6 +108,11 @@ func (c *reconcilerBase) removeFinalizer(ctx context.Context, configMap *corev1.
 	// patch the object
 	err := c.client().Patch(ctx, configMap, oldConfigMap)
 	if err != nil {
+		if kerrors.IsNotFound(err) {
+			// request was deleted while reconciling; nothing to update
+			c.logger.Infof("failed to remove finalizer, configMap %s/%s not found", configMap.Namespace, configMap.Name)
+			return nil
+		}
 		return fmt.Errorf("failed to patch %s request ConfigMap %s/%s finalizers: %w", c.kind, configMap.Namespace, configMap.Name, err)
 	}
 

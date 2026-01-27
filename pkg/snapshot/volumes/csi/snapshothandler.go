@@ -255,7 +255,13 @@ func (h *snapshotHandler) deleteVolumeSnapshotResources(
 		h.logger.Debugf("Delete VolumeSnapshot %s/%s", volumeSnapshot.Namespace, volumeSnapshot.Name)
 		err := h.snapshotsClient.SnapshotV1().VolumeSnapshots(volumeSnapshot.Namespace).Delete(ctx, volumeSnapshot.Name, metav1.DeleteOptions{})
 		if err != nil && !kerrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete VolumeSnapshot %s/%s: %w", volumeSnapshot.Namespace, volumeSnapshot.Name, err)
+			// If the error is a conflict (e.g., controller is adding finalizers),
+			// it means the snapshot is being processed
+			if kerrors.IsConflict(err) {
+				h.logger.Debugf("VolumeSnapshot %s/%s deletion conflicted (likely being processed by controller), will retry", volumeSnapshot.Namespace, volumeSnapshot.Name)
+			} else {
+				return fmt.Errorf("failed to delete VolumeSnapshot %s/%s: %w", volumeSnapshot.Namespace, volumeSnapshot.Name, err)
+			}
 		}
 	}
 	if volumeSnapshotContent != nil &&
