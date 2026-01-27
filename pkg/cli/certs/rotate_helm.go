@@ -35,6 +35,8 @@ func Rotate(ctx context.Context, vClusterName string, rotationCmd RotationCmd, g
 		return fmt.Errorf("finding virtual cluster: %w", err)
 	}
 
+	DO NOT MERGE
+
 	// check if rotate is supported
 	version, err := semver.Parse(strings.TrimPrefix(vCluster.Version, "v"))
 	if err == nil {
