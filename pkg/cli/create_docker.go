@@ -104,6 +104,12 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 		return fmt.Errorf("convert config: %w", err)
 	}
 
+	// validate the config
+	err = validateConfig(vConfig, vClusterName)
+	if err != nil {
+		return fmt.Errorf("validate config: %w", err)
+	}
+
 	// pull the kubernetes image and folder structure looks roughly like this:
 	// - etcd
 	// - etcdctl
@@ -301,7 +307,7 @@ func installVClusterStandalone(ctx context.Context, vClusterName, vClusterVersio
 	joinedArgs := strings.Join(extraArgs, " ")
 	args := []string{
 		"exec", getControlPlaneContainerName(vClusterName),
-		"bash", "-c", fmt.Sprintf(`set -e -o pipefail; curl -sfLk "https://github.com/loft-sh/vcluster/releases/download/v%s/install-standalone.sh" | sh -s -- --skip-download --skip-wait %s`, vClusterVersion, joinedArgs),
+		"bash", "-c", fmt.Sprintf(`set -e -o pipefail; mount --make-rshared /; curl -sfLk "https://github.com/loft-sh/vcluster/releases/download/v%s/install-standalone.sh" | sh -s -- --skip-download --skip-wait %s`, vClusterVersion, joinedArgs),
 	}
 
 	log.Debugf("Running command: docker %s", strings.Join(args, " "))
@@ -355,6 +361,7 @@ func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterBinary
 	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/vcluster,dst=/var/lib/vcluster/bin/vcluster,ro", vClusterBinaryDir))
 	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/vcluster.yaml,dst=/etc/vcluster/vcluster.yaml,ro", vClusterConfigDir))
 	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/k8s-resolv.conf,dst=/etc/k8s-resolv.conf,ro", vClusterConfigDir))
+	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/kubelet.env,dst=/etc/vcluster/vcluster-flags.env,ro", vClusterConfigDir))
 	args = append(args, extraArgs...)
 
 	// add the image to start
@@ -375,6 +382,8 @@ func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterBinary
 }
 
 func ensureK8sResolvConf(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
+	// this is needed for dns to work correctly. Docker sets the dns to 127.0.0.11 but inside coredns or any other container
+	// with dnsPolicy: Default it will not work. So we need to set our own /etc/k8s-resolv.conf for this on the kubelet which makes it work for containers as well as nodes.
 	resolvConf := filepath.Join(filepath.Dir(globalFlags.Config), "docker", "vclusters", vClusterName, "k8s-resolv.conf")
 	_, err := os.Stat(resolvConf)
 	if err != nil {
@@ -387,11 +396,20 @@ func ensureK8sResolvConf(ctx context.Context, globalFlags *flags.GlobalFlags, vC
 			return fmt.Errorf("failed to get dns docker internal ip: %w", err)
 		}
 
+		// write the resolv.conf file
 		resolvConfContent := fmt.Sprintf("# Custom Kubelet DNS resolver\nnameserver %s\noptions ndots:0\n", hostDNSServer)
 		err = os.WriteFile(resolvConf, []byte(resolvConfContent), 0644)
 		if err != nil {
 			return fmt.Errorf("write k8s resolv conf file: %w", err)
 		}
+
+		// write the kubelet config file
+		kubeletConfig := filepath.Join(filepath.Dir(resolvConf), "kubelet.env")
+		err = os.WriteFile(kubeletConfig, []byte("KUBELET_EXTRA_ARGS=--resolv-conf=/etc/k8s-resolv.conf"), 0644)
+		if err != nil {
+			return fmt.Errorf("write kubelet config file: %w", err)
+		}
+
 		return nil
 	}
 
@@ -427,7 +445,7 @@ func ensureVClusterJoinToken(globalFlags *flags.GlobalFlags, vClusterName string
 }
 
 func canMountPrivilegedPort(ctx context.Context, vClusterName string, log log.Logger) bool {
-	args := []string{"run", "--rm", "-p", "127.0.0.1:879:80", "alpine", "echo", "1"}
+	args := []string{"run", "-q", "--rm", "-p", "127.0.0.1:879:80", "alpine", "echo", "1"}
 	log.Debugf("Running command: docker %s", strings.Join(args, " "))
 	out, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
 	if err != nil {
@@ -479,6 +497,7 @@ func runWorkerContainer(ctx context.Context, kubernetesDir, vClusterConfigDir, v
 		args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/%s,dst=/var/lib/vcluster/bin/%s,ro", kubernetesDir, entry.Name(), entry.Name()))
 	}
 	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/k8s-resolv.conf,dst=/etc/k8s-resolv.conf,ro", vClusterConfigDir))
+	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/kubelet.env,dst=/etc/vcluster/vcluster-flags.env,ro", vClusterConfigDir))
 
 	// add the image to start
 	image := "ghcr.io/loft-sh/vm-container"
@@ -504,6 +523,7 @@ func joinVClusterNodeContainer(ctx context.Context, vClusterName, workerName, vC
 	// but a manual 'until' loop is more portable across container OS versions.
 	joinScript := fmt.Sprintf(`
 sleep 2
+mount --make-rshared /
 until curl -fsSLk -o /tmp/join.sh "https://%s:8443/node/join?token=%s&type=worker"; do
   echo "Waiting for vCluster API to be ready..."
   sleep 2
@@ -587,7 +607,8 @@ func pullVClusterImage(ctx context.Context, vClusterVersion string, globalFlags 
 
 	// get the target directory
 	targetDir := filepath.Join(filepath.Dir(globalFlags.Config), "docker", "vcluster", vClusterVersion)
-	_, err := os.Stat(targetDir)
+	targetDirBinary := filepath.Join(targetDir, "vcluster")
+	_, err := os.Stat(targetDirBinary)
 	if err != nil && !os.IsNotExist(err) {
 		return "", fmt.Errorf("stat target directory: %w", err)
 	} else if err == nil {
@@ -616,7 +637,7 @@ func pullVClusterImage(ctx context.Context, vClusterVersion string, globalFlags 
 
 	// extract the image
 	log.Infof("Extracting vcluster binary from %s to %s...", fullImage, targetDir)
-	err = oci.ExtractFile(tempDir, "/vcluster", filepath.Join(targetDir, "vcluster"))
+	err = oci.ExtractFile(tempDir, "/vcluster", targetDirBinary)
 	if err != nil {
 		_ = os.RemoveAll(targetDir)
 		return "", fmt.Errorf("extract image: %w", err)
@@ -705,11 +726,6 @@ func loadUserValues(ctx context.Context, options *CreateOptions, globalFlags *fl
 	extraUserValues.Experimental.Docker.Enabled = true
 	extraUserValues.ControlPlane.Standalone.Enabled = true
 	extraUserValues.PrivateNodes.Enabled = true
-
-	// this is needed for dns to work correctly. Docker sets the dns to 127.0.0.11 but inside coredns or any other container
-	// with dnsPolicy: Default it will not work. So we need to set our own /etc/k8s-resolv.conf for this on the kubelet which makes it work for containers as well as nodes.
-	extraUserValues.PrivateNodes.Kubelet.Config = map[string]interface{}{}
-	extraUserValues.PrivateNodes.Kubelet.Config["resolvConf"] = "/etc/k8s-resolv.conf"
 
 	// disable konnectivity by default, user can still enable it via a values.yaml file
 	extraUserValues.ControlPlane.Advanced.Konnectivity.Server.Enabled = false
@@ -891,6 +907,25 @@ func convertConfig(userConfigRaw map[string]interface{}) (*config.Config, string
 	return fullConfig, string(userConfigBytes), nil
 }
 
+func validateConfig(fullConfig *config.Config, vClusterName string) error {
+	// validate the config
+	nodeNames := make(map[string]bool)
+	for _, node := range fullConfig.Experimental.Docker.Nodes {
+		if node.Name == "" {
+			return fmt.Errorf("node name is required")
+		}
+		if node.Name == vClusterName {
+			return fmt.Errorf("node name %s is not allowed to be the same as the vCluster name", node.Name)
+		}
+		if nodeNames[node.Name] {
+			return fmt.Errorf("duplicate node name %s", node.Name)
+		}
+		nodeNames[node.Name] = true
+	}
+
+	return nil
+}
+
 func getHostDNSServer(ctx context.Context, log log.Logger) (string, error) {
 	// This shell command does two things:
 	// 1. Tries to find the IP inside the 'ExtServers' comment (Docker Desktop/Embedded DNS style).
@@ -906,7 +941,7 @@ func getHostDNSServer(ctx context.Context, log log.Logger) (string, error) {
     `
 
 	// We use "sh -c" to run the complex command string.
-	out, err := exec.CommandContext(ctx, "docker", "run", "--rm", "alpine", "sh", "-c", cmd).Output()
+	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "alpine", "sh", "-c", cmd).Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get real dns name: %s: %w", string(out), err)
 	}
@@ -923,7 +958,7 @@ func getHostDNSServer(ctx context.Context, log log.Logger) (string, error) {
 func isDockerNetworkReachable(ctx context.Context, networkName string) (bool, error) {
 	// 1. Start a container listening on port 8080.
 	// We use 'nc -l -p 8080' instead of 'tail -f' so we have a target to connect to.
-	out, err := exec.CommandContext(ctx, "docker", "run", "-d", "--rm", "--network", networkName, "alpine", "nc", "-l", "-p", "8080").CombinedOutput()
+	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "-d", "--rm", "--network", networkName, "alpine", "nc", "-l", "-p", "8080").CombinedOutput()
 	if err != nil {
 		return false, fmt.Errorf("failed to start test network container: %s: %w", string(out), err)
 	}
