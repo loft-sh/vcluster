@@ -49,8 +49,12 @@ experimental:
         - chart:
             name: fluent-bit
             repo: oci://registry-1.docker.io/bitnamicharts
-            version: 0.4.3
+            version: 3.1.13
           release:
             name: fluent-bit
             namespace: fluent-bit
+          values: |-
+            image:
+              registry: docker.io
+              repository: bitnamilegacy/fluent-bit
           timeout: "50s"
