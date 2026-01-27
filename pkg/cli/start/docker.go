@@ -142,7 +142,7 @@ func (l *LoftStarter) successDocker(ctx context.Context, containerID string) err
 	if !l.NoLogin {
 		err := l.login(host)
 		if err != nil {
-			return err
+			l.Log.Errorf("Error logging into platform automatically: %v", err)
 		}
 	}
 
