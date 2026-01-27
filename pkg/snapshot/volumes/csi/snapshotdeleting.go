@@ -31,7 +31,16 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 		}
 		status.Phase = volumes.RequestPhaseFailed
 		status.Error.Message = retErr.Error()
-		s.eventRecorder.Eventf(requestObj, corev1.EventTypeWarning, fmt.Sprintf("%sFailed", status.Phase), "%s volume snapshots failed: %v", status.Phase, retErr)
+		s.eventRecorder.Eventf(
+			requestObj,
+			nil,
+			corev1.EventTypeWarning,
+			fmt.Sprintf("%sFailed", status.Phase),
+			"VolumeSnapShotsFailed",
+			"%s volume snapshots failed: %v",
+			status.Phase,
+			retErr,
+		)
 	}()
 
 	for _, volumeSnapshotRequest := range request.Requests {
@@ -71,8 +80,10 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 				status.Snapshots[pvcName] = volumeSnapshotStatus
 				s.eventRecorder.Eventf(
 					requestObj,
+					nil,
 					corev1.EventTypeNormal,
 					string(status.Phase),
+					fmt.Sprintf("VolumeSnapshot%s", volumeSnapshotStatus.Phase),
 					"%s volume snapshot for PVC %s/%s",
 					status.Phase,
 					volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
@@ -84,8 +95,10 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 				status.Snapshots[pvcName] = volumeSnapshotStatus
 				s.eventRecorder.Eventf(
 					requestObj,
+					nil,
 					corev1.EventTypeNormal,
 					string(volumeSnapshotStatus.Phase),
+					fmt.Sprintf("VolumeSnapshot%s", volumeSnapshotStatus.Phase),
 					"%s volume snapshot for PVC %s/%s",
 					status.Phase,
 					volumeSnapshotRequest.PersistentVolumeClaim.Namespace,
@@ -98,7 +111,15 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 
 	if !stillDeleting {
 		status.Phase = status.Phase.Next()
-		s.eventRecorder.Eventf(requestObj, corev1.EventTypeNormal, string(status.Phase), "%s volume snapshots", status.Phase)
+		s.eventRecorder.Eventf(
+			requestObj,
+			nil,
+			corev1.EventTypeNormal,
+			string(status.Phase),
+			fmt.Sprintf("VolumeSnapshot%s", status.Phase),
+			"%s volume snapshots",
+			status.Phase,
+		)
 	}
 	return nil
 }

@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 )
 
 const (
@@ -35,7 +35,7 @@ type VolumeSnapshotter struct {
 }
 
 // NewVolumeSnapshotter creates a new instance of the CSI volume snapshotter.
-func NewVolumeSnapshotter(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, eventRecorder record.EventRecorder, logger loghelper.Logger) (*VolumeSnapshotter, error) {
+func NewVolumeSnapshotter(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, eventRecorder events.EventRecorder, logger loghelper.Logger) (*VolumeSnapshotter, error) {
 	if vConfig == nil {
 		return nil, errors.New("virtual cluster config is required")
 	}

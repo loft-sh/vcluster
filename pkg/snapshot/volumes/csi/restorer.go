@@ -11,7 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 )
 
 type Restorer struct {
@@ -19,7 +19,7 @@ type Restorer struct {
 	vConfig *config.VirtualClusterConfig
 }
 
-func NewRestorer(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, eventRecorder record.EventRecorder, logger loghelper.Logger) (*Restorer, error) {
+func NewRestorer(vConfig *config.VirtualClusterConfig, kubeClient *kubernetes.Clientset, snapshotsClient *snapshotsv1.Clientset, eventRecorder events.EventRecorder, logger loghelper.Logger) (*Restorer, error) {
 	if vConfig == nil {
 		return nil, errors.New("virtual cluster config is required")
 	}

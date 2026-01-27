@@ -14,14 +14,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/utils/ptr"
 )
 
 type snapshotHandler struct {
 	kubeClient      *kubernetes.Clientset
 	snapshotsClient *snapshotsv1.Clientset
-	eventRecorder   record.EventRecorder
+	eventRecorder   events.EventRecorder
 	logger          loghelper.Logger
 }
 

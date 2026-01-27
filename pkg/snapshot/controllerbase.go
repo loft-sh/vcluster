@@ -14,7 +14,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -36,7 +36,7 @@ type reconcilerBase struct {
 	requestsKubeClient client.Client
 	requestsManager    ctrl.Manager
 	logger             loghelper.Logger
-	eventRecorder      record.EventRecorder
+	eventRecorder      events.EventRecorder
 	isHostMode         bool
 	kind               reconcilerKind
 	finalizer          string
@@ -257,7 +257,17 @@ func (c *reconcilerBase) deleteRequestSecret(ctx context.Context, configMap *cor
 	}
 
 	c.logger.Debugf("Deleted %s request Secret %s/%s", c.kind, namespace, name)
-	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "SecretDeleted", "%s request Secret %s/%s has been deleted", c.kind.ToCapital(), configMap.Namespace, configMap.Name)
+	c.eventRecorder.Eventf(
+		configMap,
+		nil,
+		corev1.EventTypeNormal,
+		"SecretDeleted",
+		"SecretDeleted",
+		"%s request Secret %s/%s has been deleted",
+		c.kind.ToCapital(),
+		configMap.Namespace,
+		configMap.Name,
+	)
 	return nil
 }
 

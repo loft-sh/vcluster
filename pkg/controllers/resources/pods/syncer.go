@@ -290,7 +290,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 	return patcher.CreateHostObject(ctx, event.Virtual, pPod, s.EventRecorder(), true)
 }
 
-func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) (_ ctrl.Result, retErr error) {
+func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) (result ctrl.Result, retErr error) {
 	var (
 		err error
 	)
@@ -414,7 +414,8 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	defer func() {
 		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			if kerrors.IsConflict(err) {
-				retErr = utilerrors.NewAggregate([]error{retErr, err})
+				result = ctrl.Result{RequeueAfter: time.Second}
+				retErr = nil
 				return
 			}
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
