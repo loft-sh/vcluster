@@ -328,6 +328,8 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		if !equality.Semantic.DeepEqual(event.Virtual.Status, event.Host.Status) {
 			updated := event.Virtual.DeepCopy()
 			updated.Status = *event.Host.Status.DeepCopy()
+			// QOSClass is immutable in newer Kubernetes versions; preserve the existing value.
+			updated.Status.QOSClass = event.Virtual.Status.QOSClass
 			ctx.Log.Infof("update virtual pod %s, because status has changed", event.Virtual.Name)
 			err := ctx.VirtualClient.Status().Update(ctx, updated)
 			if err != nil && !kerrors.IsNotFound(err) {
@@ -392,6 +394,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	// differences found in host QOSClass and virtual QOSClass and
 	// a patch event for this field is not created
 	event.Host.Status.QOSClass = event.VirtualOld.Status.QOSClass
+	if event.HostOld != nil {
+		event.Virtual.Status.QOSClass = event.HostOld.Status.QOSClass
+	}
 
 	// patch objects
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Pods.Patches, false))
