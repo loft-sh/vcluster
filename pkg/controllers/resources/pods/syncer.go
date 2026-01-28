@@ -2,6 +2,7 @@ package pods
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"slices"
@@ -9,8 +10,8 @@ import (
 
 	nodev1 "k8s.io/api/node/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
-
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilversion "k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
@@ -104,6 +105,17 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
 	}
 
+	hostClusterVersionInfo, err := ctx.Config.HostClient.Discovery().ServerVersion()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get virtual cluster version : %w", err)
+	}
+
+	hostClusterVersion, err := utilversion.ParseSemantic(hostClusterVersionInfo.String())
+	if err != nil {
+		// This should never happen
+		return nil, fmt.Errorf("failed to parse host cluster version : %w", err)
+	}
+
 	return &podSyncer{
 		GenericTranslator: genericTranslator,
 		Importer:          pro.NewImporter(podsMapper),
@@ -118,6 +130,8 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		podTranslator:         podTranslator,
 		nodeSelector:          nodeSelector,
 		tolerations:           tolerations,
+
+		hostClusterVersion: hostClusterVersion,
 
 		podSecurityStandard: ctx.Config.Policies.PodSecurityStandard,
 	}, nil
@@ -137,6 +151,8 @@ type podSyncer struct {
 	physicalClusterConfig *rest.Config
 	nodeSelector          *metav1.LabelSelector
 	tolerations           []*corev1.Toleration
+
+	hostClusterVersion *utilversion.Version
 
 	podSecurityStandard string
 }
@@ -396,6 +412,12 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		}
 	}()
 
+	// resize the host pod container resources in place if the pod spec has changed
+	err = s.resizeHostPodContainerResourcesInPlace(ctx, event)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// update the virtual pod if the spec has changed
 	err = s.podTranslator.Diff(ctx, event)
 	if err != nil {
@@ -407,6 +429,23 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (s *podSyncer) resizeHostPodContainerResourcesInPlace(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error {
+	if s.hostClusterVersion.LessThan(utilversion.MustParseSemantic("1.35.0")) {
+		return nil
+	}
+
+	resizePatch, err := buildHostPodContainersResourcesResizePatch(event.Virtual, event.Host)
+	if err != nil {
+		return err
+	}
+	if resizePatch != nil {
+		if err := s.applyResizeSubresource(ctx, event.Host, resizePatch); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *podSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.Pod]) (_ ctrl.Result, retErr error) {
@@ -447,6 +486,56 @@ func setSATokenSecretAsOwner(ctx *synccontext.SyncContext, pClient client.Client
 	}
 
 	return nil
+}
+
+type resizePatch struct {
+	Spec resizePatchSpec `json:"spec"`
+}
+
+type resizePatchSpec struct {
+	Containers []resizeContainer `json:"containers"`
+}
+
+type resizeContainer struct {
+	Name      string                      `json:"name"`
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+func buildHostPodContainersResourcesResizePatch(vPod, pPod *corev1.Pod) ([]byte, error) {
+	hostContainers := map[string]corev1.Container{}
+	for _, c := range pPod.Spec.Containers {
+		hostContainers[c.Name] = c
+	}
+
+	var patchContainers []resizeContainer
+	for _, v := range vPod.Spec.Containers {
+		p, ok := hostContainers[v.Name]
+		if !ok {
+			continue
+		}
+		if equality.Semantic.DeepEqual(p.Resources, v.Resources) {
+			continue
+		}
+		patchContainers = append(patchContainers, resizeContainer{
+			Name:      v.Name,
+			Resources: v.Resources,
+		})
+	}
+
+	if len(patchContainers) == 0 {
+		return nil, nil
+	}
+
+	// TODO: Improve this to potentially integrate pod level resource requests and limits inplace resize when it wil be in GA
+	return json.Marshal(resizePatch{
+		Spec: resizePatchSpec{
+			Containers: patchContainers,
+		},
+	})
+}
+
+func (s *podSyncer) applyResizeSubresource(ctx *synccontext.SyncContext, hostPod *corev1.Pod, patch []byte) error {
+	return ctx.HostClient.SubResource("resize").Patch(ctx, hostPod, client.RawPatch(types.StrategicMergePatchType, patch))
 }
 
 func (s *podSyncer) ensureNode(ctx *synccontext.SyncContext, pObj *corev1.Pod, vObj *corev1.Pod) (bool, error) {

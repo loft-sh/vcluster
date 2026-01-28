@@ -40,6 +40,10 @@ rules:
     resources: ["pods/status", "pods/ephemeralcontainers"]
     verbs: ["patch", "update"]
   {{- end }}
+  {{- if ge (.Capabilities.KubeVersion.Minor|int) 35 }}
+  - apiGroups: [""]
+    resources: ["pods/resize"]
+  {{- end }}
   - apiGroups: ["apps"]
     resources: ["statefulsets", "replicasets", "deployments"]
     verbs: ["get", "list", "watch"]
