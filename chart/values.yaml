@@ -1271,17 +1271,13 @@ logging:
   encoding: console
 
 # Sleep holds configuration for automatically putting the virtual cluster to sleep.
-# This replaces sleepMode.
 sleep: {}
 
 # Snapshots holds configuration for automatic vCluster snapshots.
-# This replaces external.platform.autoSnapshot.
 snapshots: {}
 
 # Deletion holds configuration for automatic vCluster deletion.
-# This replaces external.platform.autoDelete.
 deletion: {}
 
 # Platform holds vCluster Platform specific configuration.
-# This replaces the remaining fields from external.platform.
 platform: {}

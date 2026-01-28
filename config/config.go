@@ -96,19 +96,15 @@ type Config struct {
 	Logging *Logging `json:"logging,omitempty"`
 
 	// Sleep holds configuration for automatically putting the virtual cluster to sleep.
-	// This replaces sleepMode.
 	Sleep *vclusterconfig.Sleep `json:"sleep,omitempty"`
 
 	// Snapshots holds configuration for automatic vCluster snapshots.
-	// This replaces external.platform.autoSnapshot.
 	Snapshots *vclusterconfig.Snapshots `json:"snapshots,omitempty"`
 
 	// Deletion holds configuration for automatic vCluster deletion.
-	// This replaces external.platform.autoDelete.
 	Deletion *vclusterconfig.Deletion `json:"deletion,omitempty"`
 
 	// Platform holds vCluster Platform specific configuration.
-	// This replaces the remaining fields from external.platform.
 	Platform *vclusterconfig.Platform `json:"platform,omitempty"`
 }
 

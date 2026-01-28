@@ -5473,19 +5473,19 @@
     },
     "sleep": {
       "$ref": "#/$defs/Sleep",
-      "description": "Sleep holds configuration for automatically putting the virtual cluster to sleep.\nThis replaces sleepMode."
+      "description": "Sleep holds configuration for automatically putting the virtual cluster to sleep."
     },
     "snapshots": {
       "$ref": "#/$defs/Snapshots",
-      "description": "Snapshots holds configuration for automatic vCluster snapshots.\nThis replaces external.platform.autoSnapshot."
+      "description": "Snapshots holds configuration for automatic vCluster snapshots."
     },
     "deletion": {
       "$ref": "#/$defs/Deletion",
-      "description": "Deletion holds configuration for automatic vCluster deletion.\nThis replaces external.platform.autoDelete."
+      "description": "Deletion holds configuration for automatic vCluster deletion."
     },
     "platform": {
       "$ref": "#/$defs/Platform",
-      "description": "Platform holds vCluster Platform specific configuration.\nThis replaces the remaining fields from external.platform."
+      "description": "Platform holds vCluster Platform specific configuration."
     }
   },
   "additionalProperties": false,
