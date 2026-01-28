@@ -393,19 +393,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	// NewSyncerPatcher() is called so that there are no
 	// differences found in host QOSClass and virtual QOSClass and
 	// a patch event for this field is not created
-	virtualQOS := event.Virtual.Status.QOSClass
-	if event.VirtualOld != nil {
-		virtualQOS = event.VirtualOld.Status.QOSClass
-	}
-	// Set both Host and Virtual to the same QOSClass value to prevent patching
-	event.Host.Status.QOSClass = virtualQOS
-	if event.HostOld != nil {
-		event.HostOld.Status.QOSClass = virtualQOS
-	}
-	event.Virtual.Status.QOSClass = virtualQOS
-	if event.VirtualOld != nil {
-		event.VirtualOld.Status.QOSClass = virtualQOS
-	}
+	event.Host.Status.QOSClass = event.VirtualOld.Status.QOSClass
 
 	// patch objects
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Pods.Patches, false))
