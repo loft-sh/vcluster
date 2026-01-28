@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"github.com/loft-sh/admin-apis/pkg/licenseapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,11 +24,11 @@ type LicenseRequestSpec struct {
 	URL string `json:"url,omitempty"`
 
 	// Input is the input payload to send to the url.
-	Input licenseapi.GenericRequestInput `json:"input,omitempty"`
+	Input string `json:"input,omitempty"`
 }
 
 type LicenseRequestStatus struct {
 	// Output is where the request output is stored.
 	// +optional
-	Output *licenseapi.GenericRequestOutput `json:"output,omitempty"`
+	Output string `json:"output,omitempty"`
 }
