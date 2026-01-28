@@ -137,10 +137,10 @@ func TestLinearSyncLogic_StrictFiltering(t *testing.T) {
 			if tc.strictFiltering {
 				// Simulate filtered PRs (would come from FetchPRsForRelease)
 				filteredPRs := filterPRsByTime(allPRs, currentRelease.PublishedAt.Time)
-				pullRequests = NewLinearPullRequests(filteredPRs)
+				pullRequests = NewLinearPullRequests(filteredPRs, nil)
 			} else {
 				// Use all PRs (original behavior)
-				pullRequests = NewLinearPullRequests(allPRs)
+				pullRequests = NewLinearPullRequests(allPRs, nil)
 			}
 
 			if len(pullRequests) != tc.expectedPRCount {
@@ -320,6 +320,135 @@ func TestDeduplicateIssueIDs(t *testing.T) {
 				if v != tc.expected[i] {
 					t.Errorf("at index %d: expected %q, got %q", i, tc.expected[i], v)
 				}
+			}
+		})
+	}
+}
+
+func TestTeamKeyFiltering(t *testing.T) {
+	// Test that issue IDs are filtered by valid team keys
+	validKeys := ValidTeamKeys{
+		"eng":    {},
+		"doc":    {},
+		"devops": {},
+	}
+
+	testCases := []struct {
+		name           string
+		prBody         string
+		prBranch       string
+		validTeamKeys  ValidTeamKeys
+		expectedIssues []string
+		description    string
+	}{
+		{
+			name:           "Filter out invalid team keys",
+			prBody:         "Fixes ENG-1234 and pr-3354",
+			prBranch:       "feature/update",
+			validTeamKeys:  validKeys,
+			expectedIssues: []string{"eng-1234"},
+			description:    "Should filter out pr-3354 as 'pr' is not a valid team key",
+		},
+		{
+			name:           "Filter out multiple invalid patterns",
+			prBody:         "Fixes snap-1, ENG-5678, and build-123",
+			prBranch:       "feature/update",
+			validTeamKeys:  validKeys,
+			expectedIssues: []string{"eng-5678"},
+			description:    "Should filter out snap-1 and build-123",
+		},
+		{
+			name:           "Allow all valid team keys",
+			prBody:         "Fixes ENG-1234, DOC-567, and DEVOPS-890",
+			prBranch:       "feature/update",
+			validTeamKeys:  validKeys,
+			expectedIssues: []string{"eng-1234", "doc-567", "devops-890"},
+			description:    "Should allow all issues with valid team keys",
+		},
+		{
+			name:           "Case insensitive team keys",
+			prBody:         "Fixes eng-1234 and ENG-5678",
+			prBranch:       "DOC-999/update",
+			validTeamKeys:  validKeys,
+			expectedIssues: []string{"eng-1234", "eng-5678", "doc-999"},
+			description:    "Should match team keys case-insensitively",
+		},
+		{
+			name:           "No filtering when validTeamKeys is nil",
+			prBody:         "Fixes pr-3354 and snap-1",
+			prBranch:       "feature/update",
+			validTeamKeys:  nil,
+			expectedIssues: []string{"pr-3354", "snap-1"},
+			description:    "Should not filter when validTeamKeys is nil",
+		},
+		{
+			name:           "Empty validTeamKeys filters everything",
+			prBody:         "Fixes ENG-1234",
+			prBranch:       "feature/update",
+			validTeamKeys:  ValidTeamKeys{},
+			expectedIssues: []string{},
+			description:    "Should filter all issues when validTeamKeys is empty",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pr := LinearPullRequest{
+				PullRequest: pullrequests.PullRequest{
+					Number:      1,
+					Body:        tc.prBody,
+					HeadRefName: tc.prBranch,
+					Merged:      true,
+				},
+				validTeamKeys: tc.validTeamKeys,
+			}
+
+			extractedIssues := pr.IssueIDs()
+
+			if len(extractedIssues) != len(tc.expectedIssues) {
+				t.Errorf("%s: expected %d issues, got %d issues", tc.description, len(tc.expectedIssues), len(extractedIssues))
+				t.Errorf("Expected: %v, Got: %v", tc.expectedIssues, extractedIssues)
+				return
+			}
+
+			// Check that all expected issues are present
+			expectedMap := make(map[string]bool)
+			for _, issue := range tc.expectedIssues {
+				expectedMap[issue] = true
+			}
+
+			for _, issue := range extractedIssues {
+				if !expectedMap[issue] {
+					t.Errorf("%s: unexpected issue ID found: %s", tc.description, issue)
+				}
+				delete(expectedMap, issue)
+			}
+
+			for issue := range expectedMap {
+				t.Errorf("%s: expected issue ID not found: %s", tc.description, issue)
+			}
+		})
+	}
+}
+
+func TestExtractTeamKey(t *testing.T) {
+	testCases := []struct {
+		issueID     string
+		expectedKey string
+	}{
+		{"eng-1234", "eng"},
+		{"DOC-567", "doc"},
+		{"DEVOPS-890", "devops"},
+		{"pr-3354", "pr"},
+		{"a-1", "a"},
+		{"", ""},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.issueID, func(t *testing.T) {
+			result := extractTeamKey(tc.issueID)
+			if result != tc.expectedKey {
+				t.Errorf("extractTeamKey(%q) = %q, want %q", tc.issueID, result, tc.expectedKey)
 			}
 		})
 	}

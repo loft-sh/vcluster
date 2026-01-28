@@ -70,7 +70,7 @@ func TestLinearPullRequestIssueExtraction(t *testing.T) {
 				Merged:      true,
 			}
 
-			linearPR := LinearPullRequest{PullRequest: pr}
+			linearPR := LinearPullRequest{PullRequest: pr, validTeamKeys: nil}
 			extractedIssues := linearPR.IssueIDs()
 
 			if len(extractedIssues) != len(tc.expectedIssues) {
@@ -173,10 +173,10 @@ func TestStrictFilteringIntegration(t *testing.T) {
 						filteredPRs = append(filteredPRs, pr)
 					}
 				}
-				pullRequests = NewLinearPullRequests(filteredPRs)
+				pullRequests = NewLinearPullRequests(filteredPRs, nil)
 			} else {
 				// Use all PRs
-				pullRequests = NewLinearPullRequests(allPRs)
+				pullRequests = NewLinearPullRequests(allPRs, nil)
 			}
 
 			// Verify correct PRs are included
@@ -237,7 +237,7 @@ func BenchmarkLinearPullRequestIssueExtraction(b *testing.B) {
 		Merged:      true,
 	}
 
-	linearPR := LinearPullRequest{PullRequest: pr}
+	linearPR := LinearPullRequest{PullRequest: pr, validTeamKeys: nil}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
