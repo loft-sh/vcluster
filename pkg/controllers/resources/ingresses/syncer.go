@@ -62,15 +62,8 @@ func (s *ingressSyncer) Syncer() syncertypes.Sync[client.Object] {
 
 func (s *ingressSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*networkingv1.Ingress]) (ctrl.Result, error) {
 	if s.applyLimitByClass(ctx, event.Virtual) {
-		s.EventRecorder().Eventf(
-			event.Virtual,
-			nil,
-			"Warning",
-			"SyncWarning",
-			"IngressSyncWarning",
-			"did not sync ingress %q to host because it does not match the selector under 'sync.fromHost.ingressClasses.selector'",
-			event.Virtual.GetName(),
-		)
+		// applyLimitByClass already logs the appropriate error message with details
+		// (including ingress class name), so we don't need to log another message here
 		return ctrl.Result{}, nil
 	}
 

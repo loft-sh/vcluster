@@ -154,13 +154,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			return ctrl.Result{}, nil
 		}
 	}
-
-	// If a newer snapshot request exists for the same URL, cancel this one if it's in progress.
-	err = c.cancelIfNewerRequestExists(ctx, snapshotRequest)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to check for newer snapshot requests: %w", err)
-	}
-
 	canContinue, err := c.cancelPreviousRequests(ctx, snapshotRequest)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to cancel previous snapshot requests: %w", err)
@@ -577,48 +570,4 @@ func (c *Reconciler) cancelPreviousRequests(ctx context.Context, request *Reques
 	}
 
 	return currentRequestCanContinue, nil
-}
-
-func (c *Reconciler) cancelIfNewerRequestExists(ctx context.Context, request *Request) error {
-	if request.Status.Phase != RequestPhaseCreatingVolumeSnapshots &&
-		request.Status.Phase != RequestPhaseCreatingEtcdBackup &&
-		request.Status.Phase != RequestPhaseNotStarted {
-		return nil
-	}
-
-	var configMaps corev1.ConfigMapList
-	listOptions := &client.ListOptions{
-		LabelSelector: labels.SelectorFromSet(map[string]string{
-			constants.SnapshotRequestLabel: "",
-		}),
-		Namespace: c.getRequestNamespace(),
-	}
-	if err := c.client().List(ctx, &configMaps, listOptions); err != nil {
-		return fmt.Errorf("failed to list snapshot request ConfigMaps: %w", err)
-	}
-
-	for _, configMap := range configMaps.Items {
-		otherRequest, err := UnmarshalSnapshotRequest(&configMap)
-		if err != nil {
-			c.logger.Errorf("Failed to unmarshal snapshot request from ConfigMap %s/%s: %v", configMap.Namespace, configMap.Name, err)
-			continue
-		}
-		if otherRequest.Name == request.Name {
-			continue
-		}
-		if otherRequest.Spec.URL != request.Spec.URL {
-			continue
-		}
-		if !otherRequest.CreationTimestamp.Time.After(request.CreationTimestamp.Time) {
-			continue
-		}
-		if otherRequest.Done() {
-			continue
-		}
-
-		request.Status.Phase = RequestPhaseCanceling
-		return nil
-	}
-
-	return nil
 }

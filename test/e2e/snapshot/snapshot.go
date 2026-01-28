@@ -566,7 +566,6 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(volumeSnapshotContents.Items).To(BeEmpty())
 		})
-
 		It("Deletes the PVC with test data", func(ctx context.Context) {
 			deletePVC(ctx, f, controllerTestNamespaceName, pvcToRestoreName)
 		})
@@ -721,17 +720,40 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				Should(Succeed())
 		})
 
-		It("completed new new snapshot request", func(ctx context.Context) {
+		It("completed new snapshot request", func(ctx context.Context) {
 			Eventually(func(g Gomega, ctx context.Context) {
 				_, newerSnapshotRequest := getTwoSnapshotRequests(g, ctx, f)
-				g.Expect(newerSnapshotRequest.Status.Phase).Should(
-					Equal(snapshot.RequestPhaseCompleted),
-					fmt.Sprintf("Newer snapshot request %s is not completed, got: %s", newerSnapshotRequest.Name, toJSON(newerSnapshotRequest)))
+
+				// First check individual volume snapshot phases for better diagnostics
+				// This helps identify which specific snapshots are stuck
 				for pvcName, volumeSnapshot := range newerSnapshotRequest.Status.VolumeSnapshots.Snapshots {
 					g.Expect(volumeSnapshot.Phase).To(
 						Equal(volumes.RequestPhaseCompleted),
-						fmt.Sprintf("New volume snapshot request for PVC %s should be completed, got: %s", pvcName, toJSON(volumeSnapshot)))
+						fmt.Sprintf("Volume snapshot for PVC %s is not completed. Phase: %s, SnapshotHandle: %s, Error: %s. Full snapshot request: %s",
+							pvcName,
+							volumeSnapshot.Phase,
+							volumeSnapshot.SnapshotHandle,
+							toJSON(volumeSnapshot.Error),
+							toJSON(newerSnapshotRequest)))
 				}
+
+				// Then check the overall volumeSnapshots phase
+				g.Expect(newerSnapshotRequest.Status.VolumeSnapshots.Phase).To(
+					Equal(volumes.RequestPhaseCompleted),
+					fmt.Sprintf("VolumeSnapshots phase is not completed for snapshot request %s. Phase: %s, Overall phase: %s, VolumeSnapshots: %s",
+						newerSnapshotRequest.Name,
+						newerSnapshotRequest.Status.VolumeSnapshots.Phase,
+						newerSnapshotRequest.Status.Phase,
+						toJSON(newerSnapshotRequest.Status.VolumeSnapshots)))
+
+				// Finally check the overall snapshot request phase
+				g.Expect(newerSnapshotRequest.Status.Phase).Should(
+					Equal(snapshot.RequestPhaseCompleted),
+					fmt.Sprintf("Newer snapshot request %s is not completed. Overall phase: %s, VolumeSnapshots phase: %s, Full request: %s",
+						newerSnapshotRequest.Name,
+						newerSnapshotRequest.Status.Phase,
+						newerSnapshotRequest.Status.VolumeSnapshots.Phase,
+						toJSON(newerSnapshotRequest)))
 			}).WithContext(ctx).
 				WithPolling(framework.PollInterval).
 				WithTimeout(5 * time.Minute).
