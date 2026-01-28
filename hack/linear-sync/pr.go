@@ -13,15 +13,22 @@ var issuesInBodyREs = []*regexp.Regexp{
 
 const PageSize = 100
 
+// ValidTeamKeys holds a set of known Linear team keys (lowercase) for filtering
+type ValidTeamKeys map[string]struct{}
+
 type LinearPullRequest struct {
 	pullrequests.PullRequest
+	validTeamKeys ValidTeamKeys
 }
 
-func NewLinearPullRequests(prs []pullrequests.PullRequest) []LinearPullRequest {
+func NewLinearPullRequests(prs []pullrequests.PullRequest, validTeamKeys ValidTeamKeys) []LinearPullRequest {
 	linearPRs := make([]LinearPullRequest, 0, len(prs))
 
 	for _, pr := range prs {
-		linearPRs = append(linearPRs, LinearPullRequest{pr})
+		linearPRs = append(linearPRs, LinearPullRequest{
+			PullRequest:   pr,
+			validTeamKeys: validTeamKeys,
+		})
 	}
 
 	return linearPRs
@@ -30,7 +37,11 @@ func NewLinearPullRequests(prs []pullrequests.PullRequest) []LinearPullRequest {
 // IssueIDs extracts the Linear issue IDs from either the pull requests body
 // or it's branch name.
 //
-// Will return an empty string if it did not manage to find an issue.
+// Returns only issue IDs that match known Linear team keys (e.g., ENG-1234, DOC-567).
+// Filters out false positives like pr-3354, snap-1 that match the regex pattern
+// but aren't actual Linear issues.
+//
+// Will return an empty slice if no valid issues are found.
 func (p LinearPullRequest) IssueIDs() []string {
 	issueIDs := []string{}
 
@@ -55,6 +66,14 @@ func (p LinearPullRequest) IssueIDs() []string {
 						issueID = ""
 					}
 
+					// Filter by valid team keys if provided
+					if issueID != "" && p.validTeamKeys != nil {
+						teamKey := extractTeamKey(issueID)
+						if _, valid := p.validTeamKeys[teamKey]; !valid {
+							issueID = ""
+						}
+					}
+
 					if issueID != "" {
 						issueIDs = append(issueIDs, issueID)
 					}
@@ -64,4 +83,13 @@ func (p LinearPullRequest) IssueIDs() []string {
 	}
 
 	return issueIDs
+}
+
+// extractTeamKey extracts the team key from an issue ID (e.g., "eng" from "eng-1234")
+func extractTeamKey(issueID string) string {
+	parts := strings.SplitN(issueID, "-", 2)
+	if len(parts) < 1 {
+		return ""
+	}
+	return strings.ToLower(parts[0])
 }
