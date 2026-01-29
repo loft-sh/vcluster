@@ -1,3 +1,106 @@
+## 2.27.2
+
+### Fixes
+- inline automaxprocs to simplify dependencies; this will be removed when Go 1.26 comes out [a69113a]
+
+### Maintenance
+- Fix syntax errors and typo [a99c6e0]
+- Fix paragraph position error [f993df5]
+
+## 2.27.1
+
+### Fixes
+- Fix Ginkgo Reporter slice-bounds panic [606c1cb]
+- Bug Fix: Add GinkoTBWrapper.Attr() and GinkoTBWrapper.Output() [a6463b3]
+
+## 2.27.0
+
+### Features
+
+#### Transforming Nodes during Tree Construction
+
+This release adds support for `NodeArgsTransformer`s that can be registered with `AddTreeConstructionNodeArgsTransformer`.
+
+These are called during the tree construction phase as nodes are constructed and can modify the node strings and decorators.  This enables frameworks built on top of Ginkgo to modify Ginkgo nodes and enforce conventions.
+
+Learn more [here](https://onsi.github.io/ginkgo/#advanced-transforming-node-arguments-during-tree-construction).
+
+#### Spec Prioritization
+
+A new `SpecPriority(int)` decorator has been added.  Ginkgo will honor priority when ordering specs, ensuring that higher priority specs start running before lower priority specs
+
+Learn more [here](https://onsi.github.io/ginkgo/#prioritizing-specs).
+
+### Maintenance
+- Bump rexml from 3.4.0 to 3.4.2 in /docs (#1595) [1333dae]
+- Bump github.com/gkampitakis/go-snaps from 0.5.14 to 0.5.15 (#1600) [17ae63e]
+
+## 2.26.0
+
+### Features
+
+Ginkgo can now generate json-formatted reports that are compatible with the `go test` json format.  Use `ginkgo --gojson-report=report.go.json`.  This is not intended to be a replacement for Ginkgo's native json format which is more information rich and better models Ginkgo's test structure semantics.
+
+## 2.25.3
+
+### Fixes
+
+- emit --github-output group only for progress report itself [f01aed1]
+
+## 2.25.2
+
+### Fixes
+Add github output group for progress report content
+
+### Maintenance
+Bump Gomega
+
+## 2.25.1
+
+### Fixes
+- fix(types): ignore nameless nodes on FullText() [10866d3]
+- chore: fix some CodeQL warnings [2e42cff]
+
+## 2.25.0
+
+### `AroundNode`
+
+This release introduces a new decorator to support more complex spec setup usecases.
+
+`AroundNode` registers a function that runs before each individual node.  This is considered a more advanced decorator.
+
+Please read the [docs](https://onsi.github.io/ginkgo/#advanced-around-node) for more information and some examples.
+
+Allowed signatures:
+
+- `AroundNode(func())` - `func` will be called before the node is run.
+- `AroundNode(func(ctx context.Context) context.Context)` - `func` can wrap the passed in context and return a new one which will be passed on to the node.
+- `AroundNode(func(ctx context.Context, body func(ctx context.Context)))` - `ctx` is the context for the node and `body` is a function that must be called to run the node.  This gives you complete control over what runs before and after the node.
+
+Multiple `AroundNode` decorators can be applied to a single node and they will run in the order they are applied.
+
+Unlike setup nodes like `BeforeEach` and `DeferCleanup`, `AroundNode` is guaranteed to run in the same goroutine as the decorated node.  This is necessary when working with lower-level libraries that must run on a single thread (you can call `runtime.LockOSThread()` in the `AroundNode` to ensure that the node runs on a single thread).
+
+Since `AroundNode` allows you to modify the context you can also use `AroundNode` to implement shared setup that attaches values to the context.
+
+If applied to a container, `AroundNode` will run before every node in the container.  Including setup nodes like `BeforeEach` and `DeferCleanup`.
+
+`AroundNode` can also be applied to `RunSpecs` to run before every node in the suite.  This opens up new mechanisms for instrumenting individual nodes across an entire suite.
+
+## 2.24.0
+
+### Features
+
+Specs can now be decorated with (e.g.) `SemVerConstraint("2.1.0")` and `ginkgo --sem-ver-filter="2.1.1"` will only run constrained specs that match the requested version.  Learn more in the docs [here](https://onsi.github.io/ginkgo/#spec-semantic-version-filtering)!  Thanks to @Icarus9913 for the PR.
+
+### Fixes
+
+- remove -o from run command [3f5d379].  fixes [#1582](https://github.com/onsi/ginkgo/issues/1582)
+
+### Maintenance
+
+Numerous dependency bumps and documentation fixes
+
 ## 2.23.4
 
 Prior to this release Ginkgo would compute the incorrect number of available CPUs when running with `-p` in a linux container.  Thanks to @emirot for the fix!

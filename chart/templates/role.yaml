@@ -46,9 +46,12 @@ rules:
   - apiGroups: [""]
     resources: ["endpoints", "pods/log"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: [ "" ]
+  - apiGroups: [""]
     resources: ["events"]
     verbs: [ "create", "get", "list", "watch" ]
+  - apiGroups: [ "events.k8s.io" ]
+    resources: ["events"]
+    verbs: [ "create", "get", "list", "watch", "patch" ]
   {{- if .Values.sync.toHost.endpoints.enabled }}
   - apiGroups: [""]
     resources: ["endpoints"]
