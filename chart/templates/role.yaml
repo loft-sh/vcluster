@@ -43,6 +43,7 @@ rules:
   {{- if ge (.Capabilities.KubeVersion.Minor|int) 35 }}
   - apiGroups: [""]
     resources: ["pods/resize"]
+    verbs: ["patch", "update"]
   {{- end }}
   - apiGroups: ["apps"]
     resources: ["statefulsets", "replicasets", "deployments"]
