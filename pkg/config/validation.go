@@ -179,7 +179,7 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return fmt.Errorf("namespace sync: %w", err)
 	}
 
-	// if we're runnign in with namespace sync enabled, we want to sync all objects.
+	// if we're running in with namespace sync enabled, we want to sync all objects.
 	// otherwise, objects created on host in synced namespaces won't get imported into vCluster.
 	if vConfig.Sync.ToHost.Namespaces.Enabled {
 		vConfig.Sync.ToHost.Secrets.All = true
@@ -255,6 +255,7 @@ func ValidateAllSyncPatches(sync config.Sync) error {
 			{"sync.toHost.persistentVolumes", sync.ToHost.PersistentVolumes.Patches},
 			{"sync.toHost.podDisruptionBudgets", sync.ToHost.PodDisruptionBudgets.Patches},
 			{"sync.toHost.priorityClasses", sync.ToHost.PriorityClasses.Patches},
+			{"sync.toHost.resourceClaims", sync.ToHost.ResourceClaims.Patches},
 			{"sync.toHost.storageClasses", sync.ToHost.StorageClasses.Patches},
 			{"sync.toHost.volumeSnapshots", sync.ToHost.VolumeSnapshots.Patches},
 			{"sync.toHost.volumeSnapshotContents", sync.ToHost.VolumeSnapshotContents.Patches},
@@ -269,6 +270,7 @@ func ValidateAllSyncPatches(sync config.Sync) error {
 			{"sync.fromHost.events", sync.FromHost.Events.Patches},
 			{"sync.fromHost.volumeSnapshotClasses", sync.FromHost.VolumeSnapshotClasses.Patches},
 			{"sync.fromHost.configMaps", sync.FromHost.ConfigMaps.Patches},
+			{"sync.fromHost.deviceClasses", sync.FromHost.DeviceClasses.Patches},
 		}...,
 	)
 }
