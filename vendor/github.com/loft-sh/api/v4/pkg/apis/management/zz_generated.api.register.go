@@ -196,17 +196,7 @@ var (
 	NewLicenseREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewLicenseRESTFunc(Factory)
 	}
-	NewLicenseRESTFunc            NewRESTFunc
-	ManagementLicenseTokenStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
-		InternalLicenseToken,
-		func() runtime.Object { return &LicenseToken{} },     // Register versioned resource
-		func() runtime.Object { return &LicenseTokenList{} }, // Register versioned resource list
-		NewLicenseTokenREST,
-	)
-	NewLicenseTokenREST = func(getter generic.RESTOptionsGetter) rest.Storage {
-		return NewLicenseTokenRESTFunc(Factory)
-	}
-	NewLicenseTokenRESTFunc      NewRESTFunc
+	NewLicenseRESTFunc           NewRESTFunc
 	ManagementLoftUpgradeStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalLoftUpgrade,
 		func() runtime.Object { return &LoftUpgrade{} },     // Register versioned resource
@@ -759,19 +749,7 @@ var (
 		return NewLicenseRequestRESTFunc(Factory)
 	}
 	NewLicenseRequestRESTFunc NewRESTFunc
-	InternalLicenseToken      = builders.NewInternalResource(
-		"licensetokens",
-		"LicenseToken",
-		func() runtime.Object { return &LicenseToken{} },
-		func() runtime.Object { return &LicenseTokenList{} },
-	)
-	InternalLicenseTokenStatus = builders.NewInternalResourceStatus(
-		"licensetokens",
-		"LicenseTokenStatus",
-		func() runtime.Object { return &LicenseToken{} },
-		func() runtime.Object { return &LicenseTokenList{} },
-	)
-	InternalLoftUpgrade = builders.NewInternalResource(
+	InternalLoftUpgrade       = builders.NewInternalResource(
 		"loftupgrades",
 		"LoftUpgrade",
 		func() runtime.Object { return &LoftUpgrade{} },
@@ -1259,6 +1237,14 @@ var (
 		return NewVirtualClusterNodeAccessKeyRESTFunc(Factory)
 	}
 	NewVirtualClusterNodeAccessKeyRESTFunc  NewRESTFunc
+	InternalVirtualClusterResourceUsageREST = builders.NewInternalSubresource(
+		"virtualclusterinstances", "VirtualClusterResourceUsage", "resourceusage",
+		func() runtime.Object { return &VirtualClusterResourceUsage{} },
+	)
+	NewVirtualClusterResourceUsageREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewVirtualClusterResourceUsageRESTFunc(Factory)
+	}
+	NewVirtualClusterResourceUsageRESTFunc  NewRESTFunc
 	InternalVirtualClusterInstanceShellREST = builders.NewInternalSubresource(
 		"virtualclusterinstances", "VirtualClusterInstanceShell", "shell",
 		func() runtime.Object { return &VirtualClusterInstanceShell{} },
@@ -1351,8 +1337,6 @@ var (
 		InternalLicense,
 		InternalLicenseStatus,
 		InternalLicenseRequestREST,
-		InternalLicenseToken,
-		InternalLicenseTokenStatus,
 		InternalLoftUpgrade,
 		InternalLoftUpgradeStatus,
 		InternalNodeClaim,
@@ -1426,6 +1410,7 @@ var (
 		InternalVirtualClusterInstanceKubeConfigREST,
 		InternalVirtualClusterInstanceLogREST,
 		InternalVirtualClusterNodeAccessKeyREST,
+		InternalVirtualClusterResourceUsageREST,
 		InternalVirtualClusterInstanceShellREST,
 		InternalVirtualClusterInstanceSnapshotREST,
 		InternalVirtualClusterStandaloneREST,
@@ -1735,7 +1720,7 @@ type Cloud struct {
 }
 
 // +genclient
-// +genclient:nonNamespaced
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Cluster struct {
@@ -2133,7 +2118,7 @@ type KioskStatus struct {
 }
 
 // +genclient
-// +genclient:nonNamespaced
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type License struct {
@@ -2153,12 +2138,12 @@ type LicenseRequest struct {
 }
 
 type LicenseRequestSpec struct {
-	URL   string                            `json:"url,omitempty"`
-	Input pkglicenseapi.GenericRequestInput `json:"input,omitempty"`
+	URL   string `json:"url,omitempty"`
+	Input string `json:"input,omitempty"`
 }
 
 type LicenseRequestStatus struct {
-	Output *pkglicenseapi.GenericRequestOutput `json:"output,omitempty"`
+	Output string `json:"output,omitempty"`
 }
 
 type LicenseSpec struct {
@@ -2168,26 +2153,6 @@ type LicenseStatus struct {
 	License          *pkglicenseapi.License                 `json:"license,omitempty"`
 	ResourceUsage    map[string]pkglicenseapi.ResourceCount `json:"resourceUsage,omitempty"`
 	PlatformDatabase *pkglicenseapi.PlatformDatabase        `json:"platformDatabase,omitempty"`
-}
-
-// +genclient
-// +genclient:nonNamespaced
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type LicenseToken struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              LicenseTokenSpec   `json:"spec,omitempty"`
-	Status            LicenseTokenStatus `json:"status,omitempty"`
-}
-
-type LicenseTokenSpec struct {
-	URL     string `json:"url,omitempty"`
-	Payload string `json:"payload,omitempty"`
-}
-
-type LicenseTokenStatus struct {
-	Token *pkglicenseapi.InstanceTokenAuth `json:"token,omitempty"`
 }
 
 // +genclient
@@ -3160,6 +3125,23 @@ type VirtualClusterNodeAccessKeyStatus struct {
 	AccessKey string `json:"accessKey,omitempty"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterResourceUsage struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Status            VirtualClusterResourceUsageStatus `json:"status,omitempty"`
+}
+
+type VirtualClusterResourceUsageMap struct {
+	Nodes    int            `json:"nodes"`
+	Capacity map[string]int `json:"capacity,omitempty"`
+}
+
+type VirtualClusterResourceUsageStatus struct {
+	ResourceUsage VirtualClusterResourceUsageMap `json:"resourceUsage,omitempty"`
+}
+
 type VirtualClusterRole struct {
 	ObjectName  `json:",inline"`
 	Role        string      `json:"role,omitempty"`
@@ -3234,9 +3216,8 @@ type VirtualClusterTemplateStatus struct {
 }
 
 type VolumeSnapshotRequestStatus struct {
-	Phase          string               `json:"phase,omitempty"`
-	SnapshotHandle string               `json:"snapshotHandle,omitempty"`
-	Error          SnapshotRequestError `json:"error"`
+	Phase string               `json:"phase,omitempty"`
+	Error SnapshotRequestError `json:"error"`
 }
 
 type VolumeSnapshotsRequestStatus struct {
@@ -5224,125 +5205,6 @@ func (s *storageLicense) UpdateLicense(ctx context.Context, object *License) (*L
 }
 
 func (s *storageLicense) DeleteLicense(ctx context.Context, id string) (bool, error) {
-	st := s.GetStandardStorage()
-	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
-	return sync, err
-}
-
-// LicenseToken Functions and Structs
-//
-// +k8s:deepcopy-gen=false
-type LicenseTokenStrategy struct {
-	builders.DefaultStorageStrategy
-}
-
-// +k8s:deepcopy-gen=false
-type LicenseTokenStatusStrategy struct {
-	builders.DefaultStatusStorageStrategy
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type LicenseTokenList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []LicenseToken `json:"items"`
-}
-
-func (LicenseToken) NewStatus() interface{} {
-	return LicenseTokenStatus{}
-}
-
-func (pc *LicenseToken) GetStatus() interface{} {
-	return pc.Status
-}
-
-func (pc *LicenseToken) SetStatus(s interface{}) {
-	pc.Status = s.(LicenseTokenStatus)
-}
-
-func (pc *LicenseToken) GetSpec() interface{} {
-	return pc.Spec
-}
-
-func (pc *LicenseToken) SetSpec(s interface{}) {
-	pc.Spec = s.(LicenseTokenSpec)
-}
-
-func (pc *LicenseToken) GetObjectMeta() *metav1.ObjectMeta {
-	return &pc.ObjectMeta
-}
-
-func (pc *LicenseToken) SetGeneration(generation int64) {
-	pc.ObjectMeta.Generation = generation
-}
-
-func (pc LicenseToken) GetGeneration() int64 {
-	return pc.ObjectMeta.Generation
-}
-
-// Registry is an interface for things that know how to store LicenseToken.
-// +k8s:deepcopy-gen=false
-type LicenseTokenRegistry interface {
-	ListLicenseTokens(ctx context.Context, options *internalversion.ListOptions) (*LicenseTokenList, error)
-	GetLicenseToken(ctx context.Context, id string, options *metav1.GetOptions) (*LicenseToken, error)
-	CreateLicenseToken(ctx context.Context, id *LicenseToken) (*LicenseToken, error)
-	UpdateLicenseToken(ctx context.Context, id *LicenseToken) (*LicenseToken, error)
-	DeleteLicenseToken(ctx context.Context, id string) (bool, error)
-}
-
-// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
-func NewLicenseTokenRegistry(sp builders.StandardStorageProvider) LicenseTokenRegistry {
-	return &storageLicenseToken{sp}
-}
-
-// Implement Registry
-// storage puts strong typing around storage calls
-// +k8s:deepcopy-gen=false
-type storageLicenseToken struct {
-	builders.StandardStorageProvider
-}
-
-func (s *storageLicenseToken) ListLicenseTokens(ctx context.Context, options *internalversion.ListOptions) (*LicenseTokenList, error) {
-	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
-		return nil, fmt.Errorf("field selector not supported yet")
-	}
-	st := s.GetStandardStorage()
-	obj, err := st.List(ctx, options)
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*LicenseTokenList), err
-}
-
-func (s *storageLicenseToken) GetLicenseToken(ctx context.Context, id string, options *metav1.GetOptions) (*LicenseToken, error) {
-	st := s.GetStandardStorage()
-	obj, err := st.Get(ctx, id, options)
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*LicenseToken), nil
-}
-
-func (s *storageLicenseToken) CreateLicenseToken(ctx context.Context, object *LicenseToken) (*LicenseToken, error) {
-	st := s.GetStandardStorage()
-	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*LicenseToken), nil
-}
-
-func (s *storageLicenseToken) UpdateLicenseToken(ctx context.Context, object *LicenseToken) (*LicenseToken, error) {
-	st := s.GetStandardStorage()
-	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*LicenseToken), nil
-}
-
-func (s *storageLicenseToken) DeleteLicenseToken(ctx context.Context, id string) (bool, error) {
 	st := s.GetStandardStorage()
 	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
 	return sync, err
@@ -8303,6 +8165,14 @@ type VirtualClusterNodeAccessKeyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualClusterNodeAccessKey `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterResourceUsageList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterResourceUsage `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

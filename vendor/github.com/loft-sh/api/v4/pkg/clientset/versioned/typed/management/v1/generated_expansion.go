@@ -32,8 +32,6 @@ type IngressAuthTokenExpansion interface{}
 
 type LicenseExpansion interface{}
 
-type LicenseTokenExpansion interface{}
-
 type LoftUpgradeExpansion interface{}
 
 type NodeClaimExpansion interface{}

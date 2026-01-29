@@ -24,21 +24,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Check for prohibited vcluster import in config dir
-        run: |
-          #!/bin/bash
-          set -e
-
-          IMPORT="github.com/loft-sh/vcluster"
-          PATTERN="\"$IMPORT(\"|/)"
-          FOUND_FILES=$(find ./config -name "*.go" -not -path "./config/legacyconfig/*" -print0 | xargs -0 grep -l -E "$PATTERN" 2>/dev/null || true)
-
-          if [ -n "$FOUND_FILES" ]; then
-            echo "❌ ERROR: Prohibited import prefix '$IMPORT' found in:"
-            echo "$FOUND_FILES"
-            exit 1
-          fi
-
       - uses: actions/setup-go@v6
         with:
           go-version-file: ./go.mod

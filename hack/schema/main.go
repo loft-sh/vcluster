@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	orderedmap "github.com/wk8/go-ordered-map/v2"
-
 	"github.com/invopop/jsonschema"
 	"github.com/loft-sh/vcluster/config"
 	"gopkg.in/yaml.v3"
@@ -20,11 +18,7 @@ const (
 	ValuesOutFile = "chart/values.yaml"
 )
 const (
-	defsPrefix         = "#/$defs/"
-	externalConfigName = "ExternalConfig"
-	platformConfigName = "PlatformConfig"
-	platformConfigRef  = defsPrefix + platformConfigName
-	externalConfigRef  = defsPrefix + externalConfigName
+	defsPrefix = "#/$defs/"
 )
 
 var SkipProperties = map[string]string{
@@ -52,10 +46,6 @@ func main() {
 	generatedSchema := reflector.Reflect(&config.Config{})
 	transformMapProperties(generatedSchema)
 	modifySchema(generatedSchema, cleanUp)
-	err = addPlatformSchema(generatedSchema)
-	if err != nil {
-		panic(err)
-	}
 	err = writeSchema(generatedSchema, OutFile)
 	if err != nil {
 		panic(err)
@@ -65,81 +55,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func addPlatformSchema(toSchema *jsonschema.Schema) error {
-	commentsMap := make(map[string]string)
-	r := new(jsonschema.Reflector)
-	r.RequiredFromJSONSchemaTags = true
-	r.BaseSchemaID = "https://vcluster.com/schemas"
-	r.ExpandedStruct = true
-
-	if err := jsonschema.ExtractGoComments("github.com/loft-sh/vcluster", "config", commentsMap); err != nil {
-		return err
-	}
-	r.CommentMap = commentsMap
-	platformConfigSchema := r.Reflect(&config.PlatformConfig{})
-
-	platformNode := &jsonschema.Schema{
-		AdditionalProperties: nil,
-		Description:          platformConfigName + " holds platform configuration",
-		Properties:           jsonschema.NewProperties(),
-		Type:                 "object",
-	}
-	for pair := platformConfigSchema.Properties.Oldest(); pair != nil; pair = pair.Next() {
-		platformNode.Properties.AddPairs(
-			orderedmap.Pair[string, *jsonschema.Schema]{
-				Key:   pair.Key,
-				Value: pair.Value,
-			})
-	}
-
-	for k, v := range platformConfigSchema.Definitions {
-		if k == "PlatformConfig" {
-			continue
-		}
-		toSchema.Definitions[k] = v
-	}
-
-	for pair := platformConfigSchema.Properties.Oldest(); pair != nil; pair = pair.Next() {
-		platformNode.Properties.AddPairs(*pair)
-	}
-
-	toSchema.Definitions[platformConfigName] = platformNode
-	properties := jsonschema.NewProperties()
-	properties.AddPairs(orderedmap.Pair[string, *jsonschema.Schema]{
-		Key: "platform",
-		Value: &jsonschema.Schema{
-			Ref:         platformConfigRef,
-			Description: "platform holds platform configuration",
-			Type:        "object",
-		},
-	})
-	externalConfigNode, ok := toSchema.Definitions[externalConfigName]
-	if !ok {
-		externalConfigNode = &jsonschema.Schema{
-			AdditionalProperties: nil,
-			Description:          externalConfigName + " holds external configuration",
-			Properties:           properties,
-		}
-	} else {
-		externalConfigNode.Properties = properties
-		externalConfigNode.Description = externalConfigName + " holds external configuration"
-	}
-	toSchema.Definitions[externalConfigName] = externalConfigNode
-
-	for defName, node := range platformConfigSchema.Definitions {
-		toSchema.Definitions[defName] = node
-	}
-	externalProperty, ok := toSchema.Properties.Get("external")
-	if !ok {
-		return nil
-	}
-	externalProperty.Ref = externalConfigRef
-	externalProperty.AdditionalProperties = nil
-	externalProperty.Type = ""
-
-	return nil
 }
 
 func writeValues(schema *jsonschema.Schema) error {
@@ -237,13 +152,24 @@ func getReflector() (*jsonschema.Reflector, error) {
 	if err != nil {
 		return nil, err
 	}
-	r.CommentMap = commentMap
+
+	err = jsonschema.ExtractGoComments("./", "vendor/github.com/loft-sh/api/v4/pkg/vclusterconfig", commentMap)
+	if err != nil {
+		return nil, err
+	}
 
 	for k, comment := range commentMap {
 		if strings.Contains(comment, "<") || strings.Contains(comment, ">") {
 			return nil, fmt.Errorf("comment for %s (%s) contains '<' or '>', please remove it because it will break docs generation", k, comment)
 		}
 	}
+
+	renamedMap := make(map[string]string, len(commentMap))
+	for k, v := range commentMap {
+		newKey := strings.Replace(k, "vendor/github.com/loft-sh/api/v4/pkg/vclusterconfig.", "github.com/loft-sh/api/v4/pkg/vclusterconfig.", 1)
+		renamedMap[newKey] = v
+	}
+	r.CommentMap = renamedMap
 
 	return r, nil
 }
