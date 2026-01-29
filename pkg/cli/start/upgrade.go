@@ -39,6 +39,10 @@ func (l *LoftStarter) upgradeLoft(ctx context.Context) error {
 	if l.Email != "" {
 		extraArgs = append(extraArgs, "--set", "admin.email="+l.Email)
 	}
+	if os.Getenv("LICENSE_TOKEN") != "" {
+		l.Log.Infof("Found LICENSE_TOKEN in environment, will use it to install the platform")
+		extraArgs = append(extraArgs, "--set", "env.LICENSE_TOKEN="+os.Getenv("LICENSE_TOKEN"))
+	}
 
 	// Do not use --reuse-values if --reset flag is provided because this should be a new install and it will cause issues with `helm template`
 	if !l.Reset && l.ReuseValues {

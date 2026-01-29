@@ -731,7 +731,8 @@ func UpgradeLoft(ctx context.Context, kubeClient kubernetes.Interface, chartName
 	args = append(args, extraArgs...)
 
 	log.WriteString(logrus.InfoLevel, "\n")
-	log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
+	log.Debugf("Executing command: helm %s\n", strings.Join(args, " "))
+	log.Infof("Starting vCluster platform...")
 	log.Info("Waiting for helm command, this can take up to several minutes...")
 	helmCmd := exec.Command("helm", args...)
 	if chartRepo != "" {
