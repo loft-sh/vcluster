@@ -1063,6 +1063,22 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
+	if c.Sleep != nil {
+		return true
+	}
+
+	if c.Snapshots != nil {
+		return true
+	}
+
+	if c.Deletion != nil {
+		return true
+	}
+
+	if c.Platform != nil {
+		return true
+	}
+
 	return false
 }
 
