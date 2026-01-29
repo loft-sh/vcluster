@@ -119,6 +119,10 @@ sync:
       enabled: false
       # MappingsOnly defines if creation of namespaces not matched by mappings should be allowed.
       mappingsOnly: false
+    # ResourceClaim defines if resource claims created within the virtual cluster should get synced to the host cluster.
+    resourceClaims:
+      # Enabled defines if this option should be enabled.
+      enabled: false
   
   # Configure what resources vCluster should sync from the host cluster to the virtual cluster.
   fromHost:
@@ -217,6 +221,10 @@ sync:
         byName: {}
     # VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster.
     volumeSnapshotClasses:
+      # Enabled defines if this option should be enabled.
+      enabled: false
+    # DeviceClasses defines if device classes in the host should get synced to the virtual cluster
+    deviceClasses:
       # Enabled defines if this option should be enabled.
       enabled: false
 

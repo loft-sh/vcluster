@@ -4731,6 +4731,10 @@
         "secrets": {
           "$ref": "#/$defs/EnableSwitchWithResourcesMappings",
           "description": "Secrets defines if secrets in the host should get synced to the virtual cluster."
+        },
+        "deviceClasses": {
+          "$ref": "#/$defs/EnableSwitchWithPatchesAndSelector",
+          "description": "DeviceClasses defines if device classes in the host should get synced to the virtual cluster"
         }
       },
       "additionalProperties": false,
@@ -4966,6 +4970,10 @@
         "namespaces": {
           "$ref": "#/$defs/SyncToHostNamespaces",
           "description": "Namespaces defines if namespaces created within the virtual cluster should get synced to the host cluster."
+        },
+        "resourceClaims": {
+          "$ref": "#/$defs/EnableSwitchWithPatches",
+          "description": "ResourceClaim defines if resource claims created within the virtual cluster should get synced to the host cluster."
         }
       },
       "additionalProperties": false,
