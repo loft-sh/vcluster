@@ -1,0 +1,6 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
