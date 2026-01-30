@@ -12,12 +12,9 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
+    # Only run for PRs in the main org (not forks) to prevent untrusted code
+    # from accessing secrets in pull_request_target context
+    if: github.repository_owner == 'loft-sh'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,7 +25,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup fork as origin for Claude
+        if: ${{ github.event.pull_request.head.repo.fork == true }}
+        env:
+          PR_HEAD_CLONE_URL: ${{ github.event.pull_request.head.repo.clone_url }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git remote rename origin upstream
+          git remote add origin "$PR_HEAD_CLONE_URL"
+          git fetch origin "$PR_HEAD_REF"
+          git checkout -B "$PR_HEAD_REF" "origin/$PR_HEAD_REF"
 
       - name: Run Claude Code Review
         id: claude-review
