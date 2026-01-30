@@ -290,7 +290,7 @@ tests:
             resources: [ "services", "endpoints" ]
             verbs: [ "get", "watch", "list" ]
 
-  - it: real nodes
+  - it: real nodes with default proxyKubelets
     set:
       sync:
         fromHost:
@@ -301,13 +301,49 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
+          count: 5
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "pods", "nodes", "nodes/status" ]
+            verbs: [ "get", "watch", "list" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "nodes/metrics", "nodes/stats", "nodes/proxy" ]
+            verbs: [ "get" ]
+
+  - it: real nodes without proxyKubelets
+    set:
+      sync:
+        fromHost:
+          nodes:
+            enabled: true
+      networking:
+        advanced:
+          proxyKubelets:
+            byHostname: false
+            byIP: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: rules
           count: 4
       - contains:
           path: rules
           content:
             apiGroups: [ "" ]
-            resources: [ "pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy" ]
+            resources: [ "pods", "nodes", "nodes/status" ]
             verbs: [ "get", "watch", "list" ]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "nodes/metrics", "nodes/stats", "nodes/proxy" ]
+            verbs: [ "get" ]
 
   - it: virtual scheduler
     set:
@@ -341,7 +377,7 @@ tests:
           path: rules
           content:
             apiGroups: [ "" ]
-            resources: [ "pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy" ]
+            resources: [ "pods", "nodes", "nodes/status" ]
             verbs: [ "get", "watch", "list" ]
       - contains:
           path: rules
@@ -355,6 +391,12 @@ tests:
             apiGroups: ["management.loft.sh"]
             resources: ["virtualclusterinstances"]
             verbs: ["get"]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "nodes/metrics", "nodes/stats", "nodes/proxy" ]
+            verbs: [ "get" ]
 
   - it: metrics proxy
     set:

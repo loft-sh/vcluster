@@ -26,8 +26,13 @@ rules:
   {{- end }}
   {{- if or .Values.pro .Values.sync.fromHost.nodes.enabled }}
   - apiGroups: [""]
-    resources: ["pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy"]
+    resources: ["pods", "nodes", "nodes/status"]
     verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if and .Values.sync.fromHost.nodes.enabled (or .Values.networking.advanced.proxyKubelets.byIP .Values.networking.advanced.proxyKubelets.byHostname) }}
+  - apiGroups: [""]
+    resources: ["nodes/metrics", "nodes/stats", "nodes/proxy"]
+    verbs: ["get"]
   {{- end }}
   {{- if and .Values.sync.fromHost.nodes.enabled .Values.sync.fromHost.nodes.syncBackChanges }}
   - apiGroups: [""]
