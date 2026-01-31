@@ -24,7 +24,13 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	// has status changed?
 	vPod := event.Virtual
 	pPod := event.Host
+
+	// We have to reset the QOSClass to the original value, otherwise we might get an error
+	// that the field is immutable
+	originalQOSClass := vPod.Status.QOSClass
 	vPod.Status = *pPod.Status.DeepCopy()
+	vPod.Status.QOSClass = originalQOSClass
+
 	stripInjectedSidecarContainers(vPod, pPod)
 
 	// get Namespace resource in order to have access to its labels
