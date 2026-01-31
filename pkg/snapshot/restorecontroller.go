@@ -66,7 +66,7 @@ func NewRestoreController(registerContext *synccontext.RegisterContext) (*Restor
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kuberenetes clients: %w", err)
 	}
-	eventRecorder := requestsManager.GetEventRecorderFor(controllerName)
+	eventRecorder := requestsManager.GetEventRecorder(controllerName)
 	volumesRestorer, err := csiVolumes.NewRestorer(registerContext.Config, kubeClient, snapshotsClient, eventRecorder, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create volume snapshotter: %w", err)
@@ -125,7 +125,16 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 			return ctrl.Result{}, fmt.Errorf("failed to add vCluster restore controller finalizer to the restore request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
 		if updated {
-			c.eventRecorder.Eventf(&configMap, corev1.EventTypeNormal, "Created", "Restore request %s/%s has been created", configMap.Namespace, configMap.Name)
+			c.eventRecorder.Eventf(
+				&configMap,
+				nil,
+				corev1.EventTypeNormal,
+				"Created",
+				"RestoreRequestCreated",
+				"Restore request %s/%s has been created",
+				configMap.Namespace,
+				configMap.Name,
+			)
 			return ctrl.Result{}, nil
 		}
 	}
@@ -135,7 +144,16 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 	defer func() {
 		if retErr != nil {
 			// something went wrong, recorde error and update restore request phase to Failed
-			c.eventRecorder.Eventf(&configMap, corev1.EventTypeWarning, "Failed", "Restore request %s/%s has failed with error: %v", configMap.Namespace, configMap.Name, retErr)
+			c.eventRecorder.Eventf(
+				&configMap,
+				nil,
+				corev1.EventTypeWarning,
+				"Failed",
+				"RestoreRequestFailed",
+				"Restore request %s/%s has failed with error: %v",
+				configMap.Namespace,
+				configMap.Name,
+				retErr)
 			restoreRequest.Status.Phase = RequestPhaseFailed
 		}
 		updateErr := c.updateRequest(ctx, configMapBeforeChange, &configMap, *restoreRequest)
@@ -234,7 +252,16 @@ func (c *RestoreReconciler) Register() error {
 // reconcileNewRequest updates the snapshot request phase to "InProgress".
 func (c *RestoreReconciler) reconcileNewRequest(_ context.Context, configMap *corev1.ConfigMap, restoreRequest *RestoreRequest) error {
 	restoreRequest.Status.Phase = RequestPhaseRestoringVolumes
-	c.eventRecorder.Eventf(configMap, corev1.EventTypeNormal, "RestoringVolumes", "Started restoring volumes for restore request %s/%s", configMap.Namespace, configMap.Name)
+	c.eventRecorder.Eventf(
+		configMap,
+		nil,
+		corev1.EventTypeNormal,
+		"RestoringVolumes",
+		"RestoringVolumesStarted",
+		"Started restoring volumes for restore request %s/%s",
+		configMap.Namespace,
+		configMap.Name,
+	)
 	return nil
 }
 

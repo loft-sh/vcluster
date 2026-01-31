@@ -256,7 +256,15 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 					return ctrl.Result{}, err
 				}
 
-				s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncWarning", "Given nodeName %s does not exist in virtual cluster", pPod.Spec.NodeName)
+				s.EventRecorder().Eventf(
+					event.Virtual,
+					nil,
+					"Warning",
+					"SyncWarning",
+					"PodSyncWarning",
+					"Given nodeName %s does not exist in virtual cluster",
+					pPod.Spec.NodeName,
+				)
 				return ctrl.Result{RequeueAfter: time.Second * 15}, nil
 			}
 		}
@@ -282,7 +290,7 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 	return patcher.CreateHostObject(ctx, event.Virtual, pPod, s.EventRecorder(), true)
 }
 
-func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) (_ ctrl.Result, retErr error) {
+func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) (result ctrl.Result, retErr error) {
 	var (
 		err error
 	)
@@ -320,6 +328,8 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		if !equality.Semantic.DeepEqual(event.Virtual.Status, event.Host.Status) {
 			updated := event.Virtual.DeepCopy()
 			updated.Status = *event.Host.Status.DeepCopy()
+			// QOSClass is immutable in newer Kubernetes versions; preserve the existing value.
+			updated.Status.QOSClass = event.Virtual.Status.QOSClass
 			ctx.Log.Infof("update virtual pod %s, because status has changed", event.Virtual.Name)
 			err := ctx.VirtualClient.Status().Update(ctx, updated)
 			if err != nil && !kerrors.IsNotFound(err) {
@@ -383,7 +393,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	// NewSyncerPatcher() is called so that there are no
 	// differences found in host QOSClass and virtual QOSClass and
 	// a patch event for this field is not created
-	event.Host.Status.QOSClass = event.VirtualOld.Status.QOSClass
+	event.Host.Status.QOSClass = event.Virtual.Status.QOSClass
 
 	// patch objects
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Pods.Patches, false))
@@ -401,14 +411,23 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	defer func() {
 		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			if kerrors.IsConflict(err) {
-				retErr = utilerrors.NewAggregate([]error{retErr, err})
+				result = ctrl.Result{RequeueAfter: time.Second}
+				retErr = nil
 				return
 			}
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 
 		if retErr != nil {
-			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(
+				event.Virtual,
+				nil,
+				"Warning",
+				"SyncError",
+				"PodSyncError",
+				"Error syncing: %v",
+				retErr,
+			)
 		}
 	}()
 
@@ -589,7 +608,14 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 	}, metav1.CreateOptions{})
 	if err != nil {
 		if !kerrors.IsConflict(err) {
-			s.EventRecorder().Eventf(vObj, "Warning", "SyncError", "Error binding pod: %v", err)
+			s.EventRecorder().Eventf(
+				vObj,
+				nil,
+				"Warning",
+				"SyncError",
+				"PodSyncError",
+				"Error binding pod: %v",
+				err)
 		}
 		return err
 	}
@@ -630,16 +656,44 @@ func (s *podSyncer) applyLimitByPriorityClass(ctx *synccontext.SyncContext, virt
 	pPriorityClass := &schedulingv1.PriorityClass{}
 	err := ctx.HostClient.Get(ctx.Context, types.NamespacedName{Name: virtual.Spec.PriorityClassName}, pPriorityClass)
 	if err != nil || pPriorityClass.GetDeletionTimestamp() != nil {
-		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q couldn't be reached in the host: %s", virtual.GetName(), virtual.Spec.PriorityClassName, err)
+		s.EventRecorder().Eventf(
+			virtual,
+			nil,
+			"Warning",
+			"SyncWarning",
+			"PodSyncWarning",
+			"did not sync pod %q to host because the priority class %q couldn't be reached in the host: %s",
+			virtual.GetName(),
+			virtual.Spec.PriorityClassName,
+			err,
+		)
 		return true
 	}
 	matches, err := ctx.Config.Sync.FromHost.PriorityClasses.Selector.Matches(pPriorityClass)
 	if err != nil {
-		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host could not be checked against the selector under 'sync.fromHost.priorityClasses.selector': %s", virtual.GetName(), pPriorityClass.GetName(), err)
+		s.EventRecorder().Eventf(
+			virtual,
+			nil,
+			"Warning",
+			"SyncWarning",
+			"PodSyncWarning",
+			"did not sync pod %q to host because the priority class %q in the host could not be checked against the selector under 'sync.fromHost.priorityClasses.selector': %s",
+			virtual.GetName(),
+			pPriorityClass.GetName(),
+			err)
 		return true
 	}
 	if !matches {
-		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the priority class %q in the host does not match the selector under 'sync.fromHost.priorityClasses.selector'", virtual.GetName(), pPriorityClass.GetName())
+		s.EventRecorder().Eventf(
+			virtual,
+			nil,
+			"Warning",
+			"SyncWarning",
+			"PodSyncWarning",
+			"did not sync pod %q to host because the priority class %q in the host does not match the selector under 'sync.fromHost.priorityClasses.selector'",
+			virtual.GetName(),
+			pPriorityClass.GetName(),
+		)
 		return true
 	}
 
@@ -657,16 +711,45 @@ func (s *podSyncer) applyLimitByRuntimeClass(ctx *synccontext.SyncContext, virtu
 	pRuntimeClass := &nodev1.RuntimeClass{}
 	err := ctx.HostClient.Get(ctx.Context, types.NamespacedName{Name: *virtual.Spec.RuntimeClassName}, pRuntimeClass)
 	if err != nil || pRuntimeClass.GetDeletionTimestamp() != nil {
-		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q couldn't be reached in the host: %s", virtual.GetName(), *virtual.Spec.RuntimeClassName, err)
+		s.EventRecorder().Eventf(
+			virtual,
+			nil,
+			"Warning",
+			"SyncWarning",
+			"PodSyncWarning",
+			"did not sync pod %q to host because the runtime class %q couldn't be reached in the host: %s",
+			virtual.GetName(),
+			*virtual.Spec.RuntimeClassName,
+			err,
+		)
 		return true
 	}
 	matches, err := ctx.Config.Sync.FromHost.RuntimeClasses.Selector.Matches(pRuntimeClass)
 	if err != nil {
-		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q in the host could not be checked against the selector under 'sync.fromHost.runtimeClasses.selector': %s", virtual.GetName(), pRuntimeClass.GetName(), err)
+		s.EventRecorder().Eventf(
+			virtual,
+			nil,
+			"Warning",
+			"SyncWarning",
+			"PodSyncWarning",
+			"did not sync pod %q to host because the runtime class %q in the host could not be checked against the selector under 'sync.fromHost.runtimeClasses.selector': %s",
+			virtual.GetName(),
+			pRuntimeClass.GetName(),
+			err,
+		)
 		return true
 	}
 	if !matches {
-		s.EventRecorder().Eventf(virtual, "Warning", "SyncWarning", "did not sync pod %q to host because the runtime class %q in the host does not match the selector under 'sync.fromHost.runtimeClasses.selector'", virtual.GetName(), pRuntimeClass.GetName())
+		s.EventRecorder().Eventf(
+			virtual,
+			nil,
+			"Warning",
+			"SyncWarning",
+			"PodSyncWarning",
+			"did not sync pod %q to host because the runtime class %q in the host does not match the selector under 'sync.fromHost.runtimeClasses.selector'",
+			virtual.GetName(),
+			pRuntimeClass.GetName(),
+		)
 		return true
 	}
 

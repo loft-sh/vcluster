@@ -221,7 +221,7 @@ func (ic *informerCache) IndexField(ctx context.Context, obj client.Object, fiel
 }
 
 func indexByField(informer Informer, field string, extractValue client.IndexerFunc) error {
-	indexFunc := func(objRaw interface{}) ([]string, error) {
+	indexFunc := func(objRaw any) ([]string, error) {
 		// TODO(directxman12): check if this is the correct type?
 		obj, isObj := objRaw.(client.Object)
 		if !isObj {
