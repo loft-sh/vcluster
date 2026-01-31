@@ -98,6 +98,11 @@ rules:
     resources: ["priorityclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
+  {{ if .Values.sync.toHost.resourceClaims.enabled}}
+  - apiGroups: ["resource.k8s.io"]
+    resources: ["deviceclasses"]
+    verbs: ["get"]
+  {{- end }}
   {{- if or .Values.sync.fromHost.volumeSnapshotClasses.enabled (include "vcluster.enableVolumeSnapshotRules" .) }}
   - apiGroups: [ "snapshot.storage.k8s.io" ]
     resources: [ "volumesnapshotclasses" ]
