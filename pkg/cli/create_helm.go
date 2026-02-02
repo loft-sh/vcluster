@@ -289,6 +289,14 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		}
 	}
 
+	if vClusterConfig.IsConfiguredForAutoDeletion() {
+		if agentDeployed, err := cmd.isLoftAgentDeployed(ctx); err != nil {
+			return fmt.Errorf("is agent deployed: %w", err)
+		} else if !agentDeployed {
+			return fmt.Errorf("auto deletion is configured but requires an agent to be installed on the host cluster. To install the agent using the vCluster CLI, run: vcluster platform add cluster")
+		}
+	}
+
 	err = validateHABackingStoreCompatibility(vClusterConfig)
 	if err != nil {
 		return err
@@ -470,6 +478,19 @@ func (cmd *createHelm) addVCluster(ctx context.Context, name string, vClusterCon
 	}
 
 	return nil
+}
+
+func (cmd *createHelm) isLoftAgentDeployed(ctx context.Context) (bool, error) {
+	podList, err := cmd.kubeClient.CoreV1().Pods("").List(ctx, metav1.ListOptions{
+		LabelSelector: "app=loft",
+	})
+	if err != nil && !kerrors.IsNotFound(err) {
+		return false, err
+	} else if podList == nil {
+		return false, errors.New("nil podList")
+	}
+
+	return len(podList.Items) > 0, nil
 }
 
 func isVClusterDeployed(release *helm.Release) bool {

@@ -922,6 +922,14 @@ func (c *Config) IsConfiguredForSleepMode() bool {
 	return c.Sleep != nil
 }
 
+func (c *Config) IsConfiguredForAutoDeletion() bool {
+	if c == nil || c.Deletion == nil {
+		return false
+	}
+
+	return c.Deletion.Auto != nil
+}
+
 // ValidateChanges checks for disallowed config changes.
 func ValidateChanges(oldCfg, newCfg *Config) error {
 	if err := ValidateDistroChanges(newCfg.Distro(), oldCfg.Distro()); err != nil {
