@@ -195,20 +195,14 @@ func (h *snapshotHandler) deleteVolumeSnapshot(ctx context.Context, requestLabel
 		}
 		return cleanupInProgress, fmt.Errorf("failed to delete volume snapshot: %w", err)
 	}
+
 	if result.policyUpdated {
 		h.logger.Debugf("DeletionPolicy updated for %s/%s, waiting for controller reconciliation", volumeSnapshotNamespace, volumeSnapshotName)
-		return cleanupInProgress, nil
+	} else if result.deleteIssued {
+		h.logger.Debugf("Cleanup initiated for %s/%s, waiting for controller reconciliation", volumeSnapshotNamespace, volumeSnapshotName)
 	}
-	return cleanupInProgress, nil
-}
 
-func isCleanupComplete(volumeSnapshot *snapshotsv1api.VolumeSnapshot, volumeSnapshotContent *snapshotsv1api.VolumeSnapshotContent) bool {
-	if volumeSnapshot == nil && volumeSnapshotContent == nil {
-		return true
-	}
-	snapshotDeleting := volumeSnapshot == nil || !volumeSnapshot.DeletionTimestamp.IsZero()
-	contentDeleting := volumeSnapshotContent == nil || !volumeSnapshotContent.DeletionTimestamp.IsZero()
-	return snapshotDeleting && contentDeleting
+	return cleanupInProgress, nil
 }
 
 // cleanupVolumeSnapshotResource deletes the VolumeSnapshot and the VolumeSnapshotContent with the deletion policy set
@@ -219,15 +213,11 @@ func (h *snapshotHandler) cleanupVolumeSnapshotResource(ctx context.Context, vol
 	if err != nil {
 		return cleanupInProgress, fmt.Errorf("failed to get volume snapshot resources for VolumeSnapshot %s/%s: %w", volumeSnapshotNamespace, volumeSnapshotName, err)
 	}
-	// If resources are gone, cleanup is done
-	if volumeSnapshot == nil && volumeSnapshotContent == nil {
-		return cleanupComplete, nil
-	}
 
 	// Check if resources are already being deleted (have DeletionTimestamp set)
 	// If they are, we consider them as effectively cleaned up
-	if isCleanupComplete(volumeSnapshot, volumeSnapshotContent) {
-		h.logger.Debugf("Volume snapshot resources for%s/%s are marked for deletion, cleanup considered complete", volumeSnapshotNamespace, volumeSnapshotName)
+	if volumeSnapshot == nil && volumeSnapshotContent == nil {
+		h.logger.Debugf("Volume snapshot resources for%s/%s cleanup complete", volumeSnapshotNamespace, volumeSnapshotName)
 		return cleanupComplete, nil
 	}
 
@@ -243,19 +233,10 @@ func (h *snapshotHandler) cleanupVolumeSnapshotResource(ctx context.Context, vol
 	if result.policyUpdated {
 		h.logger.Debugf("DeletionPolicy updated for %s/%s, waiting for controller reconciliation", volumeSnapshotNamespace, volumeSnapshotName)
 		return cleanupInProgress, nil
+	} else if result.deleteIssued {
+		h.logger.Debugf("Cleanup initiated for %s/%s, waiting for controller reconciliation", volumeSnapshotNamespace, volumeSnapshotName)
 	}
 
-	// Re-check to confirm deletion has started (DeletionTimestamp set) or resources are gone.
-	volumeSnapshot, volumeSnapshotContent, err = h.getVolumeSnapshotResources(ctx, volumeSnapshotNamespace, volumeSnapshotName, "")
-	if err != nil {
-		return cleanupInProgress, fmt.Errorf("failed to recheck volume snapshot resources for VolumeSnapshot %s/%s: %w", volumeSnapshotNamespace, volumeSnapshotName, err)
-	}
-
-	if isCleanupComplete(volumeSnapshot, volumeSnapshotContent) {
-		return cleanupComplete, nil
-	}
-
-	h.logger.Debugf("Cleanup initiated for %s/%s but deletion timestamp not yet set. Will retry.", volumeSnapshotNamespace, volumeSnapshotName)
 	return cleanupInProgress, nil
 }
 
