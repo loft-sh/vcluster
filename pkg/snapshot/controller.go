@@ -468,11 +468,6 @@ func (c *Reconciler) updateRequest(ctx context.Context, previousConfigMapState c
 	// patch snapshot request ConfigMap
 	err = c.client().Patch(ctx, configMap, previousConfigMapState)
 	if err != nil {
-		if kerrors.IsNotFound(err) {
-			// request was deleted while reconciling; nothing to update
-			c.logger.Infof("Snapshot request configMap %s/%s not found", configMap.Namespace, configMap.Name)
-			return nil
-		}
 		return fmt.Errorf("failed to patch snapshot request ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
 	c.logger.Debugf("Patched snapshot request %s/%s", configMap.Namespace, configMap.Name)

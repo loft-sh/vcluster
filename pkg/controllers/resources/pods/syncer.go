@@ -291,6 +291,13 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 }
 
 func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) (result ctrl.Result, retErr error) {
+	defer func() {
+		if kerrors.IsConflict(retErr) {
+			result = ctrl.Result{RequeueAfter: time.Second}
+			retErr = nil
+		}
+	}()
+
 	var (
 		err error
 	)
@@ -348,10 +355,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	// make sure node exists for pod
 	if event.Host.Spec.NodeName != "" {
 		requeue, err := s.ensureNode(ctx, event.Host, event.Virtual)
-		if kerrors.IsConflict(err) {
-			ctx.Log.Debugf("conflict binding virtual pod %s/%s", event.Virtual.Namespace, event.Virtual.Name)
-			return ctrl.Result{Requeue: true}, nil
-		} else if err != nil {
+		if err != nil {
 			return ctrl.Result{}, err
 		} else if requeue {
 			return ctrl.Result{Requeue: true}, nil
@@ -410,11 +414,6 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 
 	defer func() {
 		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
-			if kerrors.IsConflict(err) {
-				result = ctrl.Result{RequeueAfter: time.Second}
-				retErr = nil
-				return
-			}
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 
