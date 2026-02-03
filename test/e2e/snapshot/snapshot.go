@@ -611,6 +611,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
+			deletePVC(ctx, f, controllerTestNamespaceName, pvcToRestoreName)
 			cleanUpTestResources(ctx, true, controllerTestNamespaceName)
 		})
 	})
@@ -733,7 +734,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 				}
 			}).WithContext(ctx).
 				WithPolling(framework.PollInterval).
-				WithTimeout(framework.PollTimeoutLong).
+				WithTimeout(5 * time.Minute).
 				Should(Succeed())
 		})
 
