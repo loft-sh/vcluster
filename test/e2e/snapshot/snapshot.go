@@ -611,6 +611,7 @@ var _ = Describe("snapshot and restore", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
+			deletePVC(ctx, f, controllerTestNamespaceName, pvcToRestoreName)
 			cleanUpTestResources(ctx, true, controllerTestNamespaceName)
 		})
 	})
