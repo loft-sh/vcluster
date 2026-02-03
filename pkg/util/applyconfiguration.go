@@ -24,3 +24,15 @@ func ExtractClientObjectFromApplyConfiguration(obj runtime.ApplyConfiguration) (
 	}
 	return unstructuredObj, nil
 }
+
+// MergeClientObjectIntoApplyConfiguration writes the state of the mutated client object
+// back into the given ApplyConfiguration so that an Apply call sends the mutated content.
+// Use this after MutateObject so that plugin hook mutations (e.g. labels/annotations)
+// are applied to the server instead of being discarded.
+func MergeClientObjectIntoApplyConfiguration(clientObj client.Object, applyConfig runtime.ApplyConfiguration) error {
+	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(clientObj)
+	if err != nil {
+		return err
+	}
+	return runtime.DefaultUnstructuredConverter.FromUnstructured(content, applyConfig)
+}

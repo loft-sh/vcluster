@@ -173,6 +173,26 @@ func (c *Client) Delete(ctx context.Context, obj client.Object, opts ...client.D
 	return c.Client.Delete(ctx, obj, opts...)
 }
 
+func (c *Client) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+	if !plugin.DefaultManager.HasClientHooks() {
+		return c.Client.Apply(ctx, obj, opts...)
+	}
+
+	clientObj, err := util.ExtractClientObjectFromApplyConfiguration(obj)
+	if err != nil {
+		return err
+	}
+	err = plugin.DefaultManager.MutateObject(ctx, clientObj, "Apply"+c.suffix, c.scheme)
+	if err != nil {
+		return err
+	}
+	if err := util.MergeClientObjectIntoApplyConfiguration(clientObj, obj); err != nil {
+		return err
+	}
+
+	return c.Client.Apply(ctx, obj, opts...)
+}
+
 // TODO: implement DeleteAllOf
 
 func (c *Client) Status() client.StatusWriter {
@@ -203,6 +223,9 @@ func (c *StatusClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration
 	}
 	err = plugin.DefaultManager.MutateObject(ctx, clientObj, "Apply"+c.suffix, c.scheme)
 	if err != nil {
+		return err
+	}
+	if err := util.MergeClientObjectIntoApplyConfiguration(clientObj, obj); err != nil {
 		return err
 	}
 

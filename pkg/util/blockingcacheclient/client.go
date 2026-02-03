@@ -48,28 +48,33 @@ func defaultNewClient(config *rest.Config, options client.Options) (client.Clien
 }
 
 func (c *CacheClient) poll(ctx context.Context, obj runtime.Object, condition func(newObj client.Object, oldAccessor metav1.Object) (bool, error)) error {
-	_, ok := obj.(*unstructured.Unstructured)
-	if ok {
-		return nil
-	}
-
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
 		return err
 	}
 
-	gvk, err := apiutil.GVKForObject(obj, c.scheme)
-	if err != nil {
-		return nil
-	}
+	var newObj client.Object
+	if u, ok := obj.(*unstructured.Unstructured); ok {
+		// For unstructured (e.g. from ApplyConfiguration), we cannot use c.scheme.New(gvk)
+		// as the type may not be in the scheme. Use a new Unstructured with the same GVK
+		// so that Get() and the condition can run, and cache blocking actually happens.
+		newObj = &unstructured.Unstructured{}
+		newObj.GetObjectKind().SetGroupVersionKind(u.GetObjectKind().GroupVersionKind())
+	} else {
+		gvk, err := apiutil.GVKForObject(obj, c.scheme)
+		if err != nil {
+			return nil
+		}
 
-	newObj, err := c.scheme.New(gvk)
-	if err != nil {
-		return nil
+		created, err := c.scheme.New(gvk)
+		if err != nil {
+			return nil
+		}
+		newObj = created.(client.Object)
 	}
 
 	return wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*2, true, func(context.Context) (bool, error) {
-		return condition(newObj.(client.Object), accessor)
+		return condition(newObj, accessor)
 	})
 }
 
@@ -169,25 +174,61 @@ func (c *CacheClient) Delete(ctx context.Context, obj client.Object, opts ...cli
 	return c.blockDelete(ctx, obj)
 }
 
-// blockApply waits until the applied object appears in the cache with the expected state.
-// It ensures that subsequent reads will see the changes made by the Apply operation.
-//
-// The function polls the cache until one of the following conditions is met:
-//   - The object's UID has changed (object was recreated)
-//   - The object's Generation has increased (spec was updated)
-//   - The object's ResourceVersion has changed (any update occurred)
-func (c *CacheClient) blockApply(ctx context.Context, obj runtime.ApplyConfiguration) error {
+func (c *CacheClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
 	clientObj, err := util.ExtractClientObjectFromApplyConfiguration(obj)
 	if err != nil {
-		// If we can't extract metadata, we can't verify cache updates.
-		// Return nil to avoid blocking indefinitely for a valid apply we just can't track.
-		return nil
+		return err
 	}
 
-	// Poll the cache until the condition is met.
-	// The poll function will call our condition function repeatedly until it returns true or an error.
-	return c.poll(ctx, clientObj, func(newObj client.Object, oldAccessor metav1.Object) (bool, error) {
-		err := c.Client.Get(ctx, types.NamespacedName{Namespace: oldAccessor.GetNamespace(), Name: oldAccessor.GetName()}, newObj)
+	var preApplyMeta metav1.Object
+	nn := types.NamespacedName{Namespace: clientObj.GetNamespace(), Name: clientObj.GetName()}
+	preApplyObj, err := c.newEmptyObjectFor(clientObj)
+	if err != nil {
+		return err
+	}
+	if getErr := c.Client.Get(ctx, nn, preApplyObj); getErr == nil {
+		preApplyMeta, _ = meta.Accessor(preApplyObj)
+	}
+
+	err = c.Client.Apply(ctx, obj, opts...)
+	if err != nil {
+		return err
+	}
+	return c.blockApply(ctx, obj, clientObj, preApplyMeta)
+}
+
+// newEmptyObjectFor returns an empty client.Object with the same GVK as from, for use with Get.
+func (c *CacheClient) newEmptyObjectFor(from client.Object) (client.Object, error) {
+	if u, ok := from.(*unstructured.Unstructured); ok {
+		out := &unstructured.Unstructured{}
+		out.GetObjectKind().SetGroupVersionKind(u.GetObjectKind().GroupVersionKind())
+		return out, nil
+	}
+	gvk, err := apiutil.GVKForObject(from, c.scheme)
+	if err != nil {
+		return nil, fmt.Errorf("get GVK for object: %w", err)
+	}
+	created, err := c.scheme.New(gvk)
+	if err != nil {
+		return nil, fmt.Errorf("create object for GVK %s: %w", gvk, err)
+	}
+	return created.(client.Object), nil
+}
+
+// blockApply waits until the applied object appears in the cache with the expected state.
+// clientObj must be non-nil (caller must have extracted it from the ApplyConfiguration).
+// preApplyMeta is the object's metadata from a GET before Apply; if nil (e.g. object did not exist),
+// we consider the cache updated once the object exists. Otherwise we compare until UID/Generation/ResourceVersion
+// differ so the cache has observed the Apply.
+func (c *CacheClient) blockApply(ctx context.Context, obj runtime.ApplyConfiguration, clientObj client.Object, preApplyMeta metav1.Object) error {
+	nn := types.NamespacedName{Namespace: clientObj.GetNamespace(), Name: clientObj.GetName()}
+	newObj, err := c.newEmptyObjectFor(clientObj)
+	if err != nil {
+		return err
+	}
+
+	return wait.PollUntilContextTimeout(ctx, time.Millisecond*10, time.Second*2, true, func(context.Context) (bool, error) {
+		err := c.Client.Get(ctx, nn, newObj)
 		if err != nil {
 			if runtime.IsNotRegisteredError(err) {
 				// If the type is not registered in the scheme, we consider it a success
@@ -202,18 +243,23 @@ func (c *CacheClient) blockApply(ctx context.Context, obj runtime.ApplyConfigura
 			return false, nil
 		}
 
+		if preApplyMeta == nil {
+			// Object did not exist before Apply; it now exists in cache.
+			return true, nil
+		}
+
 		newAccessor, err := meta.Accessor(newObj)
 		if err != nil {
 			return false, err
 		}
-
+		// Cache has applied state when UID/Generation/ResourceVersion changed from pre-apply.
 		// Condition 1: UID changed - object was deleted and recreated
 		// Condition 2: Generation increased - spec was updated
 		// Condition 3: ResourceVersion changed - any update occurred (metadata, spec, or status)
 		// If any of these conditions are true, the Apply operation is reflected in the cache.
-		return oldAccessor.GetUID() != newAccessor.GetUID() ||
-			newAccessor.GetGeneration() > oldAccessor.GetGeneration() ||
-			newAccessor.GetResourceVersion() != oldAccessor.GetResourceVersion(), nil
+		return preApplyMeta.GetUID() != newAccessor.GetUID() ||
+			newAccessor.GetGeneration() > preApplyMeta.GetGeneration() ||
+			newAccessor.GetResourceVersion() != preApplyMeta.GetResourceVersion(), nil
 	})
 }
 
@@ -258,10 +304,24 @@ func (c *CacheStatusClient) Patch(ctx context.Context, obj client.Object, patch 
 }
 
 func (c *CacheStatusClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.SubResourceApplyOption) error {
-	err := c.Cache.Client.Status().Apply(ctx, obj, opts...)
+	clientObj, err := util.ExtractClientObjectFromApplyConfiguration(obj)
 	if err != nil {
 		return err
 	}
 
-	return c.Cache.blockApply(ctx, obj)
+	var preApplyMeta metav1.Object
+	nn := types.NamespacedName{Namespace: clientObj.GetNamespace(), Name: clientObj.GetName()}
+	preApplyObj, err := c.Cache.newEmptyObjectFor(clientObj)
+	if err != nil {
+		return err
+	}
+	if getErr := c.Cache.Client.Get(ctx, nn, preApplyObj); getErr == nil {
+		preApplyMeta, _ = meta.Accessor(preApplyObj)
+	}
+
+	err = c.Cache.Client.Status().Apply(ctx, obj, opts...)
+	if err != nil {
+		return err
+	}
+	return c.Cache.blockApply(ctx, obj, clientObj, preApplyMeta)
 }
