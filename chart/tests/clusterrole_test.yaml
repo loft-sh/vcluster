@@ -869,3 +869,47 @@ tests:
             resources: [ "volumesnapshotcontents" ]
             verbs:
               [ "create", "delete", "patch", "update", "get", "list" ]
+
+  - it: resourceClaims rules
+    set:
+      sync:
+        toHost:
+          resourceClaims:
+            enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ClusterRole
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["resource.k8s.io"]
+            resources: ["deviceclasses"]
+            verbs: ["get", "watch", "list"]
+
+  - it: deviceClasses rules
+    set:
+      sync:
+        fromHost:
+          deviceClasses:
+            enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ClusterRole
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["resource.k8s.io"]
+            resources: ["deviceclasses"]
+            verbs: ["get", "watch", "list"]

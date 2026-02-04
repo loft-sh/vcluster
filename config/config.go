@@ -1071,6 +1071,14 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
+	if c.Sync.ToHost.ResourceClaims.Enabled {
+		return true
+	}
+
+	if c.Sync.FromHost.DeviceClasses.Enabled {
+		return true
+	}
+
 	if c.Sleep != nil {
 		return true
 	}
@@ -1252,6 +1260,9 @@ type SyncToHost struct {
 
 	// Namespaces defines if namespaces created within the virtual cluster should get synced to the host cluster.
 	Namespaces SyncToHostNamespaces `json:"namespaces,omitempty"`
+
+	// ResourceClaim defines if resource claims created within the virtual cluster should get synced to the host cluster.
+	ResourceClaims EnableSwitchWithPatches `json:"resourceClaims,omitempty"`
 }
 
 type EnableSwitchWithPatches struct {
@@ -1333,6 +1344,9 @@ type SyncFromHost struct {
 
 	// Secrets defines if secrets in the host should get synced to the virtual cluster.
 	Secrets EnableSwitchWithResourcesMappings `json:"secrets,omitempty"`
+
+	// DeviceClasses defines if device classes in the host should get synced to the virtual cluster
+	DeviceClasses EnableSwitchWithPatchesAndSelector `json:"deviceClasses,omitempty"`
 }
 
 type StandardLabelSelector v1.LabelSelector

@@ -94,6 +94,11 @@ rules:
     resources: ["volumesnapshots"]
     verbs: ["watch"]
   {{- end }}
+  {{ if .Values.sync.toHost.resourceClaims.enabled}}
+  - apiGroups: ["resource.k8s.io"]
+    resources: ["resourceclaims"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
   {{- if .Values.sync.toHost.serviceAccounts.enabled }}
   - apiGroups: [""]
     resources: ["serviceaccounts"]

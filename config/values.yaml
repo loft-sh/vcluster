@@ -62,6 +62,8 @@ sync:
     namespaces:
       enabled: false
       mappingsOnly: false
+    resourceClaims:
+      enabled: false
 
   fromHost:
     events:
@@ -96,6 +98,8 @@ sync:
       mappings:
         byName: {}
     volumeSnapshotClasses:
+      enabled: false
+    deviceClasses:
       enabled: false
 
 controlPlane:

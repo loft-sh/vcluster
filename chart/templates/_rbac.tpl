@@ -22,9 +22,11 @@
     .Values.sync.toHost.storageClasses.enabled
     .Values.sync.toHost.persistentVolumes.enabled
     .Values.sync.toHost.priorityClasses.enabled
+    .Values.sync.toHost.resourceClaims.enabled
     .Values.sync.fromHost.priorityClasses.enabled
     .Values.sync.toHost.volumeSnapshotContents.enabled
     .Values.sync.fromHost.volumeSnapshotClasses.enabled
+    .Values.sync.fromHost.deviceClasses.enabled
     (and (eq (include "vcluster.distro" .) "k8s") .Values.controlPlane.distro.k8s.scheduler.enabled)
     .Values.controlPlane.advanced.virtualScheduler.enabled
     .Values.sync.toHost.pods.hybridScheduling.enabled
