@@ -381,6 +381,8 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 		return nil, err
 	}
 
+	t.translateResourceClaims(ctx, pPod, vPod)
+
 	// add runtime class name
 	if ctx.Config.Sync.ToHost.Pods.RuntimeClassName != "" {
 		pPod.Spec.RuntimeClassName = &ctx.Config.Sync.ToHost.Pods.RuntimeClassName
@@ -862,6 +864,28 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 		newAffinityTerm.LabelSelector.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 	}
 	return newAffinityTerm
+}
+
+func (t *translator) translateResourceClaims(ctx *synccontext.SyncContext, pPod *corev1.Pod, vPod *corev1.Pod) {
+	for i := range pPod.Spec.ResourceClaims {
+		if pPod.Spec.ResourceClaims[i].ResourceClaimName != nil {
+			translatedName := mappings.VirtualToHostName(
+				ctx,
+				*pPod.Spec.ResourceClaims[i].ResourceClaimName,
+				vPod.Namespace,
+				mappings.ResourceClaims())
+			pPod.Spec.ResourceClaims[i].ResourceClaimName = ptr.To(translatedName)
+		}
+
+		if pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName != nil {
+			translatedName := mappings.VirtualToHostName(
+				ctx,
+				*pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName,
+				vPod.Namespace,
+				mappings.ResourceClaimTemplates())
+			pPod.Spec.ResourceClaims[i].ResourceClaimName = ptr.To(translatedName)
+		}
+	}
 }
 
 func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
