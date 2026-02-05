@@ -883,7 +883,7 @@ func (t *translator) translateResourceClaims(ctx *synccontext.SyncContext, pPod 
 				*pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName,
 				vPod.Namespace,
 				mappings.ResourceClaimTemplates())
-			pPod.Spec.ResourceClaims[i].ResourceClaimName = ptr.To(translatedName)
+			pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName = ptr.To(translatedName)
 		}
 	}
 }
