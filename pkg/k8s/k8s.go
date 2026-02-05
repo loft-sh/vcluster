@@ -173,7 +173,12 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 					args = append(args, "--pvclaimbinder-sync-period=60s")
 					args = append(args, "--horizontal-pod-autoscaler-sync-period=60s")
 				} else {
-					args = append(args, "--controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl")
+					controllers := "--controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl"
+					if vConfig.Sync.ToHost.ResourceClaimTemplates.Enabled {
+						// if resource claim templates are synced, we need to disable resourceclaim controller in the virtual cluster
+						controllers += ",-resourceclaim-controller"
+					}
+					args = append(args, controllers)
 					args = append(args, "--node-monitor-grace-period=180s")
 					args = append(args, "--node-monitor-period=30s")
 					args = append(args, "--pvclaimbinder-sync-period=60s")
