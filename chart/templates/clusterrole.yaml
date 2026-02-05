@@ -98,7 +98,7 @@ rules:
     resources: ["priorityclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
-  {{ if or .Values.sync.toHost.resourceClaims.enabled .Values.sync.fromHost.deviceClasses.enabled}}
+  {{ if or .Values.sync.toHost.resourceClaims.enabled .Values.sync.toHost.resourceClaimTemplates.enabled .Values.sync.fromHost.deviceClasses.enabled}}
   - apiGroups: ["resource.k8s.io"]
     resources: ["deviceclasses"]
     verbs: ["get", "watch", "list"]

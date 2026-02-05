@@ -64,6 +64,8 @@ sync:
       mappingsOnly: false
     resourceClaims:
       enabled: false
+    resourceClaimTemplates:
+      enabled: false
 
   fromHost:
     events:

@@ -123,6 +123,10 @@ sync:
     resourceClaims:
       # Enabled defines if this option should be enabled.
       enabled: false
+    # ResourceClaimTemplates defines if resourceClaimTemplates created within the virtual cluster should get synced to the host cluster.
+    resourceClaimTemplates:
+      # Enabled defines if this option should be enabled.
+      enabled: false
   
   # Configure what resources vCluster should sync from the host cluster to the virtual cluster.
   fromHost:

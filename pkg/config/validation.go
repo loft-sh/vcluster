@@ -256,6 +256,7 @@ func ValidateAllSyncPatches(sync config.Sync) error {
 			{"sync.toHost.podDisruptionBudgets", sync.ToHost.PodDisruptionBudgets.Patches},
 			{"sync.toHost.priorityClasses", sync.ToHost.PriorityClasses.Patches},
 			{"sync.toHost.resourceClaims", sync.ToHost.ResourceClaims.Patches},
+			{"sync.toHost.resourceClaims", sync.ToHost.ResourceClaimTemplates.Patches},
 			{"sync.toHost.storageClasses", sync.ToHost.StorageClasses.Patches},
 			{"sync.toHost.volumeSnapshots", sync.ToHost.VolumeSnapshots.Patches},
 			{"sync.toHost.volumeSnapshotContents", sync.ToHost.VolumeSnapshotContents.Patches},

@@ -1071,6 +1071,10 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
+	if c.Sync.ToHost.ResourceClaimTemplates.Enabled {
+		return true
+	}
+
 	if c.Sync.ToHost.ResourceClaims.Enabled {
 		return true
 	}
@@ -1263,6 +1267,9 @@ type SyncToHost struct {
 
 	// ResourceClaim defines if resource claims created within the virtual cluster should get synced to the host cluster.
 	ResourceClaims EnableSwitchWithPatches `json:"resourceClaims,omitempty"`
+
+	// ResourceClaimTemplates defines if resourceClaimTemplates created within the virtual cluster should get synced to the host cluster.
+	ResourceClaimTemplates EnableSwitchWithPatches `json:"resourceClaimTemplates,omitempty"`
 }
 
 type EnableSwitchWithPatches struct {
