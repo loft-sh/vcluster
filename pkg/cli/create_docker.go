@@ -92,6 +92,30 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 		return fmt.Errorf("failed to load docker config: %w", err)
 	}
 
+	// On Linux, load kernel modules required for node join (bridge, br_netfilter, overlay).
+	// Only run modprobe for modules not already loaded (check via /proc/modules, no sudo).
+	if runtime.GOOS == "linux" {
+		required := []string{"overlay", "bridge", "br_netfilter"}
+		loaded := make(map[string]bool)
+		if data, err := os.ReadFile("/proc/modules"); err == nil {
+			scanner := bufio.NewScanner(strings.NewReader(string(data)))
+			for scanner.Scan() {
+				fields := strings.Fields(scanner.Text())
+				if len(fields) > 0 {
+					loaded[fields[0]] = true
+				}
+			}
+		}
+		for _, mod := range required {
+			if loaded[mod] {
+				continue
+			}
+			if err := exec.CommandContext(ctx, "modprobe", mod).Run(); err != nil {
+				log.Warnf("Could not load kernel module %s: %v. If node join fails, run: sudo modprobe overlay && sudo modprobe bridge && sudo modprobe br_netfilter", mod, err)
+			}
+		}
+	}
+
 	// configure the network and update user values if needed
 	networkName, extraDockerArgs, err := configureNetwork(ctx, userValuesRaw, vClusterName, log)
 	if err != nil {
