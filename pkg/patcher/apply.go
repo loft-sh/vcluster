@@ -12,14 +12,14 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-func CreateVirtualObject(ctx *synccontext.SyncContext, pObj, vObj client.Object, eventRecorder record.EventRecorder, hasStatus bool) (ctrl.Result, error) {
+func CreateVirtualObject(ctx *synccontext.SyncContext, pObj, vObj client.Object, eventRecorder events.EventRecorder, hasStatus bool) (ctrl.Result, error) {
 	gvk, err := apiutil.GVKForObject(vObj, scheme.Scheme)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("gvk for object: %w", err)
@@ -34,7 +34,14 @@ func CreateVirtualObject(ctx *synccontext.SyncContext, pObj, vObj client.Object,
 	if err != nil {
 		ctx.Log.Infof("error syncing %s %s to virtual cluster: %v", gvk.Kind, namespaceName, err)
 		if eventRecorder != nil {
-			eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
+			eventRecorder.Eventf(
+				vObj,
+				nil,
+				"Warning",
+				"SyncError",
+				fmt.Sprintf("Sync%s", gvk.Kind),
+				"Error syncing to virtual cluster: %v",
+				err)
 		}
 
 		return ctrl.Result{}, err
@@ -43,7 +50,7 @@ func CreateVirtualObject(ctx *synccontext.SyncContext, pObj, vObj client.Object,
 	return ctrl.Result{}, nil
 }
 
-func CreateHostObject(ctx *synccontext.SyncContext, vObj, pObj client.Object, eventRecorder record.EventRecorder, hasStatus bool) (ctrl.Result, error) {
+func CreateHostObject(ctx *synccontext.SyncContext, vObj, pObj client.Object, eventRecorder events.EventRecorder, hasStatus bool) (ctrl.Result, error) {
 	gvk, err := apiutil.GVKForObject(pObj, scheme.Scheme)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("gvk for object: %w", err)
@@ -58,7 +65,15 @@ func CreateHostObject(ctx *synccontext.SyncContext, vObj, pObj client.Object, ev
 	if err != nil {
 		ctx.Log.Infof("error syncing %s %s to host cluster: %v", gvk.Kind, namespaceName, err)
 		if eventRecorder != nil {
-			eventRecorder.Eventf(vObj, "Warning", "SyncError", "Error syncing to host cluster: %v", err)
+			eventRecorder.Eventf(
+				vObj,
+				nil,
+				"Warning",
+				"SyncError",
+				fmt.Sprintf("Sync%s", gvk.Kind),
+				"Error syncing to host cluster: %v",
+				err,
+			)
 		}
 
 		return ctrl.Result{}, err

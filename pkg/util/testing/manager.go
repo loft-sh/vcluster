@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	toolscache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -23,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 )
 
 func NewFakeManager(client *FakeIndexClient) ctrl.Manager {
@@ -30,7 +32,8 @@ func NewFakeManager(client *FakeIndexClient) ctrl.Manager {
 }
 
 type fakeManager struct {
-	client *FakeIndexClient
+	client            *FakeIndexClient
+	converterRegistry conversion.Registry
 }
 
 func (f *fakeManager) SetFields(_ interface{}) error { return nil }
@@ -47,6 +50,16 @@ func (f *fakeManager) GetCache() cache.Cache { return &fakeCache{FakeIndexClient
 
 func (f *fakeManager) GetEventRecorderFor(string) record.EventRecorder {
 	return &fakeEventBroadcaster{}
+}
+
+func (f *fakeManager) GetEventRecorder(string) events.EventRecorder {
+	recorder := events.NewFakeRecorder(100)
+	// Drain events to prevent tests from blocking on Eventf.
+	go func() {
+		for range recorder.Events {
+		}
+	}()
+	return recorder
 }
 
 func (f *fakeManager) GetRESTMapper() meta.RESTMapper { return nil }
@@ -66,6 +79,13 @@ func (f *fakeManager) AddHealthzCheck(string, healthz.Checker) error { return ni
 func (f *fakeManager) AddReadyzCheck(string, healthz.Checker) error { return nil }
 
 func (f *fakeManager) GetWebhookServer() webhook.Server { return webhook.NewServer(webhook.Options{}) }
+
+func (f *fakeManager) GetConverterRegistry() conversion.Registry {
+	if f.converterRegistry == nil {
+		f.converterRegistry = conversion.NewRegistry()
+	}
+	return f.converterRegistry
+}
 
 func (f *fakeManager) GetLogger() logr.Logger { return log.NewLog(0) }
 
@@ -112,18 +132,15 @@ func (f *fakeCache) IndexField(ctx context.Context, obj client.Object, key strin
 type fakeInformer struct{}
 
 func (f *fakeInformer) AddEventHandler(_ toolscache.ResourceEventHandler) (toolscache.ResourceEventHandlerRegistration, error) {
-	//nolint:nilnil
-	return nil, nil
+	return &fakeHandlerRegistration{}, nil
 }
 
 func (f *fakeInformer) AddEventHandlerWithResyncPeriod(_ toolscache.ResourceEventHandler, _ time.Duration) (toolscache.ResourceEventHandlerRegistration, error) {
-	//nolint:nilnil
-	return nil, nil
+	return &fakeHandlerRegistration{}, nil
 }
 
 func (f *fakeInformer) AddEventHandlerWithOptions(_ toolscache.ResourceEventHandler, _ toolscache.HandlerOptions) (toolscache.ResourceEventHandlerRegistration, error) {
-	//nolint:nilnil
-	return nil, nil
+	return &fakeHandlerRegistration{}, nil
 }
 
 func (f *fakeInformer) RemoveEventHandler(_ toolscache.ResourceEventHandlerRegistration) error {
@@ -140,6 +157,12 @@ func (f *fakeInformer) HasSynced() bool {
 
 func (f *fakeInformer) IsStopped() bool {
 	return false
+}
+
+type fakeHandlerRegistration struct{}
+
+func (f *fakeHandlerRegistration) HasSynced() bool {
+	return true
 }
 
 type fakeEventBroadcaster struct{}

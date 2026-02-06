@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/utils/ptr"
 )
 
@@ -152,7 +152,7 @@ func TestPodAffinityTermsTranslation(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		fakeRecorder := record.NewFakeRecorder(10)
+		fakeRecorder := events.NewFakeRecorder(10)
 		tr := &translator{
 			eventRecorder: fakeRecorder,
 			log:           loghelper.New("pods-syncer-translator-test"),
@@ -287,7 +287,7 @@ func TestVolumeTranslation(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			fakeRecorder := record.NewFakeRecorder(10)
+			fakeRecorder := events.NewFakeRecorder(10)
 			pClient := testingutil.NewFakeClient(scheme.Scheme)
 			vClient := testingutil.NewFakeClient(scheme.Scheme)
 			registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
@@ -397,7 +397,7 @@ func TestRewriteHostsTranslation(t *testing.T) {
 			pClient := testingutil.NewFakeClient(scheme.Scheme)
 			vClient := testingutil.NewFakeClient(scheme.Scheme)
 			registerCtx := generictesting.NewFakeRegisterContext(cfg, pClient, vClient)
-			fakeRecorder := record.NewFakeRecorder(10)
+			fakeRecorder := events.NewFakeRecorder(10)
 
 			tr, err := NewTranslator(registerCtx, fakeRecorder)
 			assert.NilError(t, err)
@@ -472,7 +472,7 @@ func TestPodResourcesTranslation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			fakeRecorder := record.NewFakeRecorder(10)
+			fakeRecorder := events.NewFakeRecorder(10)
 			pClient := testingutil.NewFakeClient(scheme.Scheme)
 			vClient := testingutil.NewFakeClient(scheme.Scheme)
 
@@ -546,7 +546,7 @@ func TestTranslateResourceClaims(t *testing.T) {
 	}
 
 	tr := &translator{
-		eventRecorder:                record.NewFakeRecorder(10),
+		eventRecorder:                events.NewFakeRecorder(10),
 		log:                          loghelper.New("pods-syncer-translator-test"),
 		resourceClaimEnabled:         true,
 		resourceClaimTemplateEnabled: true,
