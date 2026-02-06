@@ -127,7 +127,7 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 				nil,
 				"Warning",
 				"SyncError",
-				"ConfigMapSyncError",
+				fmt.Sprintf("Sync%s", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
 				"Error syncing: %v",
 				retErr,
 			)

@@ -88,7 +88,7 @@ func (s *genericFromHostSyncer) Sync(ctx *synccontext.SyncContext, event *syncco
 				nil,
 				"Warning",
 				"SyncError",
-				fmt.Sprintf("%sSyncError", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
+				fmt.Sprintf("Sync%s", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
 				"Error syncing: %v",
 				retErr)
 		}

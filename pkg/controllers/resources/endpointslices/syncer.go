@@ -87,7 +87,7 @@ func (s *endpointSliceSyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 				nil,
 				"Warning",
 				"SyncError",
-				"EndpointSyncError",
+				fmt.Sprintf("Sync%s", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
 				"Error syncing: %v",
 				retErr,
 			)

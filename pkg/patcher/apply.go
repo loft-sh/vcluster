@@ -39,7 +39,7 @@ func CreateVirtualObject(ctx *synccontext.SyncContext, pObj, vObj client.Object,
 				nil,
 				"Warning",
 				"SyncError",
-				fmt.Sprintf("%sSyncError", gvk.Kind),
+				fmt.Sprintf("Sync%s", gvk.Kind),
 				"Error syncing to virtual cluster: %v",
 				err)
 		}
@@ -70,7 +70,7 @@ func CreateHostObject(ctx *synccontext.SyncContext, vObj, pObj client.Object, ev
 				nil,
 				"Warning",
 				"SyncError",
-				fmt.Sprintf("%sSyncError", gvk.Kind),
+				fmt.Sprintf("Sync%s", gvk.Kind),
 				"Error syncing to host cluster: %v",
 				err,
 			)

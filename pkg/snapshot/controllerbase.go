@@ -267,7 +267,7 @@ func (c *reconcilerBase) deleteRequestSecret(ctx context.Context, configMap *cor
 		nil,
 		corev1.EventTypeNormal,
 		"SecretDeleted",
-		"SecretDeleted",
+		"ReconcileSnapShotRequest",
 		"%s request Secret %s/%s has been deleted",
 		c.kind.ToCapital(),
 		configMap.Namespace,

@@ -86,7 +86,7 @@ func (s *serviceAccountSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 				nil,
 				"Warning",
 				"SyncError",
-				"ServiceAccountSyncError",
+				fmt.Sprintf("Sync%s", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
 				"Error syncing: %v",
 				retErr,
 			)

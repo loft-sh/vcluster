@@ -153,7 +153,7 @@ func (s *volumeSnapshotSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 				nil,
 				"Warning",
 				"SyncError",
-				"VolumeSnapshotSyncError",
+				fmt.Sprintf("Sync%s", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
 				"Error syncing: %v",
 				retErr)
 		}

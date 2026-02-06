@@ -122,7 +122,7 @@ func (s *secretSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Syn
 				nil,
 				"Warning",
 				"SyncError",
-				"SecretSyncError",
+				fmt.Sprintf("Sync%s", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
 				"Error syncing: %v",
 				retErr,
 			)

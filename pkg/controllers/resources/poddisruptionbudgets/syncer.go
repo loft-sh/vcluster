@@ -72,10 +72,11 @@ func (s *pdbSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		}
 		if retErr != nil {
 			s.EventRecorder().Eventf(
-				event.Virtual, nil,
+				event.Virtual,
+				nil,
 				"Warning",
 				"SyncError",
-				"PodDisruptionBudgetSyncError",
+				fmt.Sprintf("Sync%s", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
 				"Error syncing: %v",
 				retErr,
 			)

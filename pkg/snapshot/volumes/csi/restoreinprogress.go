@@ -384,7 +384,7 @@ func (r *Restorer) inProgressPVCReconcileFinished(requestObj runtime.Object, vol
 		nil,
 		eventType,
 		reason,
-		"PersistentVolumeClaimRestoringSkipped",
+		"RestorePersistentVolumeClaim",
 		messageFmt,
 		args...,
 	)

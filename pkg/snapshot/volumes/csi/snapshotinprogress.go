@@ -43,7 +43,7 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestObj 
 			nil,
 			corev1.EventTypeWarning,
 			"VolumeSnapshotsFailed",
-			"VolumeSnapshotsFailed",
+			"CreateVolumeSnapshots",
 			"Failed to create volume snapshots: %v",
 			retErr)
 	}()
@@ -137,7 +137,7 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestObj 
 			nil,
 			corev1.EventTypeWarning,
 			"VolumeSnapshotsFailed",
-			"VolumeSnapshotsFailed",
+			"CreateVolumeSnapshots",
 			status.Error.Message,
 		)
 	} else {
@@ -312,7 +312,7 @@ func (s *VolumeSnapshotter) inProgressPVCReconcileFinished(requestObj runtime.Ob
 		nil,
 		eventType,
 		reason,
-		reason,
+		"CreateVolumeSnapshots",
 		messageFmt,
 		args...,
 	)

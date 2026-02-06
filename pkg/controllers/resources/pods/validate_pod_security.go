@@ -28,7 +28,7 @@ func (s *podSyncer) isPodSecurityStandardsValid(ctx context.Context, pod *corev1
 				nil,
 				"Warning",
 				"SyncError",
-				"PodSyncError",
+				fmt.Sprintf("Sync%s", pod.GetObjectKind().GroupVersionKind().Kind),
 				`Pod %s is forbidden: %s`,
 				pod.Name,
 				result.Result.Message,
