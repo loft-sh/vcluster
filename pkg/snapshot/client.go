@@ -30,7 +30,14 @@ func (c *Client) Run(ctx context.Context) error {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
-		return err
+		if os.IsNotExist(err) {
+			vConfig, err = config.ParseConfig(constants.StandaloneDefaultConfigPath, os.Getenv("VCLUSTER_NAME"), nil)
+			if err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("failed to parse vCluster config: %w", err)
+		}
 	}
 
 	// make sure to validate options
