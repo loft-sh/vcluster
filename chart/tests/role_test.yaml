@@ -472,3 +472,25 @@ tests:
             apiGroups: ["resource.k8s.io"]
             resources: ["resourceclaims"]
             verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+
+  - it: resourceClaimTemplates rules
+    set:
+      sync:
+        toHost:
+          resourceClaimTemplates:
+            enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["resource.k8s.io"]
+            resources: ["resourceclaimtemplates"]
+            verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]

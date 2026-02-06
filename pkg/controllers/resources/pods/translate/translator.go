@@ -134,6 +134,9 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		virtualKubeletPodPath: filepath.Join(virtualKubeletPath, "pods"),
 
 		hostClusterVersion: hostClusterVersion,
+
+		resourceClaimEnabled:         ctx.Config.Sync.ToHost.ResourceClaims.Enabled,
+		resourceClaimTemplateEnabled: ctx.Config.Sync.ToHost.ResourceClaimTemplates.Enabled,
 	}, nil
 }
 
@@ -164,6 +167,9 @@ type translator struct {
 	virtualKubeletPodPath string
 
 	hostClusterVersion *version.Info
+
+	resourceClaimEnabled         bool
+	resourceClaimTemplateEnabled bool
 }
 
 func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -380,6 +386,8 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 	if err != nil {
 		return nil, err
 	}
+
+	t.translateResourceClaims(ctx, pPod, vPod)
 
 	// add runtime class name
 	if ctx.Config.Sync.ToHost.Pods.RuntimeClassName != "" {
@@ -862,6 +870,28 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 		newAffinityTerm.LabelSelector.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 	}
 	return newAffinityTerm
+}
+
+func (t *translator) translateResourceClaims(ctx *synccontext.SyncContext, pPod *corev1.Pod, vPod *corev1.Pod) {
+	for i := range pPod.Spec.ResourceClaims {
+		if t.resourceClaimEnabled && pPod.Spec.ResourceClaims[i].ResourceClaimName != nil {
+			translatedName := mappings.VirtualToHostName(
+				ctx,
+				*pPod.Spec.ResourceClaims[i].ResourceClaimName,
+				vPod.Namespace,
+				mappings.ResourceClaims())
+			pPod.Spec.ResourceClaims[i].ResourceClaimName = ptr.To(translatedName)
+		}
+
+		if t.resourceClaimTemplateEnabled && pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName != nil {
+			translatedName := mappings.VirtualToHostName(
+				ctx,
+				*pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName,
+				vPod.Namespace,
+				mappings.ResourceClaimTemplates())
+			pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName = ptr.To(translatedName)
+		}
+	}
 }
 
 func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {

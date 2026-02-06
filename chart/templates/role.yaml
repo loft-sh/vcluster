@@ -98,6 +98,14 @@ rules:
   - apiGroups: ["resource.k8s.io"]
     resources: ["resourceclaims"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["resource.k8s.io"]
+    resources: ["resourceclaims/status"]
+    verbs: ["patch", "update"]
+  {{- end }}
+  {{ if .Values.sync.toHost.resourceClaimTemplates.enabled}}
+  - apiGroups: ["resource.k8s.io"]
+    resources: ["resourceclaimtemplates"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
   {{- if .Values.sync.toHost.serviceAccounts.enabled }}
   - apiGroups: [""]

@@ -23,6 +23,7 @@
     .Values.sync.toHost.persistentVolumes.enabled
     .Values.sync.toHost.priorityClasses.enabled
     .Values.sync.toHost.resourceClaims.enabled
+    .Values.sync.toHost.resourceClaimTemplates.enabled
     .Values.sync.fromHost.priorityClasses.enabled
     .Values.sync.toHost.volumeSnapshotContents.enabled
     .Values.sync.fromHost.volumeSnapshotClasses.enabled

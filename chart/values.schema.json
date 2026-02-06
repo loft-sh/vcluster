@@ -4974,6 +4974,10 @@
         "resourceClaims": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "ResourceClaim defines if resource claims created within the virtual cluster should get synced to the host cluster."
+        },
+        "resourceClaimTemplates": {
+          "$ref": "#/$defs/EnableSwitchWithPatches",
+          "description": "ResourceClaimTemplates defines if resourceClaimTemplates created within the virtual cluster should get synced to the host cluster."
         }
       },
       "additionalProperties": false,
