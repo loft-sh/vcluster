@@ -546,17 +546,23 @@ func TestTranslateResourceClaims(t *testing.T) {
 	}
 
 	tr := &translator{
-		eventRecorder: record.NewFakeRecorder(10),
-		log:           loghelper.New("pods-syncer-translator-test"),
+		eventRecorder:                record.NewFakeRecorder(10),
+		log:                          loghelper.New("pods-syncer-translator-test"),
+		resourceClaimEnabled:         true,
+		resourceClaimTemplateEnabled: true,
 	}
 
 	testCases := []struct {
-		name                   string
-		pPod                   *corev1.Pod
-		expectedResourceClaims []corev1.PodResourceClaim
+		name                         string
+		resourceClaimEnabled         bool
+		resourceClaimTemplateEnabled bool
+		pPod                         *corev1.Pod
+		expectedResourceClaims       []corev1.PodResourceClaim
 	}{
 		{
-			name: "ResourceClaimName only",
+			name:                         "ResourceClaimName only",
+			resourceClaimEnabled:         true,
+			resourceClaimTemplateEnabled: true,
 			pPod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"},
 				Spec: corev1.PodSpec{
@@ -576,7 +582,9 @@ func TestTranslateResourceClaims(t *testing.T) {
 			},
 		},
 		{
-			name: "ResourceClaimTemplateName only",
+			name:                         "ResourceClaimTemplateName only",
+			resourceClaimEnabled:         true,
+			resourceClaimTemplateEnabled: true,
 			pPod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"},
 				Spec: corev1.PodSpec{
@@ -596,7 +604,9 @@ func TestTranslateResourceClaims(t *testing.T) {
 			},
 		},
 		{
-			name: "both ResourceClaimName and ResourceClaimTemplateName",
+			name:                         "both ResourceClaimName and ResourceClaimTemplateName",
+			resourceClaimEnabled:         true,
+			resourceClaimTemplateEnabled: true,
 			pPod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"},
 				Spec: corev1.PodSpec{
@@ -624,7 +634,9 @@ func TestTranslateResourceClaims(t *testing.T) {
 			},
 		},
 		{
-			name: "empty ResourceClaims",
+			name:                         "empty ResourceClaims",
+			resourceClaimEnabled:         true,
+			resourceClaimTemplateEnabled: true,
 			pPod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"},
 				Spec: corev1.PodSpec{
@@ -633,10 +645,87 @@ func TestTranslateResourceClaims(t *testing.T) {
 			},
 			expectedResourceClaims: []corev1.PodResourceClaim{},
 		},
+		{
+			name:                         "ResourceClaimName disabled",
+			resourceClaimEnabled:         false,
+			resourceClaimTemplateEnabled: true,
+			pPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"},
+				Spec: corev1.PodSpec{
+					ResourceClaims: []corev1.PodResourceClaim{
+						{
+							Name:              "claim-ref",
+							ResourceClaimName: ptr.To("my-claim"),
+						},
+					},
+				},
+			},
+			expectedResourceClaims: []corev1.PodResourceClaim{
+				{
+					Name:              "claim-ref",
+					ResourceClaimName: ptr.To("my-claim"),
+				},
+			},
+		},
+		{
+			name:                         "ResourceClaimTemplateName disabled",
+			resourceClaimEnabled:         true,
+			resourceClaimTemplateEnabled: false,
+			pPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"},
+				Spec: corev1.PodSpec{
+					ResourceClaims: []corev1.PodResourceClaim{
+						{
+							Name:                      "template-ref",
+							ResourceClaimTemplateName: ptr.To("my-template"),
+						},
+					},
+				},
+			},
+			expectedResourceClaims: []corev1.PodResourceClaim{
+				{
+					Name:                      "template-ref",
+					ResourceClaimTemplateName: ptr.To("my-template"),
+				},
+			},
+		},
+		{
+			name:                         "both disabled",
+			resourceClaimEnabled:         false,
+			resourceClaimTemplateEnabled: false,
+			pPod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "test-ns"},
+				Spec: corev1.PodSpec{
+					ResourceClaims: []corev1.PodResourceClaim{
+						{
+							Name:              "claim-ref",
+							ResourceClaimName: ptr.To("my-claim"),
+						},
+						{
+							Name:                      "template-ref",
+							ResourceClaimTemplateName: ptr.To("my-template"),
+						},
+					},
+				},
+			},
+			expectedResourceClaims: []corev1.PodResourceClaim{
+				{
+					Name:              "claim-ref",
+					ResourceClaimName: ptr.To("my-claim"),
+				},
+				{
+					Name:                      "template-ref",
+					ResourceClaimTemplateName: ptr.To("my-template"),
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			tr.resourceClaimEnabled = tc.resourceClaimEnabled
+			tr.resourceClaimTemplateEnabled = tc.resourceClaimTemplateEnabled
+
 			pPod := tc.pPod.DeepCopy()
 			tr.translateResourceClaims(syncCtx, pPod, vPod)
 			assert.Assert(t, cmp.DeepEqual(pPod.Spec.ResourceClaims, tc.expectedResourceClaims), "Unexpected translation of ResourceClaims in %q", tc.name)

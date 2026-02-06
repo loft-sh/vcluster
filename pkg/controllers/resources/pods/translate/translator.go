@@ -134,6 +134,9 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		virtualKubeletPodPath: filepath.Join(virtualKubeletPath, "pods"),
 
 		hostClusterVersion: hostClusterVersion,
+
+		resourceClaimEnabled:         ctx.Config.Sync.ToHost.ResourceClaims.Enabled,
+		resourceClaimTemplateEnabled: ctx.Config.Sync.ToHost.ResourceClaimTemplates.Enabled,
 	}, nil
 }
 
@@ -164,6 +167,9 @@ type translator struct {
 	virtualKubeletPodPath string
 
 	hostClusterVersion *version.Info
+
+	resourceClaimEnabled         bool
+	resourceClaimTemplateEnabled bool
 }
 
 func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -868,7 +874,7 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 
 func (t *translator) translateResourceClaims(ctx *synccontext.SyncContext, pPod *corev1.Pod, vPod *corev1.Pod) {
 	for i := range pPod.Spec.ResourceClaims {
-		if pPod.Spec.ResourceClaims[i].ResourceClaimName != nil {
+		if t.resourceClaimEnabled && pPod.Spec.ResourceClaims[i].ResourceClaimName != nil {
 			translatedName := mappings.VirtualToHostName(
 				ctx,
 				*pPod.Spec.ResourceClaims[i].ResourceClaimName,
@@ -877,7 +883,7 @@ func (t *translator) translateResourceClaims(ctx *synccontext.SyncContext, pPod 
 			pPod.Spec.ResourceClaims[i].ResourceClaimName = ptr.To(translatedName)
 		}
 
-		if pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName != nil {
+		if t.resourceClaimTemplateEnabled && pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName != nil {
 			translatedName := mappings.VirtualToHostName(
 				ctx,
 				*pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName,

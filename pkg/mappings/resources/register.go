@@ -33,6 +33,9 @@ func getMappers(ctx *synccontext.RegisterContext) []BuildMapper {
 		CreateVolumeSnapshotClassesMapper,
 		CreateVolumeSnapshotContentsMapper,
 		CreateVolumeSnapshotsMapper,
+		isEnabled(ctx.Config.Sync.ToHost.ResourceClaims.Enabled, CreateResourceClaimsMapper),
+		isEnabled(ctx.Config.Sync.ToHost.ResourceClaimTemplates.Enabled, CreateResourceClaimTemplatesMapper),
+		isEnabled(ctx.Config.Sync.FromHost.DeviceClasses.Enabled, CreateDeviceClassesMapper),
 	}, ExtraMappers...)
 }
 

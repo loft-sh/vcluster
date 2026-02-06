@@ -147,6 +147,10 @@ func PersistentVolumeClaims() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim")
 }
 
+func DeviceClasses() schema.GroupVersionKind {
+	return resourcev1.SchemeGroupVersion.WithKind("DeviceClass")
+}
+
 func ResourceClaims() schema.GroupVersionKind {
 	return resourcev1.SchemeGroupVersion.WithKind("ResourceClaim")
 }
