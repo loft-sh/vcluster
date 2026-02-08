@@ -1132,7 +1132,7 @@ func getDockerSocketPath(ctx context.Context) (string, error) {
 	// This matches paths ending in "/docker.sock" OR "/docker.sock.real"
 	cmdStr := `netstat -xlp | awk '$NF ~ /\/docker\.sock(\.real)?$/ {print $NF}'`
 
-	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).CombinedOutput()
+	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to get docker socket path: %s: %w", string(out), err)
 	}
@@ -1156,7 +1156,7 @@ func getDockerSocketPath(ctx context.Context) (string, error) {
 func getContainerdSocketPath(ctx context.Context) (string, error) {
 	// This automatically discards stderr (where the netstat warning lives)
 	// and only captures the clean stdout from awk.
-	cmd := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", `netstat -xlp | awk '$NF ~ /\/containerd\.sock$/ {print $NF}'`)
+	cmd := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-p", "-u", "-i", "-n", "sh", "-c", `netstat -xlp | awk '$NF ~ /\/containerd\.sock$/ {print $NF}'`)
 	out, err := cmd.Output()
 
 	if err != nil {
