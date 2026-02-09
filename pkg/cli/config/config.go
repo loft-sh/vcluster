@@ -141,11 +141,13 @@ func PrintDriverInfo(verb string, driver DriverType, log log.Logger) {
 	switch driver {
 	case HelmDriver:
 		log.Infof("Using vCluster driver 'helm' to %s your virtual clusters, which means the vCluster CLI is running helm commands directly", verb)
-		log.Info("If you prefer to use the vCluster platform API instead, use the flag '--driver platform' or run 'vcluster use driver platform' to change the default")
+		log.Info("If you prefer to use the vCluster platform API or Docker instead, use '--driver platform' or '--driver docker', or run 'vcluster use driver platform' or 'vcluster use driver docker' to change the default")
 	case PlatformDriver:
 		log.Infof("Using vCluster driver 'platform' to %s your virtual clusters, which means the CLI is using the vCluster platform API instead of helm", verb)
-		log.Info("If you prefer to use helm instead, use the flag '--driver helm' or run 'vcluster use driver helm' to change the default")
+		log.Info("If you prefer to use helm or Docker instead, use '--driver helm' or '--driver docker', or run 'vcluster use driver helm' or 'vcluster use driver docker' to change the default")
 	case DockerDriver:
+		log.Infof("Using vCluster driver 'docker' to %s your virtual clusters, which means the CLI is managing Docker-based virtual clusters locally", verb)
+		log.Info("If you prefer to use helm or the vCluster platform API instead, use '--driver helm' or '--driver platform', or run 'vcluster use driver helm' or 'vcluster use driver platform' to change the default")
 	}
 }
 

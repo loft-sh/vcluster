@@ -65,7 +65,7 @@ vcluster connect test -n test -- kubectl get ns
 		return cmd.Run(cobraCmd.Context(), args)
 	}
 
-	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
+	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm, platform, or docker.")
 
 	connect.AddCommonFlags(cobraCmd, &cmd.ConnectOptions)
 	connect.AddPlatformFlags(cobraCmd, &cmd.ConnectOptions, "[PLATFORM] ")

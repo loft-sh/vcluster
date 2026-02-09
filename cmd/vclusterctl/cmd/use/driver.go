@@ -26,13 +26,13 @@ func NewDriverCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	description := `########################################################
 ################# vcluster use driver #################
 ########################################################
-Either use "helm" or "platform" as the deployment method for managing virtual clusters.
+Either use "helm", "platform", or "docker" as the deployment method for managing virtual clusters.
 #######################################################
 	`
 
 	driverCmd := &cobra.Command{
 		Use:   "driver",
-		Short: "Switch the virtual clusters driver between platform and helm",
+		Short: "Switch the virtual clusters driver between platform, helm, and docker",
 		Long:  description,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
