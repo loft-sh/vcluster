@@ -1132,35 +1132,56 @@ func findTailIPs(ctx context.Context, networkName string, tailSize int) ([]strin
 func getDockerSocketPath(ctx context.Context) (string, error) {
 	// Updated awk regex: /\/docker\.sock(\.real)?$/
 	// This matches paths ending in "/docker.sock" OR "/docker.sock.real"
-	cmdStr := `netstat -xlp | awk '$NF ~ /\/docker\.sock(\.real)?$/ {print $NF}'`
+	cmdStr := `
+        if command -v netstat >/dev/null 2>&1; then
+            netstat -xlp | awk '$NF ~ /\/docker\.sock(\.real)?$/ {print $NF}'
+        else
+            for p in /var/run/docker.sock.real /var/run/docker.sock; do
+                if [ -S "$p" ]; then
+                    echo "$p"
+                fi
+            done
+        fi
+    `
 
-	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).CombinedOutput()
+	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get docker socket path: %s: %w", string(out), err)
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return "", fmt.Errorf("failed to get docker socket path: %s: %w", string(exitErr.Stderr), err)
+		}
+		return "", fmt.Errorf("failed to get docker socket path: %w", err)
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(strings.TrimSpace(string(out))))
-	dockerSocketPaths := []string{}
 	for scanner.Scan() {
-		dockerSocketPaths = append(dockerSocketPaths, scanner.Text())
+		line := strings.TrimSpace(scanner.Text())
+		// Only accept the line if it looks like an absolute path.
+		if strings.HasPrefix(line, "/") {
+			return line, nil
+		}
 	}
 	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("failed to scan docker socket path: %s: %w", string(out), err)
-	}
-	if len(dockerSocketPaths) == 0 {
-		return "", fmt.Errorf("no docker socket path found")
+		return "", fmt.Errorf("failed to scan docker socket path: %w", err)
 	}
 
-	// Returns the first match found (e.g., /var/run/docker.sock.real)
-	return dockerSocketPaths[0], nil
+	return "", fmt.Errorf("no docker socket path found")
 }
 
 func getContainerdSocketPath(ctx context.Context) (string, error) {
-	// This automatically discards stderr (where the netstat warning lives)
-	// and only captures the clean stdout from awk.
-	cmd := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", `netstat -xlp | awk '$NF ~ /\/containerd\.sock$/ {print $NF}'`)
-	out, err := cmd.Output()
+	cmdStr := `
+        if command -v netstat >/dev/null 2>&1; then
+            netstat -xlp | awk '$NF ~ /\/containerd\.sock$/ {print $NF}'
+        else
+            for p in /run/containerd/containerd.sock /var/run/containerd/containerd.sock /var/run/docker/containerd/containerd.sock; do
+                if [ -S "$p" ]; then
+                    echo "$p"
+                fi
+            done
+        fi
+    `
 
+	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).Output()
 	if err != nil {
 		// Extract stderr for better debugging if the command actually fails
 		var exitErr *exec.ExitError
