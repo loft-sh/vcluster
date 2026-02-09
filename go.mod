@@ -3,6 +3,7 @@ module github.com/loft-sh/vcluster
 go 1.25
 
 require (
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.4
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.10
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.58
@@ -79,6 +80,8 @@ require (
 require (
 	cel.dev/expr v0.24.0 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.20.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
