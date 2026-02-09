@@ -56,7 +56,7 @@ vcluster pause test --namespace test
 		},
 	}
 
-	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver for the virtual cluster, can be either helm or platform.")
+	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver for the virtual cluster, can be either helm, platform, or docker.")
 
 	// Platform flags
 	cobraCmd.Flags().StringVar(&cmd.Project, "project", "", "[PLATFORM] The vCluster platform project to use")

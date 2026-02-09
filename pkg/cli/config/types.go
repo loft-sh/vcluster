@@ -15,7 +15,7 @@ type CLI struct {
 }
 
 type Driver struct {
-	// Type is the current driver type that is used, either helm or platform
+	// Type is the current driver type that is used, either helm, platform, or docker
 	Type DriverType `json:"type,omitempty"`
 }
 
