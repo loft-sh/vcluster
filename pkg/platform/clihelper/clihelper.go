@@ -3,7 +3,6 @@ package clihelper
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -17,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	loftclientset "github.com/loft-sh/api/v4/pkg/clientset/versioned"
 	"github.com/loft-sh/api/v4/pkg/product"
@@ -31,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -607,98 +604,6 @@ func deleteUser(ctx context.Context, restConfig *rest.Config, name string) error
 	err = loftClient.StorageV1().Users().Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
 		return err
-	}
-
-	return nil
-}
-
-func EnsureIngressController(ctx context.Context, kubeClient kubernetes.Interface, kubeContext string, log log.Logger) error {
-	if kubeClient == nil {
-		return errors.New("nil kubeClient")
-	}
-
-	// first create an ingress controller
-	const (
-		YesOption = "Yes"
-		NoOption  = "No, I already have an ingress controller installed."
-	)
-
-	answer, err := log.Question(&survey.QuestionOptions{
-		Question:     "[DEPRECATED]: Ingress controller required. Should the nginx-ingress controller be installed?",
-		DefaultValue: NoOption,
-		Options: []string{
-			YesOption,
-			NoOption,
-		},
-	})
-	if err != nil {
-		return err
-	}
-
-	if answer == YesOption {
-		args := []string{
-			"install",
-			"ingress-nginx",
-			"ingress-nginx",
-			"--repository-config=''",
-			"--repo",
-			"https://kubernetes.github.io/ingress-nginx",
-			"--kube-context",
-			kubeContext,
-			"--namespace",
-			"ingress-nginx",
-			"--create-namespace",
-			"--set-string",
-			"controller.config.hsts=false",
-			"--wait",
-		}
-		log.WriteString(logrus.InfoLevel, "\n")
-		log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
-		log.Info("Waiting for ingress controller deployment, this can take several minutes...")
-		helmCmd := exec.Command("helm", args...)
-		output, err := helmCmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("error during helm command: %s (%w)", string(output), err)
-		}
-
-		list, err := kubeClient.CoreV1().Secrets("ingress-nginx").List(ctx, metav1.ListOptions{
-			LabelSelector: "name=ingress-nginx,owner=helm,status=deployed",
-		})
-		if err != nil {
-			return err
-		}
-
-		if len(list.Items) == 1 {
-			secret := list.Items[0]
-			originalSecret := secret.DeepCopy()
-			if secret.Labels == nil {
-				secret.Labels = map[string]string{}
-			}
-			secret.Labels["loft.sh/app"] = "true"
-			if secret.Annotations == nil {
-				secret.Annotations = map[string]string{}
-			}
-
-			secret.Annotations["loft.sh/url"] = "https://kubernetes.github.io/ingress-nginx"
-			originalJSON, err := json.Marshal(originalSecret)
-			if err != nil {
-				return err
-			}
-			modifiedJSON, err := json.Marshal(secret)
-			if err != nil {
-				return err
-			}
-			data, err := jsonpatch.CreateMergePatch(originalJSON, modifiedJSON)
-			if err != nil {
-				return err
-			}
-			_, err = kubeClient.CoreV1().Secrets(secret.Namespace).Patch(ctx, secret.Name, types.MergePatchType, data, metav1.PatchOptions{})
-			if err != nil {
-				return err
-			}
-		}
-
-		log.Done("Successfully installed ingress-nginx to your kubernetes cluster!")
 	}
 
 	return nil

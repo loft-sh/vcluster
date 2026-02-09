@@ -14,7 +14,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -294,10 +293,7 @@ func (l *LoftStarter) handleAlreadyExistingInstallation(ctx context.Context) err
 			}
 
 			if term.IsTerminal(os.Stdin) {
-				err := clihelper.EnsureIngressController(ctx, l.KubeClient, l.Context, l.Log)
-				if err != nil {
-					return errors.Wrap(err, "install ingress controller")
-				}
+				l.Log.Info(product.Replace("Please make sure that you have a working ingress controller installed in your cluster."))
 			}
 		}
 	}

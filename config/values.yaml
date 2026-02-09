@@ -485,9 +485,6 @@ deploy:
     ipAddressPool:
       addresses: []
       l2Advertisement: true
-  ingressNginx:
-    enabled: false
-    defaultIngressClass: true
   metricsServer:
     enabled: false
   volumeSnapshotController:
