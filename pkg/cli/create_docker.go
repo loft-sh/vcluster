@@ -1134,7 +1134,7 @@ func getDockerSocketPath(ctx context.Context) (string, error) {
         if command -v netstat >/dev/null 2>&1; then
             netstat -xlp | awk '$NF ~ /\/docker\.sock(\.real)?$/ {print $NF}'
         else
-            for p in /var/run/docker.sock /var/run/docker.sock.real; do
+            for p in /var/run/docker.sock.real /var/run/docker.sock; do
                 if [ -S "$p" ]; then
                     echo "$p"
                 fi
@@ -1167,11 +1167,19 @@ func getDockerSocketPath(ctx context.Context) (string, error) {
 }
 
 func getContainerdSocketPath(ctx context.Context) (string, error) {
-	// This automatically discards stderr (where the netstat warning lives)
-	// and only captures the clean stdout from awk.
-	cmd := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", `netstat -xlp | awk '$NF ~ /\/containerd\.sock$/ {print $NF}'`)
-	out, err := cmd.Output()
+	cmdStr := `
+        if command -v netstat >/dev/null 2>&1; then
+            netstat -xlp | awk '$NF ~ /\/containerd\.sock$/ {print $NF}'
+        else
+            for p in /run/containerd/containerd.sock /var/run/containerd/containerd.sock /var/run/docker/containerd/containerd.sock; do
+                if [ -S "$p" ]; then
+                    echo "$p"
+                fi
+            done
+        fi
+    `
 
+	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).Output()
 	if err != nil {
 		// Extract stderr for better debugging if the command actually fails
 		var exitErr *exec.ExitError
