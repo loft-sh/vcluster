@@ -379,5 +379,13 @@ func (r *Restorer) inProgressPVCReconcileFinished(requestObj runtime.Object, vol
 		return
 	}
 
-	r.eventRecorder.Eventf(requestObj, eventType, reason, messageFmt, args...)
+	r.eventRecorder.Eventf(
+		requestObj,
+		nil,
+		eventType,
+		reason,
+		"RestorePersistentVolumeClaim",
+		messageFmt,
+		args...,
+	)
 }

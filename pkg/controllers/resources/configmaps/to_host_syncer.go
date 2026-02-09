@@ -122,7 +122,15 @@ func (s *configMapSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 		if retErr != nil {
-			s.EventRecorder().Eventf(event.Virtual, "Warning", "SyncError", "Error syncing: %v", retErr)
+			s.EventRecorder().Eventf(
+				event.Virtual,
+				nil,
+				"Warning",
+				"SyncError",
+				fmt.Sprintf("Sync%s", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
+				"Error syncing: %v",
+				retErr,
+			)
 		}
 	}()
 

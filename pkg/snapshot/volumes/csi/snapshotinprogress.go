@@ -38,7 +38,14 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestObj 
 		}
 		status.Phase = volumes.RequestPhaseFailed
 		status.Error.Message = retErr.Error()
-		s.eventRecorder.Eventf(requestObj, corev1.EventTypeWarning, "VolumeSnapshotsFailed", "Failed to create volume snapshots: %v", retErr)
+		s.eventRecorder.Eventf(
+			requestObj,
+			nil,
+			corev1.EventTypeWarning,
+			"VolumeSnapshotsFailed",
+			"CreateVolumeSnapshots",
+			"Failed to create volume snapshots: %v",
+			retErr)
 	}()
 
 	if status.Snapshots == nil {
@@ -112,13 +119,27 @@ func (s *VolumeSnapshotter) reconcileInProgress(ctx context.Context, requestObj 
 	} else if hasCompletedSnapshots && hasFailedSnapshots {
 		status.Phase = volumes.RequestPhasePartiallyFailed
 		status.Error.Message = fmt.Sprintf("%d out of %d volume snapshots have failed", failedSnapshotsCount, len(request.Requests))
-		s.eventRecorder.Eventf(requestObj, corev1.EventTypeWarning, "VolumeSnapshotsPartiallyFailed", status.Error.Message)
+		s.eventRecorder.Eventf(
+			requestObj,
+			nil,
+			corev1.EventTypeWarning,
+			"VolumeSnapshotsPartiallyFailed",
+			"VolumeSnapshotsPartiallyFailed",
+			status.Error.Message,
+		)
 	} else if hasCompletedSnapshots {
 		status.Phase = volumes.RequestPhaseCompleted
 	} else if hasFailedSnapshots {
 		status.Phase = volumes.RequestPhaseFailed
 		status.Error.Message = "all volume snapshots have failed"
-		s.eventRecorder.Eventf(requestObj, corev1.EventTypeWarning, "VolumeSnapshotsFailed", status.Error.Message)
+		s.eventRecorder.Eventf(
+			requestObj,
+			nil,
+			corev1.EventTypeWarning,
+			"VolumeSnapshotsFailed",
+			"CreateVolumeSnapshots",
+			status.Error.Message,
+		)
 	} else {
 		return fmt.Errorf("unexpected state for snapshot request %s, expected at least 1 snapshot to be in progress, completed or failed", requestName)
 	}
@@ -286,5 +307,13 @@ func (s *VolumeSnapshotter) inProgressPVCReconcileFinished(requestObj runtime.Ob
 		return
 	}
 
-	s.eventRecorder.Eventf(requestObj, eventType, reason, messageFmt, args...)
+	s.eventRecorder.Eventf(
+		requestObj,
+		nil,
+		eventType,
+		reason,
+		"CreateVolumeSnapshots",
+		messageFmt,
+		args...,
+	)
 }

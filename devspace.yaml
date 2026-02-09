@@ -32,6 +32,8 @@ deployments:
           distro:
             k8s:
               enabled: true
+              image:
+                tag: v1.35.0
           statefulSet:
             image:
               registry: ""

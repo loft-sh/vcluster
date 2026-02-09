@@ -15,6 +15,7 @@ import (
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -23,7 +24,6 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -54,7 +54,7 @@ func NewSyncController(ctx *synccontext.RegisterContext, syncer syncertypes.Sync
 		hostNameRequestLookup: map[ctrl.Request]ctrl.Request{},
 
 		log:            loghelper.New(syncer.Name()),
-		vEventRecorder: ctx.VirtualManager.GetEventRecorderFor(syncer.Name() + "-syncer"),
+		vEventRecorder: ctx.VirtualManager.GetEventRecorder(syncer.Name() + "-syncer"),
 		physicalClient: ctx.HostManager.GetClient(),
 
 		currentNamespace:       ctx.CurrentNamespace,
@@ -99,7 +99,7 @@ type SyncController struct {
 	hostNameRequestLookup     map[ctrl.Request]ctrl.Request
 
 	log            loghelper.Logger
-	vEventRecorder record.EventRecorder
+	vEventRecorder events.EventRecorder
 
 	physicalClient client.Client
 
@@ -126,6 +126,13 @@ func (r *SyncController) newSyncContext(ctx context.Context, logName string) *sy
 }
 
 func (r *SyncController) Reconcile(ctx context.Context, vReq reconcile.Request) (res ctrl.Result, retErr error) {
+	defer func() {
+		if kerrors.IsConflict(retErr) {
+			res = ctrl.Result{RequeueAfter: time.Second}
+			retErr = nil
+		}
+	}()
+
 	// extract request
 	pReq, ok := r.getHostRequest(vReq)
 	if ok {
