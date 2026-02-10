@@ -1155,6 +1155,10 @@
           "$ref": "#/$defs/LocalPathProvisioner",
           "description": "LocalPathProvisioner holds dedicated local path provisioner configuration."
         },
+        "ingressNginx": {
+          "$ref": "#/$defs/IngressNginx",
+          "description": "IngressNginx holds dedicated ingress-nginx configuration.\nDeprecated: We do not deploy ingress nginx and the project is being deprecated."
+        },
         "metricsServer": {
           "$ref": "#/$defs/DeployMetricsServer",
           "description": "MetricsServer holds dedicated metrics server configuration."
@@ -2422,6 +2426,20 @@
         "name": {
           "type": "string",
           "description": "Name of the image pull secret to use."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "IngressNginx": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if ingress-nginx should be enabled."
+        },
+        "defaultIngressClass": {
+          "type": "boolean",
+          "description": "DefaultIngressClass defines if the deployed ingress class should be the default ingress class."
         }
       },
       "additionalProperties": false,
