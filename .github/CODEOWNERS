@@ -6,7 +6,7 @@
 /.github/workflows/e2e.yaml @FabianKramm
 /.github/workflows/e2e.yaml @loft-sh/eng-qa
 /.github/workflows/release.yaml @FabianKramm
-/.github/workflows/ @Piotr1215 @sydorovdmytro
+/.github/workflows/ @loft-sh/devops-team
 /.github/CODEOWNERS @FabianKramm
 
 /chart/templates/ @FabianKramm
@@ -28,7 +28,6 @@
 
 /pkg/controllers/k8sdefaultendpoint/ @FabianKramm
 /pkg/controllers/register.go @FabianKramm
-/pkg/controllers/resources/*/from_host_syncer*.go @hidalgopl
 /pkg/controllers/resources/configmaps/ @FabianKramm
 /pkg/controllers/resources/endpoints/ @FabianKramm
 /pkg/controllers/resources/events/ @FabianKramm
