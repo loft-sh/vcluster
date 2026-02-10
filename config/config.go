@@ -308,6 +308,10 @@ type Deploy struct {
 	// LocalPathProvisioner holds dedicated local path provisioner configuration.
 	LocalPathProvisioner LocalPathProvisioner `json:"localPathProvisioner,omitempty"`
 
+	// IngressNginx holds dedicated ingress-nginx configuration.
+	// Deprecated: We do not deploy ingress nginx and the project is being deprecated.
+	IngressNginx IngressNginx `json:"ingressNginx,omitempty"`
+
 	// MetricsServer holds dedicated metrics server configuration.
 	MetricsServer DeployMetricsServer `json:"metricsServer,omitempty"`
 
@@ -324,6 +328,14 @@ type DeployMetricsServer struct {
 type VolumeSnapshotController struct {
 	// Enabled defines if the CSI volumes snapshot-controller should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
+}
+
+type IngressNginx struct {
+	// Enabled defines if ingress-nginx should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// DefaultIngressClass defines if the deployed ingress class should be the default ingress class.
+	DefaultIngressClass bool `json:"defaultIngressClass,omitempty"`
 }
 
 type Metallb struct {

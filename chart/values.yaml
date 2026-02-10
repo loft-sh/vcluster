@@ -903,6 +903,14 @@ deploy:
       # L2Advertisement defines if L2 advertisement should be enabled for the IP address pool.
       l2Advertisement: true
   
+  # IngressNginx holds dedicated ingress-nginx configuration.
+  # Deprecated: We do not deploy ingress nginx and the project is being deprecated.
+  ingressNginx:
+    # Enabled defines if ingress-nginx should be enabled.
+    enabled: false
+    # DefaultIngressClass defines if the deployed ingress class should be the default ingress class.
+    defaultIngressClass: true
+  
   # MetricsServer holds dedicated metrics server configuration.
   metricsServer:
     # Enabled defines if metrics server should be enabled.
