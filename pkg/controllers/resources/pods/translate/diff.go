@@ -2,13 +2,19 @@ package translate
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -30,12 +36,16 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	originalQOSClass := vPod.Status.QOSClass
 	vPod.Status = *pPod.Status.DeepCopy()
 	vPod.Status.QOSClass = originalQOSClass
+	err := t.convertResourceClaimStatuses(ctx, vPod, pPod.GetNamespace())
+	if err != nil {
+		return err
+	}
 
 	stripInjectedSidecarContainers(vPod, pPod)
 
 	// get Namespace resource in order to have access to its labels
 	vNamespace := &corev1.Namespace{}
-	err := t.vClient.Get(ctx, client.ObjectKey{Name: vPod.GetNamespace()}, vNamespace)
+	err = t.vClient.Get(ctx, client.ObjectKey{Name: vPod.GetNamespace()}, vNamespace)
 	if err != nil {
 		return err
 	}
@@ -207,4 +217,38 @@ func stripInjectedSidecarContainers(vPod, pPod *corev1.Pod) {
 			vPod.Status.ContainerStatuses = append(vPod.Status.ContainerStatuses, containerStatus)
 		}
 	}
+}
+
+func (t *translator) convertResourceClaimStatuses(ctx *synccontext.SyncContext, vPod *corev1.Pod, pNamespace string) error {
+	if vPod == nil || !t.resourceClaimEnabled {
+		return nil
+	}
+	for i := range vPod.Status.ResourceClaimStatuses {
+		if vPod.Status.ResourceClaimStatuses[i].ResourceClaimName == nil {
+			continue
+		}
+		name := *vPod.Status.ResourceClaimStatuses[i].ResourceClaimName
+		nsn := types.NamespacedName{
+			Namespace: pNamespace,
+			Name:      name,
+		}
+		resourceClaim := resourcev1.ResourceClaim{}
+		err := ctx.HostClient.Get(ctx.Context, nsn, &resourceClaim)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				continue
+			}
+			return fmt.Errorf("can't convert pod resource resourceClaimStatuses to virtual: %w", err)
+		}
+		translateNsn := mappings.HostToVirtual(
+			ctx,
+			name,
+			resourceClaim.GetNamespace(),
+			&resourceClaim,
+			mappings.ResourceClaims())
+		if translateNsn.Name != "" {
+			vPod.Status.ResourceClaimStatuses[i].ResourceClaimName = ptr.To(translateNsn.Name)
+		}
+	}
+	return nil
 }
