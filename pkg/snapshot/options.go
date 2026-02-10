@@ -211,6 +211,6 @@ func AddFlags(flags *pflag.FlagSet, options *Options) {
 	flags.BoolVarP(&options.IncludeVolumes, "include-volumes", "", false, "Create CSI volume snapshots (shared and private nodes only)")
 
 	// Azure Blob
-	flags.StringVarP(&options.Azure.SubscriptionID, "subscription-id", "", "", "Azure Subscription ID where storage account is located")
-	flags.StringVarP(&options.Azure.ResourceGroup, "resource-group", "", "", "Azure Resource Group where storage account is located")
+	flags.StringVarP(&options.Azure.SubscriptionID, "azure-subscription-id", "", "", "Azure subscription ID where the storage account is located")
+	flags.StringVarP(&options.Azure.ResourceGroup, "azure-resource-group", "", "", "Azure resource group where the storage account is located")
 }
