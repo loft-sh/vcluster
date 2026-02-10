@@ -102,8 +102,17 @@ func fillSnapshotOptions(snapshotURL string, snapshotOptions *snapshot.Options) 
 	}
 
 	// try to fill in oci options
-	snapshotOptions.OCI.FillCredentials(true)
-	snapshotOptions.S3.FillCredentials(true)
+	switch snapshotOptions.Type {
+	case "oci":
+		snapshotOptions.OCI.FillCredentials(true)
+	case "s3":
+		snapshotOptions.S3.FillCredentials(true)
+	case "azure":
+		err = snapshotOptions.Azure.FillCredentials()
+		if err != nil {
+			return fmt.Errorf("failed to fill azure credentials: %w", err)
+		}
+	}
 	return nil
 }
 

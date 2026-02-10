@@ -8,8 +8,10 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"slices"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/snapshot/azure"
 	"github.com/loft-sh/vcluster/pkg/snapshot/container"
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
 	"github.com/loft-sh/vcluster/pkg/snapshot/options"
@@ -30,6 +32,7 @@ type Options struct {
 	S3        s3.Options        `json:"s3"`
 	Container container.Options `json:"container"`
 	OCI       oci.Options       `json:"oci"`
+	Azure     azure.Options     `json:"azure"`
 
 	Release        *HelmRelease `json:"release,omitempty"`
 	IncludeVolumes bool         `json:"include-volumes,omitempty"`
@@ -44,6 +47,8 @@ func (o *Options) GetURL() string {
 		snapshotURL = "container://" + o.Container.Path
 	case "oci":
 		snapshotURL = "oci://" + o.OCI.Repository
+	case "azure":
+		snapshotURL = o.Azure.BlobURL
 	}
 
 	return snapshotURL
@@ -77,6 +82,13 @@ func CreateStore(ctx context.Context, options *Options) (types.Storage, error) {
 		return container.NewStore(&options.Container), nil
 	} else if options.Type == "oci" {
 		return oci.NewStore(&options.OCI), nil
+	} else if options.Type == "azure" {
+		objectStore := azure.NewStore(klog.FromContext(ctx))
+		err := objectStore.Init(&options.Azure)
+		if err != nil {
+			return nil, fmt.Errorf("failed to init Azure object store: %w", err)
+		}
+		return objectStore, nil
 	}
 
 	return nil, fmt.Errorf("unknown storage: %s", options.Type)
@@ -88,8 +100,9 @@ func Parse(snapshotURL string, snapshotOptions *Options) error {
 		return fmt.Errorf("error parsing snapshotURL %s: %w", snapshotURL, err)
 	}
 
-	if parsedURL.Scheme != "s3" && parsedURL.Scheme != "container" && parsedURL.Scheme != "oci" {
-		return fmt.Errorf("scheme needs to be 'oci', 's3' or 'container'")
+	supportedSchemes := []string{"oci", "s3", "container", "https"}
+	if !slices.Contains(supportedSchemes, parsedURL.Scheme) {
+		return fmt.Errorf("scheme needs to be one of %s", strings.Join(supportedSchemes, ", "))
 	}
 	snapshotOptions.Type = parsedURL.Scheme
 
@@ -133,6 +146,10 @@ func Parse(snapshotURL string, snapshotOptions *Options) error {
 		if err != nil {
 			return fmt.Errorf("error parsing options: %w", err)
 		}
+	case "https":
+		// Azure blob storage support
+		snapshotOptions.Type = "azure"
+		snapshotOptions.Azure.BlobURL = snapshotURL
 	}
 
 	return nil
@@ -175,16 +192,25 @@ func Validate(options *Options, isList bool) error {
 		if options.OCI.Repository == "" {
 			return fmt.Errorf("repository must be specified via oci://repository")
 		}
+	} else if options.Type == "azure" {
+		if options.Azure.BlobURL == "" {
+			return fmt.Errorf("blob URL must be specified")
+		}
 	} else {
-		return fmt.Errorf("type must be either 'container', 'oci' or 's3'")
+		return fmt.Errorf("type must be either 'container', 'oci', 's3', or 'azure'")
 	}
 
 	return nil
 }
 
 func AddFlags(flags *pflag.FlagSet, options *Options) {
+	// AWS S3
 	flags.StringVarP(&options.S3.KmsKeyID, "kms-key-id", "", "", "AWS KMS key ID that is configured for given S3 bucket. If set, aws-kms SSE will be used")
 	flags.StringVarP(&options.S3.CustomerKeyEncryptionFile, "customer-key-encryption-file", "", "", "AWS customer key encryption file used for SSE-C. Mutually exclusive with kms-key-id")
 	flags.StringVarP(&options.S3.ServerSideEncryption, "server-side-encryption", "", "", "AWS Server-Side encryption algorithm")
 	flags.BoolVarP(&options.IncludeVolumes, "include-volumes", "", false, "Create CSI volume snapshots (shared and private nodes only)")
+
+	// Azure Blob
+	flags.StringVarP(&options.Azure.SubscriptionID, "subscription-id", "", "", "Azure Subscription ID where storage account is located")
+	flags.StringVarP(&options.Azure.ResourceGroup, "resource-group", "", "", "Azure Resource Group where storage account is located")
 }
