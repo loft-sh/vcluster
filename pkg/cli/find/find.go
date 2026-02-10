@@ -256,7 +256,7 @@ func ListVClusters(ctx context.Context, context, name, namespace string, log log
 			return nil, err
 		}
 	}
-	kubeClient, err := createKubeClient(context)
+	kubeClient, err := CreateKubeClient(context)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
@@ -327,7 +327,7 @@ func ListOSSVClusters(ctx context.Context, kubeClient kube.Interface, context, n
 	}
 
 	if vClusterName != "" {
-		parentContextClient, err := createKubeClient(vClusterContext)
+		parentContextClient, err := CreateKubeClient(vClusterContext)
 		if err != nil {
 			logger := log.GetInstance()
 			logger.Warn("parent context unreachable - No vClusters listed from parent context")
