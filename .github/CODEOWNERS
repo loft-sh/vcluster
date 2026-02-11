@@ -3,17 +3,17 @@
 * @loft-sh/eng-dev-vcluster-platform
 
 /.github/workflows/backport.yaml @Piotr1215
-/.github/workflows/e2e.yaml @FabianKramm
+/.github/workflows/e2e.yaml @loft-sh/cto-office
 /.github/workflows/e2e.yaml @loft-sh/eng-qa
-/.github/workflows/release.yaml @FabianKramm
+/.github/workflows/release.yaml @loft-sh/cto-office
 /.github/workflows/ @loft-sh/devops-team
-/.github/CODEOWNERS @FabianKramm
+/.github/CODEOWNERS @loft-sh/cto-office
 
-/chart/templates/ @FabianKramm
+/chart/templates/ @loft-sh/cto-office
 
-/cmd/vcluster/ @FabianKramm
+/cmd/vcluster/ @loft-sh/cto-office
 
-/config/ @FabianKramm
+/config/ @loft-sh/cto-office
 
 /docs/ @loft-sh/Eng-Docs-Admin
 
@@ -21,33 +21,33 @@
 
 /hack/email/ @zerbitx
 
-/pkg/authentication/ @FabianKramm
-/pkg/authorization/ @FabianKramm
+/pkg/authentication/ @loft-sh/cto-office
+/pkg/authorization/ @loft-sh/cto-office
 
-/pkg/config/config.go @FabianKramm
+/pkg/config/config.go @loft-sh/cto-office
 
-/pkg/controllers/k8sdefaultendpoint/ @FabianKramm
-/pkg/controllers/register.go @FabianKramm
-/pkg/controllers/resources/configmaps/ @FabianKramm
-/pkg/controllers/resources/endpoints/ @FabianKramm
-/pkg/controllers/resources/events/ @FabianKramm
-/pkg/controllers/resources/pods/ @FabianKramm
-/pkg/controllers/resources/secrets/ @FabianKramm
-/pkg/controllers/resources/services/ @FabianKramm
+/pkg/controllers/k8sdefaultendpoint/ @loft-sh/cto-office
+/pkg/controllers/register.go @loft-sh/cto-office
+/pkg/controllers/resources/configmaps/ @loft-sh/cto-office
+/pkg/controllers/resources/endpoints/ @loft-sh/cto-office
+/pkg/controllers/resources/events/ @loft-sh/cto-office
+/pkg/controllers/resources/pods/ @loft-sh/cto-office
+/pkg/controllers/resources/secrets/ @loft-sh/cto-office
+/pkg/controllers/resources/services/ @loft-sh/cto-office
 
-/pkg/k8s/ @FabianKramm
-/pkg/mappings/ @FabianKramm
-/pkg/platform/ @FabianKramm
-/pkg/plugin/ @FabianKramm
-/pkg/server/ @FabianKramm
-/pkg/setup/ @FabianKramm
-/pkg/syncer/ @FabianKramm
-/pkg/util/portforward/ @FabianKramm @lizardruss
-/pkg/util/servicecidr/ @FabianKramm @lizardruss
-/pkg/util/translate/ @FabianKramm
+/pkg/k8s/ @loft-sh/cto-office
+/pkg/mappings/ @loft-sh/cto-office
+/pkg/platform/ @loft-sh/cto-office
+/pkg/plugin/ @loft-sh/cto-office
+/pkg/server/ @loft-sh/cto-office
+/pkg/setup/ @loft-sh/cto-office
+/pkg/syncer/ @loft-sh/cto-office
+/pkg/util/portforward/ @loft-sh/cto-office @lizardruss
+/pkg/util/servicecidr/ @loft-sh/cto-office @lizardruss
+/pkg/util/translate/ @loft-sh/cto-office
 
-Dockerfile @FabianKramm
-Dockerfile.release @FabianKramm
-go.mod @FabianKramm
+Dockerfile @loft-sh/cto-office
+Dockerfile.release @loft-sh/cto-office
+go.mod @loft-sh/cto-office
 
 netlify.toml @loft-sh/Eng-Docs-Admin
