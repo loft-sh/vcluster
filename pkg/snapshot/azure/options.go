@@ -129,14 +129,13 @@ func getStorageSAS(options Options) (string, error) {
 	expiryTime := time.Now().UTC().Add(5 * time.Minute)
 
 	// Create BlobSignatureValues with SAS parameters
-	// Permissions: "cw" = create + write
 	sasQueryParams, err := sas.BlobSignatureValues{
-		Protocol:      sas.ProtocolHTTPS,                                               // --https-only
-		StartTime:     startTime,                                                       // --start
-		ExpiryTime:    expiryTime,                                                      // --expiry
-		Permissions:   to.Ptr(sas.BlobPermissions{Create: true, Write: true}).String(), // --permissions "cw"
-		ContainerName: blobInfo.containerName,                                          // --container-name
-		BlobName:      blobInfo.blobName,                                               // --name
+		Protocol:      sas.ProtocolHTTPS,                                                                       // --https-only
+		StartTime:     startTime,                                                                               // --start
+		ExpiryTime:    expiryTime,                                                                              // --expiry
+		Permissions:   to.Ptr(sas.BlobPermissions{Create: true, Write: true, Read: true, List: true}).String(), // --permissions "cw"
+		ContainerName: blobInfo.containerName,                                                                  // --container-name
+		BlobName:      blobInfo.blobName,                                                                       // --name
 	}.SignWithSharedKey(credential)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign SAS token: %w", err)

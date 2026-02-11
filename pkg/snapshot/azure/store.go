@@ -28,13 +28,19 @@ func NewStore(logger logr.Logger) *ObjectStore {
 	return &ObjectStore{log: logger}
 }
 
-func (o *ObjectStore) Init(config *Options) error {
-	if config.BlobURL == "" {
+func (o *ObjectStore) Init(options *Options) error {
+	if options.BlobURL == "" {
 		return fmt.Errorf("blob URL is required")
+	}
+	if options.SAS == "" {
+		err := options.FillCredentials()
+		if err != nil {
+			return fmt.Errorf("failed to fill credentials: %w", err)
+		}
 	}
 
 	// Get the blob URL with SAS token appended
-	o.blobURL = config.GetBlobURLWithSAS()
+	o.blobURL = options.GetBlobURLWithSAS()
 
 	// Create the blob client and extract information
 	clientInfo, err := NewBlobClient(o.blobURL)
