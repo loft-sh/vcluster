@@ -221,7 +221,7 @@ func (e *ServiceSyncer) syncServiceAndEndpoints(ctx context.Context, fromService
 			},
 			Spec: corev1.ServiceSpec{
 				Ports:     fromService.Spec.Ports,
-				ClusterIP: corev1.ClusterIPNone,
+				ClusterIP: fromService.Spec.ClusterIP,
 			},
 		}
 
