@@ -84,7 +84,7 @@ func CreateStore(ctx context.Context, options *Options) (types.Storage, error) {
 		return oci.NewStore(&options.OCI), nil
 	} else if options.Type == "azure" {
 		objectStore := azure.NewStore(klog.FromContext(ctx))
-		err := objectStore.Init(&options.Azure)
+		err := objectStore.Init(ctx, &options.Azure)
 		if err != nil {
 			return nil, fmt.Errorf("failed to init Azure object store: %w", err)
 		}

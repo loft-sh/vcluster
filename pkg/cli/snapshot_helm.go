@@ -88,7 +88,7 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 	return nil
 }
 
-func fillSnapshotOptions(snapshotURL string, snapshotOptions *snapshot.Options) error {
+func fillSnapshotOptions(ctx context.Context, snapshotURL string, snapshotOptions *snapshot.Options) error {
 	// parse snapshot url
 	err := snapshot.Parse(snapshotURL, snapshotOptions)
 	if err != nil {
@@ -108,7 +108,7 @@ func fillSnapshotOptions(snapshotURL string, snapshotOptions *snapshot.Options) 
 	case "s3":
 		snapshotOptions.S3.FillCredentials(true)
 	case "azure":
-		err = snapshotOptions.Azure.FillCredentials()
+		err = snapshotOptions.Azure.FillCredentials(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to fill azure credentials: %w", err)
 		}
@@ -128,7 +128,7 @@ func initSnapshotCommand(
 	}
 
 	// parse snapshot url
-	err := fillSnapshotOptions(args[1], snapshotOptions)
+	err := fillSnapshotOptions(ctx, args[1], snapshotOptions)
 	if err != nil {
 		return nil, nil, nil, err
 	}
