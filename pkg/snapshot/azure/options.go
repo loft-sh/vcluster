@@ -26,8 +26,8 @@ const (
 )
 
 type Options struct {
-	BlobURL string `json:"blob-url,omitempty"`
-
+	BlobURL        string `json:"blob-url,omitempty"`
+	SAS            string `json:"sas,omitempty"`
 	SubscriptionID string `json:"subscription-id,omitempty"`
 	ResourceGroup  string `json:"resource-group,omitempty"`
 }
@@ -57,13 +57,21 @@ func (o *Options) FillCredentials() error {
 		return nil
 	}
 
-	sasTokenFullURL, err := getStorageSAS(*o)
+	sasToken, err := getStorageSAS(*o)
 	if err != nil {
 		return fmt.Errorf("failed to get SAS token: %w", err)
 	}
 
-	o.BlobURL = sasTokenFullURL
+	o.SAS = sasToken
 	return nil
+}
+
+// GetBlobURLWithSAS returns the blob URL with SAS token appended
+func (o *Options) GetBlobURLWithSAS() string {
+	if o.SAS == "" {
+		return o.BlobURL
+	}
+	return o.BlobURL + "?" + o.SAS
 }
 
 // blobURLContainsSAS returns true if the given blob URL contains the storage account SAS token
@@ -83,7 +91,8 @@ func blobURLContainsSAS(blobURL string) bool {
 	return queryParams.Has("sig") || strings.Contains(parsedURL.RawQuery, "sig=")
 }
 
-// getStorageSAS creates a new SAS token for the given blob URL.
+// getStorageSAS creates and returns a SAS token for the given blob URL.
+// Returns only the SAS token query string (without the leading "?").
 //
 // This is equivalent to running Azure CLI command:
 //
@@ -96,7 +105,6 @@ func blobURLContainsSAS(blobURL string) bool {
 //	  --start "$START" \
 //	  --expiry "$EXPIRY" \
 //	  --account-key "$AZURE_STORAGE_KEY" \
-//	  --full-uri \
 //	  -o tsv
 func getStorageSAS(options Options) (string, error) {
 	if sasToken := os.Getenv(StorageBlobSASEnvVar); sasToken != "" {
@@ -122,7 +130,6 @@ func getStorageSAS(options Options) (string, error) {
 
 	// Create BlobSignatureValues with SAS parameters
 	// Permissions: "cw" = create + write
-	// TODO: check if we need to add read, list and delete permissions
 	sasQueryParams, err := sas.BlobSignatureValues{
 		Protocol:      sas.ProtocolHTTPS,                                               // --https-only
 		StartTime:     startTime,                                                       // --start
@@ -135,16 +142,8 @@ func getStorageSAS(options Options) (string, error) {
 		return "", fmt.Errorf("failed to sign SAS token: %w", err)
 	}
 
-	// Build full URI with SAS token (--full-uri)
-	// Parse original URL to preserve the path structure
-	parsedURL, err := url.Parse(options.BlobURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse blob URL: %w", err)
-	}
-
-	// Construct full blob URL with SAS token
-	sasURL := fmt.Sprintf("%s://%s%s?%s", parsedURL.Scheme, parsedURL.Host, parsedURL.Path, sasQueryParams.Encode())
-	return sasURL, nil
+	// Return the SAS token query string (without the leading "?")
+	return sasQueryParams.Encode(), nil
 }
 
 type blobInfo struct {
