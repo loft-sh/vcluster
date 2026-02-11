@@ -45,7 +45,7 @@ jobs:
         with:
           cosign-release: "v2.2.3"
       - name: Setup Syft
-        uses: anchore/sbom-action/download-syft@v0.22.1
+        uses: anchore/sbom-action/download-syft@v0.22.2
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
