@@ -153,6 +153,17 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 			expected: false,
 		},
 		{
+			name: "NewDefaultConfig has no pro features",
+			config: func() *Config {
+				c, err := NewDefaultConfig()
+				if err != nil {
+					panic(err)
+				}
+				return c
+			}(),
+			expected: false,
+		},
+		{
 			name: "Empty ResolveDNS",
 			config: &Config{
 				Networking: Networking{
