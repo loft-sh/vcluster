@@ -28,16 +28,16 @@ var ErrInvalidConfig = errors.New("invalid config")
 
 // NewDefaultConfig creates a new config based on the values.yaml, including all default values.
 func NewDefaultConfig() (*Config, error) {
-	platformConfig := vclusterconfig.NewDefaultPlatformConfig()
 	retConfig := &Config{}
+	if err := yaml.Unmarshal([]byte(Values), retConfig); err != nil {
+		return nil, err
+	}
+
+	platformConfig := vclusterconfig.NewDefaultPlatformConfig()
 	retConfig.Sleep = platformConfig.Sleep
 	retConfig.Snapshots = platformConfig.Snapshots
 	retConfig.Deletion = platformConfig.Deletion
 	retConfig.Platform = platformConfig.Platform
-
-	if err := yaml.Unmarshal([]byte(Values), retConfig); err != nil {
-		return nil, err
-	}
 
 	return retConfig, nil
 }

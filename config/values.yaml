@@ -690,11 +690,3 @@ telemetry:
 
 logging:
   encoding: console
-
-sleep: {}
-
-snapshots: {}
-
-deletion: {}
-
-platform: {}
