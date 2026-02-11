@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
@@ -32,21 +33,23 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 		return err
 	}
 
-	// get vCluster release
-	vClusterRelease, err := helm.NewSecrets(kubeClient).Get(ctx, vCluster.Name, vCluster.Namespace)
-	if err != nil {
-		return fmt.Errorf("failed to get vCluster release: %w", err)
-	}
+	if !vCluster.IsStandalone {
+		// get vCluster release
+		vClusterRelease, err := helm.NewSecrets(kubeClient).Get(ctx, vCluster.Name, vCluster.Namespace)
+		if err != nil {
+			return fmt.Errorf("failed to get vCluster release: %w", err)
+		}
 
-	// set helm release
-	if vClusterRelease != nil && vClusterRelease.Chart != nil && vClusterRelease.Chart.Metadata != nil {
-		values, _ := yaml.Marshal(vClusterRelease.Config)
-		snapshotOpts.Release = &snapshot.HelmRelease{
-			ReleaseName:      vClusterRelease.Name,
-			ReleaseNamespace: vClusterRelease.Namespace,
-			ChartName:        vClusterRelease.Chart.Metadata.Name,
-			ChartVersion:     vClusterRelease.Chart.Metadata.Version,
-			Values:           values,
+		// set helm release
+		if vClusterRelease != nil && vClusterRelease.Chart != nil && vClusterRelease.Chart.Metadata != nil {
+			values, _ := yaml.Marshal(vClusterRelease.Config)
+			snapshotOpts.Release = &snapshot.HelmRelease{
+				ReleaseName:      vClusterRelease.Name,
+				ReleaseNamespace: vClusterRelease.Namespace,
+				ChartName:        vClusterRelease.Chart.Metadata.Name,
+				ChartVersion:     vClusterRelease.Chart.Metadata.Version,
+				Values:           values,
+			}
 		}
 	}
 
@@ -185,8 +188,13 @@ func checkIfVClusterSupportsSnapshotRequests(vCluster *find.VCluster, log log.Lo
 func getVClusterConfig(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshot.Options) (*vclusterconfig.VirtualClusterConfig, error) {
 	var err error
 	var vClusterConfig *vclusterconfig.VirtualClusterConfig
-	if snapshotOpts.Release.Values != nil {
+	if snapshotOpts.Release != nil && snapshotOpts.Release.Values != nil {
 		vClusterConfig, err = vclusterconfig.ParseConfigBytes(snapshotOpts.Release.Values, vCluster.Name, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse vcluster config: %w", err)
+		}
+	} else if vCluster.IsStandalone {
+		vClusterConfig, err = vclusterconfig.ParseConfig(constants.StandaloneDefaultConfigPath, vCluster.Name, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse vcluster config: %w", err)
 		}

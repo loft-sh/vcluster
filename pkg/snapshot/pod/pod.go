@@ -75,7 +75,7 @@ func SnapshotExec(
 	}
 
 	// build env variables
-	optionsString, err := toOptionsString(snapshotOptions)
+	optionsString, err := ToOptionsString(snapshotOptions)
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func CreateSnapshotPod(
 
 	// build args
 	env := syncerContainer.Env
-	optionsString, err := toOptionsString(snapshotOptions)
+	optionsString, err := ToOptionsString(snapshotOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +385,7 @@ func CreateSnapshotPod(
 	return newPod, nil
 }
 
-func toOptionsString(options *snapshot.Options) (string, error) {
+func ToOptionsString(options *snapshot.Options) (string, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
 		return "", err
