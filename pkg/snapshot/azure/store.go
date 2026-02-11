@@ -33,10 +33,11 @@ func (o *ObjectStore) Init(config *Options) error {
 		return fmt.Errorf("blob URL is required")
 	}
 
-	o.blobURL = config.BlobURL
+	// Get the blob URL with SAS token appended
+	o.blobURL = config.GetBlobURLWithSAS()
 
 	// Create the blob client and extract information
-	clientInfo, err := NewBlobClient(config.BlobURL)
+	clientInfo, err := NewBlobClient(o.blobURL)
 	if err != nil {
 		return fmt.Errorf("failed to create blob client: %w", err)
 	}
