@@ -1,15 +1,10 @@
 package cli
 
 import (
-	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -858,48 +853,13 @@ func getVClusterConfigFromSnapshot(ctx context.Context, cmd *CreateOptions) (str
 		return "", fmt.Errorf("parse snapshot: %w", err)
 	}
 
-	objectStore, err := snapshot.CreateStore(ctx, snapshotOptions)
-	if err != nil {
-		return "", fmt.Errorf("create snapshot store: %w", err)
-	}
-
-	reader, err := objectStore.GetObject(ctx)
-	if err != nil {
-		return "", fmt.Errorf("get snapshot object: %w", err)
-	}
-
-	// read the first tar entry
-	gzipReader, err := gzip.NewReader(reader)
-	if err != nil {
-		return "", fmt.Errorf("create gzip reader: %w", err)
-	}
-	defer gzipReader.Close()
-
-	// create a new tar reader
-	tarReader := tar.NewReader(gzipReader)
-
-	// read the vCluster config
-	header, err := tarReader.Next()
-	if err != nil {
+	release, err := snapshot.GetVClusterReleaseFromSnapshot(ctx, snapshotOptions)
+	if err != nil && !errors.Is(err, snapshot.ErrVClusterReleaseNotFound) {
 		return "", err
 	}
 
-	buf := &bytes.Buffer{}
-	_, err = io.Copy(buf, tarReader)
-	if err != nil {
-		return "", err
-	}
-
-	// no vCluster config in the snapshot
-	if header.Name != snapshot.SnapshotReleaseKey {
+	if release == nil {
 		return "", nil
-	}
-
-	// unmarshal the release
-	release := &snapshot.HelmRelease{}
-	err = json.Unmarshal(buf.Bytes(), release)
-	if err != nil {
-		return "", fmt.Errorf("unmarshal vCluster release: %w", err)
 	}
 
 	// set chart version
