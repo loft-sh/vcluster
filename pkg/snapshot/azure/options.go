@@ -52,12 +52,12 @@ func (o *Options) GetResourceGroup() string {
 	return ""
 }
 
-func (o *Options) FillCredentials() error {
+func (o *Options) FillCredentials(ctx context.Context) error {
 	if blobURLContainsSAS(o.BlobURL) {
 		return nil
 	}
 
-	sasToken, err := getStorageSAS(*o)
+	sasToken, err := getStorageSAS(ctx, *o)
 	if err != nil {
 		return fmt.Errorf("failed to get SAS token: %w", err)
 	}
@@ -106,13 +106,13 @@ func blobURLContainsSAS(blobURL string) bool {
 //	  --expiry "$EXPIRY" \
 //	  --account-key "$AZURE_STORAGE_KEY" \
 //	  -o tsv
-func getStorageSAS(options Options) (string, error) {
+func getStorageSAS(ctx context.Context, options Options) (string, error) {
 	if sasToken := os.Getenv(StorageBlobSASEnvVar); sasToken != "" {
 		return sasToken, nil
 	}
 
 	// Get all required blob information
-	blobInfo, err := getBlobInfo(options)
+	blobInfo, err := getBlobInfo(ctx, options)
 	if err != nil {
 		return "", fmt.Errorf("failed to get blob info: %w", err)
 	}
@@ -155,7 +155,7 @@ type blobInfo struct {
 // getBlobInfo extracts all blob information from the blob URL and retrieves the storage key.
 // It parses the blob URL to extract storage account name, container name, blob name,
 // and retrieves the storage key from the environment variable or Azure API.
-func getBlobInfo(options Options) (blobInfo, error) {
+func getBlobInfo(ctx context.Context, options Options) (blobInfo, error) {
 	if options.BlobURL == "" {
 		return blobInfo{}, fmt.Errorf("blob URL is empty")
 	}
@@ -193,7 +193,7 @@ func getBlobInfo(options Options) (blobInfo, error) {
 	if key := os.Getenv(StorageKeyEnvVar); key != "" {
 		storageKey = key
 	} else {
-		storageKey, err = getStorageKeyFromAzure(options.GetSubscriptionID(), options.GetResourceGroup(), storageAccountName)
+		storageKey, err = getStorageKeyFromAzure(ctx, options.GetSubscriptionID(), options.GetResourceGroup(), storageAccountName)
 		if err != nil {
 			return blobInfo{}, fmt.Errorf("failed to get storage key from Azure: %w", err)
 		}
@@ -216,7 +216,7 @@ func getBlobInfo(options Options) (blobInfo, error) {
 //	  --account-name "$SA" \
 //	  --query '[0].value' \
 //	  -o tsv
-func getStorageKeyFromAzure(subscriptionID, resourceGroup, storageAccount string) (string, error) {
+func getStorageKeyFromAzure(ctx context.Context, subscriptionID, resourceGroup, storageAccount string) (string, error) {
 	if subscriptionID == "" {
 		return "", fmt.Errorf("subscription ID is required")
 	}
@@ -234,7 +234,6 @@ func getStorageKeyFromAzure(subscriptionID, resourceGroup, storageAccount string
 	}
 
 	// List storage account keys
-	ctx := context.Background()
 	resp, err := client.ListKeys(ctx, resourceGroup, storageAccount, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to list storage account keys: %w", err)
@@ -254,14 +253,11 @@ func getStorageKeyFromAzure(subscriptionID, resourceGroup, storageAccount string
 
 // createAzureStorageAccountsClient creates an Azure storage accounts client using Azure CLI credentials
 func createAzureStorageAccountsClient(subscriptionID string) (*armstorage.AccountsClient, error) {
-	// Use Azure CLI credential for authentication
-	// This will use the credentials from 'az login'
+	// Use Azure CLI credential for authentication. This will use the credentials from 'az login'
 	cred, err := azidentity.NewAzureCLICredential(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Azure CLI credential (make sure you're logged in with 'az login'): %w", err)
 	}
-
-	// Create client factory
 	clientFactory, err := armstorage.NewClientFactory(subscriptionID, cred, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client factory: %w", err)

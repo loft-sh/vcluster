@@ -28,12 +28,12 @@ func NewStore(logger logr.Logger) *ObjectStore {
 	return &ObjectStore{log: logger}
 }
 
-func (o *ObjectStore) Init(options *Options) error {
+func (o *ObjectStore) Init(ctx context.Context, options *Options) error {
 	if options.BlobURL == "" {
 		return fmt.Errorf("blob URL is required")
 	}
 	if options.SAS == "" {
-		err := options.FillCredentials()
+		err := options.FillCredentials(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to fill credentials: %w", err)
 		}
