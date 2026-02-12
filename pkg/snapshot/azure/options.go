@@ -253,8 +253,17 @@ func getStorageKeyFromAzure(ctx context.Context, subscriptionID, resourceGroup, 
 
 // createAzureStorageAccountsClient creates an Azure storage accounts client using Azure CLI credentials
 func createAzureStorageAccountsClient(subscriptionID string) (*armstorage.AccountsClient, error) {
-	// Use Azure CLI credential for authentication. This will use the credentials from 'az login'
-	cred, err := azidentity.NewAzureCLICredential(nil)
+	// Use default Azure credentials for authentication. From Azure SDK go docs:
+	//
+	// DefaultAzureCredential attempts to authenticate with each of these credential types, in the following order,
+	// stopping when one provides a token:
+	//    1. EnvironmentCredential
+	//    2. WorkloadIdentityCredential, if environment variable configuration is set by the Azure workload identity webhook.
+	//    3. ManagedIdentityCredential
+	//    4. AzureCLICredential
+	//    5. AzureDeveloperCLICredential
+	//    6. AzurePowerShellCredential
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Azure CLI credential (make sure you're logged in with 'az login'): %w", err)
 	}
