@@ -263,6 +263,8 @@ func createAzureStorageAccountsClient(subscriptionID string) (*armstorage.Accoun
 	//    4. AzureCLICredential
 	//    5. AzureDeveloperCLICredential
 	//    6. AzurePowerShellCredential
+	//
+	// More details in go docs here https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity#DefaultAzureCredential.
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Azure CLI credential (make sure you're logged in with 'az login'): %w", err)
