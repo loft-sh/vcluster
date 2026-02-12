@@ -59,6 +59,14 @@ var (
 	BumpRevision = int64(1000)
 )
 
+func NewRestoreClient(snapshotOptions Options, restoreVolumes bool, newVCluster bool) *RestoreClient {
+	return &RestoreClient{
+		Snapshot:       snapshotOptions,
+		RestoreVolumes: restoreVolumes,
+		NewVCluster:    newVCluster,
+	}
+}
+
 func (o *RestoreClient) GetSnapshotRequest(ctx context.Context) (*Request, error) {
 	// make sure to validate options
 	err := Validate(&o.Snapshot, false)

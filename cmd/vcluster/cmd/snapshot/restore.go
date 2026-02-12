@@ -7,9 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewRestoreCommand() *cobra.Command {
-	restoreClient := &snapshot.RestoreClient{}
+var (
+	newVCluster    bool
+	restoreVolumes bool
+)
 
+func NewRestoreCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "restore",
 		Short: "restore a vCluster",
@@ -19,13 +22,12 @@ func NewRestoreCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
 			}
-			restoreClient.Snapshot = *envOptions
-
+			restoreClient := snapshot.NewRestoreClient(*envOptions, restoreVolumes, newVCluster)
 			return restoreClient.Run(cmd.Context())
 		},
 	}
 
-	cmd.Flags().BoolVar(&restoreClient.NewVCluster, "new-vcluster", false, "Restore a new vCluster from snapshot instead of restoring into an existing vCluster")
-	cmd.Flags().BoolVar(&restoreClient.RestoreVolumes, "restore-volumes", false, "Restore volumes from volume snapshots")
+	cmd.Flags().BoolVar(&newVCluster, "new-vcluster", false, "Restore a new vCluster from snapshot instead of restoring into an existing vCluster")
+	cmd.Flags().BoolVar(&restoreVolumes, "restore-volumes", false, "Restore volumes from volume snapshots")
 	return cmd
 }

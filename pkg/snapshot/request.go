@@ -248,9 +248,7 @@ func CreateSnapshotOptionsSecret(requestLabel, vClusterNamespace, vClusterName s
 
 func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *Options, kubeClient *kubernetes.Clientset, log log.Logger) error {
 	// First, try to get saved snapshots
-	restoreClient := RestoreClient{
-		Snapshot: *snapshotOpts,
-	}
+	restoreClient := NewRestoreClient(*snapshotOpts, false, false)
 
 	savedSnapshotRequest, err := restoreClient.GetSnapshotRequest(ctx)
 	if errors.Is(err, ErrSnapshotRequestNotFound) {
@@ -357,9 +355,7 @@ func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *O
 
 func DeleteSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, vConfig *config.VirtualClusterConfig, options *Options, kubeClient *kubernetes.Clientset) error {
 	// First, try to get saved snapshots
-	restoreClient := RestoreClient{
-		Snapshot: *options,
-	}
+	restoreClient := NewRestoreClient(*options, false, false)
 
 	savedSnapshotRequest, err := restoreClient.GetSnapshotRequest(ctx)
 	if errors.Is(err, ErrSnapshotRequestNotFound) {
