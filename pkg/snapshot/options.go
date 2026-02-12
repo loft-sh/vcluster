@@ -1,7 +1,6 @@
 package snapshot
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -16,9 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
 	"github.com/loft-sh/vcluster/pkg/snapshot/options"
 	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
-	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"github.com/spf13/pflag"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -67,31 +64,6 @@ type HelmRelease struct {
 type VClusterConfig struct {
 	ChartVersion string `json:"chartVersion"`
 	Values       string `json:"values"`
-}
-
-func CreateStore(ctx context.Context, options *Options) (types.Storage, error) {
-	if options.Type == "s3" {
-		objectStore := s3.NewStore(klog.FromContext(ctx))
-		err := objectStore.Init(&options.S3)
-		if err != nil {
-			return nil, fmt.Errorf("failed to init s3 object store: %w", err)
-		}
-
-		return objectStore, nil
-	} else if options.Type == "container" {
-		return container.NewStore(&options.Container), nil
-	} else if options.Type == "oci" {
-		return oci.NewStore(&options.OCI), nil
-	} else if options.Type == "azure" {
-		objectStore := azure.NewStore(klog.FromContext(ctx))
-		err := objectStore.Init(ctx, &options.Azure)
-		if err != nil {
-			return nil, fmt.Errorf("failed to init Azure object store: %w", err)
-		}
-		return objectStore, nil
-	}
-
-	return nil, fmt.Errorf("unknown storage: %s", options.Type)
 }
 
 func Parse(snapshotURL string, snapshotOptions *Options) error {
