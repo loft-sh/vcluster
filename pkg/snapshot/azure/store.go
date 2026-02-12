@@ -24,11 +24,17 @@ type ObjectStore struct {
 
 var _ types.Storage = &ObjectStore{}
 
-func NewStore(logger logr.Logger) *ObjectStore {
-	return &ObjectStore{log: logger}
+func NewStore(ctx context.Context, options *Options, logger logr.Logger) (*ObjectStore, error) {
+	objectStore := &ObjectStore{log: logger}
+	err := objectStore.init(ctx, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init Azure object store: %w", err)
+	}
+
+	return objectStore, nil
 }
 
-func (o *ObjectStore) Init(ctx context.Context, options *Options) error {
+func (o *ObjectStore) init(ctx context.Context, options *Options) error {
 	if options.BlobURL == "" {
 		return fmt.Errorf("blob URL is required")
 	}
