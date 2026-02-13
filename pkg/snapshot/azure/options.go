@@ -52,11 +52,10 @@ func (o *Options) GetResourceGroup() string {
 	return ""
 }
 
-func (o *Options) FillCredentials(ctx context.Context) error {
-	if blobURLContainsSAS(o.BlobURL) {
+func (o *Options) FillCredentials(ctx context.Context, tryToCreateSAS bool) error {
+	if blobURLContainsSAS(o.BlobURL) || !tryToCreateSAS {
 		return nil
 	}
-
 	sasToken, err := getStorageSAS(ctx, *o)
 	if err != nil {
 		return fmt.Errorf("failed to get SAS token: %w", err)
