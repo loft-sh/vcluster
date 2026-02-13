@@ -18,7 +18,7 @@ type ObjectStore struct {
 	blobClient    *blockblob.Client
 	containerName string
 	blobName      string
-	accountURL    string
+	accountName   string
 	blobURL       string
 }
 
@@ -60,14 +60,14 @@ func (o *ObjectStore) init(ctx context.Context, options *Options) error {
 
 	o.containerName = info.ContainerName
 	o.blobName = info.BlobName
-	o.accountURL = info.AccountURL
+	o.accountName = info.AccountName
 
 	return nil
 }
 
 func (o *ObjectStore) Target() string {
 	// Return URL without SAS token for display purposes
-	return fmt.Sprintf("%s/%s/%s", o.accountURL, o.containerName, o.blobName)
+	return fmt.Sprintf("https://%s.blob.core.windows.net/%s/%s", o.accountName, o.containerName, o.blobName)
 }
 
 func (o *ObjectStore) PutObject(ctx context.Context, body io.Reader) error {
@@ -138,7 +138,7 @@ func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 			}
 
 			// Build blob URL without SAS token
-			blobURL := fmt.Sprintf("%s/%s/%s", o.accountURL, o.containerName, *blobItem.Name)
+			blobURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s/%s", o.accountName, o.containerName, *blobItem.Name)
 
 			snapshots = append(snapshots, types.Snapshot{
 				ID:        id,
