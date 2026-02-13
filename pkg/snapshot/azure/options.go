@@ -53,7 +53,7 @@ func (o *Options) GetResourceGroup() string {
 }
 
 func (o *Options) FillCredentials(ctx context.Context, tryToCreateSAS bool) error {
-	if blobURLContainsSAS(o.BlobURL) || !tryToCreateSAS {
+	if o.ContainsSAS() || !tryToCreateSAS {
 		return nil
 	}
 	sasToken, err := getStorageSAS(ctx, *o)
@@ -71,6 +71,10 @@ func (o *Options) GetBlobURLWithSAS() string {
 		return o.BlobURL
 	}
 	return o.BlobURL + "?" + o.SAS
+}
+
+func (o *Options) ContainsSAS() bool {
+	return blobURLContainsSAS(o.BlobURL) || o.SAS != ""
 }
 
 // blobURLContainsSAS returns true if the given blob URL contains the storage account SAS token

@@ -38,11 +38,9 @@ func (o *ObjectStore) init(ctx context.Context, options *Options) error {
 	if options.BlobURL == "" {
 		return fmt.Errorf("blob URL is required")
 	}
-	if options.SAS == "" {
-		err := options.FillCredentials(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to fill credentials: %w", err)
-		}
+	var useDefaultCredentials bool
+	if !options.ContainsSAS() {
+		useDefaultCredentials = true
 	}
 
 	// Get the blob URL with SAS token appended
@@ -55,7 +53,7 @@ func (o *ObjectStore) init(ctx context.Context, options *Options) error {
 	}
 
 	// Create the blob client
-	o.blobClient, err = NewBlobClient(info, o.blobURL)
+	o.blobClient, err = NewBlobClient(info, o.blobURL, useDefaultCredentials)
 	if err != nil {
 		return fmt.Errorf("failed to create blob client: %w", err)
 	}
