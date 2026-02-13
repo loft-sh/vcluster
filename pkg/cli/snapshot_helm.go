@@ -110,7 +110,7 @@ func fillSnapshotOptions(ctx context.Context, snapshotURL string, snapshotOption
 	case "s3":
 		snapshotOptions.S3.FillCredentials(true)
 	case "azure":
-		err = snapshotOptions.Azure.FillCredentials(ctx)
+		err = snapshotOptions.Azure.FillCredentials(ctx, snapshotOptions.DelegateFromCLIToCluster)
 		if err != nil {
 			return fmt.Errorf("failed to fill azure credentials: %w", err)
 		}
