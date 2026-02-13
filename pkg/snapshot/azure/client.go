@@ -9,21 +9,26 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 )
 
-type BlobClientInfo struct {
-	BlobClient    *blockblob.Client
+type BlobInfo struct {
 	ContainerName string
 	BlobName      string
 	AccountURL    string
 }
 
-// NewBlobClient creates an Azure blob client from a full blob URL with SAS token
-func NewBlobClient(blobURL string) (*BlobClientInfo, error) {
+type BlobClientInfo struct {
+	BlobClient    *blockblob.Client
+	AccountURL    string
+	ContainerName string
+	BlobName      string
+}
+
+func GetBlobInfo(blobURL string) (BlobInfo, error) {
 	if blobURL == "" {
-		return nil, fmt.Errorf("blob URL is empty")
+		return BlobInfo{}, fmt.Errorf("blob URL is empty")
 	}
 	parsedURL, err := url.Parse(blobURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse blob URL: %w", err)
+		return BlobInfo{}, fmt.Errorf("failed to parse blob URL: %w", err)
 	}
 
 	// Extract storage account URL (scheme + host)
@@ -32,11 +37,25 @@ func NewBlobClient(blobURL string) (*BlobClientInfo, error) {
 	// Extract container and blob name from the URL path (format: /container/blob/path)
 	pathParts := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
 	if len(pathParts) < 2 {
-		return nil, fmt.Errorf("invalid blob URL format, expected: https://{account}.blob.core.windows.net/{container}/{blob}")
+		return BlobInfo{}, fmt.Errorf("invalid blob URL format, expected: https://{account}.blob.core.windows.net/{container}/{blob}")
 	}
 
 	containerName := pathParts[0]
 	blobName := strings.Join(pathParts[1:], "/")
+
+	return BlobInfo{
+		ContainerName: containerName,
+		BlobName:      blobName,
+		AccountURL:    accountURL,
+	}, nil
+}
+
+// NewBlobClient creates an Azure blob client from a full blob URL with SAS token
+func NewBlobClient(blobURL string) (*BlobClientInfo, error) {
+	info, err := GetBlobInfo(blobURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get blob info: %w", err)
+	}
 
 	// Create the block blob client with SAS token (no credentials needed, token is in URL)
 	blobClient, err := blockblob.NewClientWithNoCredential(blobURL, nil)
@@ -46,9 +65,9 @@ func NewBlobClient(blobURL string) (*BlobClientInfo, error) {
 
 	return &BlobClientInfo{
 		BlobClient:    blobClient,
-		ContainerName: containerName,
-		BlobName:      blobName,
-		AccountURL:    accountURL,
+		ContainerName: info.ContainerName,
+		BlobName:      info.BlobName,
+		AccountURL:    info.AccountURL,
 	}, nil
 }
 
