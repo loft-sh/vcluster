@@ -15,13 +15,6 @@ type BlobInfo struct {
 	AccountURL    string
 }
 
-type BlobClientInfo struct {
-	BlobClient    *blockblob.Client
-	AccountURL    string
-	ContainerName string
-	BlobName      string
-}
-
 func GetBlobInfo(blobURL string) (BlobInfo, error) {
 	if blobURL == "" {
 		return BlobInfo{}, fmt.Errorf("blob URL is empty")
@@ -50,30 +43,20 @@ func GetBlobInfo(blobURL string) (BlobInfo, error) {
 	}, nil
 }
 
-// NewBlobClient creates an Azure blob client from a full blob URL with SAS token
-func NewBlobClient(blobURL string) (*BlobClientInfo, error) {
-	info, err := GetBlobInfo(blobURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get blob info: %w", err)
-	}
-
+// NewBlobClient creates an Azure blob client from BlobInfo and a full blob URL with SAS token
+func NewBlobClient(info BlobInfo, blobURL string) (*blockblob.Client, error) {
 	// Create the block blob client with SAS token (no credentials needed, token is in URL)
 	blobClient, err := blockblob.NewClientWithNoCredential(blobURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create blob client: %w", err)
 	}
 
-	return &BlobClientInfo{
-		BlobClient:    blobClient,
-		ContainerName: info.ContainerName,
-		BlobName:      info.BlobName,
-		AccountURL:    info.AccountURL,
-	}, nil
+	return blobClient, nil
 }
 
 // NewContainerClient creates a container client from blob URL with SAS token
 func NewContainerClient(blobURL string) (*container.Client, string, error) {
-	info, err := NewBlobClient(blobURL)
+	info, err := GetBlobInfo(blobURL)
 	if err != nil {
 		return nil, "", err
 	}
