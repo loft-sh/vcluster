@@ -13,7 +13,7 @@ import (
 type BlobInfo struct {
 	ContainerName string
 	BlobName      string
-	AccountURL    string
+	AccountName   string
 }
 
 func GetBlobInfo(blobURL string) (BlobInfo, error) {
@@ -25,8 +25,12 @@ func GetBlobInfo(blobURL string) (BlobInfo, error) {
 		return BlobInfo{}, fmt.Errorf("failed to parse blob URL: %w", err)
 	}
 
-	// Extract storage account URL (scheme + host)
-	accountURL := fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+	// Extract the storage account name from host (format: {account}.blob.core.windows.net)
+	hostParts := strings.Split(parsedURL.Host, ".")
+	if len(hostParts) < 1 {
+		return BlobInfo{}, fmt.Errorf("invalid blob URL format, expected: https://{account}.blob.core.windows.net/{container}/{blob}")
+	}
+	accountName := hostParts[0]
 
 	// Extract container and blob name from the URL path (format: /container/blob/path)
 	pathParts := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
@@ -40,7 +44,7 @@ func GetBlobInfo(blobURL string) (BlobInfo, error) {
 	return BlobInfo{
 		ContainerName: containerName,
 		BlobName:      blobName,
-		AccountURL:    accountURL,
+		AccountName:   accountName,
 	}, nil
 }
 
@@ -96,8 +100,9 @@ func NewContainerClient(blobURL string) (*container.Client, string, error) {
 		return nil, "", fmt.Errorf("failed to parse blob URL: %w", err)
 	}
 
-	// Build container URL with SAS token
-	containerURL := fmt.Sprintf("%s/%s?%s", info.AccountURL, info.ContainerName, parsedURL.RawQuery)
+	// Build container URL with SAS token (reconstruct account URL from account name)
+	accountURL := fmt.Sprintf("%s://%s.blob.core.windows.net", parsedURL.Scheme, info.AccountName)
+	containerURL := fmt.Sprintf("%s/%s?%s", accountURL, info.ContainerName, parsedURL.RawQuery)
 
 	containerClient, err := container.NewClientWithNoCredential(containerURL, nil)
 	if err != nil {
