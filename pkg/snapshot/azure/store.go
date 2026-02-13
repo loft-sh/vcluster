@@ -48,16 +48,21 @@ func (o *ObjectStore) init(ctx context.Context, options *Options) error {
 	// Get the blob URL with SAS token appended
 	o.blobURL = options.GetBlobURLWithSAS()
 
-	// Create the blob client and extract information
-	clientInfo, err := NewBlobClient(o.blobURL)
+	// Extract information from blob URL
+	info, err := GetBlobInfo(o.blobURL)
+	if err != nil {
+		return fmt.Errorf("failed to get blob info: %w", err)
+	}
+
+	// Create the blob client
+	o.blobClient, err = NewBlobClient(info, o.blobURL)
 	if err != nil {
 		return fmt.Errorf("failed to create blob client: %w", err)
 	}
 
-	o.blobClient = clientInfo.BlobClient
-	o.containerName = clientInfo.ContainerName
-	o.blobName = clientInfo.BlobName
-	o.accountURL = clientInfo.AccountURL
+	o.containerName = info.ContainerName
+	o.blobName = info.BlobName
+	o.accountURL = info.AccountURL
 
 	return nil
 }
