@@ -14,18 +14,24 @@ import (
 )
 
 type ObjectStore struct {
-	log           logr.Logger
-	blobClient    *blockblob.Client
-	containerName string
-	blobName      string
-	accountName   string
-	blobURL       string
+	log            logr.Logger
+	blobClient     *blockblob.Client
+	subscriptionID string
+	resourceGroup  string
+	accountName    string
+	containerName  string
+	blobName       string
+	blobURL        string
 }
 
 var _ types.Storage = &ObjectStore{}
 
 func NewStore(ctx context.Context, options *Options, logger logr.Logger) (*ObjectStore, error) {
-	objectStore := &ObjectStore{log: logger}
+	objectStore := &ObjectStore{
+		log:            logger,
+		subscriptionID: options.GetSubscriptionID(),
+		resourceGroup:  options.GetResourceGroup(),
+	}
 	err := objectStore.init(ctx, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init Azure object store: %w", err)
@@ -53,7 +59,7 @@ func (o *ObjectStore) init(ctx context.Context, options *Options) error {
 	}
 
 	// Create the blob client
-	o.blobClient, err = NewBlobClient(info, o.blobURL, useDefaultCredentials)
+	o.blobClient, err = NewBlobClient(ctx, o.subscriptionID, o.resourceGroup, info, o.blobURL, useDefaultCredentials)
 	if err != nil {
 		return fmt.Errorf("failed to create blob client: %w", err)
 	}
