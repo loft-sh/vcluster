@@ -25,8 +25,9 @@ const (
 	minAsyncSnapshotVersion = "0.29.0-alpha.1"
 )
 
-func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger, async bool) error {
+func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger, delegateFromCLIToCluster bool) error {
 	// init kube client and vCluster
+	snapshotOpts.DelegateFromCLIToCluster = delegateFromCLIToCluster
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log)
 	if err != nil {
 		return err
@@ -50,12 +51,12 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 		}
 	}
 
-	if !async {
-		// run snapshot pod
+	if !delegateFromCLIToCluster {
+		// run the snapshot pod which takes the snapshot synchronously
 		return pod.RunSnapshotPod(ctx, restConfig, kubeClient, []string{"/vcluster", "snapshot"}, vCluster, podOptions, snapshotOpts, log)
 	}
 
-	// creating snapshot request with 'vcluster snapshot create' command
+	// create the snapshot request which will be reconciled by the vCluster controller
 	err = createSnapshotRequest(ctx, vCluster, kubeClient, snapshotOpts, log)
 	if err != nil {
 		return err
@@ -64,13 +65,14 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 }
 
 func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, log log.Logger) error {
+	snapshotOpts.DelegateFromCLIToCluster = snapshotOpts.Type == "container"
 	// init kube client and vCluster
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log)
 	if err != nil {
 		return fmt.Errorf("failed to init snapshot command: %w", err)
 	}
 
-	if snapshotOpts.Type == "container" {
+	if snapshotOpts.DelegateFromCLIToCluster {
 		podOptions := &pod.Options{
 			Exec: true,
 		}

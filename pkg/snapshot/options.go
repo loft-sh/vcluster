@@ -33,6 +33,10 @@ type Options struct {
 
 	Release        *HelmRelease `json:"release,omitempty"`
 	IncludeVolumes bool         `json:"include-volumes,omitempty"`
+
+	// DelegateFromCLIToCluster indicates that the snapshot options are saved in a Kubernetes Secret because the
+	// snapshot/restore operation will be executed in a Kubernetes cluster.
+	DelegateFromCLIToCluster bool `json:"delegateFromCLIToCluster,omitempty"`
 }
 
 func (o *Options) GetURL() string {
