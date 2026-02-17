@@ -262,6 +262,13 @@ func SelectSpaceInstance(ctx context.Context, client Client, spaceName, projectN
 
 func SelectProjectOrCluster(ctx context.Context, client Client, clusterName, projectName string, allowClusterOnly bool, log log.Logger) (cluster string, project string, err error) {
 	if projectName != "" {
+		if clusterName != "" {
+			// Validate the cluster is available in the project
+			_, err := findProjectCluster(ctx, client, projectName, clusterName)
+			if err != nil {
+				return "", "", fmt.Errorf("cluster %q is not available in project %q: %w", clusterName, projectName, err)
+			}
+		}
 		return clusterName, projectName, nil
 	} else if allowClusterOnly && clusterName != "" {
 		return clusterName, "", nil

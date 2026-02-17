@@ -169,6 +169,14 @@ func createWithoutTemplate(ctx context.Context, platformClient platform.Client, 
 		return nil, err
 	}
 
+	// validate helm values against vcluster config schema
+	if helmValues != "" {
+		cfg := &vclusterconfig.Config{}
+		if err := cfg.UnmarshalYAMLStrict([]byte(helmValues)); err != nil {
+			return nil, fmt.Errorf("invalid vcluster.yaml: %w", err)
+		}
+	}
+
 	// create virtual cluster instance
 	zone, offset := time.Now().Zone()
 	virtualClusterInstance := &managementv1.VirtualClusterInstance{
@@ -266,6 +274,14 @@ func upgradeWithoutTemplate(ctx context.Context, platformClient platform.Client,
 	helmValues, err := mergeValues(platformClient, options)
 	if err != nil {
 		return nil, err
+	}
+
+	// validate helm values against vcluster config schema
+	if helmValues != "" {
+		cfg := &vclusterconfig.Config{}
+		if err := cfg.UnmarshalYAMLStrict([]byte(helmValues)); err != nil {
+			return nil, fmt.Errorf("invalid vcluster.yaml: %w", err)
+		}
 	}
 
 	// update virtual cluster instance
