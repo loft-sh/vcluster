@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
 )
@@ -208,74 +206,4 @@ func getBlobInfo(ctx context.Context, options Options) (blobInfo, error) {
 		containerName:      containerName,
 		blobName:           blobName,
 	}, nil
-}
-
-// getStorageKeyFromAzure gets the storage account access key by re-using your existing Azure CLI login.
-//
-// This is equivalent to running:
-//
-//	az storage account keys list \
-//	  --resource-group "$RG" \
-//	  --account-name "$SA" \
-//	  --query '[0].value' \
-//	  -o tsv
-func getStorageKeyFromAzure(ctx context.Context, subscriptionID, resourceGroup, storageAccount string) (string, error) {
-	if subscriptionID == "" {
-		return "", fmt.Errorf("subscription ID is required")
-	}
-	if resourceGroup == "" {
-		return "", fmt.Errorf("resource group is required")
-	}
-	if storageAccount == "" {
-		return "", fmt.Errorf("storage account name is required")
-	}
-
-	// Create Azure storage accounts client
-	client, err := createAzureStorageAccountsClient(subscriptionID)
-	if err != nil {
-		return "", fmt.Errorf("failed to create Azure storage client: %w", err)
-	}
-
-	// List storage account keys
-	resp, err := client.ListKeys(ctx, resourceGroup, storageAccount, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to list storage account keys: %w", err)
-	}
-
-	// Return the first key (equivalent to [0].value in Azure CLI)
-	if resp.Keys == nil || len(resp.Keys) == 0 {
-		return "", fmt.Errorf("no keys found for storage account %s", storageAccount)
-	}
-
-	if resp.Keys[0].Value == nil {
-		return "", fmt.Errorf("key value is nil for storage account %s", storageAccount)
-	}
-
-	return *resp.Keys[0].Value, nil
-}
-
-// createAzureStorageAccountsClient creates an Azure storage accounts client using Azure CLI credentials
-func createAzureStorageAccountsClient(subscriptionID string) (*armstorage.AccountsClient, error) {
-	// Use default Azure credentials for authentication. From Azure SDK go docs:
-	//
-	// DefaultAzureCredential attempts to authenticate with each of these credential types, in the following order,
-	// stopping when one provides a token:
-	//    1. EnvironmentCredential
-	//    2. WorkloadIdentityCredential, if environment variable configuration is set by the Azure workload identity webhook.
-	//    3. ManagedIdentityCredential
-	//    4. AzureCLICredential
-	//    5. AzureDeveloperCLICredential
-	//    6. AzurePowerShellCredential
-	//
-	// More details in go docs here https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity#DefaultAzureCredential.
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Azure CLI credential (make sure you're logged in with 'az login'): %w", err)
-	}
-	clientFactory, err := armstorage.NewClientFactory(subscriptionID, cred, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create client factory: %w", err)
-	}
-
-	return clientFactory.NewAccountsClient(), nil
 }
