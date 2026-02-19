@@ -112,7 +112,7 @@ func getStorageSAS(ctx context.Context, options Options) (string, error) {
 		return sasToken, nil
 	}
 
-	blobInfo, err := GetBlobInfo(options.BlobURL)
+	blobInfo, err := getBlobInfo(options.BlobURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to get blob info: %w", err)
 	}
