@@ -1,0 +1,33 @@
+name: Detect Changes
+
+on:
+  workflow_call:
+    inputs:
+      paths:
+        required: true
+        type: string
+    outputs:
+      has_changed:
+        description: "Whether the specified directories/files have changed"
+        value: ${{ jobs.changes.outputs.has_changed }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'loft-sh' # do not run on forks
+    permissions:
+      pull-requests: read
+      contents: read
+    outputs:
+      has_changed: ${{ steps.filter.outputs.has_changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.event_name == 'push' && github.event.before || '' }}
+          filters: |
+            has_changed:
+            ${{ inputs.paths }}

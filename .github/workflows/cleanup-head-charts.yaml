@@ -1,0 +1,68 @@
+---
+name: Cleanup Head Charts
+
+on:
+  schedule:
+    # Run daily at midnight UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+# make sure the pipeline is only running once
+concurrency:
+  group: cleanup-head-charts
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: github.repository_owner == 'loft-sh' # do not run on forks
+    runs-on: ubuntu-latest
+    name: Cleanup Old Head Chart Versions
+
+    steps:
+      - name: Cleanup old head chart versions
+        run: |
+          # Get all versions with upload timestamps from ChartMuseum API
+          # Format: "timestamp version" per line, sorted by creation time (newest first)
+          if ! CHART_RESPONSE=$(curl -sf -u "$CHART_MUSEUM_USER:$CHART_MUSEUM_PASSWORD" \
+            "$CHART_MUSEUM_URL/api/charts/vcluster-head"); then
+            echo "Error: Failed to fetch chart versions from ChartMuseum"
+            echo "This could indicate authentication failure or ChartMuseum is unreachable"
+            exit 1
+          fi
+
+          ALL_VERSIONS=$(echo "$CHART_RESPONSE" | \
+            jq -r '.[] | select(.version != "0.0.0-latest") | "\(.created) \(.version)"' | \
+            sort -r)
+
+          # Count versions
+          VERSION_COUNT=$(echo "$ALL_VERSIONS" | grep -c '.' || echo 0)
+          echo "Found $VERSION_COUNT head chart versions (excluding '0.0.0-latest')"
+
+          # If more than 50 versions, delete the oldest ones
+          if [ "$VERSION_COUNT" -gt 50 ]; then
+            # Skip first 50 (most recent by upload time), get versions to delete
+            VERSIONS_TO_DELETE=$(echo "$ALL_VERSIONS" | tail -n +51 | awk '{print $2}')
+            DELETE_COUNT=$(echo "$VERSIONS_TO_DELETE" | wc -l)
+
+            echo "Deleting $DELETE_COUNT old versions (keeping 50 most recently uploaded)..."
+
+            for VERSION in $VERSIONS_TO_DELETE; do
+              echo "Deleting version: $VERSION"
+              if curl -f -X DELETE \
+                -u "$CHART_MUSEUM_USER:$CHART_MUSEUM_PASSWORD" \
+                -w "\nHTTP Status: %{http_code}\n" \
+                "$CHART_MUSEUM_URL/api/charts/vcluster-head/$VERSION"; then
+                echo "Successfully deleted $VERSION"
+              else
+                echo "Failed to delete $VERSION (may not exist)"
+              fi
+            done
+
+            echo "Cleanup complete: deleted $DELETE_COUNT versions, kept 50 most recent"
+          else
+            echo "Only $VERSION_COUNT versions found, no cleanup needed (keeping last 50)"
+          fi
+        env:
+          CHART_MUSEUM_URL: "https://charts.loft.sh/"
+          CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
+          CHART_MUSEUM_PASSWORD: ${{ secrets.CHART_MUSEUM_PASSWORD }}
