@@ -30,14 +30,22 @@ func GetBlobInfo(blobURL string) (BlobInfo, error) {
 	}
 
 	// Extract the storage account name from host (format: {account}.blob.core.windows.net)
-	hostParts := strings.Split(parsedURL.Host, ".")
-	if len(hostParts) < 1 {
+	hostname := parsedURL.Hostname()
+	if hostname == "" {
+		return BlobInfo{}, fmt.Errorf("invalid blob URL format, expected: https://{account}.blob.core.windows.net/{container}/{blob}")
+	}
+	hostParts := strings.Split(hostname, ".")
+	if len(hostParts) < 1 || hostParts[0] == "" {
 		return BlobInfo{}, fmt.Errorf("invalid blob URL format, expected: https://{account}.blob.core.windows.net/{container}/{blob}")
 	}
 	accountName := hostParts[0]
 
 	// Extract container and blob name from the URL path (format: /container/blob/path)
-	pathParts := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
+	path := strings.Trim(parsedURL.Path, "/")
+	if path == "" {
+		return BlobInfo{}, fmt.Errorf("invalid blob URL format, expected: https://{account}.blob.core.windows.net/{container}/{blob}")
+	}
+	pathParts := strings.Split(path, "/")
 	if len(pathParts) < 2 {
 		return BlobInfo{}, fmt.Errorf("invalid blob URL format, expected: https://{account}.blob.core.windows.net/{container}/{blob}")
 	}
