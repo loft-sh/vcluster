@@ -17,5 +17,5 @@ spec:
   selector:
     matchLabels:
       app: vcluster
-      release: {{ .Release.Name }}
+      release: {{ .Release.Name | quote }}
 {{- end }}

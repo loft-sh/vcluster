@@ -28,6 +28,6 @@ spec:
       protocol: TCP
   selector:
     app: vcluster-etcd
-    release: {{ .Release.Name }}
+    release: {{ .Release.Name | quote }}
 {{- end }}
 {{- end }}

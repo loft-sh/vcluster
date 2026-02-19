@@ -16,7 +16,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      vcluster.loft.sh/managed-by: {{ .Release.Name }}
+      vcluster.loft.sh/managed-by: {{ .Release.Name | quote }}
   policyTypes:
     - Egress
     - Ingress
@@ -32,13 +32,13 @@ spec:
       to:
         - podSelector:
             matchLabels:
-              release: {{ .Release.Name }}
+              release: {{ .Release.Name | quote }}
 
     # Allow egress to other vcluster workloads, including coredns when not embedded.
     - to:
         - podSelector:
             matchLabels:
-              vcluster.loft.sh/managed-by: {{ .Release.Name }}
+              vcluster.loft.sh/managed-by: {{ .Release.Name | quote }}
 
 {{- if .Values.policies.networkPolicy.workload.publicEgress.enabled }}
     # Allow public egress.
@@ -57,13 +57,13 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              release: {{ .Release.Name }}
+              release: {{ .Release.Name | quote }}
 
     # Allow ingress from other vcluster workloads.
     - from:
         - podSelector:
             matchLabels:
-              vcluster.loft.sh/managed-by: {{ .Release.Name }}
+              vcluster.loft.sh/managed-by: {{ .Release.Name | quote }}
 
 {{- if .Values.policies.networkPolicy.workload.ingress }}
 {{ toYaml .Values.policies.networkPolicy.workload.ingress | indent 4 }}
@@ -79,7 +79,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      release: {{ .Release.Name }}
+      release: {{ .Release.Name | quote }}
   policyTypes:
     - Egress
     - Ingress
@@ -106,13 +106,13 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              release: {{ .Release.Name }}
+              release: {{ .Release.Name | quote }}
 
     # Allow egress connections to vcluster workloads.
     - to:
         - podSelector:
             matchLabels:
-              vcluster.loft.sh/managed-by: {{ .Release.Name }}
+              vcluster.loft.sh/managed-by: {{ .Release.Name | quote }}
 
     # Allow egress to vcluster platform.
     - to:
@@ -130,7 +130,7 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              release: {{ .Release.Name }}
+              release: {{ .Release.Name | quote }}
 
     # Allow ingress for vcluster workloads.
     - ports:
@@ -143,7 +143,7 @@ spec:
       from:
         - podSelector:
             matchLabels:
-              vcluster.loft.sh/managed-by: {{ .Release.Name }}
+              vcluster.loft.sh/managed-by: {{ .Release.Name | quote }}
 
     # Allow ingress from vcluster snapshot.
     - from:
@@ -174,7 +174,7 @@ spec:
   podSelector:
     matchLabels:
       k8s-app: vcluster-kube-dns
-      vcluster.loft.sh/managed-by: {{ .Release.Name }}
+      vcluster.loft.sh/managed-by: {{ .Release.Name | quote }}
   policyTypes:
     - Egress
     - Ingress
@@ -195,7 +195,7 @@ spec:
       to:
         - podSelector:
             matchLabels:
-              release: {{ .Release.Name }}
+              release: {{ .Release.Name | quote }}
 
   ingress:
     # Allow ingress from vcluster workloads.
@@ -207,7 +207,7 @@ spec:
       from:
        - podSelector:
            matchLabels:
-             vcluster.loft.sh/managed-by: {{ .Release.Name }}
+             vcluster.loft.sh/managed-by: {{ .Release.Name | quote }}
 {{- end }}
 
 ---
@@ -229,7 +229,7 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              release: {{ .Release.Name }}
+              release: {{ .Release.Name | quote }}
 
     # Allow egress to host kube-dns.
     - to:

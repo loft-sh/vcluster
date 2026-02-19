@@ -7,7 +7,7 @@ metadata:
   labels:
     app: vcluster
     chart: "{{ include "vcluster.version.label"  $ }}"
-    release: {{ .Release.Name }}
+    release: {{ .Release.Name | quote }}
     heritage: "{{ .Release.Service }}"
   {{- if .Values.controlPlane.statefulSet.labels }}
 {{ toYaml .Values.controlPlane.statefulSet.labels | indent 4 }}
@@ -51,7 +51,7 @@ spec:
       {{- end }}
       labels:
         app: vcluster
-        release: {{ .Release.Name }}
+        release: {{ .Release.Name | quote }}
         {{- if .Values.controlPlane.statefulSet.pods.labels }}
 {{ toYaml .Values.controlPlane.statefulSet.pods.labels | indent 8 }}
         {{- end }}

@@ -32,7 +32,7 @@ spec:
   selector:
     matchLabels:
       app: vcluster-etcd
-      release: {{ .Release.Name }}
+      release: {{ .Release.Name | quote }}
   {{- if $externalEtcd.persistence.volumeClaimTemplates }}
   volumeClaimTemplates:
 {{ toYaml $externalEtcd.persistence.volumeClaimTemplates | indent 4 }}
@@ -57,7 +57,7 @@ spec:
       {{- end }}
       labels:
         app: vcluster-etcd
-        release: {{ .Release.Name }}
+        release: {{ .Release.Name | quote }}
         {{- range $k, $v := $externalEtcd.pods.labels }}
         {{ $k }}: {{ $v | quote }}
         {{- end }}
@@ -82,7 +82,7 @@ spec:
                 - key: release
                   operator: In
                   values:
-                  - {{ .Release.Name }}
+                  - {{ .Release.Name | quote }}
               topologyKey: "kubernetes.io/hostname"
           # if possible avoid scheduling pod onto node that is in the same zone as one or more vcluster pods are running
           - weight: 50
@@ -96,7 +96,7 @@ spec:
                 - key: release
                   operator: In
                   values:
-                  - {{ .Release.Name }}
+                  - {{ .Release.Name | quote }}
               topologyKey: topology.kubernetes.io/zone
       {{- end }}
       {{- if $externalEtcd.scheduling.topologySpreadConstraints }}
