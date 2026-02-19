@@ -112,14 +112,22 @@ func getStorageSAS(ctx context.Context, options Options) (string, error) {
 		return sasToken, nil
 	}
 
-	// Get all required blob information
-	blobInfo, err := getBlobInfo(ctx, options)
+	blobInfo, err := GetBlobInfo(options.BlobURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to get blob info: %w", err)
 	}
+	var storageKey string
+	if key := os.Getenv(StorageKeyEnvVar); key != "" {
+		storageKey = key
+	} else {
+		storageKey, err = getStorageKeyFromAzure(ctx, options.GetSubscriptionID(), options.GetResourceGroup(), blobInfo.AccountName)
+		if err != nil {
+			return "", fmt.Errorf("failed to get storage key from Azure: %w", err)
+		}
+	}
 
 	// Create shared key credential
-	credential, err := blob.NewSharedKeyCredential(blobInfo.storageAccountName, blobInfo.storageKey)
+	credential, err := blob.NewSharedKeyCredential(blobInfo.AccountName, storageKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to create shared key credential: %w", err)
 	}
@@ -135,8 +143,8 @@ func getStorageSAS(ctx context.Context, options Options) (string, error) {
 		StartTime:     startTime,                                                                               // --start
 		ExpiryTime:    expiryTime,                                                                              // --expiry
 		Permissions:   to.Ptr(sas.BlobPermissions{Create: true, Write: true, Read: true, List: true}).String(), // --permissions "cw"
-		ContainerName: blobInfo.containerName,                                                                  // --container-name
-		BlobName:      blobInfo.blobName,                                                                       // --name
+		ContainerName: blobInfo.ContainerName,                                                                  // --container-name
+		BlobName:      blobInfo.BlobName,                                                                       // --name
 	}.SignWithSharedKey(credential)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign SAS token: %w", err)
