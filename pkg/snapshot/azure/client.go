@@ -52,8 +52,8 @@ func GetBlobInfo(blobURL string) (BlobInfo, error) {
 	}, nil
 }
 
-// NewBlobClient creates an Azure blob client from BlobInfo and a full blob URL with SAS token
-func NewBlobClient(ctx context.Context, subscriptionID, resourceGroup string, info BlobInfo, blobURL string, useDefaultCredentials bool) (*blockblob.Client, error) {
+// newBlobClient creates an Azure blob client from BlobInfo and a full blob URL with SAS token
+func newBlobClient(ctx context.Context, subscriptionID, resourceGroup string, info BlobInfo, blobURL string, useDefaultCredentials bool) (*blockblob.Client, error) {
 	var blobClient *blockblob.Client
 	var err error
 	if useDefaultCredentials {
@@ -127,8 +127,8 @@ func NewBlobClient(ctx context.Context, subscriptionID, resourceGroup string, in
 	return blobClient, nil
 }
 
-// NewContainerClient creates a container client from blob URL with SAS token
-func NewContainerClient(blobURL string) (*container.Client, string, error) {
+// newContainerClient creates a container client from blob URL with SAS token
+func newContainerClient(blobURL string) (*container.Client, string, error) {
 	info, err := GetBlobInfo(blobURL)
 	if err != nil {
 		return nil, "", err
