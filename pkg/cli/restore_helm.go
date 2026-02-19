@@ -23,6 +23,7 @@ const (
 
 func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshot *snapshot.Options, pod *pod.Options, newVCluster, restoreVolumes bool, log log.Logger) error {
 	// init kube client and vCluster
+	snapshot.DelegateFromCLIToCluster = true
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshot, log)
 	if err != nil {
 		return err
