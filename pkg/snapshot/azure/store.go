@@ -59,7 +59,7 @@ func (o *ObjectStore) init(ctx context.Context, options *Options) error {
 	}
 
 	// Create the blob client
-	o.blobClient, err = NewBlobClient(ctx, o.subscriptionID, o.resourceGroup, info, o.blobURL, useDefaultCredentials)
+	o.blobClient, err = newBlobClient(ctx, o.subscriptionID, o.resourceGroup, info, o.blobURL, useDefaultCredentials)
 	if err != nil {
 		return fmt.Errorf("failed to create blob client: %w", err)
 	}
@@ -93,7 +93,7 @@ func (o *ObjectStore) GetObject(ctx context.Context) (io.ReadCloser, error) {
 }
 func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 	// Create the container client for listing blobs
-	containerClient, blobName, err := NewContainerClient(o.blobURL)
+	containerClient, blobName, err := newContainerClient(o.blobURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create container client: %w", err)
 	}
