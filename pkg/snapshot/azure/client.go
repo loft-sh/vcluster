@@ -20,7 +20,7 @@ type BlobInfo struct {
 	AccountName   string
 }
 
-func GetBlobInfo(blobURL string) (BlobInfo, error) {
+func getBlobInfo(blobURL string) (BlobInfo, error) {
 	if blobURL == "" {
 		return BlobInfo{}, fmt.Errorf("blob URL is empty")
 	}
@@ -137,7 +137,7 @@ func newBlobClient(ctx context.Context, subscriptionID, resourceGroup string, in
 
 // newContainerClient creates a container client from blob URL with SAS token
 func newContainerClient(blobURL string) (*container.Client, string, error) {
-	info, err := GetBlobInfo(blobURL)
+	info, err := getBlobInfo(blobURL)
 	if err != nil {
 		return nil, "", err
 	}

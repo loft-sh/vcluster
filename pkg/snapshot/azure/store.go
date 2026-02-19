@@ -53,7 +53,7 @@ func (o *ObjectStore) init(ctx context.Context, options *Options) error {
 	o.blobURL = options.GetBlobURLWithSAS()
 
 	// Extract information from blob URL
-	info, err := GetBlobInfo(o.blobURL)
+	info, err := getBlobInfo(o.blobURL)
 	if err != nil {
 		return fmt.Errorf("failed to get blob info: %w", err)
 	}
