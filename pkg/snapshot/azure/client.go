@@ -45,13 +45,13 @@ func GetBlobInfo(blobURL string) (BlobInfo, error) {
 	if path == "" {
 		return BlobInfo{}, fmt.Errorf("invalid blob URL format, expected: https://{account}.blob.core.windows.net/{container}/{blob}")
 	}
-	pathParts := strings.Split(path, "/")
+	pathParts := strings.SplitN(path, "/", 2)
 	if len(pathParts) < 2 {
 		return BlobInfo{}, fmt.Errorf("invalid blob URL format, expected: https://{account}.blob.core.windows.net/{container}/{blob}")
 	}
 
 	containerName := pathParts[0]
-	blobName := strings.Join(pathParts[1:], "/")
+	blobName := pathParts[1]
 
 	return BlobInfo{
 		ContainerName: containerName,
