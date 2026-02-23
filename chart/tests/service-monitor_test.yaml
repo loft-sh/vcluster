@@ -32,33 +32,6 @@ tests:
           path: spec.endpoints
           count: 2
 
-  - it: check defaults k3s
-    release:
-      name: my-release
-      namespace: my-namespace
-    set:
-      controlPlane:
-        distro:
-          k3s:
-            enabled: true
-        serviceMonitor:
-          enabled: true
-    asserts:
-      - hasDocuments:
-          count: 1
-      - equal:
-          path: metadata.name
-          value: vc-my-release
-      - equal:
-          path: metadata.namespace
-          value: my-namespace
-      - equal:
-          path: spec.selector.matchLabels.app
-          value: vcluster
-      - lengthEqual:
-          path: spec.endpoints
-          count: 1
-
   - it: override release label
     release:
       name: my-release

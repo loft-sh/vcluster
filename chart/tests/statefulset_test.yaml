@@ -36,21 +36,6 @@ tests:
           path: spec.template.spec.containers[0].image
           value: ghcr.io/my-repo:custom-tag
 
-  - it: custom init container
-    set:
-      controlPlane:
-        distro:
-          k3s:
-            enabled: true
-            image:
-              registry: "ghcr.io"
-              repository: "test"
-              tag: "123"
-    asserts:
-      - equal:
-          path: spec.template.spec.initContainers[0].image
-          value: ghcr.io/test:123
-
   - it: disables serviceLinks for sts etcd pod
     set:
       controlPlane:
@@ -307,9 +292,6 @@ tests:
   - it: add volumes
     set:
       controlPlane:
-        distro:
-          k3s:
-            enabled: true
         statefulSet:
           persistence:
             addVolumes:
@@ -321,14 +303,11 @@ tests:
             name: myVolume
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 7
+          count: 6
 
   - it: add templated volumes
     set:
       controlPlane:
-        distro:
-          k3s:
-            enabled: true
         statefulSet:
           persistence:
             addVolumes:
@@ -340,7 +319,7 @@ tests:
             name: RELEASE-NAME-myVolume
       - lengthEqual:
           path: spec.template.spec.volumes
-          count: 7
+          count: 6
 
   - it: enable k8s
     set:
@@ -461,8 +440,7 @@ tests:
     set:
       controlPlane:
         distro:
-          k3s:
-            enabled: true
+          k8s:
             env:
               - name: KEY
                 value: VALUE

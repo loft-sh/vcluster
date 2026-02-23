@@ -91,56 +91,6 @@ tests:
           path: spec.volumeClaimTemplates[0].spec.storageClassName
           value: test-sc
 
-  - it: enabled for k3s & non persistent
-    set:
-      controlPlane:
-        backingStore:
-          etcd:
-            deploy:
-              enabled: true
-              statefulSet:
-                extraArgs:
-                  - "extra-arg"
-                env:
-                  - name: my-new-env
-                persistence:
-                  volumeClaim:
-                    enabled: false
-                  addVolumes:
-                    - name: my-new-volume
-                  addVolumeMounts:
-                    - name: my-new-volume
-    asserts:
-      - hasDocuments:
-          count: 1
-      - contains:
-          path: spec.template.spec.volumes
-          content:
-            name: "data"
-            emptyDir: {}
-          count: 1
-      - notExists:
-          path: spec.volumeClaimTemplates
-      - contains:
-          path: spec.template.spec.volumes
-          content:
-            name: "my-new-volume"
-          count: 1
-      - contains:
-          path: spec.template.spec.containers[0].volumeMounts
-          content:
-            name: "my-new-volume"
-          count: 1
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: "my-new-env"
-          count: 1
-      - contains:
-          path: spec.template.spec.containers[0].command
-          content: "extra-arg"
-          count: 1
-
   - it: enable for k8s & defaults
     release:
       name: my-release

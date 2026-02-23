@@ -142,12 +142,6 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 
-	// validate distro
-	err = validateDistro(vConfig)
-	if err != nil {
-		return err
-	}
-
 	// check deny proxy requests
 	for _, c := range vConfig.Experimental.DenyProxyRequests {
 		err := validateCheck(c)
@@ -341,21 +335,6 @@ func ValidateSyncFromHostClasses(fromHost config.SyncFromHost) error {
 	}
 	if err := errorFn(fromHost.StorageClasses.Selector, "storageClasses"); err != nil {
 		return err
-	}
-	return nil
-}
-
-func validateDistro(config *VirtualClusterConfig) error {
-	enabledDistros := 0
-	if config.ControlPlane.Distro.K3S.Enabled {
-		enabledDistros++
-	}
-	if config.ControlPlane.Distro.K8S.Enabled {
-		enabledDistros++
-	}
-
-	if enabledDistros > 1 {
-		return fmt.Errorf("only one distribution can be enabled")
 	}
 	return nil
 }
@@ -792,11 +771,6 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 	// multi-namespace mode is not supported in private nodes mode
 	if vConfig.Sync.ToHost.Namespaces.Enabled {
 		return fmt.Errorf("multi-namespace mode is not supported in private nodes mode")
-	}
-
-	// dedicated mode is only supported for kubernetes distro
-	if vConfig.Distro() != config.K8SDistro {
-		return fmt.Errorf("private nodes mode is only supported for kubernetes")
 	}
 
 	// validate node pools

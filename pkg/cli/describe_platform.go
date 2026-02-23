@@ -62,7 +62,6 @@ func DescribePlatform(ctx context.Context, globalFlags *flags.GlobalFlags, outpu
 		Created:        vCluster.CreationTimestamp,
 		Status:         string(vCluster.Status.Phase),
 		Version:        version,
-		Distro:         conf.Distro(),
 		BackingStore:   string(conf.BackingStoreType()),
 		Images:         images,
 		UserConfigYaml: &values,

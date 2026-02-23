@@ -105,7 +105,7 @@ setup-csi-volume-snapshots:
   kubectl wait --for=condition=Available -n kube-system deploy/snapshot-controller --timeout=60s
 
 # Run e2e tests
-e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind setup-csi-volume-snapshots && delete-kind
+e2e distribution="k8s" path="./test/e2e" multinamespace="false": create-kind setup-csi-volume-snapshots && delete-kind
   echo "Execute test suites ({{ distribution }}, {{ path }}, {{ multinamespace }})"
 
   TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean

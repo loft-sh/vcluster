@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
@@ -87,9 +85,6 @@ func isEtcdReachable(ctx context.Context, endpoint string, certificates *etcd.Ce
 
 func startExternalDatabaseBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
 	kineAddress := constants.K8sKineEndpoint
-	if vConfig.Distro() == vclusterconfig.K3SDistro {
-		kineAddress = constants.K3sKineEndpoint
-	}
 
 	// make sure to start license if using a connector
 	if vConfig.ControlPlane.BackingStore.Database.External.Connector != "" {
@@ -118,22 +113,10 @@ func startExternalDatabaseBackingStore(ctx context.Context, vConfig *config.Virt
 func startEmbeddedBackingStore(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
 	// embedded database
 	if vConfig.EmbeddedDatabase() {
-		if vConfig.Distro() == vclusterconfig.K8SDistro {
-			klog.FromContext(ctx).Info("Starting k8s kine embedded database...")
-			_, _, err := k8s.StartBackingStore(ctx, vConfig)
-			if err != nil {
-				return fmt.Errorf("failed to start backing store: %w", err)
-			}
-		} else if vConfig.Distro() == vclusterconfig.K3SDistro {
-			klog.FromContext(ctx).Info("Starting k3s kine embedded database...")
-			err := os.MkdirAll(filepath.Dir(constants.K3sSqliteDatabase), 0777)
-			if err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", filepath.Dir(constants.K3sSqliteDatabase), err)
-			}
-
-			k8s.StartKine(ctx, fmt.Sprintf("sqlite://%s%s", constants.K3sSqliteDatabase, k8s.SQLiteParams), constants.K3sKineEndpoint, nil, nil)
-		} else {
-			return fmt.Errorf("unsupported distro: %s", vConfig.Distro())
+		klog.FromContext(ctx).Info("Starting k8s kine embedded database...")
+		_, _, err := k8s.StartBackingStore(ctx, vConfig)
+		if err != nil {
+			return fmt.Errorf("failed to start backing store: %w", err)
 		}
 
 		return nil

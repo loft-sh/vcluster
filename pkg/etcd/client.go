@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	vconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -68,10 +67,8 @@ func GetEtcdEndpoint(vConfig *config.VirtualClusterConfig) (string, *Certificate
 			ServerCert: vConfig.ControlPlane.BackingStore.Etcd.External.TLS.CertFile,
 			ServerKey:  vConfig.ControlPlane.BackingStore.Etcd.External.TLS.KeyFile,
 		}
-	} else if vConfig.Distro() == vconfig.K8SDistro {
+	} else {
 		etcdEndpoints = constants.K8sKineEndpoint
-	} else if vConfig.Distro() == vconfig.K3SDistro {
-		etcdEndpoints = constants.K3sKineEndpoint
 	}
 
 	return etcdEndpoints, etcdCertificates

@@ -298,6 +298,7 @@ func CreateSnapshotPod(
 			SecurityContext:               podSpec.SecurityContext,
 			ImagePullSecrets:              imagePullSecrets,
 			Volumes:                       append(podSpec.Volumes, extraVolumes...),
+			InitContainers:                podSpec.InitContainers,
 			Containers: []corev1.Container{
 				{
 					Name:            "snapshot",

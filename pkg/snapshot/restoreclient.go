@@ -449,70 +449,42 @@ func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterCon
 	// * embedded database: delete the files locally and make sure revision is not decreasing, this is important as otherwise watches will not work correctly
 	// * external database: we can't so we skip and then check later if there are any already
 	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedDatabase {
-		if vConfig.Distro() == vclusterconfig.K8SDistro {
-			// get latest revision from database
-			latestRevision, err := getLatestRevisionSQLite(ctx, constants.K8sSqliteDatabase)
-			if err != nil {
-				return nil, revertBackup, fmt.Errorf("failed to get latest revision from database: %w", err)
-			}
+		// get latest revision from database
+		latestRevision, err := getLatestRevisionSQLite(ctx, constants.K8sSqliteDatabase)
+		if err != nil {
+			return nil, revertBackup, fmt.Errorf("failed to get latest revision from database: %w", err)
+		}
 
-			// this is a little bit stupid since we cannot rename /data, so we have to snapshot the
-			// individual files.
-			err = backupFile(ctx, constants.K8sSqliteDatabase)
-			if err != nil {
-				return nil, revertBackup, fmt.Errorf("failed to backup database: %w", err)
-			}
-			err = backupFile(ctx, constants.K8sSqliteDatabase+"-wal")
-			if err != nil {
-				return nil, revertBackup, fmt.Errorf("failed to backup database: %w", err)
-			}
-			err = backupFile(ctx, constants.K8sSqliteDatabase+"-shm")
-			if err != nil {
-				return nil, revertBackup, fmt.Errorf("failed to backup database: %w", err)
-			}
+		// this is a little bit stupid since we cannot rename /data, so we have to snapshot the
+		// individual files.
+		err = backupFile(ctx, constants.K8sSqliteDatabase)
+		if err != nil {
+			return nil, revertBackup, fmt.Errorf("failed to backup database: %w", err)
+		}
+		err = backupFile(ctx, constants.K8sSqliteDatabase+"-wal")
+		if err != nil {
+			return nil, revertBackup, fmt.Errorf("failed to backup database: %w", err)
+		}
+		err = backupFile(ctx, constants.K8sSqliteDatabase+"-shm")
+		if err != nil {
+			return nil, revertBackup, fmt.Errorf("failed to backup database: %w", err)
+		}
 
-			// create a restore function that will restore the database in case of an error
-			revertBackup = func() {
-				_ = os.RemoveAll(constants.K8sSqliteDatabase)
-				_ = os.RemoveAll(constants.K8sSqliteDatabase + "-wal")
-				_ = os.RemoveAll(constants.K8sSqliteDatabase + "-shm")
-				_ = os.Rename(constants.K8sSqliteDatabase+".backup", constants.K8sSqliteDatabase)
-				_ = os.Rename(constants.K8sSqliteDatabase+"-wal.backup", constants.K8sSqliteDatabase+"-wal")
-				_ = os.Rename(constants.K8sSqliteDatabase+"-shm.backup", constants.K8sSqliteDatabase+"-shm")
-			}
+		// create a restore function that will restore the database in case of an error
+		revertBackup = func() {
+			_ = os.RemoveAll(constants.K8sSqliteDatabase)
+			_ = os.RemoveAll(constants.K8sSqliteDatabase + "-wal")
+			_ = os.RemoveAll(constants.K8sSqliteDatabase + "-shm")
+			_ = os.Rename(constants.K8sSqliteDatabase+".backup", constants.K8sSqliteDatabase)
+			_ = os.Rename(constants.K8sSqliteDatabase+"-wal.backup", constants.K8sSqliteDatabase+"-wal")
+			_ = os.Rename(constants.K8sSqliteDatabase+"-shm.backup", constants.K8sSqliteDatabase+"-shm")
+		}
 
-			// set latest revision
-			if latestRevision > 0 {
-				err = setLatestRevisionSQLite(ctx, constants.K8sSqliteDatabase, latestRevision+BumpRevision)
-				if err != nil {
-					return nil, revertBackup, fmt.Errorf("failed to set latest revision: %w", err)
-				}
-			}
-		} else if vConfig.Distro() == vclusterconfig.K3SDistro {
-			// get latest revision from database
-			latestRevision, err := getLatestRevisionSQLite(ctx, constants.K3sSqliteDatabase)
+		// set latest revision
+		if latestRevision > 0 {
+			err = setLatestRevisionSQLite(ctx, constants.K8sSqliteDatabase, latestRevision+BumpRevision)
 			if err != nil {
-				return nil, revertBackup, fmt.Errorf("failed to get latest revision from database: %w", err)
-			}
-
-			// backup database
-			err = backupFolder(ctx, filepath.Dir(constants.K3sSqliteDatabase))
-			if err != nil {
-				return nil, revertBackup, err
-			}
-
-			// create a restore function that will restore the database in case of an error
-			revertBackup = func() {
-				_ = os.RemoveAll(constants.K3sSqliteDatabase)
-				_ = os.Rename(constants.K3sSqliteDatabase+".backup", constants.K3sSqliteDatabase)
-			}
-
-			// set latest revision
-			if latestRevision > 0 {
-				err = setLatestRevisionSQLite(ctx, constants.K3sSqliteDatabase, latestRevision+BumpRevision)
-				if err != nil {
-					return nil, revertBackup, fmt.Errorf("failed to set latest revision: %w", err)
-				}
+				return nil, revertBackup, fmt.Errorf("failed to set latest revision: %w", err)
 			}
 		}
 	} else if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {

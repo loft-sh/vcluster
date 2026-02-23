@@ -22,7 +22,7 @@ images:
 
 # Deployment used for vcluster
 deployments:
-  vcluster-k8s:
+  vcluster:
     helm:
       releaseName: vcluster
       chart:
@@ -31,37 +31,8 @@ deployments:
         controlPlane:
           distro:
             k8s:
-              enabled: true
               image:
                 tag: v1.35.0
-          statefulSet:
-            image:
-              registry: ""
-              repository: image(${SYNCER_IMAGE})
-              tag: tag(${SYNCER_IMAGE})
-            scheduling:
-              tolerations:
-                - operator: "Exists"
-          service:
-            spec:
-              type: NodePort
-          advanced:
-            serviceAccount:
-              enabled: false
-              name: default
-        telemetry:
-          enabled: false
-
-  vcluster-k3s:
-    helm:
-      releaseName: vcluster
-      chart:
-        name: ./chart
-      values:
-        controlPlane:
-          distro:
-            k3s:
-              enabled: true
           statefulSet:
             image:
               registry: ""
@@ -113,24 +84,14 @@ dev:
 # Pipelines used for vcluster
 pipelines:
   dev:
-    flags:
-      - name: distro
-        description: "Virtual cluster distribution to use"
-        default: "k8s"
-        type: string
     run: |-
       # Deploy the vcluster
-      run_pipelines deploy --set-flag distro=$(get_flag distro)
+      run_pipelines deploy
 
       # Start dev mode
       start_dev --all
 
   deploy:
-    flags:
-      - name: distro
-        description: "Virtual cluster distribution to use"
-        default: "k8s"
-        type: string
     run: |-
       # Make sure pull secrets are there
       ensure_pull_secrets --all
@@ -143,11 +104,7 @@ pipelines:
       fi
 
       # Deploy the vcluster
-      if is_equal $(get_flag distro) k8s; then
-        create_deployments vcluster-k8s
-      else
-        create_deployments vcluster-k3s
-      fi
+      create_deployments vcluster
 
   purge:
     run: |-
@@ -158,19 +115,10 @@ pipelines:
       kubectl delete pvc --all -n ${DEVSPACE_NAMESPACE}
 
 profiles:
-  - name: test-k3s
-    patches:
-      - op: add
-        path: deployments.vcluster-k3s.helm
-        value:
-          valuesFiles:
-            - ${COMMON_VALUES}
-            - ${VALUES_FILE}
-
   - name: test-k8s
     patches:
       - op: add
-        path: deployments.vcluster-k8s.helm
+        path: deployments.vcluster.helm
         value:
           valuesFiles:
             - ${COMMON_VALUES}
@@ -179,12 +127,13 @@ profiles:
   - name: test-pro
     patches:
       - op: add
-        path: deployments.vcluster-k8s.helm
+        path: deployments.vcluster.helm
         value:
           valuesFiles:
             - ${COMMON_VALUES}
             - ${VALUES_FILE}
             - ${PRO_VALUES}
+
   - name: test-conformance
     patches:
       - op: replace
@@ -192,14 +141,14 @@ profiles:
         value:
           preferMinikube: false
       - op: add
-        path: deployments.vcluster-k8s.helm
+        path: deployments.vcluster.helm
         value:
           valuesFiles:
             - ${CONFORMANCE_VALUES}
 
 commands:
-  # e.g. devspace run test k3s
-  # e.g. devspace run test k3s --var VALUES_FILE=./test/e2e_node
+  # e.g. devspace run test k8s
+  # e.g. devspace run test k8s --var VALUES_FILE=./test/e2e_node
   test: |-
     devspace purge -n ${DEVSPACE_NAMESPACE} --debug
     devspace dev -n ${DEVSPACE_NAMESPACE} --profile test-$@

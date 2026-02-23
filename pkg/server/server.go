@@ -161,7 +161,6 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 			h = filters.WithNodeChanges(ctx, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 		}
 		h = filters.WithFakeKubelet(h, ctx.ToRegisterContext())
-		h = filters.WithK3sConnect(h)
 
 		if ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled {
 			h = filters.WithPodSchedulerCheck(h, ctx.ToRegisterContext(), ctx.VirtualManager.GetClient())

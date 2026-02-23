@@ -28,25 +28,15 @@ func MigrateLegacyConfig(distro, oldValues string) (string, error) {
 		return "", err
 	}
 
-	switch distro {
-	case config.K3SDistro:
-		err = migrateK3s(distro, oldValues, toConfig)
-		if err != nil {
-			return "", fmt.Errorf("migrate legacy %s values: %w", distro, err)
-		}
-	case config.K8SDistro, "eks":
-		err = migrateK8sAndEKS(oldValues, toConfig)
-		if err != nil {
-			return "", fmt.Errorf("migrate legacy %s values: %w", distro, err)
-		}
-	default:
-		return "", fmt.Errorf("migrating distro %s is not supported", distro)
+	err = migrateK8s(oldValues, toConfig)
+	if err != nil {
+		return "", fmt.Errorf("migrate legacy %s values: %w", distro, err)
 	}
 
 	return config.Diff(fromConfig, toConfig)
 }
 
-func migrateK8sAndEKS(oldValues string, newConfig *config.Config) error {
+func migrateK8s(oldValues string, newConfig *config.Config) error {
 	// unmarshal legacy config
 	oldConfig := &LegacyK8s{}
 	err := oldConfig.UnmarshalYAMLStrict([]byte(oldValues))
@@ -81,7 +71,7 @@ func migrateK8sAndEKS(oldValues string, newConfig *config.Config) error {
 	applyStorage(oldConfig.Storage, newConfig)
 
 	// syncer config
-	err = convertK8sSyncerConfig(config.K8SDistro, oldConfig.Syncer, newConfig)
+	err = convertK8sSyncerConfig(oldConfig.Syncer, newConfig)
 	if err != nil {
 		return fmt.Errorf("error converting syncer config: %w", err)
 	}
@@ -101,55 +91,6 @@ func migrateK8sAndEKS(oldValues string, newConfig *config.Config) error {
 	}
 
 	return nil
-}
-
-func migrateK3s(distro, oldValues string, newConfig *config.Config) error {
-	// unmarshal legacy config
-	oldConfig := &LegacyK3s{}
-	err := oldConfig.UnmarshalYAMLStrict([]byte(oldValues))
-	if err != nil {
-		if err := errIfConfigIsAlreadyConverted(oldValues); err != nil {
-			return err
-		}
-		return fmt.Errorf("unmarshal legacy config: %w", err)
-	}
-
-	if distro == config.K3SDistro {
-		newConfig.ControlPlane.Distro.K3S.Enabled = true
-		newConfig.ControlPlane.Distro.K3S.Token = oldConfig.K3sToken
-
-		// vcluster config
-		err = convertVClusterConfig(oldConfig.VCluster, &newConfig.ControlPlane.Distro.K3S.DistroCommon, &newConfig.ControlPlane.Distro.K3S.DistroContainer, newConfig)
-		if err != nil {
-			return fmt.Errorf("error converting vcluster config: %w", err)
-		}
-	}
-
-	// general things to update
-	newConfig.ControlPlane.StatefulSet.Scheduling.PodManagementPolicy = "OrderedReady"
-	if oldConfig.AutoDeletePersistentVolumeClaims {
-		newConfig.ControlPlane.StatefulSet.Persistence.VolumeClaim.RetentionPolicy = "Delete"
-	}
-
-	// storage config
-	applyStorage(oldConfig.Storage, newConfig)
-
-	// syncer config
-	err = convertSyncerConfig(config.K3SDistro, oldConfig.Syncer, newConfig)
-	if err != nil {
-		return fmt.Errorf("error converting syncer config: %w", err)
-	}
-
-	// migrate embedded etcd
-	convertEmbeddedEtcd(oldConfig.EmbeddedEtcd, newConfig)
-
-	// migrate scheduler
-	if oldConfig.Sync.Nodes.EnableScheduler != nil {
-		newConfig.ControlPlane.Advanced.VirtualScheduler.Enabled = *oldConfig.Sync.Nodes.EnableScheduler
-	}
-
-	// convert the rest
-	return convertBaseValues(oldConfig.BaseHelm, newConfig)
 }
 
 func errIfConfigIsAlreadyConverted(oldValues string) error {
@@ -637,7 +578,7 @@ func convertEmbeddedEtcd(oldConfig EmbeddedEtcdValues, newConfig *config.Config)
 	}
 }
 
-func convertK8sSyncerConfig(distro string, oldConfig K8sSyncerValues, newConfig *config.Config) error {
+func convertK8sSyncerConfig(oldConfig K8sSyncerValues, newConfig *config.Config) error {
 	newConfig.ControlPlane.StatefulSet.Persistence.AddVolumes = oldConfig.Volumes
 	if oldConfig.PriorityClassName != "" {
 		newConfig.ControlPlane.StatefulSet.Scheduling.PriorityClassName = oldConfig.PriorityClassName
@@ -656,10 +597,10 @@ func convertK8sSyncerConfig(distro string, oldConfig K8sSyncerValues, newConfig 
 		newConfig.ControlPlane.StatefulSet.Security.ContainerSecurityContext = oldConfig.SecurityContext
 	}
 
-	return convertSyncerConfig(distro, oldConfig.SyncerValues, newConfig)
+	return convertSyncerConfig(oldConfig.SyncerValues, newConfig)
 }
 
-func convertSyncerConfig(distro string, oldConfig SyncerValues, newConfig *config.Config) error {
+func convertSyncerConfig(oldConfig SyncerValues, newConfig *config.Config) error {
 	if oldConfig.Image != "" {
 		config.ParseImageRef(oldConfig.Image, &newConfig.ControlPlane.StatefulSet.Image)
 	}
@@ -704,10 +645,10 @@ func convertSyncerConfig(distro string, oldConfig SyncerValues, newConfig *confi
 		newConfig.ControlPlane.StatefulSet.Labels = oldConfig.Labels
 	}
 
-	return convertSyncerExtraArgs(distro, oldConfig.ExtraArgs, newConfig)
+	return convertSyncerExtraArgs(oldConfig.ExtraArgs, newConfig)
 }
 
-func convertSyncerExtraArgs(distro string, extraArgs []string, newConfig *config.Config) error {
+func convertSyncerExtraArgs(extraArgs []string, newConfig *config.Config) error {
 	var err error
 	var flag, value string
 
@@ -734,7 +675,7 @@ func convertSyncerExtraArgs(distro string, extraArgs []string, newConfig *config
 			continue
 		}
 
-		err = migrateFlag(distro, flag, value, newConfig)
+		err = migrateFlag(flag, value, newConfig)
 		if err != nil {
 			return fmt.Errorf("migrate extra syncer flag --%s: %w", flag, err)
 		}
@@ -749,7 +690,7 @@ func convertSyncerExtraArgs(distro string, extraArgs []string, newConfig *config
 	return nil
 }
 
-func migrateFlag(distro, key, value string, newConfig *config.Config) error {
+func migrateFlag(key, value string, newConfig *config.Config) error {
 	if newConfig == nil {
 		return errors.New("newConfig is not set")
 	}
@@ -840,11 +781,7 @@ func migrateFlag(distro, key, value string, newConfig *config.Config) error {
 		}
 	case "enable-scheduler":
 		if value == "" || value == "true" {
-			if distro == config.K8SDistro {
-				newConfig.ControlPlane.Distro.K8S.Scheduler.Enabled = true
-			} else if distro == config.K3SDistro {
-				newConfig.ControlPlane.Advanced.VirtualScheduler.Enabled = true
-			}
+			newConfig.ControlPlane.Advanced.VirtualScheduler.Enabled = true
 		} else if value == "false" {
 			newConfig.ControlPlane.Distro.K8S.Scheduler.Enabled = false
 			newConfig.ControlPlane.Advanced.VirtualScheduler.Enabled = false
@@ -1085,34 +1022,6 @@ func applyStorage(oldConfig Storage, newConfig *config.Config) {
 	if oldConfig.BinariesVolume != nil {
 		newConfig.ControlPlane.StatefulSet.Persistence.BinariesVolume = oldConfig.BinariesVolume
 	}
-}
-
-func convertVClusterConfig(oldConfig VClusterValues, retDistroCommon *config.DistroCommon, retDistroContainer *config.DistroContainer, newConfig *config.Config) error {
-	retDistroCommon.Env = oldConfig.Env
-	if oldConfig.Image != "" {
-		config.ParseImageRef(oldConfig.Image, &retDistroCommon.Image)
-	}
-	if len(oldConfig.Resources) > 0 {
-		retDistroCommon.Resources = mergeMaps(retDistroCommon.Resources, oldConfig.Resources)
-	}
-	retDistroContainer.ExtraArgs = append(retDistroContainer.ExtraArgs, oldConfig.ExtraArgs...)
-	if oldConfig.ImagePullPolicy != "" {
-		retDistroCommon.ImagePullPolicy = oldConfig.ImagePullPolicy
-	}
-
-	if len(oldConfig.BaseArgs) > 0 {
-		return fmt.Errorf("vcluster.baseArgs is not supported anymore, please use controlPlane.distro.k3s.command or controlPlane.distro.k3s.extraArgs instead")
-	}
-	if len(oldConfig.Command) > 0 {
-		return fmt.Errorf("vcluster.command is not supported anymore, please use controlPlane.distro.k3s.command or controlPlane.distro.k3s.extraArgs instead")
-	}
-	if oldConfig.PriorityClassName != "" {
-		return fmt.Errorf("vcluster.priorityClassName is not supported anymore, please manually upgrade this field")
-	}
-
-	newConfig.ControlPlane.StatefulSet.Persistence.AddVolumeMounts = append(newConfig.ControlPlane.StatefulSet.Persistence.AddVolumeMounts, oldConfig.ExtraVolumeMounts...)
-	newConfig.ControlPlane.StatefulSet.Persistence.AddVolumes = append(newConfig.ControlPlane.StatefulSet.Persistence.AddVolumes, oldConfig.VolumeMounts...)
-	return nil
 }
 
 func mergeIntoMap(retMap map[string]string, arr []string) map[string]string {

@@ -40,7 +40,7 @@ rules:
     verbs: ["update", "patch"]
   {{- end }}
   {{- if or
-      (and (eq (include "vcluster.distro" .) "k8s") .Values.controlPlane.distro.k8s.scheduler.enabled)
+      .Values.controlPlane.distro.k8s.scheduler.enabled
       .Values.controlPlane.advanced.virtualScheduler.enabled
       .Values.sync.toHost.pods.hybridScheduling.enabled
     }}

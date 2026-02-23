@@ -136,24 +136,6 @@ controlPlane:
           cpu: 40m
           memory: 64Mi
 
-    k3s:
-      enabled: false
-      command: []
-      extraArgs: []
-      imagePullPolicy: ""
-      image:
-        registry: ""
-        repository: "rancher/k3s"
-        tag: "v1.35.0-k3s1"
-      securityContext: {}
-      resources:
-        limits:
-          cpu: 100m
-          memory: 256Mi
-        requests:
-          cpu: 40m
-          memory: 64Mi
-
   backingStore:
     database:
       embedded:

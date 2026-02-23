@@ -5,12 +5,6 @@ import (
 	"strings"
 )
 
-const (
-	K3SDistro = "k3s"
-	K8SDistro = "k8s"
-	Unknown   = "unknown"
-)
-
 type StoreType string
 
 const (
@@ -20,16 +14,6 @@ const (
 	StoreTypeEmbeddedDatabase StoreType = "embedded-database"
 	StoreTypeExternalDatabase StoreType = "external-database"
 )
-
-// K3SVersionMap holds the supported k3s versions
-var K3SVersionMap = map[string]string{
-	"1.35": "rancher/k3s:v1.35.0-k3s1",
-	"1.34": "rancher/k3s:v1.34.1-k3s1",
-	"1.33": "rancher/k3s:v1.33.3-k3s1",
-	"1.32": "rancher/k3s:v1.32.1-k3s1",
-	"1.31": "rancher/k3s:v1.31.1-k3s1",
-	"1.30": "rancher/k3s:v1.30.2-k3s1",
-}
 
 // K8SVersionMap holds the supported k8s api servers
 var K8SVersionMap = map[string]string{
@@ -53,8 +37,6 @@ var K8SEtcdVersionMap = map[string]string{
 
 // ExtraValuesOptions holds the chart options
 type ExtraValuesOptions struct {
-	Distro string
-
 	Expose   bool
 	NodePort bool
 
@@ -153,13 +135,5 @@ func addCommonReleaseValues(config *Config, options *ExtraValuesOptions) {
 		config.Telemetry.PlatformUserID = options.PlatformUserID
 		config.Telemetry.PlatformInstanceID = options.PlatformInstanceID
 		config.Telemetry.MachineID = options.MachineID
-	}
-
-	if options.Distro != "" {
-		switch options.Distro {
-		case K3SDistro:
-			config.ControlPlane.Distro.K3S.Enabled = true
-		case K8SDistro:
-		}
 	}
 }

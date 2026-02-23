@@ -3,7 +3,6 @@ package filters
 import (
 	"net/http"
 
-	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
@@ -11,10 +10,6 @@ import (
 )
 
 func WithK8sMetrics(h http.Handler, registerCtx *synccontext.RegisterContext) http.Handler {
-	if registerCtx.Config.Distro() != config.K8SDistro {
-		return h
-	}
-
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == "/controller-manager/metrics" {
 			restConfig := rest.CopyConfig(registerCtx.VirtualManager.GetConfig())

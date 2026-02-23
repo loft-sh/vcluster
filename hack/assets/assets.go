@@ -18,7 +18,6 @@ import (
 // Enumeration of supported kubernetes distros
 const (
 	k8s = "k8s"
-	k3s = "k3s"
 
 	etcd = "etcd"
 )
@@ -85,7 +84,7 @@ func Main() {
 
 // GetSupportedDistros returns a list of supported Kubernetes distros
 func GetSupportedDistros() []string {
-	return []string{k8s, k3s}
+	return []string{k8s}
 }
 
 // GetImages returns a list of images based on the given parameters
@@ -121,18 +120,18 @@ func GetImageList(optional bool, kubernetesVersion string, groups []map[string]s
 		}
 		sortedImages := slices.Compact(getSortedDescValues(g))
 		if optional {
-			// k3s and etcd images are all optional
-			if strings.Contains(sortedImages[0], k3s) || strings.Contains(sortedImages[0], etcd) {
+			// etcd images are all optional
+			if strings.Contains(sortedImages[0], etcd) {
 				selectedImages = append(selectedImages, sortedImages...)
 				continue
 			}
-			// if not k3s nor etcd, we take all images except the latest one (first in the sorted list)
+			// if not etcd, we take all images except the latest one (first in the sorted list)
 			selectedImages = append(selectedImages, sortedImages[1:]...)
 			continue
 		}
 
-		// If we are not in optional mode, we only take the latest image. Except for k3s and etcd images that are always optional
-		if !strings.Contains(sortedImages[0], k3s) && !strings.Contains(sortedImages[0], etcd) {
+		// If we are not in optional mode, we only take the latest image. Except for etcd images that are always optional
+		if !strings.Contains(sortedImages[0], etcd) {
 			selectedImages = append(selectedImages, sortedImages[0])
 		}
 	}
@@ -153,20 +152,10 @@ func GetVclusterImages(optional bool, cleanTag string) []string {
 // GetVclusterDependencyImageMaps returns a list of maps containing vcluster image versions
 func GetVclusterDependencyImageMaps(distro string) []map[string]string {
 	var ret []map[string]string
-	switch distro {
-	case k8s:
-		ret = append(ret,
-			vclusterconfig.K8SVersionMap,
-			vclusterconfig.K8SEtcdVersionMap)
-	case k3s:
-		ret = append(ret, vclusterconfig.K3SVersionMap)
-	default: // All distros
-		ret = append(ret,
-			vclusterconfig.K8SVersionMap,
-			vclusterconfig.K8SEtcdVersionMap,
-			vclusterconfig.K3SVersionMap,
-		)
-	}
+	ret = append(ret,
+		vclusterconfig.K8SVersionMap,
+		vclusterconfig.K8SEtcdVersionMap,
+	)
 	ret = append(ret, constants.CoreDNSVersionMap)
 	return ret
 }

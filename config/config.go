@@ -895,23 +895,12 @@ func (c *Config) EmbeddedDatabase() bool {
 	return !c.ControlPlane.BackingStore.Database.External.Enabled && !c.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !c.ControlPlane.BackingStore.Etcd.Deploy.Enabled && !c.ControlPlane.BackingStore.Etcd.External.Enabled
 }
 
-func (c *Config) Distro() string {
-	if c.ControlPlane.Distro.K3S.Enabled {
-		return K3SDistro
-	} else if c.ControlPlane.Distro.K8S.Enabled {
-		return K8SDistro
-	}
-
-	return K8SDistro
-}
-
 func (c *Config) IsDockerRegistryDaemonEnabled() bool {
 	return c.Experimental.Docker.Enabled && c.Experimental.Docker.RegistryProxy.Enabled
 }
 
 func (c *Config) IsVirtualSchedulerEnabled() bool {
-	return c.Distro() == K8SDistro && c.ControlPlane.Distro.K8S.Scheduler.Enabled ||
-		c.ControlPlane.Advanced.VirtualScheduler.Enabled
+	return c.ControlPlane.Distro.K8S.Scheduler.Enabled || c.ControlPlane.Advanced.VirtualScheduler.Enabled
 }
 
 func (c *Config) IsConfiguredForSleepMode() bool {
@@ -932,9 +921,6 @@ func (c *Config) IsConfiguredForAutoDeletion() bool {
 
 // ValidateChanges checks for disallowed config changes.
 func ValidateChanges(oldCfg, newCfg *Config) error {
-	if err := ValidateDistroChanges(newCfg.Distro(), oldCfg.Distro()); err != nil {
-		return err
-	}
 	if err := ValidateStoreChanges(newCfg.BackingStoreType(), oldCfg.BackingStoreType()); err != nil {
 		return err
 	}
@@ -974,14 +960,6 @@ func ValidateStoreChanges(currentStoreType, previousStoreType StoreType) error {
 	}
 	return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s,"+
 		" please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
-}
-
-// ValidateDistroChanges checks whether migrating from one distro to the other is allowed.
-func ValidateDistroChanges(currentDistro, previousDistro string) error {
-	if currentDistro != previousDistro && !(previousDistro == "eks" && currentDistro == K8SDistro) && !(previousDistro == K3SDistro && currentDistro == K8SDistro) {
-		return fmt.Errorf("seems like you were using %s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", previousDistro, currentDistro)
-	}
-	return nil
 }
 
 func ValidateNamespaceSyncChanges(oldCfg, newCfg *Config) error {
@@ -1032,10 +1010,8 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
-	if c.Distro() == K8SDistro {
-		if c.ControlPlane.BackingStore.Database.External.Enabled {
-			return true
-		}
+	if c.ControlPlane.BackingStore.Database.External.Enabled {
+		return true
 	}
 
 	if c.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
@@ -1898,20 +1874,6 @@ type ControlPlaneStatefulSet struct {
 type Distro struct {
 	// K8S holds K8s relevant configuration.
 	K8S DistroK8s `json:"k8s,omitempty"`
-
-	// [Deprecated] K3S holds K3s relevant configuration.
-	K3S DistroK3s `json:"k3s,omitempty"`
-}
-
-type DistroK3s struct {
-	// Enabled specifies if the K3s distro should be enabled. Only one distro can be enabled at the same time.
-	Enabled bool `json:"enabled,omitempty"`
-
-	// Token is the K3s token to use. If empty, vCluster will choose one.
-	Token string `json:"token,omitempty"`
-
-	DistroCommon    `json:",inline"`
-	DistroContainer `json:",inline"`
 }
 
 type DistroK8s struct {
@@ -1948,13 +1910,6 @@ type DistroCommon struct {
 
 	// Security options can be used for the distro init container
 	SecurityContext map[string]interface{} `json:"securityContext,omitempty"`
-}
-type DistroContainer struct {
-	// Command is the command to start the distro binary. This will override the existing command.
-	Command []string `json:"command,omitempty"`
-
-	// ExtraArgs are additional arguments to pass to the distro binary.
-	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
 type DistroContainerEnabled struct {
@@ -2088,8 +2043,8 @@ type DatabaseKine struct {
 
 	// DataSource is the kine dataSource to use for the database. This depends on the database format.
 	// This is optional for the external database. Examples:
-	// * mysql: mysql://username:password@tcp(hostname:3306)/k3s
-	// * postgres: postgres://username:password@hostname:5432/k3s
+	// * mysql: mysql://username:password@tcp(hostname:3306)/vcluster
+	// * postgres: postgres://username:password@hostname:5432/vcluster
 	DataSource string `json:"dataSource,omitempty"`
 
 	// IdentityProvider is the kine identity provider to use when generating temporary authentication tokens for enhanced security.

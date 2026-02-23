@@ -115,19 +115,6 @@ tests:
             resources: [ "storageclasses", "csinodes", "csidrivers", "csistoragecapacities" ]
             verbs: [ "get", "watch", "list" ]
 
-  - it: scheduler not enabled for k3s
-    set:
-      controlPlane:
-        distro:
-          k3s:
-            enabled: true
-          k8s:
-            scheduler:
-              enabled: true
-    asserts:
-      - hasDocuments:
-          count: 1
-
   - it: enable hybrid scheduling
     set:
       sync:

@@ -28,7 +28,7 @@
     .Values.sync.toHost.volumeSnapshotContents.enabled
     .Values.sync.fromHost.volumeSnapshotClasses.enabled
     .Values.sync.fromHost.deviceClasses.enabled
-    (and (eq (include "vcluster.distro" .) "k8s") .Values.controlPlane.distro.k8s.scheduler.enabled)
+    .Values.controlPlane.distro.k8s.scheduler.enabled
     .Values.controlPlane.advanced.virtualScheduler.enabled
     .Values.sync.toHost.pods.hybridScheduling.enabled
     .Values.sync.fromHost.ingressClasses.enabled

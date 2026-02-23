@@ -1051,7 +1051,7 @@
         },
         "dataSource": {
           "type": "string",
-          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format.\nThis is optional for the external database. Examples:\n* mysql: mysql://username:password@tcp(hostname:3306)/k3s\n* postgres: postgres://username:password@hostname:5432/k3s"
+          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format.\nThis is optional for the external database. Examples:\n* mysql: mysql://username:password@tcp(hostname:3306)/vcluster\n* postgres: postgres://username:password@hostname:5432/vcluster"
         },
         "identityProvider": {
           "type": "string",
@@ -1186,10 +1186,6 @@
         "k8s": {
           "$ref": "#/$defs/DistroK8s",
           "description": "K8S holds K8s relevant configuration."
-        },
-        "k3s": {
-          "$ref": "#/$defs/DistroK3s",
-          "description": "[Deprecated] K3S holds K3s relevant configuration."
         }
       },
       "additionalProperties": false,
@@ -1200,57 +1196,6 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled signals this container should be enabled."
-        },
-        "command": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "Command is the command to start the distro binary. This will override the existing command."
-        },
-        "extraArgs": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "ExtraArgs are additional arguments to pass to the distro binary."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "DistroK3s": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled specifies if the K3s distro should be enabled. Only one distro can be enabled at the same time."
-        },
-        "token": {
-          "type": "string",
-          "description": "Token is the K3s token to use. If empty, vCluster will choose one."
-        },
-        "image": {
-          "$ref": "#/$defs/Image",
-          "description": "Image is the distro image"
-        },
-        "imagePullPolicy": {
-          "type": "string",
-          "description": "ImagePullPolicy is the pull policy for the distro image"
-        },
-        "env": {
-          "items": {
-            "type": "object"
-          },
-          "type": "array",
-          "description": "Env are extra environment variables to use for the main container and NOT the init container."
-        },
-        "resources": {
-          "type": "object",
-          "description": "Resources for the distro init container"
-        },
-        "securityContext": {
-          "type": "object",
-          "description": "Security options can be used for the distro init container"
         },
         "command": {
           "items": {
@@ -2162,7 +2107,7 @@
         },
         "dataSource": {
           "type": "string",
-          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format.\nThis is optional for the external database. Examples:\n* mysql: mysql://username:password@tcp(hostname:3306)/k3s\n* postgres: postgres://username:password@hostname:5432/k3s"
+          "description": "DataSource is the kine dataSource to use for the database. This depends on the database format.\nThis is optional for the external database. Examples:\n* mysql: mysql://username:password@tcp(hostname:3306)/vcluster\n* postgres: postgres://username:password@hostname:5432/vcluster"
         },
         "identityProvider": {
           "type": "string",

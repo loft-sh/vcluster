@@ -47,7 +47,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
-	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
 	"github.com/loft-sh/vcluster/pkg/util/namespaces"
@@ -63,7 +62,6 @@ type CreateOptions struct {
 	ChartName             string
 	ChartRepo             string
 	LocalChartDir         string
-	Distro                string
 	Values                []string
 	SetValues             []string
 	Print                 bool
@@ -101,8 +99,6 @@ type CreateOptions struct {
 }
 
 var CreatedByVClusterAnnotation = "vcluster.loft.sh/created"
-
-var AllowedDistros = []string{config.K8SDistro, config.K3SDistro}
 
 type createHelm struct {
 	*flags.GlobalFlags
@@ -668,10 +664,6 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 }
 
 func (cmd *createHelm) ToChartOptions(log log.Logger) (*config.ExtraValuesOptions, error) {
-	if !util.Contains(cmd.Distro, AllowedDistros) {
-		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", cmd.Distro, strings.Join(AllowedDistros, ", "))
-	}
-
 	// check if we should create with node port
 	clusterType := localkubernetes.DetectClusterType(&cmd.rawConfig)
 	if cmd.ExposeLocal && clusterType.LocalKubernetes() && clusterType != localkubernetes.ClusterTypeOrbstack {
@@ -681,7 +673,6 @@ func (cmd *createHelm) ToChartOptions(log log.Logger) (*config.ExtraValuesOption
 
 	cfg := cmd.LoadedConfig(log)
 	return &config.ExtraValuesOptions{
-		Distro:              cmd.Distro,
 		Expose:              cmd.Expose,
 		NodePort:            cmd.localCluster,
 		DisableTelemetry:    cfg.TelemetryDisabled,

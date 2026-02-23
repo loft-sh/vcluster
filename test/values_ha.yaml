@@ -1,4 +1,4 @@
-# this is for k3s pro
+# this is for pro
 controlPlane:
   statefulSet:
     highAvailability:

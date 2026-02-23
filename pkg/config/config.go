@@ -40,24 +40,12 @@ type VirtualClusterConfig struct {
 }
 
 func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKubeConfig {
-	distroConfig := config.VirtualClusterKubeConfig{}
-	switch v.Distro() {
-	case config.K3SDistro:
-		distroConfig = config.VirtualClusterKubeConfig{
-			KubeConfig:          "/data/server/cred/admin.kubeconfig",
-			ServerCAKey:         "/data/server/tls/server-ca.key",
-			ServerCACert:        "/data/server/tls/server-ca.crt",
-			ClientCACert:        "/data/server/tls/client-ca.crt",
-			RequestHeaderCACert: "/data/server/tls/request-header-ca.crt",
-		}
-	case config.K8SDistro:
-		distroConfig = config.VirtualClusterKubeConfig{
-			KubeConfig:          constants.AdminKubeConfig,
-			ServerCAKey:         constants.ServerCAKey,
-			ServerCACert:        constants.ServerCACert,
-			ClientCACert:        constants.ClientCACert,
-			RequestHeaderCACert: constants.RequestHeaderCACert,
-		}
+	distroConfig := config.VirtualClusterKubeConfig{
+		KubeConfig:          constants.AdminKubeConfig,
+		ServerCAKey:         constants.ServerCAKey,
+		ServerCACert:        constants.ServerCACert,
+		ClientCACert:        constants.ClientCACert,
+		RequestHeaderCACert: constants.RequestHeaderCACert,
 	}
 
 	retConfig := v.Experimental.VirtualClusterKubeConfig

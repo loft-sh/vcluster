@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 
-	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
@@ -244,11 +243,6 @@ func ValidateConfigAndOptions(vConfig *config.VirtualClusterConfig, options *Opt
 	err := Validate(options, isList)
 	if err != nil {
 		return err
-	}
-
-	// only support k3s and k8s distro
-	if isRestore && vConfig.Distro() != vclusterconfig.K8SDistro && vConfig.Distro() != vclusterconfig.K3SDistro {
-		return fmt.Errorf("unsupported distro: %s", vConfig.Distro())
 	}
 
 	return nil

@@ -183,7 +183,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distribution: ["k3s", "k8s"]
+        distribution: ["k8s"]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -274,20 +274,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distribution: ["k3s", "k8s"]
+        distribution: ["k8s"]
         test-suite-path: ${{fromJson(needs.get-testsuites-dir.outputs.matrix)}}
         ha: ["false", "true"]
         include:
           - distribution: "k8s"
             ha: "true"
             test-suite-path: "./test/e2e"
-          - distribution: "k3s"
-            ha: "true"
-            test-suite-path: "./test/e2e"
         exclude:
           - ha: "true"
-          - distribution: "k3s"
-            test-suite-path: "./test/e2e_certs"
 
     steps:
       - name: Checkout repository

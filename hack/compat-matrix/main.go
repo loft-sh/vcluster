@@ -28,7 +28,6 @@ var templateString string
 type issueList map[string]string
 
 type KnownIssues struct {
-	K3s map[string]issueList
 	K8s map[string]issueList
 }
 
@@ -51,19 +50,11 @@ func main() {
 
 	renderedBytes := &bytes.Buffer{}
 	renderedBytes.WriteString(header)
-	for _, v := range []string{"k3s", "k8s"} {
-		var versionMap map[string]string
-		switch v {
-		case "k3s":
-			versionMap = vclusterconfig.K3SVersionMap
-		case "k8s":
-			versionMap = vclusterconfig.K8SVersionMap
-		}
-		buff := updateTableWithDistro(v, versionMap, issues)
-		renderedBytes.WriteString(fmt.Sprintf(templateString, v, v, buff.String()))
-		renderedBytes.WriteString(createKnownIssue(issues.K3s))
-		buff.Reset()
-	}
+	versionMap := vclusterconfig.K8SVersionMap
+	buff := updateTableWithDistro("k8s", versionMap, issues)
+	renderedBytes.WriteString(fmt.Sprintf(templateString, "k8s", "k8s", buff.String()))
+	renderedBytes.WriteString(createKnownIssue(issues.K8s))
+	buff.Reset()
 
 	switch os.Args[1] {
 	case "generate":
@@ -102,8 +93,6 @@ func updateTableWithDistro(distroName string, versionMap map[string]string, know
 
 	var issues map[string]issueList
 	switch distroName {
-	case "k3s":
-		issues = knownIssues.K3s
 	case "k8s":
 		issues = knownIssues.K8s
 	}

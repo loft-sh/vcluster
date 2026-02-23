@@ -286,35 +286,6 @@ controlPlane:
         requests:
           cpu: 40m
           memory: 64Mi
-    # [Deprecated] K3S holds K3s relevant configuration.
-    k3s:
-      # Enabled specifies if the K3s distro should be enabled. Only one distro can be enabled at the same time.
-      enabled: false
-      # Command is the command to start the distro binary. This will override the existing command.
-      command: []
-      # ExtraArgs are additional arguments to pass to the distro binary.
-      extraArgs: []
-      # ImagePullPolicy is the pull policy for the distro image
-      imagePullPolicy: ""
-      # Image is the distro image
-      image:
-        # Registry is the registry of the container image, e.g. my-registry.com or ghcr.io. This setting can be globally
-        # overridden via the controlPlane.advanced.defaultImageRegistry option. Empty means docker hub.
-        registry: ""
-        # Repository is the repository of the container image, e.g. my-repo/my-image
-        repository: "rancher/k3s"
-        # Tag is the tag of the container image, and is the default version.
-        tag: "v1.35.0-k3s1"
-      # Security options can be used for the distro init container
-      securityContext: {}
-      # Resources for the distro init container
-      resources:
-        limits:
-          cpu: 100m
-          memory: 256Mi
-        requests:
-          cpu: 40m
-          memory: 64Mi
   
   # BackingStore defines which backing store to use for virtual cluster. If not defined will use embedded database as a default backing store.
   backingStore:
@@ -332,8 +303,8 @@ controlPlane:
         enabled: false
         # DataSource is the kine dataSource to use for the database. This depends on the database format.
         # This is optional for the external database. Examples:
-        # * mysql: mysql://username:password@tcp(hostname:3306)/k3s
-        # * postgres: postgres://username:password@hostname:5432/k3s
+        # * mysql: mysql://username:password@tcp(hostname:3306)/vcluster
+        # * postgres: postgres://username:password@hostname:5432/vcluster
         dataSource: ""
         # Connector specifies a secret located in a connected vCluster Platform that contains database server connection information
         # to be used by Platform to create a database and database user for the vCluster.
