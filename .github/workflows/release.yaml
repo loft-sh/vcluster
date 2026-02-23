@@ -135,6 +135,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           LINEAR_TOKEN: ${{ secrets.LINEAR_TOKEN }}
+<<<<<<< HEAD
 
   notify_release:
     needs:
@@ -147,3 +148,5 @@ jobs:
       previous_tag: ${{ needs.publish.outputs.previous_tag }}
       ref: ${{ github.ref }}
     secrets: inherit
+=======
+>>>>>>> ca444063f (chore(ci): remove slack release notification from vcluster (#3594))
