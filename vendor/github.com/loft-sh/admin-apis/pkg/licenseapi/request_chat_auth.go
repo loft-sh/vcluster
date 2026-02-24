@@ -3,7 +3,7 @@ package licenseapi
 // ChatAuthCreateInput is the required input data for generating a hash for a user for in-product chat
 // +k8s:deepcopy-gen=true
 type ChatAuthCreateInput struct {
-	*InstanceTokenAuth `hash:"-"`
+	*InstanceTokenAuth `json:",inline" hash:"-"`
 
 	Provider string `json:"provider,omitempty"`
 	Name     string `json:"name,omitempty"`
