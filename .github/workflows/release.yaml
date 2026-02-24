@@ -142,16 +142,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           LINEAR_TOKEN: ${{ secrets.LINEAR_TOKEN }}
-
-  notify_release:
-    if: ${{ always() }}
-    needs:
-      - publish
-      - publish-chart
-      - sync_linear
-    uses: ./.github/workflows/notify-release.yaml
-    with:
-      release_version: ${{ needs.publish.outputs.release_version }}
-      previous_tag: ${{ needs.publish.outputs.previous_tag }}
-      ref: ${{ github.ref }}
-    secrets: inherit
