@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/set"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/registry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/snapshot"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/standalone"
 	cmdtelemetry "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/telemetry"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/token"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
@@ -138,6 +139,7 @@ func BuildRoot(log log.Logger) (*cobra.Command, *flags.GlobalFlags, error) {
 	rootCmd.AddCommand(node.NewNodeCmd(globalFlags))
 	rootCmd.AddCommand(registry.NewRegistryCmd(globalFlags))
 	rootCmd.AddCommand(certs.NewCertsCmd(globalFlags))
+	rootCmd.AddCommand(standalone.NewStandaloneCmd())
 
 	// add platform commands
 	platformCmd, err := cmdplatform.NewPlatformCmd(globalFlags)
