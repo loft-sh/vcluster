@@ -213,16 +213,6 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 		return err
 	}
 
-	// wait for systemd to be ready inside the container before running install
-	// script, which calls systemctl. Without this, the install can race with
-	// dbus startup and fail with "Failed to connect to bus".
-	if !exists {
-		err = waitForSystemd(ctx, vClusterName, log)
-		if err != nil {
-			return err
-		}
-	}
-
 	// install vCluster standalone
 	if !exists {
 		err = installVClusterStandalone(ctx, vClusterName, vClusterVersion, extraVClusterArgs, log)
@@ -406,43 +396,13 @@ func runDockerCommand(ctx context.Context, args []string, streamDelay time.Durat
 	return allOutput, nil
 }
 
-func waitForSystemd(ctx context.Context, vClusterName string, log log.Logger) error {
-	containerName := getControlPlaneContainerName(vClusterName)
-	timeout := 60 * time.Second
-	poll := 500 * time.Millisecond
-	deadline := time.Now().Add(timeout)
-
-	log.Infof("Waiting for systemd to be ready in %s", containerName)
-	for time.Now().Before(deadline) {
-		out, err := exec.CommandContext(ctx, "docker", "exec", containerName,
-			"bash", "-c", "systemctl is-system-running 2>/dev/null || true",
-		).Output()
-		if err == nil {
-			state := strings.TrimSpace(string(out))
-			if state == "running" || state == "degraded" {
-				log.Debugf("systemd is ready (state: %s)", state)
-				return nil
-			}
-			log.Debugf("systemd state: %s", state)
-		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(poll):
-		}
-	}
-
-	return fmt.Errorf("timed out waiting for systemd to be ready in container %s after %s", containerName, timeout)
-}
-
 func installVClusterStandalone(ctx context.Context, vClusterName, vClusterVersion string, extraArgs []string, log log.Logger) error {
 	log.Infof("Starting vCluster standalone %s", vClusterName)
 	containerName := getControlPlaneContainerName(vClusterName)
 	joinedArgs := strings.Join(extraArgs, " ")
 	args := []string{
 		"exec", containerName,
-		"bash", "-c", fmt.Sprintf(`set -e -o pipefail; curl -sfLk "https://github.com/loft-sh/vcluster/releases/download/v%s/install-standalone.sh" | sh -s -- --skip-download --skip-wait %s`, vClusterVersion, joinedArgs),
+		"bash", "-c", fmt.Sprintf(`set -e -o pipefail; for i in $(seq 1 120); do state=$(systemctl is-system-running 2>/dev/null || true); [ "$state" = "running" ] || [ "$state" = "degraded" ] && break; sleep 0.5; done; curl -sfLk "https://github.com/loft-sh/vcluster/releases/download/v%s/install-standalone.sh" | sh -s -- --skip-download --skip-wait %s`, vClusterVersion, joinedArgs),
 	}
 
 	out, err := runDockerCommand(ctx, args, 2*time.Minute, log)
