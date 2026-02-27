@@ -46,8 +46,8 @@ func PausePlatform(ctx context.Context, options *PauseOptions, cfg *cliconfig.CL
 		return err
 	}
 
-	if virtualClusterInstance.Annotations["sleepmode.loft.sh/scope"] == "workloads-only" {
-		return workloadSleepOnly(ctx, log, vClusterName, virtualClusterInstance)
+	if virtualClusterInstance.Annotations[clusterv1.SleepScopeAnnotation] == "workloads-only" {
+		return workloadSleepOnly(ctx, platformClient, options, log, vClusterName, virtualClusterInstance)
 	}
 
 	if virtualClusterInstance.Annotations == nil {
@@ -81,41 +81,33 @@ func PausePlatform(ctx context.Context, options *PauseOptions, cfg *cliconfig.CL
 	return nil
 }
 
-func workloadSleepOnly(ctx context.Context, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) error {
+func workloadSleepOnly(ctx context.Context, platformClient platform.Client, options *PauseOptions, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) error {
 	log.Infof("This vCluster is configured to pause only workloads, control plane will be left running")
-	currentContext, _, err := find.CurrentContext()
-	if err != nil {
-		return err
+	clusterName := virtualClusterInstance.Spec.ClusterRef.Cluster
+	if clusterName == "" {
+		return fmt.Errorf("cannot pause workload-scope vcluster: virtual cluster instance has no cluster ref (host cluster unknown)")
 	}
 
-	kClient, err := find.CreateKubeClient(currentContext)
+	kClient, err := platformClient.Cluster(clusterName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create client for host cluster %s: %w", clusterName, err)
 	}
 	configSecretName := "vc-config-" + vClusterName
 	vcNamespace := virtualClusterInstance.Spec.ClusterRef.Namespace
 	configSecret, err := kClient.CoreV1().Secrets(vcNamespace).Get(ctx, configSecretName, metav1.GetOptions{})
 	if err != nil {
-		cl, err := kClient.CoreV1().Secrets("").List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to list secrets: %w", err)
-		}
-
-		log.Infof("secrets listing:")
-		for _, secret := range cl.Items {
-			log.Infof("secret: %s/%s", secret.Namespace, secret.Name)
-		}
-
 		return fmt.Errorf("failed to load the vcluster config: %w", err)
 	}
 
-	log.Infof("found secret: %s/%s", configSecret.Namespace, configSecret.Name)
 	orig := configSecret.DeepCopy()
 	if configSecret.Annotations == nil {
 		configSecret.Annotations = map[string]string{}
 	}
 
 	configSecret.Annotations[clusterv1.SleepModeSleepTypeAnnotation] = clusterv1.SleepTypeForced
+	if options.ForceDuration >= 0 {
+		configSecret.Annotations[clusterv1.SleepModeForceDurationAnnotation] = strconv.FormatInt(options.ForceDuration, 10)
+	}
 	patch := client.MergeFrom(orig)
 	patchBytes, err := patch.Data(configSecret)
 	if err != nil {
@@ -123,7 +115,7 @@ func workloadSleepOnly(ctx context.Context, log log.Logger, vClusterName string,
 	}
 
 	if _, err := kClient.CoreV1().Secrets(vcNamespace).Patch(ctx, configSecretName, patch.Type(), patchBytes, metav1.PatchOptions{}); err != nil {
-		return fmt.Errorf("failed to patch secret %s: %w", configSecretName, err)
+		return fmt.Errorf("failed to sleep vCluster: %w", err)
 	}
 
 	return nil
