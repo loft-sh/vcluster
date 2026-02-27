@@ -402,7 +402,7 @@ func installVClusterStandalone(ctx context.Context, vClusterName, vClusterVersio
 	joinedArgs := strings.Join(extraArgs, " ")
 	args := []string{
 		"exec", containerName,
-		"bash", "-c", fmt.Sprintf(`set -e -o pipefail; curl -sfLk "https://github.com/loft-sh/vcluster/releases/download/v%s/install-standalone.sh" | sh -s -- --skip-download --skip-wait %s`, vClusterVersion, joinedArgs),
+		"bash", "-c", fmt.Sprintf(`set -e -o pipefail; for i in $(seq 1 120); do state=$(systemctl is-system-running 2>/dev/null || true); [ "$state" = "running" ] || [ "$state" = "degraded" ] && break; sleep 0.5; done; curl -sfLk "https://github.com/loft-sh/vcluster/releases/download/v%s/install-standalone.sh" | sh -s -- --skip-download --skip-wait %s`, vClusterVersion, joinedArgs),
 	}
 
 	out, err := runDockerCommand(ctx, args, 2*time.Minute, log)
