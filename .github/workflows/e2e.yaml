@@ -121,6 +121,7 @@ jobs:
         with:
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
+          skipClusterDeletion: "true"
 
       - name: Reset driver to helm
         run: vcluster use driver helm
@@ -201,6 +202,7 @@ jobs:
         with:
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
+          skipClusterDeletion: "true"
 
       - name: Reset driver to helm
         run: vcluster use driver helm
@@ -312,6 +314,7 @@ jobs:
         with:
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
+          skipClusterDeletion: "true"
 
       - name: Reset driver to helm
         run: vcluster use driver helm
