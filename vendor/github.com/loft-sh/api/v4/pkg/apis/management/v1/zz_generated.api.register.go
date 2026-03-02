@@ -124,6 +124,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualClusterInstance{},
 		&VirtualClusterInstanceList{},
 		&VirtualClusterAccessKey{},
+		&VirtualClusterInstanceDebugShell{},
+		&VirtualClusterInstanceDebugShellPods{},
 		&VirtualClusterExternalDatabase{},
 		&VirtualClusterInstanceKubeConfig{},
 		&VirtualClusterInstanceLog{},
@@ -402,6 +404,18 @@ var (
 			func() runtime.Object { return &VirtualClusterAccessKey{} }, // Register versioned resource
 			nil,
 			management.NewVirtualClusterAccessKeyREST,
+		),
+		builders.NewApiResourceWithStorage(
+			management.InternalVirtualClusterInstanceDebugShellREST,
+			func() runtime.Object { return &VirtualClusterInstanceDebugShell{} }, // Register versioned resource
+			nil,
+			management.NewVirtualClusterInstanceDebugShellREST,
+		),
+		builders.NewApiResourceWithStorage(
+			management.InternalVirtualClusterInstanceDebugShellPodsREST,
+			func() runtime.Object { return &VirtualClusterInstanceDebugShellPods{} }, // Register versioned resource
+			nil,
+			management.NewVirtualClusterInstanceDebugShellPodsREST,
 		),
 		builders.NewApiResourceWithStorage(
 			management.InternalVirtualClusterExternalDatabaseREST,
@@ -1050,6 +1064,22 @@ type VirtualClusterAccessKeyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualClusterAccessKey `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterInstanceDebugShellList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterInstanceDebugShell `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterInstanceDebugShellPodsList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterInstanceDebugShellPods `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

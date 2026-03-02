@@ -35,6 +35,7 @@ type VirtualClusterInstanceInterface interface {
 	GetNodeAccessKey(ctx context.Context, virtualClusterInstanceName string, virtualClusterNodeAccessKey *managementv1.VirtualClusterNodeAccessKey, opts metav1.CreateOptions) (*managementv1.VirtualClusterNodeAccessKey, error)
 	GetStandaloneETCDPeers(ctx context.Context, virtualClusterInstanceName string, virtualClusterStandalone *managementv1.VirtualClusterStandalone, opts metav1.CreateOptions) (*managementv1.VirtualClusterStandalone, error)
 	GetShellPod(ctx context.Context, virtualClusterInstanceName string, virtualClusterInstanceShell *managementv1.VirtualClusterInstanceShell, opts metav1.CreateOptions) (*managementv1.VirtualClusterInstanceShell, error)
+	GetDebugShell(ctx context.Context, virtualClusterInstanceName string, virtualClusterInstanceDebugShell *managementv1.VirtualClusterInstanceDebugShell, opts metav1.CreateOptions) (*managementv1.VirtualClusterInstanceDebugShell, error)
 
 	VirtualClusterInstanceExpansion
 }
@@ -142,6 +143,21 @@ func (c *virtualClusterInstances) GetShellPod(ctx context.Context, virtualCluste
 		SubResource("shell").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(virtualClusterInstanceShell).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// GetDebugShell takes the representation of a virtualClusterInstanceDebugShell and creates it.  Returns the server's representation of the virtualClusterInstanceDebugShell, and an error, if there is any.
+func (c *virtualClusterInstances) GetDebugShell(ctx context.Context, virtualClusterInstanceName string, virtualClusterInstanceDebugShell *managementv1.VirtualClusterInstanceDebugShell, opts metav1.CreateOptions) (result *managementv1.VirtualClusterInstanceDebugShell, err error) {
+	result = &managementv1.VirtualClusterInstanceDebugShell{}
+	err = c.GetClient().Post().
+		Namespace(c.GetNamespace()).
+		Resource("virtualclusterinstances").
+		Name(virtualClusterInstanceName).
+		SubResource("debug-shell").
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(virtualClusterInstanceDebugShell).
 		Do(ctx).
 		Into(result)
 	return

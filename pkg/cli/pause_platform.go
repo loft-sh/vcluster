@@ -30,6 +30,12 @@ func PausePlatform(ctx context.Context, options *PauseOptions, cfg *cliconfig.CL
 		return err
 	}
 
+	log.Infof("Putting virtual cluster %s in project %s to sleep", vCluster.VirtualCluster.Name, vCluster.Project.Name)
+	virtualClusterInstance := vCluster.VirtualCluster
+	if virtualClusterInstance.Annotations[clusterv1.SleepScopeAnnotation] == "workloads-only" {
+		return workloadSleepOnly(ctx, platformClient, options, log, vClusterName, virtualClusterInstance)
+	}
+
 	if vCluster.IsInstanceSleeping() {
 		log.Infof("vcluster %s/%s is already paused", vCluster.VirtualCluster.Namespace, vClusterName)
 		return nil
@@ -38,16 +44,6 @@ func PausePlatform(ctx context.Context, options *PauseOptions, cfg *cliconfig.CL
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return err
-	}
-
-	log.Infof("Putting virtual cluster %s in project %s to sleep", vCluster.VirtualCluster.Name, vCluster.Project.Name)
-	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(vCluster.VirtualCluster.Namespace).Get(ctx, vCluster.VirtualCluster.Name, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	if virtualClusterInstance.Annotations[clusterv1.SleepScopeAnnotation] == "workloads-only" {
-		return workloadSleepOnly(ctx, platformClient, options, log, vClusterName, virtualClusterInstance)
 	}
 
 	if virtualClusterInstance.Annotations == nil {

@@ -7,6 +7,7 @@
 //go:generate go run ../../../../vendor/k8s.io/code-generator/cmd/conversion-gen/main.go -O zz_generated.conversion -i . -h ../../../../boilerplate.go.txt
 
 // +k8s:openapi-gen=true
+// +k8s:openapi-model-package=com.github.loft-sh.api.v4.pkg.apis.storage.v1
 // +k8s:deepcopy-gen=package
 // +k8s:defaulter-gen=TypeMeta
 // +groupName=storage.loft.sh
