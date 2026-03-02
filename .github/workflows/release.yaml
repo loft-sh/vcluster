@@ -80,6 +80,23 @@ jobs:
         uses: loft-sh/github-actions/.github/actions/semver-validation@semver-validation/v1
         with:
           version: ${{ steps.get_version.outputs.release_version }}
+      - name: Check if release is latest stable
+        id: check_latest_stable
+        run: |
+          CURRENT_TAG="${{ steps.get_version.outputs.release_version }}"
+          # Only skip homebrew for stable releases that aren't the latest.
+          # Pre-releases are already handled by goreleaser's skip_upload: auto.
+          if [[ "$CURRENT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            LATEST_STABLE=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+            if [ "$CURRENT_TAG" != "$LATEST_STABLE" ]; then
+              echo "skip_homebrew=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::Skipping Homebrew upload: $CURRENT_TAG is not the latest stable release ($LATEST_STABLE)"
+            else
+              echo "skip_homebrew=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "skip_homebrew=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
@@ -93,7 +110,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: "goreleaser/goreleaser-action@v6"
         with:
-          args: release --clean --timeout 60m
+          args: release --clean --timeout 60m ${{ steps.check_latest_stable.outputs.skip_homebrew == 'true' && '--skip=brew' || '' }}
           version: "~> v2"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
