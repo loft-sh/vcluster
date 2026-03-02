@@ -37,7 +37,6 @@ type DescribeOutput struct {
 	Namespace      string            `json:"namespace,omitempty"`
 	Version        string            `json:"version,omitempty"`
 	BackingStore   string            `json:"backingStore,omitempty"`
-	Distro         string            `json:"distro,omitempty"`
 	Status         string            `json:"status,omitempty"`
 	Created        metav1.Time       `json:"created,omitempty"`
 	Images         map[string]string `json:"imageTags,omitempty"`
@@ -55,7 +54,6 @@ func (do *DescribeOutput) String() string {
 	w.Write(describe.LEVEL_0, "Namespace:\t%s\n", do.Namespace)
 	w.Write(describe.LEVEL_0, "Version:\t%s\n", do.Version)
 	w.Write(describe.LEVEL_0, "Backing Store:\t%s\n", do.BackingStore)
-	w.Write(describe.LEVEL_0, "Distro:\t%s\n", do.Distro)
 	w.Write(describe.LEVEL_0, "Created:\t%s\n", do.Created.Time.Format(time.RFC1123Z))
 	w.Write(describe.LEVEL_0, "Status:\t%s\n", do.Status)
 
@@ -167,7 +165,6 @@ func DescribeHelm(ctx context.Context, flags *flags.GlobalFlags, output io.Write
 		Created:        vCluster.Created,
 		Status:         string(vCluster.Status),
 		Version:        vCluster.Version,
-		Distro:         conf.Distro(),
 		BackingStore:   string(conf.BackingStoreType()),
 		Images:         getImagesFromConfig(conf, vCluster.Version),
 		UserConfigYaml: userConfigYaml,
@@ -193,13 +190,7 @@ func getImagesFromConfig(c *config.Config, version string) map[string]string {
 		result["syncer"] = syncerRef
 	}
 
-	var apiFromConfig config.Image
-	switch c.Distro() {
-	case config.K8SDistro:
-		apiFromConfig = c.ControlPlane.Distro.K8S.Image
-	case config.K3SDistro:
-		apiFromConfig = c.ControlPlane.Distro.K3S.Image
-	}
+	apiFromConfig := c.ControlPlane.Distro.K8S.Image
 
 	// with the platform driver if only the registry is set we won't be able to display complete info
 	if apiFromConfig.Repository != "" {

@@ -27,7 +27,6 @@ type ManagementV1Interface interface {
 	FeaturesGetter
 	IngressAuthTokensGetter
 	LicensesGetter
-	LicenseTokensGetter
 	LoftUpgradesGetter
 	NodeClaimsGetter
 	NodeEnvironmentsGetter
@@ -119,10 +118,6 @@ func (c *ManagementV1Client) IngressAuthTokens() IngressAuthTokenInterface {
 
 func (c *ManagementV1Client) Licenses() LicenseInterface {
 	return newLicenses(c)
-}
-
-func (c *ManagementV1Client) LicenseTokens() LicenseTokenInterface {
-	return newLicenseTokens(c)
 }
 
 func (c *ManagementV1Client) LoftUpgrades() LoftUpgradeInterface {

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/invopop/jsonschema"
+	"github.com/loft-sh/api/v4/pkg/vclusterconfig"
 	yamlv3 "gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -28,10 +29,15 @@ var ErrInvalidConfig = errors.New("invalid config")
 // NewDefaultConfig creates a new config based on the values.yaml, including all default values.
 func NewDefaultConfig() (*Config, error) {
 	retConfig := &Config{}
-	err := yaml.Unmarshal([]byte(Values), retConfig)
-	if err != nil {
+	if err := yaml.Unmarshal([]byte(Values), retConfig); err != nil {
 		return nil, err
 	}
+
+	platformConfig := vclusterconfig.NewDefaultPlatformConfig()
+	retConfig.Sleep = platformConfig.Sleep
+	retConfig.Snapshots = platformConfig.Snapshots
+	retConfig.Deletion = platformConfig.Deletion
+	retConfig.Platform = platformConfig.Platform
 
 	return retConfig, nil
 }
@@ -74,9 +80,6 @@ type Config struct {
 	// Experimental features for vCluster. Configuration here might change, so be careful with this.
 	Experimental Experimental `json:"experimental,omitempty"`
 
-	// External holds configuration for tools that are external to the vCluster.
-	External map[string]ExternalConfig `json:"external,omitempty"`
-
 	// Configuration related to telemetry gathered about vCluster usage.
 	Telemetry Telemetry `json:"telemetry,omitempty"`
 
@@ -89,11 +92,20 @@ type Config struct {
 	// Plugin specifies which vCluster plugins to enable. Use "plugins" instead. Do not use this option anymore.
 	Plugin map[string]Plugin `json:"plugin,omitempty"`
 
-	// SleepMode holds the native sleep mode configuration for Pro clusters
-	SleepMode *SleepMode `json:"sleepMode,omitempty"`
-
 	// Logging provides structured logging options
 	Logging *Logging `json:"logging,omitempty"`
+
+	// Sleep holds configuration for automatically putting the virtual cluster to sleep.
+	Sleep *vclusterconfig.Sleep `json:"sleep,omitempty"`
+
+	// Snapshots holds configuration for automatic vCluster snapshots.
+	Snapshots *vclusterconfig.Snapshots `json:"snapshots,omitempty"`
+
+	// Deletion holds configuration for automatic vCluster deletion.
+	Deletion *vclusterconfig.Deletion `json:"deletion,omitempty"`
+
+	// Platform holds vCluster Platform specific configuration.
+	Platform *vclusterconfig.Platform `json:"platform,omitempty"`
 }
 
 // PrivateNodes enables private nodes for vCluster. When turned on, vCluster will not sync resources to the host cluster
@@ -684,7 +696,7 @@ type Integrations struct {
 	Istio Istio `json:"istio,omitempty"`
 
 	// Netris integration helps configuring netris networking for vCluster.
-	Netris map[string]interface{} `json:"netris,omitempty"`
+	Netris vclusterconfig.NetrisIntegration `json:"netris,omitempty"`
 }
 
 // CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster
@@ -842,49 +854,21 @@ type APIServiceService struct {
 	Port int `json:"port,omitempty"`
 }
 
-// ExternalConfig holds external tool configuration
-type ExternalConfig map[string]interface{}
-
 func (c *Config) UnmarshalYAMLStrict(data []byte) error {
 	return UnmarshalYAMLStrict(data, c)
 }
 
-func (c *Config) GetPlatformConfig() (*PlatformConfig, error) {
-	if c.External == nil {
-		return &PlatformConfig{}, nil
-	}
-	if c.External["platform"] == nil {
-		return &PlatformConfig{}, nil
+// GetPlatform returns the platform configuration from the new top-level field.
+func (c *Config) GetPlatformConfig() *vclusterconfig.Platform {
+	if c.Platform != nil {
+		return c.Platform
 	}
 
-	yamlBytes, err := yaml.Marshal(c.External["platform"])
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
-	}
-
-	retConfig := &PlatformConfig{}
-	if err := yaml.Unmarshal(yamlBytes, retConfig); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
-	}
-
-	return retConfig, nil
+	return &vclusterconfig.Platform{}
 }
 
 func (c *Config) SetPlatformConfig(platformConfig *PlatformConfig) error {
-	yamlBytes, err := yaml.Marshal(platformConfig)
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidConfig, err)
-	}
-
-	setConfig := ExternalConfig{}
-	if err := yaml.Unmarshal(yamlBytes, &setConfig); err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidConfig, err)
-	}
-
-	if c.External == nil {
-		c.External = map[string]ExternalConfig{}
-	}
-	c.External["platform"] = setConfig
+	c.Platform = platformConfig
 	return nil
 }
 
@@ -911,38 +895,32 @@ func (c *Config) EmbeddedDatabase() bool {
 	return !c.ControlPlane.BackingStore.Database.External.Enabled && !c.ControlPlane.BackingStore.Etcd.Embedded.Enabled && !c.ControlPlane.BackingStore.Etcd.Deploy.Enabled && !c.ControlPlane.BackingStore.Etcd.External.Enabled
 }
 
-func (c *Config) Distro() string {
-	if c.ControlPlane.Distro.K3S.Enabled {
-		return K3SDistro
-	} else if c.ControlPlane.Distro.K8S.Enabled {
-		return K8SDistro
-	}
-
-	return K8SDistro
-}
-
 func (c *Config) IsDockerRegistryDaemonEnabled() bool {
 	return c.Experimental.Docker.Enabled && c.Experimental.Docker.RegistryProxy.Enabled
 }
 
 func (c *Config) IsVirtualSchedulerEnabled() bool {
-	return c.Distro() == K8SDistro && c.ControlPlane.Distro.K8S.Scheduler.Enabled ||
-		c.ControlPlane.Advanced.VirtualScheduler.Enabled
+	return c.ControlPlane.Distro.K8S.Scheduler.Enabled || c.ControlPlane.Advanced.VirtualScheduler.Enabled
 }
 
 func (c *Config) IsConfiguredForSleepMode() bool {
-	if c != nil && c.External != nil && c.External["platform"] == nil {
+	if c == nil {
 		return false
 	}
 
-	return c.External["platform"]["autoSleep"] != nil || c.External["platform"]["autoDelete"] != nil
+	return c.Sleep != nil
+}
+
+func (c *Config) IsConfiguredForAutoDeletion() bool {
+	if c == nil || c.Deletion == nil {
+		return false
+	}
+
+	return c.Deletion.Auto != nil
 }
 
 // ValidateChanges checks for disallowed config changes.
 func ValidateChanges(oldCfg, newCfg *Config) error {
-	if err := ValidateDistroChanges(newCfg.Distro(), oldCfg.Distro()); err != nil {
-		return err
-	}
 	if err := ValidateStoreChanges(newCfg.BackingStoreType(), oldCfg.BackingStoreType()); err != nil {
 		return err
 	}
@@ -982,14 +960,6 @@ func ValidateStoreChanges(currentStoreType, previousStoreType StoreType) error {
 	}
 	return fmt.Errorf("seems like you were using %s as a store before and now have switched to %s,"+
 		" please make sure to not switch between vCluster stores", previousStoreType, currentStoreType)
-}
-
-// ValidateDistroChanges checks whether migrating from one distro to the other is allowed.
-func ValidateDistroChanges(currentDistro, previousDistro string) error {
-	if currentDistro != previousDistro && !(previousDistro == "eks" && currentDistro == K8SDistro) && !(previousDistro == K3SDistro && currentDistro == K8SDistro) {
-		return fmt.Errorf("seems like you were using %s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", previousDistro, currentDistro)
-	}
-	return nil
 }
 
 func ValidateNamespaceSyncChanges(oldCfg, newCfg *Config) error {
@@ -1040,10 +1010,8 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
-	if c.Distro() == K8SDistro {
-		if c.ControlPlane.BackingStore.Database.External.Enabled {
-			return true
-		}
+	if c.ControlPlane.BackingStore.Database.External.Enabled {
+		return true
 	}
 
 	if c.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
@@ -1062,10 +1030,6 @@ func (c *Config) IsProFeatureEnabled() bool {
 		return true
 	}
 
-	if len(c.External["platform"]) > 0 {
-		return true
-	}
-
 	if len(c.Sync.ToHost.CustomResources) > 0 || len(c.Sync.FromHost.CustomResources) > 0 {
 		return true
 	}
@@ -1080,6 +1044,34 @@ func (c *Config) IsProFeatureEnabled() bool {
 
 	// private nodes is allowed in standalone mode
 	if c.PrivateNodes.Enabled && !c.ControlPlane.Standalone.Enabled {
+		return true
+	}
+
+	if c.Sync.ToHost.ResourceClaimTemplates.Enabled {
+		return true
+	}
+
+	if c.Sync.ToHost.ResourceClaims.Enabled {
+		return true
+	}
+
+	if c.Sync.FromHost.DeviceClasses.Enabled {
+		return true
+	}
+
+	if c.Sleep != nil {
+		return true
+	}
+
+	if c.Snapshots != nil {
+		return true
+	}
+
+	if c.Deletion != nil {
+		return true
+	}
+
+	if c.Platform != nil {
 		return true
 	}
 
@@ -1248,6 +1240,12 @@ type SyncToHost struct {
 
 	// Namespaces defines if namespaces created within the virtual cluster should get synced to the host cluster.
 	Namespaces SyncToHostNamespaces `json:"namespaces,omitempty"`
+
+	// ResourceClaim defines if resource claims created within the virtual cluster should get synced to the host cluster.
+	ResourceClaims EnableSwitchWithPatches `json:"resourceClaims,omitempty"`
+
+	// ResourceClaimTemplates defines if resourceClaimTemplates created within the virtual cluster should get synced to the host cluster.
+	ResourceClaimTemplates EnableSwitchWithPatches `json:"resourceClaimTemplates,omitempty"`
 }
 
 type EnableSwitchWithPatches struct {
@@ -1329,6 +1327,9 @@ type SyncFromHost struct {
 
 	// Secrets defines if secrets in the host should get synced to the virtual cluster.
 	Secrets EnableSwitchWithResourcesMappings `json:"secrets,omitempty"`
+
+	// DeviceClasses defines if device classes in the host should get synced to the virtual cluster
+	DeviceClasses EnableSwitchWithPatchesAndSelector `json:"deviceClasses,omitempty"`
 }
 
 type StandardLabelSelector v1.LabelSelector
@@ -1873,20 +1874,6 @@ type ControlPlaneStatefulSet struct {
 type Distro struct {
 	// K8S holds K8s relevant configuration.
 	K8S DistroK8s `json:"k8s,omitempty"`
-
-	// [Deprecated] K3S holds K3s relevant configuration.
-	K3S DistroK3s `json:"k3s,omitempty"`
-}
-
-type DistroK3s struct {
-	// Enabled specifies if the K3s distro should be enabled. Only one distro can be enabled at the same time.
-	Enabled bool `json:"enabled,omitempty"`
-
-	// Token is the K3s token to use. If empty, vCluster will choose one.
-	Token string `json:"token,omitempty"`
-
-	DistroCommon    `json:",inline"`
-	DistroContainer `json:",inline"`
 }
 
 type DistroK8s struct {
@@ -1923,13 +1910,6 @@ type DistroCommon struct {
 
 	// Security options can be used for the distro init container
 	SecurityContext map[string]interface{} `json:"securityContext,omitempty"`
-}
-type DistroContainer struct {
-	// Command is the command to start the distro binary. This will override the existing command.
-	Command []string `json:"command,omitempty"`
-
-	// ExtraArgs are additional arguments to pass to the distro binary.
-	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
 
 type DistroContainerEnabled struct {
@@ -2063,8 +2043,8 @@ type DatabaseKine struct {
 
 	// DataSource is the kine dataSource to use for the database. This depends on the database format.
 	// This is optional for the external database. Examples:
-	// * mysql: mysql://username:password@tcp(hostname:3306)/k3s
-	// * postgres: postgres://username:password@hostname:5432/k3s
+	// * mysql: mysql://username:password@tcp(hostname:3306)/vcluster
+	// * postgres: postgres://username:password@hostname:5432/vcluster
 	DataSource string `json:"dataSource,omitempty"`
 
 	// IdentityProvider is the kine identity provider to use when generating temporary authentication tokens for enhanced security.
@@ -3271,31 +3251,14 @@ type ExperimentalDeployHelmChart struct {
 	Password string `json:"password,omitempty"`
 }
 
-type PlatformConfig struct {
-	// APIKey defines where to find the platform access key and host. By default, vCluster will search in the following locations in this precedence:
-	// * environment variable called LICENSE
-	// * secret specified under external.platform.apiKey.secretName
-	// * secret called "vcluster-platform-api-key" in the vCluster namespace
-	APIKey PlatformAPIKey `json:"apiKey,omitempty"`
+// PlatformConfig is a type alias for the imported vclusterconfig.Platform type.
+// This is kept for backwards compatibility with code that uses PlatformConfig.
+// Deprecated: Use vclusterconfig.Platform directly.
+type PlatformConfig = vclusterconfig.Platform
 
-	// Project specifies which platform project the vcluster should be imported to
-	Project string `json:"project,omitempty"`
-}
-
-// PlatformAPIKey defines where to find the platform access key. The secret key name doesn't matter as long as the secret only contains a single key.
-type PlatformAPIKey struct {
-	// SecretName is the name of the secret where the platform access key is stored. This defaults to vcluster-platform-api-key if undefined.
-	SecretName string `json:"secretName,omitempty"`
-
-	// Namespace defines the namespace where the access key secret should be retrieved from. If this is not equal to the namespace
-	// where the vCluster instance is deployed, you need to make sure vCluster has access to this other namespace.
-	Namespace string `json:"namespace,omitempty"`
-
-	// CreateRBAC will automatically create the necessary RBAC roles and role bindings to allow vCluster to read the secret specified
-	// in the above namespace, if specified.
-	// This defaults to true.
-	CreateRBAC *bool `json:"createRBAC,omitempty"`
-}
+// PlatformAPIKey is a type alias for the imported vclusterconfig.PlatformAPIKey type.
+// Deprecated: Use vclusterconfig.PlatformAPIKey directly.
+type PlatformAPIKey = vclusterconfig.PlatformAPIKey
 
 type DenyRule struct {
 	// The name of the check.

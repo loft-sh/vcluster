@@ -48,10 +48,7 @@ func AddCommonFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 	cmd.Flags().BoolVar(&options.Expose, "expose", false, "If true will create a load balancer service to expose the vcluster endpoint")
 	cmd.Flags().BoolVar(&options.Connect, "connect", true, "If true will run vcluster connect directly after the vcluster was created")
 	cmd.Flags().BoolVar(&options.Upgrade, "upgrade", false, "If true will try to upgrade the vcluster instead of failing if it already exists")
-	cmd.Flags().StringVar(&options.Distro, "distro", "k8s", fmt.Sprintf("Kubernetes distro to use for the virtual cluster. Allowed distros: %s", strings.Join(cli.AllowedDistros, ", ")))
 
-	_ = cmd.Flags().MarkHidden("distro")
-	_ = cmd.Flags().MarkDeprecated("distro", fmt.Sprintf("please specify the distro by setting %q accordingly via values.yaml file.", "controlPlane.distro"))
 	_ = cmd.Flags().MarkHidden("update-current")
 	_ = cmd.Flags().MarkDeprecated("update-current", fmt.Sprintf("please use %q.", "--connect"))
 }

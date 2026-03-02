@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -23,7 +22,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
-	"github.com/loft-sh/vcluster/pkg/util"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -568,9 +566,6 @@ func validateTemplateOptions(options *CreateOptions) error {
 	if len(options.Values) > 0 {
 		return fmt.Errorf("cannot use --values because the vcluster is using a template. Please use --params instead")
 	}
-	if options.Distro != "" && options.Distro != "k8s" {
-		return fmt.Errorf("cannot use --distro because the vcluster is using a template")
-	}
 	if options.ChartName != "vcluster" {
 		return fmt.Errorf("cannot use --chart-name because the vcluster is using a template")
 	}
@@ -648,10 +643,6 @@ func parseString(str string) (map[string]interface{}, error) {
 }
 
 func toChartOptions(platformClient platform.Client, options *CreateOptions) (*vclusterconfig.ExtraValuesOptions, error) {
-	if !util.Contains(options.Distro, AllowedDistros) {
-		return nil, fmt.Errorf("unsupported distro %s, please select one of: %s", options.Distro, strings.Join(AllowedDistros, ", "))
-	}
-
 	// use default version if its development
 	if options.ChartVersion == upgrade.DevelopmentVersion {
 		options.ChartVersion = ""
@@ -659,7 +650,6 @@ func toChartOptions(platformClient platform.Client, options *CreateOptions) (*vc
 
 	cfg := platformClient.Config()
 	return &vclusterconfig.ExtraValuesOptions{
-		Distro:              options.Distro,
 		Expose:              options.Expose,
 		DisableTelemetry:    cfg.TelemetryDisabled,
 		InstanceCreatorType: "vclusterctl",

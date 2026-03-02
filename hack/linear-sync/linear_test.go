@@ -320,10 +320,11 @@ func TestIssueIDsExtraction(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			pr := LinearPullRequest{
-				pullrequests.PullRequest{
+				PullRequest: pullrequests.PullRequest{
 					Body:        tc.body,
 					HeadRefName: tc.headRefName,
 				},
+				validTeamKeys: nil, // nil disables team key filtering
 			}
 
 			result := pr.IssueIDs()

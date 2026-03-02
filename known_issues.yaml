@@ -1,4 +1,0 @@
-#k3s:
-#  1.29:
-#    rancher/k3s:v1.20.9-k3s1: this is an example issue, until we have real known issues
-

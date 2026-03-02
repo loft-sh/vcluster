@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -144,6 +145,18 @@ func Ingresses() schema.GroupVersionKind {
 
 func PersistentVolumeClaims() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim")
+}
+
+func DeviceClasses() schema.GroupVersionKind {
+	return resourcev1.SchemeGroupVersion.WithKind("DeviceClass")
+}
+
+func ResourceClaims() schema.GroupVersionKind {
+	return resourcev1.SchemeGroupVersion.WithKind("ResourceClaim")
+}
+
+func ResourceClaimTemplates() schema.GroupVersionKind {
+	return resourcev1.SchemeGroupVersion.WithKind("ResourceClaimTemplate")
 }
 
 func PriorityClasses() schema.GroupVersionKind {

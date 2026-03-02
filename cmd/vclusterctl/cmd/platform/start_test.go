@@ -19,10 +19,9 @@ func TestPlatformUsesNewActivationFlow(t *testing.T) {
 		{"v4.5.0", false},
 		{"4.5.1", false},
 		{"4.6.0-alpha.5", false},
-		{"4.6.0-next.2", false},
-		{"4.6.0-next.internal.0", false},
-		{"4.6.0-next.internal.1", true},
-		{"4.6.0-next.internal.2", true},
+		{"4.6.0-rc.7", false},
+		{"4.6.0-rc.8", true},
+		{"4.6.0-rc.9", true},
 		{"4.6.0", true},
 		{"v4.6.0", true},
 	}

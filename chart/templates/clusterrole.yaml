@@ -26,8 +26,13 @@ rules:
   {{- end }}
   {{- if or .Values.pro .Values.sync.fromHost.nodes.enabled }}
   - apiGroups: [""]
-    resources: ["pods", "nodes", "nodes/status", "nodes/metrics", "nodes/stats", "nodes/proxy"]
+    resources: ["pods", "nodes", "nodes/status"]
     verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if and .Values.sync.fromHost.nodes.enabled (or .Values.networking.advanced.proxyKubelets.byIP .Values.networking.advanced.proxyKubelets.byHostname) }}
+  - apiGroups: [""]
+    resources: ["nodes/metrics", "nodes/stats", "nodes/proxy"]
+    verbs: ["get"]
   {{- end }}
   {{- if and .Values.sync.fromHost.nodes.enabled .Values.sync.fromHost.nodes.syncBackChanges }}
   - apiGroups: [""]
@@ -35,7 +40,7 @@ rules:
     verbs: ["update", "patch"]
   {{- end }}
   {{- if or
-      (and (eq (include "vcluster.distro" .) "k8s") .Values.controlPlane.distro.k8s.scheduler.enabled)
+      .Values.controlPlane.distro.k8s.scheduler.enabled
       .Values.controlPlane.advanced.virtualScheduler.enabled
       .Values.sync.toHost.pods.hybridScheduling.enabled
     }}
@@ -92,6 +97,11 @@ rules:
   - apiGroups: ["scheduling.k8s.io"]
     resources: ["priorityclasses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{ if or .Values.sync.toHost.resourceClaims.enabled .Values.sync.toHost.resourceClaimTemplates.enabled .Values.sync.fromHost.deviceClasses.enabled}}
+  - apiGroups: ["resource.k8s.io"]
+    resources: ["deviceclasses"]
+    verbs: ["get", "watch", "list"]
   {{- end }}
   {{- if or .Values.sync.fromHost.volumeSnapshotClasses.enabled (include "vcluster.enableVolumeSnapshotRules" .) }}
   - apiGroups: [ "snapshot.storage.k8s.io" ]

@@ -1,0 +1,48 @@
+name: Claude Code Review
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+jobs:
+  claude-review:
+    if: github.repository_owner == 'loft-sh'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - name: Setup fork as origin for Claude
+        if: ${{ github.event.pull_request.head.repo.fork == true }}
+        env:
+          PR_HEAD_CLONE_URL: ${{ github.event.pull_request.head.repo.clone_url }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git remote rename origin upstream
+          git remote add origin "$PR_HEAD_CLONE_URL"
+          git fetch origin "$PR_HEAD_REF"
+          git checkout -B "$PR_HEAD_REF" "origin/$PR_HEAD_REF"
+
+      - name: Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          track_progress: true
+          prompt: |
+            Review PR #${{ github.event.pull_request.number }} in ${{ github.repository }}.
+
+            Focus on: bugs, security issues, performance problems.
+            Skip: style nitpicks, minor suggestions, praise.
+
+            Only comment on issues worth fixing. Be concise.
+
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"

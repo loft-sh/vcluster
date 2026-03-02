@@ -11,7 +11,6 @@ import (
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/k3s"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -109,7 +108,6 @@ func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterCo
 		vConfig.HostClient,
 		vConfig.Name,
 		vConfig.HostNamespace,
-		vConfig.Distro(),
 		vConfig.BackingStoreType(),
 	); err != nil {
 		return err
@@ -128,21 +126,11 @@ func InitAndValidateConfig(ctx context.Context, vConfig *config.VirtualClusterCo
 }
 
 // EnsureBackingStoreChanges ensures that only a certain set of allowed changes to the backing store and distro occur.
-func EnsureBackingStoreChanges(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) error {
-	if ok, err := CheckUsingSecretAnnotation(ctx, client, name, namespace, distro, backingStoreType); err != nil {
+func EnsureBackingStoreChanges(ctx context.Context, client kubernetes.Interface, name, namespace string, backingStoreType vclusterconfig.StoreType) error {
+	if ok, err := CheckUsingSecretAnnotation(ctx, client, name, namespace, backingStoreType); err != nil {
 		return fmt.Errorf("using secret annotations: %w", err)
 	} else if ok {
-		if err := updateSecretAnnotations(ctx, client, name, namespace, distro, backingStoreType); err != nil {
-			return fmt.Errorf("update secret annotations: %w", err)
-		}
-
-		return nil
-	}
-
-	if ok, err := CheckUsingHeuristic(distro); err != nil {
-		return fmt.Errorf("using heuristic: %w", err)
-	} else if ok {
-		if err := updateSecretAnnotations(ctx, client, name, namespace, distro, backingStoreType); err != nil {
+		if err := updateSecretAnnotations(ctx, client, name, namespace, backingStoreType); err != nil {
 			return fmt.Errorf("update secret annotations: %w", err)
 		}
 
@@ -152,24 +140,9 @@ func EnsureBackingStoreChanges(ctx context.Context, client kubernetes.Interface,
 	return nil
 }
 
-// CheckUsingHeuristic checks for known file path indicating the existence of a previous distro.
-//
-// It checks for the existence of the default K3s token path.
-func CheckUsingHeuristic(distro string) (bool, error) {
-	// check if previously we were using k3s as a default and now have switched to a different distro
-	if distro != vclusterconfig.K3SDistro && distro != vclusterconfig.K8SDistro {
-		_, err := os.Stat(k3s.TokenPath)
-		if err == nil {
-			return false, fmt.Errorf("seems like you were using k3s as a distro before and now have switched to %s, please make sure to not switch between vCluster distros", distro)
-		}
-	}
-
-	return true, nil
-}
-
 // CheckUsingSecretAnnotation checks for backend store and distro changes using annotations on the vCluster's secret annotations.
 // Returns true, if both annotations are set and the check was successful, otherwise false.
-func CheckUsingSecretAnnotation(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) (bool, error) {
+func CheckUsingSecretAnnotation(ctx context.Context, client kubernetes.Interface, name, namespace string, backingStoreType vclusterconfig.StoreType) (bool, error) {
 	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, "vc-config-"+name, metav1.GetOptions{})
 	if err != nil {
 		return false, fmt.Errorf("get secret: %w", err)
@@ -182,14 +155,6 @@ func CheckUsingSecretAnnotation(ctx context.Context, client kubernetes.Interface
 	// (ThomasK33): If we already have an annotation set, we're dealing with an upgrade.
 	// Thus we can check if the distro has changed.
 	okCounter := 0
-	if annotatedDistro, ok := secret.Annotations[AnnotationDistro]; ok {
-		if err := vclusterconfig.ValidateDistroChanges(distro, annotatedDistro); err != nil {
-			return false, err
-		}
-
-		okCounter++
-	}
-
 	if annotatedStore, ok := secret.Annotations[AnnotationStore]; ok {
 		if err := vclusterconfig.ValidateStoreChanges(backingStoreType, vclusterconfig.StoreType(annotatedStore)); err != nil {
 			return false, err
@@ -198,11 +163,11 @@ func CheckUsingSecretAnnotation(ctx context.Context, client kubernetes.Interface
 		okCounter++
 	}
 
-	return okCounter == 2, nil
+	return okCounter == 1, nil
 }
 
 // updateSecretAnnotations udates the vCluster's config secret with the currently used distro and backing store type.
-func updateSecretAnnotations(ctx context.Context, client kubernetes.Interface, name, namespace, distro string, backingStoreType vclusterconfig.StoreType) error {
+func updateSecretAnnotations(ctx context.Context, client kubernetes.Interface, name, namespace string, backingStoreType vclusterconfig.StoreType) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		secret, err := client.CoreV1().Secrets(namespace).Get(ctx, "vc-config-"+name, metav1.GetOptions{})
 		if err != nil {
@@ -212,13 +177,11 @@ func updateSecretAnnotations(ctx context.Context, client kubernetes.Interface, n
 		if secret.Annotations == nil {
 			secret.Annotations = map[string]string{}
 		}
-		if secret.Annotations[AnnotationDistro] == distro && secret.Annotations[AnnotationStore] == string(backingStoreType) {
+		if secret.Annotations[AnnotationStore] == string(backingStoreType) {
 			return nil
 		}
 
-		secret.Annotations[AnnotationDistro] = distro
 		secret.Annotations[AnnotationStore] = string(backingStoreType)
-
 		if _, err := client.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("update secret: %w", err)
 		}

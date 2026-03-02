@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 
 	pullrequests "github.com/loft-sh/changelog/pull-requests"
 	"github.com/loft-sh/changelog/releases"
@@ -139,6 +140,18 @@ func run(
 		return fmt.Errorf("fetch all PRs until: %w", err)
 	}
 
+	// Create Linear client and fetch valid team keys early to filter false positive issue IDs
+	linearClient := NewLinearClient(ctx, *linearToken)
+	teams, err := linearClient.ListTeams(ctx)
+	if err != nil {
+		return fmt.Errorf("fetch linear teams: %w", err)
+	}
+	validTeamKeys := make(ValidTeamKeys)
+	for _, team := range teams {
+		validTeamKeys[strings.ToLower(team.Key)] = struct{}{}
+	}
+	logger.Debug("Loaded valid team keys", "count", len(validTeamKeys), "keys", teams)
+
 	var pullRequests []LinearPullRequest
 	if *strictFiltering {
 		// Filter PRs to only include those that were actually part of this release
@@ -146,11 +159,11 @@ func run(
 		if err != nil {
 			return fmt.Errorf("filter PRs for release: %w", err)
 		}
-		pullRequests = NewLinearPullRequests(filteredPRs)
+		pullRequests = NewLinearPullRequests(filteredPRs, validTeamKeys)
 		logger.Info("Found merged pull requests for release", "total", len(prs), "filtered", len(pullRequests), "previous", stableTag, "current", *releaseTag)
 	} else {
 		// Use all PRs between tags (original behavior)
-		pullRequests = NewLinearPullRequests(prs)
+		pullRequests = NewLinearPullRequests(prs, validTeamKeys)
 		logger.Info("Found merged pull requests between releases", "count", len(pullRequests), "previous", stableTag, "current", *releaseTag)
 	}
 
@@ -170,8 +183,6 @@ func run(
 	releasedIssues = deduplicateIssueIDs(releasedIssues)
 
 	logger.Info("Found issues in pull requests", "count", len(releasedIssues))
-
-	linearClient := NewLinearClient(ctx, *linearToken)
 
 	// Cache of team name -> released state ID (looked up on demand)
 	releasedStateIDByTeam := make(map[string]string)

@@ -51,7 +51,7 @@ vcluster delete test --namespace test
 		},
 	}
 
-	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm or platform.")
+	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm, platform, or docker.")
 
 	flagsdelete.AddCommonFlags(cobraCmd, &cmd.DeleteOptions)
 	flagsdelete.AddHelmFlags(cobraCmd, &cmd.DeleteOptions)

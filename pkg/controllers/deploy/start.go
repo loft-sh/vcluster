@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"github.com/loft-sh/vcluster/pkg/util/helmdownloader"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"k8s.io/klog/v2"
@@ -24,19 +24,11 @@ func RegisterInitManifestsController(controllerCtx *synccontext.ControllerContex
 		return err
 	}
 
-	var helmBinaryPath string
-	if controllerCtx != nil && controllerCtx.Config != nil && len(controllerCtx.Config.Experimental.Deploy.VCluster.Helm) > 0 {
-		helmBinaryPath, err = helmdownloader.GetHelmBinaryPath(controllerCtx, log.GetInstance())
-		if err != nil {
-			return err
-		}
-	}
-
 	deployer := &Deployer{
 		Log:            loghelper.New("init-manifests-controller"),
 		VirtualManager: controllerCtx.VirtualManager,
 
-		HelmClient: helm.NewClient(&vConfigRaw, log.GetInstance(), helmBinaryPath),
+		HelmClient: helm.NewClient(&vConfigRaw, log.GetInstance(), constants.HelmBinary),
 	}
 
 	// deploy manifests

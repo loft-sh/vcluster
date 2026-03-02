@@ -40,7 +40,8 @@ var (
 	K8sAPIServerBinary         = filepath.Join(BinariesDir, "kube-apiserver")
 	K8sControllerManagerBinary = filepath.Join(BinariesDir, "kube-controller-manager")
 	K8sSchedulerBinary         = filepath.Join(BinariesDir, "kube-scheduler")
-	KineBinary                 = "/usr/local/bin/kine"
+	KineBinary                 = filepath.Join(BinariesDir, "kine")
+	HelmBinary                 = filepath.Join(BinariesDir, "helm")
 
 	// DefaultVClusterConfigLocation is the default location of the vCluster config within the container
 	DefaultVClusterConfigLocation = "/var/lib/vcluster/config.yaml"

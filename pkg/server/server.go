@@ -40,6 +40,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/union"
 	"k8s.io/apiserver/pkg/endpoints/filterlatency"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
+	genericapiimpersonification "k8s.io/apiserver/pkg/endpoints/filters/impersonation"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	genericfeatures "k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/server"
@@ -160,7 +161,6 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 			h = filters.WithNodeChanges(ctx, h, uncachedLocalClient, uncachedVirtualClient, virtualConfig)
 		}
 		h = filters.WithFakeKubelet(h, ctx.ToRegisterContext())
-		h = filters.WithK3sConnect(h)
 
 		if ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled {
 			h = filters.WithPodSchedulerCheck(h, ctx.ToRegisterContext(), ctx.VirtualManager.GetClient())
@@ -332,7 +332,7 @@ func DefaultBuildHandlerChain(apiHandler http.Handler, c *server.Config) http.Ha
 	}
 
 	handler = filterlatency.TrackCompleted(handler)
-	handler = genericapifilters.WithImpersonation(handler, c.Authorization.Authorizer, c.Serializer)
+	handler = genericapiimpersonification.WithImpersonation(handler, c.Authorization.Authorizer, c.Serializer)
 	// @matskiv: save the user.Info object before impersonation which might override it
 	handler = WithOriginalUser(handler)
 	handler = filterlatency.TrackStarted(handler, c.TracerProvider, "impersonation")
@@ -436,7 +436,15 @@ func initAdmission(ctx context.Context, vConfig *rest.Config) (admission.Interfa
 		&emptyConfigProvider{},
 		admission.PluginInitializers{
 			webhookinit.NewPluginInitializer(authInfoResolverWrapper, serviceResolver),
-			initializer.New(vClient, nil, kubeInformerFactory, nil, nil, nil, nil),
+			initializer.New(vClient,
+				nil,
+				kubeInformerFactory,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+			),
 		},
 		nil,
 	)

@@ -153,6 +153,17 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 			expected: false,
 		},
 		{
+			name: "NewDefaultConfig has no pro features",
+			config: func() *Config {
+				c, err := NewDefaultConfig()
+				if err != nil {
+					panic(err)
+				}
+				return c
+			}(),
+			expected: false,
+		},
+		{
 			name: "Empty ResolveDNS",
 			config: &Config{
 				Networking: Networking{
@@ -297,19 +308,6 @@ func TestConfig_IsProFeatureEnabled(t *testing.T) {
 					DenyProxyRequests: []DenyRule{
 						{
 							Name: "test",
-						},
-					},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "External Platform configuration used",
-			config: &Config{
-				External: map[string]ExternalConfig{
-					"platform": map[string]interface{}{
-						"autoSleep": map[string]interface{}{
-							"afterInactivity": 300,
 						},
 					},
 				},

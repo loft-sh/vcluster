@@ -47,6 +47,6 @@ spec:
   {{- if not .Values.controlPlane.service.spec.selector }}
   selector:
     app: vcluster
-    release: {{ .Release.Name }}
+    release: {{ .Release.Name | quote }}
   {{- end }}
 {{- end }}

@@ -25,7 +25,6 @@ func TestDescribeOutputString(t *testing.T) {
 				Namespace:    "vcluster-test",
 				Version:      "0.29.0",
 				BackingStore: string(config.StoreTypeEmbeddedDatabase),
-				Distro:       config.K8SDistro,
 				Status:       "Running",
 				Created:      metav1.NewTime(time.Unix(1759769661, 0).In(time.UTC)),
 				Images: map[string]string{
@@ -37,7 +36,6 @@ func TestDescribeOutputString(t *testing.T) {
 Namespace:      vcluster-test
 Version:        0.29.0
 Backing Store:  embedded-database
-Distro:         k8s
 Created:        Mon, 06 Oct 2025 16:54:21 +0000
 Status:         Running
 Images:
@@ -51,7 +49,6 @@ Images:
 				Namespace:    "vcluster-test",
 				Version:      "0.29.0",
 				BackingStore: string(config.StoreTypeEmbeddedDatabase),
-				Distro:       config.K8SDistro,
 				Status:       "Running",
 				Created:      metav1.NewTime(time.Unix(1759769661, 0).In(time.UTC)),
 				Images: map[string]string{
@@ -68,7 +65,6 @@ Images:
 Namespace:      vcluster-test
 Version:        0.29.0
 Backing Store:  embedded-database
-Distro:         k8s
 Created:        Mon, 06 Oct 2025 16:54:21 +0000
 Status:         Running
 Images:
@@ -91,7 +87,6 @@ Use --config-only to retrieve just the vcluster.yaml
 				Namespace:    "vcluster-test",
 				Version:      "0.29.0",
 				BackingStore: string(config.StoreTypeEmbeddedDatabase),
-				Distro:       config.K8SDistro,
 				Status:       "Running",
 				Created:      metav1.NewTime(time.Unix(1759769661, 0).In(time.UTC)),
 				Images: map[string]string{
@@ -104,7 +99,6 @@ Use --config-only to retrieve just the vcluster.yaml
 Namespace:      vcluster-test
 Version:        0.29.0
 Backing Store:  embedded-database
-Distro:         k8s
 Created:        Mon, 06 Oct 2025 16:54:21 +0000
 Status:         Running
 Images:
@@ -134,7 +128,6 @@ func TestConfigPartialUnmarshal(t *testing.T) {
 		args                 args
 		want                 *config.Config
 		wantErr              bool
-		wantDistro           string
 		wantBackingStoreType config.StoreType
 	}{
 		{
@@ -144,7 +137,6 @@ func TestConfigPartialUnmarshal(t *testing.T) {
 			},
 			want:                 &config.Config{},
 			wantErr:              false,
-			wantDistro:           config.K8SDistro,
 			wantBackingStoreType: config.StoreTypeEmbeddedDatabase,
 		},
 		{
@@ -210,7 +202,6 @@ fieldNotMatchingConfigSchema:
 			},
 			wantErr:              false,
 			wantBackingStoreType: config.StoreTypeEmbeddedDatabase,
-			wantDistro:           config.K8SDistro,
 		},
 	}
 
@@ -223,10 +214,6 @@ fieldNotMatchingConfigSchema:
 			}
 
 			assert.DeepEqual(t, got, tt.want)
-
-			if gotDistro := got.Distro(); gotDistro != tt.wantDistro {
-				t.Errorf("distro got = %v, want %v", gotDistro, tt.wantDistro)
-			}
 
 			if gotBackingStoreType := got.BackingStoreType(); gotBackingStoreType != tt.wantBackingStoreType {
 				t.Errorf("backingStoreType got = %v, want %v", gotBackingStoreType, tt.wantBackingStoreType)

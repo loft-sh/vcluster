@@ -1,11 +1,3 @@
-{{- define "vcluster.initContainers" -}}
-{{- if eq (include "vcluster.distro" .) "k3s" -}}
-{{ include "vcluster.k3s.initContainers" . }}
-{{- else if eq (include "vcluster.distro" .) "k8s" -}}
-{{ include "vcluster.k8s.initContainers" . }}
-{{- end -}}
-{{- end -}}
-
 {{/* Bump $defaultTag value whenever k8s version is bumped */}}
 {{- define "vcluster.k8s.image.tag" -}}
 {{- if not (empty .Values.controlPlane.distro.k8s.version) -}}
@@ -44,31 +36,6 @@
 {{ toYaml .Values.controlPlane.distro.k8s.securityContext | indent 4 }}
   resources:
 {{ toYaml .Values.controlPlane.distro.k8s.resources | indent 4 }}
-{{- if .Values.controlPlane.statefulSet.initContainers }}
-{{ toYaml .Values.controlPlane.statefulSet.initContainers }}
-{{- end }}
-{{- end -}}
-
-{{- define "vcluster.k3s.initContainers" -}}
-{{- include "vcluster.oldPlugins.initContainers" . }}
-{{- include "vcluster.plugins.initContainers" . }}
-- name: vcluster
-  image: "{{ include "vcluster.image" (dict "defaultImageRegistry" .Values.controlPlane.advanced.defaultImageRegistry "registry" .Values.controlPlane.distro.k3s.image.registry "repository" .Values.controlPlane.distro.k3s.image.repository "tag" .Values.controlPlane.distro.k3s.image.tag) }}"
-  command:
-    - /bin/sh
-  args:
-    - -c
-    - "cp /bin/k3s /binaries/k3s"
-  {{- if .Values.controlPlane.distro.k3s.imagePullPolicy }}
-  imagePullPolicy: {{ .Values.controlPlane.distro.k3s.imagePullPolicy }}
-  {{- end }}
-  securityContext:
-{{ toYaml .Values.controlPlane.distro.k3s.securityContext | indent 4 }}
-  volumeMounts:
-    - name: binaries
-      mountPath: /binaries
-  resources:
-{{ toYaml .Values.controlPlane.distro.k3s.resources | indent 4 }}
 {{- if .Values.controlPlane.statefulSet.initContainers }}
 {{ toYaml .Values.controlPlane.statefulSet.initContainers }}
 {{- end }}

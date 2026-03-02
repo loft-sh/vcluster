@@ -58,40 +58,44 @@ func (l *LoftStarter) login(url string) error {
 }
 
 func (l *LoftStarter) loginViaCLI(url string) error {
-	loginPath := "%s/auth/password/login"
-
-	loginRequest := types.PasswordLoginRequest{
+	loginRequestBytes, err := json.Marshal(types.PasswordLoginRequest{
 		Username: defaultUser,
 		Password: l.Password,
-	}
-
-	loginRequestBytes, err := json.Marshal(loginRequest)
+	})
 	if err != nil {
 		return err
 	}
 
-	loginRequestBuf := bytes.NewBuffer(loginRequestBytes)
-
-	tr := &http.Transport{
+	httpClient := &http.Client{Transport: &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	httpClient := &http.Client{Transport: tr}
+	}}
 
-	resp, err := httpClient.Post(fmt.Sprintf(loginPath, url), "application/json", loginRequestBuf)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
+	// try a couple of times to login
 	accessKey := &types.AccessKey{}
-	err = json.Unmarshal(body, accessKey)
-	if err != nil {
-		return err
+	for i := 0; i < 3; i++ {
+		resp, err := httpClient.Post(url+"/auth/password/login", "application/json", bytes.NewBuffer(loginRequestBytes))
+		if err != nil {
+			return err
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			_ = resp.Body.Close()
+			return err
+		}
+		_ = resp.Body.Close()
+
+		err = json.Unmarshal(body, accessKey)
+		if err != nil {
+			return err
+		}
+		if accessKey.AccessKey == "" {
+			continue
+		}
+		break
+	}
+	if accessKey.AccessKey == "" {
+		return fmt.Errorf("couldn't retrieve access key from platform to login")
 	}
 
 	// log into loft

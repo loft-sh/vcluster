@@ -20,48 +20,6 @@ type TestCaseMigration struct {
 func TestMigration(t *testing.T) {
 	testCases := []TestCaseMigration{
 		{
-			Name:   "Simple k3s",
-			Distro: "k3s",
-			Expected: `controlPlane:
-  distro:
-    k3s:
-      enabled: true
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady`,
-		},
-		{
-			Name:   "k3s with deprecated serviceCIDR",
-			Distro: "k3s",
-			In: `
-serviceCIDR: 10.96.0.0/16
-`,
-			Expected: `controlPlane:
-  distro:
-    k3s:
-      enabled: true
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady`,
-		},
-		{
-			Name:   "Plugin k3s",
-			Distro: "k3s",
-			In: `plugin:
-  test:
-    version: v2`,
-			Expected: `controlPlane:
-  distro:
-    k3s:
-      enabled: true
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady
-plugin:
-  test:
-    version: v2`,
-		},
-		{
 			Name:   "Simple k8s",
 			Distro: "k8s",
 			In: `sync:
@@ -85,41 +43,6 @@ sync:
   toHost:
     ingresses:
       enabled: true`,
-		},
-		{
-			Name:   "persistence false",
-			Distro: "k3s",
-			In: `syncer:
-  storage:
-    persistence: false`,
-			Expected: `controlPlane:
-  distro:
-    k3s:
-      enabled: true
-  statefulSet:
-    persistence:
-      volumeClaim:
-        enabled: false
-    scheduling:
-      podManagementPolicy: OrderedReady`,
-		},
-		{
-			Name:   "vcluster env",
-			Distro: "k3s",
-			In: `vcluster:
-  env:
-  - name: K3S_DATASTORE_ENDPOINT
-    value: postgres://username:password@hostname:5432/k3s`,
-			Expected: `controlPlane:
-  distro:
-    k3s:
-      enabled: true
-      env:
-      - name: K3S_DATASTORE_ENDPOINT
-        value: postgres://username:password@hostname:5432/k3s
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady`,
 		},
 		{
 			Name:   "high availability",
@@ -204,6 +127,9 @@ sync:
   extraArgs:
   - --enable-scheduler`,
 			Expected: `controlPlane:
+  advanced:
+    virtualScheduler:
+      enabled: true
   backingStore:
     etcd:
       deploy:
@@ -211,101 +137,9 @@ sync:
   distro:
     k8s:
       enabled: true
-      scheduler:
-        enabled: true
   statefulSet:
     scheduling:
       podManagementPolicy: OrderedReady`,
-		},
-		{
-			Name:   "scheduler extra args k3s (deprecated)",
-			Distro: "k3s",
-			In: `syncer:
-  extraArgs:
-  - --enable-scheduler`,
-			Expected: `controlPlane:
-  advanced:
-    virtualScheduler:
-      enabled: true
-  distro:
-    k3s:
-      enabled: true
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady`,
-		},
-		{
-			Name:   "scheduler (deprecated)",
-			Distro: "k3s",
-			In: `sync:
-  csistoragecapacities:
-    enabled: false
-  csinodes:
-    enabled: false
-  nodes:
-    enableScheduler: true`,
-			Expected: `controlPlane:
-  advanced:
-    virtualScheduler:
-      enabled: true
-  distro:
-    k3s:
-      enabled: true
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady
-sync:
-  fromHost:
-    csiNodes:
-      enabled: false
-    csiStorageCapacities:
-      enabled: false`,
-		},
-		{
-			Name:   "image",
-			Distro: "k3s",
-			In: `vcluster:
-  image: my-registry.com:5000/private/private:v0.0.1
-syncer:
-  image: loft-sh/test:abc`,
-			Expected: `controlPlane:
-  distro:
-    k3s:
-      enabled: true
-      image:
-        registry: my-registry.com:5000
-        repository: private/private
-        tag: v0.0.1
-  statefulSet:
-    image:
-      registry: ""
-      repository: loft-sh/test
-      tag: abc
-    scheduling:
-      podManagementPolicy: OrderedReady`,
-		},
-		{
-			Name:   "binariesVolume",
-			Distro: "k3s",
-			In: `syncer:
-  storage:
-    binariesVolume:
-    - name: binaries
-      persistentVolumeClaim:
-        claimName: my-pvc`,
-			Expected: `controlPlane:
-  distro:
-    k3s:
-      enabled: true
-  statefulSet:
-    persistence:
-      binariesVolume:
-      - name: binaries
-        persistentVolumeClaim:
-          claimName: my-pvc
-    scheduling:
-      podManagementPolicy: OrderedReady`,
-			ExpectedErr: "",
 		},
 		{
 			Name:   "quotas",
@@ -361,27 +195,6 @@ policies:
     scheduling:
       podManagementPolicy: OrderedReady`,
 			ExpectedErr: "",
-		},
-		{
-			Name:   "k3s already migrated to correct format",
-			Distro: "k3s",
-			In: `sync:
-  fromHost:
-    nodes:
-      enabled: false
-  toHost:
-    serviceAccounts:
-      enabled: false
-controlPlane:
-  distro:
-    k3s:
-      enabled: true
-      image:
-        tag: v1.30.2-k3s2
-  statefulSet:
-    scheduling:
-      podManagementPolicy: OrderedReady`,
-			ExpectedErr: "migrate legacy k3s values: config is already in correct format",
 		},
 		{
 			Name:   "k8s already migrated to correct format",

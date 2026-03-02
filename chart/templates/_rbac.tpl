@@ -22,10 +22,13 @@
     .Values.sync.toHost.storageClasses.enabled
     .Values.sync.toHost.persistentVolumes.enabled
     .Values.sync.toHost.priorityClasses.enabled
+    .Values.sync.toHost.resourceClaims.enabled
+    .Values.sync.toHost.resourceClaimTemplates.enabled
     .Values.sync.fromHost.priorityClasses.enabled
     .Values.sync.toHost.volumeSnapshotContents.enabled
     .Values.sync.fromHost.volumeSnapshotClasses.enabled
-    (and (eq (include "vcluster.distro" .) "k8s") .Values.controlPlane.distro.k8s.scheduler.enabled)
+    .Values.sync.fromHost.deviceClasses.enabled
+    .Values.controlPlane.distro.k8s.scheduler.enabled
     .Values.controlPlane.advanced.virtualScheduler.enabled
     .Values.sync.toHost.pods.hybridScheduling.enabled
     .Values.sync.fromHost.ingressClasses.enabled
@@ -179,7 +182,7 @@
   Whether to create a role and role binding to access the platform API key secret
 */}}
 {{- define "vcluster.rbac.createPlatformSecretRole" -}}
-{{- $createRBAC := dig "platform" "apiKey" "createRBAC" true .Values.external -}}
+{{- $createRBAC := dig "apiKey" "createRBAC" true (.Values.platform | default dict) -}}
 {{- if and $createRBAC (ne (include "vcluster.rbac.platformSecretNamespace" .) .Release.Namespace) }}
 {{- true -}}
 {{- end }}
@@ -189,14 +192,14 @@
   Namespace containing the vCluster platform secret
 */}}
 {{- define "vcluster.rbac.platformSecretNamespace" -}}
-{{- dig "platform" "apiKey" "namespace" .Release.Namespace .Values.external | default .Release.Namespace -}}
+{{- dig "apiKey" "namespace" .Release.Namespace (.Values.platform | default dict) | default .Release.Namespace -}}
 {{- end -}}
 
 {{/*
   Name specifies the secret name containing the vCluster platform licenses and tokens
 */}}
 {{- define "vcluster.rbac.platformSecretName" -}}
-{{- dig "platform" "apiKey" "secretName" "vcluster-platform-api-key" .Values.external | quote -}}
+{{- dig "apiKey" "secretName" "" (.Values.platform | default dict) | default "vcluster-platform-api-key" | quote -}}
 {{- end -}}
 
 {{- define "vcluster.rbac.platformRoleName" -}}

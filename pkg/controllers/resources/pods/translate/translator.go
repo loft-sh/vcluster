@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"k8s.io/component-helpers/storage/ephemeral"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,7 +60,7 @@ type Translator interface {
 	TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error)
 }
 
-func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventRecorder) (Translator, error) {
+func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventRecorder) (Translator, error) {
 	imageTranslator, err := NewImageTranslator(ctx.Config.Sync.ToHost.Pods.TranslateImage)
 	if err != nil {
 		return nil, err
@@ -134,6 +134,9 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder record.EventR
 		virtualKubeletPodPath: filepath.Join(virtualKubeletPath, "pods"),
 
 		hostClusterVersion: hostClusterVersion,
+
+		resourceClaimEnabled:         ctx.Config.Sync.ToHost.ResourceClaims.Enabled,
+		resourceClaimTemplateEnabled: ctx.Config.Sync.ToHost.ResourceClaimTemplates.Enabled,
 	}, nil
 }
 
@@ -142,7 +145,7 @@ type translator struct {
 	vClient         client.Client
 	pClient         client.Client
 	imageTranslator ImageTranslator
-	eventRecorder   record.EventRecorder
+	eventRecorder   events.EventRecorder
 	log             loghelper.Logger
 
 	// this is needed for host path mapper (legacy)
@@ -164,6 +167,9 @@ type translator struct {
 	virtualKubeletPodPath string
 
 	hostClusterVersion *version.Info
+
+	resourceClaimEnabled         bool
+	resourceClaimTemplateEnabled bool
 }
 
 func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -380,6 +386,8 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 	if err != nil {
 		return nil, err
 	}
+
+	t.translateResourceClaims(ctx, pPod, vPod)
 
 	// add runtime class name
 	if ctx.Config.Sync.ToHost.Pods.RuntimeClassName != "" {
@@ -827,7 +835,13 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 				// selector with the value that is unique for the particular affinity term
 
 				// Create and event and log entry until the above is implemented
-				t.eventRecorder.Eventf(vPod, "Warning", "SyncWarning", "Inter-pod affinity rule(s) that use both .namespaces and .namespaceSelector fields in the same term are not supported by vcluster yet. The .namespaceSelector fields of the unsupported affinity entries will be ignored.")
+				t.eventRecorder.Eventf(
+					vPod,
+					nil,
+					"Warning",
+					"SyncWarning",
+					"PodSyncWarning",
+					"Inter-pod affinity rule(s) that use both .namespaces and .namespaceSelector fields in the same term are not supported by vcluster yet. The .namespaceSelector fields of the unsupported affinity entries will be ignored.")
 				t.log.Infof("Inter-pod affinity rule(s) that use both .namespaces and .namespaceSelector fields in the same term are not supported by vcluster yet. The .namespaceSelector fields of the unsupported affinity entries of the %s pod in %s namespace will be ignored.", vPod.GetName(), vPod.GetNamespace())
 			}
 
@@ -862,6 +876,28 @@ func (t *translator) translatePodAffinityTerm(vPod *corev1.Pod, term corev1.PodA
 		newAffinityTerm.LabelSelector.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 	}
 	return newAffinityTerm
+}
+
+func (t *translator) translateResourceClaims(ctx *synccontext.SyncContext, pPod *corev1.Pod, vPod *corev1.Pod) {
+	for i := range pPod.Spec.ResourceClaims {
+		if t.resourceClaimEnabled && pPod.Spec.ResourceClaims[i].ResourceClaimName != nil {
+			translatedName := mappings.VirtualToHostName(
+				ctx,
+				*pPod.Spec.ResourceClaims[i].ResourceClaimName,
+				vPod.Namespace,
+				mappings.ResourceClaims())
+			pPod.Spec.ResourceClaims[i].ResourceClaimName = ptr.To(translatedName)
+		}
+
+		if t.resourceClaimTemplateEnabled && pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName != nil {
+			translatedName := mappings.VirtualToHostName(
+				ctx,
+				*pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName,
+				vPod.Namespace,
+				mappings.ResourceClaimTemplates())
+			pPod.Spec.ResourceClaims[i].ResourceClaimTemplateName = ptr.To(translatedName)
+		}
+	}
 }
 
 func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {

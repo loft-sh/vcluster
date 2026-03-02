@@ -59,35 +59,6 @@ telemetry:
 			},
 			wantErr: false,
 		},
-		{
-			name: "Invalid: k3s",
-			args: args{
-				data: []byte(`
-sync:
-  nodes:
-   enabled: true
-k3sToken: foo
-telemetry:
-  disabled: false
-`),
-			},
-			wantErr: true,
-		},
-		{
-			name: "Invalid: k3s",
-			args: args{
-				data: []byte(`
-sync:
-  nodes:
-   enabled: true
-vcluster:
-  image: k3sproject/k3s:v1.29.1-k3s.0
-telemetry:
-  disabled: false
-`),
-			},
-			wantErr: true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

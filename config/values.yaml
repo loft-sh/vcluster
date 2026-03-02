@@ -62,6 +62,10 @@ sync:
     namespaces:
       enabled: false
       mappingsOnly: false
+    resourceClaims:
+      enabled: false
+    resourceClaimTemplates:
+      enabled: false
 
   fromHost:
     events:
@@ -97,6 +101,8 @@ sync:
         byName: {}
     volumeSnapshotClasses:
       enabled: false
+    deviceClasses:
+      enabled: false
 
 controlPlane:
   distro:
@@ -107,7 +113,7 @@ controlPlane:
       image:
         registry: ghcr.io
         repository: "loft-sh/kubernetes"
-        tag: "v1.34.0"
+        tag: "v1.35.0"
       apiServer:
         enabled: true
         command: []
@@ -121,24 +127,6 @@ controlPlane:
         command: []
         extraArgs: []
       env: []
-      securityContext: {}
-      resources:
-        limits:
-          cpu: 100m
-          memory: 256Mi
-        requests:
-          cpu: 40m
-          memory: 64Mi
-
-    k3s:
-      enabled: false
-      command: []
-      extraArgs: []
-      imagePullPolicy: ""
-      image:
-        registry: ""
-        repository: "rancher/k3s"
-        tag: "v1.34.1-k3s1"
       securityContext: {}
       resources:
         limits:
@@ -653,8 +641,6 @@ exportKubeConfig:
     name: ""
     namespace: ""
   additionalSecrets: []
-
-external: {}
 
 plugins: {}
 

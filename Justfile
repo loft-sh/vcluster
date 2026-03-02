@@ -123,7 +123,7 @@ setup-csi-volume-snapshots:
   GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --teardown-only
 
 # Run e2e tests
-e2e distribution="k3s" path="./test/e2e" multinamespace="false": create-kind setup-csi-volume-snapshots && delete-kind
+e2e distribution="k8s" path="./test/e2e" multinamespace="false": create-kind setup-csi-volume-snapshots && delete-kind
   echo "Execute test suites ({{ distribution }}, {{ path }}, {{ multinamespace }})"
 
   TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean
