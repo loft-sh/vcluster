@@ -120,7 +120,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: "goreleaser/goreleaser-action@v6"
         with:
-          args: release --clean --timeout 60m ${{ steps.check_latest_stable.outputs.skip_homebrew == 'true' && '--skip=brew' || '' }}
+          args: release --clean --timeout 60m ${{ steps.check_latest_stable.outputs.skip_homebrew == 'true' && '--skip=homebrew' || '' }}
           version: "~> v2"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
