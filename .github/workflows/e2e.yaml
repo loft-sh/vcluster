@@ -122,8 +122,8 @@ jobs:
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
 
-      - name: Reset driver to kubernetes
-        run: vcluster use driver kubernetes
+      - name: Reset driver to helm
+        run: vcluster use driver helm
 
       - name: Testing cluster set-up
         run: |
@@ -202,8 +202,8 @@ jobs:
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
 
-      - name: Reset driver to kubernetes
-        run: vcluster use driver kubernetes
+      - name: Reset driver to helm
+        run: vcluster use driver helm
 
       - name: Testing cluster set-up
         id: cluster-info
@@ -313,8 +313,8 @@ jobs:
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
 
-      - name: Reset driver to kubernetes
-        run: vcluster use driver kubernetes
+      - name: Reset driver to helm
+        run: vcluster use driver helm
 
       - name: Testing cluster set-up
         id: cluster-info
