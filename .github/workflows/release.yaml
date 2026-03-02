@@ -80,19 +80,29 @@ jobs:
         uses: loft-sh/github-actions/.github/actions/semver-validation@semver-validation/v1
         with:
           version: ${{ steps.get_version.outputs.release_version }}
-      - name: Check if release is latest stable
+      - name: Check if release would downgrade homebrew tap
         id: check_latest_stable
         run: |
           CURRENT_TAG="${{ steps.get_version.outputs.release_version }}"
-          # Only skip homebrew for stable releases that aren't the latest.
-          # Pre-releases are already handled by goreleaser's skip_upload: auto.
+          # Only check stable releases. Pre-releases are handled by
+          # goreleaser's skip_upload: auto in .goreleaser.yaml.
           if [[ "$CURRENT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            LATEST_STABLE=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
-            if [ "$CURRENT_TAG" != "$LATEST_STABLE" ]; then
-              echo "skip_homebrew=true" >> "$GITHUB_OUTPUT"
-              echo "::notice::Skipping Homebrew upload: $CURRENT_TAG is not the latest stable release ($LATEST_STABLE)"
+            # Fetch the current version from the homebrew tap formula.
+            # Only skip if this release would downgrade what's in the tap.
+            TAP_VERSION=$(curl -sfL --max-time 10 \
+              "https://raw.githubusercontent.com/loft-sh/homebrew-tap/main/Formula/vcluster.rb" \
+              | grep -oP 'version "\K[^"]+' || echo "")
+            if [ -n "$TAP_VERSION" ]; then
+              CURRENT_VERSION="${CURRENT_TAG#v}"
+              if [ "$(printf '%s\n' "$CURRENT_VERSION" "$TAP_VERSION" | sort -V | tail -1)" != "$CURRENT_VERSION" ]; then
+                echo "skip_homebrew=true" >> "$GITHUB_OUTPUT"
+                echo "::notice::Skipping Homebrew upload: $CURRENT_TAG would downgrade tap from v$TAP_VERSION"
+              else
+                echo "skip_homebrew=false" >> "$GITHUB_OUTPUT"
+              fi
             else
               echo "skip_homebrew=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::Could not determine current tap version, allowing upload"
             fi
           else
             echo "skip_homebrew=false" >> "$GITHUB_OUTPUT"
