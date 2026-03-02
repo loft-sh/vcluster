@@ -123,6 +123,9 @@ jobs:
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
 
+      - name: Reset driver to kubernetes
+        run: vcluster use driver kubernetes
+
       - name: Testing cluster set-up
         run: |
           set -x
@@ -144,6 +147,7 @@ jobs:
       - name: Setup environment
         run: |
           docker load -i vcluster_syncer
+          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind k3s ctr images import -
           chmod +x vcluster && sudo mv vcluster /usr/bin
 
       - name: Run tests - install and delete virtual cluster using kubectl
@@ -199,6 +203,9 @@ jobs:
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
 
+      - name: Reset driver to kubernetes
+        run: vcluster use driver kubernetes
+
       - name: Testing cluster set-up
         id: cluster-info
         run: |
@@ -234,6 +241,7 @@ jobs:
           chmod +x ./vcluster-current
 
           docker load --input vcluster_syncer
+          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind k3s ctr images import -
           yq eval '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' > ./test/vcluster-current.yaml
 
           ./vcluster-current create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
@@ -306,6 +314,9 @@ jobs:
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
 
+      - name: Reset driver to kubernetes
+        run: vcluster use driver kubernetes
+
       - name: Testing cluster set-up
         id: cluster-info
         run: |
@@ -374,6 +385,7 @@ jobs:
           yq eval -i ".controlPlane.distro.${{ matrix.distribution }}.enabled = true" "${{ matrix.test-suite-path }}/../commonValues.yaml"
 
           docker load --input vcluster_syncer
+          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind k3s ctr images import -
 
           chmod +x vcluster && sudo mv vcluster /usr/bin
 
