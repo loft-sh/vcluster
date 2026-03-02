@@ -14,6 +14,9 @@ var (
 	setupOnly    = false
 	teardown     = true
 	teardownOnly = false
+
+	suiteContextStack    = NewStack[context.Context]()
+	process1ContextStack = NewStack[context.Context]()
 )
 
 func SetSetupOnly(b bool) {
@@ -30,10 +33,6 @@ func SetTeardownOnly(b bool) {
 
 type ContextMiddleware func(context.Context) context.Context
 
-var suiteContextStack = NewStack[context.Context]()
-
-var process1ContextStack = NewStack[context.Context]()
-
 func ContextualAroundNode(ctx context.Context) context.Context {
 	report := ginkgo.CurrentSpecReport()
 	events := report.SpecEvents.WithType(types.SpecEventNodeStart)
@@ -42,21 +41,26 @@ func ContextualAroundNode(ctx context.Context) context.Context {
 	switch event.NodeType {
 	case types.NodeTypeSynchronizedAfterSuite:
 		return ctx
-	case types.NodeTypeCleanupAfterEach:
+	case types.NodeTypeReportAfterSuite:
 		fallthrough
+	case types.NodeTypeCleanupAfterEach:
+		last, _ := suiteContextStack.Last()
+		current, _ := suiteContextStack.Peek()
+		if last != nil && current != nil {
+			return e2econtext.WithValues(ctx, e2econtext.WithValues(last, current))
+		}
+		return e2econtext.WithValues(ctx, cmp.Or(last, current))
 	case types.NodeTypeCleanupAfterSuite:
 		fallthrough
 	case types.NodeTypeCleanupAfterAll:
 		fallthrough
-	case types.NodeTypeReportAfterSuite:
-		fallthrough
 	case types.NodeTypeCleanupInvalid:
 		last, _ := suiteContextStack.Last()
 		current, _ := suiteContextStack.Peek()
-		return e2econtext.WithValues(ctx, cmp.Or(last, current, context.TODO()))
+		return e2econtext.WithValues(ctx, cmp.Or(last, current))
 	default:
 		current, _ := suiteContextStack.Peek()
-		return e2econtext.WithValues(ctx, cmp.Or(current, context.TODO()))
+		return e2econtext.WithValues(ctx, current)
 	}
 }
 
@@ -81,7 +85,8 @@ func ContextualNodeTransformer(nodeType types.NodeType, _ ginkgo.Offset, text st
 				if parentCtx != nil {
 					ctx = e2econtext.WithValues(ctx, parentCtx)
 				}
-				contextStack.Push(getFnCtxCtxCallback(nodeType, x)(ctx))
+				ctx = getFnCtxCtxCallback(nodeType, x)(ctx)
+				contextStack.Push(ctx)
 				ginkgo.DeferCleanup(func() {
 					contextStack.Pop()
 				})
@@ -96,8 +101,9 @@ func ContextualNodeTransformer(nodeType types.NodeType, _ ginkgo.Offset, text st
 				if parentCtx != nil {
 					ctx = e2econtext.WithValues(ctx, parentCtx)
 				}
-				fnCtx, data := x(ctx)
-				contextStack.Push(fnCtx)
+				var data []byte
+				ctx, data = x(ctx)
+				contextStack.Push(ctx)
 				ginkgo.DeferCleanup(func() {
 					contextStack.Pop()
 				})
@@ -114,7 +120,8 @@ func ContextualNodeTransformer(nodeType types.NodeType, _ ginkgo.Offset, text st
 				if parentCtx != nil {
 					ctx = e2econtext.WithValues(ctx, parentCtx)
 				}
-				contextStack.Push(x(ctx, data))
+				ctx = x(ctx, data)
+				contextStack.Push(ctx)
 				ginkgo.DeferCleanup(func() {
 					contextStack.Pop()
 				})
@@ -129,7 +136,7 @@ func ContextualNodeTransformer(nodeType types.NodeType, _ ginkgo.Offset, text st
 					}
 					last, _ := contextStack.Last()
 					current, _ := contextStack.Peek()
-					fn(e2econtext.WithValues(ctx, cmp.Or(last, current, context.TODO())))
+					fn(e2econtext.WithValues(ctx, cmp.Or(last, current)))
 				})
 			} else {
 				newArgs = append(newArgs, fn)

@@ -3,6 +3,9 @@ package context
 import "context"
 
 func WithValues(ctx, values context.Context) context.Context {
+	if values == nil {
+		return ctx
+	}
 	return &composed{Context: ctx, nextValues: values}
 }
 

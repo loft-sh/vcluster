@@ -49,11 +49,11 @@ func CurrentKubeClientFrom(ctx context.Context) kubernetes.Interface {
 	return KubeClientFrom(ctx, currentCluster)
 }
 
-func SetupClients(clusterName string) setup.Func {
+func SetupClients(clusterName string, controllerRuntimeClientOpts ...ClientOptions) setup.Func {
 	return func(ctx context.Context) (context.Context, error) {
 		if ControllerRuntimeClientFrom(ctx, clusterName) == nil {
 			var err error
-			if ctx, err = SetupControllerRuntimeClient(WithCluster(clusterName))(ctx); err != nil {
+			if ctx, err = SetupControllerRuntimeClient(append(controllerRuntimeClientOpts, WithCluster(clusterName))...)(ctx); err != nil {
 				return ctx, err
 			}
 		}
@@ -68,7 +68,7 @@ func SetupClients(clusterName string) setup.Func {
 	}
 }
 
-func UseCluster(clusterName string) setup.Func {
+func UseCluster(clusterName string, controllerRuntimeClientOpts ...ClientOptions) setup.Func {
 	return func(ctx context.Context) (context.Context, error) {
 		clusterVal := From(ctx, clusterName)
 		if clusterVal == nil {
@@ -77,6 +77,6 @@ func UseCluster(clusterName string) setup.Func {
 
 		ctx = WithCurrentClusterName(ctx, clusterName)
 		ctx = WithCurrentCluster(ctx, clusterVal)
-		return SetupClients(clusterName)(ctx)
+		return SetupClients(clusterName, controllerRuntimeClientOpts...)(ctx)
 	}
 }
