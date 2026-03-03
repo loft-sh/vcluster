@@ -42,6 +42,8 @@ func findConfig(configs ...string) (string, error) {
 	return "", nil
 }
 
+// lookupDataDir retrieves the data directory path from the provided config file.
+// If no config path is provided, it defaults to /var/lib/vcluster.
 func lookupDataDir(configPath string) (string, error) {
 	dataDir := "/var/lib/vcluster"
 
@@ -63,6 +65,7 @@ func lookupDataDir(configPath string) (string, error) {
 	return dataDir, nil
 }
 
+// configPartialUnmarshal unmarshals only the standalone control plane configuration from a byte array.
 func configPartialUnmarshal(configBytes []byte) (*config.Config, error) {
 	var partialConfig struct {
 		ControlPlane struct {
@@ -81,6 +84,7 @@ func configPartialUnmarshal(configBytes []byte) (*config.Config, error) {
 	}, nil
 }
 
+// downloadFile downloads a file from a URL to a specified local path.
 func downloadFile(ctx context.Context, c *http.Client, url string, path string) error {
 	f, err := os.Create(path)
 	if err != nil {
@@ -117,6 +121,7 @@ func downloadFile(ctx context.Context, c *http.Client, url string, path string) 
 	return nil
 }
 
+// restartService reloads the systemd daemon and restarts the vcluster service.
 func restartService(ctx context.Context) error {
 	log := klog.FromContext(ctx)
 
@@ -132,6 +137,7 @@ func restartService(ctx context.Context) error {
 	return nil
 }
 
+// logLatestServiceLogs retrieves and logs the most recent entries from the vcluster service journal.
 func logLatestServiceLogs(ctx context.Context, lines int) error {
 	log := klog.FromContext(ctx)
 
@@ -146,6 +152,8 @@ func logLatestServiceLogs(ctx context.Context, lines int) error {
 	return nil
 }
 
+// checkServiceIsRunning verifies if the vcluster service is currently active.
+// If the service is not running, it logs the last 100 lines of the service's logs.
 func checkServiceIsRunning(ctx context.Context) error {
 	log := klog.FromContext(ctx)
 	cmd := exec.CommandContext(ctx, "systemctl", "show", "vcluster.service", "--property=MainPID", "--value")

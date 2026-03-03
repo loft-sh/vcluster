@@ -8,6 +8,7 @@ import (
 	"text/template"
 )
 
+// AddToPlatformOptions holds the configuration for connecting a standalone vcluster to the vCluster Platform.
 type AddToPlatformOptions struct {
 	AccessKey    string
 	Host         string
@@ -16,6 +17,8 @@ type AddToPlatformOptions struct {
 	ProjectName  string
 }
 
+// AddToPlatform configures the standalone vcluster to connect to the vCluster Platform by creating a systemd
+// configuration file and restarting the vcluster service.
 func AddToPlatform(ctx context.Context, options *AddToPlatformOptions) error {
 	if err := createPlatformConf(ctx, options); err != nil {
 		return err
@@ -28,6 +31,7 @@ func AddToPlatform(ctx context.Context, options *AddToPlatformOptions) error {
 	return nil
 }
 
+// renderSystemdPlatformConfFile renders the systemd environment variables for the vCluster Platform connection.
 func renderSystemdPlatformConfFile(options *AddToPlatformOptions) ([]byte, error) {
 	const platformConfTemplateText = `
 [Service]
@@ -51,6 +55,7 @@ Environment=LOFT_PLATFORM_PROJECT_NAME="{{.options.ProjectName}}"
 	return buf.Bytes(), nil
 }
 
+// createPlatformConf writes the vCluster Platform configuration to a systemd drop-in file.
 func createPlatformConf(ctx context.Context, options *AddToPlatformOptions) error {
 	platformConfFileBytes, err := renderSystemdPlatformConfFile(options)
 	if err != nil {
