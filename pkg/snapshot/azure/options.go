@@ -135,7 +135,7 @@ func getStorageSAS(ctx context.Context, options Options) (string, error) {
 	// Set start time to 5 minutes in the past to account for clock skew
 	startTime := time.Now().UTC().Add(-5 * time.Minute)
 	// Set expiry time to 1 hour from now
-	expiryTime := time.Now().UTC().Add(5 * time.Minute)
+	expiryTime := time.Now().UTC().Add(time.Hour)
 
 	// Create BlobSignatureValues with SAS parameters
 	sasQueryParams, err := sas.BlobSignatureValues{
