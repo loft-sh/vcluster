@@ -12,6 +12,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -48,6 +49,15 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	err = t.vClient.Get(ctx, client.ObjectKey{Name: vPod.GetNamespace()}, vNamespace)
 	if err != nil {
 		return err
+	}
+
+	// sync toleration changes from virtual to physical
+	// when tolerations are added or removed from the virtual pod, propagate them to the
+	// physical pod so that the physical API server increments metadata.generation and the
+	// kubelet updates status.observedGeneration (required by PodObservedGenerationTracking)
+	if !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Tolerations, event.Virtual.Spec.Tolerations) {
+		// new physical tolerations = new virtual tolerations + configured enforced tolerations
+		pPod.Spec.Tolerations = append(append([]corev1.Toleration{}, event.Virtual.Spec.Tolerations...), t.enforcedTolerations...)
 	}
 
 	// spec diff

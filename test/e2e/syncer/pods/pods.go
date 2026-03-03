@@ -764,6 +764,79 @@ var _ = ginkgo.Describe("Pods are running in the host cluster", func() {
 		framework.ExpectEqual(vPod.Annotations[additionalAnnotationKey], pPod.Annotations[additionalAnnotationKey])
 		framework.ExpectEqual(vPod.Labels[additionalLabelKey], pPod.Labels[additionalLabelKey])
 	})
+
+	// TestPodGenerationIncrementOnTolerationUpdate replicates the Kubernetes conformance test
+	// "[sig-node] Pods Extended (pod generation) Pod Generation pod generation should start at 1
+	// and increment per update [Conformance]" which became required in k8s 1.35 with the GA of
+	// PodObservedGenerationTracking.
+	//
+	// The test verifies that when virtual pod tolerations are updated, the vcluster syncer
+	// propagates the change to the physical pod so that:
+	//  1. The physical API server increments metadata.generation on the physical pod
+	//  2. The kubelet reflects this as status.observedGeneration = 2 on the physical pod
+	//  3. The syncer copies status.observedGeneration back to the virtual pod
+	ginkgo.It("Test pod generation increments when tolerations are updated", func() {
+		podName := "pod-generation-test"
+		_, err := f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: podName},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		err = f.WaitForPodRunning(podName, ns)
+		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+
+		// Wait for status.observedGeneration to reach 1 (kubelet has processed the initial pod spec).
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
+			vpod, err := f.VClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+			return vpod.Status.ObservedGeneration == 1, nil
+		})
+		framework.ExpectNoError(err, "Pod status.observedGeneration should reach 1 after the pod is running")
+
+		// Update virtual pod tolerations to trigger a generation bump on the virtual API server.
+		// The syncer must propagate this spec change to the physical pod so the physical API server
+		// also increments generation and the kubelet updates status.observedGeneration to 2.
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
+			vpod, err := f.VClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+			vpod.Spec.Tolerations = append(vpod.Spec.Tolerations, corev1.Toleration{
+				Key:      "e2e-generation-test",
+				Operator: corev1.TolerationOpExists,
+				Effect:   corev1.TaintEffectNoExecute,
+			})
+			_, err = f.VClusterClient.CoreV1().Pods(ns).Update(ctx, vpod, metav1.UpdateOptions{})
+			if kerrors.IsConflict(err) {
+				return false, nil
+			}
+			return err == nil, err
+		})
+		framework.ExpectNoError(err, "Failed to update virtual pod tolerations")
+
+		// Wait for status.observedGeneration to reach 2, confirming the physical kubelet
+		// processed the toleration update synced by the vcluster syncer.
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeoutLong, true, func(ctx context.Context) (bool, error) {
+			vpod, err := f.VClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+			return vpod.Status.ObservedGeneration >= 2, nil
+		})
+		framework.ExpectNoError(err, "Pod status.observedGeneration should reach 2 after the toleration update")
+	})
 })
 
 func ignoreQOSClassDiff(vpod, pod *corev1.Pod) {
