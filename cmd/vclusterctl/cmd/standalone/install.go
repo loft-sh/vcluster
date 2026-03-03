@@ -25,7 +25,7 @@ Install vCluster Standalone Node
 
 Example:
 # Install vCluster Standalone control-plane node
-$ vcluster standalone install --version v0.33.0
+$ vcluster standalone install --version 0.33.0
 
 # Install vCluster Standalone using already downloaded binaries
 $ ls /path/to/downloaded/binaries/
