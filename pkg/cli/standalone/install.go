@@ -440,12 +440,12 @@ func stopAndDisableService(ctx context.Context) error {
 
 	// todo: check if service exists
 	log.Info("Stopping vcluster service")
-	if err := exec.Command("systemctl", "stop", "vcluster").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "systemctl", "stop", "vcluster").Run(); err != nil {
 		log.Info("Failed to stop vcluster service: %v", err)
 	}
 
 	log.Info("Disabling vcluster service")
-	if err := exec.Command("systemctl", "disable", "vcluster").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "systemctl", "disable", "vcluster").Run(); err != nil {
 		log.Info("Failed to disable vcluster service: %v", err)
 	}
 
@@ -587,7 +587,7 @@ func setupPersistentLogging(ctx context.Context) error {
 		return fmt.Errorf("failed to create journal directory: %w", err)
 	}
 
-	if err := exec.Command("systemctl", "restart", "systemd-journald").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "systemctl", "restart", "systemd-journald").Run(); err != nil {
 		return fmt.Errorf("failed to restart systemd-journald: %w", err)
 	}
 
@@ -676,11 +676,11 @@ func startService(ctx context.Context) error {
 	log := klog.FromContext(ctx)
 
 	log.Info("Starting vcluster.service")
-	if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "systemctl", "daemon-reload").Run(); err != nil {
 		return fmt.Errorf("failed to systemctl daemon-reload: %w", err)
 	}
 
-	if err := exec.Command("systemctl", "start", "vcluster").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "systemctl", "start", "vcluster").Run(); err != nil {
 		return fmt.Errorf("failed to start vcluster: %w", err)
 	}
 

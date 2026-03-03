@@ -53,7 +53,7 @@ func deleteService(ctx context.Context) error {
 		log.Error(err, "Failed to delete vcluster.service")
 	}
 
-	if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "systemctl", "daemon-reload").Run(); err != nil {
 		return fmt.Errorf("failed to systemctl daemon-reload: %w", err)
 	}
 
@@ -64,11 +64,11 @@ func deleteService(ctx context.Context) error {
 func killAnyRenamingProcesses(ctx context.Context, dataDir string) error {
 	log := klog.FromContext(ctx)
 
-	if err := exec.Command("pkill", "-f", filepath.Join(dataDir, "bin", "vcluster")).Run(); err != nil {
+	if err := exec.CommandContext(ctx, "pkill", "-f", filepath.Join(dataDir, "bin", "vcluster")).Run(); err != nil {
 		log.Error(err, "Failed to kill vcluster processes")
 	}
 
-	if err := exec.Command("pkill", "-x", "vcluster").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "pkill", "-x", "vcluster").Run(); err != nil {
 		log.Error(err, "Failed to kill vcluster processes")
 	}
 

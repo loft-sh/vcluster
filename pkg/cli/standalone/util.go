@@ -1,8 +1,6 @@
 package standalone
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/loft-sh/vcluster/config"
 	"k8s.io/klog/v2"
@@ -122,11 +121,11 @@ func restartService(ctx context.Context) error {
 	log := klog.FromContext(ctx)
 
 	log.Info("Restarting vcluster.service")
-	if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "systemctl", "daemon-reload").Run(); err != nil {
 		return fmt.Errorf("failed to systemctl daemon-reload: %w", err)
 	}
 
-	if err := exec.Command("systemctl", "restart", "vcluster").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "systemctl", "restart", "vcluster").Run(); err != nil {
 		return fmt.Errorf("failed to start vcluster: %w", err)
 	}
 
@@ -136,27 +135,32 @@ func restartService(ctx context.Context) error {
 func logLatestServiceLogs(ctx context.Context, lines int) error {
 	log := klog.FromContext(ctx)
 
-	out, err := exec.Command("journalctl", "-u", "vcluster.service", "--no-pager", "-n", strconv.Itoa(lines), "-e").CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to execute output: %w", err)
-	}
+	log.Info("Getting latest service logs", "lines", lines)
+	cmd := exec.CommandContext(ctx, "journalctl", "-u", "vcluster.service", "--no-pager", "-n", strconv.Itoa(lines), "-e")
+	cmd.Stdout = os.Stdout
 
-	scanner := bufio.NewScanner(bytes.NewReader(out))
-	for scanner.Scan() {
-		log.Info("wrapped log", "log", scanner.Text())
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to execute output: %w", err)
 	}
 
 	return nil
 }
 
 func checkServiceIsRunning(ctx context.Context) error {
-	cmd := exec.Command("systemctl", "show", "vcluster.service", "--property=MainPID", "--value")
+	log := klog.FromContext(ctx)
+	cmd := exec.CommandContext(ctx, "systemctl", "show", "vcluster.service", "--property=MainPID", "--value")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to execute systemctl show vcluster.service: %w", err)
 	}
 
-	if string(out) == "0" {
+	parts := strings.Split(string(out), "\n")
+	if len(parts) != 2 {
+		return fmt.Errorf("unexpected output format: %s", string(out))
+	}
+
+	if parts[0] == "0" {
+		log.Info("vcluster.service is not running")
 		if err := logLatestServiceLogs(ctx, 100); err != nil {
 			return fmt.Errorf("failed to get logs: %w", err)
 		}
