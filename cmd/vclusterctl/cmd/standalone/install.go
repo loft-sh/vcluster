@@ -63,7 +63,7 @@ $ vcluster standalone install --join "https:/host:port/node/join?token=xxxxxxx.y
 	installCmd.Flags().StringVar(&options.Config, "config", "", "Path to the vcluster.yaml configuration file")
 	installCmd.Flags().StringVar(&options.Binary, "binary", "", "Path to the vcluster and vcluster-cli binaries")
 	installCmd.Flags().StringVar(&options.JoinURL, "join", "", "join URL")
-	installCmd.Flags().BoolVar(&options.InsecureSkipVerify, "insecure", true, "If TLS verify should be skipped for all initiated TLS connections")
+	installCmd.Flags().BoolVar(&options.InsecureSkipVerify, "insecure", false, "If TLS verify should be skipped for all initiated TLS connections")
 	installCmd.Flags().StringVar(&options.KubernetesBundle, "kubernetes-bundle", "", "The Kubernetes bundle to use for installing vCluster")
 	installCmd.Flags().BoolVar(&options.Fips, "fips", false, "Enable FIPS mode")
 	installCmd.Flags().StringVar(&options.DownloadURL, "download-url", "", "todo: what download url?")
