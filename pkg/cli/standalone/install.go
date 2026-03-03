@@ -332,7 +332,12 @@ func downloadControlPlaneBundle(ctx context.Context, ic *installContext) error {
 		}
 		defer res.Body.Close()
 
-		return res.StatusCode == http.StatusOK, nil
+		if res.StatusCode != http.StatusOK {
+			log.Info("Failed to check control-plane readiness: unexpected status code", "statusCode", res.StatusCode)
+			return false, nil
+		}
+
+		return true, nil
 	})
 	if err != nil {
 		return err
