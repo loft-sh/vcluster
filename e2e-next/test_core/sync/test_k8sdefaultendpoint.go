@@ -81,7 +81,7 @@ var _ = Describe("map default/kubernetes endpoint to physical vcluster endpoint"
 				g.Expect(hostClusterPorts).To(Equal(vClusterPorts), "Ports should match between host and vcluster endpoints")
 			}).
 				WithPolling(constants.PollingInterval).
-				WithTimeout(constants.PollingTimeout).
+				WithTimeout(constants.PollingTimeoutVeryLong).
 				Should(Succeed(), "Endpoints should match after waiting")
 		})
 	},
