@@ -65,21 +65,23 @@ func newBlobClient(ctx context.Context, subscriptionID, resourceGroup string, in
 	var blobClient *blockblob.Client
 	var err error
 	if useDefaultCredentials {
-		// TODO use default Azure credentials to create blob client
-		// Use default Azure credentials for authentication. From Azure SDK go docs:
+		// Use default Azure credentials for authentication, then get storage account key. Finally, use storage account
+		// key to create a new SAS token.
 		//
-		// DefaultAzureCredential attempts to authenticate with each of these credential types, in the following order,
-		// stopping when one provides a token:
-		//    1. EnvironmentCredential
-		//    2. WorkloadIdentityCredential, if environment variable configuration is set by the Azure workload identity webhook.
-		//    3. ManagedIdentityCredential
-		//    4. AzureCLICredential
-		//    5. AzureDeveloperCLICredential
-		//    6. AzurePowerShellCredential
-		//
+		// From Azure SDK go docs:
+		//   DefaultAzureCredential attempts to authenticate with each of these credential types, in the following order,
+		//   stopping when one provides a token:
+		//      1. EnvironmentCredential
+		//      2. WorkloadIdentityCredential, if environment variable configuration is set by the Azure workload identity webhook.
+		//      3. ManagedIdentityCredential
+		//      4. AzureCLICredential
+		//      5. AzureDeveloperCLICredential
+		//      6. AzurePowerShellCredential
 		// More details in go docs here https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity#DefaultAzureCredential.
 		//
-		// TODO: if using default Azure credentials does not work here, then try share key approach that requires using storage key
+		// TODO: Caveat here is that the default Azure credentials must be able to get storage account key here. In case
+		//  the default Azure credentials cannot list storage keys, as an alternative approach, implement directly
+		//  using the default Azure credentials to create the blob client.
 		//
 		var storageKey string
 		if key := os.Getenv(StorageKeyEnvVar); key != "" {
