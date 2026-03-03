@@ -198,15 +198,6 @@ func EnsureCerts(
 		secret.Data[toName] = data
 	}
 
-	// find extra files in the folder and add them to the secret
-	extraFiles, err := extraFiles(certificateDir)
-	if err != nil {
-		return fmt.Errorf("read extra file: %w", err)
-	}
-	for k, v := range extraFiles {
-		secret.Data[k] = v
-	}
-
 	// finally create the secret
 	secret, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
@@ -465,36 +456,6 @@ func copyFileIfNotExists(src, dst string) error {
 		return os.WriteFile(dst, srcBytes, 0666)
 	}
 	return nil
-}
-
-func extraFiles(certificateDir string) (map[string][]byte, error) {
-	files := make(map[string][]byte)
-	entries, err := os.ReadDir(certificateDir)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, v := range entries {
-		if v.IsDir() {
-			// ignore subdirectories for now
-			// etcd files should be picked up by the map
-			continue
-		}
-
-		// if it's not in the cert map, add to the map
-		name := v.Name()
-		_, ok := certMap[name]
-		if !ok {
-			b, err := os.ReadFile(filepath.Join(certificateDir, name))
-			if err != nil {
-				return nil, err
-			}
-
-			files[name] = b
-		}
-	}
-
-	return files, err
 }
 
 // KubeConfigOptions struct holds info required to build a KubeConfig object
