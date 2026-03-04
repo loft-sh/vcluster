@@ -49,6 +49,10 @@ func Install(ctx context.Context, options *InstallOptions) error {
 		return err
 	}
 
+	if err := checkMinTmpDiskSpace(); err != nil {
+		return err
+	}
+
 	workspace, err := os.MkdirTemp("", "vcluster-cli-standalone-install-")
 	if err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)
@@ -127,7 +131,11 @@ func preflightChecks() error {
 		return fmt.Errorf("this installer needs the ability to run commands as root")
 	}
 
-	// Check for minimal available tmp storage
+	return nil
+}
+
+// checkMinTmpDiskSpace checks if there is enough free space on the temporary directory.
+func checkMinTmpDiskSpace() error {
 	tmpRequiredBytes := uint64(1024 * 1024 * 1024)
 	tmpDir := os.TempDir()
 	var st syscall.Statfs_t
