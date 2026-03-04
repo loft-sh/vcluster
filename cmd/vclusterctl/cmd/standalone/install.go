@@ -36,7 +36,7 @@ $ vcluster standalone install --binary /path/to/downloaded/binaries/
 $ vcluster standalone install --download-url https://github.com/loft-sh/vcluster/releases/latest/download/
 
 # Install vCluster Standalone control-plane node and join it to a cluster.
-# Command obtain from the "vcluster token create --control-plane" output, executed against the cluster.
+# Join URL generated via "vcluster token create --control-plane" command executed against the cluster.
 $ vcluster standalone install --join "https:/host:port/node/join?token=xxxxxxx.yyyyyyyyyyyyyyy"
 
 #####################################################
