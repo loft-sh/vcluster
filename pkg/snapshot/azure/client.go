@@ -105,7 +105,7 @@ func newBlobClient(ctx context.Context, subscriptionID, resourceGroup string, in
 			}
 
 			// Return the first key (equivalent to [0].value in Azure CLI)
-			if resp.Keys == nil || len(resp.Keys) == 0 {
+			if len(resp.Keys) == 0 {
 				return nil, fmt.Errorf("no keys found for storage account %s", info.AccountName)
 			}
 
@@ -219,7 +219,7 @@ func getStorageKeyFromAzure(ctx context.Context, subscriptionID, resourceGroup, 
 	}
 
 	// Return the first key (equivalent to [0].value in Azure CLI)
-	if resp.Keys == nil || len(resp.Keys) == 0 {
+	if len(resp.Keys) == 0 {
 		return "", fmt.Errorf("no keys found for storage account %s", storageAccount)
 	}
 
