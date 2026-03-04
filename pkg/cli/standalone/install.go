@@ -444,7 +444,7 @@ func downloadBinary(ctx context.Context, ic *installContext) error {
 
 	assets := map[string]string{
 		"vcluster":     fmt.Sprintf("vcluster-%s-%s-standalone%s", runtime.GOOS, runtime.GOARCH, variant),
-		"vcluster-cli": fmt.Sprintf("vcluster-%s-%s%s", runtime.GOOS, runtime.GOARCH, variant),
+		"vcluster-cli": fmt.Sprintf("vcluster-%s-%s", runtime.GOOS, runtime.GOARCH),
 	}
 
 	for binary, asset := range assets {
