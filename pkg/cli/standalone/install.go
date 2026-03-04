@@ -392,6 +392,13 @@ func downloadControlPlaneBundle(ctx context.Context, ic *installContext) error {
 
 	// register PKIs to install
 	pkisSrcPath := filepath.Join(ic.workspace, "control-plane-bundle", "pki")
+	ignoredPkis := map[string]bool{
+		"etcd/peer.crt":   true,
+		"etcd/peer.key":   true,
+		"etcd/server.crt": true,
+		"etcd/server.key": true,
+	}
+
 	err = filepath.WalkDir(pkisSrcPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -404,6 +411,10 @@ func downloadControlPlaneBundle(ctx context.Context, ic *installContext) error {
 		relPath, err := filepath.Rel(pkisSrcPath, path)
 		if err != nil {
 			return fmt.Errorf("failed to get relative path: %w", err)
+		}
+
+		if _, ok := ignoredPkis[relPath]; ok {
+			return nil
 		}
 
 		ic.pkis[relPath] = path
