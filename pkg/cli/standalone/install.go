@@ -447,15 +447,20 @@ func downloadBinary(ctx context.Context, ic *installContext) error {
 func stopAndDisableService(ctx context.Context) error {
 	log := klog.FromContext(ctx)
 
-	// todo: check if service exists
+	log.Info("Checking if vcluster service is active")
+	if err := exec.CommandContext(ctx, "systemctl", "is-active", "--quiet", "vcluster.service").Run(); err != nil {
+		log.Info("vcluster service is not active", "err", err)
+		return nil
+	}
+
 	log.Info("Stopping vcluster service")
-	if err := exec.CommandContext(ctx, "systemctl", "stop", "vcluster").Run(); err != nil {
-		log.Info("Failed to stop vcluster service: %v", err)
+	if err := exec.CommandContext(ctx, "systemctl", "stop", "vcluster.service").Run(); err != nil {
+		log.Info("Failed to stop vcluster service", "err", err)
 	}
 
 	log.Info("Disabling vcluster service")
-	if err := exec.CommandContext(ctx, "systemctl", "disable", "vcluster").Run(); err != nil {
-		log.Info("Failed to disable vcluster service: %v", err)
+	if err := exec.CommandContext(ctx, "systemctl", "disable", "vcluster.service").Run(); err != nil {
+		log.Info("Failed to disable vcluster service", "err", err)
 	}
 
 	return nil
@@ -716,7 +721,7 @@ func startService(ctx context.Context) error {
 		return fmt.Errorf("failed to systemctl daemon-reload: %w", err)
 	}
 
-	if err := exec.CommandContext(ctx, "systemctl", "start", "vcluster").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "systemctl", "enable", "--now", "vcluster.service").Run(); err != nil {
 		return fmt.Errorf("failed to start vcluster: %w", err)
 	}
 

@@ -62,7 +62,7 @@ func createPlatformConf(ctx context.Context, options *AddToPlatformOptions) erro
 		return fmt.Errorf("failed to render systemd vcluster platform conf file: %w", err)
 	}
 
-	if os.MkdirAll("/etc/systemd/system/vcluster.service.d", 0700) != nil {
+	if err := os.MkdirAll("/etc/systemd/system/vcluster.service.d", 0700); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 

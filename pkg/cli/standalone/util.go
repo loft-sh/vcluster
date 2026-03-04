@@ -134,7 +134,7 @@ func restartService(ctx context.Context) error {
 		return fmt.Errorf("failed to systemctl daemon-reload: %w", err)
 	}
 
-	if err := exec.CommandContext(ctx, "systemctl", "restart", "vcluster").Run(); err != nil {
+	if err := exec.CommandContext(ctx, "systemctl", "restart", "vcluster.service").Run(); err != nil {
 		return fmt.Errorf("failed to start vcluster: %w", err)
 	}
 
