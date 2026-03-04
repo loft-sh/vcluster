@@ -355,12 +355,8 @@ just delete-kind
 just e2e
 ```
 
-Or, using vind:
-
-```
-just delete-vind
-just e2e
-```
+> Note: The e2e test suite currently uses Kind. If you use vind for local development,
+> you can still run unit tests with `./hack/test.sh`.
 
 If [Ginkgo](https://github.com/onsi/ginkgo#global-installation) is already installed, run  `ginkgo -v`.
 
