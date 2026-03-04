@@ -19,7 +19,10 @@ type Value struct {
 	Modified int64
 }
 
-var ErrNotFound = errors.New("etcdwrapper: key not found")
+var (
+	ErrNotFound = errors.New("etcdwrapper: key not found")
+	ErrConflict = errors.New("etcdwrapper: conflict")
+)
 
 type Client interface {
 	List(ctx context.Context, key string) ([]Value, error)
@@ -27,6 +30,7 @@ type Client interface {
 	Watch(ctx context.Context, key string) clientv3.WatchChan
 	Get(ctx context.Context, key string) (Value, error)
 	Put(ctx context.Context, key string, value []byte) (int64, error)
+	PutAtRevision(ctx context.Context, key string, revision int64, value []byte) (int64, error)
 	Delete(ctx context.Context, key string) error
 	DeletePrefix(ctx context.Context, prefix string) error
 	Compact(ctx context.Context, revision int64) error
@@ -221,6 +225,15 @@ func (c *client) Put(ctx context.Context, key string, value []byte) (int64, erro
 	return c.Update(ctx, key, val.Modified, value)
 }
 
+// PutAtRevision performs an optimistic update for the given revision.
+// If revision is 0, the key must not exist.
+func (c *client) PutAtRevision(ctx context.Context, key string, revision int64, value []byte) (int64, error) {
+	if revision <= 0 {
+		return c.Create(ctx, key, value)
+	}
+	return c.Update(ctx, key, revision, value)
+}
+
 func (c *client) Create(ctx context.Context, key string, value []byte) (int64, error) {
 	resp, err := c.c.Txn(ctx).
 		If(clientv3.Compare(clientv3.ModRevision(key), "=", 0)).
@@ -230,7 +243,7 @@ func (c *client) Create(ctx context.Context, key string, value []byte) (int64, e
 		return 0, err
 	}
 	if !resp.Succeeded {
-		return 0, errors.New("key exists")
+		return 0, fmt.Errorf("%w: key exists", ErrConflict)
 	}
 
 	return resp.Header.Revision, nil
@@ -246,7 +259,7 @@ func (c *client) Update(ctx context.Context, key string, revision int64, value [
 		return 0, err
 	}
 	if !resp.Succeeded {
-		return 0, fmt.Errorf("revision %d doesnt match", revision)
+		return 0, fmt.Errorf("%w: revision %d doesnt match", ErrConflict, revision)
 	}
 
 	return resp.Header.Revision, nil
