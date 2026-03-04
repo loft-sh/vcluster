@@ -68,6 +68,10 @@ func Install(ctx context.Context, options *InstallOptions) error {
 		return err
 	}
 
+	if err := installUsrLocalBinVClusterLink(ctx, ic.dataDir); err != nil {
+		return err
+	}
+
 	if err := installPKIs(ctx, ic.pkis, ic.dataDir); err != nil {
 		return err
 	}
@@ -504,6 +508,27 @@ func installBinaries(ctx context.Context, binaries map[string]string, dataDir st
 			return fmt.Errorf("failed to set permissions for vclucster binary: %w", err)
 		}
 	}
+
+	return nil
+}
+
+// installUsrLocalBinVClusterLink creates a symlink for the vcluster cli binary in /usr/local/bin.
+func installUsrLocalBinVClusterLink(ctx context.Context, dataDir string) error {
+	log := klog.FromContext(ctx)
+
+	srcPath := filepath.Join(dataDir, "bin", "vcluster-cli")
+	dstPath := "/usr/local/bin/vcluster"
+
+	if _, err := os.Stat(dstPath); err == nil {
+		log.Info("vCluster cli already exists at path", "path", dstPath)
+		return nil
+	}
+
+	if err := os.Symlink(srcPath, dstPath); err != nil {
+		return fmt.Errorf("failed to create symlink for vcluster cli: %w", err)
+	}
+
+	log.Info("Created symlink for vcluster cli", "src", srcPath, "dst", dstPath)
 
 	return nil
 }
