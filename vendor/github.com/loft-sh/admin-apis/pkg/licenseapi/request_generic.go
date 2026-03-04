@@ -4,7 +4,7 @@ package licenseapi
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=true
 type GenericRequestInput struct {
-	*InstanceTokenAuth `json:",omitempty" hash:"-"`
+	*InstanceTokenAuth `json:",inline,omitempty" hash:"-"`
 
 	// Payload provides the json encoded payload
 	// +optional
