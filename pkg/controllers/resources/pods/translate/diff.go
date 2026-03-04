@@ -56,8 +56,18 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	// physical pod so that the physical API server increments metadata.generation and the
 	// kubelet updates status.observedGeneration (required by PodObservedGenerationTracking)
 	if !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Tolerations, event.Virtual.Spec.Tolerations) {
-		// new physical tolerations = new virtual tolerations + configured enforced tolerations
-		pPod.Spec.Tolerations = append(append([]corev1.Toleration{}, event.Virtual.Spec.Tolerations...), t.enforcedTolerations...)
+		newTolerations := append([]corev1.Toleration{}, event.Virtual.Spec.Tolerations...)
+		for _, toleration := range t.enforcedTolerations {
+			if !hasToleration(newTolerations, toleration) {
+				newTolerations = append(newTolerations, toleration)
+			}
+		}
+		for _, hostTol := range event.Host.Spec.Tolerations {
+			if !hasToleration(newTolerations, hostTol) {
+				newTolerations = append(newTolerations, hostTol)
+			}
+		}
+		pPod.Spec.Tolerations = newTolerations
 	}
 
 	// spec diff
@@ -261,4 +271,14 @@ func (t *translator) convertResourceClaimStatuses(ctx *synccontext.SyncContext, 
 		}
 	}
 	return nil
+}
+
+// hasToleration reports whether tol is already present in the slice.
+func hasToleration(tolerations []corev1.Toleration, tol corev1.Toleration) bool {
+	for _, t := range tolerations {
+		if apiequality.Semantic.DeepEqual(t, tol) {
+			return true
+		}
+	}
+	return false
 }
