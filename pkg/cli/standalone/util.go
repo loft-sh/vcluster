@@ -65,11 +65,13 @@ func lookupDataDir(configPath string) (string, error) {
 	return dataDir, nil
 }
 
-// configPartialUnmarshal unmarshals only the standalone control plane configuration from a byte array.
+// configPartialUnmarshal unmarshals only the install relevant configuration from a byte array.
 func configPartialUnmarshal(configBytes []byte) (*config.Config, error) {
 	var partialConfig struct {
 		ControlPlane struct {
-			Standalone config.Standalone `json:"standalone,omitempty"`
+			Standalone struct {
+				DataDir string `json:"dataDir,omitempty"`
+			} `json:"standalone,omitempty"`
 		} `json:"controlPlane,omitempty"`
 	}
 
@@ -79,7 +81,9 @@ func configPartialUnmarshal(configBytes []byte) (*config.Config, error) {
 
 	return &config.Config{
 		ControlPlane: config.ControlPlane{
-			Standalone: partialConfig.ControlPlane.Standalone,
+			Standalone: config.Standalone{
+				DataDir: partialConfig.ControlPlane.Standalone.DataDir,
+			},
 		},
 	}, nil
 }
