@@ -532,7 +532,7 @@ func installUsrLocalBinVClusterLink(ctx context.Context, dataDir string) error {
 	srcPath := filepath.Join(dataDir, "bin", "vcluster-cli")
 	dstPath := "/usr/local/bin/vcluster"
 
-	if _, err := os.Stat(dstPath); err == nil {
+	if _, err := os.Lstat(dstPath); err == nil {
 		log.Info("vCluster cli already exists at path", "path", dstPath)
 		return nil
 	}
