@@ -74,7 +74,7 @@ $ vcluster standalone install --join "https:/host:port/node/join?token=xxxxxxx.y
 func parseExtraEnv(extraEnv []string) (map[string]string, error) {
 	env := make(map[string]string)
 	for _, keyAndValue := range extraEnv {
-		parts := strings.Split(keyAndValue, "=")
+		parts := strings.SplitN(keyAndValue, "=", 2)
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid extra-env format: %s", keyAndValue)
 		}

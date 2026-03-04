@@ -41,9 +41,9 @@ func TestParseExtraEnv(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name:      "multiple spaces",
-			input:     []string{"KEY=values=with=separator"},
-			expectErr: true,
+			name:     "multiple spaces",
+			input:    []string{"KEY=values=with=separator"},
+			expected: map[string]string{"KEY": "values=with=separator"},
 		},
 		{
 			name: "valid env variable with spaces",
