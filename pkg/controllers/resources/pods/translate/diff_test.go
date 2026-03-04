@@ -89,6 +89,20 @@ func TestDiffTolerationSync(t *testing.T) {
 			expectedHostNewTols: []corev1.Toleration{initialToleration, newToleration, enforcedToleration, admissionToleration},
 		},
 		{
+			name:                "drift recovery: enforced toleration missing from host is re-added even when virtual tolerations unchanged",
+			virtualOldTols:      []corev1.Toleration{initialToleration},
+			virtualNewTols:      []corev1.Toleration{initialToleration}, // VirtualOld == Virtual (synthesized after restart)
+			hostTols:            []corev1.Toleration{initialToleration}, // enforced toleration missing due to drift
+			expectedHostNewTols: []corev1.Toleration{initialToleration, enforcedToleration},
+		},
+		{
+			name:                "drift recovery: virtual toleration missing from host is re-added even when virtual tolerations unchanged",
+			virtualOldTols:      []corev1.Toleration{initialToleration, newToleration},
+			virtualNewTols:      []corev1.Toleration{initialToleration, newToleration},      // VirtualOld == Virtual (synthesized after restart)
+			hostTols:            []corev1.Toleration{initialToleration, enforcedToleration}, // newToleration missing from host
+			expectedHostNewTols: []corev1.Toleration{initialToleration, newToleration, enforcedToleration},
+		},
+		{
 			name:           "race: toleration added to host after HostOld snapshot is preserved",
 			virtualOldTols: []corev1.Toleration{initialToleration},
 			virtualNewTols: []corev1.Toleration{initialToleration, newToleration},

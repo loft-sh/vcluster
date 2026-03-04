@@ -51,11 +51,28 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 		return err
 	}
 
-	// sync toleration changes from virtual to physical
-	// when tolerations are added or removed from the virtual pod, propagate them to the
-	// physical pod so that the physical API server increments metadata.generation and the
-	// kubelet updates status.observedGeneration (required by PodObservedGenerationTracking)
-	if !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Tolerations, event.Virtual.Spec.Tolerations) {
+	// sync toleration changes from virtual to physical.
+	// Fire when virtual tolerations changed OR when the host pod is missing a required toleration
+	// (drift recovery: after a syncer restart VirtualOld is synthesized from the current object,
+	// so VirtualOld == Virtual even if the host never received a previous virtual edit).
+	needsTolerationSync := !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Tolerations, event.Virtual.Spec.Tolerations)
+	if !needsTolerationSync {
+		for _, tol := range event.Virtual.Spec.Tolerations {
+			if !hasToleration(event.Host.Spec.Tolerations, tol) {
+				needsTolerationSync = true
+				break
+			}
+		}
+	}
+	if !needsTolerationSync {
+		for _, tol := range t.enforcedTolerations {
+			if !hasToleration(event.Host.Spec.Tolerations, tol) {
+				needsTolerationSync = true
+				break
+			}
+		}
+	}
+	if needsTolerationSync {
 		newTolerations := append([]corev1.Toleration{}, event.Virtual.Spec.Tolerations...)
 		for _, toleration := range t.enforcedTolerations {
 			if !hasToleration(newTolerations, toleration) {
