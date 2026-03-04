@@ -30,7 +30,7 @@ func Reset(ctx context.Context, config string) error {
 		return err
 	}
 
-	if err := killAnyRenamingProcesses(ctx, dataDir); err != nil {
+	if err := killAnyRemainingProcesses(ctx, dataDir); err != nil {
 		return err
 	}
 
@@ -60,8 +60,8 @@ func deleteService(ctx context.Context) error {
 	return nil
 }
 
-// killAnyRenamingProcesses best-effort kill of any remaining vcluster processes.
-func killAnyRenamingProcesses(ctx context.Context, dataDir string) error {
+// killAnyRemainingProcesses best-effort kill of any remaining vcluster processes.
+func killAnyRemainingProcesses(ctx context.Context, dataDir string) error {
 	log := klog.FromContext(ctx)
 
 	if err := exec.CommandContext(ctx, "pkill", "-f", filepath.Join(dataDir, "bin", "vcluster")).Run(); err != nil {
