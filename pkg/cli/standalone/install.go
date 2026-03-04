@@ -490,8 +490,14 @@ func installBinaries(ctx context.Context, binaries map[string]string, dataDir st
 	for relPah, srcPath := range binaries {
 		dstPath := filepath.Join(binDir, relPah)
 		log.Info("Installing vcluster binary", "src", srcPath, "dst", dstPath)
-		if err := util.CopyFile(srcPath, dstPath); err != nil {
-			return fmt.Errorf("failed to copy vcluster binary: %w", err)
+
+		newDstPath := dstPath + ".new"
+		if err := util.CopyFile(srcPath, newDstPath); err != nil {
+			return fmt.Errorf("failed to copy %s to %s: %w", srcPath, dstPath, err)
+		}
+
+		if err := os.Rename(newDstPath, dstPath); err != nil {
+			return fmt.Errorf("failed to rename %s to %s: %w", newDstPath, dstPath, err)
 		}
 
 		if err := os.Chmod(dstPath, 0755); err != nil {
