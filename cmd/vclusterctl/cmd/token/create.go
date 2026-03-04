@@ -87,11 +87,7 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 		if platformEndpoint != "" {
 			fmt.Printf("curl -fsSLk \"%s/node/join?token=%s\" | sh -\n", platformEndpoint, url.QueryEscape(token))
 		} else {
-			if cmd.ControlPlane {
-				fmt.Printf("vcluster standalone install --join \"https://%s/node/join?token=%s\"\n", apiEndpoint, url.QueryEscape(token))
-			} else {
-				fmt.Printf("curl -fsSLk \"https://%s/node/join?token=%s\" | sh -\n", apiEndpoint, url.QueryEscape(token))
-			}
+			fmt.Printf("curl -fsSLk \"https://%s/node/join?token=%s\" | sh -\n", apiEndpoint, url.QueryEscape(token))
 		}
 	}
 
