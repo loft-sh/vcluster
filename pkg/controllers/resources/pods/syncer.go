@@ -44,7 +44,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
-	"github.com/loft-sh/vcluster/pkg/util/toleration"
 )
 
 var (
@@ -68,17 +67,6 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	if len(ctx.Config.Sync.FromHost.Nodes.Selector.Labels) > 0 {
 		nodeSelector = &metav1.LabelSelector{
 			MatchLabels: ctx.Config.Sync.FromHost.Nodes.Selector.Labels,
-		}
-	}
-
-	// parse tolerations
-	var tolerations []*corev1.Toleration
-	if len(ctx.Config.Sync.ToHost.Pods.EnforceTolerations) > 0 {
-		for _, t := range ctx.Config.Sync.ToHost.Pods.EnforceTolerations {
-			tol, err := toleration.ParseToleration(t)
-			if err == nil {
-				tolerations = append(tolerations, &tol)
-			}
 		}
 	}
 
@@ -129,7 +117,6 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		physicalClusterConfig: ctx.HostManager.GetConfig(),
 		podTranslator:         podTranslator,
 		nodeSelector:          nodeSelector,
-		tolerations:           tolerations,
 
 		hostClusterVersion: hostClusterVersion,
 
@@ -150,7 +137,6 @@ type podSyncer struct {
 	physicalClusterClient kubernetes.Interface
 	physicalClusterConfig *rest.Config
 	nodeSelector          *metav1.LabelSelector
-	tolerations           []*corev1.Toleration
 
 	hostClusterVersion *utilversion.Version
 
@@ -225,15 +211,10 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		}
 	}
 
-	// translate the pod
+	// translate the pod (enforced tolerations are applied inside Translate)
 	pPod, err := s.translate(ctx, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-
-	// ensure tolerations
-	for _, tol := range s.tolerations {
-		pPod.Spec.Tolerations = append(pPod.Spec.Tolerations, *tol)
 	}
 
 	// ensure node selector
