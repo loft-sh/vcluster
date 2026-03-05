@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/blang/semver/v4"
@@ -27,8 +28,7 @@ const (
 
 func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger, delegateFromCLIToCluster bool) error {
 	// init kube client and vCluster
-	snapshotOpts.DelegateFromCLIToCluster = delegateFromCLIToCluster
-	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log)
+	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, delegateFromCLIToCluster)
 	if err != nil {
 		return err
 	}
@@ -65,9 +65,16 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 }
 
 func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, log log.Logger) error {
-	snapshotOpts.DelegateFromCLIToCluster = snapshotOpts.Type == "container"
+	snapshotURL := args[1]
+	parsedURL, err := url.Parse(snapshotURL)
+	if err != nil {
+		return fmt.Errorf("failed to parse snapshot URL: %w", err)
+	}
+	// We run get command inside Pod only for snapshots stored in a container. In other cases the
+	// command runs on a local machine.
+	credentialsRequiredInCluster := parsedURL.Scheme == "container"
 	// init kube client and vCluster
-	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log)
+	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, credentialsRequiredInCluster)
 	if err != nil {
 		return fmt.Errorf("failed to init snapshot command: %w", err)
 	}
@@ -90,49 +97,21 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 	return nil
 }
 
-func fillSnapshotOptions(ctx context.Context, snapshotURL string, snapshotOptions *snapshot.Options) error {
-	// parse snapshot url
-	err := snapshot.Parse(snapshotURL, snapshotOptions)
-	if err != nil {
-		return fmt.Errorf("parse snapshot url: %w", err)
-	}
-
-	// storage needs to be either s3 or file
-	err = snapshot.Validate(snapshotOptions, false)
-	if err != nil {
-		return fmt.Errorf("validate: %w", err)
-	}
-
-	// try to fill in oci options
-	switch snapshotOptions.Type {
-	case "oci":
-		snapshotOptions.OCI.FillCredentials(true)
-	case "s3":
-		snapshotOptions.S3.FillCredentials(true)
-	case "azure":
-		err = snapshotOptions.Azure.FillCredentials(ctx, snapshotOptions.DelegateFromCLIToCluster)
-		if err != nil {
-			return fmt.Errorf("failed to fill azure credentials: %w", err)
-		}
-	}
-	return nil
-}
-
 func initSnapshotCommand(
 	ctx context.Context,
 	args []string,
 	globalFlags *flags.GlobalFlags,
 	snapshotOptions *snapshot.Options,
 	log log.Logger,
+	credentialsRequiredInCluster bool,
 ) (*find.VCluster, *kubernetes.Clientset, *rest.Config, error) {
 	if len(args) != 2 {
 		return nil, nil, nil, fmt.Errorf("unexpected amount of arguments: %d, need exactly 2 arguments. E.g. vcluster [snapshot|restore] my-vcluster s3://my-bucket/my-key", len(args))
 	}
 
-	// parse snapshot url
-	err := fillSnapshotOptions(ctx, args[1], snapshotOptions)
+	err := snapshotOptions.SetURLAndFillCredentials(ctx, args[1], credentialsRequiredInCluster)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("failed to set snapshot url and fill credentials: %w", err)
 	}
 
 	// find the vCluster

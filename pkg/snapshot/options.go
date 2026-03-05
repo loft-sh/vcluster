@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -53,6 +54,29 @@ func (o *Options) GetURL() string {
 	}
 
 	return snapshotURL
+}
+
+func (o *Options) SetURLAndFillCredentials(ctx context.Context, url string, credentialsRequiredInCluster bool) error {
+	err := Parse(url, o)
+	if err != nil {
+		return fmt.Errorf("failed to parse snapshot URL: %w", err)
+	}
+	err = Validate(o, false)
+	if err != nil {
+		return fmt.Errorf("invalid snapshot URL: %w", err)
+	}
+	switch o.Type {
+	case "oci":
+		o.OCI.FillCredentials(true)
+	case "s3":
+		o.S3.FillCredentials(true)
+	case "azure":
+		err := o.Azure.FillCredentials(ctx, credentialsRequiredInCluster)
+		if err != nil {
+			return fmt.Errorf("failed to fill azure credentials: %w", err)
+		}
+	}
+	return nil
 }
 
 type HelmRelease struct {
