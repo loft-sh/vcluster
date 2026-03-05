@@ -49,6 +49,7 @@ type VCluster struct {
 	Status                 Status
 	Context                string
 	Version                string
+	IsStandalone           bool
 }
 
 type Status string
@@ -464,6 +465,16 @@ func findInContext(ctx context.Context, kubeClient kube.Interface, context, name
 		}
 	}
 
+	// get standalone vcluster
+	standaloneVCluster, err := getStandaloneVCluster(ctx, kubeClient, kubeClientConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	if standaloneVCluster != nil && (name == "" || name == standaloneVCluster.Name) {
+		vclusters = append(vclusters, *standaloneVCluster)
+	}
+
 	return vclusters, nil
 }
 
@@ -704,6 +715,37 @@ func isPaused(v client.Object) bool {
 	labels := v.GetLabels()
 
 	return annotations[constants.PausedAnnotation(false)] == "true" || labels[sleepmode.Label] == "true"
+}
+
+// getStandaloneVCluster returns a VCluster struct populated for a standalone environment.
+func getStandaloneVCluster(ctx context.Context, kubeClient kube.Interface, kubeClientConfig clientcmd.ClientConfig) (*VCluster, error) {
+	// get vcluster name and version from the annotations on the default kubernetes service
+	service, err := kubeClient.CoreV1().Services("default").Get(ctx, "kubernetes", metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default kubernetes service: %w", err)
+	}
+
+	name, ok := service.Annotations[constants.VClusterStandaloneNameAnnotation]
+	if !ok {
+		// not a standalone vcluster, return
+
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	version, ok := service.Annotations[constants.VClusterStandaloneVersionAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("standalone vcluster version annotation is not set")
+	}
+
+	return &VCluster{
+		Name:          name,
+		ClientFactory: kubeClientConfig,
+		Created:       service.CreationTimestamp,
+		Version:       version,
+		Status:        StatusRunning,
+		IsStandalone:  true,
+	}, nil
 }
 
 // isVirtualClusterInstanceResourceAvailable checks if VirtualClusterInstance resources from storage.loft.sh/v1 exist
