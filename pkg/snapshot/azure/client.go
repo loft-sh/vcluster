@@ -61,32 +61,36 @@ func getBlobInfo(blobURL string) (BlobInfo, error) {
 }
 
 // newBlobClient creates an Azure blob client from BlobInfo and a full blob URL with SAS token
-func newBlobClient(ctx context.Context, subscriptionID, resourceGroup string, info BlobInfo, blobURL string, useDefaultCredentials bool) (*blockblob.Client, error) {
+func newBlobClient(ctx context.Context, subscriptionID, resourceGroup string, info BlobInfo, blobURL string, useSASTokenFromBlobURL bool) (*blockblob.Client, error) {
 	var blobClient *blockblob.Client
 	var err error
-	if useDefaultCredentials {
-		// Use default Azure credentials for authentication, then get storage account key. Finally, use storage account
-		// key to create a new SAS token.
-		//
-		// From Azure SDK go docs:
-		//   DefaultAzureCredential attempts to authenticate with each of these credential types, in the following order,
-		//   stopping when one provides a token:
-		//      1. EnvironmentCredential
-		//      2. WorkloadIdentityCredential, if environment variable configuration is set by the Azure workload identity webhook.
-		//      3. ManagedIdentityCredential
-		//      4. AzureCLICredential
-		//      5. AzureDeveloperCLICredential
-		//      6. AzurePowerShellCredential
-		// More details in go docs here https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity#DefaultAzureCredential.
-		//
-		// TODO: Caveat here is that the default Azure credentials must be able to get storage account key here. In case
-		//  the default Azure credentials cannot list storage keys, as an alternative approach, implement directly
-		//  using the default Azure credentials to create the blob client.
-		//
+	if useSASTokenFromBlobURL {
+		// Create the block blob client with SAS token (no credentials needed, token is in URL)
+		blobClient, err = blockblob.NewClientWithNoCredential(blobURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create blob client with SAS token: %w", err)
+		}
+	} else {
 		var storageKey string
 		if key := os.Getenv(StorageKeyEnvVar); key != "" {
+			//
+			// Create a blob client with the specified storage key
+			//
 			storageKey = key
 		} else {
+			// Use default Azure credentials for authentication, then get storage account key. Finally, use storage account
+			// key to create a new SAS token.
+			//
+			// From Azure SDK go docs:
+			//   DefaultAzureCredential attempts to authenticate with each of these credential types, in the following order,
+			//   stopping when one provides a token:
+			//      1. EnvironmentCredential
+			//      2. WorkloadIdentityCredential, if environment variable configuration is set by the Azure workload identity webhook.
+			//      3. ManagedIdentityCredential
+			//      4. AzureCLICredential
+			//      5. AzureDeveloperCLICredential
+			//      6. AzurePowerShellCredential
+			// More details in go docs here https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity#DefaultAzureCredential.
 			var defaultCredential *azidentity.DefaultAzureCredential
 			defaultCredential, err = azidentity.NewDefaultAzureCredential(nil)
 			if err != nil {
@@ -125,12 +129,6 @@ func newBlobClient(ctx context.Context, subscriptionID, resourceGroup string, in
 		blobClient, err = blockblob.NewClientWithSharedKeyCredential(blobURL, sharedKeyCredential, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create blob client with default Azure credentials: %w", err)
-		}
-	} else {
-		// Create the block blob client with SAS token (no credentials needed, token is in URL)
-		blobClient, err = blockblob.NewClientWithNoCredential(blobURL, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create blob client with SAS token: %w", err)
 		}
 	}
 
