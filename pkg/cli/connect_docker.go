@@ -102,7 +102,7 @@ func (cmd *connectDocker) connect(ctx context.Context, vClusterName string, comm
 
 	// wait for vCluster to become ready (unless just printing)
 	if !cmd.ConnectOptions.Print {
-		err = cmd.waitForVCluster(ctx, vClusterName, *kubeConfig)
+		err = cmd.waitForVCluster(ctx, *kubeConfig)
 		if err != nil {
 			return fmt.Errorf("failed connecting to vcluster: %w", err)
 		}
@@ -244,7 +244,7 @@ func (cmd *connectDocker) exchangeContextName(kubeConfig *clientcmdapi.Config) e
 	return nil
 }
 
-func (cmd *connectDocker) waitForVCluster(ctx context.Context, vClusterName string, kubeConfig clientcmdapi.Config) error {
+func (cmd *connectDocker) waitForVCluster(ctx context.Context, kubeConfig clientcmdapi.Config) error {
 	cmd.log.Infof("Waiting for vCluster to become ready...")
 
 	restConfig, err := clientcmd.NewDefaultClientConfig(kubeConfig, &clientcmd.ConfigOverrides{}).ClientConfig()
@@ -275,6 +275,16 @@ func (cmd *connectDocker) waitForVCluster(ctx context.Context, vClusterName stri
 
 	cmd.log.Donef("vCluster is ready")
 	return nil
+}
+
+func getKubeletLogs(ctx context.Context, vClusterName string) string {
+	args := []string{"exec", getControlPlaneContainerName(vClusterName), "journalctl", "-u", "kubelet.service", "--no-pager", "-e"}
+	out, _ := exec.CommandContext(ctx, "docker", args...).Output()
+	outStr := strings.TrimSpace(string(out))
+	if outStr == "-- No entries --" {
+		return ""
+	}
+	return outStr
 }
 
 func getVClusterLogs(ctx context.Context, vClusterName string) string {
