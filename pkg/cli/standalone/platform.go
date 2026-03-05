@@ -5,7 +5,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"text/template"
+
+	"k8s.io/klog/v2"
 )
 
 // AddToPlatformOptions holds the configuration for connecting a standalone vcluster to the vCluster Platform.
@@ -26,6 +29,24 @@ func AddToPlatform(ctx context.Context, options *AddToPlatformOptions) error {
 
 	if err := restartService(ctx); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// createPlatformConf writes the vCluster Platform configuration to a systemd drop-in file.
+func createPlatformConf(ctx context.Context, options *AddToPlatformOptions) error {
+	platformConfFileBytes, err := renderSystemdPlatformConfFile(options)
+	if err != nil {
+		return fmt.Errorf("failed to render systemd vcluster platform conf file: %w", err)
+	}
+
+	if err := os.MkdirAll("/etc/systemd/system/vcluster.service.d", 0700); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	if err := os.WriteFile("/etc/systemd/system/vcluster.service.d/platform.conf", platformConfFileBytes, 0600); err != nil {
+		return fmt.Errorf("failed to write systemd service file: %w", err)
 	}
 
 	return nil
@@ -55,19 +76,17 @@ Environment=LOFT_PLATFORM_PROJECT_NAME="{{.options.ProjectName}}"
 	return buf.Bytes(), nil
 }
 
-// createPlatformConf writes the vCluster Platform configuration to a systemd drop-in file.
-func createPlatformConf(ctx context.Context, options *AddToPlatformOptions) error {
-	platformConfFileBytes, err := renderSystemdPlatformConfFile(options)
-	if err != nil {
-		return fmt.Errorf("failed to render systemd vcluster platform conf file: %w", err)
+// restartService reloads the systemd daemon and restarts the vcluster service.
+func restartService(ctx context.Context) error {
+	log := klog.FromContext(ctx)
+
+	log.Info("Restarting vcluster.service")
+	if err := exec.CommandContext(ctx, "systemctl", "daemon-reload").Run(); err != nil {
+		return fmt.Errorf("failed to systemctl daemon-reload: %w", err)
 	}
 
-	if err := os.MkdirAll("/etc/systemd/system/vcluster.service.d", 0700); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	if err := os.WriteFile("/etc/systemd/system/vcluster.service.d/platform.conf", platformConfFileBytes, 0600); err != nil {
-		return fmt.Errorf("failed to write systemd service file: %w", err)
+	if err := exec.CommandContext(ctx, "systemctl", "restart", "vcluster.service").Run(); err != nil {
+		return fmt.Errorf("failed to start vcluster: %w", err)
 	}
 
 	return nil
