@@ -51,14 +51,7 @@ func extract(reader io.Reader, targetDir string) error {
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
 		case tar.TypeReg:
-			targetPath := filepath.Join(targetDir, header.Name)
-
-			// account for missing typeDir parent entries.
-			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-				return err
-			}
-
-			outFile, err := os.Create(targetPath)
+			outFile, err := os.Create(filepath.Join(targetDir, header.Name))
 			if err != nil {
 				return fmt.Errorf("failed to create file %s: %w", header.Name, err)
 			}
@@ -66,7 +59,7 @@ func extract(reader io.Reader, targetDir string) error {
 				return fmt.Errorf("failed to copy file %s: %w", header.Name, err)
 			}
 			outFile.Close()
-			if err := os.Chmod(targetPath, header.FileInfo().Mode()); err != nil {
+			if err := os.Chmod(filepath.Join(targetDir, header.Name), header.FileInfo().Mode()); err != nil {
 				return fmt.Errorf("failed to chmod file %s: %w", header.Name, err)
 			}
 
