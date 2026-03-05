@@ -932,3 +932,57 @@ func TestDiffResourceClaimStatus(t *testing.T) {
 		})
 	}
 }
+
+// TestTranslateEnforcedTolerationDedup verifies that Translate() does not produce duplicate
+// tolerations when the virtual pod already contains a toleration that is also listed in
+// enforceTolerations config. Before the fix, Translate() blindly appended enforced tolerations
+// without checking for duplicates, while Diff() correctly deduplicated them — an inconsistency.
+func TestTranslateEnforcedTolerationDedup(t *testing.T) {
+	pClient := testingutil.NewFakeClient(scheme.Scheme)
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+	imageTranslator, err := NewImageTranslator(map[string]string{})
+	assert.NilError(t, err)
+
+	enforcedToleration := corev1.Toleration{
+		Key:      "vcluster-enforced",
+		Operator: corev1.TolerationOpExists,
+		Effect:   corev1.TaintEffectNoSchedule,
+	}
+
+	tr := &translator{
+		eventRecorder:       events.NewFakeRecorder(10),
+		log:                 loghelper.New("translate-dedup-test"),
+		vClient:             vClient,
+		pClient:             pClient,
+		imageTranslator:     imageTranslator,
+		enforcedTolerations: []corev1.Toleration{enforcedToleration},
+	}
+
+	registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
+	syncCtx := registerCtx.ToSyncContext("test")
+
+	assert.NilError(t, vClient.Create(syncCtx.Context, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "testns"},
+	}))
+
+	// Virtual pod already carries the enforced toleration.
+	vPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "testpod", Namespace: "testns"},
+		Spec: corev1.PodSpec{
+			Tolerations: []corev1.Toleration{enforcedToleration},
+			Containers:  []corev1.Container{{Name: "c", Image: "nginx"}},
+		},
+	}
+
+	pPod, err := tr.Translate(syncCtx, vPod, nil, "", "")
+	assert.NilError(t, err)
+
+	// Count how many times the enforced toleration appears on the physical pod.
+	count := 0
+	for _, tol := range pPod.Spec.Tolerations {
+		if tol.Key == enforcedToleration.Key && tol.Operator == enforcedToleration.Operator && tol.Effect == enforcedToleration.Effect {
+			count++
+		}
+	}
+	assert.Equal(t, count, 1, "enforced toleration must appear exactly once on the physical pod, got %d", count)
+}
