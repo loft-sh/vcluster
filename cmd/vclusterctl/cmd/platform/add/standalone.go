@@ -1,6 +1,7 @@
 package add
 
 import (
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/standalone"
 	"github.com/spf13/cobra"
 )
@@ -26,7 +27,7 @@ vcluster platform add standalone my-cluster --project my-project --access-key my
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			options.InstanceName = args[0]
-			return standalone.AddToPlatform(cobraCmd.Context(), options)
+			return standalone.AddToPlatform(cobraCmd.Context(), log.GetInstance(), options)
 		},
 	}
 

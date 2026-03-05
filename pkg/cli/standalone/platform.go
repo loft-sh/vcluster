@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"text/template"
 
-	"k8s.io/klog/v2"
+	"github.com/loft-sh/log"
 )
 
 // AddToPlatformOptions holds the configuration for connecting a standalone vcluster to the vCluster Platform.
@@ -22,11 +23,17 @@ type AddToPlatformOptions struct {
 
 // AddToPlatform configures the standalone vcluster to connect to the vCluster Platform by creating a systemd
 // configuration file and restarting the vcluster service.
-func AddToPlatform(ctx context.Context, options *AddToPlatformOptions) error {
-	if err := createPlatformConf(ctx, options); err != nil {
+func AddToPlatform(ctx context.Context, log log.Logger, options *AddToPlatformOptions) error {
+	if err := preflightChecks(); err != nil {
 		return err
 	}
 
+	log.Info("Creating systemd vcluster service platform conf drop-in file")
+	if err := createPlatformConf(options); err != nil {
+		return err
+	}
+
+	log.Info("Restarting vcluster.service")
 	if err := restartService(ctx); err != nil {
 		return err
 	}
@@ -34,8 +41,39 @@ func AddToPlatform(ctx context.Context, options *AddToPlatformOptions) error {
 	return nil
 }
 
+// preflightChecks ensures the system meets the requirements for a vCluster Standalone installation.
+func preflightChecks() error {
+	// validate supported OS and ARCH
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("only Linux OS is supported")
+	}
+
+	if runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64" {
+		return fmt.Errorf("only amd64 and arm64 architectures are supported")
+	}
+
+	// Check if systemctl is installed
+	_, err := exec.LookPath("systemctl")
+	if err != nil {
+		return fmt.Errorf("systemctl is not installed. This installer only works on systems that use systemd: %w", err)
+	}
+
+	// Ensure we're running as root
+	if os.Getuid() != 0 {
+		return fmt.Errorf("this installer needs the ability to run commands as root")
+	}
+
+	return nil
+}
+
 // createPlatformConf writes the vCluster Platform configuration to a systemd drop-in file.
-func createPlatformConf(ctx context.Context, options *AddToPlatformOptions) error {
+func createPlatformConf(options *AddToPlatformOptions) error {
+	// check if vcluster service exists
+	if _, err := os.Stat("/etc/systemd/system/vcluster.service"); err != nil {
+		return fmt.Errorf("vcluster service not found: %w", err)
+	}
+
+	// create systemd platform conf file
 	platformConfFileBytes, err := renderSystemdPlatformConfFile(options)
 	if err != nil {
 		return fmt.Errorf("failed to render systemd vcluster platform conf file: %w", err)
@@ -78,9 +116,6 @@ Environment=LOFT_PLATFORM_PROJECT_NAME="{{.options.ProjectName}}"
 
 // restartService reloads the systemd daemon and restarts the vcluster service.
 func restartService(ctx context.Context) error {
-	log := klog.FromContext(ctx)
-
-	log.Info("Restarting vcluster.service")
 	if err := exec.CommandContext(ctx, "systemctl", "daemon-reload").Run(); err != nil {
 		return fmt.Errorf("failed to systemctl daemon-reload: %w", err)
 	}
