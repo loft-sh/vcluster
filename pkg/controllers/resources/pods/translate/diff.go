@@ -51,49 +51,6 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 		return err
 	}
 
-	// sync toleration changes from virtual to physical.
-	// Fire when virtual tolerations changed OR when the host pod is missing a required toleration
-	// (drift recovery: after a syncer restart VirtualOld is synthesized from the current object,
-	// so VirtualOld == Virtual even if the host never received a previous virtual edit).
-	needsTolerationSync := !apiequality.Semantic.DeepEqual(event.VirtualOld.Spec.Tolerations, event.Virtual.Spec.Tolerations)
-	if !needsTolerationSync {
-		for _, tol := range event.Virtual.Spec.Tolerations {
-			if !hasToleration(event.Host.Spec.Tolerations, tol) {
-				needsTolerationSync = true
-				break
-			}
-		}
-	}
-	if !needsTolerationSync {
-		for _, tol := range t.enforcedTolerations {
-			if !hasToleration(event.Host.Spec.Tolerations, tol) {
-				needsTolerationSync = true
-				break
-			}
-		}
-	}
-	if needsTolerationSync {
-		newTolerations := append([]corev1.Toleration{}, event.Virtual.Spec.Tolerations...)
-		for _, toleration := range t.enforcedTolerations {
-			// Use taint-target equality so that a virtual pod carrying the enforced taint
-			// with a different TolerationSeconds does not produce a duplicate entry.
-			if !hasTolerationForSameTaint(newTolerations, toleration) {
-				newTolerations = append(newTolerations, toleration)
-			}
-		}
-		for _, hostTol := range event.Host.Spec.Tolerations {
-			// Carry forward host-only tolerations that are not already covered
-			// by a virtual or enforced toleration.
-			// Uses taint-target equality (ignoring TolerationSeconds) so that a stale host
-			// variant of a toleration whose TolerationSeconds was just updated in the virtual
-			// pod does not accumulate alongside the updated one.
-			if !hasTolerationForSameTaint(newTolerations, hostTol) {
-				newTolerations = append(newTolerations, hostTol)
-			}
-		}
-		pPod.Spec.Tolerations = newTolerations
-	}
-
 	// spec diff
 	t.calcSpecDiff(pPod, vPod)
 
@@ -177,6 +134,7 @@ func GetExcludedAnnotations(pPod *corev1.Pod) []string {
 // - spec.containers[*].image
 // - spec.initContainers[*].image
 // - spec.activeDeadlineSeconds
+// - spec.tolerations (can be added not removed)
 //
 // TODO: check for ephemereal containers
 func (t *translator) calcSpecDiff(pObj, vObj *corev1.Pod) {
@@ -203,6 +161,23 @@ func (t *translator) calcSpecDiff(pObj, vObj *corev1.Pod) {
 	}
 
 	pObj.Spec.SchedulingGates = vObj.Spec.SchedulingGates
+
+	newTolerations := append([]corev1.Toleration{}, vObj.Spec.Tolerations...)
+	for _, hostTol := range pObj.Spec.Tolerations {
+		// Carry forward host-only tolerations.
+		// If there is a similar tolerations with an different TolerationsSeconds we add the duplicates
+		// and let kubernetes decide the one to use.
+		if !hasToleration(newTolerations, hostTol) {
+			newTolerations = append(newTolerations, hostTol)
+		}
+	}
+	// We add the enforcedTolerations if they are not already present
+	for _, toleration := range t.enforcedTolerations {
+		if !hasToleration(newTolerations, toleration) {
+			newTolerations = append(newTolerations, toleration)
+		}
+	}
+	pObj.Spec.Tolerations = newTolerations
 }
 
 func calcContainerImageDiff(pContainers, vContainers []corev1.Container, translateImages ImageTranslator, skipContainers map[string]bool) []corev1.Container {
@@ -301,20 +276,6 @@ func (t *translator) convertResourceClaimStatuses(ctx *synccontext.SyncContext, 
 func hasToleration(tolerations []corev1.Toleration, tol corev1.Toleration) bool {
 	for _, t := range tolerations {
 		if apiequality.Semantic.DeepEqual(t, tol) {
-			return true
-		}
-	}
-	return false
-}
-
-// hasTolerationForSameTaint reports whether the slice already contains a toleration
-// that targets the same taint as tol (same Key, Operator, Value, and Effect),
-// ignoring TolerationSeconds. Used in the host carry-forward loop to prevent stale
-// variants (e.g. an outdated TolerationSeconds) from being appended alongside the
-// updated version already present in newTolerations.
-func hasTolerationForSameTaint(tolerations []corev1.Toleration, tol corev1.Toleration) bool {
-	for _, t := range tolerations {
-		if t.Key == tol.Key && t.Operator == tol.Operator && t.Value == tol.Value && t.Effect == tol.Effect {
 			return true
 		}
 	}

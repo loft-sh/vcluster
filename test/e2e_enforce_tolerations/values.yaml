@@ -1,5 +1,0 @@
-sync:
-  toHost:
-    pods:
-      enforceTolerations:
-        - "vcluster-e2e-enforced:NoSchedule"

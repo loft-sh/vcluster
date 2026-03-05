@@ -12,14 +12,13 @@ import (
 	"gotest.tools/v3/assert/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 )
 
-// TestDiffTolerationSync verifies that when virtual pod tolerations change, the Diff function
-// propagates the change to the physical pod and ensures config-specified enforced tolerations
-// are always present. This is required for PodObservedGenerationTracking (GA in k8s 1.35):
-// the physical API server must observe the spec change to increment metadata.generation, which
-// the kubelet then reflects in status.observedGeneration.
+// TestDiffTolerationSync verifies toleration reconciliation in calcSpecDiff, which runs
+// unconditionally on every reconcile. The algorithm: (1) start with virtual pod's tolerations,
+// (2) carry forward any host tolerations not already present (full-equality check), (3) append
+// each enforced toleration if not already present — ensuring enforced tolerations are always
+// in the final set without introducing duplicates.
 func TestDiffTolerationSync(t *testing.T) {
 	pClient := testingutil.NewFakeClient(scheme.Scheme)
 	vClient := testingutil.NewFakeClient(scheme.Scheme)
@@ -49,12 +48,6 @@ func TestDiffTolerationSync(t *testing.T) {
 	newToleration := corev1.Toleration{Key: "new-key", Operator: corev1.TolerationOpExists}
 	admissionToleration := corev1.Toleration{Key: "admission-injected", Operator: corev1.TolerationOpExists}
 	lateToleration := corev1.Toleration{Key: "late-webhook", Operator: corev1.TolerationOpExists}
-	noExecOld := corev1.Toleration{Key: "noexec", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoExecute, TolerationSeconds: ptr.To[int64](60)}
-	noExecNew := corev1.Toleration{Key: "noexec", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoExecute, TolerationSeconds: ptr.To[int64](120)}
-	// Same taint target as enforcedToleration but with TolerationSeconds set — used to test
-	// that the enforced dedup loop doesn't produce a duplicate when the virtual pod already
-	// carries the enforced taint with a TolerationSeconds value.
-	enforcedWithSeconds := corev1.Toleration{Key: enforcedToleration.Key, Operator: enforcedToleration.Operator, Effect: enforcedToleration.Effect, TolerationSeconds: ptr.To[int64](300)}
 
 	tests := []struct {
 		name                string
@@ -77,7 +70,7 @@ func TestDiffTolerationSync(t *testing.T) {
 			virtualNewTols: []corev1.Toleration{initialToleration},
 			hostTols:       []corev1.Toleration{initialToleration, newToleration, enforcedToleration},
 			// newToleration stays: Kubernetes additive-only constraint prevents removal from a scheduled pod
-			expectedHostNewTols: []corev1.Toleration{initialToleration, enforcedToleration, newToleration},
+			expectedHostNewTols: []corev1.Toleration{initialToleration, newToleration, enforcedToleration},
 		},
 		{
 			name:                "enforced toleration re-applied even if missing from physical pod",
@@ -108,31 +101,6 @@ func TestDiffTolerationSync(t *testing.T) {
 			virtualNewTols:      []corev1.Toleration{initialToleration, newToleration},      // VirtualOld == Virtual (synthesized after restart)
 			hostTols:            []corev1.Toleration{initialToleration, enforcedToleration}, // newToleration missing from host
 			expectedHostNewTols: []corev1.Toleration{initialToleration, newToleration, enforcedToleration},
-		},
-		{
-			name:                "drift recovery: stale TolerationSeconds on host corrected when virtual tolerations unchanged",
-			virtualOldTols:      []corev1.Toleration{noExecNew}, // VirtualOld == Virtual (synthesized after restart)
-			virtualNewTols:      []corev1.Toleration{noExecNew},
-			hostTols:            []corev1.Toleration{noExecOld, enforcedToleration}, // stale TolerationSeconds=60
-			expectedHostNewTols: []corev1.Toleration{noExecNew, enforcedToleration},
-		},
-		{
-			name:           "enforced toleration dedup: virtual pod carrying enforced taint with TolerationSeconds does not produce duplicate",
-			virtualOldTols: []corev1.Toleration{initialToleration},
-			// virtual pod carries the enforced taint target but with TolerationSeconds set
-			virtualNewTols: []corev1.Toleration{initialToleration, enforcedWithSeconds},
-			hostTols:       []corev1.Toleration{initialToleration, enforcedToleration},
-			// enforcedToleration (no TolerationSeconds) must NOT be appended: enforcedWithSeconds
-			// already covers the same taint target, so the enforced dedup loop must skip it.
-			expectedHostNewTols: []corev1.Toleration{initialToleration, enforcedWithSeconds},
-		},
-		{
-			name:           "tolerationSeconds update: stale host variant is replaced, not duplicated",
-			virtualOldTols: []corev1.Toleration{initialToleration, noExecOld},
-			virtualNewTols: []corev1.Toleration{initialToleration, noExecNew}, // TolerationSeconds increased to 120
-			hostTols:       []corev1.Toleration{initialToleration, noExecOld, enforcedToleration},
-			// noExecOld must not appear alongside noExecNew: both target the same taint
-			expectedHostNewTols: []corev1.Toleration{initialToleration, noExecNew, enforcedToleration},
 		},
 		{
 			name:           "race: toleration added to host after HostOld snapshot is preserved",

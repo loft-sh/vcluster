@@ -426,7 +426,7 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 
 	// apply enforced tolerations from vcluster config, skipping any already present
 	for _, toleration := range t.enforcedTolerations {
-		if !hasTolerationForSameTaint(pPod.Spec.Tolerations, toleration) {
+		if !hasToleration(pPod.Spec.Tolerations, toleration) {
 			pPod.Spec.Tolerations = append(pPod.Spec.Tolerations, toleration)
 		}
 	}
