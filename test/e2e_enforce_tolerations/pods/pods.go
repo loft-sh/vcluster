@@ -191,6 +191,137 @@ var _ = ginkgo.Describe("Pod enforce tolerations", func() {
 		)
 	})
 
+	// Test that a virtual pod carrying the enforced taint target with TolerationSeconds set
+	// does not produce a duplicate on the physical pod.
+	ginkgo.It("Physical pod has no duplicate when virtual pod carries enforced taint with TolerationSeconds", func() {
+		podName := "enforced-tol-seconds-dedup"
+		tolerationSeconds := int64(300)
+
+		_, err := f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: podName},
+			Spec: corev1.PodSpec{
+				// The virtual pod explicitly sets the enforced taint with a TolerationSeconds.
+				// The enforced config entry has the same Key+Effect but no TolerationSeconds.
+				Tolerations: []corev1.Toleration{
+					{
+						Key:               enforcedTolerationKey,
+						Operator:          corev1.TolerationOpExists,
+						Effect:            enforcedTolerationEffect,
+						TolerationSeconds: &tolerationSeconds,
+					},
+				},
+				Containers: []corev1.Container{
+					{
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		err = f.WaitForPodRunning(podName, ns)
+		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+
+		pPodName := translate.Default.HostName(nil, podName, ns)
+		pPod, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(f.Context, pPodName.Name, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+
+		count := countTolerationsByKey(pPod.Spec.Tolerations, enforcedTolerationKey)
+		framework.ExpectEqual(
+			count, 1,
+			"Enforced toleration key %q must appear exactly once; got %d (duplicate from enforced config entry expected to be suppressed)",
+			enforcedTolerationKey, count,
+		)
+	})
+
+	// Test that updating TolerationSeconds on a NoExecute toleration in the virtual cluster
+	// propagates the new value to the physical pod without accumulating a stale duplicate.
+	ginkgo.It("TolerationSeconds update is propagated to host pod without duplicating the stale variant", func() {
+		podName := "tol-seconds-update"
+		const tolKey = "e2e-noexec-seconds"
+		initialSeconds := int64(60)
+		updatedSeconds := int64(120)
+
+		_, err := f.VClusterClient.CoreV1().Pods(ns).Create(f.Context, &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: podName},
+			Spec: corev1.PodSpec{
+				Tolerations: []corev1.Toleration{
+					{
+						Key:               tolKey,
+						Operator:          corev1.TolerationOpExists,
+						Effect:            corev1.TaintEffectNoExecute,
+						TolerationSeconds: &initialSeconds,
+					},
+				},
+				Containers: []corev1.Container{
+					{
+						Name:            testingContainerName,
+						Image:           testingContainerImage,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						SecurityContext: f.GetDefaultSecurityContext(),
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+		framework.ExpectNoError(err)
+
+		err = f.WaitForPodRunning(podName, ns)
+		framework.ExpectNoError(err, "A pod created in the vcluster is expected to be in the Running phase eventually.")
+
+		// Sanity check: physical pod should have exactly one instance of the toleration.
+		pPodName := translate.Default.HostName(nil, podName, ns)
+		pPod, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(f.Context, pPodName.Name, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+		framework.ExpectEqual(
+			countTolerationsByKey(pPod.Spec.Tolerations, tolKey), 1,
+			"Expected exactly one toleration with key %q on the physical pod at creation", tolKey,
+		)
+
+		// Update the virtual pod, increasing TolerationSeconds from 60 to 120.
+		// Kubernetes allows this update (additive-only rules permit increasing TolerationSeconds
+		// on NoExecute tolerations because a longer value is more lenient for a running pod).
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
+			vpod, err := f.VClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+			for i, tol := range vpod.Spec.Tolerations {
+				if tol.Key == tolKey {
+					vpod.Spec.Tolerations[i].TolerationSeconds = &updatedSeconds
+					break
+				}
+			}
+			_, err = f.VClusterClient.CoreV1().Pods(ns).Update(ctx, vpod, metav1.UpdateOptions{})
+			if kerrors.IsConflict(err) {
+				return false, nil
+			}
+			return err == nil, err
+		})
+		framework.ExpectNoError(err, "Failed to update TolerationSeconds on the virtual pod")
+
+		// Wait until the physical pod reflects the updated value.
+		err = wait.PollUntilContextTimeout(f.Context, time.Second, framework.PollTimeout, true, func(ctx context.Context) (bool, error) {
+			pPod, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(ctx, pPodName.Name, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+			return getTolerationSeconds(pPod.Spec.Tolerations, tolKey) == updatedSeconds, nil
+		})
+		framework.ExpectNoError(err, "Physical pod should reflect the updated TolerationSeconds=%d for key %q", updatedSeconds, tolKey)
+
+		// The stale variant (TolerationSeconds=60) must not be present alongside the updated one.
+		pPodAfter, err := f.HostClient.CoreV1().Pods(pPodName.Namespace).Get(f.Context, pPodName.Name, metav1.GetOptions{})
+		framework.ExpectNoError(err)
+		framework.ExpectEqual(
+			countTolerationsByKey(pPodAfter.Spec.Tolerations, tolKey), 1,
+			"Toleration with key %q must appear exactly once; stale TolerationSeconds=%d variant must not be duplicated",
+			tolKey, initialSeconds,
+		)
+	})
+
 	// Test that a toleration added directly on the physical (host) pod
 	// is not dropped when the virtual pod's tolerations are subsequently changed.
 	ginkgo.It("Host-side toleration added directly on the physical pod is not dropped when virtual tolerations change", func() {
@@ -307,4 +438,15 @@ func countTolerationsByKey(tolerations []corev1.Toleration, key string) int {
 		}
 	}
 	return count
+}
+
+// getTolerationSeconds returns the TolerationSeconds value for the first toleration
+// matching key, or 0 if not found or TolerationSeconds is nil.
+func getTolerationSeconds(tolerations []corev1.Toleration, key string) int64 {
+	for _, tol := range tolerations {
+		if tol.Key == key && tol.TolerationSeconds != nil {
+			return *tol.TolerationSeconds
+		}
+	}
+	return 0
 }

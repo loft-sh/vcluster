@@ -75,12 +75,19 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	if needsTolerationSync {
 		newTolerations := append([]corev1.Toleration{}, event.Virtual.Spec.Tolerations...)
 		for _, toleration := range t.enforcedTolerations {
-			if !hasToleration(newTolerations, toleration) {
+			// Use taint-target equality so that a virtual pod carrying the enforced taint
+			// with a different TolerationSeconds does not produce a duplicate entry.
+			if !hasTolerationForSameTaint(newTolerations, toleration) {
 				newTolerations = append(newTolerations, toleration)
 			}
 		}
 		for _, hostTol := range event.Host.Spec.Tolerations {
-			if !hasToleration(newTolerations, hostTol) {
+			// Carry forward host-only tolerations that are not already covered
+			// by a virtual or enforced toleration.
+			// Uses taint-target equality (ignoring TolerationSeconds) so that a stale host
+			// variant of a toleration whose TolerationSeconds was just updated in the virtual
+			// pod does not accumulate alongside the updated one.
+			if !hasTolerationForSameTaint(newTolerations, hostTol) {
 				newTolerations = append(newTolerations, hostTol)
 			}
 		}
@@ -290,10 +297,24 @@ func (t *translator) convertResourceClaimStatuses(ctx *synccontext.SyncContext, 
 	return nil
 }
 
-// hasToleration reports whether tol is already present in the slice.
+// hasToleration reports whether tol is already present in the slice (full equality).
 func hasToleration(tolerations []corev1.Toleration, tol corev1.Toleration) bool {
 	for _, t := range tolerations {
 		if apiequality.Semantic.DeepEqual(t, tol) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasTolerationForSameTaint reports whether the slice already contains a toleration
+// that targets the same taint as tol (same Key, Operator, Value, and Effect),
+// ignoring TolerationSeconds. Used in the host carry-forward loop to prevent stale
+// variants (e.g. an outdated TolerationSeconds) from being appended alongside the
+// updated version already present in newTolerations.
+func hasTolerationForSameTaint(tolerations []corev1.Toleration, tol corev1.Toleration) bool {
+	for _, t := range tolerations {
+		if t.Key == tol.Key && t.Operator == tol.Operator && t.Value == tol.Value && t.Effect == tol.Effect {
 			return true
 		}
 	}
