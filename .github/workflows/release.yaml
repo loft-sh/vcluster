@@ -24,6 +24,7 @@ jobs:
           echo "MinimumVersionTag=$MINIMUM_VERSION_TAG is a stable version"
 
   publish:
+    if: startsWith(github.ref, 'refs/tags/v') == true
     needs: [check_minimum_version_tag]
     name: Publish vcluster
     runs-on: ubuntu-22.04
