@@ -116,14 +116,18 @@ jobs:
         with:
           version: "v3.11.0"
 
-      - name: Set up kind k8s cluster
-        uses: loft-sh/setup-kind@master
+      - name: Set up vind cluster
+        uses: loft-sh/setup-vind@v1
         with:
-          version: "v0.30.0"
-          image: kindest/node:v1.35.0@sha256:4613778f3cfcd10e615029370f5786704559103cf27bef934597ba562b269661
+          version: "v0.32.2-rc.1"
+          kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
+          skipClusterDeletion: "true"
 
-      - name: Testing kind cluster set-up
+      - name: Reset driver to helm
+        run: vcluster use driver helm
+
+      - name: Testing cluster set-up
         run: |
           set -x
           kubectl cluster-info
@@ -143,7 +147,8 @@ jobs:
 
       - name: Setup environment
         run: |
-          kind load image-archive vcluster_syncer
+          docker load -i vcluster_syncer
+          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind ctr -n k8s.io images import -
           chmod +x vcluster && sudo mv vcluster /usr/bin
 
       - name: Run tests - install and delete virtual cluster using kubectl
@@ -193,20 +198,27 @@ jobs:
         with:
           version: "v3.11.0"
 
-      - name: Set up kind k8s cluster
-        uses: loft-sh/setup-kind@master
+      - name: Set up vind cluster
+        uses: loft-sh/setup-vind@v1
         with:
-          version: "v0.30.0"
-          image: kindest/node:v1.35.0@sha256:4613778f3cfcd10e615029370f5786704559103cf27bef934597ba562b269661
+          version: "v0.32.2-rc.1"
+          kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
+          skipClusterDeletion: "true"
 
-      - name: Testing kind cluster set-up
+      - name: Reset driver to helm
+        run: vcluster use driver helm
+
+      - name: Testing cluster set-up
+        id: cluster-info
         run: |
           set -x
           kubectl cluster-info
           kubectl get pods -n kube-system
+          kubectl get nodes
           echo "kubectl config current-context: $(kubectl config current-context)"
           echo "KUBECONFIG env var: ${KUBECONFIG}"
+          echo "HOST_NODE_NAME=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')" >> "$GITHUB_OUTPUT"
 
       - name: Download vcluster cli
         uses: actions/download-artifact@v7
@@ -232,7 +244,7 @@ jobs:
           chmod +x ./vcluster-current
 
           docker load --input vcluster_syncer
-          kind load image-archive vcluster_syncer
+          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind ctr -n k8s.io images import -
           yq eval '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' > ./test/vcluster-current.yaml
 
           ./vcluster-current create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
@@ -250,6 +262,7 @@ jobs:
 
           sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" test/commonValues.yaml
           sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" test/commonValues.yaml
+          sed -i "s|kind-control-plane|${{ steps.cluster-info.outputs.HOST_NODE_NAME }}|g" test/commonValues.yaml
           yq eval -i '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' test/commonValues.yaml
 
           ./vcluster-dev/vcluster create vcluster \
@@ -298,20 +311,27 @@ jobs:
         with:
           version: "v3.11.0"
 
-      - name: Set up kind k8s cluster
-        uses: loft-sh/setup-kind@master
+      - name: Set up vind cluster
+        uses: loft-sh/setup-vind@v1
         with:
-          version: "v0.30.0"
-          image: kindest/node:v1.35.0@sha256:4613778f3cfcd10e615029370f5786704559103cf27bef934597ba562b269661
+          version: "v0.32.2-rc.1"
+          kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
+          skipClusterDeletion: "true"
 
-      - name: Testing kind cluster set-up
+      - name: Reset driver to helm
+        run: vcluster use driver helm
+
+      - name: Testing cluster set-up
+        id: cluster-info
         run: |
           set -x
           kubectl cluster-info
           kubectl get pods -n kube-system
+          kubectl get nodes
           echo "kubectl config current-context: $(kubectl config current-context)"
           echo "KUBECONFIG env var: ${KUBECONFIG}"
+          echo "HOST_NODE_NAME=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')" >> "$GITHUB_OUTPUT"
 
       - name: Setup snapshot-controller and CSI driver
         run: |
@@ -370,9 +390,12 @@ jobs:
           yq eval -i ".controlPlane.distro.${{ matrix.distribution }}.enabled = true" "${{ matrix.test-suite-path }}/../commonValues.yaml"
 
           docker load --input vcluster_syncer
-          kind load image-archive vcluster_syncer
+          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind ctr -n k8s.io images import -
 
           chmod +x vcluster && sudo mv vcluster /usr/bin
+
+          # Replace KinD node hostname with actual vind node name for node sync selector
+          sed -i "s|kind-control-plane|${{ steps.cluster-info.outputs.HOST_NODE_NAME }}|g" "${{ matrix.test-suite-path }}/../commonValues.yaml"
 
           vcluster create "${{ env.VCLUSTER_SUFFIX }}" -n "${{ env.VCLUSTER_NAMESPACE }}" \
           --create-namespace \
@@ -427,6 +450,7 @@ jobs:
           VCLUSTER_NAME=${{ env.VCLUSTER_NAME }} \
           VCLUSTER_NAMESPACE=${{ env.VCLUSTER_NAMESPACE }} \
           VCLUSTER_BACKGROUND_PROXY_IMAGE=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} \
+          HOST_NODE_NAME=${{ steps.cluster-info.outputs.HOST_NODE_NAME }} \
           go test -timeout 40m -mod=vendor -test.v --ginkgo.v --ginkgo.skip='.*NetworkPolicy.*' --ginkgo.fail-fast ${{ matrix.test-suite-path }}
           if kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p >/dev/null 2>/dev/null; then
             echo "vCluster has restarted during testing, failing..."
