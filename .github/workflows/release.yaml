@@ -82,6 +82,33 @@ jobs:
         uses: loft-sh/github-actions/.github/actions/semver-validation@semver-validation/v1
         with:
           version: ${{ steps.get_version.outputs.release_version }}
+      - name: Check if release would downgrade homebrew tap
+        id: check_latest_stable
+        run: |
+          CURRENT_TAG="${{ steps.get_version.outputs.release_version }}"
+          # Only check stable releases. Pre-releases are handled by
+          # goreleaser's skip_upload: auto in .goreleaser.yaml.
+          if [[ "$CURRENT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            # Fetch the current version from the homebrew tap formula.
+            # Only skip if this release would downgrade what's in the tap.
+            TAP_VERSION=$(curl -sfL --max-time 10 \
+              "https://raw.githubusercontent.com/loft-sh/homebrew-tap/main/Formula/vcluster.rb" \
+              | grep -oP 'version "\K[^"]+' || echo "")
+            if [ -n "$TAP_VERSION" ]; then
+              CURRENT_VERSION="${CURRENT_TAG#v}"
+              if [ "$(printf '%s\n' "$CURRENT_VERSION" "$TAP_VERSION" | sort -V | tail -1)" != "$CURRENT_VERSION" ]; then
+                echo "skip_homebrew=true" >> "$GITHUB_OUTPUT"
+                echo "::notice::Skipping Homebrew upload: $CURRENT_TAG would downgrade tap from v$TAP_VERSION"
+              else
+                echo "skip_homebrew=false" >> "$GITHUB_OUTPUT"
+              fi
+            else
+              echo "skip_homebrew=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::Could not determine current tap version, allowing upload"
+            fi
+          else
+            echo "skip_homebrew=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
@@ -95,7 +122,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: "goreleaser/goreleaser-action@v6"
         with:
-          args: release --clean --timeout 60m
+          args: release --clean --timeout 60m ${{ steps.check_latest_stable.outputs.skip_homebrew == 'true' && '--skip=homebrew' || '' }}
           version: "~> v2"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
