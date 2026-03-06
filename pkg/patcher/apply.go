@@ -327,7 +327,7 @@ func logUpdate(ctx context.Context, isStatus bool, direction synccontext.SyncDir
 	// log patch
 	patchMessage := fmt.Sprintf("Apply %s%s patch", directionString, status)
 	patchBytes, _ := client.MergeFrom(beforeObject).Data(afterObject)
-	klog.FromContext(ctx).Info(patchMessage, "kind", afterObject.GetObjectKind().GroupVersionKind().Kind, "object", afterObject.GetNamespace()+"/"+afterObject.GetName(), "patch", sanitizePatchForLog(afterObject, patchBytes))
+	klog.FromContext(ctx).V(1).Info(patchMessage, "kind", afterObject.GetObjectKind().GroupVersionKind().Kind, "object", afterObject.GetNamespace()+"/"+afterObject.GetName(), "patch", sanitizePatchForLog(afterObject, patchBytes))
 }
 
 // lastAppliedConfigAnnotation is the annotation key written by `kubectl apply`.
