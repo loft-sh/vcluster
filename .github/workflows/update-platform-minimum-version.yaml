@@ -16,7 +16,8 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v6
 
-      - name: Update MinimumVersionTag in main.go
+      - name: Validate and compare versions
+        id: version-check
         run: |
           TAG="${{ github.event.client_payload.tag }}"
           SEMVER_REGEX='^v[0-9]+\.[0-9]+\.[0-9]+$'
@@ -31,9 +32,31 @@ jobs:
             exit 1
           fi
 
+          CURRENT=$(grep -oP 'MinimumVersionTag\s*=\s*"\Kv[^"]+' pkg/platform/version.go)
+          if [[ -z "$CURRENT" ]]; then
+            printf "Error: could not extract current MinimumVersionTag from pkg/platform/version.go."
+            exit 1
+          fi
+
+          printf "Current MinimumVersionTag: %s\n" "$CURRENT"
+          printf "Incoming tag: %s\n" "$TAG"
+
+          HIGHEST=$(printf '%s\n%s\n' "$CURRENT" "$TAG" | sort -V | tail -n1)
+          if [[ "$HIGHEST" == "$CURRENT" ]]; then
+            printf "Skipping: incoming tag %s is not newer than current %s.\n" "$TAG" "$CURRENT"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update MinimumVersionTag
+        if: steps.version-check.outputs.skip != 'true'
+        run: |
+          TAG="${{ github.event.client_payload.tag }}"
           sed -i 's/MinimumVersionTag = "v[0-9]\+\.[0-9]\+\.[0-9]\+"/MinimumVersionTag = "'"$TAG"'"/' pkg/platform/version.go
 
       - name: Create Pull Request
+        if: steps.version-check.outputs.skip != 'true'
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GH_ACCESS_TOKEN }}
