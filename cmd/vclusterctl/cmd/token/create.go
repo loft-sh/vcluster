@@ -18,6 +18,8 @@ import (
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
 	kubeadmconfigv1beta4 "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/v1beta4"
+	kubeadmconstants "k8s.io/kubernetes/cmd/kubeadm/app/constants"
+	"k8s.io/kubernetes/cmd/kubeadm/app/util"
 	"k8s.io/kubernetes/cmd/kubeadm/app/util/pubkeypin"
 	"sigs.k8s.io/yaml"
 )
@@ -95,9 +97,9 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 }
 
 // CreateBootstrapToken attempts to create a token with the given ID. Its public because it's used in e2e tests.
-func CreateBootstrapToken(ctx context.Context, vClient *kubernetes.Clientset, expires string, controlPlane bool) (string, string, string, string, error) {
+func CreateBootstrapToken(ctx context.Context, vClient *kubernetes.Clientset, expires string, controlPlane bool) (platformEndpoint, apiEndpoint, token, caHash string, err error) {
 	// get api server endpoint
-	kubeadmConfig, err := vClient.CoreV1().ConfigMaps("kube-system").Get(ctx, "kubeadm-config", metav1.GetOptions{})
+	kubeadmConfig, err := vClient.CoreV1().ConfigMaps("kube-system").Get(ctx, kubeadmconstants.KubeadmConfigConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return "", "", "", "", fmt.Errorf("getting kubeadm config: %w. Are you connected to a vCluster with private nodes enabled?", err)
 	}
@@ -108,8 +110,20 @@ func CreateBootstrapToken(ctx context.Context, vClient *kubernetes.Clientset, ex
 		return "", "", "", "", fmt.Errorf("unmarshalling kubeadm config: %w", err)
 	}
 
+	platformEndpoint = kubeadmConfig.Annotations[JoinScriptEndpointAnnotation]
+	if len(platformEndpoint) != 0 {
+		if _, _, err := util.ParseHostPort(platformEndpoint); err != nil {
+			return "", "", "", "", err
+		}
+	}
+
+	apiEndpoint = clusterConfig.ControlPlaneEndpoint
+	if _, _, err := util.ParseHostPort(apiEndpoint); err != nil {
+		return "", "", "", "", err
+	}
+
 	// basically copied from https://github.com/kubernetes-sigs/cluster-api/blob/9c1392dcc6b921570161c3e3ce7c859d7dab3a4d/bootstrap/kubeadm/internal/controllers/token.go#L33
-	token, err := bootstraputil.GenerateBootstrapToken()
+	token, err = bootstraputil.GenerateBootstrapToken()
 	if err != nil {
 		return "", "", "", "", fmt.Errorf("unable to generate bootstrap token: %w", err)
 	}
@@ -178,7 +192,7 @@ func CreateBootstrapToken(ctx context.Context, vClient *kubernetes.Clientset, ex
 		return "", "", "", "", fmt.Errorf("multiple CA certificates found in configmap %s", configMap.Name)
 	}
 
-	return kubeadmConfig.Annotations[JoinScriptEndpointAnnotation], clusterConfig.ControlPlaneEndpoint, token, pubkeypin.Hash(caCerts[0]), nil
+	return platformEndpoint, apiEndpoint, token, pubkeypin.Hash(caCerts[0]), nil
 }
 
 func getClient(flags *flags.GlobalFlags) (*kubernetes.Clientset, error) {
