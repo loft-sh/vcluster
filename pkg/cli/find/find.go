@@ -49,6 +49,7 @@ type VCluster struct {
 	Status                 Status
 	Context                string
 	Version                string
+	IsStandalone           bool
 }
 
 type Status string
@@ -464,6 +465,15 @@ func findInContext(ctx context.Context, kubeClient kube.Interface, context, name
 		}
 	}
 
+	// Probe for a standalone vCluster. Errors are non-fatal: a normal cluster where
+	// the user lacks permission to GET default/kubernetes must not break vcluster list.
+	standaloneVCluster, err := getStandaloneVCluster(ctx, kubeClient, kubeClientConfig)
+	if err != nil {
+		log.GetInstance().Debugf("standalone probe skipped: %v", err)
+	} else if standaloneVCluster != nil && (name == "" || name == standaloneVCluster.Name) {
+		vclusters = append(vclusters, *standaloneVCluster)
+	}
+
 	return vclusters, nil
 }
 
@@ -697,6 +707,35 @@ func GetPodStatus(pod *corev1.Pod) string {
 		reason = "Terminating"
 	}
 	return reason
+}
+
+// getStandaloneVCluster returns a VCluster for a standalone installation by reading
+// annotations on default/kubernetes. Returns nil, nil for any error (not a standalone
+// cluster, or insufficient RBAC) so callers never treat this as fatal.
+func getStandaloneVCluster(ctx context.Context, kubeClient kube.Interface, kubeClientConfig clientcmd.ClientConfig) (*VCluster, error) {
+	service, err := kubeClient.CoreV1().Services("default").Get(ctx, "kubernetes", metav1.GetOptions{})
+	if err != nil {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	name, ok := service.Annotations[constants.VClusterStandaloneNameAnnotation]
+	if !ok {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	version := service.Annotations[constants.VClusterStandaloneVersionAnnotation]
+
+	return &VCluster{
+		Name:          name,
+		Namespace:     constants.StandaloneSnapshotNamespace,
+		ClientFactory: kubeClientConfig,
+		Created:       service.CreationTimestamp,
+		Version:       version,
+		Status:        StatusRunning,
+		IsStandalone:  true,
+	}, nil
 }
 
 func isPaused(v client.Object) bool {
