@@ -15,6 +15,7 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	corev1 "k8s.io/api/core/v1"
@@ -87,7 +88,7 @@ func restoreStandaloneVCluster(vCluster *find.VCluster, snapshotOpts *snapshot.O
 		return err
 	}
 
-	if err := checkStandaloneHA(vClusterConfig.ControlPlane.Standalone.DataDir); err != nil {
+	if err := pro.CheckStandaloneHA(vClusterConfig); err != nil {
 		return err
 	}
 
@@ -103,29 +104,6 @@ func restoreStandaloneVCluster(vCluster *find.VCluster, snapshotOpts *snapshot.O
 		return fmt.Errorf("restore succeeded but failed to restart vCluster service (cluster is stopped): %w", startErr)
 	}
 	return restoreErr
-}
-
-// checkStandaloneHA reads peers.txt to detect multi-node HA. Restore of an HA cluster
-// requires coordinated shutdown of all nodes and is not supported in Phase 1.
-func checkStandaloneHA(dataDir string) error {
-	peersPath := filepath.Join(dataDir, "peers.txt")
-	data, err := os.ReadFile(peersPath)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("read peers.txt: %w", err)
-	}
-	lines := 0
-	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
-		if strings.TrimSpace(line) != "" {
-			lines++
-		}
-	}
-	if lines > 1 {
-		return fmt.Errorf("HA standalone restore is not yet supported (found %d etcd peers in %s); shut down all nodes and restore manually", lines, peersPath)
-	}
-	return nil
 }
 
 // serviceManager abstracts stopping and starting the standalone vCluster process.
