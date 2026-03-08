@@ -26,10 +26,16 @@ type Client struct {
 }
 
 func (c *Client) Run(ctx context.Context) error {
-	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("parse vCluster config: %w", err)
+		}
+		// Standalone places config at a different path than container deployments.
+		vConfig, err = config.ParseConfig(constants.StandaloneDefaultConfigPath, os.Getenv("VCLUSTER_NAME"), nil)
+		if err != nil {
+			return fmt.Errorf("parse standalone vCluster config: %w", err)
+		}
 	}
 
 	// make sure to validate options

@@ -158,14 +158,16 @@ func startEmbeddedEtcd(ctx context.Context, vConfig *config.VirtualClusterConfig
 func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterConfig) (string, error) {
 	var err error
 
-	// init the clients
-	vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
-	if err != nil {
-		return "", err
-	}
-	err = setupconfig.InitClients(vConfig)
-	if err != nil {
-		return "", err
+	if !vConfig.ControlPlane.Standalone.Enabled {
+		// Standalone already has PKI initialized at startup; skip host client setup.
+		vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
+		if err != nil {
+			return "", err
+		}
+		err = setupconfig.InitClients(vConfig)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// retrieve service cidr

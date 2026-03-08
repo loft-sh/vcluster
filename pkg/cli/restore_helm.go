@@ -3,16 +3,23 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apinet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -21,25 +28,34 @@ const (
 	RestoreResourceQuota = "vcluster-restore"
 )
 
-func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, pod *pod.Options, newVCluster, restoreVolumes bool, log log.Logger) error {
-	// init kube client and vCluster
+func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOpts *pod.Options, newVCluster, restoreVolumes bool, log log.Logger) error {
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, true)
 	if err != nil {
 		return err
 	}
 
-	return restoreVCluster(ctx, kubeClient, restConfig, vCluster, snapshotOpts, pod, newVCluster, restoreVolumes, log)
+	return restoreVCluster(ctx, kubeClient, restConfig, vCluster, snapshotOpts, podOpts, newVCluster, restoreVolumes, log)
 }
 
 func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshotOpts *snapshot.Options, podOptions *pod.Options, newVCluster bool, restoreVolumes bool, log log.Logger) error {
-	// pause vCluster
+	cmdArgs := []string{"restore"}
+	if newVCluster {
+		cmdArgs = append(cmdArgs, "--new-vcluster")
+	}
+	if restoreVolumes {
+		cmdArgs = append(cmdArgs, "--restore-volumes")
+	}
+
+	if vCluster.IsStandalone {
+		return restoreStandaloneVCluster(vCluster, snapshotOpts, cmdArgs, log)
+	}
+
 	log.Infof("Pausing vCluster %s", vCluster.Name)
 	err := pauseVCluster(ctx, kubeClient, vCluster, log)
 	if err != nil {
 		return fmt.Errorf("pause vCluster %s: %w", vCluster.Name, err)
 	}
 
-	// try to scale up the vCluster again
 	defer func() {
 		log.Infof("Resuming vCluster %s after it was paused", vCluster.Name)
 		err = lifecycle.ResumeVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log)
@@ -48,26 +64,149 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 		}
 	}()
 
-	// set missing pod options and run snapshot restore pod
-	command := []string{"/vcluster", "restore"}
-	if newVCluster {
-		command = append(command, "--new-vcluster")
-	}
-	if restoreVolumes {
-		command = append(command, "--restore-volumes")
-	}
-
+	command := append([]string{"/vcluster"}, cmdArgs...)
 	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOptions, snapshotOpts, log)
 }
 
+// restoreStandaloneVCluster stops the standalone service, invokes the vcluster binary
+// directly to perform the restore, and restarts the service. The CLI must run on the
+// same host as the standalone installation because it needs filesystem access to the
+// binary and config.
+func restoreStandaloneVCluster(vCluster *find.VCluster, snapshotOpts *snapshot.Options, cmdArgs []string, log log.Logger) error {
+	vClusterConfig, err := vclusterconfig.ParseConfig(constants.StandaloneDefaultConfigPath, vCluster.Name, nil)
+	if err != nil {
+		return fmt.Errorf("parse standalone config: %w", err)
+	}
+
+	sm, err := newServiceManager(vClusterConfig.ControlPlane.Standalone.DataDir)
+	if err != nil {
+		return err
+	}
+
+	if err := checkStandaloneHA(vClusterConfig.ControlPlane.Standalone.DataDir); err != nil {
+		return err
+	}
+
+	log.Infof("Stopping vCluster service")
+	if err := sm.Stop(); err != nil {
+		return fmt.Errorf("stop vCluster service: %w", err)
+	}
+
+	restoreErr := runRestoreBinary(vClusterConfig, snapshotOpts, cmdArgs)
+
+	log.Infof("Starting vCluster service")
+	if startErr := sm.Start(); startErr != nil {
+		return fmt.Errorf("restore succeeded but failed to restart vCluster service (cluster is stopped): %w", startErr)
+	}
+	return restoreErr
+}
+
+// checkStandaloneHA reads peers.txt to detect multi-node HA. Restore of an HA cluster
+// requires coordinated shutdown of all nodes and is not supported in Phase 1.
+func checkStandaloneHA(dataDir string) error {
+	peersPath := filepath.Join(dataDir, "peers.txt")
+	data, err := os.ReadFile(peersPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read peers.txt: %w", err)
+	}
+	lines := 0
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if strings.TrimSpace(line) != "" {
+			lines++
+		}
+	}
+	if lines > 1 {
+		return fmt.Errorf("HA standalone restore is not yet supported (found %d etcd peers in %s); shut down all nodes and restore manually", lines, peersPath)
+	}
+	return nil
+}
+
+// serviceManager abstracts stopping and starting the standalone vCluster process.
+type serviceManager interface {
+	Stop() error
+	Start() error
+}
+
+type systemdServiceManager struct {
+	name string
+}
+
+func (s *systemdServiceManager) Stop() error {
+	return exec.Command("systemctl", "stop", s.name).Run()
+}
+
+func (s *systemdServiceManager) Start() error {
+	return exec.Command("systemctl", "start", s.name).Run()
+}
+
+// newServiceManager returns a systemd-based service manager when on Linux with systemd
+// available. Returns an error on other platforms or when the service is not found.
+func newServiceManager(dataDir string) (serviceManager, error) {
+	if runtime.GOOS != "linux" {
+		return nil, fmt.Errorf("standalone restore is only supported on Linux (current OS: %s)", runtime.GOOS)
+	}
+
+	// Determine the service name from the binary symlink or fall back to "vcluster".
+	serviceName := resolveServiceName(dataDir)
+
+	out, err := exec.Command("systemctl", "is-active", serviceName).Output()
+	if err != nil {
+		return nil, fmt.Errorf("standalone vCluster service %q is not active on this host — restore must run on the standalone host", serviceName)
+	}
+	if strings.TrimSpace(string(out)) != "active" {
+		return nil, fmt.Errorf("standalone vCluster service %q is not active (state: %s)", serviceName, strings.TrimSpace(string(out)))
+	}
+
+	return &systemdServiceManager{name: serviceName}, nil
+}
+
+// resolveServiceName tries to determine the systemd service name. Defaults to "vcluster".
+func resolveServiceName(_ string) string {
+	return "vcluster"
+}
+
+func runRestoreBinary(vClusterConfig *vclusterconfig.VirtualClusterConfig, snapshotOpts *snapshot.Options, args []string) error {
+	binaryPath := filepath.Join(vClusterConfig.ControlPlane.Standalone.DataDir, "bin", "vcluster")
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+		// Fall back to the currently executing binary (e.g. during development or
+		// non-standard installs where the binary is not in the data directory).
+		self, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("binary not found at %s and cannot determine current executable: %w", binaryPath, err)
+		}
+		binaryPath = self
+	}
+
+	optionsString, err := pod.ToOptionsString(snapshotOpts)
+	if err != nil {
+		return fmt.Errorf("serialise snapshot options: %w", err)
+	}
+
+	hostIP, err := apinet.ChooseHostInterface()
+	if err != nil {
+		return fmt.Errorf("determine host IP: %w", err)
+	}
+
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Env = append(os.Environ(),
+		"VCLUSTER_NAME="+vClusterConfig.Name,
+		"VCLUSTER_STORAGE_OPTIONS="+optionsString,
+		constants.VClusterStandaloneIPAddressEnvVar+"="+hostIP.String(),
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 func pauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) error {
-	// pause the vCluster
 	err := lifecycle.PauseVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log)
 	if err != nil {
 		return err
 	}
 
-	// restart the workloads
 	err = lifecycle.DeletePods(ctx, kubeClient, "vcluster.loft.sh/managed-by="+vCluster.Name, vCluster.Namespace)
 	if err != nil {
 		return fmt.Errorf("delete vcluster workloads: %w", err)
@@ -77,13 +216,11 @@ func pauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, vClust
 		return fmt.Errorf("delete vcluster multinamespace workloads: %w", err)
 	}
 
-	// ensure there is only one pvc
 	err = ensurePVCs(ctx, kubeClient, vCluster, log)
 	if err != nil {
 		return err
 	}
 
-	// delete restore resource quota if exists
 	_, err = kubeClient.CoreV1().ResourceQuotas(vCluster.Namespace).Get(ctx, RestoreResourceQuota, metav1.GetOptions{})
 	if err == nil {
 		err = kubeClient.CoreV1().ResourceQuotas(vCluster.Namespace).Delete(ctx, RestoreResourceQuota, metav1.DeleteOptions{})
@@ -96,14 +233,10 @@ func pauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, vClust
 }
 
 func ensurePVCs(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) error {
-	// if not a statefulset we don't care
 	if vCluster.StatefulSet == nil || len(vCluster.StatefulSet.Spec.VolumeClaimTemplates) == 0 {
 		return nil
 	}
 
-	// two things we need to check for:
-	// 1. if there is more than 1 pvc (this is the case for embedded etcd) then we delete all pvc's except the first one
-	// 2. if there is no pvc and the statefulset has a persistent volume claim template we create the pvc
 	pvcList, err := kubeClient.CoreV1().PersistentVolumeClaims(vCluster.Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("app=vcluster,release=%s", vCluster.Name),
 	})
@@ -111,9 +244,7 @@ func ensurePVCs(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster 
 		return fmt.Errorf("list vcluster pvcs: %w", err)
 	}
 
-	// handle the two cases now
 	if len(pvcList.Items) == 0 {
-		// create the pvc
 		log.Infof("No vCluster pvcs found in namespace %s, creating a new one...", vCluster.Namespace)
 		dataVolume := vCluster.StatefulSet.Spec.VolumeClaimTemplates[0]
 		_, err := kubeClient.CoreV1().PersistentVolumeClaims(vCluster.Namespace).Create(ctx, &corev1.PersistentVolumeClaim{
@@ -126,12 +257,10 @@ func ensurePVCs(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster 
 			return fmt.Errorf("create vcluster pvc: %w", err)
 		}
 	} else if len(pvcList.Items) > 1 {
-		// delete the non -0 ones
 		for _, pvc := range pvcList.Items {
 			if strings.HasSuffix(pvc.Name, "-0") {
 				continue
 			}
-
 			log.Infof("Deleting vCluster pvc %s/%s", pvc.Namespace, pvc.Name)
 			err = kubeClient.CoreV1().PersistentVolumeClaims(vCluster.Namespace).Delete(ctx, pvc.Name, metav1.DeleteOptions{})
 			if err != nil {
