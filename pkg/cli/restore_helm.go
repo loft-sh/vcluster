@@ -67,6 +67,7 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 		}
 	}()
 
+	// set missing pod options and run snapshot restore pod
 	command := append([]string{"/vcluster"}, cmdArgs...)
 	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOptions, snapshotOpts, log)
 }
