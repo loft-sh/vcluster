@@ -129,9 +129,11 @@ func (o *RestoreClient) GetSnapshotRequest(ctx context.Context) (*Request, error
 }
 
 func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
+	// create decoder and encoder
 	o.decoder = serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
 	o.encoder = protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
 
+	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -294,6 +296,7 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 	klog.V(1).Infof("Found snapshot request object %s", string(value))
 	var err error
 	if !vConfig.ControlPlane.Standalone.Enabled {
+		// init the clients
 		if vConfig.HostConfig == nil || vConfig.HostNamespace == "" {
 			vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
 			if err != nil {

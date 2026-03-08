@@ -160,6 +160,8 @@ func generateCertificates(ctx context.Context, vConfig *config.VirtualClusterCon
 
 	if !vConfig.ControlPlane.Standalone.Enabled {
 		// Standalone already has PKI initialized at startup; skip host client setup.
+
+		// init the clients
 		vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
 		if err != nil {
 			return "", err

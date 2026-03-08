@@ -36,10 +36,14 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 
 	if !vCluster.IsStandalone {
 		// Standalone is not Helm-deployed; no release metadata to include in the snapshot.
+
+		// get vCluster release
 		vClusterRelease, err := helm.NewSecrets(kubeClient).Get(ctx, vCluster.Name, vCluster.Namespace)
 		if err != nil {
 			return fmt.Errorf("failed to get vCluster release: %w", err)
 		}
+
+		// set helm release
 		if vClusterRelease != nil && vClusterRelease.Chart != nil && vClusterRelease.Chart.Metadata != nil {
 			values, _ := yaml.Marshal(vClusterRelease.Config)
 			snapshotOpts.Release = &snapshot.HelmRelease{

@@ -26,6 +26,7 @@ type Client struct {
 }
 
 func (c *Client) Run(ctx context.Context) error {
+	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
 		if !os.IsNotExist(err) {

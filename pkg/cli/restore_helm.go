@@ -29,6 +29,7 @@ const (
 )
 
 func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOpts *pod.Options, newVCluster, restoreVolumes bool, log log.Logger) error {
+	// init kube client and vCluster
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, true)
 	if err != nil {
 		return err
@@ -50,12 +51,14 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 		return restoreStandaloneVCluster(vCluster, snapshotOpts, cmdArgs, log)
 	}
 
+	// pause vCluster
 	log.Infof("Pausing vCluster %s", vCluster.Name)
 	err := pauseVCluster(ctx, kubeClient, vCluster, log)
 	if err != nil {
 		return fmt.Errorf("pause vCluster %s: %w", vCluster.Name, err)
 	}
 
+	// try to scale up the vCluster again
 	defer func() {
 		log.Infof("Resuming vCluster %s after it was paused", vCluster.Name)
 		err = lifecycle.ResumeVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log)
@@ -202,11 +205,13 @@ func runRestoreBinary(vClusterConfig *vclusterconfig.VirtualClusterConfig, snaps
 }
 
 func pauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) error {
+	// pause the vCluster
 	err := lifecycle.PauseVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log)
 	if err != nil {
 		return err
 	}
 
+	// restart the workloads
 	err = lifecycle.DeletePods(ctx, kubeClient, "vcluster.loft.sh/managed-by="+vCluster.Name, vCluster.Namespace)
 	if err != nil {
 		return fmt.Errorf("delete vcluster workloads: %w", err)
@@ -216,11 +221,13 @@ func pauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, vClust
 		return fmt.Errorf("delete vcluster multinamespace workloads: %w", err)
 	}
 
+	// ensure there is only one pvc
 	err = ensurePVCs(ctx, kubeClient, vCluster, log)
 	if err != nil {
 		return err
 	}
 
+	// delete restore resource quota if exists
 	_, err = kubeClient.CoreV1().ResourceQuotas(vCluster.Namespace).Get(ctx, RestoreResourceQuota, metav1.GetOptions{})
 	if err == nil {
 		err = kubeClient.CoreV1().ResourceQuotas(vCluster.Namespace).Delete(ctx, RestoreResourceQuota, metav1.DeleteOptions{})
@@ -233,10 +240,14 @@ func pauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, vClust
 }
 
 func ensurePVCs(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) error {
+	// if not a statefulset we don't care
 	if vCluster.StatefulSet == nil || len(vCluster.StatefulSet.Spec.VolumeClaimTemplates) == 0 {
 		return nil
 	}
 
+	// two things we need to check for:
+	// 1. if there is more than 1 pvc (this is the case for embedded etcd) then we delete all pvc's except the first one
+	// 2. if there is no pvc and the statefulset has a persistent volume claim template we create the pvc
 	pvcList, err := kubeClient.CoreV1().PersistentVolumeClaims(vCluster.Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("app=vcluster,release=%s", vCluster.Name),
 	})
@@ -244,7 +255,9 @@ func ensurePVCs(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster 
 		return fmt.Errorf("list vcluster pvcs: %w", err)
 	}
 
+	// handle the two cases now
 	if len(pvcList.Items) == 0 {
+		// create the pvc
 		log.Infof("No vCluster pvcs found in namespace %s, creating a new one...", vCluster.Namespace)
 		dataVolume := vCluster.StatefulSet.Spec.VolumeClaimTemplates[0]
 		_, err := kubeClient.CoreV1().PersistentVolumeClaims(vCluster.Namespace).Create(ctx, &corev1.PersistentVolumeClaim{
@@ -257,10 +270,12 @@ func ensurePVCs(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster 
 			return fmt.Errorf("create vcluster pvc: %w", err)
 		}
 	} else if len(pvcList.Items) > 1 {
+		// delete the non -0 ones
 		for _, pvc := range pvcList.Items {
 			if strings.HasSuffix(pvc.Name, "-0") {
 				continue
 			}
+
 			log.Infof("Deleting vCluster pvc %s/%s", pvc.Namespace, pvc.Name)
 			err = kubeClient.CoreV1().PersistentVolumeClaims(vCluster.Namespace).Delete(ctx, pvc.Name, metav1.DeleteOptions{})
 			if err != nil {
