@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
@@ -166,17 +167,27 @@ func runRestoreBinary(vClusterConfig *vclusterconfig.VirtualClusterConfig, snaps
 		return fmt.Errorf("serialise snapshot options: %w", err)
 	}
 
-	hostIP, err := apinet.ChooseHostInterface()
-	if err != nil {
-		return fmt.Errorf("determine host IP: %w", err)
+	env := append(os.Environ(),
+		"VCLUSTER_NAME="+vClusterConfig.Name,
+		"VCLUSTER_STORAGE_OPTIONS="+optionsString,
+	)
+
+	// Embedded etcd requires VCLUSTER_STANDALONE_IP_ADDRESS to identify the local peer.
+	// Only get host IP when needed (not kine/SQLite) and not already set.
+	// Warning - getting host IP with ChooseHostInterface can fail in air-gapped environments
+	// without Internet connection.
+	if vClusterConfig.BackingStoreType() == config.StoreTypeEmbeddedEtcd {
+		if _, ok := os.LookupEnv(constants.VClusterStandaloneIPAddressEnvVar); !ok {
+			hostIP, err := apinet.ChooseHostInterface()
+			if err != nil {
+				return fmt.Errorf("determine host IP for embedded etcd peer (set %s to override): %w", constants.VClusterStandaloneIPAddressEnvVar, err)
+			}
+			env = append(env, constants.VClusterStandaloneIPAddressEnvVar+"="+hostIP.String())
+		}
 	}
 
 	cmd := exec.Command(binaryPath, args...)
-	cmd.Env = append(os.Environ(),
-		"VCLUSTER_NAME="+vClusterConfig.Name,
-		"VCLUSTER_STORAGE_OPTIONS="+optionsString,
-		constants.VClusterStandaloneIPAddressEnvVar+"="+hostIP.String(),
-	)
+	cmd.Env = env
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
