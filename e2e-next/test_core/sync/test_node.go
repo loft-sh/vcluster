@@ -14,6 +14,7 @@ import (
 )
 
 var _ = Describe("Node sync",
+	Ordered,
 	labels.Core,
 	labels.Sync,
 	cluster.Use(clusters.NodesVCluster),

@@ -16,6 +16,7 @@ import (
 )
 
 var _ = Describe("map default/kubernetes endpoint to physical vcluster endpoint",
+	Ordered,
 	labels.Core,
 	labels.Sync,
 	labels.PR,

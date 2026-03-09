@@ -27,6 +27,7 @@ const (
 )
 
 var _ = Describe("Helm charts (regular and OCI) are synced and applied as expected",
+	Ordered,
 	labels.Deploy,
 	cluster.Use(clusters.HelmChartsVCluster),
 	func() {
