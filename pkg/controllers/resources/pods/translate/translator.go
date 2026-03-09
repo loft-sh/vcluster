@@ -17,6 +17,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/random"
+	"github.com/loft-sh/vcluster/pkg/util/toleration"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -137,6 +138,8 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventR
 
 		resourceClaimEnabled:         ctx.Config.Sync.ToHost.ResourceClaims.Enabled,
 		resourceClaimTemplateEnabled: ctx.Config.Sync.ToHost.ResourceClaimTemplates.Enabled,
+
+		enforcedTolerations: parseEnforcedTolerations(ctx.Config.Sync.ToHost.Pods.EnforceTolerations),
 	}, nil
 }
 
@@ -170,6 +173,10 @@ type translator struct {
 
 	resourceClaimEnabled         bool
 	resourceClaimTemplateEnabled bool
+
+	// enforcedTolerations are tolerations from vcluster config that must always be present
+	// on the physical pod, both at creation time and when the virtual pod's tolerations change.
+	enforcedTolerations []corev1.Toleration
 }
 
 func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -414,6 +421,13 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 				pPod.Spec.NodeSelector = map[string]string{}
 			}
 			pPod.Spec.NodeSelector[k] = v
+		}
+	}
+
+	// apply enforced tolerations from vcluster config, skipping any already present
+	for _, toleration := range t.enforcedTolerations {
+		if !hasToleration(pPod.Spec.Tolerations, toleration) {
+			pPod.Spec.Tolerations = append(pPod.Spec.Tolerations, toleration)
 		}
 	}
 
@@ -979,4 +993,15 @@ func parseResources(resources map[string]interface{}) (corev1.ResourceList, erro
 	}
 
 	return resourceList, nil
+}
+
+func parseEnforcedTolerations(raw []string) []corev1.Toleration {
+	result := make([]corev1.Toleration, 0, len(raw))
+	for _, s := range raw {
+		tol, err := toleration.ParseToleration(s)
+		if err == nil {
+			result = append(result, tol)
+		}
+	}
+	return result
 }
