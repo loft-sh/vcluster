@@ -21,7 +21,6 @@ const (
 )
 
 var _ = Describe("Init manifests are synced and applied as expected",
-	Ordered,
 	labels.Deploy,
 	cluster.Use(clusters.InitManifestsVCluster),
 	func() {

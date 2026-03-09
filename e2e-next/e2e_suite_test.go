@@ -133,13 +133,6 @@ var _ = SynchronizedAfterSuite(
 	},
 	func(ctx context.Context) {
 		_, err := setup.All(
-			// Sometimes namespace finalizers take a while... so let's just delete the host cluster.
-			//setup.AllConcurrent(
-			//	clusters.K8sDefaultEndpointVCluster.Teardown,
-			//	clusters.NodesVCluster.Teardown,
-			//	clusters.HelmChartsVCluster.Teardown,
-			//	clusters.InitManifestsVCluster.Teardown,
-			//),
 			clusters.HostCluster.Teardown,
 		)(ctx)
 		Expect(err).NotTo(HaveOccurred())
