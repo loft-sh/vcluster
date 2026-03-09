@@ -101,9 +101,9 @@ var (
 
 var (
 	//go:embed vcluster-servicesync.yaml
-	ServiceSyncVClusterYAMLTemplate                               string
-	ServiceSyncVClusterName                                       = "service-sync-vcluster"
-	ServiceSyncVClusterYAML, ServiceSyncVClusterYAMLCleanup       = template.MustRender(
+	ServiceSyncVClusterYAMLTemplate                         string
+	ServiceSyncVClusterName                                 = "service-sync-vcluster"
+	ServiceSyncVClusterYAML, ServiceSyncVClusterYAMLCleanup = template.MustRender(
 		ServiceSyncVClusterYAMLTemplate,
 		DefaultVClusterVars,
 	)
