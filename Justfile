@@ -106,6 +106,24 @@ setup-csi-volume-snapshots:
   # wait for snapshot-controller to be ready
   kubectl wait --for=condition=Available -n kube-system deploy/snapshot-controller --timeout=60s
 
+#e2e-next tests
+@dev-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next" *ARGS='': \
+  (setup label-filter image) \
+  (run-e2e label-filter image) \
+  (teardown label-filter)
+
+@run-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next" teardown="true":
+  ginkgo -timeout=0 -v --procs=4 --label-filter="{{label-filter}}" ./e2e-next -- --vcluster-image="{{image}}" --teardown={{teardown}}
+
+@iterate-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next": \
+  (run-e2e label-filter image "false")
+
+@setup label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next":
+  GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --vcluster-image="{{image}}" --setup-only
+
+@teardown label-filter="core":
+  GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --teardown-only
+
 # Run e2e tests
 e2e distribution="k8s" path="./test/e2e" multinamespace="false": create-vind setup-csi-volume-snapshots && delete-vind
   echo "Execute test suites ({{ distribution }}, {{ path }}, {{ multinamespace }})"
