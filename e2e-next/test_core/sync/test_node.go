@@ -14,7 +14,6 @@ import (
 )
 
 var _ = Describe("Node sync",
-	Ordered,
 	labels.Core,
 	labels.Sync,
 	cluster.Use(clusters.NodesVCluster),
@@ -25,7 +24,7 @@ var _ = Describe("Node sync",
 			vClusterClient kubernetes.Interface
 		)
 
-		BeforeAll(func(ctx context.Context) {
+		BeforeEach(func(ctx context.Context) {
 			hostClient = cluster.KubeClientFrom(ctx, constants.GetHostClusterName())
 			Expect(hostClient).NotTo(BeNil())
 			vClusterClient = cluster.CurrentKubeClientFrom(ctx)

@@ -27,7 +27,6 @@ const (
 )
 
 var _ = Describe("Helm charts (regular and OCI) are synced and applied as expected",
-	Ordered,
 	labels.Deploy,
 	cluster.Use(clusters.HelmChartsVCluster),
 	func() {
@@ -43,7 +42,7 @@ var _ = Describe("Helm charts (regular and OCI) are synced and applied as expect
 			vClusterClient kubernetes.Interface
 		)
 
-		BeforeAll(func(ctx context.Context) {
+		BeforeEach(func(ctx context.Context) {
 			vClusterClient = cluster.CurrentKubeClientFrom(ctx)
 			Expect(vClusterClient).NotTo(BeNil())
 		})
