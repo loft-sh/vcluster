@@ -3,12 +3,14 @@ package token
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 	"time"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,10 +113,8 @@ func CreateBootstrapToken(ctx context.Context, vClient *kubernetes.Clientset, ex
 	}
 
 	platformEndpoint = kubeadmConfig.Annotations[JoinScriptEndpointAnnotation]
-	if len(platformEndpoint) != 0 {
-		if _, _, err := util.ParseHostPort(platformEndpoint); err != nil {
-			return "", "", "", "", err
-		}
+	if err := validateJoinScriptEndpoint(platformEndpoint); err != nil {
+		return "", "", "", "", err
 	}
 
 	apiEndpoint = clusterConfig.ControlPlaneEndpoint
@@ -193,6 +193,27 @@ func CreateBootstrapToken(ctx context.Context, vClient *kubernetes.Clientset, ex
 	}
 
 	return platformEndpoint, apiEndpoint, token, pubkeypin.Hash(caCerts[0]), nil
+}
+
+func validateJoinScriptEndpoint(endpoint string) error {
+	if endpoint == "" {
+		return nil
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return fmt.Errorf("invalid join-script-endpoint URL: %w", err)
+	}
+	if u.Scheme != "https" {
+		return fmt.Errorf("join-script-endpoint must use https scheme, got %q", u.Scheme)
+	}
+
+	hostPort := net.JoinHostPort(u.Hostname(), lo.CoalesceOrEmpty(u.Port(), "6443"))
+	if _, _, err := util.ParseHostPort(hostPort); err != nil {
+		return fmt.Errorf("invalid join-script-endpoint: %s", endpoint)
+	}
+
+	return nil
 }
 
 func getClient(flags *flags.GlobalFlags) (*kubernetes.Clientset, error) {
