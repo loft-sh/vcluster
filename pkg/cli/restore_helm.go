@@ -151,7 +151,13 @@ func resolveServiceName(_ string) string {
 }
 
 func runRestoreBinary(vClusterConfig *vclusterconfig.VirtualClusterConfig, snapshotOpts *snapshot.Options, args []string) error {
-	binaryPath := filepath.Join(vClusterConfig.ControlPlane.Standalone.DataDir, "bin", "vcluster")
+	// DataDir is omitempty and defaults to /var/lib/vcluster via Helm values, but config.ParseConfig
+	// (used by the CLI) does not apply Helm defaults — use the known default when empty.
+	dataDir := vClusterConfig.ControlPlane.Standalone.DataDir
+	if dataDir == "" {
+		dataDir = "/var/lib/vcluster"
+	}
+	binaryPath := filepath.Join(dataDir, "bin", "vcluster")
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		// Fall back to the currently executing binary (e.g. during development or
 		// non-standard installs where the binary is not in the data directory).
