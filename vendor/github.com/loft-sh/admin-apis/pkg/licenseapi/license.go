@@ -44,4 +44,8 @@ type License struct {
 	// Plans contains a list of plans
 	// +optional
 	Plans []Plan `json:"plans,omitempty"`
+
+	// Usage data contains  resource usage information for a platform deployment
+	// +optional
+	UsageData UsageData `json:"usageData,omitempty"`
 }

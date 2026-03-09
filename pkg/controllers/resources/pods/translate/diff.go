@@ -12,6 +12,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -133,6 +134,7 @@ func GetExcludedAnnotations(pPod *corev1.Pod) []string {
 // - spec.containers[*].image
 // - spec.initContainers[*].image
 // - spec.activeDeadlineSeconds
+// - spec.tolerations (can be added not removed)
 //
 // TODO: check for ephemereal containers
 func (t *translator) calcSpecDiff(pObj, vObj *corev1.Pod) {
@@ -159,6 +161,23 @@ func (t *translator) calcSpecDiff(pObj, vObj *corev1.Pod) {
 	}
 
 	pObj.Spec.SchedulingGates = vObj.Spec.SchedulingGates
+
+	newTolerations := append([]corev1.Toleration{}, vObj.Spec.Tolerations...)
+	for _, hostTol := range pObj.Spec.Tolerations {
+		// Carry forward host-only tolerations.
+		// If there is a similar tolerations with an different TolerationsSeconds we add the duplicates
+		// and let kubernetes decide the one to use.
+		if !hasToleration(newTolerations, hostTol) {
+			newTolerations = append(newTolerations, hostTol)
+		}
+	}
+	// We add the enforcedTolerations if they are not already present
+	for _, toleration := range t.enforcedTolerations {
+		if !hasToleration(newTolerations, toleration) {
+			newTolerations = append(newTolerations, toleration)
+		}
+	}
+	pObj.Spec.Tolerations = newTolerations
 }
 
 func calcContainerImageDiff(pContainers, vContainers []corev1.Container, translateImages ImageTranslator, skipContainers map[string]bool) []corev1.Container {
@@ -251,4 +270,14 @@ func (t *translator) convertResourceClaimStatuses(ctx *synccontext.SyncContext, 
 		}
 	}
 	return nil
+}
+
+// hasToleration reports whether tol is already present in the slice (full equality).
+func hasToleration(tolerations []corev1.Toleration, tol corev1.Toleration) bool {
+	for _, t := range tolerations {
+		if apiequality.Semantic.DeepEqual(t, tol) {
+			return true
+		}
+	}
+	return false
 }

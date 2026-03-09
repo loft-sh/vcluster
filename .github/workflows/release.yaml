@@ -5,8 +5,27 @@ on:
     types: [created]
 
 jobs:
+  check_minimum_version_tag:
+    if: github.repository_owner == 'loft-sh'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        if: ${{ !contains(github.event.release.tag_name, '-') }}
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - name: Validate MinimumVersionTag is stable
+        if: ${{ !contains(github.event.release.tag_name, '-') }}
+        run: |
+          MINIMUM_VERSION_TAG=$(grep -oP 'MinimumVersionTag\s*=\s*"\Kv[^"]+' pkg/platform/version.go)
+          if [[ ! "$MINIMUM_VERSION_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: MinimumVersionTag ('$MINIMUM_VERSION_TAG') must be a stable release version (e.g. v4.7.0), not a pre-release"
+            exit 1
+          fi
+          echo "MinimumVersionTag=$MINIMUM_VERSION_TAG is a stable version"
+
   publish:
     if: startsWith(github.ref, 'refs/tags/v') == true
+    needs: [check_minimum_version_tag]
     name: Publish vcluster
     runs-on: ubuntu-22.04
 

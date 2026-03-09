@@ -19,5 +19,6 @@ func NewAddCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 
 	addCmd.AddCommand(NewClusterCmd(globalFlags))
 	addCmd.AddCommand(NewVClusterCmd(globalFlags))
+	addCmd.AddCommand(NewStandaloneCmd())
 	return addCmd
 }

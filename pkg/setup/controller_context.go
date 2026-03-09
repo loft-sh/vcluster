@@ -394,17 +394,16 @@ func initControllerContext(
 		Config:   vClusterOptions,
 	}
 
-	if vClusterOptions.PrivateNodes.Enabled {
-		// for private nodes, we don't need to configure etcd client because we don't need to store mappings
-		return controllerContext, nil
-	}
-
 	etcdClient, err := etcd.NewFromConfig(ctx, vClusterOptions)
 	if err != nil {
 		return nil, fmt.Errorf("create etcd client: %w", err)
 	}
-
 	controllerContext.EtcdClient = etcdClient
+
+	if vClusterOptions.PrivateNodes.Enabled {
+		// for private nodes, we don't need to store mappings
+		return controllerContext, nil
+	}
 
 	var localClient client.Client
 	if localManager != nil {

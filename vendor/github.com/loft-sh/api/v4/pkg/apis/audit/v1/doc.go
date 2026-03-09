@@ -3,6 +3,7 @@
 // of the same resource
 
 // +k8s:openapi-gen=true
+// +k8s:openapi-model-package=com.github.loft-sh.api.v4.pkg.apis.audit.v1
 // +k8s:deepcopy-gen=package
 // +k8s:defaulter-gen=TypeMeta
 // +groupName=audit.loft.sh

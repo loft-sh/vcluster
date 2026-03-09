@@ -215,7 +215,7 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 
 	// install vCluster standalone
 	if !exists {
-		err = installVClusterStandalone(ctx, vClusterName, vClusterVersion, extraVClusterArgs, log)
+		err = installVClusterStandalone(ctx, vClusterName, vClusterVersion, vConfig, extraVClusterArgs, log)
 		if err != nil {
 			return err
 		}
@@ -396,7 +396,7 @@ func runDockerCommand(ctx context.Context, args []string, streamDelay time.Durat
 	return allOutput, nil
 }
 
-func installVClusterStandalone(ctx context.Context, vClusterName, vClusterVersion string, extraArgs []string, log log.Logger) error {
+func installVClusterStandalone(ctx context.Context, vClusterName, vClusterVersion string, vClusterConfig *config.Config, extraArgs []string, log log.Logger) error {
 	log.Infof("Starting vCluster standalone %s", vClusterName)
 	containerName := getControlPlaneContainerName(vClusterName)
 	joinedArgs := strings.Join(extraArgs, " ")
@@ -408,6 +408,31 @@ func installVClusterStandalone(ctx context.Context, vClusterName, vClusterVersio
 	out, err := runDockerCommand(ctx, args, 2*time.Minute, log)
 	if err != nil {
 		return fmt.Errorf("failed to start vCluster standalone: %w: %s", err, out)
+	}
+
+	// wait for the vCluster standalone node to be joined
+	if vClusterConfig.ControlPlane.Standalone.JoinNode.Enabled {
+		log.Infof("Waiting for vCluster standalone node to be joined...")
+
+		timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+		defer cancel()
+
+		args := []string{
+			"exec", containerName,
+			"bash", "-c", `while true; do count=$(kubectl get nodes --request-timeout=10s --no-headers 2>/dev/null | wc -l); [ "$count" -ge 1 ] && exit 0; sleep 0.5; done`,
+		}
+
+		_, err := exec.CommandContext(timeoutCtx, "docker", args...).CombinedOutput()
+		if err != nil {
+			kubeletLogs := getKubeletLogs(ctx, vClusterName)
+			if kubeletLogs != "" {
+				kubeletLogs = "\nKubelet logs:\n" + kubeletLogs
+			}
+
+			return fmt.Errorf("failed to start vCluster standalone. Node couldn't join: %w:\nvCluster logs:\n%s%s", err, getVClusterLogs(ctx, vClusterName), kubeletLogs)
+		}
+
+		log.Donef("vCluster standalone node joined successfully")
 	}
 
 	return nil

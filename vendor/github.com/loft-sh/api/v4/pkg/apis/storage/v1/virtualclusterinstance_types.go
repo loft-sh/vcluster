@@ -24,6 +24,14 @@ const (
 	InstanceVirtualClusterAppsAndObjectsSynced     agentstoragev1.ConditionType = "VirtualClusterAppsAndObjectsSynced"
 	InstanceVirtualClusterDBConnectorSynced        agentstoragev1.ConditionType = "DBConnectorSynced"
 	InstanceVirtualClusterDBIdentityProviderSynced agentstoragev1.ConditionType = "DBIdentityProviderSynced"
+
+	// Etcd health condition types
+	InstanceEtcdClusterHealthy  agentstoragev1.ConditionType = "EtcdClusterHealthy"
+	InstanceEtcdLeaderAvailable agentstoragev1.ConditionType = "EtcdLeaderAvailable"
+	InstanceEtcdQuorumMet       agentstoragev1.ConditionType = "EtcdQuorumMet"
+	InstanceEtcdMemberHealthy   agentstoragev1.ConditionType = "EtcdMemberHealthy"
+	InstanceEtcdNoAlarms        agentstoragev1.ConditionType = "EtcdNoAlarms"
+	InstanceEtcdDbSizeOk        agentstoragev1.ConditionType = "EtcdDbSizeOk"
 )
 
 // +genclient

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/snapshot/azure"
 	"github.com/loft-sh/vcluster/pkg/snapshot/container"
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
 	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
@@ -49,6 +50,16 @@ func TestParse(t *testing.T) {
 				OCI: oci.Options{
 					Repository:            "my-registry.com/my-repo",
 					SkipClientCredentials: true,
+				},
+			},
+		},
+		{
+			name: "azure",
+			url:  "https://mysnapshotstorage.blob.core.windows.net/my-cluster-snapshots/snap-1.tar.gz",
+			expectedOptions: Options{
+				Type: "azure",
+				Azure: azure.Options{
+					BlobURL: "https://mysnapshotstorage.blob.core.windows.net/my-cluster-snapshots/snap-1.tar.gz",
 				},
 			},
 		},

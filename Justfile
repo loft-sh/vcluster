@@ -27,16 +27,18 @@ build-snapshot:
   cp Dockerfile.release {{DIST_FOLDER}}/Dockerfile
   cd {{DIST_FOLDER}} && docker buildx build --load . -t ghcr.io/loft-sh/vcluster:dev-next
 
-# --- Kind ---
+# --- vind ---
 
-# Create a local kind cluster
-create-kind:
-  kind delete cluster -n vcluster
-  kind create cluster -n vcluster
+# Create a local vind cluster
+create-vind:
+  vcluster delete vcluster --driver docker 2>/dev/null || true
+  vcluster use driver docker
+  vcluster create vcluster --connect=false
+  vcluster connect vcluster --update-current
 
-# Delete the local kind cluster
-delete-kind:
-  kind delete cluster -n vcluster
+# Delete the local vind cluster
+delete-vind:
+  vcluster delete vcluster --driver docker
 
 # --- Build ---
 
@@ -123,15 +125,13 @@ setup-csi-volume-snapshots:
   GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --teardown-only
 
 # Run e2e tests
-e2e distribution="k8s" path="./test/e2e" multinamespace="false": create-kind setup-csi-volume-snapshots && delete-kind
+e2e distribution="k8s" path="./test/e2e" multinamespace="false": create-vind setup-csi-volume-snapshots && delete-vind
   echo "Execute test suites ({{ distribution }}, {{ path }}, {{ multinamespace }})"
 
   TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean
   cp dist/vcluster_linux_$(go env GOARCH | sed s/amd64/amd64_v1/g | sed s/arm64/arm64_v8.0/g)/vcluster ./vcluster
   docker build -t vcluster:e2e-latest -f Dockerfile.release --build-arg TARGETARCH=$(uname -m | sed s/x86_64/amd64/g) --build-arg TARGETOS=linux .
   rm ./vcluster
-
-  kind load docker-image vcluster:e2e-latest -n vcluster
 
   cp test/commonValues.yaml dist/commonValues.yaml
 
@@ -140,7 +140,7 @@ e2e distribution="k8s" path="./test/e2e" multinamespace="false": create-kind set
   yq eval -i '.controlPlane.distro.{{distribution}}.enabled = true' dist/commonValues.yaml
   rm dist/commonValues.yaml.bak
 
-  sed -i.bak "s|kind-control-plane|vcluster-control-plane|g" dist/commonValues.yaml
+  sed -i.bak "s|kind-control-plane|vcluster|g" dist/commonValues.yaml
   rm dist/commonValues.yaml.bak
 
   kubectl create namespace from-host-sync-test
@@ -163,7 +163,7 @@ e2e distribution="k8s" path="./test/e2e" multinamespace="false": create-kind set
     VCLUSTER_NAMESPACE=vcluster \
     MULTINAMESPACE_MODE={{ multinamespace }} \
     VCLUSTER_BACKGROUND_PROXY_IMAGE=vcluster:e2e-latest \
-    KIND_NAME=vcluster \
+    HOST_NODE_NAME=vcluster \
     go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*' -ginkgo.fail-fast
 
 
