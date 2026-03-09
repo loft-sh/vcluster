@@ -18,6 +18,7 @@
 /docs/ @loft-sh/Eng-Docs-Admin
 
 /test/ @loft-sh/eng-qa @loft-sh/eng-dev-vcluster-platform
+/e2e-next/ @loft-sh/eng-qa
 
 /hack/email/ @zerbitx
 
