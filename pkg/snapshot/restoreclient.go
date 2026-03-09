@@ -51,7 +51,6 @@ type RestoreClient struct {
 	RestoreVolumes  bool
 
 	encoder    runtime.Encoder
-	decoder    runtime.Decoder
 	etcdClient etcd.Client
 
 	NewVCluster bool
@@ -130,7 +129,7 @@ func (o *RestoreClient) GetSnapshotRequest(ctx context.Context) (*Request, error
 
 func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	// create decoder and encoder
-	o.decoder = serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
+	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
 	o.encoder = protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
 
 	// parse vCluster config
@@ -253,7 +252,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 		if strings.HasPrefix(string(key), "/registry/pods/") {
 			// we need to only do this in shared nodes mode as otherwise kubelet will not update the status correctly
 			if !vConfig.PrivateNodes.Enabled {
-				value, err = transformPod(value, o.decoder, o.encoder)
+				value, err = transformPod(value, decoder, o.encoder)
 				if err != nil {
 					return fmt.Errorf("transform value: %w", err)
 				}
@@ -261,7 +260,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 		}
 
 		if o.isPVCThatShouldBeRestoredInHost(string(key)) {
-			value, err = unsetVolumeName(value, o.decoder, o.encoder)
+			value, err = unsetVolumeName(value, decoder, o.encoder)
 			if err != nil {
 				return fmt.Errorf("failed to unset volume name: %w", err)
 			}

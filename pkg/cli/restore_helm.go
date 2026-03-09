@@ -26,7 +26,8 @@ import (
 )
 
 const (
-	RestoreResourceQuota = "vcluster-restore"
+	RestoreResourceQuota        = "vcluster-restore"
+	standaloneServiceName       = "vcluster"
 )
 
 func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOpts *pod.Options, newVCluster, restoreVolumes bool, log log.Logger) error {
@@ -83,7 +84,7 @@ func restoreStandaloneVCluster(vCluster *find.VCluster, snapshotOpts *snapshot.O
 		return fmt.Errorf("parse standalone config: %w", err)
 	}
 
-	sm, err := newServiceManager(vClusterConfig.ControlPlane.Standalone.DataDir)
+	sm, err := newServiceManager()
 	if err != nil {
 		return err
 	}
@@ -125,29 +126,21 @@ func (s *systemdServiceManager) Start() error {
 }
 
 // newServiceManager returns a systemd-based service manager when on Linux with systemd
-// available. Returns an error on other platforms or when the service is not found.
-func newServiceManager(dataDir string) (serviceManager, error) {
+// available. Returns an error on other platforms or when the service is not running.
+func newServiceManager() (serviceManager, error) {
 	if runtime.GOOS != "linux" {
 		return nil, fmt.Errorf("standalone restore is only supported on Linux (current OS: %s)", runtime.GOOS)
 	}
 
-	// Determine the service name from the binary symlink or fall back to "vcluster".
-	serviceName := resolveServiceName(dataDir)
-
-	out, err := exec.Command("systemctl", "is-active", serviceName).Output()
+	out, err := exec.Command("systemctl", "is-active", standaloneServiceName).Output()
 	if err != nil {
-		return nil, fmt.Errorf("standalone vCluster service %q is not active on this host — restore must run on the standalone host", serviceName)
+		return nil, fmt.Errorf("standalone vCluster service %q is not active on this host — restore must run on the standalone host", standaloneServiceName)
 	}
 	if strings.TrimSpace(string(out)) != "active" {
-		return nil, fmt.Errorf("standalone vCluster service %q is not active (state: %s)", serviceName, strings.TrimSpace(string(out)))
+		return nil, fmt.Errorf("standalone vCluster service %q is not active (state: %s)", standaloneServiceName, strings.TrimSpace(string(out)))
 	}
 
-	return &systemdServiceManager{name: serviceName}, nil
-}
-
-// resolveServiceName tries to determine the systemd service name. Defaults to "vcluster".
-func resolveServiceName(_ string) string {
-	return "vcluster"
+	return &systemdServiceManager{name: standaloneServiceName}, nil
 }
 
 func runRestoreBinary(vClusterConfig *vclusterconfig.VirtualClusterConfig, snapshotOpts *snapshot.Options, args []string) error {
