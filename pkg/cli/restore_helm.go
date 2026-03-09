@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	RestoreResourceQuota        = "vcluster-restore"
-	standaloneServiceName       = "vcluster"
+	RestoreResourceQuota  = "vcluster-restore"
+	standaloneServiceName = "vcluster"
 )
 
 func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOpts *pod.Options, newVCluster, restoreVolumes bool, log log.Logger) error {
