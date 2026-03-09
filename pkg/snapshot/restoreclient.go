@@ -50,7 +50,6 @@ type RestoreClient struct {
 	Snapshot        Options
 	RestoreVolumes  bool
 
-	encoder    runtime.Encoder
 	etcdClient etcd.Client
 
 	NewVCluster bool
@@ -130,7 +129,7 @@ func (o *RestoreClient) GetSnapshotRequest(ctx context.Context) (*Request, error
 func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	// create decoder and encoder
 	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
-	o.encoder = protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
+	encoder := protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
 
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
@@ -240,7 +239,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 		// check snapshot request
 		if strings.HasPrefix(string(key), RequestStoreKey) {
 			if o.RestoreVolumes {
-				err = o.createRestoreRequest(ctx, vConfig, value)
+				err = o.createRestoreRequest(ctx, vConfig, value, encoder)
 				if err != nil {
 					return fmt.Errorf("failed to create restore request: %w", err)
 				}
@@ -252,7 +251,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 		if strings.HasPrefix(string(key), "/registry/pods/") {
 			// we need to only do this in shared nodes mode as otherwise kubelet will not update the status correctly
 			if !vConfig.PrivateNodes.Enabled {
-				value, err = transformPod(value, decoder, o.encoder)
+				value, err = transformPod(value, decoder, encoder)
 				if err != nil {
 					return fmt.Errorf("transform value: %w", err)
 				}
@@ -260,7 +259,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 		}
 
 		if o.isPVCThatShouldBeRestoredInHost(string(key)) {
-			value, err = unsetVolumeName(value, decoder, o.encoder)
+			value, err = unsetVolumeName(value, decoder, encoder)
 			if err != nil {
 				return fmt.Errorf("failed to unset volume name: %w", err)
 			}
@@ -298,7 +297,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	return nil
 }
 
-func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *config.VirtualClusterConfig, value []byte) error {
+func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *config.VirtualClusterConfig, value []byte, encoder runtime.Encoder) error {
 	klog.V(1).Infof("Found snapshot request object %s", string(value))
 	var err error
 	if !vConfig.ControlPlane.Standalone.Enabled {
@@ -340,7 +339,7 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 		secret.CreationTimestamp = metav1.Now()
 
 		secretBuf := &bytes.Buffer{}
-		if err = o.encoder.Encode(secret, secretBuf); err != nil {
+		if err = encoder.Encode(secret, secretBuf); err != nil {
 			return fmt.Errorf("encode restore secret: %w", err)
 		}
 		if _, err = o.etcdClient.Put(ctx, fmt.Sprintf("/registry/secrets/%s/%s", namespace, secret.Name), secretBuf.Bytes()); err != nil {
@@ -362,7 +361,7 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 		configMap.CreationTimestamp = metav1.Now()
 
 		cmBuf := &bytes.Buffer{}
-		if err = o.encoder.Encode(configMap, cmBuf); err != nil {
+		if err = encoder.Encode(configMap, cmBuf); err != nil {
 			return fmt.Errorf("encode restore configmap: %w", err)
 		}
 		if _, err = o.etcdClient.Put(ctx, fmt.Sprintf("/registry/configmaps/%s/%s", namespace, configMap.Name), cmBuf.Bytes()); err != nil {
