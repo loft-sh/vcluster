@@ -21,7 +21,6 @@ const (
 )
 
 var _ = Describe("Init manifests are synced and applied as expected",
-	Ordered,
 	labels.Deploy,
 	cluster.Use(clusters.InitManifestsVCluster),
 	func() {
@@ -30,7 +29,7 @@ var _ = Describe("Init manifests are synced and applied as expected",
 			vClusterClient kubernetes.Interface
 		)
 
-		BeforeAll(func(ctx context.Context) {
+		BeforeEach(func(ctx context.Context) {
 			vClusterClient = cluster.CurrentKubeClientFrom(ctx)
 			Expect(vClusterClient).NotTo(BeNil())
 		})

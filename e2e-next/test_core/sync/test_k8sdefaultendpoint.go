@@ -16,7 +16,6 @@ import (
 )
 
 var _ = Describe("map default/kubernetes endpoint to physical vcluster endpoint",
-	Ordered,
 	labels.Core,
 	labels.Sync,
 	labels.PR,
@@ -30,7 +29,7 @@ var _ = Describe("map default/kubernetes endpoint to physical vcluster endpoint"
 			vClusterNamespace = "vcluster-" + vClusterName
 		)
 
-		BeforeAll(func(ctx context.Context) {
+		BeforeEach(func(ctx context.Context) {
 			hostClient = cluster.KubeClientFrom(ctx, constants.GetHostClusterName())
 			Expect(hostClient).NotTo(BeNil())
 			vClusterClient = cluster.CurrentKubeClientFrom(ctx)
