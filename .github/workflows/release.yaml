@@ -56,7 +56,49 @@ jobs:
         run: |
           RELEASE_VERSION=$(echo $GITHUB_REF | sed -nE 's!refs/tags/!!p')
           echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "previous_tag=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1))" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=$(git describe --abbrev=0 --tags "$(git rev-list --tags --skip=1 --max-count=1)")" >> "$GITHUB_OUTPUT"
+      - name: Validate semver
+        id: semver
+        uses: loft-sh/github-actions/.github/actions/semver-validation@semver-validation/v1
+        with:
+          version: ${{ steps.get_version.outputs.release_version }}
+      - name: Check if release would downgrade homebrew tap
+        id: check_latest_stable
+        run: |
+          CURRENT_TAG="${{ steps.get_version.outputs.release_version }}"
+          # Only check stable releases. Pre-releases are handled by
+          # goreleaser's skip_upload: auto in .goreleaser.yaml.
+          if [[ "$CURRENT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            # Fetch the current version from the homebrew tap formula with
+            # retry + exponential backoff. If we can't verify the tap version
+            # we must fail — otherwise an older release could silently overwrite
+            # the latest version in the tap.
+            TAP_VERSION=""
+            for attempt in 1 2 3; do
+              TAP_VERSION=$(curl -sfL --max-time 10 \
+                "https://raw.githubusercontent.com/loft-sh/homebrew-tap/main/Formula/vcluster.rb" \
+                | grep -oP 'version "\K[^"]+') && break
+              TAP_VERSION=""
+              delay=$((1 << attempt))  # 2, 4, 8 seconds
+              echo "::warning::Attempt $attempt/3 to fetch tap version failed, retrying in ${delay}s..."
+              sleep "$delay"
+            done
+
+            if [ -z "$TAP_VERSION" ]; then
+              echo "::error::Failed to fetch homebrew tap version after 3 attempts. Failing to prevent potential tap downgrade."
+              exit 1
+            fi
+
+            CURRENT_VERSION="${CURRENT_TAG#v}"
+            if [ "$(printf '%s\n' "$CURRENT_VERSION" "$TAP_VERSION" | sort -V | tail -1)" != "$CURRENT_VERSION" ]; then
+              echo "skip_homebrew=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::Skipping Homebrew upload: $CURRENT_TAG would downgrade tap from v$TAP_VERSION"
+            else
+              echo "skip_homebrew=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "skip_homebrew=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
@@ -70,7 +112,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: "goreleaser/goreleaser-action@v6"
         with:
-          args: release --clean --timeout 60m
+          args: release --clean --timeout 60m ${{ steps.check_latest_stable.outputs.skip_homebrew == 'true' && '--skip=homebrew' || '' }}
           version: "~> v2"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
