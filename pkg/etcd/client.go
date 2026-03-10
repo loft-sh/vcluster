@@ -50,11 +50,18 @@ func GetEtcdEndpoint(vConfig *config.VirtualClusterConfig) (string, *Certificate
 
 	// handle different backing store's
 	if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled || vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
+		// In standalone mode the PKI lives under the configured data directory,
+		// not the pod-based default (/data/pki).
+		pkiDir := constants.PKIDir
+		if vConfig.ControlPlane.Standalone.Enabled && vConfig.ControlPlane.Standalone.DataDir != "" {
+			pkiDir = filepath.Join(vConfig.ControlPlane.Standalone.DataDir, "pki")
+		}
+
 		// embedded or deployed etcd
 		etcdCertificates = &Certificates{
-			CaCert:     filepath.Join(constants.PKIDir, "etcd", "ca.crt"),
-			ServerCert: filepath.Join(constants.PKIDir, "apiserver-etcd-client.crt"),
-			ServerKey:  filepath.Join(constants.PKIDir, "apiserver-etcd-client.key"),
+			CaCert:     filepath.Join(pkiDir, "etcd", "ca.crt"),
+			ServerCert: filepath.Join(pkiDir, "apiserver-etcd-client.crt"),
+			ServerKey:  filepath.Join(pkiDir, "apiserver-etcd-client.key"),
 		}
 
 		if vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
