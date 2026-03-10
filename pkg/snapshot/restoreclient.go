@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/protobuf"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	apinet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/klog/v2"
 )
 
@@ -157,6 +158,17 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 		err = pro.SetStandaloneConstants(vConfig)
 		if err != nil {
 			return fmt.Errorf("set standalone constants: %w", err)
+		}
+
+		// Embedded etcd requires VCLUSTER_STANDALONE_IP_ADDRESS to identify the local peer.
+		if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
+			if _, ok := os.LookupEnv(constants.VClusterStandaloneIPAddressEnvVar); !ok {
+				hostIP, err := apinet.ChooseHostInterface()
+				if err != nil {
+					return fmt.Errorf("determine host IP for embedded etcd peer (set %s to override): %w", constants.VClusterStandaloneIPAddressEnvVar, err)
+				}
+				os.Setenv(constants.VClusterStandaloneIPAddressEnvVar, hostIP.String())
+			}
 		}
 	}
 

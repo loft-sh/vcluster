@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"os"
 
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/snapshot/types"
+	apinet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/klog/v2"
 )
 
@@ -44,6 +46,17 @@ func (c *Client) Run(ctx context.Context) error {
 		vConfig.PrivateNodes.Enabled = true
 		if vConfig.ControlPlane.Standalone.DataDir == "" {
 			vConfig.ControlPlane.Standalone.DataDir = "/var/lib/vcluster"
+		}
+
+		// Embedded etcd requires VCLUSTER_STANDALONE_IP_ADDRESS to identify the local peer.
+		if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
+			if _, ok := os.LookupEnv(constants.VClusterStandaloneIPAddressEnvVar); !ok {
+				hostIP, err := apinet.ChooseHostInterface()
+				if err != nil {
+					return fmt.Errorf("determine host IP for embedded etcd peer (set %s to override): %w", constants.VClusterStandaloneIPAddressEnvVar, err)
+				}
+				os.Setenv(constants.VClusterStandaloneIPAddressEnvVar, hostIP.String())
+			}
 		}
 	}
 
