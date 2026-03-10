@@ -562,7 +562,8 @@ func setLatestRevisionSQLite(ctx context.Context, file string, revision int64) e
 	defer timeoutTimer.Stop()
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
-	for {
+	var fileCreated bool
+	for !fileCreated {
 		select {
 		case err := <-doneChan:
 			// kine exited before creating the file
@@ -572,15 +573,15 @@ func setLatestRevisionSQLite(ctx context.Context, file string, revision int64) e
 			return fmt.Errorf("kine exited before creating database")
 		case <-timeoutTimer.C:
 			cancel()
+			// drain doneChan to prevent goroutine leak from unbuffered channel send
+			<-doneChan
 			return fmt.Errorf("timed out waiting for kine to create database after %s", kineStartTimeout)
 		case <-ticker.C:
 			if _, err := os.Stat(file); err == nil {
-				// file created, proceed
-				goto fileCreated
+				fileCreated = true
 			}
 		}
 	}
-fileCreated:
 
 	// stop kine
 	cancel()
