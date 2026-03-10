@@ -37,9 +37,11 @@ func (c *Client) Run(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("parse standalone vCluster config: %w", err)
 		}
-		// config.ParseConfig does not apply Helm value defaults, so Standalone.Enabled
-		// and DataDir may be unset even though we are clearly in standalone mode.
+		// config.ParseConfig does not apply Helm value defaults, so Standalone.Enabled,
+		// PrivateNodes.Enabled, and DataDir may be unset even though we are clearly in
+		// standalone mode. Mirror what vcluster-pro/pkg/standalone/config does.
 		vConfig.ControlPlane.Standalone.Enabled = true
+		vConfig.PrivateNodes.Enabled = true
 		if vConfig.ControlPlane.Standalone.DataDir == "" {
 			vConfig.ControlPlane.Standalone.DataDir = "/var/lib/vcluster"
 		}
