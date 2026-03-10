@@ -42,7 +42,7 @@ We recommend developing vCluster directly on a local Kubernetes cluster as it pr
 - Docker needs to be installed (e.g. docker-desktop, orbstack, rancher desktop etc.)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
 - [Helm v3.10.0+](https://helm.sh/docs/intro/install/)
-- Local Kubernetes v1.26+ cluster (i.e. Docker Desktop, [minikube](https://minikube.sigs.k8s.io/docs/start/), KinD or similar)
+- Local Kubernetes v1.26+ cluster (i.e. Docker Desktop, [minikube](https://minikube.sigs.k8s.io/docs/start/), KinD, [vind](https://www.vcluster.com/docs/vcluster/deploy/topologies/extracting-the-docker-driver) or similar)
 
 ### Fork and Clone the vcluster repo
 
@@ -213,7 +213,7 @@ Test the built CLI tool
 - [Golang v1.25](https://go.dev/doc/install)
 - [Goreleaser](https://goreleaser.com/install/)
 - [Just](https://github.com/casey/just)
-- [Kind](https://kind.sigs.k8s.io/)
+- [Kind](https://kind.sigs.k8s.io/) or [vind](https://www.vcluster.com/docs/vcluster/deploy/topologies/extracting-the-docker-driver) (recommended — vCluster Docker driver)
 
 ### Uninstall vCluster CLI
 
@@ -267,6 +267,21 @@ kubectl cluster-info --context kind-kind
 
 ```
 
+### Alternative: Bring up a local K8s cluster using vind
+
+[vind](https://www.vcluster.com/docs/vcluster/deploy/topologies/extracting-the-docker-driver) (the vCluster Docker driver) provides a simpler local development experience. No explicit image loading is needed — container images are available natively.
+
+```
+vcluster use driver docker
+vcluster create my-cluster
+```
+
+Your kubeconfig is automatically updated. Verify with:
+
+```
+kubectl get namespaces
+```
+
 ### Build vCluster Container Image
 
 ```
@@ -282,6 +297,8 @@ If using kind as your local Kubernetes cluster, you need to import the image int
 ```
 kind load docker-image my-vcluster:0.0.1
 ```
+
+> **Note for vind users:** This step is not needed. vind shares the Docker daemon with the host, so locally built images are available immediately.
 
 ### Create vCluster with self-compiled vCluster CLI
 
@@ -336,8 +353,10 @@ Run the e2e tests, that are located in the e2e folder.
 ```
 just delete-kind
 just e2e
-
 ```
+
+> Note: The e2e test suite currently uses Kind. If you use vind for local development,
+> you can still run unit tests with `./hack/test.sh`.
 
 If [Ginkgo](https://github.com/onsi/ginkgo#global-installation) is already installed, run  `ginkgo -v`.
 
