@@ -23,9 +23,9 @@ var _ = Describe("IngressClasses sync from host",
 	cluster.Use(clusters.HostCluster),
 	func() {
 		var (
-			hostClient    kubernetes.Interface
+			hostClient     kubernetes.Interface
 			vClusterClient kubernetes.Interface
-			vClusterName  = clusters.IngressClassesVClusterName
+			vClusterName   = clusters.IngressClassesVClusterName
 
 			// nginxClassName and haproxyClassName are fixed names used to create
 			// IngressClasses on the host. The vcluster selector is configured to
