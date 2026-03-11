@@ -21,7 +21,6 @@ import (
 )
 
 var _ = Describe("Service replication and sync",
-	Ordered,
 	labels.Core,
 	labels.Sync,
 	labels.PR,
@@ -35,7 +34,7 @@ var _ = Describe("Service replication and sync",
 			vClusterNamespace = "vcluster-" + vClusterName
 		)
 
-		BeforeAll(func(ctx context.Context) {
+		BeforeEach(func(ctx context.Context) {
 			hostClient = cluster.KubeClientFrom(ctx, constants.GetHostClusterName())
 			Expect(hostClient).NotTo(BeNil())
 			vClusterClient = cluster.CurrentKubeClientFrom(ctx)
@@ -56,7 +55,7 @@ var _ = Describe("Service replication and sync",
 			}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func(ctx context.Context) {
-				_ = hostClient.CoreV1().Namespaces().Delete(ctx, fromNS, metav1.DeleteOptions{})
+				Expect(hostClient.CoreV1().Namespaces().Delete(ctx, fromNS, metav1.DeleteOptions{})).To(Succeed())
 				Eventually(func(g Gomega) {
 					_, err := hostClient.CoreV1().Namespaces().Get(ctx, fromNS, metav1.GetOptions{})
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -131,7 +130,7 @@ var _ = Describe("Service replication and sync",
 			}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func(ctx context.Context) {
-				_ = vClusterClient.CoreV1().Namespaces().Delete(ctx, fromNS, metav1.DeleteOptions{})
+				Expect(vClusterClient.CoreV1().Namespaces().Delete(ctx, fromNS, metav1.DeleteOptions{})).To(Succeed())
 				Eventually(func(g Gomega) {
 					_, err := vClusterClient.CoreV1().Namespaces().Get(ctx, fromNS, metav1.GetOptions{})
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -196,7 +195,7 @@ var _ = Describe("Service replication and sync",
 			}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func(ctx context.Context) {
-				_ = hostClient.CoreV1().Namespaces().Delete(ctx, fromNS, metav1.DeleteOptions{})
+				Expect(hostClient.CoreV1().Namespaces().Delete(ctx, fromNS, metav1.DeleteOptions{})).To(Succeed())
 				Eventually(func(g Gomega) {
 					_, err := hostClient.CoreV1().Namespaces().Get(ctx, fromNS, metav1.GetOptions{})
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -235,7 +234,7 @@ var _ = Describe("Service replication and sync",
 				g.Expect(err).NotTo(HaveOccurred())
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
-			By("waiting for 2 endpoints on both sides to be populated")
+			By(fmt.Sprintf("waiting for %d endpoints on both sides to be populated", two))
 			//nolint:staticcheck
 			var fromEPs, toEPs *corev1.Endpoints
 			Eventually(func(g Gomega) {
@@ -282,7 +281,7 @@ var _ = Describe("Service replication and sync",
 				g.Expect(ep.Subsets).To(BeNil())
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
-			By("scaling the deployment back to 2")
+			By(fmt.Sprintf("scaling the deployment back to %d", two))
 			Eventually(func(g Gomega) {
 				dep, err := hostClient.AppsV1().Deployments(fromNS).Get(ctx, fromName, metav1.GetOptions{})
 				g.Expect(err).NotTo(HaveOccurred())
@@ -291,7 +290,7 @@ var _ = Describe("Service replication and sync",
 				g.Expect(err).NotTo(HaveOccurred())
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 
-			By("waiting for 2 endpoints to be repopulated on both sides")
+			By(fmt.Sprintf("waiting for %d endpoints to be repopulated on both sides", two))
 			Eventually(func(g Gomega) {
 				//nolint:staticcheck
 				fromEPs, err = hostClient.CoreV1().Endpoints(fromNS).Get(ctx, fromName, metav1.GetOptions{})
@@ -327,7 +326,7 @@ var _ = Describe("Service replication and sync",
 			}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func(ctx context.Context) {
-				_ = vClusterClient.CoreV1().Namespaces().Delete(ctx, fromNS, metav1.DeleteOptions{})
+				Expect(vClusterClient.CoreV1().Namespaces().Delete(ctx, fromNS, metav1.DeleteOptions{})).To(Succeed())
 				Eventually(func(g Gomega) {
 					_, err := vClusterClient.CoreV1().Namespaces().Get(ctx, fromNS, metav1.GetOptions{})
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -366,7 +365,7 @@ var _ = Describe("Service replication and sync",
 				g.Expect(err).NotTo(HaveOccurred())
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
-			By("waiting for 2 endpoints on both sides to be populated")
+			By(fmt.Sprintf("waiting for %d endpoints on both sides to be populated", two))
 			//nolint:staticcheck
 			var fromEPs, toEPs *corev1.Endpoints
 			Eventually(func(g Gomega) {
@@ -413,7 +412,7 @@ var _ = Describe("Service replication and sync",
 				g.Expect(ep.Subsets).To(BeNil())
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
-			By("scaling the deployment back to 2")
+			By(fmt.Sprintf("scaling the deployment back to %d", two))
 			Eventually(func(g Gomega) {
 				dep, err := vClusterClient.AppsV1().Deployments(fromNS).Get(ctx, fromName, metav1.GetOptions{})
 				g.Expect(err).NotTo(HaveOccurred())
@@ -422,7 +421,7 @@ var _ = Describe("Service replication and sync",
 				g.Expect(err).NotTo(HaveOccurred())
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 
-			By("waiting for 2 endpoints to be repopulated on both sides")
+			By(fmt.Sprintf("waiting for %d endpoints to be repopulated on both sides", two))
 			Eventually(func(g Gomega) {
 				//nolint:staticcheck
 				fromEPs, err = vClusterClient.CoreV1().Endpoints(fromNS).Get(ctx, fromName, metav1.GetOptions{})
@@ -444,10 +443,8 @@ var _ = Describe("Service replication and sync",
 		})
 
 		It("syncs Service, Endpoints, and EndpointSlice to host when Endpoint is created before Service", func(ctx context.Context) {
-			const (
-				svcNS   = "default"
-				svcName = "test-service-sync"
-			)
+			svcNS := "default"
+			svcName := fmt.Sprintf("test-svc-sync-%d", GinkgoRandomSeed())
 			translatedName := translate.SingleNamespaceHostName(svcName, svcNS, vClusterName)
 
 			By("creating Endpoint in vcluster before the Service exists")
@@ -465,7 +462,10 @@ var _ = Describe("Service replication and sync",
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func(ctx context.Context) {
 				//nolint:staticcheck
-				_ = vClusterClient.CoreV1().Endpoints(svcNS).Delete(ctx, svcName, metav1.DeleteOptions{})
+				err := vClusterClient.CoreV1().Endpoints(svcNS).Delete(ctx, svcName, metav1.DeleteOptions{})
+				if !kerrors.IsNotFound(err) {
+					Expect(err).NotTo(HaveOccurred())
+				}
 			})
 
 			By("creating headless Service in vcluster")
@@ -480,7 +480,10 @@ var _ = Describe("Service replication and sync",
 			}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func(ctx context.Context) {
-				_ = vClusterClient.CoreV1().Services(svcNS).Delete(ctx, svcName, metav1.DeleteOptions{})
+				err := vClusterClient.CoreV1().Services(svcNS).Delete(ctx, svcName, metav1.DeleteOptions{})
+				if !kerrors.IsNotFound(err) {
+					Expect(err).NotTo(HaveOccurred())
+				}
 			})
 
 			By("waiting for Service to appear on host with correct ports")
