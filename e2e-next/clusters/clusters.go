@@ -124,6 +124,9 @@ var (
 
 	//go:embed vcluster-fromhost-configmaps.yaml
 	FromHostConfigMapsVClusterYAMLTemplate string
+
+	//go:embed vcluster-ingressclasses.yaml
+	IngressClassesVClusterYAMLTemplate string
 )
 
 // --- vCluster definitions ---
@@ -164,4 +167,9 @@ var (
 
 	FromHostSecretsVClusterName = "fromhost-secrets-vcluster"
 	FromHostSecretsVCluster     = register(FromHostSecretsVClusterName, FromHostSecretsVClusterYAMLTemplate)
+)
+
+var (
+	IngressClassesVClusterName = "ingressclasses-test-vcluster"
+	IngressClassesVCluster     = register(IngressClassesVClusterName, IngressClassesVClusterYAMLTemplate)
 )
