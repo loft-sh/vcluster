@@ -21,6 +21,7 @@ import (
 )
 
 var _ = Describe("Service replication and sync",
+	Ordered,
 	labels.Core,
 	labels.Sync,
 	labels.PR,
@@ -34,7 +35,7 @@ var _ = Describe("Service replication and sync",
 			vClusterNamespace = "vcluster-" + vClusterName
 		)
 
-		BeforeEach(func(ctx context.Context) {
+		BeforeAll(func(ctx context.Context) {
 			hostClient = cluster.KubeClientFrom(ctx, constants.GetHostClusterName())
 			Expect(hostClient).NotTo(BeNil())
 			vClusterClient = cluster.CurrentKubeClientFrom(ctx)
