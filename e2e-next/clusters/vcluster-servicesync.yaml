@@ -1,0 +1,37 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{ .Repository }}
+      tag: {{ .Tag }}
+networking:
+  replicateServices:
+    toHost:
+      - from: test/test
+        to: test
+      - from: test/nginx
+        to: nginx
+    fromHost:
+      - from: test/test
+        to: default/test
+      - from: test/nginx
+        to: default/nginx
+experimental:
+  deploy:
+    vcluster:
+      manifests: |-
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: test-replicated-service-cleanup
+          namespace: default
+          labels:
+            vcluster.loft.sh/controlled-by: vcluster
+        spec:
+          selector:
+            app: fake-app
+          ports:
+            - protocol: TCP
+              port: 8080
+              targetPort: 8080
+              name: tcp

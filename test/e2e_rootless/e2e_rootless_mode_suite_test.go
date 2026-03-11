@@ -19,7 +19,6 @@ import (
 	_ "github.com/loft-sh/vcluster/test/e2e/k8sdefaultendpoint"
 	_ "github.com/loft-sh/vcluster/test/e2e/manifests"
 	_ "github.com/loft-sh/vcluster/test/e2e/node"
-	_ "github.com/loft-sh/vcluster/test/e2e/servicesync"
 	_ "github.com/loft-sh/vcluster/test/e2e/snapshot"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/networkpolicies"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pods"

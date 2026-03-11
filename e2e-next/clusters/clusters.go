@@ -98,3 +98,21 @@ var (
 		vcluster.WithDependencies(HostCluster),
 	)
 )
+
+var (
+	//go:embed vcluster-servicesync.yaml
+	ServiceSyncVClusterYAMLTemplate                         string
+	ServiceSyncVClusterName                                 = "service-sync-vcluster"
+	ServiceSyncVClusterYAML, ServiceSyncVClusterYAMLCleanup = template.MustRender(
+		ServiceSyncVClusterYAMLTemplate,
+		DefaultVClusterVars,
+	)
+	ServiceSyncVCluster = vcluster.Define(
+		vcluster.WithName(ServiceSyncVClusterName),
+		vcluster.WithVClusterYAML(ServiceSyncVClusterYAML),
+		vcluster.WithOptions(
+			DefaultVClusterOptions...,
+		),
+		vcluster.WithDependencies(HostCluster),
+	)
+)
