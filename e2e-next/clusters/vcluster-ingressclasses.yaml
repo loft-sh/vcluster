@@ -1,0 +1,16 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{ .Repository }}
+      tag: {{ .Tag }}
+sync:
+  toHost:
+    ingresses:
+      enabled: true
+  fromHost:
+    ingressClasses:
+      enabled: true
+      selector:
+        matchLabels:
+          value: one
