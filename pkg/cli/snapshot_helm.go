@@ -157,7 +157,17 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request resources: %w", err)
 	}
-	log.Infof("Beginning snapshot creation... Check the snapshot status by running `vcluster snapshot get %s %s`", vCluster.Name, snapshotOpts.GetURL())
+
+	snapshotGetCommand := fmt.Sprintf("vcluster snapshot get %s %s", vCluster.Name, snapshotOpts.GetURL())
+	if snapshotOpts.Type == "azure" {
+		if snapshotOpts.Azure.SubscriptionID != "" {
+			snapshotGetCommand += fmt.Sprintf(" --azure-subscription-id %s", snapshotOpts.Azure.SubscriptionID)
+		}
+		if snapshotOpts.Azure.ResourceGroup != "" {
+			snapshotGetCommand += fmt.Sprintf(" --azure-resource-group %s", snapshotOpts.Azure.ResourceGroup)
+		}
+	}
+	log.Infof("Beginning snapshot creation... Check the snapshot status by running `%s`", snapshotGetCommand)
 	return nil
 }
 
