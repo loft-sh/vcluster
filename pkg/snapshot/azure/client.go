@@ -2,6 +2,7 @@ package azure
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -21,6 +22,11 @@ var (
 	// ErrResourceGroupNotSet is returned when the Azure resource group is not set
 	ErrResourceGroupNotSet = fmt.Errorf("the Azure resource group is required, set the AZURE_RESOURCE_GROUP environment variable, or set the --azure-resource-group flag if you're running vcluster CLI")
 )
+
+// IsAzureFlagNotSetError returns true if the error is caused by a missing Azure flag
+func IsAzureFlagNotSetError(err error) bool {
+	return errors.Is(err, ErrSubscriptionIDNotSet) || errors.Is(err, ErrResourceGroupNotSet)
+}
 
 type BlobInfo struct {
 	ContainerName string
