@@ -54,7 +54,7 @@ ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go", "start"]
 FROM alpine:3.23
 
 # install runtime dependencies
-RUN apk add --no-cache ca-certificates zstd tzdata
+RUN apk upgrade --no-cache zlib && apk add --no-cache ca-certificates zstd tzdata
 
 # Set root path as working directory
 WORKDIR /
