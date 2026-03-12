@@ -120,7 +120,7 @@ jobs:
       - name: Set up vind cluster
         uses: loft-sh/setup-vind@v1
         with:
-          version: "v0.32.2-rc.1"
+          version: "v0.32.2-rc.2"
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
           skipClusterDeletion: "true"
@@ -202,7 +202,7 @@ jobs:
       - name: Set up vind cluster
         uses: loft-sh/setup-vind@v1
         with:
-          version: "v0.32.2-rc.1"
+          version: "v0.32.2-rc.2"
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
           skipClusterDeletion: "true"
@@ -315,7 +315,7 @@ jobs:
       - name: Set up vind cluster
         uses: loft-sh/setup-vind@v1
         with:
-          version: "v0.32.2-rc.1"
+          version: "v0.32.2-rc.2"
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
           skipClusterDeletion: "true"
