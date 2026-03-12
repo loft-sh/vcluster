@@ -314,6 +314,10 @@ func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterCon
 func setLatestRevisionSQLite(ctx context.Context, file string, revision int64) error {
 	klog.FromContext(ctx).Info("Setting latest revision for SQLite database...", "revision", revision)
 
+	// remove stale kine socket from a previous run to avoid "address already in use" errors
+	kineSocketPath := filepath.Join(constants.DataDir, "kine.sock")
+	_ = os.Remove(kineSocketPath)
+
 	// create a new context that can be cancelled
 	kineCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -321,12 +325,30 @@ func setLatestRevisionSQLite(ctx context.Context, file string, revision int64) e
 	// start & stop kine to create the database
 	doneChan := k8s.StartKineWithDone(kineCtx, fmt.Sprintf("sqlite://%s%s", file, k8s.SQLiteParams), constants.K8sKineEndpoint, nil, nil)
 
-	// wait until file is created
-	for {
-		time.Sleep(1 * time.Second)
-		_, err := os.Stat(file)
-		if err == nil {
-			break
+	// wait until file is created or kine fails or timeout
+	kineStartTimeout := 30 * time.Second
+	timeoutTimer := time.NewTimer(kineStartTimeout)
+	defer timeoutTimer.Stop()
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	var fileCreated bool
+	for !fileCreated {
+		select {
+		case err := <-doneChan:
+			// kine exited before creating the file
+			if err != nil {
+				return fmt.Errorf("kine exited before creating database: %w", err)
+			}
+			return fmt.Errorf("kine exited before creating database")
+		case <-timeoutTimer.C:
+			cancel()
+			// drain doneChan to prevent goroutine leak from unbuffered channel send
+			<-doneChan
+			return fmt.Errorf("timed out waiting for kine to create database after %s", kineStartTimeout)
+		case <-ticker.C:
+			if _, err := os.Stat(file); err == nil {
+				fileCreated = true
+			}
 		}
 	}
 
