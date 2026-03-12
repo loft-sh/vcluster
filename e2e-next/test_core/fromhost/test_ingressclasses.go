@@ -20,7 +20,6 @@ var _ = Describe("IngressClasses sync from host",
 	labels.Core,
 	labels.Sync,
 	cluster.Use(clusters.IngressClassesVCluster),
-	cluster.Use(clusters.HostCluster),
 	func() {
 		var (
 			hostClient     kubernetes.Interface
@@ -221,8 +220,8 @@ var _ = Describe("IngressClasses sync from host",
 
 			By("waiting for nginx ingress to be synced to host vcluster namespace")
 			// The synced ingress name on the host follows the pattern:
-			// <name>-x-<namespace>-x-<host-namespace>
-			expectedHostIngressName := nginxIngressName + "-x-" + testNamespace + "-x-" + hostNamespace
+			// <name>-x-<namespace>-x-<host-vClusterName>
+			expectedHostIngressName := nginxIngressName + "-x-" + testNamespace + "-x-" + vClusterName
 			Eventually(func(g Gomega) {
 				ingresses, err := hostClient.NetworkingV1().Ingresses(hostNamespace).List(ctx, metav1.ListOptions{})
 				g.Expect(err).NotTo(HaveOccurred())
