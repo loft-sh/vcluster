@@ -65,6 +65,9 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 }
 
 func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, log log.Logger) error {
+	if len(args) != 2 {
+		return fmt.Errorf("unexpected amount of arguments: %d, need exactly 2 arguments. E.g. vcluster snapshot get my-vcluster s3://my-bucket/my-key", len(args))
+	}
 	snapshotURL := args[1]
 	parsedURL, err := url.Parse(snapshotURL)
 	if err != nil {
