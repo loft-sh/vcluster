@@ -26,7 +26,7 @@ var (
 var (
 	//go:embed vcluster-default.yaml
 	DefaultVClusterYAMLTemplate string
-	DefaultVClusterVars         map[string]interface{} = map[string]interface{}{
+	DefaultVClusterVars         map[string]any = map[string]any{
 		"Repository": constants.GetRepository(),
 		"Tag":        constants.GetTag(),
 	}
@@ -128,6 +128,22 @@ var (
 	FromHostConfigMapsVCluster = vcluster.Define(
 		vcluster.WithName(FromHostConfigMapsVClusterName),
 		vcluster.WithVClusterYAML(FromHostConfigMapsVClusterYAML),
+		vcluster.WithOptions(
+			DefaultVClusterOptions...,
+		),
+		vcluster.WithDependencies(HostCluster),
+	)
+
+	//go:embed vcluster-ingressclasses.yaml
+	IngressClassesVClusterYAMLTemplate                            string
+	IngressClassesVClusterName                                    = "ingressclasses-test-vcluster"
+	IngressClassesVClusterYAML, IngressClassesVClusterYAMLCleanup = template.MustRender(
+		IngressClassesVClusterYAMLTemplate,
+		DefaultVClusterVars,
+	)
+	IngressClassesVCluster = vcluster.Define(
+		vcluster.WithName(IngressClassesVClusterName),
+		vcluster.WithVClusterYAML(IngressClassesVClusterYAML),
 		vcluster.WithOptions(
 			DefaultVClusterOptions...,
 		),
