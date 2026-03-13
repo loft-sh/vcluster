@@ -18,8 +18,11 @@ concurrency:
 jobs:
   golangci:
     name: lint
-    if: github.repository_owner == 'loft-sh' # do not run on forks
     runs-on: ubuntu-latest
+    env:
+      # Use vendored dependencies so fork PRs (which lack access to
+      # GH_ACCESS_TOKEN) can still compile against private modules.
+      GOFLAGS: -mod=vendor
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -44,6 +47,15 @@ jobs:
           go-version-file: ./go.mod
           cache: false
 
+<<<<<<< HEAD
+=======
+      - name: Configure git
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
+>>>>>>> d9591875b (fix(ci): allow lint workflow to pass for fork PRs (#3671))
       - name: Generate Embedded Helm Chart
         run: |
           go generate ./...
@@ -64,6 +76,32 @@ jobs:
             exit 1
           fi
 
+<<<<<<< HEAD
+=======
+      - name: Verify go mod tidy and vendor
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          go mod tidy
+          go mod vendor
+          if [ -n "$(git status --porcelain go.mod go.sum vendor/)" ]; then
+            echo "❌ ERROR: go.mod, go.sum, or vendor/ directory is out of sync."
+            echo "Please run 'go mod tidy && go mod vendor' and commit the changes."
+            echo ""
+            echo "Changed files:"
+            git status --porcelain go.mod go.sum vendor/
+            echo ""
+            echo "Diff (go.mod and go.sum):"
+            git diff go.mod go.sum
+            echo ""
+            echo "💡 TIP: If this works locally but fails in CI, check for gitignored"
+            echo "   directories (e.g. licenses/) that may affect dependency resolution."
+            echo "   Run 'git status --ignored' locally to see ignored files."
+            exit 1
+          fi
+        env:
+          GOFLAGS: ""
+
+>>>>>>> d9591875b (fix(ci): allow lint workflow to pass for fork PRs (#3671))
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
