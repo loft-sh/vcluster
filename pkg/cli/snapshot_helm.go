@@ -65,6 +65,9 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 }
 
 func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, log log.Logger) error {
+	if len(args) != 2 {
+		return fmt.Errorf("unexpected amount of arguments: %d, need exactly 2 arguments. E.g. vcluster snapshot get my-vcluster s3://my-bucket/my-key", len(args))
+	}
 	snapshotURL := args[1]
 	parsedURL, err := url.Parse(snapshotURL)
 	if err != nil {
@@ -157,7 +160,17 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request resources: %w", err)
 	}
-	log.Infof("Beginning snapshot creation... Check the snapshot status by running `vcluster snapshot get %s %s`", vCluster.Name, snapshotOpts.GetURL())
+
+	snapshotGetCommand := fmt.Sprintf("vcluster snapshot get %s %s", vCluster.Name, snapshotOpts.GetURL())
+	if snapshotOpts.Type == "azure" {
+		if snapshotOpts.Azure.SubscriptionID != "" {
+			snapshotGetCommand += fmt.Sprintf(" --azure-subscription-id %s", snapshotOpts.Azure.SubscriptionID)
+		}
+		if snapshotOpts.Azure.ResourceGroup != "" {
+			snapshotGetCommand += fmt.Sprintf(" --azure-resource-group %s", snapshotOpts.Azure.ResourceGroup)
+		}
+	}
+	log.Infof("Beginning snapshot creation... Check the snapshot status by running `%s`", snapshotGetCommand)
 	return nil
 }
 
