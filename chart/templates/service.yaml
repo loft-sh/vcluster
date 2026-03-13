@@ -13,8 +13,9 @@ metadata:
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
     vcluster.loft.sh/service: "true"
-    {{- if .Values.controlPlane.service.labels }}
-{{ toYaml .Values.controlPlane.service.labels | indent 4 }}
+    {{- $labels := merge dict .Values.controlPlane.service.labels }}
+    {{- if $labels }}
+{{ toYaml $labels | indent 4 }}
     {{- end }}
   {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.controlPlane.service.annotations }}
   {{- if $annotations }}

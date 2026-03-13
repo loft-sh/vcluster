@@ -11,9 +11,10 @@ metadata:
     chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
-{{- if $externalEtcd.labels }}
-{{ toYaml $externalEtcd.labels | indent 4 }}
-{{- end }}
+  {{- $labels := merge dict $externalEtcd.labels }}
+  {{- if $labels }}
+{{ toYaml $labels | indent 4 }}
+  {{- end }}
   {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations $externalEtcd.annotations }}
   {{- if $annotations }}
   annotations:

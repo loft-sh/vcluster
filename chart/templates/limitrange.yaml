@@ -10,9 +10,10 @@ metadata:
     chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
-    {{- if .Values.policies.limitRange.labels }}
-{{ toYaml .Values.policies.limitRange.labels | indent 4 }}
-    {{- end }}
+  {{- $labels := merge dict .Values.policies.limitRange.labels }}
+  {{- if $labels }}
+{{ toYaml $labels | indent 4 }}
+  {{- end }}
   {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.policies.limitRange.annotations }}
   {{- if $annotations }}
   annotations:
