@@ -113,27 +113,20 @@ func newBlobClient(ctx context.Context, subscriptionID, resourceGroup string, in
 	return blobClient, nil
 }
 
-// newContainerClient creates a container client from blob URL with SAS token
-func newContainerClient(blobURL string) (*container.Client, string, error) {
-	info, err := getBlobInfo(blobURL)
+// newContainerClient creates an Azure container client for listing blobs, using DefaultAzureCredential.
+func newContainerClient(accountName, containerName string) (*container.Client, error) {
+	containerURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s", accountName, containerName)
+
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
-		return nil, "", err
-	}
-	parsedURL, err := url.Parse(blobURL)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to parse blob URL: %w", err)
+		return nil, fmt.Errorf("failed to create default Azure credential: %w", err)
 	}
 
-	// Build container URL with SAS token (reconstruct account URL from account name)
-	accountURL := fmt.Sprintf("%s://%s.blob.core.windows.net", parsedURL.Scheme, info.AccountName)
-	containerURL := fmt.Sprintf("%s/%s?%s", accountURL, info.ContainerName, parsedURL.RawQuery)
-
-	containerClient, err := container.NewClientWithNoCredential(containerURL, nil)
+	containerClient, err := container.NewClient(containerURL, cred, nil)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create container client: %w", err)
+		return nil, fmt.Errorf("failed to create container client: %w", err)
 	}
-
-	return containerClient, info.BlobName, nil
+	return containerClient, nil
 }
 
 // createAzureStorageAccountsClient creates an Azure storage accounts client using Azure CLI credentials
