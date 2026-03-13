@@ -104,7 +104,7 @@ jobs:
             --label-filter="${LABEL_FILTER}" \
             ./e2e-next -- \
             --vcluster-image="${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" \
-            --teardown=true
+            --teardown=false
 
       - name: Collect debug info on failure
         if: failure()
