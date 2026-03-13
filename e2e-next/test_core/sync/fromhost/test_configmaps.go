@@ -75,7 +75,7 @@ var _ = Describe("ConfigMaps sync from host",
 			}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func(ctx context.Context) {
-				_ = hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, cmName, metav1.DeleteOptions{})
+				Expect(hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, cmName, metav1.DeleteOptions{})).To(Succeed())
 			})
 
 			By("waiting for CM to be synced to barfoo namespace in vcluster")
@@ -134,7 +134,7 @@ var _ = Describe("ConfigMaps sync from host",
 			}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func(ctx context.Context) {
-				_ = hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, hostCMName, metav1.DeleteOptions{})
+				Expect(hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, hostCMName, metav1.DeleteOptions{})).To(Succeed())
 			})
 
 			By("waiting for CM to be synced as cm-my to barfoo namespace in vcluster")
@@ -202,7 +202,7 @@ var _ = Describe("ConfigMaps sync from host",
 			}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func(ctx context.Context) {
-				_ = hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, cmName, metav1.DeleteOptions{})
+				Expect(hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, cmName, metav1.DeleteOptions{})).To(Succeed())
 			})
 
 			By("waiting for CM to be synced to barfoo namespace in vcluster")
