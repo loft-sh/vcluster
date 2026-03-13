@@ -16,3 +16,4 @@ profile.out
 tests/__snapshot__
 /licenses
 custom-gcl
+/.agent-scratchpad

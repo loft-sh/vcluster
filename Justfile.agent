@@ -1,0 +1,92 @@
+# Agentic TDD workflow for vCluster
+# Usage: just -f Justfile.agent <target>
+# Docs:  .claude/e2e-tdd-workflow.md
+#
+# Parallel agents: set AGENT_SESSION to a unique value per agent to isolate
+# image tags and report files.
+#   AGENT_SESSION=abc just -f Justfile.agent push
+
+import 'Justfile'
+
+session      := env("AGENT_SESSION", "")
+suffix       := if session == "" { "" } else { "-" + session }
+image        := "ghcr.io/loft-sh/vcluster:dev-next" + suffix
+report_file  := "/tmp/e2e-report" + suffix + ".json"
+kind_name    := env("KIND_NAME", "kind-cluster")
+kube_context := "kind-" + kind_name
+
+# Check cluster and vcluster readiness
+preflight:
+  @echo "=== Cluster ==="
+  @kubectl --context {{kube_context}} get nodes 2>&1 | head -3
+  @echo ""
+  @echo "=== vCluster Pods ==="
+  @kubectl --context {{kube_context}} get pods -A -l app=vcluster -o wide 2>&1 | head -10
+
+# Build image, create kind cluster, setup vclusters — one-time (~90s)
+bootstrap label:
+  kind create cluster --name {{kind_name}} --wait 60s 2>/dev/null || true
+  just build-snapshot
+  docker tag ghcr.io/loft-sh/vcluster:dev-next {{image}}
+  kind load docker-image {{image}} --name {{kind_name}}
+  just setup "{{label}}" "{{image}}"
+
+# Cross-compile check + vet — catches type errors before push (~20s)
+compile-check:
+  GOOS=linux GOARCH={{GOARCH}} CGO_ENABLED=0 go build -mod vendor -trimpath -ldflags "-s -w" -o /dev/null ./cmd/vcluster/
+  go vet ./cmd/... ./pkg/... ./e2e-next/...
+
+# Run golangci-lint (matches CI config)
+lint *ARGS:
+  golangci-lint run {{ARGS}}
+
+# Rebuild image + load to kind (~15-45s)
+rebuild:
+  just build-snapshot
+  docker tag ghcr.io/loft-sh/vcluster:dev-next {{image}}
+  kind load docker-image {{image}} --name {{kind_name}}
+
+# Compile check + rebuild in one step
+push: compile-check rebuild
+
+# Run all e2e-next tests with JSON report
+[no-exit-message]
+test-all: (test "")
+
+# Run e2e-next tests with JSON report
+[no-exit-message]
+test label="pr":
+  ginkgo -timeout=0 --silence-skips --succinct --no-color \
+    --json-report={{report_file}} \
+    --label-filter='{{label}}' ./e2e-next -- \
+    --vcluster-image="{{image}}" \
+    --teardown=false
+
+# Run a single focused test within a label group (fast iteration)
+[no-exit-message]
+test-focus label focus:
+  ginkgo -timeout=0 --silence-skips --succinct --no-color \
+    --json-report={{report_file}} \
+    --label-filter='{{label}}' \
+    --focus='{{focus}}' ./e2e-next -- \
+    --vcluster-image="{{image}}" \
+    --teardown=false
+
+# Extract failure summary from last test run
+report:
+  #!/usr/bin/env bash
+  if [[ ! -f {{report_file}} ]]; then
+    echo "No report found at {{report_file}} — run tests first."
+    exit 1
+  fi
+  jq '.[0] | {
+    SuitePassed: .SuiteSucceeded,
+    Passed: ([.SpecReports[] | select(.State == "passed")] | length),
+    Failed: ([.SpecReports[] | select(.State == "failed")] | length),
+    Failures: [.SpecReports[] | select(.State == "failed") | {
+      Test: (.ContainerHierarchyTexts + [.LeafNodeText] | join(" > ")),
+      Error: .Failure.Message,
+      ErrorAt: (.Failure.Location.FileName + ":" + (.Failure.Location.LineNumber | tostring)),
+      ReportEntries: [(.ReportEntries // [])[] | {Name: .Name, Value: .Value.Representation}]
+    }]
+  }' {{report_file}}
