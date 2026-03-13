@@ -22,7 +22,7 @@ import (
 
 	// Initialize framework
 	_ "github.com/loft-sh/vcluster/e2e-next/init"
-	// All tests are registered in register_tests_test.go with explicit cluster dependencies
+	// All tests are registered in suite_*_test.go with explicit cluster dependencies
 )
 
 var (
