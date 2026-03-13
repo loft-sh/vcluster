@@ -193,19 +193,35 @@ jobs:
           VCLUSTER_NAMESPACE: ${{ env.VCLUSTER_NAMESPACE }}
         continue-on-error: true
 
-      - name: Print logs if e2e tests fail
+      - name: Collect debug info on failure
         if: steps.execute-e2e-tests.outcome == 'failure'
         run: |
-          set -x
-          kubectl get pods -o yaml -n vcluster-k8s-default-endpoint-test
-          echo "======================================================================================================================"
-          kubectl logs k8s-default-endpoint-test-0 -n vcluster-k8s-default-endpoint-test -c syncer
-          echo "======================================================================================================================"
-          kubectl logs k8s-default-endpoint-test-0 -n vcluster-k8s-default-endpoint-test -c syncer --previous
-          echo "======================================================================================================================"
-          kubectl get events -n vcluster-k8s-default-endpoint-test --sort-by='.lastTimestamp'
-          echo "======================================================================================================================"
-          # kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1
-          echo "======================================================================================================================"
-          kubectl describe pods -n vcluster-k8s-default-endpoint-test
+          set +e
+
+          echo "=== All pods ==="
+          kubectl get pods -A
+
+          echo ""
+          echo "=== vCluster instances ==="
+          for NS in $(kubectl get pods -A -l app=vcluster \
+              -o jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' 2>/dev/null | sort -u); do
+            echo ""
+            echo "--- vCluster namespace: $NS ---"
+
+            NOT_READY=$(kubectl get pods -n "$NS" -l app=vcluster \
+              -o jsonpath='{range .items[*]}{range .status.conditions[?(@.type=="Ready")]}{.status}{"\n"}{end}{end}' \
+              2>/dev/null | grep -c "^False$" || true)
+
+            if [ "$NOT_READY" -gt 0 ]; then
+              echo "Pods NOT ready — describing:"
+              kubectl describe pods -n "$NS" -l app=vcluster || true
+              echo ""
+              kubectl get events -n "$NS" --sort-by='.lastTimestamp' || true
+            else
+              echo "Pods ready — collecting syncer logs:"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || \
+                kubectl logs -n "$NS" -l app=vcluster --tail=500 2>/dev/null || true
+            fi
+          done
+
           exit 1

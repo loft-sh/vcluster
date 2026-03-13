@@ -1,0 +1,229 @@
+name: vCluster E2E Nightly (Ginkgo)
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      notify:
+        description: "Send Slack notifications"
+        type: boolean
+        default: true
+      ginkgo-label:
+        description: 'Ginkgo label filter. Defaults to "!non-default" (all tests).'
+        type: string
+        default: "!non-default"
+
+concurrency:
+  group: e2e-ginkgo-nightly-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  REPOSITORY_NAME: ghcr.io/loft-sh/vcluster
+  TAG_NAME: nightly-${{ github.run_number }}
+
+jobs:
+  e2e-tests:
+    name: Run Ginkgo E2E Tests
+    if: github.repository_owner == 'loft-sh'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Remove default packages to free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/share/boost || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo docker image prune --all --force || true
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          install-only: true
+          version: latest
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.19.0"
+
+      - name: Build vcluster image and CLI
+        run: |
+          set -x
+          TELEMETRY_PRIVATE_KEY="" goreleaser build \
+            --single-target --snapshot --id vcluster --clean --output ./vcluster
+          docker build \
+            -t "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" \
+            -f Dockerfile.release \
+            --build-arg TARGETARCH=amd64 \
+            --build-arg TARGETOS=linux .
+          docker image ls
+          TELEMETRY_PRIVATE_KEY="" goreleaser build \
+            --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
+
+      - name: Install Ginkgo CLI
+        run: |
+          cd e2e-next
+          go install github.com/onsi/ginkgo/v2/ginkgo
+
+      - name: Set up vCluster CLI in GOBIN
+        run: |
+          GOBIN=$(go env GOPATH)/bin
+          mkdir -p "$GOBIN"
+          chmod +x vcluster
+          cp vcluster "$GOBIN/vcluster"
+          echo "GOBIN=$GOBIN" >> "$GITHUB_ENV"
+
+      - name: Run e2e-next tests
+        run: |
+          LABEL_FILTER="${{ inputs.ginkgo-label || '!non-default' }}"
+          ginkgo \
+            -v \
+            --timeout=0 \
+            --poll-progress-after=20s \
+            --poll-progress-interval=10s \
+            --label-filter="${LABEL_FILTER}" \
+            ./e2e-next -- \
+            --vcluster-image="${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" \
+            --teardown=true
+
+      - name: Collect debug info on failure
+        if: failure()
+        run: |
+          set +e
+
+          echo "=== All pods ==="
+          kubectl get pods -A
+
+          echo ""
+          echo "=== vCluster instances ==="
+          for NS in $(kubectl get pods -A -l app=vcluster \
+              -o jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' 2>/dev/null | sort -u); do
+            echo ""
+            echo "--- vCluster namespace: $NS ---"
+
+            NOT_READY=$(kubectl get pods -n "$NS" -l app=vcluster \
+              -o jsonpath='{range .items[*]}{range .status.conditions[?(@.type=="Ready")]}{.status}{"\n"}{end}{end}' \
+              2>/dev/null | grep -c "^False$" || true)
+
+            if [ "$NOT_READY" -gt 0 ]; then
+              echo "Pods NOT ready — describing:"
+              kubectl describe pods -n "$NS" -l app=vcluster || true
+              echo ""
+              kubectl get events -n "$NS" --sort-by='.lastTimestamp' || true
+            else
+              echo "Pods ready — collecting syncer logs:"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || \
+                kubectl logs -n "$NS" -l app=vcluster --tail=500 2>/dev/null || true
+            fi
+          done
+
+  notify:
+    name: Send Slack Notifications
+    if: always() && github.repository_owner == 'loft-sh' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.notify))
+    needs: [e2e-tests]
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        channel:
+          - name: "ci-tests-alerts"
+            webhook_secret: SLACK_WEBHOOK_URL_CI_TESTS_ALERTS
+          - name: "dev-vcluster"
+            webhook_secret: SLACK_WEBHOOK_URL_DEV_VCLUSTER
+
+    steps:
+      - name: Determine workflow status
+        id: status
+        run: |
+          if [[ "${{ needs.e2e-tests.result }}" == "failure" ]]; then
+            {
+              echo "workflow_failed=true"
+              echo "status_emoji=❌"
+              echo "status_text=Failed"
+            } >> "$GITHUB_OUTPUT"
+          elif [[ "${{ needs.e2e-tests.result }}" == "success" ]]; then
+            {
+              echo "workflow_failed=false"
+              echo "status_emoji=✅"
+              echo "status_text=Passed"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "workflow_failed=true"
+              echo "status_emoji=⚠️"
+              echo "status_text=Cancelled or Skipped"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Send Slack notification (Success)
+        if: steps.status.outputs.workflow_failed == 'false' && matrix.channel.name == 'ci-tests-alerts'
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          payload: |
+            {
+              "text": "${{ steps.status.outputs.status_emoji }} vCluster E2E Nightly ${{ steps.status.outputs.status_text }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "${{ steps.status.outputs.status_emoji }} vCluster E2E Nightly ${{ steps.status.outputs.status_text }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Build URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nE2E Tests: ${{ needs.e2e-tests.result }}"
+                  }
+                }
+              ]
+            }
+          webhook: ${{ secrets[matrix.channel.webhook_secret] }}
+          webhook-type: incoming-webhook
+
+      - name: Send Slack notification (Failure)
+        if: steps.status.outputs.workflow_failed == 'true'
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          payload: |
+            {
+              "text": "${{ steps.status.outputs.status_emoji }} vCluster E2E Nightly ${{ steps.status.outputs.status_text }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "${{ steps.status.outputs.status_emoji }} vCluster E2E Nightly ${{ steps.status.outputs.status_text }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Build URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nE2E Tests: ${{ needs.e2e-tests.result }}"
+                  }
+                }
+              ]
+            }
+          webhook: ${{ secrets[matrix.channel.webhook_secret] }}
+          webhook-type: incoming-webhook
