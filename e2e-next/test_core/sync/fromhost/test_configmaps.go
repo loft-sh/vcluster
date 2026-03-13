@@ -25,10 +25,10 @@ var _ = Describe("ConfigMaps sync from host",
 	cluster.Use(clusters.FromHostConfigMapsVCluster),
 	func() {
 		var (
-			hostClient          kubernetes.Interface
-			vClusterClient      kubernetes.Interface
-			vClusterHostNS      string
-			vClusterName        = clusters.FromHostConfigMapsVClusterName
+			hostClient     kubernetes.Interface
+			vClusterClient kubernetes.Interface
+			vClusterHostNS string
+			vClusterName   = clusters.FromHostConfigMapsVClusterName
 		)
 
 		BeforeEach(func(ctx context.Context) {
