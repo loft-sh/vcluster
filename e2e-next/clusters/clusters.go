@@ -116,3 +116,21 @@ var (
 		vcluster.WithDependencies(HostCluster),
 	)
 )
+
+var (
+	//go:embed vcluster-fromhost-configmaps.yaml
+	FromHostConfigMapsVClusterYAMLTemplate                                string
+	FromHostConfigMapsVClusterName                                        = "fromhost-configmaps-vcluster"
+	FromHostConfigMapsVClusterYAML, FromHostConfigMapsVClusterYAMLCleanup = template.MustRender(
+		FromHostConfigMapsVClusterYAMLTemplate,
+		DefaultVClusterVars,
+	)
+	FromHostConfigMapsVCluster = vcluster.Define(
+		vcluster.WithName(FromHostConfigMapsVClusterName),
+		vcluster.WithVClusterYAML(FromHostConfigMapsVClusterYAML),
+		vcluster.WithOptions(
+			DefaultVClusterOptions...,
+		),
+		vcluster.WithDependencies(HostCluster),
+	)
+)

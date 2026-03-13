@@ -25,6 +25,7 @@ import (
 
 	// Import tests
 	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
+	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync/fromhost"
 	_ "github.com/loft-sh/vcluster/e2e-next/test_deploy"
 )
 
@@ -87,6 +88,7 @@ var _ = SynchronizedBeforeSuite(
 		DeferCleanup(clusters.HelmChartsVClusterYAMLCleanup)
 		DeferCleanup(clusters.InitManifestsVClusterYAMLCleanup)
 		DeferCleanup(clusters.ServiceSyncVClusterYAMLCleanup)
+		DeferCleanup(clusters.FromHostConfigMapsVClusterYAMLCleanup)
 
 		ctx, err = setup.All(
 			clusters.HostCluster.Setup,
@@ -107,6 +109,7 @@ var _ = SynchronizedBeforeSuite(
 						clusters.HelmChartsVCluster.Setup,
 						clusters.InitManifestsVCluster.Setup,
 						clusters.ServiceSyncVCluster.Setup,
+						clusters.FromHostConfigMapsVCluster.Setup,
 					)(ctx)
 					Expect(err).NotTo(HaveOccurred())
 				})
