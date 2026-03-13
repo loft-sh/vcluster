@@ -88,7 +88,8 @@ func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 		return nil, fmt.Errorf("config is nil")
 	}
 	if vConfig.ControlPlane.Standalone.Enabled {
-		return nil, errors.New("creating snapshot request resources is currently not supported in standalone mode")
+		// Standalone has no host namespace; use the virtual cluster's own kube-system.
+		vClusterNamespace = constants.StandaloneSnapshotNamespace
 	}
 
 	// first create the snapshot options Secret
@@ -133,7 +134,8 @@ func IsSnapshotRequestCreatedInHostCluster(config *config.VirtualClusterConfig) 
 		return false, fmt.Errorf("config is nil")
 	}
 	if config.ControlPlane.Standalone.Enabled {
-		return false, fmt.Errorf("creating snapshot requests is currently not supported in standalone mode")
+		// Standalone uses the virtual cluster's kube-system, not a host namespace.
+		return false, nil
 	}
 
 	return true, nil

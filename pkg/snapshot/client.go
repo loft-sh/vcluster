@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"os"
 
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/snapshot/types"
+	apinet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/klog/v2"
 )
 
@@ -29,7 +31,33 @@ func (c *Client) Run(ctx context.Context) error {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("parse vCluster config: %w", err)
+		}
+		// Standalone places config at a different path than container deployments.
+		vConfig, err = config.ParseConfig(constants.StandaloneDefaultConfigPath, os.Getenv("VCLUSTER_NAME"), nil)
+		if err != nil {
+			return fmt.Errorf("parse standalone vCluster config: %w", err)
+		}
+		// config.ParseConfig does not apply Helm value defaults, so Standalone.Enabled,
+		// PrivateNodes.Enabled, and DataDir may be unset even though we are clearly in
+		// standalone mode. Mirror what vcluster-pro/pkg/standalone/config does.
+		vConfig.ControlPlane.Standalone.Enabled = true
+		vConfig.PrivateNodes.Enabled = true
+		if vConfig.ControlPlane.Standalone.DataDir == "" {
+			vConfig.ControlPlane.Standalone.DataDir = "/var/lib/vcluster"
+		}
+
+		// Embedded etcd requires VCLUSTER_STANDALONE_IP_ADDRESS to identify the local peer.
+		if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
+			if _, ok := os.LookupEnv(constants.VClusterStandaloneIPAddressEnvVar); !ok {
+				hostIP, err := apinet.ChooseHostInterface()
+				if err != nil {
+					return fmt.Errorf("determine host IP for embedded etcd peer (set %s to override): %w", constants.VClusterStandaloneIPAddressEnvVar, err)
+				}
+				os.Setenv(constants.VClusterStandaloneIPAddressEnvVar, hostIP.String())
+			}
+		}
 	}
 
 	// make sure to validate options
