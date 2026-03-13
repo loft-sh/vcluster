@@ -1211,6 +1211,11 @@ experimental:
       # ForwardPorts defines if the load balancer ips should be made available locally
       # via port forwarding. This will be only done if necessary for example on macos when using docker desktop.
       forwardPorts: true
+      # UseSudo defines if ifconfig commands for configuring loopback aliases should be
+      # prefixed with sudo -n (non-interactive). This allows running vCluster without root
+      # while still supporting load balancer services on macOS. Requires passwordless sudo
+      # configured for ifconfig.
+      useSudo: false
     # Defines if docker images should be pulled from the host docker daemon. This prevents pulling images again and allows to
     # use purely local images. Only works if containerd image storage is used. For more information, see https://docs.docker.com/engine/storage/containerd
     registryProxy:

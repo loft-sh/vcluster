@@ -1936,6 +1936,10 @@
         "forwardPorts": {
           "type": "boolean",
           "description": "ForwardPorts defines if the load balancer ips should be made available locally\nvia port forwarding. This will be only done if necessary for example on macos when using docker desktop."
+        },
+        "useSudo": {
+          "type": "boolean",
+          "description": "UseSudo defines if ifconfig commands for configuring loopback aliases should be\nprefixed with sudo -n (non-interactive). This allows running vCluster without root\nwhile still supporting load balancer services on macOS. Requires passwordless sudo\nconfigured for ifconfig."
         }
       },
       "additionalProperties": false,

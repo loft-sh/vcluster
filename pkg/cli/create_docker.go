@@ -935,7 +935,7 @@ func configureNetwork(ctx context.Context, fullConfigRaw map[string]interface{},
 
 	// if the load balancer is disabled, we don't need to mount the docker socket
 	if fullConfig.Experimental.Docker.LoadBalancer.Enabled {
-		loadBalancerArgs, err := configureLoadBalancer(ctx, fullConfigRaw, networkName, log)
+		loadBalancerArgs, err := configureLoadBalancer(ctx, fullConfigRaw, networkName, fullConfig.Experimental.Docker.LoadBalancer.UseSudo, log)
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to configure load balancer: %w", err)
 		}
@@ -945,7 +945,7 @@ func configureNetwork(ctx context.Context, fullConfigRaw map[string]interface{},
 	return networkName, extraArgs, nil
 }
 
-func configureLoadBalancer(ctx context.Context, fullConfigRaw map[string]interface{}, networkName string, log log.Logger) ([]string, error) {
+func configureLoadBalancer(ctx context.Context, fullConfigRaw map[string]interface{}, networkName string, useSudo bool, log log.Logger) ([]string, error) {
 	extraArgs := []string{}
 	reachable, err := isDockerNetworkReachable(ctx, networkName)
 	if err != nil {
@@ -988,15 +988,37 @@ func configureLoadBalancer(ctx context.Context, fullConfigRaw map[string]interfa
 			return nil, fmt.Errorf("failed to find tail ips: %w", err)
 		}
 		for _, ip := range ips {
-			out, err := exec.CommandContext(ctx, "ifconfig", "lo0", "alias", ip).CombinedOutput()
+			var cmd *exec.Cmd
+			if useSudo {
+				cmd = exec.CommandContext(ctx, "sudo", "-n", "ifconfig", "lo0", "alias", ip)
+			} else {
+				cmd = exec.CommandContext(ctx, "ifconfig", "lo0", "alias", ip)
+			}
+			out, err := cmd.CombinedOutput()
 			if err != nil {
+				if useSudo {
+					err = unstructured.SetNestedField(fullConfigRaw, false, "experimental", "docker", "loadBalancer", "enabled")
+					if err != nil {
+						return nil, fmt.Errorf("failed to set nested field: %w", err)
+					}
+
+					log.Warnf("Load balancer type services are not supported inside the vCluster because 'sudo -n ifconfig' failed: %s\n"+
+						"To fix this, configure passwordless sudo for ifconfig by running:\n"+
+						"  sudo visudo -f /etc/sudoers.d/vcluster-ifconfig\n"+
+						"and adding the following line:\n"+
+						"  %%staff ALL=(root) NOPASSWD: /sbin/ifconfig lo0 alias *\n"+
+						"Alternatively, run the vCluster CLI with sudo.", string(out))
+					return extraArgs, nil
+				}
+
 				if strings.Contains(string(out), "permission denied") {
 					err = unstructured.SetNestedField(fullConfigRaw, false, "experimental", "docker", "loadBalancer", "enabled")
 					if err != nil {
 						return nil, fmt.Errorf("failed to set nested field: %w", err)
 					}
 
-					log.Warnf("Load balancer type services are not supported inside the vCluster because this command was executed with insufficient privileges. To enable load balancer type services, run this command with sudo")
+					log.Warnf("Load balancer type services are not supported inside the vCluster because this command was executed with insufficient privileges. " +
+						"To enable load balancer type services, run this command with sudo or set experimental.docker.loadBalancer.useSudo to true in your vcluster.yaml")
 					return extraArgs, nil
 				}
 

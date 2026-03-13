@@ -27,6 +27,7 @@ import (
 	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
 	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync/fromhost"
 	_ "github.com/loft-sh/vcluster/e2e-next/test_deploy"
+	_ "github.com/loft-sh/vcluster/e2e-next/test_vind"
 )
 
 var (
@@ -93,6 +94,9 @@ var _ = SynchronizedBeforeSuite(
 		ctx, err = setup.All(
 			clusters.HostCluster.Setup,
 			func(ctx context.Context) (context.Context, error) {
+				if cluster.From(ctx, clusterName) == nil {
+					return ctx, nil
+				}
 				var err error
 				By("Loading image to kind cluster...", func() {
 					ctx, err = cluster.LoadImage(clusterName, vclusterImage)(ctx)
