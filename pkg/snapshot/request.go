@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/snapshot/azure"
 	snapshotTypes "github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
@@ -251,7 +252,9 @@ func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *O
 	restoreClient := NewRestoreClient(*snapshotOpts, false, false)
 
 	savedSnapshotRequest, err := restoreClient.GetSnapshotRequest(ctx)
-	if errors.Is(err, ErrSnapshotRequestNotFound) {
+	if azure.IsAzureFlagNotSetError(err) {
+		return fmt.Errorf("failed to get saved snapshot request for URL %s: %w", snapshotOpts.GetURL(), err)
+	} else if errors.Is(err, ErrSnapshotRequestNotFound) {
 		log.Debugf("Saved snapshot request not found for URL %s", snapshotOpts.GetURL())
 	} else if err != nil {
 		log.Debugf("Failed to get saved snapshot request for URL %s: %v", snapshotOpts.GetURL(), err)

@@ -2,6 +2,7 @@ package azure
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -13,6 +14,19 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 )
+
+var (
+	// ErrSubscriptionIDNotSet is returned when the Azure subscription ID is not set
+	ErrSubscriptionIDNotSet = fmt.Errorf("the Azure subscription ID is required, set the AZURE_SUBSCRIPTION_ID environment variable, or set the --azure-subscription-id flag if you're running vcluster CLI")
+
+	// ErrResourceGroupNotSet is returned when the Azure resource group is not set
+	ErrResourceGroupNotSet = fmt.Errorf("the Azure resource group is required, set the AZURE_RESOURCE_GROUP environment variable, or set the --azure-resource-group flag if you're running vcluster CLI")
+)
+
+// IsAzureFlagNotSetError returns true if the error is caused by a missing Azure flag
+func IsAzureFlagNotSetError(err error) bool {
+	return errors.Is(err, ErrSubscriptionIDNotSet) || errors.Is(err, ErrResourceGroupNotSet)
+}
 
 type BlobInfo struct {
 	ContainerName string
@@ -78,46 +92,10 @@ func newBlobClient(ctx context.Context, subscriptionID, resourceGroup string, in
 			//
 			storageKey = key
 		} else {
-			// Use default Azure credentials for authentication, then get storage account key. Finally, use storage account
-			// key to create a new SAS token.
-			//
-			// From Azure SDK go docs:
-			//   DefaultAzureCredential attempts to authenticate with each of these credential types, in the following order,
-			//   stopping when one provides a token:
-			//      1. EnvironmentCredential
-			//      2. WorkloadIdentityCredential, if environment variable configuration is set by the Azure workload identity webhook.
-			//      3. ManagedIdentityCredential
-			//      4. AzureCLICredential
-			//      5. AzureDeveloperCLICredential
-			//      6. AzurePowerShellCredential
-			// More details in go docs here https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity#DefaultAzureCredential.
-			var defaultCredential *azidentity.DefaultAzureCredential
-			defaultCredential, err = azidentity.NewDefaultAzureCredential(nil)
+			storageKey, err = getStorageKeyFromAzure(ctx, subscriptionID, resourceGroup, info.AccountName)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create default Azure credential: %w", err)
+				return nil, fmt.Errorf("failed to get storage key from Azure: %w", err)
 			}
-			// create the storage account client to get the shared key
-			clientFactory, err := armstorage.NewClientFactory(subscriptionID, defaultCredential, nil)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create client factory: %w", err)
-			}
-			storageAccountClient := clientFactory.NewAccountsClient()
-			// List storage account keys
-			resp, err := storageAccountClient.ListKeys(ctx, resourceGroup, info.AccountName, nil)
-			if err != nil {
-				return nil, fmt.Errorf("failed to list storage account keys: %w", err)
-			}
-
-			// Return the first key (equivalent to [0].value in Azure CLI)
-			if len(resp.Keys) == 0 {
-				return nil, fmt.Errorf("no keys found for storage account %s", info.AccountName)
-			}
-
-			if resp.Keys[0].Value == nil {
-				return nil, fmt.Errorf("key value is nil for storage account %s", info.AccountName)
-			}
-
-			storageKey = *resp.Keys[0].Value
 		}
 
 		// Create shared key credential
@@ -160,6 +138,9 @@ func newContainerClient(blobURL string) (*container.Client, string, error) {
 
 // createAzureStorageAccountsClient creates an Azure storage accounts client using Azure CLI credentials
 func createAzureStorageAccountsClient(subscriptionID string) (*armstorage.AccountsClient, error) {
+	if subscriptionID == "" {
+		return nil, ErrSubscriptionIDNotSet
+	}
 	// Use default Azure credentials for authentication. From Azure SDK go docs:
 	//
 	// DefaultAzureCredential attempts to authenticate with each of these credential types, in the following order,
@@ -195,10 +176,10 @@ func createAzureStorageAccountsClient(subscriptionID string) (*armstorage.Accoun
 //	  -o tsv
 func getStorageKeyFromAzure(ctx context.Context, subscriptionID, resourceGroup, storageAccount string) (string, error) {
 	if subscriptionID == "" {
-		return "", fmt.Errorf("subscription ID is required")
+		return "", ErrSubscriptionIDNotSet
 	}
 	if resourceGroup == "" {
-		return "", fmt.Errorf("resource group is required")
+		return "", ErrResourceGroupNotSet
 	}
 	if storageAccount == "" {
 		return "", fmt.Errorf("storage account name is required")
