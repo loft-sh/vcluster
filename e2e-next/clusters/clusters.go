@@ -2,13 +2,16 @@ package clusters
 
 import (
 	_ "embed"
+	"fmt"
 
 	"os"
 	"path/filepath"
 
 	"github.com/loft-sh/e2e-framework/pkg/provider/kind"
 	providervcluster "github.com/loft-sh/e2e-framework/pkg/provider/vcluster"
+	"github.com/loft-sh/e2e-framework/pkg/setup"
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
+	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/e2e-framework/pkg/setup/vcluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/setup/template"
@@ -23,15 +26,77 @@ var (
 	)
 )
 
+// vclusterEntry tracks a vCluster definition together with its YAML template
+// metadata so that re-rendering, cleanup, and setup can be driven from a
+// single registry.
+type vclusterEntry struct {
+	definition suite.Dependency
+	tmplPath   string
+	tmplText   string
+	cleanup    func() error
+}
+
+// registry is the single list of all vcluster definitions.
+var registry []*vclusterEntry
+
+// register creates a vCluster definition from the given options, records it in
+// the registry, and returns the suite.Dependency for use in tests.
+func register(tmplText string, tmplPath string, cleanup func() error, opts ...vcluster.Options) suite.Dependency {
+	entry := &vclusterEntry{
+		definition: vcluster.Define(opts...),
+		tmplPath:   tmplPath,
+		tmplText:   tmplText,
+		cleanup:    cleanup,
+	}
+	registry = append(registry, entry)
+	return entry.definition
+}
+
+// PrepareAndDeferCleanup re-renders all vCluster YAML templates with the
+// current flag values (--vcluster-image) and registers temp-file cleanup for
+// each one. Call once in SynchronizedBeforeSuite after flag parsing.
+// Shared temp files (e.g. two vclusters using the default template) are
+// re-rendered and cleaned up only once.
+func PrepareAndDeferCleanup(deferCleanup func(args ...interface{})) error {
+	vars := map[string]interface{}{
+		"Repository": constants.GetRepository(),
+		"Tag":        constants.GetTag(),
+	}
+	seen := make(map[string]bool)
+	for _, e := range registry {
+		if seen[e.tmplPath] {
+			continue
+		}
+		seen[e.tmplPath] = true
+		if err := template.RenderToFile(e.tmplPath, e.tmplText, vars); err != nil {
+			return fmt.Errorf("re-render %s: %w", e.tmplPath, err)
+		}
+		deferCleanup(e.cleanup)
+	}
+	return nil
+}
+
+// SetupFuncs returns the Setup function for every registered vCluster,
+// suitable for passing to setup.AllConcurrent.
+func SetupFuncs() []setup.Func {
+	fns := make([]setup.Func, len(registry))
+	for i, e := range registry {
+		fns[i] = e.definition.Setup
+	}
+	return fns
+}
+
+// --- Shared defaults ---
+
 var (
 	//go:embed vcluster-default.yaml
 	DefaultVClusterYAMLTemplate string
-	DefaultVClusterVars         map[string]interface{} = map[string]interface{}{
+	defaultVClusterVars         = map[string]interface{}{
 		"Repository": constants.GetRepository(),
 		"Tag":        constants.GetTag(),
 	}
 
-	DefaultVClusterYAML, DefaultVClusterYAMLCleanup = template.MustRender(DefaultVClusterYAMLTemplate, DefaultVClusterVars)
+	defaultVClusterYAML, defaultVClusterYAMLCleanup = template.MustRender(DefaultVClusterYAMLTemplate, defaultVClusterVars)
 	DefaultVClusterOptions                          = []support.ClusterOpts{
 		providervcluster.WithPath(filepath.Join(os.Getenv("GOBIN"), "vcluster")),
 		providervcluster.WithLocalChartDir("../chart"),
@@ -39,45 +104,45 @@ var (
 		providervcluster.WithBackgroundProxyImage(constants.GetVClusterImage()),
 	}
 )
+
+func defaultOpts(name, yamlPath string) []vcluster.Options {
+	return []vcluster.Options{
+		vcluster.WithName(name),
+		vcluster.WithVClusterYAML(yamlPath),
+		vcluster.WithOptions(DefaultVClusterOptions...),
+		vcluster.WithDependencies(HostCluster),
+	}
+}
+
+// --- vCluster definitions ---
+
 var (
 	K8sDefaultEndpointVClusterName = "k8s-default-endpoint-test"
-	K8sDefaultEndpointVCluster     = vcluster.Define(
-		vcluster.WithName(K8sDefaultEndpointVClusterName),
-		vcluster.WithVClusterYAML(DefaultVClusterYAML),
-		vcluster.WithOptions(
-			DefaultVClusterOptions...,
-		),
-		vcluster.WithDependencies(HostCluster),
+	K8sDefaultEndpointVCluster     = register(
+		DefaultVClusterYAMLTemplate, defaultVClusterYAML, defaultVClusterYAMLCleanup,
+		defaultOpts(K8sDefaultEndpointVClusterName, defaultVClusterYAML)...,
 	)
 )
 
 var (
 	NodesVClusterName = "nodes-test-vcluster"
-	NodesVCluster     = vcluster.Define(
-		vcluster.WithName(NodesVClusterName),
-		vcluster.WithVClusterYAML(DefaultVClusterYAML),
-		vcluster.WithOptions(
-			DefaultVClusterOptions...,
-		),
-		vcluster.WithDependencies(HostCluster),
+	NodesVCluster     = register(
+		DefaultVClusterYAMLTemplate, defaultVClusterYAML, defaultVClusterYAMLCleanup,
+		defaultOpts(NodesVClusterName, defaultVClusterYAML)...,
 	)
 )
 
 var (
 	//go:embed vcluster-test-helm.yaml
 	HelmChartsVClusterYAMLTemplate                        string
-	HelmChartsVClusterYAML, HelmChartsVClusterYAMLCleanup = template.MustRender(
+	helmChartsVClusterYAML, helmChartsVClusterYAMLCleanup = template.MustRender(
 		HelmChartsVClusterYAMLTemplate,
-		DefaultVClusterVars,
+		defaultVClusterVars,
 	)
 	HelmChartsVClusterName = "helm-charts-test-vcluster"
-	HelmChartsVCluster     = vcluster.Define(
-		vcluster.WithName(HelmChartsVClusterName),
-		vcluster.WithVClusterYAML(HelmChartsVClusterYAML),
-		vcluster.WithOptions(
-			DefaultVClusterOptions...,
-		),
-		vcluster.WithDependencies(HostCluster),
+	HelmChartsVCluster     = register(
+		HelmChartsVClusterYAMLTemplate, helmChartsVClusterYAML, helmChartsVClusterYAMLCleanup,
+		defaultOpts(HelmChartsVClusterName, helmChartsVClusterYAML)...,
 	)
 )
 
@@ -85,17 +150,13 @@ var (
 	//go:embed vcluster-init-manifest.yaml
 	InitManifestsVClusterTemplate                               string
 	InitManifestsVClusterName                                   = "init-manifests-test-vcluster"
-	InitManifestsVClusterYAML, InitManifestsVClusterYAMLCleanup = template.MustRender(
+	initManifestsVClusterYAML, initManifestsVClusterYAMLCleanup = template.MustRender(
 		InitManifestsVClusterTemplate,
-		DefaultVClusterVars,
+		defaultVClusterVars,
 	)
-	InitManifestsVCluster = vcluster.Define(
-		vcluster.WithName(InitManifestsVClusterName),
-		vcluster.WithVClusterYAML(InitManifestsVClusterYAML),
-		vcluster.WithOptions(
-			DefaultVClusterOptions...,
-		),
-		vcluster.WithDependencies(HostCluster),
+	InitManifestsVCluster = register(
+		InitManifestsVClusterTemplate, initManifestsVClusterYAML, initManifestsVClusterYAMLCleanup,
+		defaultOpts(InitManifestsVClusterName, initManifestsVClusterYAML)...,
 	)
 )
 
@@ -103,17 +164,13 @@ var (
 	//go:embed vcluster-servicesync.yaml
 	ServiceSyncVClusterYAMLTemplate                         string
 	ServiceSyncVClusterName                                 = "service-sync-vcluster"
-	ServiceSyncVClusterYAML, ServiceSyncVClusterYAMLCleanup = template.MustRender(
+	serviceSyncVClusterYAML, serviceSyncVClusterYAMLCleanup = template.MustRender(
 		ServiceSyncVClusterYAMLTemplate,
-		DefaultVClusterVars,
+		defaultVClusterVars,
 	)
-	ServiceSyncVCluster = vcluster.Define(
-		vcluster.WithName(ServiceSyncVClusterName),
-		vcluster.WithVClusterYAML(ServiceSyncVClusterYAML),
-		vcluster.WithOptions(
-			DefaultVClusterOptions...,
-		),
-		vcluster.WithDependencies(HostCluster),
+	ServiceSyncVCluster = register(
+		ServiceSyncVClusterYAMLTemplate, serviceSyncVClusterYAML, serviceSyncVClusterYAMLCleanup,
+		defaultOpts(ServiceSyncVClusterName, serviceSyncVClusterYAML)...,
 	)
 )
 
@@ -121,16 +178,12 @@ var (
 	//go:embed vcluster-fromhost-configmaps.yaml
 	FromHostConfigMapsVClusterYAMLTemplate                                string
 	FromHostConfigMapsVClusterName                                        = "fromhost-configmaps-vcluster"
-	FromHostConfigMapsVClusterYAML, FromHostConfigMapsVClusterYAMLCleanup = template.MustRender(
+	fromHostConfigMapsVClusterYAML, fromHostConfigMapsVClusterYAMLCleanup = template.MustRender(
 		FromHostConfigMapsVClusterYAMLTemplate,
-		DefaultVClusterVars,
+		defaultVClusterVars,
 	)
-	FromHostConfigMapsVCluster = vcluster.Define(
-		vcluster.WithName(FromHostConfigMapsVClusterName),
-		vcluster.WithVClusterYAML(FromHostConfigMapsVClusterYAML),
-		vcluster.WithOptions(
-			DefaultVClusterOptions...,
-		),
-		vcluster.WithDependencies(HostCluster),
+	FromHostConfigMapsVCluster = register(
+		FromHostConfigMapsVClusterYAMLTemplate, fromHostConfigMapsVClusterYAML, fromHostConfigMapsVClusterYAMLCleanup,
+		defaultOpts(FromHostConfigMapsVClusterName, fromHostConfigMapsVClusterYAML)...,
 	)
 )
