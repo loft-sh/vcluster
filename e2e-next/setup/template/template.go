@@ -35,3 +35,20 @@ func Render(template string, data interface{}) (string, func() error, error) {
 		return os.Remove(tmpFile.Name())
 	}, nil
 }
+
+// RenderToFile re-renders a template with new data to an existing file path.
+// This is useful for updating previously rendered templates after flag parsing.
+func RenderToFile(path string, tmpl string, data interface{}) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	parsed, err := gotemplate.New("template").Parse(tmpl)
+	if err != nil {
+		return err
+	}
+
+	return parsed.Execute(f, data)
+}
