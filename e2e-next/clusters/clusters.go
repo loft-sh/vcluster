@@ -100,6 +100,24 @@ var (
 )
 
 var (
+	//go:embed vcluster-rootless.yaml
+	RootlessVClusterYAMLTemplate                      string
+	RootlessVClusterName                              = "rootless-test-vcluster"
+	RootlessVClusterYAML, RootlessVClusterYAMLCleanup = template.MustRender(
+		RootlessVClusterYAMLTemplate,
+		DefaultVClusterVars,
+	)
+	RootlessVCluster = vcluster.Define(
+		vcluster.WithName(RootlessVClusterName),
+		vcluster.WithVClusterYAML(RootlessVClusterYAML),
+		vcluster.WithOptions(
+			DefaultVClusterOptions...,
+		),
+		vcluster.WithDependencies(HostCluster),
+	)
+)
+
+var (
 	//go:embed vcluster-servicesync.yaml
 	ServiceSyncVClusterYAMLTemplate                         string
 	ServiceSyncVClusterName                                 = "service-sync-vcluster"
