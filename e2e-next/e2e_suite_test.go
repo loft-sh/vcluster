@@ -27,6 +27,7 @@ import (
 	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
 	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync/fromhost"
 	_ "github.com/loft-sh/vcluster/e2e-next/test_deploy"
+	_ "github.com/loft-sh/vcluster/e2e-next/test_scheduler"
 )
 
 var (
@@ -89,6 +90,7 @@ var _ = SynchronizedBeforeSuite(
 		DeferCleanup(clusters.InitManifestsVClusterYAMLCleanup)
 		DeferCleanup(clusters.ServiceSyncVClusterYAMLCleanup)
 		DeferCleanup(clusters.FromHostConfigMapsVClusterYAMLCleanup)
+		DeferCleanup(clusters.SchedulerVClusterYAMLCleanup)
 
 		ctx, err = setup.All(
 			clusters.HostCluster.Setup,
@@ -110,6 +112,7 @@ var _ = SynchronizedBeforeSuite(
 						clusters.InitManifestsVCluster.Setup,
 						clusters.ServiceSyncVCluster.Setup,
 						clusters.FromHostConfigMapsVCluster.Setup,
+						clusters.SchedulerVCluster.Setup,
 					)(ctx)
 					Expect(err).NotTo(HaveOccurred())
 				})

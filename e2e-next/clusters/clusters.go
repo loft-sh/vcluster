@@ -100,6 +100,24 @@ var (
 )
 
 var (
+	//go:embed vcluster-scheduler.yaml
+	SchedulerVClusterYAMLTemplate                       string
+	SchedulerVClusterName                               = "scheduler-test-vcluster"
+	SchedulerVClusterYAML, SchedulerVClusterYAMLCleanup = template.MustRender(
+		SchedulerVClusterYAMLTemplate,
+		DefaultVClusterVars,
+	)
+	SchedulerVCluster = vcluster.Define(
+		vcluster.WithName(SchedulerVClusterName),
+		vcluster.WithVClusterYAML(SchedulerVClusterYAML),
+		vcluster.WithOptions(
+			DefaultVClusterOptions...,
+		),
+		vcluster.WithDependencies(HostCluster),
+	)
+)
+
+var (
 	//go:embed vcluster-servicesync.yaml
 	ServiceSyncVClusterYAMLTemplate                         string
 	ServiceSyncVClusterName                                 = "service-sync-vcluster"
