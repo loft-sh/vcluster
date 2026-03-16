@@ -11,6 +11,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
+	"github.com/spf13/pflag"
 )
 
 const (
@@ -152,4 +153,10 @@ func getStorageSAS(ctx context.Context, options Options) (string, error) {
 
 	// Return the SAS token query string (without the leading "?")
 	return sasQueryParams.Encode(), nil
+}
+
+// AddFlags adds CLI flags required for working with Azure storage.
+func AddFlags(flags *pflag.FlagSet, options *Options) {
+	flags.StringVarP(&options.SubscriptionID, "azure-subscription-id", "", "", "Azure subscription ID where the storage account is located")
+	flags.StringVarP(&options.ResourceGroup, "azure-resource-group", "", "", "Azure resource group where the storage account is located")
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
+	snapshotazure "github.com/loft-sh/vcluster/pkg/snapshot/azure"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/spf13/cobra"
 )
@@ -56,5 +57,6 @@ vcluster restore my-vcluster container:///data/my-local-snapshot.tar.gz
 	// add storage flags
 	pod.AddFlags(cobraCmd.Flags(), &cmd.Pod, true)
 	cobraCmd.Flags().BoolVar(&cmd.RestoreVolumes, "restore-volumes", false, "Restore volumes from volume snapshots")
+	snapshotazure.AddFlags(cobraCmd.Flags(), &cmd.Snapshot.Azure)
 	return cobraCmd
 }
