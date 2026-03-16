@@ -2,6 +2,7 @@
 paths:
   - "e2e-next/**/*.go"
 ---
+<!-- Generic core (items 1-8): e2e-tdd-workflow plugin references/e2e-quality-checklist-core.md -->
 
 # E2E Test Quality Checklist (e2e-next)
 

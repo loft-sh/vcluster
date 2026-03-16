@@ -1,6 +1,7 @@
 ---
 globs: ["**/*.go"]
 ---
+<!-- Generic core: e2e-tdd-workflow plugin references/scratchpad-programs.md (identical) -->
 
 ## Verifying assumptions with scratchpad programs
 

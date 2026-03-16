@@ -2,6 +2,7 @@
 paths:
   - "e2e-next/**/*.go"
 ---
+<!-- Generic core: e2e-tdd-workflow plugin references/e2e-conventions-core.md -->
 
 # e2e-next Test Conventions
 

@@ -2,6 +2,7 @@
 paths:
   - "e2e-next/**/*.go"
 ---
+<!-- Generic core: e2e-tdd-workflow plugin references/e2e-error-handling.md (identical) -->
 
 # e2e-next Error Handling
 
