@@ -83,16 +83,16 @@ var _ = SynchronizedBeforeSuite(
 	func(ctx context.Context) (context.Context, []byte) {
 		var err error
 
-		// Clean up vcluster yaml
-		DeferCleanup(clusters.DefaultVClusterYAMLCleanup)
-		DeferCleanup(clusters.HelmChartsVClusterYAMLCleanup)
-		DeferCleanup(clusters.InitManifestsVClusterYAMLCleanup)
-		DeferCleanup(clusters.ServiceSyncVClusterYAMLCleanup)
-		DeferCleanup(clusters.FromHostConfigMapsVClusterYAMLCleanup)
+		// Re-render YAML templates with current flag values (--vcluster-image)
+		// and register temp-file cleanup for each one.
+		Expect(clusters.PrepareAndDeferCleanup(DeferCleanup)).To(Succeed())
 
 		ctx, err = setup.All(
 			clusters.HostCluster.Setup,
 			func(ctx context.Context) (context.Context, error) {
+				if cluster.From(ctx, clusterName) == nil {
+					return ctx, nil
+				}
 				var err error
 				By("Loading image to kind cluster...", func() {
 					ctx, err = cluster.LoadImage(clusterName, vclusterImage)(ctx)
@@ -103,14 +103,7 @@ var _ = SynchronizedBeforeSuite(
 			func(ctx context.Context) (context.Context, error) {
 				var err error
 				By("Creating all virtual clusters...", func() {
-					ctx, err = setup.AllConcurrent(
-						clusters.K8sDefaultEndpointVCluster.Setup,
-						clusters.NodesVCluster.Setup,
-						clusters.HelmChartsVCluster.Setup,
-						clusters.InitManifestsVCluster.Setup,
-						clusters.ServiceSyncVCluster.Setup,
-						clusters.FromHostConfigMapsVCluster.Setup,
-					)(ctx)
+					ctx, err = setup.AllConcurrent(clusters.SetupFuncs()...)(ctx)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				return ctx, err
