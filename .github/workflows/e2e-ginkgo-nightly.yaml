@@ -24,7 +24,7 @@ permissions:
 
 env:
   REPOSITORY_NAME: ghcr.io/loft-sh/vcluster
-  TAG_NAME: nightly-${{ github.run_number }}
+  TAG_NAME: dev-next
 
 jobs:
   e2e-tests:
