@@ -9,3 +9,7 @@ controlPlane:
   statefulSet:
     highAvailability:
       replicas: 3
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
