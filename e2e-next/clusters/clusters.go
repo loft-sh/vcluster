@@ -134,3 +134,21 @@ var (
 		vcluster.WithDependencies(HostCluster),
 	)
 )
+
+var (
+	//go:embed vcluster-plugin.yaml
+	PluginVClusterYAMLTemplate                    string
+	PluginVClusterName                            = "plugin-test-vcluster"
+	PluginVClusterYAML, PluginVClusterYAMLCleanup = template.MustRender(
+		PluginVClusterYAMLTemplate,
+		DefaultVClusterVars,
+	)
+	PluginVCluster = vcluster.Define(
+		vcluster.WithName(PluginVClusterName),
+		vcluster.WithVClusterYAML(PluginVClusterYAML),
+		vcluster.WithOptions(
+			DefaultVClusterOptions...,
+		),
+		vcluster.WithDependencies(HostCluster),
+	)
+)
