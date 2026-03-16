@@ -134,3 +134,18 @@ var (
 		vcluster.WithDependencies(HostCluster),
 	)
 )
+
+var (
+	//go:embed vcluster-ha.yaml
+	HAVClusterYAMLTemplate                string
+	HAVClusterName                        = "ha-vcluster"
+	HAVClusterYAML, HAVClusterYAMLCleanup = template.MustRender(HAVClusterYAMLTemplate, DefaultVClusterVars)
+	HAVCluster                            = vcluster.Define(
+		vcluster.WithName(HAVClusterName),
+		vcluster.WithVClusterYAML(HAVClusterYAML),
+		vcluster.WithOptions(
+			DefaultVClusterOptions...,
+		),
+		vcluster.WithDependencies(HostCluster),
+	)
+)
