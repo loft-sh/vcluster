@@ -100,6 +100,18 @@ var (
 )
 
 var (
+	PauseResumeVClusterName = "pause-resume-test-vcluster"
+	PauseResumeVCluster     = vcluster.Define(
+		vcluster.WithName(PauseResumeVClusterName),
+		vcluster.WithVClusterYAML(DefaultVClusterYAML),
+		vcluster.WithOptions(
+			DefaultVClusterOptions...,
+		),
+		vcluster.WithDependencies(HostCluster),
+	)
+)
+
+var (
 	//go:embed vcluster-servicesync.yaml
 	ServiceSyncVClusterYAMLTemplate                         string
 	ServiceSyncVClusterName                                 = "service-sync-vcluster"
