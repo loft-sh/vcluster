@@ -157,6 +157,6 @@ func getStorageSAS(ctx context.Context, options Options) (string, error) {
 
 // AddFlags adds CLI flags required for working with Azure storage.
 func AddFlags(flags *pflag.FlagSet, options *Options) {
-	flags.StringVarP(&options.SubscriptionID, "azure-subscription-id", "", "", "Azure subscription ID where the storage account is located")
-	flags.StringVarP(&options.ResourceGroup, "azure-resource-group", "", "", "Azure resource group where the storage account is located")
+	flags.StringVar(&options.SubscriptionID, "azure-subscription-id", "", "Azure subscription ID where the storage account is located")
+	flags.StringVar(&options.ResourceGroup, "azure-resource-group", "", "Azure resource group where the storage account is located")
 }
