@@ -23,7 +23,6 @@ import (
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pvc"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/services"
 	_ "github.com/loft-sh/vcluster/test/e2e/webhook"
-	_ "github.com/loft-sh/vcluster/test/e2e_scheduler/scheduler"
 )
 
 // TestRunE2ESchedulerTests checks configuration parameters (specified through flags) and then runs

@@ -1,0 +1,19 @@
+sync:
+  fromHost:
+    nodes:
+      enabled: true
+      selector:
+        all: true
+controlPlane:
+  advanced:
+    virtualScheduler:
+      enabled: true
+  distro:
+    k8s:
+      scheduler:
+        enabled: true
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
