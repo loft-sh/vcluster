@@ -209,8 +209,5 @@ func AddFlags(flags *pflag.FlagSet, options *Options) {
 	flags.StringVarP(&options.S3.CustomerKeyEncryptionFile, "customer-key-encryption-file", "", "", "AWS customer key encryption file used for SSE-C. Mutually exclusive with kms-key-id")
 	flags.StringVarP(&options.S3.ServerSideEncryption, "server-side-encryption", "", "", "AWS Server-Side encryption algorithm")
 	flags.BoolVarP(&options.IncludeVolumes, "include-volumes", "", false, "Create CSI volume snapshots (shared and private nodes only)")
-
-	// Azure Blob
-	flags.StringVarP(&options.Azure.SubscriptionID, "azure-subscription-id", "", "", "Azure subscription ID where the storage account is located")
-	flags.StringVarP(&options.Azure.ResourceGroup, "azure-resource-group", "", "", "Azure resource group where the storage account is located")
+	azure.AddFlags(flags, &options.Azure)
 }
