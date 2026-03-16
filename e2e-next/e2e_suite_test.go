@@ -24,6 +24,7 @@ import (
 	_ "github.com/loft-sh/vcluster/e2e-next/init"
 
 	// Import tests
+	_ "github.com/loft-sh/vcluster/e2e-next/test_certs"
 	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
 	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync/fromhost"
 	_ "github.com/loft-sh/vcluster/e2e-next/test_deploy"
@@ -110,6 +111,7 @@ var _ = SynchronizedBeforeSuite(
 						clusters.InitManifestsVCluster.Setup,
 						clusters.ServiceSyncVCluster.Setup,
 						clusters.FromHostConfigMapsVCluster.Setup,
+						clusters.CertsVCluster.Setup,
 					)(ctx)
 					Expect(err).NotTo(HaveOccurred())
 				})

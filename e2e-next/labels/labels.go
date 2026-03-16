@@ -14,4 +14,5 @@ var (
 	Deploy      = Label("deploy")
 	Storage     = Label("storage")
 	Security    = Label("security")
+	Certs       = Label("certs")
 )
