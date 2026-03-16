@@ -100,6 +100,18 @@ var (
 )
 
 var (
+	CertsVClusterName = "certs-test-vcluster"
+	CertsVCluster     = vcluster.Define(
+		vcluster.WithName(CertsVClusterName),
+		vcluster.WithVClusterYAML(DefaultVClusterYAML),
+		vcluster.WithOptions(
+			DefaultVClusterOptions...,
+		),
+		vcluster.WithDependencies(HostCluster),
+	)
+)
+
+var (
 	//go:embed vcluster-servicesync.yaml
 	ServiceSyncVClusterYAMLTemplate                         string
 	ServiceSyncVClusterName                                 = "service-sync-vcluster"
