@@ -25,7 +25,6 @@ import (
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/pvc"
 	_ "github.com/loft-sh/vcluster/test/e2e/syncer/services"
 	_ "github.com/loft-sh/vcluster/test/e2e/webhook"
-	_ "github.com/loft-sh/vcluster/test/e2e_rootless/rootless"
 )
 
 // TestRunE2ERootLessModeTests checks configuration parameters (specified through flags) and then runs

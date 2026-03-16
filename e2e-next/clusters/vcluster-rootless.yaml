@@ -1,0 +1,19 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{ .Repository }}
+      tag: {{ .Tag }}
+    security:
+      podSecurityContext:
+        fsGroup: 12345
+      containerSecurityContext:
+        runAsUser: 12345
+        runAsNonRoot: true
+  backingStore:
+    etcd:
+      deploy:
+        statefulSet:
+          security:
+            podSecurityContext:
+              fsGroup: 12345
