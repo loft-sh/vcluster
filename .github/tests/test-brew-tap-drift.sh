@@ -10,6 +10,10 @@ FAIL=0
 check_drift() {
   local release="$1" tap="$2" expected_drifted="$3" description="$4"
 
+  # Strip v prefix for consistent comparison (mirrors workflow logic)
+  release="${release#v}"
+  tap="${tap#v}"
+
   if [[ "$release" != "$tap" ]]; then
     actual_drifted="true"
   else
@@ -41,6 +45,11 @@ check_drift "v0.22.0" "v0.23.0" "true" "tap ahead of release is drift"
 
 # different patch versions
 check_drift "v0.23.2" "v0.23.1" "true" "different patch versions is drift"
+
+# mixed v prefix — should still match after normalization
+check_drift "v0.33.0" "0.33.0" "false" "tag with v vs tap without v shows no drift"
+check_drift "0.33.0" "v0.33.0" "false" "tag without v vs tap with v shows no drift"
+check_drift "v0.33.0" "0.32.0" "true" "mixed prefix with version mismatch is drift"
 
 printf "\nResults: %d passed, %d failed\n" "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

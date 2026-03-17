@@ -4,6 +4,10 @@ on:
   schedule:
     - cron: "0 8 * * *" # daily at 08:00 UTC
   workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/check-brew-tap-drift.yaml
+      - .github/tests/test-brew-tap-drift.sh
 
 permissions:
   contents: read
@@ -11,8 +15,9 @@ permissions:
 jobs:
   check-drift:
     name: Compare tap version vs latest release
-    if: github.repository_owner == 'loft-sh'
+    if: github.repository_owner == 'loft-sh' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    environment: slack-notifications
 
     steps:
       - name: Get latest stable release tag
@@ -20,12 +25,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # List recent releases and pick the latest stable (non-prerelease) one.
-          # gh release view returns the latest *any* release, which may be a
-          # pre-release. We need the latest stable release to compare against
-          # the tap, since goreleaser's skip_upload:auto skips pre-releases.
-          TAG=$(gh release list --repo loft-sh/vcluster --limit 20 --json tagName,isPrerelease \
-            --jq '[.[] | select(.isPrerelease == false)][0].tagName')
+          # Get the latest stable release (goreleaser's skip_upload:auto skips pre-releases).
+          TAG=$(gh release list --repo loft-sh/vcluster --limit 1 \
+            --exclude-pre-releases --exclude-drafts \
+            --json tagName --jq '.[0].tagName')
 
           if [[ -z "$TAG" ]]; then
             echo "::error::Could not determine latest stable release"
@@ -61,11 +64,11 @@ jobs:
             exit 1
           fi
 
-          echo "vcluster=v${VCLUSTER_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "vcluster=${VCLUSTER_VERSION}" >> "$GITHUB_OUTPUT"
           if [[ -n "$EXPERIMENTAL_VERSION" ]]; then
-            echo "vcluster_experimental=v${EXPERIMENTAL_VERSION}" >> "$GITHUB_OUTPUT"
+            echo "vcluster_experimental=${EXPERIMENTAL_VERSION}" >> "$GITHUB_OUTPUT"
           fi
-          echo "Tap versions: vcluster=v${VCLUSTER_VERSION}, experimental=${EXPERIMENTAL_VERSION:-(fetch failed)}"
+          echo "Tap versions: vcluster=${VCLUSTER_VERSION}, experimental=${EXPERIMENTAL_VERSION:-(fetch failed)}"
 
       - name: Compare versions
         id: compare
@@ -74,24 +77,28 @@ jobs:
           TAP_VCLUSTER: ${{ steps.tap.outputs.vcluster }}
           TAP_EXPERIMENTAL: ${{ steps.tap.outputs.vcluster_experimental }}
         run: |
+          # Strip v prefix for consistent comparison (tags have v, tap may not)
+          release="${RELEASE_TAG#v}"
+          tap_vcluster="${TAP_VCLUSTER#v}"
+          tap_experimental="${TAP_EXPERIMENTAL#v}"
           drift=""
 
-          if [[ "$RELEASE_TAG" != "$TAP_VCLUSTER" ]]; then
-            echo "::warning::vcluster tap drift: release=$RELEASE_TAG tap=$TAP_VCLUSTER"
-            drift="vcluster: release=$RELEASE_TAG tap=$TAP_VCLUSTER"
+          if [[ "$release" != "$tap_vcluster" ]]; then
+            echo "::warning::vcluster tap drift: release=${release} tap=${tap_vcluster}"
+            drift="vcluster: release=${release} tap=${tap_vcluster}"
           fi
 
-          if [[ -n "$TAP_EXPERIMENTAL" && "$RELEASE_TAG" != "$TAP_EXPERIMENTAL" ]]; then
-            echo "::warning::vcluster-experimental tap drift: release=$RELEASE_TAG tap=$TAP_EXPERIMENTAL"
+          if [[ -n "$tap_experimental" && "$release" != "$tap_experimental" ]]; then
+            echo "::warning::vcluster-experimental tap drift: release=${release} tap=${tap_experimental}"
             if [[ -n "$drift" ]]; then
-              drift="${drift}\nvcluster-experimental: release=$RELEASE_TAG tap=$TAP_EXPERIMENTAL"
+              drift="${drift}\nvcluster-experimental: release=${release} tap=${tap_experimental}"
             else
-              drift="vcluster-experimental: release=$RELEASE_TAG tap=$TAP_EXPERIMENTAL"
+              drift="vcluster-experimental: release=${release} tap=${tap_experimental}"
             fi
           fi
 
           if [[ -z "$drift" ]]; then
-            echo "No drift detected. release=$RELEASE_TAG tap=$TAP_VCLUSTER"
+            echo "No drift detected. release=${release} tap=${tap_vcluster}"
             echo "drifted=false" >> "$GITHUB_OUTPUT"
           else
             echo "drifted=true" >> "$GITHUB_OUTPUT"
@@ -105,7 +112,7 @@ jobs:
 
       - name: Notify eng-releases
         if: steps.compare.outputs.drifted == 'true'
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
         with:
           payload: |
             {
@@ -129,3 +136,12 @@ jobs:
             }
           webhook: ${{ secrets.SLACK_WEBHOOK_URL_ENG_RELEASES }}
           webhook-type: incoming-webhook
+
+  test:
+    name: Run drift detection tests
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run tests
+        run: bash .github/tests/test-brew-tap-drift.sh
