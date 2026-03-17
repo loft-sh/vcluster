@@ -90,13 +90,13 @@ func (o *ObjectStore) GetObject(ctx context.Context) (io.ReadCloser, error) {
 }
 func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 	// Create the container client for listing blobs
-	containerClient, blobName, err := newContainerClient(o.blobURL)
+	containerClient, err := newContainerClient(o.accountName, o.containerName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create container client: %w", err)
 	}
 
 	// Determine prefix for listing
-	prefix := blobName
+	prefix := o.blobName
 	if strings.HasSuffix(prefix, "tar.gz") {
 		// Use the "parent dir" as the prefix if a file was given
 		prefix = filepath.Dir(prefix)
