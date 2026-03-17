@@ -277,6 +277,14 @@ controlPlane:
     spec:
       tls: []
 
+  tlsRoute:
+    enabled: false
+    host: "my-host.com"
+    parentRefs: []
+    spec: {}
+    labels: {}
+    annotations: {}
+
   standalone:
     dataDir: "/var/lib/vcluster"
     joinNode:

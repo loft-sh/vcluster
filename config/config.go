@@ -1779,6 +1779,9 @@ type ControlPlane struct {
 	// Ingress defines options for vCluster ingress deployed by Helm.
 	Ingress ControlPlaneIngress `json:"ingress,omitempty"`
 
+	// TLSRoute defines options for vCluster TLS route deployed by Helm.
+	TLSRoute ControlPlaneTLSRoute `json:"tlsRoute,omitempty"`
+
 	// Service defines options for vCluster service deployed by Helm.
 	Service ControlPlaneService `json:"service,omitempty"`
 
@@ -1794,6 +1797,22 @@ type ControlPlane struct {
 
 func (c ControlPlane) JSONSchemaExtend(base *jsonschema.Schema) {
 	addProToJSONSchema(base, reflect.TypeOf(c))
+}
+
+type ControlPlaneTLSRoute struct {
+	// Enabled defines if the control plane should be exposed via a gateway api tls route. Make sure to enable tls passthrough in the gateway via tls.mode to "Passthrough"
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Host is the host where vCluster will be reachable
+	Host string `json:"host,omitempty"`
+
+	// ParentRefs are the parent references for the TLS route
+	ParentRefs []map[string]interface{} `json:"parentRefs,omitempty"`
+
+	// Spec allows you to configure extra tls route options.
+	Spec map[string]interface{} `json:"spec,omitempty"`
+
+	LabelsAndAnnotations `json:",inline"`
 }
 
 type KubeVip struct {

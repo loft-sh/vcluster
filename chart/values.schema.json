@@ -380,6 +380,10 @@
           "$ref": "#/$defs/ControlPlaneIngress",
           "description": "Ingress defines options for vCluster ingress deployed by Helm."
         },
+        "tlsRoute": {
+          "$ref": "#/$defs/ControlPlaneTLSRoute",
+          "description": "TLSRoute defines options for vCluster TLS route deployed by Helm."
+        },
         "service": {
           "$ref": "#/$defs/ControlPlaneService",
           "description": "Service defines options for vCluster service deployed by Helm."
@@ -849,6 +853,45 @@
           },
           "type": "array",
           "description": "HostAliases allows you to add custom entries to the /etc/hosts file of each Pod created."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ControlPlaneTLSRoute": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the control plane should be exposed via a gateway api tls route. Make sure to enable tls passthrough in the gateway via tls.mode to \"Passthrough\""
+        },
+        "host": {
+          "type": "string",
+          "description": "Host is the host where vCluster will be reachable"
+        },
+        "parentRefs": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ParentRefs are the parent references for the TLS route"
+        },
+        "spec": {
+          "type": "object",
+          "description": "Spec allows you to configure extra tls route options."
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Annotations are extra annotations for this resource."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Labels are extra labels for this resource."
         }
       },
       "additionalProperties": false,
