@@ -358,11 +358,11 @@ var _ = Describe("Secrets sync from host",
 				}
 			}
 
-			Expect(envs["BOO_BAR"]).To(Equal("hello-world"))
-			Expect(envs["ANOTHER_ENV"]).To(Equal("another-hello-world"))
-			Expect(envs["UPDATED_ENV"]).To(Equal("one"))
-			Expect(envs["ENV_FROM_DEFAULT_NS"]).To(Equal("one"))
-			Expect(envs["ANOTHER_ENV_FROM_DEFAULT_NS"]).To(Equal("two"))
+			Expect(envs).To(HaveKeyWithValue("BOO_BAR", "hello-world"))
+			Expect(envs).To(HaveKeyWithValue("ANOTHER_ENV", "another-hello-world"))
+			Expect(envs).To(HaveKeyWithValue("UPDATED_ENV", "one"))
+			Expect(envs).To(HaveKeyWithValue("ENV_FROM_DEFAULT_NS", "one"))
+			Expect(envs).To(HaveKeyWithValue("ANOTHER_ENV_FROM_DEFAULT_NS", "two"))
 		})
 	},
 )
