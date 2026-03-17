@@ -1803,6 +1803,9 @@ type ControlPlaneTLSRoute struct {
 	// Enabled defines if the control plane should be exposed via a gateway api tls route. Make sure to enable tls passthrough in the gateway via tls.mode to "Passthrough"
 	Enabled bool `json:"enabled,omitempty"`
 
+	// APIVersion is the version of the gateway api tls route.
+	APIVersion string `json:"apiVersion,omitempty"`
+
 	// Host is the host where vCluster will be reachable
 	Host string `json:"host,omitempty"`
 
@@ -3135,10 +3138,49 @@ type Experimental struct {
 
 	// Docker allows you to configure Docker related settings when deploying a vCluster using Docker.
 	Docker ExperimentalDocker `json:"docker,omitempty"`
+
+	// NodeMonitors allows you to create a service monitor for each node.
+	NodeMonitors []ExperimentalNodeMonitor `json:"nodeMonitors,omitempty"`
 }
 
 func (e Experimental) JSONSchemaExtend(base *jsonschema.Schema) {
 	addProToJSONSchema(base, reflect.TypeOf(e))
+}
+
+type ExperimentalNodeMonitor struct {
+	// Name is the name of the monitor. It will be suffixed with the node name.
+	Name string `json:"name,omitempty"`
+
+	// NodeSelector defines the node selector for the service monitor.
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Endpoints is a list of endpoints to add to the service monitor. By default, vCluster will relabel the node and instance label to the node name.
+	Endpoints []ExperimentalNodeServiceMonitorEndpoint `json:"endpoints,omitempty"`
+
+	// Spec allows you to configure extra service monitor options that will be merged into the spec.
+	Spec map[string]interface{} `json:"spec,omitempty"`
+
+	LabelsAndAnnotations `json:",inline"`
+}
+
+type ExperimentalNodeServiceMonitorEndpoint struct {
+	// Path is the kubelet path of the endpoint. vCluster will prepend /api/v1/nodes/NODE_NAME to the path.
+	Path string `json:"path,omitempty"`
+
+	// Params allows you to configure extra parameters to add to the endpoint.
+	Params map[string][]string `json:"params,omitempty"`
+
+	// ExtraRelabelings allows you to configure extra relabelings to add to the endpoint. By default, vCluster will relabel the node and instance label to the node name.
+	ExtraRelabelings []map[string]interface{} `json:"extraRelabelings,omitempty"`
+
+	// MetricsRelabelings allows you to configure extra metrics relabelings to add to the endpoint.
+	MetricsRelabelings []map[string]interface{} `json:"metricsRelabelings,omitempty"`
+
+	// Interval is the interval at which to scrape the endpoint.
+	Interval string `json:"interval,omitempty"`
+
+	// ScrapeTimeout is the timeout for the scrape of the endpoint.
+	ScrapeTimeout string `json:"scrapeTimeout,omitempty"`
 }
 
 type ExperimentalSyncSettings struct {

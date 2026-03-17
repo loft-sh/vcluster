@@ -1,5 +1,5 @@
 {{- if .Values.controlPlane.tlsRoute.enabled }}
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: {{ .Values.controlPlane.tlsRoute.apiVersion }}
 kind: TLSRoute
 metadata:
   {{- $annotations := merge dict .Values.controlPlane.tlsRoute.annotations .Values.controlPlane.advanced.globalMetadata.annotations }}

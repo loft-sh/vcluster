@@ -864,6 +864,10 @@
           "type": "boolean",
           "description": "Enabled defines if the control plane should be exposed via a gateway api tls route. Make sure to enable tls passthrough in the gateway via tls.mode to \"Passthrough\""
         },
+        "apiVersion": {
+          "type": "string",
+          "description": "APIVersion is the version of the gateway api tls route."
+        },
         "host": {
           "type": "string",
           "description": "Host is the host where vCluster will be reachable"
@@ -1791,6 +1795,13 @@
         "docker": {
           "$ref": "#/$defs/ExperimentalDocker",
           "description": "Docker allows you to configure Docker related settings when deploying a vCluster using Docker."
+        },
+        "nodeMonitors": {
+          "items": {
+            "$ref": "#/$defs/ExperimentalNodeMonitor"
+          },
+          "type": "array",
+          "description": "NodeMonitors allows you to create a service monitor for each node."
         }
       },
       "additionalProperties": false,
@@ -2021,6 +2032,90 @@
         "name": {
           "type": "string",
           "description": "Name defines the name of the node. If not specified, a random name will be generated."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExperimentalNodeMonitor": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name is the name of the monitor. It will be suffixed with the node name."
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "NodeSelector defines the node selector for the service monitor."
+        },
+        "endpoints": {
+          "items": {
+            "$ref": "#/$defs/ExperimentalNodeServiceMonitorEndpoint"
+          },
+          "type": "array",
+          "description": "Endpoints is a list of endpoints to add to the service monitor. By default, vCluster will relabel the node and instance label to the node name."
+        },
+        "spec": {
+          "type": "object",
+          "description": "Spec allows you to configure extra service monitor options that will be merged into the spec."
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Annotations are extra annotations for this resource."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Labels are extra labels for this resource."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExperimentalNodeServiceMonitorEndpoint": {
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path is the kubelet path of the endpoint. vCluster will prepend /api/v1/nodes/NODE_NAME to the path."
+        },
+        "params": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "object",
+          "description": "Params allows you to configure extra parameters to add to the endpoint."
+        },
+        "extraRelabelings": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "ExtraRelabelings allows you to configure extra relabelings to add to the endpoint. By default, vCluster will relabel the node and instance label to the node name."
+        },
+        "metricsRelabelings": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array",
+          "description": "MetricsRelabelings allows you to configure extra metrics relabelings to add to the endpoint."
+        },
+        "interval": {
+          "type": "string",
+          "description": "Interval is the interval at which to scrape the endpoint."
+        },
+        "scrapeTimeout": {
+          "type": "string",
+          "description": "ScrapeTimeout is the timeout for the scrape of the endpoint."
         }
       },
       "additionalProperties": false,
