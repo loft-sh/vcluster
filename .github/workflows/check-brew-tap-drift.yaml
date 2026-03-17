@@ -1,0 +1,129 @@
+name: Check Homebrew Tap Version Drift
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # daily at 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-drift:
+    name: Compare tap version vs latest release
+    if: github.repository_owner == 'loft-sh'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get latest stable release tag
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # List recent releases and pick the latest stable (non-prerelease) one.
+          # gh release view returns the latest *any* release, which may be a
+          # pre-release. We need the latest stable release to compare against
+          # the tap, since goreleaser's skip_upload:auto skips pre-releases.
+          TAG=$(gh release list --repo loft-sh/vcluster --limit 20 --json tagName,isPrerelease \
+            --jq '[.[] | select(.isPrerelease == false)][0].tagName')
+
+          if [[ -z "$TAG" ]]; then
+            echo "::error::Could not determine latest stable release"
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Latest stable release: $TAG"
+
+      - name: Fetch tap formula versions
+        id: tap
+        run: |
+          fetch_formula_version() {
+            local formula="$1"
+            local version=""
+            for attempt in 1 2 3; do
+              version=$(curl -sfL --max-time 10 \
+                "https://raw.githubusercontent.com/loft-sh/homebrew-tap/main/Formula/${formula}.rb" \
+                | grep -oP 'version "\K[^"]+') && break
+              version=""
+              delay=$((1 << attempt))
+              echo "::warning::Attempt $attempt/3 to fetch ${formula} version failed, retrying in ${delay}s..."
+              sleep "$delay"
+            done
+            echo "$version"
+          }
+
+          VCLUSTER_VERSION=$(fetch_formula_version "vcluster")
+          EXPERIMENTAL_VERSION=$(fetch_formula_version "vcluster-experimental")
+
+          if [[ -z "$VCLUSTER_VERSION" ]]; then
+            echo "::error::Failed to fetch vcluster tap version after 3 attempts"
+            exit 1
+          fi
+
+          echo "vcluster=v${VCLUSTER_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "vcluster_experimental=v${EXPERIMENTAL_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Tap versions: vcluster=v${VCLUSTER_VERSION}, experimental=v${EXPERIMENTAL_VERSION}"
+
+      - name: Compare versions
+        id: compare
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          TAP_VCLUSTER: ${{ steps.tap.outputs.vcluster }}
+          TAP_EXPERIMENTAL: ${{ steps.tap.outputs.vcluster_experimental }}
+        run: |
+          drift=""
+
+          if [[ "$RELEASE_TAG" != "$TAP_VCLUSTER" ]]; then
+            echo "::warning::vcluster tap drift: release=$RELEASE_TAG tap=$TAP_VCLUSTER"
+            drift="vcluster: release=$RELEASE_TAG tap=$TAP_VCLUSTER"
+          fi
+
+          if [[ -n "$TAP_EXPERIMENTAL" && "$RELEASE_TAG" != "$TAP_EXPERIMENTAL" ]]; then
+            echo "::warning::vcluster-experimental tap drift: release=$RELEASE_TAG tap=$TAP_EXPERIMENTAL"
+            if [[ -n "$drift" ]]; then
+              drift="${drift}\nvcluster-experimental: release=$RELEASE_TAG tap=$TAP_EXPERIMENTAL"
+            else
+              drift="vcluster-experimental: release=$RELEASE_TAG tap=$TAP_EXPERIMENTAL"
+            fi
+          fi
+
+          if [[ -z "$drift" ]]; then
+            echo "No drift detected. release=$RELEASE_TAG tap=$TAP_VCLUSTER"
+            echo "drifted=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "drifted=true" >> "$GITHUB_OUTPUT"
+            # Use a heredoc to preserve newlines in the output
+            {
+              echo "details<<EOF"
+              echo -e "$drift"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Notify eng-releases
+        if: steps.compare.outputs.drifted == 'true'
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          payload: |
+            {
+              "text": "⚠️ Homebrew tap version drift detected",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "⚠️ Homebrew Tap Version Drift"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "${{ steps.compare.outputs.details }}\n\nLatest stable release: `${{ steps.release.outputs.tag }}`\nTap formula: <https://github.com/loft-sh/homebrew-tap/blob/main/Formula/vcluster.rb|vcluster.rb>\nWorkflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL_ENG_RELEASES }}
+          webhook-type: incoming-webhook
