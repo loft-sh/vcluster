@@ -62,8 +62,10 @@ jobs:
           fi
 
           echo "vcluster=v${VCLUSTER_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "vcluster_experimental=v${EXPERIMENTAL_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Tap versions: vcluster=v${VCLUSTER_VERSION}, experimental=v${EXPERIMENTAL_VERSION}"
+          if [[ -n "$EXPERIMENTAL_VERSION" ]]; then
+            echo "vcluster_experimental=v${EXPERIMENTAL_VERSION}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Tap versions: vcluster=v${VCLUSTER_VERSION}, experimental=${EXPERIMENTAL_VERSION:-(fetch failed)}"
 
       - name: Compare versions
         id: compare
