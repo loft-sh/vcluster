@@ -45,6 +45,7 @@ jobs:
 
     outputs:
       label-filter: ${{ steps.sanitize.outputs.parsed-label-filter || steps.sanitize.outputs.input-label-filter || 'pr' }}
+      skip-edited: ${{ steps.check-edited.outputs.skip }}
 
     steps:
       - name: Parse label-filter from PR description
@@ -64,6 +65,23 @@ jobs:
           text: ${{ github.event.changes.body.from || '' }}
           regex: '```\s*label-filter\s*\n(.*?)\n```'
           flags: "gms"
+
+      - name: Skip edited PRs with unchanged label-filter
+        id: check-edited
+        run: |
+          if [[ "${{ github.event_name }}" != "pull_request" ]] || [[ "${{ github.event.action }}" != "edited" ]]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            CURRENT=$(echo "${{ steps.parse.outputs.group1 }}" | awk '{$1=$1; print}' | tr -d '\r\n')
+            PREVIOUS=$(echo "${{ steps.parse-previous.outputs.group1 }}" | awk '{$1=$1; print}' | tr -d '\r\n')
+            if [[ "$CURRENT" == "$PREVIOUS" ]]; then
+              echo "::notice::Skipping e2e: PR edited but label-filter unchanged (${CURRENT:-none})"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::notice::Label-filter changed from '${PREVIOUS:-none}' to '${CURRENT:-none}', running e2e"
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
 
       - name: Sanitize values
         id: sanitize
@@ -160,7 +178,9 @@ jobs:
       - build
       - parse_label-filter
       - detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
+    if: >
+      needs.parse_label-filter.outputs.skip-edited != 'true' &&
+      needs.detect_changes.outputs.has_changed == 'true'
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # needed for OIDC → AWS

@@ -157,3 +157,11 @@ var (
 	FromHostConfigMapsVClusterName = "fromhost-configmaps-vcluster"
 	FromHostConfigMapsVCluster     = register(FromHostConfigMapsVClusterName, FromHostConfigMapsVClusterYAMLTemplate)
 )
+
+var (
+	//go:embed vcluster-fromhost-secrets.yaml
+	FromHostSecretsVClusterYAMLTemplate string
+
+	FromHostSecretsVClusterName = "fromhost-secrets-vcluster"
+	FromHostSecretsVCluster     = register(FromHostSecretsVClusterName, FromHostSecretsVClusterYAMLTemplate)
+)

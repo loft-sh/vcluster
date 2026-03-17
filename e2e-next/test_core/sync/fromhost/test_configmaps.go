@@ -278,9 +278,9 @@ var _ = Describe("ConfigMaps sync from host",
 				}
 			}
 
-			Expect(envs["UPDATED_ENV"]).To(Equal("one"))
-			Expect(envs["ANOTHER_ENV"]).To(Equal("another-hello-world"))
-			Expect(envs["BOO_BAR"]).To(Equal("hello-world"))
+			Expect(envs).To(HaveKeyWithValue("UPDATED_ENV", "one"))
+			Expect(envs).To(HaveKeyWithValue("ANOTHER_ENV", "another-hello-world"))
+			Expect(envs).To(HaveKeyWithValue("BOO_BAR", "hello-world"))
 		})
 
 		It("syncs configmaps from vcluster host namespace to configured virtual namespaces", func(ctx context.Context) {
