@@ -1,0 +1,40 @@
+{{- if .Values.controlPlane.tlsRoute.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  {{- $annotations := merge dict .Values.controlPlane.tlsRoute.annotations .Values.controlPlane.advanced.globalMetadata.annotations }}
+  {{- if $annotations }}
+  annotations:
+  {{- toYaml $annotations | nindent 4 }}
+  {{- end }}
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ include "vcluster.version.label"  $ }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+  {{- if .Values.controlPlane.tlsRoute.labels }}
+{{ toYaml .Values.controlPlane.tlsRoute.labels | indent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.controlPlane.tlsRoute.spec }}
+  {{- tpl (toYaml .) $ | nindent 2 }}
+  {{- end }}
+  {{- if not .Values.controlPlane.tlsRoute.spec.parentRefs }}
+  {{- if .Values.controlPlane.tlsRoute.parentRefs }}
+  parentRefs:
+{{ toYaml .Values.controlPlane.tlsRoute.parentRefs | indent 2 }}
+  {{- end }}
+  {{- end }}
+  {{- if not .Values.controlPlane.tlsRoute.spec.hostnames }}
+  hostnames:
+  - {{ .Values.controlPlane.tlsRoute.host | quote }}
+  {{- end }}
+  {{- if not .Values.controlPlane.tlsRoute.spec.rules }}
+  rules:
+  - backendRefs:
+    - name: {{ .Release.Name }}
+      port: 443
+  {{- end }}
+{{- end }}

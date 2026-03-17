@@ -538,6 +538,19 @@ controlPlane:
     spec:
       tls: []
   
+  # TLSRoute defines options for vCluster TLS route deployed by Helm.
+  tlsRoute:
+    # Enabled defines if the control plane should be exposed via a gateway api tls route. Make sure to enable tls passthrough in the gateway via tls.mode to "Passthrough"
+    enabled: false
+    # Host is the host where vCluster will be reachable
+    host: "my-host.com"
+    # ParentRefs are the parent references for the TLS route
+    parentRefs: []
+    # Spec allows you to configure extra tls route options.
+    spec: {}
+    labels: {}
+    annotations: {}
+  
   # Standalone holds configuration for standalone mode. Standalone mode is set automatically when no container is detected and
   # also implies privateNodes.enabled.
   standalone:
