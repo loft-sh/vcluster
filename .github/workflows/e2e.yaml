@@ -148,6 +148,7 @@ jobs:
       - name: Setup environment
         run: |
           docker load -i vcluster_syncer
+          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind ctr -n k8s.io images import -
           chmod +x vcluster && sudo mv vcluster /usr/bin
 
       - name: Run tests - install and delete virtual cluster using kubectl
@@ -242,6 +243,7 @@ jobs:
           chmod +x ./vcluster-current
 
           docker load --input vcluster_syncer
+          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind ctr -n k8s.io images import -
           yq eval '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' > ./test/vcluster-current.yaml
 
           ./vcluster-current create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
@@ -386,11 +388,13 @@ jobs:
           yq eval -i ".controlPlane.distro.${{ matrix.distribution }}.enabled = true" "${{ matrix.test-suite-path }}/../commonValues.yaml"
 
           docker load --input vcluster_syncer
+          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind ctr -n k8s.io images import -
 
           chmod +x vcluster && sudo mv vcluster /usr/bin
 
           # Replace KinD node hostname with actual vind node name for node sync selector
           sed -i "s|kind-control-plane|${{ steps.cluster-info.outputs.HOST_NODE_NAME }}|g" "${{ matrix.test-suite-path }}/../commonValues.yaml"
+          sed -i "s|kind-control-plane|${{ steps.cluster-info.outputs.HOST_NODE_NAME }}|g" "${{ matrix.test-suite-path }}/values.yaml"
 
           vcluster create "${{ env.VCLUSTER_SUFFIX }}" -n "${{ env.VCLUSTER_NAMESPACE }}" \
           --create-namespace \
