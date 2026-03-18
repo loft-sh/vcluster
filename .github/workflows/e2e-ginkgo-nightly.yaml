@@ -130,6 +130,13 @@ jobs:
               kubectl describe pods -n "$NS" -l app=vcluster || true
               echo ""
               kubectl get events -n "$NS" --sort-by='.lastTimestamp' || true
+              echo ""
+              echo "Syncer logs (current):"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || \
+                kubectl logs -n "$NS" -l app=vcluster --tail=500 2>/dev/null || true
+              echo ""
+              echo "Syncer logs (previous):"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --previous --tail=200 2>/dev/null || true
             else
               echo "Pods ready — collecting syncer logs:"
               kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || \
