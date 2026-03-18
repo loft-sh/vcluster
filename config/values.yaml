@@ -657,6 +657,7 @@ experimental:
     loadBalancer:
       enabled: true
       forwardPorts: true
+      useSudo: false
     registryProxy:
       enabled: true
 

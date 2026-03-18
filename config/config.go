@@ -3183,6 +3183,12 @@ type ExperimentalDockerLoadBalancer struct {
 	// ForwardPorts defines if the load balancer ips should be made available locally
 	// via port forwarding. This will be only done if necessary for example on macos when using docker desktop.
 	ForwardPorts bool `json:"forwardPorts,omitempty"`
+
+	// UseSudo defines if ifconfig commands for configuring loopback aliases should be
+	// prefixed with sudo -n (non-interactive). This allows running vCluster without root
+	// while still supporting load balancer services on macOS. Requires passwordless sudo
+	// configured for ifconfig.
+	UseSudo bool `json:"useSudo,omitempty"`
 }
 
 type ExperimentalDockerNode struct {
