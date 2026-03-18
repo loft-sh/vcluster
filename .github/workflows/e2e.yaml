@@ -120,7 +120,7 @@ jobs:
       - name: Set up vind cluster
         uses: loft-sh/setup-vind@v1
         with:
-          version: "v0.32.2-rc.2"
+          version: "v0.33.0"
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
           skipClusterDeletion: "true"
@@ -149,7 +149,6 @@ jobs:
       - name: Setup environment
         run: |
           docker load -i vcluster_syncer
-          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind ctr -n k8s.io images import -
           chmod +x vcluster && sudo mv vcluster /usr/bin
 
       - name: Run tests - install and delete virtual cluster using kubectl
@@ -202,7 +201,7 @@ jobs:
       - name: Set up vind cluster
         uses: loft-sh/setup-vind@v1
         with:
-          version: "v0.32.2-rc.2"
+          version: "v0.33.0"
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
           skipClusterDeletion: "true"
@@ -245,7 +244,6 @@ jobs:
           chmod +x ./vcluster-current
 
           docker load --input vcluster_syncer
-          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind ctr -n k8s.io images import -
           yq eval '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' > ./test/vcluster-current.yaml
 
           ./vcluster-current create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
@@ -315,7 +313,7 @@ jobs:
       - name: Set up vind cluster
         uses: loft-sh/setup-vind@v1
         with:
-          version: "v0.32.2-rc.2"
+          version: "v0.33.0"
           kubernetes-version: "1.35.0"
           skipClusterLogsExport: "true"
           skipClusterDeletion: "true"
@@ -391,7 +389,6 @@ jobs:
           yq eval -i ".controlPlane.distro.${{ matrix.distribution }}.enabled = true" "${{ matrix.test-suite-path }}/../commonValues.yaml"
 
           docker load --input vcluster_syncer
-          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind ctr -n k8s.io images import -
 
           chmod +x vcluster && sudo mv vcluster /usr/bin
 
