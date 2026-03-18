@@ -19,7 +19,7 @@ var _ = ginkgo.Describe("Node sync", func() {
 
 		hostname := "kind-control-plane"
 
-		if nodeName, ok := os.LookupEnv("HOST_NODE_NAME"); ok {
+		if nodeName, ok := os.LookupEnv("HOST_NODE_NAME"); ok && nodeName != "" {
 			hostname = nodeName
 		} else if kindName, ok := os.LookupEnv("KIND_NAME"); ok {
 			hostname = kindName + "-control-plane"
