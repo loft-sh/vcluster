@@ -341,29 +341,46 @@ func (l *LinearClient) updateIssueState(ctx context.Context, issueID, releasedSt
 const stableReleaseCommentPrefix = "Now available in stable release"
 
 // ListIssueComments returns the body text of all comments on the given issue.
+// It paginates through all comments to avoid missing any beyond the default page size.
 func (l *LinearClient) ListIssueComments(ctx context.Context, issueID string) ([]string, error) {
-	var query struct {
-		Issue struct {
-			Comments struct {
-				Nodes []struct {
-					Body string
-				}
-			}
-		} `graphql:"issue(id: $id)"`
+	var bodies []string
+	var cursor *string
+
+	for {
+		var query struct {
+			Issue struct {
+				Comments struct {
+					Nodes []struct {
+						Body string
+					}
+					PageInfo struct {
+						HasNextPage bool
+						EndCursor   string
+					}
+				} `graphql:"comments(first: 100, after: $cursor)"`
+			} `graphql:"issue(id: $id)"`
+		}
+
+		variables := map[string]any{
+			"id":     graphql.String(issueID),
+			"cursor": (*graphql.String)(cursor),
+		}
+
+		if err := l.client.Query(ctx, &query, variables); err != nil {
+			return nil, fmt.Errorf("query issue comments: %w", err)
+		}
+
+		for _, c := range query.Issue.Comments.Nodes {
+			bodies = append(bodies, c.Body)
+		}
+
+		if !query.Issue.Comments.PageInfo.HasNextPage {
+			break
+		}
+		endCursor := query.Issue.Comments.PageInfo.EndCursor
+		cursor = &endCursor
 	}
 
-	variables := map[string]any{
-		"id": graphql.String(issueID),
-	}
-
-	if err := l.client.Query(ctx, &query, variables); err != nil {
-		return nil, fmt.Errorf("query issue comments: %w", err)
-	}
-
-	bodies := make([]string, len(query.Issue.Comments.Nodes))
-	for i, c := range query.Issue.Comments.Nodes {
-		bodies[i] = c.Body
-	}
 	return bodies, nil
 }
 
