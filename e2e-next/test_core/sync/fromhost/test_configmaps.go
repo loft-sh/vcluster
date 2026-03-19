@@ -22,6 +22,7 @@ import (
 var _ = Describe("ConfigMaps sync from host",
 	labels.Core,
 	labels.Sync,
+	labels.ConfigMaps,
 	cluster.Use(clusters.FromHostConfigMapsVCluster),
 	func() {
 		var (
