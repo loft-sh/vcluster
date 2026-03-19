@@ -51,11 +51,11 @@ var _ = Describe("PriorityClasses sync from host",
 				GlobalDefault: false,
 			}
 			created, err := hostClient.SchedulingV1().PriorityClasses().Create(ctx, pc, metav1.CreateOptions{})
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(Succeed())
 			DeferCleanup(func(ctx context.Context) {
 				err := hostClient.SchedulingV1().PriorityClasses().Delete(ctx, name, metav1.DeleteOptions{})
 				if !kerrors.IsNotFound(err) {
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 				}
 			})
 			return created
@@ -72,7 +72,7 @@ var _ = Describe("PriorityClasses sync from host",
 			By("waiting for the matching class to appear and the non-matching class to stay absent", func() {
 				Eventually(func(g Gomega) {
 					priorityClasses, err := vClusterClient.SchedulingV1().PriorityClasses().List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred(), "failed to list priorityClasses in vcluster: %v", err)
 
 					var foundMatch, foundNoMatch bool
 					for _, pc := range priorityClasses.Items {
@@ -124,7 +124,7 @@ var _ = Describe("PriorityClasses sync from host",
 			By("waiting for the priorityClass to be synced to vcluster", func() {
 				Eventually(func(g Gomega) {
 					_, err := vClusterClient.SchedulingV1().PriorityClasses().Get(ctx, matchingName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred(), "priorityClass %s not yet synced to vcluster: %v", matchingName, err)
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 
@@ -141,11 +141,11 @@ var _ = Describe("PriorityClasses sync from host",
 						PriorityClassName: matchingName,
 					},
 				}, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(Succeed())
 				DeferCleanup(func(ctx context.Context) {
 					err := vClusterClient.CoreV1().Pods("default").Delete(ctx, podName, metav1.DeleteOptions{})
 					if !kerrors.IsNotFound(err) {
-						Expect(err).NotTo(HaveOccurred())
+						Expect(err).To(Succeed())
 					}
 				})
 			})
@@ -154,7 +154,7 @@ var _ = Describe("PriorityClasses sync from host",
 				expectedHostPodName := translate.SafeConcatName(podName, "x", "default", "x", vClusterName)
 				Eventually(func(g Gomega) {
 					pods, err := hostClient.CoreV1().Pods(vClusterHostNS).List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred(), "failed to list pods in host namespace %s: %v", vClusterHostNS, err)
 					var found bool
 					for _, pod := range pods.Items {
 						if pod.Name == expectedHostPodName {
@@ -177,22 +177,22 @@ var _ = Describe("PriorityClasses sync from host",
 			By("waiting for the priorityClass to be synced to vcluster", func() {
 				Eventually(func(g Gomega) {
 					_, err := vClusterClient.SchedulingV1().PriorityClasses().Get(ctx, pcName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred(), "priorityClass %s not yet synced to vcluster: %v", pcName, err)
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 
 			By("updating the priorityClass description on host", func() {
 				pc, err := hostClient.SchedulingV1().PriorityClasses().Get(ctx, pcName, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(Succeed())
 				pc.Description = updatedDescription
 				_, err = hostClient.SchedulingV1().PriorityClasses().Update(ctx, pc, metav1.UpdateOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(Succeed())
 			})
 
 			By("waiting for the updated description to appear in vcluster", func() {
 				Eventually(func(g Gomega) {
 					pc, err := vClusterClient.SchedulingV1().PriorityClasses().Get(ctx, pcName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred(), "failed to get priorityClass %s from vcluster: %v", pcName, err)
 					g.Expect(pc.Description).To(Equal(updatedDescription),
 						"expected vcluster priorityClass description to match updated host value")
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
@@ -208,16 +208,16 @@ var _ = Describe("PriorityClasses sync from host",
 			By("waiting for the priorityClass to be synced to vcluster", func() {
 				Eventually(func(g Gomega) {
 					_, err := vClusterClient.SchedulingV1().PriorityClasses().Get(ctx, pcName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred(), "priorityClass %s not yet synced to vcluster: %v", pcName, err)
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 
 			By("removing the matching label from the priorityClass on host", func() {
 				pc, err := hostClient.SchedulingV1().PriorityClasses().Get(ctx, pcName, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(Succeed())
 				delete(pc.Labels, "value")
 				_, err = hostClient.SchedulingV1().PriorityClasses().Update(ctx, pc, metav1.UpdateOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(Succeed())
 			})
 
 			By("waiting for the priorityClass to disappear from vcluster", func() {

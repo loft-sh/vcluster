@@ -58,11 +58,11 @@ var _ = Describe("StorageClasses sync from host",
 				Parameters:           map[string]string{"type": "ssd"},
 			}
 			created, err := hostClient.StorageV1().StorageClasses().Create(ctx, sc, metav1.CreateOptions{})
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(Succeed())
 			DeferCleanup(func(ctx context.Context) {
 				err := hostClient.StorageV1().StorageClasses().Delete(ctx, name, metav1.DeleteOptions{})
 				if !kerrors.IsNotFound(err) {
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 				}
 			})
 			return created
@@ -79,7 +79,7 @@ var _ = Describe("StorageClasses sync from host",
 			By("waiting for the matching class to appear and the non-matching class to stay absent", func() {
 				Eventually(func(g Gomega) {
 					storageClasses, err := vClusterClient.StorageV1().StorageClasses().List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred(), "failed to list storageClasses in vcluster: %v", err)
 
 					var foundMatch, foundNoMatch bool
 					for _, sc := range storageClasses.Items {
@@ -119,11 +119,11 @@ var _ = Describe("StorageClasses sync from host",
 						StorageClassName: func() *string { s := nonMatchingName; return &s }(),
 					},
 				}, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(Succeed())
 				DeferCleanup(func(ctx context.Context) {
 					err := vClusterClient.CoreV1().PersistentVolumeClaims("default").Delete(ctx, pvcName, metav1.DeleteOptions{})
 					if !kerrors.IsNotFound(err) {
-						Expect(err).NotTo(HaveOccurred())
+						Expect(err).To(Succeed())
 					}
 				})
 			})
@@ -141,7 +141,7 @@ var _ = Describe("StorageClasses sync from host",
 				)
 				Eventually(func(g Gomega) {
 					eventList, err := vClusterClient.CoreV1().Events("default").List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred(), "failed to list events: %v", err)
 					var found bool
 					for _, event := range eventList.Items {
 						if event.InvolvedObject.Kind == "PersistentVolumeClaim" &&
@@ -168,7 +168,7 @@ var _ = Describe("StorageClasses sync from host",
 			By("waiting for the storageClass to be synced to vcluster", func() {
 				Eventually(func(g Gomega) {
 					_, err := vClusterClient.StorageV1().StorageClasses().Get(ctx, matchingName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred(), "storageClass %s not yet synced to vcluster: %v", matchingName, err)
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 
@@ -188,11 +188,11 @@ var _ = Describe("StorageClasses sync from host",
 						StorageClassName: func() *string { s := matchingName; return &s }(),
 					},
 				}, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(Succeed())
 				DeferCleanup(func(ctx context.Context) {
 					err := vClusterClient.CoreV1().PersistentVolumeClaims("default").Delete(ctx, pvcName, metav1.DeleteOptions{})
 					if !kerrors.IsNotFound(err) {
-						Expect(err).NotTo(HaveOccurred())
+						Expect(err).To(Succeed())
 					}
 				})
 			})
@@ -201,7 +201,7 @@ var _ = Describe("StorageClasses sync from host",
 				expectedHostPVCName := translate.SafeConcatName(pvcName, "x", "default", "x", vClusterName)
 				Eventually(func(g Gomega) {
 					pvcs, err := hostClient.CoreV1().PersistentVolumeClaims(vClusterHostNS).List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred(), "failed to list PVCs in host namespace %s: %v", vClusterHostNS, err)
 					var found bool
 					for _, pvc := range pvcs.Items {
 						if pvc.Name == expectedHostPVCName {
