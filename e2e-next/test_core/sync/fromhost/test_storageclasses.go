@@ -129,8 +129,9 @@ var _ = Describe("StorageClasses sync from host",
 			})
 
 			By("verifying the PVC is not synced to the host", func() {
-				_, err := hostClient.CoreV1().PersistentVolumeClaims("default").Get(ctx, pvcName, metav1.GetOptions{})
-				Expect(err).To(HaveOccurred())
+				translatedName := translate.SafeConcatName(pvcName, "x", "default", "x", vClusterName)
+				_, err := hostClient.CoreV1().PersistentVolumeClaims(vClusterHostNS).Get(ctx, translatedName, metav1.GetOptions{})
+				Expect(kerrors.IsNotFound(err)).To(BeTrue(), "PVC using non-synced storageClass should not appear on host")
 			})
 
 			By("waiting for a SyncWarning event on the PVC", func() {

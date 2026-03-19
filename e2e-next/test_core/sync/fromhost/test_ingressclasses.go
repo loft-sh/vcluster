@@ -138,8 +138,9 @@ var _ = Describe("IngressClasses sync from host",
 			})
 
 			By("verifying the ingress is not synced to the host", func() {
-				_, err := hostClient.NetworkingV1().Ingresses("default").Get(ctx, ingressName, metav1.GetOptions{})
-				Expect(err).To(HaveOccurred())
+				translatedName := translate.SafeConcatName(ingressName, "x", "default", "x", vClusterName)
+				_, err := hostClient.NetworkingV1().Ingresses(vClusterHostNS).Get(ctx, translatedName, metav1.GetOptions{})
+				Expect(kerrors.IsNotFound(err)).To(BeTrue(), "ingress using non-synced ingressClass should not appear on host")
 			})
 
 			By("waiting for a SyncWarning event on the ingress", func() {
