@@ -72,7 +72,7 @@ var _ = Describe("IngressClasses sync from host",
 			By("waiting for the matching class to appear and the non-matching class to stay absent", func() {
 				Eventually(func(g Gomega) {
 					ingressClasses, err := vClusterClient.NetworkingV1().IngressClasses().List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred(), "failed to list ingressClasses in vcluster: %v", err)
+					g.Expect(err).To(Succeed(), "failed to list ingressClasses in vcluster: %v", err)
 
 					var foundMatch, foundNoMatch bool
 					for _, ic := range ingressClasses.Items {
@@ -150,7 +150,7 @@ var _ = Describe("IngressClasses sync from host",
 				)
 				Eventually(func(g Gomega) {
 					eventList, err := vClusterClient.CoreV1().Events("default").List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred(), "failed to list events: %v", err)
+					g.Expect(err).To(Succeed(), "failed to list events: %v", err)
 					var found bool
 					for _, event := range eventList.Items {
 						if event.InvolvedObject.Kind == "Ingress" &&
@@ -178,7 +178,7 @@ var _ = Describe("IngressClasses sync from host",
 			By("waiting for the ingressClass to be synced to vcluster", func() {
 				Eventually(func(g Gomega) {
 					_, err := vClusterClient.NetworkingV1().IngressClasses().Get(ctx, matchingName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred(), "ingressClass %s not yet synced to vcluster: %v", matchingName, err)
+					g.Expect(err).To(Succeed(), "ingressClass %s not yet synced to vcluster: %v", matchingName, err)
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 
@@ -226,7 +226,7 @@ var _ = Describe("IngressClasses sync from host",
 				expectedHostIngressName := translate.SafeConcatName(ingressName, "x", "default", "x", vClusterName)
 				Eventually(func(g Gomega) {
 					ingresses, err := hostClient.NetworkingV1().Ingresses(vClusterHostNS).List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred(), "failed to list ingresses in host namespace %s: %v", vClusterHostNS, err)
+					g.Expect(err).To(Succeed(), "failed to list ingresses in host namespace %s: %v", vClusterHostNS, err)
 					var found bool
 					for _, ingress := range ingresses.Items {
 						if ingress.Name == expectedHostIngressName {

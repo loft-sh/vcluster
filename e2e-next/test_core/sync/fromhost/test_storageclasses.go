@@ -79,7 +79,7 @@ var _ = Describe("StorageClasses sync from host",
 			By("waiting for the matching class to appear and the non-matching class to stay absent", func() {
 				Eventually(func(g Gomega) {
 					storageClasses, err := vClusterClient.StorageV1().StorageClasses().List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred(), "failed to list storageClasses in vcluster: %v", err)
+					g.Expect(err).To(Succeed(), "failed to list storageClasses in vcluster: %v", err)
 
 					var foundMatch, foundNoMatch bool
 					for _, sc := range storageClasses.Items {
@@ -141,7 +141,7 @@ var _ = Describe("StorageClasses sync from host",
 				)
 				Eventually(func(g Gomega) {
 					eventList, err := vClusterClient.CoreV1().Events("default").List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred(), "failed to list events: %v", err)
+					g.Expect(err).To(Succeed(), "failed to list events: %v", err)
 					var found bool
 					for _, event := range eventList.Items {
 						if event.InvolvedObject.Kind == "PersistentVolumeClaim" &&
@@ -168,7 +168,7 @@ var _ = Describe("StorageClasses sync from host",
 			By("waiting for the storageClass to be synced to vcluster", func() {
 				Eventually(func(g Gomega) {
 					_, err := vClusterClient.StorageV1().StorageClasses().Get(ctx, matchingName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred(), "storageClass %s not yet synced to vcluster: %v", matchingName, err)
+					g.Expect(err).To(Succeed(), "storageClass %s not yet synced to vcluster: %v", matchingName, err)
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 
@@ -201,7 +201,7 @@ var _ = Describe("StorageClasses sync from host",
 				expectedHostPVCName := translate.SafeConcatName(pvcName, "x", "default", "x", vClusterName)
 				Eventually(func(g Gomega) {
 					pvcs, err := hostClient.CoreV1().PersistentVolumeClaims(vClusterHostNS).List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred(), "failed to list PVCs in host namespace %s: %v", vClusterHostNS, err)
+					g.Expect(err).To(Succeed(), "failed to list PVCs in host namespace %s: %v", vClusterHostNS, err)
 					var found bool
 					for _, pvc := range pvcs.Items {
 						if pvc.Name == expectedHostPVCName {

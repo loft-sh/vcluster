@@ -71,7 +71,7 @@ var _ = Describe("RuntimeClasses sync from host",
 			By("waiting for the matching class to appear and the non-matching class to stay absent", func() {
 				Eventually(func(g Gomega) {
 					runtimeClasses, err := vClusterClient.NodeV1().RuntimeClasses().List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred(), "failed to list runtimeClasses in vcluster: %v", err)
+					g.Expect(err).To(Succeed(), "failed to list runtimeClasses in vcluster: %v", err)
 
 					var foundMatch, foundNoMatch bool
 					for _, rc := range runtimeClasses.Items {
@@ -123,7 +123,7 @@ var _ = Describe("RuntimeClasses sync from host",
 			By("waiting for the runtimeClass to be synced to vcluster", func() {
 				Eventually(func(g Gomega) {
 					_, err := vClusterClient.NodeV1().RuntimeClasses().Get(ctx, matchingName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred(), "runtimeClass %s not yet synced to vcluster: %v", matchingName, err)
+					g.Expect(err).To(Succeed(), "runtimeClass %s not yet synced to vcluster: %v", matchingName, err)
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 
@@ -153,7 +153,7 @@ var _ = Describe("RuntimeClasses sync from host",
 				expectedHostPodName := translate.SafeConcatName(podName, "x", "default", "x", vClusterName)
 				Eventually(func(g Gomega) {
 					pods, err := hostClient.CoreV1().Pods(vClusterHostNS).List(ctx, metav1.ListOptions{})
-					g.Expect(err).NotTo(HaveOccurred(), "failed to list pods in host namespace %s: %v", vClusterHostNS, err)
+					g.Expect(err).To(Succeed(), "failed to list pods in host namespace %s: %v", vClusterHostNS, err)
 					var found bool
 					for _, pod := range pods.Items {
 						if pod.Name == expectedHostPodName {
