@@ -2,11 +2,10 @@
 
 * @loft-sh/eng-dev-vcluster-platform
 
-/.github/workflows/backport.yaml @Piotr1215
-/.github/workflows/e2e.yaml @loft-sh/cto-office
-/.github/workflows/e2e.yaml @loft-sh/eng-qa
-/.github/workflows/release.yaml @loft-sh/cto-office
 /.github/workflows/ @loft-sh/devops-team
+/.github/workflows/backport.yaml @loft-sh/devops-team
+/.github/workflows/e2e*.yaml @loft-sh/eng-qa @loft-sh/cto-office
+/.github/workflows/release.yaml @loft-sh/devops-team @loft-sh/cto-office
 /.github/CODEOWNERS @loft-sh/cto-office
 
 /chart/templates/ @loft-sh/cto-office
