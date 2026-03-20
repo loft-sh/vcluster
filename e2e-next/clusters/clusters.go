@@ -165,3 +165,11 @@ var (
 	FromHostSecretsVClusterName = "fromhost-secrets-vcluster"
 	FromHostSecretsVCluster     = register(FromHostSecretsVClusterName, FromHostSecretsVClusterYAMLTemplate)
 )
+
+var (
+	//go:embed vcluster-fromhost-limitclasses.yaml
+	FromHostLimitClassesVClusterYAMLTemplate string
+
+	FromHostLimitClassesVClusterName = "fromhost-limitclasses-vcluster"
+	FromHostLimitClassesVCluster     = register(FromHostLimitClassesVClusterName, FromHostLimitClassesVClusterYAMLTemplate)
+)

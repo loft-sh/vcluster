@@ -22,6 +22,7 @@ import (
 var _ = Describe("Secrets sync from host",
 	labels.Core,
 	labels.Sync,
+	labels.Secrets,
 	cluster.Use(clusters.FromHostSecretsVCluster),
 	func() {
 		var (
