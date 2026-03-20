@@ -33,10 +33,10 @@ type UpgradeOptions struct {
 	Password string
 	WorkDir  string
 
-	Insecure bool
-	Atomic   bool
-	Force    bool
-	Debug    bool
+	Insecure          bool
+	RollbackOnFailure bool
+	ForceReplace      bool
+	Debug             bool
 }
 
 const (
@@ -162,11 +162,11 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 	}
 
 	// force
-	if options.Force {
-		args = append(args, "--force")
+	if options.ForceReplace {
+		args = append(args, "--force-replace")
 	}
-	if options.Atomic {
-		args = append(args, "--atomic")
+	if options.RollbackOnFailure {
+		args = append(args, "--rollback-on-failure")
 	}
 	if options.Debug {
 		args = append(args, "--debug")

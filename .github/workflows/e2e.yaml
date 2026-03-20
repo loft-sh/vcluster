@@ -115,7 +115,7 @@ jobs:
       - uses: azure/setup-helm@v4
         name: Setup Helm
         with:
-          version: "v3.11.0"
+          version: "v4.1.3"
 
       - name: Set up kind k8s cluster
         uses: loft-sh/setup-kind@master
@@ -192,7 +192,7 @@ jobs:
       - uses: azure/setup-helm@v4
         name: Setup Helm
         with:
-          version: "v3.11.0"
+          version: "v4.1.3"
 
       - name: Set up kind k8s cluster
         uses: loft-sh/setup-kind@master
@@ -297,7 +297,7 @@ jobs:
       - uses: azure/setup-helm@v4
         name: Setup Helm
         with:
-          version: "v3.11.0"
+          version: "v4.1.3"
 
       - name: Set up kind k8s cluster
         uses: loft-sh/setup-kind@master
