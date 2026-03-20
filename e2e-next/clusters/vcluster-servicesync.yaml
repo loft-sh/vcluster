@@ -7,15 +7,15 @@ controlPlane:
 networking:
   replicateServices:
     toHost:
-      - from: test/test
-        to: test
-      - from: test/nginx
-        to: nginx
+      - from: tohost-svc/svc-test
+        to: svc-test
+      - from: tohost-nginx/nginx
+        to: nginx-tohost
     fromHost:
-      - from: test/test
-        to: default/test
-      - from: test/nginx
-        to: default/nginx
+      - from: fromhost-svc/svc-test
+        to: default/svc-test
+      - from: fromhost-nginx/nginx
+        to: default/nginx-fromhost
 experimental:
   deploy:
     vcluster:
