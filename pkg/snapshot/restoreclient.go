@@ -21,6 +21,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/k8s"
 	"github.com/loft-sh/vcluster/pkg/mappings/store"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
@@ -34,6 +35,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/protobuf"
+	apinet "k8s.io/apimachinery/pkg/util/net"
+	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/klog/v2"
 )
 
@@ -46,6 +50,8 @@ type RestoreClient struct {
 	snapshotRequest Request
 	Snapshot        Options
 	RestoreVolumes  bool
+
+	etcdClient etcd.Client
 
 	NewVCluster bool
 	vConfig     *config.VirtualClusterConfig
@@ -129,7 +135,41 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("parse vCluster config: %w", err)
+		}
+		// Standalone places config at a different path than container deployments.
+		vConfig, err = config.ParseConfig(constants.StandaloneDefaultConfigPath, os.Getenv("VCLUSTER_NAME"), nil)
+		if err != nil {
+			return fmt.Errorf("parse standalone vCluster config: %w", err)
+		}
+		// config.ParseConfig does not apply Helm value defaults, so Standalone.Enabled,
+		// PrivateNodes.Enabled, and DataDir may be unset even though we are clearly in
+		// standalone mode. Mirror what vcluster-pro/pkg/standalone/config does.
+		vConfig.ControlPlane.Standalone.Enabled = true
+		vConfig.PrivateNodes.Enabled = true
+		if vConfig.ControlPlane.Standalone.DataDir == "" {
+			vConfig.ControlPlane.Standalone.DataDir = "/var/lib/vcluster"
+		}
+	}
+
+	if vConfig.ControlPlane.Standalone.Enabled {
+		vConfig.HostNamespace = constants.StandaloneSnapshotNamespace
+		err = pro.SetStandaloneConstants(vConfig)
+		if err != nil {
+			return fmt.Errorf("set standalone constants: %w", err)
+		}
+
+		// Embedded etcd requires VCLUSTER_STANDALONE_IP_ADDRESS to identify the local peer.
+		if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
+			if _, ok := os.LookupEnv(constants.VClusterStandaloneIPAddressEnvVar); !ok {
+				hostIP, err := apinet.ChooseHostInterface()
+				if err != nil {
+					return fmt.Errorf("determine host IP for embedded etcd peer (set %s to override): %w", constants.VClusterStandaloneIPAddressEnvVar, err)
+				}
+				os.Setenv(constants.VClusterStandaloneIPAddressEnvVar, hostIP.String())
+			}
+		}
 	}
 
 	// make sure to validate options
@@ -172,6 +212,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 		return fmt.Errorf("failed to create etcd client: %w", err)
 	}
 	defer etcdClient.Close()
+	o.etcdClient = etcdClient
 
 	// revert backup if there is an error
 	defer func() {
@@ -211,7 +252,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 		// check snapshot request
 		if strings.HasPrefix(string(key), RequestStoreKey) {
 			if o.RestoreVolumes {
-				err = o.createRestoreRequest(ctx, vConfig, value)
+				err = o.createRestoreRequest(ctx, vConfig, value, encoder)
 				if err != nil {
 					return fmt.Errorf("failed to create restore request: %w", err)
 				}
@@ -269,20 +310,22 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	return nil
 }
 
-func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *config.VirtualClusterConfig, value []byte) error {
+func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *config.VirtualClusterConfig, value []byte, encoder runtime.Encoder) error {
 	klog.V(1).Infof("Found snapshot request object %s", string(value))
 	var err error
-	if vConfig.HostConfig == nil || vConfig.HostNamespace == "" {
+	if !vConfig.ControlPlane.Standalone.Enabled {
 		// init the clients
-		vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
-		if err != nil {
-			return fmt.Errorf("failed to init client config: %w", err)
+		if vConfig.HostConfig == nil || vConfig.HostNamespace == "" {
+			vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
+			if err != nil {
+				return fmt.Errorf("failed to init client config: %w", err)
+			}
 		}
-	}
-	if vConfig.HostClient == nil {
-		err = setupconfig.InitClients(vConfig)
-		if err != nil {
-			return fmt.Errorf("failed to init clients: %w", err)
+		if vConfig.HostClient == nil {
+			err = setupconfig.InitClients(vConfig)
+			if err != nil {
+				return fmt.Errorf("failed to init clients: %w", err)
+			}
 		}
 	}
 
@@ -295,10 +338,53 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 	o.snapshotRequest = snapshotRequest
 
 	// first create the snapshot options Secret
-	secret, err := CreateSnapshotOptionsSecret(constants.RestoreRequestLabel, vConfig.HostNamespace, vConfig.Name, &o.Snapshot)
+	namespace := vConfig.HostNamespace
+	secret, err := CreateSnapshotOptionsSecret(constants.RestoreRequestLabel, namespace, vConfig.Name, &o.Snapshot)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
 	}
+
+	if vConfig.ControlPlane.Standalone.Enabled {
+		// Standalone: kube-apiserver is down during restore, so write resources directly to etcd.
+		secret.Name = fmt.Sprintf("%s-restore-request-%s", vConfig.Name, rand.String(5))
+		secret.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "Secret"}
+		secret.UID = uuid.NewUUID()
+		secret.CreationTimestamp = metav1.Now()
+
+		secretBuf := &bytes.Buffer{}
+		if err = encoder.Encode(secret, secretBuf); err != nil {
+			return fmt.Errorf("encode restore secret: %w", err)
+		}
+		if _, err = o.etcdClient.Put(ctx, fmt.Sprintf("/registry/secrets/%s/%s", namespace, secret.Name), secretBuf.Bytes()); err != nil {
+			return fmt.Errorf("write restore secret to etcd: %w", err)
+		}
+
+		restoreRequest, err := NewRestoreRequest(snapshotRequest)
+		if err != nil {
+			return fmt.Errorf("failed to create restore request: %w", err)
+		}
+		restoreRequest.Name = secret.Name
+		configMap, err := CreateRestoreRequestConfigMap(namespace, vConfig.Name, restoreRequest)
+		if err != nil {
+			return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
+		}
+		configMap.Name = secret.Name
+		configMap.TypeMeta = metav1.TypeMeta{APIVersion: "v1", Kind: "ConfigMap"}
+		configMap.UID = uuid.NewUUID()
+		configMap.CreationTimestamp = metav1.Now()
+
+		cmBuf := &bytes.Buffer{}
+		if err = encoder.Encode(configMap, cmBuf); err != nil {
+			return fmt.Errorf("encode restore configmap: %w", err)
+		}
+		if _, err = o.etcdClient.Put(ctx, fmt.Sprintf("/registry/configmaps/%s/%s", namespace, configMap.Name), cmBuf.Bytes()); err != nil {
+			return fmt.Errorf("write restore configmap to etcd: %w", err)
+		}
+
+		klog.Infof("Created restore request in etcd: %s/%s", namespace, configMap.Name)
+		return nil
+	}
+
 	secret.GenerateName = fmt.Sprintf("%s-restore-request-", vConfig.Name)
 	secret, err = vConfig.HostClient.CoreV1().Secrets(vConfig.HostNamespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {

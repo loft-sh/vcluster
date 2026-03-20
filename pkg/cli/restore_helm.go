@@ -3,35 +3,57 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apinet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 const (
-	RestoreResourceQuota = "vcluster-restore"
+	RestoreResourceQuota  = "vcluster-restore"
+	standaloneServiceName = "vcluster"
 )
 
-func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, pod *pod.Options, newVCluster, restoreVolumes bool, log log.Logger) error {
+func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOpts *pod.Options, newVCluster, restoreVolumes bool, log log.Logger) error {
 	// init kube client and vCluster
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, true)
 	if err != nil {
 		return err
 	}
 
-	return restoreVCluster(ctx, kubeClient, restConfig, vCluster, snapshotOpts, pod, newVCluster, restoreVolumes, log)
+	return restoreVCluster(ctx, kubeClient, restConfig, vCluster, snapshotOpts, podOpts, newVCluster, restoreVolumes, log)
 }
 
 func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshotOpts *snapshot.Options, podOptions *pod.Options, newVCluster bool, restoreVolumes bool, log log.Logger) error {
+	cmdArgs := []string{"restore"}
+	if newVCluster {
+		cmdArgs = append(cmdArgs, "--new-vcluster")
+	}
+	if restoreVolumes {
+		cmdArgs = append(cmdArgs, "--restore-volumes")
+	}
+
+	if vCluster.IsStandalone {
+		return restoreStandaloneVCluster(vCluster, snapshotOpts, cmdArgs, log)
+	}
+
 	// pause vCluster
 	log.Infof("Pausing vCluster %s", vCluster.Name)
 	err := pauseVCluster(ctx, kubeClient, vCluster, log)
@@ -49,15 +71,126 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 	}()
 
 	// set missing pod options and run snapshot restore pod
-	command := []string{"/vcluster", "restore"}
-	if newVCluster {
-		command = append(command, "--new-vcluster")
-	}
-	if restoreVolumes {
-		command = append(command, "--restore-volumes")
+	command := append([]string{"/vcluster"}, cmdArgs...)
+	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOptions, snapshotOpts, log)
+}
+
+// restoreStandaloneVCluster stops the standalone service, invokes the vcluster binary
+// directly to perform the restore, and restarts the service. The CLI must run on the
+// same host as the standalone installation because it needs filesystem access to the
+// binary and config.
+func restoreStandaloneVCluster(vCluster *find.VCluster, snapshotOpts *snapshot.Options, cmdArgs []string, log log.Logger) error {
+	vClusterConfig, err := vclusterconfig.ParseConfig(constants.StandaloneDefaultConfigPath, vCluster.Name, nil)
+	if err != nil {
+		return fmt.Errorf("parse standalone config: %w", err)
 	}
 
-	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOptions, snapshotOpts, log)
+	sm, err := newServiceManager()
+	if err != nil {
+		return err
+	}
+
+	if err := pro.CheckStandaloneHA(vClusterConfig); err != nil {
+		return err
+	}
+
+	log.Infof("Stopping vCluster service")
+	if err := sm.Stop(); err != nil {
+		return fmt.Errorf("stop vCluster service: %w", err)
+	}
+
+	restoreErr := runRestoreBinary(vClusterConfig, snapshotOpts, cmdArgs)
+
+	log.Infof("Starting vCluster service")
+	if startErr := sm.Start(); startErr != nil {
+		return fmt.Errorf("restore succeeded but failed to restart vCluster service (cluster is stopped): %w", startErr)
+	}
+	return restoreErr
+}
+
+// serviceManager abstracts stopping and starting the standalone vCluster process.
+type serviceManager interface {
+	Stop() error
+	Start() error
+}
+
+type systemdServiceManager struct {
+	name string
+}
+
+func (s *systemdServiceManager) Stop() error {
+	return exec.Command("systemctl", "stop", s.name).Run()
+}
+
+func (s *systemdServiceManager) Start() error {
+	return exec.Command("systemctl", "start", s.name).Run()
+}
+
+// newServiceManager returns a systemd-based service manager when on Linux with systemd
+// available. Returns an error on other platforms or when the service is not running.
+func newServiceManager() (serviceManager, error) {
+	if runtime.GOOS != "linux" {
+		return nil, fmt.Errorf("standalone restore is only supported on Linux (current OS: %s)", runtime.GOOS)
+	}
+
+	out, err := exec.Command("systemctl", "is-active", standaloneServiceName).Output()
+	if err != nil {
+		return nil, fmt.Errorf("standalone vCluster service %q is not active on this host — restore must run on the standalone host", standaloneServiceName)
+	}
+	if strings.TrimSpace(string(out)) != "active" {
+		return nil, fmt.Errorf("standalone vCluster service %q is not active (state: %s)", standaloneServiceName, strings.TrimSpace(string(out)))
+	}
+
+	return &systemdServiceManager{name: standaloneServiceName}, nil
+}
+
+func runRestoreBinary(vClusterConfig *vclusterconfig.VirtualClusterConfig, snapshotOpts *snapshot.Options, args []string) error {
+	// DataDir is omitempty and defaults to /var/lib/vcluster via Helm values, but config.ParseConfig
+	// (used by the CLI) does not apply Helm defaults — use the known default when empty.
+	dataDir := vClusterConfig.ControlPlane.Standalone.DataDir
+	if dataDir == "" {
+		dataDir = "/var/lib/vcluster"
+	}
+	binaryPath := filepath.Join(dataDir, "bin", "vcluster")
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+		// Fall back to the currently executing binary (e.g. during development or
+		// non-standard installs where the binary is not in the data directory).
+		self, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("binary not found at %s and cannot determine current executable: %w", binaryPath, err)
+		}
+		binaryPath = self
+	}
+
+	optionsString, err := pod.ToOptionsString(snapshotOpts)
+	if err != nil {
+		return fmt.Errorf("serialise snapshot options: %w", err)
+	}
+
+	env := append(os.Environ(),
+		"VCLUSTER_NAME="+vClusterConfig.Name,
+		"VCLUSTER_STORAGE_OPTIONS="+optionsString,
+	)
+
+	// Embedded etcd requires VCLUSTER_STANDALONE_IP_ADDRESS to identify the local peer.
+	// Only get host IP when needed (not kine/SQLite) and not already set.
+	// Warning - getting host IP with ChooseHostInterface can fail in air-gapped environments
+	// without Internet connection.
+	if vClusterConfig.BackingStoreType() == config.StoreTypeEmbeddedEtcd {
+		if _, ok := os.LookupEnv(constants.VClusterStandaloneIPAddressEnvVar); !ok {
+			hostIP, err := apinet.ChooseHostInterface()
+			if err != nil {
+				return fmt.Errorf("determine host IP for embedded etcd peer (set %s to override): %w", constants.VClusterStandaloneIPAddressEnvVar, err)
+			}
+			env = append(env, constants.VClusterStandaloneIPAddressEnvVar+"="+hostIP.String())
+		}
+	}
+
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Env = env
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func pauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) error {

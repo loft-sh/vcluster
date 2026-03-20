@@ -1,8 +1,12 @@
 package find
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -49,6 +53,7 @@ type VCluster struct {
 	Status                 Status
 	Context                string
 	Version                string
+	IsStandalone           bool
 }
 
 type Status string
@@ -464,6 +469,15 @@ func findInContext(ctx context.Context, kubeClient kube.Interface, context, name
 		}
 	}
 
+	// Probe for a standalone vCluster. Errors are non-fatal: a normal cluster where
+	// the user lacks permission to GET default/kubernetes must not break vcluster list.
+	standaloneVCluster, err := getStandaloneVCluster(ctx, kubeClient, kubeClientConfig)
+	if err != nil {
+		log.GetInstance().Debugf("standalone probe skipped: %v", err)
+	} else if standaloneVCluster != nil && (name == "" || name == standaloneVCluster.Name) {
+		vclusters = append(vclusters, *standaloneVCluster)
+	}
+
 	return vclusters, nil
 }
 
@@ -697,6 +711,75 @@ func GetPodStatus(pod *corev1.Pod) string {
 		reason = "Terminating"
 	}
 	return reason
+}
+
+// getStandaloneVCluster returns a VCluster for a standalone installation.
+// Detection relies on the systemd service file existing on the local filesystem,
+// so this only works when the CLI runs on the same host as the standalone vCluster.
+// Returns nil, nil when standalone is not detected or on any error so callers
+// never treat this as fatal.
+func getStandaloneVCluster(ctx context.Context, kubeClient kube.Interface, kubeClientConfig clientcmd.ClientConfig) (*VCluster, error) {
+	// 1. Detection: check for the vcluster systemd service file.
+	unitData, err := os.ReadFile(constants.VClusterServiceFile)
+	if err != nil {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	// 2. Name: extract from kube context (format: kubernetes-admin@{vcluster-name}).
+	rawConfig, err := kubeClientConfig.RawConfig()
+	if err != nil {
+		//nolint:nilnil
+		return nil, nil
+	}
+	name := rawConfig.CurrentContext
+	if idx := strings.Index(name, "@"); idx >= 0 {
+		name = name[idx+1:]
+	}
+
+	// 3. Version: parse VCLUSTER_VERSION from the systemd unit file.
+	version := parseEnvFromSystemdUnit(unitData, "VCLUSTER_VERSION")
+
+	// 4. Created: use the kubernetes service creation timestamp.
+	svc, err := kubeClient.CoreV1().Services("default").Get(ctx, "kubernetes", metav1.GetOptions{})
+	if err != nil {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	// 5. Status: check if the systemd service is actually running.
+	status := StatusUnknown
+	out, err := exec.Command("systemctl", "is-active", "vcluster.service").Output()
+	if err == nil && strings.TrimSpace(string(out)) == "active" {
+		status = StatusRunning
+	}
+
+	return &VCluster{
+		Name:          name,
+		Namespace:     constants.StandaloneSnapshotNamespace,
+		ClientFactory: kubeClientConfig,
+		Created:       svc.CreationTimestamp,
+		Version:       version,
+		Status:        status,
+		IsStandalone:  true,
+	}, nil
+}
+
+// parseEnvFromSystemdUnit extracts the value of an Environment="KEY=value" directive
+// from a systemd unit file. Returns empty string if not found.
+func parseEnvFromSystemdUnit(data []byte, key string) string {
+	prefix := "Environment=\"" + key + "="
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, prefix) {
+			// Strip prefix and trailing quote.
+			val := strings.TrimPrefix(line, prefix)
+			val = strings.TrimSuffix(val, "\"")
+			return val
+		}
+	}
+	return ""
 }
 
 func isPaused(v client.Object) bool {
