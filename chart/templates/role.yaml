@@ -167,6 +167,11 @@ rules:
     resources: [ "referencegrants" ]
     verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
   {{- end }}
+  {{- if .Values.experimental.nodeMonitors }}
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["servicemonitors"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
   {{- include "vcluster.customResources.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.rbac.roleExtraRules" . | indent 2 }}
