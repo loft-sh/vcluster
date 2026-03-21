@@ -14,8 +14,9 @@ metadata:
     chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
-  {{- if .Values.controlPlane.ingress.labels }}
-{{ toYaml .Values.controlPlane.ingress.labels | indent 4 }}
+  {{- $labels := merge dict .Values.controlPlane.ingress.labels }}
+  {{- if $labels }}
+{{ toYaml $labels | indent 4 }}
   {{- end }}
 spec:
   {{- with .Values.controlPlane.ingress.spec }}
