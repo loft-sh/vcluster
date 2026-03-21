@@ -552,7 +552,7 @@ func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterBinary
 		args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/%s,dst=/var/lib/vcluster/bin/%s,ro", kubernetesDir, entry.Name(), entry.Name()))
 	}
 	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/vcluster,dst=/var/lib/vcluster/bin/vcluster,ro", vClusterBinaryDir))
-	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/vcluster.yaml,dst=/etc/vcluster/vcluster.yaml,ro", vClusterConfigDir))
+	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/vcluster.yaml,dst=/etc/vcluster/vcluster.yaml", vClusterConfigDir))
 	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/k8s-resolv.conf,dst=/etc/k8s-resolv.conf,ro", vClusterConfigDir))
 	args = append(args, "--mount", fmt.Sprintf("type=bind,src=%s/kubelet.env,dst=/etc/vcluster/vcluster-flags.env,ro", vClusterConfigDir))
 	args = append(args, extraArgs...)
