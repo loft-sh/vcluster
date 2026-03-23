@@ -293,7 +293,9 @@ func getLegacyAccessKeyHost(ctx context.Context, platformClient Client) (string,
 	return platformConfig.VirtualClusterAccessKey, nil
 }
 
-func CreateWithName(ctx context.Context, managementClient kube.Interface, project string, name string, extraLabels map[string]string) (bool, string, string, error) {
+type CreateOptionFunc func(*managementv1.VirtualClusterInstance)
+
+func CreateWithName(ctx context.Context, managementClient kube.Interface, project string, name string, extraLabels map[string]string, opts ...CreateOptionFunc) (bool, string, string, error) {
 	namespace := projectutil.ProjectNamespace(project)
 	virtualClusterInstance, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil && !kerrors.IsNotFound(err) {
@@ -334,6 +336,10 @@ func CreateWithName(ctx context.Context, managementClient kube.Interface, projec
 	}
 	for k, v := range extraLabels {
 		virtualClusterInstance.Labels[k] = v
+	}
+
+	for _, opt := range opts {
+		opt(virtualClusterInstance)
 	}
 
 	// create virtual cluster instance
