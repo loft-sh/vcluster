@@ -62,8 +62,62 @@ func (a *NodeClaim) SetConditions(conditions agentstoragev1.Conditions) {
 	a.Status.Conditions = conditions
 }
 
+func (a *NodeClaim) GetOwner() *UserOrTeam {
+	return a.Spec.Owner
+}
+
+func (a *NodeClaim) SetOwner(userOrTeam *UserOrTeam) {
+	a.Spec.Owner = userOrTeam
+}
+
+func (a *NodeClaim) GetAccess() []Access {
+	return a.Spec.Access
+}
+
+func (a *NodeClaim) SetAccess(access []Access) {
+	a.Spec.Access = access
+}
+
 // NodeClaimSpec defines spec of node claim.
 type NodeClaimSpec struct {
+	// DisplayName is the name of the NodeClaim that is displayed in the UI.
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
+
+	// Owner holds the owner of this object
+	// +optional
+	Owner *UserOrTeam `json:"owner,omitempty"`
+
+	// Access holds the access rights for users and teams
+	// +optional
+	Access []Access `json:"access,omitempty"`
+
+	// ProviderRef is the name of the NodeProvider that this NodeClaim is based on.
+	ProviderRef string `json:"providerRef"`
+
+	// TypeRef is the full name of the NodeType that this NodeClaim is based on.
+	// +optional
+	TypeRef string `json:"typeRef,omitempty"`
+
+	// EnvironmentRef is the name of the NodeEnvironment that this NodeClaim is based on.
+	// +optional
+	EnvironmentRef string `json:"environmentRef,omitempty"`
+
+	// Properties are extra properties for the NodeClaim.
+	// +optional
+	Properties map[string]string `json:"properties,omitempty"`
+
+	// Below are options specifically for scheduling with vCluster.
+
+	// VClusterRef references source vCluster.
+	// +optional
+	VClusterRef string `json:"vClusterRef,omitempty"`
+
+	// ControlPlane indicates if the node claim is for a control plane node. This is intentionally not omitempty as
+	// we want to ensure that the control plane is always set for easier checking in for example terraform templates.
+	// +optional
+	ControlPlane bool `json:"controlPlane"`
+
 	// Taints will be applied to the NodeClaim's node.
 	// +optional
 	Taints []corev1.Taint `json:"taints,omitempty"`
@@ -84,25 +138,6 @@ type NodeClaimSpec struct {
 
 	// Requirements are the requirements for the NodeClaim.
 	Requirements []corev1.NodeSelectorRequirement `json:"requirements,omitempty"`
-
-	// Properties are extra properties for the NodeClaim.
-	// +optional
-	Properties map[string]string `json:"properties"`
-
-	// ProviderRef is the name of the NodeProvider that this NodeClaim is based on.
-	ProviderRef string `json:"providerRef"`
-
-	// TypeRef is the full name of the NodeType that this NodeClaim is based on.
-	// +optional
-	TypeRef string `json:"typeRef,omitempty"`
-
-	// VClusterRef references source vCluster. This is required.
-	VClusterRef string `json:"vClusterRef"`
-
-	// ControlPlane indicates if the node claim is for a control plane node. This is intentionally not omitempty as
-	// we want to ensure that the control plane is always set for easier checking in for example terraform templates.
-	// +optional
-	ControlPlane bool `json:"controlPlane"`
 }
 
 type NodeClaimStatus struct {

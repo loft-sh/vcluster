@@ -16,6 +16,11 @@ func (in ExternalURLs) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MultiRegion) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.ui.v1.MultiRegion"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in NavBarButton) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.ui.v1.NavBarButton"
 }

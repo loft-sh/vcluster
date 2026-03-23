@@ -32,6 +32,10 @@ const (
 	RancherLastAppliedHashAnnotation = "loft.sh/rancher-integration-last-applied-hash"
 )
 
+const (
+	ConditionTypeNamespaceTemplateSynced agentstoragev1.ConditionType = "NamespaceTemplateSynced"
+)
+
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -117,6 +121,12 @@ type ProjectSpec struct {
 	// +optional
 	Access []Access `json:"access,omitempty"`
 
+	// NamespaceTemplate defines metadata that should be applied to the project's namespace on creation.
+	// This is useful for environments where admission controllers (e.g., Kyverno)
+	// require specific labels or annotations on namespaces.
+	// +optional
+	NamespaceTemplate *ProjectNamespaceTemplate `json:"namespaceTemplate,omitempty"`
+
 	// NamespacePattern specifies template patterns to use for creating each space or virtual cluster's namespace
 	// +optional
 	NamespacePattern *NamespacePattern `json:"namespacePattern,omitempty"`
@@ -146,6 +156,13 @@ type RequirePreset struct {
 	// By default, all users are allowed to create a new instance without a preset.
 	// +optional
 	Enabled bool `json:"disabled,omitempty"`
+}
+
+// ProjectNamespaceTemplate defines metadata to apply to the auto-created project namespace.
+type ProjectNamespaceTemplate struct {
+	// The namespace metadata
+	// +optional
+	TemplateMetadata `json:"metadata,omitempty"`
 }
 
 type NamespacePattern struct {

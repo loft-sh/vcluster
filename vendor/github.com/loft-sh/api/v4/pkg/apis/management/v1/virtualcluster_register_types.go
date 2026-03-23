@@ -53,6 +53,10 @@ type RegisterVirtualClusterSpec struct {
 	// Values specifies the vCluster config.
 	// +optional
 	Values string `json:"values,omitempty"`
+
+	// Standalone specifies if the vCluster is standalone
+	// +optional
+	Standalone *bool `json:"standalone,omitempty"`
 }
 
 // RegisterVirtualClusterStatus holds the status
