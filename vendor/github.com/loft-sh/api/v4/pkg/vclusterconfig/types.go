@@ -169,6 +169,10 @@ type SnapshotStorage struct {
 	// Container holds configuration for storing snapshots as local files inside a vCluster container
 	// +optional
 	Container SnapshotStorageContainer `json:"container,omitempty"`
+
+	// Azure holds configuration for storing snapshots in Azure Blob Storage
+	// +optional
+	Azure SnapshotStorageAzure `json:"azure,omitempty"`
 }
 
 // SnapshotStorageS3 holds S3 storage configuration
@@ -210,6 +214,19 @@ type SnapshotStorageContainer struct {
 	// Volume specifies which volume needs to be mounted into the container to store the snapshot
 	// +optional
 	Volume SnapshotStorageContainerVolume `json:"volume,omitempty"`
+}
+
+// SnapshotStorageAzure holds Azure Blob Storage configuration.
+type SnapshotStorageAzure struct {
+	// Url specifies the Azure Blob Storage URL in the format https://{account}.blob.core.windows.net/{container}/{path}
+	// +optional
+	Url string `json:"url,omitempty"`
+
+	// Credential secret with the Azure credentials. The secret should contain either:
+	// AZURE_STORAGE_KEY (storage account access key), or
+	// AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP (service principal)
+	// +optional
+	Credential *SnapshotSecretCredential `json:"credential,omitempty"`
 }
 
 // SnapshotStorageContainerVolume holds volume mount configuration

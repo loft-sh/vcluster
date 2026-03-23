@@ -44,6 +44,8 @@ type NodeTypeExpansion interface{}
 
 type OIDCClientExpansion interface{}
 
+type OSImageExpansion interface{}
+
 type OwnedAccessKeyExpansion interface{}
 
 type ProjectExpansion interface{}
@@ -55,6 +57,8 @@ type RedirectTokenExpansion interface{}
 type RegisterVirtualClusterExpansion interface{}
 
 type ResetAccessKeyExpansion interface{}
+
+type SSHKeyExpansion interface{}
 
 type SelfExpansion interface{}
 
