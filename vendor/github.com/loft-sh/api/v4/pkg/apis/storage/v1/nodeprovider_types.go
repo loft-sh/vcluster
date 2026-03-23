@@ -11,14 +11,19 @@ const (
 	NodeProviderTypeKubeVirt   string = "kubeVirt"
 	NodeProviderTypeTerraform  string = "terraform"
 	NodeProviderTypeClusterAPI string = "clusterAPI"
+	NodeProviderTypeMetal3     string = "metal3"
 
 	// NodeProviderConditionTypeInitialized is the condition that indicates if the node provider is initialized.
 	NodeProviderConditionTypeInitialized = "Initialized"
+
+	// NodeProviderConditionTypeDeployed is the condition that indicates if infrastructure components are deployed.
+	NodeProviderConditionTypeDeployed = "Deployed"
 )
 
 var (
 	NodeProviderConditions = []agentstoragev1.ConditionType{
 		NodeProviderConditionTypeInitialized,
+		NodeProviderConditionTypeDeployed,
 	}
 )
 
@@ -102,6 +107,10 @@ type NodeProviderSpec struct {
 	// +optional
 	ClusterAPI *NodeProviderClusterAPI `json:"clusterAPI,omitempty"`
 
+	// Metal3 configures a node provider using metal3.io BareMetalHost resources.
+	// +optional
+	Metal3 *NodeProviderMetal3 `json:"metal3,omitempty"`
+
 	// DisplayName is the name that should be displayed in the UI
 	// +optional
 	DisplayName string `json:"displayName,omitempty"`
@@ -111,7 +120,7 @@ type NodeProviderClusterAPI struct {
 	ClusterAPIObjects `json:",inline"`
 
 	// ClusterRef is a reference to connected host cluster in which KubeVirt operator is running
-	ClusterRef *NodeProviderClusterRef `json:"clusterRef,omitempty"`
+	ClusterRef NodeProviderClusterRef `json:"clusterRef,omitempty"`
 
 	// NodeTypes define NodeTypes that should be automatically created for this provider.
 	NodeTypes []ClusterAPINodeTypeSpec `json:"nodeTypes,omitempty"`
@@ -279,7 +288,7 @@ type KubeVirtNodeTypeSpec struct {
 // NodeProviderKubeVirt defines the configuration for a KubeVirt node provider.
 type NodeProviderKubeVirt struct {
 	// ClusterRef is a reference to connected host cluster in which KubeVirt operator is running
-	ClusterRef *NodeProviderClusterRef `json:"clusterRef,omitempty"`
+	ClusterRef NodeProviderClusterRef `json:"clusterRef,omitempty"`
 
 	// VirtualMachineTemplate is a KubeVirt VirtualMachine template to use by NodeTypes managed by this NodeProvider
 	VirtualMachineTemplate *runtime.RawExtension `json:"virtualMachineTemplate,omitempty"`
@@ -294,6 +303,71 @@ type NodeProviderClusterRef struct {
 
 	// Namespace is the namespace inside the connected cluster holding VMs
 	Namespace string `json:"namespace,omitempty"`
+}
+
+type MultusDeployment struct {
+	// Enabled controls whether Multus CNI is deployed into the cluster.
+	Enabled bool `json:"enabled"`
+
+	// HelmValues is raw YAML that will be passed as values to the Multus Helm chart.
+	// +optional
+	HelmValues string `json:"helmValues,omitempty"`
+}
+
+type DHCPDeployment struct {
+	// Enabled controls whether the DHCP server is deployed into the cluster.
+	Enabled bool `json:"enabled"`
+
+	// HelmValues is raw YAML that will be passed as values to the DHCP Helm chart.
+	// +optional
+	HelmValues string `json:"helmValues,omitempty"`
+}
+
+type Metal3Deployment struct {
+	// Enabled controls whether Metal3 and Ironic are deployed into the cluster.
+	Enabled bool `json:"enabled"`
+
+	// HelmValues is raw YAML that will be passed as values to the Metal3 Helm chart.
+	// +optional
+	HelmValues string `json:"helmValues,omitempty"`
+}
+
+type Metal3ProviderDeployment struct {
+	// Multus configures the Multus CNI deployment.
+	// +optional
+	Multus MultusDeployment `json:"multus,omitempty"`
+
+	// DHCP configures the DHCP server deployment.
+	// +optional
+	DHCP DHCPDeployment `json:"dhcp,omitempty"`
+
+	// Metal3 configures the Metal3/Ironic deployment.
+	// +optional
+	Metal3 Metal3Deployment `json:"metal3,omitempty"`
+}
+
+type NodeProviderMetal3 struct {
+	// ClusterRef is a reference to connected host cluster in which KubeVirt operator is running
+	ClusterRef NodeProviderClusterRef `json:"clusterRef,omitempty"`
+
+	Deploy Metal3ProviderDeployment `json:"deploy,omitempty"`
+
+	// NodeTypes define NodeTypes that should be automatically created for this provider.
+	NodeTypes []Metal3NodeTypeSpec `json:"nodeTypes,omitempty"`
+}
+
+type Metal3NodeTypeSpec struct {
+	NamedNodeTypeSpec `json:",inline"`
+
+	// BareMetalHosts is a list of BareMetalHosts to use for this NodeType.
+	// +optional
+	BareMetalHosts Metal3BareMetalHosts `json:"bareMetalHosts,omitempty"`
+}
+
+type Metal3BareMetalHosts struct {
+	// Selector is a label selector to select the BareMetalHosts to use for this NodeType.
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
 // NodeProviderStatus defines the observed state of NodeProvider.

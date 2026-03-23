@@ -22,7 +22,11 @@ type NodeProviderExpansion interface{}
 
 type NodeTypeExpansion interface{}
 
+type OSImageExpansion interface{}
+
 type ProjectExpansion interface{}
+
+type SSHKeyExpansion interface{}
 
 type SharedSecretExpansion interface{}
 

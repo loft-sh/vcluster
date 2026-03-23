@@ -33,12 +33,14 @@ type ManagementV1Interface interface {
 	NodeProvidersGetter
 	NodeTypesGetter
 	OIDCClientsGetter
+	OSImagesGetter
 	OwnedAccessKeysGetter
 	ProjectsGetter
 	ProjectSecretsGetter
 	RedirectTokensGetter
 	RegisterVirtualClustersGetter
 	ResetAccessKeysGetter
+	SSHKeysGetter
 	SelvesGetter
 	SelfSubjectAccessReviewsGetter
 	SharedSecretsGetter
@@ -144,6 +146,10 @@ func (c *ManagementV1Client) OIDCClients() OIDCClientInterface {
 	return newOIDCClients(c)
 }
 
+func (c *ManagementV1Client) OSImages() OSImageInterface {
+	return newOSImages(c)
+}
+
 func (c *ManagementV1Client) OwnedAccessKeys() OwnedAccessKeyInterface {
 	return newOwnedAccessKeys(c)
 }
@@ -166,6 +172,10 @@ func (c *ManagementV1Client) RegisterVirtualClusters() RegisterVirtualClusterInt
 
 func (c *ManagementV1Client) ResetAccessKeys() ResetAccessKeyInterface {
 	return newResetAccessKeys(c)
+}
+
+func (c *ManagementV1Client) SSHKeys() SSHKeyInterface {
+	return newSSHKeys(c)
 }
 
 func (c *ManagementV1Client) Selves() SelfInterface {
