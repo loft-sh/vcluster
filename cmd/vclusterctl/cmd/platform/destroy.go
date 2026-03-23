@@ -156,15 +156,14 @@ func (cmd *DestroyCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to destroy platform: %w", err)
 	}
 
-	cmd.Log.Infof("deleting platform config at %q", cmd.Config)
+	cmd.Log.Infof("clearing platform config at %q", cmd.Config)
 	cliConfig := cmd.LoadedConfig(cmd.Log)
-	err = cliConfig.Delete()
-	if err != nil {
+	if err = cliConfig.ClearPlatform(); err != nil {
 		if errors.Is(err, os.ErrNotExist) && cmd.IgnoreNotFound {
 			cmd.Log.Info("no platform config detected")
 			return nil
 		}
-		return fmt.Errorf("failed to delete platform config: %w", err)
+		return fmt.Errorf("failed to clear platform config: %w", err)
 	}
 
 	return nil
@@ -190,15 +189,10 @@ func (cmd *DestroyCmd) destroyDocker(ctx context.Context) error {
 		return fmt.Errorf("failed to destroy docker platform: %w", err)
 	}
 
-	cmd.Log.Infof("deleting platform config at %q", cmd.Config)
+	cmd.Log.Infof("clearing platform config at %q", cmd.Config)
 	cliConfig := cmd.LoadedConfig(cmd.Log)
-	err = cliConfig.Delete()
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) && cmd.IgnoreNotFound {
-			cmd.Log.Info("no platform config detected")
-			return nil
-		}
-		return fmt.Errorf("failed to delete platform config: %w", err)
+	if err = cliConfig.ClearPlatform(); err != nil {
+		return fmt.Errorf("failed to clear platform config: %w", err)
 	}
 
 	return nil
