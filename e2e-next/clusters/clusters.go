@@ -1,6 +1,7 @@
 package clusters
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/e2e-framework/pkg/setup/vcluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
+	setupcsi "github.com/loft-sh/vcluster/e2e-next/setup"
 	"github.com/loft-sh/vcluster/e2e-next/setup/template"
 	"sigs.k8s.io/e2e-framework/support"
 )
@@ -25,6 +27,10 @@ var (
 	)
 )
 
+// PreSetupFunc runs before the vcluster is created. Use it to install host
+// cluster prerequisites (CRDs, PVCs, namespaces) that the syncer needs at startup.
+type PreSetupFunc func(ctx context.Context) error
+
 // vclusterEntry tracks a vCluster definition together with its YAML template
 // metadata so that re-rendering, cleanup, and setup can be driven from a
 // single registry instead of manual enumeration in e2e_suite_test.go.
@@ -33,19 +39,29 @@ type vclusterEntry struct {
 	tmplText   string // Go template source (embedded)
 	filePath   string // rendered temp file path
 	cleanup    func() error
+	preSetup   PreSetupFunc
 }
 
 // registry is the single list of all vCluster definitions.
 var registry []*vclusterEntry
 
-// register creates a vCluster definition, renders its YAML template to a temp
-// file, records it in the registry, and returns the suite.Dependency.
-//
-// Templates are rendered at init time with default vars so that
-// vcluster.WithVClusterYAML receives a valid file path. PrepareAndDeferCleanup
-// re-renders them after flag parsing with the correct --vcluster-image values.
+// RegisterOption configures a vcluster registration.
+type RegisterOption func(e *vclusterEntry)
+
+// WithPreSetup adds a function that runs before the vcluster is created.
+// Use for host cluster prerequisites (CRDs, PVCs, etc.) the syncer needs at startup.
+func WithPreSetup(fn PreSetupFunc) RegisterOption {
+	return func(e *vclusterEntry) {
+		e.preSetup = fn
+	}
+}
+
 func register(name string, tmplText string, extraOpts ...vcluster.Options) suite.Dependency {
-	// Initial render with default vars — gives us a file path for WithVClusterYAML.
+	return registerWith(name, tmplText, nil, extraOpts...)
+}
+
+func registerWith(name string, tmplText string, regOpts []RegisterOption, extraOpts ...vcluster.Options) suite.Dependency {
+	// Initial render with default vars - gives us a file path for WithVClusterYAML.
 	// Content will be overwritten by PrepareAndDeferCleanup after flag parsing.
 	filePath, cleanup := template.MustRender(tmplText, map[string]interface{}{
 		"Repository": constants.GetRepository(),
@@ -64,6 +80,9 @@ func register(name string, tmplText string, extraOpts ...vcluster.Options) suite
 		tmplText:   tmplText,
 		filePath:   filePath,
 		cleanup:    cleanup,
+	}
+	for _, opt := range regOpts {
+		opt(entry)
 	}
 	registry = append(registry, entry)
 	return entry.definition
@@ -87,11 +106,23 @@ func PrepareAndDeferCleanup(deferCleanup func(args ...interface{})) error {
 }
 
 // SetupFuncs returns the Setup function for every registered vCluster,
-// suitable for passing to setup.AllConcurrent.
+// suitable for passing to setup.AllConcurrent. If a vCluster has a PreSetup
+// function, it runs before the vCluster is created.
 func SetupFuncs() []setup.Func {
 	fns := make([]setup.Func, len(registry))
 	for i, e := range registry {
-		fns[i] = e.definition.Setup
+		if e.preSetup != nil {
+			pre := e.preSetup
+			def := e.definition
+			fns[i] = func(ctx context.Context) (context.Context, error) {
+				if err := pre(ctx); err != nil {
+					return ctx, fmt.Errorf("pre-setup: %w", err)
+				}
+				return def.Setup(ctx)
+			}
+		} else {
+			fns[i] = e.definition.Setup
+		}
 	}
 	return fns
 }
@@ -172,4 +203,14 @@ var (
 
 	FromHostLimitClassesVClusterName = "fromhost-limitclasses-vcluster"
 	FromHostLimitClassesVCluster     = register(FromHostLimitClassesVClusterName, FromHostLimitClassesVClusterYAMLTemplate)
+)
+
+var (
+	//go:embed vcluster-snapshot.yaml
+	SnapshotVClusterYAMLTemplate string
+
+	SnapshotVClusterName = "snapshot-vcluster"
+	SnapshotVCluster     = registerWith(SnapshotVClusterName, SnapshotVClusterYAMLTemplate,
+		[]RegisterOption{WithPreSetup(setupcsi.SnapshotPreSetup(SnapshotVClusterName))},
+	)
 )

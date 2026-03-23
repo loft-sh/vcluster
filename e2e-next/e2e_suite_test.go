@@ -24,8 +24,11 @@ import (
 	_ "github.com/loft-sh/vcluster/e2e-next/init"
 
 	// Import tests
+	_ "github.com/loft-sh/vcluster/e2e-next/test_core/coredns"
+	_ "github.com/loft-sh/vcluster/e2e-next/test_core/snapshot"
 	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
 	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync/fromhost"
+	_ "github.com/loft-sh/vcluster/e2e-next/test_core/webhook"
 	_ "github.com/loft-sh/vcluster/e2e-next/test_deploy"
 )
 
