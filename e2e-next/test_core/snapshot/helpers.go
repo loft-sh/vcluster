@@ -112,6 +112,25 @@ func waitForRequestToFinish[T snapshot.LongRunningRequest](ctx context.Context, 
 	}).WithPolling(constants.PollingInterval).WithTimeout(timeout).Should(Succeed())
 }
 
+// cleanupAllSnapshotArtifacts removes ALL snapshot request ConfigMaps and Secrets
+// from the vCluster namespace.
+func cleanupAllSnapshotArtifacts(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace string) {
+	GinkgoHelper()
+	for _, label := range []string{pkgconstants.SnapshotRequestLabel, pkgconstants.RestoreRequestLabel} {
+		opts := metav1.ListOptions{LabelSelector: label}
+		_ = hostClient.CoreV1().ConfigMaps(vClusterNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, opts)
+		_ = hostClient.CoreV1().Secrets(vClusterNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, opts)
+	}
+	// Wait for configmaps to actually be gone
+	Eventually(func(g Gomega) {
+		cms, err := hostClient.CoreV1().ConfigMaps(vClusterNamespace).List(ctx, metav1.ListOptions{
+			LabelSelector: pkgconstants.SnapshotRequestLabel,
+		})
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(cms.Items).To(BeEmpty(), "snapshot request configmaps still exist after cleanup")
+	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+}
+
 func deleteSnapshotRequestConfigMaps(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace string) {
 	GinkgoHelper()
 	listOptions := metav1.ListOptions{

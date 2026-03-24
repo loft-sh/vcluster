@@ -198,6 +198,8 @@ func describeSnapshotRestore(s *snapshotCtx) {
 		)
 
 		BeforeAll(func(ctx context.Context) {
+			// Clean slate - remove any leftover snapshot artifacts from prior groups
+			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
 			var cmr *corev1.ConfigMap
 			var cmd *corev1.ConfigMap
 			var sr *corev1.Secret
@@ -306,6 +308,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 		)
 
 		BeforeAll(func(ctx context.Context) {
+			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
 			s.deployTestResources(ctx, testNS)
 			createPVCWithData(ctx, s.vClusterClient, testNS, pvcToRestoreName, testFileName, pvcData)
 		})
@@ -378,6 +381,7 @@ func describeSnapshotCanceling(s *snapshotCtx) {
 
 	Describe("Snapshot canceling", Ordered, func() {
 		BeforeAll(func(ctx context.Context) {
+			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
 			_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{Name: testNS},
 			}, metav1.CreateOptions{})
@@ -475,6 +479,7 @@ func describeSnapshotDeletion(s *snapshotCtx) {
 
 	Describe("Snapshot deletion", Ordered, func() {
 		BeforeAll(func(ctx context.Context) {
+			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
 			_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{Name: testNS},
 			}, metav1.CreateOptions{})
