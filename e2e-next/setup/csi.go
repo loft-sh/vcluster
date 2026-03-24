@@ -50,9 +50,15 @@ func InstallCSIHostpath(kubeContext string) func(ctx context.Context) error {
 			return fmt.Errorf("clone csi-driver-host-path: %s: %w", string(out), err)
 		}
 
+		// Set the kubectl context before running deploy.sh so the CSI driver
+		// is installed into the correct cluster even when multiple contexts exist.
+		setCtxCmd := exec.CommandContext(ctx, "kubectl", "config", "use-context", kubeContext)
+		if out, err := setCtxCmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("set kubectl context to %s: %s: %w", kubeContext, string(out), err)
+		}
+
 		deployScript := tmpDir + "/deploy/kubernetes-latest/deploy.sh"
 		deployCmd := exec.CommandContext(ctx, "bash", deployScript)
-		deployCmd.Env = append(os.Environ(), "KUBECONFIG="+os.Getenv("KUBECONFIG"))
 		if out, err := deployCmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("deploy CSI hostpath driver: %s: %w", string(out), err)
 		}
