@@ -90,10 +90,20 @@ func waitForRequestToFinish[T snapshot.LongRunningRequest](ctx context.Context, 
 			LabelSelector: requestLabel,
 		})
 		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(requestConfigMaps.Items).To(HaveLen(1),
-			"expected 1 request configmap with label %s, got %d", requestLabel, len(requestConfigMaps.Items))
+		g.Expect(requestConfigMaps.Items).NotTo(BeEmpty(),
+			"no request configmap found with label %s", requestLabel)
 
-		request, err := unmarshal(&requestConfigMaps.Items[0])
+		// Find the most recent request (by creation timestamp) and check its phase.
+		// Multiple requests may exist if a prior Ordered group hasn't cleaned up yet.
+		var latest *corev1.ConfigMap
+		for i := range requestConfigMaps.Items {
+			cm := &requestConfigMaps.Items[i]
+			if latest == nil || cm.CreationTimestamp.After(latest.CreationTimestamp.Time) {
+				latest = cm
+			}
+		}
+
+		request, err := unmarshal(latest)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(request).NotTo(BeNil())
 		g.Expect(request.GetPhase()).To(
