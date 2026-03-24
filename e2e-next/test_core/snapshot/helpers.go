@@ -54,36 +54,22 @@ func restoreVCluster(ctx context.Context, hostClient kubernetes.Interface, vClus
 		runVClusterCmd(args...)
 	})
 
-	By("Waiting for vCluster pods to be running after restore", func() {
+	By("Waiting for vCluster pods to be running and ready after restore", func() {
 		Eventually(func(g Gomega) {
 			pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
-				LabelSelector: "app=vcluster",
+				LabelSelector: "app=vcluster,release=" + vClusterName,
 			})
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(pods.Items).NotTo(BeEmpty(), "no vcluster pods found")
 			for _, pod := range pods.Items {
 				g.Expect(pod.Status.Phase).To(Equal(corev1.PodRunning),
 					"pod %s phase is %s, expected Running", pod.Name, pod.Status.Phase)
-			}
-		}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
-	})
-
-	By("Waiting for all vCluster containers to be ready", func() {
-		Eventually(func(g Gomega) {
-			pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
-				LabelSelector: "app=vcluster,release=" + vClusterName,
-			})
-			g.Expect(err).NotTo(HaveOccurred())
-			for _, pod := range pods.Items {
-				g.Expect(pod.Status.ContainerStatuses).NotTo(BeEmpty())
 				for _, container := range pod.Status.ContainerStatuses {
-					g.Expect(container.State.Running).NotTo(BeNil(),
-						"container %s in pod %s is not running", container.Name, pod.Name)
 					g.Expect(container.Ready).To(BeTrue(),
 						"container %s in pod %s is not ready", container.Name, pod.Name)
 				}
 			}
-		}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+		}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 	})
 
 	if restoreVolumes {

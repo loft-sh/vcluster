@@ -15,6 +15,9 @@ import (
 )
 
 var (
+	_ = snapshot.DescribeSnapshotRestore(clusters.SnapshotVCluster)
+	_ = snapshot.DescribeSnapshotCanceling(clusters.SnapshotVCluster)
+	_ = snapshot.DescribeSnapshotDeletion(clusters.SnapshotVCluster)
 	_ = test_core.DescribePodSync(clusters.CommonVCluster)
 	_ = test_core.DescribeNetworkPolicySync(clusters.CommonVCluster)
 	_ = test_core.DescribeNetworkPolicyEnforcement(clusters.CommonVCluster)
@@ -33,5 +36,4 @@ var (
 	_ = webhook.DescribeAdmissionWebhook(clusters.CommonVCluster)
 	_ = test_deploy.DescribeHelmCharts(clusters.CommonVCluster)
 	_ = test_deploy.DescribeInitManifests(clusters.CommonVCluster)
-	_ = snapshot.DescribeSnapshotAndRestore(clusters.SnapshotVCluster)
 )

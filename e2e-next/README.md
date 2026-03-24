@@ -6,13 +6,13 @@ End-to-end tests for vCluster using the [e2e-framework](https://github.com/loft-
 
 ```
 e2e-next/
-├── e2e_suite_test.go              # Suite infrastructure (flags, BeforeSuite, AfterSuite)
-├── e2e_test.go                    # Suite: e2e (main - comprehensive vCluster)
-├── e2e_ha_certs_test.go           # Suite: e2e_ha_certs (HA cert rotation)
-├── e2e_node_test.go               # Suite: e2e_node (all-nodes sync)
-├── e2e_scheduler_test.go          # Suite: e2e_scheduler (virtual scheduler)
-├── e2e_isolation_mode_test.go     # Suite: e2e_isolation_mode (PSS, quota, limitrange)
-├── e2e_rootless_test.go           # Suite: e2e_rootless (non-root UID)
+├── e2e_suite_test.go              # Infrastructure (flags, BeforeSuite, AfterSuite)
+├── suite_e2e_test.go              # Suite: e2e (main - comprehensive vCluster)
+├── suite_ha_certs_test.go         # Suite: ha_certs (HA cert rotation)
+├── suite_node_test.go             # Suite: node (all-nodes sync)
+├── suite_scheduler_test.go        # Suite: scheduler (virtual scheduler)
+├── suite_isolation_mode_test.go   # Suite: isolation_mode (PSS, quota, limitrange)
+├── suite_rootless_test.go         # Suite: rootless (non-root UID)
 │
 ├── clusters/                      # vCluster definitions (1 file + 1 YAML per cluster)
 │   ├── registry.go                # Registration infrastructure (register, PreSetup, SetupFuncs)
@@ -54,12 +54,12 @@ against different vCluster configs and be imported by other repos (e.g. vcluster
 
 | Suite | File | vCluster | Run command |
 |-------|------|----------|-------------|
-| e2e (main) | `e2e_test.go` | `common-vcluster` | `just run-e2e '/common-vcluster/ && !non-default'` |
-| e2e_ha_certs | `e2e_ha_certs_test.go` | `ha-certs-vcluster` | `just run-e2e '/ha-certs-vcluster/ && !non-default'` |
-| e2e_node | `e2e_node_test.go` | `node-sync-vcluster` | `just run-e2e '/node-sync-vcluster/ && !non-default'` |
-| e2e_scheduler | `e2e_scheduler_test.go` | `scheduler-vcluster` | `just run-e2e '/scheduler-vcluster/ && !non-default'` |
-| e2e_isolation | `e2e_isolation_mode_test.go` | `isolation-mode-vcluster` | `just run-e2e '/isolation-mode/ && !non-default'` |
-| e2e_rootless | `e2e_rootless_test.go` | `rootless-vcluster` | `just run-e2e '/rootless-vcluster/ && !non-default'` |
+| e2e (main) | `suite_e2e_test.go` | `common-vcluster` | `just run-e2e '/common-vcluster/ && !non-default'` |
+| ha_certs | `suite_ha_certs_test.go` | `ha-certs-vcluster` | `just run-e2e '/ha-certs-vcluster/ && !non-default'` |
+| node | `suite_node_test.go` | `node-sync-vcluster` | `just run-e2e '/node-sync-vcluster/ && !non-default'` |
+| scheduler | `suite_scheduler_test.go` | `scheduler-vcluster` | `just run-e2e '/scheduler-vcluster/ && !non-default'` |
+| isolation_mode | `suite_isolation_mode_test.go` | `isolation-mode-vcluster` | `just run-e2e '/isolation-mode/ && !non-default'` |
+| rootless | `suite_rootless_test.go` | `rootless-vcluster` | `just run-e2e '/rootless-vcluster/ && !non-default'` |
 
 ## Labels
 
