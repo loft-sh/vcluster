@@ -1891,6 +1891,9 @@ type ControlPlaneStatefulSet struct {
 
 	// HostAliases allows you to add custom entries to the /etc/hosts file of each Pod created.
 	HostAliases []corev1.HostAlias `json:"hostAliases,omitempty"`
+
+	// RuntimeClassName is the runtime class to set for the statefulSet pods.
+	RuntimeClassName string `json:"runtimeClassName,omitempty"`
 }
 
 type Distro struct {
