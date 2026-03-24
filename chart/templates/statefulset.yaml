@@ -60,6 +60,9 @@ spec:
       hostAliases:
       {{- toYaml .Values.controlPlane.statefulSet.hostAliases | nindent 8 }}
       {{- end }}
+      {{- if .Values.controlPlane.statefulSet.runtimeClassName }}
+      runtimeClassName: {{ .Values.controlPlane.statefulSet.runtimeClassName }}
+      {{- end }}
       terminationGracePeriodSeconds: 15
       {{- if .Values.controlPlane.statefulSet.scheduling.priorityClassName }}
       priorityClassName: {{ .Values.controlPlane.statefulSet.scheduling.priorityClassName }}

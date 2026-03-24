@@ -738,6 +738,21 @@ tests:
           path: spec.template.spec.hostAliases[1].hostnames[1]
           value: "db-alias"
 
+  - it: sets runtimeClassName
+    set:
+      controlPlane:
+        statefulSet:
+          runtimeClassName: "gvisor"
+    asserts:
+      - equal:
+          path: spec.template.spec.runtimeClassName
+          value: "gvisor"
+
+  - it: does not set runtimeClassName by default
+    asserts:
+      - notExists:
+          path: spec.template.spec.runtimeClassName
+
   - it: must use StatefulSet for embedded etcd
     set:
       controlPlane:

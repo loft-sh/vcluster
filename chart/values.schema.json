@@ -853,6 +853,10 @@
           },
           "type": "array",
           "description": "HostAliases allows you to add custom entries to the /etc/hosts file of each Pod created."
+        },
+        "runtimeClassName": {
+          "type": "string",
+          "description": "RuntimeClassName is the runtime class to set for the statefulSet pods."
         }
       },
       "additionalProperties": false,
