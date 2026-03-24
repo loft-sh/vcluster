@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -13,9 +12,13 @@ import (
 	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
+	loftlog "github.com/loft-sh/log"
+	connectcmd "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
+	"github.com/loft-sh/vcluster/pkg/cli"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	pkgconstants "github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/helm"
@@ -23,6 +26,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -63,29 +67,38 @@ func (s *snapshotCtx) refreshClient(ctx context.Context) {
 		tmpFile.Close()
 		DeferCleanup(func(_ context.Context) { os.Remove(tmpFile.Name()) })
 
-		Eventually(func(g Gomega) {
-			cmd := exec.CommandContext(ctx, "vcluster", "connect", s.vClusterName,
-				"-n", s.vClusterNS,
-				"--kube-config", tmpFile.Name(),
-				"--update-current=false")
-			cmd.Stdout = GinkgoWriter
-			cmd.Stderr = GinkgoWriter
-			g.Expect(cmd.Run()).To(Succeed(), "vcluster connect failed")
+		// Use ConnectCmd programmatically (same as old framework's RefreshVirtualClient).
+		// The CLI subprocess approach hangs in CI because the background proxy is dead.
+		connectCmd := connectcmd.ConnectCmd{
+			CobraCmd: &cobra.Command{},
+			Log:      loftlog.Discard,
+			GlobalFlags: &flags.GlobalFlags{
+				Namespace: s.vClusterNS,
+			},
+			ConnectOptions: cli.ConnectOptions{
+				KubeConfig:           tmpFile.Name(),
+				BackgroundProxy:      true,
+				BackgroundProxyImage: constants.GetVClusterImage(),
+			},
+		}
+		err = connectCmd.Run(ctx, []string{s.vClusterName})
+		Expect(err).To(Succeed(), "vcluster connect failed after restore")
 
+		Eventually(func(g Gomega) {
 			data, err := os.ReadFile(tmpFile.Name())
 			g.Expect(err).To(Succeed())
-			g.Expect(data).NotTo(BeEmpty())
+			g.Expect(data).NotTo(BeEmpty(), "kubeconfig file is empty")
 
 			restConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
 			g.Expect(err).To(Succeed())
 
-			client, err := kubernetes.NewForConfig(restConfig)
+			newClient, err := kubernetes.NewForConfig(restConfig)
 			g.Expect(err).To(Succeed())
 
-			_, err = client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-			g.Expect(err).To(Succeed(), "vCluster client not yet available after restore")
+			_, err = newClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
+			g.Expect(err).To(Succeed(), "vCluster not yet available after restore")
 
-			s.vClusterClient = client
+			s.vClusterClient = newClient
 		}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 	})
 }
